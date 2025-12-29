@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Message, Session, SessionStatus } from "../types";
-import { type SessionStatusEvent, useFileActivity } from "./useFileActivity";
+import {
+  type FileChangeEvent,
+  type SessionStatusEvent,
+  useFileActivity,
+} from "./useFileActivity";
 import { useSSE } from "./useSSE";
+
+const THROTTLE_MS = 500;
 
 export function useSession(projectId: string, sessionId: string) {
   const [session, setSession] = useState<Session | null>(null);
@@ -10,6 +16,23 @@ export function useSession(projectId: string, sessionId: string) {
   const [status, setStatus] = useState<SessionStatus>({ state: "idle" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  // Throttle state for incremental fetching
+  const throttleRef = useRef<{
+    timer: ReturnType<typeof setTimeout> | null;
+    pending: boolean;
+  }>({ timer: null, pending: false });
+
+  // Track last message ID for incremental fetching
+  const lastMessageIdRef = useRef<string | undefined>(undefined);
+
+  // Update lastMessageIdRef when messages change
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage) {
+      lastMessageIdRef.current = lastMessage.id;
+    }
+  }, [messages]);
 
   // Load initial data
   useEffect(() => {
@@ -25,6 +48,70 @@ export function useSession(projectId: string, sessionId: string) {
       .finally(() => setLoading(false));
   }, [projectId, sessionId]);
 
+  // Fetch only new messages (incremental update)
+  const fetchNewMessages = useCallback(async () => {
+    try {
+      const data = await api.getSession(
+        projectId,
+        sessionId,
+        lastMessageIdRef.current,
+      );
+      if (data.messages.length > 0) {
+        setMessages((prev) => [...prev, ...data.messages]);
+      }
+      setStatus(data.status);
+    } catch {
+      // Silent fail for incremental updates
+    }
+  }, [projectId, sessionId]);
+
+  // Leading + trailing edge throttle:
+  // - Leading: fires immediately on first call
+  // - Trailing: fires again after timeout if events came during window
+  // This ensures no updates are lost
+  const throttledFetch = useCallback(() => {
+    const ref = throttleRef.current;
+
+    if (!ref.timer) {
+      // No active throttle - fire immediately (LEADING EDGE)
+      fetchNewMessages();
+      ref.timer = setTimeout(() => {
+        ref.timer = null;
+        if (ref.pending) {
+          ref.pending = false;
+          throttledFetch(); // Fire again (TRAILING EDGE)
+        }
+      }, THROTTLE_MS);
+    } else {
+      // Throttled - mark as pending for trailing edge
+      ref.pending = true;
+    }
+  }, [fetchNewMessages]);
+
+  // Handle file changes for external sessions
+  const handleFileChange = useCallback(
+    (event: FileChangeEvent) => {
+      // Only care about session files
+      if (event.fileType !== "session" && event.fileType !== "agent-session") {
+        return;
+      }
+
+      // Check if file matches current session
+      if (!event.relativePath.includes(sessionId)) {
+        return;
+      }
+
+      // Skip if we own the session (we get updates via SSE stream)
+      if (status.state === "owned") {
+        return;
+      }
+
+      // Throttled refetch for external sessions
+      throttledFetch();
+    },
+    [sessionId, status.state, throttledFetch],
+  );
+
   // Listen for session status changes via SSE
   const handleSessionStatusChange = useCallback(
     (event: SessionStatusEvent) => {
@@ -37,7 +124,17 @@ export function useSession(projectId: string, sessionId: string) {
 
   useFileActivity({
     onSessionStatusChange: handleSessionStatusChange,
+    onFileChange: handleFileChange,
   });
+
+  // Cleanup throttle timer
+  useEffect(() => {
+    return () => {
+      if (throttleRef.current.timer) {
+        clearTimeout(throttleRef.current.timer);
+      }
+    };
+  }, []);
 
   // Subscribe to live updates
   const handleSSEMessage = useCallback(

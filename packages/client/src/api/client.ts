@@ -35,10 +35,18 @@ export const api = {
       `/projects/${projectId}`,
     ),
 
-  getSession: (projectId: string, sessionId: string) =>
-    fetchJSON<{ session: Session; messages: Message[]; status: SessionStatus }>(
-      `/projects/${projectId}/sessions/${sessionId}`,
-    ),
+  getSession: (
+    projectId: string,
+    sessionId: string,
+    afterMessageId?: string,
+  ) => {
+    const params = afterMessageId ? `?afterMessageId=${afterMessageId}` : "";
+    return fetchJSON<{
+      session: Session;
+      messages: Message[];
+      status: SessionStatus;
+    }>(`/projects/${projectId}/sessions/${sessionId}${params}`);
+  },
 
   startSession: (projectId: string, message: string) =>
     fetchJSON<{ sessionId: string; processId: string }>(

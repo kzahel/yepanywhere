@@ -27,9 +27,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   const routes = new Hono();
 
   // GET /api/projects/:projectId/sessions/:sessionId - Get session detail
+  // Optional query param: ?afterMessageId=<id> for incremental fetching
   routes.get("/projects/:projectId/sessions/:sessionId", async (c) => {
     const projectId = c.req.param("projectId");
     const sessionId = c.req.param("sessionId");
+    const afterMessageId = c.req.query("afterMessageId");
 
     const project = await deps.scanner.getProject(projectId);
     if (!project) {
@@ -61,7 +63,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const isExternal = deps.externalTracker?.isExternal(sessionId) ?? false;
 
     const reader = deps.readerFactory(project.sessionDir);
-    const session = await reader.getSession(sessionId, projectId);
+    const session = await reader.getSession(
+      sessionId,
+      projectId,
+      afterMessageId,
+    );
     if (!session) {
       return c.json({ error: "Session not found" }, 404);
     }

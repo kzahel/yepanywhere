@@ -4,14 +4,9 @@ import type { SDKMessage } from "../sdk/types.js";
 export const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 export const SESSION_TITLE_MAX_LENGTH = 50;
 
-// Project ID encoding/decoding (base64url)
-export function encodeProjectId(path: string): string {
-  return Buffer.from(path).toString("base64url");
-}
-
-export function decodeProjectId(id: string): string {
-  return Buffer.from(id, "base64url").toString("utf-8");
-}
+// Re-export path utilities for backward compatibility
+// See packages/server/src/projects/paths.ts for full documentation on encoding schemes
+export { decodeProjectId, encodeProjectId } from "../projects/paths.js";
 
 // Project discovery
 export interface Project {

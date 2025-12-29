@@ -117,6 +117,7 @@ export class SessionReader {
   async getSession(
     sessionId: string,
     projectId: string,
+    afterMessageId?: string,
   ): Promise<Session | null> {
     const summary = await this.getSessionSummary(sessionId, projectId);
     if (!summary) return null;
@@ -137,6 +138,17 @@ export class SessionReader {
         }
       } catch {
         // Skip malformed lines
+      }
+    }
+
+    // Filter to only messages after the given ID (for incremental fetching)
+    if (afterMessageId) {
+      const afterIndex = messages.findIndex((m) => m.id === afterMessageId);
+      if (afterIndex !== -1) {
+        return {
+          ...summary,
+          messages: messages.slice(afterIndex + 1),
+        };
       }
     }
 

@@ -57,8 +57,7 @@ export function ActivityDrawer() {
     projectId?: string;
     sessionId?: string;
   }>();
-  const { events, connected, paused, clearEvents, togglePause, filterByPath } =
-    useFileActivity();
+  const { events, connected, clearEvents, filterByPath } = useFileActivity();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
@@ -69,21 +68,34 @@ export function ActivityDrawer() {
     setScope("context");
   }, [projectId, sessionId]);
 
+  // Extract session ID from relativePath (e.g., "projects/xxx/session-id.jsonl" -> "session-id")
+  const getSessionIdFromPath = (relativePath: string): string | null => {
+    const match = relativePath.match(/\/([^/]+)\.jsonl$/);
+    return match?.[1] ?? null;
+  };
+
   // Filter events by context (session or project)
   const filterByContext = (evts: FileChangeEvent[]) => {
     if (scope === "all") return evts;
 
     return evts.filter((event) => {
-      // Session page: match exact session file
-      if (sessionId && projectId) {
-        return event.relativePath.startsWith(
-          `projects/${projectId}/${sessionId}`,
-        );
+      // Only filter session-related files - non-session files hidden in context mode
+      if (event.fileType !== "session" && event.fileType !== "agent-session") {
+        return false;
       }
-      // Project page: match any file in project
+
+      // Session page: match exact session file by extracting sessionId from filename
+      if (sessionId) {
+        const eventSessionId = getSessionIdFromPath(event.relativePath);
+        return eventSessionId === sessionId;
+      }
+
+      // Project page: show all session files (we can't easily match project)
+      // TODO: Improve project matching when we have a way to decode projectId
       if (projectId) {
-        return event.relativePath.startsWith(`projects/${projectId}/`);
+        return true; // Show all session files for now
       }
+
       // Other pages: show all
       return true;
     });
@@ -186,20 +198,6 @@ export function ActivityDrawer() {
                 : "All"}
             </button>
           )}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              togglePause();
-            }}
-            style={{
-              padding: "0.25rem 0.5rem",
-              fontSize: "0.75rem",
-              background: paused ? "#a44" : "#444",
-            }}
-          >
-            {paused ? "Resume" : "Pause"}
-          </button>
           <button
             type="button"
             onClick={(e) => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { MessageInput } from "../components/MessageInput";
@@ -6,6 +6,7 @@ import { MessageList } from "../components/MessageList";
 import { StatusIndicator } from "../components/StatusIndicator";
 import { useActivityDrawer } from "../context/ActivityDrawerContext";
 import { useSession } from "../hooks/useSession";
+import type { Project } from "../types";
 
 export function SessionPage() {
   const { projectId, sessionId } = useParams<{
@@ -31,7 +32,13 @@ function SessionPageContent({
   const { session, messages, status, loading, error, connected, setStatus } =
     useSession(projectId, sessionId);
   const [sending, setSending] = useState(false);
+  const [project, setProject] = useState<Project | null>(null);
   const { drawerHeight } = useActivityDrawer();
+
+  // Fetch project info for breadcrumb
+  useEffect(() => {
+    api.getProject(projectId).then((data) => setProject(data.project));
+  }, [projectId]);
 
   const handleSend = async (text: string) => {
     setSending(true);
@@ -67,7 +74,10 @@ function SessionPageContent({
         <div className="session-header-left">
           <nav className="breadcrumb">
             <Link to="/projects">Projects</Link> /{" "}
-            <Link to={`/projects/${projectId}`}>Project</Link> / Session
+            <Link to={`/projects/${projectId}`}>
+              {project?.name ?? "Project"}
+            </Link>{" "}
+            / Session
           </nav>
           {session?.title && (
             <span className="session-title">{session.title}</span>

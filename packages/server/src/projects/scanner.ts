@@ -1,10 +1,11 @@
-import { access, readFile, readdir } from "node:fs/promises";
-import { homedir } from "node:os";
+import { access, readdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { Project } from "../supervisor/types.js";
-import { encodeProjectId } from "../supervisor/types.js";
-
-const CLAUDE_PROJECTS_DIR = join(homedir(), ".claude", "projects");
+import {
+  CLAUDE_PROJECTS_DIR,
+  encodeProjectId,
+  readCwdFromSessionFile,
+} from "./paths.js";
 
 export interface ScannerOptions {
   projectsDir?: string; // override for testing
@@ -101,8 +102,10 @@ export class ProjectScanner {
 
   /**
    * Get the actual project path by reading the cwd from a session file.
-   * This is more reliable than trying to decode the encoded directory name,
-   * which fails for paths containing hyphens.
+   *
+   * NOTE: This is necessary because the directory names use a lossy
+   * slash-to-hyphen encoding that cannot be reversed reliably.
+   * See packages/server/src/projects/paths.ts for full documentation.
    */
   private async getProjectPathFromSessions(
     projectDirPath: string,
@@ -118,36 +121,9 @@ export class ProjectScanner {
       // Try to read cwd from the first available session file
       for (const file of jsonlFiles) {
         const filePath = join(projectDirPath, file);
-        const cwd = await this.readCwdFromSession(filePath);
+        const cwd = await readCwdFromSessionFile(filePath);
         if (cwd) {
           return cwd;
-        }
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Read the cwd field from a session .jsonl file.
-   * Reads first 20 lines looking for a message with cwd.
-   */
-  private async readCwdFromSession(filePath: string): Promise<string | null> {
-    try {
-      const content = await readFile(filePath, { encoding: "utf-8" });
-      const lines = content.split("\n").slice(0, 20);
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const data = JSON.parse(line);
-          if (data.cwd && typeof data.cwd === "string") {
-            return data.cwd;
-          }
-        } catch {
-          // Skip invalid JSON lines
         }
       }
 
