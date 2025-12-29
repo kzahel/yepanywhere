@@ -9,3 +9,16 @@ This is a new project. Before starting any task, read all files in `docs/project
 - `docs/project/security-setup.md` - Security configuration
 
 This ensures all agents have a shared understanding of what we're building.
+
+## After Editing Code
+
+After editing TypeScript or other source files, verify your changes compile and pass checks:
+
+```bash
+pnpm lint       # Biome linter
+pnpm typecheck  # TypeScript type checking (fast, no emit)
+pnpm test       # Unit tests
+pnpm test:e2e   # E2E tests (if UI changes)
+```
+
+Fix any errors before considering the task complete.

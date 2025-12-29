@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter server dev & pnpm --filter client dev",
     "build": "pnpm -r build",
+    "typecheck": "pnpm -r exec tsc --noEmit",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter client test:e2e",
     "lint": "biome check .",
