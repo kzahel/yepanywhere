@@ -30,6 +30,10 @@ pnpm-debug.log*
 # Test coverage
 coverage/
 
+# Test artifacts
+test-results/
+.playwright-artifacts-*/
+
 # Temp files
 .tmp/
 .temp/
