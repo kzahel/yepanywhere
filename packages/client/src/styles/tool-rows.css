@@ -5,6 +5,7 @@
 /* Base timeline item - adds a dot on the timeline line */
 .timeline-item {
   position: relative;
+  margin: 4px 0;
 }
 
 .timeline-item::before {
@@ -34,6 +35,23 @@
   display: none;
 }
 
+/* Text and thinking blocks - align dot with first line of text */
+.text-block.timeline-item::before {
+  top: 4px;
+}
+
+.text-block.timeline-item::after {
+  top: 12px; /* Adjust line start for new dot position */
+}
+
+.thinking-block.timeline-item::before {
+  top: 4px;
+}
+
+.thinking-block.timeline-item::after {
+  top: 12px;
+}
+
 /* Tool row status-specific dot colors */
 .tool-row.timeline-item.status-pending::before {
   background: var(--timeline-dot-working);
@@ -54,7 +72,6 @@
 
 .tool-row {
   position: relative;
-  margin: 2px 0;
 }
 
 /* Fixed-height header - CRITICAL for no-jump during streaming */
@@ -62,10 +79,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 28px;
-  padding: 0 8px;
+  min-height: 20px;
+  padding: 2px 4px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 2px;
   transition: background-color 0.1s;
   border: none;
   background: transparent;
