@@ -102,6 +102,12 @@ export class Supervisor {
     const process = new Process(iterator, options);
     processHolder.process = process;
 
+    // Wait for the real session ID from the SDK before registering
+    // This ensures the client gets the correct ID to use for persistence
+    if (!resumeSessionId) {
+      await process.waitForSessionId();
+    }
+
     this.registerProcess(process);
 
     return process;

@@ -52,6 +52,10 @@ export class Process {
   /** Pending tool approval request (from canUseTool callback) */
   private pendingToolApproval: PendingToolApproval | null = null;
 
+  /** Resolvers waiting for the real session ID */
+  private sessionIdResolvers: Array<(id: string) => void> = [];
+  private sessionIdResolved = false;
+
   constructor(
     private sdkIterator: AsyncIterator<SDKMessage>,
     options: ProcessConstructorOptions,
@@ -84,6 +88,29 @@ export class Process {
       return this.messageQueue.depth;
     }
     return this.legacyQueue.length;
+  }
+
+  /**
+   * Wait for the real session ID from the SDK's init message.
+   * Returns immediately if already received, or waits with a timeout.
+   */
+  waitForSessionId(timeoutMs = 5000): Promise<string> {
+    if (this.sessionIdResolved) {
+      return Promise.resolve(this._sessionId);
+    }
+
+    return new Promise((resolve) => {
+      this.sessionIdResolvers.push(resolve);
+
+      // Timeout fallback - resolve with current ID even if not updated
+      setTimeout(() => {
+        const index = this.sessionIdResolvers.indexOf(resolve);
+        if (index >= 0) {
+          this.sessionIdResolvers.splice(index, 1);
+          resolve(this._sessionId);
+        }
+      }, timeoutMs);
+    });
   }
 
   getInfo(): ProcessInfo {
@@ -246,6 +273,12 @@ export class Process {
           message.session_id
         ) {
           this._sessionId = message.session_id;
+          this.sessionIdResolved = true;
+          // Resolve any waiters
+          for (const resolve of this.sessionIdResolvers) {
+            resolve(this._sessionId);
+          }
+          this.sessionIdResolvers = [];
         }
 
         this.emit({ type: "message", message });
