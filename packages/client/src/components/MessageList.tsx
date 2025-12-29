@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Message } from "../types";
 import {
   ContentBlockRenderer,
@@ -78,27 +78,59 @@ export const MessageList = memo(function MessageList({
   messages,
   isStreaming = false,
 }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const [thinkingExpanded, setThinkingExpanded] = useState(false);
 
   // Build tool_use lookup for correlating tool_results
   const toolUseLookup = useMemo(() => buildToolUseLookup(messages), [messages]);
+
+  const toggleThinkingExpanded = useCallback(() => {
+    setThinkingExpanded((prev) => !prev);
+  }, []);
 
   const context: RenderContext = useMemo(
     () => ({
       isStreaming,
       theme: "dark",
       getToolUse: (id: string) => toolUseLookup.get(id),
+      thinkingExpanded,
+      toggleThinkingExpanded,
     }),
-    [isStreaming, toolUseLookup],
+    [isStreaming, toolUseLookup, thinkingExpanded, toggleThinkingExpanded],
   );
 
+  // Track scroll position to determine if user is near bottom
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current?.parentElement;
+    if (!container) return;
+
+    const threshold = 100; // pixels from bottom
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < threshold;
+  }, []);
+
+  // Attach scroll listener to parent container
+  useEffect(() => {
+    const container = containerRef.current?.parentElement;
+    if (!container) return;
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  // Only auto-scroll if user is near the bottom
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on message changes is intentional
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldAutoScrollRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   return (
-    <div className="message-list">
+    <div className="message-list" ref={containerRef}>
       {messages.map((msg) => (
         <MessageItem key={msg.id} msg={msg} context={context} />
       ))}

@@ -95,24 +95,6 @@ h2 {
   font-size: 1rem;
 }
 
-button {
-  padding: 0.75rem 1.5rem;
-  background: #4a4aff;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: #5a5aff;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* Session page layout */
 .session-page {

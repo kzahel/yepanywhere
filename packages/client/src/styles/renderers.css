@@ -38,61 +38,80 @@
    ========================================================================== */
 
 .thinking-block {
-  border-left: 3px solid #555;
   margin: 0.5rem 0;
-  background: rgba(255, 255, 255, 0.02);
 }
 
-.thinking-toggle {
-  display: flex;
+/* Collapsed state - small inline toggle */
+.thinking-toggle-collapsed {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.75rem;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
   background: transparent;
   border: none;
-  color: #888;
+  outline: none;
+  color: #666;
   cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.thinking-toggle-collapsed:hover,
+.thinking-toggle-collapsed:focus,
+.thinking-toggle-collapsed:active {
+  background: transparent;
+  outline: none;
+  color: #666;
+}
+
+.thinking-toggle-collapsed:hover .thinking-label,
+.thinking-toggle-collapsed:hover .thinking-icon {
+  color: #aaa;
+}
+
+/* Expanded state - full width clickable block */
+.thinking-block-expanded {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
   text-align: left;
-  min-height: 44px; /* Touch target */
-  font-size: 0.875rem;
+  cursor: pointer;
+  color: #666;
+  font-size: 0.8rem;
 }
 
-.thinking-toggle:hover {
-  background: rgba(255, 255, 255, 0.05);
+.thinking-block-expanded:hover,
+.thinking-block-expanded:focus,
+.thinking-block-expanded:active {
+  background: transparent;
+  outline: none;
 }
 
-.thinking-toggle:active {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.thinking-icon {
-  font-family: monospace;
-  width: 1rem;
-  flex-shrink: 0;
+/* Header line in expanded state - same size as collapsed */
+.thinking-toggle-expanded {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
 }
 
 .thinking-label {
-  font-weight: 500;
-  color: #aaa;
-  flex-shrink: 0;
+  font-style: italic;
+  color: inherit;
 }
 
-.thinking-summary {
-  color: #666;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
+.thinking-icon {
+  font-size: 0.7rem;
+  color: inherit;
+  margin-left: 0.125rem;
 }
 
 .thinking-content {
-  padding: 0.75rem 1rem;
-  color: #999;
+  padding: 0.5rem 0;
+  color: #888;
   white-space: pre-wrap;
   word-break: break-word;
-  border-top: 1px solid #333;
 }
 
 /* ==========================================================================
@@ -1363,10 +1382,6 @@
 
   .file-content-with-lines {
     font-size: 0.75rem;
-  }
-
-  .thinking-summary {
-    max-width: 150px;
   }
 
   .tool-header {

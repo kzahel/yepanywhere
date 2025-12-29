@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { ContentBlock, ContentRenderer, RenderContext } from "../types";
 
 interface ThinkingBlock extends ContentBlock {
@@ -8,37 +7,61 @@ interface ThinkingBlock extends ContentBlock {
 }
 
 /**
- * Thinking renderer - collapsible block, starts collapsed, shows first line as summary
+ * Thinking renderer - collapsible block with shared expanded state across all blocks
  */
-function ThinkingRendererComponent({ block }: { block: ThinkingBlock }) {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-
+function ThinkingRendererComponent({
+  block,
+  context,
+}: {
+  block: ThinkingBlock;
+  context: RenderContext;
+}) {
   const thinking = block.thinking || "";
-  const firstLine = thinking.split("\n")[0] || "";
-  const summary =
-    firstLine.length > 80 ? `${firstLine.slice(0, 77)}...` : firstLine;
+  const isExpanded = context.thinkingExpanded ?? false;
 
+  if (isExpanded) {
+    // Expanded: whole block is clickable to collapse
+    return (
+      <button
+        type="button"
+        className="thinking-block thinking-block-expanded"
+        onClick={context.toggleThinkingExpanded}
+        aria-expanded={true}
+      >
+        <div className="thinking-toggle-expanded">
+          <span className="thinking-label">Thinking</span>
+          <span className="thinking-icon">▲</span>
+        </div>
+        <div className="thinking-content">{thinking}</div>
+      </button>
+    );
+  }
+
+  // Collapsed: small inline button
   return (
     <div className="thinking-block">
       <button
         type="button"
-        className="thinking-toggle"
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        aria-expanded={!isCollapsed}
+        className="thinking-toggle-collapsed"
+        onClick={context.toggleThinkingExpanded}
+        aria-expanded={false}
       >
-        <span className="thinking-icon">{isCollapsed ? ">" : "v"}</span>
         <span className="thinking-label">Thinking</span>
-        {isCollapsed && <span className="thinking-summary">{summary}</span>}
+        <span className="thinking-icon">▼</span>
       </button>
-      {!isCollapsed && <div className="thinking-content">{thinking}</div>}
     </div>
   );
 }
 
 export const thinkingRenderer: ContentRenderer<ThinkingBlock> = {
   type: "thinking",
-  render(block, _context) {
-    return <ThinkingRendererComponent block={block as ThinkingBlock} />;
+  render(block, context) {
+    return (
+      <ThinkingRendererComponent
+        block={block as ThinkingBlock}
+        context={context}
+      />
+    );
   },
   getSummary(block) {
     const thinking = (block as ThinkingBlock).thinking || "";
