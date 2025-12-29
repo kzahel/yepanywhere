@@ -27,12 +27,26 @@ export class MockClaudeSDK implements ClaudeSDK {
   async *startSession(
     options: SDKSessionOptions,
   ): AsyncIterableIterator<SDKMessage> {
-    const scenario = this.scenarios[this.scenarioIndex++];
+    // Use scenario from list, or cycle through if exhausted
+    let scenario = this.scenarios[this.scenarioIndex];
+    if (scenario) {
+      this.scenarioIndex++;
+    } else if (this.scenarios.length > 0) {
+      // Cycle back to first scenario when exhausted
+      this.scenarioIndex = 0;
+      scenario = this.scenarios[this.scenarioIndex++];
+    }
 
     if (!scenario) {
-      // Default: emit init and result
+      // No scenarios at all - return minimal response with assistant message
       const sessionId = options.resume ?? `mock-session-${Date.now()}`;
       yield { type: "system", subtype: "init", session_id: sessionId };
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      yield {
+        type: "assistant",
+        message: { content: "Mock response (no scenario)", role: "assistant" },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 200));
       yield { type: "result", session_id: sessionId };
       return;
     }

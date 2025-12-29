@@ -62,7 +62,10 @@ export class MessageQueue {
     if (msg.images?.length || msg.documents?.length) {
       const content: Array<
         | { type: "text"; text: string }
-        | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+        | {
+            type: "image";
+            source: { type: "base64"; media_type: string; data: string };
+          }
       > = [{ type: "text", text: msg.text }];
 
       // Add images as base64 content blocks

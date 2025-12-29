@@ -6,7 +6,11 @@ import { createProcessesRoutes } from "./routes/processes.js";
 import { createProjectsRoutes } from "./routes/projects.js";
 import { createSessionsRoutes } from "./routes/sessions.js";
 import { createStreamRoutes } from "./routes/stream.js";
-import type { ClaudeSDK, PermissionMode, RealClaudeSDKInterface } from "./sdk/types.js";
+import type {
+  ClaudeSDK,
+  PermissionMode,
+  RealClaudeSDKInterface,
+} from "./sdk/types.js";
 import { SessionReader } from "./sessions/reader.js";
 import { Supervisor } from "./supervisor/Supervisor.js";
 

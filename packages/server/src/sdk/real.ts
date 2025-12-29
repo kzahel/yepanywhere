@@ -1,7 +1,7 @@
 import {
-  query,
-  type CanUseTool as SDKCanUseTool,
   type SDKMessage as AgentSDKMessage,
+  type CanUseTool as SDKCanUseTool,
+  query,
 } from "@anthropic-ai/claude-agent-sdk";
 import { MessageQueue } from "./messageQueue.js";
 import type {
@@ -27,7 +27,9 @@ export class RealClaudeSDK implements RealClaudeSDKInterface {
    * @param options - Session configuration
    * @returns Iterator, message queue, and abort function
    */
-  async startSession(options: StartSessionOptions): Promise<StartSessionResult> {
+  async startSession(
+    options: StartSessionOptions,
+  ): Promise<StartSessionResult> {
     const queue = new MessageQueue();
     const abortController = new AbortController();
 
@@ -35,14 +37,19 @@ export class RealClaudeSDK implements RealClaudeSDKInterface {
     queue.push(options.initialMessage);
 
     // Wrap our canUseTool to match SDK's expected type
-    const canUseTool: SDKCanUseTool | undefined = options.onToolApproval
+    // Capture onToolApproval in local const to satisfy TypeScript
+    const onToolApproval = options.onToolApproval;
+    const canUseTool: SDKCanUseTool | undefined = onToolApproval
       ? async (toolName, input, opts) => {
-          const result = await options.onToolApproval!(toolName, input, opts);
+          const result = await onToolApproval(toolName, input, opts);
           // Convert our result to SDK's PermissionResult format
           if (result.behavior === "allow") {
             return {
               behavior: "allow" as const,
-              updatedInput: (result.updatedInput ?? input) as Record<string, unknown>,
+              updatedInput: (result.updatedInput ?? input) as Record<
+                string,
+                unknown
+              >,
             };
           }
           return {

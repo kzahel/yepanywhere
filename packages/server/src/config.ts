@@ -24,7 +24,10 @@ export function loadConfig(): Config {
     claudeProjectsDir:
       process.env.CLAUDE_PROJECTS_DIR ??
       path.join(os.homedir(), ".claude", "projects"),
-    idleTimeoutMs: parseIntOrDefault(process.env.IDLE_TIMEOUT_MS, 5 * 60 * 1000),
+    idleTimeoutMs: parseIntOrDefault(
+      process.env.IDLE_TIMEOUT_MS,
+      5 * 60 * 1000,
+    ),
     defaultPermissionMode: parsePermissionMode(process.env.PERMISSION_MODE),
     port: parseIntOrDefault(process.env.PORT, 3400),
   };
@@ -33,10 +36,13 @@ export function loadConfig(): Config {
 /**
  * Parse an integer from string or return default value.
  */
-function parseIntOrDefault(value: string | undefined, defaultValue: number): number {
+function parseIntOrDefault(
+  value: string | undefined,
+  defaultValue: number,
+): number {
   if (!value) return defaultValue;
-  const parsed = parseInt(value, 10);
-  return isNaN(parsed) ? defaultValue : parsed;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? defaultValue : parsed;
 }
 
 /**

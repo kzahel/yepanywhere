@@ -65,20 +65,30 @@ export class Supervisor {
     // Create a placeholder process first (needed for tool approval callback)
     const tempSessionId = resumeSessionId ?? randomUUID();
 
-    // We'll create the process after we have the iterator
-    // but we need to pass the tool approval handler to the SDK
-    let process: Process;
+    // realSdk is guaranteed to exist here (checked in startSession)
+    if (!this.realSdk) {
+      throw new Error("realSdk is not available");
+    }
 
-    const { iterator, queue, abort } = await this.realSdk!.startSession({
+    // We need to reference process in the callback before it's assigned
+    // Using a holder object allows us to set the reference later
+    const processHolder: { process: Process | null } = { process: null };
+
+    const result = await this.realSdk.startSession({
       cwd: projectPath,
       initialMessage: message,
       resumeSessionId,
       permissionMode: this.defaultPermissionMode,
       onToolApproval: async (toolName, input, opts) => {
         // Delegate to the process's handleToolApproval
-        return process.handleToolApproval(toolName, input, opts);
+        if (!processHolder.process) {
+          return { behavior: "deny", message: "Process not ready" };
+        }
+        return processHolder.process.handleToolApproval(toolName, input, opts);
       },
     });
+
+    const { iterator, queue, abort } = result;
 
     const options: ProcessConstructorOptions = {
       projectPath,
@@ -89,7 +99,8 @@ export class Supervisor {
       abortFn: abort,
     };
 
-    process = new Process(iterator, options);
+    const process = new Process(iterator, options);
+    processHolder.process = process;
 
     this.registerProcess(process);
 
@@ -105,7 +116,11 @@ export class Supervisor {
     message: UserMessage,
     resumeSessionId?: string,
   ): Process {
-    const iterator = this.sdk!.startSession({
+    // sdk is guaranteed to exist here (checked in startSession)
+    if (!this.sdk) {
+      throw new Error("sdk is not available");
+    }
+    const iterator = this.sdk.startSession({
       cwd: projectPath,
       resume: resumeSessionId,
     });

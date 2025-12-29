@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { MessageQueue } from "../sdk/messageQueue.js";
-import type { SDKMessage, ToolApprovalResult, UserMessage } from "../sdk/types.js";
+import type {
+  SDKMessage,
+  ToolApprovalResult,
+  UserMessage,
+} from "../sdk/types.js";
 import type {
   InputRequest,
   ProcessEvent,
@@ -236,7 +240,11 @@ export class Process {
         const message = result.value;
 
         // Extract session ID from init message
-        if (message.type === "system" && message.subtype === "init" && message.session_id) {
+        if (
+          message.type === "system" &&
+          message.subtype === "init" &&
+          message.session_id
+        ) {
           this._sessionId = message.session_id;
         }
 

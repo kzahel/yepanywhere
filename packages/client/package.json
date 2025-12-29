@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
