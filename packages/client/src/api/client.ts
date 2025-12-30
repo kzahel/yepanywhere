@@ -29,6 +29,16 @@ export async function fetchJSON<T>(
   return res.json();
 }
 
+// Re-export upload functions
+export {
+  buildUploadUrl,
+  fileToChunks,
+  UploadError,
+  uploadChunks,
+  uploadFile,
+  type UploadOptions,
+} from "./upload";
+
 export const api = {
   getProjects: () => fetchJSON<{ projects: Project[] }>("/projects"),
 
