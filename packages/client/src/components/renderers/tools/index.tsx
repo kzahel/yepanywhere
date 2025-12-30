@@ -76,6 +76,11 @@ class ToolRendererRegistry {
     }
     return null;
   }
+
+  getDisplayName(toolName: string): string {
+    const renderer = this.get(toolName);
+    return renderer.displayName || toolName;
+  }
 }
 
 /**

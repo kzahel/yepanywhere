@@ -1115,8 +1115,7 @@ details[open] .collapsible__icon {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.375rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.125rem 0;
 }
 
 .todo-checkbox {
@@ -1135,21 +1134,17 @@ details[open] .collapsible__icon {
   color: #666;
 }
 
-/* Todo status colors */
+/* Todo status colors - muted gray tones */
 .todo-status-pending .todo-checkbox {
-  color: #888;
+  color: #666;
 }
 
 .todo-status-in-progress .todo-checkbox {
-  color: #88f;
+  color: #888;
 }
 
 .todo-status-completed .todo-checkbox {
-  color: #4a4;
-}
-
-.todo-status-in-progress {
-  background: rgba(136, 136, 255, 0.1);
+  color: #666;
 }
 
 .todo-error {

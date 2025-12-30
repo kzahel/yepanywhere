@@ -294,6 +294,8 @@ export interface KillShellResult {
 export interface ToolRenderer<TInput = unknown, TResult = unknown> {
   /** Tool name (e.g., "Bash", "Edit", "Read") */
   tool: string;
+  /** Display name shown in UI (defaults to tool name) */
+  displayName?: string;
   /** Render the tool_use block (what Claude wants to do) */
   renderToolUse(input: TInput, context: RenderContext): ReactNode;
   /** Render the tool_result block (what happened) */

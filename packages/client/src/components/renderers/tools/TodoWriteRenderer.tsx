@@ -11,13 +11,13 @@ import type {
 function getStatusIcon(status: Todo["status"]): string {
   switch (status) {
     case "pending":
-      return "☐";
+      return "□";
     case "in_progress":
-      return "◐";
+      return "❋";
     case "completed":
-      return "☑";
+      return "✓";
     default:
-      return "☐";
+      return "□";
   }
 }
 
@@ -104,6 +104,7 @@ function TodoWriteToolResult({
 export const todoWriteRenderer: ToolRenderer<TodoWriteInput, TodoWriteResult> =
   {
     tool: "TodoWrite",
+    displayName: "Update Todos",
 
     renderToolUse(input, _context) {
       return <TodoWriteToolUse input={input as TodoWriteInput} />;

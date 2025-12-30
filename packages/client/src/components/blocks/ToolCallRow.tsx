@@ -77,7 +77,9 @@ export const ToolCallRow = memo(function ToolCallRow({
           </span>
         )}
 
-        <span className="tool-name">{toolName}</span>
+        <span className="tool-name">
+          {toolRegistry.getDisplayName(toolName)}
+        </span>
 
         {hasInteractiveSummary && status === "complete" ? (
           <span className="tool-summary interactive-summary">
