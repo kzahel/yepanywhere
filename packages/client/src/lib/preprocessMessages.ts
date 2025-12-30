@@ -48,14 +48,26 @@ function processMessage(
     msg.role ??
     (msg.message as { role?: "user" | "assistant" } | undefined)?.role;
 
-  // String content = user prompt
+  // String content = user prompt (only if role is user or type is user)
   if (typeof content === "string") {
-    items.push({
-      type: "user_prompt",
-      id: msg.id,
-      content,
-      sourceMessages: [msg],
-    });
+    if (role === "user" || msg.type === "user") {
+      items.push({
+        type: "user_prompt",
+        id: msg.id,
+        content,
+        sourceMessages: [msg],
+      });
+      return;
+    }
+    // Assistant message with string content - convert to text block
+    if (content.trim()) {
+      items.push({
+        type: "text",
+        id: msg.id,
+        text: content,
+        sourceMessages: [msg],
+      });
+    }
     return;
   }
 

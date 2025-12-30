@@ -175,11 +175,37 @@ export function useSession(projectId: string, sessionId: string) {
       );
       if (data.messages.length > 0) {
         setMessages((prev) => {
+          // Helper to get content from nested message object (SDK structure)
+          const getMessageContent = (m: Message) =>
+            m.content ??
+            (m.message as { content?: unknown } | undefined)?.content;
+
           // Create a map of existing messages for efficient lookup
           const messageMap = new Map(prev.map((m) => [m.id, m]));
+          // Track which temp IDs have been replaced
+          const replacedTempIds = new Set<string>();
 
           // Merge each incoming JSONL message
           for (const incoming of data.messages) {
+            // Check if this is a user message that should replace a temp or SDK message
+            // This handles the case where SSE and JSONL have different UUIDs for the same message
+            if (incoming.type === "user") {
+              const incomingContent = getMessageContent(incoming);
+              const duplicateMsg = prev.find(
+                (m) =>
+                  m.id !== incoming.id && // Different ID
+                  (m.id.startsWith("temp-") || m._source === "sdk") && // Temp or SDK-sourced
+                  m.type === "user" &&
+                  JSON.stringify(getMessageContent(m)) ===
+                    JSON.stringify(incomingContent),
+              );
+              if (duplicateMsg) {
+                // Mark duplicate ID as replaced (JSONL is authoritative)
+                replacedTempIds.add(duplicateMsg.id);
+                messageMap.delete(duplicateMsg.id);
+              }
+            }
+
             const existing = messageMap.get(incoming.id);
             messageMap.set(
               incoming.id,
@@ -191,9 +217,9 @@ export function useSession(projectId: string, sessionId: string) {
           const result: Message[] = [];
           const seen = new Set<string>();
 
-          // First add existing messages (in order)
+          // First add existing messages (in order), skipping replaced temp messages
           for (const msg of prev) {
-            if (!seen.has(msg.id)) {
+            if (!seen.has(msg.id) && !replacedTempIds.has(msg.id)) {
               result.push(messageMap.get(msg.id) ?? msg);
               seen.add(msg.id);
             }
