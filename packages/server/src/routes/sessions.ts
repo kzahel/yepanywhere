@@ -248,14 +248,35 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       mode: body.mode,
     };
 
+    // Check if process is terminated
+    if (process.isTerminated) {
+      return c.json(
+        {
+          error: "Process terminated",
+          reason: process.terminationReason,
+        },
+        410,
+      ); // 410 Gone
+    }
+
     // Update process permission mode if specified
     if (body.mode) {
       process.setPermissionMode(body.mode);
     }
 
-    const position = process.queueMessage(userMessage);
+    const result = process.queueMessage(userMessage);
 
-    return c.json({ queued: true, position });
+    if (!result.success) {
+      return c.json(
+        {
+          error: "Failed to queue message",
+          reason: result.error,
+        },
+        410,
+      ); // 410 Gone - process is no longer available
+    }
+
+    return c.json({ queued: true, position: result.position });
   });
 
   // GET /api/sessions/:sessionId/pending-input - Get pending input request

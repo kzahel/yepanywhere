@@ -110,6 +110,24 @@ export class Process {
   }
 
   /**
+   * Whether the process has been terminated (either manually or due to error).
+   * A terminated process cannot accept new messages.
+   */
+  get isTerminated(): boolean {
+    return this._state.type === "terminated";
+  }
+
+  /**
+   * Get the termination reason if the process was terminated.
+   */
+  get terminationReason(): string | null {
+    if (this._state.type === "terminated") {
+      return this._state.reason;
+    }
+    return null;
+  }
+
+  /**
    * Update the permission mode for this process.
    * Increments modeVersion and emits a mode-change event for multi-tab sync.
    */
@@ -117,6 +135,32 @@ export class Process {
     this._permissionMode = mode;
     this._modeVersion++;
     this.emit({ type: "mode-change", mode, version: this._modeVersion });
+  }
+
+  /**
+   * Mark the process as terminated due to an error or external termination.
+   * Emits a terminated event and cleans up resources.
+   */
+  private markTerminated(reason: string, error?: Error): void {
+    if (this._state.type === "terminated") {
+      return; // Already terminated
+    }
+
+    this.clearIdleTimer();
+    this.iteratorDone = true;
+
+    // Resolve any pending tool approval with denial
+    if (this.pendingToolApproval) {
+      this.pendingToolApproval.resolve({
+        behavior: "deny",
+        message: `Process terminated: ${reason}`,
+      });
+      this.pendingToolApproval = null;
+    }
+
+    this.setState({ type: "terminated", reason, error });
+    this.emit({ type: "terminated", reason, error });
+    this.emit({ type: "complete" });
   }
 
   /**
@@ -144,7 +188,9 @@ export class Process {
 
   getInfo(): ProcessInfo {
     let stateType: ProcessStateType;
-    if (this._state.type === "waiting-input") {
+    if (this._state.type === "terminated") {
+      stateType = "terminated";
+    } else if (this._state.type === "waiting-input") {
       stateType = "waiting-input";
     } else if (this._state.type === "idle") {
       stateType = "idle";
@@ -192,8 +238,22 @@ export class Process {
    * Queue a message to be sent to the SDK.
    * For real SDK, pushes to MessageQueue.
    * For mock SDK, uses legacy queue behavior.
+   *
+   * @returns Object with success status and queue position or error
    */
-  queueMessage(message: UserMessage): number {
+  queueMessage(message: UserMessage): {
+    success: boolean;
+    position?: number;
+    error?: string;
+  } {
+    // Check if process is terminated
+    if (this._state.type === "terminated") {
+      return {
+        success: false,
+        error: `Process terminated: ${this._state.reason}`,
+      };
+    }
+
     // Create user message with UUID - this UUID will be used by both SSE and SDK
     const uuid = randomUUID();
     const messageWithUuid: UserMessage = { ...message, uuid };
@@ -221,7 +281,8 @@ export class Process {
         this.setState({ type: "running" });
       }
       // Pass message with UUID so SDK uses the same UUID we emitted via SSE
-      return this.messageQueue.push(messageWithUuid);
+      const position = this.messageQueue.push(messageWithUuid);
+      return { success: true, position };
     }
 
     // Legacy behavior for mock SDK
@@ -229,7 +290,7 @@ export class Process {
     if (this._state.type === "idle") {
       this.processNextInQueue();
     }
-    return this.legacyQueue.length;
+    return { success: true, position: this.legacyQueue.length };
   }
 
   /**
@@ -406,12 +467,35 @@ export class Process {
         }
       }
     } catch (error) {
-      this.emit({ type: "error", error: error as Error });
+      const err = error as Error;
+      this.emit({ type: "error", error: err });
+
+      // Detect process termination errors
+      if (this.isProcessTerminationError(err)) {
+        this.markTerminated("underlying process terminated", err);
+        return;
+      }
+
       // Don't transition to idle if we're waiting for input
       if (this._state.type !== "waiting-input") {
         this.transitionToIdle();
       }
     }
+  }
+
+  /**
+   * Check if an error indicates the underlying Claude process was terminated.
+   */
+  private isProcessTerminationError(error: Error): boolean {
+    const message = error.message || "";
+    return (
+      message.includes("ProcessTransport is not ready") ||
+      message.includes("not ready for writing") ||
+      message.includes("process exited") ||
+      message.includes("SIGTERM") ||
+      message.includes("SIGKILL") ||
+      message.includes("spawn ENOENT")
+    );
   }
 
   /**

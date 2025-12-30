@@ -189,13 +189,22 @@ export class Supervisor {
     if (existingProcessId) {
       const existingProcess = this.processes.get(existingProcessId);
       if (existingProcess) {
-        // Update permission mode if specified
-        if (permissionMode) {
-          existingProcess.setPermissionMode(permissionMode);
+        // Check if process is terminated - if so, start a fresh one
+        if (existingProcess.isTerminated) {
+          this.unregisterProcess(existingProcess);
+        } else {
+          // Update permission mode if specified
+          if (permissionMode) {
+            existingProcess.setPermissionMode(permissionMode);
+          }
+          // Queue message to existing process
+          const result = existingProcess.queueMessage(message);
+          if (result.success) {
+            return existingProcess;
+          }
+          // Failed to queue - process likely terminated, clean up and start fresh
+          this.unregisterProcess(existingProcess);
         }
-        // Queue message to existing process
-        existingProcess.queueMessage(message);
-        return existingProcess;
       }
     }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MessageQueue } from "../src/sdk/messageQueue.js";
 import type { SDKMessage } from "../src/sdk/types.js";
 import { Process } from "../src/supervisor/Process.js";
@@ -114,11 +114,13 @@ describe("Process", () => {
         idleTimeoutMs: 100,
       });
 
-      const pos1 = process.queueMessage({ text: "first" });
-      const pos2 = process.queueMessage({ text: "second" });
+      const result1 = process.queueMessage({ text: "first" });
+      const result2 = process.queueMessage({ text: "second" });
 
-      expect(pos1).toBe(1);
-      expect(pos2).toBe(2);
+      expect(result1.success).toBe(true);
+      expect(result1.position).toBe(1);
+      expect(result2.success).toBe(true);
+      expect(result2.position).toBe(2);
     });
 
     it("reports queue depth", async () => {
@@ -491,6 +493,104 @@ describe("Process", () => {
       // Message should still be emitted for live SSE subscribers
       const userEmits = emittedMessages.filter((m) => m.type === "user");
       expect(userEmits).toHaveLength(1);
+    });
+  });
+
+  describe("process termination", () => {
+    it("isTerminated returns false for new process", async () => {
+      const iterator = createMockIterator([
+        { type: "system", subtype: "init", session_id: "sess-1" },
+      ]);
+
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+      });
+
+      expect(process.isTerminated).toBe(false);
+      expect(process.terminationReason).toBe(null);
+    });
+
+    it("queueMessage returns error when process is terminated", async () => {
+      // Create an iterator that throws a process termination error
+      const error = new Error("ProcessTransport is not ready for writing");
+      async function* failingIterator(): AsyncIterator<SDKMessage> {
+        yield { type: "system", subtype: "init", session_id: "sess-1" };
+        throw error;
+      }
+
+      const process = new Process(failingIterator(), {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+      });
+
+      // Wait for the iterator to process and fail
+      await vi.waitFor(() => {
+        expect(process.isTerminated).toBe(true);
+      });
+
+      // Now queueMessage should return an error
+      const result = process.queueMessage({ text: "should fail" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("terminated");
+    });
+
+    it("emits terminated event when process dies", async () => {
+      const error = new Error("ProcessTransport is not ready for writing");
+      async function* failingIterator(): AsyncIterator<SDKMessage> {
+        yield { type: "system", subtype: "init", session_id: "sess-1" };
+        throw error;
+      }
+
+      const process = new Process(failingIterator(), {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+      });
+
+      let terminatedEvent: { reason: string; error?: Error } | null = null;
+      process.subscribe((event) => {
+        if (event.type === "terminated") {
+          terminatedEvent = { reason: event.reason, error: event.error };
+        }
+      });
+
+      // Wait for the terminated event
+      await vi.waitFor(() => {
+        expect(terminatedEvent).not.toBe(null);
+      });
+
+      expect(terminatedEvent?.reason).toContain("terminated");
+      expect(terminatedEvent?.error).toBe(error);
+    });
+
+    it("getInfo returns terminated state", async () => {
+      const error = new Error("process exited");
+      async function* failingIterator(): AsyncIterator<SDKMessage> {
+        yield { type: "system", subtype: "init", session_id: "sess-1" };
+        throw error;
+      }
+
+      const process = new Process(failingIterator(), {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+      });
+
+      // Wait for termination
+      await vi.waitFor(() => {
+        expect(process.isTerminated).toBe(true);
+      });
+
+      const info = process.getInfo();
+      expect(info.state).toBe("terminated");
     });
   });
 });

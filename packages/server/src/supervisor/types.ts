@@ -95,7 +95,11 @@ export interface Session extends SessionSummary {
 }
 
 // Process state types
-export type ProcessStateType = "running" | "idle" | "waiting-input";
+export type ProcessStateType =
+  | "running"
+  | "idle"
+  | "waiting-input"
+  | "terminated";
 
 // Input request (tool approval, question, etc.)
 export interface InputRequest {
@@ -113,7 +117,8 @@ export interface InputRequest {
 export type ProcessState =
   | { type: "running" }
   | { type: "idle"; since: Date }
-  | { type: "waiting-input"; request: InputRequest };
+  | { type: "waiting-input"; request: InputRequest }
+  | { type: "terminated"; reason: string; error?: Error };
 
 // Process info (for API responses)
 export interface ProcessInfo {
@@ -132,7 +137,8 @@ export type ProcessEvent =
   | { type: "state-change"; state: ProcessState }
   | { type: "mode-change"; mode: PermissionMode; version: number }
   | { type: "error"; error: Error }
-  | { type: "complete" };
+  | { type: "complete" }
+  | { type: "terminated"; reason: string; error?: Error };
 
 // Process options
 export interface ProcessOptions {

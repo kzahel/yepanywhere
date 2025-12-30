@@ -120,6 +120,8 @@ export class RealClaudeSDK implements RealClaudeSDKInterface {
       if (error instanceof Error && error.name === "AbortError") {
         return;
       }
+      // Re-throw process termination errors for Process to handle
+      // These include: "ProcessTransport is not ready for writing"
       throw error;
     }
   }

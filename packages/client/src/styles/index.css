@@ -649,3 +649,56 @@ h2 {
     min-width: 80px;
   }
 }
+
+/* ==========================================================================
+   Toast Notifications
+   ========================================================================== */
+
+.toast-container {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.toast {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: toast-slide-in 0.2s ease-out;
+  max-width: 400px;
+  text-align: center;
+}
+
+.toast-error {
+  background: var(--error-color);
+  color: white;
+}
+
+.toast-success {
+  background: var(--success-color);
+  color: #000;
+}
+
+.toast-info {
+  background: #444;
+  color: var(--text-primary);
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

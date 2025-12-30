@@ -4,8 +4,10 @@ import { api } from "../api/client";
 import { MessageInput } from "../components/MessageInput";
 import { MessageList } from "../components/MessageList";
 import { StatusIndicator } from "../components/StatusIndicator";
+import { ToastContainer } from "../components/Toast";
 import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
 import { useSession } from "../hooks/useSession";
+import { useToast } from "../hooks/useToast";
 import type { Project } from "../types";
 
 export function SessionPage() {
@@ -50,6 +52,7 @@ function SessionPageContent({
   const [project, setProject] = useState<Project | null>(null);
   const [scrollTrigger, setScrollTrigger] = useState(0);
   const [restoredText, setRestoredText] = useState<string | null>(null);
+  const { toasts, showToast, dismissToast } = useToast();
 
   // Fetch project info for breadcrumb
   useEffect(() => {
@@ -79,19 +82,25 @@ function SessionPageContent({
       }
     } catch (err) {
       console.error("Failed to send:", err);
+      // Always restore the message and clean up on error
+      removeOptimisticMessage(text);
+      setRestoredText(text);
+      setProcessState("idle");
+
       // Check if process is dead (404)
       const is404 =
         err instanceof Error &&
         (err.message.includes("404") ||
           err.message.includes("No active process"));
       if (is404) {
-        // Process died - transition to idle, remove optimistic message, restore text
         setStatus({ state: "idle" });
-        setProcessState("idle");
-        removeOptimisticMessage(text);
-        setRestoredText(text);
+        showToast(
+          "Session process ended. Your message has been restored.",
+          "error",
+        );
       } else {
-        setProcessState("idle");
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        showToast(`Failed to send message: ${errorMsg}`, "error");
       }
     } finally {
       setSending(false);
@@ -121,6 +130,7 @@ function SessionPageContent({
 
   return (
     <div className="session-page">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <header className="session-header">
         <div className="session-header-left">
           <nav className="breadcrumb">
