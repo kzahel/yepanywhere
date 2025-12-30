@@ -366,6 +366,27 @@ h2 {
   background: var(--error-color);
 }
 
+.message-input-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.stop-button {
+  padding: 0.25rem 0.75rem;
+  background: var(--error-color);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.stop-button:hover {
+  opacity: 0.85;
+}
+
 /* Status */
 .status-indicator {
   display: flex;
@@ -391,12 +412,6 @@ h2 {
 
 .status-disconnected {
   color: #f84;
-  font-size: 0.875rem;
-}
-
-.abort-button {
-  padding: 0.25rem 0.75rem;
-  background: #a44;
   font-size: 0.875rem;
 }
 

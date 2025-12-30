@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { isIdeMetadata, stripIdeMetadata } from "@claude-anywhere/shared";
 import type {
   ContentBlock,
   Message,
@@ -176,7 +177,7 @@ export class SessionReader {
   private findFirstUserMessage(messages: RawSessionMessage[]): string | null {
     for (const msg of messages) {
       if (msg.type === "user" && msg.message?.content) {
-        return this.extractContent(msg.message.content);
+        return this.extractTitleContent(msg.message.content);
       }
     }
     return null;
@@ -197,6 +198,28 @@ export class SessionReader {
       .filter(
         (block): block is { type: string; text: string } =>
           block.type === "text" && typeof block.text === "string",
+      )
+      .map((block) => block.text)
+      .join("\n");
+  }
+
+  /**
+   * Extract content for title generation, skipping IDE metadata blocks.
+   * This ensures session titles show the actual user message, not IDE metadata
+   * like <ide_opened_file> or <ide_selection> tags.
+   */
+  private extractTitleContent(
+    content: string | Array<{ type: string; text?: string }>,
+  ): string {
+    if (typeof content === "string") {
+      return stripIdeMetadata(content);
+    }
+    return content
+      .filter(
+        (block): block is { type: string; text: string } =>
+          block.type === "text" &&
+          typeof block.text === "string" &&
+          !isIdeMetadata(block.text),
       )
       .map((block) => block.text)
       .join("\n");

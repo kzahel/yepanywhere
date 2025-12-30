@@ -21,6 +21,8 @@ interface Props {
   placeholder?: string;
   mode?: PermissionMode;
   onModeChange?: (mode: PermissionMode) => void;
+  isRunning?: boolean;
+  onStop?: () => void;
 }
 
 export function MessageInput({
@@ -29,6 +31,8 @@ export function MessageInput({
   placeholder,
   mode = "default",
   onModeChange,
+  isRunning,
+  onStop,
 }: Props) {
   const [text, setText] = useState("");
 
@@ -77,13 +81,20 @@ export function MessageInput({
           <span className={`mode-dot mode-${mode}`} />
           {MODE_LABELS[mode]}
         </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={disabled || !text.trim()}
-        >
-          Send
-        </button>
+        <div className="message-input-actions">
+          {isRunning && onStop && (
+            <button type="button" onClick={onStop} className="stop-button">
+              Stop
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={disabled || !text.trim()}
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );

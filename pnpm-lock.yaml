@@ -17,6 +17,9 @@ importers:
 
   packages/client:
     dependencies:
+      '@claude-anywhere/shared':
+        specifier: workspace:*
+        version: link:../shared
       react:
         specifier: ^19.0.0
         version: 19.2.3
@@ -66,6 +69,9 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.1.76
         version: 0.1.76(zod@4.2.1)
+      '@claude-anywhere/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@hono/node-server':
         specifier: ^1.13.7
         version: 1.19.7(hono@4.11.3)
@@ -79,6 +85,15 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.21.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.3)(jsdom@25.0.1)
+
+  packages/shared:
+    devDependencies:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

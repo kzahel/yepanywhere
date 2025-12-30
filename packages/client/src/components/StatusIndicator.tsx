@@ -3,10 +3,9 @@ import type { SessionStatus } from "../types";
 interface Props {
   status: SessionStatus;
   connected: boolean;
-  onAbort: () => void;
 }
 
-export function StatusIndicator({ status, connected, onAbort }: Props) {
+export function StatusIndicator({ status, connected }: Props) {
   return (
     <div className="status-indicator">
       <span className={`status-dot status-${status.state}`} />
@@ -17,11 +16,6 @@ export function StatusIndicator({ status, connected, onAbort }: Props) {
       </span>
       {!connected && status.state === "owned" && (
         <span className="status-disconnected">Reconnecting...</span>
-      )}
-      {status.state === "owned" && (
-        <button type="button" onClick={onAbort} className="abort-button">
-          Stop
-        </button>
       )}
     </div>
   );

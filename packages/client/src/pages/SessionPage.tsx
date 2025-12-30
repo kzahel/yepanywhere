@@ -97,11 +97,7 @@ function SessionPageContent({
             <span className="session-title">{session.title}</span>
           )}
         </div>
-        <StatusIndicator
-          status={status}
-          connected={connected}
-          onAbort={handleAbort}
-        />
+        <StatusIndicator status={status} connected={connected} />
       </header>
 
       {status.state === "external" && (
@@ -127,6 +123,8 @@ function SessionPageContent({
           }
           mode={permissionMode}
           onModeChange={setPermissionMode}
+          isRunning={status.state === "owned"}
+          onStop={handleAbort}
         />
       </footer>
     </div>
