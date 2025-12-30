@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { mergeJSONLMessages, mergeSSEMessage } from "../lib/mergeMessages";
 import type {
   InputRequest,
   Message,
@@ -17,55 +18,6 @@ import { useSSE } from "./useSSE";
 export type ProcessState = "idle" | "running" | "waiting-input";
 
 const THROTTLE_MS = 500;
-
-/**
- * Merge messages from different sources.
- * JSONL (from disk) is authoritative; SDK (streaming) provides real-time updates.
- *
- * Strategy:
- * - If message only exists from one source, use it
- * - If both exist, use JSONL as base but preserve any SDK-only fields
- * - Warn if SDK has fields that JSONL doesn't (validates our assumption)
- */
-function mergeMessage(
-  existing: Message | undefined,
-  incoming: Message,
-  incomingSource: "sdk" | "jsonl",
-): Message {
-  if (!existing) {
-    return { ...incoming, _source: incomingSource };
-  }
-
-  const existingSource = existing._source ?? "sdk";
-
-  // If incoming is JSONL, it's authoritative - use it as base
-  if (incomingSource === "jsonl") {
-    // Check if SDK had fields that JSONL doesn't (shouldn't happen if JSONL is superset)
-    if (existingSource === "sdk") {
-      for (const key of Object.keys(existing)) {
-        if (key !== "_source" && !(key in incoming)) {
-          console.warn(
-            `[useSession] SDK message ${existing.id} has field "${key}" not in JSONL. This suggests JSONL is not a superset of SDK data.`,
-          );
-        }
-      }
-    }
-    // Merge: JSONL base, preserve any SDK-only fields
-    return {
-      ...existing,
-      ...incoming,
-      _source: "jsonl",
-    };
-  }
-
-  // If incoming is SDK and existing is JSONL, keep JSONL (it's authoritative)
-  if (existingSource === "jsonl") {
-    return existing;
-  }
-
-  // Both are SDK - use the newer one (incoming)
-  return { ...incoming, _source: "sdk" };
-}
 
 export function useSession(projectId: string, sessionId: string) {
   const [session, setSession] = useState<Session | null>(null);
@@ -174,83 +126,7 @@ export function useSession(projectId: string, sessionId: string) {
         lastMessageIdRef.current,
       );
       if (data.messages.length > 0) {
-        setMessages((prev) => {
-          // Helper to get content from nested message object (SDK structure)
-          const getMessageContent = (m: Message) =>
-            m.content ??
-            (m.message as { content?: unknown } | undefined)?.content;
-
-          // Create a map of existing messages for efficient lookup
-          const messageMap = new Map(prev.map((m) => [m.id, m]));
-          // Track which temp IDs have been replaced
-          const replacedTempIds = new Set<string>();
-
-          // Track ID replacements: old ID -> new ID (for position preservation)
-          const idReplacements = new Map<string, string>();
-
-          // Merge each incoming JSONL message
-          for (const incoming of data.messages) {
-            // Check if this is a user message that should replace a temp or SDK message
-            // This handles the case where SSE and JSONL have different UUIDs for the same message
-            if (incoming.type === "user") {
-              const incomingContent = getMessageContent(incoming);
-              const duplicateMsg = prev.find(
-                (m) =>
-                  m.id !== incoming.id && // Different ID
-                  !replacedTempIds.has(m.id) && // Not already matched by a previous JSONL message
-                  (m.id.startsWith("temp-") || m._source === "sdk") && // Temp or SDK-sourced
-                  m.type === "user" &&
-                  JSON.stringify(getMessageContent(m)) ===
-                    JSON.stringify(incomingContent),
-              );
-              if (duplicateMsg) {
-                // Mark duplicate ID as replaced and track the replacement
-                replacedTempIds.add(duplicateMsg.id);
-                idReplacements.set(duplicateMsg.id, incoming.id);
-                messageMap.delete(duplicateMsg.id);
-              }
-            }
-
-            const existing = messageMap.get(incoming.id);
-            messageMap.set(
-              incoming.id,
-              mergeMessage(existing, incoming, "jsonl"),
-            );
-          }
-
-          // Return as array, preserving order
-          // When a message is replaced, insert the replacement at the same position
-          const result: Message[] = [];
-          const seen = new Set<string>();
-
-          // First add existing messages (in order), replacing as needed
-          for (const msg of prev) {
-            if (replacedTempIds.has(msg.id)) {
-              // This message was replaced - insert the replacement here
-              const replacementId = idReplacements.get(msg.id);
-              if (replacementId && !seen.has(replacementId)) {
-                const replacement = messageMap.get(replacementId);
-                if (replacement) {
-                  result.push(replacement);
-                  seen.add(replacementId);
-                }
-              }
-            } else if (!seen.has(msg.id)) {
-              result.push(messageMap.get(msg.id) ?? msg);
-              seen.add(msg.id);
-            }
-          }
-
-          // Then add any truly new messages (not replacements)
-          for (const incoming of data.messages) {
-            if (!seen.has(incoming.id)) {
-              result.push(messageMap.get(incoming.id) ?? incoming);
-              seen.add(incoming.id);
-            }
-          }
-
-          return result;
-        });
+        setMessages((prev) => mergeJSONLMessages(prev, data.messages).messages);
       }
       setStatus(data.status);
     } catch {
@@ -368,57 +244,7 @@ export function useSession(projectId: string, sessionId: string) {
         // Remove eventType from the message (it's SSE envelope, not message data)
         (incoming as { eventType?: string }).eventType = undefined;
 
-        setMessages((prev) => {
-          // Check for existing message with same ID
-          const existingIdx = prev.findIndex((m) => m.id === id);
-
-          if (existingIdx >= 0) {
-            // Merge with existing message
-            const existing = prev[existingIdx];
-            const merged = mergeMessage(existing, incoming, "sdk");
-
-            // Only update if actually different
-            if (existing === merged) {
-              return prev;
-            }
-
-            const updated = [...prev];
-            updated[existingIdx] = merged;
-            return updated;
-          }
-
-          // For user messages, check if we have a temp message to replace
-          // SDK messages have content nested in message.content
-          const getMessageContent = (m: Message) =>
-            m.content ??
-            (m.message as { content?: unknown } | undefined)?.content;
-
-          if (incoming.type === "user") {
-            const tempIdx = prev.findIndex(
-              (m) =>
-                m.id.startsWith("temp-") &&
-                m.type === "user" &&
-                JSON.stringify(getMessageContent(m)) ===
-                  JSON.stringify(getMessageContent(incoming)),
-            );
-            if (tempIdx >= 0) {
-              // Replace temp message with authoritative one (real UUID + all fields)
-              const updated = [...prev];
-              const existing = updated[tempIdx];
-              if (existing) {
-                updated[tempIdx] = {
-                  ...existing,
-                  ...incoming,
-                  _source: "sdk",
-                };
-              }
-              return updated;
-            }
-          }
-
-          // Add new message
-          return [...prev, { ...incoming, _source: "sdk" }];
-        });
+        setMessages((prev) => mergeSSEMessage(prev, incoming).messages);
       } else if (data.eventType === "status") {
         const statusData = data as {
           eventType: string;
