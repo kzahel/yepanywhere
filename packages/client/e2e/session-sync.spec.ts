@@ -100,11 +100,11 @@ test.describe("Session Sync", () => {
     await page.fill(".new-session-form input", "Initial message");
     await page.click(".new-session-form button");
 
-    // Wait for assistant response and idle status
+    // Wait for assistant response and idle status (status indicator hidden when idle)
     await expect(page.locator(".assistant-turn")).toBeVisible({
       timeout: 10000,
     });
-    await expect(page.locator(".status-text")).toHaveText("Idle", {
+    await expect(page.locator(".status-indicator")).not.toBeVisible({
       timeout: 10000,
     });
 
@@ -129,7 +129,7 @@ test.describe("Session Sync", () => {
     // Send a follow-up message from the first tab
     const textarea = page.locator(".message-input textarea");
     await textarea.fill("Follow-up from first tab");
-    await page.locator(".message-input button").click();
+    await page.keyboard.press("Enter");
 
     // The new user message should appear in the second tab
     await expect(page2.locator(".message-user-prompt")).toHaveCount(

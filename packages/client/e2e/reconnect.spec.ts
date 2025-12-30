@@ -16,8 +16,8 @@ test.describe("SSE Streaming", () => {
       timeout: 10000,
     });
 
-    // Session should eventually go idle
-    await expect(page.locator(".status-text")).toHaveText("Idle", {
+    // Session should eventually go idle (status indicator is hidden when idle)
+    await expect(page.locator(".status-indicator")).not.toBeVisible({
       timeout: 5000,
     });
 

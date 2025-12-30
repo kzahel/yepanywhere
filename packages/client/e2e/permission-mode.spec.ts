@@ -103,8 +103,14 @@ test.describe("Permission Mode", () => {
     await modeButton.click();
     await expect(modeButton).toContainText("Edit automatically");
 
-    // Wait for the session to be active (processing the message)
-    // The mode is sent with the initial message, so we need to wait for it to be established
+    // Send a follow-up message to persist the mode change to the server
+    await page.fill(
+      ".message-input input, .message-input textarea",
+      "Follow-up to persist mode",
+    );
+    await page.keyboard.press("Enter");
+
+    // Wait for the message to be processed
     await page.waitForTimeout(500);
 
     // Refresh the page
