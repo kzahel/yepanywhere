@@ -138,6 +138,7 @@ function SessionPageContent({
           mode={permissionMode}
           onModeChange={setPermissionMode}
           isRunning={status.state === "owned"}
+          isThinking={processState === "running"}
           onStop={handleAbort}
         />
       </footer>
