@@ -393,8 +393,13 @@ h2 {
   transition: opacity 0.15s;
 }
 
-.stop-button:hover {
+.stop-button:hover:not(:disabled) {
   opacity: 0.85;
+}
+
+.stop-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Status */
