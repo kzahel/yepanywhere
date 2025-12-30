@@ -120,10 +120,6 @@ export class Supervisor {
     const process = new Process(iterator, options);
     processHolder.process = process;
 
-    // Add initial user message to history for SSE replay
-    // (SDK processes it internally, but late-joining clients need it in history)
-    process.addInitialUserMessage(message.text);
-
     // Wait for the real session ID from the SDK before registering
     // This ensures the client gets the correct ID to use for persistence
     if (!resumeSessionId) {

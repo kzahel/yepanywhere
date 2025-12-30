@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MessageQueue } from "../src/sdk/messageQueue.js";
 import type { SDKMessage } from "../src/sdk/types.js";
 import { Process } from "../src/supervisor/Process.js";
 import type { ProcessEvent } from "../src/supervisor/types.js";
@@ -411,6 +412,85 @@ describe("Process", () => {
         { signal: abortController.signal },
       );
       expect(writeResult.behavior).toBe("allow");
+    });
+  });
+
+  describe("messageHistory", () => {
+    it("should NOT add user messages to history for real SDK sessions (with queue)", async () => {
+      const iterator = createMockIterator([
+        { type: "system", subtype: "init", session_id: "sess-1" },
+      ]);
+      const queue = new MessageQueue();
+
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        queue, // Real SDK provides queue
+      });
+
+      // Queue a user message
+      process.queueMessage({ text: "test message" });
+
+      // User message should NOT be in history (prevents duplicates with disk)
+      const userMessages = process
+        .getMessageHistory()
+        .filter((m) => m.type === "user");
+      expect(userMessages).toHaveLength(0);
+    });
+
+    it("should add user messages to history for mock SDK sessions (no queue)", async () => {
+      const iterator = createMockIterator([
+        { type: "system", subtype: "init", session_id: "sess-1" },
+      ]);
+
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        // No queue = mock SDK
+      });
+
+      // Queue a user message
+      process.queueMessage({ text: "test message" });
+
+      // User message SHOULD be in history (mock SDK needs replay)
+      const userMessages = process
+        .getMessageHistory()
+        .filter((m) => m.type === "user");
+      expect(userMessages).toHaveLength(1);
+      expect(userMessages[0]?.message?.content).toBe("test message");
+    });
+
+    it("should always emit user messages via SSE regardless of SDK type", async () => {
+      const iterator = createMockIterator([
+        { type: "system", subtype: "init", session_id: "sess-1" },
+      ]);
+      const queue = new MessageQueue();
+
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        queue, // Real SDK
+      });
+
+      const emittedMessages: SDKMessage[] = [];
+      process.subscribe((event) => {
+        if (event.type === "message") {
+          emittedMessages.push(event.message);
+        }
+      });
+
+      // Queue a user message
+      process.queueMessage({ text: "test message" });
+
+      // Message should still be emitted for live SSE subscribers
+      const userEmits = emittedMessages.filter((m) => m.type === "user");
+      expect(userEmits).toHaveLength(1);
     });
   });
 });

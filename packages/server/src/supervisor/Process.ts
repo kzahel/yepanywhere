@@ -202,8 +202,12 @@ export class Process {
       message: { role: "user", content: message.text },
     } as SDKMessage;
 
-    // Add to history so late-joining clients see it in replay
-    this.messageHistory.push(sdkMessage);
+    // Only add to history for mock SDK (real SDK persists to disk, and clients
+    // load from disk via API - adding here would cause duplicate messages when
+    // SSE replays to late-joining clients who already loaded from disk)
+    if (!this.messageQueue) {
+      this.messageHistory.push(sdkMessage);
+    }
 
     // Emit to current SSE subscribers so other clients see it immediately
     this.emit({ type: "message", message: sdkMessage });
