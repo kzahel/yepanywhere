@@ -46,6 +46,8 @@ export interface Message {
   };
   /** Structured tool result data (from JSONL toolUseResult field) */
   toolUseResult?: unknown;
+  /** Tool use IDs that are orphaned (process killed before result) */
+  orphanedToolUseIds?: string[];
 }
 
 export interface Session extends SessionSummary {

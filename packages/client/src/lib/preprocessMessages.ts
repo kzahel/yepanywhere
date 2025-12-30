@@ -15,8 +15,18 @@ export function preprocessMessages(messages: Message[]): RenderItem[] {
   const items: RenderItem[] = [];
   const pendingToolCalls = new Map<string, number>(); // tool_use_id → index in items
 
+  // Collect all orphaned tool IDs from messages (set by server DAG filtering)
+  const orphanedToolIds = new Set<string>();
   for (const msg of messages) {
-    processMessage(msg, items, pendingToolCalls);
+    if (msg.orphanedToolUseIds) {
+      for (const id of msg.orphanedToolUseIds) {
+        orphanedToolIds.add(id);
+      }
+    }
+  }
+
+  for (const msg of messages) {
+    processMessage(msg, items, pendingToolCalls, orphanedToolIds);
   }
 
   return items;
@@ -26,6 +36,7 @@ function processMessage(
   msg: Message,
   items: RenderItem[],
   pendingToolCalls: Map<string, number>,
+  orphanedToolIds: Set<string>,
 ): void {
   const content = msg.content;
 
@@ -99,13 +110,15 @@ function processMessage(
       }
     } else if (block.type === "tool_use") {
       if (block.id && block.name) {
+        // Check if this tool call is orphaned (process killed before result)
+        const isOrphaned = orphanedToolIds.has(block.id);
         const toolCall: ToolCallItem = {
           type: "tool_call",
           id: block.id,
           toolName: block.name,
           toolInput: block.input,
           toolResult: undefined,
-          status: "pending",
+          status: isOrphaned ? "aborted" : "pending",
           sourceMessages: [msg],
         };
         pendingToolCalls.set(block.id, items.length);

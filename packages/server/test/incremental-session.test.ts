@@ -45,17 +45,20 @@ describe("Incremental Session Loading", () => {
           JSON.stringify({
             type: "user",
             uuid: msg1Id,
+            parentUuid: null,
             cwd: projectPath,
             message: { content: "First" },
           }),
           JSON.stringify({
             type: "assistant",
             uuid: msg2Id,
+            parentUuid: msg1Id,
             message: { content: "Second" },
           }),
           JSON.stringify({
             type: "user",
             uuid: msg3Id,
+            parentUuid: msg2Id,
             message: { content: "Third" },
           }),
         ].join("\n")}\n`,
@@ -82,17 +85,20 @@ describe("Incremental Session Loading", () => {
           JSON.stringify({
             type: "user",
             uuid: msg1Id,
+            parentUuid: null,
             cwd: projectPath,
             message: { content: "First" },
           }),
           JSON.stringify({
             type: "assistant",
             uuid: msg2Id,
+            parentUuid: msg1Id,
             message: { content: "Second" },
           }),
           JSON.stringify({
             type: "user",
             uuid: msg3Id,
+            parentUuid: msg2Id,
             message: { content: "Third" },
           }),
         ].join("\n")}\n`,
@@ -120,12 +126,14 @@ describe("Incremental Session Loading", () => {
           JSON.stringify({
             type: "user",
             uuid: msg1Id,
+            parentUuid: null,
             cwd: projectPath,
             message: { content: "First" },
           }),
           JSON.stringify({
             type: "assistant",
             uuid: msg2Id,
+            parentUuid: msg1Id,
             message: { content: "Second" },
           }),
         ].join("\n")}\n`,
@@ -149,6 +157,7 @@ describe("Incremental Session Loading", () => {
         `${JSON.stringify({
           type: "user",
           uuid: msg1Id,
+          parentUuid: null,
           cwd: projectPath,
           message: { content: "First" },
         })}\n`,
@@ -176,6 +185,7 @@ describe("Incremental Session Loading", () => {
           JSON.stringify({
             type: "user",
             uuid: msg1Id,
+            parentUuid: null,
             cwd: projectPath,
             message: { content: "First" },
           }),
@@ -183,6 +193,7 @@ describe("Incremental Session Loading", () => {
           JSON.stringify({
             type: "assistant",
             uuid: msg2Id,
+            parentUuid: msg1Id,
             message: { content: "Second" },
           }),
         ].join("\n")}\n`,

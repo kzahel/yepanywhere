@@ -67,6 +67,8 @@ export interface Message {
   toolUseResult?: unknown;
   /** Raw JSONL entry for debugging (visible via ctrl+click) */
   rawJsonl?: unknown;
+  /** Tool use IDs that are orphaned (process killed before result) */
+  orphanedToolUseIds?: string[];
 }
 
 // Full session with messages

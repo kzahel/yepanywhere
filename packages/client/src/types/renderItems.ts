@@ -39,7 +39,7 @@ export interface ToolCallItem extends RenderItemBase {
   toolName: string; // tool_use.name
   toolInput: unknown; // tool_use.input
   toolResult?: ToolResultData; // undefined while pending
-  status: "pending" | "complete" | "error";
+  status: "pending" | "complete" | "error" | "aborted";
 }
 
 export interface ToolResultData {

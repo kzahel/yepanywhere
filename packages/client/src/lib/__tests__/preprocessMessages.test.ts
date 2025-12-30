@@ -260,4 +260,113 @@ describe("preprocessMessages", () => {
       });
     }
   });
+
+  describe("orphaned tool handling", () => {
+    it("marks orphaned tool_use as aborted", () => {
+      const messages: Message[] = [
+        {
+          id: "msg-1",
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tool-1",
+              name: "Bash",
+              input: { command: "npm test" },
+            },
+          ],
+          timestamp: "2024-01-01T00:00:00Z",
+          orphanedToolUseIds: ["tool-1"],
+        },
+      ];
+
+      const items = preprocessMessages(messages);
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
+        type: "tool_call",
+        id: "tool-1",
+        status: "aborted",
+        toolResult: undefined,
+      });
+    });
+
+    it("handles mix of orphaned and completed tools", () => {
+      const messages: Message[] = [
+        {
+          id: "msg-1",
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tool-1",
+              name: "Read",
+              input: { file_path: "a.ts" },
+            },
+            {
+              type: "tool_use",
+              id: "tool-2",
+              name: "Bash",
+              input: { command: "npm test" },
+            },
+          ],
+          timestamp: "2024-01-01T00:00:00Z",
+          orphanedToolUseIds: ["tool-2"], // only tool-2 is orphaned
+        },
+        {
+          id: "msg-2",
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "tool-1",
+              content: "file contents",
+            },
+          ],
+          timestamp: "2024-01-01T00:00:01Z",
+        },
+      ];
+
+      const items = preprocessMessages(messages);
+
+      expect(items).toHaveLength(2);
+      const tool1 = items.find(
+        (i) => i.type === "tool_call" && i.id === "tool-1",
+      );
+      const tool2 = items.find(
+        (i) => i.type === "tool_call" && i.id === "tool-2",
+      );
+
+      expect(tool1?.type === "tool_call" && tool1.status).toBe("complete");
+      expect(tool2?.type === "tool_call" && tool2.status).toBe("aborted");
+    });
+
+    it("non-orphaned pending tools remain pending", () => {
+      const messages: Message[] = [
+        {
+          id: "msg-1",
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tool-1",
+              name: "Bash",
+              input: { command: "npm test" },
+            },
+          ],
+          timestamp: "2024-01-01T00:00:00Z",
+          // No orphanedToolUseIds - tool is still pending (live conversation)
+        },
+      ];
+
+      const items = preprocessMessages(messages);
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
+        type: "tool_call",
+        id: "tool-1",
+        status: "pending",
+      });
+    });
+  });
 });

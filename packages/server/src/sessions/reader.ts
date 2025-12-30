@@ -8,6 +8,7 @@ import type {
   SessionSummary,
 } from "../supervisor/types.js";
 import { SESSION_TITLE_MAX_LENGTH } from "../supervisor/types.js";
+import { buildDag, findOrphanedToolUses } from "./dag.js";
 
 export interface SessionReaderOptions {
   sessionDir: string;
@@ -36,6 +37,7 @@ interface RawSessionMessage {
   };
   timestamp?: string;
   uuid?: string;
+  parentUuid?: string | null;
   toolUseResult?: unknown;
 }
 
@@ -142,18 +144,31 @@ export class SessionReader {
     const content = await readFile(filePath, "utf-8");
     const lines = content.trim().split("\n");
 
-    const messages: Message[] = [];
-    let messageIndex = 0;
-
+    // Parse all lines first
+    const rawMessages: RawSessionMessage[] = [];
     for (const line of lines) {
       try {
-        const raw = JSON.parse(line) as RawSessionMessage;
-        const message = this.convertMessage(raw, messageIndex++);
-        if (message) {
-          messages.push(message);
-        }
+        rawMessages.push(JSON.parse(line) as RawSessionMessage);
       } catch {
         // Skip malformed lines
+      }
+    }
+
+    // Build DAG and get active branch (filters out dead branches)
+    const { activeBranch } = buildDag(rawMessages);
+    const orphanedToolUses = findOrphanedToolUses(activeBranch);
+
+    // Convert to Message objects (only active branch)
+    const messages: Message[] = [];
+    let messageIndex = 0;
+    for (const node of activeBranch) {
+      const message = this.convertMessage(
+        node.raw,
+        messageIndex++,
+        orphanedToolUses,
+      );
+      if (message) {
+        messages.push(message);
       }
     }
 
@@ -228,6 +243,7 @@ export class SessionReader {
   private convertMessage(
     raw: RawSessionMessage,
     index: number,
+    orphanedToolUses: Set<string> = new Set(),
   ): Message | null {
     // Only process user and assistant messages (skip internal types like queue-operation, file-history-snapshot)
     if (raw.type !== "user" && raw.type !== "assistant") return null;
@@ -271,6 +287,22 @@ export class SessionReader {
     if (raw.toolUseResult !== undefined) {
       (message as Message & { toolUseResult?: unknown }).toolUseResult =
         raw.toolUseResult;
+    }
+
+    // Identify orphaned tool_use IDs in this message's content
+    if (Array.isArray(content)) {
+      const orphanedIds = content
+        .filter(
+          (b): b is ContentBlock & { id: string } =>
+            b.type === "tool_use" &&
+            typeof b.id === "string" &&
+            orphanedToolUses.has(b.id),
+        )
+        .map((b) => b.id);
+
+      if (orphanedIds.length > 0) {
+        message.orphanedToolUseIds = orphanedIds;
+      }
     }
 
     return message;

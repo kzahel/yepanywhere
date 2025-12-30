@@ -9,7 +9,7 @@ interface Props {
   toolName: string;
   toolInput: unknown;
   toolResult?: ToolResultData;
-  status: "pending" | "complete" | "error";
+  status: "pending" | "complete" | "error" | "aborted";
 }
 
 export const ToolCallRow = memo(function ToolCallRow({
@@ -49,9 +49,19 @@ export const ToolCallRow = memo(function ToolCallRow({
             <Spinner />
           </span>
         )}
+        {status === "aborted" && (
+          <span className="tool-aborted-icon" aria-label="Interrupted">
+            ⨯
+          </span>
+        )}
 
         <span className="tool-name">{toolName}</span>
-        <span className="tool-summary">{summary}</span>
+        <span className="tool-summary">
+          {summary}
+          {status === "aborted" && (
+            <span className="tool-aborted-label"> (interrupted)</span>
+          )}
+        </span>
 
         <span className="expand-chevron" aria-hidden="true">
           {expanded ? "▾" : "▸"}
@@ -60,7 +70,7 @@ export const ToolCallRow = memo(function ToolCallRow({
 
       {expanded && (
         <div className="tool-row-content">
-          {status === "pending" ? (
+          {status === "pending" || status === "aborted" ? (
             <ToolUseExpanded
               toolName={toolName}
               toolInput={toolInput}

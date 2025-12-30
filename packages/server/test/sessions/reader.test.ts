@@ -194,4 +194,150 @@ describe("SessionReader", () => {
       expect(summary?.title).toBe("Help me refactor these files");
     });
   });
+
+  describe("DAG handling", () => {
+    it("returns only active branch messages, filtering dead branches", async () => {
+      const sessionId = "dag-test-1";
+      // Structure:
+      // a -> b -> c (dead branch, earlier lineIndex)
+      //   \-> d -> e (active branch, later lineIndex)
+      const jsonl = [
+        JSON.stringify({
+          type: "user",
+          uuid: "a",
+          parentUuid: null,
+          message: { content: "First" },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          uuid: "b",
+          parentUuid: "a",
+          message: { content: "Dead branch response" },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "c",
+          parentUuid: "b",
+          message: { content: "Dead branch follow-up" },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          uuid: "d",
+          parentUuid: "a",
+          message: { content: "Active branch response" },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "e",
+          parentUuid: "d",
+          message: { content: "Active branch follow-up" },
+        }),
+      ].join("\n");
+      await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
+
+      const session = await reader.getSession(sessionId, "test-project");
+
+      expect(session?.messages).toHaveLength(3); // a, d, e (not b, c)
+      expect(session?.messages.map((m) => m.id)).toEqual(["a", "d", "e"]);
+    });
+
+    it("marks orphaned tool calls with orphanedToolUseIds", async () => {
+      const sessionId = "dag-test-2";
+      const jsonl = [
+        JSON.stringify({
+          type: "assistant",
+          uuid: "a",
+          parentUuid: null,
+          message: {
+            content: [
+              { type: "tool_use", id: "tool-1", name: "Read", input: {} },
+            ],
+          },
+        }),
+        // No tool_result for tool-1 (orphaned - process killed)
+      ].join("\n");
+      await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
+
+      const session = await reader.getSession(sessionId, "test-project");
+
+      expect(session?.messages).toHaveLength(1);
+      expect(session?.messages[0]?.orphanedToolUseIds).toEqual(["tool-1"]);
+    });
+
+    it("does not mark completed tools as orphaned", async () => {
+      const sessionId = "dag-test-3";
+      const jsonl = [
+        JSON.stringify({
+          type: "assistant",
+          uuid: "a",
+          parentUuid: null,
+          message: {
+            content: [
+              { type: "tool_use", id: "tool-1", name: "Read", input: {} },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "b",
+          parentUuid: "a",
+          message: {
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "tool-1",
+                content: "file contents",
+              },
+            ],
+          },
+        }),
+      ].join("\n");
+      await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
+
+      const session = await reader.getSession(sessionId, "test-project");
+
+      expect(session?.messages).toHaveLength(2);
+      // First message has tool_use but it has a result, so no orphanedToolUseIds
+      expect(session?.messages[0]?.orphanedToolUseIds).toBeUndefined();
+    });
+
+    it("handles mix of completed and orphaned tools", async () => {
+      const sessionId = "dag-test-4";
+      const jsonl = [
+        JSON.stringify({
+          type: "assistant",
+          uuid: "a",
+          parentUuid: null,
+          message: {
+            content: [
+              { type: "tool_use", id: "tool-1", name: "Read", input: {} },
+              { type: "tool_use", id: "tool-2", name: "Bash", input: {} },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "b",
+          parentUuid: "a",
+          message: {
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "tool-1",
+                content: "result for tool-1",
+              },
+              // No result for tool-2 (orphaned)
+            ],
+          },
+        }),
+      ].join("\n");
+      await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
+
+      const session = await reader.getSession(sessionId, "test-project");
+
+      expect(session?.messages).toHaveLength(2);
+      // tool-2 is orphaned but tool-1 is not
+      expect(session?.messages[0]?.orphanedToolUseIds).toEqual(["tool-2"]);
+    });
+  });
 });

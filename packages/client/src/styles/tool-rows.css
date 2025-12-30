@@ -66,6 +66,11 @@
   background: var(--timeline-dot-error);
 }
 
+.tool-row.timeline-item.status-aborted::before {
+  background: var(--timeline-dot-warning, #d7ba7d);
+  opacity: 0.7;
+}
+
 /* ==========================================================================
    Tool Call Rows - VS Code Style
    ========================================================================== */
@@ -217,6 +222,29 @@
 
 .tool-row.status-error .tool-summary {
   color: var(--error-color, #f48771);
+}
+
+/* Aborted (interrupted) tool styles */
+.tool-row.status-aborted {
+  opacity: 0.7;
+}
+
+.tool-row.status-aborted .tool-summary {
+  color: var(--text-muted, #888);
+}
+
+.tool-aborted-icon {
+  flex-shrink: 0;
+  color: var(--warning-color, #d7ba7d);
+  font-weight: bold;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.tool-aborted-label {
+  color: var(--text-muted, #888);
+  font-style: italic;
 }
 
 /* ==========================================================================

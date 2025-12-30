@@ -11,12 +11,12 @@ export function getToolSummary(
   toolName: string,
   input: unknown,
   result: ToolResultData | undefined,
-  status: "pending" | "complete" | "error",
+  status: "pending" | "complete" | "error" | "aborted",
 ): string {
   const renderer = toolRegistry.get(toolName);
 
-  if (status === "pending") {
-    // Show input summary while pending
+  if (status === "pending" || status === "aborted") {
+    // Show input summary while pending or aborted (no result available)
     if (renderer.getUseSummary) {
       return renderer.getUseSummary(input);
     }
