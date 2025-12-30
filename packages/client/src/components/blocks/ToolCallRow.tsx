@@ -19,8 +19,10 @@ export const ToolCallRow = memo(function ToolCallRow({
   toolResult,
   status,
 }: Props) {
-  // Edit tool is expanded by default to show diff preview
-  const [expanded, setExpanded] = useState(toolName === "Edit");
+  // Edit and TodoWrite tools are expanded by default
+  const [expanded, setExpanded] = useState(
+    toolName === "Edit" || toolName === "TodoWrite",
+  );
 
   const summary = useMemo(() => {
     return getToolSummary(toolName, toolInput, toolResult, status);

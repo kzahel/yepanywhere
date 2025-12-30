@@ -106,7 +106,7 @@ export function createApp(options: AppOptions): Hono {
       app.route("/api/dev", createDevRoutes({ eventBus: options.eventBus }));
     }
   }
-  
+
   return app;
 }
 

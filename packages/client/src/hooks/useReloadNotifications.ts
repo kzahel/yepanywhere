@@ -15,6 +15,7 @@ export interface PendingReloads {
 interface DevStatus {
   noBackendReload: boolean;
   noFrontendReload: boolean;
+  backendDirty?: boolean;
 }
 
 const API_BASE = "/api";
@@ -36,17 +37,21 @@ export function useReloadNotifications() {
     null,
   );
 
-  // Check if we're in dev mode (manual reload enabled)
+  // Check if we're in dev mode (manual reload enabled) and get persisted dirty state
   useEffect(() => {
-    fetch(`${API_BASE}/dev/status`, {
-      headers: { "X-Requested-With": "XMLHttpRequest" },
-    })
+    fetch(`${API_BASE}/dev/status`)
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error("Dev routes not available");
       })
       .then((data: DevStatus) => {
         setDevStatus(data);
+        // Initialize pending reloads from server's persisted dirty state
+        // Backend dirty persists across page refreshes - if you reload the page
+        // but forget to reload the server, you still see the banner
+        if (data.backendDirty) {
+          setPendingReloads((prev) => ({ ...prev, backend: true }));
+        }
       })
       .catch(() => {
         // Dev routes not mounted = not in manual reload mode

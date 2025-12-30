@@ -5,12 +5,23 @@ export interface DevDeps {
   eventBus: EventBus;
 }
 
+// Track backend dirty state - persists across page refreshes until server restarts
+// If backend code changed and we're still running, we're dirty
+let backendDirty = false;
+
 /**
  * Dev-only routes for manual reload workflow.
  * Only mounted when NO_BACKEND_RELOAD or NO_FRONTEND_RELOAD is set.
  */
 export function createDevRoutes(deps: DevDeps): Hono {
   const routes = new Hono();
+
+  // Subscribe to source-change events to track backend dirty state
+  deps.eventBus.subscribe((event) => {
+    if (event.type === "source-change" && event.target === "backend") {
+      backendDirty = true;
+    }
+  });
 
   // POST /api/dev/frontend-changed - Called by Vite plugin when frontend files change
   routes.post("/frontend-changed", async (c) => {
@@ -49,11 +60,12 @@ export function createDevRoutes(deps: DevDeps): Hono {
     return response;
   });
 
-  // GET /api/dev/status - Get dev mode status
+  // GET /api/dev/status - Get dev mode status including dirty flag
   routes.get("/status", (c) => {
     return c.json({
       noBackendReload: process.env.NO_BACKEND_RELOAD === "true",
       noFrontendReload: process.env.NO_FRONTEND_RELOAD === "true",
+      backendDirty,
       timestamp: new Date().toISOString(),
     });
   });
