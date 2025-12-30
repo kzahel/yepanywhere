@@ -66,17 +66,25 @@ export function useSession(projectId: string, sessionId: string) {
   // Track last message ID for incremental fetching
   const lastMessageIdRef = useRef<string | undefined>(undefined);
 
+  // Track temp ID → real ID mappings for parent chain resolution
+  const tempIdMappingsRef = useRef<Map<string, string>>(new Map());
+
   // Add user message optimistically with a temp ID
   // Uses SDK message structure: { type, message: { role, content } }
+  // Sets parentUuid for DAG-aware deduplication of identical messages
   const addUserMessage = useCallback((text: string) => {
     const tempId = `temp-${Date.now()}`;
-    const msg: Message = {
-      id: tempId,
-      type: "user",
-      message: { role: "user", content: text },
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, msg]);
+    setMessages((prev) => {
+      const lastMsg = prev[prev.length - 1];
+      const msg: Message = {
+        id: tempId,
+        type: "user",
+        message: { role: "user", content: text },
+        parentUuid: lastMsg?.id ?? null,
+        timestamp: new Date().toISOString(),
+      };
+      return [...prev, msg];
+    });
   }, []);
 
   // Update lastMessageIdRef when messages change
@@ -126,7 +134,18 @@ export function useSession(projectId: string, sessionId: string) {
         lastMessageIdRef.current,
       );
       if (data.messages.length > 0) {
-        setMessages((prev) => mergeJSONLMessages(prev, data.messages).messages);
+        setMessages((prev) => {
+          const result = mergeJSONLMessages(
+            prev,
+            data.messages,
+            tempIdMappingsRef.current,
+          );
+          // Update mappings with any new temp→real ID mappings
+          for (const [tempId, realId] of result.newMappings) {
+            tempIdMappingsRef.current.set(tempId, realId);
+          }
+          return result.messages;
+        });
       }
       setStatus(data.status);
     } catch {
@@ -244,7 +263,18 @@ export function useSession(projectId: string, sessionId: string) {
         // Remove eventType from the message (it's SSE envelope, not message data)
         (incoming as { eventType?: string }).eventType = undefined;
 
-        setMessages((prev) => mergeSSEMessage(prev, incoming).messages);
+        setMessages((prev) => {
+          const result = mergeSSEMessage(
+            prev,
+            incoming,
+            tempIdMappingsRef.current,
+          );
+          // Update mappings if a temp was replaced
+          if (result.replacedTempId) {
+            tempIdMappingsRef.current.set(result.replacedTempId, incoming.id);
+          }
+          return result.messages;
+        });
       } else if (data.eventType === "status") {
         const statusData = data as {
           eventType: string;

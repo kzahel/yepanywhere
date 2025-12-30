@@ -194,8 +194,10 @@ export class Process {
    * For mock SDK, uses legacy queue behavior.
    */
   queueMessage(message: UserMessage): number {
-    // Create user message with UUID
+    // Create user message with UUID - this UUID will be used by both SSE and SDK
     const uuid = randomUUID();
+    const messageWithUuid: UserMessage = { ...message, uuid };
+
     const sdkMessage = {
       type: "user",
       uuid,
@@ -218,7 +220,8 @@ export class Process {
         this.clearIdleTimer();
         this.setState({ type: "running" });
       }
-      return this.messageQueue.push(message);
+      // Pass message with UUID so SDK uses the same UUID we emitted via SSE
+      return this.messageQueue.push(messageWithUuid);
     }
 
     // Legacy behavior for mock SDK

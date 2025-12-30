@@ -69,6 +69,8 @@ export interface UserMessage {
   images?: string[]; // base64 or file paths
   documents?: string[];
   mode?: PermissionMode;
+  /** UUID to use for this message. If not provided, SDK will generate one. */
+  uuid?: string;
 }
 
 export interface SDKSessionOptions {

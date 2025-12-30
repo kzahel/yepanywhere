@@ -91,6 +91,7 @@ export class MessageQueue {
 
       return {
         type: "user",
+        uuid: msg.uuid, // Pass UUID so SDK uses the same one we emitted via SSE
         message: {
           role: "user",
           content,
@@ -101,6 +102,7 @@ export class MessageQueue {
     // Simple text message
     return {
       type: "user",
+      uuid: msg.uuid, // Pass UUID so SDK uses the same one we emitted via SSE
       message: {
         role: "user",
         content: msg.text,

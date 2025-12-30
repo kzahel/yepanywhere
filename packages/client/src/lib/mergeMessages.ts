@@ -9,6 +9,49 @@ export function getMessageContent(m: Message): unknown {
 }
 
 /**
+ * Resolve a parent ID through temp→real mappings.
+ * If the parent is a temp ID that was replaced, returns the real ID.
+ */
+function resolveParentId(
+  parentId: string | null | undefined,
+  tempIdMappings: Map<string, string>,
+): string | null | undefined {
+  if (!parentId) return parentId;
+  return tempIdMappings.get(parentId) ?? parentId;
+}
+
+/**
+ * Check if two messages have matching parents, accounting for temp→real ID mappings.
+ * A temp message's parent (which might be a temp ID) should match the incoming message's
+ * parent (which is a real ID) after resolving through the mappings.
+ *
+ * If the incoming message doesn't have parentUuid (e.g., SSE messages from SDK),
+ * we can't use parent matching and return true to fall back to content-only matching.
+ */
+function parentsMatch(
+  tempMsg: Message,
+  incomingMsg: Message,
+  tempIdMappings: Map<string, string>,
+): boolean {
+  const tempParent = resolveParentId(tempMsg.parentUuid, tempIdMappings);
+  const incomingParent = incomingMsg.parentUuid;
+
+  // Both null/undefined = match
+  if (!tempParent && !incomingParent) return true;
+
+  // If incoming doesn't have parentUuid (e.g., SSE from SDK), fall back to content matching
+  // This allows SSE messages without DAG info to still match temp messages
+  if (incomingParent === undefined) return true;
+
+  // If temp doesn't have parent but incoming does, no match
+  // (incoming is more specific, temp is older/less specific)
+  if (!tempParent) return false;
+
+  // Compare resolved IDs
+  return tempParent === incomingParent;
+}
+
+/**
  * Merge messages from different sources.
  * JSONL (from disk) is authoritative; SDK (streaming) provides real-time updates.
  *
@@ -56,20 +99,25 @@ export interface MergeJSONLResult {
   messages: Message[];
   /** IDs that were replaced (temp or SDK messages matched to JSONL) */
   replacedIds: Set<string>;
+  /** New temp→real ID mappings discovered during this merge */
+  newMappings: Map<string, string>;
 }
 
 /**
  * Merge incoming JSONL messages with existing messages.
  *
  * Handles:
- * - Deduplication of temp messages (temp-*) that match JSONL by content
- * - Deduplication of SDK messages that match JSONL by content
+ * - Deduplication of temp messages (temp-*) that match JSONL by content AND parent
+ * - Deduplication of SDK messages that match JSONL by content AND parent
  * - Position preservation when replacing messages
  * - Adding new messages at end
+ *
+ * @param tempIdMappings - Existing temp→real ID mappings for parent resolution
  */
 export function mergeJSONLMessages(
   existing: Message[],
   incoming: Message[],
+  tempIdMappings: Map<string, string> = new Map(),
 ): MergeJSONLResult {
   // Create a map of existing messages for efficient lookup
   const messageMap = new Map(existing.map((m) => [m.id, m]));
@@ -77,6 +125,10 @@ export function mergeJSONLMessages(
   const replacedIds = new Set<string>();
   // Track ID replacements: old ID -> new ID (for position preservation)
   const idReplacements = new Map<string, string>();
+  // New mappings discovered in this merge
+  const newMappings = new Map<string, string>();
+  // Combined mappings (existing + new) for parent resolution
+  const allMappings = new Map(tempIdMappings);
 
   // Merge each incoming JSONL message
   for (const incomingMsg of incoming) {
@@ -91,13 +143,19 @@ export function mergeJSONLMessages(
           (m.id.startsWith("temp-") || m._source === "sdk") && // Temp or SDK-sourced
           m.type === "user" &&
           JSON.stringify(getMessageContent(m)) ===
-            JSON.stringify(incomingContent),
+            JSON.stringify(incomingContent) &&
+          parentsMatch(m, incomingMsg, allMappings), // Parents must match too
       );
       if (duplicateMsg) {
         // Mark duplicate ID as replaced and track the replacement
         replacedIds.add(duplicateMsg.id);
         idReplacements.set(duplicateMsg.id, incomingMsg.id);
         messageMap.delete(duplicateMsg.id);
+        // Record the mapping for future parent resolution
+        if (duplicateMsg.id.startsWith("temp-")) {
+          newMappings.set(duplicateMsg.id, incomingMsg.id);
+          allMappings.set(duplicateMsg.id, incomingMsg.id);
+        }
       }
     }
 
@@ -139,15 +197,65 @@ export function mergeJSONLMessages(
     }
   }
 
-  return { messages: result, replacedIds };
+  return { messages: result, replacedIds, newMappings };
 }
 
 export interface MergeSSEResult {
   messages: Message[];
   /** Whether a temp message was replaced */
   replacedTemp: boolean;
+  /** The temp ID that was replaced, if any */
+  replacedTempId: string | null;
   /** Index where the message was inserted/updated */
   index: number;
+}
+
+/**
+ * Find the most recent temp user message that matches the incoming message.
+ * When parentUuid is missing (SSE from SDK), we only match the LAST temp user message
+ * to avoid incorrectly matching replayed messages to newer temps.
+ */
+function findMatchingTempMessage(
+  existing: Message[],
+  incoming: Message,
+  tempIdMappings: Map<string, string>,
+): number {
+  const incomingContent = JSON.stringify(getMessageContent(incoming));
+
+  // Find all temp user messages with matching content
+  const tempCandidates: { index: number; msg: Message }[] = [];
+  for (let i = 0; i < existing.length; i++) {
+    const m = existing[i];
+    if (
+      m?.id.startsWith("temp-") &&
+      m.type === "user" &&
+      JSON.stringify(getMessageContent(m)) === incomingContent
+    ) {
+      tempCandidates.push({ index: i, msg: m });
+    }
+  }
+
+  if (tempCandidates.length === 0) return -1;
+
+  // If incoming has parentUuid, use parent matching to find the right one
+  if (incoming.parentUuid !== undefined) {
+    for (const { index, msg } of tempCandidates) {
+      if (parentsMatch(msg, incoming, tempIdMappings)) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  // No parentUuid: only match if there's exactly ONE temp with this content
+  // This prevents replayed SSE messages from matching the wrong temp
+  if (tempCandidates.length === 1) {
+    return tempCandidates[0]?.index ?? -1;
+  }
+
+  // Multiple temps with same content and no parent info - can't safely match
+  // Let JSONL (which has parentUuid) handle the dedup
+  return -1;
 }
 
 /**
@@ -155,12 +263,15 @@ export interface MergeSSEResult {
  *
  * Handles:
  * - Merging with existing message if same ID
- * - Replacing temp messages for user messages by content match
+ * - Replacing temp messages for user messages by content AND parent match
  * - Adding new messages at end
+ *
+ * @param tempIdMappings - Existing temp→real ID mappings for parent resolution
  */
 export function mergeSSEMessage(
   existing: Message[],
   incoming: Message,
+  tempIdMappings: Map<string, string> = new Map(),
 ): MergeSSEResult {
   // Check for existing message with same ID
   const existingIdx = existing.findIndex((m) => m.id === incoming.id);
@@ -172,23 +283,27 @@ export function mergeSSEMessage(
 
     // Only update if actually different
     if (existingMsg === merged) {
-      return { messages: existing, replacedTemp: false, index: existingIdx };
+      return {
+        messages: existing,
+        replacedTemp: false,
+        replacedTempId: null,
+        index: existingIdx,
+      };
     }
 
     const updated = [...existing];
     updated[existingIdx] = merged;
-    return { messages: updated, replacedTemp: false, index: existingIdx };
+    return {
+      messages: updated,
+      replacedTemp: false,
+      replacedTempId: null,
+      index: existingIdx,
+    };
   }
 
   // For user messages, check if we have a temp message to replace
   if (incoming.type === "user") {
-    const tempIdx = existing.findIndex(
-      (m) =>
-        m.id.startsWith("temp-") &&
-        m.type === "user" &&
-        JSON.stringify(getMessageContent(m)) ===
-          JSON.stringify(getMessageContent(incoming)),
-    );
+    const tempIdx = findMatchingTempMessage(existing, incoming, tempIdMappings);
     if (tempIdx >= 0) {
       // Replace temp message with authoritative one (real UUID + all fields)
       const updated = [...existing];
@@ -199,8 +314,13 @@ export function mergeSSEMessage(
           ...incoming,
           _source: "sdk",
         };
+        return {
+          messages: updated,
+          replacedTemp: true,
+          replacedTempId: existingTemp.id,
+          index: tempIdx,
+        };
       }
-      return { messages: updated, replacedTemp: true, index: tempIdx };
     }
   }
 
@@ -208,6 +328,7 @@ export function mergeSSEMessage(
   return {
     messages: [...existing, { ...incoming, _source: "sdk" }],
     replacedTemp: false,
+    replacedTempId: null,
     index: existing.length,
   };
 }
