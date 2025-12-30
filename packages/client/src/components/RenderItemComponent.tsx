@@ -67,6 +67,7 @@ export const RenderItemComponent = memo(function RenderItemComponent({
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: debug feature, ctrl+click only
     <div
+      className={item.isSubagent ? "subagent-item" : undefined}
       data-render-type={item.type}
       data-render-id={item.id}
       onClick={handleClick}

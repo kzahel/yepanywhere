@@ -99,6 +99,7 @@ function processMessage(
       id: msg.id,
       content,
       sourceMessages: [msg],
+      isSubagent: msg.isSubagent,
     });
     return;
   }
@@ -117,6 +118,7 @@ function processMessage(
           id: blockId,
           text: block.text,
           sourceMessages: [msg],
+          isSubagent: msg.isSubagent,
         });
       }
     } else if (block.type === "thinking") {
@@ -128,6 +130,7 @@ function processMessage(
           signature: undefined,
           status: "complete",
           sourceMessages: [msg],
+          isSubagent: msg.isSubagent,
         });
       }
     } else if (block.type === "tool_use") {
@@ -142,6 +145,7 @@ function processMessage(
           toolResult: undefined,
           status: isOrphaned ? "aborted" : "pending",
           sourceMessages: [msg],
+          isSubagent: msg.isSubagent,
         };
         pendingToolCalls.set(block.id, items.length);
         items.push(toolCall);
@@ -189,6 +193,7 @@ function attachToolResult(
     toolResult: resultData,
     status: block.is_error ? "error" : "complete",
     sourceMessages: [...item.sourceMessages, resultMessage],
+    isSubagent: item.isSubagent,
   };
 
   items[index] = updatedItem;

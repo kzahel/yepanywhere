@@ -1801,3 +1801,22 @@ details[open] .collapsible__icon {
     padding: 0.5rem;
   }
 }
+
+/* ==========================================================================
+   Subagent Items - messages from Task subagents
+   ========================================================================== */
+
+.subagent-item {
+  border-left: 2px solid #4a4a6a;
+  padding-left: 0.75rem;
+  margin-left: 0.25rem;
+  opacity: 0.85;
+}
+
+.subagent-item .tool-row {
+  background: rgba(74, 74, 106, 0.08);
+}
+
+.subagent-item .tool-row-header {
+  background: rgba(74, 74, 106, 0.12);
+}
