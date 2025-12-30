@@ -6,6 +6,9 @@
    ========================================================================== */
 
 :root {
+  /* Tell browser to use dark mode for native UI elements (scrollbars, form controls) */
+  color-scheme: dark;
+
   /* Claude Brand Colors */
   --app-claude-orange: #d97757;
   --app-claude-clay-button-orange: #c6613f;
