@@ -109,6 +109,23 @@ export class ProjectScanner {
   }
 
   /**
+   * Find a project by matching the session directory suffix.
+   *
+   * This is used by ExternalSessionTracker which extracts the directory-based
+   * project identifier from file paths (e.g., "-home-user-project" or
+   * "hostname/-home-user-project") rather than the base64url-encoded projectId.
+   */
+  async getProjectBySessionDirSuffix(
+    dirSuffix: string,
+  ): Promise<Project | null> {
+    const projects = await this.listProjects();
+    // Match projects where sessionDir ends with the suffix pattern
+    // e.g., suffix "-home-user-project" matches "~/.claude/projects/-home-user-project"
+    // e.g., suffix "hostname/-home-user-project" matches "~/.claude/projects/hostname/-home-user-project"
+    return projects.find((p) => p.sessionDir.endsWith(`/${dirSuffix}`)) ?? null;
+  }
+
+  /**
    * Get the actual project path by reading the cwd from a session file.
    *
    * NOTE: This is necessary because the directory names use a lossy

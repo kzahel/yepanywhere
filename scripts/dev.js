@@ -19,6 +19,18 @@ const rootDir = join(__dirname, "..");
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
+
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`Usage: pnpm dev [options]
+
+Options:
+  --no-backend-reload  Backend watches but doesn't auto-restart
+  --no-frontend-reload Frontend watches but doesn't HMR
+  --manual             Neither auto-reloads (same as both --no-* flags)
+  -h, --help           Show this help message
+`);
+  process.exit(0);
+}
 const noBackendReload =
   args.includes("--no-backend-reload") || args.includes("--manual");
 const noFrontendReload =
