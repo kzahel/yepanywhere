@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { ProjectScanner } from "../projects/scanner.js";
-import type { UserMessage } from "../sdk/types.js";
+import type { PermissionMode, UserMessage } from "../sdk/types.js";
 import type { SessionReader } from "../sessions/reader.js";
 import type { ExternalSessionTracker } from "../supervisor/ExternalSessionTracker.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
@@ -16,6 +16,7 @@ interface StartSessionBody {
   message: string;
   images?: string[];
   documents?: string[];
+  mode?: PermissionMode;
 }
 
 interface InputResponseBody {
@@ -111,11 +112,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       text: body.message,
       images: body.images,
       documents: body.documents,
+      mode: body.mode,
     };
 
     const process = await deps.supervisor.startSession(
       project.path,
       userMessage,
+      body.mode,
     );
 
     return c.json({
@@ -149,12 +152,14 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       text: body.message,
       images: body.images,
       documents: body.documents,
+      mode: body.mode,
     };
 
     const process = await deps.supervisor.resumeSession(
       sessionId,
       project.path,
       userMessage,
+      body.mode,
     );
 
     return c.json({ processId: process.id });
@@ -184,7 +189,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       text: body.message,
       images: body.images,
       documents: body.documents,
+      mode: body.mode,
     };
+
+    // Update process permission mode if specified
+    if (body.mode) {
+      process.setPermissionMode(body.mode);
+    }
 
     const position = process.queueMessage(userMessage);
 

@@ -41,16 +41,29 @@ export class Supervisor {
   async startSession(
     projectPath: string,
     message: UserMessage,
+    permissionMode?: PermissionMode,
   ): Promise<Process> {
     const projectId = encodeProjectId(projectPath);
 
     // Use real SDK if available
     if (this.realSdk) {
-      return this.startRealSession(projectPath, projectId, message);
+      return this.startRealSession(
+        projectPath,
+        projectId,
+        message,
+        undefined,
+        permissionMode,
+      );
     }
 
     // Fall back to legacy mock SDK
-    return this.startLegacySession(projectPath, projectId, message);
+    return this.startLegacySession(
+      projectPath,
+      projectId,
+      message,
+      undefined,
+      permissionMode,
+    );
   }
 
   /**
@@ -61,6 +74,7 @@ export class Supervisor {
     projectId: string,
     message: UserMessage,
     resumeSessionId?: string,
+    permissionMode?: PermissionMode,
   ): Promise<Process> {
     // Create a placeholder process first (needed for tool approval callback)
     const tempSessionId = resumeSessionId ?? randomUUID();
@@ -74,11 +88,14 @@ export class Supervisor {
     // Using a holder object allows us to set the reference later
     const processHolder: { process: Process | null } = { process: null };
 
+    // Use provided mode or fall back to default
+    const effectiveMode = permissionMode ?? this.defaultPermissionMode;
+
     const result = await this.realSdk.startSession({
       cwd: projectPath,
       initialMessage: message,
       resumeSessionId,
-      permissionMode: this.defaultPermissionMode,
+      permissionMode: effectiveMode,
       onToolApproval: async (toolName, input, opts) => {
         // Delegate to the process's handleToolApproval
         if (!processHolder.process) {
@@ -97,6 +114,7 @@ export class Supervisor {
       idleTimeoutMs: this.idleTimeoutMs,
       queue,
       abortFn: abort,
+      permissionMode: effectiveMode,
     };
 
     const process = new Process(iterator, options);
@@ -121,6 +139,7 @@ export class Supervisor {
     projectId: string,
     message: UserMessage,
     resumeSessionId?: string,
+    permissionMode?: PermissionMode,
   ): Process {
     // sdk is guaranteed to exist here (checked in startSession)
     if (!this.sdk) {
@@ -133,11 +152,15 @@ export class Supervisor {
 
     const sessionId = resumeSessionId ?? randomUUID();
 
+    // Use provided mode or fall back to default
+    const effectiveMode = permissionMode ?? this.defaultPermissionMode;
+
     const options: ProcessOptions = {
       projectPath,
       projectId,
       sessionId,
       idleTimeoutMs: this.idleTimeoutMs,
+      permissionMode: effectiveMode,
     };
 
     const process = new Process(iterator, options);
@@ -154,12 +177,17 @@ export class Supervisor {
     sessionId: string,
     projectPath: string,
     message: UserMessage,
+    permissionMode?: PermissionMode,
   ): Promise<Process> {
     // Check if already have a process for this session
     const existingProcessId = this.sessionToProcess.get(sessionId);
     if (existingProcessId) {
       const existingProcess = this.processes.get(existingProcessId);
       if (existingProcess) {
+        // Update permission mode if specified
+        if (permissionMode) {
+          existingProcess.setPermissionMode(permissionMode);
+        }
         // Queue message to existing process
         existingProcess.queueMessage(message);
         return existingProcess;
@@ -170,11 +198,23 @@ export class Supervisor {
 
     // Use real SDK if available
     if (this.realSdk) {
-      return this.startRealSession(projectPath, projectId, message, sessionId);
+      return this.startRealSession(
+        projectPath,
+        projectId,
+        message,
+        sessionId,
+        permissionMode,
+      );
     }
 
     // Fall back to legacy mock SDK
-    return this.startLegacySession(projectPath, projectId, message, sessionId);
+    return this.startLegacySession(
+      projectPath,
+      projectId,
+      message,
+      sessionId,
+      permissionMode,
+    );
   }
 
   getProcess(processId: string): Process | undefined {

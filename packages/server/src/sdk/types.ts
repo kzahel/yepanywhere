@@ -34,6 +34,7 @@ export interface UserMessage {
   text: string;
   images?: string[]; // base64 or file paths
   documents?: string[];
+  mode?: PermissionMode;
 }
 
 export interface SDKSessionOptions {
@@ -49,7 +50,11 @@ export interface ClaudeSDK {
 // New interface for real SDK with full features
 import type { MessageQueue } from "./messageQueue.js";
 
-export type PermissionMode = "default" | "bypassPermissions" | "acceptEdits";
+export type PermissionMode =
+  | "default"
+  | "bypassPermissions"
+  | "acceptEdits"
+  | "plan";
 
 export interface ToolApprovalResult {
   behavior: "allow" | "deny";

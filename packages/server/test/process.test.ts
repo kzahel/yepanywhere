@@ -235,4 +235,117 @@ describe("Process", () => {
       }
     });
   });
+
+  describe("permission mode", () => {
+    it("defaults to 'default' mode", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+      });
+
+      expect(process.permissionMode).toBe("default");
+    });
+
+    it("accepts initial permission mode", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        permissionMode: "acceptEdits",
+      });
+
+      expect(process.permissionMode).toBe("acceptEdits");
+    });
+
+    it("allows changing permission mode", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+      });
+
+      process.setPermissionMode("bypassPermissions");
+      expect(process.permissionMode).toBe("bypassPermissions");
+
+      process.setPermissionMode("plan");
+      expect(process.permissionMode).toBe("plan");
+    });
+
+    it("handleToolApproval auto-approves in bypassPermissions mode", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        permissionMode: "bypassPermissions",
+      });
+
+      const abortController = new AbortController();
+      const result = await process.handleToolApproval(
+        "Bash",
+        { command: "rm -rf /" },
+        { signal: abortController.signal },
+      );
+
+      expect(result.behavior).toBe("allow");
+    });
+
+    it("handleToolApproval denies all in plan mode", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        permissionMode: "plan",
+      });
+
+      const abortController = new AbortController();
+      const result = await process.handleToolApproval(
+        "Edit",
+        { file: "test.ts" },
+        { signal: abortController.signal },
+      );
+
+      expect(result.behavior).toBe("deny");
+      expect(result.message).toContain("Plan mode");
+    });
+
+    it("handleToolApproval auto-approves Edit tools in acceptEdits mode", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        permissionMode: "acceptEdits",
+      });
+
+      const abortController = new AbortController();
+
+      // Edit should be auto-approved
+      const editResult = await process.handleToolApproval(
+        "Edit",
+        { file: "test.ts" },
+        { signal: abortController.signal },
+      );
+      expect(editResult.behavior).toBe("allow");
+
+      // Write should be auto-approved
+      const writeResult = await process.handleToolApproval(
+        "Write",
+        { file: "test.ts" },
+        { signal: abortController.signal },
+      );
+      expect(writeResult.behavior).toBe("allow");
+    });
+  });
 });

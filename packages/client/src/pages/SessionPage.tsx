@@ -5,7 +5,7 @@ import { MessageInput } from "../components/MessageInput";
 import { MessageList } from "../components/MessageList";
 import { StatusIndicator } from "../components/StatusIndicator";
 import { useSession } from "../hooks/useSession";
-import type { Project } from "../types";
+import type { PermissionMode, Project } from "../types";
 
 export function SessionPage() {
   const { projectId, sessionId } = useParams<{
@@ -40,6 +40,8 @@ function SessionPageContent({
   } = useSession(projectId, sessionId);
   const [sending, setSending] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
+  const [permissionMode, setPermissionMode] =
+    useState<PermissionMode>("default");
 
   // Fetch project info for breadcrumb
   useEffect(() => {
@@ -51,13 +53,18 @@ function SessionPageContent({
     addUserMessage(text); // Optimistic display with temp ID
     try {
       if (status.state === "idle") {
-        // Resume the session
-        const result = await api.resumeSession(projectId, sessionId, text);
+        // Resume the session with current permission mode
+        const result = await api.resumeSession(
+          projectId,
+          sessionId,
+          text,
+          permissionMode,
+        );
         // Update status to trigger SSE connection
         setStatus({ state: "owned", processId: result.processId });
       } else {
-        // Queue to existing process
-        await api.queueMessage(sessionId, text);
+        // Queue to existing process with current permission mode
+        await api.queueMessage(sessionId, text, permissionMode);
       }
     } catch (err) {
       console.error("Failed to send:", err);
@@ -118,6 +125,8 @@ function SessionPageContent({
                 ? "External session - send at your own risk..."
                 : "Queue a message..."
           }
+          mode={permissionMode}
+          onModeChange={setPermissionMode}
         />
       </footer>
     </div>

@@ -1,5 +1,6 @@
 import type {
   Message,
+  PermissionMode,
   Project,
   Session,
   SessionStatus,
@@ -49,22 +50,27 @@ export const api = {
     }>(`/projects/${projectId}/sessions/${sessionId}${params}`);
   },
 
-  startSession: (projectId: string, message: string) =>
+  startSession: (projectId: string, message: string, mode?: PermissionMode) =>
     fetchJSON<{ sessionId: string; processId: string }>(
       `/projects/${projectId}/sessions`,
-      { method: "POST", body: JSON.stringify({ message }) },
+      { method: "POST", body: JSON.stringify({ message, mode }) },
     ),
 
-  resumeSession: (projectId: string, sessionId: string, message: string) =>
+  resumeSession: (
+    projectId: string,
+    sessionId: string,
+    message: string,
+    mode?: PermissionMode,
+  ) =>
     fetchJSON<{ processId: string }>(
       `/projects/${projectId}/sessions/${sessionId}/resume`,
-      { method: "POST", body: JSON.stringify({ message }) },
+      { method: "POST", body: JSON.stringify({ message, mode }) },
     ),
 
-  queueMessage: (sessionId: string, message: string) =>
+  queueMessage: (sessionId: string, message: string, mode?: PermissionMode) =>
     fetchJSON<{ queued: boolean; position: number }>(
       `/sessions/${sessionId}/messages`,
-      { method: "POST", body: JSON.stringify({ message }) },
+      { method: "POST", body: JSON.stringify({ message, mode }) },
     ),
 
   abortProcess: (processId: string) =>

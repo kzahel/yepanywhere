@@ -296,6 +296,7 @@ h2 {
 /* Message input */
 .message-input {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
@@ -308,6 +309,61 @@ h2 {
   color: inherit;
   font-size: 1rem;
   resize: none;
+}
+
+.message-input-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mode-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mode-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: #555;
+}
+
+.mode-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Mode-specific dot colors */
+.mode-dot.mode-default {
+  background: var(--timeline-dot-default);
+}
+
+.mode-dot.mode-acceptEdits {
+  background: var(--success-color);
+}
+
+.mode-dot.mode-plan {
+  background: var(--warning-color);
+}
+
+.mode-dot.mode-bypassPermissions {
+  background: var(--error-color);
 }
 
 /* Status */

@@ -102,6 +102,25 @@ describe("Sessions API", () => {
       expect(json.sessionId).toBeDefined();
       expect(json.processId).toBeDefined();
     });
+
+    it("accepts permission mode parameter", async () => {
+      mockSdk.addScenario(createMockScenario("new-session", "Hello!"));
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(`/api/projects/${projectId}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Claude-Anywhere": "true",
+        },
+        body: JSON.stringify({ message: "hello", mode: "acceptEdits" }),
+      });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.sessionId).toBeDefined();
+      expect(json.processId).toBeDefined();
+    });
   });
 
   describe("POST /api/projects/:projectId/sessions/:sessionId/resume", () => {
@@ -156,6 +175,27 @@ describe("Sessions API", () => {
             "X-Claude-Anywhere": "true",
           },
           body: JSON.stringify({ message: "continue" }),
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.processId).toBeDefined();
+    });
+
+    it("accepts permission mode parameter", async () => {
+      mockSdk.addScenario(createMockScenario("sess-123", "Resumed!"));
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(
+        `/api/projects/${projectId}/sessions/sess-123/resume`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Claude-Anywhere": "true",
+          },
+          body: JSON.stringify({ message: "continue", mode: "plan" }),
         },
       );
 

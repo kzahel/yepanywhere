@@ -1,6 +1,12 @@
 // Shared types for the client - copied from server to avoid coupling
 // TODO: Consider a shared package if these drift
 
+export type PermissionMode =
+  | "default"
+  | "bypassPermissions"
+  | "acceptEdits"
+  | "plan";
+
 export interface Project {
   id: string;
   path: string;

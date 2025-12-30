@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { MessageQueue } from "../sdk/messageQueue.js";
 import type {
+  PermissionMode,
   SDKMessage,
   ToolApprovalResult,
   UserMessage,
@@ -52,6 +53,9 @@ export class Process {
   /** Pending tool approval request (from canUseTool callback) */
   private pendingToolApproval: PendingToolApproval | null = null;
 
+  /** Current permission mode for tool approvals */
+  private _permissionMode: PermissionMode = "default";
+
   /** Resolvers waiting for the real session ID */
   private sessionIdResolvers: Array<(id: string) => void> = [];
   private sessionIdResolved = false;
@@ -70,6 +74,7 @@ export class Process {
     // Real SDK provides these, mock SDK doesn't
     this.messageQueue = options.queue ?? null;
     this.abortFn = options.abortFn ?? null;
+    this._permissionMode = options.permissionMode ?? "default";
 
     // Start processing messages from the SDK
     this.processMessages();
@@ -88,6 +93,18 @@ export class Process {
       return this.messageQueue.depth;
     }
     return this.legacyQueue.length;
+  }
+
+  get permissionMode(): PermissionMode {
+    return this._permissionMode;
+  }
+
+  /**
+   * Update the permission mode for this process.
+   * Affects how subsequent tool approvals are handled.
+   */
+  setPermissionMode(mode: PermissionMode): void {
+    this._permissionMode = mode;
   }
 
   /**
@@ -166,6 +183,11 @@ export class Process {
   /**
    * Handle tool approval request from SDK's canUseTool callback.
    * This is called by the Supervisor when creating the session.
+   * Behavior depends on current permission mode:
+   * - default: Ask user for approval
+   * - acceptEdits: Auto-approve Edit/Write tools, ask for others
+   * - plan: Deny all tools (planning only)
+   * - bypassPermissions: Auto-approve all tools
    */
   async handleToolApproval(
     toolName: string,
@@ -177,6 +199,32 @@ export class Process {
       return { behavior: "deny", message: "Operation aborted" };
     }
 
+    // Handle based on permission mode
+    switch (this._permissionMode) {
+      case "bypassPermissions":
+        // Auto-approve all tools
+        return { behavior: "allow" };
+
+      case "plan":
+        // Deny all tools - planning only
+        return { behavior: "deny", message: "Plan mode - tools not executed" };
+
+      case "acceptEdits": {
+        // Auto-approve file editing tools, ask for others
+        const editTools = ["Edit", "Write", "NotebookEdit"];
+        if (editTools.includes(toolName)) {
+          return { behavior: "allow" };
+        }
+        // Fall through to ask user for non-edit tools
+        break;
+      }
+
+      default:
+        // Fall through to ask user
+        break;
+    }
+
+    // Default behavior: ask user for approval
     const request: InputRequest = {
       id: randomUUID(),
       sessionId: this._sessionId,

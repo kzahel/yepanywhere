@@ -1,4 +1,4 @@
-import type { SDKMessage } from "../sdk/types.js";
+import type { PermissionMode, SDKMessage } from "../sdk/types.js";
 
 // Constants
 export const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -119,4 +119,5 @@ export interface ProcessOptions {
   projectId: string;
   sessionId: string;
   idleTimeoutMs?: number; // default 5 minutes
+  permissionMode?: PermissionMode;
 }
