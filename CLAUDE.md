@@ -22,3 +22,7 @@ pnpm test:e2e   # E2E tests (if UI changes)
 ```
 
 Fix any errors before considering the task complete.
+
+## Git Commits
+
+Never mention Claude, AI, or any AI assistant in commit messages. Write commit messages as if a human developer wrote them.
