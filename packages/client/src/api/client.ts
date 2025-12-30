@@ -56,10 +56,10 @@ export const api = {
       processId: string;
       permissionMode: PermissionMode;
       modeVersion: number;
-    }>(
-      `/projects/${projectId}/sessions`,
-      { method: "POST", body: JSON.stringify({ message, mode }) },
-    ),
+    }>(`/projects/${projectId}/sessions`, {
+      method: "POST",
+      body: JSON.stringify({ message, mode }),
+    }),
 
   resumeSession: (
     projectId: string,
@@ -71,10 +71,10 @@ export const api = {
       processId: string;
       permissionMode: PermissionMode;
       modeVersion: number;
-    }>(
-      `/projects/${projectId}/sessions/${sessionId}/resume`,
-      { method: "POST", body: JSON.stringify({ message, mode }) },
-    ),
+    }>(`/projects/${projectId}/sessions/${sessionId}/resume`, {
+      method: "POST",
+      body: JSON.stringify({ message, mode }),
+    }),
 
   queueMessage: (sessionId: string, message: string, mode?: PermissionMode) =>
     fetchJSON<{ queued: boolean; position: number }>(

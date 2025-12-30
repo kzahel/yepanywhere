@@ -116,4 +116,75 @@ test.describe("Permission Mode", () => {
     // Verify the mode is still "Edit automatically" (synced from server)
     await expect(modeButton).toContainText("Edit automatically");
   });
+
+  test("rapid mode toggling settles to final state", async ({ page }) => {
+    await page.goto("/projects");
+    await page.waitForSelector(".project-list a");
+    await page.locator(".project-list a").first().click();
+
+    // Start a session
+    await page.fill(".new-session-form input", "Test message");
+    await page.click(".new-session-form button");
+
+    await expect(page.locator(".session-messages")).toBeVisible();
+
+    const modeButton = page.locator(".mode-button");
+
+    // Initial state: Ask before edits (default)
+    await expect(modeButton).toContainText("Ask before edits");
+
+    // Rapidly click mode button multiple times
+    await modeButton.click(); // -> Edit automatically
+    await modeButton.click(); // -> Plan mode
+    await modeButton.click(); // -> Bypass permissions
+    await modeButton.click(); // -> Ask before edits
+
+    // Wait a bit for any async operations to settle
+    await page.waitForTimeout(200);
+
+    // Final state should be "Ask before edits" (cycled back)
+    await expect(modeButton).toContainText("Ask before edits");
+
+    // Refresh and verify mode persisted
+    await page.reload();
+    await expect(page.locator(".session-messages")).toBeVisible();
+    await expect(modeButton).toContainText("Ask before edits");
+  });
+
+  test("mode syncs from server on initial SSE connection", async ({ page }) => {
+    await page.goto("/projects");
+    await page.waitForSelector(".project-list a");
+    await page.locator(".project-list a").first().click();
+
+    // Start a session with a message
+    await page.fill(".new-session-form input", "Test message for sync");
+    await page.click(".new-session-form button");
+
+    await expect(page.locator(".session-messages")).toBeVisible();
+
+    const modeButton = page.locator(".mode-button");
+
+    // Change mode to "Bypass permissions"
+    await modeButton.click(); // -> Edit automatically
+    await modeButton.click(); // -> Plan mode
+    await modeButton.click(); // -> Bypass permissions
+    await expect(modeButton).toContainText("Bypass permissions");
+
+    // Send another message to establish the mode on server
+    await page.fill(
+      ".message-input input, .message-input textarea",
+      "Another message",
+    );
+    await page.keyboard.press("Enter");
+
+    // Wait for message to be processed
+    await page.waitForTimeout(500);
+
+    // Refresh the page - should sync mode from SSE connected event
+    await page.reload();
+    await expect(page.locator(".session-messages")).toBeVisible();
+
+    // Mode should be synced from server
+    await expect(modeButton).toContainText("Bypass permissions");
+  });
 });

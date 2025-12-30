@@ -121,6 +121,44 @@ describe("Sessions API", () => {
       expect(json.sessionId).toBeDefined();
       expect(json.processId).toBeDefined();
     });
+
+    it("returns permissionMode and modeVersion in response", async () => {
+      mockSdk.addScenario(createMockScenario("new-session", "Hello!"));
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(`/api/projects/${projectId}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Claude-Anywhere": "true",
+        },
+        body: JSON.stringify({ message: "hello", mode: "acceptEdits" }),
+      });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.permissionMode).toBe("acceptEdits");
+      expect(json.modeVersion).toBe(0);
+    });
+
+    it("returns default permissionMode when not specified", async () => {
+      mockSdk.addScenario(createMockScenario("new-session", "Hello!"));
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(`/api/projects/${projectId}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Claude-Anywhere": "true",
+        },
+        body: JSON.stringify({ message: "hello" }),
+      });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.permissionMode).toBe("default");
+      expect(json.modeVersion).toBe(0);
+    });
   });
 
   describe("POST /api/projects/:projectId/sessions/:sessionId/resume", () => {
@@ -202,6 +240,31 @@ describe("Sessions API", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.processId).toBeDefined();
+    });
+
+    it("returns permissionMode and modeVersion in response", async () => {
+      mockSdk.addScenario(createMockScenario("sess-123", "Resumed!"));
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(
+        `/api/projects/${projectId}/sessions/sess-123/resume`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Claude-Anywhere": "true",
+          },
+          body: JSON.stringify({
+            message: "continue",
+            mode: "bypassPermissions",
+          }),
+        },
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.permissionMode).toBe("bypassPermissions");
+      expect(json.modeVersion).toBe(0);
     });
   });
 
