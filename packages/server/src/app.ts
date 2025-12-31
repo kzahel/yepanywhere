@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { corsMiddleware, requireCustomHeader } from "./middleware/security.js";
+import type { NotificationService } from "./notifications/index.js";
 import { ProjectScanner } from "./projects/scanner.js";
 import { createActivityRoutes } from "./routes/activity.js";
 import { createDevRoutes } from "./routes/dev.js";
@@ -31,6 +32,8 @@ export interface AppOptions {
   eventBus?: EventBus;
   /** WebSocket upgrader from @hono/node-ws (optional) */
   upgradeWebSocket?: UploadDeps["upgradeWebSocket"];
+  /** NotificationService for tracking session read state */
+  notificationService?: NotificationService;
 }
 
 export function createApp(options: AppOptions): Hono {
@@ -81,6 +84,7 @@ export function createApp(options: AppOptions): Hono {
       readerFactory,
       supervisor,
       externalTracker,
+      notificationService: options.notificationService,
     }),
   );
   app.route(
@@ -90,6 +94,7 @@ export function createApp(options: AppOptions): Hono {
       scanner,
       readerFactory,
       externalTracker,
+      notificationService: options.notificationService,
     }),
   );
   app.route("/api/processes", createProcessesRoutes({ supervisor }));

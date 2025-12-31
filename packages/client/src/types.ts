@@ -12,6 +12,9 @@ export interface Project {
   lastActivity: string | null;
 }
 
+/** Type of pending input request for notification badges */
+export type PendingInputType = "tool-approval" | "user-question";
+
 export interface SessionSummary {
   id: string;
   projectId: string;
@@ -21,6 +24,13 @@ export interface SessionSummary {
   updatedAt: string;
   messageCount: number;
   status: SessionStatus;
+  // Notification fields (added by server when available)
+  /** Type of pending input if session needs user action */
+  pendingInputType?: PendingInputType;
+  /** When the session was last viewed (if tracked) */
+  lastSeenAt?: string;
+  /** Whether session has new content since last viewed */
+  hasUnread?: boolean;
 }
 
 /**

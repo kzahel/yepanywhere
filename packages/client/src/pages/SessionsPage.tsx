@@ -93,7 +93,11 @@ export function SessionsPage() {
                 </strong>
                 <span className="meta">
                   {session.messageCount} messages
-                  <SessionStatusBadge status={session.status} />
+                  <SessionStatusBadge
+                    status={session.status}
+                    pendingInputType={session.pendingInputType}
+                    hasUnread={session.hasUnread}
+                  />
                 </span>
               </Link>
             </li>

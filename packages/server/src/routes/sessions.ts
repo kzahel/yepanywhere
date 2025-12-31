@@ -1,5 +1,6 @@
 import { isUrlProjectId } from "@claude-anywhere/shared";
 import { Hono } from "hono";
+import type { NotificationService } from "../notifications/index.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import type { PermissionMode, SDKMessage, UserMessage } from "../sdk/types.js";
 import type { SessionReader } from "../sessions/reader.js";
@@ -12,6 +13,7 @@ export interface SessionsDeps {
   scanner: ProjectScanner;
   readerFactory: (sessionDir: string) => SessionReader;
   externalTracker?: ExternalSessionTracker;
+  notificationService?: NotificationService;
 }
 
 interface StartSessionBody {
@@ -397,6 +399,39 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     }
 
     return c.json({ accepted: true });
+  });
+
+  // POST /api/sessions/:sessionId/mark-seen - Mark session as seen
+  routes.post("/sessions/:sessionId/mark-seen", async (c) => {
+    const sessionId = c.req.param("sessionId");
+
+    if (!deps.notificationService) {
+      return c.json({ error: "Notification service not available" }, 503);
+    }
+
+    let body: { timestamp?: string; messageId?: string } = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      // Body is optional
+    }
+
+    await deps.notificationService.markSeen(
+      sessionId,
+      body.timestamp,
+      body.messageId,
+    );
+
+    return c.json({ marked: true });
+  });
+
+  // GET /api/notifications/last-seen - Get all last seen entries
+  routes.get("/notifications/last-seen", async (c) => {
+    if (!deps.notificationService) {
+      return c.json({ error: "Notification service not available" }, 503);
+    }
+
+    return c.json({ lastSeen: deps.notificationService.getAllLastSeen() });
   });
 
   return routes;

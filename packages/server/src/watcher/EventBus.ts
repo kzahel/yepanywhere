@@ -52,13 +52,22 @@ export interface BackendReloadedEvent {
   timestamp: string;
 }
 
+/** Event emitted when a session is marked as seen (for cross-tab/device sync) */
+export interface SessionSeenEvent {
+  type: "session-seen";
+  sessionId: string;
+  timestamp: string;
+  messageId?: string;
+}
+
 /** Union of all event types that can be emitted through the bus */
 export type BusEvent =
   | FileChangeEvent
   | SessionStatusEvent
   | SessionCreatedEvent
   | SourceChangeEvent
-  | BackendReloadedEvent;
+  | BackendReloadedEvent
+  | SessionSeenEvent;
 
 export type EventHandler<T = BusEvent> = (event: T) => void;
 

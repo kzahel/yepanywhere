@@ -8,6 +8,7 @@ import { StatusIndicator } from "../components/StatusIndicator";
 import { ToastContainer } from "../components/Toast";
 import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
 import type { DraftControls } from "../hooks/useDraftPersistence";
+import { useEngagementTracking } from "../hooks/useEngagementTracking";
 import { useSession } from "../hooks/useSession";
 import { useToast } from "../hooks/useToast";
 import type { Project } from "../types";
@@ -58,6 +59,15 @@ function SessionPageContent({
     draftControlsRef.current = controls;
   }, []);
   const { toasts, showToast, dismissToast } = useToast();
+
+  // Track user engagement to mark session as "seen"
+  // Only enabled when not in external session (we own or it's idle)
+  useEngagementTracking({
+    sessionId,
+    updatedAt: session?.updatedAt ?? null,
+    lastSeenAt: session?.lastSeenAt,
+    enabled: status.state !== "external",
+  });
 
   // Fetch project info for breadcrumb
   useEffect(() => {
@@ -251,7 +261,7 @@ function SessionPageContent({
           onStop={handleAbort}
           draftKey={`draft-message-${sessionId}`}
           onDraftControlsReady={handleDraftControlsReady}
-          hidden={!!pendingInputRequest}
+          collapsed={!!pendingInputRequest}
         />
       </footer>
     </div>

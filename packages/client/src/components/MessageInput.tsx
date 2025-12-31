@@ -31,7 +31,8 @@ interface Props {
   isThinking?: boolean;
   onStop?: () => void;
   draftKey: string; // localStorage key for draft persistence
-  hidden?: boolean; // Hide but keep mounted to preserve state
+  /** Collapse to single-line but keep visible and focusable (for when approval panel is showing) */
+  collapsed?: boolean;
   /** Callback to receive draft controls for success/failure handling */
   onDraftControlsReady?: (controls: DraftControls) => void;
 }
@@ -47,7 +48,7 @@ export function MessageInput({
   isThinking,
   onStop,
   draftKey,
-  hidden,
+  collapsed,
   onDraftControlsReady,
 }: Props) {
   const [text, setText, controls] = useDraftPersistence(draftKey);
@@ -98,53 +99,56 @@ export function MessageInput({
 
   return (
     <div
-      className="message-input"
-      style={hidden ? { display: "none" } : undefined}
+      className={`message-input ${collapsed ? "message-input-collapsed" : ""}`}
     >
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder}
+        placeholder={
+          collapsed ? "Continue typing while responding above..." : placeholder
+        }
         disabled={disabled}
-        rows={3}
+        rows={collapsed ? 1 : 3}
       />
-      <div className="message-input-toolbar">
-        <button
-          type="button"
-          className="mode-button"
-          onClick={handleModeClick}
-          disabled={!onModeChange}
-          title="Click to cycle through permission modes"
-        >
-          <span className={`mode-dot mode-${mode}`} />
-          {MODE_LABELS[mode]}
-          {isModePending && (
-            <span className="mode-pending-hint">(set on next message)</span>
-          )}
-        </button>
-        <div className="message-input-actions">
-          {isRunning && onStop && isThinking && (
-            <button
-              type="button"
-              onClick={onStop}
-              className="stop-button"
-              aria-label="Stop"
-            >
-              <span className="stop-icon" />
-            </button>
-          )}
+      {!collapsed && (
+        <div className="message-input-toolbar">
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={disabled || !text.trim()}
-            className="send-button"
-            aria-label="Send"
+            className="mode-button"
+            onClick={handleModeClick}
+            disabled={!onModeChange}
+            title="Click to cycle through permission modes"
           >
-            <span className="send-icon">↑</span>
+            <span className={`mode-dot mode-${mode}`} />
+            {MODE_LABELS[mode]}
+            {isModePending && (
+              <span className="mode-pending-hint">(set on next message)</span>
+            )}
           </button>
+          <div className="message-input-actions">
+            {isRunning && onStop && isThinking && (
+              <button
+                type="button"
+                onClick={onStop}
+                className="stop-button"
+                aria-label="Stop"
+              >
+                <span className="stop-icon" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={disabled || !text.trim()}
+              className="send-button"
+              aria-label="Send"
+            >
+              <span className="send-icon">↑</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

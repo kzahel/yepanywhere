@@ -114,4 +114,19 @@ export const api = {
       `/sessions/${sessionId}/mode`,
       { method: "PUT", body: JSON.stringify({ mode }) },
     ),
+
+  markSessionSeen: (
+    sessionId: string,
+    timestamp?: string,
+    messageId?: string,
+  ) =>
+    fetchJSON<{ marked: boolean }>(`/sessions/${sessionId}/mark-seen`, {
+      method: "POST",
+      body: JSON.stringify({ timestamp, messageId }),
+    }),
+
+  getLastSeen: () =>
+    fetchJSON<{
+      lastSeen: Record<string, { timestamp: string; messageId?: string }>;
+    }>("/notifications/last-seen"),
 };

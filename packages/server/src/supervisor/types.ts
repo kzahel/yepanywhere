@@ -32,6 +32,9 @@ export type SessionStatus =
     } // we control it
   | { state: "external" }; // another process owns it
 
+/** Type of pending input request for notification badges */
+export type PendingInputType = "tool-approval" | "user-question";
+
 // Session metadata (light, for lists)
 export interface SessionSummary {
   id: string;
@@ -42,6 +45,13 @@ export interface SessionSummary {
   updatedAt: string;
   messageCount: number;
   status: SessionStatus;
+  // Notification fields (added by enrichSessionsWithNotifications)
+  /** Type of pending input if session needs user action */
+  pendingInputType?: PendingInputType;
+  /** When the session was last viewed (if tracked) */
+  lastSeenAt?: string;
+  /** Whether session has new content since last viewed */
+  hasUnread?: boolean;
 }
 
 /**

@@ -4,6 +4,7 @@ import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { NotificationService } from "./notifications/index.js";
 import { detectClaudeCli } from "./sdk/cli-detection.js";
 import { RealClaudeSDK } from "./sdk/real.js";
 import { EventBus, FileWatcher, SourceWatcher } from "./watcher/index.js";
@@ -54,28 +55,42 @@ const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({
   app: wsApp,
 });
 
-// Create the app with real SDK and WebSocket support
-const app = createApp({
-  realSdk,
-  projectsDir: config.claudeProjectsDir,
-  idleTimeoutMs: config.idleTimeoutMs,
-  defaultPermissionMode: config.defaultPermissionMode,
-  eventBus,
-  upgradeWebSocket,
-});
+// Create and initialize NotificationService
+const notificationService = new NotificationService({ eventBus });
 
-const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(`Server running at http://localhost:${info.port}`);
-  console.log(`Projects dir: ${config.claudeProjectsDir}`);
-  console.log(`Permission mode: ${config.defaultPermissionMode}`);
+async function startServer() {
+  // Initialize notification service (loads state from disk)
+  await notificationService.initialize();
 
-  // Notify all connected clients that the backend has restarted
-  // This allows other tabs to clear their "reload needed" banner
-  eventBus.emit({
-    type: "backend-reloaded",
-    timestamp: new Date().toISOString(),
+  // Create the app with real SDK and WebSocket support
+  const app = createApp({
+    realSdk,
+    projectsDir: config.claudeProjectsDir,
+    idleTimeoutMs: config.idleTimeoutMs,
+    defaultPermissionMode: config.defaultPermissionMode,
+    eventBus,
+    upgradeWebSocket,
+    notificationService,
   });
-});
 
-// Inject WebSocket handling into the server
-injectWebSocket(server);
+  const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
+    console.log(`Server running at http://localhost:${info.port}`);
+    console.log(`Projects dir: ${config.claudeProjectsDir}`);
+    console.log(`Permission mode: ${config.defaultPermissionMode}`);
+
+    // Notify all connected clients that the backend has restarted
+    // This allows other tabs to clear their "reload needed" banner
+    eventBus.emit({
+      type: "backend-reloaded",
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Inject WebSocket handling into the server
+  injectWebSocket(server);
+}
+
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+});

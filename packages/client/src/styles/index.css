@@ -362,6 +362,23 @@ h2 {
   resize: none;
 }
 
+/* Collapsed state - when approval panel is showing above */
+.message-input-collapsed {
+  margin-top: var(--space-2);
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.message-input-collapsed:focus-within {
+  opacity: 1;
+}
+
+.message-input-collapsed textarea {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--font-size-sm);
+  min-height: 0;
+}
+
 .message-input-toolbar {
   display: flex;
   justify-content: space-between;
@@ -547,6 +564,28 @@ h2 {
 .status-badge.status-external {
   background: #3a3a1a;
   color: #ff4;
+}
+
+/* Notification badges - higher priority than status badges */
+.status-badge.notification-needs-input {
+  background: #1a2a4a;
+  color: #6af;
+  animation: pulse-blue 2s ease-in-out infinite;
+}
+
+.status-badge.notification-unread {
+  background: #4a3a1a;
+  color: #fa4;
+}
+
+@keyframes pulse-blue {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(102, 170, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(102, 170, 255, 0);
+  }
 }
 
 /* Processing Indicator - shown at bottom of message list */

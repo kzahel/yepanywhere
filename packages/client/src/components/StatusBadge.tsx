@@ -1,10 +1,16 @@
 import type { SessionStatus } from "../types";
 
 type BadgeVariant = "owned" | "external" | "idle";
+type NotificationVariant = "needs-input" | "unread";
+type PendingInputType = "tool-approval" | "user-question";
 
 interface SessionStatusBadgeProps {
   /** Session status object */
   status: SessionStatus;
+  /** Type of pending input if session needs user action */
+  pendingInputType?: PendingInputType;
+  /** Whether session has unread content */
+  hasUnread?: boolean;
 }
 
 interface CountBadgeProps {
@@ -14,11 +20,50 @@ interface CountBadgeProps {
   count: number;
 }
 
+interface NotificationBadgeProps {
+  /** Type of notification badge */
+  variant: NotificationVariant;
+  /** Optional label override */
+  label?: string;
+}
+
+/**
+ * Notification badge indicating action needed or unread content.
+ * - "needs-input" (blue): Tool approval or user question pending
+ * - "unread" (orange): New content since last viewed
+ */
+export function NotificationBadge({ variant, label }: NotificationBadgeProps) {
+  const defaultLabel = variant === "needs-input" ? "Input Needed" : "New";
+
+  return (
+    <span className={`status-badge notification-${variant}`}>
+      {label ?? defaultLabel}
+    </span>
+  );
+}
+
 /**
  * Status badge for a single session in a list.
- * Displays: "Active", "Active, External", or "Idle"
+ * Priority: needs-input (blue) > unread (orange) > active (green) > idle (gray)
  */
-export function SessionStatusBadge({ status }: SessionStatusBadgeProps) {
+export function SessionStatusBadge({
+  status,
+  pendingInputType,
+  hasUnread,
+}: SessionStatusBadgeProps) {
+  // Priority 1: Needs input (tool approval or user question)
+  if (pendingInputType) {
+    const label =
+      pendingInputType === "tool-approval" ? "Approval Needed" : "Question";
+    return <NotificationBadge variant="needs-input" label={label} />;
+  }
+
+  // Priority 2: Unread content (only show if idle - don't show while actively processing)
+  if (hasUnread && status.state === "idle") {
+    return <NotificationBadge variant="unread" />;
+  }
+
+  // Priority 3+: Regular status badges
   const label =
     status.state === "owned"
       ? "Active"

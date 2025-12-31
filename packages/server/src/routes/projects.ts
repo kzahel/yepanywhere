@@ -1,15 +1,18 @@
 import { isUrlProjectId } from "@claude-anywhere/shared";
 import { Hono } from "hono";
+import type { NotificationService } from "../notifications/index.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import type { SessionReader } from "../sessions/reader.js";
 import type { ExternalSessionTracker } from "../supervisor/ExternalSessionTracker.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
+import type { PendingInputType, SessionSummary } from "../supervisor/types.js";
 
 export interface ProjectsDeps {
   scanner: ProjectScanner;
   readerFactory: (sessionDir: string) => SessionReader;
   supervisor?: Supervisor;
   externalTracker?: ExternalSessionTracker;
+  notificationService?: NotificationService;
 }
 
 interface ProjectActivityCounts {
@@ -61,14 +64,13 @@ async function getProjectActivityCounts(
 export function createProjectsRoutes(deps: ProjectsDeps): Hono {
   const routes = new Hono();
 
-  // Helper to enrich sessions with real status from Supervisor/ExternalTracker
-  function enrichSessionsWithStatus<
-    T extends { id: string; status: { state: string } },
-  >(sessions: T[]): T[] {
+  // Helper to enrich sessions with real status and notification state
+  function enrichSessions(sessions: SessionSummary[]): SessionSummary[] {
     return sessions.map((session) => {
       const process = deps.supervisor?.getProcessForSession(session.id);
       const isExternal = deps.externalTracker?.isExternal(session.id) ?? false;
 
+      // Enrich with status
       const status = process
         ? {
             state: "owned" as const,
@@ -80,7 +82,32 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
           ? { state: "external" as const }
           : session.status;
 
-      return { ...session, status };
+      // Enrich with notification data
+      let pendingInputType: PendingInputType | undefined;
+      if (process) {
+        const pendingRequest = process.getPendingInputRequest();
+        if (pendingRequest) {
+          pendingInputType =
+            pendingRequest.type === "tool-approval"
+              ? "tool-approval"
+              : "user-question";
+        }
+      }
+
+      // Get last seen and unread status
+      const lastSeenEntry = deps.notificationService?.getLastSeen(session.id);
+      const lastSeenAt = lastSeenEntry?.timestamp;
+      const hasUnread = deps.notificationService
+        ? deps.notificationService.hasUnread(session.id, session.updatedAt)
+        : undefined;
+
+      return {
+        ...session,
+        status,
+        pendingInputType,
+        lastSeenAt,
+        hasUnread,
+      };
     });
   }
 
@@ -133,7 +160,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     const reader = deps.readerFactory(project.sessionDir);
     const sessions = await reader.listSessions(project.id);
 
-    return c.json({ project, sessions: enrichSessionsWithStatus(sessions) });
+    return c.json({ project, sessions: enrichSessions(sessions) });
   });
 
   // GET /api/projects/:projectId/sessions - List sessions
@@ -153,7 +180,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     const reader = deps.readerFactory(project.sessionDir);
     const sessions = await reader.listSessions(project.id);
 
-    return c.json({ sessions: enrichSessionsWithStatus(sessions) });
+    return c.json({ sessions: enrichSessions(sessions) });
   });
 
   return routes;
