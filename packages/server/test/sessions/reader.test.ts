@@ -109,10 +109,10 @@ describe("SessionReader", () => {
       expect(summary?.title).toBe("What is this?");
     });
 
-    it("truncates long titles to 50 chars with ellipsis", async () => {
+    it("truncates long titles to 120 chars with ellipsis", async () => {
       const sessionId = "test-session-5";
       const longMessage =
-        "This is a very long message that should be truncated because it exceeds the maximum title length";
+        "This is a very long message that should be truncated because it exceeds the maximum title length which is now 120 characters so we need an even longer test string here";
       const jsonl = JSON.stringify({
         type: "user",
         message: {
@@ -124,7 +124,7 @@ describe("SessionReader", () => {
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
       const summary = await reader.getSessionSummary(sessionId, "test-project");
-      expect(summary?.title?.length).toBe(50);
+      expect(summary?.title?.length).toBe(120);
       expect(summary?.title?.endsWith("...")).toBe(true);
     });
 

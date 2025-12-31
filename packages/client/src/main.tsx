@@ -2,11 +2,16 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { App } from "./App";
+import { initializeFontSize } from "./hooks/useFontSize";
 import { ActivityPage } from "./pages/ActivityPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { SessionPage } from "./pages/SessionPage";
 import { SessionsPage } from "./pages/SessionsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import "./styles/index.css";
+
+// Apply saved font size preference before React renders to avoid flash
+initializeFontSize();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -26,6 +31,7 @@ createRoot(rootElement).render(
             element={<SessionPage />}
           />
           <Route path="/activity" element={<ActivityPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </App>
     </BrowserRouter>

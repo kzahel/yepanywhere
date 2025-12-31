@@ -60,6 +60,20 @@ export interface SessionSeenEvent {
   messageId?: string;
 }
 
+/** Process state type - what the agent is doing */
+export type ProcessStateType = "running" | "waiting-input";
+
+/** Event emitted when a process state changes (running vs waiting for input) */
+export interface ProcessStateEvent {
+  type: "process-state-changed";
+  sessionId: string;
+  /** Base64url-encoded project path (UrlProjectId format) */
+  projectId: UrlProjectId;
+  /** Current process state - what the agent is doing */
+  processState: ProcessStateType;
+  timestamp: string;
+}
+
 /** Union of all event types that can be emitted through the bus */
 export type BusEvent =
   | FileChangeEvent
@@ -67,7 +81,8 @@ export type BusEvent =
   | SessionCreatedEvent
   | SourceChangeEvent
   | BackendReloadedEvent
-  | SessionSeenEvent;
+  | SessionSeenEvent
+  | ProcessStateEvent;
 
 export type EventHandler<T = BusEvent> = (event: T) => void;
 

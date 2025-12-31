@@ -42,6 +42,18 @@ export interface SessionSeenEvent {
   messageId?: string;
 }
 
+/** Process state type - what the agent is doing */
+export type ProcessStateType = "running" | "waiting-input";
+
+export interface ProcessStateEvent {
+  type: "process-state-changed";
+  sessionId: string;
+  /** Base64url-encoded project path (UrlProjectId format) */
+  projectId: UrlProjectId;
+  processState: ProcessStateType;
+  timestamp: string;
+}
+
 interface UseFileActivityOptions {
   /** Maximum number of events to keep in buffer (default: 500) */
   maxEvents?: number;
@@ -55,6 +67,8 @@ interface UseFileActivityOptions {
   onSessionCreated?: (event: SessionCreatedEvent) => void;
   /** Callback when a session is marked as seen (from another tab/device) */
   onSessionSeen?: (event: SessionSeenEvent) => void;
+  /** Callback when a process state changes (running/waiting-input) */
+  onProcessStateChange?: (event: ProcessStateEvent) => void;
 }
 
 const API_BASE = "/api";
@@ -68,6 +82,7 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
     onSessionStatusChange,
     onSessionCreated,
     onSessionSeen,
+    onProcessStateChange,
   } = options;
 
   const [events, setEvents] = useState<FileChangeEvent[]>([]);
@@ -86,6 +101,8 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
   onSessionCreatedRef.current = onSessionCreated;
   const onSessionSeenRef = useRef(onSessionSeen);
   onSessionSeenRef.current = onSessionSeen;
+  const onProcessStateChangeRef = useRef(onProcessStateChange);
+  onProcessStateChangeRef.current = onProcessStateChange;
 
   const connect = useCallback(() => {
     if (eventSourceRef.current) return;
@@ -148,6 +165,17 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
       }
     };
 
+    const handleProcessStateChange = (event: MessageEvent) => {
+      if (event.data === undefined || event.data === null) return;
+
+      try {
+        const data = JSON.parse(event.data) as ProcessStateEvent;
+        onProcessStateChangeRef.current?.(data);
+      } catch {
+        // Ignore malformed JSON
+      }
+    };
+
     es.addEventListener("connected", () => {
       // Connection acknowledged
     });
@@ -156,6 +184,7 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
     es.addEventListener("session-status-changed", handleSessionStatusChange);
     es.addEventListener("session-created", handleSessionCreated);
     es.addEventListener("session-seen", handleSessionSeen);
+    es.addEventListener("process-state-changed", handleProcessStateChange);
     es.addEventListener("heartbeat", () => {
       // Keep-alive, no action needed
     });

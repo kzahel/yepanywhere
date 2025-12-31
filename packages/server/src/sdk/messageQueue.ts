@@ -55,9 +55,31 @@ export class MessageQueue {
   }
 
   /**
+   * Format file size in human-readable form.
+   */
+  private formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024)
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+
+  /**
    * Convert a UserMessage to the SDK's SDKUserMessage format.
    */
   private toSDKMessage(msg: UserMessage): SDKUserMessage {
+    let text = msg.text;
+
+    // Append attachment paths for agent to access via Read tool
+    if (msg.attachments?.length) {
+      const lines = msg.attachments.map(
+        (f) =>
+          `- ${f.originalName} (${this.formatSize(f.size)}, ${f.mimeType}): ${f.path}`,
+      );
+      text += `\n\nUser uploaded files:\n${lines.join("\n")}`;
+    }
+
     // If message has images or documents, use array content format
     if (msg.images?.length || msg.documents?.length) {
       const content: Array<
@@ -66,7 +88,7 @@ export class MessageQueue {
             type: "image";
             source: { type: "base64"; media_type: string; data: string };
           }
-      > = [{ type: "text", text: msg.text }];
+      > = [{ type: "text", text }];
 
       // Add images as base64 content blocks
       for (const image of msg.images ?? []) {
@@ -85,7 +107,7 @@ export class MessageQueue {
       if (msg.documents?.length) {
         content[0] = {
           type: "text",
-          text: `${msg.text}\n\nAttached documents: ${msg.documents.join(", ")}`,
+          text: `${text}\n\nAttached documents: ${msg.documents.join(", ")}`,
         };
       }
 
@@ -105,7 +127,7 @@ export class MessageQueue {
       uuid: msg.uuid, // Pass UUID so SDK uses the same one we emitted via SSE
       message: {
         role: "user",
-        content: msg.text,
+        content: text,
       },
     } as SDKUserMessage;
   }

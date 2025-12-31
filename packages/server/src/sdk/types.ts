@@ -2,7 +2,7 @@
 
 // Re-export PermissionMode from shared
 export type { PermissionMode } from "@claude-anywhere/shared";
-import type { PermissionMode } from "@claude-anywhere/shared";
+import type { PermissionMode, UploadedFile } from "@claude-anywhere/shared";
 
 export interface ContentBlock {
   type: "text" | "tool_use" | "tool_result" | "image";
@@ -68,6 +68,8 @@ export interface UserMessage {
   text: string;
   images?: string[]; // base64 or file paths
   documents?: string[];
+  /** File attachments with paths for agent to access via Read tool */
+  attachments?: UploadedFile[];
   mode?: PermissionMode;
   /** UUID to use for this message. If not provided, SDK will generate one. */
   uuid?: string;

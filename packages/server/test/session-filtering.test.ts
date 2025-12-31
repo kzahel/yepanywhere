@@ -255,9 +255,9 @@ describe("Session Filtering", () => {
       expect(json.sessions[0].title).toBe("Help me debug this issue");
     });
 
-    it("truncates long titles to 50 characters", async () => {
+    it("truncates long titles to 120 characters", async () => {
       const longMessage =
-        "This is a very long message that should be truncated because it exceeds the maximum title length";
+        "This is a very long message that should be truncated because it exceeds the maximum title length which is now 120 characters so we need an even longer test string here";
 
       await writeFile(
         join(projectDir, "session.jsonl"),
@@ -273,7 +273,7 @@ describe("Session Filtering", () => {
       const json = await res.json();
 
       expect(res.status).toBe(200);
-      expect(json.sessions[0].title.length).toBeLessThanOrEqual(50);
+      expect(json.sessions[0].title.length).toBeLessThanOrEqual(120);
       expect(json.sessions[0].title).toContain("...");
     });
 

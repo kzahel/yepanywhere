@@ -1,7 +1,8 @@
+import type { UploadedFile } from "@claude-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api/client";
-import { MessageInput } from "../components/MessageInput";
+import { api, uploadFile } from "../api/client";
+import { MessageInput, type UploadProgress } from "../components/MessageInput";
 import { MessageList } from "../components/MessageList";
 import { QuestionAnswerPanel } from "../components/QuestionAnswerPanel";
 import { StatusIndicator } from "../components/StatusIndicator";
@@ -65,6 +66,7 @@ function SessionPageContent({
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Local metadata state (for optimistic updates)
   const [localCustomTitle, setLocalCustomTitle] = useState<string | undefined>(
@@ -73,6 +75,13 @@ function SessionPageContent({
   const [localIsArchived, setLocalIsArchived] = useState<boolean | undefined>(
     undefined,
   );
+  const [localIsStarred, setLocalIsStarred] = useState<boolean | undefined>(
+    undefined,
+  );
+
+  // File attachment state
+  const [attachments, setAttachments] = useState<UploadedFile[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
 
   // Track user engagement to mark session as "seen"
   // Only enabled when not in external session (we own or it's idle)
@@ -93,6 +102,11 @@ function SessionPageContent({
     addUserMessage(text); // Optimistic display with temp ID
     setProcessState("running"); // Optimistic: show processing indicator immediately
     setScrollTrigger((prev) => prev + 1); // Force scroll to bottom
+
+    // Capture current attachments and clear optimistically
+    const currentAttachments = [...attachments];
+    setAttachments([]);
+
     try {
       if (status.state === "idle") {
         // Resume the session with current permission mode
@@ -101,12 +115,18 @@ function SessionPageContent({
           sessionId,
           text,
           permissionMode,
+          currentAttachments.length > 0 ? currentAttachments : undefined,
         );
         // Update status to trigger SSE connection
         setStatus({ state: "owned", processId: result.processId });
       } else {
         // Queue to existing process with current permission mode
-        await api.queueMessage(sessionId, text, permissionMode);
+        await api.queueMessage(
+          sessionId,
+          text,
+          permissionMode,
+          currentAttachments.length > 0 ? currentAttachments : undefined,
+        );
       }
       // Success - clear the draft from localStorage
       draftControlsRef.current?.clearDraft();
@@ -115,6 +135,7 @@ function SessionPageContent({
       // Restore the message from localStorage and clean up
       removeOptimisticMessage(text);
       draftControlsRef.current?.restoreFromStorage();
+      setAttachments(currentAttachments); // Restore attachments on error
       setProcessState("idle");
 
       // Check if process is dead (404)
@@ -197,6 +218,60 @@ function SessionPageContent({
     [sessionId, pendingInputRequest],
   );
 
+  // Handle file attachment uploads
+  const handleAttach = useCallback(
+    async (files: File[]) => {
+      for (const file of files) {
+        const tempId = crypto.randomUUID();
+
+        // Add to progress tracking
+        setUploadProgress((prev) => [
+          ...prev,
+          {
+            fileId: tempId,
+            fileName: file.name,
+            bytesUploaded: 0,
+            totalBytes: file.size,
+            percent: 0,
+          },
+        ]);
+
+        try {
+          const uploaded = await uploadFile(projectId, sessionId, file, {
+            onProgress: (bytesUploaded) => {
+              setUploadProgress((prev) =>
+                prev.map((p) =>
+                  p.fileId === tempId
+                    ? {
+                        ...p,
+                        bytesUploaded,
+                        percent: Math.round((bytesUploaded / file.size) * 100),
+                      }
+                    : p,
+                ),
+              );
+            },
+          });
+
+          // Add completed file to attachments
+          setAttachments((prev) => [...prev, uploaded]);
+        } catch (err) {
+          console.error("Upload failed:", err);
+          const errorMsg = err instanceof Error ? err.message : "Upload failed";
+          showToast(`Failed to upload ${file.name}: ${errorMsg}`, "error");
+        } finally {
+          // Remove from progress tracking
+          setUploadProgress((prev) => prev.filter((p) => p.fileId !== tempId));
+        }
+      }
+    },
+    [projectId, sessionId, showToast],
+  );
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
   // Check if pending request is an AskUserQuestion
   const isAskUserQuestion = pendingInputRequest?.toolName === "AskUserQuestion";
 
@@ -204,10 +279,13 @@ function SessionPageContent({
   const displayTitle =
     localCustomTitle ?? session?.customTitle ?? session?.title;
   const isArchived = localIsArchived ?? session?.isArchived ?? false;
+  const isStarred = localIsStarred ?? session?.isStarred ?? false;
 
   const handleOpenRename = () => {
     setRenameValue(displayTitle ?? "");
     setShowRenameModal(true);
+    // Focus the input after modal opens
+    setTimeout(() => renameInputRef.current?.focus(), 0);
   };
 
   const handleRename = async () => {
@@ -241,6 +319,21 @@ function SessionPageContent({
     }
   };
 
+  const handleToggleStar = async () => {
+    const newStarred = !isStarred;
+    try {
+      await api.updateSessionMetadata(sessionId, { starred: newStarred });
+      setLocalIsStarred(newStarred);
+      showToast(
+        newStarred ? "Session starred" : "Session unstarred",
+        "success",
+      );
+    } catch (err) {
+      console.error("Failed to update star status:", err);
+      showToast("Failed to update star status", "error");
+    }
+  };
+
   if (loading) return <div className="loading">Loading session...</div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
@@ -265,6 +358,25 @@ function SessionPageContent({
                 {displayTitle}
               </span>
             )}
+            <button
+              type="button"
+              className={`session-action-btn star-btn ${isStarred ? "active" : ""}`}
+              onClick={handleToggleStar}
+              title={isStarred ? "Unstar session" : "Star session"}
+              aria-label={isStarred ? "Unstar session" : "Star session"}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill={isStarred ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
             <button
               type="button"
               className="session-action-btn"
@@ -320,12 +432,12 @@ function SessionPageContent({
         <Modal title="Rename Session" onClose={() => setShowRenameModal(false)}>
           <div className="rename-modal-content">
             <input
+              ref={renameInputRef}
               type="text"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               placeholder="Enter session title..."
               className="rename-input"
-              autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !isRenaming) {
                   handleRename();
@@ -404,6 +516,13 @@ function SessionPageContent({
           draftKey={`draft-message-${sessionId}`}
           onDraftControlsReady={handleDraftControlsReady}
           collapsed={!!pendingInputRequest}
+          contextUsage={session?.contextUsage}
+          projectId={projectId}
+          sessionId={sessionId}
+          attachments={attachments}
+          onAttach={handleAttach}
+          onRemoveAttachment={handleRemoveAttachment}
+          uploadProgress={uploadProgress}
         />
       </footer>
     </div>

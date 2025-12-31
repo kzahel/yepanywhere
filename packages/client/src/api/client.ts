@@ -1,3 +1,4 @@
+import type { UploadedFile } from "@claude-anywhere/shared";
 import type {
   Message,
   PermissionMode,
@@ -6,6 +7,8 @@ import type {
   SessionStatus,
   SessionSummary,
 } from "../types";
+
+export type { UploadedFile } from "@claude-anywhere/shared";
 
 const API_BASE = "/api";
 
@@ -60,7 +63,12 @@ export const api = {
     }>(`/projects/${projectId}/sessions/${sessionId}${params}`);
   },
 
-  startSession: (projectId: string, message: string, mode?: PermissionMode) =>
+  startSession: (
+    projectId: string,
+    message: string,
+    mode?: PermissionMode,
+    attachments?: UploadedFile[],
+  ) =>
     fetchJSON<{
       sessionId: string;
       processId: string;
@@ -68,7 +76,7 @@ export const api = {
       modeVersion: number;
     }>(`/projects/${projectId}/sessions`, {
       method: "POST",
-      body: JSON.stringify({ message, mode }),
+      body: JSON.stringify({ message, mode, attachments }),
     }),
 
   resumeSession: (
@@ -76,6 +84,7 @@ export const api = {
     sessionId: string,
     message: string,
     mode?: PermissionMode,
+    attachments?: UploadedFile[],
   ) =>
     fetchJSON<{
       processId: string;
@@ -83,13 +92,18 @@ export const api = {
       modeVersion: number;
     }>(`/projects/${projectId}/sessions/${sessionId}/resume`, {
       method: "POST",
-      body: JSON.stringify({ message, mode }),
+      body: JSON.stringify({ message, mode, attachments }),
     }),
 
-  queueMessage: (sessionId: string, message: string, mode?: PermissionMode) =>
+  queueMessage: (
+    sessionId: string,
+    message: string,
+    mode?: PermissionMode,
+    attachments?: UploadedFile[],
+  ) =>
     fetchJSON<{ queued: boolean; position: number }>(
       `/sessions/${sessionId}/messages`,
-      { method: "POST", body: JSON.stringify({ message, mode }) },
+      { method: "POST", body: JSON.stringify({ message, mode, attachments }) },
     ),
 
   abortProcess: (processId: string) =>
@@ -132,7 +146,7 @@ export const api = {
 
   updateSessionMetadata: (
     sessionId: string,
-    updates: { title?: string; archived?: boolean },
+    updates: { title?: string; archived?: boolean; starred?: boolean },
   ) =>
     fetchJSON<{ updated: boolean }>(`/sessions/${sessionId}/metadata`, {
       method: "PUT",

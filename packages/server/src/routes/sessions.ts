@@ -1,4 +1,4 @@
-import { isUrlProjectId } from "@claude-anywhere/shared";
+import { type UploadedFile, isUrlProjectId } from "@claude-anywhere/shared";
 import { Hono } from "hono";
 import type { SessionMetadataService } from "../metadata/index.js";
 import type { NotificationService } from "../notifications/index.js";
@@ -22,6 +22,7 @@ interface StartSessionBody {
   message: string;
   images?: string[];
   documents?: string[];
+  attachments?: UploadedFile[];
   mode?: PermissionMode;
 }
 
@@ -190,6 +191,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       text: body.message,
       images: body.images,
       documents: body.documents,
+      attachments: body.attachments,
       mode: body.mode,
     };
 
@@ -237,6 +239,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       text: body.message,
       images: body.images,
       documents: body.documents,
+      attachments: body.attachments,
       mode: body.mode,
     };
 
@@ -278,6 +281,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       text: body.message,
       images: body.images,
       documents: body.documents,
+      attachments: body.attachments,
       mode: body.mode,
     };
 
@@ -436,7 +440,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     return c.json({ lastSeen: deps.notificationService.getAllLastSeen() });
   });
 
-  // PUT /api/sessions/:sessionId/metadata - Update session metadata (title, archived)
+  // PUT /api/sessions/:sessionId/metadata - Update session metadata (title, archived, starred)
   routes.put("/sessions/:sessionId/metadata", async (c) => {
     const sessionId = c.req.param("sessionId");
 
@@ -444,7 +448,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Session metadata service not available" }, 503);
     }
 
-    let body: { title?: string; archived?: boolean } = {};
+    let body: { title?: string; archived?: boolean; starred?: boolean } = {};
     try {
       body = await c.req.json();
     } catch {
@@ -452,9 +456,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     }
 
     // At least one field must be provided
-    if (body.title === undefined && body.archived === undefined) {
+    if (
+      body.title === undefined &&
+      body.archived === undefined &&
+      body.starred === undefined
+    ) {
       return c.json(
-        { error: "At least title or archived must be provided" },
+        { error: "At least title, archived, or starred must be provided" },
         400,
       );
     }
@@ -462,6 +470,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     await deps.sessionMetadataService.updateMetadata(sessionId, {
       title: body.title,
       archived: body.archived,
+      starred: body.starred,
     });
 
     return c.json({ updated: true });

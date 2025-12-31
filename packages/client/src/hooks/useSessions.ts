@@ -3,6 +3,8 @@ import { api } from "../api/client";
 import type { Project, SessionSummary } from "../types";
 import {
   type FileChangeEvent,
+  type ProcessStateEvent,
+  type ProcessStateType,
   type SessionCreatedEvent,
   type SessionStatusEvent,
   useFileActivity,
@@ -16,6 +18,10 @@ export function useSessions(projectId: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track process state (running/waiting-input) per session for activity indicators
+  const [processStates, setProcessStates] = useState<
+    Record<string, ProcessStateType>
+  >({});
 
   const fetch = useCallback(async () => {
     if (!projectId) return;
@@ -86,6 +92,27 @@ export function useSessions(projectId: string | undefined) {
             : session,
         ),
       );
+
+      // Clear process state when session goes idle (no longer has a process)
+      if (event.status.state === "idle") {
+        setProcessStates((prev) => {
+          const { [event.sessionId]: _, ...rest } = prev;
+          return rest;
+        });
+      }
+    },
+    [projectId],
+  );
+
+  // Handle process state changes (running/waiting-input)
+  const handleProcessStateChange = useCallback(
+    (event: ProcessStateEvent) => {
+      if (event.projectId !== projectId) return;
+
+      setProcessStates((prev) => ({
+        ...prev,
+        [event.sessionId]: event.processState,
+      }));
     },
     [projectId],
   );
@@ -109,11 +136,12 @@ export function useSessions(projectId: string | undefined) {
     [projectId],
   );
 
-  // Subscribe to file activity, status changes, and session creation
+  // Subscribe to file activity, status changes, session creation, and process state
   useFileActivity({
     onFileChange: handleFileChange,
     onSessionStatusChange: handleSessionStatusChange,
     onSessionCreated: handleSessionCreated,
+    onProcessStateChange: handleProcessStateChange,
   });
 
   // Initial fetch
@@ -130,5 +158,5 @@ export function useSessions(projectId: string | undefined) {
     };
   }, []);
 
-  return { project, sessions, loading, error, refetch: fetch };
+  return { project, sessions, loading, error, refetch: fetch, processStates };
 }

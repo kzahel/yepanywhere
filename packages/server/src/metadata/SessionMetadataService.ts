@@ -13,6 +13,8 @@ export interface SessionMetadata {
   customTitle?: string;
   /** Whether the session is archived (hidden from default list) */
   isArchived?: boolean;
+  /** Whether the session is starred/favorited */
+  isStarred?: boolean;
 }
 
 export interface SessionMetadataState {
@@ -122,11 +124,22 @@ export class SessionMetadataService {
   }
 
   /**
-   * Update metadata for a session (both title and archived at once).
+   * Set the starred status for a session.
+   */
+  async setStarred(sessionId: string, starred: boolean): Promise<void> {
+    this.updateSessionMetadata(sessionId, (metadata) => ({
+      ...metadata,
+      isStarred: starred || undefined,
+    }));
+    await this.save();
+  }
+
+  /**
+   * Update metadata for a session (title, archived, starred).
    */
   async updateMetadata(
     sessionId: string,
-    updates: { title?: string; archived?: boolean },
+    updates: { title?: string; archived?: boolean; starred?: boolean },
   ): Promise<void> {
     this.updateSessionMetadata(sessionId, (metadata) => {
       const result = { ...metadata };
@@ -140,6 +153,11 @@ export class SessionMetadataService {
       // Handle archived
       if (updates.archived !== undefined) {
         result.isArchived = updates.archived || undefined;
+      }
+
+      // Handle starred
+      if (updates.starred !== undefined) {
+        result.isStarred = updates.starred || undefined;
       }
 
       return result;
@@ -161,6 +179,7 @@ export class SessionMetadataService {
     const cleaned: SessionMetadata = {};
     if (updated.customTitle) cleaned.customTitle = updated.customTitle;
     if (updated.isArchived) cleaned.isArchived = updated.isArchived;
+    if (updated.isStarred) cleaned.isStarred = updated.isStarred;
 
     if (Object.keys(cleaned).length === 0) {
       // Remove the entry entirely if empty

@@ -6,7 +6,11 @@ import type { ProjectScanner } from "../projects/scanner.js";
 import type { SessionReader } from "../sessions/reader.js";
 import type { ExternalSessionTracker } from "../supervisor/ExternalSessionTracker.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
-import type { PendingInputType, SessionSummary } from "../supervisor/types.js";
+import type {
+  PendingInputType,
+  ProcessStateType,
+  SessionSummary,
+} from "../supervisor/types.js";
 
 export interface ProjectsDeps {
   scanner: ProjectScanner;
@@ -84,8 +88,9 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
           ? { state: "external" as const }
           : session.status;
 
-      // Enrich with notification data
+      // Enrich with notification data and process state
       let pendingInputType: PendingInputType | undefined;
+      let processState: ProcessStateType | undefined;
       if (process) {
         const pendingRequest = process.getPendingInputRequest();
         if (pendingRequest) {
@@ -93,6 +98,11 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
             pendingRequest.type === "tool-approval"
               ? "tool-approval"
               : "user-question";
+        }
+        // Get the current process state (running/waiting-input/idle)
+        const state = process.state.type;
+        if (state === "running" || state === "waiting-input") {
+          processState = state;
         }
       }
 
@@ -103,19 +113,22 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
         ? deps.notificationService.hasUnread(session.id, session.updatedAt)
         : undefined;
 
-      // Get session metadata (custom title, archived status)
+      // Get session metadata (custom title, archived, starred)
       const metadata = deps.sessionMetadataService?.getMetadata(session.id);
       const customTitle = metadata?.customTitle;
       const isArchived = metadata?.isArchived;
+      const isStarred = metadata?.isStarred;
 
       return {
         ...session,
         status,
         pendingInputType,
+        processState,
         lastSeenAt,
         hasUnread,
         customTitle,
         isArchived,
+        isStarred,
       };
     });
   }

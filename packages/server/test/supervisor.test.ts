@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MockClaudeSDK, createMockScenario } from "../src/sdk/mock.js";
 import { Supervisor } from "../src/supervisor/Supervisor.js";
+import { type BusEvent, EventBus } from "../src/watcher/EventBus.js";
 
 describe("Supervisor", () => {
   let mockSdk: MockClaudeSDK;
@@ -178,6 +179,68 @@ describe("Supervisor", () => {
       await supervisor.abortProcess(process.id);
 
       expect(supervisor.getProcessForSession("sess-123")).toBeUndefined();
+    });
+  });
+
+  describe("eventBus integration", () => {
+    it("emits process-state-changed event when session starts", async () => {
+      const eventBus = new EventBus();
+      const events: BusEvent[] = [];
+      eventBus.subscribe((event) => events.push(event));
+
+      const supervisorWithBus = new Supervisor({
+        sdk: mockSdk,
+        idleTimeoutMs: 100,
+        eventBus,
+      });
+
+      mockSdk.addScenario(createMockScenario("sess-123", "Hello!"));
+
+      await supervisorWithBus.startSession("/tmp/test", { text: "hi" });
+
+      // Find process-state-changed events
+      const processStateEvents = events.filter(
+        (e) => e.type === "process-state-changed",
+      );
+
+      console.log(
+        "All events emitted:",
+        events.map((e) => e.type),
+      );
+      console.log("Process state events:", processStateEvents);
+
+      expect(processStateEvents.length).toBeGreaterThanOrEqual(1);
+      expect(processStateEvents[0]).toMatchObject({
+        type: "process-state-changed",
+        processState: "running",
+      });
+    });
+
+    it("emits session-status-changed event when session starts", async () => {
+      const eventBus = new EventBus();
+      const events: BusEvent[] = [];
+      eventBus.subscribe((event) => events.push(event));
+
+      const supervisorWithBus = new Supervisor({
+        sdk: mockSdk,
+        idleTimeoutMs: 100,
+        eventBus,
+      });
+
+      mockSdk.addScenario(createMockScenario("sess-123", "Hello!"));
+
+      await supervisorWithBus.startSession("/tmp/test", { text: "hi" });
+
+      // Find session-status-changed events
+      const statusEvents = events.filter(
+        (e) => e.type === "session-status-changed",
+      );
+
+      expect(statusEvents.length).toBeGreaterThanOrEqual(1);
+      expect(statusEvents[0]).toMatchObject({
+        type: "session-status-changed",
+        status: { state: "owned" },
+      });
     });
   });
 });

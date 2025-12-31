@@ -3,7 +3,7 @@ import type { PermissionMode, SDKMessage } from "../sdk/types.js";
 
 // Constants
 export const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-export const SESSION_TITLE_MAX_LENGTH = 50;
+export const SESSION_TITLE_MAX_LENGTH = 120;
 
 // Re-export path utilities for backward compatibility
 // See packages/server/src/projects/paths.ts for full documentation on encoding schemes
@@ -35,11 +35,19 @@ export type SessionStatus =
 /** Type of pending input request for notification badges */
 export type PendingInputType = "tool-approval" | "user-question";
 
+/** Context usage information extracted from the last assistant message */
+export interface ContextUsage {
+  /** Total input tokens for the last request (fresh + cached) */
+  inputTokens: number;
+  /** Percentage of context window used (based on 200K limit) */
+  percentage: number;
+}
+
 // Session metadata (light, for lists)
 export interface SessionSummary {
   id: string;
   projectId: UrlProjectId;
-  title: string | null; // first 50 chars of first user message (truncated with ...)
+  title: string | null; // first 120 chars of first user message (truncated with ...)
   fullTitle: string | null; // complete first user message (for hover tooltip)
   createdAt: string; // ISO timestamp
   updatedAt: string;
@@ -57,6 +65,10 @@ export interface SessionSummary {
   customTitle?: string;
   /** Whether the session is archived (hidden from default list) */
   isArchived?: boolean;
+  /** Whether the session is starred/favorited */
+  isStarred?: boolean;
+  /** Context usage from the last assistant message */
+  contextUsage?: ContextUsage;
 }
 
 /**

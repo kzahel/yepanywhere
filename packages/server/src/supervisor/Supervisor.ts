@@ -8,6 +8,8 @@ import type {
 } from "../sdk/types.js";
 import type {
   EventBus,
+  ProcessStateEvent,
+  ProcessStateType,
   SessionCreatedEvent,
   SessionStatusEvent,
 } from "../watcher/EventBus.js";
@@ -310,10 +312,32 @@ export class Supervisor {
     // Emit status change event
     this.emitStatusChange(process.sessionId, process.projectId, status);
 
-    // Listen for completion to auto-cleanup
+    // Emit initial process state (process starts in running state)
+    const initialState = process.state.type;
+    if (initialState === "running" || initialState === "waiting-input") {
+      this.emitProcessStateChange(
+        process.sessionId,
+        process.projectId,
+        initialState,
+      );
+    }
+
+    // Listen for completion to auto-cleanup, and state changes for process state events
     process.subscribe((event) => {
       if (event.type === "complete") {
         this.unregisterProcess(process);
+      } else if (event.type === "state-change") {
+        // Emit process state change for running/waiting-input states
+        if (
+          event.state.type === "running" ||
+          event.state.type === "waiting-input"
+        ) {
+          this.emitProcessStateChange(
+            process.sessionId,
+            process.projectId,
+            event.state.type,
+          );
+        }
       }
     });
   }
@@ -364,6 +388,23 @@ export class Supervisor {
       type: "session-created",
       session,
       timestamp: now,
+    };
+    this.eventBus.emit(event);
+  }
+
+  private emitProcessStateChange(
+    sessionId: string,
+    projectId: UrlProjectId,
+    processState: ProcessStateType,
+  ): void {
+    if (!this.eventBus) return;
+
+    const event: ProcessStateEvent = {
+      type: "process-state-changed",
+      sessionId,
+      projectId,
+      processState,
+      timestamp: new Date().toISOString(),
     };
     this.eventBus.emit(event);
   }

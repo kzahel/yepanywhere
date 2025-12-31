@@ -1,3 +1,4 @@
+import type { ProcessStateType } from "../hooks/useFileActivity";
 import type { SessionStatus } from "../types";
 
 type BadgeVariant = "owned" | "external" | "idle";
@@ -11,6 +12,8 @@ interface SessionStatusBadgeProps {
   pendingInputType?: PendingInputType;
   /** Whether session has unread content */
   hasUnread?: boolean;
+  /** Current process state (running/waiting-input) for activity indicators */
+  processState?: ProcessStateType;
 }
 
 interface CountBadgeProps {
@@ -44,12 +47,13 @@ export function NotificationBadge({ variant, label }: NotificationBadgeProps) {
 
 /**
  * Status badge for a single session in a list.
- * Priority: needs-input (blue) > unread (orange) > active (green) > idle (gray)
+ * Priority: needs-input (blue) > running (pulsing) > unread (orange) > active (outline) > idle (nothing)
  */
 export function SessionStatusBadge({
   status,
   pendingInputType,
   hasUnread,
+  processState,
 }: SessionStatusBadgeProps) {
   // Priority 1: Needs input (tool approval or user question)
   if (pendingInputType) {
@@ -58,20 +62,31 @@ export function SessionStatusBadge({
     return <NotificationBadge variant="needs-input" label={label} />;
   }
 
-  // Priority 2: Unread content (only show if idle - don't show while actively processing)
-  if (hasUnread && status.state === "idle") {
+  // Priority 2: Running (agent is thinking) - show pulsing indicator
+  if (processState === "running") {
+    return <span className="status-badge status-running">Thinking</span>;
+  }
+
+  // Priority 3: Unread content (show when not actively running)
+  // This includes idle sessions and owned sessions that are waiting for input
+  if (hasUnread) {
     return <NotificationBadge variant="unread" />;
   }
 
-  // Priority 3+: Regular status badges
-  const label =
-    status.state === "owned"
-      ? "Active"
-      : status.state === "external"
-        ? "Active, External"
-        : "Idle";
+  // Priority 4: Active session (has a hot process) - subtle green outline, no text badge
+  // External sessions still get a text badge since that's useful info
+  if (status.state === "owned") {
+    return <span className="status-indicator status-active" />;
+  }
 
-  return <span className={`status-badge status-${status.state}`}>{label}</span>;
+  if (status.state === "external") {
+    return (
+      <span className="status-badge status-external">Active, External</span>
+    );
+  }
+
+  // Idle sessions - no badge needed
+  return null;
 }
 
 /**

@@ -15,10 +15,21 @@ export interface Project {
 /** Type of pending input request for notification badges */
 export type PendingInputType = "tool-approval" | "user-question";
 
+/** Process state type - what the agent is doing */
+export type ProcessStateType = "running" | "waiting-input";
+
+/** Context usage information extracted from the last assistant message */
+export interface ContextUsage {
+  /** Total input tokens for the last request (fresh + cached) */
+  inputTokens: number;
+  /** Percentage of context window used (based on 200K limit) */
+  percentage: number;
+}
+
 export interface SessionSummary {
   id: string;
   projectId: string;
-  title: string | null; // truncated title (max 50 chars)
+  title: string | null; // truncated title (max 120 chars)
   fullTitle: string | null; // complete title for hover tooltip
   createdAt: string;
   updatedAt: string;
@@ -27,6 +38,8 @@ export interface SessionSummary {
   // Notification fields (added by server when available)
   /** Type of pending input if session needs user action */
   pendingInputType?: PendingInputType;
+  /** Current process state (running/waiting-input) for activity indicators */
+  processState?: ProcessStateType;
   /** When the session was last viewed (if tracked) */
   lastSeenAt?: string;
   /** Whether session has new content since last viewed */
@@ -36,6 +49,10 @@ export interface SessionSummary {
   customTitle?: string;
   /** Whether the session is archived (hidden from default list) */
   isArchived?: boolean;
+  /** Whether the session is starred/favorited */
+  isStarred?: boolean;
+  /** Context usage from the last assistant message */
+  contextUsage?: ContextUsage;
 }
 
 /**

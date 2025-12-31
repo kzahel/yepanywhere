@@ -108,6 +108,33 @@ h2 {
   margin: 2rem 0 1rem;
 }
 
+/* Page header with title and actions */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+.settings-link {
+  color: var(--text-muted);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-link:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 /* Lists */
 .project-list,
 .session-list {
@@ -496,6 +523,143 @@ h2 {
   border-radius: 2px;
 }
 
+/* ==========================================================================
+   File Attachments
+   ========================================================================== */
+
+/* Left side of toolbar for mode button + attach button */
+.message-input-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Attach button */
+.attach-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.attach-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: #555;
+}
+
+.attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attach-icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.attach-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--app-claude-orange);
+  color: white;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Attachment list */
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  padding-right: var(--space-1);
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  font-size: var(--font-size-xs);
+}
+
+.attachment-chip.uploading {
+  opacity: 0.7;
+}
+
+.attachment-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.attachment-size {
+  color: var(--text-dimmed);
+  flex-shrink: 0;
+}
+
+.attachment-progress {
+  color: var(--app-claude-orange);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.attachment-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-left: var(--space-1);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-dimmed);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.attachment-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  .attachment-name {
+    max-width: 80px;
+  }
+
+  .attachment-chip {
+    padding: 2px var(--space-1);
+    padding-right: 2px;
+  }
+}
+
 /* Status */
 .status-indicator {
   display: flex;
@@ -564,6 +728,35 @@ h2 {
 .status-badge.status-external {
   background: #3a3a1a;
   color: #ff4;
+}
+
+/* Running/Thinking indicator - pulsing to show agent activity */
+.status-badge.status-running {
+  background: #3a2a1a;
+  color: #fa4;
+  animation: pulse-orange 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-orange {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 170, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 170, 68, 0);
+  }
+}
+
+/* Subtle active indicator - small green dot with outline for hot process */
+.status-indicator.status-active {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid #4f4;
+  margin-left: 0.5rem;
+  vertical-align: middle;
 }
 
 /* Notification badges - higher priority than status badges */
@@ -1149,10 +1342,6 @@ h2 {
    ========================================================================== */
 
 .reload-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
   background: var(--warning-color);
   color: #000;
   padding: var(--space-2) var(--space-4);
@@ -1160,14 +1349,8 @@ h2 {
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  z-index: 9999;
   font-size: var(--font-size-sm);
   font-weight: 500;
-  animation: reload-banner-slide-in 0.2s ease-out;
-}
-
-.reload-banner + .reload-banner {
-  top: 40px; /* Stack multiple banners */
 }
 
 .reload-banner-message {
@@ -1209,17 +1392,6 @@ h2 {
   color: rgba(0, 0, 0, 0.6);
 }
 
-@keyframes reload-banner-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Mobile adjustments */
 @media (max-width: 600px) {
   .reload-banner {
@@ -1231,6 +1403,113 @@ h2 {
   .reload-banner-shortcut {
     display: none;
   }
+}
+
+/* ==========================================================================
+   Settings Page
+   ========================================================================== */
+
+.settings-section {
+  margin-bottom: var(--space-4);
+}
+
+.settings-section h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  background: var(--bg-code);
+  border-radius: var(--radius-md);
+}
+
+.settings-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-item-info strong {
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.settings-item-info p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.settings-pending {
+  color: var(--warning-color);
+}
+
+.settings-button {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.settings-button:hover {
+  background: var(--border-color);
+}
+
+.settings-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-info {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Font size selector */
+.font-size-selector {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.font-size-option {
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.font-size-option:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.font-size-option.active {
+  background: var(--app-claude-orange);
+  color: white;
 }
 
 /* ==========================================================================
@@ -1268,6 +1547,20 @@ h2 {
 .session-action-btn.active {
   opacity: 1;
   color: var(--app-claude-orange);
+}
+
+/* Star button special styling */
+.session-action-btn.star-btn.active {
+  color: var(--warning-color);
+}
+
+/* Star indicator in session list */
+.star-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--warning-color);
+  margin-right: var(--space-1);
+  vertical-align: middle;
 }
 
 /* Archived badge */
@@ -1417,6 +1710,28 @@ h2 {
 .no-results {
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* ==========================================================================
+   Context Usage Indicator - Pie chart showing context window usage
+   ========================================================================== */
+
+.context-usage-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  cursor: default;
+}
+
+.context-usage-pie {
+  flex-shrink: 0;
+}
+
+.context-usage-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mobile adjustments for session metadata UI */

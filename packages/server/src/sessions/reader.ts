@@ -7,11 +7,16 @@ import {
 } from "@claude-anywhere/shared";
 import type {
   ContentBlock,
+  ContextUsage,
   Message,
   Session,
   SessionSummary,
 } from "../supervisor/types.js";
 import { SESSION_TITLE_MAX_LENGTH } from "../supervisor/types.js";
+
+// Claude model context window size (200K tokens)
+const CONTEXT_WINDOW_SIZE = 200_000;
+
 import { buildDag, findOrphanedToolUses } from "./dag.js";
 
 export interface SessionReaderOptions {
@@ -127,6 +132,7 @@ export class SessionReader {
       const stats = await stat(filePath);
       const firstUserMessage = this.findFirstUserMessage(messages);
       const fullTitle = firstUserMessage?.trim() || null;
+      const contextUsage = this.extractContextUsage(conversationMessages);
 
       return {
         id: sessionId,
@@ -137,6 +143,7 @@ export class SessionReader {
         updatedAt: stats.mtime.toISOString(),
         messageCount: conversationMessages.length,
         status: { state: "idle" }, // Will be updated by Supervisor
+        contextUsage,
       };
     } catch {
       return null;
@@ -205,6 +212,43 @@ export class SessionReader {
       }
     }
     return null;
+  }
+
+  /**
+   * Extract context usage from the last assistant message.
+   * Usage data is stored in message.usage with input_tokens, cache_read_input_tokens, etc.
+   */
+  private extractContextUsage(
+    messages: RawSessionMessage[],
+  ): ContextUsage | undefined {
+    // Find the last assistant message (iterate backwards)
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg && msg.type === "assistant" && msg.message) {
+        const usage = msg.message.usage as
+          | {
+              input_tokens?: number;
+              cache_read_input_tokens?: number;
+              cache_creation_input_tokens?: number;
+            }
+          | undefined;
+
+        if (usage) {
+          // Total input = fresh tokens + cached tokens + new cache creation
+          const inputTokens =
+            (usage.input_tokens ?? 0) +
+            (usage.cache_read_input_tokens ?? 0) +
+            (usage.cache_creation_input_tokens ?? 0);
+
+          const percentage = Math.round(
+            (inputTokens / CONTEXT_WINDOW_SIZE) * 100,
+          );
+
+          return { inputTokens, percentage };
+        }
+      }
+    }
+    return undefined;
   }
 
   private extractTitle(content: string | null): string | null {
