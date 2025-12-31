@@ -2,10 +2,6 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { reloadNotify } from "./vite-plugin-reload-notify";
 
-// VITE_API_PORT: Backend API port (default: 3400)
-// E2E tests set this to avoid conflicts with the real dev server
-const apiPort = process.env.VITE_API_PORT || "3400";
-
 // NO_FRONTEND_RELOAD: Disable HMR and use manual reload notifications instead
 const noFrontendReload = process.env.NO_FRONTEND_RELOAD === "true";
 
@@ -19,15 +15,19 @@ export default defineConfig({
     conditions: ["source"],
   },
   server: {
-    port: 5555, // also referenced in root package.json dev-tailscale script
+    port: 5555,
     allowedHosts: true,
-    // Disable HMR when NO_FRONTEND_RELOAD is set
-    hmr: noFrontendReload ? false : undefined,
-    proxy: {
-      "/api": {
-        target: `http://localhost:${apiPort}`,
-        changeOrigin: true,
-      },
-    },
+    // HMR configuration for reverse proxy setup
+    // When accessed through backend proxy (port 3400) or Tailscale, HMR needs to
+    // connect back through the same proxy path, not directly to Vite's port
+    hmr: noFrontendReload
+      ? false
+      : {
+          // Let the client determine host/port from its current location
+          // This allows HMR to work through any proxy (backend, Tailscale, etc.)
+          // The backend will proxy WebSocket connections to us
+        },
+    // No proxy needed - backend (port 3400) proxies to us, not the other way around
+    // Users access http://localhost:3400 and backend forwards non-API requests here
   },
 });

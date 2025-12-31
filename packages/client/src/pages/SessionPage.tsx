@@ -1,5 +1,5 @@
 import type { UploadedFile } from "@claude-anywhere/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, uploadFile } from "../api/client";
 import { MessageInput, type UploadProgress } from "../components/MessageInput";
@@ -13,7 +13,8 @@ import type { DraftControls } from "../hooks/useDraftPersistence";
 import { useEngagementTracking } from "../hooks/useEngagementTracking";
 import { useSession } from "../hooks/useSession";
 import { useToast } from "../hooks/useToast";
-import type { Project } from "../types";
+import { preprocessMessages } from "../lib/preprocessMessages";
+import { type Project, getSessionDisplayTitle } from "../types";
 
 export function SessionPage() {
   const { projectId, sessionId } = useParams<{
@@ -66,7 +67,11 @@ function SessionPageContent({
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
-  const renameInputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Session menu dropdown state
+  const [showSessionMenu, setShowSessionMenu] = useState(false);
+  const sessionMenuRef = useRef<HTMLDivElement>(null);
 
   // Local metadata state (for optimistic updates)
   const [localCustomTitle, setLocalCustomTitle] = useState<string | undefined>(
@@ -92,10 +97,25 @@ function SessionPageContent({
     enabled: status.state !== "external",
   });
 
-  // Fetch project info for breadcrumb
+  // Fetch project info
   useEffect(() => {
     api.getProject(projectId).then((data) => setProject(data.project));
   }, [projectId]);
+
+  // Close session menu when clicking outside
+  useEffect(() => {
+    if (!showSessionMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        sessionMenuRef.current &&
+        !sessionMenuRef.current.contains(e.target as Node)
+      ) {
+        setShowSessionMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showSessionMenu]);
 
   const handleSend = async (text: string) => {
     setSending(true);
@@ -275,17 +295,30 @@ function SessionPageContent({
   // Check if pending request is an AskUserQuestion
   const isAskUserQuestion = pendingInputRequest?.toolName === "AskUserQuestion";
 
-  // Compute display title (prioritize local > server customTitle > auto title)
-  const displayTitle =
-    localCustomTitle ?? session?.customTitle ?? session?.title;
+  // Detect if session has pending tool calls without results
+  // This can happen when the session is idle but was active in another process (VS Code, CLI)
+  // that is waiting for user input (tool approval, question answer)
+  const hasPendingToolCalls = useMemo(() => {
+    if (status.state !== "idle") return false;
+    const items = preprocessMessages(messages);
+    return items.some(
+      (item) => item.type === "tool_call" && item.status === "pending",
+    );
+  }, [messages, status.state]);
+
+  // Compute display title - use local override if set, otherwise use utility
+  const displayTitle = localCustomTitle ?? getSessionDisplayTitle(session);
   const isArchived = localIsArchived ?? session?.isArchived ?? false;
   const isStarred = localIsStarred ?? session?.isStarred ?? false;
 
   const handleOpenRename = () => {
-    setRenameValue(displayTitle ?? "");
+    setRenameValue(displayTitle);
     setShowRenameModal(true);
-    // Focus the input after modal opens
-    setTimeout(() => renameInputRef.current?.focus(), 0);
+    // Focus the input and select all text after modal opens
+    setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 0);
   };
 
   const handleRename = async () => {
@@ -342,83 +375,137 @@ function SessionPageContent({
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <header className="session-header">
         <div className="session-header-left">
-          <nav className="breadcrumb">
-            <Link to="/projects">Projects</Link> /{" "}
-            <Link to={`/projects/${projectId}`}>
-              {project?.name ?? "Project"}
-            </Link>{" "}
-            / Session
-          </nav>
-          <div className="session-title-row">
-            {displayTitle && (
-              <span
-                className="session-title"
-                title={session?.fullTitle ?? undefined}
-              >
-                {displayTitle}
-              </span>
-            )}
-            <button
-              type="button"
-              className={`session-action-btn star-btn ${isStarred ? "active" : ""}`}
-              onClick={handleToggleStar}
-              title={isStarred ? "Unstar session" : "Star session"}
-              aria-label={isStarred ? "Unstar session" : "Star session"}
+          <Link
+            to={`/projects/${projectId}`}
+            className="back-button"
+            title="Back to project"
+            aria-label="Back to project"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
             >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <div className="session-title-row">
+            {isStarred && (
               <svg
-                width="14"
-                height="14"
+                className="star-indicator-inline"
+                width="12"
+                height="12"
                 viewBox="0 0 24 24"
-                fill={isStarred ? "currentColor" : "none"}
+                fill="currentColor"
                 stroke="currentColor"
                 strokeWidth="2"
-                aria-hidden="true"
+                role="img"
+                aria-label="Starred"
               >
+                <title>Starred</title>
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
-            </button>
-            <button
-              type="button"
-              className="session-action-btn"
-              onClick={handleOpenRename}
-              title="Rename session"
-              aria-label="Rename session"
+            )}
+            <span
+              className="session-title"
+              title={session?.fullTitle ?? undefined}
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={`session-action-btn ${isArchived ? "active" : ""}`}
-              onClick={handleToggleArchive}
-              title={isArchived ? "Unarchive session" : "Archive session"}
-              aria-label={isArchived ? "Unarchive session" : "Archive session"}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <polyline points="21 8 21 21 3 21 3 8" />
-                <rect x="1" y="3" width="22" height="5" />
-                <line x1="10" y1="12" x2="14" y2="12" />
-              </svg>
-            </button>
+              {displayTitle}
+            </span>
             {isArchived && <span className="archived-badge">Archived</span>}
+            <div className="session-menu-wrapper" ref={sessionMenuRef}>
+              <button
+                type="button"
+                className="session-menu-trigger"
+                onClick={() => setShowSessionMenu(!showSessionMenu)}
+                title="Session options"
+                aria-label="Session options"
+                aria-expanded={showSessionMenu}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              {showSessionMenu && (
+                <div className="session-menu-dropdown">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggleStar();
+                      setShowSessionMenu(false);
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill={isStarred ? "currentColor" : "none"}
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    {isStarred ? "Unstar" : "Star"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenRename();
+                      setShowSessionMenu(false);
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggleArchive();
+                      setShowSessionMenu(false);
+                    }}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <polyline points="21 8 21 21 3 21 3 8" />
+                      <rect x="1" y="3" width="22" height="5" />
+                      <line x1="10" y1="12" x2="14" y2="12" />
+                    </svg>
+                    {isArchived ? "Unarchive" : "Archive"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <StatusIndicator
@@ -431,15 +518,15 @@ function SessionPageContent({
       {showRenameModal && (
         <Modal title="Rename Session" onClose={() => setShowRenameModal(false)}>
           <div className="rename-modal-content">
-            <input
+            <textarea
               ref={renameInputRef}
-              type="text"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               placeholder="Enter session title..."
               className="rename-input"
+              rows={3}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !isRenaming) {
+                if (e.key === "Enter" && e.metaKey && !isRenaming) {
                   handleRename();
                 }
               }}
@@ -469,6 +556,13 @@ function SessionPageContent({
       {status.state === "external" && (
         <div className="external-session-warning">
           External session active - enter messages at your own risk!
+        </div>
+      )}
+
+      {hasPendingToolCalls && (
+        <div className="external-session-warning pending-tool-warning">
+          This session may be waiting for input in another process (VS Code,
+          CLI). Check there before sending a message.
         </div>
       )}
 

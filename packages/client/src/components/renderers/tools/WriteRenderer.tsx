@@ -64,14 +64,17 @@ function WriteToolResult({
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (isError || !result?.file) {
-    const errorResult = result as unknown as { content?: unknown } | undefined;
-    return (
-      <div className="write-error">
-        {typeof result === "object" && errorResult?.content
-          ? String(errorResult.content)
-          : "Failed to write file"}
-      </div>
-    );
+    // Extract error message - can be a string or object with content
+    let errorMessage = "Failed to write file";
+    if (typeof result === "string") {
+      errorMessage = result;
+    } else if (typeof result === "object" && result !== null) {
+      const errorResult = result as { content?: unknown };
+      if (errorResult.content) {
+        errorMessage = String(errorResult.content);
+      }
+    }
+    return <div className="write-error">{errorMessage}</div>;
   }
 
   const { file } = result;
@@ -152,9 +155,19 @@ function WriteCollapsedPreview({
   const isTruncated = lines.length > PREVIEW_LINES;
 
   if (isError) {
+    // Extract error message from result - can be a string or object with content
+    let errorMessage = "Failed to write file";
+    if (typeof result === "string") {
+      errorMessage = result;
+    } else if (typeof result === "object" && result !== null) {
+      const errorResult = result as { content?: unknown };
+      if (errorResult.content) {
+        errorMessage = String(errorResult.content);
+      }
+    }
     return (
       <div className="write-collapsed-preview write-collapsed-error">
-        <span className="write-preview-error">Failed to write file</span>
+        <span className="write-preview-error">{errorMessage}</span>
       </div>
     );
   }

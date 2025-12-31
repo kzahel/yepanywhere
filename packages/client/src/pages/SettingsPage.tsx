@@ -15,6 +15,8 @@ export function SettingsPage() {
     connected,
     reloadBackend,
     reloadFrontend,
+    unsafeToRestart,
+    workerActivity,
   } = useReloadNotifications();
   const { fontSize, setFontSize } = useFontSize();
   const [restarting, setRestarting] = useState(false);
@@ -81,14 +83,25 @@ export function SettingsPage() {
                     <span className="settings-pending"> (changes pending)</span>
                   )}
                 </p>
+                {unsafeToRestart && (
+                  <p className="settings-warning">
+                    {workerActivity.activeWorkers} active session
+                    {workerActivity.activeWorkers !== 1 ? "s" : ""} will be
+                    interrupted
+                  </p>
+                )}
               </div>
               <button
                 type="button"
-                className="settings-button"
+                className={`settings-button ${unsafeToRestart ? "settings-button-danger" : ""}`}
                 onClick={handleRestartServer}
                 disabled={restarting}
               >
-                {restarting ? "Restarting..." : "Restart Server"}
+                {restarting
+                  ? "Restarting..."
+                  : unsafeToRestart
+                    ? "Restart Anyway"
+                    : "Restart Server"}
               </button>
             </div>
 

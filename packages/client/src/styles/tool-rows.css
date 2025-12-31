@@ -37,19 +37,37 @@
 
 /* Text and thinking blocks - align dot with first line of text */
 .text-block.timeline-item::before {
-  top: 4px;
+  top: 8px;
 }
 
 .text-block.timeline-item::after {
-  top: 12px; /* Adjust line start for new dot position */
+  top: 16px; /* Adjust line start for new dot position */
+}
+
+/* Add small top padding so text aligns with tool row text */
+.text-block.timeline-item {
+  padding-top: 2px;
 }
 
 .thinking-block.timeline-item::before {
-  top: 4px;
+  top: 8px;
 }
 
 .thinking-block.timeline-item::after {
-  top: 12px;
+  top: 16px;
+}
+
+.thinking-block.timeline-item {
+  padding-top: 2px;
+}
+
+/* Tool row - align dot with centered text in header (2px padding + centered in 20px = ~8px) */
+.tool-row.timeline-item::before {
+  top: 8px;
+}
+
+.tool-row.timeline-item::after {
+  top: 16px; /* Adjust line start for new dot position */
 }
 
 /* Tool row status-specific dot colors */
@@ -147,7 +165,7 @@
 .tool-name {
   flex-shrink: 0;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--text-primary, #ccc);
 }
 
@@ -155,7 +173,7 @@
 .tool-summary {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--text-muted, #888);
   white-space: nowrap;
   overflow: hidden;
@@ -167,7 +185,7 @@
   flex-shrink: 0;
   width: 16px;
   text-align: center;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-dimmed, #666);
   transition: transform 0.15s;
 }
@@ -205,18 +223,18 @@
 .tool-pending-message {
   color: var(--text-muted, #888);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .tool-no-result {
   color: var(--text-muted, #888);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 .tool-use-expanded,
 .tool-result-expanded {
-  font-size: 13px;
+  font-size: var(--font-size-base);
 }
 
 /* ==========================================================================
@@ -240,7 +258,7 @@
   flex-shrink: 0;
   color: var(--warning-color, #d7ba7d);
   font-weight: bold;
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   display: flex;
   align-items: center;
 }
@@ -260,7 +278,7 @@
   background: var(--bg-code, #1e1e1e);
   border-radius: 4px;
   overflow-x: auto;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .tool-content-json code {

@@ -4,10 +4,9 @@
  * Dev server wrapper script with configurable reload behavior.
  *
  * Usage:
- *   pnpm dev                      # Default: both auto-reload
- *   pnpm dev --no-backend-reload  # Backend watches but doesn't restart
+ *   pnpm dev                      # Default: no Enter-to-restart
+ *   pnpm dev --watch              # Enable backend auto-reload on file changes
  *   pnpm dev --no-frontend-reload # Frontend watches but doesn't HMR
- *   pnpm dev --manual             # Neither auto-reloads
  */
 
 import { spawn } from "node:child_process";
@@ -24,28 +23,28 @@ if (args.includes("--help") || args.includes("-h")) {
   console.log(`Usage: pnpm dev [options]
 
 Options:
-  --no-backend-reload  Backend watches but doesn't auto-restart
+  --watch              Enable backend auto-reload (tsx watch mode)
   --no-frontend-reload Frontend watches but doesn't HMR
-  --manual             Neither auto-reloads (same as both --no-* flags)
   -h, --help           Show this help message
 `);
   process.exit(0);
 }
-const noBackendReload =
-  args.includes("--no-backend-reload") || args.includes("--manual");
-const noFrontendReload =
-  args.includes("--no-frontend-reload") || args.includes("--manual");
+
+// Backend auto-reload is OFF by default (no Enter-to-restart behavior)
+// Use --watch to enable tsx watch mode
+const backendWatch = args.includes("--watch");
+const noFrontendReload = args.includes("--no-frontend-reload");
 
 console.log("Starting dev server...");
-if (noBackendReload) console.log("  Backend auto-reload: DISABLED");
+console.log("  Access at: http://localhost:3400");
+if (backendWatch) console.log("  Backend auto-reload: ENABLED (--watch)");
 if (noFrontendReload) console.log("  Frontend HMR: DISABLED");
-if (!noBackendReload && !noFrontendReload)
-  console.log("  Auto-reload: ENABLED for both");
+if (!backendWatch && !noFrontendReload)
+  console.log("  Frontend HMR: ENABLED, Backend: manual restart only");
 
 // Build environment for child processes
 const env = {
   ...process.env,
-  NO_BACKEND_RELOAD: noBackendReload ? "true" : "",
   NO_FRONTEND_RELOAD: noFrontendReload ? "true" : "",
 };
 
@@ -71,10 +70,11 @@ process.on("SIGTERM", () => {
 });
 
 /**
- * Spawn a server process with restart capability
+ * Spawn a server process
  */
 function startServer() {
-  const serverScript = noBackendReload ? "dev:no-reload" : "dev";
+  // Use dev:watch for auto-reload, dev for no-reload (default)
+  const serverScript = backendWatch ? "dev:watch" : "dev";
 
   const server = spawn("pnpm", ["--filter", "server", serverScript], {
     cwd: rootDir,
@@ -90,12 +90,7 @@ function startServer() {
     const idx = children.indexOf(server);
     if (idx !== -1) children.splice(idx, 1);
 
-    // If server exited with code 0 and we're in no-reload mode,
-    // it was a manual reload request - restart it
-    if (noBackendReload && code === 0 && signal === null) {
-      console.log("\nRestarting server...");
-      startServer();
-    } else if (code !== null && code !== 0) {
+    if (code !== null && code !== 0) {
       console.error(`Server exited with code ${code}`);
     }
   });

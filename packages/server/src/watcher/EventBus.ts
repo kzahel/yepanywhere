@@ -74,6 +74,44 @@ export interface ProcessStateEvent {
   timestamp: string;
 }
 
+/** Event emitted when a request is added to the worker queue */
+export interface QueueRequestAddedEvent {
+  type: "queue-request-added";
+  queueId: string;
+  sessionId?: string;
+  projectId: UrlProjectId;
+  position: number;
+  timestamp: string;
+}
+
+/** Event emitted when queue positions change */
+export interface QueuePositionChangedEvent {
+  type: "queue-position-changed";
+  queueId: string;
+  sessionId?: string;
+  position: number;
+  timestamp: string;
+}
+
+/** Event emitted when a request is removed from queue */
+export interface QueueRequestRemovedEvent {
+  type: "queue-request-removed";
+  queueId: string;
+  sessionId?: string;
+  reason: "started" | "cancelled";
+  timestamp: string;
+}
+
+/** Event emitted when worker activity changes (for safe restart indicator) */
+export interface WorkerActivityEvent {
+  type: "worker-activity-changed";
+  activeWorkers: number;
+  queueLength: number;
+  /** True if any worker is running or waiting-input (unsafe to restart) */
+  hasActiveWork: boolean;
+  timestamp: string;
+}
+
 /** Union of all event types that can be emitted through the bus */
 export type BusEvent =
   | FileChangeEvent
@@ -82,7 +120,11 @@ export type BusEvent =
   | SourceChangeEvent
   | BackendReloadedEvent
   | SessionSeenEvent
-  | ProcessStateEvent;
+  | ProcessStateEvent
+  | QueueRequestAddedEvent
+  | QueuePositionChangedEvent
+  | QueueRequestRemovedEvent
+  | WorkerActivityEvent;
 
 export type EventHandler<T = BusEvent> = (event: T) => void;
 

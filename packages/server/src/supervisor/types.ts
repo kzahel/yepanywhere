@@ -3,6 +3,7 @@ import type { PermissionMode, SDKMessage } from "../sdk/types.js";
 
 // Constants
 export const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+export const DEFAULT_IDLE_PREEMPT_THRESHOLD_MS = 10 * 1000; // 10 seconds - workers idle longer than this can be preempted
 export const SESSION_TITLE_MAX_LENGTH = 120;
 
 // Re-export path utilities for backward compatibility

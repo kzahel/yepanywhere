@@ -92,7 +92,7 @@ body {
 }
 
 .breadcrumb {
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
   color: #888;
   margin-bottom: 1rem;
 }
@@ -165,7 +165,7 @@ h2 {
 
 .meta {
   display: block;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
   color: #888;
   margin-top: 0.25rem;
 }
@@ -222,20 +222,29 @@ h2 {
   flex: 1;
 }
 
-.session-header-left .breadcrumb {
-  margin-bottom: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+
+.back-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .session-title {
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-weight: 500;
-  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .session-messages {
@@ -260,18 +269,11 @@ h2 {
   }
 
   .session-header-left {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+    gap: 0.5rem;
   }
 
   .session-title {
-    max-width: 100%;
-    font-size: 0.875rem;
-  }
-
-  .breadcrumb {
-    font-size: 0.75rem;
+    font-size: var(--font-size-base);
   }
 
   .session-messages {
@@ -296,7 +298,7 @@ h2 {
   width: fit-content;
   max-width: 80%;
   padding: 0.25rem 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--font-size-base);
 }
 
 /* User prompt metadata (opened files, etc.) */
@@ -340,7 +342,7 @@ h2 {
   margin-left: auto;
   margin-top: 0.25rem;
   padding: 0.125rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: var(--text-dimmed);
   background: transparent;
   border: 1px solid var(--border-color);
@@ -576,7 +578,7 @@ h2 {
   background: var(--app-claude-orange);
   color: white;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -690,9 +692,9 @@ h2 {
   background: #ff4;
 }
 
-.status-disconnected {
-  color: #f84;
-  font-size: 0.875rem;
+.status-dot.disconnected {
+  background: #f84;
+  animation: pulse 1s ease-in-out infinite;
 }
 
 /* External session warning banner */
@@ -705,12 +707,19 @@ h2 {
   font-weight: 500;
 }
 
+/* Pending tool warning - slightly different styling for informational message */
+.external-session-warning.pending-tool-warning {
+  background: #3a3a50;
+  border-color: #5555aa;
+  color: #aaaaff;
+}
+
 /* Status badges for session list */
 .status-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   margin-left: 0.5rem;
 }
@@ -1392,6 +1401,28 @@ h2 {
   color: rgba(0, 0, 0, 0.6);
 }
 
+/* Warning state for unsafe restart */
+.reload-banner-warning {
+  background: var(--error-color);
+}
+
+.reload-banner-warning .reload-banner-button-primary {
+  color: var(--error-color);
+}
+
+.reload-banner-warning-text {
+  font-weight: 600;
+}
+
+.reload-banner-button-danger {
+  background: #000;
+  border-color: transparent;
+}
+
+.reload-banner-button-danger:hover {
+  background: #222;
+}
+
 /* Mobile adjustments */
 @media (max-width: 600px) {
   .reload-banner {
@@ -1480,6 +1511,23 @@ h2 {
   font-size: var(--font-size-sm);
 }
 
+.settings-warning {
+  color: var(--error-color);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-1);
+}
+
+.settings-button-danger {
+  background: var(--error-color);
+  border-color: var(--error-color);
+  color: #fff;
+}
+
+.settings-button-danger:hover {
+  background: var(--error-hover, #b91c1c);
+  border-color: var(--error-hover, #b91c1c);
+}
+
 /* Font size selector */
 .font-size-selector {
   display: flex;
@@ -1520,8 +1568,80 @@ h2 {
 .session-title-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
+  max-width: 100%;
+}
+
+/* Star indicator next to title */
+.star-indicator-inline {
+  color: var(--warning-color);
+  margin-right: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* Session menu dropdown */
+.session-menu-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.session-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.session-menu-trigger:hover {
+  opacity: 1;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.session-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--space-1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 140px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.session-menu-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.session-menu-dropdown button:hover {
+  background: var(--bg-hover);
+}
+
+.session-menu-dropdown button svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 .session-action-btn {
@@ -1590,6 +1710,8 @@ h2 {
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: var(--font-size-base);
+  font-family: inherit;
+  resize: vertical;
 }
 
 .rename-input:focus {

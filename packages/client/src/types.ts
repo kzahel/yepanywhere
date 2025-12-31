@@ -119,6 +119,17 @@ export interface Session extends SessionSummary {
   messages: Message[];
 }
 
+/**
+ * Get the display title for a session.
+ * Priority: customTitle > title > "Untitled"
+ */
+export function getSessionDisplayTitle(
+  session: Pick<SessionSummary, "customTitle" | "title"> | null | undefined,
+): string {
+  if (!session) return "Untitled";
+  return session.customTitle ?? session.title ?? "Untitled";
+}
+
 // Input request for tool approval or user questions
 export interface InputRequest {
   id: string;

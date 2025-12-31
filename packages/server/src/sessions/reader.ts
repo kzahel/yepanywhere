@@ -124,7 +124,9 @@ export class SessionReader {
         (m) => m.type === "user" || m.type === "assistant",
       );
 
-      // Skip sessions with no actual conversation messages
+      // Skip sessions with no actual conversation messages (metadata-only files).
+      // Note: Newly created sessions may not have user/assistant messages yet (SDK writes async).
+      // These are handled separately in the projects route by adding owned processes.
       if (conversationMessages.length === 0) {
         return null;
       }

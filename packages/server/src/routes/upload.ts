@@ -40,106 +40,109 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
   routes.get(
     "/projects/:projectId/sessions/:sessionId/upload/ws",
     deps.upgradeWebSocket((c) => {
+      console.log("[Upload WS] Route matched! Setting up WebSocket handler");
       const projectId = c.req.param("projectId");
       const sessionId = c.req.param("sessionId");
+      console.log("[Upload WS] Project:", projectId, "Session:", sessionId);
 
       // Track current upload for this connection
       let currentUploadId: string | null = null;
       let lastProgressSent = 0;
-      let validated = false;
 
-      return {
-        async onOpen(_evt, ws) {
-          // Validate projectId format
-          if (!isUrlProjectId(projectId)) {
-            sendError(ws, "Invalid project ID format", "INVALID_PROJECT");
-            ws.close(1008, "Invalid project ID");
-            return;
-          }
+      // Validation promise - we need to await this before processing messages
+      // because onOpen can be async but @hono/node-ws doesn't wait for it
+      let validationPromise: Promise<boolean> | null = null;
+      let validationResult: boolean | null = null;
 
-          // Validate project exists
-          const project = await deps.scanner.getProject(projectId);
-          if (!project) {
-            sendError(ws, "Project not found", "PROJECT_NOT_FOUND");
-            ws.close(1008, "Project not found");
-            return;
-          }
+      // Message queue to serialize async message handling
+      // This prevents race conditions where binary chunks arrive before
+      // the async startUpload() completes
+      let messageQueue: Promise<void> = Promise.resolve();
 
-          validated = true;
-        },
+      const validate = async (): Promise<boolean> => {
+        // Validate projectId format
+        if (!isUrlProjectId(projectId)) {
+          return false;
+        }
 
-        async onMessage(evt, ws) {
-          if (!validated) {
-            sendError(ws, "Connection not validated", "NOT_VALIDATED");
-            return;
-          }
+        // Validate project exists
+        const project = await deps.scanner.getProject(projectId);
+        if (!project) {
+          return false;
+        }
 
-          const data = evt.data;
+        return true;
+      };
 
-          // Handle binary chunks
-          if (
-            data instanceof ArrayBuffer ||
-            data instanceof Uint8Array ||
-            (typeof Buffer !== "undefined" && Buffer.isBuffer(data))
-          ) {
-            if (!currentUploadId) {
-              sendError(
-                ws,
-                "No upload started - send start message first",
-                "NO_UPLOAD",
-              );
-              return;
-            }
+      // Process a single message - must be called sequentially via the queue
+      const processMessage = async (
+        data: string | ArrayBuffer | SharedArrayBuffer | Buffer | Blob,
+        ws: WSContext,
+      ): Promise<void> => {
+        // Wait for validation to complete if it hasn't yet
+        if (validationResult === null && validationPromise) {
+          validationResult = await validationPromise;
+        }
 
-            const uploadId = currentUploadId;
+        if (!validationResult) {
+          sendError(ws, "Connection not validated", "NOT_VALIDATED");
+          return;
+        }
+
+        // When using the unified upgrade handler with wss.handleUpgrade,
+        // the 'ws' library delivers ALL messages as Buffer by default,
+        // bypassing @hono/node-ws's text/binary conversion.
+        // We need to handle both Buffer and string data types.
+
+        // Convert Buffer/ArrayBuffer to string for potential JSON parsing
+        let stringData: string | null = null;
+        let bufferData: Buffer | null = null;
+
+        if (typeof data === "string") {
+          stringData = data;
+        } else if (
+          data instanceof ArrayBuffer ||
+          data instanceof SharedArrayBuffer ||
+          Buffer.isBuffer(data)
+        ) {
+          bufferData = Buffer.isBuffer(data)
+            ? data
+            : Buffer.from(data as ArrayBuffer);
+          // Try to interpret as UTF-8 string for JSON control messages
+          stringData = bufferData.toString("utf8");
+        } else if (data instanceof Blob) {
+          // Blob handling (rare in Node.js WebSocket but possible)
+          const arrayBuffer = await data.arrayBuffer();
+          bufferData = Buffer.from(arrayBuffer);
+          stringData = bufferData.toString("utf8");
+        }
+
+        console.log(
+          "[Upload WS] Message received, typeof:",
+          typeof data,
+          "isBuffer:",
+          Buffer.isBuffer(data),
+          "preview:",
+          stringData?.substring(0, 50),
+        );
+
+        // Try to parse as JSON control message first
+        let msg: UploadClientMessage | null = null;
+        if (stringData) {
+          const trimmed = stringData.trim();
+          if (trimmed.startsWith("{")) {
             try {
-              let chunk: Buffer;
-              if (data instanceof ArrayBuffer) {
-                chunk = Buffer.from(data);
-              } else if (data instanceof Uint8Array) {
-                chunk = Buffer.from(
-                  data.buffer,
-                  data.byteOffset,
-                  data.byteLength,
-                );
-              } else {
-                chunk = data as Buffer;
-              }
-
-              const bytesReceived = await uploadManager.writeChunk(
-                uploadId,
-                chunk,
-              );
-
-              // Send progress updates periodically
-              if (bytesReceived - lastProgressSent >= PROGRESS_INTERVAL_BYTES) {
-                const progress: UploadProgressMessage = {
-                  type: "progress",
-                  bytesReceived,
-                };
-                sendMessage(ws, progress);
-                lastProgressSent = bytesReceived;
-              }
-            } catch (err) {
-              const message =
-                err instanceof Error ? err.message : "Write failed";
-              sendError(ws, message, "WRITE_ERROR");
-              await uploadManager.cancelUpload(uploadId);
-              currentUploadId = null;
+              msg = JSON.parse(trimmed) as UploadClientMessage;
+              console.log("[Upload WS] Parsed control message:", msg.type);
+            } catch {
+              // Not valid JSON - treat as binary data
+              msg = null;
             }
-            return;
           }
+        }
 
-          // Handle JSON control messages
-          let msg: UploadClientMessage;
-          try {
-            const text = typeof data === "string" ? data : String(data);
-            msg = JSON.parse(text) as UploadClientMessage;
-          } catch {
-            sendError(ws, "Invalid JSON message", "INVALID_JSON");
-            return;
-          }
-
+        // If we parsed a control message, handle it
+        if (msg !== null) {
           switch (msg.type) {
             case "start": {
               // Clean up any previous upload
@@ -157,9 +160,12 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
                 );
                 currentUploadId = uploadId;
                 lastProgressSent = 0;
+                console.log("[Upload WS] Upload started:", uploadId);
               } catch (err) {
                 const message =
-                  err instanceof Error ? err.message : "Failed to start upload";
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to start upload";
                 sendError(ws, message, "START_ERROR");
               }
               break;
@@ -180,6 +186,7 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
                 };
                 sendMessage(ws, complete);
                 currentUploadId = null;
+                console.log("[Upload WS] Upload completed:", file.name);
               } catch (err) {
                 const message =
                   err instanceof Error
@@ -196,13 +203,85 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
               if (currentUploadId) {
                 await uploadManager.cancelUpload(currentUploadId);
                 currentUploadId = null;
+                console.log("[Upload WS] Upload cancelled");
               }
               break;
             }
           }
+          return;
+        }
+
+        // Otherwise, treat as binary chunk data
+        if (!currentUploadId) {
+          sendError(
+            ws,
+            "No upload started - send start message first",
+            "NO_UPLOAD",
+          );
+          return;
+        }
+
+        const uploadId = currentUploadId;
+        try {
+          // Convert to Buffer if needed (bufferData should already be set at this point)
+          const chunk =
+            bufferData ?? (typeof data === "string" ? Buffer.from(data) : null);
+          if (!chunk) {
+            sendError(ws, "Invalid chunk data", "INVALID_CHUNK");
+            return;
+          }
+
+          const bytesReceived = await uploadManager.writeChunk(
+            uploadId,
+            chunk,
+          );
+
+          // Send progress updates periodically
+          if (bytesReceived - lastProgressSent >= PROGRESS_INTERVAL_BYTES) {
+            const progress: UploadProgressMessage = {
+              type: "progress",
+              bytesReceived,
+            };
+            sendMessage(ws, progress);
+            lastProgressSent = bytesReceived;
+          }
+        } catch (err) {
+          console.error("[Upload WS] Write error:", err);
+          const message =
+            err instanceof Error ? err.message : "Write failed";
+          sendError(ws, message, "WRITE_ERROR");
+          await uploadManager.cancelUpload(uploadId);
+          currentUploadId = null;
+        }
+      };
+
+      return {
+        onOpen(_evt, ws) {
+          // Start validation (don't await - @hono/node-ws doesn't support async onOpen)
+          validationPromise = validate();
+          validationPromise.then((result) => {
+            validationResult = result;
+            if (!result) {
+              sendError(ws, "Project validation failed", "VALIDATION_FAILED");
+              ws.close(1008, "Validation failed");
+            }
+          });
+        },
+
+        onMessage(evt, ws) {
+          // Queue this message to be processed after all previous messages complete
+          // This serializes async processing and prevents race conditions
+          messageQueue = messageQueue.then(() =>
+            processMessage(evt.data, ws).catch((err) => {
+              console.error("[Upload WS] Unexpected error:", err);
+              sendError(ws, "Internal error", "INTERNAL_ERROR");
+            }),
+          );
         },
 
         async onClose(_evt, _ws) {
+          // Wait for any pending messages to complete
+          await messageQueue;
           // Clean up partial uploads on disconnect
           if (currentUploadId) {
             await uploadManager.cancelUpload(currentUploadId);

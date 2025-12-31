@@ -155,6 +155,7 @@ export class Process {
       this.pendingToolApproval.resolve({
         behavior: "deny",
         message: `Process terminated: ${reason}`,
+        interrupt: true,
       });
       this.pendingToolApproval = null;
     }
@@ -312,7 +313,11 @@ export class Process {
   ): Promise<ToolApprovalResult> {
     // Check if aborted
     if (options.signal.aborted) {
-      return { behavior: "deny", message: "Operation aborted" };
+      return {
+        behavior: "deny",
+        message: "Operation aborted",
+        interrupt: true,
+      };
     }
 
     // Handle based on permission mode
@@ -376,7 +381,11 @@ export class Process {
         if (this.pendingToolApproval?.request.id === request.id) {
           this.pendingToolApproval = null;
           this.setState({ type: "running" });
-          resolve({ behavior: "deny", message: "Operation aborted" });
+          resolve({
+            behavior: "deny",
+            message: "Operation aborted",
+            interrupt: true,
+          });
         }
       };
 
@@ -407,9 +416,13 @@ export class Process {
     // Build the result with optional updated input for AskUserQuestion
     // If deny has feedback, use that as the message
     const denyMessage = feedback || "User denied permission";
+    // If user just clicked "No" without feedback, set interrupt: true to stop retrying.
+    // If user provided feedback, set interrupt: false so Claude can incorporate the guidance.
+    const shouldInterrupt = response === "deny" && !feedback;
     const result: ToolApprovalResult = {
       behavior: response === "approve" ? "allow" : "deny",
       message: response === "deny" ? denyMessage : undefined,
+      interrupt: response === "deny" ? shouldInterrupt : undefined,
     };
 
     // If answers provided (AskUserQuestion), pass them as updatedInput

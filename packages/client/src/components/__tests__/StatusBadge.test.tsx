@@ -37,7 +37,9 @@ describe("SessionStatusBadge", () => {
       />,
     );
 
-    const indicator = container.querySelector(".status-indicator.status-active");
+    const indicator = container.querySelector(
+      ".status-indicator.status-active",
+    );
     expect(indicator).not.toBeNull();
   });
 
@@ -64,7 +66,9 @@ describe("SessionStatusBadge", () => {
       />,
     );
 
-    const badge = container.querySelector(".status-badge.notification-needs-input");
+    const badge = container.querySelector(
+      ".status-badge.notification-needs-input",
+    );
     expect(badge).not.toBeNull();
     expect(badge?.textContent).toBe("Approval Needed");
 
@@ -122,7 +126,9 @@ describe("SessionStatusBadge", () => {
     expect(unreadBadge?.textContent).toBe("New");
 
     // Should not show the green dot when unread is shown
-    const indicator = container.querySelector(".status-indicator.status-active");
+    const indicator = container.querySelector(
+      ".status-indicator.status-active",
+    );
     expect(indicator).toBeNull();
   });
 });

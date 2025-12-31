@@ -12,15 +12,23 @@ import type {
   ProcessStateType,
   SessionCreatedEvent,
   SessionStatusEvent,
+  WorkerActivityEvent,
 } from "../watcher/EventBus.js";
 import { Process, type ProcessConstructorOptions } from "./Process.js";
-import type {
-  ProcessInfo,
-  ProcessOptions,
-  SessionStatus,
-  SessionSummary,
+import {
+  type QueuedRequest,
+  type QueuedRequestInfo,
+  type QueuedResponse,
+  WorkerQueue,
+} from "./WorkerQueue.js";
+import {
+  DEFAULT_IDLE_PREEMPT_THRESHOLD_MS,
+  type ProcessInfo,
+  type ProcessOptions,
+  type SessionStatus,
+  type SessionSummary,
+  encodeProjectId,
 } from "./types.js";
-import { encodeProjectId } from "./types.js";
 
 export interface SupervisorOptions {
   /** Legacy SDK interface for mock SDK */
@@ -32,6 +40,10 @@ export interface SupervisorOptions {
   defaultPermissionMode?: PermissionMode;
   /** EventBus for emitting session status changes */
   eventBus?: EventBus;
+  /** Maximum concurrent workers. 0 = unlimited (default for backward compat) */
+  maxWorkers?: number;
+  /** Idle threshold in milliseconds for preemption. Workers idle longer than this can be preempted. */
+  idlePreemptThresholdMs?: number;
 }
 
 export class Supervisor {
@@ -43,6 +55,9 @@ export class Supervisor {
   private idleTimeoutMs?: number;
   private defaultPermissionMode: PermissionMode;
   private eventBus?: EventBus;
+  private maxWorkers: number;
+  private idlePreemptThresholdMs: number;
+  private workerQueue: WorkerQueue;
 
   constructor(options: SupervisorOptions) {
     this.sdk = options.sdk ?? null;
@@ -50,6 +65,10 @@ export class Supervisor {
     this.idleTimeoutMs = options.idleTimeoutMs;
     this.defaultPermissionMode = options.defaultPermissionMode ?? "default";
     this.eventBus = options.eventBus;
+    this.maxWorkers = options.maxWorkers ?? 0; // 0 = unlimited
+    this.idlePreemptThresholdMs =
+      options.idlePreemptThresholdMs ?? DEFAULT_IDLE_PREEMPT_THRESHOLD_MS;
+    this.workerQueue = new WorkerQueue({ eventBus: options.eventBus });
 
     if (!this.sdk && !this.realSdk) {
       throw new Error("Either sdk or realSdk must be provided");
@@ -60,8 +79,28 @@ export class Supervisor {
     projectPath: string,
     message: UserMessage,
     permissionMode?: PermissionMode,
-  ): Promise<Process> {
+  ): Promise<Process | QueuedResponse> {
     const projectId = encodeProjectId(projectPath);
+
+    // Check if at capacity
+    if (this.isAtCapacity()) {
+      // Try to preempt an idle worker
+      const preemptable = this.findPreemptableWorker();
+      if (preemptable) {
+        await this.preemptWorker(preemptable);
+        // Fall through to start session normally
+      } else {
+        // Queue the request
+        const { queueId, position } = this.workerQueue.enqueue({
+          type: "new-session",
+          projectPath,
+          projectId,
+          message,
+          permissionMode,
+        });
+        return { queued: true, queueId, position };
+      }
+    }
 
     // Use real SDK if available
     if (this.realSdk) {
@@ -208,7 +247,7 @@ export class Supervisor {
     projectPath: string,
     message: UserMessage,
     permissionMode?: PermissionMode,
-  ): Promise<Process> {
+  ): Promise<Process | QueuedResponse> {
     // Check if already have a process for this session
     const existingProcessId = this.sessionToProcess.get(sessionId);
     if (existingProcessId) {
@@ -233,7 +272,40 @@ export class Supervisor {
       }
     }
 
+    // Check if there's already a queued request for this session
+    const existingQueued = this.workerQueue.findBySessionId(sessionId);
+    if (existingQueued) {
+      // Already queued - return current position
+      const position = this.workerQueue.getPosition(existingQueued.id);
+      return {
+        queued: true,
+        queueId: existingQueued.id,
+        position: position ?? 1,
+      };
+    }
+
     const projectId = encodeProjectId(projectPath);
+
+    // Check if at capacity
+    if (this.isAtCapacity()) {
+      // Try to preempt an idle worker
+      const preemptable = this.findPreemptableWorker();
+      if (preemptable) {
+        await this.preemptWorker(preemptable);
+        // Fall through to start session normally
+      } else {
+        // Queue the request
+        const { queueId, position } = this.workerQueue.enqueue({
+          type: "resume-session",
+          projectPath,
+          projectId,
+          sessionId,
+          message,
+          permissionMode,
+        });
+        return { queued: true, queueId, position };
+      }
+    }
 
     // Use real SDK if available
     if (this.realSdk) {
@@ -322,6 +394,9 @@ export class Supervisor {
       );
     }
 
+    // Emit worker activity after registering (new worker added)
+    this.emitWorkerActivity();
+
     // Listen for completion to auto-cleanup, and state changes for process state events
     process.subscribe((event) => {
       if (event.type === "complete") {
@@ -338,6 +413,8 @@ export class Supervisor {
             event.state.type,
           );
         }
+        // Emit worker activity on any state change (affects hasActiveWork)
+        this.emitWorkerActivity();
       }
     });
   }
@@ -350,6 +427,12 @@ export class Supervisor {
     this.emitStatusChange(process.sessionId, process.projectId, {
       state: "idle",
     });
+
+    // Emit worker activity after unregistering (worker removed)
+    this.emitWorkerActivity();
+
+    // Process queue when a worker becomes available
+    void this.processQueue();
   }
 
   private emitStatusChange(
@@ -407,5 +490,209 @@ export class Supervisor {
       timestamp: new Date().toISOString(),
     };
     this.eventBus.emit(event);
+  }
+
+  /**
+   * Emit worker activity event for safe restart indicator.
+   * Called when workers are added, removed, or change state.
+   */
+  private emitWorkerActivity(): void {
+    if (!this.eventBus) return;
+
+    const hasActiveWork = Array.from(this.processes.values()).some(
+      (p) => p.state.type === "running" || p.state.type === "waiting-input",
+    );
+
+    const event: WorkerActivityEvent = {
+      type: "worker-activity-changed",
+      activeWorkers: this.processes.size,
+      queueLength: this.workerQueue.length,
+      hasActiveWork,
+      timestamp: new Date().toISOString(),
+    };
+    this.eventBus.emit(event);
+  }
+
+  // ============ Worker Pool Methods ============
+
+  /**
+   * Check if we're at worker capacity.
+   */
+  private isAtCapacity(): boolean {
+    if (this.maxWorkers <= 0) return false; // 0 = unlimited
+    return this.processes.size >= this.maxWorkers;
+  }
+
+  /**
+   * Find a preemptable worker (idle longer than threshold).
+   * Returns the worker that has been idle longest.
+   * Does not preempt workers waiting for input.
+   */
+  private findPreemptableWorker(): Process | undefined {
+    let oldest: Process | undefined;
+    let oldestIdleTime = 0;
+    const now = Date.now();
+
+    for (const process of this.processes.values()) {
+      // Only preempt idle processes, not waiting-input
+      if (process.state.type !== "idle") continue;
+
+      const idleMs = now - process.state.since.getTime();
+      if (idleMs >= this.idlePreemptThresholdMs && idleMs > oldestIdleTime) {
+        oldest = process;
+        oldestIdleTime = idleMs;
+      }
+    }
+
+    return oldest;
+  }
+
+  /**
+   * Preempt an idle worker to make room for a new request.
+   */
+  private async preemptWorker(process: Process): Promise<void> {
+    await process.abort();
+    this.unregisterProcess(process);
+  }
+
+  /**
+   * Process the queue - called when a worker becomes available.
+   */
+  private async processQueue(): Promise<void> {
+    while (!this.workerQueue.isEmpty && !this.isAtCapacity()) {
+      const request = this.workerQueue.dequeue();
+      if (!request) break;
+
+      try {
+        let process: Process;
+
+        if (request.type === "new-session") {
+          const result = await this.startSessionInternal(
+            request.projectPath,
+            request.projectId,
+            request.message,
+            undefined,
+            request.permissionMode,
+          );
+          process = result;
+        } else {
+          const result = await this.startSessionInternal(
+            request.projectPath,
+            request.projectId,
+            request.message,
+            request.sessionId,
+            request.permissionMode,
+          );
+          process = result;
+        }
+
+        // Emit queue removed event
+        this.eventBus?.emit({
+          type: "queue-request-removed",
+          queueId: request.id,
+          sessionId: request.sessionId,
+          reason: "started",
+          timestamp: new Date().toISOString(),
+        });
+
+        request.resolve({ status: "started", processId: process.id });
+      } catch (error) {
+        // On error, resolve with cancelled status
+        request.resolve({
+          status: "cancelled",
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
+
+  /**
+   * Internal session start that always starts immediately.
+   * Used by queue processing.
+   */
+  private async startSessionInternal(
+    projectPath: string,
+    projectId: UrlProjectId,
+    message: UserMessage,
+    resumeSessionId?: string,
+    permissionMode?: PermissionMode,
+  ): Promise<Process> {
+    // Use real SDK if available
+    if (this.realSdk) {
+      return this.startRealSession(
+        projectPath,
+        projectId,
+        message,
+        resumeSessionId,
+        permissionMode,
+      );
+    }
+
+    // Fall back to legacy mock SDK
+    return this.startLegacySession(
+      projectPath,
+      projectId,
+      message,
+      resumeSessionId,
+      permissionMode,
+    );
+  }
+
+  // ============ Public Queue Methods ============
+
+  /**
+   * Cancel a queued request.
+   * @returns true if cancelled, false if not found
+   */
+  cancelQueuedRequest(queueId: string): boolean {
+    return this.workerQueue.cancel(queueId);
+  }
+
+  /**
+   * Get info about all queued requests.
+   */
+  getQueueInfo(): QueuedRequestInfo[] {
+    return this.workerQueue.getQueueInfo();
+  }
+
+  /**
+   * Get position for a specific queue entry.
+   */
+  getQueuePosition(queueId: string): number | undefined {
+    return this.workerQueue.getPosition(queueId);
+  }
+
+  /**
+   * Get current worker count and capacity info.
+   */
+  getWorkerPoolStatus(): {
+    activeWorkers: number;
+    maxWorkers: number;
+    queueLength: number;
+  } {
+    return {
+      activeWorkers: this.processes.size,
+      maxWorkers: this.maxWorkers,
+      queueLength: this.workerQueue.length,
+    };
+  }
+
+  /**
+   * Get worker activity status for safe restart indicator.
+   * Returns whether any workers are actively processing or waiting for input.
+   */
+  getWorkerActivity(): {
+    activeWorkers: number;
+    queueLength: number;
+    hasActiveWork: boolean;
+  } {
+    const hasActiveWork = Array.from(this.processes.values()).some(
+      (p) => p.state.type === "running" || p.state.type === "waiting-input",
+    );
+    return {
+      activeWorkers: this.processes.size,
+      queueLength: this.workerQueue.length,
+      hasActiveWork,
+    };
   }
 }

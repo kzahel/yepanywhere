@@ -16,12 +16,29 @@ export interface Config {
   port: number;
   /** Use mock SDK instead of real Claude SDK */
   useMockSdk: boolean;
+  /** Maximum concurrent workers. 0 = unlimited (default for backward compat) */
+  maxWorkers: number;
+  /** Idle threshold in milliseconds for preemption. Workers idle longer than this can be preempted. */
+  idlePreemptThresholdMs: number;
+  /** Whether to serve frontend (proxy in dev, static in prod) */
+  serveFrontend: boolean;
+  /** Vite dev server port for frontend proxy */
+  vitePort: number;
+  /** Path to built client dist directory */
+  clientDistPath: string;
 }
 
 /**
  * Load configuration from environment variables with defaults.
  */
 export function loadConfig(): Config {
+  // Determine if we're in production mode
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // SERVE_FRONTEND defaults to true (unified server mode)
+  // Set SERVE_FRONTEND=false to disable frontend serving (API-only mode)
+  const serveFrontend = process.env.SERVE_FRONTEND !== "false";
+
   return {
     claudeProjectsDir:
       process.env.CLAUDE_PROJECTS_DIR ??
@@ -30,6 +47,16 @@ export function loadConfig(): Config {
     defaultPermissionMode: parsePermissionMode(process.env.PERMISSION_MODE),
     port: parseIntOrDefault(process.env.PORT, 3400),
     useMockSdk: process.env.USE_MOCK_SDK === "true",
+    maxWorkers: parseIntOrDefault(process.env.MAX_WORKERS, 0),
+    idlePreemptThresholdMs:
+      parseIntOrDefault(process.env.IDLE_PREEMPT_THRESHOLD, 10) * 1000,
+    serveFrontend,
+    vitePort: parseIntOrDefault(process.env.VITE_PORT, 5555),
+    // In production, serve from ../client/dist relative to server package
+    // This assumes standard monorepo layout
+    clientDistPath:
+      process.env.CLIENT_DIST_PATH ??
+      path.resolve(import.meta.dirname, "../../client/dist"),
   };
 }
 

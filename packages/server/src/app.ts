@@ -1,4 +1,7 @@
+import type { HttpBindings } from "@hono/node-server";
+import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { Hono } from "hono";
+import type { FrontendProxy } from "./frontend/index.js";
 import type { SessionMetadataService } from "./metadata/index.js";
 import { corsMiddleware, requireCustomHeader } from "./middleware/security.js";
 import type { NotificationService } from "./notifications/index.js";
@@ -37,10 +40,18 @@ export interface AppOptions {
   notificationService?: NotificationService;
   /** SessionMetadataService for custom titles and archive status */
   sessionMetadataService?: SessionMetadataService;
+  /** Maximum concurrent workers. 0 = unlimited (default) */
+  maxWorkers?: number;
+  /** Idle threshold in milliseconds for preemption */
+  idlePreemptThresholdMs?: number;
+  /** Frontend proxy for dev mode (proxies non-API requests to Vite) */
+  frontendProxy?: FrontendProxy;
 }
 
-export function createApp(options: AppOptions): Hono {
-  const app = new Hono();
+export function createApp(
+  options: AppOptions,
+): Hono<{ Bindings: HttpBindings }> {
+  const app = new Hono<{ Bindings: HttpBindings }>();
 
   // Security middleware: CORS + custom header requirement
   app.use("/api/*", corsMiddleware);
@@ -54,6 +65,8 @@ export function createApp(options: AppOptions): Hono {
     idleTimeoutMs: options.idleTimeoutMs,
     defaultPermissionMode: options.defaultPermissionMode,
     eventBus: options.eventBus,
+    maxWorkers: options.maxWorkers,
+    idlePreemptThresholdMs: options.idlePreemptThresholdMs,
   });
   const readerFactory = (sessionDir: string) =>
     new SessionReader({ sessionDir });
@@ -131,6 +144,17 @@ export function createApp(options: AppOptions): Hono {
       console.log("[Dev] Mounting dev routes at /api/dev");
       app.route("/api/dev", createDevRoutes({ eventBus: options.eventBus }));
     }
+  }
+
+  // Frontend proxy fallback: proxy all non-API requests to Vite dev server
+  // This must be the last route to act as a catch-all
+  if (options.frontendProxy) {
+    const proxy = options.frontendProxy;
+    app.all("*", (c) => {
+      const { incoming, outgoing } = c.env;
+      proxy.web(incoming, outgoing);
+      return RESPONSE_ALREADY_SENT;
+    });
   }
 
   return app;

@@ -28,7 +28,11 @@ function applyFontSize(size: FontSize) {
   const scale = fontSizeScales[size];
   const root = document.documentElement;
 
-  // Base sizes from CSS
+  // Scale the root font-size to affect all rem/em units globally
+  // This is the standard approach for accessibility font scaling
+  root.style.fontSize = `${100 * scale}%`;
+
+  // Also scale the CSS variables for elements using them directly (px-based)
   root.style.setProperty("--font-size-xs", `${10 * scale}px`);
   root.style.setProperty("--font-size-sm", `${12 * scale}px`);
   root.style.setProperty("--font-size-base", `${13 * scale}px`);

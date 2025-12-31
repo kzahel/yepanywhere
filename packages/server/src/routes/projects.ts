@@ -70,6 +70,66 @@ async function getProjectActivityCounts(
 export function createProjectsRoutes(deps: ProjectsDeps): Hono {
   const routes = new Hono();
 
+  /**
+   * Get owned sessions for a project that might not be in the file list yet.
+   * New sessions may not have user/assistant messages written to disk yet.
+   */
+  function getOwnedSessionsForProject(
+    projectId: string,
+  ): Map<string, SessionSummary> {
+    const ownedSessions = new Map<string, SessionSummary>();
+    if (!deps.supervisor) return ownedSessions;
+
+    for (const process of deps.supervisor.getAllProcesses()) {
+      if (process.projectId === projectId) {
+        const now = new Date().toISOString();
+        ownedSessions.set(process.sessionId, {
+          id: process.sessionId,
+          projectId: process.projectId,
+          title: null, // Title will be populated once file has content
+          fullTitle: null,
+          createdAt: process.startedAt.toISOString(),
+          updatedAt: now,
+          messageCount: 0,
+          status: {
+            state: "owned",
+            processId: process.id,
+            permissionMode: process.permissionMode,
+            modeVersion: process.modeVersion,
+          },
+        });
+      }
+    }
+
+    return ownedSessions;
+  }
+
+  /**
+   * Add missing owned sessions to the session list.
+   * Newly created sessions may not have user/assistant messages written yet,
+   * but we should still show them in the list if we own the process.
+   */
+  function addMissingOwnedSessions(
+    sessions: SessionSummary[],
+    projectId: string,
+  ): SessionSummary[] {
+    const ownedSessions = getOwnedSessionsForProject(projectId);
+    if (ownedSessions.size === 0) return sessions;
+
+    // Check which owned sessions are already in the list
+    const existingIds = new Set(sessions.map((s) => s.id));
+
+    // Add missing owned sessions at the beginning (they're new)
+    const missingSessions: SessionSummary[] = [];
+    for (const [sessionId, summary] of ownedSessions) {
+      if (!existingIds.has(sessionId)) {
+        missingSessions.push(summary);
+      }
+    }
+
+    return [...missingSessions, ...sessions];
+  }
+
   // Helper to enrich sessions with real status, notification state, and metadata
   function enrichSessions(sessions: SessionSummary[]): SessionSummary[] {
     return sessions.map((session) => {
@@ -180,7 +240,10 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
 
     // Get sessions for this project using the stored sessionDir
     const reader = deps.readerFactory(project.sessionDir);
-    const sessions = await reader.listSessions(project.id);
+    let sessions = await reader.listSessions(project.id);
+
+    // Add missing owned sessions (new sessions that don't have user/assistant messages yet)
+    sessions = addMissingOwnedSessions(sessions, projectId);
 
     return c.json({ project, sessions: enrichSessions(sessions) });
   });
@@ -200,7 +263,10 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     }
 
     const reader = deps.readerFactory(project.sessionDir);
-    const sessions = await reader.listSessions(project.id);
+    let sessions = await reader.listSessions(project.id);
+
+    // Add missing owned sessions (new sessions that don't have user/assistant messages yet)
+    sessions = addMissingOwnedSessions(sessions, projectId);
 
     return c.json({ sessions: enrichSessions(sessions) });
   });

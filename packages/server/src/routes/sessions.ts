@@ -6,8 +6,19 @@ import type { ProjectScanner } from "../projects/scanner.js";
 import type { PermissionMode, SDKMessage, UserMessage } from "../sdk/types.js";
 import type { SessionReader } from "../sessions/reader.js";
 import type { ExternalSessionTracker } from "../supervisor/ExternalSessionTracker.js";
+import type { Process } from "../supervisor/Process.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
+import type { QueuedResponse } from "../supervisor/WorkerQueue.js";
 import type { ContentBlock, Message } from "../supervisor/types.js";
+
+/**
+ * Type guard to check if a result is a QueuedResponse
+ */
+function isQueuedResponse(
+  result: Process | QueuedResponse,
+): result is QueuedResponse {
+  return "queued" in result && result.queued === true;
+}
 
 export interface SessionsDeps {
   supervisor: Supervisor;
@@ -137,6 +148,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         const processMessages = sdkMessagesToClientMessages(
           process.getMessageHistory(),
         );
+        // Get metadata even for new sessions (in case it was set before file was written)
+        const metadata = deps.sessionMetadataService?.getMetadata(sessionId);
         return c.json({
           session: {
             id: sessionId,
@@ -147,6 +160,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             messageCount: processMessages.length,
             status,
             messages: processMessages,
+            customTitle: metadata?.customTitle,
+            isArchived: metadata?.isArchived,
+            isStarred: metadata?.isStarred,
           },
           messages: processMessages,
           status,
@@ -155,8 +171,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Session not found" }, 404);
     }
 
+    // Get session metadata (custom title, archived, starred)
+    const metadata = deps.sessionMetadataService?.getMetadata(sessionId);
+
     return c.json({
-      session: { ...session, status },
+      session: {
+        ...session,
+        status,
+        customTitle: metadata?.customTitle,
+        isArchived: metadata?.isArchived,
+        isStarred: metadata?.isStarred,
+      },
       messages: session.messages,
       status,
     });
@@ -195,17 +220,23 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       mode: body.mode,
     };
 
-    const process = await deps.supervisor.startSession(
+    const result = await deps.supervisor.startSession(
       project.path,
       userMessage,
       body.mode,
     );
 
+    // Check if request was queued
+    if (isQueuedResponse(result)) {
+      return c.json(result, 202); // 202 Accepted - queued for processing
+    }
+
+    // Started immediately
     return c.json({
-      sessionId: process.sessionId,
-      processId: process.id,
-      permissionMode: process.permissionMode,
-      modeVersion: process.modeVersion,
+      sessionId: result.sessionId,
+      processId: result.id,
+      permissionMode: result.permissionMode,
+      modeVersion: result.modeVersion,
     });
   });
 
@@ -243,17 +274,23 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       mode: body.mode,
     };
 
-    const process = await deps.supervisor.resumeSession(
+    const result = await deps.supervisor.resumeSession(
       sessionId,
       project.path,
       userMessage,
       body.mode,
     );
 
+    // Check if request was queued
+    if (isQueuedResponse(result)) {
+      return c.json(result, 202); // 202 Accepted - queued for processing
+    }
+
+    // Started immediately
     return c.json({
-      processId: process.id,
-      permissionMode: process.permissionMode,
-      modeVersion: process.modeVersion,
+      processId: result.id,
+      permissionMode: result.permissionMode,
+      modeVersion: result.modeVersion,
     });
   });
 
@@ -474,6 +511,48 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     });
 
     return c.json({ updated: true });
+  });
+
+  // ============ Worker Queue Endpoints ============
+
+  // GET /api/status/workers - Get worker activity for safe restart indicator
+  routes.get("/status/workers", (c) => {
+    const activity = deps.supervisor.getWorkerActivity();
+    return c.json(activity);
+  });
+
+  // GET /api/queue - Get all queued requests
+  routes.get("/queue", (c) => {
+    const queue = deps.supervisor.getQueueInfo();
+    const poolStatus = deps.supervisor.getWorkerPoolStatus();
+    return c.json({ queue, ...poolStatus });
+  });
+
+  // GET /api/queue/:queueId - Get specific queue entry position
+  routes.get("/queue/:queueId", (c) => {
+    const queueId = c.req.param("queueId");
+    const position = deps.supervisor.getQueuePosition(queueId);
+
+    if (position === undefined) {
+      return c.json({ error: "Queue entry not found" }, 404);
+    }
+
+    return c.json({ queueId, position });
+  });
+
+  // DELETE /api/queue/:queueId - Cancel a queued request
+  routes.delete("/queue/:queueId", (c) => {
+    const queueId = c.req.param("queueId");
+
+    const cancelled = deps.supervisor.cancelQueuedRequest(queueId);
+    if (!cancelled) {
+      return c.json(
+        { error: "Queue entry not found or already processed" },
+        404,
+      );
+    }
+
+    return c.json({ cancelled: true });
   });
 
   return routes;

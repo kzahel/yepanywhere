@@ -11,7 +11,7 @@
   padding: 0.75rem;
   overflow-x: auto;
   font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
   line-height: 1.5;
   margin: 0.5rem 0;
   white-space: pre-wrap;
@@ -190,7 +190,7 @@ details[open] .collapsible__icon {
   padding: 0.5rem 0.75rem;
   background: #252525;
   border-bottom: 1px solid #333;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .tool-icon {
@@ -221,7 +221,7 @@ details[open] .collapsible__icon {
   padding: 0.5rem;
   background: #1e1e1e;
   border-radius: 4px;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   overflow-x: auto;
 }
 
@@ -242,7 +242,7 @@ details[open] .collapsible__icon {
 
 .bash-description {
   color: #888;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .bash-result {
@@ -259,7 +259,7 @@ details[open] .collapsible__icon {
 .bash-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* Bash Collapsed Preview */
@@ -267,7 +267,7 @@ details[open] .collapsible__icon {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   background: #1e1e1e;
   border: 1px solid #333;
   border-radius: 6px;
@@ -303,7 +303,7 @@ details[open] .collapsible__icon {
   flex-shrink: 0;
   width: 2.5rem;
   color: #666;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -333,7 +333,7 @@ details[open] .collapsible__icon {
 .bash-preview-output pre {
   margin: 0;
   font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
@@ -382,7 +382,7 @@ details[open] .collapsible__icon {
 }
 
 .bash-modal-label {
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   text-transform: uppercase;
   color: #888;
@@ -399,7 +399,7 @@ details[open] .collapsible__icon {
   border: 1px solid #333;
   border-radius: 6px;
   font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   line-height: 1.5;
   overflow-x: auto;
   white-space: pre-wrap;
@@ -416,7 +416,7 @@ details[open] .collapsible__icon {
 .bash-modal-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -432,7 +432,7 @@ details[open] .collapsible__icon {
 
 .read-range {
   color: #666;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .read-text-result {
@@ -450,7 +450,7 @@ details[open] .collapsible__icon {
   border-radius: 4px;
   padding: 0.5rem 0.75rem;
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: var(--vscode-textLink-foreground, #3794ff);
   cursor: pointer;
   text-align: left;
@@ -520,21 +520,21 @@ details[open] .collapsible__icon {
 
 .file-path {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: #88f;
   word-break: break-all;
 }
 
 .file-range {
   color: #666;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .file-content-with-lines {
   display: grid;
   grid-template-columns: auto 1fr;
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   background: #1e1e1e;
   border: 1px solid #333;
   border-radius: 6px;
@@ -573,7 +573,7 @@ details[open] .collapsible__icon {
 
 .image-info {
   color: #666;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .read-image {
@@ -601,7 +601,7 @@ details[open] .collapsible__icon {
 
 .edit-action {
   color: #666;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .edit-result {
@@ -617,7 +617,7 @@ details[open] .collapsible__icon {
 .edit-error-message {
   color: #f88;
   margin-top: 0.5rem;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .edit-header {
@@ -629,7 +629,7 @@ details[open] .collapsible__icon {
 
 .edit-change-summary {
   color: var(--text-muted, #888);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .edit-simple {
@@ -640,8 +640,32 @@ details[open] .collapsible__icon {
 
 .edit-label {
   color: #888;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   margin-bottom: 0.25rem;
+}
+
+/* Edit collapsed preview */
+.edit-collapsed-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.edit-collapsed-preview .diff-view-container {
+  position: relative;
+}
+
+.edit-collapsed-preview .diff-expand-button {
+  opacity: 1;
+  position: relative;
+  bottom: auto;
+  right: auto;
+  align-self: flex-end;
+  margin-top: 0.25rem;
+}
+
+.edit-collapsed-error {
+  padding: 0.5rem;
 }
 
 /* ==========================================================================
@@ -650,7 +674,7 @@ details[open] .collapsible__icon {
 
 .diff-view {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .diff-hunk {
@@ -668,7 +692,7 @@ details[open] .collapsible__icon {
   color: #88f;
   padding: 0.25rem 0.5rem;
   background: #1a1a2a;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .diff-content {
@@ -731,7 +755,7 @@ details[open] .collapsible__icon {
   color: var(--vscode-button-foreground, #fff);
   border: none;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -821,7 +845,7 @@ details[open] .collapsible__icon {
   display: inline-block;
   padding: 0.125rem 0.5rem;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   vertical-align: middle;
 }
@@ -852,7 +876,7 @@ details[open] .collapsible__icon {
   border-radius: 4px;
   color: #888;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   margin-top: 0.5rem;
   min-height: 44px; /* Touch target */
   transition: background-color 0.15s, color 0.15s;
@@ -882,14 +906,14 @@ details[open] .collapsible__icon {
   padding: 0.25rem 0.5rem;
   background: #252525;
   color: #888;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   border-bottom: 1px dashed #444;
 }
 
 .fallback-content {
   margin: 0;
   padding: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   overflow-x: auto;
   background: #1e1e1e;
 }
@@ -907,7 +931,7 @@ details[open] .collapsible__icon {
 
 .write-info {
   color: #666;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .write-result {
@@ -928,7 +952,7 @@ details[open] .collapsible__icon {
   display: flex;
   flex-direction: column;
   gap: 0;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   background: #1e1e1e;
   border: 1px solid #333;
   border-radius: 6px;
@@ -958,13 +982,13 @@ details[open] .collapsible__icon {
 
 .write-preview-lines {
   color: #666;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   padding: 0.25rem 0.5rem;
 }
 
 .write-preview-error {
   color: #f88;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .write-preview-content {
@@ -977,7 +1001,7 @@ details[open] .collapsible__icon {
 .write-preview-content pre {
   margin: 0;
   font-family: "SF Mono", Monaco, "Cascadia Code", "Consolas", monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1011,13 +1035,13 @@ details[open] .collapsible__icon {
 
 .glob-pattern {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
   color: #f8f;
 }
 
 .glob-path {
   color: #666;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .glob-result {
@@ -1034,7 +1058,7 @@ details[open] .collapsible__icon {
 
 .glob-count {
   color: #888;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .glob-error {
@@ -1047,7 +1071,7 @@ details[open] .collapsible__icon {
 .glob-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1081,14 +1105,14 @@ details[open] .collapsible__icon {
 }
 
 .file-list-item .file-dir {
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: #555;
   font-family: "SF Mono", Monaco, monospace;
 }
 
 .file-list-more {
   color: #666;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   padding: 0.25rem 0.5rem;
   font-style: italic;
 }
@@ -1106,18 +1130,18 @@ details[open] .collapsible__icon {
 
 .grep-pattern {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
   color: #f8f;
 }
 
 .grep-glob {
   color: #888;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .grep-path {
   color: #666;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .grep-result {
@@ -1134,12 +1158,12 @@ details[open] .collapsible__icon {
 
 .grep-count {
   color: #888;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .grep-count-summary {
   color: #888;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .grep-content {
@@ -1156,7 +1180,7 @@ details[open] .collapsible__icon {
 .grep-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1171,7 +1195,7 @@ details[open] .collapsible__icon {
 
 .todo-summary {
   color: #888;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .todo-result {
@@ -1232,7 +1256,7 @@ details[open] .collapsible__icon {
 .todo-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1268,7 +1292,7 @@ details[open] .collapsible__icon {
   color: #888;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .task-prompt-toggle:hover {
@@ -1281,7 +1305,7 @@ details[open] .collapsible__icon {
   padding: 0.5rem;
   background: #1e1e1e;
   border-radius: 4px;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   max-height: 200px;
   overflow-y: auto;
 }
@@ -1301,7 +1325,7 @@ details[open] .collapsible__icon {
 
 .task-stats {
   color: #666;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .task-content {
@@ -1320,7 +1344,7 @@ details[open] .collapsible__icon {
 .task-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1335,7 +1359,7 @@ details[open] .collapsible__icon {
 
 .websearch-query {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
   color: #88f;
 }
 
@@ -1390,7 +1414,7 @@ details[open] .collapsible__icon {
 }
 
 .websearch-url {
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: #555;
   word-break: break-all;
 }
@@ -1405,7 +1429,7 @@ details[open] .collapsible__icon {
 .websearch-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1430,7 +1454,7 @@ details[open] .collapsible__icon {
 
 .webfetch-prompt {
   color: #888;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .webfetch-result {
@@ -1448,7 +1472,7 @@ details[open] .collapsible__icon {
 
 .webfetch-meta {
   color: #666;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
 }
 
 .webfetch-content {
@@ -1467,7 +1491,7 @@ details[open] .collapsible__icon {
 .webfetch-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1548,7 +1572,7 @@ details[open] .collapsible__icon {
 }
 
 .question-option-desc {
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: #666;
 }
 
@@ -1562,7 +1586,7 @@ details[open] .collapsible__icon {
 .question-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1572,12 +1596,12 @@ details[open] .collapsible__icon {
 .exitplan-pending {
   color: #888;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* Inline plan content - styled like regular chat text */
 .exitplan-inline {
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
   line-height: 1.5;
 }
 
@@ -1629,7 +1653,7 @@ details[open] .collapsible__icon {
   background: #2a2a2a;
   padding: 0.125rem 0.25rem;
   border-radius: 3px;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
 }
 
 .exitplan-inline pre {
@@ -1684,7 +1708,7 @@ details[open] .collapsible__icon {
 
 .bashoutput-id {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: #888;
   background: #1e1e1e;
   padding: 0.125rem 0.375rem;
@@ -1706,17 +1730,17 @@ details[open] .collapsible__icon {
 
 .bashoutput-status {
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .bashoutput-command {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: #aaa;
 }
 
 .bashoutput-timestamp {
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: #555;
 }
 
@@ -1730,7 +1754,7 @@ details[open] .collapsible__icon {
 .bashoutput-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* Status indicators */
@@ -1766,7 +1790,7 @@ details[open] .collapsible__icon {
 
 .taskoutput-id {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: #888;
   background: #1e1e1e;
   padding: 0.125rem 0.375rem;
@@ -1788,12 +1812,12 @@ details[open] .collapsible__icon {
 
 .taskoutput-status {
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .taskoutput-desc {
   color: #888;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 .taskoutput-task {
@@ -1823,7 +1847,7 @@ details[open] .collapsible__icon {
 .taskoutput-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1842,7 +1866,7 @@ details[open] .collapsible__icon {
 
 .killshell-id {
   font-family: "SF Mono", Monaco, monospace;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: #888;
   background: #1e1e1e;
   padding: 0.125rem 0.375rem;
@@ -1869,7 +1893,7 @@ details[open] .collapsible__icon {
 .killshell-empty {
   color: #666;
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-lg);
 }
 
 /* ==========================================================================
@@ -1887,16 +1911,16 @@ details[open] .collapsible__icon {
 
 @media (max-width: 600px) {
   .code-block {
-    font-size: 0.75rem;
+    font-size: var(--font-size-sm);
     padding: 0.5rem;
   }
 
   .diff-view {
-    font-size: 0.75rem;
+    font-size: var(--font-size-sm);
   }
 
   .file-content-with-lines {
-    font-size: 0.75rem;
+    font-size: var(--font-size-sm);
   }
 
   .tool-header {

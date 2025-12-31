@@ -48,6 +48,7 @@ export function NotificationBadge({ variant, label }: NotificationBadgeProps) {
 /**
  * Status badge for a single session in a list.
  * Priority: needs-input (blue) > running (pulsing) > unread (orange) > active (outline) > idle (nothing)
+ * External sessions always show "External" badge regardless of other state.
  */
 export function SessionStatusBadge({
   status,
@@ -55,6 +56,12 @@ export function SessionStatusBadge({
   hasUnread,
   processState,
 }: SessionStatusBadgeProps) {
+  // External sessions always show the external badge
+  // We can't track fine-grained state (running, needs input) for external sessions
+  if (status.state === "external") {
+    return <span className="status-badge status-external">External</span>;
+  }
+
   // Priority 1: Needs input (tool approval or user question)
   if (pendingInputType) {
     const label =
@@ -74,15 +81,8 @@ export function SessionStatusBadge({
   }
 
   // Priority 4: Active session (has a hot process) - subtle green outline, no text badge
-  // External sessions still get a text badge since that's useful info
   if (status.state === "owned") {
     return <span className="status-indicator status-active" />;
-  }
-
-  if (status.state === "external") {
-    return (
-      <span className="status-badge status-external">Active, External</span>
-    );
   }
 
   // Idle sessions - no badge needed

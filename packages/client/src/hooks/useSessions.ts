@@ -18,6 +18,10 @@ export function useSessions(projectId: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether we've done the initial load (to preserve sort order on refetches)
+  const hasInitialLoadRef = useRef(false);
+  // Track which project we loaded so we can reset on project change
+  const loadedProjectIdRef = useRef<string | undefined>(undefined);
   // Track process state (running/waiting-input) per session for activity indicators
   const [processStates, setProcessStates] = useState<
     Record<string, ProcessStateType>
@@ -25,6 +29,13 @@ export function useSessions(projectId: string | undefined) {
 
   const fetch = useCallback(async () => {
     if (!projectId) return;
+
+    // Reset initial load flag when switching projects
+    if (loadedProjectIdRef.current !== projectId) {
+      hasInitialLoadRef.current = false;
+      loadedProjectIdRef.current = projectId;
+    }
+
     // Only show loading state on initial load, not on refetches
     setSessions((prev) => {
       if (prev.length === 0) setLoading(true);
@@ -34,7 +45,36 @@ export function useSessions(projectId: string | undefined) {
     try {
       const data = await api.getProject(projectId);
       setProject(data.project);
-      setSessions(data.sessions);
+
+      // On initial load, use server's sort order. On refetches, preserve
+      // existing order and only update session data in-place.
+      if (!hasInitialLoadRef.current) {
+        setSessions(data.sessions);
+        hasInitialLoadRef.current = true;
+      } else {
+        setSessions((prev) => {
+          // Build a map of new data for quick lookup
+          const newDataMap = new Map(data.sessions.map((s) => [s.id, s]));
+
+          // Update existing sessions in their current order
+          const updated = prev.map((existing) => {
+            const newData = newDataMap.get(existing.id);
+            return newData ?? existing;
+          });
+
+          // Filter out sessions that no longer exist on server
+          const existingIds = new Set(prev.map((s) => s.id));
+          const filtered = updated.filter((s) => newDataMap.has(s.id));
+
+          // Add any new sessions at the top (shouldn't happen often via refetch,
+          // usually new sessions come via SSE, but handle it just in case)
+          const newSessions = data.sessions.filter(
+            (s) => !existingIds.has(s.id),
+          );
+
+          return [...newSessions, ...filtered];
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {

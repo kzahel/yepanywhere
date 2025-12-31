@@ -17,25 +17,27 @@ export function StatusIndicator({
     return null;
   }
 
-  // Determine display text for owned sessions based on process state
-  const getOwnedText = () => {
+  // Determine status text for tooltip/accessibility
+  const getStatusText = () => {
+    if (!connected && status.state === "owned") return "Reconnecting...";
+    if (status.state === "external") return "External process";
     if (processState === "running") return "Processing";
     if (processState === "waiting-input") return "Waiting for input";
-    return "Ready"; // subprocess is warm but idle
+    return "Ready";
   };
 
+  const statusText = getStatusText();
+
   return (
-    <div className="status-indicator">
+    <div
+      className="status-indicator"
+      title={statusText}
+      aria-label={statusText}
+    >
       <span
-        className={`status-dot status-${status.state} process-${processState}`}
+        className={`status-dot status-${status.state} process-${processState}${!connected ? " disconnected" : ""}`}
+        role="status"
       />
-      <span className="status-text">
-        {status.state === "owned" && getOwnedText()}
-        {status.state === "external" && "External process"}
-      </span>
-      {!connected && status.state === "owned" && (
-        <span className="status-disconnected">Reconnecting...</span>
-      )}
     </div>
   );
 }

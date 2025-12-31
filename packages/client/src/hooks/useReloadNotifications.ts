@@ -18,6 +18,12 @@ interface DevStatus {
   backendDirty?: boolean;
 }
 
+export interface WorkerActivity {
+  activeWorkers: number;
+  queueLength: number;
+  hasActiveWork: boolean;
+}
+
 const API_BASE = "/api";
 
 /**
@@ -31,6 +37,11 @@ export function useReloadNotifications() {
   });
   const [devStatus, setDevStatus] = useState<DevStatus | null>(null);
   const [connected, setConnected] = useState(false);
+  const [workerActivity, setWorkerActivity] = useState<WorkerActivity>({
+    activeWorkers: 0,
+    queueLength: 0,
+    hasActiveWork: false,
+  });
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -78,6 +89,16 @@ export function useReloadNotifications() {
         .catch(() => {
           // Ignore errors
         });
+
+      // Fetch initial worker activity state
+      fetch(`${API_BASE}/status/workers`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: WorkerActivity | null) => {
+          if (data) setWorkerActivity(data);
+        })
+        .catch(() => {
+          // Ignore errors - default to safe state (no active work)
+        });
     };
 
     const handleSourceChange = (event: MessageEvent) => {
@@ -99,8 +120,20 @@ export function useReloadNotifications() {
       setPendingReloads((prev) => ({ ...prev, backend: false }));
     };
 
+    const handleWorkerActivity = (event: MessageEvent) => {
+      if (event.data === undefined || event.data === null) return;
+
+      try {
+        const data = JSON.parse(event.data) as WorkerActivity;
+        setWorkerActivity(data);
+      } catch {
+        // Ignore malformed JSON
+      }
+    };
+
     es.addEventListener("source-change", handleSourceChange);
     es.addEventListener("backend-reloaded", handleBackendReloaded);
+    es.addEventListener("worker-activity-changed", handleWorkerActivity);
     es.addEventListener("heartbeat", () => {
       // Keep-alive, no action needed
     });
@@ -216,5 +249,9 @@ export function useReloadNotifications() {
     dismiss,
     /** Dismiss all notifications */
     dismissAll,
+    /** Current worker activity for safe restart indicator */
+    workerActivity,
+    /** True if restarting would interrupt active work */
+    unsafeToRestart: workerActivity.hasActiveWork,
   };
 }

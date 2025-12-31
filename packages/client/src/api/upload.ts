@@ -70,6 +70,7 @@ export async function uploadChunks(
   createWebSocket: WebSocketFactory = (u) => new WebSocket(u) as WebSocketLike,
 ): Promise<UploadedFile> {
   const { onProgress, signal } = options;
+  console.log("[Upload] Starting upload to:", url);
 
   return new Promise((resolve, reject) => {
     // Early abort check
@@ -78,6 +79,7 @@ export async function uploadChunks(
       return;
     }
 
+    console.log("[Upload] Creating WebSocket connection...");
     const ws = createWebSocket(url);
     let aborted = false;
     let resolved = false;
@@ -133,7 +135,8 @@ export async function uploadChunks(
       }
     };
 
-    const errorHandler = () => {
+    const errorHandler = (event: Event) => {
+      console.error("[Upload] WebSocket error:", event);
       if (resolved) return;
       resolved = true;
       cleanup();
@@ -141,6 +144,7 @@ export async function uploadChunks(
     };
 
     const closeHandler = (event: CloseEvent) => {
+      console.log("[Upload] WebSocket closed:", event.code, event.reason);
       if (resolved) return;
       cleanup();
       // If we haven't resolved/rejected yet, this is unexpected
@@ -156,6 +160,7 @@ export async function uploadChunks(
     };
 
     const openHandler = async () => {
+      console.log("[Upload] WebSocket connection opened");
       try {
         // Send start message
         const startMsg: UploadStartMessage = {

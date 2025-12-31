@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Modal } from "../../ui/Modal";
 import type { RenderContext } from "../types";
 import type { EditInput, EditResult, PatchHunk, ToolRenderer } from "./types";
@@ -152,7 +152,7 @@ function EditToolUse({ input }: { input: EditInput }) {
 }
 
 /**
- * Modal content for viewing complete diff
+ * Modal content for viewing complete diff (from result with structuredPatch)
  */
 function DiffModalContent({ result }: { result: EditResult }) {
   return (
@@ -161,6 +161,161 @@ function DiffModalContent({ result }: { result: EditResult }) {
         <DiffHunk key={`modal-hunk-${hunk.oldStart}-${i}`} hunk={hunk} />
       ))}
     </div>
+  );
+}
+
+/**
+ * Modal content for viewing diff from input (pending state)
+ */
+function DiffInputModalContent({ input }: { input: EditInput }) {
+  const diffLines = createDiffLines(input.old_string, input.new_string);
+
+  return (
+    <div className="diff-view">
+      <DiffLines lines={diffLines} />
+    </div>
+  );
+}
+
+/**
+ * Collapsed preview showing diff with expand button
+ * Clicking opens a modal with the full diff
+ */
+function EditCollapsedPreview({
+  input,
+  result,
+  isError,
+}: {
+  input: EditInput;
+  result: EditResult | undefined;
+  isError: boolean;
+}) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!isError) {
+        setIsModalOpen(true);
+      }
+    },
+    [isError],
+  );
+
+  const handleClose = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+
+  // Use result data if available, otherwise fall back to input
+  const filePath = result?.filePath ?? input.file_path;
+  const fileName = getFileName(filePath);
+  const isPlan = isPlanFile(filePath);
+
+  // Get diff lines - prefer structuredPatch from result, fall back to input
+  const diffLines = useMemo(() => {
+    if (result?.structuredPatch && result.structuredPatch.length > 0) {
+      return result.structuredPatch.flatMap((hunk) => hunk.lines);
+    }
+    return createDiffLines(
+      result?.oldString ?? input.old_string,
+      result?.newString ?? input.new_string,
+    );
+  }, [result, input]);
+
+  const isTruncated = diffLines.length > MAX_VISIBLE_LINES;
+  const displayLines = isTruncated
+    ? diffLines.slice(0, MAX_VISIBLE_LINES)
+    : diffLines;
+
+  const changeSummary = useMemo(() => {
+    if (result?.structuredPatch && result.structuredPatch.length > 0) {
+      const additions = result.structuredPatch
+        .flatMap((h) => h.lines)
+        .filter((l) => l.startsWith("+")).length;
+      const deletions = result.structuredPatch
+        .flatMap((h) => h.lines)
+        .filter((l) => l.startsWith("-")).length;
+
+      if (additions > 0 && deletions > 0) {
+        return `Modified ${additions + deletions} lines`;
+      }
+      if (additions > 0) {
+        return `Added ${additions} line${additions !== 1 ? "s" : ""}`;
+      }
+      if (deletions > 0) {
+        return `Removed ${deletions} line${deletions !== 1 ? "s" : ""}`;
+      }
+      return null;
+    }
+    return computeChangeSummaryFromStrings(
+      result?.oldString ?? input.old_string,
+      result?.newString ?? input.new_string,
+    );
+  }, [result, input]);
+
+  if (isError) {
+    // Extract error message - can be a string or object with content
+    let errorMessage: string | null = null;
+    if (typeof result === "string") {
+      errorMessage = result;
+    } else if (typeof result === "object" && result !== null) {
+      const errorResult = result as { content?: unknown };
+      if (errorResult.content) {
+        errorMessage = String(errorResult.content);
+      }
+    }
+    return (
+      <div className="edit-collapsed-preview edit-collapsed-error">
+        <span className="badge badge-error">Edit failed</span>
+        {errorMessage && (
+          <span className="edit-error-message">{errorMessage}</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="edit-collapsed-preview">
+        <div className="edit-header">
+          <span className="file-path">{fileName}</span>
+          {isPlan && <span className="badge badge-muted">Plan</span>}
+          {result?.userModified && (
+            <span className="badge badge-info">User modified</span>
+          )}
+        </div>
+        {changeSummary && (
+          <div className="edit-change-summary">{changeSummary}</div>
+        )}
+        <div
+          className={`diff-view-container ${isTruncated ? "truncated" : ""}`}
+        >
+          <div className="diff-view">
+            <DiffLines lines={displayLines} />
+          </div>
+          {isTruncated && <div className="diff-fade-overlay" />}
+        </div>
+        <button
+          type="button"
+          className="diff-expand-button"
+          onClick={handleClick}
+        >
+          Show full diff
+        </button>
+      </div>
+      {isModalOpen && (
+        <Modal
+          title={<span className="file-path">{fileName}</span>}
+          onClose={handleClose}
+        >
+          {result?.structuredPatch && result.structuredPatch.length > 0 ? (
+            <DiffModalContent result={result} />
+          ) : (
+            <DiffInputModalContent input={input} />
+          )}
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -212,16 +367,22 @@ function EditToolResult({
   }, [result?.structuredPatch]);
 
   if (isError) {
-    const errorResult = result as unknown as { content?: unknown } | undefined;
-    const hasContent = typeof result === "object" && errorResult?.content;
+    // Extract error message - can be a string or object with content
+    let errorMessage: string | null = null;
+    if (typeof result === "string") {
+      errorMessage = result;
+    } else if (typeof result === "object" && result !== null) {
+      const errorResult = result as { content?: unknown };
+      if (errorResult.content) {
+        errorMessage = String(errorResult.content);
+      }
+    }
     return (
       <div className="edit-result edit-result-error">
         <span className="badge badge-error">Edit failed</span>
-        {hasContent ? (
-          <div className="edit-error-message">
-            {String(errorResult.content)}
-          </div>
-        ) : null}
+        {errorMessage && (
+          <div className="edit-error-message">{errorMessage}</div>
+        )}
       </div>
     );
   }
@@ -336,5 +497,15 @@ export const editRenderer: ToolRenderer<EditInput, EditResult> = {
     if (isError) return "Failed";
     const r = result as EditResult;
     return r?.filePath ? getFileName(r.filePath) : "file";
+  },
+
+  renderCollapsedPreview(input, result, isError, _context) {
+    return (
+      <EditCollapsedPreview
+        input={input as EditInput}
+        result={result as EditResult | undefined}
+        isError={isError}
+      />
+    );
   },
 };

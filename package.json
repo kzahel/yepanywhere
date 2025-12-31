@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:auto": "pnpm --filter server dev & pnpm --filter client dev",
-    "dev-tailscale": "tailscale serve --bg 5555 && pnpm dev",
+    "dev-tailscale": "tailscale serve --bg 3400 && pnpm dev",
+    "start": "NODE_ENV=production node packages/server/dist/index.js",
     "build": "pnpm -r build",
     "typecheck": "pnpm --filter shared build && pnpm -r exec tsc --noEmit",
     "test": "pnpm -r test",

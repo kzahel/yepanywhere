@@ -1,11 +1,19 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
+import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { createNodeWebSocket } from "@hono/node-ws";
-import { Hono } from "hono";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import {
+  attachUnifiedUpgradeHandler,
+  createFrontendProxy,
+  createStaticRoutes,
+} from "./frontend/index.js";
 import { SessionMetadataService } from "./metadata/index.js";
 import { NotificationService } from "./notifications/index.js";
+import { ProjectScanner } from "./projects/scanner.js";
+import { createUploadRoutes } from "./routes/upload.js";
 import { detectClaudeCli } from "./sdk/cli-detection.js";
 import { RealClaudeSDK } from "./sdk/real.js";
 import { EventBus, FileWatcher, SourceWatcher } from "./watcher/index.js";
@@ -48,14 +56,6 @@ if (process.env.NO_BACKEND_RELOAD === "true") {
   sourceWatcher.start();
 }
 
-// Create WebSocket support
-// Note: createNodeWebSocket needs an app reference, but we create it before the real app
-// because we need the upgradeWebSocket function to pass to createApp
-const wsApp = new Hono();
-const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({
-  app: wsApp,
-});
-
 // Create and initialize services
 const notificationService = new NotificationService({ eventBus });
 const sessionMetadataService = new SessionMetadataService();
@@ -65,17 +65,80 @@ async function startServer() {
   await notificationService.initialize();
   await sessionMetadataService.initialize();
 
-  // Create the app with real SDK and WebSocket support
+  // Determine if we're in production mode (no Vite dev server)
+  const isProduction = process.env.NODE_ENV === "production";
+  const isDev = !isProduction;
+
+  // Frontend serving setup - create proxy before app so it can be passed in
+  let frontendProxy: ReturnType<typeof createFrontendProxy> | undefined;
+
+  if (config.serveFrontend && isDev) {
+    // Development: proxy to Vite dev server
+    frontendProxy = createFrontendProxy({ vitePort: config.vitePort });
+    console.log(
+      `[Frontend] Proxying to Vite at http://localhost:${config.vitePort}`,
+    );
+  }
+
+  // Create the app first (without WebSocket support initially)
+  // We'll add WebSocket routes after setting up WebSocket support
   const app = createApp({
     realSdk,
     projectsDir: config.claudeProjectsDir,
     idleTimeoutMs: config.idleTimeoutMs,
     defaultPermissionMode: config.defaultPermissionMode,
     eventBus,
-    upgradeWebSocket,
+    // Note: uploadeWebSocket not passed yet - will be added below
     notificationService,
     sessionMetadataService,
+    maxWorkers: config.maxWorkers,
+    idlePreemptThresholdMs: config.idlePreemptThresholdMs,
+    // Note: frontendProxy not passed - will be added below
   });
+
+  // Create WebSocket support with the main app
+  // This must use the same app instance that has the routes
+  // We get wss for the unified upgrade handler (instead of using injectWebSocket)
+  const { wss, upgradeWebSocket } = createNodeWebSocket({ app });
+
+  // Add upload routes with WebSocket support
+  // These must be added BEFORE the frontend proxy catch-all
+  const uploadScanner = new ProjectScanner({
+    projectsDir: config.claudeProjectsDir,
+  });
+  const uploadRoutes = createUploadRoutes({
+    scanner: uploadScanner,
+    upgradeWebSocket,
+  });
+  app.route("/api", uploadRoutes);
+
+  // Add frontend proxy as the final catch-all (AFTER all API routes including uploads)
+  if (frontendProxy) {
+    const proxy = frontendProxy;
+    app.all("*", (c) => {
+      const { incoming, outgoing } = c.env;
+      proxy.web(incoming, outgoing);
+      return RESPONSE_ALREADY_SENT;
+    });
+  }
+
+  // Production: serve static files (must be added after API routes)
+  if (config.serveFrontend && isProduction) {
+    const distExists = fs.existsSync(config.clientDistPath);
+    if (distExists) {
+      const staticRoutes = createStaticRoutes({
+        distPath: config.clientDistPath,
+      });
+      app.route("/", staticRoutes);
+      console.log(
+        `[Frontend] Serving static files from ${config.clientDistPath}`,
+      );
+    } else {
+      console.warn(
+        `[Frontend] Warning: dist not found at ${config.clientDistPath}. Run 'pnpm build' first.`,
+      );
+    }
+  }
 
   const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
     console.log(`Server running at http://localhost:${info.port}`);
@@ -90,8 +153,15 @@ async function startServer() {
     });
   });
 
-  // Inject WebSocket handling into the server
-  injectWebSocket(server);
+  // Attach unified WebSocket upgrade handler
+  // This replaces both attachFrontendProxyUpgrade and injectWebSocket to avoid
+  // conflicts where both would try to handle the same upgrade request
+  attachUnifiedUpgradeHandler(server, {
+    frontendProxy,
+    isApiPath: (urlPath) => urlPath.startsWith("/api"),
+    app,
+    wss,
+  });
 }
 
 startServer().catch((error) => {

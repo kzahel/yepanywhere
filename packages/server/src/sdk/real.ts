@@ -55,6 +55,7 @@ export class RealClaudeSDK implements RealClaudeSDKInterface {
           return {
             behavior: "deny" as const,
             message: result.message ?? "Permission denied",
+            interrupt: result.interrupt,
           };
         }
       : undefined;

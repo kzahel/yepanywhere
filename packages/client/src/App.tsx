@@ -16,6 +16,8 @@ export function App({ children }: Props) {
     reloadBackend,
     reloadFrontend,
     dismiss,
+    unsafeToRestart,
+    workerActivity,
   } = useReloadNotifications();
 
   return (
@@ -25,6 +27,8 @@ export function App({ children }: Props) {
           target="backend"
           onReload={reloadBackend}
           onDismiss={() => dismiss("backend")}
+          unsafeToRestart={unsafeToRestart}
+          activeWorkers={workerActivity.activeWorkers}
         />
       )}
       {isManualReloadMode && pendingReloads.frontend && (

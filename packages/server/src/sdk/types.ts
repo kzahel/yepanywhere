@@ -92,6 +92,12 @@ export interface ToolApprovalResult {
   behavior: "allow" | "deny";
   updatedInput?: unknown;
   message?: string;
+  /**
+   * If true, interrupt execution and do not continue.
+   * Set to true when user denies without guidance (just clicks "No").
+   * Leave false/unset when user provides feedback for Claude to incorporate.
+   */
+  interrupt?: boolean;
 }
 
 export type CanUseTool = (

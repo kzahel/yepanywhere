@@ -6,6 +6,7 @@ import { SessionStatusBadge } from "../components/StatusBadge";
 import { ENTER_SENDS_MESSAGE } from "../constants";
 import { useDraftPersistence } from "../hooks/useDraftPersistence";
 import { useSessions } from "../hooks/useSessions";
+import { getSessionDisplayTitle } from "../types";
 
 function formatRelativeTime(timestamp: string): string {
   const now = Date.now();
@@ -59,11 +60,7 @@ export function SessionsPage() {
       // Filter by search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const title = (
-          session.customTitle ??
-          session.title ??
-          ""
-        ).toLowerCase();
+        const title = getSessionDisplayTitle(session).toLowerCase();
         const fullTitle = (session.fullTitle ?? "").toLowerCase();
         if (!title.includes(query) && !fullTitle.includes(query)) {
           return false;
@@ -230,7 +227,7 @@ export function SessionsPage() {
                       </svg>
                     </span>
                   )}
-                  {session.customTitle ?? session.title ?? "Untitled"}
+                  {getSessionDisplayTitle(session)}
                   {session.isArchived && (
                     <span className="archived-badge">Archived</span>
                   )}
