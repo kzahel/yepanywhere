@@ -66,8 +66,10 @@ export function SessionsPage() {
           type="button"
           onClick={handleStartSession}
           disabled={starting || !newMessage.trim()}
+          className="send-button"
+          aria-label="Start session"
         >
-          {starting ? "Starting..." : "Start"}
+          <span className="send-icon">{starting ? "..." : "↑"}</span>
         </button>
       </div>
 

@@ -426,27 +426,57 @@ h2 {
 .message-input-actions {
   display: flex;
   gap: 0.5rem;
-  align-items: center;
+  align-items: stretch;
 }
 
+.send-button,
 .stop-button {
-  padding: 0.25rem 0.75rem;
-  background: var(--error-color);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: var(--radius-md);
-  color: white;
-  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: opacity 0.15s;
+  flex-shrink: 0;
 }
 
-.stop-button:hover:not(:disabled) {
+.send-button {
+  background: var(--app-claude-orange);
+  color: white;
+}
+
+.send-button:hover:not(:disabled) {
   opacity: 0.85;
 }
 
-.stop-button:disabled {
+.send-button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.send-icon {
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.stop-button {
+  background: var(--error-color);
+  color: white;
+}
+
+.stop-button:hover {
+  opacity: 0.85;
+}
+
+.stop-icon {
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 2px;
 }
 
 /* Status */
@@ -699,18 +729,18 @@ h2 {
 
 .tool-approval-feedback-submit {
   padding: var(--space-2) var(--space-3);
-  background: var(--primary-color);
+  background: var(--success-color);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-weight: 600;
   color: #000;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .tool-approval-feedback-submit:hover:not(:disabled) {
-  background: #9ecbff;
+  background: #8fd9a8;
 }
 
 .tool-approval-feedback-submit:disabled {

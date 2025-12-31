@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { InputRequest } from "../types";
-import { toolRegistry } from "./renderers/tools";
-import type { RenderContext } from "./renderers/types";
 import { getToolSummary } from "./tools/summaries";
 
 // Tools that can be auto-approved with "accept edits" mode
@@ -129,12 +127,6 @@ export function ToolApprovalPanel({
     onApproveAcceptEdits,
   ]);
 
-  // Create render context for tool preview
-  const renderContext: RenderContext = {
-    isStreaming: false,
-    theme: "dark",
-  };
-
   const summary = request.toolName
     ? getToolSummary(request.toolName, request.toolInput, undefined, "pending")
     : request.prompt;
@@ -143,20 +135,10 @@ export function ToolApprovalPanel({
     <div className="tool-approval-panel">
       <div className="tool-approval-header">
         <span className="tool-approval-question">
-          Make this edit to{" "}
-          <span className="tool-approval-name">{summary}</span>?
+          Allow <span className="tool-approval-name">{request.toolName}</span>{" "}
+          {summary}?
         </span>
       </div>
-
-      {request.toolName && request.toolInput !== undefined ? (
-        <div className="tool-approval-preview">
-          {toolRegistry.renderToolUse(
-            request.toolName,
-            request.toolInput,
-            renderContext,
-          )}
-        </div>
-      ) : null}
 
       <div className="tool-approval-options">
         <button

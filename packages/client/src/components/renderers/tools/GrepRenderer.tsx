@@ -147,10 +147,16 @@ function GrepToolResult({
 
   // Content mode - show search results
   if (mode === "content" && content) {
+    // Count actual match lines (lines with : after the line number indicate matches)
+    const lines = content.split("\n");
+    const matchCount = lines.filter((line) => /^\d+:/.test(line)).length;
+
     return (
       <div className="grep-result">
         <div className="grep-header">
-          <span className="grep-count">{numFiles} files</span>
+          <span className="grep-count">
+            {matchCount} {matchCount === 1 ? "match" : "matches"}
+          </span>
           {appliedLimit && (
             <span className="badge badge-info">limit: {appliedLimit}</span>
           )}
@@ -201,6 +207,16 @@ export const grepRenderer: ToolRenderer<GrepInput, GrepResult> = {
   getResultSummary(result, isError) {
     if (isError) return "Error";
     const r = result as GrepResult;
-    return r?.numFiles !== undefined ? `${r.numFiles} files` : "Results";
+    if (!r) return "Results";
+
+    // For content mode, count actual matches
+    if (r.mode === "content" && r.content) {
+      const matchCount = r.content
+        .split("\n")
+        .filter((line) => /^\d+:/.test(line)).length;
+      return `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+    }
+
+    return r.numFiles !== undefined ? `${r.numFiles} files` : "Results";
   },
 };

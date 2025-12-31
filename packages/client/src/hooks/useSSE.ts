@@ -51,6 +51,7 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
     es.addEventListener("connected", handleEvent("connected"));
     es.addEventListener("message", handleEvent("message"));
     es.addEventListener("status", handleEvent("status"));
+    es.addEventListener("mode-change", handleEvent("mode-change"));
     es.addEventListener("error", handleEvent("error"));
     es.addEventListener("complete", handleEvent("complete"));
     es.addEventListener("heartbeat", handleEvent("heartbeat"));

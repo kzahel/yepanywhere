@@ -117,22 +117,24 @@ export function MessageInput({
           )}
         </button>
         <div className="message-input-actions">
-          {isRunning && onStop && (
+          {isRunning && onStop && isThinking && (
             <button
               type="button"
               onClick={onStop}
               className="stop-button"
-              disabled={!isThinking}
+              aria-label="Stop"
             >
-              Stop
+              <span className="stop-icon" />
             </button>
           )}
           <button
             type="button"
             onClick={handleSubmit}
             disabled={disabled || !text.trim()}
+            className="send-button"
+            aria-label="Send"
           >
-            Send
+            <span className="send-icon">↑</span>
           </button>
         </div>
       </div>

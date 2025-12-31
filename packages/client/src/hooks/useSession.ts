@@ -365,9 +365,12 @@ export function useSession(projectId: string, sessionId: string) {
         ) {
           setProcessState(connectedData.state as ProcessState);
         }
-        // Restore pending input request if state is waiting-input
+        // Restore pending input request if state is waiting-input, clear if not
+        // (handles reconnection after another tab already approved/denied)
         if (connectedData.state === "waiting-input" && connectedData.request) {
           setPendingInputRequest(connectedData.request);
+        } else {
+          setPendingInputRequest(null);
         }
         if (
           connectedData.permissionMode &&
