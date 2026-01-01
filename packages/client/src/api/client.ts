@@ -1,4 +1,8 @@
-import type { UploadedFile } from "@claude-anywhere/shared";
+import type {
+  ModelOption,
+  ThinkingOption,
+  UploadedFile,
+} from "@claude-anywhere/shared";
 import type {
   Message,
   PermissionMode,
@@ -7,6 +11,12 @@ import type {
   SessionStatus,
   SessionSummary,
 } from "../types";
+
+export interface SessionOptions {
+  mode?: PermissionMode;
+  model?: ModelOption;
+  thinking?: ThinkingOption;
+}
 
 export type { UploadedFile } from "@claude-anywhere/shared";
 
@@ -66,7 +76,7 @@ export const api = {
   startSession: (
     projectId: string,
     message: string,
-    mode?: PermissionMode,
+    options?: SessionOptions,
     attachments?: UploadedFile[],
   ) =>
     fetchJSON<{
@@ -76,14 +86,20 @@ export const api = {
       modeVersion: number;
     }>(`/projects/${projectId}/sessions`, {
       method: "POST",
-      body: JSON.stringify({ message, mode, attachments }),
+      body: JSON.stringify({
+        message,
+        mode: options?.mode,
+        model: options?.model,
+        thinking: options?.thinking,
+        attachments,
+      }),
     }),
 
   /**
    * Create a session without sending an initial message.
    * Use this for two-phase flow: create session, upload files, then send message.
    */
-  createSession: (projectId: string, mode?: PermissionMode) =>
+  createSession: (projectId: string, options?: SessionOptions) =>
     fetchJSON<{
       sessionId: string;
       processId: string;
@@ -91,14 +107,18 @@ export const api = {
       modeVersion: number;
     }>(`/projects/${projectId}/sessions/create`, {
       method: "POST",
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({
+        mode: options?.mode,
+        model: options?.model,
+        thinking: options?.thinking,
+      }),
     }),
 
   resumeSession: (
     projectId: string,
     sessionId: string,
     message: string,
-    mode?: PermissionMode,
+    options?: SessionOptions,
     attachments?: UploadedFile[],
   ) =>
     fetchJSON<{
@@ -107,7 +127,13 @@ export const api = {
       modeVersion: number;
     }>(`/projects/${projectId}/sessions/${sessionId}/resume`, {
       method: "POST",
-      body: JSON.stringify({ message, mode, attachments }),
+      body: JSON.stringify({
+        message,
+        mode: options?.mode,
+        model: options?.model,
+        thinking: options?.thinking,
+        attachments,
+      }),
     }),
 
   queueMessage: (
@@ -166,5 +192,42 @@ export const api = {
     fetchJSON<{ updated: boolean }>(`/sessions/${sessionId}/metadata`, {
       method: "PUT",
       body: JSON.stringify(updates),
+    }),
+
+  // Push notification API
+  getPushPublicKey: () =>
+    fetchJSON<{ publicKey: string }>("/push/vapid-public-key"),
+
+  subscribePush: (
+    deviceId: string,
+    subscription: PushSubscriptionJSON,
+    deviceName?: string,
+  ) =>
+    fetchJSON<{ success: boolean; deviceId: string }>("/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ deviceId, subscription, deviceName }),
+    }),
+
+  unsubscribePush: (deviceId: string) =>
+    fetchJSON<{ success: boolean; deviceId: string }>("/push/unsubscribe", {
+      method: "POST",
+      body: JSON.stringify({ deviceId }),
+    }),
+
+  getPushSubscriptions: () =>
+    fetchJSON<{
+      count: number;
+      subscriptions: Array<{
+        deviceId: string;
+        createdAt: string;
+        deviceName?: string;
+        endpointDomain: string;
+      }>;
+    }>("/push/subscriptions"),
+
+  testPush: (deviceId: string, message?: string) =>
+    fetchJSON<{ success: boolean }>("/push/test", {
+      method: "POST",
+      body: JSON.stringify({ deviceId, message }),
     }),
 };

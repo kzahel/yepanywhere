@@ -5,6 +5,27 @@ import { type SessionSummary, getSessionDisplayTitle } from "../types";
 
 const SWIPE_THRESHOLD = 50; // Minimum distance to trigger close
 
+// Time threshold for stable sorting: sessions within this window use ID as tiebreaker
+// This prevents rapid shuffling when multiple active sessions update frequently
+const STABLE_SORT_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+
+// Stable sort: primarily by updatedAt, but use session ID as tiebreaker
+// when sessions are within the threshold. This prevents rapid shuffling
+// when multiple active sessions update frequently.
+function stableSort(a: SessionSummary, b: SessionSummary): number {
+  const aTime = new Date(a.updatedAt).getTime();
+  const bTime = new Date(b.updatedAt).getTime();
+  const timeDiff = bTime - aTime;
+
+  // If time difference is significant, sort by time
+  if (Math.abs(timeDiff) > STABLE_SORT_THRESHOLD_MS) {
+    return timeDiff;
+  }
+
+  // Within threshold: use session ID for stable ordering
+  return a.id.localeCompare(b.id);
+}
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,6 +34,12 @@ interface SidebarProps {
   sessions: SessionSummary[];
   processStates: Record<string, ProcessStateType>;
   onNavigate: () => void;
+  /** Desktop mode: sidebar is always visible, no overlay */
+  isDesktop?: boolean;
+  /** Desktop mode: sidebar is collapsed (icons only) */
+  isCollapsed?: boolean;
+  /** Desktop mode: callback to toggle expanded/collapsed state */
+  onToggleExpanded?: () => void;
 }
 
 export function Sidebar({
@@ -23,6 +50,9 @@ export function Sidebar({
   sessions,
   processStates,
   onNavigate,
+  isDesktop = false,
+  isCollapsed = false,
+  onToggleExpanded,
 }: SidebarProps) {
   const navigate = useNavigate();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -53,14 +83,11 @@ export function Sidebar({
     setSwipeOffset(0);
   };
 
-  // Starred sessions (sorted by updatedAt, limit 10)
+  // Starred sessions (sorted with stable sort, limit 10)
   const starredSessions = useMemo(() => {
     return sessions
       .filter((s) => s.isStarred && !s.isArchived)
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      )
+      .sort(stableSort)
       .slice(0, 10);
   }, [sessions]);
 
@@ -76,10 +103,7 @@ export function Sidebar({
           !s.isArchived &&
           isWithinLastDay(new Date(s.updatedAt)),
       )
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      )
+      .sort(stableSort)
       .slice(0, 10);
   }, [sessions]);
 
@@ -95,10 +119,7 @@ export function Sidebar({
           !s.isArchived &&
           isOlderThanOneDay(new Date(s.updatedAt)),
       )
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      )
+      .sort(stableSort)
       .slice(0, 10);
   }, [sessions]);
 
@@ -107,51 +128,92 @@ export function Sidebar({
     navigate(path);
   };
 
-  if (!isOpen) return null;
+  // In desktop mode, always render. In mobile mode, only render when open.
+  if (!isDesktop && !isOpen) return null;
+
+  // Sidebar toggle icon for desktop mode
+  const SidebarToggleIcon = () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+    </svg>
+  );
 
   return (
     <>
-      <div
-        className="sidebar-overlay"
-        onClick={onClose}
-        onKeyDown={(e) => e.key === "Escape" && onClose()}
-        role="button"
-        tabIndex={0}
-        aria-label="Close sidebar"
-      />
+      {/* Only show overlay in non-desktop mode */}
+      {!isDesktop && (
+        <div
+          className="sidebar-overlay"
+          onClick={onClose}
+          onKeyDown={(e) => e.key === "Escape" && onClose()}
+          role="button"
+          tabIndex={0}
+          aria-label="Close sidebar"
+        />
+      )}
       <aside
         ref={sidebarRef}
         className="sidebar"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={!isDesktop ? handleTouchStart : undefined}
+        onTouchMove={!isDesktop ? handleTouchMove : undefined}
+        onTouchEnd={!isDesktop ? handleTouchEnd : undefined}
         style={
-          swipeOffset < 0
+          !isDesktop && swipeOffset < 0
             ? { transform: `translateX(${swipeOffset}px)`, transition: "none" }
             : undefined
         }
       >
         <div className="sidebar-header">
-          <span className="sidebar-brand">Claude Anywhere</span>
-          <button
-            type="button"
-            className="sidebar-close"
-            onClick={onClose}
-            aria-label="Close sidebar"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
+          {isDesktop ? (
+            /* Desktop mode: toggle button */
+            <button
+              type="button"
+              className="sidebar-toggle"
+              onClick={onToggleExpanded}
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+              <SidebarToggleIcon />
+            </button>
+          ) : (
+            /* Mobile mode: brand text */
+            <span className="sidebar-brand">Claude Anywhere</span>
+          )}
+          {!isDesktop && (
+            <button
+              type="button"
+              className="sidebar-close"
+              onClick={onClose}
+              aria-label="Close sidebar"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+          {isDesktop && !isCollapsed && (
+            <span className="sidebar-brand">Claude Anywhere</span>
+          )}
         </div>
 
         <div className="sidebar-actions">
@@ -159,6 +221,7 @@ export function Sidebar({
             to={`/projects/${projectId}/new-session`}
             className="sidebar-new-session-button"
             onClick={onNavigate}
+            title="New Session"
           >
             <svg
               width="18"
@@ -172,13 +235,14 @@ export function Sidebar({
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            New Session
+            <span className="sidebar-nav-text">New Session</span>
           </Link>
 
           <button
             type="button"
             className="sidebar-nav-button"
             onClick={() => handleNavClick("/projects")}
+            title="Projects"
           >
             <svg
               width="16"
@@ -191,13 +255,14 @@ export function Sidebar({
             >
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             </svg>
-            Projects
+            <span className="sidebar-nav-text">Projects</span>
           </button>
 
           <button
             type="button"
             className="sidebar-nav-button"
             onClick={() => handleNavClick(`/projects/${projectId}`)}
+            title="All Sessions"
           >
             <svg
               width="16"
@@ -212,13 +277,14 @@ export function Sidebar({
               <line x1="3" y1="9" x2="21" y2="9" />
               <line x1="9" y1="21" x2="9" y2="9" />
             </svg>
-            All Sessions
+            <span className="sidebar-nav-text">All Sessions</span>
           </button>
 
           <button
             type="button"
             className="sidebar-nav-button"
             onClick={() => handleNavClick("/settings")}
+            title="Settings"
           >
             <svg
               width="16"
@@ -234,7 +300,7 @@ export function Sidebar({
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
-            Settings
+            <span className="sidebar-nav-text">Settings</span>
           </button>
         </div>
 
@@ -344,21 +410,17 @@ function SidebarSessionItem({
       );
     }
 
-    // Priority 3: Unread
-    if (session.hasUnread) {
-      return <span className="sidebar-badge sidebar-badge-unread">New</span>;
-    }
-
-    // Priority 4: Active (has hot process)
-    if (session.status.state === "owned") {
-      return <span className="sidebar-active-dot" />;
-    }
-
+    // Unread - handled via CSS class on <li>, not a badge
+    // Active (owned) sessions don't need a dot - "Thinking" badge shows when running
     return null;
   };
 
+  const liClassName = [isCurrent && "current", session.hasUnread && "unread"]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <li className={isCurrent ? "current" : ""}>
+    <li className={liClassName || undefined}>
       <Link
         to={`/projects/${projectId}/sessions/${session.id}`}
         onClick={onNavigate}

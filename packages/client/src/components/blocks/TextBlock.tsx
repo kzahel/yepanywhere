@@ -16,7 +16,6 @@ export const TextBlock = memo(function TextBlock({
       className={`text-block timeline-item${isStreaming ? " streaming" : ""}`}
     >
       <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
-      {isStreaming && <span className="streaming-cursor" />}
     </div>
   );
 });

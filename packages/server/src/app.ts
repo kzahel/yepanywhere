@@ -6,7 +6,7 @@ import type { SessionMetadataService } from "./metadata/index.js";
 import { corsMiddleware, requireCustomHeader } from "./middleware/security.js";
 import type { NotificationService } from "./notifications/index.js";
 import { ProjectScanner } from "./projects/scanner.js";
-import type { PushService } from "./push/index.js";
+import { PushNotifier, type PushService } from "./push/index.js";
 import { createPushRoutes } from "./push/routes.js";
 import { createActivityRoutes } from "./routes/activity.js";
 import { createDevRoutes } from "./routes/dev.js";
@@ -92,6 +92,16 @@ export function createApp(
         },
       })
     : undefined;
+
+  // Create PushNotifier if push notifications are enabled
+  // This sends push notifications when sessions need user input
+  if (options.eventBus && options.pushService) {
+    new PushNotifier({
+      eventBus: options.eventBus,
+      pushService: options.pushService,
+      supervisor,
+    });
+  }
 
   // Health check (outside /api)
   app.route("/health", health);

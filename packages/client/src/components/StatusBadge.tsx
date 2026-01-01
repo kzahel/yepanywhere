@@ -74,18 +74,11 @@ export function SessionStatusBadge({
     return <span className="status-badge status-running">Thinking</span>;
   }
 
-  // Priority 3: Unread content (show when not actively running)
-  // This includes idle sessions and owned sessions that are waiting for input
-  if (hasUnread) {
-    return <NotificationBadge variant="unread" />;
-  }
+  // Unread content is now handled via CSS class on session list item
+  // (bold/bright text like Gmail instead of a badge)
 
-  // Priority 4: Active session (has a hot process) - subtle green outline, no text badge
-  if (status.state === "owned") {
-    return <span className="status-indicator status-active" />;
-  }
-
-  // Idle sessions - no badge needed
+  // Active sessions (owned) don't need a separate indicator - "Thinking" badge
+  // already shows when the process is actively running
   return null;
 }
 

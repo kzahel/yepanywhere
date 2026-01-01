@@ -1,4 +1,10 @@
-import { type UploadedFile, isUrlProjectId } from "@claude-anywhere/shared";
+import {
+  type ModelOption,
+  type ThinkingOption,
+  type UploadedFile,
+  isUrlProjectId,
+  thinkingOptionToTokens,
+} from "@claude-anywhere/shared";
 import { Hono } from "hono";
 import type { SessionMetadataService } from "../metadata/index.js";
 import type { NotificationService } from "../notifications/index.js";
@@ -37,10 +43,14 @@ interface StartSessionBody {
   documents?: string[];
   attachments?: UploadedFile[];
   mode?: PermissionMode;
+  model?: ModelOption;
+  thinking?: ThinkingOption;
 }
 
 interface CreateSessionBody {
   mode?: PermissionMode;
+  model?: ModelOption;
+  thinking?: ThinkingOption;
 }
 
 interface InputResponseBody {
@@ -226,10 +236,21 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       mode: body.mode,
     };
 
+    // Convert thinking option to token budget
+    const maxThinkingTokens =
+      body.thinking && body.thinking !== "off"
+        ? thinkingOptionToTokens(body.thinking)
+        : undefined;
+
+    // Convert model option (undefined or "default" means use CLI default)
+    const model =
+      body.model && body.model !== "default" ? body.model : undefined;
+
     const result = await deps.supervisor.startSession(
       project.path,
       userMessage,
       body.mode,
+      { model, maxThinkingTokens },
     );
 
     // Check if request was queued
@@ -268,7 +289,24 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       // Body is optional for this endpoint
     }
 
-    const result = await deps.supervisor.createSession(project.path, body.mode);
+    // Convert thinking option to token budget
+    const maxThinkingTokens =
+      body.thinking && body.thinking !== "off"
+        ? thinkingOptionToTokens(body.thinking)
+        : undefined;
+
+    // Convert model option (undefined or "default" means use CLI default)
+    const model =
+      body.model && body.model !== "default" ? body.model : undefined;
+
+    const result = await deps.supervisor.createSession(
+      project.path,
+      body.mode,
+      {
+        model,
+        maxThinkingTokens,
+      },
+    );
 
     // Check if request was queued
     if (isQueuedResponse(result)) {
@@ -318,11 +356,22 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       mode: body.mode,
     };
 
+    // Convert thinking option to token budget
+    const maxThinkingTokens =
+      body.thinking && body.thinking !== "off"
+        ? thinkingOptionToTokens(body.thinking)
+        : undefined;
+
+    // Convert model option (undefined or "default" means use CLI default)
+    const model =
+      body.model && body.model !== "default" ? body.model : undefined;
+
     const result = await deps.supervisor.resumeSession(
       sessionId,
       project.path,
       userMessage,
       body.mode,
+      { model, maxThinkingTokens },
     );
 
     // Check if request was queued

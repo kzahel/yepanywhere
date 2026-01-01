@@ -256,3 +256,167 @@ describe("findOrphanedToolUses", () => {
     expect(orphaned.size).toBe(0);
   });
 });
+
+describe("buildDag with compaction", () => {
+  it("follows logicalParentUuid across single compact_boundary", () => {
+    // Pre-compaction messages
+    const messages: RawSessionMessage[] = [
+      { type: "user", uuid: "a", parentUuid: null },
+      { type: "assistant", uuid: "b", parentUuid: "a" },
+      { type: "user", uuid: "c", parentUuid: "b" },
+      // Compact boundary - parentUuid is null but logicalParentUuid points to pre-compaction
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: "compact-1",
+        parentUuid: null,
+        logicalParentUuid: "c",
+      },
+      // Post-compaction messages continue from compact boundary
+      { type: "user", uuid: "d", parentUuid: "compact-1" },
+      { type: "assistant", uuid: "e", parentUuid: "d" },
+    ];
+
+    const result = buildDag(messages);
+
+    // Should include all messages: pre-compaction + compact_boundary + post-compaction
+    expect(result.activeBranch.map((n) => n.uuid)).toEqual([
+      "a",
+      "b",
+      "c",
+      "compact-1",
+      "d",
+      "e",
+    ]);
+    expect(result.tip?.uuid).toBe("e");
+    expect(result.activeBranchUuids.size).toBe(6);
+  });
+
+  it("follows multiple compact_boundary nodes in chain", () => {
+    // First conversation segment
+    const messages: RawSessionMessage[] = [
+      { type: "user", uuid: "a", parentUuid: null },
+      { type: "assistant", uuid: "b", parentUuid: "a" },
+      // First compaction
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: "compact-1",
+        parentUuid: null,
+        logicalParentUuid: "b",
+      },
+      // Second segment
+      { type: "user", uuid: "c", parentUuid: "compact-1" },
+      { type: "assistant", uuid: "d", parentUuid: "c" },
+      // Second compaction
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: "compact-2",
+        parentUuid: null,
+        logicalParentUuid: "d",
+      },
+      // Third segment
+      { type: "user", uuid: "e", parentUuid: "compact-2" },
+      { type: "assistant", uuid: "f", parentUuid: "e" },
+    ];
+
+    const result = buildDag(messages);
+
+    // Should include all segments connected through compact boundaries
+    expect(result.activeBranch.map((n) => n.uuid)).toEqual([
+      "a",
+      "b",
+      "compact-1",
+      "c",
+      "d",
+      "compact-2",
+      "e",
+      "f",
+    ]);
+    expect(result.tip?.uuid).toBe("f");
+  });
+
+  it("handles compact_boundary without logicalParentUuid (stops at boundary)", () => {
+    const messages: RawSessionMessage[] = [
+      { type: "user", uuid: "a", parentUuid: null },
+      { type: "assistant", uuid: "b", parentUuid: "a" },
+      // Compact boundary without logicalParentUuid (shouldn't happen, but be defensive)
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: "compact-1",
+        parentUuid: null,
+        // No logicalParentUuid
+      },
+      { type: "user", uuid: "c", parentUuid: "compact-1" },
+    ];
+
+    const result = buildDag(messages);
+
+    // Should stop at compact boundary since no logicalParentUuid
+    expect(result.activeBranch.map((n) => n.uuid)).toEqual(["compact-1", "c"]);
+    expect(result.tip?.uuid).toBe("c");
+  });
+
+  it("handles compact_boundary with broken logicalParentUuid", () => {
+    const messages: RawSessionMessage[] = [
+      { type: "user", uuid: "a", parentUuid: null },
+      // Compact boundary pointing to non-existent message
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: "compact-1",
+        parentUuid: null,
+        logicalParentUuid: "nonexistent",
+      },
+      { type: "user", uuid: "b", parentUuid: "compact-1" },
+    ];
+
+    const result = buildDag(messages);
+
+    // Should stop at compact boundary since logicalParentUuid doesn't resolve
+    expect(result.activeBranch.map((n) => n.uuid)).toEqual(["compact-1", "b"]);
+    expect(result.tip?.uuid).toBe("b");
+  });
+
+  it("includes compact_boundary in activeBranchUuids", () => {
+    const messages: RawSessionMessage[] = [
+      { type: "user", uuid: "a", parentUuid: null },
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: "compact-1",
+        parentUuid: null,
+        logicalParentUuid: "a",
+      },
+      { type: "user", uuid: "b", parentUuid: "compact-1" },
+    ];
+
+    const result = buildDag(messages);
+
+    expect(result.activeBranchUuids.has("compact-1")).toBe(true);
+  });
+
+  it("preserves lineIndex across compaction boundary", () => {
+    const messages: RawSessionMessage[] = [
+      { type: "user", uuid: "a", parentUuid: null }, // index 0
+      { type: "assistant", uuid: "b", parentUuid: "a" }, // index 1
+      {
+        type: "system",
+        subtype: "compact_boundary",
+        uuid: "compact-1",
+        parentUuid: null,
+        logicalParentUuid: "b",
+      }, // index 2
+      { type: "user", uuid: "c", parentUuid: "compact-1" }, // index 3
+    ];
+
+    const result = buildDag(messages);
+
+    expect(result.activeBranch[0]?.lineIndex).toBe(0);
+    expect(result.activeBranch[1]?.lineIndex).toBe(1);
+    expect(result.activeBranch[2]?.lineIndex).toBe(2); // compact_boundary
+    expect(result.activeBranch[3]?.lineIndex).toBe(3);
+  });
+});

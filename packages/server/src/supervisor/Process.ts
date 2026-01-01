@@ -364,10 +364,11 @@ export class Process {
         return { behavior: "allow" };
 
       case "plan": {
-        // In plan mode, allow ExitPlanMode and switch back to default mode
-        if (toolName === "ExitPlanMode") {
-          this.setPermissionMode("default");
-          return { behavior: "allow" };
+        // ExitPlanMode and AskUserQuestion should prompt the user
+        // ExitPlanMode: user must approve the plan before exiting plan mode
+        // AskUserQuestion: clarifying questions are valid during planning
+        if (toolName === "ExitPlanMode" || toolName === "AskUserQuestion") {
+          break; // Fall through to ask user for approval
         }
         // Allow Write to .claude/plans/ directory for saving plans
         if (toolName === "Write") {
@@ -506,6 +507,11 @@ export class Process {
       pending.request.toolName === "EnterPlanMode"
     ) {
       this.setPermissionMode("plan");
+    }
+
+    // If ExitPlanMode is approved, switch back to default mode
+    if (response === "approve" && pending.request.toolName === "ExitPlanMode") {
+      this.setPermissionMode("default");
     }
 
     // Resolve the promise and remove from tracking

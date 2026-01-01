@@ -19,12 +19,15 @@ interface RawContentBlock {
 /** Raw JSONL message format - loosely typed to preserve all fields */
 export interface RawSessionMessage {
   type: string;
+  subtype?: string;
   message?: {
     content: string | RawContentBlock[];
     [key: string]: unknown;
   };
   uuid?: string;
   parentUuid?: string | null;
+  /** For compact_boundary messages, points to the last message before compaction */
+  logicalParentUuid?: string | null;
   [key: string]: unknown;
 }
 
@@ -117,11 +120,19 @@ export function buildDag(messages: RawSessionMessage[]): DagResult {
     activeBranch.unshift(current); // Prepend to maintain root→tip order
     activeBranchUuids.add(current.uuid);
 
-    if (current.parentUuid) {
-      current = nodeMap.get(current.parentUuid) ?? null;
-    } else {
-      current = null;
+    // Determine next node: use parentUuid, or logicalParentUuid for compact_boundary
+    let nextUuid = current.parentUuid;
+    if (
+      !nextUuid &&
+      current.raw.type === "system" &&
+      current.raw.subtype === "compact_boundary" &&
+      current.raw.logicalParentUuid
+    ) {
+      // Follow the logical parent chain across the compaction boundary
+      nextUuid = current.raw.logicalParentUuid;
     }
+
+    current = nextUuid ? (nodeMap.get(nextUuid) ?? null) : null;
   }
 
   return { activeBranch, activeBranchUuids, tip };

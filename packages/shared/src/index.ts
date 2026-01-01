@@ -6,7 +6,13 @@ export {
   getFilename,
 } from "./ideMetadata.js";
 
-export type { PermissionMode, SessionStatus } from "./types.js";
+export type {
+  PermissionMode,
+  SessionStatus,
+  ModelOption,
+  ThinkingOption,
+} from "./types.js";
+export { thinkingOptionToTokens } from "./types.js";
 
 export {
   orderByParentChain,

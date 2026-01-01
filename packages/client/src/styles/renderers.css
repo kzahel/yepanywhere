@@ -42,8 +42,9 @@
   margin-bottom: 0;
 }
 
-/* Streaming cursor animation */
-.streaming-cursor {
+/* Streaming cursor animation - uses ::after on last child to stay inline */
+.text-block.streaming > :last-child::after {
+  content: "";
   display: inline-block;
   width: 2px;
   height: 1em;

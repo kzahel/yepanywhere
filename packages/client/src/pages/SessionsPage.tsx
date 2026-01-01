@@ -7,7 +7,10 @@ import { Sidebar } from "../components/Sidebar";
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { ENTER_SENDS_MESSAGE } from "../constants";
 import { useDraftPersistence } from "../hooks/useDraftPersistence";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { getModelSetting, getThinkingSetting } from "../hooks/useModelSettings";
 import { useSessions } from "../hooks/useSessions";
+import { useSidebarPreference } from "../hooks/useSidebarPreference";
 import { getSessionDisplayTitle } from "../types";
 
 function formatRelativeTime(timestamp: string): string {
@@ -35,6 +38,10 @@ export function SessionsPage() {
   );
   const [starting, setStarting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Desktop layout hooks
+  const isWideScreen = useMediaQuery("(min-width: 1100px)");
+  const { isExpanded, toggleExpanded } = useSidebarPreference();
 
   // Filter state: "all" shows non-archived, "starred" shows only starred, "archived" shows only archived
   type FilterMode = "all" | "starred" | "archived";
@@ -91,7 +98,12 @@ export function SessionsPage() {
     setStarting(true);
     draftControls.clearInput(); // Clear input but keep localStorage
     try {
-      const { sessionId } = await api.startSession(projectId, message);
+      const model = getModelSetting();
+      const thinking = getThinkingSetting();
+      const { sessionId } = await api.startSession(projectId, message, {
+        model,
+        thinking,
+      });
       draftControls.clearDraft(); // Success - clear localStorage
       navigate(`/projects/${projectId}/sessions/${sessionId}`);
     } catch (err) {
@@ -122,131 +134,164 @@ export function SessionsPage() {
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (
-    <div className="session-page">
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        projectId={projectId ?? ""}
-        sessions={sessions}
-        processStates={processStates}
-        onNavigate={() => setSidebarOpen(false)}
-      />
-      <PageHeader
-        title={project?.name ?? "Sessions"}
-        onOpenSidebar={() => setSidebarOpen(true)}
-      />
-
-      <main className="sessions-page-content">
-        <div className="new-session-form">
-          <textarea
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Start a new session..."
-            disabled={starting}
-            rows={3}
+    <div className={`session-page ${isWideScreen ? "desktop-layout" : ""}`}>
+      {/* Desktop sidebar - always visible on wide screens */}
+      {isWideScreen && (
+        <aside
+          className={`sidebar-desktop ${!isExpanded ? "sidebar-collapsed" : ""}`}
+        >
+          <Sidebar
+            isOpen={true}
+            onClose={() => {}}
+            projectId={projectId ?? ""}
+            sessions={sessions}
+            processStates={processStates}
+            onNavigate={() => {}}
+            isDesktop={true}
+            isCollapsed={!isExpanded}
+            onToggleExpanded={toggleExpanded}
           />
-          <button
-            type="button"
-            onClick={handleStartSession}
-            disabled={starting || !newMessage.trim()}
-            className="send-button"
-            aria-label="Start session"
-          >
-            <span className="send-icon">{starting ? "..." : "↑"}</span>
-          </button>
-        </div>
+        </aside>
+      )}
 
-        <h2>Sessions</h2>
+      {/* Mobile sidebar - modal overlay */}
+      {!isWideScreen && (
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          projectId={projectId ?? ""}
+          sessions={sessions}
+          processStates={processStates}
+          onNavigate={() => setSidebarOpen(false)}
+        />
+      )}
 
-        {/* Filter bar */}
-        <div className="filter-bar">
-          <input
-            type="text"
-            className="filter-search"
-            placeholder="Search sessions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+      {/* Main content wrapper for desktop centering */}
+      <div className={isWideScreen ? "main-content-wrapper" : undefined}>
+        <div className={isWideScreen ? "main-content-constrained" : undefined}>
+          <PageHeader
+            title={project?.name ?? "Sessions"}
+            onOpenSidebar={() => setSidebarOpen(true)}
           />
-          <div className="filter-chips">
-            <button
-              type="button"
-              className={`filter-chip ${filterMode === "all" ? "active" : ""}`}
-              onClick={() => setFilterMode("all")}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`filter-chip ${filterMode === "starred" ? "active" : ""}`}
-              onClick={() => setFilterMode("starred")}
-            >
-              Starred{starredCount > 0 && ` (${starredCount})`}
-            </button>
-            <button
-              type="button"
-              className={`filter-chip ${filterMode === "archived" ? "active" : ""}`}
-              onClick={() => setFilterMode("archived")}
-            >
-              Archived{archivedCount > 0 && ` (${archivedCount})`}
-            </button>
-          </div>
-        </div>
 
-        {sessions.length === 0 ? (
-          <p>No sessions yet</p>
-        ) : filteredSessions.length === 0 ? (
-          <p className="no-results">No sessions match your filters</p>
-        ) : (
-          <ul className="session-list">
-            {filteredSessions.map((session) => (
-              <li
-                key={session.id}
-                className={session.isArchived ? "archived" : ""}
+          <main className="sessions-page-content">
+            <div className="new-session-form">
+              <textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Start a new session..."
+                disabled={starting}
+                rows={3}
+              />
+              <button
+                type="button"
+                onClick={handleStartSession}
+                disabled={starting || !newMessage.trim()}
+                className="send-button"
+                aria-label="Start session"
               >
-                <Link to={`/projects/${projectId}/sessions/${session.id}`}>
-                  <strong title={session.fullTitle || undefined}>
-                    {session.isStarred && (
-                      <span className="star-indicator" aria-label="Starred">
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          aria-hidden="true"
-                        >
-                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                        </svg>
+                <span className="send-icon">{starting ? "..." : "↑"}</span>
+              </button>
+            </div>
+
+            <h2>Sessions</h2>
+
+            {/* Filter bar */}
+            <div className="filter-bar">
+              <input
+                type="text"
+                className="filter-search"
+                placeholder="Search sessions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <div className="filter-chips">
+                <button
+                  type="button"
+                  className={`filter-chip ${filterMode === "all" ? "active" : ""}`}
+                  onClick={() => setFilterMode("all")}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${filterMode === "starred" ? "active" : ""}`}
+                  onClick={() => setFilterMode("starred")}
+                >
+                  Starred{starredCount > 0 && ` (${starredCount})`}
+                </button>
+                <button
+                  type="button"
+                  className={`filter-chip ${filterMode === "archived" ? "active" : ""}`}
+                  onClick={() => setFilterMode("archived")}
+                >
+                  Archived{archivedCount > 0 && ` (${archivedCount})`}
+                </button>
+              </div>
+            </div>
+
+            {sessions.length === 0 ? (
+              <p>No sessions yet</p>
+            ) : filteredSessions.length === 0 ? (
+              <p className="no-results">No sessions match your filters</p>
+            ) : (
+              <ul className="session-list">
+                {filteredSessions.map((session) => (
+                  <li
+                    key={session.id}
+                    className={[
+                      session.isArchived && "archived",
+                      session.hasUnread && "unread",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    <Link to={`/projects/${projectId}/sessions/${session.id}`}>
+                      <strong title={session.fullTitle || undefined}>
+                        {session.isStarred && (
+                          <span className="star-indicator" aria-label="Starred">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              aria-hidden="true"
+                            >
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                          </span>
+                        )}
+                        {getSessionDisplayTitle(session)}
+                        {session.isArchived && (
+                          <span className="archived-badge">Archived</span>
+                        )}
+                      </strong>
+                      <span className="meta">
+                        {formatRelativeTime(session.updatedAt)}
+                        <ContextUsageIndicator
+                          usage={session.contextUsage}
+                          size={14}
+                        />
+                        <SessionStatusBadge
+                          status={session.status}
+                          pendingInputType={session.pendingInputType}
+                          hasUnread={session.hasUnread}
+                          processState={
+                            processStates[session.id] ?? session.processState
+                          }
+                        />
                       </span>
-                    )}
-                    {getSessionDisplayTitle(session)}
-                    {session.isArchived && (
-                      <span className="archived-badge">Archived</span>
-                    )}
-                  </strong>
-                  <span className="meta">
-                    {formatRelativeTime(session.updatedAt)}
-                    <ContextUsageIndicator
-                      usage={session.contextUsage}
-                      size={14}
-                    />
-                    <SessionStatusBadge
-                      status={session.status}
-                      pendingInputType={session.pendingInputType}
-                      hasUnread={session.hasUnread}
-                      processState={
-                        processStates[session.id] ?? session.processState
-                      }
-                    />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </main>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

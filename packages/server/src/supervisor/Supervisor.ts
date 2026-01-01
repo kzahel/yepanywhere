@@ -31,6 +31,16 @@ import {
   encodeProjectId,
 } from "./types.js";
 
+/**
+ * Model and thinking settings for a session.
+ */
+export interface ModelSettings {
+  /** Model to use (e.g., "sonnet", "opus", "haiku"). undefined = use CLI default */
+  model?: string;
+  /** Max thinking tokens. undefined = thinking disabled */
+  maxThinkingTokens?: number;
+}
+
 export interface SupervisorOptions {
   /** Legacy SDK interface for mock SDK */
   sdk?: ClaudeSDK;
@@ -80,6 +90,7 @@ export class Supervisor {
     projectPath: string,
     message: UserMessage,
     permissionMode?: PermissionMode,
+    modelSettings?: ModelSettings,
   ): Promise<Process | QueuedResponse> {
     const projectId = encodeProjectId(projectPath);
 
@@ -111,6 +122,7 @@ export class Supervisor {
         message,
         undefined,
         permissionMode,
+        modelSettings,
       );
     }
 
@@ -132,6 +144,7 @@ export class Supervisor {
   async createSession(
     projectPath: string,
     permissionMode?: PermissionMode,
+    modelSettings?: ModelSettings,
   ): Promise<Process | QueuedResponse> {
     const projectId = encodeProjectId(projectPath);
 
@@ -157,7 +170,12 @@ export class Supervisor {
 
     // Use real SDK if available
     if (this.realSdk) {
-      return this.createRealSession(projectPath, projectId, permissionMode);
+      return this.createRealSession(
+        projectPath,
+        projectId,
+        permissionMode,
+        modelSettings,
+      );
     }
 
     // Fall back to legacy mock SDK - not supported for create-only
@@ -174,6 +192,7 @@ export class Supervisor {
     projectPath: string,
     projectId: UrlProjectId,
     permissionMode?: PermissionMode,
+    modelSettings?: ModelSettings,
   ): Promise<Process> {
     if (!this.realSdk) {
       throw new Error("realSdk is not available");
@@ -187,6 +206,8 @@ export class Supervisor {
       cwd: projectPath,
       // No initialMessage - queue will block until one is pushed
       permissionMode: effectiveMode,
+      model: modelSettings?.model,
+      maxThinkingTokens: modelSettings?.maxThinkingTokens,
       onToolApproval: async (toolName, input, opts) => {
         if (!processHolder.process) {
           return { behavior: "deny", message: "Process not ready" };
@@ -229,6 +250,7 @@ export class Supervisor {
     message: UserMessage,
     resumeSessionId?: string,
     permissionMode?: PermissionMode,
+    modelSettings?: ModelSettings,
   ): Promise<Process> {
     // Create a placeholder process first (needed for tool approval callback)
     const tempSessionId = resumeSessionId ?? randomUUID();
@@ -256,6 +278,8 @@ export class Supervisor {
       initialMessage: messageWithUuid,
       resumeSessionId,
       permissionMode: effectiveMode,
+      model: modelSettings?.model,
+      maxThinkingTokens: modelSettings?.maxThinkingTokens,
       onToolApproval: async (toolName, input, opts) => {
         // Delegate to the process's handleToolApproval
         if (!processHolder.process) {
@@ -344,6 +368,7 @@ export class Supervisor {
     projectPath: string,
     message: UserMessage,
     permissionMode?: PermissionMode,
+    modelSettings?: ModelSettings,
   ): Promise<Process | QueuedResponse> {
     // Check if already have a process for this session
     const existingProcessId = this.sessionToProcess.get(sessionId);
@@ -412,6 +437,7 @@ export class Supervisor {
         message,
         sessionId,
         permissionMode,
+        modelSettings,
       );
     }
 

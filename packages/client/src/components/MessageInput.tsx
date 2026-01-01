@@ -11,6 +11,7 @@ import {
   type DraftControls,
   useDraftPersistence,
 } from "../hooks/useDraftPersistence";
+import { useModelSettings } from "../hooks/useModelSettings";
 import type { ContextUsage, PermissionMode } from "../types";
 import { ContextUsageIndicator } from "./ContextUsageIndicator";
 
@@ -102,6 +103,7 @@ export function MessageInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   // User-controlled collapse state (independent of external collapse from approval panel)
   const [userCollapsed, setUserCollapsed] = useState(false);
+  const { thinkingEnabled, toggleThinking, thinkingLevel } = useModelSettings();
 
   // Panel is collapsed if user collapsed it OR if externally collapsed (approval panel showing)
   const collapsed = userCollapsed || externalCollapsed;
@@ -283,6 +285,32 @@ export function MessageInput({
                 {attachments.length > 0 && (
                   <span className="attach-count">{attachments.length}</span>
                 )}
+              </button>
+              <button
+                type="button"
+                className={`thinking-toggle-button ${thinkingEnabled ? "active" : ""}`}
+                onClick={toggleThinking}
+                title={
+                  thinkingEnabled
+                    ? `Extended thinking: ${thinkingLevel}`
+                    : "Enable extended thinking"
+                }
+                aria-pressed={thinkingEnabled}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
               </button>
             </div>
             <div className="message-input-actions">

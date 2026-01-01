@@ -111,6 +111,10 @@ export interface StartSessionOptions {
   initialMessage?: UserMessage;
   resumeSessionId?: string;
   permissionMode?: PermissionMode;
+  /** Model to use (e.g., "sonnet", "opus", "haiku"). undefined = use CLI default */
+  model?: string;
+  /** Max thinking tokens. undefined = thinking disabled */
+  maxThinkingTokens?: number;
   onToolApproval?: CanUseTool;
 }
 

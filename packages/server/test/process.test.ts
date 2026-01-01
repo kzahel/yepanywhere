@@ -366,7 +366,7 @@ describe("Process", () => {
       expect(result.behavior).toBe("allow");
     });
 
-    it("handleToolApproval denies all in plan mode", async () => {
+    it("handleToolApproval denies most tools in plan mode", async () => {
       const iterator = createMockIterator([]);
       const process = new Process(iterator, {
         projectPath: "/test",
@@ -385,6 +385,79 @@ describe("Process", () => {
 
       expect(result.behavior).toBe("deny");
       expect(result.message).toContain("Plan mode");
+    });
+
+    it("handleToolApproval prompts user for ExitPlanMode in plan mode (not auto-approve)", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        permissionMode: "plan",
+      });
+
+      const abortController = new AbortController();
+
+      // ExitPlanMode should NOT auto-approve - it should prompt the user
+      const approvalPromise = process.handleToolApproval(
+        "ExitPlanMode",
+        {},
+        { signal: abortController.signal },
+      );
+
+      // Should be in waiting-input state (prompting user)
+      expect(process.state.type).toBe("waiting-input");
+
+      // Simulate user approving
+      const pendingRequest = process.getPendingInputRequest();
+      expect(pendingRequest).not.toBeNull();
+      expect(pendingRequest?.toolName).toBe("ExitPlanMode");
+      process.respondToInput(pendingRequest!.id, "approve");
+
+      const result = await approvalPromise;
+      expect(result.behavior).toBe("allow");
+      // After approval, should switch back to default mode
+      expect(process.permissionMode).toBe("default");
+    });
+
+    it("handleToolApproval prompts user for AskUserQuestion in plan mode (not auto-deny)", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        permissionMode: "plan",
+      });
+
+      const abortController = new AbortController();
+
+      // AskUserQuestion should NOT auto-deny - it should prompt the user
+      const approvalPromise = process.handleToolApproval(
+        "AskUserQuestion",
+        { questions: [{ question: "test?", header: "Test", options: [] }] },
+        { signal: abortController.signal },
+      );
+
+      // Should be in waiting-input state (prompting user)
+      expect(process.state.type).toBe("waiting-input");
+
+      // Simulate user approving with answers
+      const pendingRequest = process.getPendingInputRequest();
+      expect(pendingRequest).not.toBeNull();
+      expect(pendingRequest?.toolName).toBe("AskUserQuestion");
+      process.respondToInput(pendingRequest!.id, "approve", { "test?": "Yes" });
+
+      const result = await approvalPromise;
+      expect(result.behavior).toBe("allow");
+      // Should have updated input with answers
+      expect(result.updatedInput).toEqual({
+        questions: [{ question: "test?", header: "Test", options: [] }],
+        answers: { "test?": "Yes" },
+      });
+      // Should still be in plan mode (AskUserQuestion doesn't exit plan mode)
+      expect(process.permissionMode).toBe("plan");
     });
 
     it("handleToolApproval auto-approves Edit tools in acceptEdits mode", async () => {

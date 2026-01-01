@@ -21,11 +21,21 @@ export type ProcessState = "idle" | "running" | "waiting-input";
 
 const THROTTLE_MS = 500;
 
-export function useSession(projectId: string, sessionId: string) {
+export function useSession(
+  projectId: string,
+  sessionId: string,
+  initialStatus?: { state: "owned"; processId: string },
+) {
   const [session, setSession] = useState<Session | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [status, setStatus] = useState<SessionStatus>({ state: "idle" });
-  const [processState, setProcessState] = useState<ProcessState>("idle");
+  // Use initial status if provided (from navigation state) to connect SSE immediately
+  const [status, setStatus] = useState<SessionStatus>(
+    initialStatus ?? { state: "idle" },
+  );
+  // If we have initial status, assume process is running (just started)
+  const [processState, setProcessState] = useState<ProcessState>(
+    initialStatus ? "running" : "idle",
+  );
   const [pendingInputRequest, setPendingInputRequest] =
     useState<InputRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -425,28 +435,23 @@ export function useSession(projectId: string, sessionId: string) {
           } else if (eventType === "content_block_stop") {
             // Block complete - nothing special needed, final message will replace
           } else if (eventType === "message_stop") {
-            // Message complete - clean up streaming state, final message coming
+            // Message complete - clean up streaming ref state
+            // DON'T clear currentStreamingIdRef here - we need it to remove the
+            // streaming placeholder when the final assistant message arrives
             streamingContentRef.current.delete(streamingId);
-            currentStreamingIdRef.current = null;
           }
           return; // Don't process stream_event as a regular message
         }
 
-        // For assistant messages, clear streaming state and remove streaming placeholder
-        // The streaming placeholder uses the API message.id, but the final assistant
-        // message uses the SDK uuid - they don't match, so we need to remove the placeholder
+        // For assistant messages, clear streaming state and remove ALL streaming placeholders
+        // Due to race conditions (message_start arriving after content_block_start),
+        // placeholders might have different IDs than currentStreamingIdRef
         if (msgType === "assistant") {
-          streamingContentRef.current.delete(id);
-          // Also clear by API message ID if we have one stored
-          if (currentStreamingIdRef.current) {
-            streamingContentRef.current.delete(currentStreamingIdRef.current);
-            // Remove the streaming placeholder from messages since it has a different ID
-            const streamingIdToRemove = currentStreamingIdRef.current;
-            setMessages((prev) =>
-              prev.filter((m) => m.id !== streamingIdToRemove),
-            );
-            currentStreamingIdRef.current = null;
-          }
+          // Clear all streaming content refs
+          streamingContentRef.current.clear();
+          currentStreamingIdRef.current = null;
+          // Remove ALL streaming placeholder messages (those with _isStreaming flag)
+          setMessages((prev) => prev.filter((m) => !m._isStreaming));
         }
 
         // Build message object, preserving all SDK fields

@@ -25,7 +25,7 @@ describe("SessionStatusBadge", () => {
     expect(badge?.textContent).toBe("Thinking");
   });
 
-  it("shows green outline when owned but not running", () => {
+  it("shows nothing when owned but not running", () => {
     const { container } = render(
       <SessionStatusBadge
         status={{
@@ -37,10 +37,9 @@ describe("SessionStatusBadge", () => {
       />,
     );
 
-    const indicator = container.querySelector(
-      ".status-indicator.status-active",
-    );
-    expect(indicator).not.toBeNull();
+    // No indicator for owned sessions - "Thinking" badge shows when actually running
+    expect(container.querySelector(".status-badge")).toBeNull();
+    expect(container.querySelector(".status-indicator")).toBeNull();
   });
 
   it("shows nothing when idle", () => {
@@ -76,7 +75,7 @@ describe("SessionStatusBadge", () => {
     expect(thinkingBadge).toBeNull();
   });
 
-  it("prioritizes running over unread", () => {
+  it("shows Thinking badge even when hasUnread is true", () => {
     const { container } = render(
       <SessionStatusBadge
         status={{
@@ -93,22 +92,19 @@ describe("SessionStatusBadge", () => {
     const thinkingBadge = container.querySelector(".status-running");
     expect(thinkingBadge).not.toBeNull();
     expect(thinkingBadge?.textContent).toBe("Thinking");
-
-    const unreadBadge = container.querySelector(".notification-unread");
-    expect(unreadBadge).toBeNull();
   });
 
-  it("shows unread badge for idle sessions with unread content", () => {
+  it("shows nothing for idle sessions (unread handled via CSS class)", () => {
     const { container } = render(
       <SessionStatusBadge status={{ state: "idle" }} hasUnread={true} />,
     );
 
-    const unreadBadge = container.querySelector(".notification-unread");
-    expect(unreadBadge).not.toBeNull();
-    expect(unreadBadge?.textContent).toBe("New");
+    // No badge - unread is now handled via CSS class on parent element
+    expect(container.querySelector(".status-badge")).toBeNull();
+    expect(container.querySelector(".status-indicator")).toBeNull();
   });
 
-  it("shows unread badge for owned sessions with unread content (not running)", () => {
+  it("shows nothing for owned sessions with unread (unread handled via CSS class)", () => {
     const { container } = render(
       <SessionStatusBadge
         status={{
@@ -121,14 +117,8 @@ describe("SessionStatusBadge", () => {
       />,
     );
 
-    const unreadBadge = container.querySelector(".notification-unread");
-    expect(unreadBadge).not.toBeNull();
-    expect(unreadBadge?.textContent).toBe("New");
-
-    // Should not show the green dot when unread is shown
-    const indicator = container.querySelector(
-      ".status-indicator.status-active",
-    );
-    expect(indicator).toBeNull();
+    // No badge or indicator - unread is handled via CSS class on parent
+    expect(container.querySelector(".status-badge")).toBeNull();
+    expect(container.querySelector(".status-indicator")).toBeNull();
   });
 });

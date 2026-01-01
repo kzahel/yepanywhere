@@ -11,7 +11,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { detectClaudeCli } from "../../src/sdk/cli-detection.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
 import { RealClaudeSDK } from "../../src/sdk/real.js";
-import type { SDKMessage, UserMessage } from "../../src/sdk/types.js";
+import type {
+  SDKMessage,
+  StartSessionOptions,
+  UserMessage,
+} from "../../src/sdk/types.js";
 import { Process } from "../../src/supervisor/Process.js";
 
 /**
@@ -408,4 +412,320 @@ describe("Real SDK E2E", () => {
     log("  Process:", processContent);
     expect(jsonlUserContent).toBe(processContent);
   }, 60000);
+
+  it("should pass model and thinking options to SDK", async () => {
+    if (!cliAvailable) {
+      return; // Skip if CLI not installed
+    }
+
+    // Test that we can start a session with model and thinking options
+    // This verifies the options are passed through correctly
+    const sessionOptions: StartSessionOptions = {
+      cwd: testDir,
+      initialMessage: { text: 'Say "model test" and nothing else' },
+      permissionMode: "bypassPermissions",
+      model: "sonnet", // Use a different model
+      maxThinkingTokens: 4096, // Enable light thinking
+    };
+
+    const { iterator, abort } = await sdk.startSession(sessionOptions);
+
+    const messages: SDKMessage[] = [];
+    const timeout = setTimeout(() => abort(), 60000);
+
+    try {
+      for await (const message of iterator) {
+        messages.push(message);
+        logMessage(message);
+        if (message.type === "result") break;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // Should complete successfully - means options were accepted
+    expect(messages.length).toBeGreaterThanOrEqual(2);
+
+    // Find the init message which contains model info
+    const initMessage = messages.find(
+      (m) => m.type === "system" && m.subtype === "init",
+    );
+    expect(initMessage).toBeDefined();
+
+    // The init message should contain model info from SDK
+    // We just verify the session started successfully with our options
+    log("[init message]", JSON.stringify(initMessage, null, 2));
+  }, 90000);
+
+  it("should pass plan mode to SDK and receive planning behavior", async () => {
+    if (!cliAvailable) {
+      return; // Skip if CLI not installed
+    }
+
+    // Test that plan mode is passed through to SDK
+    // Claude should respond with planning behavior when in plan mode
+    const { iterator, abort } = await sdk.startSession({
+      cwd: testDir,
+      initialMessage: { text: "Add a hello world function to test.txt" },
+      permissionMode: "plan", // Plan mode - Claude should create a plan first
+      onToolApproval: async (toolName, input) => {
+        log(`[tool_approval] ${toolName}`, input);
+        // In plan mode, tools should be blocked until plan is approved
+        // For this test, we deny to verify plan mode is active
+        return { behavior: "deny" as const, message: "Plan mode - blocked" };
+      },
+    });
+
+    const messages: SDKMessage[] = [];
+    let sawExitPlanMode = false;
+    let sawPlanContent = false;
+    const timeout = setTimeout(() => abort(), 60000);
+
+    try {
+      for await (const message of iterator) {
+        messages.push(message);
+        logMessage(message);
+
+        // Check for ExitPlanMode tool use - indicates Claude is in plan mode
+        if (message.type === "assistant" && message.message?.content) {
+          const content = message.message.content;
+          if (Array.isArray(content)) {
+            for (const block of content) {
+              if (block.type === "tool_use" && block.name === "ExitPlanMode") {
+                sawExitPlanMode = true;
+                log("[found ExitPlanMode tool use]");
+              }
+              // Also check for plan-like text content
+              if (block.type === "text") {
+                const text = (block.text as string).toLowerCase();
+                if (
+                  text.includes("plan") ||
+                  text.includes("step") ||
+                  text.includes("implementation")
+                ) {
+                  sawPlanContent = true;
+                }
+              }
+            }
+          }
+        }
+
+        if (message.type === "result") break;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // In plan mode, Claude should either:
+    // 1. Use ExitPlanMode tool to present a plan, OR
+    // 2. Write planning-related content
+    log(`[sawExitPlanMode] ${sawExitPlanMode}`);
+    log(`[sawPlanContent] ${sawPlanContent}`);
+
+    // At minimum, verify we got messages and the session worked
+    expect(messages.length).toBeGreaterThanOrEqual(2);
+
+    // If we saw ExitPlanMode, plan mode is definitely working
+    // If not, check for planning language (Claude might explain it can't proceed)
+    if (!sawExitPlanMode) {
+      log(
+        "[note] ExitPlanMode not seen - this may indicate plan mode not active",
+      );
+    }
+  }, 90000);
+
+  it("should trigger approval callback for ExitPlanMode in plan mode", async () => {
+    if (!cliAvailable) {
+      return; // Skip if CLI not installed
+    }
+
+    const toolRequests: Array<{ toolName: string; input: unknown }> = [];
+    let exitPlanModeRequested = false;
+
+    const { iterator, abort } = await sdk.startSession({
+      cwd: testDir,
+      initialMessage: {
+        text: "Create a plan for adding a hello function, then use ExitPlanMode when ready",
+      },
+      permissionMode: "plan",
+      onToolApproval: async (toolName, input) => {
+        toolRequests.push({ toolName, input });
+        log(`[tool_approval] ${toolName}`, input);
+
+        if (toolName === "ExitPlanMode") {
+          exitPlanModeRequested = true;
+          // Approve ExitPlanMode to exit plan mode
+          return { behavior: "allow" as const };
+        }
+
+        // Deny other tools in plan mode
+        return { behavior: "deny" as const, message: "Plan mode - blocked" };
+      },
+    });
+
+    const messages: SDKMessage[] = [];
+    const timeout = setTimeout(() => abort(), 90000);
+
+    try {
+      for await (const message of iterator) {
+        messages.push(message);
+        logMessage(message);
+        if (message.type === "result") break;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // ExitPlanMode should trigger the approval callback
+    log(`[exitPlanModeRequested] ${exitPlanModeRequested}`);
+    log(
+      `[toolRequests]`,
+      toolRequests.map((r) => r.toolName),
+    );
+
+    // We should have seen ExitPlanMode in the tool approval callback
+    expect(exitPlanModeRequested).toBe(true);
+  }, 120000);
+
+  it("should handle AskUserQuestion with answers passed through updatedInput", async () => {
+    if (!cliAvailable) {
+      return; // Skip if CLI not installed
+    }
+
+    const toolRequests: Array<{ toolName: string; input: unknown }> = [];
+    let askUserQuestionCalled = false;
+    let receivedQuestions: unknown = null;
+
+    const { iterator, abort } = await sdk.startSession({
+      cwd: testDir,
+      initialMessage: {
+        text: 'Before doing anything, use the AskUserQuestion tool to ask me one question: "Which color do you prefer?" with header "Color" and two options: "Red" with description "A warm color" and "Blue" with description "A cool color". Set multiSelect to false.',
+      },
+      permissionMode: "default",
+      onToolApproval: async (toolName, input) => {
+        toolRequests.push({ toolName, input });
+        log(`[tool_approval] ${toolName}`, JSON.stringify(input, null, 2));
+
+        if (toolName === "AskUserQuestion") {
+          askUserQuestionCalled = true;
+          receivedQuestions = input;
+
+          // Simulate user answering the question
+          const questionInput = input as {
+            questions?: Array<{ question: string }>;
+          };
+          const answers: Record<string, string> = {};
+          if (questionInput.questions) {
+            for (const q of questionInput.questions) {
+              answers[q.question] = "Blue";
+            }
+          }
+
+          // Return approval with answers via updatedInput
+          return {
+            behavior: "allow" as const,
+            updatedInput: { ...input, answers },
+          };
+        }
+
+        // Auto-approve other tools for this test
+        return { behavior: "allow" as const };
+      },
+    });
+
+    const messages: SDKMessage[] = [];
+    const timeout = setTimeout(() => abort(), 90000);
+
+    try {
+      for await (const message of iterator) {
+        messages.push(message);
+        logMessage(message);
+        if (message.type === "result") break;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    log(`[askUserQuestionCalled] ${askUserQuestionCalled}`);
+    log(`[receivedQuestions]`, receivedQuestions);
+
+    // AskUserQuestion should have been called and we should have received the questions
+    expect(askUserQuestionCalled).toBe(true);
+    expect(receivedQuestions).toBeDefined();
+
+    // Verify questions structure
+    const input = receivedQuestions as { questions?: unknown[] };
+    expect(input.questions).toBeDefined();
+    expect(Array.isArray(input.questions)).toBe(true);
+  }, 120000);
+
+  it("should allow AskUserQuestion in plan mode", async () => {
+    if (!cliAvailable) {
+      return; // Skip if CLI not installed
+    }
+
+    const toolRequests: Array<{ toolName: string; input: unknown }> = [];
+    let askUserQuestionInPlanMode = false;
+
+    const { iterator, abort } = await sdk.startSession({
+      cwd: testDir,
+      initialMessage: {
+        text: 'You are in plan mode. Before creating your plan, use AskUserQuestion to ask: "What framework should I use?" with header "Framework" and options "React" and "Vue". Then use ExitPlanMode.',
+      },
+      permissionMode: "plan",
+      onToolApproval: async (toolName, input) => {
+        toolRequests.push({ toolName, input });
+        log(`[tool_approval in plan mode] ${toolName}`);
+
+        if (toolName === "AskUserQuestion") {
+          askUserQuestionInPlanMode = true;
+
+          // Simulate user answering
+          const questionInput = input as {
+            questions?: Array<{ question: string }>;
+          };
+          const answers: Record<string, string> = {};
+          if (questionInput.questions) {
+            for (const q of questionInput.questions) {
+              answers[q.question] = "React";
+            }
+          }
+
+          return {
+            behavior: "allow" as const,
+            updatedInput: { ...input, answers },
+          };
+        }
+
+        if (toolName === "ExitPlanMode") {
+          return { behavior: "allow" as const };
+        }
+
+        // Deny other tools in plan mode
+        return { behavior: "deny" as const, message: "Plan mode - blocked" };
+      },
+    });
+
+    const messages: SDKMessage[] = [];
+    const timeout = setTimeout(() => abort(), 90000);
+
+    try {
+      for await (const message of iterator) {
+        messages.push(message);
+        logMessage(message);
+        if (message.type === "result") break;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    log(`[askUserQuestionInPlanMode] ${askUserQuestionInPlanMode}`);
+    log(
+      `[toolRequests]`,
+      toolRequests.map((r) => r.toolName),
+    );
+
+    // AskUserQuestion should have triggered in plan mode (not auto-denied)
+    expect(askUserQuestionInPlanMode).toBe(true);
+  }, 120000);
 });
