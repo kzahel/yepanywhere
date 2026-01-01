@@ -122,6 +122,20 @@ export interface Session extends SessionSummary {
 }
 
 /**
+ * Status of an agent session, inferred from its messages.
+ */
+export type AgentStatus = "pending" | "running" | "completed" | "failed";
+
+/**
+ * Agent session content returned by getAgentSession API.
+ * Used for lazy-loading completed Task subagent content.
+ */
+export interface AgentSession {
+  messages: Message[];
+  status: AgentStatus;
+}
+
+/**
  * Get the display title for a session.
  * Priority: customTitle > title > "Untitled"
  */

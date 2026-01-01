@@ -47,6 +47,17 @@ export function useSessions(projectId: string | undefined) {
       const data = await api.getProject(projectId);
       setProject(data.project);
 
+      // Sync processStates from API response (fixes stale state after SSE reconnect)
+      setProcessStates(() => {
+        const newStates: Record<string, ProcessStateType> = {};
+        for (const session of data.sessions) {
+          if (session.processState) {
+            newStates[session.id] = session.processState;
+          }
+        }
+        return newStates;
+      });
+
       // On initial load, use server's sort order. On refetches, preserve
       // existing order and only update session data in-place.
       if (!hasInitialLoadRef.current) {
@@ -134,12 +145,24 @@ export function useSessions(projectId: string | undefined) {
         ),
       );
 
-      // Clear process state when session goes idle (no longer has a process)
+      // Clear process state and pendingInputType when session goes idle (no longer has a process)
       if (event.status.state === "idle") {
         setProcessStates((prev) => {
           const { [event.sessionId]: _, ...rest } = prev;
           return rest;
         });
+        // Also clear pendingInputType since the process is gone
+        setSessions((prev) =>
+          prev.map((session) =>
+            session.id === event.sessionId
+              ? {
+                  ...session,
+                  pendingInputType: undefined,
+                  processState: undefined,
+                }
+              : session,
+          ),
+        );
       }
     },
     [projectId],
@@ -154,6 +177,18 @@ export function useSessions(projectId: string | undefined) {
         ...prev,
         [event.sessionId]: event.processState,
       }));
+
+      // When state changes to "running", clear pendingInputType since input was resolved
+      // This fixes the "approval needed" badge getting stuck after approval
+      if (event.processState === "running") {
+        setSessions((prev) =>
+          prev.map((session) =>
+            session.id === event.sessionId
+              ? { ...session, pendingInputType: undefined }
+              : session,
+          ),
+        );
+      }
     },
     [projectId],
   );
@@ -204,6 +239,7 @@ export function useSessions(projectId: string | undefined) {
     onSessionCreated: handleSessionCreated,
     onProcessStateChange: handleProcessStateChange,
     onSessionMetadataChange: handleSessionMetadataChange,
+    onReconnect: fetch, // Refetch to sync state after SSE reconnection
   });
 
   // Initial fetch

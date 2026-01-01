@@ -452,6 +452,7 @@ h2 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 44px; /* Consistent height whether toggle button is present or not */
 }
 
 .session-header::after {
@@ -586,7 +587,7 @@ h2 {
 }
 
 .sidebar-actions {
-  padding: 0 1rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
 }
@@ -648,7 +649,7 @@ a.sidebar-nav-button {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.875rem;
   background: transparent;
   border: none;
   color: var(--text-primary);
@@ -679,7 +680,7 @@ a.sidebar-nav-button {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 0 1rem;
+  padding: 0;
 }
 
 .sidebar-section {
@@ -691,7 +692,7 @@ a.sidebar-nav-button {
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-dimmed);
-  padding: 0 1rem;
+  padding: 0 0.875rem;
   margin-bottom: 0.5rem;
 }
 
@@ -713,7 +714,7 @@ a.sidebar-nav-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.875rem;
   color: var(--text-primary);
   text-decoration: none;
   font-size: var(--font-size-sm);
@@ -741,7 +742,7 @@ a.sidebar-nav-button {
 }
 
 .sidebar-all-sessions-link {
-  padding: 0 1rem;
+  padding: 0;
   margin-top: auto;
 }
 
@@ -1761,6 +1762,37 @@ a.sidebar-nav-button {
 .tool-approval-feedback-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Continue typing input (shown while waiting for approval) */
+.tool-approval-continue-typing {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-3);
+}
+
+.tool-approval-continue-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  resize: none;
+  min-height: 36px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.tool-approval-continue-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  min-height: 80px;
+}
+
+.tool-approval-continue-input::placeholder {
+  color: var(--text-muted);
 }
 
 /* Mobile adjustments */
@@ -3154,9 +3186,9 @@ a.sidebar-nav-button {
     width: 100%;
   }
 
-  /* Hide hamburger on desktop layout */
+  /* Show sidebar toggle on desktop for collapse/expand functionality */
   .desktop-layout .sidebar-toggle {
-    display: none;
+    display: flex;
   }
 
   /* Desktop sidebar styles */
@@ -3184,7 +3216,7 @@ a.sidebar-nav-button {
 
   .sidebar-collapsed .sidebar-header {
     justify-content: center;
-    padding: 0.75rem 0.5rem;
+    padding: 0.5rem; /* Match toolbar vertical padding */
   }
 
   .sidebar-collapsed .sidebar-close {

@@ -83,6 +83,8 @@ interface UseFileActivityOptions {
   onProcessStateChange?: (event: ProcessStateEvent) => void;
   /** Callback when session metadata changes (title, archived, starred) */
   onSessionMetadataChange?: (event: SessionMetadataChangedEvent) => void;
+  /** Callback when SSE connection is re-established after being disconnected */
+  onReconnect?: () => void;
 }
 
 const API_BASE = "/api";
@@ -98,6 +100,7 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
     onSessionSeen,
     onProcessStateChange,
     onSessionMetadataChange,
+    onReconnect,
   } = options;
 
   const [events, setEvents] = useState<FileChangeEvent[]>([]);
@@ -108,6 +111,8 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  // Track if we've connected before (to distinguish reconnect from initial connect)
+  const hasConnectedRef = useRef(false);
   const onFileChangeRef = useRef(onFileChange);
   onFileChangeRef.current = onFileChange;
   const onSessionStatusChangeRef = useRef(onSessionStatusChange);
@@ -120,6 +125,8 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
   onProcessStateChangeRef.current = onProcessStateChange;
   const onSessionMetadataChangeRef = useRef(onSessionMetadataChange);
   onSessionMetadataChangeRef.current = onSessionMetadataChange;
+  const onReconnectRef = useRef(onReconnect);
+  onReconnectRef.current = onReconnect;
 
   const connect = useCallback(() => {
     if (eventSourceRef.current) return;
@@ -127,7 +134,12 @@ export function useFileActivity(options: UseFileActivityOptions = {}) {
     const es = new EventSource(`${API_BASE}/activity/stream`);
 
     es.onopen = () => {
+      const isReconnect = hasConnectedRef.current;
+      hasConnectedRef.current = true;
       setConnected(true);
+      if (isReconnect) {
+        onReconnectRef.current?.();
+      }
     };
 
     const handleFileChange = (event: MessageEvent) => {

@@ -1,0 +1,4 @@
+{"type":"system","uuid":"sys-1","parentUuid":null,"timestamp":"2024-01-01T00:00:00.000Z"}
+{"type":"user","uuid":"user-1","parentUuid":"sys-1","message":{"content":"Research fibonacci","role":"user"},"timestamp":"2024-01-01T00:00:01.000Z"}
+{"type":"assistant","uuid":"asst-1","parentUuid":"user-1","message":{"content":[{"type":"text","text":"I'll search for fibonacci information."}],"role":"assistant"},"timestamp":"2024-01-01T00:00:02.000Z"}
+{"type":"assistant","uuid":"asst-2","parentUuid":"asst-1","message":{"content":[{"type":"tool_use","id":"tool-1","name":"Read","input":{"file_path":"/some/file.ts"}}],"role":"assistant"},"timestamp":"2024-01-01T00:00:03.000Z"}

@@ -4,6 +4,7 @@ import type {
   UploadedFile,
 } from "@claude-anywhere/shared";
 import type {
+  AgentSession,
   Message,
   PermissionMode,
   Project,
@@ -72,6 +73,15 @@ export const api = {
       status: SessionStatus;
     }>(`/projects/${projectId}/sessions/${sessionId}${params}`);
   },
+
+  /**
+   * Get agent session content for lazy-loading completed Tasks.
+   * Used to fetch subagent messages on demand when expanding a Task.
+   */
+  getAgentSession: (projectId: string, sessionId: string, agentId: string) =>
+    fetchJSON<AgentSession>(
+      `/projects/${projectId}/sessions/${sessionId}/agents/${agentId}`,
+    ),
 
   startSession: (
     projectId: string,

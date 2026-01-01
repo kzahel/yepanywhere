@@ -72,14 +72,10 @@ export class RealClaudeSDK implements RealClaudeSDKInterface {
           cwd: options.cwd,
           resume: options.resumeSessionId,
           abortController,
-          // When we have a canUseTool callback, pass "default" to SDK to prevent
-          // SDK from enforcing its own permissions. Our callback handles all
-          // permission logic including plan mode restrictions.
-          // Note: This means Claude won't get plan-specific system prompt from SDK,
-          // but our permission enforcement in Process.handleToolApproval works correctly.
-          permissionMode: canUseTool
-            ? "default"
-            : (options.permissionMode ?? "default"),
+          // Pass permission mode to SDK so Claude gets the appropriate system prompt.
+          // Modes like "plan" need to be passed through for Claude to know it's in plan mode.
+          // Our canUseTool callback handles the permission checking for custom modes.
+          permissionMode: options.permissionMode ?? "default",
           canUseTool,
           systemPrompt: { type: "preset", preset: "claude_code" },
           settingSources: ["user", "project", "local"],

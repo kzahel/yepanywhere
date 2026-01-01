@@ -1,0 +1,7 @@
+{"type":"system","uuid":"sys-1","parentUuid":null,"timestamp":"2024-01-01T00:00:00.000Z"}
+{"type":"user","uuid":"user-1","parentUuid":"sys-1","message":{"content":"Research prime numbers","role":"user"},"timestamp":"2024-01-01T00:00:01.000Z"}
+{"type":"assistant","uuid":"asst-1","parentUuid":"user-1","message":{"content":[{"type":"text","text":"I'll search for prime number information."}],"role":"assistant"},"timestamp":"2024-01-01T00:00:02.000Z"}
+{"type":"assistant","uuid":"asst-2","parentUuid":"asst-1","message":{"content":[{"type":"tool_use","id":"tool-1","name":"Grep","input":{"pattern":"prime"}}],"role":"assistant"},"timestamp":"2024-01-01T00:00:03.000Z"}
+{"type":"user","uuid":"user-2","parentUuid":"asst-2","message":{"content":[{"type":"tool_result","tool_use_id":"tool-1","content":"Found 5 files with prime"}],"role":"user"},"timestamp":"2024-01-01T00:00:04.000Z"}
+{"type":"assistant","uuid":"asst-3","parentUuid":"user-2","message":{"content":[{"type":"text","text":"Based on my research, prime numbers are..."}],"role":"assistant"},"timestamp":"2024-01-01T00:00:05.000Z"}
+{"type":"result","uuid":"result-1","parentUuid":"asst-3","result":{"type":"result"},"timestamp":"2024-01-01T00:00:06.000Z"}

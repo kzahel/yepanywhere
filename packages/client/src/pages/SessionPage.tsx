@@ -45,7 +45,8 @@ function SessionPageContent({
   projectId: string;
   sessionId: string;
 }) {
-  const { openSidebar, isWideScreen } = useProjectLayout();
+  const { openSidebar, isWideScreen, toggleSidebar, isSidebarCollapsed } =
+    useProjectLayout();
   const navigate = useNavigate();
   const location = useLocation();
   // Get initial status from navigation state (passed by NewSessionPage)
@@ -439,16 +440,19 @@ function SessionPageContent({
         <header className="session-header">
           <div className="session-header-inner">
             <div className="session-header-left">
-              {/* Sidebar toggle - only visible on mobile */}
-              <button
-                type="button"
-                className="sidebar-toggle"
-                onClick={openSidebar}
-                title="Open sidebar"
-                aria-label="Open sidebar"
-              >
-                <SidebarIcon />
-              </button>
+              {/* Sidebar toggle - on mobile: opens sidebar, on desktop: collapses/expands */}
+              {/* Hide on desktop when collapsed (sidebar has its own toggle) */}
+              {!(isWideScreen && isSidebarCollapsed) && (
+                <button
+                  type="button"
+                  className="sidebar-toggle"
+                  onClick={isWideScreen ? toggleSidebar : openSidebar}
+                  title={isWideScreen ? "Toggle sidebar" : "Open sidebar"}
+                  aria-label={isWideScreen ? "Toggle sidebar" : "Open sidebar"}
+                >
+                  <SidebarIcon />
+                </button>
+              )}
               <div className="session-title-row">
                 {isStarred && (
                   <svg
@@ -630,35 +634,38 @@ function SessionPageContent({
                   onDeny={handleDeny}
                   onApproveAcceptEdits={handleApproveAcceptEdits}
                   onDenyWithFeedback={handleDenyWithFeedback}
+                  draftKey={`draft-message-${sessionId}`}
                 />
               )}
-            <MessageInput
-              onSend={handleSend}
-              disabled={sending}
-              placeholder={
-                status.state === "idle"
-                  ? "Send a message to resume..."
-                  : status.state === "external"
-                    ? "External session - send at your own risk..."
-                    : "Queue a message..."
-              }
-              mode={permissionMode}
-              onModeChange={setPermissionMode}
-              isModePending={isModePending}
-              isRunning={status.state === "owned"}
-              isThinking={processState === "running"}
-              onStop={handleAbort}
-              draftKey={`draft-message-${sessionId}`}
-              onDraftControlsReady={handleDraftControlsReady}
-              collapsed={!!pendingInputRequest}
-              contextUsage={session?.contextUsage}
-              projectId={projectId}
-              sessionId={sessionId}
-              attachments={attachments}
-              onAttach={handleAttach}
-              onRemoveAttachment={handleRemoveAttachment}
-              uploadProgress={uploadProgress}
-            />
+            {!(pendingInputRequest && !isAskUserQuestion) && (
+              <MessageInput
+                onSend={handleSend}
+                disabled={sending}
+                placeholder={
+                  status.state === "idle"
+                    ? "Send a message to resume..."
+                    : status.state === "external"
+                      ? "External session - send at your own risk..."
+                      : "Queue a message..."
+                }
+                mode={permissionMode}
+                onModeChange={setPermissionMode}
+                isModePending={isModePending}
+                isRunning={status.state === "owned"}
+                isThinking={processState === "running"}
+                onStop={handleAbort}
+                draftKey={`draft-message-${sessionId}`}
+                onDraftControlsReady={handleDraftControlsReady}
+                collapsed={!!pendingInputRequest}
+                contextUsage={session?.contextUsage}
+                projectId={projectId}
+                sessionId={sessionId}
+                attachments={attachments}
+                onAttach={handleAttach}
+                onRemoveAttachment={handleRemoveAttachment}
+                uploadProgress={uploadProgress}
+              />
+            )}
           </div>
         </footer>
       </div>

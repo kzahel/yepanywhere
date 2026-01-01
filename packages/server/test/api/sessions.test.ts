@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { MockClaudeSDK, createMockScenario } from "../../src/sdk/mock.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const fixturesDir = join(__dirname, "..", "fixtures", "agents");
 
 describe("Sessions API", () => {
   let mockSdk: MockClaudeSDK;
@@ -315,6 +319,114 @@ describe("Sessions API", () => {
       expect(res.status).toBe(404);
       const json = await res.json();
       expect(json.error).toBe("No active process for session");
+    });
+  });
+
+  describe("GET /api/projects/:projectId/sessions/:sessionId/agents/:agentId", () => {
+    it("returns agent messages for existing agent file", async () => {
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      // Get project path from projectId
+      const projectPath = "/home/user/myproject";
+      const encodedPath = projectPath.replaceAll("/", "-");
+      const sessionDir = join(testDir, "localhost", encodedPath);
+
+      // Copy completed agent fixture to session directory
+      const fixtureContent = await readFile(
+        join(fixturesDir, "agent-completed.jsonl"),
+        "utf-8",
+      );
+      await writeFile(
+        join(sessionDir, "agent-test-agent.jsonl"),
+        fixtureContent,
+      );
+
+      const res = await app.request(
+        `/api/projects/${projectId}/sessions/sess-existing/agents/test-agent`,
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.messages).toBeDefined();
+      expect(Array.isArray(json.messages)).toBe(true);
+      expect(json.messages.length).toBeGreaterThan(0);
+      expect(json.status).toBe("completed");
+    });
+
+    it("returns 200 with empty messages for unknown agent", async () => {
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(
+        `/api/projects/${projectId}/sessions/sess-existing/agents/unknown-agent`,
+      );
+
+      // Graceful handling - don't 404, just return empty
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.messages).toHaveLength(0);
+      expect(json.status).toBe("pending");
+    });
+
+    it("returns 404 for unknown project", async () => {
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const res = await app.request(
+        "/api/projects/unknown/sessions/sess-1/agents/agent-1",
+      );
+
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe("Project not found");
+    });
+
+    it("infers status correctly for failed agent", async () => {
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const projectPath = "/home/user/myproject";
+      const encodedPath = projectPath.replaceAll("/", "-");
+      const sessionDir = join(testDir, "localhost", encodedPath);
+
+      const fixtureContent = await readFile(
+        join(fixturesDir, "agent-failed.jsonl"),
+        "utf-8",
+      );
+      await writeFile(
+        join(sessionDir, "agent-failed-agent.jsonl"),
+        fixtureContent,
+      );
+
+      const res = await app.request(
+        `/api/projects/${projectId}/sessions/sess-existing/agents/failed-agent`,
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.status).toBe("failed");
+    });
+
+    it("infers status correctly for running agent", async () => {
+      const app = createApp({ sdk: mockSdk, projectsDir: testDir });
+
+      const projectPath = "/home/user/myproject";
+      const encodedPath = projectPath.replaceAll("/", "-");
+      const sessionDir = join(testDir, "localhost", encodedPath);
+
+      const fixtureContent = await readFile(
+        join(fixturesDir, "agent-running.jsonl"),
+        "utf-8",
+      );
+      await writeFile(
+        join(sessionDir, "agent-running-agent.jsonl"),
+        fixtureContent,
+      );
+
+      const res = await app.request(
+        `/api/projects/${projectId}/sessions/sess-existing/agents/running-agent`,
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.status).toBe("running");
     });
   });
 });

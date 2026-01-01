@@ -115,6 +115,31 @@ function sdkMessagesToClientMessages(sdkMessages: SDKMessage[]): Message[] {
 export function createSessionsRoutes(deps: SessionsDeps): Hono {
   const routes = new Hono();
 
+  // GET /api/projects/:projectId/sessions/:sessionId/agents/:agentId - Get agent session content
+  // Used for lazy-loading completed Tasks
+  routes.get(
+    "/projects/:projectId/sessions/:sessionId/agents/:agentId",
+    async (c) => {
+      const projectId = c.req.param("projectId");
+      const agentId = c.req.param("agentId");
+
+      // Validate projectId format at API boundary
+      if (!isUrlProjectId(projectId)) {
+        return c.json({ error: "Invalid project ID format" }, 400);
+      }
+
+      const project = await deps.scanner.getProject(projectId);
+      if (!project) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+
+      const reader = deps.readerFactory(project.sessionDir);
+      const agentSession = await reader.getAgentSession(agentId);
+
+      return c.json(agentSession);
+    },
+  );
+
   // GET /api/projects/:projectId/sessions/:sessionId - Get session detail
   // Optional query param: ?afterMessageId=<id> for incremental fetching
   routes.get("/projects/:projectId/sessions/:sessionId", async (c) => {

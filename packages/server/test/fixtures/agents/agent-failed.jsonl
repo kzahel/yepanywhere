@@ -1,0 +1,4 @@
+{"type":"system","uuid":"sys-1","parentUuid":null,"timestamp":"2024-01-01T00:00:00.000Z"}
+{"type":"user","uuid":"user-1","parentUuid":"sys-1","message":{"content":"Research something","role":"user"},"timestamp":"2024-01-01T00:00:01.000Z"}
+{"type":"assistant","uuid":"asst-1","parentUuid":"user-1","message":{"content":[{"type":"text","text":"I'll try to help."}],"role":"assistant"},"timestamp":"2024-01-01T00:00:02.000Z"}
+{"type":"result","uuid":"result-1","parentUuid":"asst-1","is_error":true,"error":"Agent exceeded token limit","timestamp":"2024-01-01T00:00:03.000Z"}

@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionReader } from "../../src/sessions/reader.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const fixturesDir = join(__dirname, "..", "fixtures", "agents");
 
 describe("SessionReader", () => {
   let testDir: string;
@@ -338,6 +342,118 @@ describe("SessionReader", () => {
       expect(session?.messages).toHaveLength(2);
       // tool-2 is orphaned but tool-1 is not
       expect(session?.messages[0]?.orphanedToolUseIds).toEqual(["tool-2"]);
+    });
+  });
+
+  describe("getAgentSession", () => {
+    it("reads agent JSONL file and returns messages", async () => {
+      // Copy fixture to test directory
+      const fixtureContent = await readFile(
+        join(fixturesDir, "agent-completed.jsonl"),
+        "utf-8",
+      );
+      await writeFile(join(testDir, "agent-test123.jsonl"), fixtureContent);
+
+      const result = await reader.getAgentSession("test123");
+
+      // Should have messages (system, user, assistant messages + result)
+      expect(result.messages.length).toBeGreaterThan(0);
+      expect(result.status).toBe("completed");
+    });
+
+    it("returns empty for missing agent file", async () => {
+      const result = await reader.getAgentSession("nonexistent");
+
+      expect(result.messages).toHaveLength(0);
+      expect(result.status).toBe("pending");
+    });
+
+    it("infers completed status from result message", async () => {
+      const fixtureContent = await readFile(
+        join(fixturesDir, "agent-completed.jsonl"),
+        "utf-8",
+      );
+      await writeFile(
+        join(testDir, "agent-completed-test.jsonl"),
+        fixtureContent,
+      );
+
+      const result = await reader.getAgentSession("completed-test");
+
+      expect(result.status).toBe("completed");
+    });
+
+    it("infers failed status from error result", async () => {
+      const fixtureContent = await readFile(
+        join(fixturesDir, "agent-failed.jsonl"),
+        "utf-8",
+      );
+      await writeFile(join(testDir, "agent-failed-test.jsonl"), fixtureContent);
+
+      const result = await reader.getAgentSession("failed-test");
+
+      expect(result.status).toBe("failed");
+    });
+
+    it("infers running status from incomplete session", async () => {
+      const fixtureContent = await readFile(
+        join(fixturesDir, "agent-running.jsonl"),
+        "utf-8",
+      );
+      await writeFile(
+        join(testDir, "agent-running-test.jsonl"),
+        fixtureContent,
+      );
+
+      const result = await reader.getAgentSession("running-test");
+
+      expect(result.status).toBe("running");
+    });
+
+    it("returns pending for empty agent file", async () => {
+      await writeFile(join(testDir, "agent-empty.jsonl"), "");
+
+      const result = await reader.getAgentSession("empty");
+
+      expect(result.messages).toHaveLength(0);
+      expect(result.status).toBe("pending");
+    });
+
+    it("applies DAG filtering to agent messages", async () => {
+      // Create agent with branching structure
+      const jsonl = [
+        JSON.stringify({
+          type: "user",
+          uuid: "a",
+          parentUuid: null,
+          message: { content: "First" },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          uuid: "b",
+          parentUuid: "a",
+          message: { content: "Dead branch" },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          uuid: "c",
+          parentUuid: "a",
+          message: { content: "Active branch" },
+        }),
+        JSON.stringify({
+          type: "result",
+          uuid: "d",
+          parentUuid: "c",
+        }),
+      ].join("\n");
+      await writeFile(join(testDir, "agent-dag-test.jsonl"), jsonl);
+
+      const result = await reader.getAgentSession("dag-test");
+
+      // Should only have a, c, d (not b - dead branch)
+      expect(result.messages).toHaveLength(3);
+      expect(result.messages.map((m) => m.id)).toEqual(["a", "c", "d"]);
+      expect(result.status).toBe("completed");
     });
   });
 });

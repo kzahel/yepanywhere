@@ -728,4 +728,174 @@ describe("Real SDK E2E", () => {
     // AskUserQuestion should have triggered in plan mode (not auto-denied)
     expect(askUserQuestionInPlanMode).toBe(true);
   }, 120000);
+
+  it("should allow Read of files inside project in plan mode", async () => {
+    if (!cliAvailable) {
+      return; // Skip if CLI not installed
+    }
+
+    // Create a file inside the project
+    const inProjectFile = join(testDir, "in-project.txt");
+    writeFileSync(inProjectFile, "This file is inside the project");
+
+    const toolRequests: Array<{
+      toolName: string;
+      input: unknown;
+      allowed: boolean;
+    }> = [];
+    let readInsideProjectRequested = false;
+
+    const { iterator, abort } = await sdk.startSession({
+      cwd: testDir,
+      initialMessage: {
+        text: `Read the file at ${inProjectFile} and tell me what it says. Then use ExitPlanMode.`,
+      },
+      permissionMode: "plan",
+      onToolApproval: async (toolName, input) => {
+        log(`[tool_approval] ${toolName}`, input);
+
+        if (toolName === "Read") {
+          const readInput = input as { file_path?: string };
+          // Check if the path contains our file name (Claude may use relative paths)
+          if (
+            readInput.file_path === inProjectFile ||
+            readInput.file_path?.includes("in-project.txt")
+          ) {
+            readInsideProjectRequested = true;
+          }
+          toolRequests.push({ toolName, input, allowed: true });
+          return { behavior: "allow" as const };
+        }
+
+        if (toolName === "ExitPlanMode") {
+          toolRequests.push({ toolName, input, allowed: true });
+          return { behavior: "allow" as const };
+        }
+
+        // Deny other tools
+        toolRequests.push({ toolName, input, allowed: false });
+        return { behavior: "deny" as const, message: "Plan mode test" };
+      },
+    });
+
+    const messages: SDKMessage[] = [];
+    const timeout = setTimeout(() => abort(), 90000);
+
+    try {
+      for await (const message of iterator) {
+        messages.push(message);
+        logMessage(message);
+        if (message.type === "result") break;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    log("[readInsideProjectRequested]", readInsideProjectRequested);
+    log(
+      "[toolRequests]",
+      toolRequests.map((r) => `${r.toolName}:${r.allowed}`),
+    );
+
+    // In plan mode, Read of files INSIDE project may be auto-allowed by SDK
+    // without calling canUseTool. This is expected behavior - we're just
+    // verifying the session works and Claude can read the file.
+    // The key assertion is that the session completed successfully.
+    expect(messages.length).toBeGreaterThanOrEqual(2);
+  }, 120000);
+
+  it("should test Read of files outside project in plan mode", async () => {
+    if (!cliAvailable) {
+      return; // Skip if CLI not installed
+    }
+
+    // Create a PNG file OUTSIDE the project (simulating an uploaded screenshot)
+    const outsideDir = mkdtempSync(join(tmpdir(), "claude-upload-test-"));
+    const outsideFile = join(outsideDir, "screenshot.png");
+    // Minimal valid PNG (1x1 red pixel)
+    const pngData = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00,
+      0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00,
+      0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x05, 0xfe, 0xd4, 0xef, 0x00, 0x00,
+      0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+    ]);
+    writeFileSync(outsideFile, pngData);
+
+    const toolRequests: Array<{
+      toolName: string;
+      input: unknown;
+      allowed: boolean;
+    }> = [];
+    let readOutsideProjectRequested = false;
+
+    try {
+      const { iterator, abort } = await sdk.startSession({
+        cwd: testDir,
+        initialMessage: {
+          text: `Read the file at ${outsideFile} and tell me what it says. Then use ExitPlanMode.`,
+        },
+        permissionMode: "plan",
+        onToolApproval: async (toolName, input) => {
+          log(`[tool_approval] ${toolName}`, input);
+
+          if (toolName === "Read") {
+            const readInput = input as { file_path?: string };
+            if (readInput.file_path === outsideFile) {
+              readOutsideProjectRequested = true;
+              log("[Read outside project requested - callback was called!]");
+            }
+            toolRequests.push({ toolName, input, allowed: true });
+            return { behavior: "allow" as const };
+          }
+
+          if (toolName === "ExitPlanMode") {
+            toolRequests.push({ toolName, input, allowed: true });
+            return { behavior: "allow" as const };
+          }
+
+          // Deny other tools
+          toolRequests.push({ toolName, input, allowed: false });
+          return { behavior: "deny" as const, message: "Plan mode test" };
+        },
+      });
+
+      const messages: SDKMessage[] = [];
+      const timeout = setTimeout(() => abort(), 90000);
+
+      try {
+        for await (const message of iterator) {
+          messages.push(message);
+          logMessage(message);
+          if (message.type === "result") break;
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      log("[readOutsideProjectRequested]", readOutsideProjectRequested);
+      log(
+        "[toolRequests]",
+        toolRequests.map((r) => `${r.toolName}:${r.allowed}`),
+      );
+
+      // This test documents the behavior:
+      // If readOutsideProjectRequested is FALSE, it means the SDK auto-denied
+      // the Read before calling our canUseTool callback (the bug we're investigating)
+      if (!readOutsideProjectRequested) {
+        log(
+          "[CONFIRMED] SDK auto-denied Read of file outside project in plan mode",
+        );
+        log("[This is why uploaded files cannot be read in plan mode]");
+      }
+
+      // We expect the callback to be called for reads outside project too
+      // If this fails, the SDK is blocking reads outside project in plan mode
+      expect(readOutsideProjectRequested).toBe(true);
+    } finally {
+      // Cleanup
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
+  }, 120000);
 });

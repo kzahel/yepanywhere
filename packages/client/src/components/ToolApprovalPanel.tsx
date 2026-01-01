@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDraftPersistence } from "../hooks/useDraftPersistence";
 import type { InputRequest } from "../types";
 import { getToolSummary } from "./tools/summaries";
 
@@ -15,6 +16,7 @@ interface Props {
   onDeny: () => Promise<void>;
   onApproveAcceptEdits?: () => Promise<void>;
   onDenyWithFeedback?: (feedback: string) => Promise<void>;
+  draftKey?: string;
 }
 
 export function ToolApprovalPanel({
@@ -23,12 +25,17 @@ export function ToolApprovalPanel({
   onDeny,
   onApproveAcceptEdits,
   onDenyWithFeedback,
+  draftKey,
 }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const feedbackInputRef = useRef<HTMLInputElement>(null);
+  const continueTypingRef = useRef<HTMLTextAreaElement>(null);
+
+  // Draft persistence for continue-typing input
+  const [draftValue, setDraftValue] = useDraftPersistence(draftKey || "");
 
   const isEditTool = request.toolName && EDIT_TOOLS.includes(request.toolName);
 
@@ -321,6 +328,19 @@ export function ToolApprovalPanel({
               </div>
             )}
           </div>
+
+          {draftKey && (
+            <div className="tool-approval-continue-typing">
+              <textarea
+                ref={continueTypingRef}
+                className="tool-approval-continue-input"
+                placeholder="Continue typing..."
+                value={draftValue}
+                onChange={(e) => setDraftValue(e.target.value)}
+                rows={1}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

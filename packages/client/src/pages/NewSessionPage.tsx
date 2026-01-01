@@ -50,8 +50,16 @@ function formatSize(bytes: number): string {
 }
 
 export function NewSessionPage() {
-  const { projectId, project, loading, error, openSidebar, isWideScreen } =
-    useProjectLayout();
+  const {
+    projectId,
+    project,
+    loading,
+    error,
+    openSidebar,
+    isWideScreen,
+    toggleSidebar,
+    isSidebarCollapsed,
+  } = useProjectLayout();
   const navigate = useNavigate();
   const [message, setMessage, draftControls] = useDraftPersistence(
     `draft-new-session-${projectId}`,
@@ -217,7 +225,13 @@ export function NewSessionPage() {
               : "main-content-mobile-inner"
           }
         >
-          <PageHeader title="New Session" onOpenSidebar={openSidebar} />
+          <PageHeader
+            title="New Session"
+            onOpenSidebar={openSidebar}
+            onToggleSidebar={toggleSidebar}
+            isWideScreen={isWideScreen}
+            isSidebarCollapsed={isSidebarCollapsed}
+          />
           <main className="sessions-page-content">
             {loading ? (
               <div className="loading">Loading...</div>
@@ -244,6 +258,9 @@ export function NewSessionPage() {
         <PageHeader
           title={project?.name ?? "New Session"}
           onOpenSidebar={openSidebar}
+          onToggleSidebar={toggleSidebar}
+          isWideScreen={isWideScreen}
+          isSidebarCollapsed={isSidebarCollapsed}
         />
 
         <main className="sessions-page-content">

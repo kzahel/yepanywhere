@@ -16,6 +16,10 @@ export interface ProjectLayoutContext {
   error: Error | null;
   openSidebar: () => void;
   isWideScreen: boolean;
+  /** Desktop mode: sidebar is collapsed (icons only) */
+  isSidebarCollapsed: boolean;
+  /** Desktop mode: callback to toggle sidebar expanded/collapsed state */
+  toggleSidebar: () => void;
 }
 
 /**
@@ -50,6 +54,8 @@ export function ProjectLayout() {
     error,
     openSidebar: () => setSidebarOpen(true),
     isWideScreen,
+    isSidebarCollapsed: !isExpanded,
+    toggleSidebar: toggleExpanded,
   };
 
   return (

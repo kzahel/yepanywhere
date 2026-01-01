@@ -175,44 +175,44 @@ export function Sidebar({
         }
       >
         <div className="sidebar-header">
-          {isDesktop ? (
-            /* Desktop mode: toggle button */
+          {isDesktop && isCollapsed ? (
+            /* Desktop collapsed mode: show toggle button to expand */
             <button
               type="button"
               className="sidebar-toggle"
               onClick={onToggleExpanded}
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
             >
               <SidebarToggleIcon />
             </button>
+          ) : isDesktop ? (
+            /* Desktop expanded mode: show brand (toggle is in toolbar) */
+            <span className="sidebar-brand">Claude Anywhere</span>
           ) : (
-            /* Mobile mode: brand text */
-            <span className="sidebar-brand">Claude Anywhere</span>
-          )}
-          {!isDesktop && (
-            <button
-              type="button"
-              className="sidebar-close"
-              onClick={onClose}
-              aria-label="Close sidebar"
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
+            /* Mobile mode: brand text + close button */
+            <>
+              <span className="sidebar-brand">Claude Anywhere</span>
+              <button
+                type="button"
+                className="sidebar-close"
+                onClick={onClose}
+                aria-label="Close sidebar"
               >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
-          {isDesktop && !isCollapsed && (
-            <span className="sidebar-brand">Claude Anywhere</span>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </>
           )}
         </div>
 
@@ -252,9 +252,7 @@ export function Sidebar({
             </svg>
             <span className="sidebar-nav-text">New Session</span>
           </Link>
-        </div>
 
-        <div className="sidebar-sessions">
           <div className="sidebar-nav-links">
             <button
               type="button"
@@ -321,6 +319,9 @@ export function Sidebar({
               <span className="sidebar-nav-text">Settings</span>
             </button>
           </div>
+        </div>
+
+        <div className="sidebar-sessions">
           {starredSessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">Starred</h3>

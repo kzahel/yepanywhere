@@ -23,6 +23,19 @@ export interface SessionReaderOptions {
   sessionDir: string;
 }
 
+/**
+ * Status of an agent session, inferred from its messages.
+ */
+export type AgentStatus = "pending" | "running" | "completed" | "failed";
+
+/**
+ * Agent session content returned by getAgentSession.
+ */
+export interface AgentSession {
+  messages: Message[];
+  status: AgentStatus;
+}
+
 // JSONL content block format from claude-code - loosely typed to preserve all fields
 interface RawContentBlock {
   type: string;
@@ -205,6 +218,93 @@ export class SessionReader {
       ...summary,
       messages,
     };
+  }
+
+  /**
+   * Get agent session content for lazy-loading completed Tasks.
+   *
+   * Agent JSONL files are stored at: {sessionDir}/agent-{agentId}.jsonl
+   * They have the same format as parent session JSONL files.
+   *
+   * @param agentId - The agent session ID (used as filename: agent-{agentId}.jsonl)
+   * @returns Agent session with messages and inferred status
+   */
+  async getAgentSession(agentId: string): Promise<AgentSession> {
+    const filePath = join(this.sessionDir, `agent-${agentId}.jsonl`);
+
+    try {
+      const content = await readFile(filePath, "utf-8");
+      const trimmed = content.trim();
+
+      if (!trimmed) {
+        return { messages: [], status: "pending" };
+      }
+
+      const lines = trimmed.split("\n");
+      const rawMessages: RawSessionMessage[] = [];
+
+      for (const line of lines) {
+        try {
+          rawMessages.push(JSON.parse(line) as RawSessionMessage);
+        } catch {
+          // Skip malformed lines
+        }
+      }
+
+      // Build DAG and get active branch (filters out dead branches)
+      const { activeBranch } = buildDag(rawMessages);
+
+      // Don't include orphan detection for agent sessions
+      // (agents are subprocesses, we don't know their lifecycle)
+      const orphanedToolUses = new Set<string>();
+
+      // Convert to Message objects
+      const messages: Message[] = activeBranch.map((node, index) =>
+        this.convertMessage(node.raw, index, orphanedToolUses),
+      );
+
+      // Infer status from messages
+      const status = this.inferAgentStatus(messages);
+
+      return { messages, status };
+    } catch {
+      // File doesn't exist or not readable - agent is pending
+      return { messages: [], status: "pending" };
+    }
+  }
+
+  /**
+   * Infer agent status from its messages.
+   *
+   * Status inference:
+   * - pending: no messages
+   * - failed: last message has is_error or error type
+   * - completed: has a 'result' type message
+   * - running: has messages but no result (still in progress or interrupted)
+   */
+  private inferAgentStatus(messages: Message[]): AgentStatus {
+    if (messages.length === 0) {
+      return "pending";
+    }
+
+    // Look for result message
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (!msg) continue;
+
+      // Check for result type message (SDK's final message)
+      if (msg.type === "result") {
+        // Check for error in result
+        const rawMessage = msg as RawSessionMessage;
+        if (rawMessage.is_error === true) {
+          return "failed";
+        }
+        return "completed";
+      }
+    }
+
+    // No result message - still running or interrupted
+    return "running";
   }
 
   private findFirstUserMessage(messages: RawSessionMessage[]): string | null {

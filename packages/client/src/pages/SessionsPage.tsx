@@ -35,6 +35,8 @@ export function SessionsPage() {
     processStates,
     openSidebar,
     isWideScreen,
+    toggleSidebar,
+    isSidebarCollapsed,
   } = useProjectLayout();
   const navigate = useNavigate();
   const [newMessage, setNewMessage, draftControls] = useDraftPersistence(
@@ -146,6 +148,9 @@ export function SessionsPage() {
         <PageHeader
           title={project?.name ?? "Sessions"}
           onOpenSidebar={openSidebar}
+          onToggleSidebar={toggleSidebar}
+          isWideScreen={isWideScreen}
+          isSidebarCollapsed={isSidebarCollapsed}
         />
 
         <main className="sessions-page-content">

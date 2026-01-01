@@ -19,6 +19,15 @@ import { getStreamingEnabled } from "./useStreamingEnabled";
 
 export type ProcessState = "idle" | "running" | "waiting-input";
 
+/** Content from a subagent (Task tool) */
+export interface AgentContent {
+  messages: Message[];
+  status: "pending" | "running" | "completed" | "failed";
+}
+
+/** Map of agentId → agent content */
+export type AgentContentMap = Record<string, AgentContent>;
+
 const THROTTLE_MS = 500;
 
 export function useSession(
@@ -40,6 +49,10 @@ export function useSession(
     useState<InputRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  // Subagent content: messages from Task tool agents, keyed by agentId (session_id)
+  // These are kept separate from main messages to maintain clean DAG structure
+  const [agentContent, setAgentContent] = useState<AgentContentMap>({});
 
   // Permission mode state: localMode is UI-selected, serverMode is confirmed by server
   const [localMode, setLocalMode] = useState<PermissionMode>("default");
@@ -157,6 +170,8 @@ export function useSession(
   // Load initial data
   useEffect(() => {
     setLoading(true);
+    // Reset agentContent when switching sessions
+    setAgentContent({});
     api
       .getSession(projectId, sessionId)
       .then((data) => {
@@ -470,6 +485,34 @@ export function useSession(
         // Remove eventType from the message (it's SSE envelope, not message data)
         (incoming as { eventType?: string }).eventType = undefined;
 
+        // Route subagent messages to agentContent instead of main messages
+        // This keeps the parent session's DAG clean and allows proper nesting in UI
+        if (
+          sdkMessage.isSubagent &&
+          typeof sdkMessage.session_id === "string"
+        ) {
+          const agentId = sdkMessage.session_id;
+          setAgentContent((prev) => {
+            const existing = prev[agentId] ?? {
+              messages: [],
+              status: "running" as const,
+            };
+            // Dedupe by message ID
+            if (existing.messages.some((m) => m.id === incoming.id)) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [agentId]: {
+                ...existing,
+                messages: [...existing.messages, incoming],
+                status: "running", // Mark as running while receiving messages
+              },
+            };
+          });
+          return; // Don't add to main messages
+        }
+
         setMessages((prev) => {
           const result = mergeSSEMessage(
             prev,
@@ -587,6 +630,7 @@ export function useSession(
   return {
     session,
     messages,
+    agentContent, // Subagent messages keyed by agentId (for Task tool)
     status,
     processState,
     pendingInputRequest,
