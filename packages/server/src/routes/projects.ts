@@ -1,4 +1,4 @@
-import { isUrlProjectId } from "@claude-anywhere/shared";
+import { isUrlProjectId, toUrlProjectId } from "@claude-anywhere/shared";
 import { Hono } from "hono";
 import type { SessionMetadataService } from "../metadata/index.js";
 import type { NotificationService } from "../notifications/index.js";
@@ -233,7 +233,8 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const project = await deps.scanner.getProject(projectId);
+    // Use getOrCreateProject to support new projects without sessions yet
+    const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project) {
       return c.json({ error: "Project not found" }, 404);
     }
@@ -248,6 +249,48 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     return c.json({ project, sessions: enrichSessions(sessions) });
   });
 
+  // POST /api/projects - Add a project by path
+  // Validates the path exists on disk and returns project info
+  routes.post("/", async (c) => {
+    let body: { path: string };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    if (!body.path || typeof body.path !== "string") {
+      return c.json({ error: "path is required" }, 400);
+    }
+
+    // Normalize path (remove trailing slashes, expand ~)
+    let normalizedPath = body.path.trim();
+    if (normalizedPath.startsWith("~")) {
+      normalizedPath = normalizedPath.replace("~", process.env.HOME || "");
+    }
+    if (normalizedPath.endsWith("/") && normalizedPath.length > 1) {
+      normalizedPath = normalizedPath.slice(0, -1);
+    }
+
+    // Validate path is absolute
+    if (!normalizedPath.startsWith("/")) {
+      return c.json({ error: "Path must be absolute" }, 400);
+    }
+
+    // Create projectId and try to get/create the project
+    const projectId = toUrlProjectId(normalizedPath);
+    const project = await deps.scanner.getOrCreateProject(projectId);
+
+    if (!project) {
+      return c.json(
+        { error: "Path does not exist or is not a directory" },
+        404,
+      );
+    }
+
+    return c.json({ project });
+  });
+
   // GET /api/projects/:projectId/sessions - List sessions
   routes.get("/:projectId/sessions", async (c) => {
     const projectId = c.req.param("projectId");
@@ -257,7 +300,8 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const project = await deps.scanner.getProject(projectId);
+    // Use getOrCreateProject to support new projects without sessions yet
+    const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project) {
       return c.json({ error: "Project not found" }, 404);
     }

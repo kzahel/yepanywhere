@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { api } from "../api/client";
 import { NavigationSidebar } from "../components/NavigationSidebar";
 import { PageHeader } from "../components/PageHeader";
 import { ActiveCountBadge } from "../components/StatusBadge";
@@ -8,12 +9,38 @@ import { useProjects } from "../hooks/useProjects";
 import { useSidebarPreference } from "../hooks/useSidebarPreference";
 
 export function ProjectsPage() {
-  const { projects, loading, error } = useProjects();
+  const { projects, loading, error, refetch } = useProjects();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newProjectPath, setNewProjectPath] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const navigate = useNavigate();
 
   // Desktop layout hooks
   const isWideScreen = useMediaQuery("(min-width: 1100px)");
   const { isExpanded, toggleExpanded } = useSidebarPreference();
+
+  const handleAddProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectPath.trim()) return;
+
+    setAdding(true);
+    setAddError(null);
+
+    try {
+      const { project } = await api.addProject(newProjectPath.trim());
+      await refetch();
+      setNewProjectPath("");
+      setShowAddForm(false);
+      // Navigate to the new project
+      navigate(`/projects/${project.id}`);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Failed to add project");
+    } finally {
+      setAdding(false);
+    }
+  };
 
   if (loading) return <div className="loading">Loading projects...</div>;
   if (error) return <div className="error">Error: {error.message}</div>;
@@ -62,8 +89,53 @@ export function ProjectsPage() {
           />
 
           <main className="sessions-page-content">
+            {/* Add Project Button/Form */}
+            <div className="add-project-section">
+              {!showAddForm ? (
+                <button
+                  type="button"
+                  className="add-project-button"
+                  onClick={() => setShowAddForm(true)}
+                >
+                  + Add Project
+                </button>
+              ) : (
+                <form onSubmit={handleAddProject} className="add-project-form">
+                  <input
+                    type="text"
+                    value={newProjectPath}
+                    onChange={(e) => setNewProjectPath(e.target.value)}
+                    placeholder="Enter project path (e.g., ~/code/my-project)"
+                    disabled={adding}
+                  />
+                  <div className="add-project-actions">
+                    <button
+                      type="submit"
+                      disabled={adding || !newProjectPath.trim()}
+                    >
+                      {adding ? "Adding..." : "Add"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddForm(false);
+                        setNewProjectPath("");
+                        setAddError(null);
+                      }}
+                      disabled={adding}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {addError && (
+                    <div className="add-project-error">{addError}</div>
+                  )}
+                </form>
+              )}
+            </div>
+
             {projects.length === 0 ? (
-              <p>No projects found in ~/.claude/projects</p>
+              <p>No projects found. Add a project above to get started.</p>
             ) : (
               <ul className="project-list">
                 {projects.map((project) => (

@@ -45,6 +45,8 @@ if (!backendWatch && !noFrontendReload)
 // Build environment for child processes
 const env = {
   ...process.env,
+  // When not using --watch, enable manual reload mode (shows banner on file changes)
+  NO_BACKEND_RELOAD: backendWatch ? "" : "true",
   NO_FRONTEND_RELOAD: noFrontendReload ? "true" : "",
 };
 

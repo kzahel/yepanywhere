@@ -57,6 +57,17 @@ export {
 export const api = {
   getProjects: () => fetchJSON<{ projects: Project[] }>("/projects"),
 
+  /**
+   * Add a project by file path.
+   * Validates the path exists on disk and returns project info.
+   * Supports ~ for home directory and normalizes trailing slashes.
+   */
+  addProject: (path: string) =>
+    fetchJSON<{ project: Project }>("/projects", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    }),
+
   getProject: (projectId: string) =>
     fetchJSON<{ project: Project; sessions: SessionSummary[] }>(
       `/projects/${projectId}`,

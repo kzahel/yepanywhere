@@ -287,9 +287,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const project = await deps.scanner.getProject(projectId);
+    // Use getOrCreateProject to allow starting sessions in new directories
+    const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project) {
-      return c.json({ error: "Project not found" }, 404);
+      return c.json({ error: "Project not found or path does not exist" }, 404);
     }
 
     let body: StartSessionBody;
@@ -360,9 +361,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const project = await deps.scanner.getProject(projectId);
+    // Use getOrCreateProject to allow starting sessions in new directories
+    const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project) {
-      return c.json({ error: "Project not found" }, 404);
+      return c.json({ error: "Project not found or path does not exist" }, 404);
     }
 
     let body: CreateSessionBody = {};
@@ -423,9 +425,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const project = await deps.scanner.getProject(projectId);
+    // Use getOrCreateProject to allow resuming in directories that may have been moved
+    const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project) {
-      return c.json({ error: "Project not found" }, 404);
+      return c.json({ error: "Project not found or path does not exist" }, 404);
     }
 
     let body: StartSessionBody;

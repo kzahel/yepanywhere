@@ -387,6 +387,96 @@ h2 {
   background: var(--bg-hover);
 }
 
+/* Add Project */
+.add-project-section {
+  margin-bottom: 1.5rem;
+}
+
+.add-project-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-input);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.add-project-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.add-project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+}
+
+.add-project-form input {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  box-sizing: border-box;
+}
+
+.add-project-form input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.add-project-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.add-project-actions button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: var(--font-size-base);
+  cursor: pointer;
+}
+
+.add-project-actions button[type="submit"] {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+}
+
+.add-project-actions button[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-project-actions button[type="button"] {
+  background: transparent;
+  border: 1px solid var(--border-input);
+  color: var(--text-muted);
+}
+
+.add-project-error {
+  color: var(--color-error, #ef4444);
+  font-size: var(--font-size-sm);
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+}
+
 /* Lists */
 .project-list,
 .session-list {

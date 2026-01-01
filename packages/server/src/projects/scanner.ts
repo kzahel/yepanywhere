@@ -1,8 +1,10 @@
 import { access, readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
+import type { UrlProjectId } from "@claude-anywhere/shared";
 import type { Project } from "../supervisor/types.js";
 import {
   CLAUDE_PROJECTS_DIR,
+  decodeProjectId,
   encodeProjectId,
   readCwdFromSessionFile,
 } from "./paths.js";
@@ -106,6 +108,55 @@ export class ProjectScanner {
   async getProject(projectId: string): Promise<Project | null> {
     const projects = await this.listProjects();
     return projects.find((p) => p.id === projectId) ?? null;
+  }
+
+  /**
+   * Get a project by ID, or create a virtual project entry if the path exists on disk
+   * but hasn't been used with Claude yet.
+   *
+   * This allows starting sessions in new directories without requiring prior Claude usage.
+   */
+  async getOrCreateProject(projectId: string): Promise<Project | null> {
+    // First check if project already exists
+    const existing = await this.getProject(projectId);
+    if (existing) return existing;
+
+    // Decode the projectId to get the path
+    let projectPath: string;
+    try {
+      projectPath = decodeProjectId(projectId as UrlProjectId);
+    } catch {
+      return null;
+    }
+
+    // Validate path is absolute
+    if (!projectPath.startsWith("/")) {
+      return null;
+    }
+
+    // Check if the directory exists on disk
+    try {
+      const stats = await stat(projectPath);
+      if (!stats.isDirectory()) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    // Create a virtual project entry
+    // The session directory will be created by the SDK when the first session starts
+    const encodedPath = projectPath.replace(/\//g, "-");
+    return {
+      id: projectId as UrlProjectId,
+      path: projectPath,
+      name: basename(projectPath),
+      sessionCount: 0,
+      sessionDir: join(this.projectsDir, encodedPath),
+      activeOwnedCount: 0,
+      activeExternalCount: 0,
+      lastActivity: null,
+    };
   }
 
   /**
