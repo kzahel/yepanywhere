@@ -12,7 +12,10 @@
     "test": "vitest run",
     "test:e2e": "vitest run test/e2e",
     "test:e2e:real": "REAL_SDK_TESTS=true vitest run test/e2e",
-    "test:e2e:real:fg": "REAL_SDK_TESTS=true FOREGROUND=1 vitest run test/e2e"
+    "test:e2e:real:fg": "REAL_SDK_TESTS=true FOREGROUND=1 vitest run test/e2e",
+    "test:e2e:local": "vitest run test/e2e/local-model.e2e.test.ts",
+    "test:e2e:local:quality": "LOCAL_MODEL_QUALITY=true vitest run test/e2e/local-model.e2e.test.ts",
+    "test:e2e:local:fg": "FOREGROUND=1 vitest run test/e2e/local-model.e2e.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",

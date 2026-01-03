@@ -10,6 +10,10 @@ export interface ContentBlock {
   id?: string;
   name?: string;
   input?: unknown;
+  /** For tool_result blocks - references the tool_use id */
+  tool_use_id?: string;
+  /** For tool_result blocks - the result content */
+  content?: string;
 }
 
 /**
