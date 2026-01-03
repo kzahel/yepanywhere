@@ -87,6 +87,7 @@ export class CodexSessionScanner {
         activeOwnedCount: 0,
         activeExternalCount: 0,
         lastActivity: new Date(data.lastActivity).toISOString(),
+        provider: "codex",
       });
     }
 

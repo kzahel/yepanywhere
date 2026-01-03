@@ -697,6 +697,21 @@ h2 {
   background: var(--bg-hover);
 }
 
+/* Project breadcrumb in session header */
+.project-breadcrumb {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: var(--space-1) 0;
+  transition: color 0.15s;
+}
+
+.project-breadcrumb:hover {
+  color: var(--text-primary);
+}
+
 /* ==========================================================================
    Sidebar
    ========================================================================== */

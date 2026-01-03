@@ -3,6 +3,7 @@ import type {
   InputRequest,
   PendingInputType,
   ProcessStateType,
+  ProviderName,
   UrlProjectId,
 } from "@claude-anywhere/shared";
 import type { PermissionMode, SDKMessage } from "../sdk/types.js";
@@ -33,6 +34,7 @@ export interface Project {
   activeOwnedCount: number; // sessions owned by this server
   activeExternalCount: number; // sessions controlled by external processes
   lastActivity: string | null; // ISO timestamp of most recent session update
+  provider: ProviderName; // which provider's sessions are in this project
 }
 
 // Session status

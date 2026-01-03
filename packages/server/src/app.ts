@@ -28,9 +28,12 @@ import type {
   PermissionMode,
   RealClaudeSDKInterface,
 } from "./sdk/types.js";
+import { CodexSessionReader } from "./sessions/codex-reader.js";
 import { ClaudeSessionReader } from "./sessions/reader.js";
+import type { ISessionReader } from "./sessions/types.js";
 import { ExternalSessionTracker } from "./supervisor/ExternalSessionTracker.js";
 import { Supervisor } from "./supervisor/Supervisor.js";
+import type { Project } from "./supervisor/types.js";
 import type { EventBus } from "./watcher/index.js";
 
 export interface AppOptions {
@@ -113,8 +116,22 @@ export function createApp(
     idlePreemptThresholdMs: options.idlePreemptThresholdMs,
     maxQueueSize: options.maxQueueSize,
   });
-  const readerFactory = (sessionDir: string) =>
-    new ClaudeSessionReader({ sessionDir });
+  /**
+   * Create a session reader appropriate for the project's provider.
+   * Routes call this with the project to get the right reader.
+   */
+  const readerFactory = (project: Project): ISessionReader => {
+    switch (project.provider) {
+      case "codex":
+        return new CodexSessionReader({
+          sessionsDir: project.sessionDir,
+          projectPath: project.path,
+        });
+      case "claude":
+      default:
+        return new ClaudeSessionReader({ sessionDir: project.sessionDir });
+    }
+  };
 
   // Create external session tracker if eventBus is available
   const externalTracker = options.eventBus
@@ -128,7 +145,7 @@ export function createApp(
         getSessionSummary: async (sessionId, projectId) => {
           const project = await scanner.getProject(projectId);
           if (!project) return null;
-          const reader = readerFactory(project.sessionDir);
+          const reader = readerFactory(project);
           return reader.getSessionSummary(sessionId, project.id);
         },
       })

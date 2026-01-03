@@ -4,18 +4,19 @@ import type { SessionIndexService } from "../indexes/index.js";
 import type { SessionMetadataService } from "../metadata/index.js";
 import type { NotificationService } from "../notifications/index.js";
 import type { ProjectScanner } from "../projects/scanner.js";
-import type { SessionReader } from "../sessions/reader.js";
+import type { ISessionReader } from "../sessions/types.js";
 import type { ExternalSessionTracker } from "../supervisor/ExternalSessionTracker.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type {
   PendingInputType,
   ProcessStateType,
+  Project,
   SessionSummary,
 } from "../supervisor/types.js";
 
 export interface ProjectsDeps {
   scanner: ProjectScanner;
-  readerFactory: (sessionDir: string) => SessionReader;
+  readerFactory: (project: Project) => ISessionReader;
   supervisor?: Supervisor;
   externalTracker?: ExternalSessionTracker;
   notificationService?: NotificationService;
@@ -241,10 +242,12 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       return c.json({ error: "Project not found" }, 404);
     }
 
-    // Get sessions for this project using the stored sessionDir
-    const reader = deps.readerFactory(project.sessionDir);
+    // Get sessions for this project using the provider-aware reader
+    const reader = deps.readerFactory(project);
     let sessions: SessionSummary[];
-    if (deps.sessionIndexService) {
+    // SessionIndexService only works with Claude's directory structure
+    // Codex sessions use the reader's internal caching
+    if (deps.sessionIndexService && project.provider === "claude") {
       sessions = await deps.sessionIndexService.getSessionsWithCache(
         project.sessionDir,
         project.id,
@@ -317,9 +320,10 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       return c.json({ error: "Project not found" }, 404);
     }
 
-    const reader = deps.readerFactory(project.sessionDir);
+    const reader = deps.readerFactory(project);
     let sessions: SessionSummary[];
-    if (deps.sessionIndexService) {
+    // SessionIndexService only works with Claude's directory structure
+    if (deps.sessionIndexService && project.provider === "claude") {
       sessions = await deps.sessionIndexService.getSessionsWithCache(
         project.sessionDir,
         project.id,

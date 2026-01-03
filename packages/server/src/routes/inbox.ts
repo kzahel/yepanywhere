@@ -15,17 +15,18 @@ import type { SessionIndexService } from "../indexes/index.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { NotificationService } from "../notifications/index.js";
 import type { ProjectScanner } from "../projects/scanner.js";
-import type { SessionReader } from "../sessions/reader.js";
+import type { ISessionReader } from "../sessions/types.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type {
   PendingInputType,
   ProcessStateType,
+  Project,
   SessionSummary,
 } from "../supervisor/types.js";
 
 export interface InboxDeps {
   scanner: ProjectScanner;
-  readerFactory: (sessionDir: string) => SessionReader;
+  readerFactory: (project: Project) => ISessionReader;
   supervisor?: Supervisor;
   notificationService?: NotificationService;
   sessionIndexService?: SessionIndexService;
@@ -85,11 +86,12 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
     }> = [];
 
     for (const project of projects) {
-      const reader = deps.readerFactory(project.sessionDir);
+      const reader = deps.readerFactory(project);
 
       // Get sessions using cache if available
+      // SessionIndexService only works with Claude's directory structure
       let sessions: SessionSummary[];
-      if (deps.sessionIndexService) {
+      if (deps.sessionIndexService && project.provider === "claude") {
         sessions = await deps.sessionIndexService.getSessionsWithCache(
           project.sessionDir,
           project.id,

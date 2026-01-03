@@ -1,7 +1,11 @@
 import { access, readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
-import type { UrlProjectId } from "@claude-anywhere/shared";
+import type { ProviderName, UrlProjectId } from "@claude-anywhere/shared";
 import type { Project } from "../supervisor/types.js";
+import {
+  CodexSessionScanner,
+  CODEX_SESSIONS_DIR,
+} from "./codex-scanner.js";
 import {
   CLAUDE_PROJECTS_DIR,
   decodeProjectId,
@@ -11,13 +15,23 @@ import {
 
 export interface ScannerOptions {
   projectsDir?: string; // override for testing
+  codexSessionsDir?: string; // override for testing
+  enableCodex?: boolean; // whether to include Codex projects (default: true)
 }
 
 export class ProjectScanner {
   private projectsDir: string;
+  private codexScanner: CodexSessionScanner | null;
+  private enableCodex: boolean;
 
   constructor(options: ScannerOptions = {}) {
     this.projectsDir = options.projectsDir ?? CLAUDE_PROJECTS_DIR;
+    this.enableCodex = options.enableCodex ?? true;
+    this.codexScanner = this.enableCodex
+      ? new CodexSessionScanner({
+          sessionsDir: options.codexSessionsDir ?? CODEX_SESSIONS_DIR,
+        })
+      : null;
   }
 
   async listProjects(): Promise<Project[]> {
@@ -61,6 +75,7 @@ export class ProjectScanner {
             activeOwnedCount: 0, // populated by route
             activeExternalCount: 0, // populated by route
             lastActivity,
+            provider: "claude",
           });
         }
         continue;
@@ -98,7 +113,19 @@ export class ProjectScanner {
           activeOwnedCount: 0, // populated by route
           activeExternalCount: 0, // populated by route
           lastActivity,
+          provider: "claude",
         });
+      }
+    }
+
+    // Merge Codex projects if enabled
+    if (this.codexScanner) {
+      const codexProjects = await this.codexScanner.listProjects();
+      for (const codexProject of codexProjects) {
+        // Skip if we've already seen this path from Claude
+        if (seenPaths.has(codexProject.path)) continue;
+        seenPaths.add(codexProject.path);
+        projects.push(codexProject);
       }
     }
 
@@ -116,7 +143,10 @@ export class ProjectScanner {
    *
    * This allows starting sessions in new directories without requiring prior Claude usage.
    */
-  async getOrCreateProject(projectId: string): Promise<Project | null> {
+  async getOrCreateProject(
+    projectId: string,
+    preferredProvider?: "claude" | "codex" | "gemini",
+  ): Promise<Project | null> {
     // First check if project already exists
     const existing = await this.getProject(projectId);
     if (existing) return existing;
@@ -144,6 +174,17 @@ export class ProjectScanner {
       return null;
     }
 
+    // Determine provider: use preferred if specified, otherwise check for Codex sessions
+    let provider: "claude" | "codex" | "gemini" = preferredProvider ?? "claude";
+    if (!preferredProvider && this.codexScanner) {
+      // Check if Codex sessions exist for this path
+      const codexSessions =
+        await this.codexScanner.getSessionsForProject(projectPath);
+      if (codexSessions.length > 0) {
+        provider = "codex";
+      }
+    }
+
     // Create a virtual project entry
     // The session directory will be created by the SDK when the first session starts
     const encodedPath = projectPath.replace(/\//g, "-");
@@ -152,10 +193,14 @@ export class ProjectScanner {
       path: projectPath,
       name: basename(projectPath),
       sessionCount: 0,
-      sessionDir: join(this.projectsDir, encodedPath),
+      sessionDir:
+        provider === "codex" && this.codexScanner
+          ? CODEX_SESSIONS_DIR
+          : join(this.projectsDir, encodedPath),
       activeOwnedCount: 0,
       activeExternalCount: 0,
       lastActivity: null,
+      provider,
     };
   }
 

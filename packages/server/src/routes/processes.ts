@@ -6,14 +6,14 @@ import { Hono } from "hono";
 import type { SessionIndexService } from "../indexes/index.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { ProjectScanner } from "../projects/scanner.js";
-import type { SessionReader } from "../sessions/reader.js";
+import type { ISessionReader } from "../sessions/types.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
-import type { ProcessInfo } from "../supervisor/types.js";
+import type { ProcessInfo, Project } from "../supervisor/types.js";
 
 export interface ProcessesDeps {
   supervisor: Supervisor;
   scanner: ProjectScanner;
-  readerFactory: (sessionDir: string) => SessionReader;
+  readerFactory: (project: Project) => ISessionReader;
   sessionIndexService?: SessionIndexService;
   sessionMetadataService?: SessionMetadataService;
 }
@@ -32,7 +32,7 @@ async function enrichWithSessionTitle(
     );
     if (!project) return process;
 
-    const reader = deps.readerFactory(project.sessionDir);
+    const reader = deps.readerFactory(project);
     let title: string | null = null;
 
     // Use cache if available

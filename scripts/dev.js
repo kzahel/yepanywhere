@@ -7,14 +7,54 @@
  *   pnpm dev                      # Default: no Enter-to-restart
  *   pnpm dev --watch              # Enable backend auto-reload on file changes
  *   pnpm dev --no-frontend-reload # Frontend watches but doesn't HMR
+ *
+ * Environment:
+ *   Create a .env file in the project root to set defaults:
+ *     LOG_LEVEL=debug
+ *     PORT=4000
  */
 
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, "..");
+
+// Load .env file if it exists (simple parser, no dependencies)
+function loadEnvFile() {
+  const envPath = join(rootDir, ".env");
+  if (!existsSync(envPath)) return;
+
+  const content = readFileSync(envPath, "utf-8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    // Skip comments and empty lines
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex === -1) continue;
+
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+
+    // Remove surrounding quotes if present
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    // Only set if not already in environment (CLI overrides .env)
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile();
 
 // Parse CLI arguments
 const args = process.argv.slice(2);

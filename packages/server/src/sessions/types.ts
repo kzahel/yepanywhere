@@ -6,7 +6,7 @@
  */
 
 import type { UrlProjectId } from "@claude-anywhere/shared";
-import type { Session, SessionSummary } from "../supervisor/types.js";
+import type { Message, Session, SessionSummary } from "../supervisor/types.js";
 
 /**
  * Options for reading a session.
@@ -66,4 +66,20 @@ export interface ISessionReader {
     cachedMtime: number,
     cachedSize: number,
   ): Promise<{ summary: SessionSummary; mtime: number; size: number } | null>;
+
+  /**
+   * Get mappings from tool use IDs to agent session IDs.
+   * Used for Claude's Task tool to link tool_use to subagent sessions.
+   * Non-Claude providers should return an empty array.
+   */
+  getAgentMappings(): Promise<{ toolUseId: string; agentId: string }[]>;
+
+  /**
+   * Get an agent (subagent) session by ID.
+   * Used for Claude's Task tool subagent sessions (agent-*.jsonl files).
+   * Non-Claude providers should return null.
+   */
+  getAgentSession(
+    agentId: string,
+  ): Promise<{ messages: Message[]; status: string } | null>;
 }

@@ -98,14 +98,18 @@ export class SessionIndexService implements ISessionIndexService {
     // Check memory cache first
     const cached = this.indexCache.get(cacheKey);
     if (cached) {
+      /*
       logger.debug(
         `[SessionIndexService] Memory cache hit for project (${Object.keys(cached.sessions).length} sessions)`,
       );
+      */
       return cached;
     }
+    /*
     logger.debug(
       `[SessionIndexService] Memory cache miss, loading from disk: ${indexPath}`,
     );
+    */
 
     try {
       const content = await fs.readFile(indexPath, "utf-8");
@@ -239,9 +243,11 @@ export class SessionIndexService implements ISessionIndexService {
               continue;
             }
             // Cache hit - reconstruct SessionSummary from cache
+            /*
             logger.debug(
               `[SessionIndexService] Cache HIT for ${sessionId} (mtime=${mtime}, size=${size})`,
             );
+            */
             summaries.push({
               id: sessionId,
               projectId,

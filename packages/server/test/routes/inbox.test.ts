@@ -8,7 +8,7 @@ import {
   type InboxResponse,
   createInboxRoutes,
 } from "../../src/routes/inbox.js";
-import type { SessionReader } from "../../src/sessions/reader.js";
+import type { ISessionReader } from "../../src/sessions/types.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
 import type { Project, SessionSummary } from "../../src/supervisor/types.js";
 
@@ -52,12 +52,13 @@ function createProject(id: string, name: string, sessionDir: string): Project {
     activeOwnedCount: 0,
     activeExternalCount: 0,
     lastActivity: null,
+    provider: "claude",
   };
 }
 
 describe("Inbox Routes", () => {
   let mockScanner: ProjectScanner;
-  let mockReaderFactory: (sessionDir: string) => SessionReader;
+  let mockReaderFactory: (project: Project) => ISessionReader;
   let mockSupervisor: Supervisor;
   let mockNotificationService: NotificationService;
   let mockSessionIndexService: SessionIndexService;
@@ -78,10 +79,14 @@ describe("Inbox Routes", () => {
       listProjects: vi.fn(async () => []),
     } as unknown as ProjectScanner;
 
-    // Mock reader factory
-    mockReaderFactory = vi.fn((sessionDir: string) => ({
-      listSessions: vi.fn(async () => sessionsByDir.get(sessionDir) ?? []),
-    })) as unknown as (sessionDir: string) => SessionReader;
+    // Mock reader factory - now takes a Project instead of sessionDir
+    mockReaderFactory = vi.fn((project: Project) => ({
+      listSessions: vi.fn(
+        async () => sessionsByDir.get(project.sessionDir) ?? [],
+      ),
+      getAgentMappings: vi.fn(async () => []),
+      getAgentSession: vi.fn(async () => null),
+    })) as unknown as (project: Project) => ISessionReader;
 
     // Mock supervisor
     mockSupervisor = {

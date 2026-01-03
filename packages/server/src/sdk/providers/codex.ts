@@ -16,6 +16,7 @@ import {
   type ThreadItem,
   type ThreadOptions,
 } from "@openai/codex-sdk";
+import { getLogger } from "../../logging/logger.js";
 import { MessageQueue } from "../messageQueue.js";
 import type { SDKMessage, UserMessage } from "../types.js";
 import type {
@@ -24,6 +25,8 @@ import type {
   AuthStatus,
   StartSessionOptions,
 } from "./types.js";
+
+const log = getLogger().child({ component: "codex-provider" });
 
 /**
  * Configuration for Codex provider.
@@ -207,13 +210,16 @@ export class CodexProvider implements AgentProvider {
     // Start or resume thread
     let thread: Thread;
     if (options.resumeSessionId) {
+      log.debug({ resumeSessionId: options.resumeSessionId }, "Resuming thread");
       thread = codex.resumeThread(options.resumeSessionId, threadOptions);
     } else {
+      log.debug({ threadOptions }, "Starting new thread");
       thread = codex.startThread(threadOptions);
     }
 
     // Generate a temporary session ID until we get the real one
     let sessionId = `codex-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    log.debug({ sessionId }, "Generated temporary session ID");
 
     // Emit init message
     yield {
@@ -224,14 +230,23 @@ export class CodexProvider implements AgentProvider {
     } as SDKMessage;
 
     // Process messages from the queue
+    log.debug("Starting message queue processing");
     const messageGen = queue.generator();
 
     for await (const message of messageGen) {
-      if (signal.aborted) break;
+      log.debug({ messageType: typeof message }, "Received message from queue");
+      if (signal.aborted) {
+        log.debug("Signal aborted, breaking message loop");
+        break;
+      }
 
       // Extract text from user message
       const userPrompt = this.extractTextFromMessage(message);
-      if (!userPrompt) continue;
+      if (!userPrompt) {
+        log.debug("No text extracted from message, skipping");
+        continue;
+      }
+      log.debug({ userPromptLength: userPrompt.length }, "Extracted user prompt");
 
       // Emit user message
       yield {
@@ -245,26 +260,46 @@ export class CodexProvider implements AgentProvider {
 
       // Run a turn with the SDK
       try {
+        log.debug("Calling thread.runStreamed");
         const { events } = await thread.runStreamed(userPrompt, {
           signal,
         });
+        log.debug("Got events iterator, starting event loop");
 
         // Process streaming events
+        let eventCount = 0;
         for await (const event of events) {
-          if (signal.aborted) break;
+          eventCount++;
+          log.debug({ eventType: event.type, eventCount }, "Received SDK event");
+          if (signal.aborted) {
+            log.debug("Signal aborted during event processing");
+            break;
+          }
 
           // Update session ID from thread.started
           if (event.type === "thread.started") {
             sessionId = event.thread_id;
+            log.debug({ newSessionId: sessionId }, "Updated session ID from thread.started");
           }
 
           // Convert event to SDKMessage(s)
           const messages = this.convertEventToSDKMessages(event, sessionId);
+          log.debug({ eventType: event.type, messageCount: messages.length }, "Converted event to SDKMessages");
           for (const msg of messages) {
             yield msg;
           }
         }
+        log.debug({ totalEvents: eventCount }, "Finished processing events for turn");
+
+        // Emit result after each turn to signal the Process that we're idle
+        // This matches what the Claude SDK does after each turn
+        log.debug({ sessionId }, "Emitting result after turn");
+        yield {
+          type: "result",
+          session_id: sessionId,
+        } as SDKMessage;
       } catch (error) {
+        log.error({ error }, "Error during turn");
         if (signal.aborted) break;
 
         yield {
@@ -275,11 +310,13 @@ export class CodexProvider implements AgentProvider {
       }
     }
 
+    log.debug({ sessionId }, "Message loop ended, emitting result");
     // Emit result message when done
     yield {
       type: "result",
       session_id: sessionId,
     } as SDKMessage;
+    log.debug({ sessionId }, "Session complete");
   }
 
   /**

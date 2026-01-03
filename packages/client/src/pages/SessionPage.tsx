@@ -497,6 +497,18 @@ function SessionPageContent({
                   <SidebarIcon />
                 </button>
               )}
+              {/* Project breadcrumb */}
+              {project?.name && (
+                <Link
+                  to={`/projects/${projectId}`}
+                  className="project-breadcrumb"
+                  title={project.name}
+                >
+                  {project.name.length > 12
+                    ? `${project.name.slice(0, 12)}...`
+                    : project.name}
+                </Link>
+              )}
               <div className="session-title-row">
                 {isStarred && (
                   <svg

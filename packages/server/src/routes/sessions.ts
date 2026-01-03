@@ -11,7 +11,7 @@ import type { SessionMetadataService } from "../metadata/index.js";
 import type { NotificationService } from "../notifications/index.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import type { PermissionMode, SDKMessage, UserMessage } from "../sdk/types.js";
-import type { SessionReader } from "../sessions/reader.js";
+import type { ISessionReader } from "../sessions/types.js";
 import type { ExternalSessionTracker } from "../supervisor/ExternalSessionTracker.js";
 import type { Process } from "../supervisor/Process.js";
 import type {
@@ -19,7 +19,7 @@ import type {
   Supervisor,
 } from "../supervisor/Supervisor.js";
 import type { QueuedResponse } from "../supervisor/WorkerQueue.js";
-import type { ContentBlock, Message } from "../supervisor/types.js";
+import type { ContentBlock, Message, Project } from "../supervisor/types.js";
 import type { EventBus } from "../watcher/index.js";
 
 /**
@@ -43,7 +43,7 @@ function isQueueFullResponse(
 export interface SessionsDeps {
   supervisor: Supervisor;
   scanner: ProjectScanner;
-  readerFactory: (sessionDir: string) => SessionReader;
+  readerFactory: (project: Project) => ISessionReader;
   externalTracker?: ExternalSessionTracker;
   notificationService?: NotificationService;
   sessionMetadataService?: SessionMetadataService;
@@ -128,12 +128,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const project = await deps.scanner.getProject(projectId);
+    const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project) {
       return c.json({ error: "Project not found" }, 404);
     }
 
-    const reader = deps.readerFactory(project.sessionDir);
+    const reader = deps.readerFactory(project);
     const mappings = await reader.getAgentMappings();
 
     return c.json({ mappings });
@@ -152,12 +152,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         return c.json({ error: "Invalid project ID format" }, 400);
       }
 
-      const project = await deps.scanner.getProject(projectId);
+      const project = await deps.scanner.getOrCreateProject(projectId);
       if (!project) {
         return c.json({ error: "Project not found" }, 404);
       }
 
-      const reader = deps.readerFactory(project.sessionDir);
+      const reader = deps.readerFactory(project);
       const agentSession = await reader.getAgentSession(agentId);
 
       return c.json(agentSession);
@@ -176,7 +176,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    const project = await deps.scanner.getProject(projectId);
+    // Use getOrCreateProject to support Codex projects that may not be in the scan cache yet
+    const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project) {
       return c.json({ error: "Project not found" }, 404);
     }
@@ -192,7 +193,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const wasEverOwned = deps.supervisor.wasEverOwned(sessionId);
 
     // Always try to read from disk first (even for owned sessions)
-    const reader = deps.readerFactory(project.sessionDir);
+    const reader = deps.readerFactory(project);
     const session = await reader.getSession(
       sessionId,
       project.id,
