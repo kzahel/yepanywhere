@@ -1,0 +1,2905 @@
+{
+  "description": "Recorded session - edit this description",
+  "recordedAt": "2026-01-05T16:00:22.238Z",
+  "baseUrl": "http://localhost:3400",
+  "apiCalls": [
+    {
+      "method": "GET",
+      "url": "/src/api/client.ts?t=1767616595061",
+      "body": null,
+      "response": null,
+      "timestampOffset": 92
+    },
+    {
+      "method": "GET",
+      "url": "/src/api/upload.ts",
+      "body": null,
+      "response": null,
+      "timestampOffset": 101
+    },
+    {
+      "method": "GET",
+      "url": "/api/auth/status",
+      "body": null,
+      "response": {
+        "enabled": false,
+        "authenticated": true,
+        "setupRequired": false
+      },
+      "timestampOffset": 657
+    },
+    {
+      "method": "GET",
+      "url": "/api/dev/status",
+      "body": null,
+      "response": {
+        "noBackendReload": true,
+        "noFrontendReload": false,
+        "backendDirty": false,
+        "timestamp": "2026-01-05T15:58:39.876Z"
+      },
+      "timestampOffset": 658
+    },
+    {
+      "method": "GET",
+      "url": "/api/auth/status",
+      "body": null,
+      "response": {
+        "enabled": false,
+        "authenticated": true,
+        "setupRequired": false
+      },
+      "timestampOffset": 658
+    },
+    {
+      "method": "GET",
+      "url": "/api/dev/status",
+      "body": null,
+      "response": {
+        "noBackendReload": true,
+        "noFrontendReload": false,
+        "backendDirty": false,
+        "timestamp": "2026-01-05T15:58:39.876Z"
+      },
+      "timestampOffset": 658
+    },
+    {
+      "method": "GET",
+      "url": "/api/dev/status",
+      "body": null,
+      "response": {
+        "noBackendReload": true,
+        "noFrontendReload": false,
+        "backendDirty": false,
+        "timestamp": "2026-01-05T15:58:39.920Z"
+      },
+      "timestampOffset": 702
+    },
+    {
+      "method": "GET",
+      "url": "/api/status/workers",
+      "body": null,
+      "response": {
+        "activeWorkers": 1,
+        "queueLength": 0,
+        "hasActiveWork": false
+      },
+      "timestampOffset": 702
+    },
+    {
+      "method": "GET",
+      "url": "/api/projects",
+      "body": null,
+      "response": {
+        "projects": [
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "path": "/home/kgraehl/code/yepanywhere",
+            "name": "yepanywhere",
+            "sessionCount": 1244,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-yepanywhere",
+            "activeOwnedCount": 1,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-05T15:58:31.599Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "path": "/home/kgraehl/code/dotfiles",
+            "name": "dotfiles",
+            "sessionCount": 39,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-dotfiles",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-05T11:30:17.011Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2NsYXVkZS1hbnl3aGVyZQ",
+            "path": "/home/kgraehl/code/claude-anywhere",
+            "name": "claude-anywhere",
+            "sessionCount": 26,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T20:07:53.533Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L3RtcC9jbGF1ZGUtZTJlLW1vY2twcm9qZWN0",
+            "path": "/tmp/claude-e2e-mockproject",
+            "name": "claude-e2e-mockproject",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.claude/projects/kgraehl-Z790-UD-AC/-tmp-claude-e2e-mockproject",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T09:47:43.391Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L3RtcC9jbGF1ZGUtZTJlLWNvZGV4b3Nz",
+            "path": "/tmp/claude-e2e-codexoss",
+            "name": "claude-e2e-codexoss",
+            "sessionCount": 4,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T09:47:12.708Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L3RtcC9jb2RleC1vc3MtdGVzdA",
+            "path": "/tmp/codex-oss-test",
+            "name": "codex-oss-test",
+            "sessionCount": 2,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T09:43:50.055Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL0NvZGV4LXdlYnVp",
+            "path": "/home/kgraehl/code/Codex-webui",
+            "name": "Codex-webui",
+            "sessionCount": 2,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-Codex-webui",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T21:52:54.358Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL0Fpb25VaQ",
+            "path": "/home/kgraehl/code/AionUi",
+            "name": "AionUi",
+            "sessionCount": 2,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-AionUi",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T21:36:41.593Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "path": "/tmp/golden-fixtures",
+            "name": "golden-fixtures",
+            "sessionCount": 7,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T18:13:43.895Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L3RtcA",
+            "path": "/tmp",
+            "name": "tmp",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T17:05:37.699Z",
+            "provider": "codex"
+          },
+          {
+            "id": "Z2VtaW5pOjM3YzNlOWI1",
+            "path": "gemini:37c3e9b5",
+            "name": "Gemini 37c3e9b5",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.gemini/tmp/37c3e9b5055817779d0e104a3ae7fa897c9d617ad0281ecf04e39f2c7eea0c46/chats",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T10:36:25.567Z",
+            "provider": "gemini"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2hhcHB5",
+            "path": "/home/kgraehl/code/happy",
+            "name": "happy",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-happy",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T09:18:11.324Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L3RtcC9kZWJ1Zy1zdHJlYW1pbmctbFBPd2FY",
+            "path": "/tmp/debug-streaming-lPOwaX",
+            "name": "debug-streaming-lPOwaX",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.claude/projects/-tmp-debug-streaming-lPOwaX",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-31T21:33:44.423Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC90ZXN0",
+            "path": "/home/kgraehl/test",
+            "name": "test",
+            "sessionCount": 5,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-test",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-31T18:48:21.753Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL3NjcmVlbnNhdmVy",
+            "path": "/home/kgraehl/code/screensaver",
+            "name": "screensaver",
+            "sessionCount": 45,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-screensaver",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-31T10:25:52.434Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2pzdG9ycmVudA",
+            "path": "/home/kgraehl/code/jstorrent",
+            "name": "jstorrent",
+            "sessionCount": 46,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-jstorrent",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-29T15:45:16.400Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2Fzc2V0b3MtdGFrZWhvbWU",
+            "path": "/home/kgraehl/code/assetos-takehome",
+            "name": "assetos-takehome",
+            "sessionCount": 24,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-assetos-takehome",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-29T11:30:44.641Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9naWdhYnl0ZV9wd20",
+            "path": "/home/kgraehl/gigabyte_pwm",
+            "name": "gigabyte_pwm",
+            "sessionCount": 26,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-gigabyte-pwm",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-29T11:12:46.937Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2NsYXVkZS1jb2RlLXZpZXdlcg",
+            "path": "/home/kgraehl/code/claude-code-viewer",
+            "name": "claude-code-viewer",
+            "sessionCount": 24,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-claude-code-viewer",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-28T07:03:41.446Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2pzdG9ycmVudC1tb25vcmVwbw",
+            "path": "/home/kgraehl/code/jstorrent-monorepo",
+            "name": "jstorrent-monorepo",
+            "sessionCount": 16,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-jstorrent-monorepo",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-27T15:30:32.850Z",
+            "provider": "claude"
+          }
+        ]
+      },
+      "timestampOffset": 814
+    },
+    {
+      "method": "GET",
+      "url": "/api/projects",
+      "body": null,
+      "response": {
+        "projects": [
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "path": "/home/kgraehl/code/yepanywhere",
+            "name": "yepanywhere",
+            "sessionCount": 1244,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-yepanywhere",
+            "activeOwnedCount": 1,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-05T15:58:31.599Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "path": "/home/kgraehl/code/dotfiles",
+            "name": "dotfiles",
+            "sessionCount": 39,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-dotfiles",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-05T11:30:17.011Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2NsYXVkZS1hbnl3aGVyZQ",
+            "path": "/home/kgraehl/code/claude-anywhere",
+            "name": "claude-anywhere",
+            "sessionCount": 26,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T20:07:53.533Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L3RtcC9jbGF1ZGUtZTJlLW1vY2twcm9qZWN0",
+            "path": "/tmp/claude-e2e-mockproject",
+            "name": "claude-e2e-mockproject",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.claude/projects/kgraehl-Z790-UD-AC/-tmp-claude-e2e-mockproject",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T09:47:43.391Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L3RtcC9jbGF1ZGUtZTJlLWNvZGV4b3Nz",
+            "path": "/tmp/claude-e2e-codexoss",
+            "name": "claude-e2e-codexoss",
+            "sessionCount": 4,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T09:47:12.708Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L3RtcC9jb2RleC1vc3MtdGVzdA",
+            "path": "/tmp/codex-oss-test",
+            "name": "codex-oss-test",
+            "sessionCount": 2,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-04T09:43:50.055Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL0NvZGV4LXdlYnVp",
+            "path": "/home/kgraehl/code/Codex-webui",
+            "name": "Codex-webui",
+            "sessionCount": 2,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-Codex-webui",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T21:52:54.358Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL0Fpb25VaQ",
+            "path": "/home/kgraehl/code/AionUi",
+            "name": "AionUi",
+            "sessionCount": 2,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-AionUi",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T21:36:41.593Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "path": "/tmp/golden-fixtures",
+            "name": "golden-fixtures",
+            "sessionCount": 7,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T18:13:43.895Z",
+            "provider": "codex"
+          },
+          {
+            "id": "L3RtcA",
+            "path": "/tmp",
+            "name": "tmp",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.codex/sessions",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T17:05:37.699Z",
+            "provider": "codex"
+          },
+          {
+            "id": "Z2VtaW5pOjM3YzNlOWI1",
+            "path": "gemini:37c3e9b5",
+            "name": "Gemini 37c3e9b5",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.gemini/tmp/37c3e9b5055817779d0e104a3ae7fa897c9d617ad0281ecf04e39f2c7eea0c46/chats",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T10:36:25.567Z",
+            "provider": "gemini"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2hhcHB5",
+            "path": "/home/kgraehl/code/happy",
+            "name": "happy",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-happy",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2026-01-03T09:18:11.324Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L3RtcC9kZWJ1Zy1zdHJlYW1pbmctbFBPd2FY",
+            "path": "/tmp/debug-streaming-lPOwaX",
+            "name": "debug-streaming-lPOwaX",
+            "sessionCount": 1,
+            "sessionDir": "/home/kgraehl/.claude/projects/-tmp-debug-streaming-lPOwaX",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-31T21:33:44.423Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC90ZXN0",
+            "path": "/home/kgraehl/test",
+            "name": "test",
+            "sessionCount": 5,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-test",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-31T18:48:21.753Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL3NjcmVlbnNhdmVy",
+            "path": "/home/kgraehl/code/screensaver",
+            "name": "screensaver",
+            "sessionCount": 45,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-screensaver",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-31T10:25:52.434Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2pzdG9ycmVudA",
+            "path": "/home/kgraehl/code/jstorrent",
+            "name": "jstorrent",
+            "sessionCount": 46,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-jstorrent",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-29T15:45:16.400Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2Fzc2V0b3MtdGFrZWhvbWU",
+            "path": "/home/kgraehl/code/assetos-takehome",
+            "name": "assetos-takehome",
+            "sessionCount": 24,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-assetos-takehome",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-29T11:30:44.641Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9naWdhYnl0ZV9wd20",
+            "path": "/home/kgraehl/gigabyte_pwm",
+            "name": "gigabyte_pwm",
+            "sessionCount": 26,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-gigabyte-pwm",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-29T11:12:46.937Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2NsYXVkZS1jb2RlLXZpZXdlcg",
+            "path": "/home/kgraehl/code/claude-code-viewer",
+            "name": "claude-code-viewer",
+            "sessionCount": 24,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-claude-code-viewer",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-28T07:03:41.446Z",
+            "provider": "claude"
+          },
+          {
+            "id": "L2hvbWUva2dyYWVobC9jb2RlL2pzdG9ycmVudC1tb25vcmVwbw",
+            "path": "/home/kgraehl/code/jstorrent-monorepo",
+            "name": "jstorrent-monorepo",
+            "sessionCount": 16,
+            "sessionDir": "/home/kgraehl/.claude/projects/-home-kgraehl-code-jstorrent-monorepo",
+            "activeOwnedCount": 0,
+            "activeExternalCount": 0,
+            "lastActivity": "2025-12-27T15:30:32.850Z",
+            "provider": "claude"
+          }
+        ]
+      },
+      "timestampOffset": 820
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 938
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 939
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 966
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 967
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 971
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 972
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox?projectId=L3RtcC9nb2xkZW4tZml4dHVyZXM",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [],
+        "unread8h": [],
+        "unread24h": []
+      },
+      "timestampOffset": 32706
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox?projectId=L3RtcC9nb2xkZW4tZml4dHVyZXM",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [],
+        "unread8h": [],
+        "unread24h": []
+      },
+      "timestampOffset": 32714
+    },
+    {
+      "method": "GET",
+      "url": "/api/projects/L3RtcC9nb2xkZW4tZml4dHVyZXM",
+      "body": null,
+      "response": {
+        "project": {
+          "id": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+          "path": "/tmp/golden-fixtures",
+          "name": "golden-fixtures",
+          "sessionCount": 7,
+          "sessionDir": "/home/kgraehl/.codex/sessions",
+          "activeOwnedCount": 0,
+          "activeExternalCount": 0,
+          "lastActivity": "2026-01-03T18:13:43.895Z",
+          "provider": "codex"
+        },
+        "sessions": [
+          {
+            "id": "019b8510-a5b9-7920-8721-b7f33e9b5bf8",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:39.385Z",
+            "updatedAt": "2026-01-03T18:13:43.896Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 15421,
+              "percentage": 6
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-9494-7ce3-ad86-aff5125d356e",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:34.996Z",
+            "updatedAt": "2026-01-03T18:13:39.238Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 15383,
+              "percentage": 6
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-6f6e-7630-b972-7aa07724df69",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:25.486Z",
+            "updatedAt": "2026-01-03T18:13:34.837Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 30745,
+              "percentage": 12
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-4839-7cc0-a855-f131289c74e1",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:15.449Z",
+            "updatedAt": "2026-01-03T18:13:17.485Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 7274,
+              "percentage": 3
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-3968-7571-8c0c-a6739226254f",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:11.656Z",
+            "updatedAt": "2026-01-03T18:13:15.337Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 14636,
+              "percentage": 6
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-300f-7dc2-9129-03f5bd8d360e",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:09.263Z",
+            "updatedAt": "2026-01-03T18:13:11.515Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 7272,
+              "percentage": 3
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-055a-7aa1-abc8-269c2d8a0e49",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:12:58.330Z",
+            "updatedAt": "2026-01-03T18:13:00.250Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 7272,
+              "percentage": 3
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "8eb8f375-ff3a-42a3-8f19-be48f7eaebe1",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "In the file gemini-test.txt, replace \"Hello\" with \"Greetings\".",
+            "fullTitle": "In the file gemini-test.txt, replace \"Hello\" with \"Greetings\".",
+            "createdAt": "2026-01-03T18:15:58.482Z",
+            "updatedAt": "2026-01-03T18:16:16.116Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9033,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "5a09c6e5-3bc0-4c37-96d2-e1dfdf4fbf2d",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Try to read a file called /nonexistent/path/file.txt and handle the error gracefully.",
+            "fullTitle": "Try to read a file called /nonexistent/path/file.txt and handle the error gracefully.",
+            "createdAt": "2026-01-03T18:15:48.357Z",
+            "updatedAt": "2026-01-03T18:15:54.405Z",
+            "messageCount": 4,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9848,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "1f031e0f-cad4-4dc1-ae87-0aca2d6a8bc1",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Run the command \"echo hello world\" and show me the output.",
+            "fullTitle": "Run the command \"echo hello world\" and show me the output.",
+            "createdAt": "2026-01-03T18:15:23.476Z",
+            "updatedAt": "2026-01-03T18:15:30.966Z",
+            "messageCount": 4,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9813,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "28d7bedc-b674-404a-941e-87f5f763f0d8",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Create a new file called gemini-test.txt with the content \"Hello from Gemini\".",
+            "fullTitle": "Create a new file called gemini-test.txt with the content \"Hello from Gemini\".",
+            "createdAt": "2026-01-03T18:14:31.826Z",
+            "updatedAt": "2026-01-03T18:15:19.842Z",
+            "messageCount": 9,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 10330,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "9dcf1a05-d1eb-4023-9634-ec3e7296954c",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Read the file package.json and tell me what the project name is.",
+            "fullTitle": "Read the file package.json and tell me what the project name is.",
+            "createdAt": "2026-01-03T18:14:24.995Z",
+            "updatedAt": "2026-01-03T18:14:28.079Z",
+            "messageCount": 3,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9744,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "17d22fde-70e4-4369-ae8f-786093c80ace",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Say \"Hello, I am ready to help\\!\" and nothing else.",
+            "fullTitle": "Say \"Hello, I am ready to help\\!\" and nothing else.",
+            "createdAt": "2026-01-03T18:14:06.546Z",
+            "updatedAt": "2026-01-03T18:14:07.248Z",
+            "messageCount": 2,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9739,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 32718
+    },
+    {
+      "method": "GET",
+      "url": "/api/projects/L3RtcC9nb2xkZW4tZml4dHVyZXM",
+      "body": null,
+      "response": {
+        "project": {
+          "id": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+          "path": "/tmp/golden-fixtures",
+          "name": "golden-fixtures",
+          "sessionCount": 7,
+          "sessionDir": "/home/kgraehl/.codex/sessions",
+          "activeOwnedCount": 0,
+          "activeExternalCount": 0,
+          "lastActivity": "2026-01-03T18:13:43.895Z",
+          "provider": "codex"
+        },
+        "sessions": [
+          {
+            "id": "019b8510-a5b9-7920-8721-b7f33e9b5bf8",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:39.385Z",
+            "updatedAt": "2026-01-03T18:13:43.896Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 15421,
+              "percentage": 6
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-9494-7ce3-ad86-aff5125d356e",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:34.996Z",
+            "updatedAt": "2026-01-03T18:13:39.238Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 15383,
+              "percentage": 6
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-6f6e-7630-b972-7aa07724df69",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:25.486Z",
+            "updatedAt": "2026-01-03T18:13:34.837Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 30745,
+              "percentage": 12
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-4839-7cc0-a855-f131289c74e1",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:15.449Z",
+            "updatedAt": "2026-01-03T18:13:17.485Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 7274,
+              "percentage": 3
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-3968-7571-8c0c-a6739226254f",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:11.656Z",
+            "updatedAt": "2026-01-03T18:13:15.337Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 14636,
+              "percentage": 6
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-300f-7dc2-9129-03f5bd8d360e",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:13:09.263Z",
+            "updatedAt": "2026-01-03T18:13:11.515Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 7272,
+              "percentage": 3
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "019b8510-055a-7aa1-abc8-269c2d8a0e49",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup fr...",
+            "fullTitle": "# AGENTS.md instructions for /tmp/golden-fixtures\n\n<INSTRUCTIONS>\n## Skills\nThese skills are discovered at startup from multiple local sources. Each entry includes a name, description, and file path so you can open the source for full instructions.\n- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/kgraehl/.codex/skills/.system/skill-creator/SKILL.md)\n- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/kgraehl/.codex/skills/.system/skill-installer/SKILL.md)\n- Discovery: Available skills are listed in project docs and may also appear in a runtime \"## Skills\" section (name + description + file path). These are the sources of truth; skill bodies live on disk at the listed paths.\n- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.\n- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.\n- How to use a skill (progressive disclosure):\n  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.\n  2) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.\n  3) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.\n  4) If `assets/` or templates exist, reuse them instead of recreating from scratch.\n- Description as trigger: The YAML `description` in `SKILL.md` is the primary trigger signal; rely on it to decide applicability. If unsure, ask a brief clarification before proceeding.\n- Coordination and sequencing:\n  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.\n  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.\n- Context hygiene:\n  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.\n  - Avoid deeply nested references; prefer one-hop files explicitly linked from `SKILL.md`.\n  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.\n- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.\n</INSTRUCTIONS>",
+            "createdAt": "2026-01-03T18:12:58.330Z",
+            "updatedAt": "2026-01-03T18:13:00.250Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 7272,
+              "percentage": 3
+            },
+            "provider": "codex",
+            "model": "gpt-5.2-codex",
+            "hasUnread": true
+          },
+          {
+            "id": "8eb8f375-ff3a-42a3-8f19-be48f7eaebe1",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "In the file gemini-test.txt, replace \"Hello\" with \"Greetings\".",
+            "fullTitle": "In the file gemini-test.txt, replace \"Hello\" with \"Greetings\".",
+            "createdAt": "2026-01-03T18:15:58.482Z",
+            "updatedAt": "2026-01-03T18:16:16.116Z",
+            "messageCount": 5,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9033,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "5a09c6e5-3bc0-4c37-96d2-e1dfdf4fbf2d",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Try to read a file called /nonexistent/path/file.txt and handle the error gracefully.",
+            "fullTitle": "Try to read a file called /nonexistent/path/file.txt and handle the error gracefully.",
+            "createdAt": "2026-01-03T18:15:48.357Z",
+            "updatedAt": "2026-01-03T18:15:54.405Z",
+            "messageCount": 4,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9848,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "1f031e0f-cad4-4dc1-ae87-0aca2d6a8bc1",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Run the command \"echo hello world\" and show me the output.",
+            "fullTitle": "Run the command \"echo hello world\" and show me the output.",
+            "createdAt": "2026-01-03T18:15:23.476Z",
+            "updatedAt": "2026-01-03T18:15:30.966Z",
+            "messageCount": 4,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9813,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "28d7bedc-b674-404a-941e-87f5f763f0d8",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Create a new file called gemini-test.txt with the content \"Hello from Gemini\".",
+            "fullTitle": "Create a new file called gemini-test.txt with the content \"Hello from Gemini\".",
+            "createdAt": "2026-01-03T18:14:31.826Z",
+            "updatedAt": "2026-01-03T18:15:19.842Z",
+            "messageCount": 9,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 10330,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "9dcf1a05-d1eb-4023-9634-ec3e7296954c",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Read the file package.json and tell me what the project name is.",
+            "fullTitle": "Read the file package.json and tell me what the project name is.",
+            "createdAt": "2026-01-03T18:14:24.995Z",
+            "updatedAt": "2026-01-03T18:14:28.079Z",
+            "messageCount": 3,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9744,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          },
+          {
+            "id": "17d22fde-70e4-4369-ae8f-786093c80ace",
+            "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+            "title": "Say \"Hello, I am ready to help\\!\" and nothing else.",
+            "fullTitle": "Say \"Hello, I am ready to help\\!\" and nothing else.",
+            "createdAt": "2026-01-03T18:14:06.546Z",
+            "updatedAt": "2026-01-03T18:14:07.248Z",
+            "messageCount": 2,
+            "status": {
+              "state": "idle"
+            },
+            "contextUsage": {
+              "inputTokens": 9739,
+              "percentage": 1
+            },
+            "provider": "gemini",
+            "model": "gemini-2.5-flash",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 32718
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 32772
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [
+          {
+            "sessionId": "d7d035b8-e419-4ec6-9f40-240f1d5e60c9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I want to make a test where I replay the SSE events after creating a new session how would you recommend create a fai...",
+            "updatedAt": "2026-01-05T15:58:31.599Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "635215dc-b0cb-4ac0-93a4-4353be231129",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "We have a text block life cycle test that purports to show that when we finish rendering the streaming chunks we cont...",
+            "updatedAt": "2026-01-05T15:38:36.249Z",
+            "hasUnread": false
+          },
+          {
+            "sessionId": "5bb4385b-0db0-48d6-b437-231333ce0cc5",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "I think we have some long top handler that's active on the session page it's preventing me from being able to copy te...",
+            "updatedAt": "2026-01-05T15:35:07.071Z",
+            "hasUnread": false
+          }
+        ],
+        "unread8h": [
+          {
+            "sessionId": "6a85c0fb-a541-49f6-8a12-c162de3bfeef",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we're running into some issues with streaming markdown rendering. we have some tests to verify that it's working corr...",
+            "updatedAt": "2026-01-05T14:07:46.594Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "faac348c-6d3c-4896-b03a-25c20903a959",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "theres a lot of dist stuff that needs to be added to gitignore",
+            "updatedAt": "2026-01-05T13:50:23.767Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "d5307848-36ae-496c-9d7a-2f1416857a3b",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "streaming markdown responses seem to on their final render show an un-rendered result. the server is streaming markdo...",
+            "updatedAt": "2026-01-05T13:42:00.844Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2b3b168a-1b98-434f-b570-a7b47f4ff808",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "there are 3 failing unit tests can you please fix them",
+            "updatedAt": "2026-01-05T13:30:35.070Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2a7dbc87-ef3c-49b8-b9ed-2e5070f1d9ab",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "an agent just tried to re-add link detection to the streaming markdown responses but broke markdown streaming entirel...",
+            "updatedAt": "2026-01-05T13:24:08.603Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6730296a-330f-45eb-8ed0-5f4e080ab08c",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i have an active session and am inside of a project but the Agents nav item is not showing that there is an active ag...",
+            "updatedAt": "2026-01-05T12:34:23.639Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "e5d7681c-e7f0-4a87-8492-80dad47b3996",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "backup frontend",
+            "updatedAt": "2026-01-05T12:19:36.137Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "9b9bac6e-f93d-4887-b9f5-94e6fd7c4674",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "SEARCH",
+            "updatedAt": "2026-01-05T12:18:04.107Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "85aaca1a-f2a1-4a26-af68-e32627ae0d56",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "global inbox",
+            "updatedAt": "2026-01-05T12:11:11.896Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "18f7f866-2a15-40d9-8b02-09daeaa848e4",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "what do you know about my pi, what services should it be running",
+            "updatedAt": "2026-01-05T11:30:17.011Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "75ecdcb5-0378-4fcd-9904-6c1d6347b0b3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMED and crashes",
+            "updatedAt": "2026-01-05T11:18:53.996Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "2f8ffaef-55a3-4c2f-9213-2aac5520aa0e",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "RENAMING PROBLEMS",
+            "updatedAt": "2026-01-05T10:48:45.108Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6070a396-ec04-48a8-9e4e-a5546030c387",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "i'm trying to move a file that starts with \"-home-kgraehl-code-claude-anywhere\" to \"-home-kgraehl-code-yepanywhere\" b...",
+            "updatedAt": "2026-01-05T10:19:02.414Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "26f40b1e-9ba7-4526-86c0-4b4e6fbd2871",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL2RvdGZpbGVz",
+            "projectName": "dotfiles",
+            "sessionTitle": "Can you check if the pie is reachable by SSH",
+            "updatedAt": "2026-01-05T10:14:39.974Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "6eb438e0-69c1-4911-8f59-39ca47449d96",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "we recently removed the Agents ({number of active agents}) badge from the sidebar, but i miss having some indicator t...",
+            "updatedAt": "2026-01-05T08:58:59.672Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "0e69f62d-ca8b-4fcf-b913-9a18d282f4e3",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "i think i want subagents to be collapsed by default, they are too busy and users can expand if they want to see details.",
+            "updatedAt": "2026-01-05T08:40:49.650Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "ff016c2f-3da4-4974-9068-31c58b4453d9",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "When I'm telling Claude do something else I can't see the input text when the on screen keyboard is open.\n\nUser uploa...",
+            "updatedAt": "2026-01-05T08:23:29.726Z",
+            "hasUnread": true
+          }
+        ],
+        "unread24h": [
+          {
+            "sessionId": "6b1f5028-a09a-46bf-823e-de6e3e38b15d",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "please commit and push all changes with brief commit message with no mention of claude",
+            "updatedAt": "2026-01-05T07:58:03.778Z",
+            "hasUnread": true
+          },
+          {
+            "sessionId": "7e0cdbe8-2b88-45b0-937e-f0c66164fef6",
+            "projectId": "L2hvbWUva2dyYWVobC9jb2RlL3llcGFueXdoZXJl",
+            "projectName": "yepanywhere",
+            "sessionTitle": "Seems that when a sub agent is launched we don't actually start streaming the agent json l file we only loaded lazily...",
+            "updatedAt": "2026-01-05T06:49:10.289Z",
+            "hasUnread": true
+          }
+        ]
+      },
+      "timestampOffset": 32773
+    },
+    {
+      "method": "GET",
+      "url": "/api/providers",
+      "body": null,
+      "response": {
+        "providers": [
+          {
+            "name": "claude",
+            "displayName": "Claude",
+            "installed": true,
+            "authenticated": true,
+            "enabled": true,
+            "expiresAt": "2026-01-05T19:59:39.584Z",
+            "models": [
+              {
+                "id": "sonnet",
+                "name": "Sonnet"
+              },
+              {
+                "id": "opus",
+                "name": "Opus"
+              },
+              {
+                "id": "haiku",
+                "name": "Haiku"
+              }
+            ]
+          },
+          {
+            "name": "codex",
+            "displayName": "Codex",
+            "installed": true,
+            "authenticated": true,
+            "enabled": true,
+            "models": [
+              {
+                "id": "gpt-5.2-codex",
+                "name": "GPT-5.2 Codex"
+              },
+              {
+                "id": "gpt-5-codex",
+                "name": "GPT-5 Codex"
+              },
+              {
+                "id": "gpt-5-codex-mini",
+                "name": "GPT-5 Codex Mini"
+              },
+              {
+                "id": "codex-mini-latest",
+                "name": "Codex Mini"
+              }
+            ]
+          },
+          {
+            "name": "codex-oss",
+            "displayName": "CodexOSS",
+            "installed": true,
+            "authenticated": false,
+            "enabled": false,
+            "models": []
+          },
+          {
+            "name": "gemini",
+            "displayName": "Gemini",
+            "installed": true,
+            "authenticated": true,
+            "enabled": true,
+            "expiresAt": "2026-01-04T21:05:57.855Z",
+            "models": [
+              {
+                "id": "auto",
+                "name": "Auto (recommended)"
+              },
+              {
+                "id": "gemini-2.5-pro",
+                "name": "Gemini 2.5 Pro"
+              },
+              {
+                "id": "gemini-2.5-flash",
+                "name": "Gemini 2.5 Flash"
+              },
+              {
+                "id": "gemini-2.0-flash",
+                "name": "Gemini 2.0 Flash"
+              },
+              {
+                "id": "gemini-2.0-flash-lite",
+                "name": "Gemini 2.0 Flash Lite"
+              },
+              {
+                "id": "gemini-3-pro",
+                "name": "Gemini 3 Pro (Preview)"
+              },
+              {
+                "id": "gemini-3-flash",
+                "name": "Gemini 3 Flash (Preview)"
+              }
+            ]
+          }
+        ]
+      },
+      "timestampOffset": 32810
+    },
+    {
+      "method": "POST",
+      "url": "/api/projects/L3RtcC9nb2xkZW4tZml4dHVyZXM/sessions",
+      "body": {
+        "message": "give me a sample markdown document",
+        "mode": "default",
+        "model": "opus",
+        "thinking": "off",
+        "provider": "claude"
+      },
+      "response": {
+        "sessionId": "37c0490a-00d2-4b10-a3df-acea259f06a0",
+        "processId": "498173d8-f85a-42d5-8dcc-bedf02e071fc",
+        "permissionMode": "default",
+        "modeVersion": 0
+      },
+      "timestampOffset": 45337
+    },
+    {
+      "method": "GET",
+      "url": "/api/projects/L3RtcC9nb2xkZW4tZml4dHVyZXM/sessions/37c0490a-00d2-4b10-a3df-acea259f06a0",
+      "body": null,
+      "response": {
+        "session": {
+          "id": "37c0490a-00d2-4b10-a3df-acea259f06a0",
+          "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+          "title": null,
+          "createdAt": "2026-01-05T15:59:24.699Z",
+          "updatedAt": "2026-01-05T15:59:24.699Z",
+          "messageCount": 1,
+          "status": {
+            "state": "owned",
+            "processId": "498173d8-f85a-42d5-8dcc-bedf02e071fc",
+            "permissionMode": "default",
+            "modeVersion": 0
+          },
+          "messages": [
+            {
+              "id": "a31f6558-c0a3-4287-9905-3f9fc8e97063",
+              "type": "user",
+              "role": "user",
+              "content": "give me a sample markdown document",
+              "timestamp": "2026-01-05T15:59:24.699Z"
+            }
+          ],
+          "hasUnread": true
+        },
+        "messages": [
+          {
+            "id": "a31f6558-c0a3-4287-9905-3f9fc8e97063",
+            "type": "user",
+            "role": "user",
+            "content": "give me a sample markdown document",
+            "timestamp": "2026-01-05T15:59:24.699Z"
+          }
+        ],
+        "status": {
+          "state": "owned",
+          "processId": "498173d8-f85a-42d5-8dcc-bedf02e071fc",
+          "permissionMode": "default",
+          "modeVersion": 0
+        },
+        "pendingInputRequest": null,
+        "editAugments": {}
+      },
+      "timestampOffset": 45480
+    },
+    {
+      "method": "GET",
+      "url": "/api/projects/L3RtcC9nb2xkZW4tZml4dHVyZXM/sessions/37c0490a-00d2-4b10-a3df-acea259f06a0",
+      "body": null,
+      "response": {
+        "session": {
+          "id": "37c0490a-00d2-4b10-a3df-acea259f06a0",
+          "projectId": "L3RtcC9nb2xkZW4tZml4dHVyZXM",
+          "title": null,
+          "createdAt": "2026-01-05T15:59:24.700Z",
+          "updatedAt": "2026-01-05T15:59:24.700Z",
+          "messageCount": 1,
+          "status": {
+            "state": "owned",
+            "processId": "498173d8-f85a-42d5-8dcc-bedf02e071fc",
+            "permissionMode": "default",
+            "modeVersion": 0
+          },
+          "messages": [
+            {
+              "id": "a31f6558-c0a3-4287-9905-3f9fc8e97063",
+              "type": "user",
+              "role": "user",
+              "content": "give me a sample markdown document",
+              "timestamp": "2026-01-05T15:59:24.700Z"
+            }
+          ],
+          "hasUnread": true
+        },
+        "messages": [
+          {
+            "id": "a31f6558-c0a3-4287-9905-3f9fc8e97063",
+            "type": "user",
+            "role": "user",
+            "content": "give me a sample markdown document",
+            "timestamp": "2026-01-05T15:59:24.700Z"
+          }
+        ],
+        "status": {
+          "state": "owned",
+          "processId": "498173d8-f85a-42d5-8dcc-bedf02e071fc",
+          "permissionMode": "default",
+          "modeVersion": 0
+        },
+        "pendingInputRequest": null,
+        "editAugments": {}
+      },
+      "timestampOffset": 45481
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox?projectId=L3RtcC9nb2xkZW4tZml4dHVyZXM",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [],
+        "unread8h": [],
+        "unread24h": []
+      },
+      "timestampOffset": 45953
+    },
+    {
+      "method": "POST",
+      "url": "/api/sessions/37c0490a-00d2-4b10-a3df-acea259f06a0/mark-seen",
+      "body": {
+        "timestamp": "2026-01-05T15:59:24.700Z"
+      },
+      "response": {
+        "marked": true
+      },
+      "timestampOffset": 48492
+    },
+    {
+      "method": "GET",
+      "url": "/api/inbox?projectId=L3RtcC9nb2xkZW4tZml4dHVyZXM",
+      "body": null,
+      "response": {
+        "needsAttention": [],
+        "active": [],
+        "recentActivity": [],
+        "unread8h": [],
+        "unread24h": []
+      },
+      "timestampOffset": 49068
+    }
+  ],
+  "sseEvents": []
+}
