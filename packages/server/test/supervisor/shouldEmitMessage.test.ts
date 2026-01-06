@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { shouldEmitMessage } from "../../src/supervisor/Process.js";
 import type { SDKMessage } from "../../src/sdk/types.js";
+import { shouldEmitMessage } from "../../src/supervisor/Process.js";
 
 /**
  * Tests for shouldEmitMessage to prevent regression of the tool_result bug.

@@ -270,16 +270,10 @@ describe("useStreamingMarkdown integration", () => {
       console.log(`Streaming ${chunks.length} character chunks...`);
 
       // Simulate rapid chunk delivery
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i]!;
+      for (const chunk of chunks) {
         act(() => {
           result.current.onPending({ html: chunk });
         });
-
-        // Log every 10 chunks
-        if (i % 10 === 0) {
-          console.log(`  Chunk ${i}: "${chunk.substring(0, 30)}..."`);
-        }
       }
 
       logDOMState("After all pending chunks");
@@ -348,7 +342,7 @@ describe("useStreamingMarkdown integration", () => {
         // Show pending preview
         act(() => {
           result.current.onPending({
-            html: block.html.replace(/<[^>]+>/g, "").substring(0, 20) + "...",
+            html: `${block.html.replace(/<[^>]+>/g, "").substring(0, 20)}...`,
           });
         });
 
@@ -375,9 +369,9 @@ describe("useStreamingMarkdown integration", () => {
       // Verify all blocks are in correct order
       for (let i = 0; i < blocks.length; i++) {
         const child = container.children[i] as HTMLElement;
-        const block = blocks[i]!;
-        expect(child.dataset.blockIndex).toBe(String(block.index));
-        expect(child.innerHTML).toBe(block.html);
+        const block = blocks[i];
+        expect(child.dataset.blockIndex).toBe(String(block?.index));
+        expect(child.innerHTML).toBe(block?.html);
       }
 
       console.log("=== SCENARIO 5 COMPLETE ===\n");

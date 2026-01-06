@@ -13,11 +13,6 @@ import {
 } from "./augment-generator.js";
 import { BlockDetector } from "./block-detector.js";
 
-export interface MarkdownAugment {
-  /** Pre-rendered HTML with shiki syntax highlighting */
-  html: string;
-}
-
 /**
  * Default configuration for the AugmentGenerator.
  * Should match the streaming coordinator config.

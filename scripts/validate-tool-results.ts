@@ -189,7 +189,8 @@ async function validateFile(
     stats.toolResultLines++;
 
     // Try to determine tool name
-    let toolName = extractToolName(data) || inferToolFromResult(toolUseResult);
+    const toolName =
+      extractToolName(data) || inferToolFromResult(toolUseResult);
 
     // Apply filter if specified
     if (options.toolFilter && toolName !== options.toolFilter) continue;
@@ -289,9 +290,7 @@ function printStats(stats: ValidationStats) {
       const total = counts.valid + counts.invalid + counts.unknown;
       const status = counts.invalid > 0 ? "✗" : counts.unknown > 0 ? "?" : "✓";
       console.log(
-        `  ${status} ${tool}: ${counts.valid}/${total} valid` +
-          (counts.invalid > 0 ? ` (${counts.invalid} invalid)` : "") +
-          (counts.unknown > 0 ? ` (${counts.unknown} unknown)` : ""),
+        `  ${status} ${tool}: ${counts.valid}/${total} valid${counts.invalid > 0 ? ` (${counts.invalid} invalid)` : ""}${counts.unknown > 0 ? ` (${counts.unknown} unknown)` : ""}`,
       );
     }
   }
@@ -325,7 +324,7 @@ function printErrors(errors: ValidationError[], limit = 20) {
     // Show a snippet of the result
     const resultStr = JSON.stringify(example.result);
     console.log(
-      `     Result: ${resultStr.length > 100 ? resultStr.slice(0, 100) + "..." : resultStr}`,
+      `     Result: ${resultStr.length > 100 ? `${resultStr.slice(0, 100)}...` : resultStr}`,
     );
     console.log("");
   }

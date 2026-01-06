@@ -14,6 +14,7 @@ function getServerPort(): number {
 
 // Extend base test with dynamic baseURL
 export const test = base.extend({
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright fixture pattern requires empty destructure
   baseURL: async ({}, use) => {
     const port = getServerPort();
     await use(`http://localhost:${port}`);

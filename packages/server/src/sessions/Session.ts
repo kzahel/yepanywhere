@@ -13,12 +13,12 @@
  */
 
 import {
+  type AppSessionSummary,
   SessionView,
   type UrlProjectId,
-  type AppSessionSummary,
 } from "@yep-anywhere/shared";
-import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { ISessionIndexService } from "../indexes/types.js";
+import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { ISessionReader } from "./types.js";
 
 /**

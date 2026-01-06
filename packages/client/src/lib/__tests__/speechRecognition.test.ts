@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  type SpeechResult,
   computeSpeechDelta,
   processSpeechResults,
-  type SpeechResult,
 } from "../speechRecognition";
 
 describe("processSpeechResults", () => {

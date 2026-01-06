@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import type { AppSessionSummary } from "@yep-anywhere/shared";
-import { Session, type SessionDeps } from "../../src/sessions/Session.js";
-import { SessionReader } from "../../src/sessions/reader.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+import { Session, type SessionDeps } from "../../src/sessions/Session.js";
+import { SessionReader } from "../../src/sessions/reader.js";
 
 describe("Session", () => {
   let testDir: string;
@@ -74,10 +74,10 @@ describe("Session", () => {
       const session = await Session.load("session-456", projectId, deps);
 
       expect(session).not.toBeNull();
-      expect(session!.id).toBe("session-456");
-      expect(session!.autoTitle).toBe("Hello, help me with this task");
-      expect(session!.displayTitle).toBe("Hello, help me with this task");
-      expect(session!.projectId).toBe(projectId);
+      expect(session?.id).toBe("session-456");
+      expect(session?.autoTitle).toBe("Hello, help me with this task");
+      expect(session?.displayTitle).toBe("Hello, help me with this task");
+      expect(session?.projectId).toBe(projectId);
     });
 
     it("loads session with custom title from metadata", async () => {
@@ -87,9 +87,9 @@ describe("Session", () => {
       const session = await Session.load("session-789", projectId, deps);
 
       expect(session).not.toBeNull();
-      expect(session!.autoTitle).toBe("Original prompt");
-      expect(session!.customTitle).toBe("My renamed session");
-      expect(session!.displayTitle).toBe("My renamed session");
+      expect(session?.autoTitle).toBe("Original prompt");
+      expect(session?.customTitle).toBe("My renamed session");
+      expect(session?.displayTitle).toBe("My renamed session");
     });
 
     it("loads session with archived status", async () => {
@@ -99,7 +99,7 @@ describe("Session", () => {
       const session = await Session.load("session-archived", projectId, deps);
 
       expect(session).not.toBeNull();
-      expect(session!.isArchived).toBe(true);
+      expect(session?.isArchived).toBe(true);
     });
 
     it("loads session with starred status", async () => {
@@ -109,7 +109,7 @@ describe("Session", () => {
       const session = await Session.load("session-starred", projectId, deps);
 
       expect(session).not.toBeNull();
-      expect(session!.isStarred).toBe(true);
+      expect(session?.isStarred).toBe(true);
     });
 
     it("returns null for non-existent session", async () => {
@@ -124,10 +124,10 @@ describe("Session", () => {
       const session = await Session.load("session-full", projectId, deps);
 
       expect(session).not.toBeNull();
-      expect(session!.createdAt).toBeDefined();
-      expect(session!.updatedAt).toBeDefined();
-      expect(session!.messageCount).toBe(1);
-      expect(session!.status).toEqual({ state: "idle" });
+      expect(session?.createdAt).toBeDefined();
+      expect(session?.updatedAt).toBeDefined();
+      expect(session?.messageCount).toBe(1);
+      expect(session?.status).toEqual({ state: "idle" });
     });
   });
 
@@ -171,7 +171,7 @@ describe("Session", () => {
       await createSessionFile("session-rename", "Original");
       const session = await Session.load("session-rename", projectId, deps);
 
-      await session!.rename("New custom name");
+      await session?.rename("New custom name");
 
       // Verify it was persisted
       expect(metadataService.getMetadata("session-rename")?.customTitle).toBe(
@@ -184,7 +184,7 @@ describe("Session", () => {
       await metadataService.setTitle("session-clear", "Had a name");
       const session = await Session.load("session-clear", projectId, deps);
 
-      await session!.rename(undefined);
+      await session?.rename(undefined);
 
       expect(
         metadataService.getMetadata("session-clear")?.customTitle,
@@ -196,7 +196,7 @@ describe("Session", () => {
       await metadataService.setTitle("session-empty", "Had a name");
       const session = await Session.load("session-empty", projectId, deps);
 
-      await session!.rename("");
+      await session?.rename("");
 
       expect(metadataService.getMetadata("session-empty")).toBeUndefined();
     });
@@ -207,7 +207,7 @@ describe("Session", () => {
       await createSessionFile("session-archive", "Prompt");
       const session = await Session.load("session-archive", projectId, deps);
 
-      await session!.setArchived(true);
+      await session?.setArchived(true);
 
       expect(metadataService.getMetadata("session-archive")?.isArchived).toBe(
         true,
@@ -219,7 +219,7 @@ describe("Session", () => {
       await metadataService.setArchived("session-unarchive", true);
       const session = await Session.load("session-unarchive", projectId, deps);
 
-      await session!.setArchived(false);
+      await session?.setArchived(false);
 
       expect(metadataService.getMetadata("session-unarchive")).toBeUndefined();
     });
@@ -230,7 +230,7 @@ describe("Session", () => {
       await createSessionFile("session-star", "Prompt");
       const session = await Session.load("session-star", projectId, deps);
 
-      await session!.setStarred(true);
+      await session?.setStarred(true);
 
       expect(metadataService.getMetadata("session-star")?.isStarred).toBe(true);
     });
@@ -240,7 +240,7 @@ describe("Session", () => {
       await metadataService.setStarred("session-unstar", true);
       const session = await Session.load("session-unstar", projectId, deps);
 
-      await session!.setStarred(false);
+      await session?.setStarred(false);
 
       expect(metadataService.getMetadata("session-unstar")).toBeUndefined();
     });
@@ -255,11 +255,11 @@ describe("Session", () => {
       await metadataService.setTitle("session-refresh", "Updated name");
 
       // Refresh should pick up the change
-      const refreshed = await session!.refresh();
+      const refreshed = await session?.refresh();
 
       expect(refreshed).not.toBeNull();
-      expect(refreshed!.customTitle).toBe("Updated name");
-      expect(refreshed!.displayTitle).toBe("Updated name");
+      expect(refreshed?.customTitle).toBe("Updated name");
+      expect(refreshed?.displayTitle).toBe("Updated name");
     });
 
     it("invalidates cache and re-reads from disk", async () => {
@@ -275,10 +275,10 @@ describe("Session", () => {
       });
       await writeFile(join(sessionDir, "session-cache.jsonl"), `${newJsonl}\n`);
 
-      const refreshed = await session!.refresh();
+      const refreshed = await session?.refresh();
 
       expect(refreshed).not.toBeNull();
-      expect(refreshed!.autoTitle).toBe("Updated prompt");
+      expect(refreshed?.autoTitle).toBe("Updated prompt");
     });
   });
 
@@ -287,7 +287,7 @@ describe("Session", () => {
       await createSessionFile("session-auto", "My auto title");
       const session = await Session.load("session-auto", projectId, deps);
 
-      expect(session!.getAutoTitle()).toBe("My auto title");
+      expect(session?.getAutoTitle()).toBe("My auto title");
     });
   });
 
@@ -299,7 +299,7 @@ describe("Session", () => {
       await metadataService.setStarred("session-json", true);
 
       const session = await Session.load("session-json", projectId, deps);
-      const json = session!.toJSON();
+      const json = session?.toJSON();
 
       expect(json.id).toBe("session-json");
       expect(json.projectId).toBe(projectId);
@@ -321,14 +321,14 @@ describe("Session", () => {
       await metadataService.setTitle("session-has-custom", "Custom");
       const session = await Session.load("session-has-custom", projectId, deps);
 
-      expect(session!.hasCustomTitle).toBe(true);
+      expect(session?.hasCustomTitle).toBe(true);
     });
 
     it("hasCustomTitle returns false when no customTitle", async () => {
       await createSessionFile("session-no-custom", "Prompt");
       const session = await Session.load("session-no-custom", projectId, deps);
 
-      expect(session!.hasCustomTitle).toBe(false);
+      expect(session?.hasCustomTitle).toBe(false);
     });
 
     it("tooltipTitle returns fullTitle", async () => {
@@ -338,16 +338,16 @@ describe("Session", () => {
       );
       const session = await Session.load("session-tooltip", projectId, deps);
 
-      expect(session!.tooltipTitle).toBe("This is a longer prompt for tooltip");
+      expect(session?.tooltipTitle).toBe("This is a longer prompt for tooltip");
     });
 
     it("isIdle returns true for idle sessions", async () => {
       await createSessionFile("session-idle", "Prompt");
       const session = await Session.load("session-idle", projectId, deps);
 
-      expect(session!.isIdle).toBe(true);
-      expect(session!.isActive).toBe(false);
-      expect(session!.isExternal).toBe(false);
+      expect(session?.isIdle).toBe(true);
+      expect(session?.isActive).toBe(false);
+      expect(session?.isExternal).toBe(false);
     });
 
     it("needsAttention reflects unread and pending state", () => {

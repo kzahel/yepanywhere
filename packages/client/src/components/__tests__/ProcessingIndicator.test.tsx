@@ -5,11 +5,17 @@ import { ProcessingIndicator } from "../ProcessingIndicator";
 describe("ProcessingIndicator", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // Mock localStorage for useFunPhrases hook - disable fun phrases for predictable tests
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn().mockReturnValue("false"),
+      setItem: vi.fn(),
+    });
   });
 
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("renders nothing when not processing", () => {

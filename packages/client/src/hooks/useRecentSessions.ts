@@ -37,7 +37,9 @@ function setRecentSessionsToStorage(entries: RecentSessionEntry[]): void {
     console.error("Failed to save recent sessions:", e);
   }
   // Notify subscribers
-  listeners.forEach((listener) => listener());
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 // External store pattern for useSyncExternalStore

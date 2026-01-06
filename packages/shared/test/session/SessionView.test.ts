@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import {
-  SessionView,
-  getSessionDisplayTitle,
-  SESSION_TITLE_MAX_LENGTH,
-} from "../../src/session/SessionView.js";
 import type {
-  AppSessionSummary,
   AppSessionStatus,
+  AppSessionSummary,
 } from "../../src/app-types.js";
 import type { UrlProjectId } from "../../src/projectId.js";
+import {
+  SESSION_TITLE_MAX_LENGTH,
+  SessionView,
+  getSessionDisplayTitle,
+} from "../../src/session/SessionView.js";
 
 // Helper to create a minimal valid SessionView for testing
 function createView(
@@ -39,8 +39,10 @@ function createView(
   return new SessionView(
     overrides.id ?? "session-123",
     overrides.projectId ?? ("project-123" as UrlProjectId),
-    "autoTitle" in overrides ? overrides.autoTitle! : "Auto title",
-    "fullTitle" in overrides ? overrides.fullTitle! : "Full auto title",
+    "autoTitle" in overrides ? (overrides.autoTitle as string) : "Auto title",
+    "fullTitle" in overrides
+      ? (overrides.fullTitle as string)
+      : "Full auto title",
     overrides.customTitle,
     overrides.createdAt ?? "2024-01-01T00:00:00Z",
     overrides.updatedAt ?? "2024-01-02T00:00:00Z",

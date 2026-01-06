@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ModelInfo } from "@yep-anywhere/shared";
 import {
   type SDKMessage as AgentSDKMessage,
   type CanUseTool as SDKCanUseTool,
   query,
 } from "@anthropic-ai/claude-agent-sdk";
+import type { ModelInfo } from "@yep-anywhere/shared";
 import { logSDKMessage } from "../messageLogger.js";
 import { MessageQueue } from "../messageQueue.js";
 import type { ContentBlock, SDKMessage } from "../types.js";

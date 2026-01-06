@@ -437,21 +437,20 @@ export class SessionIndexService implements ISessionIndexService {
         };
         await this.saveIndex(sessionDir);
         return summary.title;
-      } else {
-        // Empty session - cache it to avoid re-parsing
-        index.sessions[sessionId] = {
-          title: null,
-          fullTitle: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          messageCount: 0,
-          indexedBytes: size,
-          fileMtime: mtime,
-          isEmpty: true,
-          provider: DEFAULT_PROVIDER,
-        };
-        await this.saveIndex(sessionDir);
       }
+      // Empty session - cache it to avoid re-parsing
+      index.sessions[sessionId] = {
+        title: null,
+        fullTitle: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messageCount: 0,
+        indexedBytes: size,
+        fileMtime: mtime,
+        isEmpty: true,
+        provider: DEFAULT_PROVIDER,
+      };
+      await this.saveIndex(sessionDir);
     } catch {
       // File error - return null
     }

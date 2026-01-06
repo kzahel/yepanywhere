@@ -8,7 +8,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ModelInfo } from "@yep-anywhere/shared";
 import {
   Codex,
   type CodexOptions,
@@ -17,6 +16,7 @@ import {
   type ThreadItem,
   type ThreadOptions,
 } from "@openai/codex-sdk";
+import type { ModelInfo } from "@yep-anywhere/shared";
 import { getLogger } from "../../logging/logger.js";
 import { MessageQueue } from "../messageQueue.js";
 import type { SDKMessage, UserMessage } from "../types.js";

@@ -12,7 +12,8 @@
       "dist",
       "*.d.ts",
       "claude-vscode-extension",
-      "docs/tasks"
+      "docs/tasks",
+      "branding"
     ]
   },
   "formatter": {

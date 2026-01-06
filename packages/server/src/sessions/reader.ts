@@ -2,8 +2,8 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type AgentStatus,
-  type UrlProjectId,
   SESSION_TITLE_MAX_LENGTH,
+  type UrlProjectId,
   isIdeMetadata,
   stripIdeMetadata,
 } from "@yep-anywhere/shared";

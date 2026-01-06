@@ -126,7 +126,7 @@ function validateTarget(target: ValidationTarget): {
   console.log(`${target.label}: ${target.path}\n`);
 
   if (!fs.existsSync(target.path)) {
-    console.log(`  Path does not exist, skipping.`);
+    console.log("  Path does not exist, skipping.");
     return { totalFiles: 0, totalLines: 0, totalValid: 0, errors: [] };
   }
 
@@ -138,7 +138,7 @@ function validateTarget(target: ValidationTarget): {
   }
 
   if (files.length === 0) {
-    console.log(`  No .jsonl files found.`);
+    console.log("  No .jsonl files found.");
     return { totalFiles: 0, totalLines: 0, totalValid: 0, errors: [] };
   }
 

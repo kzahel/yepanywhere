@@ -1011,6 +1011,7 @@ export function useSession(
       updateStreamingMessage,
       throttledUpdateStreamingMessage,
       streamingMarkdownCallbacks,
+      removePendingMessage,
     ],
   );
 
