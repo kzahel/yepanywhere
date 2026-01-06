@@ -96,12 +96,14 @@ function processMessage(
     }
     // Assistant message with string content - convert to text block
     if (content.trim()) {
+      const messageHtml = (msg as { _html?: string })._html;
       items.push({
         type: "text",
         id: msgId,
         text: content,
         sourceMessages: [msg],
         isSubagent: msg.isSubagent,
+        augmentHtml: messageHtml ?? augments?.markdown?.[msgId]?.html,
       });
     }
     return;

@@ -429,16 +429,22 @@ export class CodexSessionReader implements ISessionReader {
         entry.payload.type === "token_count"
       ) {
         const info = entry.payload.info;
-        if (info?.total_token_usage) {
+        if (info?.last_token_usage || info?.total_token_usage) {
+          const usage = info.last_token_usage ?? info.total_token_usage;
+          if (!usage) continue;
           const inputTokens =
-            info.total_token_usage.input_tokens +
-            (info.total_token_usage.cached_input_tokens ?? 0);
+            usage.input_tokens + (usage.cached_input_tokens ?? 0);
 
           if (inputTokens === 0) continue;
 
           const contextWindow =
-            info.model_context_window ?? CONTEXT_WINDOW_SIZE;
-          const percentage = Math.round((inputTokens / contextWindow) * 100);
+            info.model_context_window && info.model_context_window > 0
+              ? info.model_context_window
+              : CONTEXT_WINDOW_SIZE;
+          const percentage = Math.min(
+            100,
+            Math.round((inputTokens / contextWindow) * 100),
+          );
 
           return { inputTokens, percentage };
         }

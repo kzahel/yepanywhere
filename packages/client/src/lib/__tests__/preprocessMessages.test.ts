@@ -156,6 +156,53 @@ describe("preprocessMessages", () => {
     });
   });
 
+  it("attaches markdown augment to assistant string content", () => {
+    const messages: Message[] = [
+      {
+        id: "msg-1",
+        type: "assistant",
+        content: "Hello **world**",
+        _html: "<p>Hello <strong>world</strong></p>",
+        timestamp: "2024-01-01T00:00:00Z",
+      },
+    ];
+
+    const items = preprocessMessages(messages);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      type: "text",
+      id: "msg-1",
+      text: "Hello **world**",
+      augmentHtml: "<p>Hello <strong>world</strong></p>",
+    });
+  });
+
+  it("falls back to markdown augment map for assistant string content", () => {
+    const messages: Message[] = [
+      {
+        id: "msg-1",
+        type: "assistant",
+        content: "Hello **world**",
+        timestamp: "2024-01-01T00:00:00Z",
+      },
+    ];
+
+    const items = preprocessMessages(messages, {
+      markdown: {
+        "msg-1": { html: "<p>Hello <strong>world</strong></p>" },
+      },
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      type: "text",
+      id: "msg-1",
+      text: "Hello **world**",
+      augmentHtml: "<p>Hello <strong>world</strong></p>",
+    });
+  });
+
   it("marks tool result as error when is_error is true", () => {
     const messages: Message[] = [
       {

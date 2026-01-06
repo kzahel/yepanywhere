@@ -500,31 +500,35 @@ export function createStreamRoutes(deps: StreamDeps): Hono {
                 const innerMessage = msg.message as
                   | { content?: unknown }
                   | undefined;
-                const content = innerMessage?.content;
-                if (Array.isArray(content)) {
+                const content = innerMessage?.content ?? msg.content;
+                let textToRender: string | null = null;
+                if (typeof content === "string") {
+                  textToRender = content.trim() ? content : null;
+                } else if (Array.isArray(content)) {
                   const textBlock = content.find(
                     (b): b is { type: "text"; text: string } =>
                       b?.type === "text" &&
                       typeof b.text === "string" &&
                       b.text.trim() !== "",
                   );
-                  if (textBlock) {
-                    try {
-                      const html = await renderMarkdownToHtml(textBlock.text);
-                      await stream.writeSSE({
-                        id: String(eventId++),
-                        event: "markdown-augment",
-                        data: JSON.stringify({
-                          messageId: msg.uuid,
-                          html,
-                        }),
-                      });
-                    } catch (err) {
-                      log.warn(
-                        { err, sessionId, uuid: msg.uuid },
-                        "Failed to render final markdown augment",
-                      );
-                    }
+                  textToRender = textBlock?.text ?? null;
+                }
+                if (textToRender) {
+                  try {
+                    const html = await renderMarkdownToHtml(textToRender);
+                    await stream.writeSSE({
+                      id: String(eventId++),
+                      event: "markdown-augment",
+                      data: JSON.stringify({
+                        messageId: msg.uuid,
+                        html,
+                      }),
+                    });
+                  } catch (err) {
+                    log.warn(
+                      { err, sessionId, uuid: msg.uuid },
+                      "Failed to render final markdown augment",
+                    );
                   }
                 }
               }

@@ -111,6 +111,20 @@ export async function augmentTextBlocks(
 
     // Get content from nested message object (SDK structure) or top-level
     const content = msg.message?.content ?? msg.content;
+    if (typeof content === "string") {
+      if (!content.trim()) return;
+      try {
+        const html = await renderMarkdownToHtml(content);
+        (msg as { _html?: string })._html = html;
+        if (msg.message && typeof msg.message === "object") {
+          (msg.message as { _html?: string })._html = html;
+        }
+      } catch {
+        // Skip content that fails to render
+      }
+      return;
+    }
+
     if (!Array.isArray(content)) return;
 
     // Process all text blocks in the message
