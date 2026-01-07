@@ -355,6 +355,8 @@ export class GeminiProvider implements AgentProvider {
         });
 
         let lastStats: GeminiStats | undefined;
+        let assistantContentBuffer: string | null = null;
+        let assistantBufferTimestamp: string | null = null;
 
         for await (const line of rl) {
           if (signal.aborted) break;
@@ -376,6 +378,36 @@ export class GeminiProvider implements AgentProvider {
             lastStats = result.stats;
           }
 
+          // Buffer assistant messages to combine fragments
+          if (event.type === "message") {
+            const msg = event as GeminiMessageEvent;
+            if (msg.role === "assistant") {
+              if (assistantContentBuffer === null) {
+                assistantContentBuffer = "";
+                // Capture timestamp of the first fragment
+                assistantBufferTimestamp = msg.timestamp ?? null;
+              }
+              assistantContentBuffer += msg.content;
+              // Continue to next line without yielding - we'll yield when we see a non-assistant message or end of stream
+              continue;
+            }
+          }
+
+          // If we had a buffered assistant message, flush it now
+          if (assistantContentBuffer !== null) {
+            yield {
+              type: "assistant",
+              session_id: currentSessionId,
+              timestamp: assistantBufferTimestamp ?? new Date().toISOString(),
+              message: {
+                role: "assistant",
+                content: assistantContentBuffer,
+              },
+            } as SDKMessage;
+            assistantContentBuffer = null;
+            assistantBufferTimestamp = null;
+          }
+
           // Convert Gemini event to SDKMessage
           const sdkMessage = this.convertEventToSDKMessage(
             event,
@@ -385,6 +417,19 @@ export class GeminiProvider implements AgentProvider {
           if (sdkMessage) {
             yield sdkMessage;
           }
+        }
+
+        // Flush any remaining buffered assistant message after stream ends
+        if (assistantContentBuffer !== null) {
+          yield {
+            type: "assistant",
+            session_id: currentSessionId,
+            timestamp: assistantBufferTimestamp ?? new Date().toISOString(),
+            message: {
+              role: "assistant",
+              content: assistantContentBuffer,
+            },
+          } as SDKMessage;
         }
 
         // Wait for process to exit
