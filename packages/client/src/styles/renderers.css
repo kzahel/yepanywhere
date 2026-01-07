@@ -2200,6 +2200,15 @@ details[open] .collapsible__icon {
   font-size: var(--font-size-lg);
 }
 
+/* Collapsible wrapper for ExitPlanMode */
+.exitplan-collapsible {
+  margin: var(--space-1) 0;
+}
+
+.exitplan-collapsible .collapsible__content {
+  padding-left: 0;
+}
+
 /* Inline plan content - styled like regular chat text */
 .exitplan-inline {
   font-size: var(--font-size-lg);

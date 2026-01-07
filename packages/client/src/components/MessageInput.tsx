@@ -65,6 +65,10 @@ interface Props {
   onRemoveAttachment?: (id: string) => void;
   /** Progress info for in-flight uploads */
   uploadProgress?: UploadProgress[];
+  /** Whether the provider supports permission modes (default: true) */
+  supportsPermissionMode?: boolean;
+  /** Whether the provider supports thinking toggle (default: true) */
+  supportsThinkingToggle?: boolean;
 }
 
 export function MessageInput({
@@ -89,6 +93,8 @@ export function MessageInput({
   onAttach,
   onRemoveAttachment,
   uploadProgress = [],
+  supportsPermissionMode = true,
+  supportsThinkingToggle = true,
 }: Props) {
   const [text, setText, controls] = useDraftPersistence(draftKey);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -340,6 +346,8 @@ export function MessageInput({
             isModePending={isModePending}
             isHeld={isHeld}
             onHoldChange={onHoldChange}
+            supportsPermissionMode={supportsPermissionMode}
+            supportsThinkingToggle={supportsThinkingToggle}
             canAttach={canAttach}
             attachmentCount={attachments.length}
             onAttachClick={() => fileInputRef.current?.click()}

@@ -20,6 +20,30 @@ interface ExitPlanModeResultWithHtml extends ExitPlanModeResult {
   _renderedHtml?: string;
 }
 
+/** Renders the plan content (markdown or plain text) */
+function PlanContent({
+  plan,
+  renderedHtml,
+}: { plan?: string; renderedHtml?: string }) {
+  if (renderedHtml) {
+    // Server-rendered HTML with shiki syntax highlighting
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered markdown is safe
+    return <div dangerouslySetInnerHTML={{ __html: renderedHtml }} />;
+  }
+
+  if (DISABLE_CLIENT_MARKDOWN) {
+    // Plain text fallback when client markdown is disabled
+    return (
+      <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+        {plan}
+      </pre>
+    );
+  }
+
+  // Fallback to client-side markdown rendering
+  return <Markdown remarkPlugins={[remarkGfm]}>{plan}</Markdown>;
+}
+
 export const exitPlanModeRenderer: ToolRenderer<
   ExitPlanModeInput,
   ExitPlanModeResult
@@ -68,26 +92,22 @@ export const exitPlanModeRenderer: ToolRenderer<
       return null;
     }
 
-    // Show the plan content (works for both pending and complete states)
-    // Prefer server-rendered HTML if available for consistent styling
+    // Wrap in collapsible details element - collapsed by default
+    // Uses the same styling as ThinkingBlock for consistency
     return (
-      <div
-        className={`exitplan-inline ${status === "pending" ? "pending" : ""}`}
-      >
-        {renderedHtml ? (
-          // Server-rendered HTML with shiki syntax highlighting
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered markdown is safe
-          <div dangerouslySetInnerHTML={{ __html: renderedHtml }} />
-        ) : DISABLE_CLIENT_MARKDOWN ? (
-          // Plain text fallback when client markdown is disabled
-          <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
-            {plan}
-          </pre>
-        ) : (
-          // Fallback to client-side markdown rendering
-          <Markdown remarkPlugins={[remarkGfm]}>{plan}</Markdown>
-        )}
-      </div>
+      <details className="exitplan-collapsible collapsible">
+        <summary className="collapsible__summary">
+          <span>{status === "pending" ? "Planning..." : "Plan"}</span>
+          <span className="collapsible__icon">▸</span>
+        </summary>
+        <div className="collapsible__content">
+          <div
+            className={`exitplan-inline ${status === "pending" ? "pending" : ""}`}
+          >
+            <PlanContent plan={plan} renderedHtml={renderedHtml} />
+          </div>
+        </div>
+      </details>
     );
   },
 

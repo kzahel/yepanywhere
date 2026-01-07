@@ -216,21 +216,30 @@ function TextFileResult({
  * Image file result - renders as img tag
  */
 function ImageFileResult({ file }: { file: ImageFile }) {
-  const sizeKB = Math.round(file.originalSize / 1024);
+  const sizeKB = file.originalSize ? Math.round(file.originalSize / 1024) : 0;
+  const { dimensions } = file;
+  const hasDimensions =
+    dimensions?.originalWidth != null && dimensions?.originalHeight != null;
 
   return (
     <div className="read-image-result">
-      <div className="image-info">
-        {file.dimensions.originalWidth}x{file.dimensions.originalHeight} (
-        {sizeKB}
-        KB)
-      </div>
+      {(hasDimensions || sizeKB > 0) && (
+        <div className="image-info">
+          {hasDimensions && (
+            <>
+              {dimensions.originalWidth}x{dimensions.originalHeight}
+            </>
+          )}
+          {hasDimensions && sizeKB > 0 && " "}
+          {sizeKB > 0 && <>({sizeKB}KB)</>}
+        </div>
+      )}
       <img
         className="read-image"
         src={`data:${file.type};base64,${file.base64}`}
         alt="File content"
-        width={file.dimensions.displayWidth}
-        height={file.dimensions.displayHeight}
+        width={dimensions?.displayWidth}
+        height={dimensions?.displayHeight}
       />
     </div>
   );

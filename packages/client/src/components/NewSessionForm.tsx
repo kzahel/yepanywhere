@@ -16,7 +16,11 @@ import { useNavigate } from "react-router-dom";
 import { type UploadedFile, api, uploadFile } from "../api/client";
 import { ENTER_SENDS_MESSAGE } from "../constants";
 import { useDraftPersistence } from "../hooks/useDraftPersistence";
-import { getModelSetting, getThinkingSetting } from "../hooks/useModelSettings";
+import {
+  getModelSetting,
+  getThinkingSetting,
+  useModelSettings,
+} from "../hooks/useModelSettings";
 import {
   getAvailableProviders,
   getDefaultProvider,
@@ -80,7 +84,7 @@ export function NewSessionForm({
   onOptimisticSession,
   autoFocus = true,
   rows = 6,
-  placeholder = "Describe what you'd like Claude to help you with...",
+  placeholder = "Describe what you'd like help with...",
   compact = false,
 }: NewSessionFormProps) {
   const navigate = useNavigate();
@@ -102,15 +106,23 @@ export function NewSessionForm({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const voiceButtonRef = useRef<VoiceInputButtonRef>(null);
 
+  // Thinking toggle state
+  const { thinkingEnabled, toggleThinking, thinkingLevel } = useModelSettings();
+
   // Fetch available providers
   const { providers, loading: providersLoading } = useProviders();
   const availableProviders = getAvailableProviders(providers);
 
-  // Get models for the currently selected provider
+  // Get models and capabilities for the currently selected provider
   const selectedProviderInfo = providers.find(
     (p) => p.name === selectedProvider,
   );
   const availableModels: ModelInfo[] = selectedProviderInfo?.models ?? [];
+  // Default to true for backwards compatibility with providers that don't set these flags
+  const supportsPermissionMode =
+    selectedProviderInfo?.supportsPermissionMode ?? true;
+  const supportsThinkingToggle =
+    selectedProviderInfo?.supportsThinkingToggle ?? true;
 
   // Set default provider when providers load
   useEffect(() => {
@@ -446,6 +458,36 @@ export function NewSessionForm({
             disabled={isStarting}
             className="toolbar-button"
           />
+          {supportsThinkingToggle && (
+            <button
+              type="button"
+              className={`toolbar-button ${thinkingEnabled ? "active" : ""}`}
+              onClick={toggleThinking}
+              disabled={isStarting}
+              title={
+                thinkingEnabled
+                  ? `Extended thinking: ${thinkingLevel}`
+                  : "Enable extended thinking"
+              }
+              aria-pressed={thinkingEnabled}
+              aria-label="Toggle extended thinking"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </button>
+          )}
         </div>
         <button
           type="button"
@@ -591,27 +633,31 @@ export function NewSessionForm({
         </div>
       )}
 
-      {/* Permission Mode Selection */}
-      <div className="new-session-mode-section">
-        <h3>Permission Mode</h3>
-        <div className="mode-options">
-          {MODE_ORDER.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`mode-option ${mode === m ? "selected" : ""}`}
-              onClick={() => handleModeSelect(m)}
-              disabled={isStarting}
-            >
-              <span className={`mode-option-dot mode-${m}`} />
-              <div className="mode-option-content">
-                <span className="mode-option-label">{MODE_LABELS[m]}</span>
-                <span className="mode-option-desc">{MODE_DESCRIPTIONS[m]}</span>
-              </div>
-            </button>
-          ))}
+      {/* Permission Mode Selection - only for providers that support it */}
+      {supportsPermissionMode && (
+        <div className="new-session-mode-section">
+          <h3>Permission Mode</h3>
+          <div className="mode-options">
+            {MODE_ORDER.map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`mode-option ${mode === m ? "selected" : ""}`}
+                onClick={() => handleModeSelect(m)}
+                disabled={isStarting}
+              >
+                <span className={`mode-option-dot mode-${m}`} />
+                <div className="mode-option-content">
+                  <span className="mode-option-label">{MODE_LABELS[m]}</span>
+                  <span className="mode-option-desc">
+                    {MODE_DESCRIPTIONS[m]}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

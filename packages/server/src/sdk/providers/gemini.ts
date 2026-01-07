@@ -84,6 +84,8 @@ interface GeminiSettings {
 export class GeminiProvider implements AgentProvider {
   readonly name = "gemini" as const;
   readonly displayName = "Gemini";
+  readonly supportsPermissionMode = false;
+  readonly supportsThinkingToggle = false;
 
   private readonly geminiPath?: string;
   private readonly timeout: number;

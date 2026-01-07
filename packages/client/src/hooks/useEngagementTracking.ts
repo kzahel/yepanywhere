@@ -44,6 +44,8 @@ interface UseEngagementTrackingOptions {
   updatedAt: string | null;
   /** ISO timestamp of when user last viewed this session */
   lastSeenAt?: string;
+  /** Whether the server reports this session as having unread content */
+  hasUnread?: boolean;
   /** Whether engagement tracking is enabled (e.g., false for external sessions) */
   enabled?: boolean;
 }
@@ -54,6 +56,7 @@ export function useEngagementTracking(options: UseEngagementTrackingOptions) {
     activityAt,
     updatedAt,
     lastSeenAt,
+    hasUnread = false,
     enabled = true,
   } = options;
 
@@ -66,13 +69,16 @@ export function useEngagementTracking(options: UseEngagementTrackingOptions) {
   // Track if component is mounted
   const mountedRef = useRef(true);
 
-  // Check if there's new content to mark as seen
-  // Uses activityAt for triggering (includes SSE activity)
+  // Check if there's content that needs to be marked as seen.
+  // This includes:
+  // 1. New activity since last seen (activityAt > lastSeenAt)
+  // 2. Server reports unread content (hasUnread) - handles edge cases where
+  //    timestamps are equal but content is still considered unread
   const hasNewContent = useCallback(() => {
     if (!activityAt) return false;
     if (!lastSeenAt) return true; // Never seen before
-    return activityAt > lastSeenAt;
-  }, [activityAt, lastSeenAt]);
+    return activityAt > lastSeenAt || hasUnread;
+  }, [activityAt, lastSeenAt, hasUnread]);
 
   // Check if user is actively engaged
   const isEngaged = useCallback(() => {

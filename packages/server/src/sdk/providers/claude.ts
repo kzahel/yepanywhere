@@ -48,6 +48,8 @@ interface ClaudeCredentials {
 export class ClaudeProvider implements AgentProvider {
   readonly name = "claude" as const;
   readonly displayName = "Claude";
+  readonly supportsPermissionMode = true;
+  readonly supportsThinkingToggle = true;
 
   /**
    * Check if Claude SDK is available.

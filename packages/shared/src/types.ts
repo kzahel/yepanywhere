@@ -38,6 +38,10 @@ export interface ProviderInfo {
   user?: { email?: string; name?: string };
   /** Available models for this provider */
   models?: ModelInfo[];
+  /** Whether this provider supports permission modes (default: true for backward compat) */
+  supportsPermissionMode?: boolean;
+  /** Whether this provider supports extended thinking toggle (default: true for backward compat) */
+  supportsThinkingToggle?: boolean;
 }
 
 /**

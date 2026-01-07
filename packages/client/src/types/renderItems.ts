@@ -11,7 +11,8 @@ export type RenderItem =
   | TextItem
   | ThinkingItem
   | ToolCallItem
-  | UserPromptItem;
+  | UserPromptItem
+  | SystemItem;
 
 /** Base fields shared by all render items */
 interface RenderItemBase {
@@ -59,4 +60,11 @@ export interface UserPromptItem extends RenderItemBase {
   type: "user_prompt";
   id: string;
   content: string | ContentBlock[];
+}
+
+export interface SystemItem extends RenderItemBase {
+  type: "system";
+  id: string;
+  subtype: "compact_boundary" | "init" | string;
+  content: string;
 }

@@ -706,6 +706,16 @@ h2 {
   height: 18px;
 }
 
+.toolbar-button.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgb(59, 130, 246);
+  color: rgb(59, 130, 246);
+}
+
+.toolbar-button.active:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.25);
+}
+
 /* Session page layout */
 .session-page {
   display: flex;
@@ -2436,6 +2446,32 @@ a.sidebar-nav-item {
   100% {
     opacity: 0;
   }
+}
+
+/* ==========================================================================
+   System Messages - Context compaction notifications
+   ========================================================================== */
+
+.system-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 8px 0;
+  background: var(--bg-tertiary, #2a2a2a);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-secondary, #6b7280);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.system-message-icon {
+  font-size: 1.1em;
+  opacity: 0.7;
+}
+
+.system-message-text {
+  font-style: italic;
 }
 
 /* ==========================================================================

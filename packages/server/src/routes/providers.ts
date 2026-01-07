@@ -30,6 +30,8 @@ export function createProvidersRoutes(): Hono {
         expiresAt: authStatus.expiresAt?.toISOString(),
         user: authStatus.user,
         models,
+        supportsPermissionMode: provider.supportsPermissionMode,
+        supportsThinkingToggle: provider.supportsThinkingToggle,
       });
     }
 
@@ -59,6 +61,8 @@ export function createProvidersRoutes(): Hono {
       expiresAt: authStatus.expiresAt?.toISOString(),
       user: authStatus.user,
       models,
+      supportsPermissionMode: provider.supportsPermissionMode,
+      supportsThinkingToggle: provider.supportsThinkingToggle,
     };
 
     return c.json({ provider: providerInfo });

@@ -14,6 +14,10 @@ export interface MessageInputToolbarProps {
   isHeld?: boolean;
   onHoldChange?: (held: boolean) => void;
 
+  // Provider capability flags (default to true for backwards compatibility)
+  supportsPermissionMode?: boolean;
+  supportsThinkingToggle?: boolean;
+
   // Attachments
   canAttach?: boolean;
   attachmentCount?: number;
@@ -50,6 +54,8 @@ export function MessageInputToolbar({
   isModePending,
   isHeld,
   onHoldChange,
+  supportsPermissionMode = true,
+  supportsThinkingToggle = true,
   canAttach,
   attachmentCount = 0,
   onAttachClick,
@@ -72,7 +78,7 @@ export function MessageInputToolbar({
   return (
     <div className="message-input-toolbar">
       <div className="message-input-left">
-        {onModeChange && (
+        {onModeChange && supportsPermissionMode && (
           <ModeSelector
             mode={mode}
             onModeChange={onModeChange}
@@ -107,32 +113,34 @@ export function MessageInputToolbar({
             <span className="attach-count">{attachmentCount}</span>
           )}
         </button>
-        <button
-          type="button"
-          className={`thinking-toggle-button ${thinkingEnabled ? "active" : ""}`}
-          onClick={toggleThinking}
-          title={
-            thinkingEnabled
-              ? `Extended thinking: ${thinkingLevel}`
-              : "Enable extended thinking"
-          }
-          aria-pressed={thinkingEnabled}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        {supportsThinkingToggle && (
+          <button
+            type="button"
+            className={`thinking-toggle-button ${thinkingEnabled ? "active" : ""}`}
+            onClick={toggleThinking}
+            title={
+              thinkingEnabled
+                ? `Extended thinking: ${thinkingLevel}`
+                : "Enable extended thinking"
+            }
+            aria-pressed={thinkingEnabled}
           >
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-        </button>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </button>
+        )}
         {voiceButtonRef && onVoiceTranscript && onInterimTranscript && (
           <VoiceInputButton
             ref={voiceButtonRef}

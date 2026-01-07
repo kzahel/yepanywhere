@@ -20,6 +20,7 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import type { DraftControls } from "../hooks/useDraftPersistence";
 import { useEngagementTracking } from "../hooks/useEngagementTracking";
 import { getModelSetting, getThinkingSetting } from "../hooks/useModelSettings";
+import { useProviders } from "../hooks/useProviders";
 import { recordSessionVisit } from "../hooks/useRecentSessions";
 import {
   type StreamingMarkdownCallbacks,
@@ -134,6 +135,18 @@ function SessionPageContent({
   }, []);
   const { showToast } = useToastContext();
 
+  // Get provider capabilities based on session's provider
+  const { providers } = useProviders();
+  const currentProviderInfo = useMemo(() => {
+    if (!session?.provider) return null;
+    return providers.find((p) => p.name === session.provider) ?? null;
+  }, [providers, session?.provider]);
+  // Default to true for backwards compatibility
+  const supportsPermissionMode =
+    currentProviderInfo?.supportsPermissionMode ?? true;
+  const supportsThinkingToggle =
+    currentProviderInfo?.supportsThinkingToggle ?? true;
+
   // Inline title editing state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [renameValue, setRenameValue] = useState("");
@@ -203,6 +216,7 @@ function SessionPageContent({
     activityAt,
     updatedAt: sessionUpdatedAt,
     lastSeenAt: session?.lastSeenAt,
+    hasUnread: session?.hasUnread,
     enabled: status.state !== "external",
   });
 
@@ -778,6 +792,8 @@ function SessionPageContent({
                     isModePending={isModePending}
                     isHeld={isHeld}
                     onHoldChange={setHold}
+                    supportsPermissionMode={supportsPermissionMode}
+                    supportsThinkingToggle={supportsThinkingToggle}
                     contextUsage={session?.contextUsage}
                     isRunning={status.state === "owned"}
                     isThinking={processState === "running"}
@@ -814,6 +830,8 @@ function SessionPageContent({
                 isModePending={isModePending}
                 isHeld={isHeld}
                 onHoldChange={setHold}
+                supportsPermissionMode={supportsPermissionMode}
+                supportsThinkingToggle={supportsThinkingToggle}
                 isRunning={status.state === "owned"}
                 isThinking={processState === "running"}
                 onStop={handleAbort}

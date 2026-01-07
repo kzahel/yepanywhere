@@ -2,6 +2,7 @@ import type { MarkdownAugment } from "@yep-anywhere/shared";
 import type { ContentBlock, Message } from "../types";
 import type {
   RenderItem,
+  SystemItem,
   ToolCallItem,
   ToolResultData,
 } from "../types/renderItems";
@@ -54,6 +55,25 @@ function processMessage(
   augments?: PreprocessAugments,
 ): void {
   const msgId = getMessageId(msg);
+
+  // Handle system entries (compact_boundary, etc.)
+  if (msg.type === "system") {
+    const subtype = (msg as { subtype?: string }).subtype ?? "unknown";
+    // Only render compact_boundary as a visible system message
+    if (subtype === "compact_boundary") {
+      const systemItem: SystemItem = {
+        type: "system",
+        id: msgId,
+        subtype,
+        content:
+          typeof msg.content === "string" ? msg.content : "Context compacted",
+        sourceMessages: [msg],
+      };
+      items.push(systemItem);
+    }
+    // Skip other system entries (init, etc.) - they're internal
+    return;
+  }
 
   // Debug logging for streaming transition issues
   if (

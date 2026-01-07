@@ -64,6 +64,8 @@ interface CodexAuthJson {
 export class CodexProvider implements AgentProvider {
   readonly name = "codex" as const;
   readonly displayName = "Codex";
+  readonly supportsPermissionMode = false;
+  readonly supportsThinkingToggle = false;
 
   private readonly config: CodexProviderConfig;
   private codexInstance: Codex | null = null;

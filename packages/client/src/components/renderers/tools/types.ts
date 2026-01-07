@@ -44,8 +44,8 @@ export interface TextFile {
 export interface ImageFile {
   base64: string;
   type: string; // MIME type
-  originalSize: number;
-  dimensions: {
+  originalSize?: number;
+  dimensions?: {
     originalWidth: number;
     originalHeight: number;
     displayWidth: number;

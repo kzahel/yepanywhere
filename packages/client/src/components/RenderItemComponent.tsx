@@ -71,6 +71,14 @@ export const RenderItemComponent = memo(function RenderItemComponent({
       case "user_prompt":
         return <UserPromptBlock content={item.content} />;
 
+      case "system":
+        return (
+          <div className="system-message">
+            <span className="system-message-icon">⟳</span>
+            <span className="system-message-text">{item.content}</span>
+          </div>
+        );
+
       default:
         return null;
     }

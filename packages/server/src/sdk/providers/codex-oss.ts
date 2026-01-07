@@ -161,6 +161,8 @@ type CodexItem =
 export class CodexOSSProvider implements AgentProvider {
   readonly name = "codex-oss" as const;
   readonly displayName = "CodexOSS";
+  readonly supportsPermissionMode = false;
+  readonly supportsThinkingToggle = false;
 
   private readonly codexPath?: string;
   private readonly localProvider: "ollama" | "lmstudio";

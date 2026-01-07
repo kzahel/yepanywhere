@@ -68,6 +68,10 @@ export interface AgentProvider {
   readonly name: ProviderName;
   /** Human-readable display name */
   readonly displayName: string;
+  /** Whether this provider supports permission modes (default: true) */
+  readonly supportsPermissionMode: boolean;
+  /** Whether this provider supports extended thinking toggle (default: true) */
+  readonly supportsThinkingToggle: boolean;
 
   /**
    * Check if this provider is installed and available.

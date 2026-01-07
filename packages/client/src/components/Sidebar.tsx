@@ -97,6 +97,12 @@ export function Sidebar({
   const [recentSessionsLimit, setRecentSessionsLimit] = useState(
     RECENT_SESSIONS_INITIAL,
   );
+  const [olderSessionsLimit, setOlderSessionsLimit] = useState(
+    RECENT_SESSIONS_INITIAL,
+  );
+  const [starredSessionsLimit, setStarredSessionsLimit] = useState(
+    RECENT_SESSIONS_INITIAL,
+  );
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0]?.clientX ?? null;
@@ -187,12 +193,11 @@ export function Sidebar({
     };
   }, [isResizing, onResize, onResizeEnd]);
 
-  // Starred sessions (sorted with stable sort, limit 10)
+  // Starred sessions (sorted with stable sort)
   const starredSessions = useMemo(() => {
     return sessions
       .filter((s) => s.isStarred && !s.isArchived)
-      .sort(stableSort)
-      .slice(0, 10);
+      .sort(stableSort);
   }, [sessions]);
 
   // Sessions updated in the last 24 hours (non-starred, non-archived)
@@ -210,7 +215,7 @@ export function Sidebar({
       .sort(stableSort);
   }, [sessions]);
 
-  // Older sessions (non-starred, non-archived, NOT in last 24 hours, limit 10)
+  // Older sessions (non-starred, non-archived, NOT in last 24 hours)
   const olderSessions = useMemo(() => {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     const isOlderThanOneDay = (date: Date) => date.getTime() < oneDayAgo;
@@ -222,8 +227,7 @@ export function Sidebar({
           !s.isArchived &&
           isOlderThanOneDay(new Date(s.updatedAt)),
       )
-      .sort(stableSort)
-      .slice(0, 10);
+      .sort(stableSort);
   }, [sessions]);
 
   // In desktop mode, always render. In mobile mode, only render when open.
@@ -370,19 +374,39 @@ export function Sidebar({
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">Starred</h3>
               <ul className="sidebar-session-list">
-                {starredSessions.map((session) => (
-                  <SessionListItem
-                    key={session.id}
-                    session={session}
-                    projectId={projectId}
-                    mode="compact"
-                    isCurrent={session.id === currentSessionId}
-                    processState={processStates[session.id]}
-                    onNavigate={onNavigate}
-                    hasDraft={sessionDrafts?.has(session.id)}
-                  />
-                ))}
+                {starredSessions
+                  .slice(0, starredSessionsLimit)
+                  .map((session) => (
+                    <SessionListItem
+                      key={session.id}
+                      session={session}
+                      projectId={projectId}
+                      mode="compact"
+                      isCurrent={session.id === currentSessionId}
+                      processState={processStates[session.id]}
+                      onNavigate={onNavigate}
+                      hasDraft={sessionDrafts?.has(session.id)}
+                    />
+                  ))}
               </ul>
+              {starredSessions.length > starredSessionsLimit && (
+                <button
+                  type="button"
+                  className="sidebar-show-more"
+                  onClick={() =>
+                    setStarredSessionsLimit(
+                      (prev) => prev + RECENT_SESSIONS_INCREMENT,
+                    )
+                  }
+                >
+                  Show{" "}
+                  {Math.min(
+                    RECENT_SESSIONS_INCREMENT,
+                    starredSessions.length - starredSessionsLimit,
+                  )}{" "}
+                  more
+                </button>
+              )}
             </div>
           )}
 
@@ -430,7 +454,7 @@ export function Sidebar({
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">Older</h3>
               <ul className="sidebar-session-list">
-                {olderSessions.map((session) => (
+                {olderSessions.slice(0, olderSessionsLimit).map((session) => (
                   <SessionListItem
                     key={session.id}
                     session={session}
@@ -443,6 +467,24 @@ export function Sidebar({
                   />
                 ))}
               </ul>
+              {olderSessions.length > olderSessionsLimit && (
+                <button
+                  type="button"
+                  className="sidebar-show-more"
+                  onClick={() =>
+                    setOlderSessionsLimit(
+                      (prev) => prev + RECENT_SESSIONS_INCREMENT,
+                    )
+                  }
+                >
+                  Show{" "}
+                  {Math.min(
+                    RECENT_SESSIONS_INCREMENT,
+                    olderSessions.length - olderSessionsLimit,
+                  )}{" "}
+                  more
+                </button>
+              )}
             </div>
           )}
 
