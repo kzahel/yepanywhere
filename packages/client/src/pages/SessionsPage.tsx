@@ -1,5 +1,6 @@
 import type { ProviderName } from "@yep-anywhere/shared";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { BulkActionBar } from "../components/BulkActionBar";
 import {
@@ -42,10 +43,63 @@ export function SessionsPage() {
     addOptimisticSession,
   } = useProjectLayout();
 
-  // Filter state: multi-select for status and providers
+  // Filter state managed by URL query parameters
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Search state managed locally
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilters, setStatusFilters] = useState<StatusFilter[]>([]);
-  const [providerFilters, setProviderFilters] = useState<ProviderName[]>([]);
+
+  const statusFilters = useMemo(() => {
+    const param = searchParams.get("status");
+    if (!param) return [];
+    return param
+      .split(",")
+      .filter((s): s is StatusFilter =>
+        ["all", "unread", "starred", "archived"].includes(s),
+      );
+  }, [searchParams]);
+
+  const providerFilters = useMemo(() => {
+    const param = searchParams.get("provider");
+    if (!param) return [];
+
+    // We can't easily validate ProviderName at runtime without the list available at runtime
+    // but assuming it's safe enough to cast for UI filters.
+    const knownProviders = Object.keys(PROVIDER_COLORS);
+    return param
+      .split(",")
+      .filter((p): p is ProviderName => knownProviders.includes(p));
+  }, [searchParams]);
+
+  const setStatusFilters = useCallback(
+    (filters: StatusFilter[]) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (filters.length > 0) {
+          next.set("status", filters.join(","));
+        } else {
+          next.delete("status");
+        }
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const setProviderFilters = useCallback(
+    (filters: ProviderName[]) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (filters.length > 0) {
+          next.set("provider", filters.join(","));
+        } else {
+          next.delete("provider");
+        }
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
   // Selection state for multi-select mode
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -56,6 +110,9 @@ export function SessionsPage() {
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Filter sessions based on search, status, and provider filters
+  // Use the localSearchQuery for immediate feedback, or urlQuery?
+  // If we use localSearchQuery, filtering happens instantly while typing (good).
+  // If we use urlQuery, it lags (bad).
   const filteredSessions = useMemo(() => {
     return sessions.filter((session) => {
       // Status filtering (empty = show all non-archived)
