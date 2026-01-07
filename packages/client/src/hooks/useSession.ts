@@ -10,7 +10,6 @@ import { findPendingTasks } from "../lib/pendingTasks";
 import { extractSessionIdFromFileEvent } from "../lib/sessionFile";
 import { getProvider } from "../providers/registry";
 import type {
-  ContentBlock,
   InputRequest,
   Message,
   PermissionMode,
@@ -23,7 +22,10 @@ import {
   useFileActivity,
 } from "./useFileActivity";
 import { useSSE } from "./useSSE";
-import { getStreamingEnabled } from "./useStreamingEnabled";
+import {
+  type StreamingMarkdownCallbacks,
+  useStreamingContent,
+} from "./useStreamingContent";
 
 export type ProcessState = "idle" | "running" | "waiting-input" | "hold";
 
@@ -43,20 +45,8 @@ export type AgentContentMap = Record<string, AgentContent>;
 
 const THROTTLE_MS = 500;
 
-/** Callbacks for streaming markdown events (augment/pending from SSE) */
-export interface StreamingMarkdownCallbacks {
-  onAugment?: (augment: {
-    blockIndex: number;
-    html: string;
-    type: string;
-    messageId?: string; // For persisting augments to context
-  }) => void;
-  onPending?: (pending: { html: string }) => void;
-  onStreamEnd?: () => void;
-  setCurrentMessageId?: (messageId: string | null) => void;
-  /** Capture the current streaming HTML (call before clearing streaming state) */
-  captureHtml?: () => string | null;
-}
+// Re-export StreamingMarkdownCallbacks for consumers
+export type { StreamingMarkdownCallbacks } from "./useStreamingContent";
 
 /** Pending message waiting for server confirmation */
 export interface PendingMessage {
@@ -198,29 +188,6 @@ export function useSession(
 
   // Track last message ID for incremental fetching
   const lastMessageIdRef = useRef<string | undefined>(undefined);
-
-  // Streaming state: accumulates content from stream_event messages
-  // Key is the message uuid, value is the accumulated content blocks
-  const streamingContentRef = useRef<
-    Map<
-      string,
-      { blocks: ContentBlock[]; isStreaming: boolean; agentId?: string }
-    >
-  >(new Map());
-
-  // Track current streaming message ID (from message_start event)
-  // Each stream_event has its own uuid, but they all belong to the same message
-  const currentStreamingIdRef = useRef<string | null>(null);
-
-  // Track current streaming agentId (if this is a subagent stream)
-  const currentStreamingAgentIdRef = useRef<string | null>(null);
-
-  // Throttle streaming UI updates to avoid overwhelming React with re-renders
-  // Data accumulates in streamingContentRef immediately, but state updates are batched
-  const streamingThrottleRef = useRef<{
-    timer: ReturnType<typeof setTimeout> | null;
-    pendingIds: Set<string>;
-  }>({ timer: null, pendingIds: new Set() });
 
   // Add a message to the pending queue
   // Generates a tempId that will be sent to the server and echoed back in SSE
@@ -485,102 +452,106 @@ export function useSession(
       if (throttleRef.current.timer) {
         clearTimeout(throttleRef.current.timer);
       }
-      if (streamingThrottleRef.current.timer) {
-        clearTimeout(streamingThrottleRef.current.timer);
-      }
     };
   }, []);
 
-  // Update messages with streaming content
-  // Creates or updates a streaming placeholder message with accumulated content
-  // Routes to agentContent if this is a subagent stream
-  const updateStreamingMessage = useCallback((messageId: string) => {
-    const streaming = streamingContentRef.current.get(messageId);
-    if (!streaming) return;
+  // Callback for streaming content updates - routes to main messages or agentContent
+  const handleStreamingUpdate = useCallback(
+    (streamingMessage: Message, agentId?: string) => {
+      const messageId = getMessageId(streamingMessage);
+      if (!messageId) return;
 
-    const streamingMessage: Message = {
-      id: messageId,
-      type: "assistant",
-      role: "assistant",
-      message: {
-        role: "assistant",
-        content: streaming.blocks,
-      },
-      _isStreaming: true, // Marker for rendering
-      _source: "sdk",
-    };
+      if (agentId) {
+        // Route to agentContent
+        setAgentContent((prev) => {
+          const existing = prev[agentId] ?? {
+            messages: [],
+            status: "running" as const,
+          };
+          const existingIdx = existing.messages.findIndex(
+            (m) => getMessageId(m) === messageId,
+          );
 
-    // Route to agentContent if this is a subagent stream
-    if (streaming.agentId) {
-      const agentId = streaming.agentId;
+          if (existingIdx >= 0) {
+            const updated = [...existing.messages];
+            updated[existingIdx] = streamingMessage;
+            return { ...prev, [agentId]: { ...existing, messages: updated } };
+          }
+          return {
+            ...prev,
+            [agentId]: {
+              ...existing,
+              messages: [...existing.messages, streamingMessage],
+            },
+          };
+        });
+        return;
+      }
+
+      // Route to main messages
+      setMessages((prev) => {
+        const existingIdx = prev.findIndex(
+          (m) => getMessageId(m) === messageId,
+        );
+        if (existingIdx >= 0) {
+          const updated = [...prev];
+          updated[existingIdx] = streamingMessage;
+          return updated;
+        }
+        return [...prev, streamingMessage];
+      });
+    },
+    [],
+  );
+
+  // Callback for toolUse→agent mapping
+  const handleToolUseMapping = useCallback(
+    (toolUseId: string, agentId: string) => {
+      setToolUseToAgent((prev) => {
+        if (prev.has(toolUseId)) return prev;
+        const next = new Map(prev);
+        next.set(toolUseId, agentId);
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Callback for agent context usage updates
+  const handleAgentContextUsage = useCallback(
+    (agentId: string, usage: { inputTokens: number; percentage: number }) => {
       setAgentContent((prev) => {
         const existing = prev[agentId] ?? {
           messages: [],
-          status: "running" as const,
+          status: "running",
         };
-        const existingIdx = existing.messages.findIndex(
-          (m) => getMessageId(m) === messageId,
-        );
-
-        if (existingIdx >= 0) {
-          // Update existing
-          const updated = [...existing.messages];
-          updated[existingIdx] = streamingMessage;
-          return {
-            ...prev,
-            [agentId]: { ...existing, messages: updated },
-          };
-        }
-        // Add new
         return {
           ...prev,
-          [agentId]: {
-            ...existing,
-            messages: [...existing.messages, streamingMessage],
-          },
+          [agentId]: { ...existing, contextUsage: usage },
         };
       });
-      return;
-    }
-
-    // Route to main messages
-    setMessages((prev) => {
-      // Find existing streaming message or create new one
-      const existingIdx = prev.findIndex((m) => getMessageId(m) === messageId);
-
-      if (existingIdx >= 0) {
-        // Update existing
-        const updated = [...prev];
-        updated[existingIdx] = streamingMessage;
-        return updated;
-      }
-      // Add new
-      return [...prev, streamingMessage];
-    });
-  }, []);
-
-  // Throttled version of updateStreamingMessage for delta events
-  // Batches rapid updates to reduce React re-renders during streaming
-  const STREAMING_THROTTLE_MS = 50; // Update UI at most every 50ms
-  const throttledUpdateStreamingMessage = useCallback(
-    (messageId: string) => {
-      const throttle = streamingThrottleRef.current;
-      throttle.pendingIds.add(messageId);
-
-      // If no timer running, start one
-      if (!throttle.timer) {
-        throttle.timer = setTimeout(() => {
-          // Flush all pending updates
-          for (const id of throttle.pendingIds) {
-            updateStreamingMessage(id);
-          }
-          throttle.pendingIds.clear();
-          throttle.timer = null;
-        }, STREAMING_THROTTLE_MS);
-      }
     },
-    [updateStreamingMessage],
+    [],
   );
+
+  // Use streaming content hook for handling stream_event SSE messages
+  const {
+    handleStreamEvent,
+    clearStreaming,
+    cleanup: cleanupStreaming,
+  } = useStreamingContent({
+    onUpdateMessage: handleStreamingUpdate,
+    onToolUseMapping: handleToolUseMapping,
+    onAgentContextUsage: handleAgentContextUsage,
+    streamingMarkdownCallbacks,
+  });
+
+  // Cleanup streaming timers on unmount
+  useEffect(() => {
+    return () => {
+      cleanupStreaming();
+    };
+  }, [cleanupStreaming]);
 
   // Subscribe to live updates
   const handleSSEMessage = useCallback(
@@ -611,143 +582,14 @@ export function useSession(
         const msgRole = sdkMessage.role as Message["role"] | undefined;
 
         // Handle stream_event messages (partial content from streaming API)
-        if (msgType === "stream_event" && getStreamingEnabled()) {
-          const event = sdkMessage.event as Record<string, unknown> | undefined;
-          if (!event) return;
-
-          const eventType = event.type as string | undefined;
-
-          // Check if this is a subagent stream (marked by server in stream.ts)
-          // Use parentToolUseId as the routing key (it's the Task tool_use id)
-          const isSubagentStream =
-            sdkMessage.isSubagent &&
-            typeof sdkMessage.parentToolUseId === "string";
-          const streamAgentId = isSubagentStream
-            ? (sdkMessage.parentToolUseId as string)
-            : undefined;
-
-          // Set toolUseToAgent mapping for subagent streams so TaskRenderer can find content
-          if (streamAgentId) {
-            setToolUseToAgent((prev) => {
-              if (prev.has(streamAgentId)) return prev;
-              const next = new Map(prev);
-              next.set(streamAgentId, streamAgentId);
-              return next;
-            });
+        // Delegate to useStreamingContent hook
+        if (msgType === "stream_event") {
+          if (handleStreamEvent(sdkMessage)) {
+            return; // Event was handled, don't process as regular message
           }
-
-          // Handle message_start to capture the message ID for this streaming response
-          // Each stream_event has its own uuid, but they all belong to the same API message
-          if (eventType === "message_start") {
-            const message = event.message as
-              | Record<string, unknown>
-              | undefined;
-            if (message?.id) {
-              currentStreamingIdRef.current = message.id as string;
-              // Also track if this is a subagent stream
-              currentStreamingAgentIdRef.current = streamAgentId ?? null;
-              // Notify streaming markdown context of new message
-              streamingMarkdownCallbacks?.setCurrentMessageId?.(
-                message.id as string,
-              );
-
-              // Extract context usage for subagent progress tracking
-              if (streamAgentId) {
-                const usage = message.usage as
-                  | { input_tokens?: number }
-                  | undefined;
-                if (usage?.input_tokens) {
-                  const inputTokens = usage.input_tokens;
-                  const percentage = (inputTokens / 200000) * 100;
-                  setAgentContent((prev) => {
-                    const existing = prev[streamAgentId] ?? {
-                      messages: [],
-                      status: "running",
-                    };
-                    return {
-                      ...prev,
-                      [streamAgentId]: {
-                        ...existing,
-                        contextUsage: { inputTokens, percentage },
-                      },
-                    };
-                  });
-                }
-              }
-            }
-            return;
-          }
-
-          // Use the captured message ID, or fall back to generating one
-          const streamingId =
-            currentStreamingIdRef.current ?? `stream-${Date.now()}`;
-          // Use tracked agentId, falling back to current message's agentId
-          const agentId = currentStreamingAgentIdRef.current ?? streamAgentId;
-
-          // Handle different stream event types
-          if (eventType === "content_block_start") {
-            // New content block starting
-            const index = event.index as number;
-            const contentBlock = event.content_block as Record<
-              string,
-              unknown
-            > | null;
-            if (contentBlock) {
-              const streaming = streamingContentRef.current.get(
-                streamingId,
-              ) ?? {
-                blocks: [],
-                isStreaming: true,
-                agentId, // Track which agent this stream belongs to
-              };
-              // Ensure array is long enough
-              while (streaming.blocks.length <= index) {
-                streaming.blocks.push({ type: "text", text: "" });
-              }
-              // Initialize the block with its type
-              streaming.blocks[index] = {
-                type: (contentBlock.type as string) ?? "text",
-                text: (contentBlock.text as string) ?? "",
-                thinking: (contentBlock.thinking as string) ?? undefined,
-              };
-              streamingContentRef.current.set(streamingId, streaming);
-              updateStreamingMessage(streamingId);
-            }
-          } else if (eventType === "content_block_delta") {
-            // Content delta - append to existing block
-            // Use throttled updates to avoid overwhelming React with re-renders
-            const index = event.index as number;
-            const delta = event.delta as Record<string, unknown> | null;
-            if (delta) {
-              const streaming = streamingContentRef.current.get(streamingId);
-              if (streaming?.blocks[index]) {
-                const block = streaming.blocks[index];
-                const deltaType = delta.type as string;
-                if (deltaType === "text_delta" && delta.text) {
-                  block.text = (block.text ?? "") + (delta.text as string);
-                } else if (deltaType === "thinking_delta" && delta.thinking) {
-                  block.thinking =
-                    (block.thinking ?? "") + (delta.thinking as string);
-                }
-                throttledUpdateStreamingMessage(streamingId);
-              }
-            }
-          } else if (eventType === "content_block_stop") {
-            // Block complete - nothing special needed, final message will replace
-          } else if (eventType === "message_stop") {
-            // Message complete - clean up streaming ref state
-            // DON'T clear currentStreamingIdRef here - we need it to remove the
-            // streaming placeholder when the final assistant message arrives
-            streamingContentRef.current.delete(streamingId);
-            // Notify streaming markdown context that stream has ended
-            streamingMarkdownCallbacks?.onStreamEnd?.();
-          }
-          return; // Don't process stream_event as a regular message
         }
 
         // For assistant messages, clear streaming state and remove ALL streaming placeholders
-        // Due to race conditions (message_start arriving after content_block_start),
-        // placeholders might have different IDs than currentStreamingIdRef
         if (msgType === "assistant") {
           // Check if this is a subagent message
           // Use parentToolUseId as the routing key (it's the Task tool_use id)
@@ -758,29 +600,8 @@ export function useSession(
             ? (sdkMessage.parentToolUseId as string)
             : undefined;
 
-          // Capture streaming HTML as fallback (if server didn't send final augment)
-          // Server now sends markdown-augment with uuid before assistant message,
-          // so this is only needed as a fallback when streaming succeeded but server augment didn't arrive
-          // DISABLED: Testing server-side approach first
-          // const msgUuid = sdkMessage.uuid as string | undefined;
-          // if (msgUuid && !msgAgentId) {
-          //   const capturedHtml = streamingMarkdownCallbacks?.captureHtml?.();
-          //   if (capturedHtml) {
-          //     setMarkdownAugments((prev) => {
-          //       // Only store if server didn't already send an augment for this message
-          //       if (prev[msgUuid]) return prev;
-          //       return {
-          //         ...prev,
-          //         [msgUuid]: { html: capturedHtml },
-          //       };
-          //     });
-          //   }
-          // }
-
-          // Clear streaming refs for this stream
-          streamingContentRef.current.clear();
-          currentStreamingIdRef.current = null;
-          currentStreamingAgentIdRef.current = null;
+          // Clear streaming state via hook
+          clearStreaming();
 
           if (msgAgentId) {
             // Remove streaming placeholders from this agent's content
@@ -1005,10 +826,10 @@ export function useSession(
     [
       applyServerModeUpdate,
       sessionId,
-      updateStreamingMessage,
-      throttledUpdateStreamingMessage,
-      streamingMarkdownCallbacks,
+      handleStreamEvent,
+      clearStreaming,
       removePendingMessage,
+      streamingMarkdownCallbacks,
     ],
   );
 
