@@ -50,3 +50,7 @@ codex-sample-sessions/
 
 
 packages/client/dist-stable
+
+# Build bundle artifacts (created by pnpm build:bundle)
+packages/server/client-dist/
+packages/server/bundled/
