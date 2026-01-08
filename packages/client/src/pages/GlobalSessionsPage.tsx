@@ -420,15 +420,26 @@ export function GlobalSessionsPage() {
   };
 
   // Handle project filter change
-  const handleProjectFilter = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (e.target.value) {
-      newParams.set("project", e.target.value);
-    } else {
-      newParams.delete("project");
-    }
-    setSearchParams(newParams);
-  };
+  const handleProjectFilter = useCallback(
+    (selected: string[]) => {
+      const newParams = new URLSearchParams(searchParams);
+      if (selected.length > 0 && selected[0]) {
+        newParams.set("project", selected[0]);
+      } else {
+        newParams.delete("project");
+      }
+      setSearchParams(newParams);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Build project filter options
+  const projectOptions = useMemo((): FilterOption<string>[] => {
+    return projects.map((project) => ({
+      value: project.id,
+      label: project.name,
+    }));
+  }, [projects]);
 
   // Clear all filters
   const clearFilters = () => {
@@ -511,26 +522,22 @@ export function GlobalSessionsPage() {
                 </button>
               </form>
               <div className="filter-dropdowns">
-                {projects.length > 0 && (
-                  <select
-                    value={projectFilter || ""}
+                {projectOptions.length > 0 && (
+                  <FilterDropdown
+                    label="Project"
+                    options={projectOptions}
+                    selected={projectFilter ? [projectFilter] : []}
                     onChange={handleProjectFilter}
-                    className="filter-dropdown-select"
-                  >
-                    <option value="">All projects</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
+                    multiSelect={false}
+                    placeholder="All projects"
+                  />
                 )}
                 <FilterDropdown
                   label="Status"
                   options={statusOptions}
                   selected={statusFilters}
                   onChange={setStatusFilters}
-                  placeholder="All"
+                  placeholder="All statuses"
                 />
                 {providerOptions.length > 1 && (
                   <FilterDropdown

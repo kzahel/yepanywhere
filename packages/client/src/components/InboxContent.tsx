@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { type InboxItem, useInboxContext } from "../contexts/InboxContext";
 import type { Project } from "../types";
+import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 
 /**
@@ -205,8 +206,16 @@ export function InboxContent({
 
   const isEmpty = totalItems === 0 && !loading;
 
-  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
+  // Build project options for FilterDropdown
+  const projectOptions: FilterOption<string>[] = projects
+    ? [
+        { value: "", label: "All Projects" },
+        ...projects.map((p) => ({ value: p.id, label: p.name })),
+      ]
+    : [];
+
+  const handleProjectSelect = (selected: string[]) => {
+    const value = selected[0] ?? "";
     onProjectChange?.(value === "" ? undefined : value);
   };
 
@@ -216,19 +225,14 @@ export function InboxContent({
         {/* Toolbar with project filter and refresh button */}
         <div className="inbox-toolbar">
           {projects && projects.length > 0 && (
-            <select
-              className="inbox-project-filter"
-              value={projectId ?? ""}
-              onChange={handleProjectChange}
-              aria-label="Filter by project"
-            >
-              <option value="">All Projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <FilterDropdown
+              label="Project"
+              options={projectOptions}
+              selected={[projectId ?? ""]}
+              onChange={handleProjectSelect}
+              multiSelect={false}
+              placeholder="All Projects"
+            />
           )}
           <button
             type="button"

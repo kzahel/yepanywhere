@@ -109,6 +109,7 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
     const searchQuery = c.req.query("q")?.toLowerCase();
     const afterCursor = c.req.query("after");
     const includeArchived = c.req.query("includeArchived") === "true";
+    const starredOnly = c.req.query("starred") === "true";
     const limitParam = c.req.query("limit");
     const limit = Math.min(
       Math.max(1, Number.parseInt(limitParam || "", 10) || DEFAULT_LIMIT),
@@ -230,6 +231,9 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
 
         // Skip archived sessions unless explicitly requested
         if (isArchived && !includeArchived) continue;
+
+        // Skip non-starred sessions if starred filter is active
+        if (starredOnly && !isStarred) continue;
 
         // Compute status
         const process = deps.supervisor?.getProcessForSession(session.id);

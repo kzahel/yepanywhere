@@ -54,7 +54,6 @@ export function NewSessionPage() {
             onToggleSidebar={toggleSidebar}
             isWideScreen={isWideScreen}
             isSidebarCollapsed={isSidebarCollapsed}
-            hideSettingsLink
           />
           <main className="page-scroll-container">
             <div className="page-content-inner">
@@ -96,7 +95,6 @@ export function NewSessionPage() {
           onToggleSidebar={toggleSidebar}
           isWideScreen={isWideScreen}
           isSidebarCollapsed={isSidebarCollapsed}
-          hideSettingsLink
         />
 
         <main className="page-scroll-container">

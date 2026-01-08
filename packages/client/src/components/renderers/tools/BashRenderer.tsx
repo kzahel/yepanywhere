@@ -11,17 +11,44 @@ const PREVIEW_LINES = 4;
 const PREVIEW_MAX_CHARS = 400; // 4 * 100 chars
 
 /**
+ * Normalize bash result - handles both structured objects and plain strings
+ * SDK may return a plain string for errors instead of { stdout, stderr }
+ */
+function normalizeBashResult(
+  result: BashResult | string | undefined,
+  isError: boolean,
+): BashResult {
+  if (!result) {
+    return { stdout: "", stderr: "", interrupted: false, isImage: false };
+  }
+  if (typeof result === "string") {
+    // Plain string result - put in stderr if error, stdout otherwise
+    return {
+      stdout: isError ? "" : result,
+      stderr: isError ? result : "",
+      interrupted: false,
+      isImage: false,
+    };
+  }
+  return result;
+}
+
+/**
  * Modal content for viewing full bash input and output
  */
 function BashModalContent({
   input,
-  result,
+  result: rawResult,
   isError,
 }: {
   input: BashInput;
-  result: BashResult | undefined;
+  result: BashResult | string | undefined;
   isError: boolean;
 }) {
+  // Normalize result to handle both structured and string formats
+  const result = rawResult
+    ? normalizeBashResult(rawResult, isError)
+    : undefined;
   const stdout = result?.stdout || "";
   const stderr = result?.stderr || "";
 
@@ -96,10 +123,10 @@ function BashToolUse({ input }: { input: BashInput }) {
  * Bash tool result - shows stdout/stderr with collapse for long output
  */
 function BashToolResult({
-  result,
+  result: rawResult,
   isError,
 }: {
-  result: BashResult;
+  result: BashResult | string;
   isError: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -109,9 +136,12 @@ function BashToolResult({
     null,
   );
 
+  // Normalize result to handle both structured and string formats
+  const result = normalizeBashResult(rawResult, isError);
+
   useEffect(() => {
-    if (enabled && result) {
-      const validation = validateToolResult("Bash", result);
+    if (enabled && rawResult && typeof rawResult === "object") {
+      const validation = validateToolResult("Bash", rawResult);
       if (!validation.valid && validation.errors) {
         setValidationErrors(validation.errors);
         reportValidationError("Bash", validation.errors);
@@ -119,13 +149,13 @@ function BashToolResult({
         setValidationErrors(null);
       }
     }
-  }, [enabled, result, reportValidationError]);
+  }, [enabled, rawResult, reportValidationError]);
 
   const showValidationWarning =
     enabled && validationErrors && !isToolIgnored("Bash");
 
-  const stdout = result?.stdout || "";
-  const stderr = result?.stderr || "";
+  const stdout = result.stdout || "";
+  const stderr = result.stderr || "";
   const stdoutLines = stdout.split("\n");
   const needsCollapse = stdoutLines.length > MAX_LINES_COLLAPSED;
   const displayStdout =
@@ -210,11 +240,11 @@ function truncateOutput(text: string): { text: string; truncated: boolean } {
  */
 function BashCollapsedPreview({
   input,
-  result,
+  result: rawResult,
   isError,
 }: {
   input: BashInput;
-  result: BashResult | undefined;
+  result: BashResult | string | undefined;
   isError: boolean;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -224,9 +254,14 @@ function BashCollapsedPreview({
     null,
   );
 
+  // Normalize result to handle both structured and string formats
+  const result = rawResult
+    ? normalizeBashResult(rawResult, isError)
+    : undefined;
+
   useEffect(() => {
-    if (enabled && result) {
-      const validation = validateToolResult("Bash", result);
+    if (enabled && rawResult && typeof rawResult === "object") {
+      const validation = validateToolResult("Bash", rawResult);
       if (!validation.valid && validation.errors) {
         setValidationErrors(validation.errors);
         reportValidationError("Bash", validation.errors);
@@ -234,7 +269,7 @@ function BashCollapsedPreview({
         setValidationErrors(null);
       }
     }
-  }, [enabled, result, reportValidationError]);
+  }, [enabled, rawResult, reportValidationError]);
 
   const showValidationWarning =
     enabled && validationErrors && !isToolIgnored("Bash");

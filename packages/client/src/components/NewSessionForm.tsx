@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -27,6 +28,7 @@ import {
   useProviders,
 } from "../hooks/useProviders";
 import type { PermissionMode } from "../types";
+import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import { clearFabPrefill, getFabPrefill } from "./FloatingActionButton";
 import { VoiceInputButton, type VoiceInputButtonRef } from "./VoiceInputButton";
 
@@ -157,6 +159,21 @@ export function NewSessionForm({
       setSelectedModel(null);
     }
   };
+
+  // Build model options for FilterDropdown
+  const modelOptions = useMemo((): FilterOption<string>[] => {
+    return availableModels.map((model) => ({
+      value: model.id,
+      label: model.size
+        ? `${model.name} (${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB)`
+        : model.name,
+    }));
+  }, [availableModels]);
+
+  // Handle model selection from FilterDropdown
+  const handleModelSelect = useCallback((selected: string[]) => {
+    setSelectedModel(selected[0] ?? null);
+  }, []);
 
   // Combined display text: committed text + interim transcript
   const displayText = interimTranscript
@@ -607,24 +624,17 @@ export function NewSessionForm({
       )}
 
       {/* Model Selection */}
-      {selectedProvider && availableModels.length > 0 && (
+      {selectedProvider && modelOptions.length > 0 && (
         <div className="new-session-model-section">
           <h3>Model</h3>
-          <select
-            value={selectedModel ?? ""}
-            onChange={(e) => setSelectedModel(e.target.value || null)}
-            disabled={isStarting}
-            className="model-select"
-          >
-            {availableModels.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.name}
-                {model.size
-                  ? ` (${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB)`
-                  : ""}
-              </option>
-            ))}
-          </select>
+          <FilterDropdown
+            label="Model"
+            options={modelOptions}
+            selected={selectedModel ? [selectedModel] : []}
+            onChange={handleModelSelect}
+            multiSelect={false}
+            placeholder="Select model"
+          />
         </div>
       )}
 

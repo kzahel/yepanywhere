@@ -103,11 +103,7 @@ export function SettingsPage() {
             : "main-content-mobile-inner"
         }
       >
-        <PageHeader
-          title="Settings"
-          onOpenSidebar={openSidebar}
-          hideSettingsLink
-        />
+        <PageHeader title="Settings" onOpenSidebar={openSidebar} />
 
         <main className="page-scroll-container">
           <div className="page-content-inner">

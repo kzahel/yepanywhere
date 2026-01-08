@@ -9,11 +9,9 @@ import {
 import type { ZodError } from "zod";
 import { AgentContentContext } from "../../../contexts/AgentContentContext";
 import { useSchemaValidationContext } from "../../../contexts/SchemaValidationContext";
+import { classifyToolError } from "../../../lib/classifyToolError";
 import { preprocessMessages } from "../../../lib/preprocessMessages";
-import {
-  type ValidationResult,
-  validateToolResult,
-} from "../../../lib/validateToolResult";
+import { validateToolResult } from "../../../lib/validateToolResult";
 import type { Message } from "../../../types";
 import { RenderItemComponent } from "../../RenderItemComponent";
 import { SchemaWarning } from "../../SchemaWarning";
@@ -21,6 +19,63 @@ import { ContentBlockRenderer } from "../ContentBlockRenderer";
 import type { TaskInput, TaskResult, ToolRenderer } from "./types";
 
 const MAX_PROMPT_LENGTH = 200;
+const MAX_ERROR_SUMMARY_LENGTH = 80;
+
+/**
+ * Extract error message from tool result.
+ * Handles both structured errors and raw string errors.
+ */
+function extractErrorMessage(
+  result: unknown,
+): { raw: string; summary: string; label: string } | null {
+  if (!result) return null;
+
+  let rawMessage = "";
+
+  // Handle different result shapes
+  if (typeof result === "string") {
+    rawMessage = result;
+  } else if (typeof result === "object" && result !== null) {
+    // Check for content field (tool_result format)
+    if ("content" in result) {
+      const content = (result as { content: unknown }).content;
+      if (typeof content === "string") {
+        rawMessage = content;
+      } else if (Array.isArray(content)) {
+        // Content blocks array - find text content
+        for (const block of content) {
+          if (
+            typeof block === "object" &&
+            block !== null &&
+            "type" in block &&
+            block.type === "text" &&
+            "text" in block
+          ) {
+            rawMessage = String(block.text);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (!rawMessage) return null;
+
+  // Classify the error
+  const classified = classifyToolError(rawMessage);
+
+  // Create summary (truncated cleaned message)
+  const summary =
+    classified.cleanedMessage.length > MAX_ERROR_SUMMARY_LENGTH
+      ? `${classified.cleanedMessage.slice(0, MAX_ERROR_SUMMARY_LENGTH)}...`
+      : classified.cleanedMessage;
+
+  return {
+    raw: rawMessage,
+    summary,
+    label: classified.label,
+  };
+}
 
 /**
  * Format duration in ms to human readable
@@ -309,9 +364,16 @@ function TaskInline({
     }
   };
 
+  // Extract error message if this is an error state
+  const errorInfo = isError ? extractErrorMessage(result) : null;
+
   // Determine status badge and styling
   const getStatusBadge = () => {
-    if (isError) return { class: "badge-error", text: "failed" };
+    if (isError) {
+      // Use error label if available, otherwise generic "failed"
+      const errorLabel = errorInfo?.label ?? "failed";
+      return { class: "badge-error", text: errorLabel };
+    }
     if (status === "aborted")
       return { class: "badge-warning", text: "interrupted" };
     if (isRunning) return { class: "badge-running", text: "running" };
@@ -357,7 +419,13 @@ function TaskInline({
             {statusBadge.text}
           </span>
         )}
-        {result && (
+        {/* Show error summary in collapsed view */}
+        {!isExpanded && errorInfo && (
+          <span className="task-error-summary" title={errorInfo.raw}>
+            {errorInfo.summary}
+          </span>
+        )}
+        {result && !isError && (
           <span className="task-stats">
             {formatDuration(result.totalDurationMs ?? 0)} ·{" "}
             {(result.totalTokens ?? 0).toLocaleString()} tokens
@@ -378,13 +446,19 @@ function TaskInline({
       {/* Expanded content */}
       {isExpanded && (
         <div className="task-inline-content" ref={contentRef}>
+          {/* Show error details if this is an error state */}
+          {errorInfo && (
+            <div className="task-error-details">
+              <pre className="task-error-message">{errorInfo.raw}</pre>
+            </div>
+          )}
           {/* Show live nested content if available */}
-          {liveContent?.messages.length ? (
+          {!errorInfo && liveContent?.messages.length ? (
             <TaskNestedContent
               messages={liveContent.messages}
               isStreaming={isRunning}
             />
-          ) : result?.content?.length ? (
+          ) : !errorInfo && result?.content?.length ? (
             // Fall back to result content blocks (original behavior)
             <div className="task-content">
               {result.content.map((block) => (
@@ -398,11 +472,11 @@ function TaskInline({
                 />
               ))}
             </div>
-          ) : (
+          ) : !errorInfo ? (
             <div className="task-empty">
               {isRunning ? "Waiting for agent activity..." : "No content"}
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>

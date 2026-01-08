@@ -22,6 +22,7 @@ export interface UseGlobalSessionsOptions {
   searchQuery?: string;
   limit?: number;
   includeArchived?: boolean;
+  starred?: boolean;
 }
 
 /** Default stats when no data loaded */
@@ -34,7 +35,7 @@ const DEFAULT_STATS: GlobalSessionStats = {
 };
 
 export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
-  const { projectId, searchQuery, limit, includeArchived } = options;
+  const { projectId, searchQuery, limit, includeArchived, starred } = options;
   const [sessions, setSessions] = useState<GlobalSessionItem[]>([]);
   const [stats, setStats] = useState<GlobalSessionStats>(DEFAULT_STATS);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -45,6 +46,8 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
   const hasInitialLoadRef = useRef(false);
   const sessionsRef = useRef<GlobalSessionItem[]>([]);
   sessionsRef.current = sessions;
+  const projectsRef = useRef<ProjectOption[]>([]);
+  projectsRef.current = projects;
 
   // Track the options used for the last fetch (for loadMore pagination)
   const lastFetchOptionsRef = useRef<{
@@ -52,6 +55,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
     searchQuery?: string;
     limit?: number;
     includeArchived?: boolean;
+    starred?: boolean;
   }>({});
 
   const fetch = useCallback(async () => {
@@ -59,7 +63,8 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
     const optionsChanged =
       lastFetchOptionsRef.current.projectId !== projectId ||
       lastFetchOptionsRef.current.searchQuery !== searchQuery ||
-      lastFetchOptionsRef.current.includeArchived !== includeArchived;
+      lastFetchOptionsRef.current.includeArchived !== includeArchived ||
+      lastFetchOptionsRef.current.starred !== starred;
 
     if (optionsChanged) {
       hasInitialLoadRef.current = false;
@@ -70,6 +75,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
       searchQuery,
       limit,
       includeArchived,
+      starred,
     };
 
     // Only show loading state on initial load
@@ -84,6 +90,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
         q: searchQuery || undefined,
         limit,
         includeArchived,
+        starred,
       });
 
       if (!hasInitialLoadRef.current || optionsChanged) {
@@ -121,7 +128,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [projectId, searchQuery, limit, includeArchived]);
+  }, [projectId, searchQuery, limit, includeArchived, starred]);
 
   // Load more sessions (pagination)
   const loadMore = useCallback(async () => {
@@ -137,6 +144,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
         limit,
         after: lastSession.updatedAt,
         includeArchived,
+        starred,
       });
 
       setSessions((prev) => {
@@ -150,7 +158,15 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
     }
-  }, [hasMore, sessions, projectId, searchQuery, limit, includeArchived]);
+  }, [
+    hasMore,
+    sessions,
+    projectId,
+    searchQuery,
+    limit,
+    includeArchived,
+    starred,
+  ]);
 
   // Debounced refetch
   const debouncedRefetch = useCallback(() => {
@@ -228,9 +244,13 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
           return prev;
         }
 
+        // Look up project name from loaded projects list
+        const project = projectsRef.current.find(
+          (p) => p.id === event.session.projectId,
+        );
+        const projectName = project?.name ?? event.session.projectId;
+
         // Convert SessionSummary to GlobalSessionItem
-        // Note: projectName is not available in the event, we'll need to refetch or look it up
-        // For now, use projectId as fallback - it will be updated on next refetch
         const globalSession: GlobalSessionItem = {
           id: event.session.id,
           title: event.session.title,
@@ -239,7 +259,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
           messageCount: event.session.messageCount,
           provider: event.session.provider,
           projectId: event.session.projectId,
-          projectName: event.session.projectId, // Will be updated on refetch
+          projectName,
           status: event.session.status,
           pendingInputType: event.session.pendingInputType,
           processState: event.session.processState,

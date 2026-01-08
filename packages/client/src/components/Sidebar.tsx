@@ -78,8 +78,14 @@ export function Sidebar({
   onResize,
   onResizeEnd,
 }: SidebarProps) {
-  // Fetch global sessions for sidebar
+  // Fetch global sessions for sidebar (non-starred only for recent/older sections)
   const { sessions: globalSessions } = useGlobalSessions({ limit: 50 });
+
+  // Fetch starred sessions separately to ensure we get ALL starred sessions
+  const { sessions: starredSessions } = useGlobalSessions({
+    starred: true,
+    limit: 100,
+  });
 
   // Global inbox count
   const inboxCount = useNeedsAttentionBadge();
@@ -192,10 +198,11 @@ export function Sidebar({
     };
   }, [isResizing, onResize, onResizeEnd]);
 
-  // Starred sessions (already sorted by server)
-  const starredSessions = useMemo(() => {
-    return globalSessions.filter((s) => s.isStarred && !s.isArchived);
-  }, [globalSessions]);
+  // Starred sessions come from dedicated fetch (filtered by server)
+  // Filter out archived just in case
+  const filteredStarredSessions = useMemo(() => {
+    return starredSessions.filter((s) => !s.isArchived);
+  }, [starredSessions]);
 
   // Sessions updated in the last 24 hours (non-starred, non-archived)
   const recentDaySessions = useMemo(() => {
@@ -363,11 +370,11 @@ export function Sidebar({
           </SidebarNavSection>
 
           {/* Global sessions list */}
-          {starredSessions.length > 0 && (
+          {filteredStarredSessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">Starred</h3>
               <ul className="sidebar-session-list">
-                {starredSessions
+                {filteredStarredSessions
                   .slice(0, starredSessionsLimit)
                   .map((session) => (
                     <SessionListItem
@@ -383,7 +390,7 @@ export function Sidebar({
                     />
                   ))}
               </ul>
-              {starredSessions.length > starredSessionsLimit && (
+              {filteredStarredSessions.length > starredSessionsLimit && (
                 <button
                   type="button"
                   className="sidebar-show-more"
@@ -396,7 +403,7 @@ export function Sidebar({
                   Show{" "}
                   {Math.min(
                     RECENT_SESSIONS_INCREMENT,
-                    starredSessions.length - starredSessionsLimit,
+                    filteredStarredSessions.length - starredSessionsLimit,
                   )}{" "}
                   more
                 </button>
@@ -484,7 +491,7 @@ export function Sidebar({
             </div>
           )}
 
-          {starredSessions.length === 0 &&
+          {filteredStarredSessions.length === 0 &&
             recentDaySessions.length === 0 &&
             olderSessions.length === 0 && (
               <p className="sidebar-empty">No sessions yet</p>

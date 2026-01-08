@@ -126,14 +126,21 @@ export function FilterDropdown<T extends string>({
     }
   };
 
-  const displayText =
-    selected.length > 0
-      ? `${label} (${selected.length})`
-      : placeholder || label;
+  // For single-select, show the selected option's label; for multi-select, show count
+  const displayText = (() => {
+    if (selected.length === 0) {
+      return placeholder || label;
+    }
+    if (!multiSelect && selected.length === 1) {
+      const selectedOption = options.find((o) => o.value === selected[0]);
+      return selectedOption?.label || label;
+    }
+    return `${label} (${selected.length})`;
+  })();
 
   const optionsContent = (
     <>
-      {selected.length > 0 && (
+      {multiSelect && selected.length > 0 && (
         <>
           <button
             type="button"
@@ -152,30 +159,32 @@ export function FilterDropdown<T extends string>({
           <button
             key={option.value}
             type="button"
-            className={`filter-dropdown-option ${isSelected ? "selected" : ""}`}
+            className={`filter-dropdown-option ${isSelected ? "selected" : ""} ${!multiSelect ? "single-select" : ""}`}
             onClick={() => handleOptionClick(option.value)}
             aria-pressed={isSelected}
           >
-            <span
-              className={`filter-dropdown-checkbox ${isSelected ? "checked" : ""}`}
-              aria-hidden="true"
-            >
-              {isSelected && (
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
-            </span>
+            {multiSelect && (
+              <span
+                className={`filter-dropdown-checkbox ${isSelected ? "checked" : ""}`}
+                aria-hidden="true"
+              >
+                {isSelected && (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </span>
+            )}
 
             {option.color && (
               <span

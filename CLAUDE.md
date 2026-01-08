@@ -175,3 +175,32 @@ Key patterns:
 - **Message identification**: Use `getMessageId(m)` helper which returns `uuid ?? id`
 - **Content access**: Prefer `message.content` over top-level `content`
 - **Type discrimination**: Use `type` field (user/assistant/system/summary)
+
+## Task Tracking with Beads (bd)
+
+This project uses [Beads](https://github.com/steveyegge/beads) for cross-session task tracking. Beads is a git-backed issue tracker designed for AI agents, solving the "50 First Dates" problem of session continuity.
+
+**When to use beads:**
+- Track bugs, features, and tasks that span multiple sessions
+- Create dependency trees for complex work
+- File issues discovered during implementation for later follow-up
+
+**Essential commands:**
+
+```bash
+bd ready              # Show tasks with no blockers (what to work on next)
+bd list               # List all open issues
+bd create "Title"     # Create a new issue
+bd show <id>          # View issue details
+bd close <id>         # Close a completed issue
+bd dep add <a> <b>    # Make issue <a> depend on <b>
+bd sync               # Sync database to JSONL (run before commits)
+```
+
+**Workflow:**
+1. At session start: Run `bd ready` to see available tasks
+2. During work: Use `bd create` to file discovered issues
+3. Before committing: Run `bd sync` to persist changes
+4. At session end: Follow the "landing the plane" workflow in AGENTS.md
+
+Issues are stored in `.beads/` and version-controlled with git. IDs look like `yepanywhere-a3f2` (project prefix + hash).

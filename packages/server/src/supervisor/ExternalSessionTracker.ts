@@ -100,24 +100,60 @@ export class ExternalSessionTracker {
         const projectId = summary.projectId as UrlProjectId;
         const now = new Date().toISOString();
 
+        // Check if supervisor owns this session
+        const isOwned = !!this.supervisor.getProcessForSession(sessionId);
+
+        // Clean up external tracking if owned
+        if (isOwned) {
+          this.removeExternal(sessionId);
+        }
+
+        // For owned sessions, we only emit session-updated (supervisor handles session-created)
+        // For external sessions, we emit both session-created (first time) and session-updated
         if (!this.createdSessions.has(sessionId)) {
-          // New session - emit session-created
-          summary.status = { state: "external" };
+          if (isOwned) {
+            // Owned session - supervisor already emitted session-created with title: null
+            // Cache state and emit session-updated if title is now available
+            this.sessionStateCache.set(sessionId, {
+              title: summary.title,
+              messageCount: summary.messageCount,
+              projectId,
+            });
+            this.createdSessions.add(sessionId);
 
-          const event: SessionCreatedEvent = {
-            type: "session-created",
-            session: summary,
-            timestamp: now,
-          };
-          this.eventBus.emit(event);
-          this.createdSessions.add(sessionId);
+            // Emit session-updated if title or messageCount has real values
+            // (supervisor emits session-created with title: null, messageCount: 0)
+            if (summary.title || summary.messageCount > 0) {
+              const event: SessionUpdatedEvent = {
+                type: "session-updated",
+                sessionId,
+                projectId,
+                title: summary.title,
+                messageCount: summary.messageCount,
+                updatedAt: summary.updatedAt,
+                timestamp: now,
+              };
+              this.eventBus.emit(event);
+            }
+          } else {
+            // New external session - emit session-created
+            summary.status = { state: "external" };
 
-          // Cache initial state for future change detection
-          this.sessionStateCache.set(sessionId, {
-            title: summary.title,
-            messageCount: summary.messageCount,
-            projectId,
-          });
+            const event: SessionCreatedEvent = {
+              type: "session-created",
+              session: summary,
+              timestamp: now,
+            };
+            this.eventBus.emit(event);
+            this.createdSessions.add(sessionId);
+
+            // Cache initial state for future change detection
+            this.sessionStateCache.set(sessionId, {
+              title: summary.title,
+              messageCount: summary.messageCount,
+              projectId,
+            });
+          }
         } else {
           // Existing session - check for changes and emit session-updated
           const cached = this.sessionStateCache.get(sessionId);
