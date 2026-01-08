@@ -394,6 +394,7 @@ export class ClaudeSessionReader implements ISessionReader {
         const usage = msg.message.usage as
           | {
               input_tokens?: number;
+              output_tokens?: number;
               cache_read_input_tokens?: number;
               cache_creation_input_tokens?: number;
             }
@@ -406,8 +407,15 @@ export class ClaudeSessionReader implements ISessionReader {
             (usage.cache_read_input_tokens ?? 0) +
             (usage.cache_creation_input_tokens ?? 0);
 
-          // Skip messages with zero tokens (incomplete streaming messages)
+          // Skip messages with zero input tokens (incomplete streaming messages)
           if (inputTokens === 0) {
+            continue;
+          }
+
+          // Skip messages with very low output tokens (likely streaming in progress)
+          // A real complete response will have more than a few tokens
+          const outputTokens = usage.output_tokens ?? 0;
+          if (outputTokens > 0 && outputTokens < 10) {
             continue;
           }
 
@@ -415,7 +423,26 @@ export class ClaudeSessionReader implements ISessionReader {
             (inputTokens / CONTEXT_WINDOW_SIZE) * 100,
           );
 
-          return { inputTokens, percentage };
+          const result: ContextUsage = { inputTokens, percentage };
+
+          // Add optional fields if available
+          if (usage.output_tokens !== undefined && usage.output_tokens > 0) {
+            result.outputTokens = usage.output_tokens;
+          }
+          if (
+            usage.cache_read_input_tokens !== undefined &&
+            usage.cache_read_input_tokens > 0
+          ) {
+            result.cacheReadTokens = usage.cache_read_input_tokens;
+          }
+          if (
+            usage.cache_creation_input_tokens !== undefined &&
+            usage.cache_creation_input_tokens > 0
+          ) {
+            result.cacheCreationTokens = usage.cache_creation_input_tokens;
+          }
+
+          return result;
         }
       }
     }

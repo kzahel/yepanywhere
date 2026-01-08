@@ -232,6 +232,9 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
       // If we have a project filter, only add sessions from that project
       if (projectId && event.session.projectId !== projectId) return;
 
+      // If we have a starred filter, only add starred sessions
+      if (starred && !event.session.isStarred) return;
+
       // If we have a search query, refetch to let server filter
       if (searchQuery) {
         debouncedRefetch();
@@ -272,7 +275,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
         return [globalSession, ...prev];
       });
     },
-    [projectId, searchQuery, debouncedRefetch],
+    [projectId, searchQuery, starred, debouncedRefetch],
   );
 
   // Handle session metadata changes

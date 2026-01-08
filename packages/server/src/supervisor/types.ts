@@ -166,6 +166,10 @@ export interface ProcessInfo {
   terminationReason?: string; // why it terminated
   terminatedAt?: string; // when it terminated (ISO timestamp)
   provider: ProviderName; // which provider is running this process
+  /** Max thinking tokens this process was created with (undefined = thinking disabled) */
+  maxThinkingTokens?: number;
+  /** Model used for this session (e.g., "claude-opus-4-5-20251101") */
+  model?: string;
 }
 
 // Process events for subscribers
@@ -186,4 +190,6 @@ export interface ProcessOptions {
   idleTimeoutMs?: number; // default 5 minutes
   permissionMode?: PermissionMode;
   provider: ProviderName; // which provider is running this process
+  /** Max thinking tokens this process was created with (undefined = thinking disabled) */
+  maxThinkingTokens?: number;
 }

@@ -290,12 +290,13 @@ export const api = {
     mode?: PermissionMode,
     attachments?: UploadedFile[],
     tempId?: string,
+    thinking?: ThinkingOption,
   ) =>
-    fetchJSON<{ queued: boolean; position: number }>(
+    fetchJSON<{ queued: boolean; restarted?: boolean; processId?: string }>(
       `/sessions/${sessionId}/messages`,
       {
         method: "POST",
-        body: JSON.stringify({ message, mode, attachments, tempId }),
+        body: JSON.stringify({ message, mode, attachments, tempId, thinking }),
       },
     ),
 
@@ -327,6 +328,28 @@ export const api = {
       `/sessions/${sessionId}/hold`,
       { method: "PUT", body: JSON.stringify({ hold }) },
     ),
+
+  getProcessInfo: (sessionId: string) =>
+    fetchJSON<{
+      process: {
+        id: string;
+        sessionId: string;
+        projectId: string;
+        projectPath: string;
+        projectName: string;
+        sessionTitle: string | null;
+        state: string;
+        startedAt: string;
+        queueDepth: number;
+        idleSince?: string;
+        holdSince?: string;
+        terminationReason?: string;
+        terminatedAt?: string;
+        provider: string;
+        maxThinkingTokens?: number;
+        model?: string;
+      } | null;
+    }>(`/sessions/${sessionId}/process`),
 
   markSessionSeen: (
     sessionId: string,

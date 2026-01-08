@@ -172,6 +172,12 @@ export interface ContextUsage {
   inputTokens: number;
   /** Percentage of context window used (based on 200K limit) */
   percentage: number;
+  /** Output tokens generated in the last response (optional - may not be available) */
+  outputTokens?: number;
+  /** Cache read tokens (tokens served from cache) */
+  cacheReadTokens?: number;
+  /** Cache creation tokens (new tokens added to cache) */
+  cacheCreationTokens?: number;
 }
 
 /**

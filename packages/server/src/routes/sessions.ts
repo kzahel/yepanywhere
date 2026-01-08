@@ -971,12 +971,21 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       ); // 410 Gone
     }
 
-    // Update process permission mode if specified
-    if (body.mode) {
-      process.setPermissionMode(body.mode);
-    }
+    // Convert thinking option to token budget
+    const maxThinkingTokens =
+      body.thinking && body.thinking !== "off"
+        ? thinkingOptionToTokens(body.thinking)
+        : undefined;
 
-    const result = process.queueMessage(userMessage);
+    // Use queueMessageToSession which handles thinking mode changes
+    // If thinking mode changed, it will restart the process automatically
+    const result = await deps.supervisor.queueMessageToSession(
+      sessionId,
+      process.projectPath,
+      userMessage,
+      body.mode,
+      { maxThinkingTokens },
+    );
 
     if (!result.success) {
       return c.json(
@@ -988,7 +997,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       ); // 410 Gone - process is no longer available
     }
 
-    return c.json({ queued: true, position: result.position });
+    return c.json({
+      queued: true,
+      restarted: result.restarted,
+      processId: result.process.id,
+    });
   });
 
   // PUT /api/sessions/:sessionId/mode - Update permission mode without sending a message
@@ -1048,6 +1061,18 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // Use getPendingInputRequest which works for both mock and real SDK
     const request = process.getPendingInputRequest();
     return c.json({ request });
+  });
+
+  // GET /api/sessions/:sessionId/process - Get process info for a session
+  routes.get("/sessions/:sessionId/process", async (c) => {
+    const sessionId = c.req.param("sessionId");
+
+    const process = deps.supervisor.getProcessForSession(sessionId);
+    if (!process) {
+      return c.json({ process: null });
+    }
+
+    return c.json({ process: process.getInfo() });
   });
 
   // POST /api/sessions/:sessionId/input - Respond to input request

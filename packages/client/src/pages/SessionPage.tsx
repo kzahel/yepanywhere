@@ -5,8 +5,10 @@ import { api, uploadFile } from "../api/client";
 import { MessageInput, type UploadProgress } from "../components/MessageInput";
 import { MessageInputToolbar } from "../components/MessageInputToolbar";
 import { MessageList } from "../components/MessageList";
+import { ProcessInfoModal } from "../components/ProcessInfoModal";
 import { ProviderBadge } from "../components/ProviderBadge";
 import { QuestionAnswerPanel } from "../components/QuestionAnswerPanel";
+import { RecentSessionsDropdown } from "../components/RecentSessionsDropdown";
 import { SessionMenu } from "../components/SessionMenu";
 import { ToolApprovalPanel } from "../components/ToolApprovalPanel";
 import { AgentContentProvider } from "../contexts/AgentContentContext";
@@ -150,6 +152,10 @@ function SessionPageContent({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const isSavingTitleRef = useRef(false);
 
+  // Recent sessions dropdown state
+  const [showRecentSessions, setShowRecentSessions] = useState(false);
+  const titleButtonRef = useRef<HTMLButtonElement>(null);
+
   // Local metadata state (for optimistic updates)
   // Reset when session changes to avoid showing stale data from previous session
   const [localCustomTitle, setLocalCustomTitle] = useState<string | undefined>(
@@ -185,6 +191,9 @@ function SessionPageContent({
 
   // Approval panel collapsed state (separate from message input collapse)
   const [approvalCollapsed, setApprovalCollapsed] = useState(false);
+
+  // Process info modal state
+  const [showProcessInfoModal, setShowProcessInfoModal] = useState(false);
 
   // Track user engagement to mark session as "seen"
   // Only enabled when not in external session (we own or it's idle)
@@ -249,14 +258,20 @@ function SessionPageContent({
         // Update status to trigger SSE connection
         setStatus({ state: "owned", processId: result.processId });
       } else {
-        // Queue to existing process with current permission mode
-        await api.queueMessage(
+        // Queue to existing process with current permission mode and thinking setting
+        const thinking = getThinkingSetting();
+        const result = await api.queueMessage(
           sessionId,
           text,
           permissionMode,
           currentAttachments.length > 0 ? currentAttachments : undefined,
           tempId,
+          thinking,
         );
+        // If process was restarted due to thinking mode change, update the status
+        if (result.restarted && result.processId) {
+          setStatus({ state: "owned", processId: result.processId });
+        }
       }
       // Success - clear the draft from localStorage
       draftControlsRef.current?.clearDraft();
@@ -627,7 +642,7 @@ function SessionPageContent({
               {/* Project breadcrumb */}
               {project?.name && (
                 <Link
-                  to={`/projects/${projectId}`}
+                  to={`/sessions?project=${projectId}`}
                   className="project-breadcrumb"
                   title={project.name}
                 >
@@ -667,14 +682,38 @@ function SessionPageContent({
                     disabled={isRenaming}
                   />
                 ) : (
-                  <button
-                    type="button"
-                    className="session-title"
-                    onClick={handleStartEditingTitle}
-                    title={session?.fullTitle ?? "Click to rename"}
-                  >
-                    {truncateText(displayTitle)}
-                  </button>
+                  <>
+                    <button
+                      ref={titleButtonRef}
+                      type="button"
+                      className="session-title session-title-dropdown-trigger"
+                      onClick={() => setShowRecentSessions(!showRecentSessions)}
+                      title={session?.fullTitle ?? displayTitle}
+                    >
+                      {truncateText(displayTitle)}
+                      <svg
+                        className="session-title-chevron"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
+                    <RecentSessionsDropdown
+                      currentSessionId={sessionId}
+                      isOpen={showRecentSessions}
+                      onClose={() => setShowRecentSessions(false)}
+                      onNavigate={() => setShowRecentSessions(false)}
+                      triggerRef={titleButtonRef}
+                    />
+                  </>
                 )}
                 {!loading && isArchived && (
                   <span className="archived-badge">Archived</span>
@@ -703,15 +742,35 @@ function SessionPageContent({
             </div>
             <div className="session-header-right">
               {!loading && session?.provider && (
-                <ProviderBadge
-                  provider={session.provider}
-                  model={session.model}
-                  isThinking={processState === "running"}
-                />
+                <button
+                  type="button"
+                  className="provider-badge-button"
+                  onClick={() => setShowProcessInfoModal(true)}
+                  title="View session info"
+                >
+                  <ProviderBadge
+                    provider={session.provider}
+                    model={session.model}
+                    isThinking={processState === "running"}
+                  />
+                </button>
               )}
             </div>
           </div>
         </header>
+
+        {/* Process Info Modal */}
+        {showProcessInfoModal && session && (
+          <ProcessInfoModal
+            sessionId={actualSessionId}
+            provider={session.provider}
+            model={session.model}
+            status={status}
+            processState={processState}
+            contextUsage={session.contextUsage}
+            onClose={() => setShowProcessInfoModal(false)}
+          />
+        )}
 
         {status.state === "external" && (
           <div className="external-session-warning">

@@ -108,7 +108,21 @@ export function useSession(
   // Handle initial load completion from useSessionMessages
   const handleLoadComplete = useCallback(
     (result: SessionLoadResult) => {
-      setStatus(result.status);
+      // Only update status from REST if we don't already have an owned status from navigation.
+      // This prevents a race condition where:
+      // 1. Session created with initialStatus = {state: "owned"}
+      // 2. SSE connects because status.state === "owned"
+      // 3. REST API returns status = {state: "idle"} (stale)
+      // 4. setStatus({state: "idle"}) disconnects SSE before it receives events
+      // The owned status from initialStatus should only be changed by SSE events.
+      setStatus((prev) => {
+        // If we already have owned status (from initialStatus), keep it unless REST also says owned
+        if (prev.state === "owned" && result.status.state !== "owned") {
+          return prev;
+        }
+        return result.status;
+      });
+
       // Sync permission mode from server if owned
       if (
         result.status.state === "owned" &&

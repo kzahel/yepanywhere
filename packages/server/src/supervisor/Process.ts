@@ -95,6 +95,9 @@ export class Process {
   /** Version counter for permission mode changes (for multi-tab sync) */
   private _modeVersion = 0;
 
+  /** Max thinking tokens this process was created with (undefined = thinking disabled) */
+  private _maxThinkingTokens: number | undefined;
+
   /** Resolvers waiting for the real session ID */
   private sessionIdResolvers: Array<(id: string) => void> = [];
   private sessionIdResolved = false;
@@ -122,6 +125,7 @@ export class Process {
     this.abortFn = options.abortFn ?? null;
     this._permissionMode = options.permissionMode ?? "default";
     this.provider = options.provider;
+    this._maxThinkingTokens = options.maxThinkingTokens;
 
     // Start processing messages from the SDK
     this.processMessages();
@@ -148,6 +152,14 @@ export class Process {
 
   get modeVersion(): number {
     return this._modeVersion;
+  }
+
+  /**
+   * Max thinking tokens this process was created with.
+   * undefined means thinking is disabled.
+   */
+  get maxThinkingTokens(): number | undefined {
+    return this._maxThinkingTokens;
   }
 
   /**
@@ -363,6 +375,7 @@ export class Process {
       startedAt: this.startedAt.toISOString(),
       queueDepth: this.queueDepth,
       provider: this.provider,
+      maxThinkingTokens: this._maxThinkingTokens,
     };
 
     // Add idleSince if idle

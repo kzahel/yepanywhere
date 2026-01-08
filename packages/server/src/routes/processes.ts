@@ -19,10 +19,10 @@ export interface ProcessesDeps {
 }
 
 /**
- * Enrich process info with session title, using cache when available.
+ * Enrich process info with session title and model, using cache when available.
  * Checks custom title from metadata service first, then falls back to auto title.
  */
-async function enrichWithSessionTitle(
+async function enrichProcessInfo(
   process: ProcessInfo,
   deps: ProcessesDeps,
 ): Promise<ProcessInfo> {
@@ -34,6 +34,7 @@ async function enrichWithSessionTitle(
 
     const reader = deps.readerFactory(project);
     let title: string | null = null;
+    let model: string | undefined;
 
     // Use cache if available
     if (deps.sessionIndexService) {
@@ -43,12 +44,19 @@ async function enrichWithSessionTitle(
         process.sessionId,
         reader,
       );
+      // Also get model from summary
+      const summary = await reader.getSessionSummary(
+        process.sessionId,
+        process.projectId as UrlProjectId,
+      );
+      model = summary?.model;
     } else {
       const summary = await reader.getSessionSummary(
         process.sessionId,
         process.projectId as UrlProjectId,
       );
       title = summary?.title ?? null;
+      model = summary?.model;
     }
 
     // Get custom title from metadata service if available
@@ -62,12 +70,21 @@ async function enrichWithSessionTitle(
       title,
     });
 
+    const enriched = { ...process };
+
     // Only set sessionTitle if we have something meaningful (not "Untitled")
     if (displayTitle !== "Untitled") {
-      return { ...process, sessionTitle: displayTitle };
+      enriched.sessionTitle = displayTitle;
     }
+
+    // Add model if available
+    if (model) {
+      enriched.model = model;
+    }
+
+    return enriched;
   } catch {
-    // Ignore errors - just return process without title
+    // Ignore errors - just return process without enrichment
   }
   return process;
 }
@@ -82,9 +99,9 @@ export function createProcessesRoutes(deps: ProcessesDeps): Hono {
     const includeTerminated = c.req.query("includeTerminated") === "true";
     const processes = deps.supervisor.getProcessInfoList();
 
-    // Enrich all processes with session titles
+    // Enrich all processes with session titles and model info
     const enrichedProcesses = await Promise.all(
-      processes.map((p) => enrichWithSessionTitle(p, deps)),
+      processes.map((p) => enrichProcessInfo(p, deps)),
     );
 
     if (includeTerminated) {
@@ -92,7 +109,7 @@ export function createProcessesRoutes(deps: ProcessesDeps): Hono {
         deps.supervisor.getRecentlyTerminatedProcesses();
       // Also enrich terminated processes
       const enrichedTerminated = await Promise.all(
-        terminatedProcesses.map((p) => enrichWithSessionTitle(p, deps)),
+        terminatedProcesses.map((p) => enrichProcessInfo(p, deps)),
       );
       return c.json({
         processes: enrichedProcesses,
