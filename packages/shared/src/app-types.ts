@@ -194,6 +194,21 @@ export type AppSessionStatus =
   | { state: "external" }; // another process owns it
 
 /**
+ * Recent session entry with enriched data from the server.
+ * Session data is looked up server-side to avoid N+1 client requests.
+ */
+export interface EnrichedRecentEntry {
+  sessionId: string;
+  projectId: string;
+  visitedAt: string;
+  // Enriched fields from session/project data
+  title: string | null;
+  messageCount: number;
+  projectName: string;
+  provider: ProviderName;
+}
+
+/**
  * Session summary for list views.
  * Contains metadata without full message content.
  */

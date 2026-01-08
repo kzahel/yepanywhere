@@ -129,6 +129,8 @@ export type {
   AgentSession,
   // Input request types
   InputRequest,
+  // Recents types
+  EnrichedRecentEntry,
 } from "./app-types.js";
 export {
   isUserMessage,

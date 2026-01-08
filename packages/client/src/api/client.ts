@@ -1,4 +1,5 @@
 import type {
+  EnrichedRecentEntry,
   FileContentResponse,
   PendingInputType,
   ProcessStateType,
@@ -506,11 +507,7 @@ export const api = {
   // Recents API
   getRecents: (limit?: number) =>
     fetchJSON<{
-      recents: Array<{
-        sessionId: string;
-        projectId: string;
-        visitedAt: string;
-      }>;
+      recents: Array<EnrichedRecentEntry>;
     }>(limit ? `/recents?limit=${limit}` : "/recents"),
 
   recordVisit: (sessionId: string, projectId: string) =>

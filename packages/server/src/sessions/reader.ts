@@ -412,13 +412,6 @@ export class ClaudeSessionReader implements ISessionReader {
             continue;
           }
 
-          // Skip messages with very low output tokens (likely streaming in progress)
-          // A real complete response will have more than a few tokens
-          const outputTokens = usage.output_tokens ?? 0;
-          if (outputTokens > 0 && outputTokens < 10) {
-            continue;
-          }
-
           const percentage = Math.round(
             (inputTokens / CONTEXT_WINDOW_SIZE) * 100,
           );

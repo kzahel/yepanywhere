@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { useRecentProjects } from "../hooks/useRecentProjects";
+import { useProjects } from "../hooks/useProjects";
 import type { Project } from "../types";
 
 const DESKTOP_BREAKPOINT = 769;
@@ -32,10 +32,10 @@ export function ProjectSelector({
   const sheetRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const { recentProjects, loading } = useRecentProjects();
+  const { projects, loading } = useProjects();
 
   // Find current project name
-  const currentProject = recentProjects.find((p) => p.id === currentProjectId);
+  const currentProject = projects.find((p) => p.id === currentProjectId);
   const displayName = currentProject?.name ?? currentProjectName ?? "Project";
 
   const handleButtonClick = () => {
@@ -126,13 +126,13 @@ export function ProjectSelector({
   };
 
   // Don't show selector if only one project
-  if (!loading && recentProjects.length <= 1) {
+  if (!loading && projects.length <= 1) {
     return <span className="session-title">{displayName}</span>;
   }
 
   const optionsContent = (
     <div className="project-selector-options">
-      {recentProjects.map((project) => {
+      {projects.map((project) => {
         const isSelected = project.id === currentProjectId;
         return (
           <button

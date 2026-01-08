@@ -286,7 +286,12 @@ export function createApp(options: AppOptions): AppResult {
   if (options.recentsService) {
     app.route(
       "/api/recents",
-      createRecentsRoutes({ recentsService: options.recentsService }),
+      createRecentsRoutes({
+        recentsService: options.recentsService,
+        scanner,
+        readerFactory,
+        sessionIndexService: options.sessionIndexService,
+      }),
     );
   }
 
