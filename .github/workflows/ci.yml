@@ -1,4 +1,4 @@
-name: E2E Tests
+name: CI
 on: [push, pull_request]
 jobs:
   test:
@@ -11,5 +11,8 @@ jobs:
           node-version: 20
           cache: "pnpm"
       - run: pnpm install
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
       - run: pnpm -F @yep-anywhere/client exec playwright install chromium
       - run: pnpm test:e2e
