@@ -97,9 +97,16 @@ export function loadConfig(): Config {
   // Get data directory (supports profiles for multiple instances)
   const dataDir = getDataDir();
 
-  const claudeSessionsDir = path.join(os.homedir(), ".claude", "projects");
-  const geminiSessionsDir = path.join(os.homedir(), ".gemini", "tmp");
-  const codexSessionsDir = path.join(os.homedir(), ".codex", "sessions");
+  // Session directories can be overridden via env vars for test isolation
+  const claudeSessionsDir =
+    process.env.CLAUDE_SESSIONS_DIR ??
+    path.join(os.homedir(), ".claude", "projects");
+  const geminiSessionsDir =
+    process.env.GEMINI_SESSIONS_DIR ??
+    path.join(os.homedir(), ".gemini", "tmp");
+  const codexSessionsDir =
+    process.env.CODEX_SESSIONS_DIR ??
+    path.join(os.homedir(), ".codex", "sessions");
 
   return {
     dataDir,

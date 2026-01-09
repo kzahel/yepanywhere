@@ -63,8 +63,11 @@ import { basename, join } from "node:path";
 import type { UrlProjectId } from "@yep-anywhere/shared";
 
 /** The root directory where Claude stores project sessions */
-export const CLAUDE_DIR = join(homedir(), ".claude");
-export const CLAUDE_PROJECTS_DIR = join(CLAUDE_DIR, "projects");
+export const CLAUDE_DIR =
+  process.env.CLAUDE_SESSIONS_DIR?.replace(/\/projects$/, "") ??
+  join(homedir(), ".claude");
+export const CLAUDE_PROJECTS_DIR =
+  process.env.CLAUDE_SESSIONS_DIR ?? join(CLAUDE_DIR, "projects");
 
 /**
  * Encode an absolute project path to a projectId (base64url).

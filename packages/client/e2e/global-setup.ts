@@ -1,5 +1,12 @@
 import { type ChildProcess, execSync, spawn } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +17,22 @@ const __dirname = dirname(__filename);
 const PORT_FILE = join(tmpdir(), "claude-e2e-port");
 const PID_FILE = join(tmpdir(), "claude-e2e-pid");
 
+// Isolated test directories to avoid polluting real ~/.claude, ~/.codex, ~/.gemini
+const E2E_TEST_DIR = join(tmpdir(), "claude-e2e-sessions");
+const E2E_CLAUDE_SESSIONS_DIR = join(E2E_TEST_DIR, "claude", "projects");
+const E2E_CODEX_SESSIONS_DIR = join(E2E_TEST_DIR, "codex", "sessions");
+const E2E_GEMINI_SESSIONS_DIR = join(E2E_TEST_DIR, "gemini", "tmp");
+const E2E_DATA_DIR = join(E2E_TEST_DIR, "yep-anywhere");
+
+// Export paths for tests to use
+export {
+  E2E_TEST_DIR,
+  E2E_CLAUDE_SESSIONS_DIR,
+  E2E_CODEX_SESSIONS_DIR,
+  E2E_GEMINI_SESSIONS_DIR,
+  E2E_DATA_DIR,
+};
+
 export default async function globalSetup() {
   // Clean up any stale files
   for (const file of [PORT_FILE, PID_FILE]) {
@@ -17,6 +40,32 @@ export default async function globalSetup() {
       unlinkSync(file);
     }
   }
+
+  // Clean up and create isolated test directories
+  // This ensures tests don't pollute real ~/.claude, ~/.codex, ~/.gemini
+  console.log(`[E2E] Creating isolated test directories at ${E2E_TEST_DIR}`);
+  try {
+    rmSync(E2E_TEST_DIR, { recursive: true, force: true });
+  } catch {
+    // Ignore if doesn't exist
+  }
+  mkdirSync(E2E_CLAUDE_SESSIONS_DIR, { recursive: true });
+  mkdirSync(E2E_CODEX_SESSIONS_DIR, { recursive: true });
+  mkdirSync(E2E_GEMINI_SESSIONS_DIR, { recursive: true });
+  mkdirSync(E2E_DATA_DIR, { recursive: true });
+
+  // Write paths file for tests to import
+  const pathsFile = join(tmpdir(), "claude-e2e-paths.json");
+  writeFileSync(
+    pathsFile,
+    JSON.stringify({
+      testDir: E2E_TEST_DIR,
+      claudeSessionsDir: E2E_CLAUDE_SESSIONS_DIR,
+      codexSessionsDir: E2E_CODEX_SESSIONS_DIR,
+      geminiSessionsDir: E2E_GEMINI_SESSIONS_DIR,
+      dataDir: E2E_DATA_DIR,
+    }),
+  );
 
   const repoRoot = join(__dirname, "..", "..", "..");
   const serverRoot = join(repoRoot, "packages", "server");
@@ -36,6 +85,7 @@ export default async function globalSetup() {
   });
 
   // Start server with PORT=0 for auto-assignment, serving built assets
+  // Pass isolated session directories via env vars
   const serverProcess = spawn(
     "pnpm",
     ["exec", "tsx", "--conditions", "source", "src/dev-mock.ts"],
@@ -48,6 +98,11 @@ export default async function globalSetup() {
         CLIENT_DIST_PATH: clientDist,
         LOG_FILE: "e2e-server.log",
         LOG_LEVEL: "warn",
+        // Isolated session directories for test isolation
+        CLAUDE_SESSIONS_DIR: E2E_CLAUDE_SESSIONS_DIR,
+        CODEX_SESSIONS_DIR: E2E_CODEX_SESSIONS_DIR,
+        GEMINI_SESSIONS_DIR: E2E_GEMINI_SESSIONS_DIR,
+        YEP_ANYWHERE_DATA_DIR: E2E_DATA_DIR,
       },
       stdio: ["ignore", "pipe", "pipe"],
       detached: true,

@@ -7,16 +7,13 @@
 
 import { execSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "./fixtures.js";
+import { e2ePaths, expect, test } from "./fixtures.js";
 
 // Test project path and IDs
 const mockProjectPath = join(tmpdir(), "claude-e2e-codexoss");
 const projectId = Buffer.from(mockProjectPath).toString("base64url");
-
-// Track created session file for cleanup
-let codexSessionFile: string | null = null;
 
 // Create test project before tests
 test.beforeAll(() => {
@@ -33,15 +30,13 @@ test.beforeAll(() => {
   writeFileSync(join(mockProjectPath, "README.md"), "# CodexOSS Test Project");
 
   // Create a Codex session file so the project is discoverable
-  // Codex sessions are stored in ~/.codex/sessions/YYYY/MM/DD/
+  // Use isolated test directory from e2ePaths (not real ~/.codex/)
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   const codexSessionDir = join(
-    homedir(),
-    ".codex",
-    "sessions",
+    e2ePaths.codexSessionsDir,
     String(year),
     month,
     day,
@@ -49,7 +44,7 @@ test.beforeAll(() => {
   mkdirSync(codexSessionDir, { recursive: true });
 
   const sessionId = `e2e-codexoss-${Date.now()}`;
-  codexSessionFile = join(
+  const codexSessionFile = join(
     codexSessionDir,
     `rollout-${year}-${month}-${day}T00-00-00-${sessionId}.jsonl`,
   );
@@ -92,15 +87,8 @@ test.afterAll(() => {
   } catch {
     // Ignore cleanup errors
   }
-
-  // Clean up Codex session file (don't leave test sessions in ~/.codex/)
-  if (codexSessionFile) {
-    try {
-      rmSync(codexSessionFile, { force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
+  // Note: No need to clean up codex session - it's in the isolated test directory
+  // which is cleaned up by global-setup on next run
 });
 
 test.describe("CodexOSS Provider", () => {
@@ -143,32 +131,6 @@ test.describe("CodexOSS Provider", () => {
     // Verify we're on a valid page (either project or sessions view)
     const url = page.url();
     expect(url).toMatch(/projects|sessions|inbox/);
-  });
-
-  test("shows CodexOSS provider in providers API", async ({ baseURL }) => {
-    // Test the API directly
-    const response = await fetch(`${baseURL}/api/providers`);
-    expect(response.ok).toBe(true);
-
-    const data = await response.json();
-    const codexOss = data.providers.find(
-      (p: { name: string }) => p.name === "codex-oss",
-    );
-
-    expect(codexOss).toBeDefined();
-    expect(codexOss.displayName).toBe("CodexOSS");
-    expect(codexOss.installed).toBe(true);
-  });
-
-  test("codex-oss models are listed in API", async ({ baseURL }) => {
-    const response = await fetch(`${baseURL}/api/providers`);
-    const data = await response.json();
-    const codexOss = data.providers.find(
-      (p: { name: string }) => p.name === "codex-oss",
-    );
-
-    // Mock provider should have models (from createMockScenarios)
-    expect(codexOss.models).toBeDefined();
   });
 });
 

@@ -10,6 +10,10 @@
   <em>Yep, you can keep working anywhere.</em>
 </p>
 
+<p align="center">
+  <a href="https://yepanywhere.com">yepanywhere.com</a>
+</p>
+
 A polished web interface for managing Claude and Codex agents. Works great on mobile and desktop — walk away from your desk, watch your kids, and keep your agents productive from your phone.
 
 **Seamless handoff.** Work at your desk, walk away, continue exactly where you left off. No friction. Your agent keeps running on your dev machine while you supervise from the couch, the coffee shop, or the school pickup line.
@@ -87,7 +91,7 @@ Open http://localhost:3400 in your browser. The app auto-detects installed CLI a
 
 ## Remote Access
 
-For accessing from your phone or another device, bring your own SSL termination (Caddy or Tailscale work well). Enable cookie authentication from the in-app settings page.
+For accessing from your phone or another device, bring your own SSL termination (Caddy or Tailscale work well). Use `--host` and `--port` to configure the server binding. Cookie authentication is available from the in-app settings page, but only recommended with HTTPS.
 
 ## Development
 

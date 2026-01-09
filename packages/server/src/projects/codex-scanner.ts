@@ -17,8 +17,9 @@ import type { UrlProjectId } from "@yep-anywhere/shared";
 import type { Project } from "../supervisor/types.js";
 import { encodeProjectId } from "./paths.js";
 
-export const CODEX_DIR = join(homedir(), ".codex");
-export const CODEX_SESSIONS_DIR = join(CODEX_DIR, "sessions");
+export const CODEX_SESSIONS_DIR =
+  process.env.CODEX_SESSIONS_DIR ?? join(homedir(), ".codex", "sessions");
+export const CODEX_DIR = CODEX_SESSIONS_DIR.replace(/\/sessions$/, "");
 
 interface CodexSessionMeta {
   id: string;

@@ -177,9 +177,10 @@ function createWatcherIfExists(
 
 // Create watchers for session directories only (not full provider dirs)
 // This reduces inotify pressure and memory usage
-createWatcherIfExists(path.join(os.homedir(), ".claude", "projects"), "claude");
-createWatcherIfExists(path.join(os.homedir(), ".gemini", "tmp"), "gemini");
-createWatcherIfExists(path.join(os.homedir(), ".codex", "sessions"), "codex");
+// Use configured directories from config (supports env var overrides for test isolation)
+createWatcherIfExists(config.claudeSessionsDir, "claude");
+createWatcherIfExists(config.geminiSessionsDir, "gemini");
+createWatcherIfExists(config.codexSessionsDir, "codex");
 
 // Create frontend proxy or static routes depending on configuration
 // If VITE_PORT=0 and CLIENT_DIST_PATH exists, serve static files

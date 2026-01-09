@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, hostname, tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "./fixtures.js";
+import { e2ePaths, expect, test } from "./fixtures.js";
 
 // Set up test files in a temp directory (avoid permission issues with /mockproject)
 const mockProjectPath = join(tmpdir(), "claude-e2e-mockproject");
@@ -9,9 +9,6 @@ const mockProjectPath = join(tmpdir(), "claude-e2e-mockproject");
 const projectId = Buffer.from(mockProjectPath).toString("base64url");
 // Session dir name uses the path with slashes replaced by dashes
 const sessionDirName = mockProjectPath.replace(/\//g, "-");
-
-// Track Claude session directory for cleanup
-let claudeSessionDir: string | null = null;
 
 // Create test files before tests run
 test.beforeAll(() => {
@@ -39,8 +36,12 @@ test.beforeAll(() => {
   writeFileSync(join(mockProjectPath, "data.json"), '{"key": "value"}');
 
   // Create a session file so the project is discoverable
-  const claudeDir = join(homedir(), ".claude", "projects");
-  claudeSessionDir = join(claudeDir, hostname(), sessionDirName);
+  // Use isolated test directory from e2ePaths (not real ~/.claude/)
+  const claudeSessionDir = join(
+    e2ePaths.claudeSessionsDir,
+    hostname(),
+    sessionDirName,
+  );
   mkdirSync(claudeSessionDir, { recursive: true });
   writeFileSync(
     join(claudeSessionDir, "e2e-file-test.jsonl"),
@@ -60,15 +61,8 @@ test.afterAll(() => {
   } catch {
     // Ignore cleanup errors
   }
-
-  // Clean up Claude session directory (don't leave test sessions in ~/.claude/)
-  if (claudeSessionDir) {
-    try {
-      rmSync(claudeSessionDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
+  // Note: No need to clean up claude session - it's in the isolated test directory
+  // which is cleaned up by global-setup on next run
 });
 
 test.describe("Files API", () => {
