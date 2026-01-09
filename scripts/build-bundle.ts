@@ -25,6 +25,9 @@ const SHARED_DIST = path.join(ROOT_DIR, "packages/shared/dist");
 // Staging directory for npm publishing (keeps workspace package.json intact)
 const STAGING_DIR = path.join(ROOT_DIR, "dist/npm-package");
 
+// Version for npm package - update this when releasing
+const NPM_VERSION = "0.1.1";
+
 interface StepResult {
   step: string;
   success: boolean;
@@ -159,7 +162,7 @@ step("Bundle shared into staging", () => {
   // Create a minimal package.json for the shared package
   const sharedPackageJson = {
     name: "@yep-anywhere/shared",
-    version: "0.1.0",
+    version: NPM_VERSION,
     type: "module",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -216,7 +219,7 @@ step("Generate package.json for npm", () => {
   // Create a new package.json for publishing
   const npmPackageJson: Record<string, unknown> = {
     name: "yepanywhere",
-    version: "0.1.0",
+    version: NPM_VERSION,
     description: "A mobile-first supervisor for Claude Code agents",
     type: "module",
     bin: {
@@ -259,7 +262,7 @@ step("Generate package.json for npm", () => {
   );
 
   log("  Package name: yepanywhere");
-  log("  Version: 0.1.0");
+  log(`  Version: ${NPM_VERSION}`);
   log("  Written to: dist/npm-package/package.json");
   log("  (Original packages/server/package.json unchanged)");
 });
