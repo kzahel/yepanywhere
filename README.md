@@ -31,6 +31,7 @@ If you use Claude Code from the terminal, this gives you a better interface. Aut
 - **Read-only mode** — Observe CLI sessions in the UI while working in terminal elsewhere
 - **Resource efficient** — Worker/supervisor pattern, doesn't spawn a CLI per task
 - **Server-owned processes** — Client disconnects don't interrupt work
+- **Fast on mobile** — Syntax highlighting and markdown rendering happen server-side, keeping the client lightweight
 
 No database, no cloud, no accounts, no hidden gimmicks. 100% open source. Piggybacks on CLI tools' built-in persistence.
 
