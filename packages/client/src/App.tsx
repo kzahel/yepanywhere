@@ -5,6 +5,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { InboxProvider } from "./contexts/InboxContext";
 import { SchemaValidationProvider } from "./contexts/SchemaValidationContext";
 import { ToastProvider } from "./contexts/ToastContext";
+import { useActivityBusConnection } from "./hooks/useActivityBusConnection";
 import { useNeedsAttentionBadge } from "./hooks/useNeedsAttentionBadge";
 import { useSyncNotifyInAppSetting } from "./hooks/useNotifyInApp";
 import { useReloadNotifications } from "./hooks/useReloadNotifications";
@@ -17,6 +18,9 @@ interface Props {
  * Inner component that uses hooks requiring InboxContext.
  */
 function AppContent({ children }: Props) {
+  // Manage SSE connection based on auth state (prevents 401s on login page)
+  useActivityBusConnection();
+
   // Sync notifyInApp setting to service worker on app startup and SW restarts
   useSyncNotifyInAppSetting();
 

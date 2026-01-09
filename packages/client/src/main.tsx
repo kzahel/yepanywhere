@@ -9,7 +9,6 @@ import { App } from "./App";
 import { initializeFontSize } from "./hooks/useFontSize";
 import { initializeTheme } from "./hooks/useTheme";
 import { NavigationLayout } from "./layouts";
-import { activityBus } from "./lib/activityBus";
 import { ActivityPage } from "./pages/ActivityPage";
 import { AgentsPage } from "./pages/AgentsPage";
 import { BeadsPage } from "./pages/BeadsPage";
@@ -28,8 +27,8 @@ import "./styles/index.css";
 initializeTheme();
 initializeFontSize();
 
-// Connect to SSE activity stream (single connection for entire app)
-activityBus.connect();
+// SSE activity stream connection is managed by useActivityBusConnection hook
+// in App.tsx, which connects only when authenticated (or auth is disabled)
 
 // Get base URL for router (Vite sets this based on --base flag)
 // Remove trailing slash for BrowserRouter basename
