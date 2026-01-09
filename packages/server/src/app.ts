@@ -39,6 +39,7 @@ import { createRecentsRoutes } from "./routes/recents.js";
 import { createSessionsRoutes } from "./routes/sessions.js";
 import { createStreamRoutes } from "./routes/stream.js";
 import { type UploadDeps, createUploadRoutes } from "./routes/upload.js";
+import { version } from "./routes/version.js";
 import type {
   ClaudeSDK,
   PermissionMode,
@@ -209,6 +210,9 @@ export function createApp(options: AppOptions): AppResult {
 
   // Health check (outside /api)
   app.route("/health", health);
+
+  // Version check (outside /api for easy access)
+  app.route("/api/version", version);
 
   // Mount API routes
   app.route(

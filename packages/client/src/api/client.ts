@@ -159,7 +159,16 @@ export {
   type UploadOptions,
 } from "./upload";
 
+export interface VersionInfo {
+  current: string;
+  latest: string | null;
+  updateAvailable: boolean;
+}
+
 export const api = {
+  // Version API
+  getVersion: () => fetchJSON<VersionInfo>("/version"),
+
   // Provider API
   getProviders: () => fetchJSON<{ providers: ProviderInfo[] }>("/providers"),
 

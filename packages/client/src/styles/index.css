@@ -3466,6 +3466,28 @@ a.sidebar-nav-item {
   color: var(--warning-color);
 }
 
+.settings-update-available {
+  color: var(--success-color);
+  font-weight: 500;
+}
+
+.settings-up-to-date {
+  color: var(--text-muted);
+}
+
+.settings-update-hint {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.settings-update-hint code {
+  background: var(--bg-hover);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+
 .settings-button {
   padding: var(--space-2) var(--space-3);
   background: var(--bg-hover);

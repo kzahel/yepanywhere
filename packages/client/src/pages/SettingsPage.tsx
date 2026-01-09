@@ -20,6 +20,7 @@ import { useReloadNotifications } from "../hooks/useReloadNotifications";
 import { useSchemaValidation } from "../hooks/useSchemaValidation";
 import { useStreamingEnabled } from "../hooks/useStreamingEnabled";
 import { THEMES, getThemeLabel, useTheme } from "../hooks/useTheme";
+import { useVersion } from "../hooks/useVersion";
 import { useNavigationLayout } from "../layouts";
 import { getAllProviders } from "../providers/registry";
 
@@ -61,6 +62,7 @@ export function SettingsPage() {
   } = useAuth();
   const { providers: serverProviders, loading: providersLoading } =
     useProviders();
+  const { version: versionInfo } = useVersion();
 
   // Merge server detection status with client-side metadata
   const registeredProviders = getAllProviders();
@@ -795,6 +797,36 @@ export function SettingsPage() {
             <section className="settings-section">
               <h2>About</h2>
               <div className="settings-group">
+                <div className="settings-item">
+                  <div className="settings-item-info">
+                    <strong>Version</strong>
+                    <p>
+                      {versionInfo ? (
+                        <>
+                          v{versionInfo.current}
+                          {versionInfo.updateAvailable && versionInfo.latest ? (
+                            <span className="settings-update-available">
+                              {" "}
+                              (v{versionInfo.latest} available)
+                            </span>
+                          ) : versionInfo.latest ? (
+                            <span className="settings-up-to-date">
+                              {" "}
+                              (up to date)
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        "Loading..."
+                      )}
+                    </p>
+                    {versionInfo?.updateAvailable && (
+                      <p className="settings-update-hint">
+                        Run <code>npm i -g yepanywhere</code> to update
+                      </p>
+                    )}
+                  </div>
+                </div>
                 <div className="settings-item">
                   <div className="settings-item-info">
                     <strong>Report a Bug</strong>
