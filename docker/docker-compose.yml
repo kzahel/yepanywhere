@@ -1,0 +1,83 @@
+# Sandboxed yep-anywhere environment
+#
+# Profiles:
+#   sandboxed (default) - Full network, restricted filesystem/privileges
+#   isolated            - Localhost-only network (no outbound internet)
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml up                        # sandboxed
+#   docker compose -f docker/docker-compose.yml --profile isolated up     # isolated
+#
+# First time setup:
+#   docker compose -f docker/docker-compose.yml run --rm yep-sandbox pnpm install
+
+services:
+  yep-sandbox:
+    build:
+      context: .
+      args:
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    image: yep-sandbox
+
+    # Port forwarding (host:container)
+    # Only forward main server - it proxies to Vite internally
+    ports:
+      - "${SANDBOX_PORT:-3600}:3400"
+
+    # Security: drop all capabilities, no privilege escalation
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # Shared mounts
+    volumes:
+      # Code directory (read-write)
+      - ${CODE_DIR:-~/code}:/home/sandbox/code
+
+      # Claude SDK data
+      - ~/.claude:/home/sandbox/.claude
+
+      # Yep-anywhere data
+      - ~/.yep-anywhere:/home/sandbox/.yep-anywhere
+
+      # Git config (read-only)
+      - ~/.gitconfig:/home/sandbox/.gitconfig:ro
+      - ~/.ssh:/home/sandbox/.ssh:ro
+
+    # Environment
+    environment:
+      - HOME=/home/sandbox
+      - PORT=3400
+      - VITE_HOST=true  # Bind to all interfaces (fixes IPv4/IPv6 mismatch)
+      - COREPACK_ENABLE_AUTO_PIN=0
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0  # Don't prompt for corepack downloads
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+    # Working directory
+    working_dir: /home/sandbox/code/yepanywhere
+
+    # Interactive terminal
+    stdin_open: true
+    tty: true
+
+    # Start yep-anywhere by default
+    command: pnpm dev
+
+  # Isolated variant - localhost only, no outbound internet
+  yep-isolated:
+    extends:
+      service: yep-sandbox
+    profiles: ["isolated"]
+    networks:
+      - isolated
+    # Extra isolation: block DNS to prevent any sneaky resolution
+    dns: []
+
+networks:
+  # Internal-only network: containers can talk to host via ports,
+  # but cannot reach the internet
+  isolated:
+    driver: bridge
+    internal: true
