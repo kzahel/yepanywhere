@@ -44,7 +44,7 @@ export interface Config {
   defaultPermissionMode: PermissionMode;
   /** Server port */
   port: number;
-  /** Host/interface to bind to (default: localhost). Use 0.0.0.0 to bind all interfaces. */
+  /** Host/interface to bind to (default: 127.0.0.1). Use 0.0.0.0 to bind all interfaces. */
   host: string;
   /** Maintenance server port (default: 0 = disabled). Set to enable (e.g., PORT + 1). */
   maintenancePort: number;
@@ -117,8 +117,8 @@ export function loadConfig(): Config {
     idleTimeoutMs: parseIntOrDefault(process.env.IDLE_TIMEOUT, 5 * 60) * 1000,
     defaultPermissionMode: parsePermissionMode(process.env.PERMISSION_MODE),
     port: parseIntOrDefault(process.env.PORT, 3400),
-    // Host defaults to localhost for security, use 0.0.0.0 to expose externally
-    host: process.env.HOST ?? "localhost",
+    // Host defaults to 127.0.0.1 for security and consistency (avoids IPv6 ambiguity with "localhost")
+    host: process.env.HOST ?? "127.0.0.1",
     // Maintenance port disabled by default, set to enable (e.g., PORT + 1)
     maintenancePort: parseIntOrDefault(process.env.MAINTENANCE_PORT, 0),
     useMockSdk: process.env.USE_MOCK_SDK === "true",
