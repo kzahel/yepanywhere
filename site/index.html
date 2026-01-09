@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yep Anywhere - Mobile supervision for Claude Code agents</title>
+  <meta name="description" content="A polished web interface for managing Claude Code agents. Works great on mobile and desktop.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #252525;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --accent: #16a34a;
+      --accent-hover: #22c55e;
+      --border: #333333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    .logo-text {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .logo-text span {
+      color: var(--accent);
+    }
+
+    nav {
+      display: flex;
+      gap: 24px;
+    }
+
+    nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+
+    nav a:hover {
+      color: var(--text-primary);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 700;
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-secondary);
+      border-color: var(--text-secondary);
+    }
+
+    /* Screenshots */
+    .screenshots {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .screenshots h2 {
+      font-size: 28px;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .screenshot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+      justify-items: center;
+    }
+
+    .screenshot-item {
+      text-align: center;
+    }
+
+    .screenshot-item img {
+      width: 100%;
+      max-width: 280px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .screenshot-item img:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+    }
+
+    .screenshot-item p {
+      margin-top: 12px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Features */
+    .features {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .features h2 {
+      font-size: 28px;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .feature-card h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Install */
+    .install {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .install h2 {
+      font-size: 28px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .install-option {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .install-option h3 {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .code-block {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 14px;
+      overflow-x: auto;
+    }
+
+    .code-block code {
+      color: var(--accent);
+    }
+
+    /* FAQ */
+    .faq {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .faq h2 {
+      font-size: 28px;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 0;
+    }
+
+    .faq-item:first-of-type {
+      border-top: 1px solid var(--border);
+    }
+
+    .faq-item h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .faq-item p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .faq-item a {
+      color: var(--accent);
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    footer p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    footer a {
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .header-content {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      nav {
+        gap: 16px;
+      }
+
+      .hero {
+        padding: 48px 0 40px;
+      }
+
+      .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .btn {
+        width: 100%;
+        max-width: 280px;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <a href="/" class="logo">
+        <div class="logo-icon">Y</div>
+        <div class="logo-text"><span>yep</span>anywhere</div>
+      </a>
+      <nav>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/kzahel/yepanywhere">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>Supervise Claude Code from anywhere</h1>
+        <p>A polished web interface for managing Claude Code agents. Walk away from your desk and keep your agents productive from your phone.</p>
+        <div class="cta-buttons">
+          <a href="#install" class="btn btn-primary">Get Started</a>
+          <a href="https://github.com/kzahel/yepanywhere" class="btn btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="screenshots" class="screenshots">
+      <div class="container">
+        <h2>Screenshots</h2>
+        <div class="screenshot-grid">
+          <div class="screenshot-item">
+            <img src="screenshots/new-session.png" alt="New session screen with provider selection">
+            <p>Start a new session</p>
+          </div>
+          <div class="screenshot-item">
+            <img src="screenshots/conversation.png" alt="Conversation view with file attachments">
+            <p>Chat with file uploads</p>
+          </div>
+          <div class="screenshot-item">
+            <img src="screenshots/session-view.png" alt="Session view showing agent response">
+            <p>Watch agents work</p>
+          </div>
+          <div class="screenshot-item">
+            <img src="screenshots/approval.png" alt="Tool approval request">
+            <p>Approve tool requests</p>
+          </div>
+          <div class="screenshot-item">
+            <img src="screenshots/navigation.png" alt="Navigation drawer with sessions">
+            <p>Multi-session dashboard</p>
+          </div>
+          <div class="screenshot-item">
+            <img src="screenshots/response.png" alt="Agent response with markdown">
+            <p>Rich markdown output</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="features">
+      <div class="container">
+        <h2>Features</h2>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Mobile-first</h3>
+            <p>Approve tool requests, upload files, and share screenshots from your phone. Works great on desktop too.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Multi-session dashboard</h3>
+            <p>See all your agents at a glance. Star important sessions, archive old ones, easily multitask.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Server-owned processes</h3>
+            <p>Claude runs on your dev machine. Client disconnects don't interrupt work. Pick up where you left off.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Push notifications</h3>
+            <p>Get notified when approval is needed. Uses VAPID with no third-party server required.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Interop first</h3>
+            <p>View sessions running in Claude CLI or VS Code in real time, or resume them later from your phone.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Voice input</h3>
+            <p>Talk to your agents via browser speech API. Great for Linux where SuperWhisper isn't available.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="install">
+      <div class="container">
+        <h2>Installation</h2>
+        <div class="install-option">
+          <h3>Install from npm</h3>
+          <div class="code-block">
+            <code>npm i -g yepanywhere</code><br>
+            <code>yepanywhere</code>
+          </div>
+        </div>
+        <div class="install-option">
+          <h3>Or run from source</h3>
+          <div class="code-block">
+            <code>git clone https://github.com/kzahel/yepanywhere.git</code><br>
+            <code>cd yepanywhere</code><br>
+            <code>pnpm install</code><br>
+            <code>pnpm start</code>
+          </div>
+        </div>
+        <p style="color: var(--text-secondary); margin-top: 16px; text-align: center;">
+          Then open <strong>http://localhost:3400</strong> in your browser. The app auto-detects installed CLI agents.
+        </p>
+      </div>
+    </section>
+
+    <section id="faq" class="faq">
+      <div class="container">
+        <h2>FAQ</h2>
+
+        <div class="faq-item">
+          <h3>What is this?</h3>
+          <p>A web interface for Claude Code. Like the VS Code extension, but accessible from any device and designed for multi-session workflows.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Do I need Claude CLI installed?</h3>
+          <p>Yes, you need Claude Code (or another supported agent like Codex) installed. Yep Anywhere provides a better interface for managing these agents.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>How do I access it from my phone?</h3>
+          <p>For remote access, use something like <a href="https://tailscale.com/">Tailscale</a> (free) to connect to your dev machine. Enable cookie authentication in settings for security.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Is there a hosted version?</h3>
+          <p>No. This runs entirely on your own machine. No accounts, no cloud, no database. Your sessions stay local.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Can I see sessions started in the terminal?</h3>
+          <p>Yes! Yep Anywhere shows all Claude sessions on your machine, including those started from the CLI or VS Code extension. You can view them in real-time (read-only) or resume them.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>What providers are supported?</h3>
+          <p>Claude Code (full support), Codex (limited visibility), Codex-OSS (local models), and OpenCode (experimental). See the <a href="https://github.com/kzahel/yepanywhere#supported-providers">README</a> for details.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Is it open source?</h3>
+          <p>Yes, 100% open source under the MIT license. <a href="https://github.com/kzahel/yepanywhere">View on GitHub</a>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/kzahel/yepanywhere">GitHub</a>
+        <a href="https://www.npmjs.com/package/yepanywhere">npm</a>
+        <a href="https://github.com/kzahel/yepanywhere/issues">Issues</a>
+      </div>
+      <p>MIT License</p>
+    </div>
+  </footer>
+</body>
+</html>
