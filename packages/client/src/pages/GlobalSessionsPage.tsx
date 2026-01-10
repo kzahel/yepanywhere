@@ -1,4 +1,4 @@
-import type { ProviderName } from "@yep-anywhere/shared";
+import { ALL_PROVIDERS, type ProviderName } from "@yep-anywhere/shared";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { type GlobalSessionItem, api } from "../api/client";
@@ -184,13 +184,7 @@ export function GlobalSessionsPage() {
 
     // Only show providers that have sessions
     const options: FilterOption<ProviderName>[] = [];
-    const providerOrder: ProviderName[] = [
-      "claude",
-      "codex",
-      "codex-oss",
-      "gemini",
-    ];
-    for (const provider of providerOrder) {
+    for (const provider of ALL_PROVIDERS) {
       const count = providerCounts[provider];
       if (count && count > 0) {
         options.push({

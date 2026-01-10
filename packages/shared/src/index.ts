@@ -31,6 +31,7 @@ export type {
   MarkdownAugment,
 } from "./types.js";
 export {
+  ALL_PROVIDERS,
   thinkingOptionToTokens,
   resolveModel,
   DEFAULT_MODEL,

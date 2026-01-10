@@ -32,6 +32,7 @@ export function createProvidersRoutes(): Hono {
         models,
         supportsPermissionMode: provider.supportsPermissionMode,
         supportsThinkingToggle: provider.supportsThinkingToggle,
+        supportsSlashCommands: provider.supportsSlashCommands,
       });
     }
 
@@ -63,6 +64,7 @@ export function createProvidersRoutes(): Hono {
       models,
       supportsPermissionMode: provider.supportsPermissionMode,
       supportsThinkingToggle: provider.supportsThinkingToggle,
+      supportsSlashCommands: provider.supportsSlashCommands,
     };
 
     return c.json({ provider: providerInfo });

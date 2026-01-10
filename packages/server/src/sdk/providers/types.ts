@@ -77,6 +77,8 @@ export interface AgentProvider {
   readonly supportsPermissionMode: boolean;
   /** Whether this provider supports extended thinking toggle (default: true) */
   readonly supportsThinkingToggle: boolean;
+  /** Whether this provider supports slash commands (default: false) */
+  readonly supportsSlashCommands: boolean;
 
   /**
    * Check if this provider is installed and available.

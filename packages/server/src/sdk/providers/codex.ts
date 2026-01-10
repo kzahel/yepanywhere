@@ -66,6 +66,7 @@ export class CodexProvider implements AgentProvider {
   readonly displayName = "Codex";
   readonly supportsPermissionMode = false;
   readonly supportsThinkingToggle = false;
+  readonly supportsSlashCommands = false;
 
   private readonly config: CodexProviderConfig;
   private codexInstance: Codex | null = null;

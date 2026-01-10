@@ -163,6 +163,7 @@ export class CodexOSSProvider implements AgentProvider {
   readonly displayName = "CodexOSS";
   readonly supportsPermissionMode = false;
   readonly supportsThinkingToggle = false;
+  readonly supportsSlashCommands = false;
 
   private readonly codexPath?: string;
   private readonly localProvider: "ollama" | "lmstudio";

@@ -86,6 +86,7 @@ export class GeminiProvider implements AgentProvider {
   readonly displayName = "Gemini";
   readonly supportsPermissionMode = false;
   readonly supportsThinkingToggle = false;
+  readonly supportsSlashCommands = false;
 
   private readonly geminiPath?: string;
   private readonly timeout: number;

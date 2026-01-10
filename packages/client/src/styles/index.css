@@ -3156,6 +3156,22 @@ a.sidebar-nav-item {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+.toast-error {
+  background: #dc2626;
+  color: #fff;
+}
+
+.toast-success {
+  background: #16a34a;
+  color: #fff;
+}
+
+.toast-info {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
 /* Toast with action button - flex layout */
 .toast:has(.toast-action) {
   display: flex;

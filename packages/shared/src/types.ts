@@ -14,6 +14,19 @@ export type ProviderName =
   | "opencode";
 
 /**
+ * All provider names in display order.
+ * Used for filter dropdowns, iteration, etc.
+ * Keep in sync with ProviderName type above.
+ */
+export const ALL_PROVIDERS: readonly ProviderName[] = [
+  "claude",
+  "codex",
+  "codex-oss",
+  "gemini",
+  "opencode",
+] as const;
+
+/**
  * The default provider when none is specified.
  * Used for backward compatibility with existing sessions that don't have provider set.
  */
@@ -48,6 +61,8 @@ export interface ProviderInfo {
   supportsPermissionMode?: boolean;
   /** Whether this provider supports extended thinking toggle (default: true for backward compat) */
   supportsThinkingToggle?: boolean;
+  /** Whether this provider supports slash commands (default: false) */
+  supportsSlashCommands?: boolean;
 }
 
 /**

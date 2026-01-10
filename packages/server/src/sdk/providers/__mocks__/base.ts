@@ -29,9 +29,10 @@ import type {
 export abstract class BaseMockProvider implements MockAgentProvider {
   abstract readonly name: ProviderName;
   abstract readonly displayName: string;
-  // Mock providers default to Claude-like behavior (supports both)
+  // Mock providers default to Claude-like behavior (supports all)
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle = true;
+  readonly supportsSlashCommands = true;
 
   protected scenarios: MockScenario[] = [];
   protected _scenarioIndex = 0;

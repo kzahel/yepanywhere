@@ -50,6 +50,7 @@ export class ClaudeProvider implements AgentProvider {
   readonly displayName = "Claude";
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle = true;
+  readonly supportsSlashCommands = true;
 
   /**
    * Check if Claude SDK is available.

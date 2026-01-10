@@ -165,11 +165,13 @@ function SessionPageContent({
     if (!session?.provider) return null;
     return providers.find((p) => p.name === session.provider) ?? null;
   }, [providers, session?.provider]);
-  // Default to true for backwards compatibility
+  // Default to true for backwards compatibility (except slash commands)
   const supportsPermissionMode =
     currentProviderInfo?.supportsPermissionMode ?? true;
   const supportsThinkingToggle =
     currentProviderInfo?.supportsThinkingToggle ?? true;
+  const supportsSlashCommands =
+    currentProviderInfo?.supportsSlashCommands ?? false;
 
   // Inline title editing state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -954,7 +956,7 @@ function SessionPageContent({
                 onAttach={handleAttach}
                 onRemoveAttachment={handleRemoveAttachment}
                 uploadProgress={uploadProgress}
-                slashCommands={allSlashCommands}
+                slashCommands={supportsSlashCommands && status.state === "owned" ? allSlashCommands : []}
               />
             )}
           </div>

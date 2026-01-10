@@ -65,6 +65,7 @@ export class OpenCodeProvider implements AgentProvider {
   readonly displayName = "OpenCode";
   readonly supportsPermissionMode = false; // OpenCode has its own permission model
   readonly supportsThinkingToggle = false;
+  readonly supportsSlashCommands = false;
 
   private readonly opencodePath?: string;
   private readonly timeout: number;

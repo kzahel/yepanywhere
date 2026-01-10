@@ -82,6 +82,17 @@ Fix any errors before considering the task complete.
 
 Never mention Claude, AI, or any AI assistant in commit messages. Write commit messages as if a human developer wrote them.
 
+## Releasing to npm
+
+The package is published to npm as `yepanywhere` using GitHub Actions with OIDC trusted publishing (no npm tokens stored in secrets). Pushing a version tag triggers the release.
+
+```bash
+git tag v0.1.10
+git push origin v0.1.10
+```
+
+The workflow (`.github/workflows/publish.yml`) runs lint, typecheck, and tests, then builds with `pnpm build:bundle` and publishes with `--provenance` for supply chain attestation. It also creates a GitHub Release with auto-generated notes.
+
 ## Server Logs
 
 Server logs are written to `{dataDir}/logs/` (default: `~/.yep-anywhere/logs/`):
