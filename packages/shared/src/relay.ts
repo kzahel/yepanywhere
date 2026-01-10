@@ -173,3 +173,40 @@ export type YepMessage =
 
 /** All relay protocol messages */
 export type RelayMessage = RemoteClientMessage | YepMessage;
+
+// ============================================================================
+// Secure Connection Types (SRP + Encryption)
+// ============================================================================
+
+// Re-export SRP types for convenience
+export type {
+  SrpClientHello,
+  SrpServerChallenge,
+  SrpClientProof,
+  SrpServerVerify,
+  SrpError,
+  SrpErrorCode,
+  SrpClientMessage,
+  SrpServerMessage,
+  SrpMessage,
+} from "./crypto/srp-types.js";
+
+export {
+  isSrpClientHello,
+  isSrpClientProof,
+  isSrpServerChallenge,
+  isSrpServerVerify,
+  isSrpError,
+} from "./crypto/srp-types.js";
+
+// Re-export encryption types
+export type { EncryptedEnvelope } from "./crypto/encryption-types.js";
+export { isEncryptedEnvelope } from "./crypto/encryption-types.js";
+
+/** Connection state for secure WebSocket */
+export type SecureConnectionState =
+  | "connecting" // WebSocket connecting
+  | "srp_hello" // Sent SRP hello, waiting for challenge
+  | "srp_proof" // Sent SRP proof, waiting for verify
+  | "authenticated" // SRP complete, session key established
+  | "error"; // Authentication failed

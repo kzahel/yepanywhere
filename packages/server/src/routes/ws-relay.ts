@@ -1,5 +1,6 @@
 import type { HttpBindings } from "@hono/node-server";
 import type {
+  EncryptedEnvelope,
   RelayEvent,
   RelayRequest,
   RelayResponse,
@@ -12,7 +13,17 @@ import type {
   RelayUploadProgress,
   RelayUploadStart,
   RemoteClientMessage,
+  SrpClientHello,
+  SrpClientProof,
+  SrpError,
+  SrpServerChallenge,
+  SrpServerVerify,
   YepMessage,
+} from "@yep-anywhere/shared";
+import {
+  isEncryptedEnvelope,
+  isSrpClientHello,
+  isSrpClientProof,
 } from "@yep-anywhere/shared";
 import type { Context, Hono } from "hono";
 import type { WSContext, WSEvents } from "hono/ws";
@@ -26,6 +37,13 @@ import {
   isStreamingComplete,
   markSubagent,
 } from "../augments/index.js";
+import {
+  SrpServerSession,
+  decrypt,
+  deriveSecretboxKey,
+  encrypt,
+} from "../crypto/index.js";
+import type { RemoteAccessService } from "../remote-access/index.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type { UploadManager } from "../uploads/manager.js";
 import type { EventBus } from "../watcher/index.js";
@@ -45,6 +63,26 @@ export interface WsRelayDeps {
   eventBus: EventBus;
   /** Upload manager for handling file uploads */
   uploadManager: UploadManager;
+  /** Remote access service for SRP authentication (optional) */
+  remoteAccessService?: RemoteAccessService;
+}
+
+/** Connection authentication state */
+type ConnectionAuthState =
+  | "unauthenticated" // No SRP required (local mode) or waiting for hello
+  | "srp_waiting_proof" // Sent challenge, waiting for proof
+  | "authenticated"; // SRP complete, session key established
+
+/** Per-connection state for secure connections */
+interface ConnectionState {
+  /** SRP session during handshake */
+  srpSession: SrpServerSession | null;
+  /** Derived secretbox key (32 bytes) for encryption */
+  sessionKey: Uint8Array | null;
+  /** Authentication state */
+  authState: ConnectionAuthState;
+  /** Username if authenticated */
+  username: string | null;
 }
 
 /** Tracks an active upload over WebSocket relay */
@@ -84,9 +122,47 @@ export function createWsRelayRoutes(
     supervisor,
     eventBus,
     uploadManager,
+    remoteAccessService,
   } = deps;
 
+  /**
+   * Send a plaintext message (used by all internal handlers).
+   * Encryption is handled at the handler boundary.
+   */
   const sendMessage = (ws: WSContext, msg: YepMessage) => {
+    ws.send(JSON.stringify(msg));
+  };
+
+  /**
+   * Send a message with optional encryption based on connection state.
+   * Used at the handler boundary.
+   */
+  const sendEncrypted = (
+    ws: WSContext,
+    msg: YepMessage,
+    connState: ConnectionState,
+  ) => {
+    if (connState.authState === "authenticated" && connState.sessionKey) {
+      const plaintext = JSON.stringify(msg);
+      const { nonce, ciphertext } = encrypt(plaintext, connState.sessionKey);
+      const envelope: EncryptedEnvelope = {
+        type: "encrypted",
+        nonce,
+        ciphertext,
+      };
+      ws.send(JSON.stringify(envelope));
+    } else {
+      ws.send(JSON.stringify(msg));
+    }
+  };
+
+  /**
+   * Send a plaintext SRP message (always unencrypted during handshake).
+   */
+  const sendSrpMessage = (
+    ws: WSContext,
+    msg: SrpServerChallenge | SrpServerVerify | SrpError,
+  ) => {
     ws.send(JSON.stringify(msg));
   };
 
@@ -735,25 +811,210 @@ export function createWsRelayRoutes(
   };
 
   /**
+   * Handle SRP hello message (start of authentication).
+   */
+  const handleSrpHello = async (
+    ws: WSContext,
+    connState: ConnectionState,
+    msg: SrpClientHello,
+  ): Promise<void> => {
+    if (!remoteAccessService) {
+      sendSrpMessage(ws, {
+        type: "srp_error",
+        code: "server_error",
+        message: "Remote access not configured",
+      });
+      return;
+    }
+
+    const credentials = remoteAccessService.getCredentials();
+    if (!credentials) {
+      sendSrpMessage(ws, {
+        type: "srp_error",
+        code: "invalid_identity",
+        message: "Remote access not configured",
+      });
+      return;
+    }
+
+    const configuredUsername = remoteAccessService.getUsername();
+    if (msg.identity !== configuredUsername) {
+      sendSrpMessage(ws, {
+        type: "srp_error",
+        code: "invalid_identity",
+        message: "Unknown identity",
+      });
+      return;
+    }
+
+    try {
+      // Create SRP session and generate challenge
+      connState.srpSession = new SrpServerSession();
+      connState.username = msg.identity;
+
+      // Generate server's B value (client A comes later with the proof)
+      const { B } = await connState.srpSession.generateChallenge(
+        msg.identity,
+        credentials.salt,
+        credentials.verifier,
+      );
+
+      // Send challenge
+      const challenge: SrpServerChallenge = {
+        type: "srp_challenge",
+        salt: credentials.salt,
+        B,
+      };
+      sendSrpMessage(ws, challenge);
+      connState.authState = "srp_waiting_proof";
+
+      console.log(`[WS Relay] SRP challenge sent for ${msg.identity}`);
+    } catch (err) {
+      console.error("[WS Relay] SRP hello error:", err);
+      sendSrpMessage(ws, {
+        type: "srp_error",
+        code: "server_error",
+        message: "Authentication failed",
+      });
+    }
+  };
+
+  /**
+   * Handle SRP proof message (client proves knowledge of password).
+   */
+  const handleSrpProof = async (
+    ws: WSContext,
+    connState: ConnectionState,
+    msg: SrpClientProof,
+    clientA: string,
+  ): Promise<void> => {
+    if (!connState.srpSession || connState.authState !== "srp_waiting_proof") {
+      sendSrpMessage(ws, {
+        type: "srp_error",
+        code: "server_error",
+        message: "Unexpected proof message",
+      });
+      return;
+    }
+
+    try {
+      // Verify client proof with client's A value
+      const result = await connState.srpSession.verifyProof(clientA, msg.M1);
+
+      if (!result) {
+        console.warn(
+          `[WS Relay] SRP authentication failed for ${connState.username}`,
+        );
+        sendSrpMessage(ws, {
+          type: "srp_error",
+          code: "invalid_proof",
+          message: "Authentication failed",
+        });
+        connState.authState = "unauthenticated";
+        connState.srpSession = null;
+        return;
+      }
+
+      // Get session key and derive secretbox key
+      const rawKey = connState.srpSession.getSessionKey();
+      if (!rawKey) {
+        throw new Error("No session key after successful proof");
+      }
+      connState.sessionKey = deriveSecretboxKey(rawKey);
+      connState.authState = "authenticated";
+
+      // Send verification
+      const verify: SrpServerVerify = {
+        type: "srp_verify",
+        M2: result.M2,
+      };
+      sendSrpMessage(ws, verify);
+
+      console.log(
+        `[WS Relay] SRP authentication successful for ${connState.username}`,
+      );
+    } catch (err) {
+      console.error("[WS Relay] SRP proof error:", err);
+      sendSrpMessage(ws, {
+        type: "srp_error",
+        code: "server_error",
+        message: "Authentication failed",
+      });
+      connState.authState = "unauthenticated";
+      connState.srpSession = null;
+    }
+  };
+
+  /**
    * Handle incoming WebSocket messages.
    */
   const handleMessage = async (
     ws: WSContext,
     subscriptions: Map<string, () => void>,
     uploads: Map<string, RelayUploadState>,
+    connState: ConnectionState,
     data: unknown,
   ): Promise<void> => {
     // Parse message
-    let msg: RemoteClientMessage;
+    let parsed: unknown;
     try {
       if (typeof data !== "string") {
         console.warn("[WS Relay] Ignoring non-string message");
         return;
       }
-      msg = JSON.parse(data) as RemoteClientMessage;
+      parsed = JSON.parse(data);
     } catch {
       console.warn("[WS Relay] Failed to parse message:", data);
       return;
+    }
+
+    // Handle SRP messages first (always plaintext)
+    if (isSrpClientHello(parsed)) {
+      // SRP hello - start authentication
+      await handleSrpHello(ws, connState, parsed);
+      return;
+    }
+
+    // Handle SRP proof (contains A and M1)
+    if (isSrpClientProof(parsed)) {
+      await handleSrpProof(ws, connState, parsed, parsed.A);
+      return;
+    }
+
+    // Handle encrypted messages
+    let msg: RemoteClientMessage;
+    if (isEncryptedEnvelope(parsed)) {
+      if (connState.authState !== "authenticated" || !connState.sessionKey) {
+        console.warn(
+          "[WS Relay] Received encrypted message but not authenticated",
+        );
+        return;
+      }
+      const decrypted = decrypt(
+        parsed.nonce,
+        parsed.ciphertext,
+        connState.sessionKey,
+      );
+      if (!decrypted) {
+        console.warn("[WS Relay] Failed to decrypt message");
+        return;
+      }
+      try {
+        msg = JSON.parse(decrypted) as RemoteClientMessage;
+      } catch {
+        console.warn("[WS Relay] Failed to parse decrypted message");
+        return;
+      }
+    } else {
+      // Plaintext message (allowed in unauthenticated mode when remote access is disabled)
+      if (
+        remoteAccessService?.isEnabled() &&
+        connState.authState !== "authenticated"
+      ) {
+        console.warn("[WS Relay] Received plaintext message but auth required");
+        return;
+      }
+      msg = parsed as RemoteClientMessage;
     }
 
     // Route by message type
@@ -798,18 +1059,32 @@ export function createWsRelayRoutes(
     const uploads = new Map<string, RelayUploadState>();
     // Message queue to serialize async message handling
     let messageQueue: Promise<void> = Promise.resolve();
+    // Connection state for SRP authentication
+    const connState: ConnectionState = {
+      srpSession: null,
+      sessionKey: null,
+      authState: "unauthenticated",
+      username: null,
+    };
 
     return {
       onOpen(_evt, ws) {
         console.log("[WS Relay] Client connected");
+        // If remote access is not enabled, allow unauthenticated connections
+        if (!remoteAccessService?.isEnabled()) {
+          // In local mode, connections are implicitly authenticated
+          connState.authState = "authenticated";
+        }
       },
 
       onMessage(evt, ws) {
         // Queue messages for sequential processing
         messageQueue = messageQueue.then(() =>
-          handleMessage(ws, subscriptions, uploads, evt.data).catch((err) => {
-            console.error("[WS Relay] Unexpected error:", err);
-          }),
+          handleMessage(ws, subscriptions, uploads, connState, evt.data).catch(
+            (err) => {
+              console.error("[WS Relay] Unexpected error:", err);
+            },
+          ),
         );
       },
 

@@ -272,4 +272,29 @@ export type {
   RemoteClientMessage,
   YepMessage,
   RelayMessage,
+  // SRP authentication types (re-exported from relay.ts)
+  SrpClientHello,
+  SrpServerChallenge,
+  SrpClientProof,
+  SrpServerVerify,
+  SrpError,
+  SrpErrorCode,
+  SrpClientMessage,
+  SrpServerMessage,
+  SrpMessage,
+  // Encryption types
+  EncryptedEnvelope,
+  // Connection state
+  SecureConnectionState,
+} from "./relay.js";
+
+export {
+  // SRP type guards
+  isSrpClientHello,
+  isSrpClientProof,
+  isSrpServerChallenge,
+  isSrpServerVerify,
+  isSrpError,
+  // Encryption type guard
+  isEncryptedEnvelope,
 } from "./relay.js";

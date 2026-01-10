@@ -1,0 +1,880 @@
+/**
+ * Secure connection for remote access using SRP authentication and NaCl encryption.
+ *
+ * This implements the Connection interface but routes all traffic through
+ * an encrypted WebSocket channel. Uses:
+ * - SRP-6a for zero-knowledge password authentication
+ * - NaCl secretbox (XSalsa20-Poly1305) for message encryption
+ */
+import type {
+  EncryptedEnvelope,
+  RelayEvent,
+  RelayRequest,
+  RelayResponse,
+  RelaySubscribe,
+  RelayUnsubscribe,
+  RelayUploadChunk,
+  RelayUploadComplete,
+  RelayUploadEnd,
+  RelayUploadError,
+  RelayUploadProgress,
+  RelayUploadStart,
+  RemoteClientMessage,
+  SrpClientHello,
+  SrpClientProof,
+  UploadedFile,
+  YepMessage,
+} from "@yep-anywhere/shared";
+import {
+  isEncryptedEnvelope,
+  isSrpError,
+  isSrpServerChallenge,
+  isSrpServerVerify,
+} from "@yep-anywhere/shared";
+import { decrypt, deriveSecretboxKey, encrypt } from "./nacl-wrapper";
+import { SrpClientSession } from "./srp-client";
+import type {
+  Connection,
+  StreamHandlers,
+  Subscription,
+  UploadOptions,
+} from "./types";
+
+/**
+ * Generate a unique ID for request correlation.
+ */
+function generateId(): string {
+  return crypto.randomUUID();
+}
+
+/** Default chunk size for file uploads (64KB) */
+const DEFAULT_CHUNK_SIZE = 64 * 1024;
+
+/** Connection authentication state */
+type ConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "srp_hello_sent"
+  | "srp_proof_sent"
+  | "authenticated"
+  | "failed";
+
+/** Handlers for pending uploads */
+interface PendingUpload {
+  resolve: (file: UploadedFile) => void;
+  reject: (error: Error) => void;
+  onProgress?: (bytesUploaded: number) => void;
+}
+
+/**
+ * Secure connection to yepanywhere server using SRP + NaCl encryption.
+ *
+ * All traffic is authenticated and encrypted. The connection is established
+ * in three phases:
+ * 1. WebSocket connection
+ * 2. SRP authentication handshake
+ * 3. Encrypted message exchange
+ */
+export class SecureConnection implements Connection {
+  readonly mode = "secure" as const;
+
+  private ws: WebSocket | null = null;
+  private srpSession: SrpClientSession | null = null;
+  private sessionKey: Uint8Array | null = null;
+  private connectionState: ConnectionState = "disconnected";
+  private pendingRequests = new Map<
+    string,
+    {
+      resolve: (response: RelayResponse) => void;
+      reject: (error: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >();
+  private pendingUploads = new Map<string, PendingUpload>();
+  private subscriptions = new Map<string, StreamHandlers>();
+  private connectionPromise: Promise<void> | null = null;
+
+  // Credentials for authentication
+  private username: string;
+  private password: string;
+  private wsUrl: string;
+
+  /**
+   * Create a new secure connection.
+   *
+   * @param wsUrl - WebSocket URL to connect to
+   * @param username - Username for SRP authentication
+   * @param password - Password for SRP authentication
+   */
+  constructor(wsUrl: string, username: string, password: string) {
+    this.wsUrl = wsUrl;
+    this.username = username;
+    this.password = password;
+  }
+
+  /**
+   * Ensure connection is authenticated, reconnecting if necessary.
+   */
+  private async ensureConnected(): Promise<void> {
+    // If already authenticated, return immediately
+    if (
+      this.ws?.readyState === WebSocket.OPEN &&
+      this.connectionState === "authenticated"
+    ) {
+      return;
+    }
+
+    // If connection is in progress, wait for it
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    // Start new connection
+    this.connectionPromise = this.connectAndAuthenticate();
+    try {
+      await this.connectionPromise;
+    } finally {
+      this.connectionPromise = null;
+    }
+  }
+
+  /**
+   * Connect to the WebSocket server and perform SRP authentication.
+   */
+  private connectAndAuthenticate(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      console.log("[SecureConnection] Connecting to", this.wsUrl);
+      this.connectionState = "connecting";
+
+      const ws = new WebSocket(this.wsUrl);
+
+      // Create auth handlers that will be set by the Promise executor
+      // These are guaranteed to be set before any callbacks fire
+      let authResolveHandler: () => void = () => {};
+      let authRejectHandler: (err: Error) => void = () => {};
+
+      const authPromise = new Promise<void>((res, rej) => {
+        authResolveHandler = res;
+        authRejectHandler = rej;
+      });
+
+      ws.onopen = async () => {
+        console.log("[SecureConnection] WebSocket connected, starting SRP");
+        this.ws = ws;
+
+        try {
+          // Start SRP handshake
+          this.srpSession = new SrpClientSession();
+          await this.srpSession.generateHello(this.username, this.password);
+
+          // Send hello
+          const hello: SrpClientHello = {
+            type: "srp_hello",
+            identity: this.username,
+          };
+          ws.send(JSON.stringify(hello));
+          this.connectionState = "srp_hello_sent";
+          console.log("[SecureConnection] SRP hello sent");
+        } catch (err) {
+          console.error("[SecureConnection] SRP hello error:", err);
+          this.connectionState = "failed";
+          authRejectHandler(
+            err instanceof Error ? err : new Error(String(err)),
+          );
+          ws.close();
+        }
+      };
+
+      ws.onerror = (event) => {
+        console.error("[SecureConnection] Error:", event);
+      };
+
+      ws.onclose = (event) => {
+        console.log("[SecureConnection] Closed:", event.code, event.reason);
+        this.ws = null;
+        this.sessionKey = null;
+        this.srpSession = null;
+
+        if (this.connectionState !== "authenticated") {
+          this.connectionState = "failed";
+          authRejectHandler(
+            new Error("Connection closed before authentication"),
+          );
+        }
+
+        // Reject any pending requests
+        for (const [id, pending] of this.pendingRequests) {
+          clearTimeout(pending.timeout);
+          pending.reject(new Error("WebSocket connection closed"));
+          this.pendingRequests.delete(id);
+        }
+
+        // Reject any pending uploads
+        for (const [id, pending] of this.pendingUploads) {
+          pending.reject(new Error("WebSocket connection closed"));
+          this.pendingUploads.delete(id);
+        }
+
+        // Notify all subscriptions of closure
+        for (const handlers of this.subscriptions.values()) {
+          handlers.onError?.(new Error("WebSocket connection closed"));
+          handlers.onClose?.();
+        }
+        this.subscriptions.clear();
+      };
+
+      ws.onmessage = async (event) => {
+        // During SRP handshake, handle SRP messages
+        if (this.connectionState === "srp_hello_sent") {
+          await this.handleSrpChallenge(
+            event.data,
+            authResolveHandler,
+            authRejectHandler,
+          );
+        } else if (this.connectionState === "srp_proof_sent") {
+          await this.handleSrpVerify(
+            event.data,
+            authResolveHandler,
+            authRejectHandler,
+          );
+        } else if (this.connectionState === "authenticated") {
+          this.handleMessage(event.data);
+        }
+      };
+
+      // Handle initial connection failure
+      const timeout = setTimeout(() => {
+        if (this.connectionState !== "authenticated") {
+          ws.close();
+          this.connectionState = "failed";
+          reject(new Error("Connection timeout"));
+        }
+      }, 30000);
+
+      // Wait for auth to complete
+      authPromise
+        .then(() => {
+          clearTimeout(timeout);
+          resolve();
+        })
+        .catch((err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+    });
+  }
+
+  /**
+   * Handle SRP challenge message from server.
+   */
+  private async handleSrpChallenge(
+    data: string,
+    resolve: () => void,
+    reject: (err: Error) => void,
+  ): Promise<void> {
+    try {
+      const msg = JSON.parse(data);
+
+      if (isSrpError(msg)) {
+        console.error("[SecureConnection] SRP error:", msg.message);
+        this.connectionState = "failed";
+        reject(new Error(`Authentication failed: ${msg.message}`));
+        this.ws?.close();
+        return;
+      }
+
+      if (!isSrpServerChallenge(msg)) {
+        console.warn("[SecureConnection] Unexpected message during SRP:", msg);
+        return;
+      }
+
+      if (!this.srpSession) {
+        reject(new Error("No SRP session"));
+        return;
+      }
+
+      console.log("[SecureConnection] Received SRP challenge");
+
+      // Process challenge and generate proof
+      const { A, M1 } = await this.srpSession.processChallenge(msg.salt, msg.B);
+
+      // Send proof with A
+      const proof: SrpClientProof = {
+        type: "srp_proof",
+        A,
+        M1,
+      };
+      this.ws?.send(JSON.stringify(proof));
+      this.connectionState = "srp_proof_sent";
+      console.log("[SecureConnection] SRP proof sent");
+    } catch (err) {
+      console.error("[SecureConnection] SRP challenge error:", err);
+      this.connectionState = "failed";
+      reject(err instanceof Error ? err : new Error(String(err)));
+      this.ws?.close();
+    }
+  }
+
+  /**
+   * Handle SRP verify message from server.
+   */
+  private async handleSrpVerify(
+    data: string,
+    resolve: () => void,
+    reject: (err: Error) => void,
+  ): Promise<void> {
+    try {
+      const msg = JSON.parse(data);
+
+      if (isSrpError(msg)) {
+        console.error("[SecureConnection] SRP error:", msg.message);
+        this.connectionState = "failed";
+        reject(new Error(`Authentication failed: ${msg.message}`));
+        this.ws?.close();
+        return;
+      }
+
+      if (!isSrpServerVerify(msg)) {
+        console.warn("[SecureConnection] Unexpected message during SRP:", msg);
+        return;
+      }
+
+      if (!this.srpSession) {
+        reject(new Error("No SRP session"));
+        return;
+      }
+
+      console.log("[SecureConnection] Received SRP verify");
+
+      // Verify server and derive session key
+      const valid = await this.srpSession.verifyServer(msg.M2);
+      if (!valid) {
+        console.error("[SecureConnection] Server verification failed");
+        this.connectionState = "failed";
+        reject(new Error("Server verification failed"));
+        this.ws?.close();
+        return;
+      }
+
+      // Derive secretbox key from SRP session key
+      const rawKey = this.srpSession.getSessionKey();
+      if (!rawKey) {
+        reject(new Error("No session key"));
+        return;
+      }
+      this.sessionKey = deriveSecretboxKey(rawKey);
+      this.connectionState = "authenticated";
+
+      console.log("[SecureConnection] Authentication complete");
+      resolve();
+    } catch (err) {
+      console.error("[SecureConnection] SRP verify error:", err);
+      this.connectionState = "failed";
+      reject(err instanceof Error ? err : new Error(String(err)));
+      this.ws?.close();
+    }
+  }
+
+  /**
+   * Handle incoming WebSocket messages (after authentication).
+   */
+  private handleMessage(data: unknown): void {
+    if (typeof data !== "string") {
+      console.warn("[SecureConnection] Ignoring non-string message");
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      console.warn("[SecureConnection] Failed to parse message:", data);
+      return;
+    }
+
+    // All messages after auth should be encrypted
+    if (!isEncryptedEnvelope(parsed)) {
+      console.warn(
+        "[SecureConnection] Received unencrypted message after auth",
+      );
+      return;
+    }
+
+    // Decrypt the message
+    if (!this.sessionKey) {
+      console.warn("[SecureConnection] No session key for decryption");
+      return;
+    }
+
+    const decrypted = decrypt(parsed.nonce, parsed.ciphertext, this.sessionKey);
+    if (!decrypted) {
+      console.warn("[SecureConnection] Failed to decrypt message");
+      return;
+    }
+
+    let msg: YepMessage;
+    try {
+      msg = JSON.parse(decrypted) as YepMessage;
+    } catch {
+      console.warn(
+        "[SecureConnection] Failed to parse decrypted message:",
+        decrypted,
+      );
+      return;
+    }
+
+    switch (msg.type) {
+      case "response":
+        this.handleResponse(msg);
+        break;
+
+      case "event":
+        this.handleEvent(msg);
+        break;
+
+      case "upload_progress":
+        this.handleUploadProgress(msg);
+        break;
+
+      case "upload_complete":
+        this.handleUploadComplete(msg);
+        break;
+
+      case "upload_error":
+        this.handleUploadError(msg);
+        break;
+
+      default:
+        console.warn(
+          "[SecureConnection] Unknown message type:",
+          (msg as { type?: string }).type,
+        );
+    }
+  }
+
+  /**
+   * Handle an event message by routing to subscription handlers.
+   */
+  private handleEvent(event: RelayEvent): void {
+    const handlers = this.subscriptions.get(event.subscriptionId);
+    if (!handlers) {
+      console.warn(
+        "[SecureConnection] Received event for unknown subscription:",
+        event.subscriptionId,
+      );
+      return;
+    }
+
+    // Route special events
+    if (event.eventType === "connected") {
+      handlers.onOpen?.();
+    }
+
+    // Forward all events (including connected) to the handler
+    handlers.onEvent(event.eventType, event.eventId, event.data);
+  }
+
+  /**
+   * Handle a response message.
+   */
+  private handleResponse(response: RelayResponse): void {
+    const pending = this.pendingRequests.get(response.id);
+    if (!pending) {
+      console.warn(
+        "[SecureConnection] Received response for unknown request:",
+        response.id,
+      );
+      return;
+    }
+
+    clearTimeout(pending.timeout);
+    this.pendingRequests.delete(response.id);
+    pending.resolve(response);
+  }
+
+  /**
+   * Handle upload progress message.
+   */
+  private handleUploadProgress(msg: RelayUploadProgress): void {
+    const pending = this.pendingUploads.get(msg.uploadId);
+    if (pending?.onProgress) {
+      pending.onProgress(msg.bytesReceived);
+    }
+  }
+
+  /**
+   * Handle upload complete message.
+   */
+  private handleUploadComplete(msg: RelayUploadComplete): void {
+    const pending = this.pendingUploads.get(msg.uploadId);
+    if (pending) {
+      this.pendingUploads.delete(msg.uploadId);
+      pending.resolve(msg.file);
+    }
+  }
+
+  /**
+   * Handle upload error message.
+   */
+  private handleUploadError(msg: RelayUploadError): void {
+    const pending = this.pendingUploads.get(msg.uploadId);
+    if (pending) {
+      this.pendingUploads.delete(msg.uploadId);
+      pending.reject(new Error(msg.error));
+    }
+  }
+
+  /**
+   * Send an encrypted message over the WebSocket.
+   */
+  private send(msg: RemoteClientMessage): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket not connected");
+    }
+    if (!this.sessionKey) {
+      throw new Error("Not authenticated");
+    }
+
+    const plaintext = JSON.stringify(msg);
+    const { nonce, ciphertext } = encrypt(plaintext, this.sessionKey);
+    const envelope: EncryptedEnvelope = {
+      type: "encrypted",
+      nonce,
+      ciphertext,
+    };
+    this.ws.send(JSON.stringify(envelope));
+  }
+
+  /**
+   * Make a JSON API request over encrypted WebSocket.
+   */
+  async fetch<T>(path: string, init?: RequestInit): Promise<T> {
+    await this.ensureConnected();
+
+    const id = generateId();
+    const method = (init?.method ?? "GET") as RelayRequest["method"];
+
+    // Parse body if present
+    let body: unknown;
+    if (init?.body) {
+      if (typeof init.body === "string") {
+        try {
+          body = JSON.parse(init.body);
+        } catch {
+          body = init.body;
+        }
+      } else {
+        body = init.body;
+      }
+    }
+
+    // Build headers
+    const headers: Record<string, string> = {};
+    if (init?.headers) {
+      if (init.headers instanceof Headers) {
+        init.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+      } else if (Array.isArray(init.headers)) {
+        for (const [key, value] of init.headers) {
+          headers[key] = value;
+        }
+      } else {
+        Object.assign(headers, init.headers);
+      }
+    }
+
+    // Add default headers
+    headers["Content-Type"] = "application/json";
+    headers["X-Yep-Anywhere"] = "true";
+
+    const request: RelayRequest = {
+      type: "request",
+      id,
+      method,
+      path: path.startsWith("/api") ? path : `/api${path}`,
+      headers,
+      body,
+    };
+
+    return new Promise<T>((resolve, reject) => {
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        this.pendingRequests.delete(id);
+        reject(new Error("Request timeout"));
+      }, 30000);
+
+      // Store pending request
+      this.pendingRequests.set(id, {
+        resolve: (response: RelayResponse) => {
+          if (response.status >= 400) {
+            const error = new Error(
+              `API error: ${response.status}`,
+            ) as Error & { status: number; setupRequired?: boolean };
+            error.status = response.status;
+            if (response.headers?.["X-Setup-Required"] === "true") {
+              error.setupRequired = true;
+            }
+            reject(error);
+          } else {
+            resolve(response.body as T);
+          }
+        },
+        reject,
+        timeout,
+      });
+
+      // Send encrypted request
+      try {
+        this.send(request);
+      } catch (err) {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(id);
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Subscribe to session events.
+   */
+  subscribeSession(
+    sessionId: string,
+    handlers: StreamHandlers,
+    lastEventId?: string,
+  ): Subscription {
+    const subscriptionId = generateId();
+
+    // Store handlers for routing events
+    this.subscriptions.set(subscriptionId, handlers);
+
+    // Send subscribe message (async, but we return synchronously)
+    this.ensureConnected()
+      .then(() => {
+        const msg: RelaySubscribe = {
+          type: "subscribe",
+          subscriptionId,
+          channel: "session",
+          sessionId,
+          lastEventId,
+        };
+        this.send(msg);
+      })
+      .catch((err) => {
+        handlers.onError?.(err);
+        this.subscriptions.delete(subscriptionId);
+      });
+
+    return {
+      close: () => {
+        this.subscriptions.delete(subscriptionId);
+        // Send unsubscribe message if connected
+        if (
+          this.ws?.readyState === WebSocket.OPEN &&
+          this.connectionState === "authenticated"
+        ) {
+          const msg: RelayUnsubscribe = {
+            type: "unsubscribe",
+            subscriptionId,
+          };
+          try {
+            this.send(msg);
+          } catch {
+            // Ignore send errors on close
+          }
+        }
+        handlers.onClose?.();
+      },
+    };
+  }
+
+  /**
+   * Subscribe to activity events.
+   */
+  subscribeActivity(handlers: StreamHandlers): Subscription {
+    const subscriptionId = generateId();
+
+    // Store handlers for routing events
+    this.subscriptions.set(subscriptionId, handlers);
+
+    // Send subscribe message (async, but we return synchronously)
+    this.ensureConnected()
+      .then(() => {
+        const msg: RelaySubscribe = {
+          type: "subscribe",
+          subscriptionId,
+          channel: "activity",
+        };
+        this.send(msg);
+      })
+      .catch((err) => {
+        handlers.onError?.(err);
+        this.subscriptions.delete(subscriptionId);
+      });
+
+    return {
+      close: () => {
+        this.subscriptions.delete(subscriptionId);
+        // Send unsubscribe message if connected
+        if (
+          this.ws?.readyState === WebSocket.OPEN &&
+          this.connectionState === "authenticated"
+        ) {
+          const msg: RelayUnsubscribe = {
+            type: "unsubscribe",
+            subscriptionId,
+          };
+          try {
+            this.send(msg);
+          } catch {
+            // Ignore send errors on close
+          }
+        }
+        handlers.onClose?.();
+      },
+    };
+  }
+
+  /**
+   * Upload a file to a session via encrypted WebSocket relay protocol.
+   */
+  async upload(
+    projectId: string,
+    sessionId: string,
+    file: File,
+    options?: UploadOptions,
+  ): Promise<UploadedFile> {
+    await this.ensureConnected();
+
+    const uploadId = generateId();
+    const chunkSize = options?.chunkSize ?? DEFAULT_CHUNK_SIZE;
+
+    // Create promise that will resolve when upload completes
+    const uploadPromise = new Promise<UploadedFile>((resolve, reject) => {
+      this.pendingUploads.set(uploadId, {
+        resolve,
+        reject,
+        onProgress: options?.onProgress,
+      });
+
+      // Handle abort signal
+      if (options?.signal) {
+        options.signal.addEventListener("abort", () => {
+          this.pendingUploads.delete(uploadId);
+          reject(new Error("Upload aborted"));
+        });
+      }
+    });
+
+    try {
+      // Send upload_start
+      const startMsg: RelayUploadStart = {
+        type: "upload_start",
+        uploadId,
+        projectId,
+        sessionId,
+        filename: file.name,
+        size: file.size,
+        mimeType: file.type || "application/octet-stream",
+      };
+      this.send(startMsg);
+
+      // Read and send chunks
+      let offset = 0;
+      const reader = file.stream().getReader();
+
+      while (true) {
+        // Check if aborted
+        if (options?.signal?.aborted) {
+          reader.cancel();
+          throw new Error("Upload aborted");
+        }
+
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Process the chunk (may be larger than chunkSize, so we split it)
+        let chunkOffset = 0;
+        while (chunkOffset < value.length) {
+          const chunkEnd = Math.min(chunkOffset + chunkSize, value.length);
+          const chunk = value.slice(chunkOffset, chunkEnd);
+
+          // Base64 encode the chunk
+          const base64 = btoa(
+            Array.from(chunk)
+              .map((b) => String.fromCharCode(b))
+              .join(""),
+          );
+
+          // Send chunk
+          const chunkMsg: RelayUploadChunk = {
+            type: "upload_chunk",
+            uploadId,
+            offset,
+            data: base64,
+          };
+          this.send(chunkMsg);
+
+          offset += chunk.length;
+          chunkOffset = chunkEnd;
+        }
+      }
+
+      // Send upload_end
+      const endMsg: RelayUploadEnd = {
+        type: "upload_end",
+        uploadId,
+      };
+      this.send(endMsg);
+
+      // Wait for completion
+      return await uploadPromise;
+    } catch (err) {
+      // Clean up pending upload on error
+      this.pendingUploads.delete(uploadId);
+      throw err;
+    }
+  }
+
+  /**
+   * Close the secure connection.
+   */
+  close(): void {
+    // Notify and clear subscriptions
+    for (const handlers of this.subscriptions.values()) {
+      handlers.onClose?.();
+    }
+    this.subscriptions.clear();
+
+    // Clear pending requests
+    for (const [id, pending] of this.pendingRequests) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error("Connection closed"));
+    }
+    this.pendingRequests.clear();
+
+    // Clear pending uploads
+    for (const pending of this.pendingUploads.values()) {
+      pending.reject(new Error("Connection closed"));
+    }
+    this.pendingUploads.clear();
+
+    // Clear session key
+    this.sessionKey = null;
+    this.srpSession = null;
+    this.connectionState = "disconnected";
+
+    // Close WebSocket
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+
+  /**
+   * Check if the connection is authenticated.
+   */
+  isAuthenticated(): boolean {
+    return this.connectionState === "authenticated" && this.sessionKey !== null;
+  }
+}

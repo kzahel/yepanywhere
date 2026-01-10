@@ -24,6 +24,8 @@ import { ProjectScanner } from "./projects/scanner.js";
 import { PushNotifier, type PushService } from "./push/index.js";
 import { createPushRoutes } from "./push/routes.js";
 import type { RecentsService } from "./recents/index.js";
+import type { RemoteAccessService } from "./remote-access/index.js";
+import { createRemoteAccessRoutes } from "./remote-access/index.js";
 import { createActivityRoutes } from "./routes/activity.js";
 import { createBeadsRoutes } from "./routes/beads.js";
 import { createDebugStreamingRoutes } from "./routes/debug-streaming.js";
@@ -93,6 +95,8 @@ export interface AppOptions {
   authService?: AuthService;
   /** Whether auth is disabled by env var (--auth-disable). Bypasses all auth. */
   authDisabled?: boolean;
+  /** RemoteAccessService for SRP-based remote access (optional) */
+  remoteAccessService?: RemoteAccessService;
 }
 
 export interface AppResult {
@@ -132,6 +136,16 @@ export function createApp(options: AppOptions): AppResult {
       createAuthRoutes({
         authService: options.authService,
         authDisabled: options.authDisabled,
+      }),
+    );
+  }
+
+  // Remote access routes (SRP authentication for relay)
+  if (options.remoteAccessService) {
+    app.route(
+      "/api/remote-access",
+      createRemoteAccessRoutes({
+        remoteAccessService: options.remoteAccessService,
       }),
     );
   }

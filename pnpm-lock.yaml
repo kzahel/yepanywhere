@@ -7,6 +7,13 @@ settings:
 importers:
 
   .:
+    dependencies:
+      tssrp6a:
+        specifier: ^3.0.0
+        version: 3.0.0
+      tweetnacl:
+        specifier: ^1.0.3
+        version: 1.0.3
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.4
@@ -35,6 +42,12 @@ importers:
       react-router-dom:
         specifier: ^7.11.0
         version: 7.12.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      tssrp6a:
+        specifier: ^3.0.0
+        version: 3.0.0
+      tweetnacl:
+        specifier: ^1.0.3
+        version: 1.0.3
       zod:
         specifier: ^4.3.4
         version: 4.3.5
@@ -114,6 +127,12 @@ importers:
       shiki:
         specifier: ^3.20.0
         version: 3.21.0
+      tssrp6a:
+        specifier: ^3.0.0
+        version: 3.0.0
+      tweetnacl:
+        specifier: ^1.0.3
+        version: 1.0.3
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -160,6 +179,12 @@ importers:
 
   packages/shared:
     dependencies:
+      tssrp6a:
+        specifier: ^3.0.0
+        version: 3.0.0
+      tweetnacl:
+        specifier: ^1.0.3
+        version: 1.0.3
       zod:
         specifier: ^4.3.4
         version: 4.3.5
@@ -1897,10 +1922,16 @@ packages:
   trim-lines@3.0.1:
     resolution: {integrity: sha512-kRj8B+YHZCc9kQYdWfJB2/oUl9rA99qbowYYBtr4ui4mZyAQ2JpvVBd/6U2YloATfqBhBTSMhTpgBHtU0Mf3Rg==}
 
+  tssrp6a@3.0.0:
+    resolution: {integrity: sha512-kGvFhbBfQhiAhGrVO++QFpyVLqk2dy32oEcUvc8ymkuRTufSLZwQqp/QpYbBItQ9Wr1p1IC61AS9dBpGOTr7dQ==}
+
   tsx@4.21.0:
     resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
+
+  tweetnacl@1.0.3:
+    resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -3636,12 +3667,16 @@ snapshots:
 
   trim-lines@3.0.1: {}
 
+  tssrp6a@3.0.0: {}
+
   tsx@4.21.0:
     dependencies:
       esbuild: 0.27.2
       get-tsconfig: 4.13.0
     optionalDependencies:
       fsevents: 2.3.3
+
+  tweetnacl@1.0.3: {}
 
   typescript@5.9.3: {}
 

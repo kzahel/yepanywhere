@@ -18,6 +18,7 @@ import {
 import { useProviders } from "../hooks/useProviders";
 import { usePwaInstall } from "../hooks/usePwaInstall";
 import { useReloadNotifications } from "../hooks/useReloadNotifications";
+import { useRemoteAccess } from "../hooks/useRemoteAccess";
 import { useSchemaValidation } from "../hooks/useSchemaValidation";
 import { useStreamingEnabled } from "../hooks/useStreamingEnabled";
 import { THEMES, getThemeLabel, useTheme } from "../hooks/useTheme";
@@ -106,6 +107,24 @@ export function SettingsPage() {
     "idle" | "testing" | "success" | "error"
   >("idle");
   const [wsTestError, setWsTestError] = useState<string | null>(null);
+
+  // Remote access settings
+  const {
+    config: remoteAccessConfig,
+    loading: remoteAccessLoading,
+    enable: enableRemoteAccess,
+    disable: disableRemoteAccess,
+  } = useRemoteAccess();
+  const [showRemoteAccessSetup, setShowRemoteAccessSetup] = useState(false);
+  const [remoteAccessUsername, setRemoteAccessUsername] = useState("");
+  const [remoteAccessPassword, setRemoteAccessPassword] = useState("");
+  const [remoteAccessConfirm, setRemoteAccessConfirm] = useState("");
+  const [remoteAccessError, setRemoteAccessError] = useState<string | null>(
+    null,
+  );
+  const [isEnablingRemoteAccess, setIsEnablingRemoteAccess] = useState(false);
+  const [showRemoteAccessDisable, setShowRemoteAccessDisable] = useState(false);
+  const [isDisablingRemoteAccess, setIsDisablingRemoteAccess] = useState(false);
 
   const { openSidebar, isWideScreen } = useNavigationLayout();
 
@@ -713,6 +732,239 @@ export function SettingsPage() {
                       >
                         Logout
                       </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+
+            <section className="settings-section">
+              <h2>Remote Access</h2>
+              <p className="settings-section-description">
+                Access your yepanywhere server from anywhere through an
+                encrypted relay connection.
+              </p>
+              <div className="settings-group">
+                {remoteAccessLoading ? (
+                  <div className="settings-item">
+                    <div className="settings-item-info">
+                      <strong>Loading...</strong>
+                    </div>
+                  </div>
+                ) : !remoteAccessConfig?.enabled ? (
+                  <>
+                    <div className="settings-item">
+                      <div className="settings-item-info">
+                        <strong>Enable Remote Access</strong>
+                        <p>
+                          Set up a username and password to connect from outside
+                          your local network.
+                        </p>
+                      </div>
+                      {!showRemoteAccessSetup ? (
+                        <button
+                          type="button"
+                          className="settings-button"
+                          onClick={() => setShowRemoteAccessSetup(true)}
+                        >
+                          Set Up
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="settings-button settings-button-secondary"
+                          onClick={() => {
+                            setShowRemoteAccessSetup(false);
+                            setRemoteAccessUsername("");
+                            setRemoteAccessPassword("");
+                            setRemoteAccessConfirm("");
+                            setRemoteAccessError(null);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+
+                    {showRemoteAccessSetup && (
+                      <div className="settings-item settings-item-form">
+                        <form
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            setRemoteAccessError(null);
+
+                            if (!remoteAccessUsername.trim()) {
+                              setRemoteAccessError("Username is required");
+                              return;
+                            }
+
+                            if (remoteAccessUsername.length < 3) {
+                              setRemoteAccessError(
+                                "Username must be at least 3 characters",
+                              );
+                              return;
+                            }
+
+                            if (remoteAccessPassword !== remoteAccessConfirm) {
+                              setRemoteAccessError("Passwords do not match");
+                              return;
+                            }
+
+                            if (remoteAccessPassword.length < 8) {
+                              setRemoteAccessError(
+                                "Password must be at least 8 characters",
+                              );
+                              return;
+                            }
+
+                            setIsEnablingRemoteAccess(true);
+                            try {
+                              await enableRemoteAccess(
+                                remoteAccessUsername,
+                                remoteAccessPassword,
+                              );
+                              setShowRemoteAccessSetup(false);
+                              setRemoteAccessUsername("");
+                              setRemoteAccessPassword("");
+                              setRemoteAccessConfirm("");
+                            } catch (err) {
+                              setRemoteAccessError(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Failed to enable remote access",
+                              );
+                            } finally {
+                              setIsEnablingRemoteAccess(false);
+                            }
+                          }}
+                        >
+                          <div className="form-field">
+                            <label htmlFor="remote-access-username">
+                              Username
+                            </label>
+                            <input
+                              id="remote-access-username"
+                              type="text"
+                              value={remoteAccessUsername}
+                              onChange={(e) =>
+                                setRemoteAccessUsername(e.target.value)
+                              }
+                              autoComplete="username"
+                              minLength={3}
+                              required
+                            />
+                          </div>
+                          <div className="form-field">
+                            <label htmlFor="remote-access-password">
+                              Password
+                            </label>
+                            <input
+                              id="remote-access-password"
+                              type="password"
+                              value={remoteAccessPassword}
+                              onChange={(e) =>
+                                setRemoteAccessPassword(e.target.value)
+                              }
+                              autoComplete="new-password"
+                              minLength={8}
+                              required
+                            />
+                          </div>
+                          <div className="form-field">
+                            <label htmlFor="remote-access-confirm">
+                              Confirm Password
+                            </label>
+                            <input
+                              id="remote-access-confirm"
+                              type="password"
+                              value={remoteAccessConfirm}
+                              onChange={(e) =>
+                                setRemoteAccessConfirm(e.target.value)
+                              }
+                              autoComplete="new-password"
+                              minLength={8}
+                              required
+                            />
+                          </div>
+                          {remoteAccessError && (
+                            <p className="form-error">{remoteAccessError}</p>
+                          )}
+                          <p className="form-hint">
+                            Your password is never stored. Only a secure
+                            verifier is kept on the server.
+                          </p>
+                          <button
+                            type="submit"
+                            className="settings-button"
+                            disabled={isEnablingRemoteAccess}
+                          >
+                            {isEnablingRemoteAccess
+                              ? "Setting up..."
+                              : "Enable Remote Access"}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="settings-item">
+                      <div className="settings-item-info">
+                        <strong>Status</strong>
+                        <p>
+                          Remote access is enabled for user{" "}
+                          <code>{remoteAccessConfig.username}</code>.
+                        </p>
+                      </div>
+                      <span className="settings-status-badge settings-status-detected">
+                        Enabled
+                      </span>
+                    </div>
+
+                    <div className="settings-item">
+                      <div className="settings-item-info">
+                        <strong>Disable Remote Access</strong>
+                        <p>
+                          Remove remote access credentials from this server.
+                        </p>
+                      </div>
+                      {!showRemoteAccessDisable ? (
+                        <button
+                          type="button"
+                          className="settings-button settings-button-danger"
+                          onClick={() => setShowRemoteAccessDisable(true)}
+                        >
+                          Disable
+                        </button>
+                      ) : (
+                        <div className="settings-confirm-buttons">
+                          <button
+                            type="button"
+                            className="settings-button settings-button-danger"
+                            onClick={async () => {
+                              setIsDisablingRemoteAccess(true);
+                              try {
+                                await disableRemoteAccess();
+                                setShowRemoteAccessDisable(false);
+                              } finally {
+                                setIsDisablingRemoteAccess(false);
+                              }
+                            }}
+                            disabled={isDisablingRemoteAccess}
+                          >
+                            {isDisablingRemoteAccess
+                              ? "Disabling..."
+                              : "Confirm Disable"}
+                          </button>
+                          <button
+                            type="button"
+                            className="settings-button settings-button-secondary"
+                            onClick={() => setShowRemoteAccessDisable(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}

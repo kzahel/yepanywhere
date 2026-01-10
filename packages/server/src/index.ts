@@ -29,6 +29,7 @@ import { NotificationService } from "./notifications/index.js";
 import { ProjectScanner } from "./projects/scanner.js";
 import { PushService, getOrCreateVapidKeys } from "./push/index.js";
 import { RecentsService } from "./recents/index.js";
+import { RemoteAccessService } from "./remote-access/index.js";
 import { createUploadRoutes } from "./routes/upload.js";
 import { createWsRelayRoutes } from "./routes/ws-relay.js";
 import { detectClaudeCli } from "./sdk/cli-detection.js";
@@ -136,6 +137,9 @@ const authService = new AuthService({
   sessionTtlMs: config.authSessionTtlMs,
   cookieSecret: config.authCookieSecret,
 });
+const remoteAccessService = new RemoteAccessService({
+  dataDir: config.dataDir,
+});
 
 async function startServer() {
   // Initialize services (loads state from disk)
@@ -146,6 +150,7 @@ async function startServer() {
   await pushService.initialize();
   await recentsService.initialize();
   await authService.initialize();
+  await remoteAccessService.initialize();
 
   // Log auth status
   if (config.authDisabled) {
@@ -195,6 +200,7 @@ async function startServer() {
     recentsService,
     authService,
     authDisabled: config.authDisabled,
+    remoteAccessService,
     // Note: frontendProxy not passed - will be added below
   });
 

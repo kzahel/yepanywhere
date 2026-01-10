@@ -388,13 +388,13 @@ Tasks:
 - [ ] Handle edge cases (reconnection, errors, timeouts)
 
 ### Phase 3: SRP + Encryption
-- [ ] SRP helpers (generate verifier, client/server handshake)
-- [ ] NaCl encryption helpers (secretbox wrapper)
-- [ ] Unit tests for SRP + encryption
-- [ ] Add SRP handshake to `/ws` endpoint
-- [ ] Add encryption layer to WebSocketConnection → SecureConnection
-- [ ] SRP verifier storage in data dir
-- [ ] Settings UI for remote access (username/password setup)
+- [x] SRP helpers (generate verifier, client/server handshake)
+- [x] NaCl encryption helpers (secretbox wrapper)
+- [x] Unit tests for SRP + encryption
+- [x] Add SRP handshake to `/ws` endpoint
+- [x] Add encryption layer to WebSocketConnection → SecureConnection
+- [x] SRP verifier storage in data dir
+- [x] Settings UI for remote access (username/password setup)
 
 ### Phase 4: Relay
 - [ ] Separate relay package/service
@@ -440,4 +440,22 @@ Tasks:
 
 - [SRP Protocol](http://srp.stanford.edu/design.html)
 - [TweetNaCl.js](https://tweetnacl.js.org/)
-- [secure-remote-password npm](https://www.npmjs.com/package/secure-remote-password)
+- [tssrp6a](https://github.com/midonet/tssrp6a) - TypeScript SRP-6a implementation (chosen library)
+
+### SRP Library Choice: tssrp6a
+
+Evaluated options:
+- **tssrp6a** (chosen) - Zero dependencies, native TypeScript, SHA-512 default, built-in session serialization for stateless HTTP/WS
+- secure-remote-password - Simpler API but unmaintained (7 years), JavaScript only
+- thinbus-srp-npm - More complex, designed for Java backend interop
+- mozilla/node-srp - Node-only, older crypto patterns
+
+Key factors:
+- Session serialization support (critical for relay protocol)
+- Active maintenance (v3.0.0)
+- Zero dependencies (minimal bundle size)
+- Native TypeScript types
+
+Caveats:
+- Requires HTTPS/WSS (uses WebCrypto `Crypto.subtle`)
+- Default config excludes user identity from verifier (allows username changes without password reset; can customize for strict RFC compliance)

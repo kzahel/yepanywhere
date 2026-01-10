@@ -9,3 +9,4 @@ export {
   WebSocketConnection,
   getWebSocketConnection,
 } from "./WebSocketConnection";
+export { SecureConnection } from "./SecureConnection";

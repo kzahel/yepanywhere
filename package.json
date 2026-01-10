@@ -32,5 +32,9 @@
   "packageManager": "pnpm@9.15.1",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "tssrp6a": "^3.0.0",
+    "tweetnacl": "^1.0.3"
   }
 }
