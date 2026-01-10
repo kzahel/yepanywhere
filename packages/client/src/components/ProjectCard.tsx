@@ -1,30 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
+import { shortenPath } from "../lib/text";
 import type { Project } from "../types";
-import { ActiveCountBadge } from "./StatusBadge";
+import { ThinkingIndicator } from "./ThinkingIndicator";
 
 interface ProjectCardProps {
   project: Project;
   /** Number of sessions needing approval/input in this project */
   needsAttentionCount: number;
-}
-
-/**
- * Shorten path by replacing home directory with ~
- */
-function shortenPath(path: string): string {
-  // Try common home patterns
-  const homePatterns = [
-    /^\/home\/[^/]+/, // Linux: /home/username
-    /^\/Users\/[^/]+/, // macOS: /Users/username
-  ];
-
-  for (const pattern of homePatterns) {
-    if (pattern.test(path)) {
-      return path.replace(pattern, "~");
-    }
-  }
-
-  return path;
+  /** Number of sessions actively thinking (running, no pending input) */
+  thinkingCount: number;
 }
 
 /**
@@ -52,6 +36,7 @@ function formatRelativeTime(timestamp: string): string {
 export function ProjectCard({
   project,
   needsAttentionCount,
+  thinkingCount,
 }: ProjectCardProps) {
   const navigate = useNavigate();
 
@@ -60,9 +45,6 @@ export function ProjectCard({
     e.stopPropagation();
     navigate(`/new-session?projectId=${project.id}`);
   };
-
-  const hasActivity =
-    project.activeOwnedCount > 0 || project.activeExternalCount > 0;
 
   return (
     <li className="project-card">
@@ -101,36 +83,31 @@ export function ProjectCard({
             </svg>
           </button>
         </div>
-        <span className="project-card__meta">
+        <div className="project-card__meta">
           <span className="project-card__path" title={project.path}>
             {shortenPath(project.path)}
           </span>
-          <span className="project-card__separator">·</span>
-          <span className="project-card__sessions">
-            {project.sessionCount} session
-            {project.sessionCount !== 1 ? "s" : ""}
-          </span>
-          {hasActivity && (
-            <>
-              <ActiveCountBadge
-                variant="owned"
-                count={project.activeOwnedCount}
-              />
-              <ActiveCountBadge
-                variant="external"
-                count={project.activeExternalCount}
-              />
-            </>
-          )}
-          {project.lastActivity && (
-            <>
-              <span className="project-card__separator">·</span>
-              <span className="project-card__time">
-                {formatRelativeTime(project.lastActivity)}
+          <span className="project-card__stats">
+            <span className="project-card__sessions">
+              {project.sessionCount} session
+              {project.sessionCount !== 1 ? "s" : ""}
+            </span>
+            {thinkingCount > 0 && (
+              <span className="project-card__thinking">
+                <ThinkingIndicator />
+                <span>{thinkingCount}</span>
               </span>
-            </>
-          )}
-        </span>
+            )}
+            {project.lastActivity && (
+              <>
+                <span className="project-card__separator">·</span>
+                <span className="project-card__time">
+                  {formatRelativeTime(project.lastActivity)}
+                </span>
+              </>
+            )}
+          </span>
+        </div>
       </Link>
     </li>
   );

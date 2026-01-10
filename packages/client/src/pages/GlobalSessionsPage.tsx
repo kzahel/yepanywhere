@@ -602,7 +602,7 @@ export function GlobalSessionsPage() {
                   )}
 
                 <ul
-                  className={`sessions-list ${isSelectionMode ? "session-list--selection-mode" : ""}`}
+                  className={`session-list ${isSelectionMode ? "session-list--selection-mode" : ""}`}
                 >
                   {filteredSessions.map((session) => (
                     <div

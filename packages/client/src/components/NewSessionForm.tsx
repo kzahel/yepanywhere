@@ -16,6 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { type UploadedFile, api, uploadFile } from "../api/client";
 import { ENTER_SENDS_MESSAGE } from "../constants";
+import { useToastContext } from "../contexts/ToastContext";
 import { useClaudeLogin } from "../hooks/useClaudeLogin";
 import { useDraftPersistence } from "../hooks/useDraftPersistence";
 import {
@@ -112,6 +113,9 @@ export function NewSessionForm({
 
   // Claude CLI login flow (for /login command)
   const claudeLogin = useClaudeLogin();
+
+  // Toast for error messages
+  const { showToast } = useToastContext();
 
   // Fetch available providers
   const { providers, loading: providersLoading } = useProviders();
@@ -315,6 +319,8 @@ export function NewSessionForm({
           trimmedMessage,
           mode,
           uploadedFiles.length > 0 ? uploadedFiles : undefined,
+          undefined, // tempId
+          thinking, // Pass the captured thinking setting to avoid process restart
         );
       } else {
         // No files - use single-step flow for efficiency
@@ -351,6 +357,27 @@ export function NewSessionForm({
       console.error("Failed to start session:", err);
       draftControls.restoreFromStorage();
       setIsStarting(false);
+
+      // Show user-visible error message
+      let errorMessage = "Failed to start session";
+      if (err instanceof Error) {
+        // Check for specific error types
+        if (err.message.includes("Queue is full")) {
+          errorMessage = "Server is busy. Please try again in a moment.";
+        } else if (err.message.includes("503")) {
+          errorMessage = "Server is at capacity. Please try again later.";
+        } else if (err.message.includes("404")) {
+          errorMessage = "Project not found.";
+        } else if (
+          err.message.includes("fetch") ||
+          err.message.includes("network")
+        ) {
+          errorMessage = "Network error. Check your connection.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      showToast(errorMessage, "error");
     }
   };
 
@@ -523,7 +550,11 @@ export function NewSessionForm({
           className="send-button"
           aria-label="Start session"
         >
-          <span className="send-icon">{isStarting ? "..." : "↑"}</span>
+          {isStarting ? (
+            <span className="send-spinner" />
+          ) : (
+            <span className="send-icon">↑</span>
+          )}
         </button>
       </div>
       {pendingFiles.length > 0 && (

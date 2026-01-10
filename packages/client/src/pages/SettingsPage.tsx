@@ -3,6 +3,7 @@ import { PageHeader } from "../components/PageHeader";
 import { PushNotificationToggle } from "../components/PushNotificationToggle";
 import { useAuth } from "../contexts/AuthContext";
 import { useSchemaValidationContext } from "../contexts/SchemaValidationContext";
+import { useDeveloperMode } from "../hooks/useDeveloperMode";
 import {
   FONT_SIZES,
   getFontSizeLabel,
@@ -49,6 +50,7 @@ export function SettingsPage() {
   const { canInstall, isInstalled, install } = usePwaInstall();
   const { settings: validationSettings, setEnabled: setValidationEnabled } =
     useSchemaValidation();
+  const { holdModeEnabled, setHoldModeEnabled } = useDeveloperMode();
   const { ignoredTools, clearIgnoredTools } = useSchemaValidationContext();
   const {
     isAuthenticated,
@@ -732,6 +734,23 @@ export function SettingsPage() {
                       </button>
                     </div>
                   )}
+                  <div className="settings-item">
+                    <div className="settings-item-info">
+                      <strong>Hold Mode</strong>
+                      <p>
+                        Show hold/resume option in the mode selector. Pauses
+                        execution at the next yield point (experimental).
+                      </p>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={holdModeEnabled}
+                        onChange={(e) => setHoldModeEnabled(e.target.checked)}
+                      />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
                 </div>
 
                 <div className="settings-group">

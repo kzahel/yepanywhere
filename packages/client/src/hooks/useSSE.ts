@@ -73,6 +73,10 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
     es.addEventListener("pending", handleEvent("pending"));
     es.addEventListener("edit-augment", handleEvent("edit-augment"));
     es.addEventListener("claude-login", handleEvent("claude-login"));
+    es.addEventListener(
+      "session-id-changed",
+      handleEvent("session-id-changed"),
+    );
 
     es.onerror = (error) => {
       setConnected(false);

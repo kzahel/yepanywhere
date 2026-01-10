@@ -328,12 +328,6 @@ export function Sidebar({
               onClick={onNavigate}
             />
             <SidebarNavItem
-              to="/recents"
-              icon={SidebarIcons.recents}
-              label="Recents"
-              onClick={onNavigate}
-            />
-            <SidebarNavItem
               to="/projects"
               icon={SidebarIcons.projects}
               label="Projects"

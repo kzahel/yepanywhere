@@ -9,7 +9,7 @@ import { useNavigationLayout } from "../layouts";
 
 export function ProjectsPage() {
   const { projects, loading, error, refetch } = useProjects();
-  const { needsAttention } = useInboxContext();
+  const { needsAttention, active } = useInboxContext();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newProjectPath, setNewProjectPath] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
@@ -28,6 +28,16 @@ export function ProjectsPage() {
     }
     return counts;
   }, [needsAttention]);
+
+  // Count actively-thinking sessions per project (from inbox "active" tier)
+  const thinkingByProject = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of active) {
+      const current = counts.get(item.projectId) ?? 0;
+      counts.set(item.projectId, current + 1);
+    }
+    return counts;
+  }, [active]);
 
   // Sort projects: those needing attention first, then by recency
   const sortedProjects = useMemo(() => {
@@ -182,6 +192,7 @@ export function ProjectsPage() {
                     needsAttentionCount={
                       attentionByProject.get(project.id) ?? 0
                     }
+                    thinkingCount={thinkingByProject.get(project.id) ?? 0}
                   />
                 ))}
               </ul>

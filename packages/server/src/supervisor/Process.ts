@@ -650,12 +650,27 @@ export class Process {
       }
 
       case "acceptEdits": {
-        // Auto-approve file editing tools, ask for others
+        // Auto-approve file editing tools AND read-only tools
+        // acceptEdits should be strictly more permissive than default mode
         const editTools = ["Edit", "Write", "NotebookEdit"];
         if (editTools.includes(toolName)) {
           return { behavior: "allow" };
         }
-        // Fall through to ask user for non-edit tools
+        // Read-only tools are also auto-allowed (same as default mode)
+        const readOnlyTools = [
+          "Read",
+          "Glob",
+          "Grep",
+          "LSP",
+          "WebFetch",
+          "WebSearch",
+          "Task", // Subagent exploration
+          "TaskOutput", // Reading subagent results
+        ];
+        if (readOnlyTools.includes(toolName)) {
+          return { behavior: "allow" };
+        }
+        // Fall through to ask user for other tools (Bash, etc.)
         break;
       }
 

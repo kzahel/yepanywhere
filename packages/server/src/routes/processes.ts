@@ -19,8 +19,8 @@ export interface ProcessesDeps {
 }
 
 /**
- * Enrich process info with session title and model, using cache when available.
- * Checks custom title from metadata service first, then falls back to auto title.
+ * Enrich process info with session title, model, and context usage.
+ * Uses cache when available. Checks custom title from metadata service first.
  */
 async function enrichProcessInfo(
   process: ProcessInfo,
@@ -33,10 +33,15 @@ async function enrichProcessInfo(
     if (!project) return process;
 
     const reader = deps.readerFactory(project);
-    let title: string | null = null;
-    let model: string | undefined;
 
-    // Use cache if available
+    // Always get the session summary for model and contextUsage
+    const summary = await reader.getSessionSummary(
+      process.sessionId,
+      process.projectId as UrlProjectId,
+    );
+
+    // Get title from cache if available, otherwise from summary
+    let title: string | null = null;
     if (deps.sessionIndexService) {
       title = await deps.sessionIndexService.getSessionTitle(
         project.sessionDir,
@@ -44,19 +49,8 @@ async function enrichProcessInfo(
         process.sessionId,
         reader,
       );
-      // Also get model from summary
-      const summary = await reader.getSessionSummary(
-        process.sessionId,
-        process.projectId as UrlProjectId,
-      );
-      model = summary?.model;
     } else {
-      const summary = await reader.getSessionSummary(
-        process.sessionId,
-        process.projectId as UrlProjectId,
-      );
       title = summary?.title ?? null;
-      model = summary?.model;
     }
 
     // Get custom title from metadata service if available
@@ -78,8 +72,13 @@ async function enrichProcessInfo(
     }
 
     // Add model if available
-    if (model) {
-      enriched.model = model;
+    if (summary?.model) {
+      enriched.model = summary.model;
+    }
+
+    // Add context usage if available
+    if (summary?.contextUsage) {
+      enriched.contextUsage = summary.contextUsage;
     }
 
     return enriched;

@@ -3,6 +3,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ThinkingIndicator } from "../components/ThinkingIndicator";
 import { type ProcessInfo, useProcesses } from "../hooks/useProcesses";
 import { useNavigationLayout } from "../layouts";
+import { shortenPath } from "../lib/text";
 
 /**
  * Format uptime duration from start time to now.
@@ -145,17 +146,22 @@ function ProcessCard({ process, isTerminated = false }: ProcessCardProps) {
 
       <div className="agent-card-details">
         <div className="agent-detail-row">
-          <span className="agent-detail-label">Session ID</span>
-          <span className="agent-detail-value agent-detail-mono">
-            {process.sessionId}
-          </span>
-        </div>
-        <div className="agent-detail-row">
           <span className="agent-detail-label">Project Path</span>
-          <span className="agent-detail-value agent-detail-mono">
-            {process.projectPath}
+          <span
+            className="agent-detail-value agent-detail-mono"
+            title={process.projectPath}
+          >
+            {shortenPath(process.projectPath)}
           </span>
         </div>
+        {process.contextUsage && (
+          <div className="agent-detail-row">
+            <span className="agent-detail-label">Context</span>
+            <span className="agent-detail-value">
+              {process.contextUsage.percentage}%
+            </span>
+          </div>
+        )}
         {process.permissionMode && (
           <div className="agent-detail-row">
             <span className="agent-detail-label">Permission Mode</span>

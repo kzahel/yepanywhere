@@ -170,6 +170,8 @@ export interface ProcessInfo {
   maxThinkingTokens?: number;
   /** Model used for this session (e.g., "claude-opus-4-5-20251101") */
   model?: string;
+  /** Context window usage from the last assistant message */
+  contextUsage?: ContextUsage;
 }
 
 // Claude login events for re-authentication flow

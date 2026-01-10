@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchJSON } from "../api/client";
-import type { ProcessStateType, ProviderName, UrlProjectId } from "../types";
+import type {
+  ContextUsage,
+  ProcessStateType,
+  ProviderName,
+  UrlProjectId,
+} from "../types";
 
 /**
  * Process info returned from the API.
@@ -22,6 +27,8 @@ export interface ProcessInfo {
   permissionMode?: string;
   /** Provider running this process (claude, codex, gemini, etc.) */
   provider?: ProviderName;
+  /** Context window usage from the last assistant message */
+  contextUsage?: ContextUsage;
 }
 
 interface ProcessesResponse {

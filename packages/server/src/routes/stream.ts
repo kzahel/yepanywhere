@@ -637,6 +637,19 @@ export function createStreamRoutes(deps: StreamDeps): Hono {
               });
               break;
 
+            case "session-id-changed":
+              // Notify client when temp session ID is replaced with real SDK session ID
+              // Client should update URL/state to use new session ID
+              await stream.writeSSE({
+                id: String(eventId++),
+                event: "session-id-changed",
+                data: JSON.stringify({
+                  oldSessionId: event.oldSessionId,
+                  newSessionId: event.newSessionId,
+                }),
+              });
+              break;
+
             case "complete":
               // Flush any remaining augments before completing
               await flushCoordinator();

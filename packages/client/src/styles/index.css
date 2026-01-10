@@ -693,19 +693,24 @@ h2 {
 
 .project-card__meta {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: 2px;
   font-size: var(--font-size-sm);
   color: var(--text-muted);
   margin-top: var(--space-1);
-  flex-wrap: wrap;
 }
 
 .project-card__path {
-  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-card__stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .project-card__separator {
@@ -716,6 +721,13 @@ h2 {
 .project-card__sessions,
 .project-card__time {
   white-space: nowrap;
+}
+
+.project-card__thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
 }
 
 .meta {
@@ -2293,6 +2305,21 @@ a.sidebar-nav-item {
   font-size: 16px;
   font-weight: bold;
   line-height: 1;
+}
+
+.send-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: send-spin 0.8s linear infinite;
+}
+
+@keyframes send-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .stop-button {
@@ -4118,6 +4145,59 @@ a.sidebar-nav-item {
 
 .filter-search::placeholder {
   color: var(--text-dimmed);
+}
+
+.filter-search-form {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.filter-search-form .filter-search {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+
+.filter-search-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.filter-search-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.filter-clear-button {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.filter-clear-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .filter-chips {

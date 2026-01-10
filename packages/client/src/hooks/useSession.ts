@@ -750,6 +750,17 @@ export function useSession(
         streamingMarkdownCallbacks?.onPending?.({
           html: pendingData.html,
         });
+      } else if (data.eventType === "session-id-changed") {
+        // Handle session ID change (temp ID → real SDK ID)
+        // This event means the URL should be updated to use the new session ID
+        const changeData = data as {
+          eventType: string;
+          oldSessionId: string;
+          newSessionId: string;
+        };
+        if (changeData.newSessionId && changeData.newSessionId !== sessionId) {
+          setActualSessionId(changeData.newSessionId);
+        }
       }
     },
     [

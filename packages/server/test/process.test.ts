@@ -555,6 +555,133 @@ describe("Process", () => {
       }
     });
 
+    it("handleToolApproval auto-allows read-only tools in acceptEdits mode", async () => {
+      const iterator = createMockIterator([]);
+      const process = new Process(iterator, {
+        projectPath: "/test",
+        projectId: "proj-1",
+        sessionId: "sess-1",
+        idleTimeoutMs: 100,
+        permissionMode: "acceptEdits",
+      });
+
+      const abortController = new AbortController();
+
+      // Read-only tools should also be auto-allowed in acceptEdits mode
+      // (acceptEdits is strictly more permissive than default)
+      for (const tool of [
+        "Read",
+        "Glob",
+        "Grep",
+        "LSP",
+        "WebFetch",
+        "WebSearch",
+        "Task",
+        "TaskOutput",
+      ]) {
+        const result = await process.handleToolApproval(
+          tool,
+          {},
+          { signal: abortController.signal },
+        );
+        expect(result.behavior).toBe("allow");
+      }
+    });
+
+    it("acceptEdits mode is strictly more permissive than default mode", async () => {
+      // This test ensures the permission hierarchy is maintained:
+      // bypassPermissions > acceptEdits > default > plan
+      // Any tool auto-approved in default should also be auto-approved in acceptEdits
+      const abortController = new AbortController();
+
+      // Test all common tools across both modes
+      const testTools = [
+        "Read",
+        "Glob",
+        "Grep",
+        "LSP",
+        "WebFetch",
+        "WebSearch",
+        "Task",
+        "TaskOutput",
+        "Edit",
+        "Write",
+        "NotebookEdit",
+        "Bash",
+        "AskUserQuestion",
+      ];
+
+      for (const tool of testTools) {
+        // Create fresh processes for each tool to avoid state pollution
+        const defaultProcess = new Process(createMockIterator([]), {
+          projectPath: "/test",
+          projectId: "proj-1",
+          sessionId: "sess-1",
+          idleTimeoutMs: 100,
+          permissionMode: "default",
+        });
+
+        const acceptEditsProcess = new Process(createMockIterator([]), {
+          projectPath: "/test",
+          projectId: "proj-1",
+          sessionId: "sess-2",
+          idleTimeoutMs: 100,
+          permissionMode: "acceptEdits",
+        });
+
+        // Start both approval requests
+        const defaultPromise = defaultProcess.handleToolApproval(
+          tool,
+          {},
+          { signal: abortController.signal },
+        );
+        const acceptEditsPromise = acceptEditsProcess.handleToolApproval(
+          tool,
+          {},
+          { signal: abortController.signal },
+        );
+
+        // Check immediate states (before any user response)
+        const defaultNeedsApproval =
+          defaultProcess.state.type === "waiting-input";
+        const acceptEditsNeedsApproval =
+          acceptEditsProcess.state.type === "waiting-input";
+
+        // If default auto-approves, acceptEdits must also auto-approve
+        if (!defaultNeedsApproval) {
+          expect(acceptEditsNeedsApproval).toBe(false);
+          // Both should return allow
+          const [defaultResult, acceptEditsResult] = await Promise.all([
+            defaultPromise,
+            acceptEditsPromise,
+          ]);
+          expect(defaultResult.behavior).toBe("allow");
+          expect(acceptEditsResult.behavior).toBe("allow");
+        } else {
+          // If default needs approval, acceptEdits might auto-approve (e.g., Edit)
+          // but we need to resolve the pending promise for default
+          const pendingRequest = defaultProcess.getPendingInputRequest();
+          if (pendingRequest) {
+            defaultProcess.respondToInput(pendingRequest.id, "approve");
+          }
+
+          // Also resolve acceptEdits if it's waiting
+          if (acceptEditsNeedsApproval) {
+            const acceptEditsPendingRequest =
+              acceptEditsProcess.getPendingInputRequest();
+            if (acceptEditsPendingRequest) {
+              acceptEditsProcess.respondToInput(
+                acceptEditsPendingRequest.id,
+                "approve",
+              );
+            }
+          }
+
+          await Promise.all([defaultPromise, acceptEditsPromise]);
+        }
+      }
+    });
+
     it("handleToolApproval prompts user for mutating tools in default mode", async () => {
       const iterator = createMockIterator([]);
       const process = new Process(iterator, {

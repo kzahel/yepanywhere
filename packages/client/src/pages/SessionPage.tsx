@@ -19,6 +19,7 @@ import {
 } from "../contexts/StreamingMarkdownContext";
 import { useToastContext } from "../contexts/ToastContext";
 import { useClaudeLogin } from "../hooks/useClaudeLogin";
+import { useDeveloperMode } from "../hooks/useDeveloperMode";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import type { DraftControls } from "../hooks/useDraftPersistence";
 import { useEngagementTracking } from "../hooks/useEngagementTracking";
@@ -148,6 +149,9 @@ function SessionPageContent({
   // Claude CLI login flow (for /login command)
   const claudeLogin = useClaudeLogin();
 
+  // Developer mode settings (hold mode is experimental)
+  const { holdModeEnabled } = useDeveloperMode();
+
   // Combine SDK slash commands with our custom commands
   const allSlashCommands = useMemo(() => {
     // Add our custom "login" command for Claude Max/Pro re-authentication
@@ -205,6 +209,18 @@ function SessionPageContent({
   useEffect(() => {
     recordSessionVisit(sessionId, projectId);
   }, [sessionId, projectId]);
+
+  // Navigate to new session ID when temp ID is replaced with real SDK session ID
+  // This ensures the URL stays in sync with the actual session
+  useEffect(() => {
+    if (actualSessionId && actualSessionId !== sessionId) {
+      // Use replace to avoid creating a history entry for the temp ID
+      navigate(`/projects/${projectId}/sessions/${actualSessionId}`, {
+        replace: true,
+        state: location.state, // Preserve initial state for seamless transition
+      });
+    }
+  }, [actualSessionId, sessionId, projectId, navigate, location.state]);
 
   // File attachment state
   const [attachments, setAttachments] = useState<UploadedFile[]>([]);
@@ -875,8 +891,8 @@ function SessionPageContent({
                     mode={permissionMode}
                     onModeChange={setPermissionMode}
                     isModePending={isModePending}
-                    isHeld={isHeld}
-                    onHoldChange={setHold}
+                    isHeld={holdModeEnabled ? isHeld : undefined}
+                    onHoldChange={holdModeEnabled ? setHold : undefined}
                     supportsPermissionMode={supportsPermissionMode}
                     supportsThinkingToggle={supportsThinkingToggle}
                     contextUsage={session?.contextUsage}
@@ -913,8 +929,8 @@ function SessionPageContent({
                 mode={permissionMode}
                 onModeChange={setPermissionMode}
                 isModePending={isModePending}
-                isHeld={isHeld}
-                onHoldChange={setHold}
+                isHeld={holdModeEnabled ? isHeld : undefined}
+                onHoldChange={holdModeEnabled ? setHold : undefined}
                 supportsPermissionMode={supportsPermissionMode}
                 supportsThinkingToggle={supportsThinkingToggle}
                 isRunning={status.state === "owned"}
