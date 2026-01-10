@@ -3,7 +3,9 @@ import type {
   ProcessStateType,
   UrlProjectId,
 } from "@yep-anywhere/shared";
+import { getWebsocketTransportEnabled } from "../hooks/useDeveloperMode";
 import type { SessionStatus, SessionSummary } from "../types";
+import type { Subscription } from "./connection/types";
 
 // Event types matching what the server emits
 export type FileChangeType = "create" | "modify" | "delete";
@@ -123,26 +125,116 @@ const API_BASE = "/api";
 const RECONNECT_DELAY_MS = 2000;
 
 /**
- * Singleton that manages a single SSE connection to /api/activity/events.
+ * Singleton that manages activity event subscriptions.
+ * Uses WebSocket transport when enabled, otherwise SSE.
  * Hooks subscribe via on() and receive events through callbacks.
  */
 class ActivityBus {
   private eventSource: EventSource | null = null;
+  private wsSubscription: Subscription | null = null;
   private listeners = new Map<ActivityEventType, Set<Listener<unknown>>>();
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private hasConnected = false;
   private _connected = false;
+  private useWebSocket = false;
 
   get connected(): boolean {
     return this._connected;
   }
 
   /**
-   * Connect to the SSE stream. Safe to call multiple times.
+   * Connect to the activity stream. Safe to call multiple times.
+   * Uses WebSocket transport when enabled, otherwise SSE.
    */
   connect(): void {
-    if (this.eventSource) return;
+    // Check if already connected
+    if (this.eventSource || this.wsSubscription) return;
 
+    // Check if WebSocket transport is enabled
+    this.useWebSocket = getWebsocketTransportEnabled();
+
+    if (this.useWebSocket) {
+      this.connectWebSocket();
+    } else {
+      this.connectSSE();
+    }
+  }
+
+  /**
+   * Connect using WebSocket transport (Phase 2c).
+   */
+  private connectWebSocket(): void {
+    // Lazy import to avoid circular dependencies
+    import("./connection").then(({ getWebSocketConnection }) => {
+      const connection = getWebSocketConnection();
+      this.wsSubscription = connection.subscribeActivity({
+        onEvent: (eventType, _eventId, data) => {
+          // Handle activity events from WebSocket
+          this.handleWsEvent(eventType, data);
+        },
+        onOpen: () => {
+          // Mark as connected
+          const isReconnect = this.hasConnected;
+          this.hasConnected = true;
+          this._connected = true;
+
+          if (isReconnect) {
+            this.emit("reconnect", undefined);
+          }
+        },
+        onError: (err) => {
+          console.error("[ActivityBus] WebSocket error:", err);
+          this._connected = false;
+          this.wsSubscription = null;
+
+          // Auto-reconnect
+          this.reconnectTimeout = setTimeout(
+            () => this.connect(),
+            RECONNECT_DELAY_MS,
+          );
+        },
+      });
+    });
+  }
+
+  /**
+   * Handle events from WebSocket subscription.
+   */
+  private handleWsEvent(eventType: string, data: unknown): void {
+    // Handle special events
+    if (eventType === "connected" || eventType === "heartbeat") {
+      return;
+    }
+
+    // Emit the event to listeners
+    if (this.isValidEventType(eventType)) {
+      this.emit(eventType, data as ActivityEventMap[typeof eventType]);
+    }
+  }
+
+  /**
+   * Type guard for valid event types.
+   */
+  private isValidEventType(type: string): type is ActivityEventType {
+    return [
+      "file-change",
+      "session-status-changed",
+      "session-created",
+      "session-updated",
+      "session-seen",
+      "process-state-changed",
+      "session-metadata-changed",
+      "source-change",
+      "backend-reloaded",
+      "worker-activity-changed",
+      "reconnect",
+    ].includes(type);
+  }
+
+  /**
+   * Connect using SSE (traditional method).
+   */
+  private connectSSE(): void {
     const es = new EventSource(`${API_BASE}/activity/events`);
 
     es.onopen = () => {
@@ -209,7 +301,7 @@ class ActivityBus {
   }
 
   /**
-   * Disconnect from the SSE stream.
+   * Disconnect from the activity stream.
    */
   disconnect(): void {
     if (this.reconnectTimeout) {
@@ -219,6 +311,10 @@ class ActivityBus {
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
+    }
+    if (this.wsSubscription) {
+      this.wsSubscription.close();
+      this.wsSubscription = null;
     }
     this._connected = false;
   }

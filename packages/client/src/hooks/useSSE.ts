@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Subscription } from "../lib/connection/types";
+import { getWebsocketTransportEnabled } from "./useDeveloperMode";
 
 interface UseSSEOptions {
   onMessage: (data: { eventType: string; [key: string]: unknown }) => void;
@@ -6,9 +8,18 @@ interface UseSSEOptions {
   onOpen?: () => void;
 }
 
+/**
+ * Extract sessionId from a session stream URL like /api/sessions/{id}/stream
+ */
+function extractSessionId(url: string): string | null {
+  const match = url.match(/\/api\/sessions\/([^/]+)\/stream/);
+  return match?.[1] ?? null;
+}
+
 export function useSSE(url: string | null, options: UseSSEOptions) {
   const [connected, setConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const wsSubscriptionRef = useRef<Subscription | null>(null);
   const lastEventIdRef = useRef<string | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -17,6 +28,8 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
   optionsRef.current = options;
   // Track connected URL to skip StrictMode double-mount (not reset in cleanup)
   const mountedUrlRef = useRef<string | null>(null);
+  // Track if using WebSocket
+  const useWebSocketRef = useRef(false);
 
   const connect = useCallback(() => {
     if (!url) {
@@ -27,70 +40,134 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
     }
 
     // Don't create duplicate connections
-    if (eventSourceRef.current) return;
+    if (eventSourceRef.current || wsSubscriptionRef.current) return;
 
     // Skip StrictMode double-mount (same URL, already connected once)
     if (mountedUrlRef.current === url) return;
     mountedUrlRef.current = url;
 
-    const fullUrl = lastEventIdRef.current
-      ? `${url}?lastEventId=${lastEventIdRef.current}`
-      : url;
+    // Check if WebSocket transport is enabled and this is a session stream
+    const useWebSocket = getWebsocketTransportEnabled();
+    const sessionId = extractSessionId(url);
 
-    const es = new EventSource(fullUrl);
-
-    es.onopen = () => {
-      setConnected(true);
-      optionsRef.current.onOpen?.();
-    };
-
-    // Handle named events from SSE stream
-    const handleEvent = (eventType: string) => (event: MessageEvent) => {
-      if (event.lastEventId) {
-        lastEventIdRef.current = event.lastEventId;
-      }
-      // Guard against undefined data (can happen on connection errors)
-      if (event.data === undefined || event.data === null) {
-        return;
-      }
-      try {
-        const data = JSON.parse(event.data);
-        // Use eventType (SSE event name), not data.type (SDK message type)
-        optionsRef.current.onMessage({ ...data, eventType });
-      } catch {
-        // Ignore malformed JSON
-      }
-    };
-
-    es.addEventListener("connected", handleEvent("connected"));
-    es.addEventListener("message", handleEvent("message"));
-    es.addEventListener("status", handleEvent("status"));
-    es.addEventListener("mode-change", handleEvent("mode-change"));
-    es.addEventListener("error", handleEvent("error"));
-    es.addEventListener("complete", handleEvent("complete"));
-    es.addEventListener("heartbeat", handleEvent("heartbeat"));
-    es.addEventListener("markdown-augment", handleEvent("markdown-augment"));
-    es.addEventListener("pending", handleEvent("pending"));
-    es.addEventListener("edit-augment", handleEvent("edit-augment"));
-    es.addEventListener("claude-login", handleEvent("claude-login"));
-    es.addEventListener(
-      "session-id-changed",
-      handleEvent("session-id-changed"),
-    );
-
-    es.onerror = (error) => {
-      setConnected(false);
-      optionsRef.current.onError?.(error);
-
-      // Auto-reconnect after 2s
-      es.close();
-      eventSourceRef.current = null;
-      mountedUrlRef.current = null; // Reset so reconnect isn't blocked
-      reconnectTimeoutRef.current = setTimeout(connect, 2000);
-    };
-
-    eventSourceRef.current = es;
+    if (useWebSocket && sessionId) {
+      useWebSocketRef.current = true;
+      connectWebSocket(sessionId);
+    } else {
+      useWebSocketRef.current = false;
+      connectSSE(url);
+    }
   }, [url]);
+
+  const connectWebSocket = useCallback(
+    (sessionId: string) => {
+      // Lazy import to avoid circular dependencies
+      import("../lib/connection").then(({ getWebSocketConnection }) => {
+        const connection = getWebSocketConnection();
+        const handlers = {
+          onEvent: (
+            eventType: string,
+            eventId: string | undefined,
+            data: unknown,
+          ) => {
+            if (eventId) {
+              lastEventIdRef.current = eventId;
+            }
+            // Route event to handler
+            optionsRef.current.onMessage({
+              ...(data as Record<string, unknown>),
+              eventType,
+            });
+          },
+          onOpen: () => {
+            setConnected(true);
+            optionsRef.current.onOpen?.();
+          },
+          onError: (error: Error) => {
+            setConnected(false);
+            // Create a synthetic error event for compatibility
+            optionsRef.current.onError?.(new Event("error"));
+
+            // Auto-reconnect after 2s
+            wsSubscriptionRef.current?.close();
+            wsSubscriptionRef.current = null;
+            mountedUrlRef.current = null;
+            reconnectTimeoutRef.current = setTimeout(connect, 2000);
+          },
+        };
+
+        wsSubscriptionRef.current = connection.subscribeSession(
+          sessionId,
+          handlers,
+          lastEventIdRef.current ?? undefined,
+        );
+      });
+    },
+    [connect],
+  );
+
+  const connectSSE = useCallback(
+    (url: string) => {
+      const fullUrl = lastEventIdRef.current
+        ? `${url}?lastEventId=${lastEventIdRef.current}`
+        : url;
+
+      const es = new EventSource(fullUrl);
+
+      es.onopen = () => {
+        setConnected(true);
+        optionsRef.current.onOpen?.();
+      };
+
+      // Handle named events from SSE stream
+      const handleEvent = (eventType: string) => (event: MessageEvent) => {
+        if (event.lastEventId) {
+          lastEventIdRef.current = event.lastEventId;
+        }
+        // Guard against undefined data (can happen on connection errors)
+        if (event.data === undefined || event.data === null) {
+          return;
+        }
+        try {
+          const data = JSON.parse(event.data);
+          // Use eventType (SSE event name), not data.type (SDK message type)
+          optionsRef.current.onMessage({ ...data, eventType });
+        } catch {
+          // Ignore malformed JSON
+        }
+      };
+
+      es.addEventListener("connected", handleEvent("connected"));
+      es.addEventListener("message", handleEvent("message"));
+      es.addEventListener("status", handleEvent("status"));
+      es.addEventListener("mode-change", handleEvent("mode-change"));
+      es.addEventListener("error", handleEvent("error"));
+      es.addEventListener("complete", handleEvent("complete"));
+      es.addEventListener("heartbeat", handleEvent("heartbeat"));
+      es.addEventListener("markdown-augment", handleEvent("markdown-augment"));
+      es.addEventListener("pending", handleEvent("pending"));
+      es.addEventListener("edit-augment", handleEvent("edit-augment"));
+      es.addEventListener("claude-login", handleEvent("claude-login"));
+      es.addEventListener(
+        "session-id-changed",
+        handleEvent("session-id-changed"),
+      );
+
+      es.onerror = (error) => {
+        setConnected(false);
+        optionsRef.current.onError?.(error);
+
+        // Auto-reconnect after 2s
+        es.close();
+        eventSourceRef.current = null;
+        mountedUrlRef.current = null; // Reset so reconnect isn't blocked
+        reconnectTimeoutRef.current = setTimeout(connect, 2000);
+      };
+
+      eventSourceRef.current = es;
+    },
+    [connect],
+  );
 
   useEffect(() => {
     connect();
@@ -102,6 +179,8 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
       }
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
+      wsSubscriptionRef.current?.close();
+      wsSubscriptionRef.current = null;
       // Reset mountedUrlRef so the next mount can connect
       // This is needed for StrictMode where cleanup runs between mounts
       mountedUrlRef.current = null;
