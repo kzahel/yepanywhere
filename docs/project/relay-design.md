@@ -24,8 +24,8 @@ A relay service that enables phone clients to connect to yepanywhere servers beh
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Phone/Browser  │────▶│  Relay Server   │◀────│ Yepanywhere     │
-│                 │     │                 │     │ Server          │
+│  Phone/Browser  │────▶│     Relay       │◀────│   Yepanywhere   │
+│                 │     │                 │     │                 │
 │  - SRP auth     │     │  - Routes msgs  │     │  - Holds SRP    │
 │  - Encrypts     │     │  - Cannot read  │     │    verifier     │
 │    traffic      │     │    traffic      │     │  - Decrypts     │
@@ -43,7 +43,7 @@ A relay service that enables phone clients to connect to yepanywhere servers beh
 
 ### 1. Config Endpoint (yepanywhere.com)
 
-Returns relay server URLs and version requirements. Allows migration without client updates.
+Returns relay URLs and version requirements. Allows migration without client updates.
 
 ```json
 {
@@ -57,15 +57,15 @@ Returns relay server URLs and version requirements. Allows migration without cli
 }
 ```
 
-Server fetches this on startup (already fetches version info).
+Yepanywhere server fetches this on startup (already fetches version info).
 
-### 2. Relay Server
+### 2. Relay
 
 Lightweight WebSocket router. Responsibilities:
-- Accept server connections (authenticated via secret)
+- Accept yepanywhere server connections (authenticated via secret)
 - Accept phone connections (SRP handshake, then encrypted traffic)
-- Route encrypted messages between phone and server
-- Track which server is connected to which relay (for multi-relay scaling)
+- Route encrypted messages between phone and yepanywhere server
+- Track which yepanywhere server is connected to which relay (for multi-relay scaling)
 
 **Does NOT:**
 - Read message contents (E2E encrypted)
@@ -82,7 +82,7 @@ Lightweight WebSocket router. Responsibilities:
 ### 4. Client (Phone/Browser) Changes
 
 - **Connection abstraction** - Interface for Direct vs Relay modes
-- **SRP client** - Authenticate to server via relay
+- **SRP client** - Authenticate to yepanywhere server via relay
 - **Encryption layer** - Encrypt/decrypt all traffic
 - **Relay protocol** - Multiplex HTTP requests, SSE events, uploads over single WebSocket
 
@@ -94,8 +94,8 @@ Lightweight WebSocket router. Responsibilities:
 2. Enables "Remote Access"
 3. Enters username (e.g., `kgraehl`) - checked for availability
 4. Enters password
-5. Server stores SRP verifier (never the password)
-6. Server connects to relay, registers username
+5. Yepanywhere server stores SRP verifier (never the password)
+6. Yepanywhere server connects to relay, registers username
 
 ### Connecting from Phone
 
@@ -110,10 +110,10 @@ Lightweight WebSocket router. Responsibilities:
 
 ### SRP Authentication
 
-Using SRP-6a with SHA-256. Server stores verifier, never password.
+Using SRP-6a with SHA-256. Yepanywhere server stores verifier, never password.
 
 ```
-Phone                      Relay                      Server
+Phone                      Relay                      Yepanywhere
   │                          │                          │
   │ ── SRP hello (A) ──────▶ │ ── forward ───────────▶ │
   │                          │                          │
@@ -163,18 +163,38 @@ interface Connection {
   upload(file: File, onProgress: (n: number) => void): Promise<UploadedFile>;
 }
 
-// Direct mode - normal fetch, WebSocket, SSE
+// Plain mode - normal fetch, WebSocket, SSE (localhost dev, easy debugging)
 class DirectConnection implements Connection { ... }
 
-// Relay mode - everything over encrypted WebSocket
-class RelayConnection implements Connection { ... }
+// Secure mode - SRP + encrypted WebSocket (reusable base)
+class SecureConnection implements Connection {
+  constructor(wsUrl: string, username: string) { ... }
+  async connect(password: string) { /* SRP handshake, derive sessionKey */ }
+  // All methods encrypt/decrypt using sessionKey
+}
+
+// Direct secure - WS straight to yepanywhere (LAN testing)
+new SecureConnection('wss://192.168.1.50:3400/ws', 'kgraehl')
+
+// Via relay - WS to relay (production remote access)
+new SecureConnection('wss://relay.yepanywhere.com/ws', 'kgraehl')
 ```
+
+**Connection modes:**
+
+| Mode | Transport | Auth | Use Case |
+|------|-----------|------|----------|
+| DirectConnection | fetch/WS/SSE | Cookie session | localhost dev, network tab debugging |
+| SecureConnection (direct) | WS to yepanywhere | SRP + encryption | LAN, test secure protocol without relay |
+| SecureConnection (relay) | WS to relay | SRP + encryption | Production remote access |
+
+SecureConnection is reusable - same SRP, same encryption, same protocol. Only the WebSocket URL differs.
 
 ## Multi-Relay Scaling
 
-For load balancing across multiple relay servers:
+For load balancing across multiple relays:
 
-1. **Registration** - Server registers with central DB (Redis/Postgres)
+1. **Registration** - Yepanywhere server registers with central DB (Redis/Postgres)
 2. **Discovery** - Phone asks "where is kgraehl?" → gets assigned relay URL
 3. **Routing** - Phone connects to correct relay
 
@@ -184,7 +204,7 @@ Phone ──▶ /api/relay/locate/kgraehl ──▶ { "relay": "wss://relay2.yep
       └──▶ connect to relay2
 ```
 
-This allows rebalancing by telling servers to reconnect to different relays.
+This allows rebalancing by telling yepanywhere servers to reconnect to different relays.
 
 ## Security Considerations
 
@@ -220,33 +240,61 @@ Setting to show full details (less private) or generic (more private).
 
 ## Implementation Phases
 
-### Phase 1: Foundation
-- [ ] Relay protocol types (shared package)
-- [ ] SRP + encryption helpers
-- [ ] Loopback relay for local testing (server-side mock)
+### Phase 1: Protocol Types
+- [ ] Relay message types (shared package)
+- [ ] Request/response, subscribe/event, upload messages
 
-### Phase 2: Server Integration
-- [ ] Relay client (connect to relay, handle reconnection)
-- [ ] SRP verifier storage
-- [ ] Settings UI for remote access
-- [ ] Relay message handler (decrypt, route to existing handlers)
+### Phase 2a: Connection Interface + DirectConnection
+- [ ] Define Connection interface
+- [ ] DirectConnection wraps existing fetch (trivial)
+- [ ] useConnection hook returns DirectConnection
+- [ ] App works unchanged (just routed through interface)
 
-### Phase 3: Client Abstraction
-- [ ] Connection interface
-- [ ] DirectConnection (wrap existing fetch/WS/SSE)
-- [ ] RelayConnection (encrypted WebSocket protocol)
-- [ ] useConnection hook (pick mode based on context)
+### Phase 2b: WebSocket Endpoint + Request/Response
+- [ ] `/ws` endpoint on yepanywhere server
+- [ ] Basic message routing: receive request, call Hono handler, send response
+- [ ] WebSocketConnection.fetch() - send request, match response by ID
+- [ ] Test: simple API calls work over WS
 
-### Phase 4: Relay Server
-- [ ] WebSocket server (accept connections)
-- [ ] Server authentication
-- [ ] Phone SRP handshake passthrough
-- [ ] Encrypted message routing
-- [ ] Connection tracking
+### Phase 2c: Event Subscriptions (SSE Replacement)
+- [ ] Server: track subscriptions per WS connection
+- [ ] Server: pipe session events to subscribed connections
+- [ ] Client: WebSocketConnection.subscribe() returns AsyncIterable
+- [ ] Handle multiple concurrent subscriptions (session + activity)
+- [ ] Test: live streaming works over WS
+
+### Phase 2d: File Upload
+- [ ] Server: handle upload_start/chunk/end messages
+- [ ] Server: pipe to existing upload handler
+- [ ] Client: WebSocketConnection.upload() with progress
+- [ ] Test: file uploads work over WS
+
+### Phase 2e: Integration Testing
+- [ ] Switch app to WebSocketConnection
+- [ ] Full E2E testing on localhost
+- [ ] Handle edge cases (reconnection, errors, timeouts)
+
+### Phase 3: SRP + Encryption
+- [ ] SRP helpers (generate verifier, client/server handshake)
+- [ ] NaCl encryption helpers (secretbox wrapper)
+- [ ] Unit tests for SRP + encryption
+- [ ] Add SRP handshake to `/ws` endpoint
+- [ ] Add encryption layer to WebSocketConnection → SecureConnection
+- [ ] SRP verifier storage in data dir
+- [ ] Settings UI for remote access (username/password setup)
+
+### Phase 4: Relay
+- [ ] Separate relay package/service
+- [ ] Accept yepanywhere server connections (authenticated)
+- [ ] Accept phone connections (passthrough SRP to yepanywhere server)
+- [ ] Route encrypted messages (opaque blobs)
+- [ ] Connection tracking (username → socket mapping)
+- [ ] Reconnection handling
 
 ### Phase 5: Production
+- [ ] Relay client in yepanywhere server (connect to relay on startup)
 - [ ] Config endpoint on yepanywhere.com
-- [ ] Deploy relay server
+- [ ] Deploy relay
 - [ ] Multi-relay support (if needed)
 - [ ] Monitoring/alerting
 
@@ -255,8 +303,8 @@ Setting to show full details (less private) or generic (more private).
 1. **Username format** - Allow dots/dashes? Min/max length?
 2. **Password requirements** - Minimum entropy? Passphrase suggestions?
 3. **Session persistence** - How long to cache session key on phone?
-4. **Conflict handling** - When server moves to new machine, last-write-wins?
-5. **Offline indicator** - Show "server offline" vs "wrong password"?
+4. **Conflict handling** - When yepanywhere server moves to new machine, last-write-wins?
+5. **Offline indicator** - Show "yepanywhere offline" vs "wrong password"?
 
 ## Alternatives Considered
 
@@ -267,8 +315,8 @@ Setting to show full details (less private) or generic (more private).
 
 ### FCM/Push for Wake-up
 - Pro: No persistent connection
-- Con: FCM is client-focused, not server-focused
-- Decision: Persistent WebSocket is fine for always-on servers
+- Con: FCM is client-focused, not for desktop/server applications
+- Decision: Persistent WebSocket is fine for always-on yepanywhere servers
 
 ### Direct WebRTC
 - Pro: True P2P, no relay bandwidth
