@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { activityBus } from "../lib/activityBus";
 import type { ProcessStateType, SessionSummary } from "../types";
 
@@ -36,8 +36,22 @@ export function useSessionStatuses(
     return initial;
   });
 
-  // Create a Set for O(1) lookups
-  const sessionIdSet = new Set(sessionIds);
+  // Create a stable Set for session IDs that only changes when the actual
+  // session IDs change (not on every render). This prevents the effect from
+  // re-running and potentially missing events during the brief unsubscribe/
+  // resubscribe window (especially with WebSocket transport where events
+  // arrive quickly on a single connection).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally using sorted key for stability
+  const sessionIdSet = useMemo(
+    () => new Set(sessionIds),
+    [sessionIds.slice().sort().join(",")],
+  );
+
+  // Keep a ref to the current sessionIdSet for use in event handlers
+  // This ensures handlers always check against the latest set even if
+  // the effect hasn't re-run yet
+  const sessionIdSetRef = useRef(sessionIdSet);
+  sessionIdSetRef.current = sessionIdSet;
 
   // Update statuses when initialSessions changes
   useEffect(() => {
@@ -60,13 +74,15 @@ export function useSessionStatuses(
   }, [initialSessions, sessionIds]);
 
   // Subscribe to process state changes
+  // Using sessionIdSetRef.current in handlers ensures we always check against
+  // the latest set of session IDs, even if the effect hasn't re-run yet
   useEffect(() => {
     const unsubscribers: (() => void)[] = [];
 
     // Process state changes (running/waiting-input/idle)
     unsubscribers.push(
       activityBus.on("process-state-changed", (event) => {
-        if (!sessionIdSet.has(event.sessionId)) return;
+        if (!sessionIdSetRef.current.has(event.sessionId)) return;
 
         setStatuses((prev) => {
           const next = new Map(prev);
@@ -91,7 +107,7 @@ export function useSessionStatuses(
     // Session status changes (idle/owned/external)
     unsubscribers.push(
       activityBus.on("session-status-changed", (event) => {
-        if (!sessionIdSet.has(event.sessionId)) return;
+        if (!sessionIdSetRef.current.has(event.sessionId)) return;
 
         setStatuses((prev) => {
           const next = new Map(prev);
@@ -114,7 +130,7 @@ export function useSessionStatuses(
     // Session seen events
     unsubscribers.push(
       activityBus.on("session-seen", (event) => {
-        if (!sessionIdSet.has(event.sessionId)) return;
+        if (!sessionIdSetRef.current.has(event.sessionId)) return;
 
         setStatuses((prev) => {
           const next = new Map(prev);
@@ -133,7 +149,10 @@ export function useSessionStatuses(
         unsub();
       }
     };
-  }, [sessionIdSet]);
+    // Subscribe once on mount. We use sessionIdSetRef.current in handlers
+    // so they always check against the latest session IDs without needing
+    // to re-subscribe (which could miss events during the transition).
+  }, []);
 
   return statuses;
 }
