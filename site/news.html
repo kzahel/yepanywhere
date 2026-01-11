@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News - Yep Anywhere</title>
+  <meta name="description" content="News and updates about Yep Anywhere">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #252525;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --accent: #16a34a;
+      --accent-hover: #22c55e;
+      --border: #333333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .logo img {
+      height: 36px;
+      width: auto;
+    }
+
+    nav {
+      display: flex;
+      gap: 24px;
+    }
+
+    nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+
+    nav a:hover,
+    nav a.active {
+      color: var(--text-primary);
+    }
+
+    /* Page header */
+    .page-header {
+      padding: 60px 0 40px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .page-header h1 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .page-header p {
+      color: var(--text-secondary);
+      font-size: 16px;
+    }
+
+    /* News list */
+    .news-list {
+      padding: 40px 0;
+    }
+
+    .news-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .news-item-header {
+      padding: 24px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .news-item-header:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .news-item-header h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .news-item-meta {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .news-item-expand {
+      color: var(--text-secondary);
+      font-size: 24px;
+      line-height: 1;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .news-item.open .news-item-expand {
+      transform: rotate(45deg);
+    }
+
+    .news-item-content {
+      display: none;
+      padding: 0 24px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .news-item.open .news-item-content {
+      display: block;
+    }
+
+    /* Article content */
+    .article-content {
+      padding-top: 24px;
+    }
+
+    .article-content h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 24px 0 12px;
+      color: var(--text-primary);
+    }
+
+    .article-content h3:first-child {
+      margin-top: 0;
+    }
+
+    .article-content p {
+      color: var(--text-secondary);
+      font-size: 15px;
+      margin-bottom: 16px;
+      line-height: 1.7;
+    }
+
+    .article-content ul {
+      color: var(--text-secondary);
+      font-size: 15px;
+      margin-bottom: 16px;
+      padding-left: 24px;
+    }
+
+    .article-content li {
+      margin-bottom: 8px;
+    }
+
+    .article-content a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .article-content a:hover {
+      text-decoration: underline;
+    }
+
+    .article-content code {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 13px;
+      color: var(--accent);
+    }
+
+    .article-content blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 16px;
+      margin: 16px 0;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    /* Comparison table */
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 12px;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+
+    .comparison-table th {
+      background: var(--bg-tertiary);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .comparison-table td {
+      color: var(--text-secondary);
+    }
+
+    .comparison-table tr:nth-child(even) {
+      background: var(--bg-primary);
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    footer p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    footer a {
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .header-content {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      nav {
+        gap: 16px;
+      }
+
+      .page-header {
+        padding: 40px 0 32px;
+      }
+
+      .page-header h1 {
+        font-size: 28px;
+      }
+
+      .news-item-header {
+        padding: 20px;
+      }
+
+      .news-item-header h2 {
+        font-size: 18px;
+      }
+
+      .comparison-table {
+        font-size: 12px;
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <a href="/" class="logo">
+        <img src="branding/lockup-dark.svg" alt="yepanywhere">
+      </a>
+      <nav>
+        <a href="/#screenshots">Screenshots</a>
+        <a href="/#features">Features</a>
+        <a href="/#install">Install</a>
+        <a href="/news.html" class="active">News</a>
+        <a href="https://github.com/kzahel/yepanywhere">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-header">
+      <div class="container">
+        <h1>News</h1>
+        <p>Updates and transparency notes</p>
+      </div>
+    </section>
+
+    <section class="news-list">
+      <div class="container">
+
+        <article class="news-item open">
+          <div class="news-item-header" onclick="this.parentElement.classList.toggle('open')">
+            <div>
+              <h2>How We Use the Claude SDK (and Why We're Not Like the Blocked Tools)</h2>
+              <div class="news-item-meta">January 11, 2026</div>
+            </div>
+            <span class="news-item-expand">+</span>
+          </div>
+          <div class="news-item-content">
+            <div class="article-content">
+              <p>In late 2025 and early 2026, Anthropic sent takedown notices to several third-party Claude Code clients. We want to be transparent about how Yep Anywhere differs from those projects.</p>
+
+              <h3>What Got Blocked</h3>
+              <p>Projects like OpenCode, Crush (Charmbracelet), and Windsurf were blocked for <strong>spoofing the Claude Code client identity</strong> to access Claude Max subscription pricing ($200/month) instead of paying per-token API rates.</p>
+
+              <p>Claude Max subscriptions offer dramatically cheaper access than API pricing (users reported $1000+ monthly API costs reduced to $200). The blocked tools would:</p>
+              <ul>
+                <li>Send fake HTTP headers pretending to be the official Claude Code CLI</li>
+                <li>Trick Anthropic's servers into granting subscription-tier pricing</li>
+                <li>Provide their own alternative UI while freeloading on pricing meant only for Anthropic's official tool</li>
+              </ul>
+
+              <p>An Anthropic engineer confirmed: <blockquote>"We tightened our safeguards against spoofing the Claude Code harness."</blockquote></p>
+
+              <h3>How Yep Anywhere Is Different</h3>
+              <p>Yep Anywhere does <strong>none of the above</strong>. Here's what we actually do:</p>
+
+              <p><strong>1. We use the official SDK.</strong> We depend on <code>@anthropic-ai/claude-agent-sdk</code>, Anthropic's official published SDK. We call the SDK's <code>query()</code> function directly without modification or header spoofing.</p>
+
+              <p><strong>2. We don't replace or intercept authentication.</strong> Users provide their own authentication through either:</p>
+              <ul>
+                <li><strong>API Key:</strong> User sets <code>ANTHROPIC_API_KEY</code> environment variable (pays standard API rates)</li>
+                <li><strong>OAuth:</strong> User runs <code>claude</code> CLI themselves to authenticate, which creates <code>~/.claude/.credentials.json</code></li>
+              </ul>
+              <p>We do provide a <code>/login</code> convenience command that helps users re-authenticate remotely when their credentials expire. This works by automating the Claude CLI's own <code>/login</code> command via tmux - we parse the OAuth URL from CLI output and relay it to users, who then complete Anthropic's official OAuth flow in their browser. We're not bypassing or replacing the auth system, just making it accessible when you can't SSH to your machine.</p>
+
+              <p><strong>3. We don't spoof client identity.</strong> Our code makes no attempt to impersonate Claude Code or any other client. We pass requests to the SDK as-is, which identifies itself appropriately.</p>
+
+              <p><strong>4. We're a remote interface, not a replacement.</strong> Yep Anywhere is a mobile-friendly supervisor for Claude Code sessions running on your own machine. Think of it like SSH for AI agents—we provide remote access to sessions, not a replacement client.</p>
+
+              <h3>Comparison</h3>
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th>Aspect</th>
+                    <th>Blocked Tools</th>
+                    <th>Yep Anywhere</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Client identity spoofing</td>
+                    <td>Yes</td>
+                    <td>No</td>
+                  </tr>
+                  <tr>
+                    <td>Header manipulation</td>
+                    <td>Yes</td>
+                    <td>No</td>
+                  </tr>
+                  <tr>
+                    <td>Pricing tier circumvention</td>
+                    <td>Yes</td>
+                    <td>No</td>
+                  </tr>
+                  <tr>
+                    <td>Uses official SDK</td>
+                    <td>No (custom API calls)</td>
+                    <td>Yes</td>
+                  </tr>
+                  <tr>
+                    <td>Handles user auth</td>
+                    <td>Yes (OAuth proxy/interception)</td>
+                    <td>Convenience only (relays CLI's official OAuth)</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h3>Our Stance</h3>
+              <p>We believe our approach aligns with Anthropic's terms of service. Users pay for their own Claude access through legitimate channels, and we provide a remote interface to manage sessions. We're not trying to game pricing or impersonate official tools.</p>
+
+              <p>If Anthropic has concerns about our implementation, we welcome the conversation.</p>
+
+              <h3>References</h3>
+              <ul>
+                <li><a href="https://news.ycombinator.com/item?id=46549823">Anthropic blocks third-party Claude Code access (Hacker News)</a></li>
+                <li><a href="https://github.com/charmbracelet/crush/pull/1783">Charmbracelet Crush removal PR</a></li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/kzahel/yepanywhere">GitHub</a>
+        <a href="https://www.npmjs.com/package/yepanywhere">npm</a>
+        <a href="https://github.com/kzahel/yepanywhere/issues">Issues</a>
+      </div>
+      <p>MIT License</p>
+    </div>
+  </footer>
+</body>
+</html>
