@@ -307,3 +307,14 @@ export {
   // Encryption type guard
   isEncryptedEnvelope,
 } from "./relay.js";
+
+// Binary framing utilities (Phase 0 of binary WebSocket protocol)
+export {
+  BinaryFormat,
+  type BinaryFormatValue,
+  BinaryFrameError,
+  encodeJsonFrame,
+  decodeBinaryFrame,
+  decodeJsonFrame,
+  isBinaryData,
+} from "./binary-framing.js";

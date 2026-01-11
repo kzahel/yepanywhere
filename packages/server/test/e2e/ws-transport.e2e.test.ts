@@ -18,6 +18,11 @@ import type {
   RelayUploadStart,
   YepMessage,
 } from "@yep-anywhere/shared";
+import {
+  BinaryFormat,
+  decodeJsonFrame,
+  encodeJsonFrame,
+} from "@yep-anywhere/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "../../src/app.js";
@@ -870,6 +875,316 @@ describe("WebSocket Transport E2E", () => {
         ) as RelayUploadError[];
         expect(errorMsgs.length).toBe(1);
         expect(errorMsgs[0].error).toContain("already in use");
+      } finally {
+        ws.close();
+      }
+    });
+  });
+
+  describe("Binary Frame Support (Phase 0)", () => {
+    /**
+     * Helper to send a binary frame and wait for binary response.
+     */
+    function sendBinaryRequest(
+      ws: WebSocket,
+      request: RelayRequest,
+    ): Promise<RelayResponse> {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Request timeout")),
+          5000,
+        );
+
+        const handler = (data: WebSocket.RawData) => {
+          // Expect binary response
+          if (!(data instanceof Buffer)) {
+            // If we get a string, the server might have fallen back to text
+            clearTimeout(timeout);
+            ws.off("message", handler);
+            try {
+              const msg = JSON.parse(data.toString()) as YepMessage;
+              if (msg.type === "response" && msg.id === request.id) {
+                resolve(msg);
+              }
+            } catch {
+              reject(new Error("Unexpected non-binary response"));
+            }
+            return;
+          }
+
+          try {
+            const msg = decodeJsonFrame<YepMessage>(data);
+            if (msg.type === "response" && msg.id === request.id) {
+              clearTimeout(timeout);
+              ws.off("message", handler);
+              resolve(msg);
+            }
+          } catch (err) {
+            clearTimeout(timeout);
+            ws.off("message", handler);
+            reject(err);
+          }
+        };
+
+        ws.on("message", handler);
+        // Send as binary frame
+        ws.send(encodeJsonFrame(request));
+      });
+    }
+
+    it("should handle binary frame with format 0x01 (JSON)", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const request: RelayRequest = {
+          type: "request",
+          id: randomUUID(),
+          method: "GET",
+          path: "/health",
+        };
+
+        const response = await sendBinaryRequest(ws, request);
+
+        expect(response.status).toBe(200);
+        expect((response.body as { status: string }).status).toBe("ok");
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should handle text frame fallback for backwards compat", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const request: RelayRequest = {
+          type: "request",
+          id: randomUUID(),
+          method: "GET",
+          path: "/health",
+        };
+
+        // Send as text (JSON string)
+        const response = await sendRequest(ws, request);
+
+        expect(response.status).toBe(200);
+        expect((response.body as { status: string }).status).toBe("ok");
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should reject unknown format bytes", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        // Create a binary frame with invalid format byte 0x00
+        const payload = Buffer.from(
+          JSON.stringify({ type: "request", id: "test" }),
+        );
+        const invalidFrame = Buffer.alloc(1 + payload.length);
+        invalidFrame[0] = 0x00; // Invalid format byte
+        payload.copy(invalidFrame, 1);
+
+        // The server should close the connection with error code 4002
+        const closePromise = new Promise<{ code: number; reason: string }>(
+          (resolve) => {
+            ws.on("close", (code, reason) => {
+              resolve({ code, reason: reason.toString() });
+            });
+          },
+        );
+
+        ws.send(invalidFrame);
+
+        const closeResult = await closePromise;
+        expect(closeResult.code).toBe(4002);
+        expect(closeResult.reason).toContain("Unknown format byte");
+      } finally {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      }
+    });
+
+    it("should handle mixed text/binary frames", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        // First request as text
+        const textRequest: RelayRequest = {
+          type: "request",
+          id: randomUUID(),
+          method: "GET",
+          path: "/health",
+        };
+        const textResponse = await sendRequest(ws, textRequest);
+        expect(textResponse.status).toBe(200);
+
+        // Second request as binary
+        const binaryRequest: RelayRequest = {
+          type: "request",
+          id: randomUUID(),
+          method: "GET",
+          path: "/api/version",
+        };
+        const binaryResponse = await sendBinaryRequest(ws, binaryRequest);
+        expect(binaryResponse.status).toBe(200);
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should respond with binary frames when client sends binary", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const request: RelayRequest = {
+          type: "request",
+          id: randomUUID(),
+          method: "GET",
+          path: "/health",
+        };
+
+        // Track whether we received a binary response
+        let receivedBinary = false;
+
+        const response = await new Promise<RelayResponse>((resolve, reject) => {
+          const timeout = setTimeout(
+            () => reject(new Error("Request timeout")),
+            5000,
+          );
+
+          const handler = (data: WebSocket.RawData) => {
+            if (data instanceof Buffer) {
+              receivedBinary = true;
+              try {
+                const msg = decodeJsonFrame<YepMessage>(data);
+                if (msg.type === "response" && msg.id === request.id) {
+                  clearTimeout(timeout);
+                  ws.off("message", handler);
+                  resolve(msg);
+                }
+              } catch (err) {
+                clearTimeout(timeout);
+                ws.off("message", handler);
+                reject(err);
+              }
+            } else {
+              // Text frame - still accept but note it
+              try {
+                const msg = JSON.parse(data.toString()) as YepMessage;
+                if (msg.type === "response" && msg.id === request.id) {
+                  clearTimeout(timeout);
+                  ws.off("message", handler);
+                  resolve(msg);
+                }
+              } catch {
+                // ignore
+              }
+            }
+          };
+
+          ws.on("message", handler);
+          ws.send(encodeJsonFrame(request));
+        });
+
+        expect(response.status).toBe(200);
+        // Server should respond with binary after receiving binary
+        expect(receivedBinary).toBe(true);
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should handle binary subscription events", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const subscriptionId = randomUUID();
+        const subscribe: RelaySubscribe = {
+          type: "subscribe",
+          subscriptionId,
+          channel: "activity",
+        };
+
+        // Collect events using binary frames
+        const eventsPromise = new Promise<RelayEvent[]>((resolve) => {
+          const events: RelayEvent[] = [];
+          const timeout = setTimeout(() => {
+            ws.off("message", handler);
+            resolve(events);
+          }, 2000);
+
+          const handler = (data: WebSocket.RawData) => {
+            try {
+              let msg: YepMessage;
+              if (data instanceof Buffer) {
+                msg = decodeJsonFrame<YepMessage>(data);
+              } else {
+                msg = JSON.parse(data.toString()) as YepMessage;
+              }
+              if (
+                msg.type === "event" &&
+                msg.subscriptionId === subscriptionId
+              ) {
+                events.push(msg);
+                if (events.length >= 1 && events[0].eventType === "connected") {
+                  clearTimeout(timeout);
+                  ws.off("message", handler);
+                  resolve(events);
+                }
+              }
+            } catch {
+              // ignore parse errors
+            }
+          };
+
+          ws.on("message", handler);
+        });
+
+        // Send subscribe as binary
+        ws.send(encodeJsonFrame(subscribe));
+
+        const events = await eventsPromise;
+
+        expect(events.length).toBeGreaterThanOrEqual(1);
+        expect(events[0].eventType).toBe("connected");
+        expect(events[0].subscriptionId).toBe(subscriptionId);
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should handle UTF-8 content in binary frames", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        // Send a request - the UTF-8 test is about the binary frame encoding
+        // of JSON content with unicode characters in the body
+        const request: RelayRequest = {
+          type: "request",
+          id: randomUUID(),
+          method: "GET",
+          path: "/health",
+        };
+
+        // Verify the encodeJsonFrame handles UTF-8 properly by checking the request
+        // goes through successfully (the request id contains nothing special but
+        // the framing itself uses TextEncoder/TextDecoder which handles UTF-8)
+        const response = await sendBinaryRequest(ws, request);
+        expect(response.status).toBe(200);
+
+        // Also test that a request ID with UTF-8 round-trips correctly
+        const utf8Request: RelayRequest = {
+          type: "request",
+          id: `test-${randomUUID()}-emoji-🎉`,
+          method: "GET",
+          path: "/health",
+        };
+        const utf8Response = await sendBinaryRequest(ws, utf8Request);
+        expect(utf8Response.status).toBe(200);
+        // The response ID should match what we sent
+        expect(utf8Response.id).toBe(utf8Request.id);
       } finally {
         ws.close();
       }

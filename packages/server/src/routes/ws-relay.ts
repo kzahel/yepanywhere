@@ -24,6 +24,12 @@ import type {
   YepMessage,
 } from "@yep-anywhere/shared";
 import {
+  BinaryFormat,
+  BinaryFrameError,
+  decodeJsonFrame,
+  // Binary framing utilities
+  encodeJsonFrame,
+  isBinaryData,
   isEncryptedEnvelope,
   isSrpClientHello,
   isSrpClientProof,
@@ -94,6 +100,8 @@ interface ConnectionState {
   username: string | null;
   /** Persistent session ID for resumption (set after successful auth) */
   sessionId: string | null;
+  /** Whether client sent binary frames (respond with binary if true) */
+  useBinaryFrames: boolean;
 }
 
 /** Tracks an active upload over WebSocket relay */
@@ -161,6 +169,7 @@ type SendFn = (msg: YepMessage) => void;
 /**
  * Create an encryption-aware send function for a connection.
  * Automatically encrypts messages when the connection is authenticated with a session key.
+ * Uses binary frames when the client has sent binary frames (Phase 0 binary protocol).
  */
 const createSendFn = (ws: WSContext, connState: ConnectionState): SendFn => {
   return (msg: YepMessage) => {
@@ -173,7 +182,11 @@ const createSendFn = (ws: WSContext, connState: ConnectionState): SendFn => {
         ciphertext,
       };
       ws.send(JSON.stringify(envelope));
+    } else if (connState.useBinaryFrames) {
+      // Client sent binary frames, respond with binary
+      ws.send(encodeJsonFrame(msg));
     } else {
+      // Text frame fallback (backwards compat)
       ws.send(JSON.stringify(msg));
     }
   };
@@ -1043,6 +1056,7 @@ export function createWsRelayRoutes(
 
   /**
    * Handle incoming WebSocket messages.
+   * Supports both text frames (JSON) and binary frames (format byte + payload).
    */
   const handleMessage = async (
     ws: WSContext,
@@ -1052,16 +1066,83 @@ export function createWsRelayRoutes(
     send: SendFn,
     data: unknown,
   ): Promise<void> => {
-    // Parse message
+    // Parse message - handle both binary and text frames
     let parsed: unknown;
-    try {
-      if (typeof data !== "string") {
-        console.warn("[WS Relay] Ignoring non-string message");
+
+    if (isBinaryData(data)) {
+      // Binary frame - decode format byte + payload
+      try {
+        const { format, payload } = (() => {
+          // Convert Buffer to Uint8Array for consistent handling
+          const bytes =
+            data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+          if (bytes.length === 0) {
+            throw new BinaryFrameError("Empty binary frame", "UNKNOWN_FORMAT");
+          }
+          const format = bytes[0] as number;
+          // Validate format byte - only 0x01-0x03 are valid
+          if (
+            format !== BinaryFormat.JSON &&
+            format !== BinaryFormat.BINARY_UPLOAD &&
+            format !== BinaryFormat.COMPRESSED_JSON
+          ) {
+            throw new BinaryFrameError(
+              `Unknown format byte: 0x${format.toString(16).padStart(2, "0")}`,
+              "UNKNOWN_FORMAT",
+            );
+          }
+          return { format, payload: bytes.slice(1) };
+        })();
+
+        // Mark client as using binary frames
+        connState.useBinaryFrames = true;
+
+        // Currently only support format 0x01 (JSON)
+        if (format !== BinaryFormat.JSON) {
+          console.warn(
+            `[WS Relay] Unsupported binary format: 0x${format.toString(16).padStart(2, "0")} (only 0x01 supported in Phase 0)`,
+          );
+          // Send error response via the current send method
+          send({
+            type: "response",
+            id: "binary-format-error",
+            status: 400,
+            body: {
+              error: `Unsupported binary format: 0x${format.toString(16).padStart(2, "0")}`,
+            },
+          });
+          return;
+        }
+
+        // Decode UTF-8 JSON payload
+        const decoder = new TextDecoder("utf-8", { fatal: true });
+        const json = decoder.decode(payload);
+        parsed = JSON.parse(json);
+      } catch (err) {
+        if (err instanceof BinaryFrameError) {
+          console.warn(
+            `[WS Relay] Binary frame error (${err.code}):`,
+            err.message,
+          );
+          // For unknown format, close with appropriate error code
+          if (err.code === "UNKNOWN_FORMAT") {
+            ws.close(4002, err.message);
+          }
+        } else {
+          console.warn("[WS Relay] Failed to decode binary frame:", err);
+        }
         return;
       }
-      parsed = JSON.parse(data);
-    } catch {
-      console.warn("[WS Relay] Failed to parse message:", data);
+    } else if (typeof data === "string") {
+      // Text frame - parse as JSON
+      try {
+        parsed = JSON.parse(data);
+      } catch {
+        console.warn("[WS Relay] Failed to parse message:", data);
+        return;
+      }
+    } else {
+      console.warn("[WS Relay] Ignoring unknown message type");
       return;
     }
 
@@ -1182,6 +1263,7 @@ export function createWsRelayRoutes(
       authState: "unauthenticated",
       username: null,
       sessionId: null,
+      useBinaryFrames: false,
     };
     // Encryption-aware send function (created on open, captures connState)
     let send: SendFn;

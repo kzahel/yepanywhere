@@ -15,6 +15,12 @@ import type {
   YepMessage,
 } from "@yep-anywhere/shared";
 import {
+  BinaryFrameError,
+  decodeJsonFrame,
+  encodeJsonFrame,
+  isBinaryData,
+} from "@yep-anywhere/shared";
+import {
   type Connection,
   type StreamHandlers,
   type Subscription,
@@ -173,18 +179,39 @@ export class WebSocketConnection implements Connection {
 
   /**
    * Handle incoming WebSocket messages.
+   * Supports both text frames (JSON) and binary frames (format byte + payload).
    */
   private handleMessage(data: unknown): void {
-    if (typeof data !== "string") {
-      console.warn("[WebSocketConnection] Ignoring non-string message");
-      return;
-    }
-
     let msg: YepMessage;
-    try {
-      msg = JSON.parse(data) as YepMessage;
-    } catch {
-      console.warn("[WebSocketConnection] Failed to parse message:", data);
+
+    // Handle binary frames (ArrayBuffer from server)
+    if (isBinaryData(data)) {
+      try {
+        msg = decodeJsonFrame<YepMessage>(data);
+      } catch (err) {
+        if (err instanceof BinaryFrameError) {
+          console.warn(
+            `[WebSocketConnection] Binary frame error (${err.code}):`,
+            err.message,
+          );
+        } else {
+          console.warn(
+            "[WebSocketConnection] Failed to decode binary frame:",
+            err,
+          );
+        }
+        return;
+      }
+    } else if (typeof data === "string") {
+      // Handle text frames (JSON string, for backwards compatibility)
+      try {
+        msg = JSON.parse(data) as YepMessage;
+      } catch {
+        console.warn("[WebSocketConnection] Failed to parse message:", data);
+        return;
+      }
+    } else {
+      console.warn("[WebSocketConnection] Ignoring unknown message type");
       return;
     }
 
@@ -290,13 +317,15 @@ export class WebSocketConnection implements Connection {
   }
 
   /**
-   * Send a message over the WebSocket.
+   * Send a message over the WebSocket as a binary frame.
+   * Uses format byte 0x01 (JSON) for all messages.
    */
   private send(msg: RemoteClientMessage): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket not connected");
     }
-    this.ws.send(JSON.stringify(msg));
+    // Send as binary frame with format byte 0x01
+    this.ws.send(encodeJsonFrame(msg));
   }
 
   /**

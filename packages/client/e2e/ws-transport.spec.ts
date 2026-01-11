@@ -592,4 +592,328 @@ test.describe("WebSocket Transport E2E", () => {
     expect(result.firstStatus).toBe(200);
     expect(result.secondStatus).toBe(200);
   });
+
+  test.describe("Binary Frame Support (Phase 0)", () => {
+    test("can send binary frame with format 0x01", async ({
+      page,
+      baseURL,
+    }) => {
+      await page.goto(`${baseURL}/`);
+      await page.waitForLoadState("domcontentloaded");
+
+      const result = await page.evaluate(async (url) => {
+        const wsUrl = `${url.replace("http://", "ws://")}/api/ws`;
+
+        // Helper to encode JSON as binary frame
+        function encodeJsonFrame(message: unknown): ArrayBuffer {
+          const json = JSON.stringify(message);
+          const encoder = new TextEncoder();
+          const jsonBytes = encoder.encode(json);
+          const buffer = new ArrayBuffer(1 + jsonBytes.length);
+          const view = new Uint8Array(buffer);
+          view[0] = 0x01; // JSON format byte
+          view.set(jsonBytes, 1);
+          return buffer;
+        }
+
+        // Helper to decode binary frame
+        function decodeJsonFrame<T>(data: ArrayBuffer): T {
+          const bytes = new Uint8Array(data);
+          if (bytes[0] !== 0x01) {
+            throw new Error(`Unexpected format byte: ${bytes[0]}`);
+          }
+          const decoder = new TextDecoder();
+          const json = decoder.decode(bytes.slice(1));
+          return JSON.parse(json);
+        }
+
+        return new Promise<{ status: number; receivedBinary: boolean }>(
+          (resolve, reject) => {
+            const ws = new WebSocket(wsUrl);
+            ws.binaryType = "arraybuffer";
+            const timeout = setTimeout(() => {
+              ws.close();
+              reject(new Error("Timeout"));
+            }, 10000);
+
+            ws.onopen = () => {
+              const request = {
+                type: "request",
+                id: crypto.randomUUID(),
+                method: "GET",
+                path: "/health",
+                headers: { "X-Yep-Anywhere": "true" },
+              };
+
+              let receivedBinary = false;
+
+              ws.onmessage = (event) => {
+                let msg: { type?: string; id?: string; status?: number };
+                if (event.data instanceof ArrayBuffer) {
+                  receivedBinary = true;
+                  msg = decodeJsonFrame(event.data);
+                } else {
+                  msg = JSON.parse(event.data);
+                }
+
+                if (msg.type === "response" && msg.id === request.id) {
+                  clearTimeout(timeout);
+                  ws.close();
+                  resolve({ status: msg.status ?? 0, receivedBinary });
+                }
+              };
+
+              // Send as binary frame
+              ws.send(encodeJsonFrame(request));
+            };
+
+            ws.onerror = () => {
+              clearTimeout(timeout);
+              reject(new Error("WebSocket error"));
+            };
+          },
+        );
+      }, baseURL);
+
+      expect(result.status).toBe(200);
+      expect(result.receivedBinary).toBe(true);
+    });
+
+    test("can receive binary frame response", async ({ page, baseURL }) => {
+      await page.goto(`${baseURL}/`);
+      await page.waitForLoadState("domcontentloaded");
+
+      const result = await page.evaluate(async (url) => {
+        const wsUrl = `${url.replace("http://", "ws://")}/api/ws`;
+
+        function encodeJsonFrame(message: unknown): ArrayBuffer {
+          const json = JSON.stringify(message);
+          const encoder = new TextEncoder();
+          const jsonBytes = encoder.encode(json);
+          const buffer = new ArrayBuffer(1 + jsonBytes.length);
+          const view = new Uint8Array(buffer);
+          view[0] = 0x01;
+          view.set(jsonBytes, 1);
+          return buffer;
+        }
+
+        function decodeJsonFrame<T>(data: ArrayBuffer): T {
+          const bytes = new Uint8Array(data);
+          if (bytes[0] !== 0x01) {
+            throw new Error(`Unexpected format byte: ${bytes[0]}`);
+          }
+          const decoder = new TextDecoder();
+          const json = decoder.decode(bytes.slice(1));
+          return JSON.parse(json);
+        }
+
+        return new Promise<{ status: number; body: unknown }>(
+          (resolve, reject) => {
+            const ws = new WebSocket(wsUrl);
+            ws.binaryType = "arraybuffer";
+            const timeout = setTimeout(() => {
+              ws.close();
+              reject(new Error("Timeout"));
+            }, 10000);
+
+            ws.onopen = () => {
+              const request = {
+                type: "request",
+                id: crypto.randomUUID(),
+                method: "GET",
+                path: "/api/version",
+                headers: { "X-Yep-Anywhere": "true" },
+              };
+
+              ws.onmessage = (event) => {
+                let msg: {
+                  type?: string;
+                  id?: string;
+                  status?: number;
+                  body?: unknown;
+                };
+                if (event.data instanceof ArrayBuffer) {
+                  msg = decodeJsonFrame(event.data);
+                } else {
+                  msg = JSON.parse(event.data);
+                }
+
+                if (msg.type === "response" && msg.id === request.id) {
+                  clearTimeout(timeout);
+                  ws.close();
+                  resolve({ status: msg.status ?? 0, body: msg.body });
+                }
+              };
+
+              ws.send(encodeJsonFrame(request));
+            };
+
+            ws.onerror = () => {
+              clearTimeout(timeout);
+              reject(new Error("WebSocket error"));
+            };
+          },
+        );
+      }, baseURL);
+
+      expect(result.status).toBe(200);
+      expect(result.body).toHaveProperty("current");
+    });
+
+    test("handles ArrayBuffer correctly in browser", async ({
+      page,
+      baseURL,
+    }) => {
+      await page.goto(`${baseURL}/`);
+      await page.waitForLoadState("domcontentloaded");
+
+      const result = await page.evaluate(async (url) => {
+        const wsUrl = `${url.replace("http://", "ws://")}/api/ws`;
+
+        function encodeJsonFrame(message: unknown): ArrayBuffer {
+          const json = JSON.stringify(message);
+          const encoder = new TextEncoder();
+          const jsonBytes = encoder.encode(json);
+          const buffer = new ArrayBuffer(1 + jsonBytes.length);
+          const view = new Uint8Array(buffer);
+          view[0] = 0x01;
+          view.set(jsonBytes, 1);
+          return buffer;
+        }
+
+        return new Promise<{
+          sentArrayBuffer: boolean;
+          receivedArrayBuffer: boolean;
+          responseValid: boolean;
+        }>((resolve, reject) => {
+          const ws = new WebSocket(wsUrl);
+          ws.binaryType = "arraybuffer";
+          const timeout = setTimeout(() => {
+            ws.close();
+            reject(new Error("Timeout"));
+          }, 10000);
+
+          ws.onopen = () => {
+            const request = {
+              type: "request",
+              id: crypto.randomUUID(),
+              method: "GET",
+              path: "/health",
+            };
+
+            const binaryFrame = encodeJsonFrame(request);
+            const sentArrayBuffer = binaryFrame instanceof ArrayBuffer;
+
+            ws.onmessage = (event) => {
+              const receivedArrayBuffer = event.data instanceof ArrayBuffer;
+              let responseValid = false;
+
+              if (receivedArrayBuffer) {
+                const bytes = new Uint8Array(event.data);
+                const formatByte = bytes[0];
+                responseValid = formatByte === 0x01;
+              }
+
+              clearTimeout(timeout);
+              ws.close();
+              resolve({ sentArrayBuffer, receivedArrayBuffer, responseValid });
+            };
+
+            ws.send(binaryFrame);
+          };
+
+          ws.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error("WebSocket error"));
+          };
+        });
+      }, baseURL);
+
+      expect(result.sentArrayBuffer).toBe(true);
+      expect(result.receivedArrayBuffer).toBe(true);
+      expect(result.responseValid).toBe(true);
+    });
+
+    test("handles UTF-8 content in binary frames", async ({
+      page,
+      baseURL,
+    }) => {
+      await page.goto(`${baseURL}/`);
+      await page.waitForLoadState("domcontentloaded");
+
+      const result = await page.evaluate(async (url) => {
+        const wsUrl = `${url.replace("http://", "ws://")}/api/ws`;
+
+        function encodeJsonFrame(message: unknown): ArrayBuffer {
+          const json = JSON.stringify(message);
+          const encoder = new TextEncoder();
+          const jsonBytes = encoder.encode(json);
+          const buffer = new ArrayBuffer(1 + jsonBytes.length);
+          const view = new Uint8Array(buffer);
+          view[0] = 0x01;
+          view.set(jsonBytes, 1);
+          return buffer;
+        }
+
+        function decodeJsonFrame<T>(data: ArrayBuffer): T {
+          const bytes = new Uint8Array(data);
+          const decoder = new TextDecoder();
+          const json = decoder.decode(bytes.slice(1));
+          return JSON.parse(json);
+        }
+
+        return new Promise<{ success: boolean; idMatches: boolean }>(
+          (resolve, reject) => {
+            const ws = new WebSocket(wsUrl);
+            ws.binaryType = "arraybuffer";
+            const timeout = setTimeout(() => {
+              ws.close();
+              reject(new Error("Timeout"));
+            }, 10000);
+
+            ws.onopen = () => {
+              // Test UTF-8 in the request ID - this tests that the binary frame
+              // encoding/decoding properly handles Unicode characters in JSON content
+              // (Note: HTTP headers don't support non-ASCII, so we test via the id field)
+              const requestId = `utf8-test-${crypto.randomUUID()}-emoji-🎉-日本語`;
+              const request = {
+                type: "request",
+                id: requestId,
+                method: "GET",
+                path: "/health",
+              };
+
+              ws.onmessage = (event) => {
+                let msg: { type?: string; id?: string; status?: number };
+                if (event.data instanceof ArrayBuffer) {
+                  msg = decodeJsonFrame(event.data);
+                } else {
+                  msg = JSON.parse(event.data);
+                }
+
+                if (msg.type === "response" && msg.id === requestId) {
+                  clearTimeout(timeout);
+                  ws.close();
+                  resolve({
+                    success: msg.status === 200,
+                    idMatches: msg.id === requestId,
+                  });
+                }
+              };
+
+              ws.send(encodeJsonFrame(request));
+            };
+
+            ws.onerror = () => {
+              clearTimeout(timeout);
+              reject(new Error("WebSocket error"));
+            };
+          },
+        );
+      }, baseURL);
+
+      expect(result.success).toBe(true);
+      expect(result.idMatches).toBe(true);
+    });
+  });
 });
