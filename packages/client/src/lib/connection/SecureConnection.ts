@@ -163,6 +163,30 @@ export class SecureConnection implements Connection {
   }
 
   /**
+   * Create a secure connection for resume-only mode (no password fallback).
+   * Will attempt to resume the session and fail if the session is invalid.
+   * Use this for automatic reconnection on page load.
+   *
+   * @param storedSession - Previously stored session data
+   * @param onSessionEstablished - Optional callback when session is refreshed
+   */
+  static forResumeOnly(
+    storedSession: StoredSession,
+    onSessionEstablished?: (session: StoredSession) => void,
+  ): SecureConnection {
+    // Create connection with empty password (will fail if fallback is attempted)
+    const conn = new SecureConnection(
+      storedSession.wsUrl,
+      storedSession.username,
+      "", // No password - resume only
+      onSessionEstablished,
+    );
+    conn.storedSession = storedSession;
+    conn.password = null; // Mark as resume-only
+    return conn;
+  }
+
+  /**
    * Generate a resume proof by encrypting the current timestamp with the session key.
    */
   private generateResumeProof(base64SessionKey: string): string {
@@ -228,6 +252,17 @@ export class SecureConnection implements Connection {
       }
 
       if (isSrpSessionInvalid(msg)) {
+        // If no password available (resume-only mode), fail
+        if (!this.password) {
+          console.log(
+            `[SecureConnection] Session resume failed: ${msg.reason} (no password for fallback)`,
+          );
+          this.connectionState = "failed";
+          reject(new Error(`Session invalid: ${msg.reason}`));
+          this.ws?.close();
+          return;
+        }
+
         console.log(
           `[SecureConnection] Session resume failed: ${msg.reason}, falling back to SRP`,
         );

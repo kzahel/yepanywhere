@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Subscription, getWebSocketConnection } from "../lib/connection";
+import {
+  type Subscription,
+  getGlobalConnection,
+  getWebSocketConnection,
+} from "../lib/connection";
 import { getWebsocketTransportEnabled } from "./useDeveloperMode";
 
 interface UseSSEOptions {
@@ -46,11 +50,24 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
     if (mountedUrlRef.current === url) return;
     mountedUrlRef.current = url;
 
-    // Check if WebSocket transport is enabled and this is a session stream
-    const useWebSocket = getWebsocketTransportEnabled();
     const sessionId = extractSessionId(url);
+    if (!sessionId) {
+      // Not a session stream URL
+      connectSSE(url);
+      return;
+    }
 
-    if (useWebSocket && sessionId) {
+    // Check for global connection first (remote mode with SecureConnection)
+    const globalConn = getGlobalConnection();
+    if (globalConn) {
+      useWebSocketRef.current = true;
+      connectWithConnection(sessionId, globalConn);
+      return;
+    }
+
+    // Check if WebSocket transport is enabled (developer mode)
+    const useWebSocket = getWebsocketTransportEnabled();
+    if (useWebSocket) {
       useWebSocketRef.current = true;
       connectWebSocket(sessionId);
     } else {
@@ -58,6 +75,73 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
       connectSSE(url);
     }
   }, [url]);
+
+  /**
+   * Connect using a provided connection (for remote mode).
+   */
+  const connectWithConnection = useCallback(
+    (
+      sessionId: string,
+      connection: {
+        subscribeSession: (
+          sessionId: string,
+          handlers: {
+            onEvent: (
+              eventType: string,
+              eventId: string | undefined,
+              data: unknown,
+            ) => void;
+            onOpen?: () => void;
+            onError?: (err: Error) => void;
+          },
+          lastEventId?: string,
+        ) => Subscription;
+      },
+    ) => {
+      // Close any existing subscription before creating a new one
+      if (wsSubscriptionRef.current) {
+        wsSubscriptionRef.current.close();
+        wsSubscriptionRef.current = null;
+      }
+
+      const handlers = {
+        onEvent: (
+          eventType: string,
+          eventId: string | undefined,
+          data: unknown,
+        ) => {
+          if (eventId) {
+            lastEventIdRef.current = eventId;
+          }
+          optionsRef.current.onMessage({
+            ...(data as Record<string, unknown>),
+            eventType,
+          });
+        },
+        onOpen: () => {
+          setConnected(true);
+          optionsRef.current.onOpen?.();
+        },
+        onError: (_error: Error) => {
+          setConnected(false);
+          optionsRef.current.onError?.(new Event("error"));
+
+          // Auto-reconnect after 2s
+          wsSubscriptionRef.current?.close();
+          wsSubscriptionRef.current = null;
+          mountedUrlRef.current = null;
+          reconnectTimeoutRef.current = setTimeout(connect, 2000);
+        },
+      };
+
+      wsSubscriptionRef.current = connection.subscribeSession(
+        sessionId,
+        handlers,
+        lastEventIdRef.current ?? undefined,
+      );
+    },
+    [connect],
+  );
 
   const connectWebSocket = useCallback(
     (sessionId: string) => {

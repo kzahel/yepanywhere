@@ -35,6 +35,8 @@ interface RemoteConnectionState {
   connection: Connection | null;
   /** Whether a connection attempt is in progress */
   isConnecting: boolean;
+  /** Whether auto-resume is being attempted (subset of isConnecting) */
+  isAutoResuming: boolean;
   /** Error from last connection attempt */
   error: string | null;
   /** Connect to server with credentials */
@@ -114,7 +116,10 @@ interface Props {
 export function RemoteConnectionProvider({ children }: Props) {
   const [connection, setConnection] = useState<SecureConnection | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isAutoResuming, setIsAutoResuming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Track if we've attempted auto-resume (to prevent repeated attempts)
+  const [autoResumeAttempted, setAutoResumeAttempted] = useState(false);
 
   // Load stored credentials for form pre-fill
   const stored = loadStoredCredentials();
@@ -216,6 +221,57 @@ export function RemoteConnectionProvider({ children }: Props) {
     setError(null);
   }, [connection]);
 
+  // Auto-resume on mount if we have a stored session
+  useEffect(() => {
+    const currentStored = storedRef.current;
+
+    // Only attempt once, and only if we have a stored session
+    if (autoResumeAttempted || !currentStored?.session) {
+      return;
+    }
+
+    setAutoResumeAttempted(true);
+
+    // Try to resume the stored session without password
+    const storedSession = currentStored.session;
+    if (!storedSession) return; // Already checked above, but satisfies TypeScript
+
+    const attemptAutoResume = async () => {
+      console.log(
+        "[RemoteConnection] Attempting auto-resume from stored session",
+      );
+      setIsConnecting(true);
+      setIsAutoResuming(true);
+      setError(null);
+      rememberMeRef.current = true;
+
+      try {
+        const conn = SecureConnection.forResumeOnly(
+          storedSession,
+          handleSessionEstablished,
+        );
+
+        // Test the connection - this will try resume only
+        await conn.fetch("/auth/status");
+
+        console.log("[RemoteConnection] Auto-resume successful");
+        setConnection(conn);
+      } catch (err) {
+        console.log(
+          "[RemoteConnection] Auto-resume failed, user will need to re-authenticate:",
+          err instanceof Error ? err.message : err,
+        );
+        // Don't set error here - just show the login form
+        // The stored credentials will pre-fill the form
+      } finally {
+        setIsConnecting(false);
+        setIsAutoResuming(false);
+      }
+    };
+
+    void attemptAutoResume();
+  }, [autoResumeAttempted, handleSessionEstablished]);
+
   // Set global connection for fetchJSON routing
   useEffect(() => {
     setGlobalConnection(connection);
@@ -228,6 +284,7 @@ export function RemoteConnectionProvider({ children }: Props) {
   const value: RemoteConnectionState = {
     connection,
     isConnecting,
+    isAutoResuming,
     error,
     connect,
     disconnect,

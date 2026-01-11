@@ -13,6 +13,7 @@ export function RemoteLoginPage() {
   const {
     connect,
     isConnecting,
+    isAutoResuming,
     error,
     storedUrl,
     storedUsername,
@@ -21,6 +22,7 @@ export function RemoteLoginPage() {
   } = useRemoteConnection();
 
   // Form state - pre-fill from stored credentials
+  // All hooks must be before any conditional returns
   const [serverUrl, setServerUrl] = useState(
     storedUrl ?? "ws://localhost:3400/api/ws",
   );
@@ -28,6 +30,23 @@ export function RemoteLoginPage() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(hasStoredSession);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // If auto-resume is in progress, show a loading screen
+  if (isAutoResuming) {
+    return (
+      <div className="login-page">
+        <div className="login-container">
+          <div className="login-logo">
+            <YepAnywhereLogo />
+          </div>
+          <p className="login-subtitle">Reconnecting...</p>
+          <div className="login-loading" data-testid="auto-resume-loading">
+            <div className="login-spinner" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
