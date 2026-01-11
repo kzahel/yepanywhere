@@ -379,6 +379,108 @@ describe("SessionReader", () => {
       // tool-2 is orphaned but tool-1 is not
       expect(session?.messages[0]?.orphanedToolUseIds).toEqual(["tool-2"]);
     });
+
+    it("finds tool_results on sibling branches for parallel tool calls", async () => {
+      // This tests the parallel tool call structure observed in real sessions.
+      // When Claude makes parallel tool calls, the SDK writes them as a chain
+      // where each tool_use is a child of the previous one. Tool_results are
+      // written as children of their corresponding tool_use, creating branches.
+      //
+      // Structure:
+      //   tool_use #1 (Read file A)
+      //   ├── tool_use #2 (Read file B)
+      //   │   └── tool_result for B → continues to tip
+      //   └── tool_result for A (sibling branch, no children - "dead branch")
+      //
+      // The tool_result for A is on a dead branch but is still valid!
+      const sessionId = "dag-parallel-tools";
+      const jsonl = [
+        JSON.stringify({
+          type: "assistant",
+          uuid: "tool-use-1",
+          parentUuid: null,
+          message: {
+            content: [
+              { type: "tool_use", id: "read-file-a", name: "Read", input: {} },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          uuid: "tool-use-2",
+          parentUuid: "tool-use-1",
+          message: {
+            content: [
+              { type: "tool_use", id: "read-file-b", name: "Read", input: {} },
+            ],
+          },
+        }),
+        // Tool result for file A - has same parent as tool-use-2, creating a branch
+        JSON.stringify({
+          type: "user",
+          uuid: "result-a",
+          parentUuid: "tool-use-1",
+          message: {
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "read-file-a",
+                content: "contents of file A",
+              },
+            ],
+          },
+        }),
+        // Tool result for file B - child of tool-use-2, on the "winning" branch
+        JSON.stringify({
+          type: "user",
+          uuid: "result-b",
+          parentUuid: "tool-use-2",
+          message: {
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "read-file-b",
+                content: "contents of file B",
+              },
+            ],
+          },
+        }),
+        // Conversation continues from result-b
+        JSON.stringify({
+          type: "assistant",
+          uuid: "response",
+          parentUuid: "result-b",
+          message: {
+            content: [{ type: "text", text: "Here are the file contents..." }],
+          },
+        }),
+      ].join("\n");
+      await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
+
+      const loadedSession = await reader.getSession(
+        sessionId,
+        "test-project" as UrlProjectId,
+        undefined,
+        { includeOrphans: true },
+      );
+      const session = loadedSession ? normalizeSession(loadedSession) : null;
+
+      // Active branch: tool-use-1 -> tool-use-2 -> result-b -> response
+      // (result-a is on a sibling branch, not in active branch)
+      expect(session?.messages).toHaveLength(4);
+      expect(session?.messages.map((m) => m.uuid)).toEqual([
+        "tool-use-1",
+        "tool-use-2",
+        "result-b",
+        "response",
+      ]);
+
+      // CRITICAL: Both tool_uses should NOT be marked as orphaned
+      // even though result-a is on a dead branch, because we now scan
+      // ALL messages for tool_results, not just the active branch
+      expect(session?.messages[0]?.orphanedToolUseIds).toBeUndefined();
+      expect(session?.messages[1]?.orphanedToolUseIds).toBeUndefined();
+    });
   });
 
   describe("getAgentSession", () => {

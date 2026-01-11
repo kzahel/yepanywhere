@@ -197,16 +197,63 @@ export function buildDag(messages: ClaudeSessionEntry[]): DagResult {
 }
 
 /**
+ * Build a Set of all tool_result IDs from raw messages.
+ *
+ * This scans ALL messages (not just active branch) because parallel tool calls
+ * can result in tool_results being on sibling branches. For example, when Claude
+ * makes two parallel Read calls, the JSONL structure can be:
+ *
+ *   tool_use #1 (Read file A)
+ *   ├── tool_use #2 (Read file B)
+ *   │   └── tool_result for file B → continues to conversation tip
+ *   └── tool_result for file A (sibling branch, no children)
+ *
+ * The tool_result for file A is valid but ends up on a "dead branch" because
+ * the active path goes through tool_use #2. By collecting all tool_result IDs
+ * from the entire file, we correctly identify that the tool_use was completed.
+ */
+export function collectAllToolResultIds(
+  messages: ClaudeSessionEntry[],
+): Set<string> {
+  const toolResultIds = new Set<string>();
+
+  for (const msg of messages) {
+    const content = getMessageContent(msg);
+    if (!Array.isArray(content)) continue;
+
+    for (const block of content) {
+      if (typeof block === "string") continue;
+
+      if (
+        block.type === "tool_result" &&
+        "tool_use_id" in block &&
+        block.tool_use_id
+      ) {
+        toolResultIds.add(block.tool_use_id);
+      }
+    }
+  }
+
+  return toolResultIds;
+}
+
+/**
  * Find orphaned tool_use blocks on the active branch.
  *
  * A tool_use is orphaned if its ID doesn't have a matching tool_result
- * on the active branch. This happens when a process is killed while
+ * anywhere in the session. This happens when a process is killed while
  * waiting for tool approval or during tool execution.
+ *
+ * @param activeBranch - The active conversation branch (tool_uses to check)
+ * @param allToolResultIds - Pre-built Set of all tool_result IDs from the entire session
  */
-export function findOrphanedToolUses(activeBranch: DagNode[]): Set<string> {
+export function findOrphanedToolUses(
+  activeBranch: DagNode[],
+  allToolResultIds: Set<string>,
+): Set<string> {
   const toolUseIds = new Set<string>();
-  const toolResultIds = new Set<string>();
 
+  // Collect tool_use IDs from active branch
   for (const node of activeBranch) {
     const content = getMessageContent(node.raw);
     if (!Array.isArray(content)) continue;
@@ -218,20 +265,13 @@ export function findOrphanedToolUses(activeBranch: DagNode[]): Set<string> {
       if (block.type === "tool_use" && "id" in block && block.id) {
         toolUseIds.add(block.id);
       }
-      if (
-        block.type === "tool_result" &&
-        "tool_use_id" in block &&
-        block.tool_use_id
-      ) {
-        toolResultIds.add(block.tool_use_id);
-      }
     }
   }
 
-  // Orphaned = tool_use without matching tool_result
+  // Orphaned = tool_use without matching tool_result anywhere in session
   const orphaned = new Set<string>();
   for (const id of toolUseIds) {
-    if (!toolResultIds.has(id)) {
+    if (!allToolResultIds.has(id)) {
       orphaned.add(id);
     }
   }

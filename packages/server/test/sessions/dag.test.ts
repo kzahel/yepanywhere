@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type RawSessionMessage,
   buildDag,
+  collectAllToolResultIds,
   findOrphanedToolUses,
 } from "../../src/sessions/dag.js";
 
@@ -121,7 +122,7 @@ describe("buildDag", () => {
 
 describe("findOrphanedToolUses", () => {
   it("identifies tool_use without matching tool_result", () => {
-    const activeBranch = buildDag([
+    const messages: RawSessionMessage[] = [
       {
         type: "assistant",
         uuid: "a",
@@ -147,9 +148,11 @@ describe("findOrphanedToolUses", () => {
         },
       },
       // No tool_result for tool-2
-    ]).activeBranch;
+    ];
+    const { activeBranch } = buildDag(messages);
+    const allToolResultIds = collectAllToolResultIds(messages);
 
-    const orphaned = findOrphanedToolUses(activeBranch);
+    const orphaned = findOrphanedToolUses(activeBranch, allToolResultIds);
 
     expect(orphaned.has("tool-1")).toBe(false);
     expect(orphaned.has("tool-2")).toBe(true);
@@ -157,7 +160,7 @@ describe("findOrphanedToolUses", () => {
   });
 
   it("returns empty set when all tools have results", () => {
-    const activeBranch = buildDag([
+    const messages: RawSessionMessage[] = [
       {
         type: "assistant",
         uuid: "a",
@@ -180,15 +183,17 @@ describe("findOrphanedToolUses", () => {
           ],
         },
       },
-    ]).activeBranch;
+    ];
+    const { activeBranch } = buildDag(messages);
+    const allToolResultIds = collectAllToolResultIds(messages);
 
-    const orphaned = findOrphanedToolUses(activeBranch);
+    const orphaned = findOrphanedToolUses(activeBranch, allToolResultIds);
 
     expect(orphaned.size).toBe(0);
   });
 
   it("handles messages with string content", () => {
-    const activeBranch = buildDag([
+    const messages: RawSessionMessage[] = [
       {
         type: "user",
         uuid: "a",
@@ -197,29 +202,33 @@ describe("findOrphanedToolUses", () => {
           content: "Hello, this is a string message",
         },
       },
-    ]).activeBranch;
+    ];
+    const { activeBranch } = buildDag(messages);
+    const allToolResultIds = collectAllToolResultIds(messages);
 
-    const orphaned = findOrphanedToolUses(activeBranch);
+    const orphaned = findOrphanedToolUses(activeBranch, allToolResultIds);
 
     expect(orphaned.size).toBe(0);
   });
 
   it("handles messages without content", () => {
-    const activeBranch = buildDag([
+    const messages: RawSessionMessage[] = [
       {
         type: "user",
         uuid: "a",
         parentUuid: null,
       },
-    ]).activeBranch;
+    ];
+    const { activeBranch } = buildDag(messages);
+    const allToolResultIds = collectAllToolResultIds(messages);
 
-    const orphaned = findOrphanedToolUses(activeBranch);
+    const orphaned = findOrphanedToolUses(activeBranch, allToolResultIds);
 
     expect(orphaned.size).toBe(0);
   });
 
   it("handles multiple orphaned tools", () => {
-    const activeBranch = buildDag([
+    const messages: RawSessionMessage[] = [
       {
         type: "assistant",
         uuid: "a",
@@ -240,9 +249,11 @@ describe("findOrphanedToolUses", () => {
           content: [{ type: "tool_result", tool_use_id: "tool-2" }],
         },
       },
-    ]).activeBranch;
+    ];
+    const { activeBranch } = buildDag(messages);
+    const allToolResultIds = collectAllToolResultIds(messages);
 
-    const orphaned = findOrphanedToolUses(activeBranch);
+    const orphaned = findOrphanedToolUses(activeBranch, allToolResultIds);
 
     expect(orphaned.has("tool-1")).toBe(true);
     expect(orphaned.has("tool-2")).toBe(false);
@@ -251,7 +262,7 @@ describe("findOrphanedToolUses", () => {
   });
 
   it("handles empty active branch", () => {
-    const orphaned = findOrphanedToolUses([]);
+    const orphaned = findOrphanedToolUses([], new Set());
 
     expect(orphaned.size).toBe(0);
   });

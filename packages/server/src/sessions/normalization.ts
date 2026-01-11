@@ -16,7 +16,11 @@ import type {
 } from "@yep-anywhere/shared";
 import { getMessageContent, isConversationEntry } from "@yep-anywhere/shared";
 import type { ContentBlock, Message, Session } from "../supervisor/types.js";
-import { buildDag, findOrphanedToolUses } from "./dag.js";
+import {
+  buildDag,
+  collectAllToolResultIds,
+  findOrphanedToolUses,
+} from "./dag.js";
 import type { LoadedSession } from "./types.js";
 
 interface CodexPendingCall {
@@ -40,9 +44,15 @@ export function normalizeSession(loaded: LoadedSession): Session {
       // Build DAG and get active branch (filters out dead branches)
       const { activeBranch } = buildDag(rawMessages);
 
-      // Calculate orphaned tools (default behavior was includeOrphans=true)
-      // We can't access "options" here easily unless we pass it, but standard normalization usually wants them.
-      const orphanedToolUses = findOrphanedToolUses(activeBranch);
+      // Collect all tool_result IDs from the entire session (not just active branch)
+      // This handles parallel tool calls where results may be on sibling branches
+      const allToolResultIds = collectAllToolResultIds(rawMessages);
+
+      // Find tool_uses on active branch that have no matching tool_result anywhere
+      const orphanedToolUses = findOrphanedToolUses(
+        activeBranch,
+        allToolResultIds,
+      );
 
       // Convert to Message objects (only active branch)
       const messages: Message[] = activeBranch.map((node, index) =>
