@@ -10,6 +10,11 @@ import type {
   RelayRequest,
   RelayResponse,
   RelaySubscribe,
+  RelayUploadComplete,
+  RelayUploadEnd,
+  RelayUploadError,
+  RelayUploadProgress,
+  RelayUploadStart,
   SrpClientHello,
   SrpClientProof,
   SrpError,
@@ -18,6 +23,8 @@ import type {
   YepMessage,
 } from "@yep-anywhere/shared";
 import {
+  BinaryFormat,
+  encodeUploadChunkPayload,
   isBinaryData,
   isEncryptedEnvelope,
   isSrpError,
@@ -36,8 +43,10 @@ import { createApp } from "../../src/app.js";
 import {
   decrypt,
   decryptBinaryEnvelope,
+  decryptBinaryEnvelopeRaw,
   deriveSecretboxKey,
   encrypt,
+  encryptBytesToBinaryEnvelope,
   encryptToBinaryEnvelope,
 } from "../../src/crypto/index.js";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
@@ -905,6 +914,369 @@ describe("Secure WebSocket Transport E2E", () => {
           request2,
         );
         expect(response2.status).toBe(200);
+      } finally {
+        ws.close();
+      }
+    }, 15000);
+  });
+
+  describe("Encrypted Binary Upload Chunks (Phase 2)", () => {
+    /**
+     * Helper to collect upload messages from encrypted responses.
+     */
+    function collectEncryptedUploadMessages(
+      ws: WebSocket,
+      sessionKey: Uint8Array,
+      uploadId: string,
+      timeoutMs = 5000,
+    ): Promise<YepMessage[]> {
+      return new Promise((resolve) => {
+        const messages: YepMessage[] = [];
+        const timeout = setTimeout(() => {
+          ws.off("message", handler);
+          resolve(messages);
+        }, timeoutMs);
+
+        const handler = (data: WebSocket.RawData) => {
+          let decrypted: string | null = null;
+
+          // Try binary envelope first (most common after auth)
+          if (Buffer.isBuffer(data) || data instanceof ArrayBuffer) {
+            const bytes =
+              data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+            try {
+              decrypted = decryptBinaryEnvelope(bytes, sessionKey);
+            } catch {
+              // Not a valid binary envelope
+            }
+          }
+
+          // Try JSON envelope as fallback
+          if (!decrypted) {
+            const dataStr = data.toString();
+            try {
+              const msg = JSON.parse(dataStr);
+              if (isEncryptedEnvelope(msg)) {
+                decrypted = decrypt(msg.nonce, msg.ciphertext, sessionKey);
+              }
+            } catch {
+              // Not valid JSON
+            }
+          }
+
+          if (!decrypted) return;
+
+          try {
+            const msg = JSON.parse(decrypted) as YepMessage;
+            if (
+              (msg.type === "upload_progress" ||
+                msg.type === "upload_complete" ||
+                msg.type === "upload_error") &&
+              msg.uploadId === uploadId
+            ) {
+              messages.push(msg);
+              if (
+                msg.type === "upload_complete" ||
+                msg.type === "upload_error"
+              ) {
+                clearTimeout(timeout);
+                ws.off("message", handler);
+                resolve(messages);
+              }
+            }
+          } catch {
+            // Parsing failed
+          }
+        };
+
+        ws.on("message", handler);
+      });
+    }
+
+    it("should upload file using encrypted binary format 0x02 chunks", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const sessionKey = await performSrpHandshakeV2(
+          ws,
+          TEST_USERNAME,
+          TEST_PASSWORD,
+        );
+
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+        const filename = "secure-binary.txt";
+        const fileContent = "Hello from encrypted binary upload!";
+        const fileSize = fileContent.length;
+
+        // Start collecting messages
+        const messagesPromise = collectEncryptedUploadMessages(
+          ws,
+          sessionKey,
+          uploadId,
+        );
+
+        // Send encrypted upload_start
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename,
+          size: fileSize,
+          mimeType: "text/plain",
+        };
+        const startEnvelope = encryptToBinaryEnvelope(
+          JSON.stringify(startMsg),
+          sessionKey,
+        );
+        ws.send(startEnvelope);
+
+        // Wait for start to process
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send encrypted binary chunk (format 0x02)
+        // Payload format: [16 bytes UUID][8 bytes offset][chunk data]
+        const chunkData = Buffer.from(fileContent);
+        const payload = encodeUploadChunkPayload(uploadId, 0, chunkData);
+        const chunkEnvelope = encryptBytesToBinaryEnvelope(
+          payload,
+          BinaryFormat.BINARY_UPLOAD,
+          sessionKey,
+        );
+        ws.send(chunkEnvelope);
+
+        // Send encrypted upload_end
+        const endMsg: RelayUploadEnd = {
+          type: "upload_end",
+          uploadId,
+        };
+        const endEnvelope = encryptToBinaryEnvelope(
+          JSON.stringify(endMsg),
+          sessionKey,
+        );
+        ws.send(endEnvelope);
+
+        // Wait for completion
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBeGreaterThanOrEqual(1);
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_complete");
+
+        const completeMsg = lastMsg as RelayUploadComplete;
+        expect(completeMsg.file.originalName).toBe(filename);
+        expect(completeMsg.file.size).toBe(fileSize);
+      } finally {
+        ws.close();
+      }
+    }, 15000);
+
+    it("should upload larger file with multiple encrypted binary chunks", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const sessionKey = await performSrpHandshakeV2(
+          ws,
+          TEST_USERNAME,
+          TEST_PASSWORD,
+        );
+
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+        const filename = "large-secure.bin";
+        // Create a 200KB file
+        const fileSize = 200 * 1024;
+        const fileContent = Buffer.alloc(fileSize, "Z");
+
+        // Start collecting messages
+        const messagesPromise = collectEncryptedUploadMessages(
+          ws,
+          sessionKey,
+          uploadId,
+        );
+
+        // Send encrypted upload_start
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename,
+          size: fileSize,
+          mimeType: "application/octet-stream",
+        };
+        ws.send(encryptToBinaryEnvelope(JSON.stringify(startMsg), sessionKey));
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send in 64KB encrypted binary chunks
+        const chunkSize = 64 * 1024;
+        let offset = 0;
+        while (offset < fileSize) {
+          const end = Math.min(offset + chunkSize, fileSize);
+          const chunk = fileContent.slice(offset, end);
+
+          // Encrypt binary chunk payload
+          const payload = encodeUploadChunkPayload(uploadId, offset, chunk);
+          const envelope = encryptBytesToBinaryEnvelope(
+            payload,
+            BinaryFormat.BINARY_UPLOAD,
+            sessionKey,
+          );
+          ws.send(envelope);
+
+          offset = end;
+
+          // Small delay to let server process each chunk
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+
+        // Small delay before sending end to ensure all chunks processed
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send encrypted upload_end
+        const endMsg: RelayUploadEnd = {
+          type: "upload_end",
+          uploadId,
+        };
+        ws.send(encryptToBinaryEnvelope(JSON.stringify(endMsg), sessionKey));
+
+        // Wait for completion
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBeGreaterThanOrEqual(2);
+
+        // Check progress updates
+        const progressMsgs = messages.filter(
+          (m) => m.type === "upload_progress",
+        ) as RelayUploadProgress[];
+        expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
+
+        // Last message should be upload_complete
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_complete");
+
+        const completeMsg = lastMsg as RelayUploadComplete;
+        expect(completeMsg.file.size).toBe(fileSize);
+      } finally {
+        ws.close();
+      }
+    }, 15000);
+
+    it("should handle error for encrypted binary chunk with unknown upload ID", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const sessionKey = await performSrpHandshakeV2(
+          ws,
+          TEST_USERNAME,
+          TEST_PASSWORD,
+        );
+
+        const uploadId = randomUUID();
+
+        // Start collecting messages
+        const messagesPromise = collectEncryptedUploadMessages(
+          ws,
+          sessionKey,
+          uploadId,
+          2000,
+        );
+
+        // Send encrypted binary chunk without starting upload
+        const chunkData = Buffer.from("test data");
+        const payload = encodeUploadChunkPayload(uploadId, 0, chunkData);
+        const envelope = encryptBytesToBinaryEnvelope(
+          payload,
+          BinaryFormat.BINARY_UPLOAD,
+          sessionKey,
+        );
+        ws.send(envelope);
+
+        // Wait for error
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBe(1);
+        expect(messages[0].type).toBe("upload_error");
+
+        const errorMsg = messages[0] as RelayUploadError;
+        expect(errorMsg.error).toContain("Upload not found");
+      } finally {
+        ws.close();
+      }
+    }, 15000);
+
+    it("should handle binary data in encrypted chunks", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const sessionKey = await performSrpHandshakeV2(
+          ws,
+          TEST_USERNAME,
+          TEST_PASSWORD,
+        );
+
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+        const filename = "binary-data-secure.bin";
+        // Create binary data with all byte values
+        const fileContent = Buffer.alloc(256);
+        for (let i = 0; i < 256; i++) {
+          fileContent[i] = i;
+        }
+        const fileSize = fileContent.length;
+
+        // Start collecting messages
+        const messagesPromise = collectEncryptedUploadMessages(
+          ws,
+          sessionKey,
+          uploadId,
+        );
+
+        // Send encrypted upload_start
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename,
+          size: fileSize,
+          mimeType: "application/octet-stream",
+        };
+        ws.send(encryptToBinaryEnvelope(JSON.stringify(startMsg), sessionKey));
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send encrypted binary chunk
+        const payload = encodeUploadChunkPayload(uploadId, 0, fileContent);
+        ws.send(
+          encryptBytesToBinaryEnvelope(
+            payload,
+            BinaryFormat.BINARY_UPLOAD,
+            sessionKey,
+          ),
+        );
+
+        // Send encrypted upload_end
+        const endMsg: RelayUploadEnd = {
+          type: "upload_end",
+          uploadId,
+        };
+        ws.send(encryptToBinaryEnvelope(JSON.stringify(endMsg), sessionKey));
+
+        // Wait for completion
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBeGreaterThanOrEqual(1);
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_complete");
+
+        const completeMsg = lastMsg as RelayUploadComplete;
+        expect(completeMsg.file.size).toBe(fileSize);
       } finally {
         ws.close();
       }

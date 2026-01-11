@@ -22,6 +22,7 @@ import {
   BinaryFormat,
   decodeJsonFrame,
   encodeJsonFrame,
+  encodeUploadChunkFrame,
 } from "@yep-anywhere/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
@@ -1185,6 +1186,369 @@ describe("WebSocket Transport E2E", () => {
         expect(utf8Response.status).toBe(200);
         // The response ID should match what we sent
         expect(utf8Response.id).toBe(utf8Request.id);
+      } finally {
+        ws.close();
+      }
+    });
+  });
+
+  describe("Binary Upload Chunks (Phase 2)", () => {
+    // Helper to collect upload messages (works with both text and binary frames)
+    function collectUploadMessagesForBinary(
+      ws: WebSocket,
+      uploadId: string,
+      timeoutMs = 5000,
+    ): Promise<YepMessage[]> {
+      return new Promise((resolve) => {
+        const messages: YepMessage[] = [];
+        const timeout = setTimeout(() => {
+          ws.off("message", handler);
+          resolve(messages);
+        }, timeoutMs);
+
+        const handler = (data: WebSocket.RawData) => {
+          let msg: YepMessage;
+          try {
+            if (data instanceof Buffer) {
+              msg = decodeJsonFrame<YepMessage>(data);
+            } else {
+              msg = JSON.parse(data.toString()) as YepMessage;
+            }
+          } catch {
+            return; // Ignore parse errors
+          }
+
+          if (
+            (msg.type === "upload_progress" ||
+              msg.type === "upload_complete" ||
+              msg.type === "upload_error") &&
+            msg.uploadId === uploadId
+          ) {
+            messages.push(msg);
+            if (msg.type === "upload_complete" || msg.type === "upload_error") {
+              clearTimeout(timeout);
+              ws.off("message", handler);
+              resolve(messages);
+            }
+          }
+        };
+
+        ws.on("message", handler);
+      });
+    }
+
+    it("should successfully upload using binary format 0x02 chunks", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+        const filename = "binary-test.txt";
+        const fileContent = "Hello from binary upload!";
+        const fileSize = fileContent.length;
+
+        // Start collecting messages before sending
+        const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
+
+        // Send upload_start as JSON (to initiate the upload)
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename,
+          size: fileSize,
+          mimeType: "text/plain",
+        };
+        ws.send(JSON.stringify(startMsg));
+
+        // Wait a bit for start to process
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send chunk using binary format 0x02
+        // Wire format: [0x02][16 bytes UUID][8 bytes offset][chunk data]
+        const chunkData = Buffer.from(fileContent);
+        const binaryFrame = encodeUploadChunkFrame(uploadId, 0, chunkData);
+        ws.send(Buffer.from(binaryFrame));
+
+        // Send upload_end as JSON
+        const endMsg: RelayUploadEnd = {
+          type: "upload_end",
+          uploadId,
+        };
+        ws.send(JSON.stringify(endMsg));
+
+        // Wait for completion
+        const messages = await messagesPromise;
+
+        // Should have at least one message
+        expect(messages.length).toBeGreaterThanOrEqual(1);
+
+        // Last message should be upload_complete
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_complete");
+
+        const completeMsg = lastMsg as RelayUploadComplete;
+        expect(completeMsg.file).toBeDefined();
+        expect(completeMsg.file.originalName).toBe(filename);
+        expect(completeMsg.file.size).toBe(fileSize);
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should upload larger file with multiple binary chunks", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+        const filename = "large-binary.bin";
+        // Create a 200KB file
+        const fileSize = 200 * 1024;
+        const fileContent = Buffer.alloc(fileSize, "Y");
+
+        // Start collecting messages
+        const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
+
+        // Send upload_start
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename,
+          size: fileSize,
+          mimeType: "application/octet-stream",
+        };
+        ws.send(JSON.stringify(startMsg));
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send in 64KB binary chunks
+        const chunkSize = 64 * 1024;
+        let offset = 0;
+        while (offset < fileSize) {
+          const end = Math.min(offset + chunkSize, fileSize);
+          const chunk = fileContent.slice(offset, end);
+
+          // Send using binary format 0x02
+          const binaryFrame = encodeUploadChunkFrame(uploadId, offset, chunk);
+          ws.send(Buffer.from(binaryFrame));
+
+          offset = end;
+        }
+
+        // Send upload_end
+        const endMsg: RelayUploadEnd = {
+          type: "upload_end",
+          uploadId,
+        };
+        ws.send(JSON.stringify(endMsg));
+
+        // Wait for completion
+        const messages = await messagesPromise;
+
+        // Should have multiple progress messages plus complete
+        expect(messages.length).toBeGreaterThanOrEqual(2);
+
+        // Check we got progress updates
+        const progressMsgs = messages.filter(
+          (m) => m.type === "upload_progress",
+        ) as RelayUploadProgress[];
+        expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
+
+        // Last message should be upload_complete
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_complete");
+
+        const completeMsg = lastMsg as RelayUploadComplete;
+        expect(completeMsg.file.size).toBe(fileSize);
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should mix binary chunks with JSON messages", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+        const filename = "mixed.txt";
+        const fileContent = "Mixed binary and JSON";
+        const fileSize = fileContent.length;
+
+        // Start collecting messages
+        const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
+
+        // Send upload_start as binary JSON frame (format 0x01)
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename,
+          size: fileSize,
+          mimeType: "text/plain",
+        };
+        ws.send(encodeJsonFrame(startMsg));
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send chunk using binary format 0x02
+        const chunkData = Buffer.from(fileContent);
+        const binaryFrame = encodeUploadChunkFrame(uploadId, 0, chunkData);
+        ws.send(Buffer.from(binaryFrame));
+
+        // Send upload_end as binary JSON frame (format 0x01)
+        const endMsg: RelayUploadEnd = {
+          type: "upload_end",
+          uploadId,
+        };
+        ws.send(encodeJsonFrame(endMsg));
+
+        // Wait for completion
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBeGreaterThanOrEqual(1);
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_complete");
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should return error for binary chunk with unknown upload ID", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const uploadId = randomUUID();
+
+        // Start collecting messages
+        const messagesPromise = collectUploadMessagesForBinary(
+          ws,
+          uploadId,
+          2000,
+        );
+
+        // Send binary chunk for non-existent upload
+        const chunkData = Buffer.from("test data");
+        const binaryFrame = encodeUploadChunkFrame(uploadId, 0, chunkData);
+        ws.send(Buffer.from(binaryFrame));
+
+        // Wait for error
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBe(1);
+        expect(messages[0].type).toBe("upload_error");
+
+        const errorMsg = messages[0] as RelayUploadError;
+        expect(errorMsg.error).toContain("Upload not found");
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should return error for binary chunk with invalid offset", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+
+        // Start collecting messages
+        const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
+
+        // Send upload_start
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename: "test.txt",
+          size: 100,
+          mimeType: "text/plain",
+        };
+        ws.send(JSON.stringify(startMsg));
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send binary chunk with wrong offset (should be 0)
+        const chunkData = Buffer.from("test");
+        const binaryFrame = encodeUploadChunkFrame(uploadId, 50, chunkData); // Wrong offset!
+        ws.send(Buffer.from(binaryFrame));
+
+        // Wait for error
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBeGreaterThanOrEqual(1);
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_error");
+
+        const errorMsg = lastMsg as RelayUploadError;
+        expect(errorMsg.error).toContain("Invalid offset");
+      } finally {
+        ws.close();
+      }
+    });
+
+    it("should handle binary chunk with binary data (not just text)", async () => {
+      const ws = await connectWebSocket();
+
+      try {
+        const uploadId = randomUUID();
+        const projectId = "test-project";
+        const sessionId = "test-session";
+        const filename = "binary-data.bin";
+        // Create binary data with all byte values
+        const fileContent = Buffer.alloc(256);
+        for (let i = 0; i < 256; i++) {
+          fileContent[i] = i;
+        }
+        const fileSize = fileContent.length;
+
+        // Start collecting messages
+        const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
+
+        // Send upload_start
+        const startMsg: RelayUploadStart = {
+          type: "upload_start",
+          uploadId,
+          projectId,
+          sessionId,
+          filename,
+          size: fileSize,
+          mimeType: "application/octet-stream",
+        };
+        ws.send(JSON.stringify(startMsg));
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Send binary chunk with actual binary data
+        const binaryFrame = encodeUploadChunkFrame(uploadId, 0, fileContent);
+        ws.send(Buffer.from(binaryFrame));
+
+        // Send upload_end
+        const endMsg: RelayUploadEnd = {
+          type: "upload_end",
+          uploadId,
+        };
+        ws.send(JSON.stringify(endMsg));
+
+        // Wait for completion
+        const messages = await messagesPromise;
+
+        expect(messages.length).toBeGreaterThanOrEqual(1);
+        const lastMsg = messages[messages.length - 1];
+        expect(lastMsg.type).toBe("upload_complete");
+
+        const completeMsg = lastMsg as RelayUploadComplete;
+        expect(completeMsg.file.size).toBe(fileSize);
       } finally {
         ws.close();
       }

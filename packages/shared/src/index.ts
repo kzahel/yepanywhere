@@ -308,7 +308,7 @@ export {
   isEncryptedEnvelope,
 } from "./relay.js";
 
-// Binary framing utilities (Phase 0/1 of binary WebSocket protocol)
+// Binary framing utilities (Phase 0/1/2 of binary WebSocket protocol)
 export {
   // Phase 0: Unencrypted binary frames
   BinaryFormat,
@@ -330,4 +330,18 @@ export {
   createBinaryEnvelope,
   prependFormatByte,
   extractFormatAndPayload,
+  // Phase 2: Binary upload chunks
+  UUID_BYTE_LENGTH,
+  OFFSET_BYTE_LENGTH,
+  UPLOAD_CHUNK_HEADER_SIZE,
+  UploadChunkError,
+  type UploadChunkData,
+  uuidToBytes,
+  bytesToUuid,
+  offsetToBytes,
+  bytesToOffset,
+  encodeUploadChunkFrame,
+  decodeUploadChunkFrame,
+  encodeUploadChunkPayload,
+  decodeUploadChunkPayload,
 } from "./binary-framing.js";

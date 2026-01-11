@@ -28,7 +28,9 @@ import {
   BinaryFormat,
   BinaryFrameError,
   MIN_BINARY_ENVELOPE_LENGTH,
+  UploadChunkError,
   decodeJsonFrame,
+  decodeUploadChunkPayload,
   // Binary framing utilities
   encodeJsonFrame,
   isBinaryData,
@@ -54,6 +56,7 @@ import {
   SrpServerSession,
   decrypt,
   decryptBinaryEnvelope,
+  decryptBinaryEnvelopeRaw,
   deriveSecretboxKey,
   encrypt,
   encryptToBinaryEnvelope,
@@ -862,6 +865,84 @@ export function createWsRelayRoutes(
   };
 
   /**
+   * Handle binary upload chunk (format 0x02).
+   * Payload format: [16 bytes UUID][8 bytes offset big-endian][chunk data]
+   */
+  const handleBinaryUploadChunk = async (
+    uploads: Map<string, RelayUploadState>,
+    payload: Uint8Array,
+    send: SendFn,
+  ): Promise<void> => {
+    // Decode binary chunk payload
+    let uploadId: string;
+    let offset: number;
+    let data: Uint8Array;
+    try {
+      ({ uploadId, offset, data } = decodeUploadChunkPayload(payload));
+    } catch (e) {
+      const message =
+        e instanceof UploadChunkError
+          ? `Invalid upload chunk: ${e.message}`
+          : "Invalid binary upload chunk format";
+      console.warn(`[WS Relay] ${message}`, e);
+      // Can't send upload_error without uploadId, send generic response
+      send({
+        type: "response",
+        id: "binary-upload-error",
+        status: 400,
+        body: { error: message },
+      });
+      return;
+    }
+
+    const state = uploads.get(uploadId);
+    if (!state) {
+      send({ type: "upload_error", uploadId, error: "Upload not found" });
+      return;
+    }
+
+    // Validate offset matches expected position
+    if (offset !== state.bytesReceived) {
+      send({
+        type: "upload_error",
+        uploadId,
+        error: `Invalid offset: expected ${state.bytesReceived}, got ${offset}`,
+      });
+      return;
+    }
+
+    try {
+      // Write chunk to UploadManager (already raw bytes, no base64 decode needed)
+      const bytesReceived = await uploadManager.writeChunk(
+        state.serverUploadId,
+        Buffer.from(data),
+      );
+
+      state.bytesReceived = bytesReceived;
+
+      // Send progress update periodically (every 64KB)
+      if (
+        bytesReceived - state.lastProgressReport >= PROGRESS_INTERVAL ||
+        bytesReceived === state.expectedSize
+      ) {
+        send({ type: "upload_progress", uploadId, bytesReceived });
+        state.lastProgressReport = bytesReceived;
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to write chunk";
+      send({ type: "upload_error", uploadId, error: message });
+      // Clean up failed upload
+      uploads.delete(uploadId);
+      try {
+        await uploadManager.cancelUpload(state.serverUploadId);
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  };
+
+  /**
    * Handle upload_end message.
    */
   const handleUploadEnd = async (
@@ -1141,20 +1222,45 @@ export function createWsRelayRoutes(
       // Check if this is a binary encrypted envelope (Phase 1)
       if (isBinaryEncryptedEnvelope(bytes, connState) && connState.sessionKey) {
         try {
-          // Decrypt binary envelope
-          const decrypted = decryptBinaryEnvelope(bytes, connState.sessionKey);
-          if (!decrypted) {
+          // Decrypt binary envelope and get format + payload
+          const result = decryptBinaryEnvelopeRaw(bytes, connState.sessionKey);
+          if (!result) {
             console.warn("[WS Relay] Failed to decrypt binary envelope");
             return;
           }
+
+          const { format, payload } = result;
 
           // Mark client as using binary encrypted frames
           connState.useBinaryEncrypted = true;
           wasBinaryEncrypted = true;
 
-          // Parse decrypted JSON
+          // Handle based on format byte
+          if (format === BinaryFormat.BINARY_UPLOAD) {
+            // Binary upload chunk (format 0x02)
+            await handleBinaryUploadChunk(uploads, payload, send);
+            return;
+          }
+
+          if (format !== BinaryFormat.JSON) {
+            console.warn(
+              `[WS Relay] Unsupported encrypted format: 0x${format.toString(16).padStart(2, "0")}`,
+            );
+            send({
+              type: "response",
+              id: "binary-format-error",
+              status: 400,
+              body: {
+                error: `Unsupported binary format: 0x${format.toString(16).padStart(2, "0")}`,
+              },
+            });
+            return;
+          }
+
+          // Parse decrypted JSON (format 0x01)
           try {
-            const msg = JSON.parse(decrypted) as RemoteClientMessage;
+            const jsonStr = new TextDecoder().decode(payload);
+            const msg = JSON.parse(jsonStr) as RemoteClientMessage;
             // Route by message type (skip the encryption check below)
             switch (msg.type) {
               case "request":
@@ -1229,12 +1335,17 @@ export function createWsRelayRoutes(
         // Mark client as using binary frames
         connState.useBinaryFrames = true;
 
-        // Currently only support format 0x01 (JSON)
+        // Handle binary upload chunk (format 0x02)
+        if (format === BinaryFormat.BINARY_UPLOAD) {
+          await handleBinaryUploadChunk(uploads, payload, send);
+          return;
+        }
+
+        // Reject unsupported formats (0x03 compressed JSON not yet implemented)
         if (format !== BinaryFormat.JSON) {
           console.warn(
-            `[WS Relay] Unsupported binary format: 0x${format.toString(16).padStart(2, "0")} (only 0x01 supported in Phase 0)`,
+            `[WS Relay] Unsupported binary format: 0x${format.toString(16).padStart(2, "0")}`,
           );
-          // Send error response via the current send method
           send({
             type: "response",
             id: "binary-format-error",
@@ -1246,7 +1357,7 @@ export function createWsRelayRoutes(
           return;
         }
 
-        // Decode UTF-8 JSON payload
+        // Decode UTF-8 JSON payload (format 0x01)
         const decoder = new TextDecoder("utf-8", { fatal: true });
         const json = decoder.decode(payload);
         parsed = JSON.parse(json);

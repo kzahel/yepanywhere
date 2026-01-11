@@ -4,7 +4,6 @@ import type {
   RelayResponse,
   RelaySubscribe,
   RelayUnsubscribe,
-  RelayUploadChunk,
   RelayUploadComplete,
   RelayUploadEnd,
   RelayUploadError,
@@ -18,6 +17,7 @@ import {
   BinaryFrameError,
   decodeJsonFrame,
   encodeJsonFrame,
+  encodeUploadChunkFrame,
   isBinaryData,
 } from "@yep-anywhere/shared";
 import {
@@ -576,21 +576,13 @@ export class WebSocketConnection implements Connection {
           const chunkEnd = Math.min(chunkOffset + chunkSize, value.length);
           const chunk = value.slice(chunkOffset, chunkEnd);
 
-          // Base64 encode the chunk
-          const base64 = btoa(
-            Array.from(chunk)
-              .map((b) => String.fromCharCode(b))
-              .join(""),
-          );
-
-          // Send chunk
-          const chunkMsg: RelayUploadChunk = {
-            type: "upload_chunk",
-            uploadId,
-            offset,
-            data: base64,
-          };
-          this.send(chunkMsg);
+          // Send binary chunk (format 0x02) directly
+          // Wire format: [0x02][16 bytes UUID][8 bytes offset][chunk data]
+          const binaryFrame = encodeUploadChunkFrame(uploadId, offset, chunk);
+          if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            throw new Error("WebSocket not connected");
+          }
+          this.ws.send(binaryFrame);
 
           offset += chunk.length;
           chunkOffset = chunkEnd;

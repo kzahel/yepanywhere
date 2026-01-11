@@ -335,3 +335,293 @@ export function extractFormatAndPayload(decrypted: Uint8Array): {
     payload: decrypted.slice(1),
   };
 }
+
+// =============================================================================
+// Phase 2: Binary Upload Chunks
+// =============================================================================
+
+/** Length of UUID in bytes (16 bytes) */
+export const UUID_BYTE_LENGTH = 16;
+
+/** Length of offset in bytes (8 bytes, big-endian uint64) */
+export const OFFSET_BYTE_LENGTH = 8;
+
+/** Header size for binary upload chunk: UUID (16) + offset (8) = 24 bytes */
+export const UPLOAD_CHUNK_HEADER_SIZE = UUID_BYTE_LENGTH + OFFSET_BYTE_LENGTH;
+
+/** Error thrown when upload chunk parsing fails */
+export class UploadChunkError extends Error {
+  constructor(
+    message: string,
+    public readonly code:
+      | "INVALID_UUID"
+      | "INVALID_OFFSET"
+      | "INVALID_LENGTH"
+      | "INVALID_FORMAT",
+  ) {
+    super(message);
+    this.name = "UploadChunkError";
+  }
+}
+
+/**
+ * Parsed binary upload chunk data.
+ */
+export interface UploadChunkData {
+  /** Upload ID as UUID string (with hyphens) */
+  uploadId: string;
+  /** Byte offset in the file */
+  offset: number;
+  /** Raw chunk bytes */
+  data: Uint8Array;
+}
+
+/**
+ * Convert a UUID string to 16 raw bytes.
+ * Supports both hyphenated (8-4-4-4-12) and non-hyphenated (32 chars) formats.
+ *
+ * @param uuid - UUID string
+ * @returns 16-byte Uint8Array
+ * @throws UploadChunkError if UUID is invalid
+ */
+export function uuidToBytes(uuid: string): Uint8Array {
+  // Remove hyphens if present
+  const hex = uuid.replace(/-/g, "");
+
+  if (hex.length !== 32) {
+    throw new UploadChunkError(
+      `Invalid UUID length: ${uuid} (expected 32 hex chars after removing hyphens)`,
+      "INVALID_UUID",
+    );
+  }
+
+  // Validate hex characters
+  if (!/^[0-9a-fA-F]+$/.test(hex)) {
+    throw new UploadChunkError(
+      `Invalid UUID: ${uuid} (contains non-hex characters)`,
+      "INVALID_UUID",
+    );
+  }
+
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Convert 16 raw bytes to a UUID string with hyphens.
+ *
+ * @param bytes - 16-byte Uint8Array
+ * @returns UUID string in format 8-4-4-4-12
+ * @throws UploadChunkError if bytes length is not 16
+ */
+export function bytesToUuid(bytes: Uint8Array): string {
+  if (bytes.length !== 16) {
+    throw new UploadChunkError(
+      `Invalid UUID bytes length: ${bytes.length} (expected 16)`,
+      "INVALID_UUID",
+    );
+  }
+
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Format as 8-4-4-4-12
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * Encode a 64-bit unsigned integer as 8 bytes in big-endian format.
+ * JavaScript numbers can safely represent integers up to 2^53-1.
+ *
+ * @param value - Non-negative integer offset
+ * @returns 8-byte Uint8Array in big-endian format
+ * @throws UploadChunkError if value is negative or too large
+ */
+export function offsetToBytes(value: number): Uint8Array {
+  if (value < 0) {
+    throw new UploadChunkError(
+      `Invalid offset: ${value} (must be non-negative)`,
+      "INVALID_OFFSET",
+    );
+  }
+
+  if (!Number.isInteger(value)) {
+    throw new UploadChunkError(
+      `Invalid offset: ${value} (must be an integer)`,
+      "INVALID_OFFSET",
+    );
+  }
+
+  if (value > Number.MAX_SAFE_INTEGER) {
+    throw new UploadChunkError(
+      `Invalid offset: ${value} (exceeds MAX_SAFE_INTEGER)`,
+      "INVALID_OFFSET",
+    );
+  }
+
+  const bytes = new Uint8Array(8);
+  // Use DataView for big-endian encoding
+  // Split into high 32 bits and low 32 bits
+  const high = Math.floor(value / 0x100000000);
+  const low = value >>> 0;
+
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0, high, false); // Big-endian
+  view.setUint32(4, low, false); // Big-endian
+
+  return bytes;
+}
+
+/**
+ * Decode 8 bytes in big-endian format to a 64-bit unsigned integer.
+ *
+ * @param bytes - 8-byte Uint8Array in big-endian format
+ * @returns Decoded offset value
+ * @throws UploadChunkError if bytes length is not 8 or value exceeds safe integer
+ */
+export function bytesToOffset(bytes: Uint8Array): number {
+  if (bytes.length !== 8) {
+    throw new UploadChunkError(
+      `Invalid offset bytes length: ${bytes.length} (expected 8)`,
+      "INVALID_OFFSET",
+    );
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const high = view.getUint32(0, false); // Big-endian
+  const low = view.getUint32(4, false); // Big-endian
+
+  const value = high * 0x100000000 + low;
+
+  if (value > Number.MAX_SAFE_INTEGER) {
+    throw new UploadChunkError(
+      `Offset exceeds MAX_SAFE_INTEGER: ${value}`,
+      "INVALID_OFFSET",
+    );
+  }
+
+  return value;
+}
+
+/**
+ * Encode an upload chunk as a binary frame with format byte 0x02.
+ *
+ * Wire format:
+ * [1 byte: 0x02][16 bytes: uploadId UUID][8 bytes: offset big-endian uint64][data]
+ *
+ * @param uploadId - Upload ID as UUID string
+ * @param offset - Byte offset in the file
+ * @param data - Raw chunk data
+ * @returns ArrayBuffer containing the binary frame
+ */
+export function encodeUploadChunkFrame(
+  uploadId: string,
+  offset: number,
+  data: Uint8Array,
+): ArrayBuffer {
+  const uuidBytes = uuidToBytes(uploadId);
+  const offsetBytes = offsetToBytes(offset);
+
+  // Format byte (1) + UUID (16) + offset (8) + data
+  const totalSize = 1 + UUID_BYTE_LENGTH + OFFSET_BYTE_LENGTH + data.length;
+  const buffer = new ArrayBuffer(totalSize);
+  const view = new Uint8Array(buffer);
+
+  let pos = 0;
+  view[pos++] = BinaryFormat.BINARY_UPLOAD;
+  view.set(uuidBytes, pos);
+  pos += UUID_BYTE_LENGTH;
+  view.set(offsetBytes, pos);
+  pos += OFFSET_BYTE_LENGTH;
+  view.set(data, pos);
+
+  return buffer;
+}
+
+/**
+ * Decode a binary upload chunk frame (format 0x02) to structured data.
+ *
+ * @param data - ArrayBuffer or Uint8Array containing the binary frame
+ * @returns Parsed upload chunk data
+ * @throws UploadChunkError if frame is invalid
+ * @throws BinaryFrameError if format byte is not 0x02
+ */
+export function decodeUploadChunkFrame(
+  data: ArrayBuffer | Uint8Array,
+): UploadChunkData {
+  const { format, payload } = decodeBinaryFrame(data);
+
+  if (format !== BinaryFormat.BINARY_UPLOAD) {
+    throw new BinaryFrameError(
+      `Expected binary upload format (0x02), got 0x${format.toString(16).padStart(2, "0")}`,
+      "UNKNOWN_FORMAT",
+    );
+  }
+
+  return decodeUploadChunkPayload(payload);
+}
+
+/**
+ * Decode an upload chunk payload (without format byte).
+ * Used when format byte has already been extracted.
+ *
+ * @param payload - Uint8Array containing [UUID][offset][data]
+ * @returns Parsed upload chunk data
+ * @throws UploadChunkError if payload is invalid
+ */
+export function decodeUploadChunkPayload(payload: Uint8Array): UploadChunkData {
+  if (payload.length < UPLOAD_CHUNK_HEADER_SIZE) {
+    throw new UploadChunkError(
+      `Upload chunk payload too short: ${payload.length} bytes (minimum ${UPLOAD_CHUNK_HEADER_SIZE})`,
+      "INVALID_LENGTH",
+    );
+  }
+
+  const uuidBytes = payload.slice(0, UUID_BYTE_LENGTH);
+  const offsetBytes = payload.slice(
+    UUID_BYTE_LENGTH,
+    UUID_BYTE_LENGTH + OFFSET_BYTE_LENGTH,
+  );
+  const chunkData = payload.slice(UPLOAD_CHUNK_HEADER_SIZE);
+
+  return {
+    uploadId: bytesToUuid(uuidBytes),
+    offset: bytesToOffset(offsetBytes),
+    data: chunkData,
+  };
+}
+
+/**
+ * Encode upload chunk data (without format byte) for use inside encrypted envelope.
+ * The format byte will be added when encrypting.
+ *
+ * @param uploadId - Upload ID as UUID string
+ * @param offset - Byte offset in the file
+ * @param data - Raw chunk data
+ * @returns Uint8Array containing [UUID][offset][data]
+ */
+export function encodeUploadChunkPayload(
+  uploadId: string,
+  offset: number,
+  data: Uint8Array,
+): Uint8Array {
+  const uuidBytes = uuidToBytes(uploadId);
+  const offsetBytes = offsetToBytes(offset);
+
+  // UUID (16) + offset (8) + data
+  const totalSize = UUID_BYTE_LENGTH + OFFSET_BYTE_LENGTH + data.length;
+  const result = new Uint8Array(totalSize);
+
+  let pos = 0;
+  result.set(uuidBytes, pos);
+  pos += UUID_BYTE_LENGTH;
+  result.set(offsetBytes, pos);
+  pos += OFFSET_BYTE_LENGTH;
+  result.set(data, pos);
+
+  return result;
+}

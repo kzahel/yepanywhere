@@ -13,7 +13,6 @@ import type {
   RelayResponse,
   RelaySubscribe,
   RelayUnsubscribe,
-  RelayUploadChunk,
   RelayUploadComplete,
   RelayUploadEnd,
   RelayUploadError,
@@ -27,6 +26,8 @@ import type {
   YepMessage,
 } from "@yep-anywhere/shared";
 import {
+  BinaryFormat,
+  encodeUploadChunkPayload,
   isBinaryData,
   isEncryptedEnvelope,
   isSrpError,
@@ -40,6 +41,7 @@ import {
   decryptBinaryEnvelope,
   deriveSecretboxKey,
   encrypt,
+  encryptBytesToBinaryEnvelope,
   encryptToBinaryEnvelope,
 } from "./nacl-wrapper";
 import { SrpClientSession } from "./srp-client";
@@ -1035,21 +1037,21 @@ export class SecureConnection implements Connection {
           const chunkEnd = Math.min(chunkOffset + chunkSize, value.length);
           const chunk = value.slice(chunkOffset, chunkEnd);
 
-          // Base64 encode the chunk
-          const base64 = btoa(
-            Array.from(chunk)
-              .map((b) => String.fromCharCode(b))
-              .join(""),
+          // Send binary chunk (format 0x02) encrypted
+          // Payload format: [16 bytes UUID][8 bytes offset][chunk data]
+          const payload = encodeUploadChunkPayload(uploadId, offset, chunk);
+          if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            throw new Error("WebSocket not connected");
+          }
+          if (!this.sessionKey) {
+            throw new Error("Not authenticated");
+          }
+          const envelope = encryptBytesToBinaryEnvelope(
+            payload,
+            BinaryFormat.BINARY_UPLOAD,
+            this.sessionKey,
           );
-
-          // Send chunk
-          const chunkMsg: RelayUploadChunk = {
-            type: "upload_chunk",
-            uploadId,
-            offset,
-            data: base64,
-          };
-          this.send(chunkMsg);
+          this.ws.send(envelope);
 
           offset += chunk.length;
           chunkOffset = chunkEnd;
