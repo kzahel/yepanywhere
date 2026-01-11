@@ -496,29 +496,34 @@ describe("Secure WebSocket Transport E2E", () => {
       }
     }, 15000);
 
-    it("should reject plaintext messages after auth is required", async () => {
+    it("should close connection with code 4001 when plaintext message sent without auth", async () => {
       const ws = await connectWebSocket();
 
-      try {
-        // Don't authenticate, just try to send plaintext request
-        const request: RelayRequest = {
-          type: "request",
-          id: randomUUID(),
-          method: "GET",
-          path: "/health",
-        };
+      // Set up close handler before sending message
+      const closePromise = new Promise<{ code: number; reason: string }>(
+        (resolve) => {
+          ws.on("close", (code, reason) => {
+            resolve({ code, reason: reason.toString() });
+          });
+        },
+      );
 
-        // Send plaintext (should be rejected)
-        ws.send(JSON.stringify(request));
+      // Don't authenticate, just try to send plaintext request
+      const request: RelayRequest = {
+        type: "request",
+        id: randomUUID(),
+        method: "GET",
+        path: "/health",
+      };
 
-        // Wait a bit - server should not respond to plaintext
-        await new Promise((resolve) => setTimeout(resolve, 500));
+      // Send plaintext (should trigger connection close)
+      ws.send(JSON.stringify(request));
 
-        // No error thrown, but also no response
-        // The server silently drops plaintext messages when auth is required
-      } finally {
-        ws.close();
-      }
+      // Wait for the close event
+      const closeResult = await closePromise;
+
+      expect(closeResult.code).toBe(4001);
+      expect(closeResult.reason).toBe("Authentication required");
     }, 5000);
   });
 

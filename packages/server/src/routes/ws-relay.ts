@@ -1115,6 +1115,7 @@ export function createWsRelayRoutes(
         connState.authState !== "authenticated"
       ) {
         console.warn("[WS Relay] Received plaintext message but auth required");
+        ws.close(4001, "Authentication required");
         return;
       }
       msg = parsed as RemoteClientMessage;
