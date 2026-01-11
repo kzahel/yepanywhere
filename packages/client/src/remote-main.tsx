@@ -7,6 +7,8 @@
  * - Does NOT use cookie-based auth (uses SRP instead)
  */
 
+console.log("[RemoteClient] Loading remote-main.tsx entry point");
+
 import { Fragment, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 

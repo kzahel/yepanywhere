@@ -193,17 +193,14 @@ async function loginViaRemoteClient(
 }
 
 test.describe("Session Resumption", () => {
-  test.beforeEach(async ({ baseURL, page }) => {
+  test.beforeEach(async ({ baseURL }) => {
     // Configure remote access with test credentials
     await configureRemoteAccess(baseURL, {
       username: TEST_USERNAME,
       password: TEST_PASSWORD,
     });
-    // Clear localStorage for fresh state
-    await page.addInitScript(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
+    // Note: localStorage is cleared at the start of each test, not with addInitScript
+    // which would run on every page navigation and break the navigation tests
   });
 
   test.afterEach(async ({ baseURL }) => {
@@ -215,7 +212,13 @@ test.describe("Session Resumption", () => {
     remoteClientURL,
     wsURL,
   }) => {
+    // Navigate and clear localStorage, then reload for fresh state
     await page.goto(remoteClientURL);
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.reload();
 
     // Fill in login form with "Remember me" checked
     await page.fill('[data-testid="ws-url-input"]', wsURL);
@@ -290,7 +293,13 @@ test.describe("Session Resumption", () => {
     remoteClientURL,
     wsURL,
   }) => {
+    // Navigate and clear localStorage, then reload for fresh state
     await page.goto(remoteClientURL);
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.reload();
 
     // Login with "Remember me" checked
     await page.fill('[data-testid="ws-url-input"]', wsURL);
@@ -330,12 +339,18 @@ test.describe("Session Resumption", () => {
     await expect(page.locator(".sidebar")).toBeVisible({ timeout: 10000 });
   });
 
-  test.skip("session auto-resumes after brief disconnect", async ({
+  test("session auto-resumes after brief disconnect", async ({
     page,
     remoteClientURL,
     wsURL,
   }) => {
+    // Navigate and clear localStorage, then reload for fresh state
     await page.goto(remoteClientURL);
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.reload();
 
     // Login with "Remember me" checked
     await page.fill('[data-testid="ws-url-input"]', wsURL);

@@ -1004,12 +1004,18 @@ export function createWsRelayRoutes(
 
       // Create persistent session if session service is available
       let sessionId: string | undefined;
+      console.log("[WS Relay] Session creation check:", {
+        hasRemoteSessionService: !!remoteSessionService,
+        hasUsername: !!connState.username,
+        username: connState.username,
+      });
       if (remoteSessionService && connState.username) {
         sessionId = await remoteSessionService.createSession(
           connState.username,
           connState.sessionKey,
         );
         connState.sessionId = sessionId;
+        console.log("[WS Relay] Session created:", sessionId);
       }
 
       // Send verification (with sessionId for session resumption)

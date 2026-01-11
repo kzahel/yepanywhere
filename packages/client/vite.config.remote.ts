@@ -17,16 +17,27 @@ const remoteDevPort = process.env.REMOTE_PORT
 /**
  * Plugin to serve remote.html instead of index.html in dev mode.
  * This makes the dev server behave like the production build.
+ * We need to intercept ALL HTML requests (for SPA routing), not just root.
  */
 function serveRemoteHtml(): Plugin {
   return {
     name: "serve-remote-html",
     configureServer(server) {
+      // Add middleware BEFORE Vite's internal middleware (no return statement)
       server.middlewares.use((req, _res, next) => {
-        // Rewrite root to remote.html
-        if (req.url === "/" || req.url === "/index.html") {
-          req.url = "/remote.html";
+        // Skip actual file requests (assets, source files)
+        if (
+          req.url?.startsWith("/@") || // Vite internal
+          req.url?.startsWith("/src/") || // Source files
+          req.url?.startsWith("/node_modules/") || // Node modules
+          req.url?.includes(".") // Files with extensions
+        ) {
+          return next();
         }
+
+        // For SPA routes, serve remote.html
+        // This handles /projects, /settings, etc.
+        req.url = "/remote.html";
         next();
       });
     },

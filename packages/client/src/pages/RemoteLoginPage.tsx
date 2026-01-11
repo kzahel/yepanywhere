@@ -28,7 +28,8 @@ export function RemoteLoginPage() {
   );
   const [username, setUsername] = useState(storedUsername ?? "");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(hasStoredSession);
+  // Always default to "remember me" - logout feature can be added later
+  const [rememberMe, setRememberMe] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
 
   // If auto-resume is in progress, show a loading screen

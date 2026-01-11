@@ -168,6 +168,9 @@ export function RemoteConnectionProvider({ children }: Props) {
         // This triggers the SRP handshake and verifies auth
         await conn.fetch("/auth/status");
 
+        // Set global connection BEFORE setConnection to avoid race condition
+        // where children render and try to use fetchJSON before globalConnection is set
+        setGlobalConnection(conn);
         setConnection(conn);
       } catch (err) {
         const message =
@@ -203,6 +206,8 @@ export function RemoteConnectionProvider({ children }: Props) {
         // Test the connection - this will try resume, fall back to SRP if needed
         await conn.fetch("/auth/status");
 
+        // Set global connection BEFORE setConnection to avoid race condition
+        setGlobalConnection(conn);
         setConnection(conn);
       } catch (err) {
         const message =
@@ -219,6 +224,7 @@ export function RemoteConnectionProvider({ children }: Props) {
   const disconnect = useCallback(() => {
     if (connection) {
       connection.close();
+      setGlobalConnection(null);
       setConnection(null);
     }
     clearStoredCredentials();
@@ -259,6 +265,8 @@ export function RemoteConnectionProvider({ children }: Props) {
         await conn.fetch("/auth/status");
 
         console.log("[RemoteConnection] Auto-resume successful");
+        // Set global connection BEFORE setConnection to avoid race condition
+        setGlobalConnection(conn);
         setConnection(conn);
       } catch (err) {
         console.log(
@@ -276,14 +284,20 @@ export function RemoteConnectionProvider({ children }: Props) {
     void attemptAutoResume();
   }, [autoResumeAttempted, handleSessionEstablished]);
 
-  // Set global connection for fetchJSON routing
+  // Track connection in ref for cleanup (avoids stale closure issues)
+  const connectionRef = useRef(connection);
+  connectionRef.current = connection;
+
+  // Clean up connection on unmount only (not on connection changes)
+  // Using empty deps + ref avoids the cleanup running when connection changes
   useEffect(() => {
-    setGlobalConnection(connection);
     return () => {
-      setGlobalConnection(null);
-      connection?.close();
+      if (connectionRef.current) {
+        connectionRef.current.close();
+        setGlobalConnection(null);
+      }
     };
-  }, [connection]);
+  }, []);
 
   const value: RemoteConnectionState = {
     connection,
