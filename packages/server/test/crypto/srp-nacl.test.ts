@@ -60,8 +60,10 @@ describe("NaCl Encryption", () => {
       const message = "test message";
 
       const { nonce, ciphertext } = encrypt(message, key);
-      // Tamper with the ciphertext by modifying base64
-      const tamperedCiphertext = `X${ciphertext.slice(1)}`;
+      // Decode, flip a bit, re-encode to guarantee tampering
+      const decoded = Buffer.from(ciphertext, "base64");
+      decoded[0] ^= 0x01;
+      const tamperedCiphertext = decoded.toString("base64");
       const decrypted = decrypt(nonce, tamperedCiphertext, key);
 
       expect(decrypted).toBeNull();
