@@ -3,6 +3,7 @@ import {
   type Subscription,
   getGlobalConnection,
   getWebSocketConnection,
+  isNonRetryableError,
 } from "../lib/connection";
 import { getWebsocketTransportEnabled } from "./useDeveloperMode";
 
@@ -122,9 +123,20 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
           setConnected(true);
           optionsRef.current.onOpen?.();
         },
-        onError: (_error: Error) => {
+        onError: (error: Error) => {
           setConnected(false);
           optionsRef.current.onError?.(new Event("error"));
+
+          // Don't reconnect for non-retryable errors (e.g., auth required)
+          if (isNonRetryableError(error)) {
+            console.warn(
+              "[useSSE] Non-retryable error, not reconnecting:",
+              error.message,
+            );
+            wsSubscriptionRef.current?.close();
+            wsSubscriptionRef.current = null;
+            return;
+          }
 
           // Auto-reconnect after 2s
           wsSubscriptionRef.current?.close();
@@ -175,6 +187,17 @@ export function useSSE(url: string | null, options: UseSSEOptions) {
           setConnected(false);
           // Create a synthetic error event for compatibility
           optionsRef.current.onError?.(new Event("error"));
+
+          // Don't reconnect for non-retryable errors (e.g., auth required)
+          if (isNonRetryableError(error)) {
+            console.warn(
+              "[useSSE] Non-retryable error, not reconnecting:",
+              error.message,
+            );
+            wsSubscriptionRef.current?.close();
+            wsSubscriptionRef.current = null;
+            return;
+          }
 
           // Auto-reconnect after 2s
           wsSubscriptionRef.current?.close();

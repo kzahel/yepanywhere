@@ -6,7 +6,7 @@ import type {
 import { getWebsocketTransportEnabled } from "../hooks/useDeveloperMode";
 import type { SessionStatus, SessionSummary } from "../types";
 import { getGlobalConnection, isRemoteClient } from "./connection";
-import type { Subscription } from "./connection/types";
+import { type Subscription, isNonRetryableError } from "./connection/types";
 
 // Event types matching what the server emits
 export type FileChangeType = "create" | "modify" | "delete";
@@ -208,6 +208,15 @@ class ActivityBus {
         this._connected = false;
         this.wsSubscription = null;
 
+        // Don't reconnect for non-retryable errors (e.g., auth required)
+        if (isNonRetryableError(err)) {
+          console.warn(
+            "[ActivityBus] Non-retryable error, not reconnecting:",
+            err.message,
+          );
+          return;
+        }
+
         // Auto-reconnect
         this.reconnectTimeout = setTimeout(
           () => this.connect(),
@@ -243,6 +252,15 @@ class ActivityBus {
           console.error("[ActivityBus] WebSocket error:", err);
           this._connected = false;
           this.wsSubscription = null;
+
+          // Don't reconnect for non-retryable errors (e.g., auth required)
+          if (isNonRetryableError(err)) {
+            console.warn(
+              "[ActivityBus] Non-retryable error, not reconnecting:",
+              err.message,
+            );
+            return;
+          }
 
           // Auto-reconnect
           this.reconnectTimeout = setTimeout(

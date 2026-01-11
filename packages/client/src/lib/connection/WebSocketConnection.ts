@@ -14,11 +14,12 @@ import type {
   UploadedFile,
   YepMessage,
 } from "@yep-anywhere/shared";
-import type {
-  Connection,
-  StreamHandlers,
-  Subscription,
-  UploadOptions,
+import {
+  type Connection,
+  type StreamHandlers,
+  type Subscription,
+  type UploadOptions,
+  WebSocketCloseError,
 } from "./types";
 
 /**
@@ -125,22 +126,25 @@ export class WebSocketConnection implements Connection {
         console.log("[WebSocketConnection] Closed:", event.code, event.reason);
         this.ws = null;
 
+        // Create error with close code and reason
+        const closeError = new WebSocketCloseError(event.code, event.reason);
+
         // Reject any pending requests
         for (const [id, pending] of this.pendingRequests) {
           clearTimeout(pending.timeout);
-          pending.reject(new Error("WebSocket connection closed"));
+          pending.reject(closeError);
           this.pendingRequests.delete(id);
         }
 
         // Reject any pending uploads
         for (const [id, pending] of this.pendingUploads) {
-          pending.reject(new Error("WebSocket connection closed"));
+          pending.reject(closeError);
           this.pendingUploads.delete(id);
         }
 
         // Notify all subscriptions of closure
         for (const [id, handlers] of this.subscriptions) {
-          handlers.onError?.(new Error("WebSocket connection closed"));
+          handlers.onError?.(closeError);
           handlers.onClose?.();
         }
         this.subscriptions.clear();

@@ -36,11 +36,12 @@ import {
 } from "@yep-anywhere/shared";
 import { decrypt, deriveSecretboxKey, encrypt } from "./nacl-wrapper";
 import { SrpClientSession } from "./srp-client";
-import type {
-  Connection,
-  StreamHandlers,
-  Subscription,
-  UploadOptions,
+import {
+  type Connection,
+  type StreamHandlers,
+  type Subscription,
+  type UploadOptions,
+  WebSocketCloseError,
 } from "./types";
 
 /**
@@ -383,29 +384,30 @@ export class SecureConnection implements Connection {
         this.sessionKey = null;
         this.srpSession = null;
 
+        // Create error with close code and reason
+        const closeError = new WebSocketCloseError(event.code, event.reason);
+
         if (this.connectionState !== "authenticated") {
           this.connectionState = "failed";
-          authRejectHandler(
-            new Error("Connection closed before authentication"),
-          );
+          authRejectHandler(closeError);
         }
 
         // Reject any pending requests
         for (const [id, pending] of this.pendingRequests) {
           clearTimeout(pending.timeout);
-          pending.reject(new Error("WebSocket connection closed"));
+          pending.reject(closeError);
           this.pendingRequests.delete(id);
         }
 
         // Reject any pending uploads
         for (const [id, pending] of this.pendingUploads) {
-          pending.reject(new Error("WebSocket connection closed"));
+          pending.reject(closeError);
           this.pendingUploads.delete(id);
         }
 
         // Notify all subscriptions of closure
         for (const handlers of this.subscriptions.values()) {
-          handlers.onError?.(new Error("WebSocket connection closed"));
+          handlers.onError?.(closeError);
           handlers.onClose?.();
         }
         this.subscriptions.clear();

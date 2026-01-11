@@ -1,6 +1,45 @@
 import type { UploadedFile } from "@yep-anywhere/shared";
 
 /**
+ * WebSocket close codes that indicate non-retryable errors.
+ * The client should not attempt to reconnect for these codes.
+ */
+export const NON_RETRYABLE_CLOSE_CODES = [
+  4001, // Authentication required
+  4003, // Forbidden (invalid origin)
+] as const;
+
+/**
+ * Custom error for WebSocket close events that preserves the close code and reason.
+ */
+export class WebSocketCloseError extends Error {
+  readonly code: number;
+  readonly reason: string;
+
+  constructor(code: number, reason: string) {
+    const message = reason || `WebSocket closed with code ${code}`;
+    super(message);
+    this.name = "WebSocketCloseError";
+    this.code = code;
+    this.reason = reason;
+  }
+
+  /**
+   * Check if this error indicates a non-retryable condition.
+   */
+  isNonRetryable(): boolean {
+    return (NON_RETRYABLE_CLOSE_CODES as readonly number[]).includes(this.code);
+  }
+}
+
+/**
+ * Check if an error is a non-retryable WebSocket close error.
+ */
+export function isNonRetryableError(error: unknown): boolean {
+  return error instanceof WebSocketCloseError && error.isNonRetryable();
+}
+
+/**
  * Handle for an active event subscription.
  */
 export interface Subscription {

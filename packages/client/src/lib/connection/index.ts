@@ -4,6 +4,11 @@ export type {
   Subscription,
   UploadOptions,
 } from "./types";
+export {
+  WebSocketCloseError,
+  isNonRetryableError,
+  NON_RETRYABLE_CLOSE_CODES,
+} from "./types";
 export { DirectConnection, directConnection } from "./DirectConnection";
 export {
   WebSocketConnection,
