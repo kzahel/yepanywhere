@@ -245,7 +245,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     return c.json({ projects });
   });
 
-  // GET /api/projects/:projectId - Get project with sessions
+  // GET /api/projects/:projectId - Get project info
   routes.get("/:projectId", async (c) => {
     const projectId = c.req.param("projectId");
 
@@ -260,67 +260,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       return c.json({ error: "Project not found" }, 404);
     }
 
-    // Get sessions for this project using the provider-aware reader
-    const reader = deps.readerFactory(project);
-    let sessions: SessionSummary[];
-    // SessionIndexService only works with Claude's directory structure
-    // Codex sessions use the reader's internal caching
-    if (deps.sessionIndexService && project.provider === "claude") {
-      sessions = await deps.sessionIndexService.getSessionsWithCache(
-        project.sessionDir,
-        project.id,
-        reader,
-      );
-    } else {
-      sessions = await reader.listSessions(project.id);
-    }
-
-    // For Claude projects, also check for Codex sessions for the same path
-    // This handles the case where a project has sessions from multiple providers
-    if (project.provider === "claude" && deps.codexScanner) {
-      const codexSessions = await deps.codexScanner.getSessionsForProject(
-        project.path,
-      );
-      if (codexSessions.length > 0 && deps.codexSessionsDir) {
-        const codexReader = new CodexSessionReader({
-          sessionsDir: deps.codexSessionsDir,
-          projectPath: project.path,
-        });
-        const codexSessionSummaries = await codexReader.listSessions(
-          project.id,
-        );
-        // Merge Codex sessions with Claude sessions
-        sessions = [...sessions, ...codexSessionSummaries];
-      }
-    }
-
-    // For Claude/Codex projects, also check for Gemini sessions for the same path
-    // This handles the case where a project has sessions from multiple providers
-    if (
-      (project.provider === "claude" || project.provider === "codex") &&
-      deps.geminiScanner
-    ) {
-      const geminiSessions = await deps.geminiScanner.getSessionsForProject(
-        project.path,
-      );
-      if (geminiSessions.length > 0 && deps.geminiSessionsDir) {
-        const geminiReader = new GeminiSessionReader({
-          sessionsDir: deps.geminiSessionsDir,
-          projectPath: project.path,
-          hashToCwd: deps.geminiScanner.getHashToCwd(),
-        });
-        const geminiSessionSummaries = await geminiReader.listSessions(
-          project.id,
-        );
-        // Merge Gemini sessions with Claude/Codex sessions
-        sessions = [...sessions, ...geminiSessionSummaries];
-      }
-    }
-
-    // Add missing owned sessions (new sessions that don't have user/assistant messages yet)
-    sessions = addMissingOwnedSessions(sessions, projectId);
-
-    return c.json({ project, sessions: enrichSessions(sessions) });
+    return c.json({ project });
   });
 
   // POST /api/projects - Add a project by path

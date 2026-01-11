@@ -5,7 +5,6 @@ import { type SessionStatusEvent, useFileActivity } from "./useFileActivity";
 
 /**
  * Fetch a single project by ID.
- * Returns project info without session list (lighter than useSessions).
  */
 export function useProject(projectId: string | undefined) {
   const [project, setProject] = useState<Project | null>(null);

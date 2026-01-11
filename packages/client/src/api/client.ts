@@ -225,9 +225,7 @@ export const api = {
     }),
 
   getProject: (projectId: string) =>
-    fetchJSON<{ project: Project; sessions: SessionSummary[] }>(
-      `/projects/${projectId}`,
-    ),
+    fetchJSON<{ project: Project }>(`/projects/${projectId}`),
 
   getSession: (
     projectId: string,
