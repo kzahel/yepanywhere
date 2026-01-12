@@ -121,7 +121,10 @@ describe("ConnectionManager", () => {
       manager.registerServer(serverWs, "alice", "install-1");
       const result = manager.connectClient(clientWs, "alice");
 
-      expect(result).toBe("connected");
+      expect(result.status).toBe("connected");
+      if (result.status === "connected") {
+        expect(result.serverWs).toBe(serverWs);
+      }
       expect(manager.getWaitingCount()).toBe(0);
       expect(manager.getPairCount()).toBe(1);
     });
@@ -133,14 +136,14 @@ describe("ConnectionManager", () => {
       registry.register("alice", "install-1");
       const result = manager.connectClient(clientWs, "alice");
 
-      expect(result).toBe("server_offline");
+      expect(result.status).toBe("server_offline");
     });
 
     it("returns unknown_username for unregistered username", () => {
       const clientWs = createMockWs();
       const result = manager.connectClient(clientWs, "nonexistent");
 
-      expect(result).toBe("unknown_username");
+      expect(result.status).toBe("unknown_username");
     });
   });
 
@@ -272,11 +275,11 @@ describe("ConnectionManager", () => {
 
       // First client connects
       const result1 = manager.connectClient(clientWs1, "alice");
-      expect(result1).toBe("connected");
+      expect(result1.status).toBe("connected");
 
       // Second client fails (server now paired)
       const result2 = manager.connectClient(clientWs2, "alice");
-      expect(result2).toBe("server_offline");
+      expect(result2.status).toBe("server_offline");
     });
 
     it("handles server reconnection after client disconnects", () => {
@@ -297,7 +300,7 @@ describe("ConnectionManager", () => {
       // New client can connect
       const clientWs2 = createMockWs();
       const connectResult = manager.connectClient(clientWs2, "alice");
-      expect(connectResult).toBe("connected");
+      expect(connectResult.status).toBe("connected");
     });
   });
 });

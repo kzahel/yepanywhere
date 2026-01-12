@@ -8,9 +8,9 @@ export type RegistrationResult =
   | "invalid_username";
 
 export type ConnectionResult =
-  | "connected"
-  | "server_offline"
-  | "unknown_username";
+  | { status: "connected"; serverWs: WSContext }
+  | { status: "server_offline" }
+  | { status: "unknown_username" };
 
 interface Pair {
   server: WSContext;
@@ -89,18 +89,18 @@ export class ConnectionManager {
    *
    * @param ws - The client WebSocket connection
    * @param username - Username to connect to
-   * @returns Connection result
+   * @returns Connection result with server WebSocket on success
    */
   connectClient(ws: WSContext, username: string): ConnectionResult {
     // Check if username is registered at all
     if (!this.registry.isRegistered(username)) {
-      return "unknown_username";
+      return { status: "unknown_username" };
     }
 
     // Check if server is currently online (has a waiting connection)
     const serverWs = this.waiting.get(username);
     if (!serverWs) {
-      return "server_offline";
+      return { status: "server_offline" };
     }
 
     // Remove from waiting map (server is now paired)
@@ -115,7 +115,7 @@ export class ConnectionManager {
     // Update last seen for the username
     this.registry.updateLastSeen(username);
 
-    return "connected";
+    return { status: "connected", serverWs };
   }
 
   /**

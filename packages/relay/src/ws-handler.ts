@@ -187,14 +187,17 @@ export function createWsHandler(
       if (isRelayClientConnect(msg)) {
         const result = connectionManager.connectClient(ws, msg.username);
 
-        if (result === "connected") {
+        if (result.status === "connected") {
           state.username = msg.username;
           state.isServer = false;
           state.paired = true;
 
           // Also mark the server as paired
-          const serverState = getState(ws);
+          const serverState = getState(result.serverWs);
           serverState.paired = true;
+
+          // Stop ping interval on server (paired connections don't need keepalive from relay)
+          stopPingInterval(serverState);
 
           const response: RelayClientConnected = { type: "client_connected" };
           sendJson(ws, response);
@@ -203,15 +206,15 @@ export function createWsHandler(
         } else {
           const response: RelayClientError = {
             type: "client_error",
-            reason: result,
+            reason: result.status,
           };
           sendJson(ws, response);
           logger.info(
-            { username: msg.username, reason: result },
+            { username: msg.username, reason: result.status },
             "Client connection failed",
           );
           // Close connection after error
-          ws.close(1000, `Connection failed: ${result}`);
+          ws.close(1000, `Connection failed: ${result.status}`);
         }
         return;
       }
