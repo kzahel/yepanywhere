@@ -2,7 +2,7 @@
  * E2E tests for CodexOSS provider (local models via Ollama).
  *
  * Tests the UI flow for selecting and using the CodexOSS provider.
- * Uses mock providers (from dev-mock.ts) for reliable testing.
+ * Creates test session files to verify project discovery and navigation.
  */
 
 import { execSync } from "node:child_process";

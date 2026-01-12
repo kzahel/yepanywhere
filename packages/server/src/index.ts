@@ -379,9 +379,10 @@ async function startServer() {
   // Start maintenance server on separate port (for out-of-band diagnostics)
   // This runs independently from the main server and can be used to debug
   // issues even when the main server is unresponsive
-  if (config.maintenancePort > 0) {
+  // Port values: 0 = disabled, -1 = auto-assign, >0 = specific port
+  if (config.maintenancePort !== 0) {
     startMaintenanceServer({
-      port: config.maintenancePort,
+      port: config.maintenancePort < 0 ? 0 : config.maintenancePort,
       host: config.host,
       mainServerPort: config.port,
     });

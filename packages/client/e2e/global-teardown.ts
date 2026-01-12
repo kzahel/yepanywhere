@@ -72,8 +72,8 @@ export default async function globalTeardown() {
     unlinkSync(RELAY_PORT_FILE);
   }
 
-  // Clean up mock project data created by dev-mock.ts setupMockProjects()
-  // This mirrors cleanupMockProjects() from server/src/testing/mockProjectData.ts
+  // Clean up mock project data created by global-setup.ts
+  // This cleans up ~/.claude/projects as a fallback (tests use isolated dirs)
   const mockProjectPath = join(tmpdir(), "mockproject");
   const encodedPath = mockProjectPath.replace(/\//g, "-");
   const mockProjectDir = join(

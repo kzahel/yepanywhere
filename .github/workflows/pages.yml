@@ -46,13 +46,19 @@ jobs:
         run: pnpm --filter @yep-anywhere/shared build
 
       - name: Build remote client
-        run: pnpm --filter @yep-anywhere/client build:remote -- --base /remote/
+        run: |
+          pnpm --filter @yep-anywhere/client exec tsc
+          pnpm --filter @yep-anywhere/client exec vite build --config vite.config.remote.ts --base /remote/
 
       - name: Prepare deployment directory
         run: |
           mkdir -p deploy
           cp -r site/* deploy/
           cp -r packages/client/dist-remote deploy/remote
+          # GitHub Pages needs index.html to serve the /remote/ directory
+          cp deploy/remote/remote.html deploy/remote/index.html
+          # Root 404.html enables SPA routing for /remote/* paths (GitHub Pages only uses root 404)
+          cp deploy/remote/remote.html deploy/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

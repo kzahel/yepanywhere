@@ -7,7 +7,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,6 +79,31 @@ export default async function globalSetup() {
       dataDir: E2E_DATA_DIR,
     }),
   );
+
+  // Create mock project data for tests that expect a session to exist
+  // This replicates what setupMockProjects() did in dev-mock.ts
+  const mockProjectPath = join(tmpdir(), "mockproject");
+  mkdirSync(mockProjectPath, { recursive: true });
+  const encodedPath = mockProjectPath.replace(/\//g, "-");
+  const mockSessionDir = join(E2E_CLAUDE_SESSIONS_DIR, hostname(), encodedPath);
+  mkdirSync(mockSessionDir, { recursive: true });
+  const sessionFile = join(mockSessionDir, "mock-session-001.jsonl");
+  if (!existsSync(sessionFile)) {
+    const mockMessages = [
+      {
+        type: "user",
+        cwd: mockProjectPath,
+        message: { role: "user", content: "Previous message" },
+        timestamp: new Date().toISOString(),
+        uuid: "1",
+      },
+    ];
+    writeFileSync(
+      sessionFile,
+      mockMessages.map((m) => JSON.stringify(m)).join("\n"),
+    );
+  }
+  console.log(`[E2E] Created mock session at ${sessionFile}`);
 
   const repoRoot = join(__dirname, "..", "..", "..");
   const serverRoot = join(repoRoot, "packages", "server");
@@ -176,17 +201,19 @@ export default async function globalSetup() {
   // Enable maintenance server for test configuration (also auto-assign port)
   const serverProcess = spawn(
     "pnpm",
-    ["exec", "tsx", "--conditions", "source", "src/dev-mock.ts"],
+    ["exec", "tsx", "--conditions", "source", "src/index.ts"],
     {
       cwd: serverRoot,
       env: {
         ...process.env,
         PORT: "0",
-        // Note: dev-mock.ts always starts maintenance server with auto-assign port
+        MAINTENANCE_PORT: "-1", // Auto-assign maintenance port (-1 means auto)
         SERVE_FRONTEND: "true",
         CLIENT_DIST_PATH: clientDist,
         LOG_FILE: "e2e-server.log",
-        LOG_LEVEL: "warn",
+        LOG_LEVEL: "info", // Need info level to see startup messages
+        AUTH_DISABLED: "true", // Disable auth for E2E tests
+        NODE_ENV: "production", // Use static files, not Vite proxy
         // Isolated session directories for test isolation
         CLAUDE_SESSIONS_DIR: E2E_CLAUDE_SESSIONS_DIR,
         CODEX_SESSIONS_DIR: E2E_CODEX_SESSIONS_DIR,
@@ -224,10 +251,10 @@ export default async function globalSetup() {
       serverProcess.stdout?.on("data", (data: Buffer) => {
         output += data.toString();
 
-        // Look for "Mock server running at http://localhost:XXXX"
+        // Look for "Server running at http://..." (real server output)
         if (mainPort === null) {
           const mainMatch = output.match(
-            /Mock server running at http:\/\/localhost:(\d+)/,
+            /Server running at http:\/\/[^:]+:(\d+)/,
           );
           if (mainMatch) {
             mainPort = Number.parseInt(mainMatch[1], 10);

@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "tsx --conditions source src/index.ts",
     "dev:watch": "tsx watch --conditions source src/index.ts",
-    "dev:mock": "tsx --conditions source src/dev-mock.ts",
-    "dev:real": "tsx --conditions source src/index.ts",
+    "dev:mock": "AUTH_DISABLED=true tsx --conditions source src/index.ts",
     "build": "tsc",
     "test": "vitest run",
     "test:e2e": "vitest run test/e2e",

@@ -48,7 +48,7 @@ codex-sample-sessions/
 # Text files in repo root
 /*.txt
 
-
+packages/client/dist-remote
 packages/client/dist-stable
 packages/server/client-dist/
 packages/server/bundled/
