@@ -4,11 +4,12 @@
  * This replaces the regular App wrapper for the remote (static) client.
  * Key differences:
  * - No AuthProvider (SRP handles authentication)
- * - Shows login page when not connected
+ * - Shows login pages when not connected (handled via routing)
  * - Uses RemoteConnectionProvider for connection state
  */
 
 import type { ReactNode } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { FloatingActionButton } from "./components/FloatingActionButton";
 import { InboxProvider } from "./contexts/InboxContext";
 import {
@@ -20,11 +21,13 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { useNeedsAttentionBadge } from "./hooks/useNeedsAttentionBadge";
 import { useSyncNotifyInAppSetting } from "./hooks/useNotifyInApp";
 import { useRemoteActivityBusConnection } from "./hooks/useRemoteActivityBusConnection";
-import { RemoteLoginPage } from "./pages/RemoteLoginPage";
 
 interface Props {
   children: ReactNode;
 }
+
+/** Routes that don't require authentication */
+const LOGIN_ROUTES = ["/login", "/direct", "/relay"];
 
 /**
  * Inner content that requires connection.
@@ -49,17 +52,38 @@ function RemoteAppContent({ children }: Props) {
 }
 
 /**
- * Gate component that shows login or app based on connection state.
+ * Gate component that controls access based on connection state.
+ *
+ * - If not connected and on a login route: render children (login pages)
+ * - If not connected and not on a login route: redirect to /login
+ * - If connected and on a login route: redirect to /projects
+ * - If connected and not on a login route: render children (app)
  */
 function ConnectionGate({ children }: Props) {
-  const { connection } = useRemoteConnection();
+  const { connection, isAutoResuming } = useRemoteConnection();
+  const location = useLocation();
+  const isLoginRoute = LOGIN_ROUTES.some(
+    (route) =>
+      location.pathname === route || location.pathname.startsWith(`${route}/`),
+  );
 
-  // Show login page if not connected
+  // Not connected
   if (!connection) {
-    return <RemoteLoginPage />;
+    // Auto-resuming happens in the login page component
+    // So we should redirect to /login which will show loading state
+    if (!isLoginRoute && !isAutoResuming) {
+      return <Navigate to="/login" replace />;
+    }
+    // On a login route - render children (login pages)
+    return <>{children}</>;
   }
 
-  // Connected - show the app with providers that need connection
+  // Connected - redirect away from login routes
+  if (isLoginRoute) {
+    return <Navigate to="/projects" replace />;
+  }
+
+  // Connected and on an app route - show the app with providers
   return (
     <InboxProvider>
       <SchemaValidationProvider>
@@ -75,7 +99,7 @@ function ConnectionGate({ children }: Props) {
  * Provides:
  * - ToastProvider (always available)
  * - RemoteConnectionProvider for connection management
- * - Login gate that shows login or app
+ * - Connection gate that controls routing
  */
 export function RemoteApp({ children }: Props) {
   return (

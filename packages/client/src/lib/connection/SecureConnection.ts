@@ -1159,4 +1159,144 @@ export class SecureConnection implements Connection {
   isAuthenticated(): boolean {
     return this.connectionState === "authenticated" && this.sessionKey !== null;
   }
+
+  /**
+   * Connect using an existing WebSocket that's already connected through a relay.
+   * Skips WebSocket creation and goes straight to SRP authentication.
+   *
+   * @param ws - Pre-connected WebSocket (already open)
+   * @param username - Username for SRP authentication
+   * @param password - Password for SRP authentication
+   * @param onSessionEstablished - Optional callback when session is established
+   * @returns SecureConnection instance after successful authentication
+   */
+  static async connectWithExistingSocket(
+    ws: WebSocket,
+    username: string,
+    password: string,
+    onSessionEstablished?: (session: StoredSession) => void,
+  ): Promise<SecureConnection> {
+    const conn = new SecureConnection(
+      "relay://",
+      username,
+      password,
+      onSessionEstablished,
+    );
+    conn.ws = ws;
+    ws.binaryType = "arraybuffer";
+
+    await conn.authenticateOnExistingSocket();
+    return conn;
+  }
+
+  /**
+   * Perform SRP authentication on an already-connected WebSocket.
+   * Used by connectWithExistingSocket for relay connections.
+   */
+  private authenticateOnExistingSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error("WebSocket is not open"));
+        return;
+      }
+
+      console.log("[SecureConnection] Authenticating on existing socket");
+      this.connectionState = "connecting";
+
+      // Create auth handlers
+      let authResolveHandler: () => void = () => {};
+      let authRejectHandler: (err: Error) => void = () => {};
+
+      const authPromise = new Promise<void>((res, rej) => {
+        authResolveHandler = res;
+        authRejectHandler = rej;
+      });
+
+      const ws = this.ws;
+
+      ws.onerror = (event) => {
+        console.error("[SecureConnection] Error:", event);
+      };
+
+      ws.onclose = (event) => {
+        console.log("[SecureConnection] Closed:", event.code, event.reason);
+        this.ws = null;
+        this.sessionKey = null;
+        this.srpSession = null;
+
+        const closeError = new WebSocketCloseError(event.code, event.reason);
+
+        if (this.connectionState !== "authenticated") {
+          this.connectionState = "failed";
+          authRejectHandler(closeError);
+        }
+
+        // Reject pending requests
+        for (const [id, pending] of this.pendingRequests) {
+          clearTimeout(pending.timeout);
+          pending.reject(closeError);
+          this.pendingRequests.delete(id);
+        }
+
+        // Reject pending uploads
+        for (const [id, pending] of this.pendingUploads) {
+          pending.reject(closeError);
+          this.pendingUploads.delete(id);
+        }
+
+        // Notify subscriptions
+        for (const handlers of this.subscriptions.values()) {
+          handlers.onError?.(closeError);
+          handlers.onClose?.();
+        }
+        this.subscriptions.clear();
+      };
+
+      ws.onmessage = async (event) => {
+        if (this.connectionState === "srp_hello_sent") {
+          await this.handleSrpChallenge(
+            event.data,
+            authResolveHandler,
+            authRejectHandler,
+          );
+        } else if (this.connectionState === "srp_proof_sent") {
+          await this.handleSrpVerify(
+            event.data,
+            authResolveHandler,
+            authRejectHandler,
+          );
+        } else if (this.connectionState === "authenticated") {
+          this.handleMessage(event.data);
+        }
+      };
+
+      // Start SRP handshake (no session resume for relay connections)
+      this.startFullSrpHandshake(authRejectHandler).catch((err) => {
+        console.error("[SecureConnection] SRP handshake error:", err);
+        this.connectionState = "failed";
+        authRejectHandler(err instanceof Error ? err : new Error(String(err)));
+        ws.close();
+      });
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        if (this.connectionState !== "authenticated") {
+          ws.close();
+          this.connectionState = "failed";
+          reject(new Error("Authentication timeout"));
+        }
+      }, 30000);
+
+      // Wait for auth to complete
+      authPromise
+        .then(() => {
+          clearTimeout(timeout);
+          resolve();
+        })
+        .catch((err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+    });
+  }
 }

@@ -524,9 +524,20 @@ Update UI to show live status:
 
 ---
 
-### Phase 8: Remote Client Relay Support
+### Phase 8: Remote Client Relay Support ✅
 
 Add relay connection mode to the remote client while keeping direct connection.
+
+**Status: Complete**
+
+Implementation notes:
+- `SecureConnection.connectWithExistingSocket()` accepts pre-connected WebSocket from relay
+- `RemoteLoginModePage` provides mode selection (relay vs direct)
+- `DirectLoginPage` renamed from RemoteLoginPage, handles direct WebSocket connection
+- `RelayLoginPage` handles relay connection flow with status feedback
+- `RemoteConnectionContext.connectViaRelay()` manages the relay handshake and SRP auth
+- Login routes (`/login`, `/direct`, `/relay`) added to `remote-main.tsx`
+- `RemoteApp` `ConnectionGate` updated for route-based auth flow
 
 **Connection Modes:**
 

@@ -1,15 +1,16 @@
 /**
- * RemoteLoginPage - Login form for remote access via SecureConnection.
+ * DirectLoginPage - Direct connection form for remote access via SecureConnection.
  *
  * Collects server URL, username, and password for SRP authentication.
  * On successful auth, the app switches to the main view.
  */
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { YepAnywhereLogo } from "../components/YepAnywhereLogo";
 import { useRemoteConnection } from "../contexts/RemoteConnectionContext";
 
-export function RemoteLoginPage() {
+export function DirectLoginPage() {
   const {
     connect,
     isConnecting,
@@ -107,10 +108,14 @@ export function RemoteLoginPage() {
   return (
     <div className="login-page">
       <div className="login-container">
+        <Link to="/login" className="login-back-link">
+          &larr; Back
+        </Link>
+
         <div className="login-logo">
           <YepAnywhereLogo />
         </div>
-        <p className="login-subtitle">Connect to your Yep Anywhere server</p>
+        <p className="login-subtitle">Direct Connection</p>
 
         <form
           onSubmit={handleSubmit}

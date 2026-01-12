@@ -24,11 +24,14 @@ import { NavigationLayout } from "./layouts";
 import { ActivityPage } from "./pages/ActivityPage";
 import { AgentsPage } from "./pages/AgentsPage";
 import { BeadsPage } from "./pages/BeadsPage";
+import { DirectLoginPage } from "./pages/DirectLoginPage";
 import { FilePage } from "./pages/FilePage";
 import { GlobalSessionsPage } from "./pages/GlobalSessionsPage";
 import { InboxPage } from "./pages/InboxPage";
 import { NewSessionPage } from "./pages/NewSessionPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { RelayLoginPage } from "./pages/RelayLoginPage";
+import { RemoteLoginModePage } from "./pages/RemoteLoginModePage";
 import { SessionPage } from "./pages/SessionPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import "./styles/index.css";
@@ -51,6 +54,12 @@ createRoot(rootElement).render(
     <BrowserRouter basename={basename}>
       <RemoteApp>
         <Routes>
+          {/* Login routes (unauthenticated) */}
+          <Route path="/login" element={<RemoteLoginModePage />} />
+          <Route path="/direct" element={<DirectLoginPage />} />
+          <Route path="/relay" element={<RelayLoginPage />} />
+
+          {/* App routes (authenticated) */}
           <Route path="/" element={<Navigate to="/projects" replace />} />
           {/* All pages share NavigationLayout for persistent sidebar */}
           <Route element={<NavigationLayout />}>

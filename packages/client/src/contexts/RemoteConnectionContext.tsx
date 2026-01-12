@@ -4,8 +4,18 @@
  * This context manages the SecureConnection lifecycle and provides it to
  * the app. Unlike the regular client which uses DirectConnection by default,
  * the remote client ONLY uses SecureConnection.
+ *
+ * Supports two connection modes:
+ * - Direct: Connect via WebSocket URL + SRP auth
+ * - Relay: Connect via relay server + relay username + SRP auth
  */
 
+import {
+  type RelayClientConnected,
+  type RelayClientError,
+  isRelayClientConnected,
+  isRelayClientError,
+} from "@yep-anywhere/shared";
 import {
   type ReactNode,
   createContext,
@@ -28,6 +38,28 @@ interface StoredCredentials {
   username: string;
   /** Session data for resumption (only stored if rememberMe was enabled) */
   session?: StoredSession;
+  /** Connection mode: "direct" or "relay" */
+  mode?: "direct" | "relay";
+  /** Relay username (only for relay mode) */
+  relayUsername?: string;
+}
+
+/** Relay connection status for UI feedback */
+export type RelayConnectionStatus =
+  | "idle"
+  | "connecting_relay"
+  | "waiting_server"
+  | "authenticating"
+  | "error";
+
+/** Options for connecting via relay */
+export interface ConnectViaRelayOptions {
+  relayUrl: string;
+  relayUsername: string;
+  srpUsername: string;
+  srpPassword: string;
+  rememberMe?: boolean;
+  onStatusChange?: (status: RelayConnectionStatus) => void;
 }
 
 interface RemoteConnectionState {
@@ -39,13 +71,15 @@ interface RemoteConnectionState {
   isAutoResuming: boolean;
   /** Error from last connection attempt */
   error: string | null;
-  /** Connect to server with credentials */
+  /** Connect to server with credentials (direct mode) */
   connect: (
     wsUrl: string,
     username: string,
     password: string,
     rememberMe?: boolean,
   ) => Promise<void>;
+  /** Connect via relay server */
+  connectViaRelay: (options: ConnectViaRelayOptions) => Promise<void>;
   /** Disconnect and clear credentials */
   disconnect: () => void;
   /** Stored server URL (for pre-filling form) */
@@ -221,6 +255,132 @@ export function RemoteConnectionProvider({ children }: Props) {
     [handleSessionEstablished],
   );
 
+  const connectViaRelay = useCallback(
+    async (options: ConnectViaRelayOptions) => {
+      const {
+        relayUrl,
+        relayUsername,
+        srpUsername,
+        srpPassword,
+        rememberMe = false,
+        onStatusChange,
+      } = options;
+
+      setIsConnecting(true);
+      setError(null);
+      rememberMeRef.current = rememberMe;
+      onStatusChange?.("connecting_relay");
+
+      try {
+        // 1. Connect to relay server
+        const ws = new WebSocket(relayUrl);
+        ws.binaryType = "arraybuffer";
+
+        // Wait for WebSocket to open
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            ws.close();
+            reject(new Error("Relay connection timeout"));
+          }, 15000);
+
+          ws.onopen = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+
+          ws.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error("Failed to connect to relay server"));
+          };
+        });
+
+        // 2. Send client_connect message
+        onStatusChange?.("waiting_server");
+        ws.send(
+          JSON.stringify({ type: "client_connect", username: relayUsername }),
+        );
+
+        // 3. Wait for client_connected or error
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            ws.close();
+            reject(new Error("Waiting for server timed out"));
+          }, 30000);
+
+          ws.onmessage = (event) => {
+            clearTimeout(timeout);
+            try {
+              const msg = JSON.parse(event.data as string);
+              if (isRelayClientConnected(msg)) {
+                // Successfully paired with server
+                resolve();
+              } else if (isRelayClientError(msg)) {
+                ws.close();
+                reject(new Error(msg.reason));
+              } else {
+                // Unexpected message - might be server sending first message
+                // This shouldn't happen, but treat as success
+                resolve();
+              }
+            } catch {
+              // JSON parse error - unexpected message format
+              ws.close();
+              reject(new Error("Invalid relay response"));
+            }
+          };
+
+          ws.onclose = () => {
+            clearTimeout(timeout);
+            reject(new Error("Relay connection closed"));
+          };
+
+          ws.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error("Relay connection error"));
+          };
+        });
+
+        // 4. Now we have a direct pipe to yepanywhere server - do SRP auth
+        onStatusChange?.("authenticating");
+
+        // Store credentials if rememberMe
+        if (rememberMe) {
+          saveCredentials(relayUrl, srpUsername, undefined);
+          const stored = loadStoredCredentials();
+          if (stored) {
+            stored.mode = "relay";
+            stored.relayUsername = relayUsername;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+          }
+        }
+
+        // Create SecureConnection using the existing WebSocket
+        const conn = await SecureConnection.connectWithExistingSocket(
+          ws,
+          srpUsername,
+          srpPassword,
+          rememberMe ? handleSessionEstablished : undefined,
+        );
+
+        // Test the connection
+        await conn.fetch("/auth/status");
+
+        // Set global connection
+        setGlobalConnection(conn);
+        setConnection(conn);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Connection failed";
+        setError(message);
+        onStatusChange?.("error");
+        throw err;
+      } finally {
+        setIsConnecting(false);
+      }
+    },
+    [handleSessionEstablished],
+  );
+
   const disconnect = useCallback(() => {
     if (connection) {
       connection.close();
@@ -305,6 +465,7 @@ export function RemoteConnectionProvider({ children }: Props) {
     isAutoResuming,
     error,
     connect,
+    connectViaRelay,
     disconnect,
     storedUrl: stored?.wsUrl ?? null,
     storedUsername: stored?.username ?? null,
