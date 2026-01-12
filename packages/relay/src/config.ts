@@ -5,6 +5,8 @@ import type { LogConfig, LogLevel } from "./logger.js";
 export interface RelayConfig {
   /** Port for the relay server (default: 4400) */
   port: number;
+  /** File to write the actual port to after binding (for test harnesses) */
+  portFile: string | null;
   /** Data directory for SQLite database (default: ~/.yep-relay/) */
   dataDir: string;
   /** Ping interval for waiting connections in ms (default: 60000) */
@@ -37,6 +39,7 @@ export function loadConfig(): RelayConfig {
 
   return {
     port: getEnvNumber("RELAY_PORT", 4400),
+    portFile: process.env.RELAY_PORT_FILE ?? null,
     dataDir,
     pingIntervalMs: getEnvNumber("RELAY_PING_INTERVAL_MS", 60_000),
     pongTimeoutMs: getEnvNumber("RELAY_PONG_TIMEOUT_MS", 30_000),

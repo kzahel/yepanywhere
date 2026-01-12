@@ -353,6 +353,11 @@ async function startServer() {
   const server = serve(
     { fetch: app.fetch, port: config.port, hostname: config.host },
     (info) => {
+      // Write port to file if requested (for test harnesses)
+      if (config.portFile) {
+        fs.writeFileSync(config.portFile, String(info.port));
+      }
+
       console.log(`Server running at http://${config.host}:${info.port}`);
       console.log(`Projects dir: ${config.claudeProjectsDir}`);
       console.log(`Permission mode: ${config.defaultPermissionMode}`);
@@ -383,6 +388,7 @@ async function startServer() {
   if (config.maintenancePort !== 0) {
     startMaintenanceServer({
       port: config.maintenancePort < 0 ? 0 : config.maintenancePort,
+      portFile: config.maintenancePortFile,
       host: config.host,
       mainServerPort: config.port,
     });

@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { getRequestListener } from "@hono/node-server";
 import { Hono } from "hono";
@@ -135,6 +136,13 @@ server.listen(config.port, () => {
   const address = server.address();
   const actualPort =
     typeof address === "object" && address ? address.port : config.port;
+
+  // Write port to file if requested (for test harnesses)
+  if (config.portFile) {
+    writeFileSync(config.portFile, String(actualPort));
+    logger.debug({ portFile: config.portFile }, "Wrote port to file");
+  }
+
   logger.info(
     { port: actualPort },
     `Relay server listening on http://localhost:${actualPort}`,

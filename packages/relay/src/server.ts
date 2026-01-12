@@ -72,6 +72,7 @@ export async function createRelayServer(
 
   const config: RelayConfig = {
     port: options.port ?? 0, // 0 = random available port
+    portFile: null, // Not used in test/factory mode - caller checks .port directly
     dataDir: options.dataDir ?? "",
     pingIntervalMs: options.pingIntervalMs ?? 60_000,
     pongTimeoutMs: options.pongTimeoutMs ?? 30_000,

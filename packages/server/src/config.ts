@@ -44,10 +44,14 @@ export interface Config {
   defaultPermissionMode: PermissionMode;
   /** Server port */
   port: number;
+  /** File to write the actual port to after binding (for test harnesses) */
+  portFile: string | null;
   /** Host/interface to bind to (default: 127.0.0.1). Use 0.0.0.0 to bind all interfaces. */
   host: string;
   /** Maintenance server port (default: 0 = disabled). Set to enable (e.g., PORT + 1). */
   maintenancePort: number;
+  /** File to write the actual maintenance port to after binding (for test harnesses) */
+  maintenancePortFile: string | null;
   /** Use mock SDK instead of real Claude SDK */
   useMockSdk: boolean;
   /** Maximum concurrent workers. 0 = unlimited (default for backward compat) */
@@ -117,10 +121,12 @@ export function loadConfig(): Config {
     idleTimeoutMs: parseIntOrDefault(process.env.IDLE_TIMEOUT, 5 * 60) * 1000,
     defaultPermissionMode: parsePermissionMode(process.env.PERMISSION_MODE),
     port: parseIntOrDefault(process.env.PORT, 3400),
+    portFile: process.env.PORT_FILE ?? null,
     // Host defaults to 127.0.0.1 for security and consistency (avoids IPv6 ambiguity with "localhost")
     host: process.env.HOST ?? "127.0.0.1",
     // Maintenance port disabled by default, set to enable (e.g., PORT + 1)
     maintenancePort: parseIntOrDefault(process.env.MAINTENANCE_PORT, 0),
+    maintenancePortFile: process.env.MAINTENANCE_PORT_FILE ?? null,
     useMockSdk: process.env.USE_MOCK_SDK === "true",
     maxWorkers: parseIntOrDefault(process.env.MAX_WORKERS, 0),
     idlePreemptThresholdMs:

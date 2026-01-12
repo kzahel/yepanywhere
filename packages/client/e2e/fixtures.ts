@@ -3,47 +3,56 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test as base } from "@playwright/test";
 
-const PORT_FILE = join(tmpdir(), "claude-e2e-port");
-const MAINTENANCE_PORT_FILE = join(tmpdir(), "claude-e2e-maintenance-port");
-const REMOTE_CLIENT_PORT_FILE = join(tmpdir(), "claude-e2e-remote-port");
-const RELAY_PORT_FILE = join(tmpdir(), "claude-e2e-relay-port");
-const PATHS_FILE = join(tmpdir(), "claude-e2e-paths.json");
+// Session file stores the path to the unique temp directory for this test run
+const SESSION_FILE = join(tmpdir(), "claude-e2e-session");
+
+/**
+ * Get the temp directory for this test run from the session file.
+ */
+function getTempDir(): string {
+  if (existsSync(SESSION_FILE)) {
+    const tempDir = readFileSync(SESSION_FILE, "utf-8").trim();
+    if (tempDir && existsSync(tempDir)) {
+      return tempDir;
+    }
+  }
+  throw new Error(
+    `Session file not found or invalid: ${SESSION_FILE}. Did global-setup run?`,
+  );
+}
+
+/**
+ * Read a port from a file in the temp directory.
+ */
+function getPort(filename: string, description: string): number {
+  const tempDir = getTempDir();
+  const portFile = join(tempDir, filename);
+  if (existsSync(portFile)) {
+    return Number.parseInt(readFileSync(portFile, "utf-8"), 10);
+  }
+  throw new Error(
+    `${description} port file not found: ${portFile}. Did global-setup run?`,
+  );
+}
 
 function getServerPort(): number {
-  if (existsSync(PORT_FILE)) {
-    return Number.parseInt(readFileSync(PORT_FILE, "utf-8"), 10);
-  }
-  throw new Error(`Port file not found: ${PORT_FILE}. Did global-setup run?`);
+  return getPort("port", "Server");
 }
 
 function getMaintenancePort(): number {
-  if (existsSync(MAINTENANCE_PORT_FILE)) {
-    return Number.parseInt(readFileSync(MAINTENANCE_PORT_FILE, "utf-8"), 10);
-  }
-  throw new Error(
-    `Maintenance port file not found: ${MAINTENANCE_PORT_FILE}. Did global-setup run?`,
-  );
+  return getPort("maintenance-port", "Maintenance");
 }
 
 function getRemoteClientPort(): number {
-  if (existsSync(REMOTE_CLIENT_PORT_FILE)) {
-    return Number.parseInt(readFileSync(REMOTE_CLIENT_PORT_FILE, "utf-8"), 10);
-  }
-  throw new Error(
-    `Remote client port file not found: ${REMOTE_CLIENT_PORT_FILE}. Did global-setup run?`,
-  );
+  return getPort("remote-port", "Remote client");
 }
 
 function getRelayPort(): number {
-  if (existsSync(RELAY_PORT_FILE)) {
-    return Number.parseInt(readFileSync(RELAY_PORT_FILE, "utf-8"), 10);
-  }
-  throw new Error(
-    `Relay port file not found: ${RELAY_PORT_FILE}. Did global-setup run?`,
-  );
+  return getPort("relay-port", "Relay");
 }
 
 interface E2EPaths {
+  tempDir: string;
   testDir: string;
   claudeSessionsDir: string;
   codexSessionsDir: string;
@@ -52,14 +61,19 @@ interface E2EPaths {
 }
 
 function getTestPaths(): E2EPaths {
-  if (existsSync(PATHS_FILE)) {
-    return JSON.parse(readFileSync(PATHS_FILE, "utf-8"));
+  const tempDir = getTempDir();
+  const pathsFile = join(tempDir, "paths.json");
+  if (existsSync(pathsFile)) {
+    return JSON.parse(readFileSync(pathsFile, "utf-8"));
   }
-  throw new Error(`Paths file not found: ${PATHS_FILE}. Did global-setup run?`);
+  throw new Error(`Paths file not found: ${pathsFile}. Did global-setup run?`);
 }
 
 // Export paths for tests to use instead of hardcoded homedir() paths
 export const e2ePaths = {
+  get tempDir() {
+    return getTestPaths().tempDir;
+  },
   get testDir() {
     return getTestPaths().testDir;
   },

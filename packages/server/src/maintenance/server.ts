@@ -21,6 +21,7 @@
  * - POST /inspector/close - Disable Chrome DevTools inspector
  * - POST /reload         - Trigger graceful server restart
  */
+import * as fs from "node:fs";
 import * as http from "node:http";
 import * as inspector from "node:inspector";
 
@@ -72,6 +73,8 @@ export function incrementConnectionStat(
 export interface MaintenanceServerOptions {
   /** Port to listen on (default: main port + 1) */
   port: number;
+  /** File to write the actual port to after binding (for test harnesses) */
+  portFile?: string | null;
   /** Host/interface to bind to (default: localhost) */
   host?: string;
   /** Optional: main server reference for status reporting */
@@ -86,7 +89,7 @@ export function startMaintenanceServer(options: MaintenanceServerOptions): {
   stop: () => void;
   server: http.Server;
 } {
-  const { port, host = "localhost", mainServerPort } = options;
+  const { port, portFile, host = "localhost", mainServerPort } = options;
   const startTime = Date.now();
 
   const server = http.createServer(async (req, res) => {
@@ -193,6 +196,12 @@ export function startMaintenanceServer(options: MaintenanceServerOptions): {
     // Get actual port (important when binding to port 0)
     const addr = server.address();
     const actualPort = typeof addr === "object" && addr ? addr.port : port;
+
+    // Write port to file if requested (for test harnesses)
+    if (portFile) {
+      fs.writeFileSync(portFile, String(actualPort));
+    }
+
     console.log(`[Maintenance] Server running at http://${host}:${actualPort}`);
   });
 

@@ -2,9 +2,11 @@
  * Wrapper script to start Vite dev server programmatically.
  * Writes the resolved port to a file for the test harness to read.
  * This is more reliable than parsing stdout.
+ *
+ * Environment variables:
+ * - VITE_PORT_FILE: Path to write the resolved port (required)
  */
 import { writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
@@ -12,7 +14,11 @@ import { createServer } from "vite";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT_FILE = join(tmpdir(), "claude-e2e-remote-port");
+const PORT_FILE = process.env.VITE_PORT_FILE;
+if (!PORT_FILE) {
+  console.error("VITE_PORT_FILE environment variable is required");
+  process.exit(1);
+}
 
 async function main() {
   const clientRoot = join(__dirname, "..");

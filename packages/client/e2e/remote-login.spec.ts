@@ -302,7 +302,7 @@ test.describe("Session Resumption", () => {
     expect(directApiCalls).toEqual([]);
   });
 
-  test.skip("password change invalidates stored session", async ({
+  test("password change invalidates stored session", async ({
     page,
     baseURL,
     remoteClientURL,
@@ -337,12 +337,21 @@ test.describe("Session Resumption", () => {
     // Refresh the page - stored session should now be invalid
     await page.reload();
 
-    // Should show login form (session was invalidated)
-    await expect(page.locator('[data-testid="login-form"]')).toBeVisible({
+    // Should show mode selection (session was invalidated, credentials cleared)
+    // This proves the stored credentials were rejected
+    await expect(
+      page.locator('[data-testid="direct-mode-button"]'),
+    ).toBeVisible({
       timeout: 10000,
     });
 
-    // The old password should NOT work
+    // Navigate to Direct Login to verify auth behavior
+    await goToDirectLogin(page);
+
+    // The wsURL should be pre-filled (connection settings remembered)
+    // Fill in the old password - should fail
+    await page.fill('[data-testid="ws-url-input"]', wsURL);
+    await page.fill('[data-testid="username-input"]', TEST_USERNAME);
     await page.fill('[data-testid="password-input"]', TEST_PASSWORD);
     await page.click('[data-testid="login-button"]');
     await expect(page.locator('[data-testid="login-error"]')).toBeVisible({

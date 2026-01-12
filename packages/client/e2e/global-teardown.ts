@@ -1,98 +1,83 @@
 import { existsSync, readFileSync, rmSync, unlinkSync } from "node:fs";
-import { homedir, hostname, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const PORT_FILE = join(tmpdir(), "claude-e2e-port");
-const PID_FILE = join(tmpdir(), "claude-e2e-pid");
-const REMOTE_CLIENT_PORT_FILE = join(tmpdir(), "claude-e2e-remote-port");
-const REMOTE_CLIENT_PID_FILE = join(tmpdir(), "claude-e2e-remote-pid");
-const RELAY_PORT_FILE = join(tmpdir(), "claude-e2e-relay-port");
-const RELAY_PID_FILE = join(tmpdir(), "claude-e2e-relay-pid");
+// Session file stores the path to the unique temp directory for this test run
+const SESSION_FILE = join(tmpdir(), "claude-e2e-session");
 
 export default async function globalTeardown() {
-  // Kill the server process
-  if (existsSync(PID_FILE)) {
-    const pid = Number.parseInt(readFileSync(PID_FILE, "utf-8"), 10);
+  // Read the session file to find our temp directory
+  if (!existsSync(SESSION_FILE)) {
+    console.log("[E2E] No session file found, nothing to clean up");
+    return;
+  }
+
+  const tempDir = readFileSync(SESSION_FILE, "utf-8").trim();
+  if (!tempDir || !existsSync(tempDir)) {
+    console.log("[E2E] Temp directory not found, cleaning up session file");
+    unlinkSync(SESSION_FILE);
+    return;
+  }
+
+  console.log(`[E2E] Cleaning up temp directory: ${tempDir}`);
+
+  // Read paths from the temp directory
+  const pathsFile = join(tempDir, "paths.json");
+  let paths: {
+    pidFile?: string;
+    remoteClientPidFile?: string;
+    relayPidFile?: string;
+  } = {};
+
+  if (existsSync(pathsFile)) {
     try {
-      // Kill the process group (negative PID kills the group)
-      process.kill(-pid, "SIGTERM");
-      console.log(`[E2E] Killed server process group ${pid}`);
-    } catch (err) {
-      // Process may already be dead
-      if ((err as NodeJS.ErrnoException).code !== "ESRCH") {
-        console.error("[E2E] Error killing server:", err);
+      paths = JSON.parse(readFileSync(pathsFile, "utf-8"));
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  // Kill processes using PID files
+  const pidFiles = [
+    { file: paths.pidFile ?? join(tempDir, "pid"), name: "server" },
+    {
+      file: paths.remoteClientPidFile ?? join(tempDir, "remote-pid"),
+      name: "remote client",
+    },
+    {
+      file: paths.relayPidFile ?? join(tempDir, "relay-pid"),
+      name: "relay server",
+    },
+  ];
+
+  for (const { file, name } of pidFiles) {
+    if (existsSync(file)) {
+      const pid = Number.parseInt(readFileSync(file, "utf-8"), 10);
+      try {
+        // Kill the process group (negative PID kills the group)
+        process.kill(-pid, "SIGTERM");
+        console.log(`[E2E] Killed ${name} process group ${pid}`);
+      } catch (err) {
+        // Process may already be dead
+        if ((err as NodeJS.ErrnoException).code !== "ESRCH") {
+          console.error(`[E2E] Error killing ${name}:`, err);
+        }
       }
     }
-    unlinkSync(PID_FILE);
   }
 
-  // Clean up port file
-  if (existsSync(PORT_FILE)) {
-    unlinkSync(PORT_FILE);
-  }
-
-  // Kill the remote client process
-  if (existsSync(REMOTE_CLIENT_PID_FILE)) {
-    const pid = Number.parseInt(
-      readFileSync(REMOTE_CLIENT_PID_FILE, "utf-8"),
-      10,
-    );
-    try {
-      process.kill(-pid, "SIGTERM");
-      console.log(`[E2E] Killed remote client process group ${pid}`);
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ESRCH") {
-        console.error("[E2E] Error killing remote client:", err);
-      }
-    }
-    unlinkSync(REMOTE_CLIENT_PID_FILE);
-  }
-
-  // Clean up remote client port file
-  if (existsSync(REMOTE_CLIENT_PORT_FILE)) {
-    unlinkSync(REMOTE_CLIENT_PORT_FILE);
-  }
-
-  // Kill the relay server process
-  if (existsSync(RELAY_PID_FILE)) {
-    const pid = Number.parseInt(readFileSync(RELAY_PID_FILE, "utf-8"), 10);
-    try {
-      process.kill(-pid, "SIGTERM");
-      console.log(`[E2E] Killed relay server process group ${pid}`);
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ESRCH") {
-        console.error("[E2E] Error killing relay server:", err);
-      }
-    }
-    unlinkSync(RELAY_PID_FILE);
-  }
-
-  // Clean up relay port file
-  if (existsSync(RELAY_PORT_FILE)) {
-    unlinkSync(RELAY_PORT_FILE);
-  }
-
-  // Clean up mock project data created by global-setup.ts
-  // This cleans up ~/.claude/projects as a fallback (tests use isolated dirs)
-  const mockProjectPath = join(tmpdir(), "mockproject");
-  const encodedPath = mockProjectPath.replace(/\//g, "-");
-  const mockProjectDir = join(
-    homedir(),
-    ".claude",
-    "projects",
-    hostname(),
-    encodedPath,
-  );
-
+  // Clean up the entire temp directory
   try {
-    rmSync(mockProjectPath, { recursive: true, force: true });
-  } catch {
-    // Ignore cleanup errors
+    rmSync(tempDir, { recursive: true, force: true });
+    console.log(`[E2E] Removed temp directory: ${tempDir}`);
+  } catch (err) {
+    console.error("[E2E] Error removing temp directory:", err);
   }
 
+  // Clean up the session file
   try {
-    rmSync(mockProjectDir, { recursive: true, force: true });
+    unlinkSync(SESSION_FILE);
   } catch {
-    // Ignore cleanup errors
+    // Ignore if already deleted
   }
 }
