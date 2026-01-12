@@ -18,7 +18,7 @@ const CURRENT_VERSION = 1;
 export interface RelayConfig {
   /** Relay server URL (e.g., wss://relay.yepanywhere.com/ws) */
   url: string;
-  /** Username for relay registration (separate from local auth username) */
+  /** Username for relay registration (also used as SRP identity) */
   username: string;
 }
 
@@ -29,8 +29,6 @@ export interface RemoteAccessState {
   enabled: boolean;
   /** SRP credentials (undefined = not configured) */
   credentials?: {
-    /** Username/identity */
-    username: string;
     /** SRP salt (hex string) */
     salt: string;
     /** SRP verifier (hex string) */
@@ -38,7 +36,7 @@ export interface RemoteAccessState {
     /** When credentials were created */
     createdAt: string;
   };
-  /** Relay server configuration (optional) */
+  /** Relay server configuration (required for remote access - username is SRP identity) */
   relay?: RelayConfig;
 }
 
@@ -95,9 +93,10 @@ export class RemoteAccessService {
 
   /**
    * Check if remote access is enabled and configured.
+   * Requires both credentials and relay config (relay username is SRP identity).
    */
   isEnabled(): boolean {
-    return this.state.enabled && !!this.state.credentials;
+    return this.state.enabled && !!this.state.credentials && !!this.state.relay;
   }
 
   /**
@@ -108,10 +107,10 @@ export class RemoteAccessService {
   }
 
   /**
-   * Get the configured username.
+   * Get the configured username (relay username is SRP identity).
    */
   getUsername(): string | null {
-    return this.state.credentials?.username ?? null;
+    return this.state.relay?.username ?? null;
   }
 
   /**
@@ -137,31 +136,30 @@ export class RemoteAccessService {
   }
 
   /**
-   * Configure remote access with username and password.
+   * Configure remote access with password.
+   * Uses relay username as SRP identity (must configure relay first).
    * Generates and stores the SRP verifier (never stores the password).
    */
-  async configure(username: string, password: string): Promise<void> {
-    // Validate username
-    if (!username || username.length < 3) {
-      throw new Error("Username must be at least 3 characters");
-    }
-    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+  async configure(password: string): Promise<void> {
+    // Require relay to be configured first (relay username is SRP identity)
+    if (!this.state.relay) {
       throw new Error(
-        "Username can only contain letters, numbers, underscores, and hyphens",
+        "Must configure relay first (relay username is used for authentication)",
       );
     }
+
+    const username = this.state.relay.username;
 
     // Validate password
     if (!password || password.length < 8) {
       throw new Error("Password must be at least 8 characters");
     }
 
-    // Generate SRP verifier
+    // Generate SRP verifier using relay username as identity
     const { salt, verifier } = await generateVerifier(username, password);
 
     this.state.enabled = true;
     this.state.credentials = {
-      username,
       salt,
       verifier,
       createdAt: new Date().toISOString(),

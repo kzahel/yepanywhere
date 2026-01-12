@@ -21,8 +21,8 @@ import {
 } from "./fixtures.js";
 
 // Test credentials
+// Relay username is also used as SRP identity
 const TEST_RELAY_USERNAME = "e2e-relay-test";
-const TEST_SRP_USERNAME = "relay-test-user";
 const TEST_SRP_PASSWORD = "relay-test-password-123";
 
 /**
@@ -36,15 +36,11 @@ async function goToRelayLogin(page: import("@playwright/test").Page) {
 test.describe("Full Relay Integration", () => {
   test.beforeEach(async ({ baseURL, relayWsURL, page }) => {
     // Configure remote access with test credentials
+    // This configures relay (with username as SRP identity) and sets the password
     await configureRemoteAccess(baseURL, {
-      username: TEST_SRP_USERNAME,
-      password: TEST_SRP_PASSWORD,
-    });
-
-    // Configure relay connection on yepanywhere server
-    await configureRelay(baseURL, {
-      url: relayWsURL,
       username: TEST_RELAY_USERNAME,
+      password: TEST_SRP_PASSWORD,
+      relayUrl: relayWsURL,
     });
 
     // Wait for relay client to connect and register
@@ -70,12 +66,11 @@ test.describe("Full Relay Integration", () => {
     await page.goto(remoteClientURL);
     await goToRelayLogin(page);
 
-    // Fill in relay login form
+    // Fill in relay login form (username is both relay ID and SRP identity)
     await page.fill(
       '[data-testid="relay-username-input"]',
       TEST_RELAY_USERNAME,
     );
-    await page.fill('[data-testid="srp-username-input"]', TEST_SRP_USERNAME);
     await page.fill('[data-testid="srp-password-input"]', TEST_SRP_PASSWORD);
 
     // Show advanced options to set custom relay URL (local test relay)
@@ -126,7 +121,6 @@ test.describe("Full Relay Integration", () => {
       '[data-testid="relay-username-input"]',
       TEST_RELAY_USERNAME,
     );
-    await page.fill('[data-testid="srp-username-input"]', TEST_SRP_USERNAME);
     await page.fill('[data-testid="srp-password-input"]', TEST_SRP_PASSWORD);
 
     // Ensure "Remember me" is checked
@@ -220,12 +214,11 @@ test.describe("Full Relay Integration", () => {
     await page.goto(remoteClientURL);
     await goToRelayLogin(page);
 
-    // Fill in relay login form
+    // Fill in relay login form (username is both relay ID and SRP identity)
     await page.fill(
       '[data-testid="relay-username-input"]',
       TEST_RELAY_USERNAME,
     );
-    await page.fill('[data-testid="srp-username-input"]', TEST_SRP_USERNAME);
     await page.fill('[data-testid="srp-password-input"]', TEST_SRP_PASSWORD);
 
     // Show advanced options to set custom relay URL
@@ -258,7 +251,6 @@ test.describe("Full Relay Integration", () => {
       '[data-testid="relay-username-input"]',
       TEST_RELAY_USERNAME,
     );
-    await page.fill('[data-testid="srp-username-input"]', TEST_SRP_USERNAME);
     await page.fill('[data-testid="srp-password-input"]', "wrong-password");
 
     // Show advanced options to set custom relay URL
@@ -296,7 +288,6 @@ test.describe("Full Relay Integration", () => {
 
     // Try to connect to unregistered username
     await page.fill('[data-testid="relay-username-input"]', "nonexistent-user");
-    await page.fill('[data-testid="srp-username-input"]', TEST_SRP_USERNAME);
     await page.fill('[data-testid="srp-password-input"]', TEST_SRP_PASSWORD);
 
     // Show advanced options to set custom relay URL

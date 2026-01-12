@@ -102,9 +102,14 @@ describe("Secure WebSocket Transport E2E", () => {
     eventBus = new EventBus();
 
     // Set up remote access with test credentials
+    // First configure relay (relay username is used as SRP identity)
     remoteAccessService = new RemoteAccessService({ dataDir });
     await remoteAccessService.initialize();
-    await remoteAccessService.configure(TEST_USERNAME, TEST_PASSWORD);
+    await remoteAccessService.setRelayConfig({
+      url: "wss://test-relay.example.com/ws",
+      username: TEST_USERNAME,
+    });
+    await remoteAccessService.configure(TEST_PASSWORD);
 
     // Create the app
     const { app, supervisor } = createApp({

@@ -23,9 +23,8 @@ type ConnectionStatus =
 export function RelayLoginPage() {
   const { connectViaRelay, isAutoResuming } = useRemoteConnection();
 
-  // Form state
+  // Form state - relay username is also used as SRP identity
   const [relayUsername, setRelayUsername] = useState("");
-  const [srpUsername, setSrpUsername] = useState("");
   const [srpPassword, setSrpPassword] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customRelayUrl, setCustomRelayUrl] = useState("");
@@ -58,11 +57,6 @@ export function RelayLoginPage() {
 
     // Validate inputs
     if (!relayUsername.trim()) {
-      setError("Relay username is required");
-      return;
-    }
-
-    if (!srpUsername.trim()) {
       setError("Username is required");
       return;
     }
@@ -73,12 +67,14 @@ export function RelayLoginPage() {
     }
 
     const relayUrl = customRelayUrl.trim() || DEFAULT_RELAY_URL;
+    const username = relayUsername.trim().toLowerCase();
 
     try {
       await connectViaRelay({
         relayUrl,
-        relayUsername: relayUsername.trim().toLowerCase(),
-        srpUsername: srpUsername.trim(),
+        relayUsername: username,
+        // Use relay username as SRP identity
+        srpUsername: username,
         srpPassword,
         rememberMe,
         onStatusChange: setStatus,
@@ -112,7 +108,7 @@ export function RelayLoginPage() {
           data-testid="relay-login-form"
         >
           <div className="login-field">
-            <label htmlFor="relayUsername">Relay Username</label>
+            <label htmlFor="relayUsername">Username</label>
             <input
               id="relayUsername"
               type="text"
@@ -120,27 +116,13 @@ export function RelayLoginPage() {
               onChange={(e) => setRelayUsername(e.target.value)}
               placeholder="e.g., my-server"
               disabled={isConnecting}
-              autoComplete="off"
+              autoComplete="username"
               autoCapitalize="none"
               data-testid="relay-username-input"
             />
             <p className="login-field-hint">
-              The name your server registered with the relay
+              The username you configured on your server
             </p>
-          </div>
-
-          <div className="login-field">
-            <label htmlFor="srpUsername">Username</label>
-            <input
-              id="srpUsername"
-              type="text"
-              value={srpUsername}
-              onChange={(e) => setSrpUsername(e.target.value)}
-              placeholder="Enter username"
-              disabled={isConnecting}
-              autoComplete="username"
-              data-testid="srp-username-input"
-            />
           </div>
 
           <div className="login-field">
@@ -246,9 +228,12 @@ function formatRelayError(message: string): string {
     return "Server is not connected to the relay. Make sure your server is running and has relay enabled.";
   }
   if (message.includes("unknown_username")) {
-    return "No server found with that relay username. Check the username and try again.";
+    return "No server found with that username. Check the username and try again.";
   }
-  if (message.includes("Authentication failed")) {
+  if (
+    message.includes("Authentication failed") ||
+    message.includes("invalid_identity")
+  ) {
     return "Invalid username or password. Check your credentials and try again.";
   }
   return message;

@@ -93,27 +93,50 @@ export const e2ePaths = {
 
 /**
  * Helper to configure remote access for tests.
- * Uses the REST API to set up SRP credentials.
+ * Uses the REST API to set up relay config and SRP credentials.
+ * Relay username is used as the SRP identity.
  */
 export interface RemoteAccessConfig {
+  /** Username for relay and SRP identity */
   username: string;
+  /** Password for SRP authentication */
   password: string;
+  /** Optional relay URL (defaults to wss://relay.yepanywhere.com/ws) */
+  relayUrl?: string;
 }
 
 export async function configureRemoteAccess(
   baseURL: string,
   config: RemoteAccessConfig,
 ): Promise<void> {
-  const response = await fetch(`${baseURL}/api/remote-access/configure`, {
+  // First configure relay (username is used as SRP identity)
+  const relayResponse = await fetch(`${baseURL}/api/remote-access/relay`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Yep-Anywhere": "true",
+    },
+    body: JSON.stringify({
+      url: config.relayUrl ?? "wss://relay.yepanywhere.com/ws",
+      username: config.username,
+    }),
+  });
+  if (!relayResponse.ok) {
+    const error = await relayResponse.text();
+    throw new Error(`Failed to configure relay: ${error}`);
+  }
+
+  // Then configure password
+  const configResponse = await fetch(`${baseURL}/api/remote-access/configure`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Yep-Anywhere": "true", // Required by security middleware
+      "X-Yep-Anywhere": "true",
     },
-    body: JSON.stringify(config),
+    body: JSON.stringify({ password: config.password }),
   });
-  if (!response.ok) {
-    const error = await response.text();
+  if (!configResponse.ok) {
+    const error = await configResponse.text();
     throw new Error(`Failed to configure remote access: ${error}`);
   }
 }

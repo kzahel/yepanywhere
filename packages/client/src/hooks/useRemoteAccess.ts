@@ -33,8 +33,8 @@ interface UseRemoteAccessResult {
   loading: boolean;
   /** Error message if any */
   error: string | null;
-  /** Enable remote access with username and password */
-  enable: (username: string, password: string) => Promise<void>;
+  /** Enable remote access with password (relay must be configured first) */
+  enable: (password: string) => Promise<void>;
   /** Disable remote access */
   disable: () => Promise<void>;
   /** Clear credentials without disabling */
@@ -74,11 +74,11 @@ export function useRemoteAccess(): UseRemoteAccessResult {
   }, [refresh]);
 
   const enable = useCallback(
-    async (username: string, password: string) => {
+    async (password: string) => {
       try {
         await fetchJSON("/remote-access/configure", {
           method: "POST",
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ password }),
         });
         await refresh();
       } catch (err) {

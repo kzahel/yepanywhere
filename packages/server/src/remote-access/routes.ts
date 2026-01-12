@@ -39,47 +39,38 @@ export function createRemoteAccessRoutes(
 
   /**
    * POST /api/remote-access/configure
-   * Configure remote access with username and password.
-   * Body: { username: string, password: string }
+   * Configure remote access with password.
+   * Relay must be configured first (relay username is used as SRP identity).
+   * Body: { password: string }
    */
   app.post("/configure", async (c) => {
     try {
-      const body = await c.req.json<{ username: string; password: string }>();
+      const body = await c.req.json<{ password: string }>();
 
-      if (!body.username || !body.password) {
-        return c.json({ error: "Username and password are required" }, 400);
+      if (!body.password) {
+        return c.json({ error: "Password is required" }, 400);
       }
 
       // Get existing username before changing (to invalidate their sessions)
       const existingUsername = remoteAccessService.getUsername();
 
-      await remoteAccessService.configure(body.username, body.password);
+      await remoteAccessService.configure(body.password);
 
-      // Invalidate all sessions for the old and new username
-      // (handles both password change and username change scenarios)
-      if (remoteSessionService) {
-        if (existingUsername) {
-          const count =
-            await remoteSessionService.invalidateUserSessions(existingUsername);
-          if (count > 0) {
-            console.log(
-              `[RemoteAccess] Invalidated ${count} sessions for ${existingUsername}`,
-            );
-          }
-        }
-        if (body.username !== existingUsername) {
-          const count = await remoteSessionService.invalidateUserSessions(
-            body.username,
+      // Get the username (relay username) that was used
+      const newUsername = remoteAccessService.getUsername();
+
+      // Invalidate all sessions for the username (password changed)
+      if (remoteSessionService && existingUsername) {
+        const count =
+          await remoteSessionService.invalidateUserSessions(existingUsername);
+        if (count > 0) {
+          console.log(
+            `[RemoteAccess] Invalidated ${count} sessions for ${existingUsername}`,
           );
-          if (count > 0) {
-            console.log(
-              `[RemoteAccess] Invalidated ${count} sessions for ${body.username}`,
-            );
-          }
         }
       }
 
-      return c.json({ success: true, username: body.username });
+      return c.json({ success: true, username: newUsername });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to configure";

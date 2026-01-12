@@ -244,7 +244,7 @@ test.describe("Secure WebSocket Transport E2E", () => {
 
 test.describe("Remote Access Configuration", () => {
   test("can enable and disable remote access via API", async ({ baseURL }) => {
-    // Configure
+    // Configure (this sets relay config + password)
     await configureRemoteAccess(baseURL, {
       username: "apitest",
       password: "securepass123",
@@ -256,25 +256,32 @@ test.describe("Remote Access Configuration", () => {
     expect(config.enabled).toBe(true);
     expect(config.username).toBe("apitest");
 
-    // Disable
+    // Disable (clears credentials but not relay config)
     await disableRemoteAccess(baseURL);
 
-    // Check again
+    // Check again - enabled is false but username remains (from relay config)
     const configResponse2 = await fetch(`${baseURL}/api/remote-access/config`);
     const config2 = await configResponse2.json();
     expect(config2.enabled).toBe(false);
-    expect(config2.username).toBe(null);
+    // Username still comes from relay config (not cleared by disable)
+    expect(config2.username).toBe("apitest");
   });
 
-  test("validates username requirements", async ({ baseURL }) => {
+  test("validates username requirements (via relay config)", async ({
+    baseURL,
+  }) => {
+    // Username validation is now done in relay config (username is SRP identity)
     // Too short
-    const response = await fetch(`${baseURL}/api/remote-access/configure`, {
-      method: "POST",
+    const response = await fetch(`${baseURL}/api/remote-access/relay`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
         "X-Yep-Anywhere": "true",
       },
-      body: JSON.stringify({ username: "ab", password: "password123" }),
+      body: JSON.stringify({
+        url: "wss://relay.example.com/ws",
+        username: "ab",
+      }),
     });
     expect(response.ok).toBe(false);
     const error = await response.json();
@@ -282,18 +289,55 @@ test.describe("Remote Access Configuration", () => {
   });
 
   test("validates password requirements", async ({ baseURL }) => {
-    // Too short
+    // First configure relay (required before setting password)
+    const relayResponse = await fetch(`${baseURL}/api/remote-access/relay`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Yep-Anywhere": "true",
+      },
+      body: JSON.stringify({
+        url: "wss://relay.example.com/ws",
+        username: "testuser",
+      }),
+    });
+    expect(relayResponse.ok).toBe(true);
+
+    // Now try to configure with a password that's too short
     const response = await fetch(`${baseURL}/api/remote-access/configure`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Yep-Anywhere": "true",
       },
-      body: JSON.stringify({ username: "testuser", password: "short" }),
+      body: JSON.stringify({ password: "short" }),
     });
     expect(response.ok).toBe(false);
     const error = await response.json();
     expect(error.error).toContain("8 characters");
+  });
+
+  test("requires relay config before setting password", async ({ baseURL }) => {
+    // Clear any existing relay config first
+    await fetch(`${baseURL}/api/remote-access/relay`, {
+      method: "DELETE",
+      headers: {
+        "X-Yep-Anywhere": "true",
+      },
+    });
+
+    // Try to configure password without relay
+    const response = await fetch(`${baseURL}/api/remote-access/configure`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Yep-Anywhere": "true",
+      },
+      body: JSON.stringify({ password: "validpassword123" }),
+    });
+    expect(response.ok).toBe(false);
+    const error = await response.json();
+    expect(error.error).toContain("relay");
   });
 });
 
