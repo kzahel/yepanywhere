@@ -245,6 +245,7 @@ export class GeminiProvider implements AgentProvider {
     signal: AbortSignal,
     options: StartSessionOptions,
   ): AsyncIterableIterator<SDKMessage> {
+    console.log("[GeminiProvider] Starting NON-ACP session (stream-json mode)");
     const geminiPath = this.findGeminiPath();
     if (!geminiPath) {
       yield {

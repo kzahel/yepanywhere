@@ -281,6 +281,8 @@ export class GeminiACPProvider implements AgentProvider {
     if (options.model && options.model !== "auto") {
       args.push("--model", options.model);
     }
+    // Note: Session resumption is handled via ACP protocol (session/resume),
+    // not CLI flags. The --resume flag doesn't work with ACP mode.
 
     // Collect session updates to convert to SDKMessages
     const updateQueue: SessionNotification[] = [];
@@ -312,21 +314,49 @@ export class GeminiACPProvider implements AgentProvider {
 
     try {
       // Connect to the ACP agent
+      const connectStart = Date.now();
       await client.connect({
         command: geminiPath,
         args,
         cwd: options.cwd,
       });
+      this.log.info(
+        { durationMs: Date.now() - connectStart },
+        "Gemini ACP connected (--experimental-acp mode)",
+      );
 
+      const initStart = Date.now();
       await client.initialize({});
+      this.log.debug(
+        { durationMs: Date.now() - initStart },
+        "Gemini ACP initialized",
+      );
 
-      // Create or load session
+      // Create or resume session with the ACP server.
+      // Use session/resume for existing sessions, session/new for fresh sessions.
       let sessionId: string;
       if (options.resumeSessionId) {
-        await client.loadSession(options.resumeSessionId, options.cwd);
-        sessionId = options.resumeSessionId;
+        try {
+          sessionId = await client.resumeSession(
+            options.resumeSessionId,
+            options.cwd,
+          );
+          this.log.debug({ sessionId }, "ACP session resumed");
+        } catch (resumeErr) {
+          // If resume fails, fall back to creating a new session
+          this.log.warn(
+            { err: resumeErr, resumeSessionId: options.resumeSessionId },
+            "Failed to resume ACP session, creating new session",
+          );
+          sessionId = await client.newSession(options.cwd);
+          this.log.debug(
+            { sessionId, originalSessionId: options.resumeSessionId },
+            "Created new ACP session (resume failed)",
+          );
+        }
       } else {
         sessionId = await client.newSession(options.cwd);
+        this.log.debug({ sessionId }, "ACP session created");
       }
 
       // Emit init message
@@ -363,6 +393,11 @@ export class GeminiACPProvider implements AgentProvider {
 
         // Send prompt to agent (this blocks until agent responds)
         // Updates are collected via callback during this time
+        const promptStart = Date.now();
+        this.log.debug(
+          { textLength: userText.length },
+          "Sending prompt to Gemini",
+        );
         const promptPromise = client.prompt(sessionId, userText);
 
         // Yield updates from the async generator
@@ -374,6 +409,10 @@ export class GeminiACPProvider implements AgentProvider {
         )) {
           yield msg;
         }
+        this.log.debug(
+          { durationMs: Date.now() - promptStart },
+          "Gemini prompt complete",
+        );
 
         // Emit result for this turn
         yield {

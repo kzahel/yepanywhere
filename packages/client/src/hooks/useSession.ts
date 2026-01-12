@@ -762,6 +762,15 @@ export function useSession(
         };
         if (changeData.newSessionId && changeData.newSessionId !== sessionId) {
           setActualSessionId(changeData.newSessionId);
+          // Also update pendingInputRequest.sessionId if it matches the old ID
+          // This prevents approval panel from hiding due to ID mismatch after
+          // the temp→real transition
+          setPendingInputRequest((prev) => {
+            if (prev && prev.sessionId === changeData.oldSessionId) {
+              return { ...prev, sessionId: changeData.newSessionId };
+            }
+            return prev;
+          });
         }
       }
     },

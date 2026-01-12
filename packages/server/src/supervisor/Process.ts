@@ -1120,6 +1120,18 @@ export class Process {
   }
 
   private emit(event: ProcessEvent): void {
+    if (event.type === "state-change") {
+      getLogger().info(
+        {
+          component: "process",
+          sessionId: this._sessionId,
+          eventType: "state-change",
+          listenerCount: this.listeners.size,
+          newState: event.state.type,
+        },
+        `Emitting state-change to ${this.listeners.size} listeners`,
+      );
+    }
     for (const listener of this.listeners) {
       try {
         listener(event);

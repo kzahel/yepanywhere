@@ -139,6 +139,16 @@ export function createStreamRoutes(deps: StreamDeps): Hono {
             }
 
             case "state-change":
+              log.info(
+                {
+                  component: "sse-stream",
+                  sessionId,
+                  eventType: "state-change",
+                  newState: event.state.type,
+                  hasRequest: event.state.type === "waiting-input",
+                },
+                "Sending SSE status event",
+              );
               await stream.writeSSE({
                 id: String(eventId++),
                 event: "status",
@@ -218,6 +228,17 @@ export function createStreamRoutes(deps: StreamDeps): Hono {
       // Now that we're subscribed, capture current state and send "connected" event
       // Any state changes after this point will be received by the subscriber above
       const currentState = process.state;
+      log.info(
+        {
+          component: "sse-stream",
+          sessionId,
+          eventType: "connected",
+          currentState: currentState.type,
+          hasRequest:
+            currentState.type === "waiting-input" && !!currentState.request,
+        },
+        "Sending SSE connected event",
+      );
       await stream.writeSSE({
         id: String(eventId++),
         event: "connected",

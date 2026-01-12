@@ -214,6 +214,7 @@ export class ACPClient {
 
   /**
    * Load an existing session by ID.
+   * Note: This uses session/load which may not be supported by all agents.
    */
   async loadSession(sessionId: string, cwd: string): Promise<void> {
     if (!this.connection) {
@@ -226,6 +227,28 @@ export class ACPClient {
       sessionId,
       cwd,
     });
+  }
+
+  /**
+   * Resume an existing session by ID.
+   * Uses the unstable session/resume method which may be supported even when
+   * session/load is not.
+   */
+  async resumeSession(sessionId: string, cwd: string): Promise<string> {
+    if (!this.connection) {
+      throw new Error("ACPClient not connected. Call connect() first.");
+    }
+
+    this.log.debug({ sessionId, cwd }, "Resuming existing ACP session");
+
+    const result = await this.connection.unstable_resumeSession({
+      sessionId,
+      cwd,
+      mcpServers: [],
+    });
+
+    this.log.debug({ result }, "ACP session resumed");
+    return sessionId;
   }
 
   /**

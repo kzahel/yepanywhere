@@ -75,6 +75,10 @@ export function getAllProviders(): AgentProvider[] {
 
 /**
  * Get a provider by name.
+ *
+ * Note: "gemini" maps to geminiACPProvider (ACP mode) since it's the better
+ * implementation with proper permission handling. The non-ACP stream-json
+ * provider is deprecated and will be removed.
  */
 export function getProvider(name: ProviderName): AgentProvider | null {
   switch (name) {
@@ -85,8 +89,8 @@ export function getProvider(name: ProviderName): AgentProvider | null {
     case "codex-oss":
       return codexOSSProvider;
     case "gemini":
-      return geminiProvider;
     case "gemini-acp":
+      // Both map to ACP provider - "gemini" is legacy name for backward compatibility
       return geminiACPProvider;
     case "opencode":
       return opencodeProvider;
