@@ -131,11 +131,15 @@ server.on("upgrade", (request, socket, head) => {
 
 // Start the server
 server.listen(config.port, () => {
+  // Get the actual port (important when binding to port 0)
+  const address = server.address();
+  const actualPort =
+    typeof address === "object" && address ? address.port : config.port;
   logger.info(
-    { port: config.port },
-    `Relay server listening on http://localhost:${config.port}`,
+    { port: actualPort },
+    `Relay server listening on http://localhost:${actualPort}`,
   );
-  logger.info(`WebSocket endpoint: ws://localhost:${config.port}/ws`);
+  logger.info(`WebSocket endpoint: ws://localhost:${actualPort}/ws`);
 });
 
 // Graceful shutdown

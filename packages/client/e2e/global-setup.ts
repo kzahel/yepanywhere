@@ -19,6 +19,8 @@ const MAINTENANCE_PORT_FILE = join(tmpdir(), "claude-e2e-maintenance-port");
 const PID_FILE = join(tmpdir(), "claude-e2e-pid");
 const REMOTE_CLIENT_PORT_FILE = join(tmpdir(), "claude-e2e-remote-port");
 const REMOTE_CLIENT_PID_FILE = join(tmpdir(), "claude-e2e-remote-pid");
+const RELAY_PORT_FILE = join(tmpdir(), "claude-e2e-relay-port");
+const RELAY_PID_FILE = join(tmpdir(), "claude-e2e-relay-pid");
 
 // Isolated test directories to avoid polluting real ~/.claude, ~/.codex, ~/.gemini
 const E2E_TEST_DIR = join(tmpdir(), "claude-e2e-sessions");
@@ -44,6 +46,8 @@ export default async function globalSetup() {
     PID_FILE,
     REMOTE_CLIENT_PORT_FILE,
     REMOTE_CLIENT_PID_FILE,
+    RELAY_PORT_FILE,
+    RELAY_PID_FILE,
   ]) {
     if (existsSync(file)) {
       unlinkSync(file);
@@ -92,6 +96,80 @@ export default async function globalSetup() {
     cwd: repoRoot,
     stdio: "inherit",
   });
+
+  // Start relay server for relay integration tests
+  // Use isolated data dir to avoid polluting real ~/.yep-relay/
+  const relayDataDir = join(E2E_TEST_DIR, "relay");
+  mkdirSync(relayDataDir, { recursive: true });
+
+  console.log("[E2E] Starting relay server...");
+  const relayRoot = join(repoRoot, "packages", "relay");
+  const relayProcess = spawn(
+    "pnpm",
+    ["exec", "tsx", "--conditions", "source", "src/index.ts"],
+    {
+      cwd: relayRoot,
+      env: {
+        ...process.env,
+        RELAY_PORT: "0", // Auto-assign port
+        RELAY_DATA_DIR: relayDataDir,
+        RELAY_LOG_LEVEL: "info", // Need info level to see startup message
+        RELAY_LOG_TO_FILE: "false", // Don't write log files during tests
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+    },
+  );
+
+  if (relayProcess.pid) {
+    writeFileSync(RELAY_PID_FILE, String(relayProcess.pid));
+  }
+
+  // Wait for relay server to output its port
+  const relayPort = await new Promise<number>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error("Timeout waiting for relay server (30s)")),
+      30000,
+    );
+    let output = "";
+    relayProcess.stdout?.on("data", (data: Buffer) => {
+      output += data.toString();
+      // Look for "Relay server listening on http://localhost:XXXX"
+      // Strip ANSI escape codes before matching
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: Required for stripping ANSI codes
+      const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, "");
+      const match = cleanOutput.match(
+        /Relay server listening on http:\/\/localhost:(\d+)/,
+      );
+      if (match) {
+        clearTimeout(timeout);
+        resolve(Number.parseInt(match[1], 10));
+      }
+    });
+
+    relayProcess.stderr?.on("data", (data: Buffer) => {
+      const msg = data.toString();
+      if (!msg.includes("ExperimentalWarning")) {
+        console.error("[E2E Relay]", msg);
+      }
+    });
+
+    relayProcess.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+
+    relayProcess.on("exit", (code) => {
+      if (code !== 0 && code !== null) {
+        clearTimeout(timeout);
+        reject(new Error(`Relay server exited with code ${code}`));
+      }
+    });
+  });
+
+  writeFileSync(RELAY_PORT_FILE, String(relayPort));
+  console.log(`[E2E] Relay server on port ${relayPort}`);
+  relayProcess.unref();
 
   // Start server with PORT=0 for auto-assignment, serving built assets
   // Pass isolated session directories via env vars
@@ -285,4 +363,6 @@ export {
   PID_FILE,
   REMOTE_CLIENT_PORT_FILE,
   REMOTE_CLIENT_PID_FILE,
+  RELAY_PORT_FILE,
+  RELAY_PID_FILE,
 };

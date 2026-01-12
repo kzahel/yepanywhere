@@ -31,7 +31,10 @@ import {
   RemoteSessionService,
 } from "./remote-access/index.js";
 import { createUploadRoutes } from "./routes/upload.js";
-import { createWsRelayRoutes } from "./routes/ws-relay.js";
+import {
+  createAcceptRelayConnection,
+  createWsRelayRoutes,
+} from "./routes/ws-relay.js";
 import {
   type MockScenario as LegacyMockScenario,
   MockClaudeSDK,
@@ -47,6 +50,7 @@ import {
   type MockScenario,
 } from "./sdk/providers/__mocks__/index.js";
 import type { ProviderName } from "./sdk/providers/types.js";
+import { InstallService, RelayClientService } from "./services/index.js";
 import { ClaudeSessionReader } from "./sessions/reader.js";
 import { setupMockProjects } from "./testing/mockProjectData.js";
 import { UploadManager } from "./uploads/manager.js";
@@ -204,6 +208,15 @@ const remoteSessionService = new RemoteSessionService({
   dataDir: config.dataDir,
 });
 
+// Create InstallService and RelayClientService for relay server integration
+const installService = new InstallService({
+  dataDir: config.dataDir,
+});
+const relayClientService = new RelayClientService();
+
+// Callback holder for relay config changes - will be set after app creation
+const relayConfigCallbackHolder: { callback?: () => Promise<void> } = {};
+
 // Create frontend proxy or static routes depending on configuration
 // If VITE_PORT=0 and CLIENT_DIST_PATH exists, serve static files
 // Otherwise, proxy to Vite dev server
@@ -242,6 +255,8 @@ const {
   idleTimeoutMs: 60000, // 1 minute for testing
   eventBus,
   remoteAccessService,
+  relayClientService,
+  relayConfigCallbackHolder,
   // Note: upgradeWebSocket and frontendProxy not passed - will be added below
 });
 
@@ -282,6 +297,18 @@ const wsRelayHandler = createWsRelayRoutes({
   remoteSessionService,
 });
 app.get("/api/ws", wsRelayHandler);
+
+// Create relay connection handler for connections from relay server
+// This accepts WebSocket connections that have already been upgraded at the relay
+const acceptRelayConnection = createAcceptRelayConnection({
+  app,
+  baseUrl: `http://localhost:${config.port}`,
+  supervisor,
+  eventBus,
+  uploadManager: wsRelayUploadManager,
+  remoteAccessService,
+  remoteSessionService,
+});
 
 // Add mock auth status endpoint (auth disabled for testing)
 app.get("/api/auth/status", (c) => {
@@ -341,11 +368,37 @@ if (useStaticFiles) {
   });
 }
 
+// Function to start/restart relay client with current config
+async function updateRelayConnection() {
+  const relayConfig = remoteAccessService.getRelayConfig();
+  if (relayConfig?.url && relayConfig?.username) {
+    const installId = installService.getInstallId();
+    relayClientService.start({
+      relayUrl: relayConfig.url,
+      username: relayConfig.username,
+      installId,
+      onRelayConnection: acceptRelayConnection,
+      onStatusChange: (status) => {
+        console.log(`[Relay] Status: ${status}`);
+      },
+    });
+  } else {
+    relayClientService.stop();
+  }
+}
+
+// Wire up the callback for relay config changes from API routes
+relayConfigCallbackHolder.callback = updateRelayConnection;
+
 // Start the server (async to allow service initialization)
 async function startServer() {
-  // Initialize remote access and session services (loads state from disk)
+  // Initialize services (loads state from disk)
   await remoteAccessService.initialize();
   await remoteSessionService.initialize();
+  await installService.initialize();
+
+  // Start relay connection if configured
+  await updateRelayConnection();
 
   const port = config.port;
   const server = serve({ fetch: app.fetch, port }, () => {

@@ -6,6 +6,8 @@ const PORT_FILE = join(tmpdir(), "claude-e2e-port");
 const PID_FILE = join(tmpdir(), "claude-e2e-pid");
 const REMOTE_CLIENT_PORT_FILE = join(tmpdir(), "claude-e2e-remote-port");
 const REMOTE_CLIENT_PID_FILE = join(tmpdir(), "claude-e2e-remote-pid");
+const RELAY_PORT_FILE = join(tmpdir(), "claude-e2e-relay-port");
+const RELAY_PID_FILE = join(tmpdir(), "claude-e2e-relay-pid");
 
 export default async function globalTeardown() {
   // Kill the server process
@@ -49,6 +51,25 @@ export default async function globalTeardown() {
   // Clean up remote client port file
   if (existsSync(REMOTE_CLIENT_PORT_FILE)) {
     unlinkSync(REMOTE_CLIENT_PORT_FILE);
+  }
+
+  // Kill the relay server process
+  if (existsSync(RELAY_PID_FILE)) {
+    const pid = Number.parseInt(readFileSync(RELAY_PID_FILE, "utf-8"), 10);
+    try {
+      process.kill(-pid, "SIGTERM");
+      console.log(`[E2E] Killed relay server process group ${pid}`);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ESRCH") {
+        console.error("[E2E] Error killing relay server:", err);
+      }
+    }
+    unlinkSync(RELAY_PID_FILE);
+  }
+
+  // Clean up relay port file
+  if (existsSync(RELAY_PORT_FILE)) {
+    unlinkSync(RELAY_PORT_FILE);
   }
 
   // Clean up mock project data created by dev-mock.ts setupMockProjects()
