@@ -215,12 +215,65 @@ export interface ServerInfo {
   localhostOnly: boolean;
 }
 
+export interface NetworkInterface {
+  /** Interface name (e.g., "eth0", "wlan0") */
+  name: string;
+  /** IP address */
+  address: string;
+  /** IPv4 or IPv6 */
+  family: "IPv4" | "IPv6";
+  /** Whether this is a loopback/internal interface */
+  internal: boolean;
+  /** Human-readable display name */
+  displayName: string;
+}
+
+export interface NetworkBindingState {
+  localhost: { port: number; overriddenByCli: boolean };
+  network: {
+    enabled: boolean;
+    host: string | null;
+    port: number | null;
+    overriddenByCli: boolean;
+  };
+  interfaces: NetworkInterface[];
+}
+
+export interface UpdateBindingRequest {
+  localhostPort?: number;
+  network?: {
+    enabled: boolean;
+    host?: string;
+    port?: number;
+  };
+}
+
+export interface UpdateBindingResponse {
+  success: boolean;
+  error?: string;
+  redirectUrl?: string;
+}
+
 export const api = {
   // Version API
   getVersion: () => fetchJSON<VersionInfo>("/version"),
 
   // Server info API (host/port binding for Local Access settings)
   getServerInfo: () => fetchJSON<ServerInfo>("/server-info"),
+
+  // Network binding API (runtime port/interface configuration)
+  getNetworkBinding: () => fetchJSON<NetworkBindingState>("/network-binding"),
+
+  setNetworkBinding: (request: UpdateBindingRequest) =>
+    fetchJSON<UpdateBindingResponse>("/network-binding", {
+      method: "PUT",
+      body: JSON.stringify(request),
+    }),
+
+  disableNetworkBinding: () =>
+    fetchJSON<UpdateBindingResponse>("/network-binding", {
+      method: "DELETE",
+    }),
 
   // Provider API
   getProviders: () => fetchJSON<{ providers: ProviderInfo[] }>("/providers"),

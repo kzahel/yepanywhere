@@ -88,6 +88,10 @@ export interface Config {
   authCookieSecret?: string;
   /** Session TTL in milliseconds. Default: 30 days */
   authSessionTtlMs: number;
+  /** Whether port was explicitly set via CLI (prevents runtime changes) */
+  cliPortOverride: boolean;
+  /** Whether host was explicitly set via CLI (prevents runtime changes) */
+  cliHostOverride: boolean;
 }
 
 /**
@@ -176,6 +180,9 @@ export function loadConfig(): Config {
       60 *
       60 *
       1000,
+    // CLI override flags (set by cli.ts when --port or --host are used)
+    cliPortOverride: process.env.CLI_PORT_OVERRIDE === "true",
+    cliHostOverride: process.env.CLI_HOST_OVERRIDE === "true",
   };
 }
 

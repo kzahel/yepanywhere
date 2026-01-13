@@ -39,7 +39,11 @@ import { createAcceptRelayConnection } from "./routes/ws-relay.js";
 import { detectClaudeCli } from "./sdk/cli-detection.js";
 import { initMessageLogger } from "./sdk/messageLogger.js";
 import { RealClaudeSDK } from "./sdk/real.js";
-import { InstallService, RelayClientService } from "./services/index.js";
+import {
+  InstallService,
+  NetworkBindingService,
+  RelayClientService,
+} from "./services/index.js";
 import { ClaudeSessionReader } from "./sessions/reader.js";
 import { UploadManager } from "./uploads/manager.js";
 import { EventBus, FileWatcher, SourceWatcher } from "./watcher/index.js";
@@ -152,6 +156,12 @@ const installService = new InstallService({
   dataDir: config.dataDir,
 });
 const relayClientService = new RelayClientService();
+const networkBindingService = new NetworkBindingService({
+  dataDir: config.dataDir,
+  cliPortOverride: config.cliPortOverride ? config.port : undefined,
+  cliHostOverride: config.cliHostOverride ? config.host : undefined,
+  defaultPort: 3400,
+});
 
 async function startServer() {
   // Initialize services (loads state from disk)
@@ -166,6 +176,7 @@ async function startServer() {
   await authService.initialize();
   await remoteAccessService.initialize();
   await remoteSessionService.initialize();
+  await networkBindingService.initialize();
 
   // Log auth status
   if (config.authDisabled) {
@@ -199,6 +210,19 @@ async function startServer() {
   // Callback holder for relay config changes - will be set after app creation
   const relayConfigCallbackHolder: { callback?: () => Promise<void> } = {};
 
+  // Callback holder for network binding changes - will be set after servers are created
+  const networkBindingCallbackHolder: {
+    onLocalhostPortChange?: (
+      port: number,
+    ) => Promise<{ success: boolean; error?: string; redirectUrl?: string }>;
+    onNetworkBindingChange?: (
+      config: { host: string; port: number } | null,
+    ) => Promise<{ success: boolean; error?: string }>;
+  } = {};
+
+  // Determine effective port for server-info (CLI override or saved setting)
+  const effectiveServerPort = networkBindingService.getLocalhostPort();
+
   // Create the app first (without WebSocket support initially)
   // We'll add WebSocket routes after setting up WebSocket support
   const { app, supervisor, scanner } = createApp({
@@ -223,9 +247,11 @@ async function startServer() {
     relayClientService,
     relayConfigCallbackHolder,
     // Note: frontendProxy not passed - will be added below
-    serverHost: config.host,
-    serverPort: config.port,
+    serverHost: "127.0.0.1", // Always report localhost as main binding
+    serverPort: effectiveServerPort,
     dataDir: config.dataDir,
+    networkBindingService,
+    networkBindingCallbackHolder,
   });
 
   // Set up debug context for maintenance server
@@ -353,36 +379,151 @@ async function startServer() {
     }
   }
 
-  const server = serve(
-    { fetch: app.fetch, port: config.port, hostname: config.host },
-    (info) => {
-      // Write port to file if requested (for test harnesses)
-      if (config.portFile) {
-        fs.writeFileSync(config.portFile, String(info.port));
+  // Determine effective port (CLI override or saved setting or default)
+  const effectivePort = networkBindingService.getLocalhostPort();
+
+  // Track servers for multi-socket management
+  let localhostServer: ReturnType<typeof serve>;
+  let networkServer: ReturnType<typeof serve> | null = null;
+
+  // Helper to create a server with WebSocket support
+  function createServer(
+    port: number,
+    hostname: string,
+    onReady?: (info: { port: number }) => void,
+  ): ReturnType<typeof serve> {
+    const server = serve({ fetch: app.fetch, port, hostname }, onReady);
+    attachUnifiedUpgradeHandler(server, {
+      frontendProxy,
+      isApiPath: (urlPath) => urlPath.startsWith("/api"),
+      app,
+      wss,
+    });
+    return server;
+  }
+
+  // Callback for localhost port changes (test-first pattern)
+  async function onLocalhostPortChange(
+    newPort: number,
+  ): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
+    try {
+      // Test-first: try to bind new port before closing old one
+      const testServer = serve(
+        { fetch: app.fetch, port: newPort, hostname: "127.0.0.1" },
+        () => {},
+      );
+
+      // If we got here, the port is available
+      // Close the test server and the old server
+      testServer.close();
+
+      // Close old localhost server
+      localhostServer.close();
+
+      // Create new localhost server
+      localhostServer = createServer(newPort, "127.0.0.1", (info) => {
+        console.log(
+          `[NetworkBinding] Localhost server restarted on port ${info.port}`,
+        );
+      });
+
+      return {
+        success: true,
+        redirectUrl: `http://127.0.0.1:${newPort}`,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to bind port";
+      console.error(
+        `[NetworkBinding] Failed to bind port ${newPort}:`,
+        message,
+      );
+      return { success: false, error: message };
+    }
+  }
+
+  // Callback for network socket changes
+  async function onNetworkBindingChange(
+    bindConfig: { host: string; port: number } | null,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Close existing network server if running
+      if (networkServer) {
+        networkServer.close();
+        networkServer = null;
+        console.log("[NetworkBinding] Network socket closed");
       }
 
-      console.log(`Server running at http://${config.host}:${info.port}`);
-      console.log(`Projects dir: ${config.claudeProjectsDir}`);
-      console.log(`Permission mode: ${config.defaultPermissionMode}`);
+      // Create new network server if config provided
+      if (bindConfig) {
+        networkServer = createServer(
+          bindConfig.port,
+          bindConfig.host,
+          (info) => {
+            console.log(
+              `[NetworkBinding] Network socket listening on ${bindConfig.host}:${info.port}`,
+            );
+          },
+        );
+      }
 
-      // Notify all connected clients that the backend has restarted
-      // This allows other tabs to clear their "reload needed" banner
-      eventBus.emit({
-        type: "backend-reloaded",
-        timestamp: new Date().toISOString(),
-      });
-    },
-  );
+      return { success: true };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to bind network socket";
+      console.error("[NetworkBinding] Failed to bind network socket:", message);
+      return { success: false, error: message };
+    }
+  }
 
-  // Attach unified WebSocket upgrade handler
-  // This replaces both attachFrontendProxyUpgrade and injectWebSocket to avoid
-  // conflicts where both would try to handle the same upgrade request
-  attachUnifiedUpgradeHandler(server, {
-    frontendProxy,
-    isApiPath: (urlPath) => urlPath.startsWith("/api"),
-    app,
-    wss,
+  // Wire up the callbacks to the holder so routes can use them
+  networkBindingCallbackHolder.onLocalhostPortChange = onLocalhostPortChange;
+  networkBindingCallbackHolder.onNetworkBindingChange = onNetworkBindingChange;
+
+  // Create the main localhost server
+  localhostServer = createServer(effectivePort, "127.0.0.1", (info) => {
+    // Write port to file if requested (for test harnesses)
+    if (config.portFile) {
+      fs.writeFileSync(config.portFile, String(info.port));
+    }
+
+    console.log(`Server running at http://127.0.0.1:${info.port}`);
+    console.log(`Projects dir: ${config.claudeProjectsDir}`);
+    console.log(`Permission mode: ${config.defaultPermissionMode}`);
+
+    // Notify all connected clients that the backend has restarted
+    // This allows other tabs to clear their "reload needed" banner
+    eventBus.emit({
+      type: "backend-reloaded",
+      timestamp: new Date().toISOString(),
+    });
   });
+
+  // Start network socket if enabled in saved settings (and not CLI-overridden)
+  const networkConfig = networkBindingService.getNetworkConfig();
+  if (
+    networkConfig.enabled &&
+    networkConfig.host &&
+    !networkBindingService.isNetworkOverridden()
+  ) {
+    const networkPort = networkConfig.port ?? effectivePort;
+    await onNetworkBindingChange({
+      host: networkConfig.host,
+      port: networkPort,
+    });
+  }
+
+  // If CLI host override was specified (not localhost), also bind to that interface
+  // This handles the case where user runs `yepanywhere --host 0.0.0.0`
+  if (
+    config.cliHostOverride &&
+    config.host !== "127.0.0.1" &&
+    config.host !== "localhost"
+  ) {
+    await onNetworkBindingChange({ host: config.host, port: effectivePort });
+  }
 
   // Start maintenance server on separate port (for out-of-band diagnostics)
   // This runs independently from the main server and can be used to debug
@@ -392,10 +533,13 @@ async function startServer() {
     startMaintenanceServer({
       port: config.maintenancePort < 0 ? 0 : config.maintenancePort,
       portFile: config.maintenancePortFile,
-      host: config.host,
-      mainServerPort: config.port,
+      host: "127.0.0.1", // Maintenance always on localhost
+      mainServerPort: effectivePort,
     });
   }
+
+  // Export callbacks for use by API routes (via app options)
+  return { onLocalhostPortChange, onNetworkBindingChange };
 }
 
 startServer().catch((error) => {

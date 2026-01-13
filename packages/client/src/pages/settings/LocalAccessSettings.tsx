@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useOptionalAuth } from "../../contexts/AuthContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { useDeveloperMode } from "../../hooks/useDeveloperMode";
+import { useNetworkBinding } from "../../hooks/useNetworkBinding";
 import { useServerInfo } from "../../hooks/useServerInfo";
 
 export function LocalAccessSettings() {
@@ -9,6 +10,86 @@ export function LocalAccessSettings() {
   const remoteConnection = useOptionalRemoteConnection();
   const { relayDebugEnabled, setRelayDebugEnabled } = useDeveloperMode();
   const { serverInfo, loading: serverInfoLoading } = useServerInfo();
+  const {
+    binding,
+    loading: bindingLoading,
+    error: bindingError,
+    applying,
+    updateBinding,
+  } = useNetworkBinding();
+
+  // Network binding form state
+  const [localhostPort, setLocalhostPort] = useState<string>("");
+  const [networkEnabled, setNetworkEnabled] = useState(false);
+  const [selectedInterface, setSelectedInterface] = useState<string>("");
+  const [customIp, setCustomIp] = useState("");
+  const [networkPort, setNetworkPort] = useState<string>("");
+  const [bindingFormError, setBindingFormError] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Initialize form from binding state when it loads
+  const [formInitialized, setFormInitialized] = useState(false);
+  if (binding && !formInitialized) {
+    setLocalhostPort(String(binding.localhost.port));
+    setNetworkEnabled(binding.network.enabled);
+    setSelectedInterface(binding.network.host ?? "");
+    setNetworkPort(binding.network.port ? String(binding.network.port) : "");
+    setFormInitialized(true);
+  }
+
+  // Track changes
+  const checkForChanges = (
+    newPort: string,
+    newEnabled: boolean,
+    newInterface: string,
+    newNetworkPort: string,
+  ) => {
+    if (!binding) return false;
+    const portChanged = newPort !== String(binding.localhost.port);
+    const enabledChanged = newEnabled !== binding.network.enabled;
+    const interfaceChanged = newInterface !== (binding.network.host ?? "");
+    const networkPortChanged =
+      newNetworkPort !==
+      (binding.network.port ? String(binding.network.port) : "");
+    return (
+      portChanged || enabledChanged || interfaceChanged || networkPortChanged
+    );
+  };
+
+  const handleApplyBinding = async () => {
+    setBindingFormError(null);
+
+    const portNum = Number.parseInt(localhostPort, 10);
+    if (Number.isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      setBindingFormError("Port must be a number between 1 and 65535");
+      return;
+    }
+
+    const effectiveInterface =
+      selectedInterface === "custom" ? customIp : selectedInterface;
+
+    try {
+      const result = await updateBinding({
+        localhostPort: portNum,
+        network: {
+          enabled: networkEnabled,
+          host: networkEnabled ? effectiveInterface : undefined,
+          port: networkPort ? Number.parseInt(networkPort, 10) : undefined,
+        },
+      });
+
+      if (result.redirectUrl) {
+        // Server changed port, redirect to new URL
+        window.location.href = result.redirectUrl;
+      } else {
+        setHasChanges(false);
+      }
+    } catch (err) {
+      setBindingFormError(
+        err instanceof Error ? err.message : "Failed to apply changes",
+      );
+    }
+  };
 
   // Change password state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -39,49 +120,205 @@ export function LocalAccessSettings() {
           Control how this server is accessed on your local network.
         </p>
 
-        {/* Server binding info */}
+        {/* Network Binding Configuration */}
         <div className="settings-group">
           <div className="settings-item">
             <div className="settings-item-info">
-              <strong>Server Binding</strong>
-              {serverInfoLoading ? (
-                <p>Loading...</p>
-              ) : serverInfo ? (
-                <>
-                  <p>
+              <strong>Localhost Port</strong>
+              <p>Primary port for local access (always bound to 127.0.0.1)</p>
+            </div>
+            {bindingLoading ? (
+              <span>Loading...</span>
+            ) : binding?.localhost.overriddenByCli ? (
+              <span className="settings-value-readonly">
+                {binding.localhost.port}{" "}
+                <span className="settings-hint">(set via --port)</span>
+              </span>
+            ) : (
+              <input
+                type="number"
+                className="settings-input-small"
+                value={localhostPort}
+                onChange={(e) => {
+                  setLocalhostPort(e.target.value);
+                  setHasChanges(
+                    checkForChanges(
+                      e.target.value,
+                      networkEnabled,
+                      selectedInterface,
+                      networkPort,
+                    ),
+                  );
+                }}
+                min={1}
+                max={65535}
+              />
+            )}
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <strong>Network Socket</strong>
+              <p>Allow access from other devices on your network</p>
+            </div>
+            {bindingLoading ? (
+              <span>Loading...</span>
+            ) : binding?.network.overriddenByCli ? (
+              <span className="settings-value-readonly">
+                {binding.network.host}:{binding.network.port}{" "}
+                <span className="settings-hint">(set via --host)</span>
+              </span>
+            ) : (
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={networkEnabled}
+                  onChange={(e) => {
+                    setNetworkEnabled(e.target.checked);
+                    setHasChanges(
+                      checkForChanges(
+                        localhostPort,
+                        e.target.checked,
+                        selectedInterface,
+                        networkPort,
+                      ),
+                    );
+                  }}
+                />
+                <span className="toggle-slider" />
+              </label>
+            )}
+          </div>
+
+          {networkEnabled && !binding?.network.overriddenByCli && binding && (
+            <>
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <strong>Interface</strong>
+                  <p>Select which network interface to bind to</p>
+                </div>
+                <select
+                  className="settings-select"
+                  value={selectedInterface}
+                  onChange={(e) => {
+                    setSelectedInterface(e.target.value);
+                    setHasChanges(
+                      checkForChanges(
+                        localhostPort,
+                        networkEnabled,
+                        e.target.value,
+                        networkPort,
+                      ),
+                    );
+                  }}
+                >
+                  <option value="">Select interface...</option>
+                  {binding.interfaces.map((iface) => (
+                    <option key={iface.address} value={iface.address}>
+                      {iface.displayName}
+                    </option>
+                  ))}
+                  <option value="0.0.0.0">All interfaces (0.0.0.0)</option>
+                  <option value="custom">Custom IP...</option>
+                </select>
+              </div>
+
+              {selectedInterface === "custom" && (
+                <div className="settings-item">
+                  <div className="settings-item-info">
+                    <strong>Custom IP</strong>
+                    <p>Enter the IP address to bind to</p>
+                  </div>
+                  <input
+                    type="text"
+                    className="settings-input"
+                    placeholder="192.168.1.100"
+                    value={customIp}
+                    onChange={(e) => setCustomIp(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="settings-item">
+                <div className="settings-item-info">
+                  <strong>Network Port</strong>
+                  <p>Port for network socket (blank = same as localhost)</p>
+                </div>
+                <input
+                  type="number"
+                  className="settings-input-small"
+                  placeholder={localhostPort}
+                  value={networkPort}
+                  onChange={(e) => {
+                    setNetworkPort(e.target.value);
+                    setHasChanges(
+                      checkForChanges(
+                        localhostPort,
+                        networkEnabled,
+                        selectedInterface,
+                        e.target.value,
+                      ),
+                    );
+                  }}
+                  min={1}
+                  max={65535}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Apply button */}
+          {hasChanges && (
+            <div className="settings-item">
+              {bindingFormError && (
+                <p className="form-error">{bindingFormError}</p>
+              )}
+              <button
+                type="button"
+                className="settings-button"
+                onClick={handleApplyBinding}
+                disabled={applying}
+              >
+                {applying ? "Applying..." : "Apply Changes"}
+              </button>
+            </div>
+          )}
+
+          {/* Current status */}
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <strong>Status</strong>
+              <p>
+                {serverInfoLoading ? (
+                  "Loading..."
+                ) : serverInfo ? (
+                  <>
                     Listening on{" "}
                     <code>
                       {serverInfo.host}:{serverInfo.port}
                     </code>
-                    {serverInfo.localhostOnly && (
-                      <span className="settings-hint">
+                    {binding?.network.enabled && binding.network.host && (
+                      <>
                         {" "}
-                        (localhost only - not accessible from other devices)
-                      </span>
+                        and{" "}
+                        <code>
+                          {binding.network.host}:
+                          {binding.network.port ?? serverInfo.port}
+                        </code>
+                      </>
                     )}
-                    {serverInfo.boundToAllInterfaces && (
-                      <span className="settings-hint">
-                        {" "}
-                        (all interfaces - accessible from other devices on your
-                        network)
-                      </span>
-                    )}
-                  </p>
-                  <p className="form-hint">
-                    Change at startup:{" "}
-                    <code>yepanywhere --host 0.0.0.0 --port 3400</code>
-                  </p>
-                </>
-              ) : (
-                <p>Unable to fetch server info</p>
-              )}
+                  </>
+                ) : (
+                  "Unable to fetch server info"
+                )}
+              </p>
             </div>
-            {serverInfo?.localhostOnly && (
+            {serverInfo?.localhostOnly && !binding?.network.enabled && (
               <span className="settings-status-badge settings-status-detected">
                 Local Only
               </span>
             )}
-            {serverInfo?.boundToAllInterfaces && (
+            {(serverInfo?.boundToAllInterfaces || binding?.network.enabled) && (
               <span className="settings-status-badge settings-status-warning">
                 Network Exposed
               </span>
@@ -90,8 +327,8 @@ export function LocalAccessSettings() {
         </div>
 
         {/* Warning when network-exposed without auth */}
-        {serverInfo &&
-          !serverInfo.localhostOnly &&
+        {((serverInfo && !serverInfo.localhostOnly) ||
+          binding?.network.enabled) &&
           !auth.authEnabled &&
           !auth.authDisabledByEnv && (
             <div className="settings-warning-box">

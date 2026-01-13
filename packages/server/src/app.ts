@@ -37,6 +37,7 @@ import { createFilesRoutes } from "./routes/files.js";
 import { createGlobalSessionsRoutes } from "./routes/global-sessions.js";
 import { health } from "./routes/health.js";
 import { createInboxRoutes } from "./routes/inbox.js";
+import { createNetworkBindingRoutes } from "./routes/network-binding.js";
 import { createOnboardingRoutes } from "./routes/onboarding.js";
 import { createProcessesRoutes } from "./routes/processes.js";
 import { createProjectsRoutes } from "./routes/projects.js";
@@ -52,6 +53,7 @@ import type {
   PermissionMode,
   RealClaudeSDKInterface,
 } from "./sdk/types.js";
+import type { NetworkBindingService } from "./services/NetworkBindingService.js";
 import type { RelayClientService } from "./services/RelayClientService.js";
 import { CodexSessionReader } from "./sessions/codex-reader.js";
 import { GeminiSessionReader } from "./sessions/gemini-reader.js";
@@ -118,6 +120,20 @@ export interface AppOptions {
   serverPort?: number;
   /** Data directory for persistent state (for onboarding state) */
   dataDir?: string;
+  /** NetworkBindingService for runtime binding configuration */
+  networkBindingService?: NetworkBindingService;
+  /**
+   * Holder for network binding change callbacks.
+   * The callbacks are set after startServer() initializes the servers.
+   */
+  networkBindingCallbackHolder?: {
+    onLocalhostPortChange?: (
+      port: number,
+    ) => Promise<{ success: boolean; error?: string; redirectUrl?: string }>;
+    onNetworkBindingChange?: (
+      config: { host: string; port: number } | null,
+    ) => Promise<{ success: boolean; error?: string }>;
+  };
 }
 
 export interface AppResult {
@@ -263,6 +279,37 @@ export function createApp(options: AppOptions): AppResult {
       createServerInfoRoutes({
         host: options.serverHost,
         port: options.serverPort,
+      }),
+    );
+  }
+
+  // Network binding routes (runtime port/interface configuration)
+  if (
+    options.networkBindingService &&
+    options.networkBindingCallbackHolder &&
+    options.eventBus
+  ) {
+    app.route(
+      "/api/network-binding",
+      createNetworkBindingRoutes({
+        networkBindingService: options.networkBindingService,
+        eventBus: options.eventBus,
+        onLocalhostPortChange: async (port) => {
+          const callback =
+            options.networkBindingCallbackHolder?.onLocalhostPortChange;
+          if (!callback) {
+            return { success: false, error: "Callback not configured" };
+          }
+          return callback(port);
+        },
+        onNetworkBindingChange: async (config) => {
+          const callback =
+            options.networkBindingCallbackHolder?.onNetworkBindingChange;
+          if (!callback) {
+            return { success: false, error: "Callback not configured" };
+          }
+          return callback(config);
+        },
       }),
     );
   }

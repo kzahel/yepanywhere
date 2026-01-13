@@ -161,6 +161,20 @@ export interface SessionUpdatedEvent {
   timestamp: string;
 }
 
+/** Event emitted when network binding configuration changes */
+export interface NetworkBindingChangedEvent {
+  type: "network-binding-changed";
+  /** Localhost port (may have changed) */
+  localhostPort: number;
+  /** Network socket configuration */
+  network: {
+    enabled: boolean;
+    host: string | null;
+    port: number | null;
+  } | null;
+  timestamp: string;
+}
+
 /** Union of all event types that can be emitted through the bus */
 export type BusEvent =
   | FileChangeEvent
@@ -176,7 +190,8 @@ export type BusEvent =
   | WorkerActivityEvent
   | SessionMetadataChangedEvent
   | SessionAbortedEvent
-  | SessionUpdatedEvent;
+  | SessionUpdatedEvent
+  | NetworkBindingChangedEvent;
 
 export type EventHandler<T = BusEvent> = (event: T) => void;
 

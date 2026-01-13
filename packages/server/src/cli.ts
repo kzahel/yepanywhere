@@ -163,6 +163,8 @@ if (portIndex !== -1) {
     process.exit(1);
   }
   process.env.PORT = portValue;
+  // Mark that port was explicitly set via CLI (prevents runtime changes)
+  process.env.CLI_PORT_OVERRIDE = "true";
   // Remove --port and its value from args
   args.splice(portIndex, 2);
 }
@@ -176,6 +178,8 @@ if (hostIndex !== -1) {
     process.exit(1);
   }
   process.env.HOST = hostValue;
+  // Mark that host was explicitly set via CLI (prevents runtime changes)
+  process.env.CLI_HOST_OVERRIDE = "true";
   // Remove --host and its value from args
   args.splice(hostIndex, 2);
 }

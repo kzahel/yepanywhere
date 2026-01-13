@@ -10,3 +10,10 @@ export {
   type RelayClientState,
   type RelayClientStatus,
 } from "./RelayClientService.js";
+
+export {
+  NetworkBindingService,
+  type NetworkBindingServiceOptions,
+  type NetworkBindingState,
+  type NetworkInterface,
+} from "./NetworkBindingService.js";
