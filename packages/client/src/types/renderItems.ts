@@ -65,6 +65,8 @@ export interface UserPromptItem extends RenderItemBase {
 export interface SystemItem extends RenderItemBase {
   type: "system";
   id: string;
-  subtype: "compact_boundary" | "init" | string;
+  subtype: "compact_boundary" | "status" | "init" | string;
   content: string;
+  /** For status subtype: the current status (e.g., "compacting") */
+  status?: "compacting" | null;
 }

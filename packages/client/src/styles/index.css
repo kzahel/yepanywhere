@@ -2597,6 +2597,47 @@ a.sidebar-nav-item {
   font-style: italic;
 }
 
+/* Compacting state - animated indicator */
+.system-message-compacting {
+  border-left-color: var(--accent-primary, #3b82f6);
+  background: linear-gradient(
+    90deg,
+    var(--bg-tertiary, #2a2a2a) 0%,
+    color-mix(
+        in srgb,
+        var(--accent-primary, #3b82f6) 10%,
+        var(--bg-tertiary, #2a2a2a)
+      )
+      50%,
+    var(--bg-tertiary, #2a2a2a) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+.system-message-icon.spinning {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    background-position: 100% 0;
+  }
+  50% {
+    background-position: 0 0;
+  }
+}
+
 /* ==========================================================================
    Tool Approval Panel - VSCode-style approval with options
    ========================================================================== */

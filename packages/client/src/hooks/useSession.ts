@@ -78,6 +78,9 @@ export function useSession(
   // These are displayed separately from the main message list
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
 
+  // Compacting state - true when context is being compressed
+  const [isCompacting, setIsCompacting] = useState(false);
+
   // Markdown augments loaded from REST response (keyed by message ID)
   const [markdownAugments, setMarkdownAugments] = useState<
     Record<string, MarkdownAugment>
@@ -573,6 +576,20 @@ export function useSession(
           setSlashCommands(sdkMessage.slash_commands as string[]);
         }
 
+        // Handle status messages (compacting indicator)
+        if (msgType === "system" && sdkMessage.subtype === "status") {
+          const status = sdkMessage.status as "compacting" | null;
+          setIsCompacting(status === "compacting");
+          // Don't add status messages to the message list - they're transient
+          return;
+        }
+
+        // Clear compacting state when compact_boundary arrives (compaction complete)
+        if (msgType === "system" && sdkMessage.subtype === "compact_boundary") {
+          setIsCompacting(false);
+          // Let the message be added to show the completed compaction indicator
+        }
+
         // Handle tempId for pending message resolution
         // When server echoes back tempId, remove from pending queue
         const tempId = sdkMessage.tempId as string | undefined;
@@ -826,6 +843,7 @@ export function useSession(
     markdownAugments, // Pre-rendered markdown HTML from REST response (keyed by blockId)
     status,
     processState,
+    isCompacting, // True when context is being compressed
     isHeld: processState === "hold", // Derived from process state
     pendingInputRequest,
     actualSessionId, // Real session ID from server (may differ from URL during temp→real transition)

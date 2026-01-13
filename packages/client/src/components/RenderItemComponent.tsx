@@ -71,13 +71,23 @@ export const RenderItemComponent = memo(function RenderItemComponent({
       case "user_prompt":
         return <UserPromptBlock content={item.content} />;
 
-      case "system":
+      case "system": {
+        // Different styling for compacting vs completed compaction
+        const isCompacting =
+          item.subtype === "status" && item.status === "compacting";
         return (
-          <div className="system-message">
-            <span className="system-message-icon">⟳</span>
+          <div
+            className={`system-message ${isCompacting ? "system-message-compacting" : ""}`}
+          >
+            <span
+              className={`system-message-icon ${isCompacting ? "spinning" : ""}`}
+            >
+              ⟳
+            </span>
             <span className="system-message-text">{item.content}</span>
           </div>
         );
+      }
 
       default:
         return null;

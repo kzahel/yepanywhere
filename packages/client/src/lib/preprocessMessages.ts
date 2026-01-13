@@ -71,10 +71,10 @@ function processMessage(
 ): void {
   const msgId = getMessageId(msg);
 
-  // Handle system entries (compact_boundary, etc.)
+  // Handle system entries (compact_boundary, status, etc.)
   if (msg.type === "system") {
     const subtype = (msg as { subtype?: string }).subtype ?? "unknown";
-    // Only render compact_boundary as a visible system message
+    // Render compact_boundary as a visible system message
     if (subtype === "compact_boundary") {
       const systemItem: SystemItem = {
         type: "system",
@@ -86,7 +86,8 @@ function processMessage(
       };
       items.push(systemItem);
     }
-    // Skip other system entries (init, etc.) - they're internal
+    // Status messages (compacting indicator) are transient - handled separately via isCompacting state
+    // Skip other system entries (init, status, etc.) - they're internal
     return;
   }
 

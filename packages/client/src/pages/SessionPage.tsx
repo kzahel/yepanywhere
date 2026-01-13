@@ -113,6 +113,7 @@ function SessionPageContent({
     markdownAugments,
     status,
     processState,
+    isCompacting,
     pendingInputRequest,
     actualSessionId,
     permissionMode,
@@ -859,6 +860,7 @@ function SessionPageContent({
                   isProcessing={
                     status.state === "owned" && processState === "running"
                   }
+                  isCompacting={isCompacting}
                   scrollTrigger={scrollTrigger}
                   pendingMessages={pendingMessages}
                   markdownAugments={markdownAugments}

@@ -53,6 +53,8 @@ interface Props {
   messages: Message[];
   isStreaming?: boolean;
   isProcessing?: boolean;
+  /** True when context is being compressed */
+  isCompacting?: boolean;
   /** Increment this to force scroll to bottom (e.g., when user sends a message) */
   scrollTrigger?: number;
   /** Messages waiting for server confirmation (shown as "Sending...") */
@@ -67,6 +69,7 @@ export const MessageList = memo(function MessageList({
   messages,
   isStreaming = false,
   isProcessing = false,
+  isCompacting = false,
   scrollTrigger = 0,
   pendingMessages = [],
   markdownAugments,
@@ -252,6 +255,13 @@ export const MessageList = memo(function MessageList({
           <div className="pending-message-status">Sending...</div>
         </div>
       ))}
+      {/* Compacting indicator - shown when context is being compressed */}
+      {isCompacting && (
+        <div className="system-message system-message-compacting">
+          <span className="system-message-icon spinning">⟳</span>
+          <span className="system-message-text">Compacting context...</span>
+        </div>
+      )}
       <ProcessingIndicator isProcessing={isProcessing} />
     </div>
   );

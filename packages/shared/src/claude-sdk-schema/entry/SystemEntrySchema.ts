@@ -39,10 +39,18 @@ const InitSystemEntrySchema = BaseEntrySchema.extend({
   output_style: z.string().optional(),
 });
 
+// Status system entry (compacting indicator)
+const StatusSystemEntrySchema = BaseEntrySchema.extend({
+  type: z.literal("system"),
+  subtype: z.literal("status"),
+  status: z.enum(["compacting"]).nullable(),
+});
+
 export const SystemEntrySchema = z.union([
   RegularSystemEntrySchema,
   CompactBoundarySystemEntrySchema,
   InitSystemEntrySchema,
+  StatusSystemEntrySchema,
 ]);
 
 export type SystemEntry = z.infer<typeof SystemEntrySchema>;
