@@ -3545,6 +3545,91 @@ a.sidebar-nav-item {
   margin-bottom: 0;
 }
 
+/* Settings category navigation (nested settings) */
+.settings-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-category-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-code);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.settings-category-item:hover {
+  background: var(--bg-hover);
+}
+
+.settings-category-item.active {
+  background: var(--bg-hover);
+  border-color: var(--app-yep-green);
+}
+
+.settings-category-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 2rem;
+  text-align: center;
+}
+
+.settings-category-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-category-label {
+  display: block;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.settings-category-description {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.settings-category-chevron {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+/* Two-column layout for desktop */
+.settings-two-column {
+  display: flex;
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.settings-category-nav {
+  flex-shrink: 0;
+  width: 280px;
+  overflow-y: auto;
+}
+
+.settings-content-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* Hide chevron on desktop (not needed for side-by-side layout) */
+.settings-two-column .settings-category-chevron {
+  display: none;
+}
+
 /* Font size selector */
 .font-size-selector {
   display: flex;

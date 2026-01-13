@@ -13,6 +13,10 @@ interface PageHeaderProps {
   isWideScreen?: boolean;
   /** Whether the sidebar is currently collapsed (desktop only) */
   isSidebarCollapsed?: boolean;
+  /** Show a back button instead of sidebar toggle */
+  showBack?: boolean;
+  /** Callback when back button is clicked */
+  onBack?: () => void;
 }
 
 const SidebarToggleIcon = () => (
@@ -32,6 +36,22 @@ const SidebarToggleIcon = () => (
   </svg>
 );
 
+const BackIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
 export function PageHeader({
   title,
   titleElement,
@@ -39,6 +59,8 @@ export function PageHeader({
   onToggleSidebar,
   isWideScreen = false,
   isSidebarCollapsed = false,
+  showBack = false,
+  onBack,
 }: PageHeaderProps) {
   // On desktop: toggle sidebar collapse. On mobile: open sidebar overlay
   // Hide the toggle on desktop when sidebar is collapsed (sidebar has its own toggle)
@@ -53,16 +75,28 @@ export function PageHeader({
     <header className="session-header">
       <div className="session-header-inner">
         <div className="session-header-left">
-          {handleToggle && (
+          {showBack && onBack ? (
             <button
               type="button"
               className="sidebar-toggle"
-              onClick={handleToggle}
-              title={toggleTitle}
-              aria-label={toggleTitle}
+              onClick={onBack}
+              title="Back"
+              aria-label="Back"
             >
-              <SidebarToggleIcon />
+              <BackIcon />
             </button>
+          ) : (
+            handleToggle && (
+              <button
+                type="button"
+                className="sidebar-toggle"
+                onClick={handleToggle}
+                title={toggleTitle}
+                aria-label={toggleTitle}
+              >
+                <SidebarToggleIcon />
+              </button>
+            )
           )}
           {titleElement ?? (
             <span

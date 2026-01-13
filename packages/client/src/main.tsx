@@ -19,7 +19,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { NewSessionPage } from "./pages/NewSessionPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { SessionPage } from "./pages/SessionPage";
-import { SettingsPage } from "./pages/SettingsPage";
+import { SettingsLayout } from "./pages/settings";
 import "./styles/index.css";
 
 // Apply saved preferences before React renders to avoid flash
@@ -53,7 +53,8 @@ createRoot(rootElement).render(
             <Route path="/agents" element={<AgentsPage />} />
             <Route path="/tasks" element={<BeadsPage />} />
             <Route path="/inbox" element={<InboxPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings" element={<SettingsLayout />} />
+            <Route path="/settings/:category" element={<SettingsLayout />} />
             {/* Project-scoped pages */}
             <Route
               path="/projects/:projectId"
