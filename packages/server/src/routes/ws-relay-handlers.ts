@@ -69,6 +69,7 @@ import type {
   RemoteAccessService,
   RemoteSessionService,
 } from "../remote-access/index.js";
+import type { ConnectedBrowsersService } from "../services/index.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type { UploadManager } from "../uploads/manager.js";
 import type { EventBus } from "../watcher/index.js";
@@ -150,6 +151,8 @@ export interface RelayHandlerDeps {
   remoteAccessService?: RemoteAccessService;
   /** Remote session service for session persistence (optional for direct, required for relay) */
   remoteSessionService?: RemoteSessionService;
+  /** Connected browsers service for tracking WS connections (optional) */
+  connectedBrowsers?: ConnectedBrowsersService;
 }
 
 /**
@@ -593,8 +596,15 @@ export function handleActivitySubscribe(
   msg: RelaySubscribe,
   send: SendFn,
   eventBus: EventBus,
+  connectedBrowsers?: ConnectedBrowsersService,
 ): void {
-  const { subscriptionId } = msg;
+  const { subscriptionId, deviceId } = msg;
+
+  // Track connection if we have the service and a deviceId
+  let connectionId: number | undefined;
+  if (connectedBrowsers && deviceId) {
+    connectionId = connectedBrowsers.connect(deviceId, "ws");
+  }
 
   let eventId = 0;
 
@@ -637,6 +647,10 @@ export function handleActivitySubscribe(
   subscriptions.set(subscriptionId, () => {
     clearInterval(heartbeatInterval);
     unsubscribe();
+    // Disconnect from connectedBrowsers when unsubscribing
+    if (connectionId !== undefined && connectedBrowsers) {
+      connectedBrowsers.disconnect(connectionId);
+    }
   });
 
   console.log(`[WS Relay] Subscribed to activity (${subscriptionId})`);
@@ -651,6 +665,7 @@ export function handleSubscribe(
   send: SendFn,
   supervisor: Supervisor,
   eventBus: EventBus,
+  connectedBrowsers?: ConnectedBrowsersService,
 ): void {
   const { subscriptionId, channel } = msg;
 
@@ -670,7 +685,13 @@ export function handleSubscribe(
       break;
 
     case "activity":
-      handleActivitySubscribe(subscriptions, msg, send, eventBus);
+      handleActivitySubscribe(
+        subscriptions,
+        msg,
+        send,
+        eventBus,
+        connectedBrowsers,
+      );
       break;
 
     default:
@@ -1417,7 +1438,14 @@ async function routeMessage(
   send: SendFn,
   deps: RelayHandlerDeps,
 ): Promise<void> {
-  const { app, baseUrl, supervisor, eventBus, uploadManager } = deps;
+  const {
+    app,
+    baseUrl,
+    supervisor,
+    eventBus,
+    uploadManager,
+    connectedBrowsers,
+  } = deps;
 
   switch (msg.type) {
     case "request":
@@ -1425,7 +1453,14 @@ async function routeMessage(
       break;
 
     case "subscribe":
-      handleSubscribe(subscriptions, msg, send, supervisor, eventBus);
+      handleSubscribe(
+        subscriptions,
+        msg,
+        send,
+        supervisor,
+        eventBus,
+        connectedBrowsers,
+      );
       break;
 
     case "unsubscribe":

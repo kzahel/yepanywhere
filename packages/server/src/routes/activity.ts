@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import type { ConnectedBrowsersService } from "../services/index.js";
 import type { BusEvent, EventBus } from "../watcher/index.js";
 
 export interface ActivityDeps {
   eventBus: EventBus;
+  connectedBrowsers?: ConnectedBrowsersService;
 }
 
 export function createActivityRoutes(deps: ActivityDeps): Hono {
@@ -11,6 +13,15 @@ export function createActivityRoutes(deps: ActivityDeps): Hono {
 
   // GET /api/activity/events - SSE endpoint for all real-time events
   routes.get("/events", async (c) => {
+    // Extract deviceId from query string for connection tracking
+    const deviceId = c.req.query("deviceId");
+
+    // Register connection if we have tracking and a deviceId
+    let connectionId: number | undefined;
+    if (deps.connectedBrowsers && deviceId) {
+      connectionId = deps.connectedBrowsers.connect(deviceId, "sse");
+    }
+
     return streamSSE(c, async (stream) => {
       let eventId = 0;
 
@@ -57,11 +68,19 @@ export function createActivityRoutes(deps: ActivityDeps): Hono {
         }
       });
 
+      // Cleanup function to unregister connection
+      const cleanup = () => {
+        if (connectionId !== undefined && deps.connectedBrowsers) {
+          deps.connectedBrowsers.disconnect(connectionId);
+        }
+      };
+
       // Handle stream close
       stream.onAbort(() => {
         closed = true;
         clearInterval(heartbeatInterval);
         unsubscribe();
+        cleanup();
       });
 
       // Keep stream open indefinitely (until client disconnects)
@@ -86,6 +105,23 @@ export function createActivityRoutes(deps: ActivityDeps): Hono {
     return c.json({
       subscribers: deps.eventBus.subscriberCount,
       timestamp: new Date().toISOString(),
+    });
+  });
+
+  // GET /api/activity/connections - Get snapshot of connected browser tabs
+  routes.get("/connections", (c) => {
+    if (!deps.connectedBrowsers) {
+      return c.json({
+        connections: [],
+        deviceCount: 0,
+        totalTabCount: 0,
+      });
+    }
+
+    return c.json({
+      connections: deps.connectedBrowsers.getAllConnections(),
+      deviceCount: deps.connectedBrowsers.getConnectedDeviceIds().length,
+      totalTabCount: deps.connectedBrowsers.getTotalTabCount(),
     });
   });
 

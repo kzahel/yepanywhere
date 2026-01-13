@@ -20,6 +20,7 @@ import {
   encodeUploadChunkFrame,
   isBinaryData,
 } from "@yep-anywhere/shared";
+import { LEGACY_KEYS, getServerScoped } from "../storageKeys";
 import {
   type Connection,
   type StreamHandlers,
@@ -475,6 +476,8 @@ export class WebSocketConnection implements Connection {
    */
   subscribeActivity(handlers: StreamHandlers): Subscription {
     const subscriptionId = generateId();
+    const deviceId =
+      getServerScoped("deviceId", LEGACY_KEYS.deviceId) ?? undefined;
 
     // Store handlers for routing events
     this.subscriptions.set(subscriptionId, handlers);
@@ -486,6 +489,7 @@ export class WebSocketConnection implements Connection {
           type: "subscribe",
           subscriptionId,
           channel: "activity",
+          deviceId,
         };
         this.send(msg);
       })

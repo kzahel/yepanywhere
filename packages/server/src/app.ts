@@ -53,6 +53,7 @@ import type {
   PermissionMode,
   RealClaudeSDKInterface,
 } from "./sdk/types.js";
+import type { ConnectedBrowsersService } from "./services/ConnectedBrowsersService.js";
 import type { NetworkBindingService } from "./services/NetworkBindingService.js";
 import type { RelayClientService } from "./services/RelayClientService.js";
 import { CodexSessionReader } from "./sessions/codex-reader.js";
@@ -136,6 +137,8 @@ export interface AppOptions {
       config: { host: string; port: number } | null,
     ) => Promise<{ success: boolean; error?: string }>;
   };
+  /** ConnectedBrowsersService for tracking active browser connections */
+  connectedBrowsers?: ConnectedBrowsersService;
 }
 
 export interface AppResult {
@@ -447,7 +450,10 @@ export function createApp(options: AppOptions): AppResult {
   if (options.eventBus) {
     app.route(
       "/api/activity",
-      createActivityRoutes({ eventBus: options.eventBus }),
+      createActivityRoutes({
+        eventBus: options.eventBus,
+        connectedBrowsers: options.connectedBrowsers,
+      }),
     );
 
     // Dev routes (manual reload workflow) - mounted when manual reload is enabled

@@ -6,6 +6,7 @@ import type {
   RemoteAccessService,
   RemoteSessionService,
 } from "../remote-access/index.js";
+import type { ConnectedBrowsersService } from "../services/index.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type { UploadManager } from "../uploads/manager.js";
 import type { EventBus } from "../watcher/index.js";
@@ -40,6 +41,8 @@ export interface WsRelayDeps {
   remoteAccessService?: RemoteAccessService;
   /** Remote session service for session persistence (optional) */
   remoteSessionService?: RemoteSessionService;
+  /** Connected browsers service for tracking WS connections (optional) */
+  connectedBrowsers?: ConnectedBrowsersService;
 }
 
 /**
@@ -61,6 +64,8 @@ export interface AcceptRelayConnectionDeps {
   remoteAccessService: RemoteAccessService;
   /** Remote session service for session persistence */
   remoteSessionService: RemoteSessionService;
+  /** Connected browsers service for tracking WS connections (optional) */
+  connectedBrowsers?: ConnectedBrowsersService;
 }
 
 /**
@@ -130,6 +135,7 @@ export function createWsRelayRoutes(
     uploadManager,
     remoteAccessService,
     remoteSessionService,
+    connectedBrowsers,
   } = deps;
 
   // Build handler dependencies
@@ -141,6 +147,7 @@ export function createWsRelayRoutes(
     uploadManager,
     remoteAccessService,
     remoteSessionService,
+    connectedBrowsers,
   };
 
   // Return the WebSocket handler with origin validation
@@ -254,6 +261,7 @@ export function createAcceptRelayConnection(
     uploadManager,
     remoteAccessService,
     remoteSessionService,
+    connectedBrowsers,
   } = deps;
 
   // Build handler dependencies
@@ -265,6 +273,7 @@ export function createAcceptRelayConnection(
     uploadManager,
     remoteAccessService,
     remoteSessionService,
+    connectedBrowsers,
   };
 
   // Return the accept relay connection handler

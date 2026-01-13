@@ -39,6 +39,7 @@ import {
   isSrpSessionResumed,
 } from "@yep-anywhere/shared";
 import { getRelayDebugEnabled } from "../../hooks/useDeveloperMode";
+import { LEGACY_KEYS, getServerScoped } from "../storageKeys";
 import {
   decrypt,
   decryptBinaryEnvelopeWithDecompression,
@@ -1108,6 +1109,8 @@ export class SecureConnection implements Connection {
    */
   subscribeActivity(handlers: StreamHandlers): Subscription {
     const subscriptionId = generateId();
+    const deviceId =
+      getServerScoped("deviceId", LEGACY_KEYS.deviceId) ?? undefined;
 
     // Store handlers for routing events
     this.subscriptions.set(subscriptionId, handlers);
@@ -1119,6 +1122,7 @@ export class SecureConnection implements Connection {
           type: "subscribe",
           subscriptionId,
           channel: "activity",
+          deviceId,
         };
         this.send(msg);
       })

@@ -8,6 +8,7 @@ import { getWebsocketTransportEnabled } from "../hooks/useDeveloperMode";
 import type { SessionStatus, SessionSummary } from "../types";
 import { getGlobalConnection, isRemoteClient } from "./connection";
 import { type Subscription, isNonRetryableError } from "./connection/types";
+import { LEGACY_KEYS, getServerScoped } from "./storageKeys";
 
 // Event types matching what the server emits
 export type FileChangeType = "create" | "modify" | "delete";
@@ -313,7 +314,12 @@ class ActivityBus {
    * Connect using SSE (traditional method).
    */
   private connectSSE(): void {
-    const es = new EventSource(`${API_BASE}/activity/events`);
+    const deviceId = getServerScoped("deviceId", LEGACY_KEYS.deviceId);
+    const baseUrl = `${API_BASE}/activity/events`;
+    const url = deviceId
+      ? `${baseUrl}?deviceId=${encodeURIComponent(deviceId)}`
+      : baseUrl;
+    const es = new EventSource(url);
 
     es.onopen = () => {
       const isReconnect = this.hasConnected;

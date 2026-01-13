@@ -1,5 +1,6 @@
 import type { UploadedFile } from "@yep-anywhere/shared";
 import { uploadFile } from "../../api/upload";
+import { LEGACY_KEYS, getServerScoped } from "../storageKeys";
 import type {
   Connection,
   StreamHandlers,
@@ -109,7 +110,11 @@ export class DirectConnection implements Connection {
    * Subscribe to activity events via SSE.
    */
   subscribeActivity(handlers: StreamHandlers): Subscription {
-    const url = `${API_BASE}/activity/events`;
+    const deviceId = getServerScoped("deviceId", LEGACY_KEYS.deviceId);
+    const baseUrl = `${API_BASE}/activity/events`;
+    const url = deviceId
+      ? `${baseUrl}?deviceId=${encodeURIComponent(deviceId)}`
+      : baseUrl;
     return this.createEventSourceSubscription(
       url,
       handlers,

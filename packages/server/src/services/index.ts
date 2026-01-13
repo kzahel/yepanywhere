@@ -17,3 +17,9 @@ export {
   type NetworkBindingState,
   type NetworkInterface,
 } from "./NetworkBindingService.js";
+
+export {
+  ConnectedBrowsersService,
+  type BrowserConnectionTransport,
+  type BrowserTabConnection,
+} from "./ConnectedBrowsersService.js";
