@@ -37,10 +37,12 @@ import { createFilesRoutes } from "./routes/files.js";
 import { createGlobalSessionsRoutes } from "./routes/global-sessions.js";
 import { health } from "./routes/health.js";
 import { createInboxRoutes } from "./routes/inbox.js";
+import { createOnboardingRoutes } from "./routes/onboarding.js";
 import { createProcessesRoutes } from "./routes/processes.js";
 import { createProjectsRoutes } from "./routes/projects.js";
 import { createProvidersRoutes } from "./routes/providers.js";
 import { createRecentsRoutes } from "./routes/recents.js";
+import { createServerInfoRoutes } from "./routes/server-info.js";
 import { createSessionsRoutes } from "./routes/sessions.js";
 import { createStreamRoutes } from "./routes/stream.js";
 import { type UploadDeps, createUploadRoutes } from "./routes/upload.js";
@@ -110,6 +112,12 @@ export interface AppOptions {
    * The `callback` property can be set after createApp returns.
    */
   relayConfigCallbackHolder?: { callback?: () => Promise<void> };
+  /** Server host (for server-info endpoint) */
+  serverHost?: string;
+  /** Server port (for server-info endpoint) */
+  serverPort?: number;
+  /** Data directory for persistent state (for onboarding state) */
+  dataDir?: string;
 }
 
 export interface AppResult {
@@ -247,6 +255,25 @@ export function createApp(options: AppOptions): AppResult {
 
   // Version check (outside /api for easy access)
   app.route("/api/version", version);
+
+  // Server info (host/port binding info for Local Access settings)
+  if (options.serverHost && options.serverPort) {
+    app.route(
+      "/api/server-info",
+      createServerInfoRoutes({
+        host: options.serverHost,
+        port: options.serverPort,
+      }),
+    );
+  }
+
+  // Onboarding routes (first-run wizard state)
+  if (options.dataDir) {
+    app.route(
+      "/api/onboarding",
+      createOnboardingRoutes({ dataDir: options.dataDir }),
+    );
+  }
 
   // Mount API routes
   app.route(

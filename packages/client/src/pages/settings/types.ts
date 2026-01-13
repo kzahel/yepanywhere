@@ -25,10 +25,10 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
     description: "Push notification preferences",
   },
   {
-    id: "security",
-    label: "Security",
+    id: "local-access",
+    label: "Local Access",
     icon: "🔒",
-    description: "Authentication and passwords",
+    description: "Network binding and authentication",
   },
   {
     id: "remote",

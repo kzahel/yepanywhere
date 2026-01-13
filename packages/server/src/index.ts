@@ -223,6 +223,9 @@ async function startServer() {
     relayClientService,
     relayConfigCallbackHolder,
     // Note: frontendProxy not passed - will be added below
+    serverHost: config.host,
+    serverPort: config.port,
+    dataDir: config.dataDir,
   });
 
   // Set up debug context for maintenance server

@@ -5,14 +5,8 @@ import {
 } from "../../hooks/useModelSettings";
 
 export function ModelSettings() {
-  const {
-    model,
-    setModel,
-    thinkingLevel,
-    setThinkingLevel,
-    thinkingEnabled,
-    setThinkingEnabled,
-  } = useModelSettings();
+  const { model, setModel, thinkingLevel, setThinkingLevel } =
+    useModelSettings();
 
   return (
     <section className="settings-section">
@@ -38,27 +32,10 @@ export function ModelSettings() {
         </div>
         <div className="settings-item">
           <div className="settings-item-info">
-            <strong>Extended Thinking</strong>
-            <p>
-              Allow the model to "think" before responding. Toggle on to enable
-              deeper reasoning.
-            </p>
-          </div>
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={thinkingEnabled}
-              onChange={(e) => setThinkingEnabled(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-        <div className="settings-item">
-          <div className="settings-item-info">
             <strong>Thinking Level</strong>
             <p>
-              Token budget for thinking. Higher levels enable deeper reasoning
-              but use more tokens.
+              Token budget for extended thinking. Higher levels enable deeper
+              reasoning but use more tokens.
             </p>
           </div>
           <div className="font-size-selector">

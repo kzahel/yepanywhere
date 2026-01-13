@@ -1,9 +1,11 @@
+import { useOnboarding } from "../../hooks/useOnboarding";
 import { usePwaInstall } from "../../hooks/usePwaInstall";
 import { useVersion } from "../../hooks/useVersion";
 
 export function AboutSettings() {
   const { canInstall, isInstalled, install } = usePwaInstall();
   const { version: versionInfo } = useVersion();
+  const { resetOnboarding } = useOnboarding();
 
   return (
     <section className="settings-section">
@@ -75,6 +77,22 @@ export function AboutSettings() {
           >
             Report Bug
           </a>
+        </div>
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <strong>Setup Wizard</strong>
+            <p>
+              Run the initial setup wizard again to configure theme and remote
+              access.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="settings-button"
+            onClick={resetOnboarding}
+          >
+            Launch Wizard
+          </button>
         </div>
       </div>
     </section>

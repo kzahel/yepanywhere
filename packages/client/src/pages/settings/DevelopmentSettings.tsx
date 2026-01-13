@@ -11,7 +11,6 @@ export function DevelopmentSettings() {
     pendingReloads,
     connected,
     reloadBackend,
-    reloadFrontend,
     unsafeToRestart,
     workerActivity,
   } = useReloadNotifications();
@@ -41,10 +40,6 @@ export function DevelopmentSettings() {
   const handleRestartServer = async () => {
     setRestarting(true);
     await reloadBackend();
-  };
-
-  const handleReloadFrontend = () => {
-    reloadFrontend();
   };
 
   const handleTestWebSocket = async () => {
@@ -203,25 +198,6 @@ export function DevelopmentSettings() {
               : unsafeToRestart
                 ? "Restart Anyway"
                 : "Restart Server"}
-          </button>
-        </div>
-
-        <div className="settings-item">
-          <div className="settings-item-info">
-            <strong>Reload Frontend</strong>
-            <p>
-              Refresh the browser to pick up frontend changes.
-              {pendingReloads.frontend && (
-                <span className="settings-pending"> (changes pending)</span>
-              )}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="settings-button"
-            onClick={handleReloadFrontend}
-          >
-            Reload Frontend
           </button>
         </div>
       </div>

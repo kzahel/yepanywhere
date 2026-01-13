@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useOptionalAuth } from "../../contexts/AuthContext";
 import { useOptionalRemoteConnection } from "../../contexts/RemoteConnectionContext";
 import { useDeveloperMode } from "../../hooks/useDeveloperMode";
+import { useServerInfo } from "../../hooks/useServerInfo";
 
-export function SecuritySettings() {
+export function LocalAccessSettings() {
   const auth = useOptionalAuth();
   const remoteConnection = useOptionalRemoteConnection();
   const { relayDebugEnabled, setRelayDebugEnabled } = useDeveloperMode();
+  const { serverInfo, loading: serverInfoLoading } = useServerInfo();
 
   // Change password state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -32,7 +34,81 @@ export function SecuritySettings() {
   if (auth) {
     return (
       <section className="settings-section">
-        <h2>Security</h2>
+        <h2>Local Access</h2>
+        <p className="settings-section-description">
+          Control how this server is accessed on your local network.
+        </p>
+
+        {/* Server binding info */}
+        <div className="settings-group">
+          <div className="settings-item">
+            <div className="settings-item-info">
+              <strong>Server Binding</strong>
+              {serverInfoLoading ? (
+                <p>Loading...</p>
+              ) : serverInfo ? (
+                <>
+                  <p>
+                    Listening on{" "}
+                    <code>
+                      {serverInfo.host}:{serverInfo.port}
+                    </code>
+                    {serverInfo.localhostOnly && (
+                      <span className="settings-hint">
+                        {" "}
+                        (localhost only - not accessible from other devices)
+                      </span>
+                    )}
+                    {serverInfo.boundToAllInterfaces && (
+                      <span className="settings-hint">
+                        {" "}
+                        (all interfaces - accessible from other devices on your
+                        network)
+                      </span>
+                    )}
+                  </p>
+                  <p className="form-hint">
+                    Change at startup:{" "}
+                    <code>yepanywhere --host 0.0.0.0 --port 3400</code>
+                  </p>
+                </>
+              ) : (
+                <p>Unable to fetch server info</p>
+              )}
+            </div>
+            {serverInfo?.localhostOnly && (
+              <span className="settings-status-badge settings-status-detected">
+                Local Only
+              </span>
+            )}
+            {serverInfo?.boundToAllInterfaces && (
+              <span className="settings-status-badge settings-status-warning">
+                Network Exposed
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Warning when network-exposed without auth */}
+        {serverInfo &&
+          !serverInfo.localhostOnly &&
+          !auth.authEnabled &&
+          !auth.authDisabledByEnv && (
+            <div className="settings-warning-box">
+              <strong>No authentication enabled</strong>
+              <p>
+                Your server is accessible from other devices on your network
+                without any authentication. Anyone on your network can access
+                your sessions.
+              </p>
+              <p>
+                Enable authentication below, or use{" "}
+                <a href="/settings/remote">Remote Access</a> for secure
+                encrypted access from anywhere.
+              </p>
+            </div>
+          )}
+
         {auth.authDisabledByEnv && (
           <p className="settings-section-description settings-warning">
             Authentication is currently bypassed by --auth-disable flag. Remove
@@ -57,7 +133,7 @@ export function SecuritySettings() {
                     className="settings-button"
                     onClick={() => setShowEnableAuth(true)}
                   >
-                    Enable Auth
+                    Setup
                   </button>
                 ) : (
                   <button
@@ -144,6 +220,13 @@ export function SecuritySettings() {
                       If you forget your password, restart with{" "}
                       <code>--auth-disable</code> to bypass auth.
                     </p>
+                    {serverInfo && !serverInfo.localhostOnly && (
+                      <p className="form-warning">
+                        Your server is network-exposed. The password will be
+                        sent in cleartext unless you're using HTTPS or
+                        Tailscale.
+                      </p>
+                    )}
                     <button
                       type="submit"
                       className="settings-button"
@@ -353,7 +436,10 @@ export function SecuritySettings() {
   if (remoteConnection) {
     return (
       <section className="settings-section">
-        <h2>Security</h2>
+        <h2>Local Access</h2>
+        <p className="settings-section-description">
+          You are connected to a remote server via relay.
+        </p>
         <div className="settings-group">
           <div className="settings-item">
             <div className="settings-item-info">

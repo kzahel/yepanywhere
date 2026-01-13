@@ -5,11 +5,11 @@ import { useNavigationLayout } from "../../layouts";
 import { AboutSettings } from "./AboutSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { DevelopmentSettings } from "./DevelopmentSettings";
+import { LocalAccessSettings } from "./LocalAccessSettings";
 import { ModelSettings } from "./ModelSettings";
 import { NotificationsSettings } from "./NotificationsSettings";
 import { ProvidersSettings } from "./ProvidersSettings";
 import { RemoteAccessSettings } from "./RemoteAccessSettings";
-import { SecuritySettings } from "./SecuritySettings";
 import {
   DEV_CATEGORY,
   SETTINGS_CATEGORIES,
@@ -21,7 +21,7 @@ const CATEGORY_COMPONENTS: Record<string, React.ComponentType> = {
   appearance: AppearanceSettings,
   model: ModelSettings,
   notifications: NotificationsSettings,
-  security: SecuritySettings,
+  "local-access": LocalAccessSettings,
   remote: RemoteAccessSettings,
   providers: ProvidersSettings,
   about: AboutSettings,

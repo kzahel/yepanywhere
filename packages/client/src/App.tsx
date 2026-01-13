@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { FloatingActionButton } from "./components/FloatingActionButton";
 import { ReloadBanner } from "./components/ReloadBanner";
+import { OnboardingWizard } from "./components/onboarding";
 import { AuthProvider } from "./contexts/AuthContext";
 import { InboxProvider } from "./contexts/InboxContext";
 import { SchemaValidationProvider } from "./contexts/SchemaValidationContext";
@@ -8,6 +9,7 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { useActivityBusConnection } from "./hooks/useActivityBusConnection";
 import { useNeedsAttentionBadge } from "./hooks/useNeedsAttentionBadge";
 import { useSyncNotifyInAppSetting } from "./hooks/useNotifyInApp";
+import { useOnboarding } from "./hooks/useOnboarding";
 import { useReloadNotifications } from "./hooks/useReloadNotifications";
 
 interface Props {
@@ -66,12 +68,17 @@ function AppContent({ children }: Props) {
  * and schema validation.
  */
 export function App({ children }: Props) {
+  const { showWizard, isLoading, completeOnboarding } = useOnboarding();
+
   return (
     <ToastProvider>
       <AuthProvider>
         <InboxProvider>
           <SchemaValidationProvider>
             <AppContent>{children}</AppContent>
+            {!isLoading && showWizard && (
+              <OnboardingWizard onComplete={completeOnboarding} />
+            )}
           </SchemaValidationProvider>
         </InboxProvider>
       </AuthProvider>

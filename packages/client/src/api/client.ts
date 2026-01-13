@@ -204,9 +204,23 @@ export interface VersionInfo {
   updateAvailable: boolean;
 }
 
+export interface ServerInfo {
+  /** The host/interface the server is bound to (e.g., "127.0.0.1" or "0.0.0.0") */
+  host: string;
+  /** The port the server is listening on */
+  port: number;
+  /** Whether the server is bound to all interfaces (0.0.0.0) */
+  boundToAllInterfaces: boolean;
+  /** Whether the server is localhost-only */
+  localhostOnly: boolean;
+}
+
 export const api = {
   // Version API
   getVersion: () => fetchJSON<VersionInfo>("/version"),
+
+  // Server info API (host/port binding for Local Access settings)
+  getServerInfo: () => fetchJSON<ServerInfo>("/server-info"),
 
   // Provider API
   getProviders: () => fetchJSON<{ providers: ProviderInfo[] }>("/providers"),
@@ -675,6 +689,19 @@ export const api = {
         initialized: boolean;
       };
     }>(`/projects/${projectId}/beads/ready`),
+
+  // Onboarding API (first-run wizard state)
+  getOnboardingStatus: () => fetchJSON<{ complete: boolean }>("/onboarding"),
+
+  completeOnboarding: () =>
+    fetchJSON<{ success: boolean }>("/onboarding/complete", {
+      method: "POST",
+    }),
+
+  resetOnboarding: () =>
+    fetchJSON<{ success: boolean }>("/onboarding/reset", {
+      method: "POST",
+    }),
 };
 
 /**
