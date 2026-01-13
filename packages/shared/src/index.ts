@@ -132,6 +132,9 @@ export type {
   InputRequest,
   // Recents types
   EnrichedRecentEntry,
+  // Connected browser types
+  ConnectionInfo,
+  ConnectionsResponse,
 } from "./app-types.js";
 export {
   isUserMessage,

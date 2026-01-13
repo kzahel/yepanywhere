@@ -31,6 +31,7 @@ import type {
 import { createRemoteAccessRoutes } from "./remote-access/index.js";
 import { createActivityRoutes } from "./routes/activity.js";
 import { createBeadsRoutes } from "./routes/beads.js";
+import { createConnectionsRoutes } from "./routes/connections.js";
 import { createDebugStreamingRoutes } from "./routes/debug-streaming.js";
 import { createDevRoutes } from "./routes/dev.js";
 import { createFilesRoutes } from "./routes/files.js";
@@ -425,6 +426,17 @@ export function createApp(options: AppOptions): AppResult {
 
   // Provider routes (multi-provider detection)
   app.route("/api/providers", createProvidersRoutes());
+
+  // Connections routes (list connected browser profiles)
+  if (options.connectedBrowsers) {
+    app.route(
+      "/api/connections",
+      createConnectionsRoutes({
+        connectedBrowsers: options.connectedBrowsers,
+        pushService: options.pushService,
+      }),
+    );
+  }
 
   // Upload routes (WebSocket file uploads)
   if (options.upgradeWebSocket) {

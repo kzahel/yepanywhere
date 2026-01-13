@@ -403,3 +403,28 @@ export function isConversationMessage(
     msg.type === "summary"
   );
 }
+
+// =============================================================================
+// Connected Browser Types
+// =============================================================================
+
+/**
+ * Information about a connected browser profile.
+ */
+export interface ConnectionInfo {
+  /** Unique identifier for the browser profile */
+  browserProfileId: string;
+  /** Number of active tabs/connections from this browser profile */
+  connectionCount: number;
+  /** ISO timestamp of the first connection from this browser profile */
+  connectedAt: string;
+  /** Optional friendly name for the device (from push subscription) */
+  deviceName?: string;
+}
+
+/**
+ * Response from GET /api/connections endpoint.
+ */
+export interface ConnectionsResponse {
+  connections: ConnectionInfo[];
+}
