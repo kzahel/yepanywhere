@@ -181,7 +181,10 @@ export function loadConfig(): Config {
       60 *
       1000,
     // CLI override flags (set by cli.ts when --port or --host are used)
-    cliPortOverride: process.env.CLI_PORT_OVERRIDE === "true",
+    // Also treat PORT env var as an override when explicitly set (e.g., PORT=0 for test harnesses)
+    cliPortOverride:
+      process.env.CLI_PORT_OVERRIDE === "true" ||
+      process.env.PORT !== undefined,
     cliHostOverride: process.env.CLI_HOST_OVERRIDE === "true",
   };
 }
