@@ -44,7 +44,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 export interface SubscriptionState {
   /** Schema version for future migrations */
   version: number;
-  /** Map of deviceId -> subscription info */
+  /** Map of browserProfileId -> subscription info */
   subscriptions: Record<string, StoredSubscription>;
   /** Server-side notification type settings */
   settings?: NotificationSettings;
@@ -107,7 +107,7 @@ export type PushPayload =
 
 /** Result of sending a push notification */
 export interface SendResult {
-  deviceId: string;
+  browserProfileId: string;
   success: boolean;
   /** Error message if failed */
   error?: string;

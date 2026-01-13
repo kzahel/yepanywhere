@@ -40,7 +40,7 @@ describe("PushNotifier", () => {
     mockPushService = {
       getSubscriptionCount: vi.fn(() => 1),
       sendToAll: vi.fn(() =>
-        Promise.resolve([{ deviceId: "device-1", success: true }]),
+        Promise.resolve([{ browserProfileId: "profile-1", success: true }]),
       ),
       isNotificationTypeEnabled: vi.fn(() => true),
     } as unknown as PushService;
@@ -518,7 +518,11 @@ describe("PushNotifier", () => {
 
       // Mock sendToAll to return no successful results
       vi.mocked(mockPushService.sendToAll).mockResolvedValue([
-        { deviceId: "device-1", success: false, error: "Network error" },
+        {
+          browserProfileId: "profile-1",
+          success: false,
+          error: "Network error",
+        },
       ]);
 
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});

@@ -114,16 +114,16 @@ export class PushService {
   }
 
   /**
-   * Subscribe a device for push notifications.
+   * Subscribe a browser profile for push notifications.
    */
   async subscribe(
-    deviceId: string,
+    browserProfileId: string,
     subscription: PushSubscription,
     options: { userAgent?: string; deviceName?: string } = {},
   ): Promise<void> {
     this.ensureInitialized();
 
-    this.state.subscriptions[deviceId] = {
+    this.state.subscriptions[browserProfileId] = {
       subscription,
       createdAt: new Date().toISOString(),
       userAgent: options.userAgent,
@@ -134,16 +134,16 @@ export class PushService {
   }
 
   /**
-   * Unsubscribe a device.
+   * Unsubscribe a browser profile.
    */
-  async unsubscribe(deviceId: string): Promise<boolean> {
+  async unsubscribe(browserProfileId: string): Promise<boolean> {
     this.ensureInitialized();
 
-    if (!this.state.subscriptions[deviceId]) {
+    if (!this.state.subscriptions[browserProfileId]) {
       return false;
     }
 
-    delete this.state.subscriptions[deviceId];
+    delete this.state.subscriptions[browserProfileId];
     await this.save();
     return true;
   }
@@ -164,10 +164,10 @@ export class PushService {
   }
 
   /**
-   * Check if a device is subscribed.
+   * Check if a browser profile is subscribed.
    */
-  isSubscribed(deviceId: string): boolean {
-    return !!this.state.subscriptions[deviceId];
+  isSubscribed(browserProfileId: string): boolean {
+    return !!this.state.subscriptions[browserProfileId];
   }
 
   /**
@@ -208,7 +208,7 @@ export class PushService {
   }
 
   /**
-   * Send a push notification to all subscribed devices.
+   * Send a push notification to all subscribed browser profiles.
    */
   async sendToAll(payload: PushPayload): Promise<SendResult[]> {
     this.ensureInitialized();
@@ -217,13 +217,15 @@ export class PushService {
       throw new Error("VAPID keys not configured");
     }
 
-    const deviceIds = Object.keys(this.state.subscriptions);
-    if (deviceIds.length === 0) {
+    const browserProfileIds = Object.keys(this.state.subscriptions);
+    if (browserProfileIds.length === 0) {
       return [];
     }
 
     const results = await Promise.all(
-      deviceIds.map((deviceId) => this.sendToDevice(deviceId, payload)),
+      browserProfileIds.map((browserProfileId) =>
+        this.sendToBrowserProfile(browserProfileId, payload),
+      ),
     );
 
     // Clean up invalid subscriptions
@@ -233,28 +235,28 @@ export class PushService {
   }
 
   /**
-   * Send a push notification to a specific device.
+   * Send a push notification to a specific browser profile.
    */
-  async sendToDevice(
-    deviceId: string,
+  async sendToBrowserProfile(
+    browserProfileId: string,
     payload: PushPayload,
   ): Promise<SendResult> {
     this.ensureInitialized();
 
     if (!this.vapidKeys) {
       return {
-        deviceId,
+        browserProfileId,
         success: false,
         error: "VAPID keys not configured",
       };
     }
 
-    const stored = this.state.subscriptions[deviceId];
+    const stored = this.state.subscriptions[browserProfileId];
     if (!stored) {
       return {
-        deviceId,
+        browserProfileId,
         success: false,
-        error: "Device not subscribed",
+        error: "Browser profile not subscribed",
       };
     }
 
@@ -265,14 +267,14 @@ export class PushService {
       );
 
       return {
-        deviceId,
+        browserProfileId,
         success: true,
         statusCode: response.statusCode,
       };
     } catch (error) {
       const webPushError = error as webPush.WebPushError;
       return {
-        deviceId,
+        browserProfileId,
         success: false,
         error: webPushError.message,
         statusCode: webPushError.statusCode,
@@ -284,10 +286,10 @@ export class PushService {
    * Send a test notification to verify setup.
    */
   async sendTest(
-    deviceId: string,
+    browserProfileId: string,
     message = "Test notification",
   ): Promise<SendResult> {
-    return this.sendToDevice(deviceId, {
+    return this.sendToBrowserProfile(browserProfileId, {
       type: "test",
       message,
       timestamp: new Date().toISOString(),
@@ -300,15 +302,17 @@ export class PushService {
   private async cleanupInvalidSubscriptions(
     results: SendResult[],
   ): Promise<void> {
-    const invalidDevices = results.filter(
+    const invalidProfiles = results.filter(
       (r) => !r.success && (r.statusCode === 404 || r.statusCode === 410),
     );
 
-    if (invalidDevices.length === 0) return;
+    if (invalidProfiles.length === 0) return;
 
-    for (const { deviceId } of invalidDevices) {
-      delete this.state.subscriptions[deviceId];
-      console.log(`[PushService] Removed expired subscription: ${deviceId}`);
+    for (const { browserProfileId } of invalidProfiles) {
+      delete this.state.subscriptions[browserProfileId];
+      console.log(
+        `[PushService] Removed expired subscription: ${browserProfileId}`,
+      );
     }
 
     await this.save();

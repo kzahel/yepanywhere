@@ -52,7 +52,7 @@ function formatDate(dateString: string): string {
 }
 
 export function NotificationsSettings() {
-  const { deviceId } = usePushNotifications();
+  const { browserProfileId } = usePushNotifications();
   const {
     devices,
     isLoading: devicesLoading,
@@ -172,9 +172,13 @@ export function NotificationsSettings() {
           ) : (
             <div className="device-list">
               {devices.map((device) => {
-                const isCurrentDevice = device.deviceId === deviceId;
+                const isCurrentDevice =
+                  device.browserProfileId === browserProfileId;
                 return (
-                  <div key={device.deviceId} className="device-list-item">
+                  <div
+                    key={device.browserProfileId}
+                    className="device-list-item"
+                  >
                     <div className="device-list-info">
                       <strong>
                         {formatDeviceName(
@@ -192,7 +196,7 @@ export function NotificationsSettings() {
                     <button
                       type="button"
                       className="settings-button settings-button-danger-subtle"
-                      onClick={() => removeDevice(device.deviceId)}
+                      onClick={() => removeDevice(device.browserProfileId)}
                       title={
                         isCurrentDevice
                           ? "Unsubscribe this device"

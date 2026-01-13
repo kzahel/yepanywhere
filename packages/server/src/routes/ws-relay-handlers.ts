@@ -598,12 +598,12 @@ export function handleActivitySubscribe(
   eventBus: EventBus,
   connectedBrowsers?: ConnectedBrowsersService,
 ): void {
-  const { subscriptionId, deviceId } = msg;
+  const { subscriptionId, browserProfileId } = msg;
 
-  // Track connection if we have the service and a deviceId
+  // Track connection if we have the service and a browserProfileId
   let connectionId: number | undefined;
-  if (connectedBrowsers && deviceId) {
-    connectionId = connectedBrowsers.connect(deviceId, "ws");
+  if (connectedBrowsers && browserProfileId) {
+    connectionId = connectedBrowsers.connect(browserProfileId, "ws");
   }
 
   let eventId = 0;

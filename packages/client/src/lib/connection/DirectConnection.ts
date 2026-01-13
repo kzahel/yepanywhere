@@ -110,10 +110,13 @@ export class DirectConnection implements Connection {
    * Subscribe to activity events via SSE.
    */
   subscribeActivity(handlers: StreamHandlers): Subscription {
-    const deviceId = getServerScoped("deviceId", LEGACY_KEYS.deviceId);
+    const browserProfileId = getServerScoped(
+      "browserProfileId",
+      LEGACY_KEYS.browserProfileId,
+    );
     const baseUrl = `${API_BASE}/activity/events`;
-    const url = deviceId
-      ? `${baseUrl}?deviceId=${encodeURIComponent(deviceId)}`
+    const url = browserProfileId
+      ? `${baseUrl}?browserProfileId=${encodeURIComponent(browserProfileId)}`
       : baseUrl;
     return this.createEventSourceSubscription(
       url,

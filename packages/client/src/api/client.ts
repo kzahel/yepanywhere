@@ -521,41 +521,47 @@ export const api = {
     fetchJSON<{ publicKey: string }>("/push/vapid-public-key"),
 
   subscribePush: (
-    deviceId: string,
+    browserProfileId: string,
     subscription: PushSubscriptionJSON,
     deviceName?: string,
   ) =>
-    fetchJSON<{ success: boolean; deviceId: string }>("/push/subscribe", {
-      method: "POST",
-      body: JSON.stringify({ deviceId, subscription, deviceName }),
-    }),
+    fetchJSON<{ success: boolean; browserProfileId: string }>(
+      "/push/subscribe",
+      {
+        method: "POST",
+        body: JSON.stringify({ browserProfileId, subscription, deviceName }),
+      },
+    ),
 
-  unsubscribePush: (deviceId: string) =>
-    fetchJSON<{ success: boolean; deviceId: string }>("/push/unsubscribe", {
-      method: "POST",
-      body: JSON.stringify({ deviceId }),
-    }),
+  unsubscribePush: (browserProfileId: string) =>
+    fetchJSON<{ success: boolean; browserProfileId: string }>(
+      "/push/unsubscribe",
+      {
+        method: "POST",
+        body: JSON.stringify({ browserProfileId }),
+      },
+    ),
 
   getPushSubscriptions: () =>
     fetchJSON<{
       count: number;
       subscriptions: Array<{
-        deviceId: string;
+        browserProfileId: string;
         createdAt: string;
         deviceName?: string;
         endpointDomain: string;
       }>;
     }>("/push/subscriptions"),
 
-  testPush: (deviceId: string, message?: string) =>
+  testPush: (browserProfileId: string, message?: string) =>
     fetchJSON<{ success: boolean }>("/push/test", {
       method: "POST",
-      body: JSON.stringify({ deviceId, message }),
+      body: JSON.stringify({ browserProfileId, message }),
     }),
 
-  deletePushSubscription: (deviceId: string) =>
+  deletePushSubscription: (browserProfileId: string) =>
     fetchJSON<{ success: boolean }>(
-      `/push/subscriptions/${encodeURIComponent(deviceId)}`,
+      `/push/subscriptions/${encodeURIComponent(browserProfileId)}`,
       { method: "DELETE" },
     ),
 

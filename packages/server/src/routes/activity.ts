@@ -13,13 +13,13 @@ export function createActivityRoutes(deps: ActivityDeps): Hono {
 
   // GET /api/activity/events - SSE endpoint for all real-time events
   routes.get("/events", async (c) => {
-    // Extract deviceId from query string for connection tracking
-    const deviceId = c.req.query("deviceId");
+    // Extract browserProfileId from query string for connection tracking
+    const browserProfileId = c.req.query("browserProfileId");
 
-    // Register connection if we have tracking and a deviceId
+    // Register connection if we have tracking and a browserProfileId
     let connectionId: number | undefined;
-    if (deps.connectedBrowsers && deviceId) {
-      connectionId = deps.connectedBrowsers.connect(deviceId, "sse");
+    if (deps.connectedBrowsers && browserProfileId) {
+      connectionId = deps.connectedBrowsers.connect(browserProfileId, "sse");
     }
 
     return streamSSE(c, async (stream) => {
@@ -120,7 +120,8 @@ export function createActivityRoutes(deps: ActivityDeps): Hono {
 
     return c.json({
       connections: deps.connectedBrowsers.getAllConnections(),
-      deviceCount: deps.connectedBrowsers.getConnectedDeviceIds().length,
+      browserProfileCount:
+        deps.connectedBrowsers.getConnectedBrowserProfileIds().length,
       totalTabCount: deps.connectedBrowsers.getTotalTabCount(),
     });
   });

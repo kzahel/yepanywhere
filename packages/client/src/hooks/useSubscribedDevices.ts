@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 
 export interface SubscribedDevice {
-  deviceId: string;
+  browserProfileId: string;
   createdAt: string;
   deviceName?: string;
   endpointDomain: string;
@@ -51,11 +51,11 @@ export function useSubscribedDevices() {
   }, [fetchDevices]);
 
   const removeDevice = useCallback(
-    async (deviceId: string) => {
+    async (browserProfileId: string) => {
       setState((s) => ({ ...s, isLoading: true, error: null }));
 
       try {
-        await api.deletePushSubscription(deviceId);
+        await api.deletePushSubscription(browserProfileId);
         // Refresh the list
         await fetchDevices();
       } catch (err) {

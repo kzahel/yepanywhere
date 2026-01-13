@@ -11,17 +11,17 @@ export interface PushRoutesDeps {
 }
 
 interface SubscribeBody {
-  deviceId: string;
+  browserProfileId: string;
   subscription: PushSubscription;
   deviceName?: string;
 }
 
 interface UnsubscribeBody {
-  deviceId: string;
+  browserProfileId: string;
 }
 
 interface TestPushBody {
-  deviceId: string;
+  browserProfileId: string;
   message?: string;
 }
 
@@ -51,13 +51,13 @@ export function createPushRoutes(deps: PushRoutesDeps): Hono {
 
   /**
    * POST /api/push/subscribe
-   * Subscribe a device for push notifications
+   * Subscribe a browser profile for push notifications
    */
   app.post("/subscribe", async (c) => {
     const body = await c.req.json<SubscribeBody>();
 
-    if (!body.deviceId || typeof body.deviceId !== "string") {
-      return c.json({ error: "deviceId is required" }, 400);
+    if (!body.browserProfileId || typeof body.browserProfileId !== "string") {
+      return c.json({ error: "browserProfileId is required" }, 400);
     }
 
     if (!body.subscription?.endpoint || !body.subscription?.keys) {
@@ -66,33 +66,33 @@ export function createPushRoutes(deps: PushRoutesDeps): Hono {
 
     const userAgent = c.req.header("User-Agent");
 
-    await pushService.subscribe(body.deviceId, body.subscription, {
+    await pushService.subscribe(body.browserProfileId, body.subscription, {
       userAgent,
       deviceName: body.deviceName,
     });
 
     return c.json({
       success: true,
-      deviceId: body.deviceId,
+      browserProfileId: body.browserProfileId,
     });
   });
 
   /**
    * POST /api/push/unsubscribe
-   * Unsubscribe a device from push notifications
+   * Unsubscribe a browser profile from push notifications
    */
   app.post("/unsubscribe", async (c) => {
     const body = await c.req.json<UnsubscribeBody>();
 
-    if (!body.deviceId || typeof body.deviceId !== "string") {
-      return c.json({ error: "deviceId is required" }, 400);
+    if (!body.browserProfileId || typeof body.browserProfileId !== "string") {
+      return c.json({ error: "browserProfileId is required" }, 400);
     }
 
-    const removed = await pushService.unsubscribe(body.deviceId);
+    const removed = await pushService.unsubscribe(body.browserProfileId);
 
     return c.json({
       success: removed,
-      deviceId: body.deviceId,
+      browserProfileId: body.browserProfileId,
     });
   });
 
@@ -104,13 +104,15 @@ export function createPushRoutes(deps: PushRoutesDeps): Hono {
     const subscriptions = pushService.getSubscriptions();
 
     // Return sanitized subscription info (hide sensitive keys)
-    const sanitized = Object.entries(subscriptions).map(([deviceId, sub]) => ({
-      deviceId,
-      createdAt: sub.createdAt,
-      deviceName: sub.deviceName,
-      // Just show domain of endpoint for privacy
-      endpointDomain: new URL(sub.subscription.endpoint).hostname,
-    }));
+    const sanitized = Object.entries(subscriptions).map(
+      ([browserProfileId, sub]) => ({
+        browserProfileId,
+        createdAt: sub.createdAt,
+        deviceName: sub.deviceName,
+        // Just show domain of endpoint for privacy
+        endpointDomain: new URL(sub.subscription.endpoint).hostname,
+      }),
+    );
 
     return c.json({
       count: sanitized.length,
@@ -119,12 +121,12 @@ export function createPushRoutes(deps: PushRoutesDeps): Hono {
   });
 
   /**
-   * DELETE /api/push/subscriptions/:deviceId
+   * DELETE /api/push/subscriptions/:browserProfileId
    * Remove a specific subscription
    */
-  app.delete("/subscriptions/:deviceId", async (c) => {
-    const deviceId = c.req.param("deviceId");
-    const removed = await pushService.unsubscribe(deviceId);
+  app.delete("/subscriptions/:browserProfileId", async (c) => {
+    const browserProfileId = c.req.param("browserProfileId");
+    const removed = await pushService.unsubscribe(browserProfileId);
 
     if (!removed) {
       return c.json({ error: "Subscription not found" }, 404);
@@ -140,12 +142,12 @@ export function createPushRoutes(deps: PushRoutesDeps): Hono {
   app.post("/test", async (c) => {
     const body = await c.req.json<TestPushBody>();
 
-    if (!body.deviceId) {
-      return c.json({ error: "deviceId is required" }, 400);
+    if (!body.browserProfileId) {
+      return c.json({ error: "browserProfileId is required" }, 400);
     }
 
     const result = await pushService.sendTest(
-      body.deviceId,
+      body.browserProfileId,
       body.message ?? "Test notification from Yep Anywhere",
     );
 

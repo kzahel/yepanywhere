@@ -62,8 +62,8 @@ export interface RelaySubscribe {
   sessionId?: string;
   /** Last event ID for resumption */
   lastEventId?: string;
-  /** Device identifier for connection tracking (browser profile ID) */
-  deviceId?: string;
+  /** Browser profile identifier for connection tracking (stored in localStorage, shared across tabs) */
+  browserProfileId?: string;
 }
 
 /** Client -> Server: Unsubscribe from events */

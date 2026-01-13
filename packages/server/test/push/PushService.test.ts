@@ -60,7 +60,7 @@ describe("PushService", () => {
 
     it("should load existing subscriptions from disk", async () => {
       // Create a service and add a subscription
-      await pushService.subscribe("device-1", mockSubscription);
+      await pushService.subscribe("profile-1", mockSubscription);
       expect(pushService.getSubscriptionCount()).toBe(1);
 
       // Create new service pointing to same directory
@@ -71,7 +71,7 @@ describe("PushService", () => {
       await newService.initialize();
 
       expect(newService.getSubscriptionCount()).toBe(1);
-      expect(newService.isSubscribed("device-1")).toBe(true);
+      expect(newService.isSubscribed("profile-1")).toBe(true);
     });
 
     it("should handle corrupted subscription file gracefully", async () => {
@@ -87,27 +87,27 @@ describe("PushService", () => {
 
   describe("subscription management", () => {
     it("should subscribe a device", async () => {
-      await pushService.subscribe("device-1", mockSubscription);
+      await pushService.subscribe("profile-1", mockSubscription);
 
-      expect(pushService.isSubscribed("device-1")).toBe(true);
+      expect(pushService.isSubscribed("profile-1")).toBe(true);
       expect(pushService.getSubscriptionCount()).toBe(1);
     });
 
     it("should store subscription metadata", async () => {
-      await pushService.subscribe("device-1", mockSubscription, {
+      await pushService.subscribe("profile-1", mockSubscription, {
         userAgent: "Mozilla/5.0 Test Browser",
         deviceName: "My Phone",
       });
 
       const subs = pushService.getSubscriptions();
-      expect(subs["device-1"]).toBeDefined();
-      expect(subs["device-1"].userAgent).toBe("Mozilla/5.0 Test Browser");
-      expect(subs["device-1"].deviceName).toBe("My Phone");
-      expect(subs["device-1"].createdAt).toBeDefined();
+      expect(subs["profile-1"]).toBeDefined();
+      expect(subs["profile-1"].userAgent).toBe("Mozilla/5.0 Test Browser");
+      expect(subs["profile-1"].deviceName).toBe("My Phone");
+      expect(subs["profile-1"].createdAt).toBeDefined();
     });
 
     it("should update existing subscription", async () => {
-      await pushService.subscribe("device-1", mockSubscription, {
+      await pushService.subscribe("profile-1", mockSubscription, {
         deviceName: "Old Name",
       });
 
@@ -116,24 +116,24 @@ describe("PushService", () => {
         endpoint: "https://new-endpoint.com",
       };
 
-      await pushService.subscribe("device-1", newSubscription, {
+      await pushService.subscribe("profile-1", newSubscription, {
         deviceName: "New Name",
       });
 
       const subs = pushService.getSubscriptions();
-      expect(subs["device-1"].subscription.endpoint).toBe(
+      expect(subs["profile-1"].subscription.endpoint).toBe(
         "https://new-endpoint.com",
       );
-      expect(subs["device-1"].deviceName).toBe("New Name");
+      expect(subs["profile-1"].deviceName).toBe("New Name");
     });
 
     it("should unsubscribe a device", async () => {
-      await pushService.subscribe("device-1", mockSubscription);
-      expect(pushService.isSubscribed("device-1")).toBe(true);
+      await pushService.subscribe("profile-1", mockSubscription);
+      expect(pushService.isSubscribed("profile-1")).toBe(true);
 
-      const removed = await pushService.unsubscribe("device-1");
+      const removed = await pushService.unsubscribe("profile-1");
       expect(removed).toBe(true);
-      expect(pushService.isSubscribed("device-1")).toBe(false);
+      expect(pushService.isSubscribed("profile-1")).toBe(false);
     });
 
     it("should return false when unsubscribing non-existent device", async () => {
@@ -142,14 +142,14 @@ describe("PushService", () => {
     });
 
     it("should persist subscriptions to disk", async () => {
-      await pushService.subscribe("device-1", mockSubscription);
+      await pushService.subscribe("profile-1", mockSubscription);
 
       const filePath = path.join(tempDir, "push-subscriptions.json");
       const content = await fs.readFile(filePath, "utf-8");
       const saved = JSON.parse(content);
 
-      expect(saved.subscriptions["device-1"]).toBeDefined();
-      expect(saved.subscriptions["device-1"].subscription.endpoint).toBe(
+      expect(saved.subscriptions["profile-1"]).toBeDefined();
+      expect(saved.subscriptions["profile-1"].subscription.endpoint).toBe(
         mockSubscription.endpoint,
       );
     });
@@ -184,16 +184,16 @@ describe("PushService", () => {
         headers: {},
       });
 
-      await pushService.subscribe("device-1", mockSubscription);
+      await pushService.subscribe("profile-1", mockSubscription);
 
-      const result = await pushService.sendToDevice("device-1", {
+      const result = await pushService.sendToBrowserProfile("profile-1", {
         type: "test",
         message: "Hello",
         timestamp: new Date().toISOString(),
       });
 
       expect(result.success).toBe(true);
-      expect(result.deviceId).toBe("device-1");
+      expect(result.browserProfileId).toBe("profile-1");
       expect(webPush.sendNotification).toHaveBeenCalledWith(
         mockSubscription,
         expect.stringContaining('"type":"test"'),
@@ -201,7 +201,7 @@ describe("PushService", () => {
     });
 
     it("should return error for non-existent device", async () => {
-      const result = await pushService.sendToDevice("non-existent", {
+      const result = await pushService.sendToBrowserProfile("non-existent", {
         type: "test",
         message: "Hello",
         timestamp: new Date().toISOString(),
@@ -218,8 +218,8 @@ describe("PushService", () => {
         headers: {},
       });
 
-      await pushService.subscribe("device-1", mockSubscription);
-      await pushService.subscribe("device-2", {
+      await pushService.subscribe("profile-1", mockSubscription);
+      await pushService.subscribe("profile-2", {
         ...mockSubscription,
         endpoint: "https://other-endpoint.com",
       });
@@ -239,8 +239,8 @@ describe("PushService", () => {
       error.statusCode = 410;
       vi.mocked(webPush.sendNotification).mockRejectedValue(error);
 
-      await pushService.subscribe("device-1", mockSubscription);
-      expect(pushService.isSubscribed("device-1")).toBe(true);
+      await pushService.subscribe("profile-1", mockSubscription);
+      expect(pushService.isSubscribed("profile-1")).toBe(true);
 
       await pushService.sendToAll({
         type: "test",
@@ -248,7 +248,7 @@ describe("PushService", () => {
         timestamp: new Date().toISOString(),
       });
 
-      expect(pushService.isSubscribed("device-1")).toBe(false);
+      expect(pushService.isSubscribed("profile-1")).toBe(false);
     });
 
     it("should handle send errors gracefully", async () => {
@@ -258,9 +258,9 @@ describe("PushService", () => {
       error.statusCode = 500;
       vi.mocked(webPush.sendNotification).mockRejectedValue(error);
 
-      await pushService.subscribe("device-1", mockSubscription);
+      await pushService.subscribe("profile-1", mockSubscription);
 
-      const result = await pushService.sendToDevice("device-1", {
+      const result = await pushService.sendToBrowserProfile("profile-1", {
         type: "test",
         message: "Test",
         timestamp: new Date().toISOString(),
@@ -270,7 +270,7 @@ describe("PushService", () => {
       expect(result.error).toBe("Network error");
       expect(result.statusCode).toBe(500);
       // Should not remove subscription on 500 error
-      expect(pushService.isSubscribed("device-1")).toBe(true);
+      expect(pushService.isSubscribed("profile-1")).toBe(true);
     });
   });
 
@@ -282,8 +282,8 @@ describe("PushService", () => {
         headers: {},
       });
 
-      await pushService.subscribe("device-1", mockSubscription);
-      const result = await pushService.sendTest("device-1");
+      await pushService.subscribe("profile-1", mockSubscription);
+      const result = await pushService.sendTest("profile-1");
 
       expect(result.success).toBe(true);
       expect(webPush.sendNotification).toHaveBeenCalledWith(
@@ -299,8 +299,8 @@ describe("PushService", () => {
         headers: {},
       });
 
-      await pushService.subscribe("device-1", mockSubscription);
-      await pushService.sendTest("device-1", "Custom test message");
+      await pushService.subscribe("profile-1", mockSubscription);
+      await pushService.sendTest("profile-1", "Custom test message");
 
       expect(webPush.sendNotification).toHaveBeenCalledWith(
         mockSubscription,

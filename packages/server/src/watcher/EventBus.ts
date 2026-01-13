@@ -180,12 +180,12 @@ export interface NetworkBindingChangedEvent {
 /** Event emitted when a browser tab connects to the activity stream */
 export interface BrowserTabConnectedEvent {
   type: "browser-tab-connected";
-  deviceId: string;
+  browserProfileId: string;
   connectionId: number;
   transport: "sse" | "ws";
-  /** Total tabs connected for this deviceId */
+  /** Total tabs connected for this browserProfileId */
   tabCount: number;
-  /** Total tabs connected across all devices */
+  /** Total tabs connected across all browser profiles */
   totalTabCount: number;
   timestamp: string;
 }
@@ -193,11 +193,11 @@ export interface BrowserTabConnectedEvent {
 /** Event emitted when a browser tab disconnects from the activity stream */
 export interface BrowserTabDisconnectedEvent {
   type: "browser-tab-disconnected";
-  deviceId: string;
+  browserProfileId: string;
   connectionId: number;
-  /** Remaining tabs for this deviceId (0 = device fully offline) */
+  /** Remaining tabs for this browserProfileId (0 = browser profile fully offline) */
   tabCount: number;
-  /** Total tabs connected across all devices */
+  /** Total tabs connected across all browser profiles */
   totalTabCount: number;
   timestamp: string;
 }

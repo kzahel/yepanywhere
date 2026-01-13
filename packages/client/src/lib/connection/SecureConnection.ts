@@ -1109,8 +1109,9 @@ export class SecureConnection implements Connection {
    */
   subscribeActivity(handlers: StreamHandlers): Subscription {
     const subscriptionId = generateId();
-    const deviceId =
-      getServerScoped("deviceId", LEGACY_KEYS.deviceId) ?? undefined;
+    const browserProfileId =
+      getServerScoped("browserProfileId", LEGACY_KEYS.browserProfileId) ??
+      undefined;
 
     // Store handlers for routing events
     this.subscriptions.set(subscriptionId, handlers);
@@ -1122,7 +1123,7 @@ export class SecureConnection implements Connection {
           type: "subscribe",
           subscriptionId,
           channel: "activity",
-          deviceId,
+          browserProfileId,
         };
         this.send(msg);
       })

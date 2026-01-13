@@ -19,7 +19,7 @@ interface PushState {
   isLoading: boolean;
   error: string | null;
   permission: NotificationPermission;
-  deviceId: string | null;
+  browserProfileId: string | null;
 }
 
 /**
@@ -28,7 +28,7 @@ interface PushState {
  * Handles:
  * - Service worker registration
  * - Push subscription management
- * - Device ID generation/persistence
+ * - Browser profile ID generation/persistence
  * - Server sync
  */
 export function usePushNotifications() {
@@ -38,7 +38,7 @@ export function usePushNotifications() {
     isLoading: true,
     error: null,
     permission: "default",
-    deviceId: null,
+    browserProfileId: null,
   });
 
   const [registration, setRegistration] =
@@ -52,14 +52,21 @@ export function usePushNotifications() {
     "PushManager" in window &&
     "Notification" in window;
 
-  // Get or create device ID
-  const getDeviceId = useCallback((): string => {
-    let deviceId = getServerScoped("deviceId", LEGACY_KEYS.deviceId);
-    if (!deviceId) {
-      deviceId = crypto.randomUUID();
-      setServerScoped("deviceId", deviceId, LEGACY_KEYS.deviceId);
+  // Get or create browser profile ID
+  const getBrowserProfileId = useCallback((): string => {
+    let browserProfileId = getServerScoped(
+      "browserProfileId",
+      LEGACY_KEYS.browserProfileId,
+    );
+    if (!browserProfileId) {
+      browserProfileId = crypto.randomUUID();
+      setServerScoped(
+        "browserProfileId",
+        browserProfileId,
+        LEGACY_KEYS.browserProfileId,
+      );
     }
-    return deviceId;
+    return browserProfileId;
   }, []);
 
   // Initialize: register service worker and check subscription status
@@ -68,14 +75,17 @@ export function usePushNotifications() {
       const reason = !SW_ENABLED
         ? "Service worker disabled in dev mode (set VITE_ENABLE_SW=true to enable)"
         : "Push notifications not supported in this browser";
-      // Still populate deviceId so we can identify this device in the subscribed list
-      const deviceId = getServerScoped("deviceId", LEGACY_KEYS.deviceId);
+      // Still populate browserProfileId so we can identify this browser profile in the subscribed list
+      const browserProfileId = getServerScoped(
+        "browserProfileId",
+        LEGACY_KEYS.browserProfileId,
+      );
       setState((s) => ({
         ...s,
         isSupported: false,
         isLoading: false,
         error: reason,
-        deviceId,
+        browserProfileId,
       }));
       return;
     }
@@ -91,7 +101,7 @@ export function usePushNotifications() {
 
         // Check current subscription status
         const subscription = await reg.pushManager.getSubscription();
-        const deviceId = getDeviceId();
+        const browserProfileId = getBrowserProfileId();
 
         setState({
           isSupported: true,
@@ -99,7 +109,7 @@ export function usePushNotifications() {
           isLoading: false,
           error: null,
           permission: Notification.permission,
-          deviceId,
+          browserProfileId,
         });
       } catch (err) {
         console.error("[usePushNotifications] Init error:", err);
@@ -113,7 +123,7 @@ export function usePushNotifications() {
     };
 
     init();
-  }, [isSupported, getDeviceId]);
+  }, [isSupported, getBrowserProfileId]);
 
   // Subscribe to push notifications
   const subscribe = useCallback(async () => {
@@ -151,11 +161,11 @@ export function usePushNotifications() {
       });
 
       // Send subscription to server
-      const deviceId = getDeviceId();
+      const browserProfileId = getBrowserProfileId();
       const subscriptionJson = subscription.toJSON();
 
       await api.subscribePush(
-        deviceId,
+        browserProfileId,
         subscriptionJson as PushSubscriptionJSON,
         getDeviceName(),
       );
@@ -165,7 +175,7 @@ export function usePushNotifications() {
         isSubscribed: true,
         isLoading: false,
         error: null,
-        deviceId,
+        browserProfileId,
       }));
     } catch (err) {
       console.error("[usePushNotifications] Subscribe error:", err);
@@ -175,7 +185,7 @@ export function usePushNotifications() {
         error: err instanceof Error ? err.message : "Failed to subscribe",
       }));
     }
-  }, [registration, getDeviceId]);
+  }, [registration, getBrowserProfileId]);
 
   // Unsubscribe from push notifications
   const unsubscribe = useCallback(async () => {
@@ -196,8 +206,8 @@ export function usePushNotifications() {
       }
 
       // Notify server
-      const deviceId = getDeviceId();
-      await api.unsubscribePush(deviceId);
+      const browserProfileId = getBrowserProfileId();
+      await api.unsubscribePush(browserProfileId);
 
       setState((s) => ({
         ...s,
@@ -213,15 +223,15 @@ export function usePushNotifications() {
         error: err instanceof Error ? err.message : "Failed to unsubscribe",
       }));
     }
-  }, [registration, getDeviceId]);
+  }, [registration, getBrowserProfileId]);
 
   // Send a test notification
   const sendTest = useCallback(async () => {
-    const deviceId = getDeviceId();
+    const browserProfileId = getBrowserProfileId();
     setState((s) => ({ ...s, isLoading: true, error: null }));
 
     try {
-      await api.testPush(deviceId);
+      await api.testPush(browserProfileId);
       setState((s) => ({ ...s, isLoading: false }));
     } catch (err) {
       console.error("[usePushNotifications] Test push error:", err);
@@ -231,7 +241,7 @@ export function usePushNotifications() {
         error: err instanceof Error ? err.message : "Failed to send test",
       }));
     }
-  }, [getDeviceId]);
+  }, [getBrowserProfileId]);
 
   // Get service worker logs (for debugging)
   const getSwLogs = useCallback(async (): Promise<SwLogEntry[]> => {

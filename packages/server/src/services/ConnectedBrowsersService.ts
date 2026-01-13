@@ -1,9 +1,12 @@
 /**
  * Tracks which browser tabs have active SSE/WebSocket connections to the server.
  * This enables:
- * - Skipping push notifications for already-connected devices
+ * - Skipping push notifications for already-connected browser profiles
  * - Showing "X active sessions" in Settings > Remote Access
  * - Real-time updates when tabs connect/disconnect
+ *
+ * A browserProfileId identifies a browser profile (stored in localStorage, shared across tabs).
+ * Each tab creates a separate connection, so one browser profile can have multiple connections.
  */
 
 import type { EventBus } from "../watcher/index.js";
@@ -14,58 +17,61 @@ export type BrowserConnectionTransport = "sse" | "ws";
 /** Information about a single browser tab connection */
 export interface BrowserTabConnection {
   connectionId: number;
-  deviceId: string;
+  browserProfileId: string;
   connectedAt: string;
   transport: BrowserConnectionTransport;
 }
 
 /**
- * Service to track connected browser tabs by deviceId.
+ * Service to track connected browser tabs by browserProfileId.
  *
- * A deviceId identifies a browser profile (stored in localStorage, shared across tabs).
- * Each tab creates a separate connection, so one device can have multiple connections.
+ * A browserProfileId identifies a browser profile (stored in localStorage, shared across tabs).
+ * Each tab creates a separate connection, so one browser profile can have multiple connections.
  */
 export class ConnectedBrowsersService {
   private nextConnectionId = 1;
   /** Map from connectionId to connection info */
   private connections = new Map<number, BrowserTabConnection>();
-  /** Map from deviceId to set of connectionIds */
-  private deviceConnections = new Map<string, Set<number>>();
+  /** Map from browserProfileId to set of connectionIds */
+  private browserProfileConnections = new Map<string, Set<number>>();
 
   constructor(private eventBus: EventBus) {}
 
   /**
    * Register a new browser tab connection.
-   * @param deviceId - Unique identifier for the browser profile
+   * @param browserProfileId - Unique identifier for the browser profile
    * @param transport - Connection type (sse or ws)
    * @returns connectionId for tracking (use when disconnecting)
    */
-  connect(deviceId: string, transport: BrowserConnectionTransport): number {
+  connect(
+    browserProfileId: string,
+    transport: BrowserConnectionTransport,
+  ): number {
     const connectionId = this.nextConnectionId++;
     const connection: BrowserTabConnection = {
       connectionId,
-      deviceId,
+      browserProfileId,
       connectedAt: new Date().toISOString(),
       transport,
     };
 
     this.connections.set(connectionId, connection);
 
-    // Add to device's connection set
-    let deviceSet = this.deviceConnections.get(deviceId);
-    if (!deviceSet) {
-      deviceSet = new Set();
-      this.deviceConnections.set(deviceId, deviceSet);
+    // Add to browser profile's connection set
+    let profileSet = this.browserProfileConnections.get(browserProfileId);
+    if (!profileSet) {
+      profileSet = new Set();
+      this.browserProfileConnections.set(browserProfileId, profileSet);
     }
-    deviceSet.add(connectionId);
+    profileSet.add(connectionId);
 
     // Emit connected event
     this.eventBus.emit({
       type: "browser-tab-connected",
-      deviceId,
+      browserProfileId,
       connectionId,
       transport,
-      tabCount: this.getTabCount(deviceId),
+      tabCount: this.getTabCount(browserProfileId),
       totalTabCount: this.getTotalTabCount(),
       timestamp: new Date().toISOString(),
     });
@@ -81,51 +87,51 @@ export class ConnectedBrowsersService {
     const connection = this.connections.get(connectionId);
     if (!connection) return;
 
-    const { deviceId } = connection;
+    const { browserProfileId } = connection;
 
     // Remove from connections map
     this.connections.delete(connectionId);
 
-    // Remove from device's connection set
-    const deviceSet = this.deviceConnections.get(deviceId);
-    if (deviceSet) {
-      deviceSet.delete(connectionId);
-      if (deviceSet.size === 0) {
-        this.deviceConnections.delete(deviceId);
+    // Remove from browser profile's connection set
+    const profileSet = this.browserProfileConnections.get(browserProfileId);
+    if (profileSet) {
+      profileSet.delete(connectionId);
+      if (profileSet.size === 0) {
+        this.browserProfileConnections.delete(browserProfileId);
       }
     }
 
     // Emit disconnected event
     this.eventBus.emit({
       type: "browser-tab-disconnected",
-      deviceId,
+      browserProfileId,
       connectionId,
-      tabCount: this.getTabCount(deviceId),
+      tabCount: this.getTabCount(browserProfileId),
       totalTabCount: this.getTotalTabCount(),
       timestamp: new Date().toISOString(),
     });
   }
 
   /**
-   * Check if a device has any active connections.
+   * Check if a browser profile has any active connections.
    */
-  isDeviceConnected(deviceId: string): boolean {
-    const deviceSet = this.deviceConnections.get(deviceId);
-    return deviceSet !== undefined && deviceSet.size > 0;
+  isBrowserProfileConnected(browserProfileId: string): boolean {
+    const profileSet = this.browserProfileConnections.get(browserProfileId);
+    return profileSet !== undefined && profileSet.size > 0;
   }
 
   /**
-   * Get all device IDs with active connections.
+   * Get all browser profile IDs with active connections.
    */
-  getConnectedDeviceIds(): string[] {
-    return Array.from(this.deviceConnections.keys());
+  getConnectedBrowserProfileIds(): string[] {
+    return Array.from(this.browserProfileConnections.keys());
   }
 
   /**
-   * Get the number of active connections for a device.
+   * Get the number of active connections for a browser profile.
    */
-  getTabCount(deviceId: string): number {
-    return this.deviceConnections.get(deviceId)?.size ?? 0;
+  getTabCount(browserProfileId: string): number {
+    return this.browserProfileConnections.get(browserProfileId)?.size ?? 0;
   }
 
   /**
