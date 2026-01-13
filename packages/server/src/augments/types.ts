@@ -51,6 +51,7 @@ export interface WriteInputWithAugment extends WriteInput {
   _highlightedContentHtml?: string;
   _highlightedLanguage?: string;
   _highlightedTruncated?: boolean;
+  _renderedMarkdownHtml?: string;
 }
 
 /** Generic SDK message structure for type-safe access */

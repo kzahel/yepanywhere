@@ -555,10 +555,14 @@ export const api = {
       }>;
     }>("/push/subscriptions"),
 
-  testPush: (browserProfileId: string, message?: string) =>
+  testPush: (
+    browserProfileId: string,
+    message?: string,
+    urgency?: "normal" | "persistent" | "silent",
+  ) =>
     fetchJSON<{ success: boolean }>("/push/test", {
       method: "POST",
-      body: JSON.stringify({ browserProfileId, message }),
+      body: JSON.stringify({ browserProfileId, message, urgency }),
     }),
 
   deletePushSubscription: (browserProfileId: string) =>
@@ -809,7 +813,22 @@ export const api = {
       `/browser-profiles/${encodeURIComponent(browserProfileId)}`,
       { method: "DELETE" },
     ),
+
+  // Server settings API (persistent server configuration)
+  getServerSettings: () => fetchJSON<{ settings: ServerSettings }>("/settings"),
+
+  updateServerSettings: (settings: Partial<ServerSettings>) =>
+    fetchJSON<{ settings: ServerSettings }>("/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    }),
 };
+
+/** Server-wide settings that persist across restarts */
+export interface ServerSettings {
+  /** Whether clients should register the service worker */
+  serviceWorkerEnabled: boolean;
+}
 
 /**
  * A beads issue (task) from the bd CLI.

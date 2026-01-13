@@ -72,6 +72,14 @@ function isImageFile(mimeType: string): boolean {
 }
 
 /**
+ * Check if file is markdown.
+ */
+function isMarkdownFile(filePath: string): boolean {
+  const ext = filePath.split(".").pop()?.toLowerCase() || "";
+  return ext === "md" || ext === "markdown";
+}
+
+/**
  * Get filename from path.
  */
 function getFileName(filePath: string): string {
@@ -94,6 +102,7 @@ export const FileViewer = memo(function FileViewer({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [highlightedLineRef, setHighlightedLineRef] =
     useState<HTMLElement | null>(null);
 
@@ -206,24 +215,68 @@ export const FileViewer = memo(function FileViewer({
 
     // Text files
     if (content !== undefined) {
+      const isMarkdown = isMarkdownFile(filePath);
+      const hasMarkdownPreview = isMarkdown && !!fileData.renderedMarkdownHtml;
+
+      // Toggle button for markdown files
+      const toggleButton = hasMarkdownPreview && (
+        <div className="markdown-view-toggle">
+          <button
+            type="button"
+            className={`toggle-btn ${!showPreview ? "active" : ""}`}
+            onClick={() => setShowPreview(false)}
+          >
+            Source
+          </button>
+          <button
+            type="button"
+            className={`toggle-btn ${showPreview ? "active" : ""}`}
+            onClick={() => setShowPreview(true)}
+          >
+            Preview
+          </button>
+        </div>
+      );
+
+      // Show rendered markdown preview
+      if (showPreview && fileData.renderedMarkdownHtml) {
+        return (
+          <>
+            {toggleButton}
+            <div className="markdown-preview">
+              <div
+                className="markdown-rendered"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered HTML
+                dangerouslySetInnerHTML={{
+                  __html: fileData.renderedMarkdownHtml,
+                }}
+              />
+            </div>
+          </>
+        );
+      }
+
       // Server-rendered syntax highlighting (preferred)
       if (fileData.highlightedHtml) {
         return (
-          <div
-            className="file-viewer-code file-viewer-code-highlighted"
-            data-language={fileData.highlightedLanguage ?? language}
-          >
+          <>
+            {toggleButton}
             <div
-              className="shiki-container"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered HTML
-              dangerouslySetInnerHTML={{ __html: fileData.highlightedHtml }}
-            />
-            {fileData.highlightedTruncated && (
-              <div className="file-viewer-truncated">
-                File truncated for highlighting (showing first 2000 lines)
-              </div>
-            )}
-          </div>
+              className="file-viewer-code file-viewer-code-highlighted"
+              data-language={fileData.highlightedLanguage ?? language}
+            >
+              <div
+                className="shiki-container"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered HTML
+                dangerouslySetInnerHTML={{ __html: fileData.highlightedHtml }}
+              />
+              {fileData.highlightedTruncated && (
+                <div className="file-viewer-truncated">
+                  File truncated for highlighting (showing first 2000 lines)
+                </div>
+              )}
+            </div>
+          </>
         );
       }
 
@@ -233,48 +286,55 @@ export const FileViewer = memo(function FileViewer({
       const highlightEnd = lineEnd ?? highlightStart;
 
       return (
-        <div className="file-viewer-code" data-language={language}>
-          <div className="code-highlighter-plain">
-            <div className="code-line-numbers">
-              {lines.map((_, i) => (
-                <div key={`ln-${i + 1}`}>{i + 1}</div>
-              ))}
+        <>
+          {toggleButton}
+          <div className="file-viewer-code" data-language={language}>
+            <div className="code-highlighter-plain">
+              <div className="code-line-numbers">
+                {lines.map((_, i) => (
+                  <div key={`ln-${i + 1}`}>{i + 1}</div>
+                ))}
+              </div>
+              <pre className="code-content">
+                <code>
+                  {lines.map((line, i) => {
+                    const num = i + 1;
+                    const isHighlighted =
+                      lineNumber &&
+                      num >= highlightStart &&
+                      num <= highlightEnd;
+                    return (
+                      <div
+                        key={`line-${i + 1}`}
+                        ref={
+                          lineNumber && num === highlightStart
+                            ? (el) => setHighlightedLineRef(el)
+                            : undefined
+                        }
+                        className={
+                          isHighlighted ? "highlighted-line" : undefined
+                        }
+                        style={
+                          isHighlighted
+                            ? {
+                                backgroundColor: "rgba(255, 255, 0, 0.15)",
+                                marginLeft: "-0.75rem",
+                                marginRight: "-0.75rem",
+                                paddingLeft: "0.75rem",
+                                paddingRight: "0.75rem",
+                              }
+                            : undefined
+                        }
+                      >
+                        {line || " "}
+                      </div>
+                    );
+                  })}
+                </code>
+              </pre>
             </div>
-            <pre className="code-content">
-              <code>
-                {lines.map((line, i) => {
-                  const num = i + 1;
-                  const isHighlighted =
-                    lineNumber && num >= highlightStart && num <= highlightEnd;
-                  return (
-                    <div
-                      key={`line-${i + 1}`}
-                      ref={
-                        lineNumber && num === highlightStart
-                          ? (el) => setHighlightedLineRef(el)
-                          : undefined
-                      }
-                      className={isHighlighted ? "highlighted-line" : undefined}
-                      style={
-                        isHighlighted
-                          ? {
-                              backgroundColor: "rgba(255, 255, 0, 0.15)",
-                              marginLeft: "-0.75rem",
-                              marginRight: "-0.75rem",
-                              paddingLeft: "0.75rem",
-                              paddingRight: "0.75rem",
-                            }
-                          : undefined
-                      }
-                    >
-                      {line || " "}
-                    </div>
-                  );
-                })}
-              </code>
-            </pre>
           </div>
-        </div>
+        </>
       );
     }
 

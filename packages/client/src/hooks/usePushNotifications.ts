@@ -7,11 +7,9 @@ import {
 } from "../lib/storageKeys";
 const SW_PATH = "/sw.js";
 
-// Service worker is disabled in dev mode by default to avoid page reload issues
-// (skipWaiting + clients.claim can disrupt SSE connections on mobile screen unlock)
-// Enable with VITE_ENABLE_SW=true in .env or environment
-const SW_ENABLED =
-  !import.meta.env.DEV || import.meta.env.VITE_ENABLE_SW === "true";
+// In production, SW is always enabled
+// In dev mode, check server setting (allows runtime toggle via settings UI)
+const IS_DEV = import.meta.env.DEV;
 
 interface PushState {
   isSupported: boolean;
@@ -44,38 +42,62 @@ export function usePushNotifications() {
   const [registration, setRegistration] =
     useState<ServiceWorkerRegistration | null>(null);
 
-  // Check browser support (and whether SW is enabled in this environment)
-  const isSupported =
-    SW_ENABLED &&
+  // Check browser API support (separate from server-side enablement)
+  const hasBrowserSupport =
     typeof window !== "undefined" &&
     "serviceWorker" in navigator &&
     "PushManager" in window &&
     "Notification" in window;
 
-  // Initialize: register service worker and check subscription status
+  // Initialize: check server setting (in dev mode), then register service worker
   useEffect(() => {
-    if (!isSupported) {
-      const reason = !SW_ENABLED
-        ? "Service worker disabled in dev mode (set VITE_ENABLE_SW=true to enable)"
-        : "Push notifications not supported in this browser";
-      // Still populate browserProfileId so we can identify this browser profile in the subscribed list
-      const browserProfileId = getServerScoped(
-        "browserProfileId",
-        LEGACY_KEYS.browserProfileId,
-      );
-      setState((s) => ({
-        ...s,
-        isSupported: false,
-        isLoading: false,
-        error: reason,
-        browserProfileId,
-      }));
-      return;
-    }
-
     const init = async () => {
+      // Check browser support first
+      if (!hasBrowserSupport) {
+        const browserProfileId = getServerScoped(
+          "browserProfileId",
+          LEGACY_KEYS.browserProfileId,
+        );
+        setState((s) => ({
+          ...s,
+          isSupported: false,
+          isLoading: false,
+          error: "Push notifications not supported in this browser",
+          browserProfileId,
+        }));
+        return;
+      }
+
+      // In dev mode, check server setting
+      if (IS_DEV) {
+        try {
+          const response = await api.getServerSettings();
+          if (!response.settings.serviceWorkerEnabled) {
+            const browserProfileId = getServerScoped(
+              "browserProfileId",
+              LEGACY_KEYS.browserProfileId,
+            );
+            setState((s) => ({
+              ...s,
+              isSupported: false,
+              isLoading: false,
+              error:
+                "Service worker disabled (enable in Settings > Development)",
+              browserProfileId,
+            }));
+            return;
+          }
+        } catch (err) {
+          // If settings fetch fails, continue with SW enabled (fail open)
+          console.warn(
+            "[usePushNotifications] Failed to fetch server settings, proceeding with SW enabled:",
+            err,
+          );
+        }
+      }
+
+      // Register service worker
       try {
-        // Register service worker
         const reg = await navigator.serviceWorker.register(SW_PATH);
         setRegistration(reg);
 
@@ -106,7 +128,7 @@ export function usePushNotifications() {
     };
 
     init();
-  }, [isSupported]);
+  }, [hasBrowserSupport]);
 
   // Subscribe to push notifications
   const subscribe = useCallback(async () => {
@@ -209,22 +231,25 @@ export function usePushNotifications() {
   }, [registration]);
 
   // Send a test notification
-  const sendTest = useCallback(async () => {
-    const browserProfileId = getOrCreateBrowserProfileId();
-    setState((s) => ({ ...s, isLoading: true, error: null }));
+  const sendTest = useCallback(
+    async (urgency: "normal" | "persistent" | "silent" = "normal") => {
+      const browserProfileId = getOrCreateBrowserProfileId();
+      setState((s) => ({ ...s, isLoading: true, error: null }));
 
-    try {
-      await api.testPush(browserProfileId);
-      setState((s) => ({ ...s, isLoading: false }));
-    } catch (err) {
-      console.error("[usePushNotifications] Test push error:", err);
-      setState((s) => ({
-        ...s,
-        isLoading: false,
-        error: err instanceof Error ? err.message : "Failed to send test",
-      }));
-    }
-  }, []);
+      try {
+        await api.testPush(browserProfileId, undefined, urgency);
+        setState((s) => ({ ...s, isLoading: false }));
+      } catch (err) {
+        console.error("[usePushNotifications] Test push error:", err);
+        setState((s) => ({
+          ...s,
+          isLoading: false,
+          error: err instanceof Error ? err.message : "Failed to send test",
+        }));
+      }
+    },
+    [],
+  );
 
   // Get service worker logs (for debugging)
   const getSwLogs = useCallback(async (): Promise<SwLogEntry[]> => {

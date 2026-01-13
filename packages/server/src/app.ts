@@ -47,6 +47,7 @@ import { createProvidersRoutes } from "./routes/providers.js";
 import { createRecentsRoutes } from "./routes/recents.js";
 import { createServerInfoRoutes } from "./routes/server-info.js";
 import { createSessionsRoutes } from "./routes/sessions.js";
+import { createSettingsRoutes } from "./routes/settings.js";
 import { createStreamRoutes } from "./routes/stream.js";
 import { type UploadDeps, createUploadRoutes } from "./routes/upload.js";
 import { version } from "./routes/version.js";
@@ -59,6 +60,7 @@ import type { BrowserProfileService } from "./services/BrowserProfileService.js"
 import type { ConnectedBrowsersService } from "./services/ConnectedBrowsersService.js";
 import type { NetworkBindingService } from "./services/NetworkBindingService.js";
 import type { RelayClientService } from "./services/RelayClientService.js";
+import type { ServerSettingsService } from "./services/ServerSettingsService.js";
 import { CodexSessionReader } from "./sessions/codex-reader.js";
 import { GeminiSessionReader } from "./sessions/gemini-reader.js";
 import { OpenCodeSessionReader } from "./sessions/opencode-reader.js";
@@ -144,6 +146,8 @@ export interface AppOptions {
   connectedBrowsers?: ConnectedBrowsersService;
   /** BrowserProfileService for tracking browser profile origins */
   browserProfileService?: BrowserProfileService;
+  /** ServerSettingsService for server-wide settings */
+  serverSettingsService?: ServerSettingsService;
 }
 
 export interface AppResult {
@@ -431,6 +435,16 @@ export function createApp(options: AppOptions): AppResult {
 
   // Provider routes (multi-provider detection)
   app.route("/api/providers", createProvidersRoutes());
+
+  // Server settings routes
+  if (options.serverSettingsService) {
+    app.route(
+      "/api/settings",
+      createSettingsRoutes({
+        serverSettingsService: options.serverSettingsService,
+      }),
+    );
+  }
 
   // Connections routes (list connected browser profiles)
   if (options.connectedBrowsers) {

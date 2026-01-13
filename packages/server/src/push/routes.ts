@@ -23,6 +23,7 @@ interface UnsubscribeBody {
 interface TestPushBody {
   browserProfileId: string;
   message?: string;
+  urgency?: "normal" | "persistent" | "silent";
 }
 
 export function createPushRoutes(deps: PushRoutesDeps): Hono {
@@ -149,6 +150,7 @@ export function createPushRoutes(deps: PushRoutesDeps): Hono {
     const result = await pushService.sendTest(
       body.browserProfileId,
       body.message ?? "Test notification from Yep Anywhere",
+      body.urgency,
     );
 
     if (!result.success) {

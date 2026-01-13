@@ -302,6 +302,9 @@ async function augmentWriteInputs(messages: Message[]): Promise<void> {
                   input._highlightedContentHtml = augment.highlightedHtml;
                   input._highlightedLanguage = augment.language;
                   input._highlightedTruncated = augment.truncated;
+                  if (augment.renderedMarkdownHtml) {
+                    input._renderedMarkdownHtml = augment.renderedMarkdownHtml;
+                  }
                 }
               })
               .catch(() => {

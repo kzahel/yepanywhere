@@ -9,6 +9,7 @@ import {
 } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import { computeEditAugment } from "../augments/edit-augments.js";
+import { renderMarkdownToHtml } from "../augments/markdown-augments.js";
 import { highlightFile } from "../highlighting/index.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 
@@ -391,6 +392,17 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
             response.highlightedHtml = result.html;
             response.highlightedLanguage = result.language;
             response.highlightedTruncated = result.truncated;
+          }
+
+          // Render markdown preview for .md files
+          const ext = extname(relativePath).toLowerCase();
+          if (ext === ".md" || ext === ".markdown") {
+            try {
+              response.renderedMarkdownHtml =
+                await renderMarkdownToHtml(content);
+            } catch {
+              // Ignore markdown rendering errors
+            }
           }
         }
       } catch {

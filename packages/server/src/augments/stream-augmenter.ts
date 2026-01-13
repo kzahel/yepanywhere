@@ -220,6 +220,9 @@ export async function createStreamAugmenter(
               input._highlightedContentHtml = augment.highlightedHtml;
               input._highlightedLanguage = augment.language;
               input._highlightedTruncated = augment.truncated;
+              if (augment.renderedMarkdownHtml) {
+                input._renderedMarkdownHtml = augment.renderedMarkdownHtml;
+              }
             }
           } catch (err) {
             handleError(err, "Failed to compute write augment");

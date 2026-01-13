@@ -3,6 +3,7 @@ import { useSchemaValidationContext } from "../../contexts/SchemaValidationConte
 import { useDeveloperMode } from "../../hooks/useDeveloperMode";
 import { useReloadNotifications } from "../../hooks/useReloadNotifications";
 import { useSchemaValidation } from "../../hooks/useSchemaValidation";
+import { useServerSettings } from "../../hooks/useServerSettings";
 import { getWebSocketConnection } from "../../lib/connection";
 
 export function DevelopmentSettings() {
@@ -23,6 +24,8 @@ export function DevelopmentSettings() {
     setWebsocketTransportEnabled,
   } = useDeveloperMode();
   const { ignoredTools, clearIgnoredTools } = useSchemaValidationContext();
+  const { settings: serverSettings, updateSetting: updateServerSetting } =
+    useServerSettings();
 
   const [restarting, setRestarting] = useState(false);
   const [wsTestStatus, setWsTestStatus] = useState<
@@ -166,6 +169,25 @@ export function DevelopmentSettings() {
               <span className="toggle-slider" />
             </label>
           </div>
+        </div>
+        <div className="settings-item">
+          <div className="settings-item-info">
+            <strong>Service Worker</strong>
+            <p>
+              Enable service worker for push notifications. Disabling can help
+              with page reload issues during development. Requires restart.
+            </p>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={serverSettings?.serviceWorkerEnabled ?? true}
+              onChange={(e) =>
+                updateServerSetting("serviceWorkerEnabled", e.target.checked)
+              }
+            />
+            <span className="toggle-slider" />
+          </label>
         </div>
       </div>
 

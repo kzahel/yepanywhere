@@ -14,6 +14,15 @@ interface WriteInputWithAugment extends WriteInput {
   _highlightedContentHtml?: string;
   _highlightedLanguage?: string;
   _highlightedTruncated?: boolean;
+  _renderedMarkdownHtml?: string;
+}
+
+/**
+ * Check if file is markdown based on extension.
+ */
+function isMarkdownFile(filePath: string): boolean {
+  const ext = filePath.split(".").pop()?.toLowerCase() || "";
+  return ext === "md" || ext === "markdown";
 }
 
 /**
@@ -61,12 +70,53 @@ function WriteModalContent({
   file: WriteResult["file"];
   input?: WriteInputWithAugment;
 }) {
+  const [showPreview, setShowPreview] = useState(false);
   const lines = file.content.split("\n");
+
+  const isMarkdown = isMarkdownFile(file.filePath);
+  const hasMarkdownPreview = isMarkdown && !!input?._renderedMarkdownHtml;
+
+  // Toggle button for markdown files
+  const toggleButton = hasMarkdownPreview && (
+    <div className="markdown-view-toggle">
+      <button
+        type="button"
+        className={`toggle-btn ${!showPreview ? "active" : ""}`}
+        onClick={() => setShowPreview(false)}
+      >
+        Source
+      </button>
+      <button
+        type="button"
+        className={`toggle-btn ${showPreview ? "active" : ""}`}
+        onClick={() => setShowPreview(true)}
+      >
+        Preview
+      </button>
+    </div>
+  );
+
+  // Show rendered markdown preview
+  if (showPreview && input?._renderedMarkdownHtml) {
+    return (
+      <div className="file-content-modal">
+        {toggleButton}
+        <div className="markdown-preview">
+          <div
+            className="markdown-rendered"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered HTML
+            dangerouslySetInnerHTML={{ __html: input._renderedMarkdownHtml }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // Use highlighted HTML if available from input augment
   if (input?._highlightedContentHtml) {
     return (
       <div className="file-content-modal">
+        {toggleButton}
         <div className="file-viewer-code file-viewer-code-highlighted">
           <div
             className="shiki-container"
@@ -86,6 +136,7 @@ function WriteModalContent({
   // Fallback: plain text with line numbers
   return (
     <div className="file-content-modal">
+      {toggleButton}
       <div className="file-content-with-lines">
         <div className="line-numbers">
           {lines.map((_, i) => (

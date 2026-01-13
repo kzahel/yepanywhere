@@ -29,3 +29,10 @@ export {
   type BrowserProfileServiceOptions,
   type OriginMetadata,
 } from "./BrowserProfileService.js";
+
+export {
+  ServerSettingsService,
+  type ServerSettings,
+  type ServerSettingsServiceOptions,
+  DEFAULT_SERVER_SETTINGS,
+} from "./ServerSettingsService.js";

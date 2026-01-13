@@ -5,7 +5,9 @@
  * matching the FileViewer's highlighting behavior.
  */
 
+import { extname } from "node:path";
 import { highlightFile } from "../highlighting/index.js";
+import { renderMarkdownToHtml } from "./markdown-augments.js";
 
 /**
  * Input for computing a write augment.
@@ -25,6 +27,16 @@ export interface WriteAugmentResult {
   language: string;
   /** Whether content was truncated for highlighting */
   truncated: boolean;
+  /** Rendered markdown HTML (for .md files) */
+  renderedMarkdownHtml?: string;
+}
+
+/**
+ * Check if file is markdown based on extension.
+ */
+function isMarkdownFile(filePath: string): boolean {
+  const ext = extname(filePath).toLowerCase();
+  return ext === ".md" || ext === ".markdown";
 }
 
 /**
@@ -44,9 +56,20 @@ export async function computeWriteAugment(
     return null;
   }
 
-  return {
+  const augmentResult: WriteAugmentResult = {
     highlightedHtml: result.html,
     language: result.language,
     truncated: result.truncated,
   };
+
+  // Render markdown preview for .md files
+  if (isMarkdownFile(file_path)) {
+    try {
+      augmentResult.renderedMarkdownHtml = await renderMarkdownToHtml(content);
+    } catch {
+      // Ignore markdown rendering errors
+    }
+  }
+
+  return augmentResult;
 }

@@ -93,10 +93,15 @@ export interface DismissPayload extends BasePushPayload {
   sessionId: string;
 }
 
+/** Test notification urgency levels */
+export type TestNotificationUrgency = "normal" | "persistent" | "silent";
+
 /** Test notification */
 export interface TestPayload extends BasePushPayload {
   type: "test";
   message: string;
+  /** Controls notification behavior: normal (auto-dismiss), persistent (stays visible), silent (no sound) */
+  urgency?: TestNotificationUrgency;
 }
 
 export type PushPayload =

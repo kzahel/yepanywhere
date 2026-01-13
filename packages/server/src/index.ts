@@ -45,6 +45,7 @@ import {
   InstallService,
   NetworkBindingService,
   RelayClientService,
+  ServerSettingsService,
 } from "./services/index.js";
 import { ClaudeSessionReader } from "./sessions/reader.js";
 import { UploadManager } from "./uploads/manager.js";
@@ -168,6 +169,9 @@ const networkBindingService = new NetworkBindingService({
   defaultPort: 3400,
 });
 const connectedBrowsersService = new ConnectedBrowsersService(eventBus);
+const serverSettingsService = new ServerSettingsService({
+  dataDir: config.dataDir,
+});
 
 async function startServer() {
   // Initialize services (loads state from disk)
@@ -184,6 +188,7 @@ async function startServer() {
   await remoteAccessService.initialize();
   await remoteSessionService.initialize();
   await networkBindingService.initialize();
+  await serverSettingsService.initialize();
 
   // Log auth status
   if (config.authDisabled) {
@@ -262,6 +267,7 @@ async function startServer() {
     networkBindingCallbackHolder,
     connectedBrowsers: connectedBrowsersService,
     browserProfileService,
+    serverSettingsService,
   });
 
   // Set up debug context for maintenance server

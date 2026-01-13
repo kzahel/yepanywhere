@@ -13,6 +13,11 @@
  * - test: Test notification
  */
 
+// Version constant for controlled updates
+// Increment this when making intentional SW changes
+// Browsers reinstall SW only when file content changes
+const SW_VERSION = "1.0.0";
+
 // Settings synced from main thread
 const settings = {
   notifyInApp: false, // When true, notify even when app is focused (if session not viewed)
@@ -240,13 +245,20 @@ async function handlePush(data) {
 
   // Test notifications always show (user explicitly requested them)
   if (data.type === "test") {
-    return self.registration.showNotification("Yep Anywhere", {
+    // Urgency controls notification behavior:
+    // - normal: auto-dismiss (requireInteraction: false)
+    // - persistent: stays visible until dismissed (requireInteraction: true)
+    // - silent: no sound (silent: true)
+    const urgency = data.urgency || "normal";
+    const options = {
       body: data.message || "Test notification",
       tag: "test",
       icon: "/icon-192.png",
       badge: "/badge-96.png",
-      requireInteraction: true,
-    });
+      requireInteraction: urgency === "persistent",
+      silent: urgency === "silent",
+    };
+    return self.registration.showNotification("Yep Anywhere", options);
   }
 
   // Determine if we should suppress notification

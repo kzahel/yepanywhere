@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { useNotifyInApp } from "../hooks/useNotifyInApp";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+
+export type TestNotificationUrgency = "normal" | "persistent" | "silent";
 
 /**
  * Toggle component for push notification settings.
@@ -17,6 +20,8 @@ export function PushNotificationToggle() {
     sendTest,
   } = usePushNotifications();
   const { notifyInApp, setNotifyInApp } = useNotifyInApp();
+  const [testUrgency, setTestUrgency] =
+    useState<TestNotificationUrgency>("normal");
 
   const handleToggle = async () => {
     if (isSubscribed) {
@@ -127,14 +132,28 @@ export function PushNotificationToggle() {
               <strong>Test Notification</strong>
               <p>Send a test notification to verify push is working.</p>
             </div>
-            <button
-              type="button"
-              className="settings-button"
-              onClick={sendTest}
-              disabled={isLoading}
-            >
-              {isLoading ? "Sending..." : "Send Test"}
-            </button>
+            <div className="settings-item-actions">
+              <select
+                className="settings-select"
+                value={testUrgency}
+                onChange={(e) =>
+                  setTestUrgency(e.target.value as TestNotificationUrgency)
+                }
+                disabled={isLoading}
+              >
+                <option value="normal">Normal (auto-dismiss)</option>
+                <option value="persistent">Persistent (stays visible)</option>
+                <option value="silent">Silent (no sound)</option>
+              </select>
+              <button
+                type="button"
+                className="settings-button"
+                onClick={() => sendTest(testUrgency)}
+                disabled={isLoading}
+              >
+                {isLoading ? "Sending..." : "Send Test"}
+              </button>
+            </div>
           </div>
         </>
       )}

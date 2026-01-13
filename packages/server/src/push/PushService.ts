@@ -298,10 +298,12 @@ export class PushService {
   async sendTest(
     browserProfileId: string,
     message = "Test notification",
+    urgency?: "normal" | "persistent" | "silent",
   ): Promise<SendResult> {
     return this.sendToBrowserProfile(browserProfileId, {
       type: "test",
       message,
+      urgency,
       timestamp: new Date().toISOString(),
     });
   }
