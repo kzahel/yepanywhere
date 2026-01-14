@@ -88,6 +88,8 @@ interface StartSessionBody {
   provider?: ProviderName;
   /** Client-generated temp ID for optimistic UI tracking */
   tempId?: string;
+  /** SSH host alias for remote execution (undefined = local) */
+  executor?: string;
 }
 
 interface CreateSessionBody {
@@ -95,6 +97,8 @@ interface CreateSessionBody {
   model?: ModelOption;
   thinking?: ThinkingOption;
   provider?: ProviderName;
+  /** SSH host alias for remote execution (undefined = local) */
+  executor?: string;
 }
 
 interface InputResponseBody {
@@ -805,7 +809,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       project.path,
       userMessage,
       body.mode,
-      { model, maxThinkingTokens, providerName: body.provider },
+      {
+        model,
+        maxThinkingTokens,
+        providerName: body.provider,
+        executor: body.executor,
+      },
     );
 
     // Check if queue is full
@@ -819,6 +828,14 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // Check if request was queued
     if (isQueuedResponse(result)) {
       return c.json(result, 202); // 202 Accepted - queued for processing
+    }
+
+    // Save executor to session metadata for resume
+    if (body.executor && deps.sessionMetadataService) {
+      await deps.sessionMetadataService.setExecutor(
+        result.sessionId,
+        body.executor,
+      );
     }
 
     return c.json({
@@ -869,6 +886,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         model,
         maxThinkingTokens,
         providerName: body.provider,
+        executor: body.executor,
       },
     );
 
@@ -883,6 +901,14 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // Check if request was queued
     if (isQueuedResponse(result)) {
       return c.json(result, 202); // 202 Accepted - queued for processing
+    }
+
+    // Save executor to session metadata for resume
+    if (body.executor && deps.sessionMetadataService) {
+      await deps.sessionMetadataService.setExecutor(
+        result.sessionId,
+        body.executor,
+      );
     }
 
     return c.json({

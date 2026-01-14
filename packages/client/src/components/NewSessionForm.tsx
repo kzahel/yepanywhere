@@ -30,6 +30,7 @@ import {
   getDefaultProvider,
   useProviders,
 } from "../hooks/useProviders";
+import { useRemoteExecutors } from "../hooks/useRemoteExecutors";
 import { hasCoarsePointer } from "../lib/deviceDetection";
 import type { PermissionMode } from "../types";
 import { ClaudeLoginModal } from "./ClaudeLoginModal";
@@ -100,6 +101,8 @@ export function NewSessionForm({
     null,
   );
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  // null = local, string = remote host
+  const [selectedExecutor, setSelectedExecutor] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<
@@ -124,6 +127,10 @@ export function NewSessionForm({
 
   // Fetch available providers
   const { providers, loading: providersLoading } = useProviders();
+
+  // Fetch remote executors
+  const { executors: remoteExecutors, loading: executorsLoading } =
+    useRemoteExecutors();
   const availableProviders = getAvailableProviders(providers);
 
   // Get models and capabilities for the currently selected provider
@@ -295,6 +302,7 @@ export function NewSessionForm({
         model: selectedModel ?? undefined,
         thinking,
         provider: selectedProvider ?? undefined,
+        executor: selectedExecutor ?? undefined,
       };
 
       if (pendingFiles.length > 0) {
@@ -722,6 +730,45 @@ export function NewSessionForm({
             multiSelect={false}
             placeholder="Select model"
           />
+        </div>
+      )}
+
+      {/* Executor Selection - only show if remote executors are configured */}
+      {!executorsLoading && remoteExecutors.length > 0 && (
+        <div className="new-session-executor-section">
+          <h3>Run On</h3>
+          <div className="executor-options">
+            <button
+              key="local"
+              type="button"
+              className={`executor-option ${selectedExecutor === null ? "selected" : ""}`}
+              onClick={() => setSelectedExecutor(null)}
+              disabled={isStarting}
+            >
+              <span className="executor-option-dot executor-local" />
+              <div className="executor-option-content">
+                <span className="executor-option-label">Local</span>
+                <span className="executor-option-desc">
+                  Run on this machine
+                </span>
+              </div>
+            </button>
+            {remoteExecutors.map((host) => (
+              <button
+                key={host}
+                type="button"
+                className={`executor-option ${selectedExecutor === host ? "selected" : ""}`}
+                onClick={() => setSelectedExecutor(host)}
+                disabled={isStarting}
+              >
+                <span className="executor-option-dot executor-remote" />
+                <div className="executor-option-content">
+                  <span className="executor-option-label">{host}</span>
+                  <span className="executor-option-desc">Run via SSH</span>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

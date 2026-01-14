@@ -66,6 +66,8 @@ export interface GlobalSessionItem {
   customTitle?: string;
   isArchived?: boolean;
   isStarred?: boolean;
+  /** SSH host alias for remote execution (undefined = local) */
+  executor?: string;
 }
 
 /** Stats about all sessions (computed during full scan) */
@@ -206,6 +208,7 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
         const isArchived = metadata?.isArchived ?? session.isArchived ?? false;
         const isStarred = metadata?.isStarred ?? session.isStarred ?? false;
         const customTitle = metadata?.customTitle ?? session.customTitle;
+        const executor = metadata?.executor;
 
         // Get unread status
         const hasUnread = deps.notificationService
@@ -299,6 +302,7 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
           customTitle,
           isArchived,
           isStarred,
+          executor,
         });
       }
     }

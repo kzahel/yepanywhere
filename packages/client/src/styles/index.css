@@ -4619,6 +4619,210 @@ a.sidebar-nav-item {
   color: var(--text-muted);
 }
 
+/* Executor options (Run On section) */
+.new-session-executor-section {
+  margin-top: var(--space-4);
+}
+
+.new-session-executor-section h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+}
+
+.executor-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.executor-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-code);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.executor-option:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--text-dimmed);
+}
+
+.executor-option.selected {
+  border-color: var(--app-yep-green);
+  background: rgba(217, 119, 87, 0.08);
+}
+
+.executor-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.executor-option-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.executor-option-dot.executor-local {
+  background: var(--success-color);
+}
+
+.executor-option-dot.executor-remote {
+  background: var(--info-color, #3b82f6);
+}
+
+.executor-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.executor-option-label {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.executor-option-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+/* Remote Executors Settings */
+.remote-executor-add {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.remote-executor-input {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.remote-executor-input:focus {
+  outline: none;
+  border-color: var(--app-yep-green);
+}
+
+.remote-executor-add-button {
+  padding: var(--space-2) var(--space-3);
+  background: var(--app-yep-green);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.remote-executor-add-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.remote-executor-add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.remote-executor-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.remote-executor-item {
+  padding: var(--space-3);
+  background: var(--bg-code);
+  border-radius: var(--radius-md);
+}
+
+.remote-executor-item-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.remote-executor-host {
+  font-weight: 500;
+  font-family: var(--font-mono);
+}
+
+.remote-executor-error {
+  margin: var(--space-2) 0;
+}
+
+.remote-executor-details {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin: var(--space-2) 0;
+}
+
+.remote-executor-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.remote-executor-test-button,
+.remote-executor-remove-button {
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.remote-executor-test-button:hover:not(:disabled),
+.remote-executor-remove-button:hover:not(:disabled) {
+  background: var(--border-color);
+}
+
+.remote-executor-test-button:disabled,
+.remote-executor-remove-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.remote-executor-remove-button {
+  color: var(--error-color);
+}
+
+.settings-requirements {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.settings-requirements li {
+  margin-bottom: var(--space-1);
+}
+
+.settings-empty,
+.settings-loading {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2);
+}
+
 /* Sidebar New Session Button */
 
 /* Mobile adjustments for new session page */
@@ -6095,6 +6299,15 @@ a.sidebar-nav-item {
 .session-badge-needs-input {
   background: var(--status-badge-input-bg);
   color: var(--status-badge-input-text);
+}
+
+.session-badge-executor {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Rename input */

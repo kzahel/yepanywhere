@@ -49,6 +49,12 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
     description: "AI provider integrations",
   },
   {
+    id: "remote-executors",
+    label: "Remote Executors",
+    icon: "🖥️",
+    description: "Run sessions on remote machines",
+  },
+  {
     id: "about",
     label: "About",
     icon: "ℹ️",

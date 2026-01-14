@@ -11,6 +11,7 @@ import { ModelSettings } from "./ModelSettings";
 import { NotificationsSettings } from "./NotificationsSettings";
 import { ProvidersSettings } from "./ProvidersSettings";
 import { RemoteAccessSettings } from "./RemoteAccessSettings";
+import { RemoteExecutorsSettings } from "./RemoteExecutorsSettings";
 import {
   DEV_CATEGORY,
   SETTINGS_CATEGORIES,
@@ -26,6 +27,7 @@ const CATEGORY_COMPONENTS: Record<string, React.ComponentType> = {
   "local-access": LocalAccessSettings,
   remote: RemoteAccessSettings,
   providers: ProvidersSettings,
+  "remote-executors": RemoteExecutorsSettings,
   about: AboutSettings,
   development: DevelopmentSettings,
 };

@@ -29,6 +29,8 @@ interface SessionListItemProps {
   contextUsage?: ContextUsage;
   status?: AppSessionStatus;
   provider?: ProviderName;
+  /** SSH host for remote execution (undefined = local) */
+  executor?: string;
 
   // Feature toggles
   mode: "card" | "compact";
@@ -87,6 +89,7 @@ export function SessionListItem({
   contextUsage,
   status,
   provider,
+  executor,
   // Feature toggles
   mode,
   showProjectName = false,
@@ -371,6 +374,14 @@ export function SessionListItem({
                   </span>
                 )}
                 {showTimestamp && updatedAt && formatRelativeTime(updatedAt)}
+                {executor && (
+                  <span
+                    className="session-badge session-badge-executor"
+                    title={`Running on ${executor}`}
+                  >
+                    {executor}
+                  </span>
+                )}
                 {showContextUsage && (
                   <ContextUsageIndicator usage={contextUsage} size={14} />
                 )}

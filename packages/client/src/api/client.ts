@@ -71,6 +71,8 @@ export interface GlobalSessionItem {
   customTitle?: string;
   isArchived?: boolean;
   isStarred?: boolean;
+  /** SSH host alias for remote execution (undefined = local) */
+  executor?: string;
 }
 
 /** Stats about all sessions (computed during full scan on server) */
@@ -107,6 +109,8 @@ export interface SessionOptions {
   model?: string;
   thinking?: ThinkingOption;
   provider?: ProviderName;
+  /** SSH host alias for remote execution (undefined = local) */
+  executor?: string;
 }
 
 export type { UploadedFile } from "@yep-anywhere/shared";
@@ -358,6 +362,7 @@ export const api = {
         model: options?.model,
         thinking: options?.thinking,
         provider: options?.provider,
+        executor: options?.executor,
         attachments,
       }),
     }),
@@ -379,6 +384,7 @@ export const api = {
         model: options?.model,
         thinking: options?.thinking,
         provider: options?.provider,
+        executor: options?.executor,
       }),
     }),
 
@@ -828,12 +834,42 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(settings),
     }),
+
+  // Remote executors API
+  getRemoteExecutors: () =>
+    fetchJSON<{ executors: string[] }>("/settings/remote-executors"),
+
+  updateRemoteExecutors: (executors: string[]) =>
+    fetchJSON<{ executors: string[] }>("/settings/remote-executors", {
+      method: "PUT",
+      body: JSON.stringify({ executors }),
+    }),
+
+  testRemoteExecutor: (host: string) =>
+    fetchJSON<RemoteExecutorTestResult>(
+      `/settings/remote-executors/${encodeURIComponent(host)}/test`,
+      { method: "POST" },
+    ),
 };
+
+/** Result of testing an SSH connection to a remote executor */
+export interface RemoteExecutorTestResult {
+  success: boolean;
+  error?: string;
+  /** SSH host that was tested */
+  host?: string;
+  /** Remote home directory */
+  homeDir?: string;
+  /** Whether Claude CLI is available on remote */
+  claudeAvailable?: boolean;
+}
 
 /** Server-wide settings that persist across restarts */
 export interface ServerSettings {
   /** Whether clients should register the service worker */
   serviceWorkerEnabled: boolean;
+  /** SSH host aliases for remote executors */
+  remoteExecutors?: string[];
 }
 
 /**

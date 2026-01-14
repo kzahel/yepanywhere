@@ -624,6 +624,7 @@ export function GlobalSessionsPage() {
                         pendingInputType={session.pendingInputType}
                         status={session.status}
                         provider={session.provider}
+                        executor={session.executor}
                         isStarred={session.isStarred}
                         isArchived={session.isArchived}
                         mode="card"
