@@ -6,7 +6,12 @@ import {
   useImperativeHandle,
 } from "react";
 import { useModelSettings } from "../hooks/useModelSettings";
-import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import {
+  SPEECH_STATUS_LABELS,
+  useSpeechRecognition,
+} from "../hooks/useSpeechRecognition";
+import { useViewportWidth } from "../hooks/useViewportWidth";
+import { hasCoarsePointer } from "../lib/deviceDetection";
 
 export interface VoiceInputButtonRef {
   /** Stop listening and return any pending interim text */
@@ -49,6 +54,11 @@ export const VoiceInputButton = forwardRef(function VoiceInputButton(
   ref: ForwardedRef<VoiceInputButtonRef>,
 ) {
   const { voiceInputEnabled } = useModelSettings();
+  const viewportWidth = useViewportWidth();
+
+  // Show status text on desktop with sufficient width
+  const showStatusText =
+    !hasCoarsePointer() && viewportWidth >= 600 && voiceInputEnabled;
 
   const handleResult = useCallback(
     (transcript: string) => {
@@ -67,6 +77,7 @@ export const VoiceInputButton = forwardRef(function VoiceInputButton(
   const {
     isSupported,
     isListening,
+    status,
     toggleListening,
     stopListening,
     error,
@@ -77,6 +88,9 @@ export const VoiceInputButton = forwardRef(function VoiceInputButton(
   });
 
   const isAvailable = isSupported && voiceInputEnabled;
+
+  // Get display text for status
+  const statusLabel = error || SPEECH_STATUS_LABELS[status];
 
   // Expose methods and state to parent
   useImperativeHandle(
@@ -124,7 +138,21 @@ export const VoiceInputButton = forwardRef(function VoiceInputButton(
     return null;
   }
 
-  return (
+  // Determine status class for styling
+  const statusClass =
+    status === "error" || error
+      ? "status-error"
+      : status === "reconnecting"
+        ? "status-reconnecting"
+        : status === "starting"
+          ? "status-starting"
+          : status === "receiving"
+            ? "status-receiving"
+            : status === "listening"
+              ? "status-listening"
+              : "";
+
+  const button = (
     <button
       type="button"
       className={`voice-input-button ${isListening ? "listening" : ""} ${className}`}
@@ -189,4 +217,18 @@ export const VoiceInputButton = forwardRef(function VoiceInputButton(
       )}
     </button>
   );
+
+  // If showing status text, wrap in container; otherwise just return the button
+  if (showStatusText && isListening) {
+    return (
+      <div
+        className={`voice-input-container ${isListening ? "listening" : ""} ${statusClass}`}
+      >
+        {button}
+        <span className="voice-input-status">{statusLabel}</span>
+      </div>
+    );
+  }
+
+  return button;
 });

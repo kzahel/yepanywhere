@@ -390,6 +390,7 @@ export function useSpeechRecognition(
   return {
     isSupported,
     isListening,
+    status,
     interimTranscript,
     startListening,
     stopListening,

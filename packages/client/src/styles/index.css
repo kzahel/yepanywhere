@@ -2272,6 +2272,54 @@ a.sidebar-nav-item {
   }
 }
 
+/* Voice input container with status display */
+.voice-input-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.voice-input-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 80px;
+  transition: color 0.15s;
+}
+
+/* Status-specific colors for the status text */
+.voice-input-container.status-starting .voice-input-status {
+  color: var(--text-muted);
+}
+
+.voice-input-container.status-listening .voice-input-status {
+  color: rgb(239, 68, 68);
+}
+
+.voice-input-container.status-receiving .voice-input-status {
+  color: rgb(34, 197, 94); /* Green - actively receiving */
+  font-weight: 500;
+}
+
+.voice-input-container.status-reconnecting .voice-input-status {
+  color: rgb(234, 179, 8); /* Yellow/amber - reconnecting */
+  animation: status-blink 0.8s ease-in-out infinite;
+}
+
+.voice-input-container.status-error .voice-input-status {
+  color: rgb(239, 68, 68);
+}
+
+@keyframes status-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 /* Slash command button */
 .slash-command-container {
   position: relative;
