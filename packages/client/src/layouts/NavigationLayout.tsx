@@ -40,11 +40,21 @@ export function NavigationLayout() {
   // Auto-collapse if viewport too narrow for expanded sidebar, or if user prefers collapsed
   const effectivelyCollapsed = !isExpanded || !canShowExpanded(viewportWidth);
 
+  // Smart toggle: if viewport can support expanded, toggle preference; otherwise open overlay
+  const handleToggleExpanded = () => {
+    if (canShowExpanded(viewportWidth)) {
+      toggleExpanded();
+    } else {
+      // Viewport too narrow for expanded sidebar - open mobile-style overlay instead
+      setSidebarOpen(true);
+    }
+  };
+
   const context: NavigationLayoutContext = {
     openSidebar: () => setSidebarOpen(true),
     isWideScreen,
     isSidebarCollapsed: effectivelyCollapsed,
-    toggleSidebar: toggleExpanded,
+    toggleSidebar: handleToggleExpanded,
   };
 
   // CSS variable for sidebar width
@@ -70,7 +80,7 @@ export function NavigationLayout() {
             currentSessionId={sessionId}
             isDesktop={true}
             isCollapsed={effectivelyCollapsed}
-            onToggleExpanded={toggleExpanded}
+            onToggleExpanded={handleToggleExpanded}
             sidebarWidth={sidebarWidth}
             onResizeStart={() => setIsResizing(true)}
             onResize={setSidebarWidth}
@@ -79,8 +89,8 @@ export function NavigationLayout() {
         </aside>
       )}
 
-      {/* Mobile sidebar - modal overlay */}
-      {!isWideScreen && (
+      {/* Mobile sidebar - modal overlay (also used for constrained desktop overlay) */}
+      {(!isWideScreen || sidebarOpen) && (
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}

@@ -81,11 +81,40 @@ export interface UseSpeechRecognitionOptions {
   onError?: (error: string) => void;
 }
 
+/**
+ * Granular status of the speech recognition system.
+ * - idle: Not listening
+ * - starting: Called start(), waiting for cloud service connection
+ * - listening: Connected and listening for speech
+ * - receiving: Actively receiving interim results from cloud
+ * - reconnecting: Auto-restarting after Chrome's ~60s timeout
+ * - error: An error occurred
+ */
+export type SpeechRecognitionStatus =
+  | "idle"
+  | "starting"
+  | "listening"
+  | "receiving"
+  | "reconnecting"
+  | "error";
+
+/** Human-readable labels for each status */
+export const SPEECH_STATUS_LABELS: Record<SpeechRecognitionStatus, string> = {
+  idle: "Ready",
+  starting: "Connecting...",
+  listening: "Listening...",
+  receiving: "Receiving...",
+  reconnecting: "Reconnecting...",
+  error: "Error",
+};
+
 export interface UseSpeechRecognitionReturn {
   /** Whether the Web Speech API is supported */
   isSupported: boolean;
   /** Whether currently listening */
   isListening: boolean;
+  /** Granular status of the recognition system */
+  status: SpeechRecognitionStatus;
   /** Current interim transcript (updates in real-time) */
   interimTranscript: string;
   /** Start listening */
@@ -117,11 +146,18 @@ export function useSpeechRecognition(
 
   const [isSupported] = useState(() => !!getSpeechRecognition());
   const [isListening, setIsListening] = useState(false);
+  const [status, setStatus] = useState<SpeechRecognitionStatus>("idle");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isStoppingRef = useRef(false);
+  // Track time of last result to detect stale connections
+  const lastResultTimeRef = useRef<number>(0);
+  // Timer to transition from "receiving" back to "listening" after silence
+  const receivingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   // Track the last final transcript to compute deltas on mobile
   // Mobile Chrome marks cumulative results as isFinal, so we need to dedupe
   const lastFinalTranscriptRef = useRef<string>("");
@@ -142,6 +178,9 @@ export function useSpeechRecognition(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (receivingTimeoutRef.current) {
+        clearTimeout(receivingTimeoutRef.current);
+      }
       if (recognitionRef.current) {
         recognitionRef.current.abort();
         recognitionRef.current = null;
@@ -153,6 +192,7 @@ export function useSpeechRecognition(
     const SpeechRecognitionAPI = getSpeechRecognition();
     if (!SpeechRecognitionAPI) {
       setError("Speech recognition not supported");
+      setStatus("error");
       return;
     }
 
@@ -160,11 +200,17 @@ export function useSpeechRecognition(
     if (recognitionRef.current) {
       recognitionRef.current.abort();
     }
+    if (receivingTimeoutRef.current) {
+      clearTimeout(receivingTimeoutRef.current);
+      receivingTimeoutRef.current = null;
+    }
 
     setError(null);
     setInterimTranscript("");
+    setStatus("starting");
     isStoppingRef.current = false;
     lastFinalTranscriptRef.current = "";
+    lastResultTimeRef.current = 0;
 
     const recognition = new SpeechRecognitionAPI();
     recognitionRef.current = recognition;
@@ -178,9 +224,24 @@ export function useSpeechRecognition(
 
     recognition.onstart = () => {
       setIsListening(true);
+      setStatus("listening");
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
+      // Track that we're actively receiving results
+      lastResultTimeRef.current = Date.now();
+      setStatus("receiving");
+
+      // Clear any pending timeout to transition back to "listening"
+      if (receivingTimeoutRef.current) {
+        clearTimeout(receivingTimeoutRef.current);
+      }
+      // After 1.5s of no results, transition back to "listening"
+      receivingTimeoutRef.current = setTimeout(() => {
+        setStatus("listening");
+        receivingTimeoutRef.current = null;
+      }, 1500);
+
       let interimText = "";
       let latestFinal = "";
 
@@ -230,11 +291,17 @@ export function useSpeechRecognition(
         return;
       }
 
+      // Handle "no-speech" specially - it's not a fatal error, just means silence
+      // The recognition will auto-restart via onend, so just show a transient warning
+      if (event.error === "no-speech") {
+        // Don't stop listening - let it auto-restart
+        // Just briefly show the status (will be cleared when onend restarts)
+        setError("No speech detected");
+        return;
+      }
+
       let errorMessage = "Speech recognition error";
       switch (event.error) {
-        case "no-speech":
-          errorMessage = "No speech detected";
-          break;
         case "audio-capture":
           errorMessage = "No microphone found";
           break;
@@ -242,30 +309,47 @@ export function useSpeechRecognition(
           errorMessage = "Microphone permission denied";
           break;
         case "network":
-          errorMessage = "Network error during recognition";
+          errorMessage = "Network error - check connection";
+          break;
+        case "service-not-allowed":
+          errorMessage = "Speech service not available";
           break;
         default:
           errorMessage = `Error: ${event.error}`;
       }
 
       setError(errorMessage);
+      setStatus("error");
       onErrorRef.current?.(errorMessage);
       setIsListening(false);
     };
 
     recognition.onend = () => {
-      setIsListening(false);
-      setInterimTranscript("");
+      // Clear the receiving timeout if present
+      if (receivingTimeoutRef.current) {
+        clearTimeout(receivingTimeoutRef.current);
+        receivingTimeoutRef.current = null;
+      }
 
       // Auto-restart if not manually stopped (handles Chrome's ~60s timeout)
       if (!isStoppingRef.current && recognitionRef.current === recognition) {
+        // Show reconnecting status during auto-restart
+        setStatus("reconnecting");
+        setError(null); // Clear any transient "no speech" error
         try {
           recognition.start();
+          // Note: isListening stays true conceptually, onstart will confirm
         } catch {
-          // Ignore errors on restart attempt
+          // Restart failed - truly end
+          setIsListening(false);
+          setInterimTranscript("");
+          setStatus("idle");
           onEndRef.current?.();
         }
       } else {
+        setIsListening(false);
+        setInterimTranscript("");
+        setStatus("idle");
         onEndRef.current?.();
       }
     };
@@ -274,18 +358,25 @@ export function useSpeechRecognition(
       recognition.start();
     } catch (err) {
       setError("Failed to start speech recognition");
+      setStatus("error");
       onErrorRef.current?.("Failed to start speech recognition");
     }
   }, [lang]);
 
   const stopListening = useCallback(() => {
     isStoppingRef.current = true;
+    if (receivingTimeoutRef.current) {
+      clearTimeout(receivingTimeoutRef.current);
+      receivingTimeoutRef.current = null;
+    }
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
     setIsListening(false);
     setInterimTranscript("");
+    setStatus("idle");
+    setError(null);
   }, []);
 
   const toggleListening = useCallback(() => {

@@ -705,8 +705,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             lastSeenAt: lastSeenEntry?.timestamp,
             hasUnread,
             provider: process.provider,
+            model: process.model,
             contextUsage,
-            // Model is unknown for new sessions until first message is written to disk
           },
           messages: processMessages,
           status,
