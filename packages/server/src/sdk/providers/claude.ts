@@ -11,7 +11,11 @@ import type { ModelInfo, SlashCommand } from "@yep-anywhere/shared";
 import { getLogger } from "../../logging/logger.js";
 import { logSDKMessage } from "../messageLogger.js";
 import { MessageQueue } from "../messageQueue.js";
-import { createRemoteSpawn, testSSHConnection } from "../remote-spawn.js";
+import {
+  checkRemotePath,
+  createRemoteSpawn,
+  testSSHConnection,
+} from "../remote-spawn.js";
 import { getProjectDirFromCwd, syncSessionFile } from "../session-sync.js";
 import type { ContentBlock, SDKMessage } from "../types.js";
 import type {
@@ -258,6 +262,16 @@ export class ClaudeProvider implements AgentProvider {
           `Claude CLI not found on ${options.executor}. Install with: curl -fsSL https://claude.ai/install.sh | bash`,
         );
       }
+
+      // Check if the working directory exists on the remote
+      if (options.cwd) {
+        const pathCheck = await checkRemotePath(options.executor, options.cwd);
+        if (!pathCheck.exists) {
+          throw new Error(
+            `Directory does not exist on ${options.executor}: ${options.cwd}`,
+          );
+        }
+      }
     }
 
     // Push the initial message into the queue (if provided)
@@ -310,10 +324,14 @@ export class ClaudeProvider implements AgentProvider {
           cwd: options.cwd,
           resume: options.resumeSessionId,
           abortController,
-          // Pass permission mode to SDK so Claude gets the appropriate system prompt.
-          // Modes like "plan" need to be passed through for Claude to know it's in plan mode.
-          // Our canUseTool callback handles the permission checking for custom modes.
-          permissionMode: options.permissionMode ?? "default",
+          // Pass permission mode to SDK for system prompt configuration.
+          // However, for "bypassPermissions" we pass "default" to the SDK so it always
+          // calls our canUseTool callback - we handle the bypass logic ourselves to
+          // allow exceptions (e.g., always prompting for AskUserQuestion/ExitPlanMode).
+          permissionMode:
+            options.permissionMode === "bypassPermissions"
+              ? "default"
+              : (options.permissionMode ?? "default"),
           canUseTool,
           systemPrompt: { type: "preset", preset: "claude_code" },
           settingSources: ["user", "project", "local"],

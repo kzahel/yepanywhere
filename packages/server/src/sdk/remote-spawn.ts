@@ -72,6 +72,53 @@ export interface SSHTestResult {
 }
 
 /**
+ * Result of remote path check.
+ */
+export interface RemotePathCheckResult {
+  exists: boolean;
+  error?: string;
+}
+
+/**
+ * Check if a directory exists on a remote host.
+ */
+export async function checkRemotePath(
+  host: string,
+  path: string,
+): Promise<RemotePathCheckResult> {
+  const log = getLogger();
+
+  try {
+    // Use test -d to check if directory exists
+    const result = await runSSHCommand(
+      host,
+      `test -d '${escapeShell(path)}'`,
+      5000,
+    );
+
+    if (result.success) {
+      return { exists: true };
+    }
+
+    log.info(
+      { event: "remote_path_check_failed", host, path },
+      `Remote path does not exist: ${path} on ${host}`,
+    );
+
+    return {
+      exists: false,
+      error: `Directory does not exist on ${host}: ${path}`,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    return {
+      exists: false,
+      error: `Failed to check path on ${host}: ${errorMsg}`,
+    };
+  }
+}
+
+/**
  * Test SSH connection to a remote host.
  * Checks:
  * 1. SSH connectivity (with timeout)
@@ -241,24 +288,35 @@ export function createRemoteSpawn(
     }
 
     // Build the full command
-    // Use bash -l (login shell) to get user's PATH which may include ~/.local/bin
-    const escapedArgs = args.map((arg) => `'${escapeShell(arg)}'`).join(" ");
+    // Use bash -il (interactive login shell) to get user's full PATH
+    // Interactive (-i) sources .bashrc which is needed for NVM/node
+    // Login (-l) sources .bash_profile/.profile
+
+    // The SDK passes command='node' with args=['/local/path/to/cli.js', '--flag', 'value', ...]
+    // For remote execution, we use the remote's `claude` CLI directly
+    // Skip the first arg (local cli.js path) and keep the rest (flags and their values)
+    const remoteArgs = args.slice(1);
+    const escapedArgs = remoteArgs
+      .map((arg) => `'${escapeShell(arg)}'`)
+      .join(" ");
+    // Use 'claude' command directly on the remote (installed via claude.ai/install.sh)
+    const remoteCommand = "claude";
     const innerCmd = cwd
-      ? `cd '${escapeShell(cwd)}' && ${envParts.join(" ")} ${command} ${escapedArgs}`
-      : `${envParts.join(" ")} ${command} ${escapedArgs}`;
-    // Wrap in login shell - escape single quotes for the outer bash -l -c '...'
-    const remoteCmd = `bash -l -c '${innerCmd.replace(/'/g, "'\\''")}'`;
+      ? `cd '${escapeShell(cwd)}' && ${envParts.join(" ")} ${remoteCommand} ${escapedArgs}`
+      : `${envParts.join(" ")} ${remoteCommand} ${escapedArgs}`;
+    // Wrap in interactive login shell - escape single quotes for the outer bash -il -c '...'
+    const remoteCmd = `bash -il -c '${innerCmd.replace(/'/g, "'\\''")}'`;
 
     log.info(
       {
         event: "remote_spawn_start",
         host,
-        command,
-        args,
+        command: remoteCommand,
+        args: remoteArgs,
         cwd,
         remoteEnvKeys: remoteEnv ? Object.keys(remoteEnv) : [],
       },
-      `Starting remote Claude on ${host}: ${command}`,
+      `Starting remote Claude on ${host}: ${remoteCommand} ${remoteArgs.join(" ")}`,
     );
 
     // Spawn SSH with PTY allocation (-t) so SIGHUP propagates when SSH terminates

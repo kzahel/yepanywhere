@@ -57,6 +57,55 @@ process.setMaxListeners(50);
 
 const config = loadConfig();
 
+// Track supervisor for graceful shutdown (set after createApp)
+let supervisorForShutdown:
+  | Awaited<ReturnType<typeof createApp>>["supervisor"]
+  | null = null;
+let isShuttingDown = false;
+
+/**
+ * Graceful shutdown handler.
+ * Aborts all running Claude processes before exiting to prevent orphaned child processes.
+ */
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (isShuttingDown) {
+    console.log(`[Shutdown] Already shutting down, ignoring ${signal}`);
+    return;
+  }
+  isShuttingDown = true;
+
+  console.log(`[Shutdown] Received ${signal}, cleaning up...`);
+
+  if (supervisorForShutdown) {
+    const processes = supervisorForShutdown.getAllProcesses();
+    if (processes.length > 0) {
+      console.log(
+        `[Shutdown] Aborting ${processes.length} active session(s)...`,
+      );
+      await Promise.all(
+        processes.map(async (p) => {
+          try {
+            await p.abort();
+            console.log(`[Shutdown] Aborted session ${p.sessionId}`);
+          } catch (error) {
+            console.error(
+              `[Shutdown] Error aborting session ${p.sessionId}:`,
+              error,
+            );
+          }
+        }),
+      );
+    }
+  }
+
+  console.log("[Shutdown] Cleanup complete, exiting");
+  process.exit(0);
+}
+
+// Register shutdown handlers early
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 // Initialize logging early to capture all output
 initLogger({
   logDir: config.logDir,
@@ -269,6 +318,9 @@ async function startServer() {
     browserProfileService,
     serverSettingsService,
   });
+
+  // Set supervisor reference for graceful shutdown
+  supervisorForShutdown = supervisor;
 
   // Set up debug context for maintenance server
   setDebugContext({

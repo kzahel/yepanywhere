@@ -41,14 +41,14 @@ export interface SyncResult {
 /**
  * Convert a working directory path to SDK's project directory name.
  *
- * The SDK stores sessions in ~/.claude/projects/{hostname}/{encoded-path}/
- * where encoded-path is the path with / replaced by -.
+ * The SDK stores sessions in ~/.claude/projects/{encoded-path}/
+ * where encoded-path is the path with all / replaced by -.
  *
- * For example: /home/kgraehl/code/project → home-kgraehl-code-project
+ * For example: /home/kgraehl/code/project → -home-kgraehl-code-project
  */
 export function getProjectDirFromCwd(cwd: string): string {
-  // Remove leading slash and replace remaining slashes with dashes
-  return cwd.replace(/^\//, "").replace(/\//g, "-");
+  // Replace all slashes with dashes (leading slash becomes leading dash)
+  return cwd.replace(/\//g, "-");
 }
 
 /**
@@ -56,22 +56,8 @@ export function getProjectDirFromCwd(cwd: string): string {
  */
 export function getSessionsPath(projectDir: string, baseDir?: string): string {
   const sessionsDir = baseDir ?? join(homedir(), ".claude", "projects");
-  // Session files are stored under hostname subdirectory
-  const hostname = getHostname();
-  return join(sessionsDir, hostname, projectDir);
-}
-
-/**
- * Get the local machine's hostname.
- */
-function getHostname(): string {
-  // Use os.hostname() but fall back to a default if not available
-  try {
-    const os = require("node:os");
-    return os.hostname() || "localhost";
-  } catch {
-    return "localhost";
-  }
+  // Session files are stored directly under projects dir (no hostname subdirectory)
+  return join(sessionsDir, projectDir);
 }
 
 /**
@@ -88,9 +74,10 @@ export async function syncSessions(options: SyncOptions): Promise<SyncResult> {
     options;
 
   const localPath = getSessionsPath(projectDir, sessionsDir);
+  // Remote path has same structure (no hostname subdirectory)
   const remotePath = remoteSessionsDir
-    ? join(remoteSessionsDir, getHostname(), projectDir)
-    : `~/.claude/projects/${getHostname()}/${projectDir}`;
+    ? join(remoteSessionsDir, projectDir)
+    : `~/.claude/projects/${projectDir}`;
 
   // Build rsync command
   // -a: archive mode (preserves permissions, timestamps, etc.)
@@ -233,10 +220,10 @@ export async function syncSessionFile(
   const startTime = Date.now();
 
   const localPath = getSessionsPath(projectDir, sessionsDir);
-  const hostname = getHostname();
+  // Remote path has same structure (no hostname subdirectory)
   const remotePath = remoteSessionsDir
-    ? join(remoteSessionsDir, hostname, projectDir)
-    : `~/.claude/projects/${hostname}/${projectDir}`;
+    ? join(remoteSessionsDir, projectDir)
+    : `~/.claude/projects/${projectDir}`;
 
   const source = `${host}:${remotePath}/${sessionId}.jsonl`;
   const dest = `${localPath}/`;
