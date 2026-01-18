@@ -6,6 +6,7 @@
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
+import { homedir } from "node:os";
 import type { Readable, Writable } from "node:stream";
 import { getLogger } from "../logging/logger.js";
 
@@ -294,6 +295,30 @@ async function runSSHCommand(
 }
 
 /**
+ * Convert a local path to a remote-compatible path.
+ *
+ * Replaces the local home directory with $HOME so the remote shell
+ * expands it to the correct path on the remote machine.
+ *
+ * This handles Mac (/Users/username) to Linux (/home/username) differences.
+ *
+ * Examples:
+ *   /Users/kgraehl/code/project -> $HOME/code/project
+ *   /home/kgraehl/code/project -> $HOME/code/project
+ *   /var/www/project -> /var/www/project (unchanged)
+ */
+function toRemotePath(localPath: string): string {
+  const home = homedir();
+
+  if (localPath.startsWith(home)) {
+    // Replace home directory with $HOME for remote expansion
+    return `$HOME${localPath.slice(home.length)}`;
+  }
+
+  return localPath;
+}
+
+/**
  * Create a spawn function that runs Claude on a remote machine via SSH.
  *
  * The returned function satisfies the SDK's spawnClaudeCodeProcess interface.
@@ -312,8 +337,33 @@ export function createRemoteSpawn(
     // Build the remote command
     // We need to:
     // 1. Set environment variables
-    // 2. Change to the working directory
+    // 2. Change to the working directory (with path mapping)
     // 3. Run the claude command with args
+
+    // The SDK passes "node /local/path/to/cli.js --flags..." but that local path
+    // doesn't exist on the remote machine. We need to use "claude" directly since
+    // the remote should have Claude installed (verified by testSSHConnection).
+    let remoteCommand = command;
+    let remoteArgs = args;
+    const firstArg = args[0];
+    if (
+      command === "node" &&
+      firstArg &&
+      firstArg.includes("claude-agent-sdk") &&
+      firstArg.endsWith("cli.js")
+    ) {
+      // Replace "node /path/to/cli.js --flags" with "claude --flags"
+      remoteCommand = "claude";
+      remoteArgs = args.slice(1); // Skip the cli.js path
+      log.debug(
+        {
+          event: "remote_spawn_rewrite",
+          from: { command, args },
+          to: { remoteCommand, remoteArgs },
+        },
+        "Rewrote SDK spawn to use remote claude CLI",
+      );
+    }
 
     const envParts: string[] = [];
 
@@ -333,22 +383,19 @@ export function createRemoteSpawn(
       }
     }
 
+    // Convert local path to remote path (handles Mac/Linux home directory differences)
+    const remoteCwd = cwd ? toRemotePath(cwd) : undefined;
+
     // Build the full command
     // Use bash -il (interactive login shell) to get user's full PATH
     // Interactive (-i) sources .bashrc which is needed for NVM/node
     // Login (-l) sources .bash_profile/.profile
-
-    // The SDK passes command='node' with args=['/local/path/to/cli.js', '--flag', 'value', ...]
-    // For remote execution, we use the remote's `claude` CLI directly
-    // Skip the first arg (local cli.js path) and keep the rest (flags and their values)
-    const remoteArgs = args.slice(1);
+    // Use double quotes for cd path to allow $HOME expansion
     const escapedArgs = remoteArgs
       .map((arg) => `'${escapeShell(arg)}'`)
       .join(" ");
-    // Use 'claude' command directly on the remote (installed via claude.ai/install.sh)
-    const remoteCommand = "claude";
-    const innerCmd = cwd
-      ? `cd '${escapeShell(cwd)}' && ${envParts.join(" ")} ${remoteCommand} ${escapedArgs}`
+    const innerCmd = remoteCwd
+      ? `cd "${remoteCwd}" && ${envParts.join(" ")} ${remoteCommand} ${escapedArgs}`
       : `${envParts.join(" ")} ${remoteCommand} ${escapedArgs}`;
     // Wrap in interactive login shell - escape single quotes for the outer bash -il -c '...'
     const remoteCmd = `bash -il -c '${innerCmd.replace(/'/g, "'\\''")}'`;
@@ -357,12 +404,13 @@ export function createRemoteSpawn(
       {
         event: "remote_spawn_start",
         host,
-        command: remoteCommand,
-        args: remoteArgs,
+        remoteCommand,
+        remoteArgs,
         cwd,
+        remoteCwd,
         remoteEnvKeys: remoteEnv ? Object.keys(remoteEnv) : [],
       },
-      `Starting remote Claude on ${host}: ${remoteCommand} ${remoteArgs.join(" ")}`,
+      `Starting remote Claude on ${host}: ${remoteCommand} (cwd: ${remoteCwd ?? "none"})`,
     );
 
     // Spawn SSH with PTY allocation (-t) so SIGHUP propagates when SSH terminates

@@ -61,6 +61,40 @@ export function getSessionsPath(projectDir: string, baseDir?: string): string {
 }
 
 /**
+ * Ensure remote directory exists via SSH mkdir.
+ * Works with older rsync versions that don't support --mkpath.
+ */
+async function ensureRemoteDir(
+  host: string,
+  remotePath: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const sshProcess = spawn(
+      "ssh",
+      ["-o", "BatchMode=yes", host, `mkdir -p '${remotePath}'`],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+
+    let stderr = "";
+    sshProcess.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    sshProcess.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(stderr.trim() || `mkdir failed with code ${code}`));
+      }
+    });
+
+    sshProcess.on("error", (error) => {
+      reject(error);
+    });
+  });
+}
+
+/**
  * Sync session files between local and remote.
  *
  * Uses rsync with archive mode (-a) and compression (-z).
@@ -83,7 +117,7 @@ export async function syncSessions(options: SyncOptions): Promise<SyncResult> {
   // -a: archive mode (preserves permissions, timestamps, etc.)
   // -z: compress during transfer
   // -v: verbose (for logging)
-  // --mkpath: create destination directories if needed (rsync 3.2.3+)
+  // Note: --mkpath requires rsync 3.2.3+, so we create dirs manually via ssh
   let source: string;
   let dest: string;
 
@@ -93,6 +127,30 @@ export async function syncSessions(options: SyncOptions): Promise<SyncResult> {
   } else {
     source = `${localPath}/`;
     dest = `${host}:${remotePath}/`;
+
+    // Ensure remote directory exists before syncing to-remote
+    try {
+      await ensureRemoteDir(host, remotePath);
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      log.warn(
+        {
+          event: "session_sync_mkdir_failed",
+          direction,
+          host,
+          projectDir,
+          error: errorMsg,
+          durationMs,
+        },
+        `Failed to create remote directory: ${errorMsg}`,
+      );
+      return {
+        success: false,
+        error: `Failed to create remote directory: ${errorMsg}`,
+        durationMs,
+      };
+    }
   }
 
   log.info(
@@ -110,7 +168,7 @@ export async function syncSessions(options: SyncOptions): Promise<SyncResult> {
   return new Promise((resolve) => {
     const rsyncProcess = spawn(
       "rsync",
-      ["-az", "--mkpath", "-e", "ssh -o BatchMode=yes", source, dest],
+      ["-az", "-e", "ssh -o BatchMode=yes", source, dest],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
 
@@ -240,10 +298,18 @@ export async function syncSessionFile(
     `Syncing session file: ${sessionId}`,
   );
 
+  // Ensure local directory exists for from-remote sync
+  const { mkdirSync } = require("node:fs");
+  try {
+    mkdirSync(localPath, { recursive: true });
+  } catch {
+    // Ignore if already exists
+  }
+
   return new Promise((resolve) => {
     const rsyncProcess = spawn(
       "rsync",
-      ["-az", "--mkpath", "-e", "ssh -o BatchMode=yes", source, dest],
+      ["-az", "-e", "ssh -o BatchMode=yes", source, dest],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
 

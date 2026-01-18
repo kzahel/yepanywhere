@@ -165,9 +165,12 @@ export class Supervisor {
     }
 
     // Resolve provider: use specified provider name, or fall back to default provider
+    // If executor is specified, we MUST use a provider (Claude) to enable remote execution
     const provider = modelSettings?.providerName
       ? getProvider(modelSettings.providerName)
-      : this.provider;
+      : modelSettings?.executor
+        ? getProvider("claude") // Force Claude provider when executor is specified
+        : this.provider;
 
     // Use provider if available (preferred)
     if (provider) {
@@ -244,9 +247,12 @@ export class Supervisor {
     }
 
     // Resolve provider: use specified provider name, or fall back to default provider
+    // If executor is specified, we MUST use a provider (Claude) to enable remote execution
     const provider = modelSettings?.providerName
       ? getProvider(modelSettings.providerName)
-      : this.provider;
+      : modelSettings?.executor
+        ? getProvider("claude") // Force Claude provider when executor is specified
+        : this.provider;
 
     // Use provider if available (preferred)
     if (provider) {
@@ -777,9 +783,12 @@ export class Supervisor {
     }
 
     // Resolve provider: use specified provider name, or fall back to default provider
+    // If executor is specified, we MUST use a provider (Claude) to enable remote execution
     const provider = modelSettings?.providerName
       ? getProvider(modelSettings.providerName)
-      : this.provider;
+      : modelSettings?.executor
+        ? getProvider("claude") // Force Claude provider when executor is specified
+        : this.provider;
 
     // Use provider if available (preferred)
     if (provider) {

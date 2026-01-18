@@ -805,6 +805,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const model =
       body.model && body.model !== "default" ? body.model : undefined;
 
+    // Debug: log what we received
+    console.log("[startSession] Request body:", {
+      provider: body.provider,
+      executor: body.executor,
+      model: body.model,
+    });
+
     const result = await deps.supervisor.startSession(
       project.path,
       userMessage,
