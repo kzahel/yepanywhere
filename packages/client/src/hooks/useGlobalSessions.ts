@@ -32,6 +32,7 @@ const DEFAULT_STATS: GlobalSessionStats = {
   starredCount: 0,
   archivedCount: 0,
   providerCounts: {},
+  executorCounts: {},
 };
 
 export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {

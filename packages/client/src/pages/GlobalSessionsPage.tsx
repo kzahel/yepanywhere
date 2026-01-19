@@ -66,6 +66,12 @@ export function GlobalSessionsPage() {
       .filter((p): p is ProviderName => knownProviders.includes(p));
   }, [searchParams]);
 
+  const executorFilters = useMemo(() => {
+    const param = searchParams.get("executor");
+    if (!param) return [];
+    return param.split(",").filter(Boolean);
+  }, [searchParams]);
+
   const setStatusFilters = useCallback(
     (filters: StatusFilter[]) => {
       setSearchParams((prev) => {
@@ -89,6 +95,21 @@ export function GlobalSessionsPage() {
           next.set("provider", filters.join(","));
         } else {
           next.delete("provider");
+        }
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const setExecutorFilters = useCallback(
+    (filters: string[]) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (filters.length > 0) {
+          next.set("executor", filters.join(","));
+        } else {
+          next.delete("executor");
         }
         return next;
       });
@@ -143,9 +164,17 @@ export function GlobalSessionsPage() {
         }
       }
 
+      // Executor filtering (empty = show all executors)
+      if (executorFilters.length > 0) {
+        const sessionExecutor = session.executor ?? "local";
+        if (!executorFilters.includes(sessionExecutor)) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [sessions, statusFilters, providerFilters]);
+  }, [sessions, statusFilters, providerFilters, executorFilters]);
 
   // Build status filter options with global counts from server
   // When filtering by project, we don't have global stats, so omit counts
@@ -198,6 +227,29 @@ export function GlobalSessionsPage() {
     }
     return options;
   }, [stats.providerCounts, projectFilter]);
+
+  // Build executor filter options with global counts from server
+  const executorOptions = useMemo((): FilterOption<string>[] => {
+    const showCounts = !projectFilter;
+    const executorCounts = stats.executorCounts;
+
+    // Only show executors that have sessions, sorted with "local" first
+    const entries = Object.entries(executorCounts).filter(
+      ([_, count]) => count > 0,
+    );
+    entries.sort((a, b) => {
+      // "local" always comes first
+      if (a[0] === "local") return -1;
+      if (b[0] === "local") return 1;
+      return a[0].localeCompare(b[0]);
+    });
+
+    return entries.map(([executor, count]) => ({
+      value: executor,
+      label: executor === "local" ? "Local" : executor,
+      count: showCounts ? count : undefined,
+    }));
+  }, [stats.executorCounts, projectFilter]);
 
   // Selection state for multi-select mode
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -447,7 +499,8 @@ export function GlobalSessionsPage() {
     searchQuery ||
     projectFilter ||
     statusFilters.length > 0 ||
-    providerFilters.length > 0;
+    providerFilters.length > 0 ||
+    executorFilters.length > 0;
 
   return (
     <div
@@ -522,6 +575,15 @@ export function GlobalSessionsPage() {
                     selected={providerFilters}
                     onChange={setProviderFilters}
                     placeholder="All providers"
+                  />
+                )}
+                {executorOptions.length > 1 && (
+                  <FilterDropdown
+                    label="Run On"
+                    options={executorOptions}
+                    selected={executorFilters}
+                    onChange={setExecutorFilters}
+                    placeholder="All machines"
                   />
                 )}
               </div>

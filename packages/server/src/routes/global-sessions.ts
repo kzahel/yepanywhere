@@ -78,6 +78,8 @@ export interface GlobalSessionStats {
   archivedCount: number;
   /** Counts per provider (non-archived only) */
   providerCounts: Partial<Record<ProviderName, number>>;
+  /** Counts per executor host (non-archived only, "local" key for sessions without executor) */
+  executorCounts: Record<string, number>;
 }
 
 /** Minimal project info for filter dropdowns */
@@ -138,6 +140,7 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
       starredCount: 0,
       archivedCount: 0,
       providerCounts: {},
+      executorCounts: {},
     };
 
     // Collect all sessions with enriched data
@@ -228,6 +231,10 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
               stats.providerCounts[session.provider] =
                 (stats.providerCounts[session.provider] ?? 0) + 1;
             }
+            // Executor counts only for non-archived ("local" for sessions without executor)
+            const executorKey = executor ?? "local";
+            stats.executorCounts[executorKey] =
+              (stats.executorCounts[executorKey] ?? 0) + 1;
           }
           if (isStarred) stats.starredCount++;
         }

@@ -83,6 +83,8 @@ export interface GlobalSessionStats {
   archivedCount: number;
   /** Counts per provider (non-archived only) */
   providerCounts: Partial<Record<ProviderName, number>>;
+  /** Counts per executor host (non-archived only, "local" key for sessions without executor) */
+  executorCounts: Record<string, number>;
 }
 
 /** Minimal project info for filter dropdowns */
