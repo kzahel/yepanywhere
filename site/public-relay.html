@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Introducing Public Relay: Supervise Claude Code from Anywhere - Yep Anywhere</title>
+  <meta name="description" content="Yep Anywhere now has a free public relay. Access your Claude Code agents from your phone with end-to-end encryption. No accounts, no setup, just enable and go.">
+
+  <!-- Open Graph / LinkedIn -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://yepanywhere.com/public-relay.html">
+  <meta property="og:title" content="Introducing Public Relay: Supervise Claude Code from Anywhere">
+  <meta property="og:description" content="Yep Anywhere now has a free public relay. Access your Claude Code agents from your phone with end-to-end encryption. No accounts, no setup, just enable and go.">
+  <meta property="og:image" content="https://yepanywhere.com/branding/og-image.png">
+  <meta property="og:site_name" content="Yep Anywhere">
+  <meta property="article:published_time" content="2026-01-21">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Introducing Public Relay: Supervise Claude Code from Anywhere">
+  <meta name="twitter:description" content="Yep Anywhere now has a free public relay. Access your Claude Code agents from your phone with end-to-end encryption. No accounts, no setup, just enable and go.">
+  <meta name="twitter:image" content="https://yepanywhere.com/branding/og-image.png">
+
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="canonical" href="https://yepanywhere.com/public-relay.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d0d0d;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #252525;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --accent: #16a34a;
+      --accent-hover: #22c55e;
+      --border: #333333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .logo img {
+      height: 36px;
+      width: auto;
+    }
+
+    nav {
+      display: flex;
+      gap: 24px;
+    }
+
+    nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+
+    nav a:hover,
+    nav a.active {
+      color: var(--text-primary);
+    }
+
+    /* Article header */
+    .article-header {
+      padding: 60px 0 40px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .article-header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+
+    .article-meta {
+      color: var(--text-secondary);
+      font-size: 14px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .article-meta a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .article-meta a:hover {
+      text-decoration: underline;
+    }
+
+    /* Article content */
+    .article-body {
+      padding: 40px 0;
+    }
+
+    .article-content h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 40px 0 16px;
+      color: var(--text-primary);
+    }
+
+    .article-content h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 32px 0 12px;
+      color: var(--text-primary);
+    }
+
+    .article-content h3:first-child,
+    .article-content h2:first-child {
+      margin-top: 0;
+    }
+
+    .article-content p {
+      color: var(--text-secondary);
+      font-size: 15px;
+      margin-bottom: 16px;
+      line-height: 1.7;
+    }
+
+    .article-content ul {
+      color: var(--text-secondary);
+      font-size: 15px;
+      margin-bottom: 16px;
+      padding-left: 24px;
+    }
+
+    .article-content li {
+      margin-bottom: 8px;
+    }
+
+    .article-content a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .article-content a:hover {
+      text-decoration: underline;
+    }
+
+    .article-content code {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 13px;
+      color: var(--accent);
+    }
+
+    .article-content blockquote {
+      border-left: 3px solid var(--accent);
+      padding-left: 16px;
+      margin: 16px 0;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    /* Code block */
+    .code-block {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    .code-block code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--accent);
+    }
+
+    /* Screenshots */
+    .screenshot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+      margin: 24px 0;
+      justify-items: center;
+    }
+
+    .screenshot-item {
+      text-align: center;
+    }
+
+    .screenshot-item img {
+      width: 100%;
+      max-width: 280px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .screenshot-item p {
+      margin-top: 12px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .desktop-screenshots {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 24px 0;
+    }
+
+    .desktop-screenshots img {
+      max-width: 100%;
+      width: 380px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Feature highlight */
+    .feature-highlight {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+
+    .feature-highlight h4 {
+      font-size: 16px;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .feature-highlight p {
+      margin-bottom: 0;
+    }
+
+    /* CTA */
+    .cta-section {
+      background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      margin: 40px 0;
+    }
+
+    .cta-section h3 {
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+
+    .cta-section p {
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      text-decoration: none;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    footer p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    footer a {
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .header-content {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      nav {
+        gap: 16px;
+      }
+
+      .article-header {
+        padding: 40px 0 32px;
+      }
+
+      .article-header h1 {
+        font-size: 24px;
+      }
+
+      .screenshot-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .desktop-screenshots img {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <a href="/" class="logo">
+        <img src="branding/lockup-dark.svg" alt="yepanywhere">
+      </a>
+      <nav>
+        <a href="/#screenshots">Screenshots</a>
+        <a href="/#features">Features</a>
+        <a href="/#install">Install</a>
+        <a href="/news.html">News</a>
+        <a href="https://github.com/kzahel/yepanywhere">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <article>
+      <div class="article-header">
+        <div class="container">
+          <h1>Introducing Public Relay: Supervise Claude Code from Anywhere</h1>
+          <div class="article-meta">
+            <span>January 21, 2026</span>
+            <a href="/news.html">Back to News</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="article-body">
+        <div class="container">
+          <div class="article-content">
+            <p>We're excited to announce that Yep Anywhere now has a <strong>free public relay</strong> at <code>relay.yepanywhere.com</code>. This makes it easier than ever to access your Claude Code agents from your phone, tablet, or any device—no Tailscale, no port forwarding, no VPN setup required.</p>
+
+            <p>Just install Yep Anywhere, enable the relay in Settings, and you're connected from anywhere in the world.</p>
+
+            <h2>What is Yep Anywhere?</h2>
+
+            <p>Yep Anywhere is a <strong>mobile-first web interface for Claude Code</strong>. Think of it as the VS Code Claude extension, but designed for phones and multi-session workflows.</p>
+
+            <p>The core idea: Claude runs on your dev machine (where your code lives), but you can supervise it from anywhere. Walk away from your desk and your agent keeps working. Get a push notification when it needs approval. Respond from your lock screen. Check in between meetings.</p>
+
+            <div class="screenshot-grid">
+              <div class="screenshot-item">
+                <img src="screenshots/conversation.png" alt="Chat interface with file uploads">
+                <p>Chat with your agent</p>
+              </div>
+              <div class="screenshot-item">
+                <img src="screenshots/approval.png" alt="Tool approval request">
+                <p>Approve tool requests</p>
+              </div>
+              <div class="screenshot-item">
+                <img src="screenshots/navigation.png" alt="Multi-session dashboard">
+                <p>See all sessions at a glance</p>
+              </div>
+            </div>
+
+            <h2>Why We Built This</h2>
+
+            <p>Claude Code is great, but it ties you to your desk. If you're using the CLI, you need a terminal open. If you're using VS Code, you need VS Code open. Step away and you lose visibility.</p>
+
+            <p>We wanted something different:</p>
+            <ul>
+              <li><strong>Server-owned processes</strong> — Claude runs on your dev machine. Client disconnects don't interrupt work. Pick up where you left off on any device.</li>
+              <li><strong>Multi-session dashboard</strong> — See all your projects at once. No more cycling through terminal tabs or VS Code windows.</li>
+              <li><strong>Mobile supervision</strong> — Push notifications for approvals. Respond from your phone. Keep your agents productive while you're away.</li>
+              <li><strong>File uploads from anywhere</strong> — Share screenshots, images, and documents directly from your phone's camera roll.</li>
+            </ul>
+
+            <h2>How the Public Relay Works</h2>
+
+            <p>The relay solves a fundamental problem: your dev machine is behind a firewall, but you want to access it from your phone on cellular data.</p>
+
+            <p>Previously, you needed Tailscale, ngrok, port forwarding, or a VPN. Now you just enable the relay:</p>
+
+            <div class="code-block">
+              <code>npm i -g yepanywhere</code><br>
+              <code>yepanywhere</code><br>
+              <code># Open Settings → Enable "Public Relay"</code>
+            </div>
+
+            <p>Your server connects to <code>relay.yepanywhere.com</code> and gets a unique URL. Open that URL on your phone and you're in.</p>
+
+            <div class="feature-highlight">
+              <h4>End-to-End Encrypted</h4>
+              <p>All traffic is encrypted using SRP-6a key exchange and TweetNaCl. The relay can't see your code, your conversations, or your files. We only see encrypted blobs passing through.</p>
+            </div>
+
+            <p>No accounts are required. No Firebase, no database, no tracking. Your password never leaves your device—it's only used to derive encryption keys locally.</p>
+
+            <h2>Full Feature Set</h2>
+
+            <p>Beyond remote access, Yep Anywhere gives you:</p>
+
+            <ul>
+              <li><strong>Real-time streaming</strong> — Watch Claude think and work, just like in the terminal</li>
+              <li><strong>Tool approval</strong> — Approve or reject tool requests from your phone</li>
+              <li><strong>File uploads</strong> — Share images, screenshots, and documents from any device</li>
+              <li><strong>Push notifications</strong> — Get notified when your agent needs attention (uses VAPID, no third-party services)</li>
+              <li><strong>Voice input</strong> — Talk to your agents via browser speech API</li>
+              <li><strong>Session management</strong> — Star important sessions, archive old ones, filter and search</li>
+              <li><strong>Interop</strong> — See sessions started in Claude CLI or VS Code in real-time</li>
+              <li><strong>Diff viewer</strong> — Review code changes with syntax highlighting</li>
+              <li><strong>Todo tracking</strong> — See Claude's task list and progress</li>
+            </ul>
+
+            <div class="desktop-screenshots">
+              <img src="screenshots/desktop.png" alt="Desktop view">
+              <img src="screenshots/desktop-diff.png" alt="Desktop diff view">
+            </div>
+
+            <h2>Getting Started</h2>
+
+            <p>Installation takes about 30 seconds:</p>
+
+            <div class="code-block">
+              <code># Install from npm</code><br>
+              <code>npm i -g yepanywhere</code><br><br>
+              <code># Start the server</code><br>
+              <code>yepanywhere</code><br><br>
+              <code># Open http://localhost:3400</code><br>
+              <code># Go to Settings → Enable "Public Relay"</code><br>
+              <code># Set a password for remote access</code>
+            </div>
+
+            <p>You'll get a URL like <code>https://relay.yepanywhere.com/connect/abc123</code>. Open that on your phone, enter your password, and you're connected.</p>
+
+            <h3>Requirements</h3>
+            <ul>
+              <li>Node.js 18+</li>
+              <li>Claude Code CLI installed and authenticated (or an Anthropic API key)</li>
+              <li>That's it</li>
+            </ul>
+
+            <h2>Privacy & Security</h2>
+
+            <p>We take privacy seriously:</p>
+            <ul>
+              <li><strong>End-to-end encryption</strong> — The relay can't read your data</li>
+              <li><strong>No accounts</strong> — No email, no signup, no tracking</li>
+              <li><strong>Runs locally</strong> — All your data stays on your machine</li>
+              <li><strong>Open source</strong> — <a href="https://github.com/kzahel/yepanywhere">100% MIT licensed</a>, audit it yourself</li>
+              <li><strong>Self-host option</strong> — Run your own relay if you prefer</li>
+            </ul>
+
+            <p>The only thing we store is the encrypted connection state while you're connected. When you disconnect, it's gone.</p>
+
+            <h2>What's Next</h2>
+
+            <p>We're actively developing Yep Anywhere. Some things we're working on:</p>
+            <ul>
+              <li>Remote executors — run Claude on VMs or containers via SSH</li>
+              <li>Better notification controls</li>
+              <li>Session sharing (with permission)</li>
+              <li>More agent providers (Codex, local models)</li>
+            </ul>
+
+            <p>If you have feature requests or find bugs, <a href="https://github.com/kzahel/yepanywhere/issues">open an issue on GitHub</a>.</p>
+
+            <div class="cta-section">
+              <h3>Try It Now</h3>
+              <p>Install Yep Anywhere and enable the public relay. Your dev machine in your pocket.</p>
+              <a href="/#install" class="btn btn-primary">Get Started</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/kzahel/yepanywhere">GitHub</a>
+        <a href="https://www.npmjs.com/package/yepanywhere">npm</a>
+        <a href="https://github.com/kzahel/yepanywhere/issues">Issues</a>
+        <a href="/privacy.html">Privacy</a>
+      </div>
+      <p>MIT License</p>
+    </div>
+  </footer>
+</body>
+</html>
