@@ -8,6 +8,7 @@
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
+import { cspPlugin } from "./vite-plugin-csp";
 
 // Port for dev server (different from regular client to allow parallel dev)
 const remoteDevPort = process.env.REMOTE_PORT
@@ -46,7 +47,7 @@ function serveRemoteHtml(): Plugin {
 
 export default defineConfig({
   clearScreen: false,
-  plugins: [serveRemoteHtml(), react()],
+  plugins: [serveRemoteHtml(), react(), cspPlugin({ isRemote: true })],
   resolve: {
     conditions: ["source"],
   },
