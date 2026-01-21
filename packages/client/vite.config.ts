@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { cspPlugin } from "./vite-plugin-csp";
 import { reloadNotify } from "./vite-plugin-reload-notify";
 
 // NO_FRONTEND_RELOAD: Disable HMR and use manual reload notifications instead
@@ -19,6 +20,8 @@ export default defineConfig({
     react(),
     // When HMR is disabled, use reload-notify plugin to tell backend about changes
     reloadNotify({ enabled: noFrontendReload }),
+    // Content Security Policy (stricter in production, permissive in dev for HMR)
+    cspPlugin({ isRemote: false }),
   ],
   resolve: {
     conditions: ["source"],
