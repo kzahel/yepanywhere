@@ -170,9 +170,21 @@ class ActivityBus {
   private hasConnected = false;
   private _connected = false;
   private useWebSocket = false;
+  private _lastEventTime: number | null = null;
+  private _lastReconnectTime: number | null = null;
 
   get connected(): boolean {
     return this._connected;
+  }
+
+  /** Timestamp of last received event (including heartbeats) */
+  get lastEventTime(): number | null {
+    return this._lastEventTime;
+  }
+
+  /** Timestamp of last reconnect attempt */
+  get lastReconnectTime(): number | null {
+    return this._lastReconnectTime;
   }
 
   /**
@@ -329,6 +341,9 @@ class ActivityBus {
    * Handle events from WebSocket subscription.
    */
   private handleWsEvent(eventType: string, data: unknown): void {
+    // Track last event time for all events (including heartbeats)
+    this._lastEventTime = Date.now();
+
     // Handle special events
     if (eventType === "connected" || eventType === "heartbeat") {
       return;
@@ -481,7 +496,10 @@ class ActivityBus {
    * For remote mode (SecureConnection), this reconnects the underlying WebSocket.
    */
   forceReconnect(): void {
-    console.log("[ActivityBus] Forcing reconnection...");
+    console.log(
+      `[ActivityBus] Forcing reconnection... connected=${this._connected}, hasSubscription=${!!this.wsSubscription}, lastEvent=${this._lastEventTime ? `${Math.round((Date.now() - this._lastEventTime) / 1000)}s ago` : "never"}`,
+    );
+    this._lastReconnectTime = Date.now();
 
     // Clear any pending reconnect timeout
     if (this.reconnectTimeout) {
@@ -491,19 +509,24 @@ class ActivityBus {
 
     // For remote mode with SecureConnection, force reconnect the underlying WebSocket
     const globalConn = getGlobalConnection();
+    console.log(
+      `[ActivityBus] globalConn=${!!globalConn}, hasForceReconnect=${!!globalConn?.forceReconnect}`,
+    );
     if (globalConn?.forceReconnect) {
       this._connected = false;
       // Close our subscription (will be re-established by SecureConnection.forceReconnect)
       if (this.wsSubscription) {
+        console.log("[ActivityBus] Closing existing wsSubscription");
         this.wsSubscription.close();
         this.wsSubscription = null;
       }
       // Force reconnect the underlying connection, then re-subscribe
+      console.log("[ActivityBus] Calling SecureConnection.forceReconnect()");
       globalConn
         .forceReconnect()
         .then(() => {
           console.log(
-            "[ActivityBus] SecureConnection reconnected, re-subscribing",
+            "[ActivityBus] SecureConnection.forceReconnect() resolved, calling connect()",
           );
           this.connect();
         })

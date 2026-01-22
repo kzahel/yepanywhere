@@ -1537,11 +1537,16 @@ export class SecureConnection implements Connection {
    * Returns a promise that resolves when reconnected and authenticated.
    */
   async forceReconnect(): Promise<void> {
-    console.log("[SecureConnection] Force reconnecting...");
+    console.log(
+      `[SecureConnection] Force reconnecting... wsState=${this.ws?.readyState}, connState=${this.connectionState}, isRelay=${this.isRelayConnection}`,
+    );
 
     // Close existing WebSocket without notifying subscriptions
     // (we'll re-subscribe them after reconnecting)
     if (this.ws) {
+      console.log(
+        `[SecureConnection] Closing existing WebSocket (readyState=${this.ws.readyState})`,
+      );
       this.ws.onclose = null; // Prevent onclose handler from firing
       this.ws.onerror = null;
       this.ws.onmessage = null;
@@ -1550,6 +1555,11 @@ export class SecureConnection implements Connection {
     }
 
     // Clear pending requests with reconnect error
+    if (this.pendingRequests.size > 0) {
+      console.log(
+        `[SecureConnection] Clearing ${this.pendingRequests.size} pending requests`,
+      );
+    }
     for (const [id, pending] of this.pendingRequests) {
       clearTimeout(pending.timeout);
       pending.reject(new Error("Connection reconnecting"));
@@ -1561,9 +1571,18 @@ export class SecureConnection implements Connection {
     this.connectionPromise = null;
 
     // Reconnect
+    console.log("[SecureConnection] Calling ensureConnected...");
     await this.ensureConnected();
+    // Use type assertion because TS doesn't know ensureConnected sets this.ws
+    const wsState = (this.ws as WebSocket | null)?.readyState;
+    console.log(
+      `[SecureConnection] ensureConnected complete, wsState=${wsState}, connState=${this.connectionState}`,
+    );
 
     // Re-subscribe existing subscriptions by sending subscribe messages
+    console.log(
+      `[SecureConnection] Re-subscribing ${this.subscriptions.size} subscriptions`,
+    );
     for (const [subscriptionId, handlers] of this.subscriptions) {
       const browserProfileId = getOrCreateBrowserProfileId();
       const originMetadata = {
@@ -1585,6 +1604,7 @@ export class SecureConnection implements Connection {
         browserProfileId,
         originMetadata,
       };
+      console.log(`[SecureConnection] Sending subscribe for ${subscriptionId}`);
       this.send(msg);
     }
 

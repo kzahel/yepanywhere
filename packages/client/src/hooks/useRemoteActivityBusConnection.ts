@@ -20,17 +20,24 @@ export function useRemoteActivityBusConnection(): void {
     // Handle visibility changes to reconnect when page becomes visible
     // This is critical for mobile where the WebSocket may go stale during sleep
     const handleVisibilityChange = () => {
+      console.log(
+        `[RemoteActivityBus] Visibility changed: ${document.visibilityState}`,
+      );
       if (document.visibilityState === "visible") {
         const hiddenDuration = Date.now() - lastVisibleTime.current;
+        console.log(
+          `[RemoteActivityBus] Was hidden for ${Math.round(hiddenDuration / 1000)}s, connected=${activityBus.connected}, lastEvent=${activityBus.lastEventTime ? `${Math.round((Date.now() - activityBus.lastEventTime) / 1000)}s ago` : "never"}`,
+        );
         // If hidden for more than 5 seconds, force reconnect to ensure fresh data
         // WebSocket connections often go stale on mobile when backgrounded
         if (hiddenDuration > 5000) {
           console.log(
-            `[RemoteActivityBus] Page visible after ${Math.round(hiddenDuration / 1000)}s, forcing reconnect`,
+            `[RemoteActivityBus] Triggering force reconnect after ${Math.round(hiddenDuration / 1000)}s hidden`,
           );
           activityBus.forceReconnect();
         }
       } else {
+        console.log("[RemoteActivityBus] Page hidden, recording timestamp");
         lastVisibleTime.current = Date.now();
       }
     };

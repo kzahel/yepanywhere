@@ -65,6 +65,17 @@ function formatTime(isoString: string): string {
   return date.toLocaleString();
 }
 
+function formatTimeAgo(timestamp: number | null): string {
+  if (!timestamp) return "Never";
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 5) return "Just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m ago`;
+}
+
 function InfoRow({
   label,
   value,
@@ -112,7 +123,11 @@ export function ProcessInfoModal({
   const [processInfo, setProcessInfo] = useState<ProcessInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { connected: streamConnected } = useActivityBusState();
+  const {
+    connected: streamConnected,
+    lastEventTime,
+    lastReconnectTime,
+  } = useActivityBusState();
 
   // Fetch process info when modal opens (if session is owned)
   useEffect(() => {
@@ -187,6 +202,13 @@ export function ProcessInfoModal({
             label="Event stream"
             value={streamConnected ? "Connected" : "Disconnected"}
           />
+          <InfoRow label="Last event" value={formatTimeAgo(lastEventTime)} />
+          {lastReconnectTime && (
+            <InfoRow
+              label="Last reconnect"
+              value={formatTimeAgo(lastReconnectTime)}
+            />
+          )}
         </Section>
 
         {/* Context Usage - if available */}
