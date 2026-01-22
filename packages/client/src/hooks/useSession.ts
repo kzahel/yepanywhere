@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import {
   type FileChangeEvent,
+  type ProcessStateEvent,
   type SessionStatusEvent,
   type SessionUpdatedEvent,
   useFileActivity,
@@ -432,10 +433,48 @@ export function useSession(
     [sessionId],
   );
 
+  // Listen for process state changes via activity bus as a backup for session SSE
+  // This handles the race condition where the session SSE might miss a status event
+  // (e.g., when backgrounding the tab quickly after starting a session)
+  const handleProcessStateChange = useCallback(
+    async (event: ProcessStateEvent) => {
+      if (event.sessionId !== sessionId) return;
+
+      // Update process state from activity bus
+      if (
+        event.processState === "idle" ||
+        event.processState === "running" ||
+        event.processState === "waiting-input" ||
+        event.processState === "hold"
+      ) {
+        setProcessState(event.processState);
+      }
+
+      // If activity bus says waiting-input but we don't have the request,
+      // fetch it via REST as a backup
+      if (event.processState === "waiting-input" && event.pendingInputType) {
+        setPendingInputRequest((current) => {
+          if (current) return current; // Already have it, don't fetch
+
+          // Fetch pending request in background (can't return promise from setState)
+          api.getSessionMetadata(projectId, sessionId).then((result) => {
+            if (result.pendingInputRequest) {
+              setPendingInputRequest(result.pendingInputRequest);
+            }
+          });
+
+          return current; // Return unchanged for now, will update when fetch completes
+        });
+      }
+    },
+    [projectId, sessionId],
+  );
+
   useFileActivity({
     onSessionStatusChange: handleSessionStatusChange,
     onFileChange: handleFileChange,
     onSessionUpdated: handleSessionUpdated,
+    onProcessStateChange: handleProcessStateChange,
   });
 
   // Cleanup throttle timers

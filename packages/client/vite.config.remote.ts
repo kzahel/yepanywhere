@@ -15,6 +15,9 @@ const remoteDevPort = process.env.REMOTE_PORT
   ? Number.parseInt(process.env.REMOTE_PORT, 10)
   : 3403;
 
+// In watch mode (staging), don't empty the output dir to avoid race conditions
+const isWatchMode = process.argv.includes("--watch");
+
 /**
  * Plugin to serve remote.html instead of index.html in dev mode.
  * This makes the dev server behave like the production build.
@@ -58,7 +61,7 @@ export default defineConfig({
   // Build configuration for static site
   build: {
     outDir: "dist-remote",
-    emptyOutDir: true,
+    emptyOutDir: !isWatchMode, // Don't empty in watch mode to avoid race conditions
     rollupOptions: {
       input: {
         main: resolve(__dirname, "remote.html"),

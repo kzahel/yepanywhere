@@ -26,7 +26,8 @@ export const RenderItemComponent = memo(function RenderItemComponent({
         return;
       }
 
-      if (e.ctrlKey || e.metaKey) {
+      // Shift+click to debug (not Cmd/Ctrl+click, which opens links in new tabs)
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         e.stopPropagation();
         console.log("[DEBUG] RenderItem:", item);
@@ -95,7 +96,7 @@ export const RenderItemComponent = memo(function RenderItemComponent({
   };
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: debug feature, ctrl+click only
+    // biome-ignore lint/a11y/useKeyWithClickEvents: debug feature, shift+click only
     <div
       className={item.isSubagent ? "subagent-item" : undefined}
       data-render-type={item.type}

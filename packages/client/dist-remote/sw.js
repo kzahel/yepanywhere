@@ -16,7 +16,7 @@
 // Version constant for controlled updates
 // Increment this when making intentional SW changes
 // Browsers reinstall SW only when file content changes
-const SW_VERSION = "1.0.2";
+const SW_VERSION = "1.0.3";
 
 // Resolve asset URLs relative to SW scope (handles /remote/ deployment)
 function assetUrl(path) {
@@ -373,10 +373,11 @@ async function handleNotificationClick(data) {
  */
 async function openSession(sessionId, projectId) {
   // Build the URL to open - must be absolute for Android compatibility
-  // Use URL API to properly resolve relative paths against the SW scope
-  let path = "/";
+  // Use relative paths (./) so URL API properly resolves against SW scope
+  // (absolute paths like /foo would ignore the scope's path prefix like /remote/)
+  let path = "./";
   if (sessionId && projectId) {
-    path = `/projects/${encodeURIComponent(projectId)}/sessions/${sessionId}`;
+    path = `./projects/${encodeURIComponent(projectId)}/sessions/${sessionId}`;
   }
   const url = new URL(path, self.registration.scope).href;
 
