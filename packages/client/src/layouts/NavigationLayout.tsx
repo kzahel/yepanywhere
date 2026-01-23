@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useOutletContext, useParams } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import { useSidebarPreference } from "../hooks/useSidebarPreference";
@@ -39,6 +39,14 @@ export function NavigationLayout() {
   const isWideScreen = canShowDesktop(viewportWidth);
   // Auto-collapse if viewport too narrow for expanded sidebar, or if user prefers collapsed
   const effectivelyCollapsed = !isExpanded || !canShowExpanded(viewportWidth);
+
+  // Close mobile sidebar overlay when viewport becomes wide enough for expanded desktop sidebar
+  // This prevents having both sidebars visible after window resize/device rotation
+  useEffect(() => {
+    if (sidebarOpen && canShowExpanded(viewportWidth)) {
+      setSidebarOpen(false);
+    }
+  }, [sidebarOpen, viewportWidth, canShowExpanded]);
 
   // Smart toggle: if viewport can support expanded, toggle preference; otherwise open overlay
   const handleToggleExpanded = () => {
