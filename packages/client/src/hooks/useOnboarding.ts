@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
+import { authEvents } from "../lib/authEvents";
 
 interface OnboardingState {
   /** Whether to show the wizard (not complete or manually reset) */
@@ -23,13 +24,21 @@ export function useOnboarding() {
     let cancelled = false;
 
     async function fetchStatus() {
+      // Don't fetch if on login page or login is required (prevents 401s)
+      if (window.location.pathname === "/login" || authEvents.loginRequired) {
+        if (!cancelled) {
+          setState({ showWizard: false, isLoading: false });
+        }
+        return;
+      }
+
       try {
         const { complete } = await api.getOnboardingStatus();
         if (!cancelled) {
           setState({ showWizard: !complete, isLoading: false });
         }
       } catch (error) {
-        // If API fails (e.g., endpoint not available), don't show wizard
+        // If API fails (e.g., endpoint not available or 401), don't show wizard
         console.warn("Failed to fetch onboarding status:", error);
         if (!cancelled) {
           setState({ showWizard: false, isLoading: false });
@@ -38,8 +47,17 @@ export function useOnboarding() {
     }
 
     fetchStatus();
+
+    // Re-check when login required state changes (after successful login)
+    const unsubscribe = authEvents.onLoginRequired(() => {
+      if (!cancelled) {
+        setState({ showWizard: false, isLoading: false });
+      }
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 

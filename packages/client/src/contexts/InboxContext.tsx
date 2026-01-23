@@ -16,6 +16,7 @@ import {
 } from "react";
 import { type InboxItem, type InboxResponse, api } from "../api/client";
 import { useFileActivity } from "../hooks/useFileActivity";
+import { authEvents } from "../lib/authEvents";
 
 // Re-export types for consumers
 export type { InboxItem, InboxResponse } from "../api/client";
@@ -191,8 +192,14 @@ export function InboxProvider({
    * @param forceFullSort - If true, uses server sort order instead of stable merge
    */
   const fetchInbox = useCallback(async (forceFullSort = false) => {
-    // Skip if disabled
-    if (!enabledRef.current) return;
+    // Skip if disabled, on login page, or login is required (prevents 401s)
+    if (
+      !enabledRef.current ||
+      window.location.pathname === "/login" ||
+      authEvents.loginRequired
+    ) {
+      return;
+    }
 
     try {
       const data = await api.getInbox();
@@ -229,7 +236,14 @@ export function InboxProvider({
    * Debounced refetch - prevents rapid refetches from multiple SSE events
    */
   const debouncedRefetch = useCallback(() => {
-    if (!enabledRef.current) return;
+    // Skip if disabled, on login page, or login is required
+    if (
+      !enabledRef.current ||
+      window.location.pathname === "/login" ||
+      authEvents.loginRequired
+    ) {
+      return;
+    }
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -255,9 +269,13 @@ export function InboxProvider({
     onSessionCreated: debouncedRefetch,
   });
 
-  // Initial fetch when enabled
+  // Initial fetch when enabled (and not on login page or requiring login)
   useEffect(() => {
-    if (enabled) {
+    if (
+      enabled &&
+      window.location.pathname !== "/login" &&
+      !authEvents.loginRequired
+    ) {
       fetchInbox();
     }
   }, [enabled, fetchInbox]);
