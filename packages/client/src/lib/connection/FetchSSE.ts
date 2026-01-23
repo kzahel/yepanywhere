@@ -59,11 +59,19 @@ export class FetchSSE {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private _closed = false;
   private _lastEventId: string | null = null;
+  private _readyState = 0; // 0=CONNECTING, 1=OPEN, 2=CLOSED
+  private connectionId = 0;
+  private static nextId = 1;
 
   /** Called when connection opens */
   onopen: (() => void) | null = null;
   /** Called on error (includes status code for HTTP errors) */
   onerror: ((error: SSEError) => void) | null = null;
+
+  /** Connection state (mirrors EventSource): 0=CONNECTING, 1=OPEN, 2=CLOSED */
+  get readyState(): number {
+    return this._readyState;
+  }
 
   /** The last event ID received (for reconnection) */
   get lastEventId(): string | null {
@@ -78,7 +86,15 @@ export class FetchSSE {
       autoReconnect: true,
       ...options,
     };
+    this.connectionId = FetchSSE.nextId++;
+    this.log("created");
     this.connect();
+  }
+
+  /** Log with connection ID for easy filtering */
+  private log(message: string, ...args: unknown[]): void {
+    const shortUrl = this.url.split("?")[0]; // Strip query params for readability
+    console.log(`[SSE#${this.connectionId}] ${message}`, shortUrl, ...args);
   }
 
   /**
@@ -114,6 +130,8 @@ export class FetchSSE {
    */
   close(): void {
     this._closed = true;
+    this._readyState = 2;
+    this.log("closed");
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
@@ -132,10 +150,12 @@ export class FetchSSE {
 
     // Don't connect if login is already required
     if (authEvents.loginRequired) {
-      console.log("[FetchSSE] Skipping connection - login required");
+      this.log("skipped - login required");
       return;
     }
 
+    this._readyState = 0;
+    this.log("connecting");
     this.abortController = new AbortController();
 
     // Build URL with lastEventId if we're reconnecting
@@ -166,21 +186,23 @@ export class FetchSSE {
         // Check for auth errors
         if (res.status === 401 || res.status === 403) {
           error.isAuthError = true;
-          console.log(
-            `[FetchSSE] Auth error ${res.status}, signaling login required`,
-          );
+          this.log("auth error", res.status);
+          this._readyState = 2;
           authEvents.signalLoginRequired();
           this.onerror?.(error);
           // Don't reconnect for auth errors
           return;
         }
 
+        this.log("error", res.status, res.statusText);
         this.onerror?.(error);
         this.scheduleReconnect();
         return;
       }
 
       // Connection successful
+      this._readyState = 1;
+      this.log("open");
       this.onopen?.();
 
       // Read the stream
@@ -192,9 +214,11 @@ export class FetchSSE {
 
       // AbortError is expected when we close the connection
       if (err instanceof Error && err.name === "AbortError") {
+        this.log("aborted");
         return;
       }
 
+      this.log("error", err instanceof Error ? err.message : err);
       const error = new Error(
         err instanceof Error ? err.message : "SSE connection error",
       ) as SSEError;
@@ -211,10 +235,11 @@ export class FetchSSE {
 
     // Don't reconnect if login is required
     if (authEvents.loginRequired) {
-      console.log("[FetchSSE] Not reconnecting - login required");
+      this.log("not reconnecting - login required");
       return;
     }
 
+    this.log("reconnecting in", this.options.reconnectDelay, "ms");
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;
       this.connect();
@@ -235,6 +260,7 @@ export class FetchSSE {
 
         if (done) {
           // Stream ended - attempt reconnect
+          this.log("stream ended");
           this.scheduleReconnect();
           return;
         }
@@ -252,6 +278,7 @@ export class FetchSSE {
     } catch (err) {
       if (this._closed) return;
 
+      this.log("stream error", err instanceof Error ? err.message : err);
       const error = new Error(
         err instanceof Error ? err.message : "Stream read error",
       ) as SSEError;
