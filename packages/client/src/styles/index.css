@@ -3918,6 +3918,23 @@ a.sidebar-nav-item {
   color: var(--text-muted);
 }
 
+.session-menu-dropdown button.terminate-button {
+  color: var(--error-color);
+}
+
+.session-menu-dropdown button.terminate-button svg {
+  color: var(--error-color);
+}
+
+.session-menu-dropdown button.terminate-button:hover {
+  background: var(--error-bg-subtle, rgba(239, 68, 68, 0.1));
+}
+
+.session-menu-dropdown button.terminate-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Star button special styling */
 
 /* Star indicator in session list */

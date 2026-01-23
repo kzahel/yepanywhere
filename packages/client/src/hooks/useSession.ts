@@ -94,6 +94,10 @@ export function useSession(
 
   // Slash commands available for this session (from init message)
   const [slashCommands, setSlashCommands] = useState<string[]>([]);
+  // Tools available for this session (from init message)
+  const [sessionTools, setSessionTools] = useState<string[]>([]);
+  // MCP servers available for this session (from init message)
+  const [mcpServers, setMcpServers] = useState<string[]>([]);
   const lastKnownModeVersionRef = useRef<number>(0);
 
   // Mode is pending when local differs from server-confirmed
@@ -606,13 +610,17 @@ export function useSession(
         // Remove eventType from the message (it's SSE envelope, not message data)
         (incoming as { eventType?: string }).eventType = undefined;
 
-        // Extract slash_commands from init messages
-        if (
-          msgType === "system" &&
-          sdkMessage.subtype === "init" &&
-          Array.isArray(sdkMessage.slash_commands)
-        ) {
-          setSlashCommands(sdkMessage.slash_commands as string[]);
+        // Extract slash_commands, tools, and mcp_servers from init messages
+        if (msgType === "system" && sdkMessage.subtype === "init") {
+          if (Array.isArray(sdkMessage.slash_commands)) {
+            setSlashCommands(sdkMessage.slash_commands as string[]);
+          }
+          if (Array.isArray(sdkMessage.tools)) {
+            setSessionTools(sdkMessage.tools as string[]);
+          }
+          if (Array.isArray(sdkMessage.mcp_servers)) {
+            setMcpServers(sdkMessage.mcp_servers as string[]);
+          }
         }
 
         // Handle status messages (compacting indicator)
@@ -908,5 +916,7 @@ export function useSession(
     addPendingMessage, // Add to pending queue, returns tempId
     removePendingMessage, // Remove from pending by tempId
     slashCommands, // Available slash commands from init message
+    sessionTools, // Available tools from init message
+    mcpServers, // Available MCP servers from init message
   };
 }

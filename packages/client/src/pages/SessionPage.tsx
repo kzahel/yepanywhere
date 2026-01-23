@@ -131,6 +131,8 @@ function SessionPageContent({
     addPendingMessage,
     removePendingMessage,
     slashCommands,
+    sessionTools,
+    mcpServers,
   } = useSession(
     projectId,
     sessionId,
@@ -657,6 +659,19 @@ function SessionPageContent({
     }
   };
 
+  const handleTerminate = async () => {
+    if (status.state === "owned" && status.processId) {
+      try {
+        await api.abortProcess(status.processId);
+        showToast("Session terminated", "success");
+      } catch (err) {
+        console.error("Failed to terminate session:", err);
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        showToast(`Failed to terminate: ${errorMsg}`, "error");
+      }
+    }
+  };
+
   if (error) return <div className="error">Error: {error.message}</div>;
 
   // Sidebar icon component
@@ -791,6 +806,9 @@ function SessionPageContent({
                     isArchived={isArchived}
                     hasUnread={hasUnread}
                     provider={session?.provider}
+                    processId={
+                      status.state === "owned" ? status.processId : undefined
+                    }
                     onToggleStar={handleToggleStar}
                     onToggleArchive={handleToggleArchive}
                     onToggleRead={handleToggleRead}
@@ -800,6 +818,7 @@ function SessionPageContent({
                         `/projects/${projectId}/sessions/${newSessionId}`,
                       );
                     }}
+                    onTerminate={handleTerminate}
                     useFixedPositioning
                     useEllipsisIcon
                   />

@@ -11,12 +11,16 @@ export interface SessionMenuProps {
   hasUnread?: boolean;
   /** Provider name - clone is only available for Claude sessions */
   provider?: string;
+  /** Process ID if session has an active process (enables terminate option) */
+  processId?: string;
   onToggleStar: () => void | Promise<void>;
   onToggleArchive: () => void | Promise<void>;
   onToggleRead?: () => void | Promise<void>;
   onRename: () => void;
   /** Called after successful clone with the new session ID */
   onClone?: (newSessionId: string) => void | Promise<void>;
+  /** Called to terminate the session's process */
+  onTerminate?: () => void | Promise<void>;
   /** Use "..." icon instead of chevron */
   useEllipsisIcon?: boolean;
   /** Additional class for the wrapper */
@@ -32,17 +36,20 @@ export function SessionMenu({
   isArchived,
   hasUnread,
   provider,
+  processId,
   onToggleStar,
   onToggleArchive,
   onToggleRead,
   onRename,
   onClone,
+  onTerminate,
   useEllipsisIcon = false,
   className = "",
   useFixedPositioning = false,
 }: SessionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{
     top: number;
     left?: number;
@@ -148,6 +155,21 @@ export function SessionMenu({
       console.error("Failed to clone session:", error);
     } finally {
       setIsCloning(false);
+    }
+  };
+
+  const handleTerminate = async () => {
+    if (isTerminating || !onTerminate) return;
+    setIsTerminating(true);
+    setIsOpen(false);
+    setDropdownPosition(null);
+    triggerRef.current?.blur();
+    try {
+      await onTerminate();
+    } catch (error) {
+      console.error("Failed to terminate session:", error);
+    } finally {
+      setIsTerminating(false);
     }
   };
 
@@ -259,6 +281,30 @@ export function SessionMenu({
             )}
           </svg>
           {hasUnread ? "Mark as read" : "Mark as unread"}
+        </button>
+      )}
+      {processId && onTerminate && (
+        <button
+          type="button"
+          onClick={handleTerminate}
+          disabled={isTerminating}
+          className="terminate-button"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            {/* X in a square (stop/terminate icon) */}
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+          </svg>
+          {isTerminating ? "Terminating..." : "Terminate"}
         </button>
       )}
     </div>
