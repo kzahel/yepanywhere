@@ -95,6 +95,10 @@ class ExponentialBackoff {
   }
 }
 
+/** Keepalive configuration */
+const PING_INTERVAL_MS = 30_000; // Send ping every 30 seconds
+const PONG_TIMEOUT_MS = 10_000; // Expect pong within 10 seconds
+
 export class RelayClientService {
   /** WebSocket that has completed registration and is waiting for a client */
   private waitingWs: WebSocket | null = null;
@@ -102,6 +106,9 @@ export class RelayClientService {
   private connectingWs: WebSocket | null = null;
   private backoff: ExponentialBackoff;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private pongTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastPingTime: number | null = null;
   private state: RelayClientState = {
     status: "disconnected",
     reconnectAttempts: 0,
@@ -132,6 +139,7 @@ export class RelayClientService {
   stop(): void {
     this.enabled = false;
     this.clearReconnectTimer();
+    this.stopKeepalive();
 
     if (this.connectingWs) {
       this.connectingWs.close();
@@ -202,6 +210,10 @@ export class RelayClientService {
       ws.on("error", (error: Error) => {
         this.handleError(ws, error);
       });
+
+      ws.on("pong", () => {
+        this.handlePong(ws);
+      });
     } catch (error) {
       console.error("[RelayClient] Failed to create WebSocket:", error);
       this.scheduleReconnect();
@@ -254,6 +266,8 @@ export class RelayClientService {
       this.waitingWs = ws;
       this.backoff.reset();
       this.updateState({ status: "waiting", reconnectAttempts: 0 });
+      // Start keepalive pings for waiting connections
+      this.startKeepalive(ws);
       return;
     }
 
@@ -307,6 +321,9 @@ export class RelayClientService {
       `[RelayClient] Connection claimed by phone client, firstMessage: Buffer(${firstMessage.length}), isBinary: ${isBinary}, preview: ${preview}`,
     );
 
+    // Stop keepalive for this connection (it's being handed off)
+    this.stopKeepalive();
+
     // Remove from waiting state (it's now claimed)
     this.waitingWs = null;
 
@@ -333,6 +350,7 @@ export class RelayClientService {
 
     if (ws === this.waitingWs) {
       console.log("[RelayClient] Connection closed");
+      this.stopKeepalive();
       this.waitingWs = null;
       this.scheduleReconnect();
       return;
@@ -391,5 +409,97 @@ export class RelayClientService {
     } else {
       this.state = newState;
     }
+  }
+
+  /**
+   * Start sending keepalive pings to detect dead connections.
+   * This is essential for detecting when the connection dies due to
+   * network changes (e.g., laptop sleep/wake).
+   */
+  private startKeepalive(ws: WebSocket): void {
+    this.stopKeepalive(); // Clear any existing keepalive
+
+    this.pingInterval = setInterval(() => {
+      // Check for wall-clock drift (system was likely asleep)
+      const now = Date.now();
+      if (
+        this.lastPingTime !== null &&
+        now - this.lastPingTime > PING_INTERVAL_MS * 2
+      ) {
+        console.log(
+          `[RelayClient] Detected clock drift (${now - this.lastPingTime}ms since last ping), connection likely stale`,
+        );
+        this.handleKeepaliveTimeout();
+        return;
+      }
+
+      this.lastPingTime = now;
+
+      // Send ping
+      try {
+        ws.ping();
+      } catch {
+        // Ping failed, connection is dead
+        console.log("[RelayClient] Ping failed, connection dead");
+        this.handleKeepaliveTimeout();
+        return;
+      }
+
+      // Set pong timeout
+      this.pongTimeout = setTimeout(() => {
+        console.log("[RelayClient] Pong timeout, connection dead");
+        this.handleKeepaliveTimeout();
+      }, PONG_TIMEOUT_MS);
+    }, PING_INTERVAL_MS);
+  }
+
+  /**
+   * Stop the keepalive ping interval.
+   */
+  private stopKeepalive(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
+    }
+    this.lastPingTime = null;
+  }
+
+  /**
+   * Handle pong response from the relay.
+   */
+  private handlePong(ws: WebSocket): void {
+    // Only handle pong for our waiting connection
+    if (ws !== this.waitingWs) return;
+
+    // Clear the pong timeout
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
+    }
+  }
+
+  /**
+   * Handle keepalive timeout - close and reconnect.
+   */
+  private handleKeepaliveTimeout(): void {
+    this.stopKeepalive();
+
+    if (this.waitingWs) {
+      // Force close the connection
+      try {
+        this.waitingWs.close();
+      } catch {
+        // Ignore close errors
+      }
+      this.waitingWs = null;
+    }
+
+    // Reconnect immediately (reset backoff since this wasn't a network error)
+    this.backoff.reset();
+    this.scheduleReconnect();
   }
 }
