@@ -56,3 +56,6 @@ packages/client/dist-remote
 packages/client/dist-stable
 packages/server/client-dist/
 packages/server/bundled/
+
+# Claude ephemeral files (auto-added)
+.claude/.command-checksums
