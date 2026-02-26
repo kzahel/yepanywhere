@@ -434,7 +434,7 @@ async function startServer() {
 
   // Create the app first (without WebSocket support initially)
   // We'll add WebSocket routes after setting up WebSocket support
-  const { app, supervisor, scanner } = createApp({
+  const { app, supervisor, scanner, readerFactory } = createApp({
     realSdk,
     projectsDir: config.claudeProjectsDir,
     idleTimeoutMs: config.idleTimeoutMs,
@@ -888,6 +888,7 @@ async function startServer() {
         type: "backend-reloaded",
         timestamp: new Date().toISOString(),
       });
+
     },
     { fatalOnError: true },
   );
@@ -928,6 +929,12 @@ async function startServer() {
       mainServerPort: effectivePort,
     });
   }
+
+  // Pre-warm session index cache so clients get instant responses.
+  // Fire-and-forget: runs in background with event loop yielding.
+  // Must be after all server bindings are complete (network binding may close
+  // the localhost server before its onReady fires).
+  sessionIndexService.prewarm(scanner, readerFactory).catch(() => {});
 
   // Export callbacks for use by API routes (via app options)
   return { onLocalhostPortChange, onNetworkBindingChange };

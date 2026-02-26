@@ -16,7 +16,7 @@ import {
 } from "@yep-anywhere/shared";
 import { getLogger } from "../logging/logger.js";
 import type { ISessionReader } from "../sessions/types.js";
-import type { SessionSummary } from "../supervisor/types.js";
+import type { Project, SessionSummary } from "../supervisor/types.js";
 import type { EventBus, FileChangeEvent } from "../watcher/index.js";
 import type { ISessionIndexService } from "./types.js";
 
@@ -91,9 +91,11 @@ export class SessionIndexService implements ISessionIndexService {
   private inFlightSessionLoads: Map<string, Promise<SessionSummary[]>> =
     new Map();
   private inFlightTitleLoads: Map<string, Promise<string | null>> = new Map();
+  private backgroundValidations: Map<string, Promise<void>> = new Map();
   private cacheStats = {
     requests: 0,
     fastHits: 0,
+    staleHits: 0,
     incrementalRuns: 0,
     fullScans: 0,
     statCalls: 0,
@@ -347,6 +349,14 @@ export class SessionIndexService implements ISessionIndexService {
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /**
+   * Yield the event loop so HTTP handlers can process between chunks of heavy work.
+   * Uses setImmediate which fires after I/O callbacks but before setTimeout(0).
+   */
+  private yieldEventLoop(): Promise<void> {
+    return new Promise((resolve) => setImmediate(resolve));
+  }
+
   private getLoadKey(sessionDir: string, projectId: UrlProjectId): string {
     return `${sessionDir}::${projectId}`;
   }
@@ -441,7 +451,7 @@ export class SessionIndexService implements ISessionIndexService {
   }
 
   private recordCallStats(
-    mode: "fast" | "incremental" | "full",
+    mode: "fast" | "stale" | "incremental" | "full",
     durationMs: number,
     statCalls: number,
     parseCalls: number,
@@ -453,6 +463,7 @@ export class SessionIndexService implements ISessionIndexService {
     this.cacheStats.totalDurationMs += durationMs;
 
     if (mode === "fast") this.cacheStats.fastHits += 1;
+    if (mode === "stale") this.cacheStats.staleHits += 1;
     if (mode === "incremental") this.cacheStats.incrementalRuns += 1;
     if (mode === "full") this.cacheStats.fullScans += 1;
 
@@ -502,8 +513,12 @@ export class SessionIndexService implements ISessionIndexService {
     let indexChanged = false;
     let statCalls = 0;
     let parseCalls = 0;
+    let iterCount = 0;
 
     for (const sessionId of Array.from(dirty)) {
+      if (++iterCount % 5 === 0) {
+        await this.yieldEventLoop();
+      }
       const cached = index.sessions[sessionId];
 
       if (cached) {
@@ -600,6 +615,7 @@ export class SessionIndexService implements ISessionIndexService {
         for (let j = 0; j < batch.length; j++) {
           allStats[b + j] = batch[j] ?? null;
         }
+        await this.yieldEventLoop();
       }
 
       const cacheMisses: {
@@ -644,7 +660,13 @@ export class SessionIndexService implements ISessionIndexService {
         }
       }
 
-      for (const { sessionId, mtime, size } of cacheMisses) {
+      for (let mi = 0; mi < cacheMisses.length; mi++) {
+        const miss = cacheMisses[mi];
+        if (!miss) continue;
+        const { sessionId, mtime, size } = miss;
+        if (mi > 0 && mi % 5 === 0) {
+          await this.yieldEventLoop();
+        }
         parseCalls += 1;
         const summary = await reader.getSessionSummary(sessionId, projectId);
         if (summary) {
@@ -688,6 +710,7 @@ export class SessionIndexService implements ISessionIndexService {
   getDebugStats(): {
     requests: number;
     fastHits: number;
+    staleHits: number;
     incrementalRuns: number;
     fullScans: number;
     statCalls: number;
@@ -709,6 +732,39 @@ export class SessionIndexService implements ISessionIndexService {
       dirtyDirCount: this.dirtyDirs.size,
       dirtySessionCount,
     };
+  }
+
+  /**
+   * Trigger a background full validation for a directory, deduped by sessionDir.
+   * Fire-and-forget: errors are logged but never thrown to the caller.
+   */
+  private triggerBackgroundValidation(
+    sessionDir: string,
+    projectId: UrlProjectId,
+    reader: ISessionReader,
+    index: SessionIndexState,
+  ): void {
+    if (this.backgroundValidations.has(sessionDir)) return;
+
+    const promise = this.runFullValidation(sessionDir, projectId, reader, index)
+      .then(({ statCalls, parseCalls }) => {
+        if (LOG_CACHE_PERF) {
+          logger.info(
+            `[SessionIndexService] background validation complete dir=${sessionDir} statCalls=${statCalls} parseCalls=${parseCalls}`,
+          );
+        }
+      })
+      .catch((err) => {
+        logger.warn(
+          { err },
+          `[SessionIndexService] Background validation failed for ${sessionDir}`,
+        );
+      })
+      .finally(() => {
+        this.backgroundValidations.delete(sessionDir);
+      });
+
+    this.backgroundValidations.set(sessionDir, promise);
   }
 
   /**
@@ -789,6 +845,23 @@ export class SessionIndexService implements ISessionIndexService {
       return summaries;
     }
 
+    // Stale-while-revalidate: when a positive validation interval is configured
+    // and has elapsed, return cached data immediately and refresh in the background.
+    // This avoids blocking HTTP requests during heavy scans.
+    // Does NOT apply when fullValidationIntervalMs <= 0 (always-validate mode).
+    const hasCachedData = Object.keys(index.sessions).length > 0;
+    if (
+      fullValidationDue &&
+      hasCachedData &&
+      this.fullValidationIntervalMs > 0
+    ) {
+      const summaries = this.buildSummariesFromIndex(index, projectId);
+      this.triggerBackgroundValidation(sessionDir, projectId, reader, index);
+      this.recordCallStats("stale", Date.now() - start, 0, 0, sessionDir);
+      return summaries;
+    }
+
+    // Full validation path: either always-validate mode or no cached data.
     const full = await this.runFullValidation(
       sessionDir,
       projectId,
@@ -901,6 +974,52 @@ export class SessionIndexService implements ISessionIndexService {
     }
 
     return null;
+  }
+
+  /**
+   * Pre-warm the cache for all Claude projects.
+   * Call fire-and-forget after the server starts listening so the cache
+   * is warm before clients connect. With stale-while-revalidate, clients
+   * connecting during pre-warm get cached data (if persisted index exists)
+   * instantly.
+   */
+  async prewarm(
+    scanner: { listProjects(): Promise<Project[]> },
+    readerFactory: (project: Project) => ISessionReader,
+  ): Promise<void> {
+    try {
+      const projects = await scanner.listProjects();
+      const claudeProjects = projects.filter((p) => p.provider === "claude");
+      if (claudeProjects.length === 0) return;
+
+      logger.info(
+        `[SessionIndexService] Pre-warming cache for ${claudeProjects.length} Claude projects`,
+      );
+
+      for (const project of claudeProjects) {
+        try {
+          const reader = readerFactory(project);
+          await this.getSessionsWithCache(
+            project.sessionDir,
+            project.id,
+            reader,
+          );
+        } catch (err) {
+          logger.warn(
+            { err },
+            `[SessionIndexService] Pre-warm failed for ${project.name}`,
+          );
+        }
+        await this.yieldEventLoop();
+      }
+
+      logger.info("[SessionIndexService] Pre-warm complete");
+    } catch (err) {
+      logger.warn(
+        { err },
+        "[SessionIndexService] Pre-warm failed to list projects",
+      );
+    }
   }
 
   dispose(): void {
