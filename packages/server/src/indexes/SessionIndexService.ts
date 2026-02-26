@@ -1014,6 +1014,27 @@ export class SessionIndexService implements ISessionIndexService {
       }
 
       logger.info("[SessionIndexService] Pre-warm complete");
+
+      // Pre-warm Gemini shared scan cache - one reader scan populates the
+      // shared cache used by all Gemini readers, avoiding 314MB+ cold reads
+      // on first client request.
+      const geminiProjects = projects.filter((p) => p.provider === "gemini");
+      const firstGemini = projects.find((p) => p.provider === "gemini");
+      if (firstGemini) {
+        logger.info(
+          `[SessionIndexService] Pre-warming Gemini scan cache (${geminiProjects.length} projects)`,
+        );
+        try {
+          const reader = readerFactory(firstGemini);
+          await reader.listSessions(firstGemini.id);
+          logger.info("[SessionIndexService] Gemini pre-warm complete");
+        } catch (err) {
+          logger.warn(
+            { err },
+            "[SessionIndexService] Gemini pre-warm failed",
+          );
+        }
+      }
     } catch (err) {
       logger.warn(
         { err },

@@ -57,7 +57,7 @@
  * 4. Use `getSessionFilePath()` to construct paths to specific session files.
  */
 
-import { readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join, sep } from "node:path";
 import type { UrlProjectId } from "@yep-anywhere/shared";
@@ -175,9 +175,15 @@ export function getSessionIdFromPath(filePath: string): string | null {
 export async function readCwdFromSessionFile(
   sessionFilePath: string,
 ): Promise<string | null> {
+  let fd: Awaited<ReturnType<typeof open>> | null = null;
   try {
-    const content = await readFile(sessionFilePath, { encoding: "utf-8" });
-    const lines = content.split("\n").slice(0, 20); // Check first 20 lines
+    // Read only the first 8KB - cwd is always near the start of the file.
+    // Avoids reading multi-MB session files entirely.
+    fd = await open(sessionFilePath, "r");
+    const buf = Buffer.alloc(8192);
+    const { bytesRead } = await fd.read(buf, 0, 8192, 0);
+    const content = buf.toString("utf-8", 0, bytesRead);
+    const lines = content.split("\n").slice(0, 20);
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -194,6 +200,8 @@ export async function readCwdFromSessionFile(
     return null;
   } catch {
     return null;
+  } finally {
+    await fd?.close();
   }
 }
 

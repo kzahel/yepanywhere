@@ -62,7 +62,28 @@ interface GeminiSessionCacheEntry {
   startTime: string;
   mtime: number;
   size: number;
+  /** Pre-computed summary fields to avoid re-reading the file */
+  title: string | null;
+  fullTitle: string | null;
+  messageCount: number;
+  model: string | undefined;
+  contextUsage: ContextUsage | undefined;
+  lastUpdated: string | undefined;
 }
+
+/**
+ * Shared scan cache across all GeminiSessionReader instances.
+ * Keyed by sessionsDir, so all readers pointing to the same directory
+ * share scan results instead of each scanning 314MB independently.
+ */
+const sharedScanCache = new Map<
+  string,
+  {
+    entries: Map<string, GeminiSessionCacheEntry>;
+    timestamp: number;
+  }
+>();
+const SHARED_SCAN_TTL_MS = 300_000; // 5 min - file watcher handles real-time updates
 
 /**
  * Gemini-specific session reader for Gemini CLI JSON files.
@@ -73,11 +94,6 @@ export class GeminiSessionReader implements ISessionReader {
   private sessionsDir: string;
   private projectPath?: string;
   private hashToCwd?: Map<string, string> | Promise<Map<string, string>>;
-
-  // Cache of session ID -> file info for quick lookups
-  private sessionFileCache: Map<string, GeminiSessionCacheEntry> = new Map();
-  private cacheTimestamp = 0;
-  private readonly CACHE_TTL_MS = 5000; // 5 second cache
 
   constructor(options: GeminiSessionReaderOptions) {
     this.sessionsDir = options.sessionsDir;
@@ -128,37 +144,22 @@ export class GeminiSessionReader implements ISessionReader {
     const sessionCache = await this.findSessionFile(sessionId);
     if (!sessionCache) return null;
 
-    try {
-      const content = await readFile(sessionCache.filePath, "utf-8");
-      const session = parseGeminiSessionFile(content);
-
-      if (!session || session.messages.length === 0) return null;
-
-      const stats = await stat(sessionCache.filePath);
-      const { title, fullTitle } = this.extractTitle(session.messages);
-      const messageCount = session.messages.length;
-      const model = this.extractModel(session.messages);
-      const contextUsage = this.extractContextUsage(session.messages, model);
-
-      // Skip sessions with no actual conversation messages
-      if (messageCount === 0) return null;
-
-      return {
-        id: sessionId,
-        projectId,
-        title,
-        fullTitle,
-        createdAt: session.startTime,
-        updatedAt: session.lastUpdated ?? stats.mtime.toISOString(),
-        messageCount,
-        ownership: { owner: "none" },
-        contextUsage,
-        provider: "gemini",
-        model,
-      };
-    } catch {
-      return null;
-    }
+    // Use pre-computed fields from scan cache to avoid re-reading the file
+    return {
+      id: sessionId,
+      projectId,
+      title: sessionCache.title,
+      fullTitle: sessionCache.fullTitle,
+      createdAt: sessionCache.startTime,
+      updatedAt:
+        sessionCache.lastUpdated ??
+        new Date(sessionCache.mtime).toISOString(),
+      messageCount: sessionCache.messageCount,
+      ownership: { owner: "none" },
+      contextUsage: sessionCache.contextUsage,
+      provider: "gemini",
+      model: sessionCache.model,
+    };
   }
 
   async getSession(
@@ -249,19 +250,20 @@ export class GeminiSessionReader implements ISessionReader {
 
   /**
    * Scan the sessions directory and find all session files.
+   * Uses a shared cache across all readers pointing to the same directory.
    */
   private async scanSessions(): Promise<GeminiSessionCacheEntry[]> {
-    // Check cache
-    if (Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS) {
-      return Array.from(this.sessionFileCache.values());
+    // Check shared cache first
+    const cached = sharedScanCache.get(this.sessionsDir);
+    if (cached && Date.now() - cached.timestamp < SHARED_SCAN_TTL_MS) {
+      return Array.from(cached.entries.values());
     }
 
-    const sessions: GeminiSessionCacheEntry[] = [];
+    const entries = new Map<string, GeminiSessionCacheEntry>();
 
     try {
       await stat(this.sessionsDir);
     } catch {
-      // Directory doesn't exist
       return [];
     }
 
@@ -277,8 +279,7 @@ export class GeminiSessionReader implements ISessionReader {
         for (const filePath of files) {
           const session = await this.readSessionMeta(filePath, projectHash);
           if (session) {
-            sessions.push(session);
-            this.sessionFileCache.set(session.id, session);
+            entries.set(session.id, session);
           }
         }
       } catch {
@@ -286,8 +287,12 @@ export class GeminiSessionReader implements ISessionReader {
       }
     }
 
-    this.cacheTimestamp = Date.now();
-    return sessions;
+    sharedScanCache.set(this.sessionsDir, {
+      entries,
+      timestamp: Date.now(),
+    });
+
+    return Array.from(entries.values());
   }
 
   /**
@@ -347,13 +352,17 @@ export class GeminiSessionReader implements ISessionReader {
   private async findSessionFile(
     sessionId: string,
   ): Promise<GeminiSessionCacheEntry | null> {
-    // Check cache first
-    const cached = this.sessionFileCache.get(sessionId);
-    if (cached) return cached;
+    // Check shared cache first
+    const cached = sharedScanCache.get(this.sessionsDir);
+    if (cached) {
+      const entry = cached.entries.get(sessionId);
+      if (entry) return entry;
+    }
 
     // Scan if cache miss
     await this.scanSessions();
-    return this.sessionFileCache.get(sessionId) ?? null;
+    const updated = sharedScanCache.get(this.sessionsDir);
+    return updated?.entries.get(sessionId) ?? null;
   }
 
   /**
@@ -368,7 +377,11 @@ export class GeminiSessionReader implements ISessionReader {
       const content = await readFile(filePath, "utf-8");
       const session = parseGeminiSessionFile(content);
 
-      if (!session) return null;
+      if (!session || session.messages.length === 0) return null;
+
+      const { title, fullTitle } = this.extractTitle(session.messages);
+      const model = this.extractModel(session.messages);
+      const contextUsage = this.extractContextUsage(session.messages, model);
 
       return {
         id: session.sessionId,
@@ -377,6 +390,12 @@ export class GeminiSessionReader implements ISessionReader {
         startTime: session.startTime,
         mtime: stats.mtimeMs,
         size: stats.size,
+        title,
+        fullTitle,
+        messageCount: session.messages.length,
+        model,
+        contextUsage,
+        lastUpdated: session.lastUpdated,
       };
     } catch {
       return null;

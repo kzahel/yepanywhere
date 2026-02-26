@@ -86,47 +86,52 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
       customTitle?: string;
     }> = [];
 
-    for (const project of projects) {
-      const reader = deps.readerFactory(project);
-
-      // Get sessions using cache if available
-      // SessionIndexService only works with Claude's directory structure
-      let sessions: SessionSummary[];
-      if (deps.sessionIndexService && project.provider === "claude") {
-        sessions = await deps.sessionIndexService.getSessionsWithCache(
-          project.sessionDir,
-          project.id,
-          reader,
-        );
-        // Include sessions from cross-machine merged directories
-        if (project.mergedSessionDirs) {
-          for (const dir of project.mergedSessionDirs) {
-            const mergedReader = new ClaudeSessionReader({ sessionDir: dir });
-            const merged = await deps.sessionIndexService.getSessionsWithCache(
-              dir,
-              project.id,
-              mergedReader,
+    // Fetch sessions for all projects in parallel to avoid sequential I/O
+    const projectSessionResults = await Promise.all(
+      projects.map(async (project) => {
+        const reader = deps.readerFactory(project);
+        let sessions: SessionSummary[];
+        const indexService = deps.sessionIndexService;
+        if (indexService && project.provider === "claude") {
+          sessions = await indexService.getSessionsWithCache(
+            project.sessionDir,
+            project.id,
+            reader,
+          );
+          if (project.mergedSessionDirs) {
+            const mergedResults = await Promise.all(
+              project.mergedSessionDirs.map((dir) => {
+                const mergedReader = new ClaudeSessionReader({
+                  sessionDir: dir,
+                });
+                return indexService.getSessionsWithCache(
+                  dir,
+                  project.id,
+                  mergedReader,
+                );
+              }),
             );
-            sessions = [...sessions, ...merged];
+            for (const merged of mergedResults) {
+              sessions = [...sessions, ...merged];
+            }
           }
+        } else {
+          sessions = await reader.listSessions(project.id);
         }
-      } else {
-        sessions = await reader.listSessions(project.id);
-      }
+        return { project, sessions };
+      }),
+    );
 
-      // Enrich each session with process state and notification data
+    // Enrich each session with process state and notification data (synchronous)
+    for (const { project, sessions } of projectSessionResults) {
       for (const session of sessions) {
-        // Check if session is archived (from metadata service)
         const metadata = deps.sessionMetadataService?.getMetadata(session.id);
         const isArchived = metadata?.isArchived ?? session.isArchived ?? false;
-
-        // Skip archived sessions entirely - they should never appear in inbox
         if (isArchived) continue;
 
         let pendingInputType: PendingInputType | undefined;
         let activity: AgentActivity | undefined;
 
-        // Get agent activity from supervisor
         const process = deps.supervisor?.getProcessForSession(session.id);
         if (process) {
           const pendingRequest = process.getPendingInputRequest();
@@ -142,7 +147,6 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
           }
         }
 
-        // Get unread status from notification service
         const hasUnread = deps.notificationService
           ? deps.notificationService.hasUnread(session.id, session.updatedAt)
           : undefined;
