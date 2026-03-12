@@ -114,6 +114,9 @@ export function FloatingActionButton() {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Skip Enter during IME composition (e.g. Chinese/Japanese/Korean input)
+      if (e.key === "Enter" && e.nativeEvent.isComposing) return;
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();

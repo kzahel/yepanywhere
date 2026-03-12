@@ -198,6 +198,9 @@ export function MessageInput({
     }
 
     if (e.key === "Enter") {
+      // Skip Enter during IME composition (e.g. Chinese/Japanese/Korean input)
+      if (e.nativeEvent.isComposing) return;
+
       // Ctrl+Enter queues a deferred message when agent is running
       if (onQueue && e.ctrlKey && !e.shiftKey) {
         e.preventDefault();

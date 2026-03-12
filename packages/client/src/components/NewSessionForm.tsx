@@ -411,6 +411,9 @@ export function NewSessionForm({
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter") {
+      // Skip Enter during IME composition (e.g. Chinese/Japanese/Korean input)
+      if (e.nativeEvent.isComposing) return;
+
       // On mobile (touch devices), Enter adds newline - must use send button
       // On desktop, Enter sends message, Shift/Ctrl+Enter adds newline
       const isMobile = hasCoarsePointer();
