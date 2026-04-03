@@ -23,11 +23,13 @@ import { NotificationsSettings } from "./NotificationsSettings";
 import { ProvidersSettings } from "./ProvidersSettings";
 import { RemoteAccessSettings } from "./RemoteAccessSettings";
 import { RemoteExecutorsSettings } from "./RemoteExecutorsSettings";
+import { SessionDefaultsSettings } from "./SessionDefaultsSettings";
 import type { SettingsCategory } from "./types";
 
 // Map category IDs to their components
 const CATEGORY_COMPONENTS: Record<string, React.ComponentType> = {
   appearance: AppearanceSettings,
+  "session-defaults": SessionDefaultsSettings,
   model: ModelSettings,
   "agent-context": AgentContextSettings,
   notifications: NotificationsSettings,

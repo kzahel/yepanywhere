@@ -71,6 +71,12 @@ export function getSettingsCategories(
       description: t("settingsAppearanceDescription"),
     },
     {
+      id: "session-defaults",
+      label: t("settingsSessionDefaultsTitle"),
+      icon: "⚙️",
+      description: t("settingsSessionDefaultsDescription"),
+    },
+    {
       id: "model",
       label: t("settingsModelTitle"),
       icon: "🧠",

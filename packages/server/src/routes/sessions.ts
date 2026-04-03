@@ -841,10 +841,16 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const globalInstructions =
       deps.serverSettingsService?.getSetting("globalInstructions") || undefined;
 
+    // Fall back to saved default permission mode from server settings
+    const effectiveMode =
+      body.mode ??
+      deps.serverSettingsService?.getSetting("newSessionDefaults")
+        ?.permissionMode;
+
     const result = await deps.supervisor.startSession(
       project.path,
       userMessage,
-      body.mode,
+      effectiveMode,
       {
         model,
         thinking,
@@ -935,9 +941,15 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const globalInstructions =
       deps.serverSettingsService?.getSetting("globalInstructions") || undefined;
 
+    // Fall back to saved default permission mode from server settings
+    const effectiveMode =
+      body.mode ??
+      deps.serverSettingsService?.getSetting("newSessionDefaults")
+        ?.permissionMode;
+
     const result = await deps.supervisor.createSession(
       project.path,
-      body.mode,
+      effectiveMode,
       {
         model,
         thinking,
@@ -1102,11 +1114,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       providerName = sessionSummary?.provider ?? project.provider;
     }
 
+    // Fall back to saved default permission mode from server settings
+    const effectiveMode =
+      body.mode ??
+      deps.serverSettingsService?.getSetting("newSessionDefaults")
+        ?.permissionMode;
+
     const result = await deps.supervisor.resumeSession(
       sessionId,
       project.path,
       userMessage,
-      body.mode,
+      effectiveMode,
       {
         model,
         thinking,
