@@ -4846,6 +4846,80 @@ a.sidebar-nav-item {
   margin: 0 0 var(--space-3);
 }
 
+/* Worktree Toggle Section */
+.new-session-worktree-section {
+  margin-bottom: 2rem;
+}
+
+.new-session-worktree-section h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-3);
+}
+
+.worktree-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.worktree-toggle:hover {
+  border-color: var(--border-active);
+}
+
+.worktree-toggle.active {
+  border-color: var(--accent-primary);
+  background: var(--bg-active);
+}
+
+.worktree-toggle-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.worktree-toggle.active .worktree-toggle-indicator {
+  background: var(--accent-primary);
+  color: var(--text-on-accent, #fff);
+}
+
+.worktree-toggle-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.worktree-toggle-label {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.worktree-toggle-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
 /* Permission Mode Section */
 .new-session-mode-section {
   margin-bottom: 2rem;

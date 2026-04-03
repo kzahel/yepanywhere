@@ -23,6 +23,7 @@ import { NotificationsSettings } from "./NotificationsSettings";
 import { ProvidersSettings } from "./ProvidersSettings";
 import { RemoteAccessSettings } from "./RemoteAccessSettings";
 import { RemoteExecutorsSettings } from "./RemoteExecutorsSettings";
+import { WorktreeSettings } from "./WorktreeSettings";
 import type { SettingsCategory } from "./types";
 
 // Map category IDs to their components
@@ -37,6 +38,7 @@ const CATEGORY_COMPONENTS: Record<string, React.ComponentType> = {
   remote: RemoteAccessSettings,
   providers: ProvidersSettings,
   "remote-executors": RemoteExecutorsSettings,
+  worktree: WorktreeSettings,
   emulator: EmulatorSettings,
   about: AboutSettings,
   development: DevelopmentSettings,

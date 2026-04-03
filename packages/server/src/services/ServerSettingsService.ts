@@ -43,6 +43,14 @@ export interface ServerSettings {
   lifecycleWebhookToken?: string;
   /** When true, include dryRun=true in lifecycle webhook payloads */
   lifecycleWebhookDryRun?: boolean;
+  /** Whether new sessions should use git worktrees by default */
+  worktreeEnabled?: boolean;
+  /** Base directory for worktrees (default: {projectDir}-worktrees/) */
+  worktreeBasePath?: string;
+  /** Files/dirs to symlink from original project into worktrees (e.g., [".env", "node_modules"]) */
+  worktreeSymlinks?: string[];
+  /** Command to run after worktree creation (e.g., "pnpm install") */
+  worktreePostCreateCommand?: string;
 }
 
 /** Default settings */

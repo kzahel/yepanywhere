@@ -122,6 +122,8 @@ export interface SessionOptions {
   provider?: ProviderName;
   /** SSH host alias for remote execution (undefined = local) */
   executor?: string;
+  /** Whether to create a git worktree for this session */
+  worktree?: boolean;
 }
 
 export type { UploadedFile } from "@yep-anywhere/shared";
@@ -445,6 +447,7 @@ export const api = {
         thinking: options?.thinking,
         provider: options?.provider,
         executor: options?.executor,
+        worktree: options?.worktree,
         attachments,
       }),
     }),
@@ -467,6 +470,7 @@ export const api = {
         thinking: options?.thinking,
         provider: options?.provider,
         executor: options?.executor,
+        worktree: options?.worktree,
       }),
     }),
 
@@ -1049,4 +1053,12 @@ export interface ServerSettings {
   lifecycleWebhookToken?: string;
   /** When true, include dryRun=true in lifecycle webhook payloads */
   lifecycleWebhookDryRun?: boolean;
+  /** Whether new sessions should use git worktrees by default */
+  worktreeEnabled?: boolean;
+  /** Base directory for worktrees (default: {projectDir}-worktrees/) */
+  worktreeBasePath?: string;
+  /** Files/dirs to symlink from original project into worktrees */
+  worktreeSymlinks?: string[];
+  /** Command to run after worktree creation */
+  worktreePostCreateCommand?: string;
 }

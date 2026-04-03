@@ -112,6 +112,7 @@ export function NewSessionForm({
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   // null = local, string = remote host
   const [selectedExecutor, setSelectedExecutor] = useState<string | null>(null);
+  const [useWorktree, setUseWorktree] = useState<boolean | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<
@@ -204,6 +205,7 @@ export function NewSessionForm({
       getPreferredModelId(initialProvider.models ?? [], savedDefaults?.model),
     );
     setMode(savedDefaults?.permissionMode ?? "default");
+    setUseWorktree(settings?.worktreeEnabled ?? false);
   }, [
     availableProviders,
     providers,
@@ -378,6 +380,7 @@ export function NewSessionForm({
         thinking,
         provider: selectedProvider ?? undefined,
         executor: selectedExecutor ?? undefined,
+        worktree: useWorktree || undefined,
       };
 
       if (pendingFiles.length > 0) {
@@ -881,6 +884,31 @@ export function NewSessionForm({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Worktree Toggle */}
+      {!selectedExecutor && (
+        <div className="new-session-worktree-section">
+          <h3>{t("newSessionWorktreeTitle")}</h3>
+          <button
+            type="button"
+            className={`worktree-toggle ${useWorktree ? "active" : ""}`}
+            onClick={() => setUseWorktree(!useWorktree)}
+            disabled={isStarting}
+          >
+            <span className="worktree-toggle-indicator">
+              {useWorktree ? "ON" : "OFF"}
+            </span>
+            <div className="worktree-toggle-content">
+              <span className="worktree-toggle-label">
+                {t("newSessionWorktreeLabel")}
+              </span>
+              <span className="worktree-toggle-desc">
+                {t("newSessionWorktreeDescription")}
+              </span>
+            </div>
+          </button>
         </div>
       )}
 

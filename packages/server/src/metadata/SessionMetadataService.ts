@@ -9,6 +9,16 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ProviderName } from "@yep-anywhere/shared";
 
+/** Persisted worktree info for cleanup */
+export interface WorktreeMetadata {
+  /** Absolute path to the worktree directory */
+  worktreePath: string;
+  /** Branch name created for this worktree */
+  branchName: string;
+  /** Original project path */
+  originalPath: string;
+}
+
 export interface SessionMetadata {
   /** Custom title that overrides auto-generated title */
   customTitle?: string;
@@ -22,6 +32,8 @@ export interface SessionMetadata {
   provider?: ProviderName;
   /** SSH host alias for remote execution (undefined = local) */
   executor?: string;
+  /** Git worktree info if session was created with worktree isolation */
+  worktree?: WorktreeMetadata;
 }
 
 export interface SessionMetadataState {
@@ -193,6 +205,27 @@ export class SessionMetadataService {
   }
 
   /**
+   * Set the worktree info for a session.
+   */
+  async setWorktree(
+    sessionId: string,
+    worktree: WorktreeMetadata | undefined,
+  ): Promise<void> {
+    this.updateSessionMetadata(sessionId, (metadata) => ({
+      ...metadata,
+      worktree: worktree || undefined,
+    }));
+    await this.save();
+  }
+
+  /**
+   * Get the worktree info for a session.
+   */
+  getWorktree(sessionId: string): WorktreeMetadata | undefined {
+    return this.state.sessions[sessionId]?.worktree;
+  }
+
+  /**
    * Update metadata for a session (title, archived, starred).
    */
   async updateMetadata(
@@ -241,6 +274,7 @@ export class SessionMetadataService {
     if (updated.model) cleaned.model = updated.model;
     if (updated.provider) cleaned.provider = updated.provider;
     if (updated.executor) cleaned.executor = updated.executor;
+    if (updated.worktree) cleaned.worktree = updated.worktree;
 
     if (Object.keys(cleaned).length === 0) {
       // Remove the entry entirely if empty

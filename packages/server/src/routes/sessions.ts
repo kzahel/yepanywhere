@@ -44,6 +44,11 @@ import {
   isValidSshHostAlias,
   normalizeSshHostAlias,
 } from "../utils/sshHostAlias.js";
+import {
+  type WorktreeInfo,
+  createWorktree,
+  removeWorktree,
+} from "../utils/worktree.js";
 import type { EventBus } from "../watcher/index.js";
 
 /**
@@ -132,6 +137,8 @@ interface StartSessionBody {
   executor?: string;
   /** Permission rules for tool filtering (deny/allow patterns) */
   permissions?: PermissionRules;
+  /** Whether to create a git worktree for this session */
+  worktree?: boolean;
 }
 
 interface CreateSessionBody {
@@ -143,6 +150,8 @@ interface CreateSessionBody {
   executor?: string;
   /** Permission rules for tool filtering (deny/allow patterns) */
   permissions?: PermissionRules;
+  /** Whether to create a git worktree for this session */
+  worktree?: boolean;
 }
 
 interface InputResponseBody {
@@ -841,8 +850,39 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const globalInstructions =
       deps.serverSettingsService?.getSetting("globalInstructions") || undefined;
 
+    // Handle worktree creation if requested
+    const useWorktree =
+      body.worktree ??
+      deps.serverSettingsService?.getSetting("worktreeEnabled") ??
+      false;
+    let sessionPath = project.path;
+    let worktreeInfo: WorktreeInfo | undefined;
+
+    if (useWorktree && !executor) {
+      try {
+        worktreeInfo = await createWorktree(project.path, {
+          basePath:
+            deps.serverSettingsService?.getSetting("worktreeBasePath") ||
+            undefined,
+          symlinks:
+            deps.serverSettingsService?.getSetting("worktreeSymlinks") ||
+            undefined,
+          postCreateCommand:
+            deps.serverSettingsService?.getSetting(
+              "worktreePostCreateCommand",
+            ) || undefined,
+        });
+        sessionPath = worktreeInfo.worktreePath;
+      } catch (error) {
+        console.warn(
+          "[startSession] Worktree creation failed, using original path:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
     const result = await deps.supervisor.startSession(
-      project.path,
+      sessionPath,
       userMessage,
       body.mode,
       {
@@ -858,6 +898,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     // Check if queue is full
     if (isQueueFullResponse(result)) {
+      // Clean up worktree if session couldn't start
+      if (worktreeInfo) {
+        removeWorktree(worktreeInfo).catch(() => {});
+      }
       return c.json(
         { error: "Queue is full", maxQueueSize: result.maxQueueSize },
         503,
@@ -869,7 +913,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json(result, 202); // 202 Accepted - queued for processing
     }
 
-    // Save provider and executor to session metadata for resume
+    // Save provider, executor, and worktree info to session metadata
     if (deps.sessionMetadataService) {
       if (body.provider) {
         await deps.sessionMetadataService.setProvider(
@@ -882,6 +926,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           result.sessionId,
           executor,
         );
+      }
+      if (worktreeInfo) {
+        await deps.sessionMetadataService.setWorktree(result.sessionId, {
+          worktreePath: worktreeInfo.worktreePath,
+          branchName: worktreeInfo.branchName,
+          originalPath: worktreeInfo.originalPath,
+        });
       }
     }
 
@@ -935,8 +986,39 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const globalInstructions =
       deps.serverSettingsService?.getSetting("globalInstructions") || undefined;
 
+    // Handle worktree creation if requested
+    const useWorktree =
+      body.worktree ??
+      deps.serverSettingsService?.getSetting("worktreeEnabled") ??
+      false;
+    let sessionPath = project.path;
+    let worktreeInfo: WorktreeInfo | undefined;
+
+    if (useWorktree && !executor) {
+      try {
+        worktreeInfo = await createWorktree(project.path, {
+          basePath:
+            deps.serverSettingsService?.getSetting("worktreeBasePath") ||
+            undefined,
+          symlinks:
+            deps.serverSettingsService?.getSetting("worktreeSymlinks") ||
+            undefined,
+          postCreateCommand:
+            deps.serverSettingsService?.getSetting(
+              "worktreePostCreateCommand",
+            ) || undefined,
+        });
+        sessionPath = worktreeInfo.worktreePath;
+      } catch (error) {
+        console.warn(
+          "[createSession] Worktree creation failed, using original path:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
     const result = await deps.supervisor.createSession(
-      project.path,
+      sessionPath,
       body.mode,
       {
         model,
@@ -951,6 +1033,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     // Check if queue is full
     if (isQueueFullResponse(result)) {
+      if (worktreeInfo) {
+        removeWorktree(worktreeInfo).catch(() => {});
+      }
       return c.json(
         { error: "Queue is full", maxQueueSize: result.maxQueueSize },
         503,
@@ -962,7 +1047,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json(result, 202); // 202 Accepted - queued for processing
     }
 
-    // Save provider and executor to session metadata for resume
+    // Save provider, executor, and worktree info to session metadata
     if (deps.sessionMetadataService) {
       if (body.provider) {
         await deps.sessionMetadataService.setProvider(
@@ -975,6 +1060,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           result.sessionId,
           executor,
         );
+      }
+      if (worktreeInfo) {
+        await deps.sessionMetadataService.setWorktree(result.sessionId, {
+          worktreePath: worktreeInfo.worktreePath,
+          branchName: worktreeInfo.branchName,
+          originalPath: worktreeInfo.originalPath,
+        });
       }
     }
 
