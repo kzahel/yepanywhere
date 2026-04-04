@@ -1114,17 +1114,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       providerName = sessionSummary?.provider ?? project.provider;
     }
 
-    // Fall back to saved default permission mode from server settings
-    const effectiveMode =
-      body.mode ??
-      deps.serverSettingsService?.getSetting("newSessionDefaults")
-        ?.permissionMode;
-
     const result = await deps.supervisor.resumeSession(
       sessionId,
       project.path,
       userMessage,
-      effectiveMode,
+      body.mode,
       {
         model,
         thinking,
