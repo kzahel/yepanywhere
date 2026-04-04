@@ -45,10 +45,10 @@ export interface ServerSettings {
   lifecycleWebhookDryRun?: boolean;
   /** Whether new sessions should use git worktrees by default */
   worktreeEnabled?: boolean;
-  /** Base directory for worktrees (default: {projectDir}-worktrees/) */
-  worktreeBasePath?: string;
-  /** Files/dirs to symlink from original project into worktrees (e.g., [".env", "node_modules"]) */
-  worktreeSymlinks?: string[];
+  /** Files to copy from original project into worktrees (e.g., [".env", "secrets.json"]) */
+  worktreeCopyFiles?: string[];
+  /** Directories to symlink from original project into worktrees (e.g., ["node_modules", ".venv"]) */
+  worktreeSymlinkDirectories?: string[];
   /** Command to run after worktree creation (e.g., "pnpm install") */
   worktreePostCreateCommand?: string;
 }

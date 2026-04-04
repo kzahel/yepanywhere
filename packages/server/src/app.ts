@@ -84,6 +84,7 @@ import type { ISessionReader } from "./sessions/types.js";
 import { ExternalSessionTracker } from "./supervisor/ExternalSessionTracker.js";
 import { Supervisor } from "./supervisor/Supervisor.js";
 import type { Project } from "./supervisor/types.js";
+import { cleanupWorktree } from "./utils/worktree.js";
 import type { EventBus } from "./watcher/index.js";
 import { LifecycleWebhookService } from "./webhooks/LifecycleWebhookService.js";
 
@@ -384,6 +385,26 @@ export function createApp(options: AppOptions): AppResult {
           Promise.resolve()
       : undefined,
     onSessionSummary: getSessionSummary,
+    // Clean up worktrees when sessions complete (only removes clean worktrees)
+    onSessionComplete: options.sessionMetadataService
+      ? async (sessionId) => {
+          const worktree =
+            options.sessionMetadataService?.getWorktree(sessionId);
+          if (!worktree) return;
+          const { removed } = await cleanupWorktree({
+            worktreePath: worktree.worktreePath,
+            branchName: worktree.branchName,
+            originalPath: worktree.originalPath,
+            originalHeadCommit: worktree.originalHeadCommit,
+          });
+          if (removed) {
+            await options.sessionMetadataService?.setWorktree(
+              sessionId,
+              undefined,
+            );
+          }
+        }
+      : undefined,
   });
 
   // Create external session tracker if eventBus is available

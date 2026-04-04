@@ -1,60 +1,57 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useToastContext } from "../../contexts/ToastContext";
 import { useServerSettings } from "../../hooks/useServerSettings";
 import { useI18n } from "../../i18n";
 
 export function WorktreeSettings() {
   const { t } = useI18n();
-  const { settings, isLoading, updateSetting } = useServerSettings();
+  const { settings, isLoading, updateSettings } = useServerSettings();
   const { showToast } = useToastContext();
 
-  const [basePath, setBasePath] = useState("");
-  const [symlinks, setSymlinks] = useState("");
+  const [copyFiles, setCopyFiles] = useState("");
+  const [symlinkDirs, setSymlinkDirs] = useState("");
   const [postCreateCommand, setPostCreateCommand] = useState("");
-  const [initialized, setInitialized] = useState(false);
 
   // Initialize local state from server settings once loaded
-  if (!initialized && settings && !isLoading) {
-    setBasePath(settings.worktreeBasePath ?? "");
-    setSymlinks((settings.worktreeSymlinks ?? []).join("\n"));
-    setPostCreateCommand(settings.worktreePostCreateCommand ?? "");
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (settings && !isLoading) {
+      setCopyFiles((settings.worktreeCopyFiles ?? []).join("\n"));
+      setSymlinkDirs((settings.worktreeSymlinkDirectories ?? []).join("\n"));
+      setPostCreateCommand(settings.worktreePostCreateCommand ?? "");
+    }
+  }, [settings, isLoading]);
 
   const handleToggleEnabled = useCallback(async () => {
     try {
-      await updateSetting("worktreeEnabled", !settings?.worktreeEnabled);
+      await updateSettings({ worktreeEnabled: !settings?.worktreeEnabled });
       showToast(t("worktreeSettingsSaved"), "success");
     } catch {
       showToast(t("worktreeSettingsSaveError"), "error");
     }
-  }, [settings?.worktreeEnabled, updateSetting, showToast, t]);
+  }, [settings?.worktreeEnabled, updateSettings, showToast, t]);
 
   const handleSaveConfig = useCallback(async () => {
     try {
-      // Parse symlinks (one per line, filter empty)
-      const symlinkList = symlinks
+      const copyList = copyFiles
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const symlinkList = symlinkDirs
         .split("\n")
         .map((s) => s.trim())
         .filter(Boolean);
 
-      await updateSetting(
-        "worktreeBasePath",
-        basePath.trim() || undefined,
-      );
-      await updateSetting(
-        "worktreeSymlinks",
-        symlinkList.length > 0 ? symlinkList : undefined,
-      );
-      await updateSetting(
-        "worktreePostCreateCommand",
-        postCreateCommand.trim() || undefined,
-      );
+      await updateSettings({
+        worktreeCopyFiles: copyList.length > 0 ? copyList : undefined,
+        worktreeSymlinkDirectories:
+          symlinkList.length > 0 ? symlinkList : undefined,
+        worktreePostCreateCommand: postCreateCommand.trim() || undefined,
+      });
       showToast(t("worktreeSettingsSaved"), "success");
     } catch {
       showToast(t("worktreeSettingsSaveError"), "error");
     }
-  }, [basePath, symlinks, postCreateCommand, updateSetting, showToast, t]);
+  }, [copyFiles, symlinkDirs, postCreateCommand, updateSettings, showToast, t]);
 
   if (isLoading) {
     return (
@@ -89,33 +86,33 @@ export function WorktreeSettings() {
           </button>
         </div>
 
-        {/* Base path */}
+        {/* Copy files */}
         <div className="settings-item settings-item-column">
           <div className="settings-item-info">
-            <strong>{t("worktreeSettingsBasePath")}</strong>
-            <p>{t("worktreeSettingsBasePathDescription")}</p>
-          </div>
-          <input
-            type="text"
-            className="settings-input"
-            value={basePath}
-            onChange={(e) => setBasePath(e.target.value)}
-            placeholder={t("worktreeSettingsBasePathPlaceholder")}
-          />
-        </div>
-
-        {/* Symlinks */}
-        <div className="settings-item settings-item-column">
-          <div className="settings-item-info">
-            <strong>{t("worktreeSettingsSymlinks")}</strong>
-            <p>{t("worktreeSettingsSymlinksDescription")}</p>
+            <strong>{t("worktreeSettingsCopyFiles")}</strong>
+            <p>{t("worktreeSettingsCopyFilesDescription")}</p>
           </div>
           <textarea
             className="settings-textarea"
-            value={symlinks}
-            onChange={(e) => setSymlinks(e.target.value)}
-            placeholder={t("worktreeSettingsSymlinksPlaceholder")}
-            rows={4}
+            value={copyFiles}
+            onChange={(e) => setCopyFiles(e.target.value)}
+            placeholder={t("worktreeSettingsCopyFilesPlaceholder")}
+            rows={3}
+          />
+        </div>
+
+        {/* Symlink directories */}
+        <div className="settings-item settings-item-column">
+          <div className="settings-item-info">
+            <strong>{t("worktreeSettingsSymlinkDirs")}</strong>
+            <p>{t("worktreeSettingsSymlinkDirsDescription")}</p>
+          </div>
+          <textarea
+            className="settings-textarea"
+            value={symlinkDirs}
+            onChange={(e) => setSymlinkDirs(e.target.value)}
+            placeholder={t("worktreeSettingsSymlinkDirsPlaceholder")}
+            rows={3}
           />
         </div>
 

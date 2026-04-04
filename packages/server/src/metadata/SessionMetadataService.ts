@@ -17,6 +17,8 @@ export interface WorktreeMetadata {
   branchName: string;
   /** Original project path */
   originalPath: string;
+  /** HEAD commit of original branch at time of creation */
+  originalHeadCommit: string;
 }
 
 export interface SessionMetadata {

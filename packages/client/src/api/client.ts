@@ -1055,10 +1055,10 @@ export interface ServerSettings {
   lifecycleWebhookDryRun?: boolean;
   /** Whether new sessions should use git worktrees by default */
   worktreeEnabled?: boolean;
-  /** Base directory for worktrees (default: {projectDir}-worktrees/) */
-  worktreeBasePath?: string;
-  /** Files/dirs to symlink from original project into worktrees */
-  worktreeSymlinks?: string[];
+  /** Files to copy from original project into worktrees */
+  worktreeCopyFiles?: string[];
+  /** Directories to symlink from original project into worktrees */
+  worktreeSymlinkDirectories?: string[];
   /** Command to run after worktree creation */
   worktreePostCreateCommand?: string;
 }

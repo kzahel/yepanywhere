@@ -9,6 +9,7 @@ interface UseServerSettingsResult {
     key: K,
     value: ServerSettings[K],
   ) => Promise<void>;
+  updateSettings: (updates: Partial<ServerSettings>) => Promise<void>;
   refetch: () => Promise<void>;
 }
 
@@ -59,11 +60,29 @@ export function useServerSettings(): UseServerSettingsResult {
     [],
   );
 
+  const updateSettings = useCallback(
+    async (updates: Partial<ServerSettings>): Promise<void> => {
+      try {
+        setError(null);
+        const response = await api.updateServerSettings(updates);
+        setSettings(response.settings);
+      } catch (err) {
+        console.error("[useServerSettings] Failed to update settings:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to update settings",
+        );
+        throw err;
+      }
+    },
+    [],
+  );
+
   return {
     settings,
     isLoading,
     error,
     updateSetting,
+    updateSettings,
     refetch: fetchSettings,
   };
 }

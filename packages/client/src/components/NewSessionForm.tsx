@@ -112,7 +112,7 @@ export function NewSessionForm({
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   // null = local, string = remote host
   const [selectedExecutor, setSelectedExecutor] = useState<string | null>(null);
-  const [useWorktree, setUseWorktree] = useState<boolean | null>(null);
+  const [useWorktree, setUseWorktree] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<

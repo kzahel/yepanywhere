@@ -104,6 +104,9 @@ export type OnSessionSummaryCallback = (
   projectId: UrlProjectId,
 ) => Promise<SessionSummary | null>;
 
+/** Optional callback invoked when a session process completes/terminates */
+export type OnSessionCompleteCallback = (sessionId: string) => Promise<void>;
+
 /** Delays for initial title/messageCount reconciliation after session creation */
 const INITIAL_RECONCILE_DELAYS_MS = [1000, 3000] as const;
 
@@ -129,6 +132,8 @@ export interface SupervisorOptions {
   onSessionExecutor?: OnSessionExecutorCallback;
   /** Callback to fetch session summary for initial metadata reconciliation */
   onSessionSummary?: OnSessionSummaryCallback;
+  /** Callback invoked when a session process completes (for worktree cleanup, etc.) */
+  onSessionComplete?: OnSessionCompleteCallback;
 }
 
 export class Supervisor {
@@ -147,6 +152,7 @@ export class Supervisor {
   private workerQueue: WorkerQueue;
   private onSessionExecutor?: OnSessionExecutorCallback;
   private onSessionSummary?: OnSessionSummaryCallback;
+  private onSessionComplete?: OnSessionCompleteCallback;
   private staleCheckTimer: ReturnType<typeof setInterval>;
 
   constructor(options: SupervisorOptions) {
@@ -165,6 +171,7 @@ export class Supervisor {
     });
     this.onSessionExecutor = options.onSessionExecutor;
     this.onSessionSummary = options.onSessionSummary;
+    this.onSessionComplete = options.onSessionComplete;
     this.staleCheckTimer = setInterval(
       () => this.terminateStaleProcesses(),
       STALE_CHECK_INTERVAL_MS,
@@ -1344,6 +1351,21 @@ export class Supervisor {
     // Emit agent activity change to notify clients that this session is no longer running
     // This is needed for real-time updates (e.g., AgentsNavItem indicator)
     this.emitAgentActivityChange(process.sessionId, process.projectId, "idle");
+
+    // Notify listeners of session completion (e.g., worktree cleanup)
+    if (this.onSessionComplete && process.sessionId) {
+      this.onSessionComplete(process.sessionId).catch((error) => {
+        const log = getLogger();
+        log.warn(
+          {
+            event: "session_complete_callback_error",
+            sessionId: process.sessionId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          "onSessionComplete callback failed",
+        );
+      });
+    }
 
     // Emit worker activity after unregistering (worker removed)
     this.emitWorkerActivity();

@@ -284,6 +284,42 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps): Hono {
       }
     }
 
+    // Worktree settings
+    if (typeof body.worktreeEnabled === "boolean") {
+      updates.worktreeEnabled = body.worktreeEnabled;
+    }
+    if ("worktreeCopyFiles" in body) {
+      if (Array.isArray(body.worktreeCopyFiles)) {
+        updates.worktreeCopyFiles = body.worktreeCopyFiles.filter(
+          (s): s is string => typeof s === "string" && s.length > 0,
+        );
+      } else {
+        updates.worktreeCopyFiles = undefined;
+      }
+    }
+    if ("worktreeSymlinkDirectories" in body) {
+      if (Array.isArray(body.worktreeSymlinkDirectories)) {
+        updates.worktreeSymlinkDirectories =
+          body.worktreeSymlinkDirectories.filter(
+            (s): s is string => typeof s === "string" && s.length > 0,
+          );
+      } else {
+        updates.worktreeSymlinkDirectories = undefined;
+      }
+    }
+    if ("worktreePostCreateCommand" in body) {
+      if (
+        body.worktreePostCreateCommand === undefined ||
+        body.worktreePostCreateCommand === null ||
+        body.worktreePostCreateCommand === ""
+      ) {
+        updates.worktreePostCreateCommand = undefined;
+      } else if (typeof body.worktreePostCreateCommand === "string") {
+        updates.worktreePostCreateCommand =
+          body.worktreePostCreateCommand.slice(0, 1000);
+      }
+    }
+
     if (Object.keys(updates).length === 0) {
       return c.json({ error: "At least one valid setting is required" }, 400);
     }

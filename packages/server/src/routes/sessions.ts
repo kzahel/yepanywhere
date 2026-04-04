@@ -46,8 +46,8 @@ import {
 } from "../utils/sshHostAlias.js";
 import {
   type WorktreeInfo,
+  cleanupWorktree,
   createWorktree,
-  removeWorktree,
 } from "../utils/worktree.js";
 import type { EventBus } from "../watcher/index.js";
 
@@ -159,6 +159,44 @@ interface InputResponseBody {
   response: "approve" | "approve_accept_edits" | "deny" | string;
   answers?: Record<string, string>;
   feedback?: string;
+}
+
+/**
+ * Try to create a worktree for a session using server settings.
+ * Returns the worktree info and effective session path.
+ * Falls back to originalPath on failure.
+ */
+async function tryCreateWorktree(
+  projectPath: string,
+  requestWorktree: boolean | undefined,
+  executor: string | undefined,
+  serverSettings: ServerSettingsService | undefined,
+): Promise<{ sessionPath: string; worktreeInfo?: WorktreeInfo }> {
+  const useWt =
+    requestWorktree ??
+    serverSettings?.getSetting("worktreeEnabled") ??
+    false;
+
+  if (!useWt || executor) {
+    return { sessionPath: projectPath };
+  }
+
+  try {
+    const worktreeInfo = await createWorktree(projectPath, {
+      copyFiles: serverSettings?.getSetting("worktreeCopyFiles") || undefined,
+      symlinkDirectories:
+        serverSettings?.getSetting("worktreeSymlinkDirectories") || undefined,
+      postCreateCommand:
+        serverSettings?.getSetting("worktreePostCreateCommand") || undefined,
+    });
+    return { sessionPath: worktreeInfo.worktreePath, worktreeInfo };
+  } catch (error) {
+    console.warn(
+      "[worktree] Creation failed, using original path:",
+      error instanceof Error ? error.message : error,
+    );
+    return { sessionPath: projectPath };
+  }
 }
 
 /**
@@ -851,35 +889,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       deps.serverSettingsService?.getSetting("globalInstructions") || undefined;
 
     // Handle worktree creation if requested
-    const useWorktree =
-      body.worktree ??
-      deps.serverSettingsService?.getSetting("worktreeEnabled") ??
-      false;
-    let sessionPath = project.path;
-    let worktreeInfo: WorktreeInfo | undefined;
-
-    if (useWorktree && !executor) {
-      try {
-        worktreeInfo = await createWorktree(project.path, {
-          basePath:
-            deps.serverSettingsService?.getSetting("worktreeBasePath") ||
-            undefined,
-          symlinks:
-            deps.serverSettingsService?.getSetting("worktreeSymlinks") ||
-            undefined,
-          postCreateCommand:
-            deps.serverSettingsService?.getSetting(
-              "worktreePostCreateCommand",
-            ) || undefined,
-        });
-        sessionPath = worktreeInfo.worktreePath;
-      } catch (error) {
-        console.warn(
-          "[startSession] Worktree creation failed, using original path:",
-          error instanceof Error ? error.message : error,
-        );
-      }
-    }
+    const { sessionPath, worktreeInfo } = await tryCreateWorktree(
+      project.path,
+      body.worktree,
+      executor,
+      deps.serverSettingsService,
+    );
 
     const result = await deps.supervisor.startSession(
       sessionPath,
@@ -898,9 +913,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     // Check if queue is full
     if (isQueueFullResponse(result)) {
-      // Clean up worktree if session couldn't start
       if (worktreeInfo) {
-        removeWorktree(worktreeInfo).catch(() => {});
+        cleanupWorktree(worktreeInfo, { force: true }).catch(() => {});
       }
       return c.json(
         { error: "Queue is full", maxQueueSize: result.maxQueueSize },
@@ -932,6 +946,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           worktreePath: worktreeInfo.worktreePath,
           branchName: worktreeInfo.branchName,
           originalPath: worktreeInfo.originalPath,
+          originalHeadCommit: worktreeInfo.originalHeadCommit,
         });
       }
     }
@@ -987,35 +1002,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       deps.serverSettingsService?.getSetting("globalInstructions") || undefined;
 
     // Handle worktree creation if requested
-    const useWorktree =
-      body.worktree ??
-      deps.serverSettingsService?.getSetting("worktreeEnabled") ??
-      false;
-    let sessionPath = project.path;
-    let worktreeInfo: WorktreeInfo | undefined;
-
-    if (useWorktree && !executor) {
-      try {
-        worktreeInfo = await createWorktree(project.path, {
-          basePath:
-            deps.serverSettingsService?.getSetting("worktreeBasePath") ||
-            undefined,
-          symlinks:
-            deps.serverSettingsService?.getSetting("worktreeSymlinks") ||
-            undefined,
-          postCreateCommand:
-            deps.serverSettingsService?.getSetting(
-              "worktreePostCreateCommand",
-            ) || undefined,
-        });
-        sessionPath = worktreeInfo.worktreePath;
-      } catch (error) {
-        console.warn(
-          "[createSession] Worktree creation failed, using original path:",
-          error instanceof Error ? error.message : error,
-        );
-      }
-    }
+    const { sessionPath, worktreeInfo } = await tryCreateWorktree(
+      project.path,
+      body.worktree,
+      executor,
+      deps.serverSettingsService,
+    );
 
     const result = await deps.supervisor.createSession(
       sessionPath,
@@ -1034,7 +1026,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // Check if queue is full
     if (isQueueFullResponse(result)) {
       if (worktreeInfo) {
-        removeWorktree(worktreeInfo).catch(() => {});
+        cleanupWorktree(worktreeInfo, { force: true }).catch(() => {});
       }
       return c.json(
         { error: "Queue is full", maxQueueSize: result.maxQueueSize },
@@ -1066,6 +1058,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           worktreePath: worktreeInfo.worktreePath,
           branchName: worktreeInfo.branchName,
           originalPath: worktreeInfo.originalPath,
+          originalHeadCommit: worktreeInfo.originalHeadCommit,
         });
       }
     }
