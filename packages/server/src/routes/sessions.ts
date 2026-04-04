@@ -896,20 +896,29 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       deps.serverSettingsService,
     );
 
-    const result = await deps.supervisor.startSession(
-      sessionPath,
-      userMessage,
-      body.mode,
-      {
-        model,
-        thinking,
-        effort,
-        providerName: body.provider,
-        executor,
-        globalInstructions,
-        permissions: body.permissions,
-      },
-    );
+    let result: Awaited<ReturnType<typeof deps.supervisor.startSession>>;
+    try {
+      result = await deps.supervisor.startSession(
+        sessionPath,
+        userMessage,
+        body.mode,
+        {
+          model,
+          thinking,
+          effort,
+          providerName: body.provider,
+          executor,
+          globalInstructions,
+          permissions: body.permissions,
+        },
+      );
+    } catch (error) {
+      // Clean up worktree on any startup failure
+      if (worktreeInfo) {
+        cleanupWorktree(worktreeInfo, { force: true }).catch(() => {});
+      }
+      throw error;
+    }
 
     // Check if queue is full
     if (isQueueFullResponse(result)) {
@@ -1009,19 +1018,27 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       deps.serverSettingsService,
     );
 
-    const result = await deps.supervisor.createSession(
-      sessionPath,
-      body.mode,
-      {
-        model,
-        thinking,
-        effort,
-        providerName: body.provider,
-        executor,
-        globalInstructions,
-        permissions: body.permissions,
-      },
-    );
+    let result: Awaited<ReturnType<typeof deps.supervisor.createSession>>;
+    try {
+      result = await deps.supervisor.createSession(
+        sessionPath,
+        body.mode,
+        {
+          model,
+          thinking,
+          effort,
+          providerName: body.provider,
+          executor,
+          globalInstructions,
+          permissions: body.permissions,
+        },
+      );
+    } catch (error) {
+      if (worktreeInfo) {
+        cleanupWorktree(worktreeInfo, { force: true }).catch(() => {});
+      }
+      throw error;
+    }
 
     // Check if queue is full
     if (isQueueFullResponse(result)) {
@@ -1187,9 +1204,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       providerName = sessionSummary?.provider ?? project.provider;
     }
 
+    // Use saved worktree path if session was created with worktree isolation
+    const savedWorktree = deps.sessionMetadataService?.getWorktree(sessionId);
+    const resumePath = savedWorktree?.worktreePath ?? project.path;
+
     const result = await deps.supervisor.resumeSession(
       sessionId,
-      project.path,
+      resumePath,
       userMessage,
       body.mode,
       {

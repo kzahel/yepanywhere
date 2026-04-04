@@ -39,22 +39,91 @@ function isValidRelativePath(relativePath: string): boolean {
 }
 
 /**
- * Parse a .worktreeinclude file (gitignore-like syntax).
- * Returns the list of relative paths to copy into worktrees.
- * Lines starting with # are comments, empty lines are skipped.
+ * Per-project worktree configuration parsed from .worktreeinclude.
+ */
+interface WorktreeIncludeConfig {
+  /** Files to copy (plain lines, not directives) */
+  copyFiles: string[];
+  /** Directories to symlink (from "# symlink: dir" directives) */
+  symlinkDirectories: string[];
+  /** Post-create command (from "# postCreate: cmd" directive, last one wins) */
+  postCreateCommand?: string;
+}
+
+/**
+ * Parse a .worktreeinclude file for per-project worktree configuration.
+ *
+ * Plain lines are files to copy into the worktree (gitignore-like syntax).
+ * Directives (special comments) configure additional behavior:
+ *   # symlink: node_modules     — symlink a directory instead of copying
+ *   # postCreate: pnpm install  — run a command after worktree creation
+ *
+ * Regular comments (# without a directive) and empty lines are ignored.
  */
 async function parseWorktreeInclude(
   projectPath: string,
-): Promise<string[]> {
+): Promise<WorktreeIncludeConfig> {
   const filePath = path.join(projectPath, ".worktreeinclude");
+  const result: WorktreeIncludeConfig = {
+    copyFiles: [],
+    symlinkDirectories: [],
+  };
+
   try {
     const content = await fs.readFile(filePath, "utf-8");
-    return content
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("#"));
+    for (const rawLine of content.split("\n")) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      // Check for directives: "# symlink: path" or "# postCreate: command"
+      if (line.startsWith("#")) {
+        const directiveMatch = line.match(
+          /^#\s*(symlink|postCreate)\s*:\s*(.+)/,
+        );
+        if (directiveMatch?.[1] && directiveMatch[2]) {
+          const directive = directiveMatch[1];
+          const value = directiveMatch[2];
+          if (directive === "symlink") {
+            result.symlinkDirectories.push(value.trim());
+          } else if (directive === "postCreate") {
+            result.postCreateCommand = value.trim();
+          }
+        }
+        // Regular comments are ignored
+        continue;
+      }
+
+      // Plain lines are files to copy
+      result.copyFiles.push(line);
+    }
   } catch {
-    return [];
+    // File doesn't exist — return empty config
+  }
+
+  return result;
+}
+
+/**
+ * Ensure .claude/worktrees/ is excluded from git status in the parent repo.
+ * Uses .git/info/exclude (local-only, doesn't modify tracked files).
+ */
+async function ensureWorktreeExcluded(projectPath: string): Promise<void> {
+  const excludePattern = ".claude/worktrees/";
+  try {
+    const excludePath = path.join(projectPath, ".git", "info", "exclude");
+    let content = "";
+    try {
+      content = await fs.readFile(excludePath, "utf-8");
+    } catch {
+      // File may not exist yet
+    }
+    if (!content.includes(excludePattern)) {
+      const separator = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
+      await fs.mkdir(path.dirname(excludePath), { recursive: true });
+      await fs.appendFile(excludePath, `${separator}${excludePattern}\n`);
+    }
+  } catch {
+    // Non-critical — worktree still works, just shows as untracked
   }
 }
 
@@ -108,6 +177,8 @@ export async function createWorktree(
     `Creating worktree at ${worktreePath}`,
   );
 
+  // Ensure .claude/worktrees/ doesn't dirty the parent repo's git status
+  await ensureWorktreeExcluded(projectPath);
   await fs.mkdir(worktreeBase, { recursive: true });
 
   try {
@@ -121,12 +192,16 @@ export async function createWorktree(
     throw new Error(`Failed to create git worktree: ${msg}`);
   }
 
-  // Copy files from .worktreeinclude + config.copyFiles
-  const worktreeIncludeFiles = await parseWorktreeInclude(projectPath);
-  const filesToCopy = [
-    ...worktreeIncludeFiles,
-    ...(config.copyFiles ?? []),
+  // Merge per-project config (.worktreeinclude) with global config
+  const projectConfig = await parseWorktreeInclude(projectPath);
+  const filesToCopy = [...projectConfig.copyFiles, ...(config.copyFiles ?? [])];
+  const dirsToSymlink = [
+    ...projectConfig.symlinkDirectories,
+    ...(config.symlinkDirectories ?? []),
   ];
+  // Per-project postCreate takes precedence over global
+  const effectivePostCreateCommand =
+    projectConfig.postCreateCommand ?? config.postCreateCommand;
 
   for (const relativePath of filesToCopy) {
     if (!isValidRelativePath(relativePath)) {
@@ -140,7 +215,7 @@ export async function createWorktree(
   }
 
   // Symlink directories
-  for (const relativePath of config.symlinkDirectories ?? []) {
+  for (const relativePath of dirsToSymlink) {
     if (!isValidRelativePath(relativePath)) {
       log.warn(
         { event: "worktree_symlink_skip", relativePath },
@@ -152,17 +227,17 @@ export async function createWorktree(
   }
 
   // Run post-create command
-  if (config.postCreateCommand) {
+  if (effectivePostCreateCommand) {
     log.info(
-      { event: "worktree_post_create", command: config.postCreateCommand },
-      `Running post-create command: ${config.postCreateCommand}`,
+      { event: "worktree_post_create", command: effectivePostCreateCommand },
+      `Running post-create command: ${effectivePostCreateCommand}`,
     );
     try {
       const shell = process.platform === "win32" ? "cmd" : "/bin/sh";
       const shellArgs =
         process.platform === "win32"
-          ? ["/c", config.postCreateCommand]
-          : ["-c", config.postCreateCommand];
+          ? ["/c", effectivePostCreateCommand]
+          : ["-c", effectivePostCreateCommand];
       await execFileAsync(shell, shellArgs, {
         cwd: worktreePath,
         timeout: 120000,

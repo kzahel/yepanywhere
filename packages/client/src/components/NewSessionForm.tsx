@@ -380,7 +380,7 @@ export function NewSessionForm({
         thinking,
         provider: selectedProvider ?? undefined,
         executor: selectedExecutor ?? undefined,
-        worktree: useWorktree || undefined,
+        worktree: useWorktree,
       };
 
       if (pendingFiles.length > 0) {
