@@ -153,6 +153,8 @@
   "newSessionDefaultsSaving": "Saving...",
   "newSessionDefaultsSaved": "Saved new session defaults",
   "newSessionDefaultsSaveError": "Failed to save new session defaults",
+  "newSessionProjectTitle": "Project",
+  "newSessionProjectPlaceholder": "Select project",
   "newSessionProviderTitle": "AI Provider",
   "newSessionProviderUnavailable": "{provider} is not available ({reason})",
   "newSessionProviderNotInstalled": "not installed",

@@ -153,6 +153,8 @@
   "newSessionDefaultsSaving": "Guardando...",
   "newSessionDefaultsSaved": "Valores predeterminados guardados",
   "newSessionDefaultsSaveError": "No se pudieron guardar los valores predeterminados",
+  "newSessionProjectTitle": "Proyecto",
+  "newSessionProjectPlaceholder": "Seleccionar proyecto",
   "newSessionProviderTitle": "Proveedor de IA",
   "newSessionProviderUnavailable": "{provider} no está disponible ({reason})",
   "newSessionProviderNotInstalled": "no instalado",

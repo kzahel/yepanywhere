@@ -153,6 +153,8 @@
   "newSessionDefaultsSaving": "Enregistrement...",
   "newSessionDefaultsSaved": "Valeurs par défaut enregistrées",
   "newSessionDefaultsSaveError": "Échec de l'enregistrement des valeurs par défaut",
+  "newSessionProjectTitle": "Projet",
+  "newSessionProjectPlaceholder": "Sélectionner un projet",
   "newSessionProviderTitle": "Fournisseur d'IA",
   "newSessionProviderUnavailable": "{provider} n'est pas disponible ({reason})",
   "newSessionProviderNotInstalled": "non installé",

@@ -153,6 +153,8 @@
   "newSessionDefaultsSaving": "正在保存...",
   "newSessionDefaultsSaved": "已保存新会话默认值",
   "newSessionDefaultsSaveError": "保存新会话默认值失败",
+  "newSessionProjectTitle": "项目",
+  "newSessionProjectPlaceholder": "选择项目",
   "newSessionProviderTitle": "AI 提供商",
   "newSessionProviderUnavailable": "{provider} 当前不可用（{reason}）",
   "newSessionProviderNotInstalled": "未安装",

@@ -111,7 +111,11 @@ export function NewSessionPage() {
         <main className="page-scroll-container">
           <div className="page-content-inner">
             {effectiveProjectId && (
-              <NewSessionForm projectId={effectiveProjectId} />
+              <NewSessionForm
+                projectId={effectiveProjectId}
+                projects={projects}
+                onProjectChange={handleProjectChange}
+              />
             )}
           </div>
         </main>

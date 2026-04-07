@@ -4648,6 +4648,20 @@ a.sidebar-nav-item {
   color: var(--error-color);
 }
 
+/* Project Selection Section */
+.new-session-project-section {
+  margin-bottom: 1.5rem;
+}
+
+.new-session-project-section h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-3);
+}
+
 /* Provider Selection Section */
 .new-session-provider-section {
   margin-bottom: 1.5rem;

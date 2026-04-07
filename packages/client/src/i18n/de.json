@@ -153,6 +153,8 @@
   "newSessionDefaultsSaving": "Wird gespeichert...",
   "newSessionDefaultsSaved": "Standardeinstellungen gespeichert",
   "newSessionDefaultsSaveError": "Standardeinstellungen konnten nicht gespeichert werden",
+  "newSessionProjectTitle": "Projekt",
+  "newSessionProjectPlaceholder": "Projekt auswählen",
   "newSessionProviderTitle": "KI-Anbieter",
   "newSessionProviderUnavailable": "{provider} ist nicht verfügbar ({reason})",
   "newSessionProviderNotInstalled": "nicht installiert",

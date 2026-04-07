@@ -153,6 +153,8 @@
   "newSessionDefaultsSaving": "保存中...",
   "newSessionDefaultsSaved": "新しいセッションのデフォルトを保存しました",
   "newSessionDefaultsSaveError": "新しいセッションのデフォルトを保存できませんでした",
+  "newSessionProjectTitle": "プロジェクト",
+  "newSessionProjectPlaceholder": "プロジェクトを選択",
   "newSessionProviderTitle": "AI プロバイダー",
   "newSessionProviderUnavailable": "{provider} は利用できません（{reason}）",
   "newSessionProviderNotInstalled": "未インストール",

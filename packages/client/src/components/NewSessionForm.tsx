@@ -34,7 +34,7 @@ import { useRemoteExecutors } from "../hooks/useRemoteExecutors";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { useI18n } from "../i18n";
 import { hasCoarsePointer } from "../lib/deviceDetection";
-import type { PermissionMode } from "../types";
+import type { PermissionMode, Project } from "../types";
 import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import { clearFabPrefill, getFabPrefill } from "./FloatingActionButton";
 import { VoiceInputButton, type VoiceInputButtonRef } from "./VoiceInputButton";
@@ -90,6 +90,10 @@ export interface NewSessionFormProps {
   placeholder?: string;
   /** Compact mode: no header, no mode selector (default: false) */
   compact?: boolean;
+  /** Available projects for inline project switching */
+  projects?: Project[];
+  /** Called when the user selects a different project */
+  onProjectChange?: (projectId: string) => void;
 }
 
 export function NewSessionForm({
@@ -98,6 +102,8 @@ export function NewSessionForm({
   rows = 6,
   placeholder,
   compact = false,
+  projects,
+  onProjectChange,
 }: NewSessionFormProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -779,6 +785,29 @@ export function NewSessionForm({
       </div>
 
       <div className="new-session-input-area">{inputArea}</div>
+
+      {/* Project Selection */}
+      {projects && projects.length > 1 && onProjectChange && (
+        <div className="new-session-project-section">
+          <h3>{t("newSessionProjectTitle")}</h3>
+          <FilterDropdown
+            label={t("newSessionProjectTitle")}
+            options={projects.map((p) => ({
+              value: p.id,
+              label: p.name,
+            }))}
+            selected={[projectId]}
+            onChange={(values) => {
+              const selected = values[0];
+              if (selected && selected !== projectId) {
+                onProjectChange(selected);
+              }
+            }}
+            multiSelect={false}
+            placeholder={t("newSessionProjectPlaceholder")}
+          />
+        </div>
+      )}
 
       {/* Provider Selection */}
       {!providersLoading && availableProviders.length > 1 && (

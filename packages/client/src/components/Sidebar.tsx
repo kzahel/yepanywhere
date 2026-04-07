@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { GlobalSessionItem } from "../api/client";
 import { useOptionalRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useDrafts } from "../hooks/useDrafts";
@@ -67,6 +67,7 @@ export function Sidebar({
   // Get base path for relay mode (e.g., "/remote/my-server")
   const basePath = useRemoteBasePath();
   const navigate = useNavigate();
+  const location = useLocation();
   const remoteConnection = useOptionalRemoteConnection();
 
   // Fetch global sessions for sidebar (non-starred only for recent/older sections)
@@ -90,10 +91,10 @@ export function Sidebar({
   // Global inbox count
   const inboxCount = useNeedsAttentionBadge();
   const { recentProjects, projects } = useRecentProjects();
-  const newSessionProjectId = resolvePreferredProjectId(
-    projects,
-    recentProjects[0]?.id,
-  );
+  // Prefer the project from the current URL (e.g., viewing a session), then fall back to recent
+  const currentUrlProjectId = extractProjectIdFromPath(location.pathname);
+  const newSessionProjectId =
+    currentUrlProjectId ?? resolvePreferredProjectId(projects, recentProjects[0]?.id);
 
   const sidebarRef = useRef<HTMLElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -619,4 +620,14 @@ export function Sidebar({
       </aside>
     </>
   );
+}
+
+/**
+ * Extract projectId from URL path.
+ * Matches: /projects/:projectId, /projects/:projectId/sessions/:sessionId,
+ * and relay mode paths like /remote/:username/projects/:projectId
+ */
+function extractProjectIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/\/projects\/([^/]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
