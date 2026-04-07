@@ -3,8 +3,9 @@
  *
  * Listens to EventBus for process state changes and sends push notifications
  * when a session enters waiting-input state (tool approval or user question).
- * The service worker on the client handles suppressing notifications when
- * the app is already focused.
+ * It also sends session-halted notifications when a live process reaches idle
+ * or terminates unexpectedly. The service worker on the client handles
+ * suppressing notifications when the app is already focused.
  */
 
 import { basename } from "node:path";
@@ -17,9 +18,14 @@ import type {
   BusEvent,
   EventBus,
   ProcessStateEvent,
+  ProcessTerminatedEvent,
 } from "../watcher/EventBus.js";
 import type { PushService } from "./PushService.js";
-import type { DismissPayload, PendingInputPayload } from "./types.js";
+import type {
+  DismissPayload,
+  PendingInputPayload,
+  SessionHaltedPayload,
+} from "./types.js";
 
 export interface PushNotifierOptions {
   eventBus: EventBus;
@@ -48,6 +54,10 @@ export class PushNotifier {
     this.unsubscribe = this.eventBus.subscribe((event: BusEvent) => {
       if (event.type === "process-state-changed") {
         void this.handleProcessStateChange(event);
+        return;
+      }
+      if (event.type === "process-terminated") {
+        void this.handleProcessTerminated(event);
       }
     });
   }
@@ -65,6 +75,13 @@ export class PushNotifier {
       if (this.sessionsWithNotification.has(event.sessionId)) {
         await this.sendDismiss(event.sessionId);
         this.sessionsWithNotification.delete(event.sessionId);
+      }
+      if (event.activity === "idle") {
+        await this.sendSessionHalted(
+          event.sessionId,
+          event.projectId,
+          "completed",
+        );
       }
       return;
     }
@@ -131,6 +148,17 @@ export class PushNotifier {
     }
   }
 
+  private async handleProcessTerminated(
+    event: ProcessTerminatedEvent,
+  ): Promise<void> {
+    if (this.sessionsWithNotification.has(event.sessionId)) {
+      await this.sendDismiss(event.sessionId);
+      this.sessionsWithNotification.delete(event.sessionId);
+    }
+
+    await this.sendSessionHalted(event.sessionId, event.projectId, "error");
+  }
+
   /**
    * Send a dismiss notification to close notifications on all devices.
    */
@@ -150,6 +178,63 @@ export class PushNotifier {
       console.log(`[PushNotifier] Sent dismiss for session ${sessionId}`);
     } catch (error) {
       console.error("[PushNotifier] Failed to send dismiss:", error);
+    }
+  }
+
+  private async sendSessionHalted(
+    sessionId: string,
+    projectId: UrlProjectId,
+    reason: SessionHaltedPayload["reason"],
+  ): Promise<void> {
+    if (this.pushService.getSubscriptionCount() === 0) {
+      return;
+    }
+    if (!this.pushService.isNotificationTypeEnabled("sessionHalted")) {
+      return;
+    }
+
+    const process = this.supervisor.getProcessForSession(sessionId);
+    if (reason === "completed" && (!process || process.state.type !== "idle")) {
+      // Ignore the synthetic idle emitted during unregister. We only want the
+      // live transition while the process is still resumable in memory.
+      return;
+    }
+
+    const payload: SessionHaltedPayload = {
+      type: "session-halted",
+      sessionId,
+      projectId,
+      projectName: this.getProjectName(projectId),
+      reason,
+      duration: process
+        ? Math.max(0, Date.now() - process.startedAt.getTime())
+        : 0,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      const connectedIds =
+        this.connectedBrowsers?.getConnectedBrowserProfileIds() ?? [];
+      if (connectedIds.length > 0) {
+        console.log(
+          `[PushNotifier] Skipping halted push for ${connectedIds.length} connected browser profile(s)`,
+        );
+      }
+
+      const results = await this.pushService.sendToAll(payload, {
+        excludeBrowserProfileIds: connectedIds,
+      });
+      const successCount = results.filter((r) => r.success).length;
+      if (successCount > 0) {
+        console.log(
+          `[PushNotifier] Sent session-halted notification (${reason}) to ${successCount}/${results.length} devices`,
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[PushNotifier] Failed to send session-halted notification:",
+        error,
+      );
     }
   }
 
