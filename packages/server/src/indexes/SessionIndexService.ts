@@ -97,6 +97,7 @@ export class SessionIndexService implements ISessionIndexService {
   private dirtySessionsByDir: Map<string, Set<string>> = new Map();
   private inFlightSessionLoads: Map<string, Promise<SessionSummary[]>> =
     new Map();
+  private backgroundScopeRefreshes: Map<string, Promise<void>> = new Map();
   private inFlightTitleLoads: Map<string, Promise<string | null>> = new Map();
   private cacheStats = {
     requests: 0,
@@ -383,6 +384,38 @@ export class SessionIndexService implements ISessionIndexService {
 
   private async sleep(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private invalidateReaderCache(reader: ISessionReader): void {
+    if (typeof reader.invalidateCache === "function") {
+      reader.invalidateCache();
+    }
+  }
+
+  private isDeferredRefreshScope(scopeKey: string): boolean {
+    return scopeKey.startsWith("codex::");
+  }
+
+  private scheduleBackgroundFullValidation(
+    sessionDir: string,
+    projectId: UrlProjectId,
+    reader: ISessionReader,
+    index: SessionIndexState,
+  ): Promise<void> {
+    const scopeKey = this.getScopeKey(sessionDir, reader);
+    const existing = this.backgroundScopeRefreshes.get(scopeKey);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      await this.runFullValidation(sessionDir, projectId, reader, index);
+    })().finally(() => {
+      if (this.backgroundScopeRefreshes.get(scopeKey) === promise) {
+        this.backgroundScopeRefreshes.delete(scopeKey);
+      }
+    });
+
+    this.backgroundScopeRefreshes.set(scopeKey, promise);
+    return promise;
   }
 
   private getScopedLoadKey(
@@ -861,10 +894,31 @@ export class SessionIndexService implements ISessionIndexService {
     const dirtySessions = this.dirtySessionsByDir.get(scopeKey);
     const hasDirtySessions = Boolean(dirtySessions && dirtySessions.size > 0);
 
+    if (hasDirDirty || hasDirtySessions) {
+      this.invalidateReaderCache(reader);
+    }
+
     const fullValidationDue =
       this.fullValidationIntervalMs <= 0 ||
       lastFullValidation === 0 ||
       now - lastFullValidation >= this.fullValidationIntervalMs;
+
+    const hasCachedSummaries = Object.keys(index.sessions).length > 0;
+    if (
+      this.isDeferredRefreshScope(scopeKey) &&
+      hasCachedSummaries &&
+      (hasDirDirty || fullValidationDue)
+    ) {
+      void this.scheduleBackgroundFullValidation(
+        sessionDir,
+        projectId,
+        reader,
+        index,
+      );
+      const summaries = this.buildSummariesFromIndex(index, projectId);
+      this.recordCallStats("fast", Date.now() - start, 0, 0, sessionDir);
+      return summaries;
+    }
 
     // Fast path: no dirty signals and recent full validation.
     if (!fullValidationDue && !hasDirDirty && !hasDirtySessions) {

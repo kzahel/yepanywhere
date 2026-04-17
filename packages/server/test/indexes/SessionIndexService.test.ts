@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { SessionReader } from "../../src/sessions/reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
@@ -394,7 +394,7 @@ describe("SessionIndexService", () => {
       expect(sessions).toHaveLength(1);
     });
 
-    it("invalidates loaded codex scopes on codex file-change events", async () => {
+    it("refreshes loaded codex scopes in the background on codex file-change events", async () => {
       const eventBus = new EventBus();
       const codexService = new SessionIndexService({
         dataDir,
@@ -409,6 +409,7 @@ describe("SessionIndexService", () => {
       const codexFile = join(codexSessionDir, "session-1.jsonl");
       await writeFile(codexFile, "Original title\n");
 
+      let readDelayMs = 0;
       const codexReader: ISessionReader = {
         getIndexScopeKey: (sessionDir) => `codex::${sessionDir}::/tmp/project`,
         listSessionFiles: async (sessionDir) => [
@@ -421,6 +422,9 @@ describe("SessionIndexService", () => {
           sessionId: string,
           projectId: string,
         ): Promise<SessionSummary> => {
+          if (readDelayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, readDelayMs));
+          }
           const title = (await readFile(codexFile, "utf-8")).trim();
           const stats = await stat(codexFile);
           return {
@@ -465,6 +469,19 @@ describe("SessionIndexService", () => {
         timestamp: new Date().toISOString(),
         fileType: "session",
       });
+
+      readDelayMs = 200;
+      const start = Date.now();
+      const deferred = await codexService.getSessionsWithCache(
+        codexSessionDir,
+        projectId,
+        codexReader,
+      );
+      const durationMs = Date.now() - start;
+      expect(durationMs).toBeLessThan(150);
+      expect(deferred[0]?.title).toBe("Original title");
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       const refreshed = await codexService.getSessionsWithCache(
         codexSessionDir,

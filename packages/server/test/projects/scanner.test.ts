@@ -45,6 +45,8 @@ describe("ProjectScanner missing projectsDir", () => {
       tmpdir(),
       `project-scanner-missing-${randomUUID()}`,
     );
+    const dataDir = join(tmpdir(), `project-scanner-data-${randomUUID()}`);
+    tempDirs.push(dataDir);
     // Don't create it — it should not exist
 
     const codexDir = join(tmpdir(), `codex-sessions-${randomUUID()}`);
@@ -57,6 +59,7 @@ describe("ProjectScanner missing projectsDir", () => {
 
     const scanner = new ProjectScanner({
       projectsDir: nonExistentDir,
+      dataDir,
       codexSessionsDir: codexDir,
       enableCodex: true,
       enableGemini: false,
@@ -82,7 +85,8 @@ describe("ProjectScanner cache", () => {
 
   it("reuses snapshot results until invalidated", async () => {
     const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
-    tempDirs.push(projectsDir);
+    const dataDir = join(tmpdir(), `project-scanner-data-${randomUUID()}`);
+    tempDirs.push(projectsDir, dataDir);
 
     await createClaudeProject(
       projectsDir,
@@ -93,6 +97,7 @@ describe("ProjectScanner cache", () => {
 
     const scanner = new ProjectScanner({
       projectsDir,
+      dataDir,
       enableCodex: false,
       enableGemini: false,
       cacheTtlMs: 60000,
@@ -199,7 +204,8 @@ describe("ProjectScanner cache", () => {
 
   it("marks claude projects that also have codex sessions", async () => {
     const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
-    tempDirs.push(projectsDir);
+    const dataDir = join(tmpdir(), `project-scanner-data-${randomUUID()}`);
+    tempDirs.push(projectsDir, dataDir);
 
     await createClaudeProject(
       projectsDir,
@@ -224,6 +230,7 @@ describe("ProjectScanner cache", () => {
 
     const scanner = new ProjectScanner({
       projectsDir,
+      dataDir,
       enableCodex: true,
       enableGemini: false,
       cacheTtlMs: 60000,
@@ -236,5 +243,112 @@ describe("ProjectScanner cache", () => {
       path: "/home/user/project-one",
       hasCodexSessions: true,
     });
+  });
+
+  it("loads projects from a persisted snapshot before scanning", async () => {
+    const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
+    const dataDir = join(tmpdir(), `project-scanner-data-${randomUUID()}`);
+    tempDirs.push(projectsDir, dataDir);
+    await mkdir(dataDir, { recursive: true });
+    await writeFile(
+      join(dataDir, "project-snapshot.json"),
+      JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        projects: [
+          {
+            id: encodeProjectId("/home/user/persisted"),
+            path: "/home/user/persisted",
+            name: "persisted",
+            sessionCount: 3,
+            sessionDir: join(projectsDir, "localhost", "-home-user-persisted"),
+            activeOwnedCount: 0,
+            activeExternalCount: 0,
+            lastActivity: "2026-01-01T00:00:00.000Z",
+            provider: "claude",
+            hasCodexSessions: false,
+            hasGeminiSessions: false,
+          },
+        ],
+      }),
+      "utf-8",
+    );
+
+    const scanner = new ProjectScanner({
+      projectsDir,
+      dataDir,
+      enableCodex: false,
+      enableGemini: false,
+      cacheTtlMs: 60000,
+    });
+
+    const getProjectDirInfoSpy = vi.spyOn(
+      scanner as unknown as {
+        getProjectDirInfo: (projectDirPath: string) => Promise<unknown>;
+      },
+      "getProjectDirInfo",
+    );
+
+    const projects = await scanner.listProjects();
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.path).toBe("/home/user/persisted");
+    expect(getProjectDirInfoSpy).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the persisted snapshot during prewarm", async () => {
+    const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
+    const dataDir = join(tmpdir(), `project-scanner-data-${randomUUID()}`);
+    tempDirs.push(projectsDir, dataDir);
+    await mkdir(dataDir, { recursive: true });
+    await writeFile(
+      join(dataDir, "project-snapshot.json"),
+      JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        projects: [
+          {
+            id: encodeProjectId("/home/user/stale"),
+            path: "/home/user/stale",
+            name: "stale",
+            sessionCount: 1,
+            sessionDir: join(projectsDir, "localhost", "-home-user-stale"),
+            activeOwnedCount: 0,
+            activeExternalCount: 0,
+            lastActivity: "2026-01-01T00:00:00.000Z",
+            provider: "claude",
+            hasCodexSessions: false,
+            hasGeminiSessions: false,
+          },
+        ],
+      }),
+      "utf-8",
+    );
+
+    await createClaudeProject(
+      projectsDir,
+      "localhost",
+      "/home/user/fresh",
+      "sess-1",
+    );
+
+    const scanner = new ProjectScanner({
+      projectsDir,
+      dataDir,
+      enableCodex: false,
+      enableGemini: false,
+      cacheTtlMs: 60000,
+    });
+
+    const initial = await scanner.listProjects();
+    expect(initial.map((project) => project.path)).toEqual([
+      "/home/user/stale",
+    ]);
+
+    await scanner.prewarm();
+
+    const refreshed = await scanner.listProjects();
+    expect(refreshed.map((project) => project.path)).toEqual([
+      "/home/user/fresh",
+    ]);
   });
 });

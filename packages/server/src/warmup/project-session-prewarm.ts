@@ -1,0 +1,41 @@
+import type { Project } from "../supervisor/types.js";
+import type { ProviderProjectCatalog } from "../routes/provider-catalog.js";
+
+export interface ProjectSessionPrewarmDeps {
+  listProjects: () => Promise<Project[]>;
+  buildProviderCatalog: (
+    projects: Project[],
+  ) => Promise<ProviderProjectCatalog>;
+  warmProject: (
+    project: Project,
+    providerCatalog: ProviderProjectCatalog,
+  ) => Promise<void>;
+  limit?: number;
+}
+
+export async function prewarmProjectSessions(
+  deps: ProjectSessionPrewarmDeps,
+): Promise<void> {
+  const projects = await deps.listProjects();
+  if (projects.length === 0) return;
+
+  const providerCatalog = await deps.buildProviderCatalog(projects);
+  const sortedProjects = [...projects]
+    .sort((a, b) => {
+      if (!a.lastActivity && !b.lastActivity) return 0;
+      if (!a.lastActivity) return 1;
+      if (!b.lastActivity) return -1;
+      return (
+        new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
+      );
+    })
+    .slice(0, Math.max(0, deps.limit ?? 10));
+
+  for (const project of sortedProjects) {
+    try {
+      await deps.warmProject(project, providerCatalog);
+    } catch {
+      // Best-effort startup prewarm only; continue with remaining projects.
+    }
+  }
+}

@@ -245,6 +245,7 @@ export function createApp(options: AppOptions): AppResult {
   // Create dependencies
   const scanner = new ProjectScanner({
     projectsDir: options.projectsDir,
+    dataDir: options.dataDir,
     projectMetadataService: options.projectMetadataService,
     eventBus: options.eventBus,
     cacheTtlMs: options.projectScanCacheTtlMs,
@@ -292,6 +293,7 @@ export function createApp(options: AppOptions): AppResult {
             new CodexSessionReader({
               sessionsDir: project.sessionDir,
               projectPath: project.path,
+              dataDir: options.dataDir,
             }),
         );
       case "gemini":
@@ -337,6 +339,7 @@ export function createApp(options: AppOptions): AppResult {
         new CodexSessionReader({
           sessionsDir: CODEX_SESSIONS_DIR,
           projectPath,
+          dataDir: options.dataDir,
         }),
     );
   const geminiReaderFactory = (projectPath: string): GeminiSessionReader =>

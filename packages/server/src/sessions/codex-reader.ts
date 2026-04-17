@@ -11,8 +11,10 @@
  * Unlike Claude's DAG structure, Codex sessions are linear.
  */
 
-import { readdir, stat } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, join, resolve } from "node:path";
 import {
   type CodexEventMsgEntry,
   type CodexFunctionCallOutputPayload,
@@ -55,6 +57,11 @@ export interface CodexSessionReaderOptions {
    * Only sessions with this cwd will be listed.
    */
   projectPath?: string;
+  /**
+   * Base data directory for persisted reader state.
+   * Defaults to ~/.yep-anywhere (or YEP_ANYWHERE_DATA_DIR when set).
+   */
+  dataDir?: string;
 }
 
 interface CodexSessionFile {
@@ -67,6 +74,18 @@ interface CodexSessionFile {
   isSubagent: boolean;
 }
 
+interface SharedSessionScanState {
+  sessionFileCache: Map<string, CodexSessionFile>;
+  sessions: CodexSessionFile[];
+  cacheTimestamp: number;
+  inFlightScan: Promise<CodexSessionFile[]> | null;
+}
+
+interface PersistedSessionScanState {
+  version: 1;
+  sessions: CodexSessionFile[];
+}
+
 const CODEX_META_READ_MAX_BYTES = 1024 * 1024;
 
 /**
@@ -76,24 +95,30 @@ const CODEX_META_READ_MAX_BYTES = 1024 * 1024;
  * response_item, event_msg, and turn_context entries.
  */
 export class CodexSessionReader implements ISessionReader {
+  private static readonly sharedScanCache = new Map<
+    string,
+    SharedSessionScanState
+  >();
+
   private sessionsDir: string;
   private projectPath?: string;
-
-  // Cache of session ID -> file path for quick lookups
-  private sessionFileCache: Map<string, CodexSessionFile> = new Map();
-  private cacheTimestamp = 0;
-  private readonly CACHE_TTL_MS = 5000; // 5 second cache
+  private dataDir: string;
+  private readonly CACHE_TTL_MS = 60000; // 60 second shared scan cache
 
   constructor(options: CodexSessionReaderOptions) {
     this.sessionsDir = options.sessionsDir;
     this.projectPath = options.projectPath
       ? canonicalizeProjectPath(options.projectPath)
       : undefined;
+    this.dataDir =
+      options.dataDir ??
+      process.env.YEP_ANYWHERE_DATA_DIR ??
+      join(homedir(), ".yep-anywhere");
   }
 
   invalidateCache(): void {
-    this.sessionFileCache.clear();
-    this.cacheTimestamp = 0;
+    CodexSessionReader.sharedScanCache.delete(this.getSharedCacheKey());
+    void rm(this.getPersistentIndexPath(), { force: true }).catch(() => {});
   }
 
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
@@ -286,24 +311,57 @@ export class CodexSessionReader implements ISessionReader {
    * Scan the sessions directory and find all session files.
    */
   private async scanSessions(): Promise<CodexSessionFile[]> {
-    // Check cache
-    if (Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS) {
-      return Array.from(this.sessionFileCache.values());
+    const sharedState = this.getSharedScanState();
+
+    if (Date.now() - sharedState.cacheTimestamp < this.CACHE_TTL_MS) {
+      return sharedState.sessions;
     }
 
-    const sessions: CodexSessionFile[] = [];
-    const files = await this.findJsonlFiles(this.sessionsDir);
+    if (sharedState.inFlightScan) {
+      return sharedState.inFlightScan;
+    }
 
-    for (const filePath of files) {
-      const session = await this.readSessionMeta(filePath);
-      if (session) {
-        sessions.push(session);
-        this.sessionFileCache.set(session.id, session);
+    if (sharedState.cacheTimestamp === 0) {
+      const persisted = await this.loadPersistedScan();
+      if (persisted) {
+        sharedState.sessions = persisted;
+        sharedState.sessionFileCache = new Map(
+          persisted.map((session) => [session.id, session]),
+        );
+        sharedState.cacheTimestamp = Date.now();
+        return persisted;
       }
     }
 
-    this.cacheTimestamp = Date.now();
-    return sessions.filter((session) => !session.isSubagent);
+    const scanPromise = (async () => {
+      const sessions: CodexSessionFile[] = [];
+      const sessionFileCache = new Map<string, CodexSessionFile>();
+      const files = await this.findJsonlFiles(this.sessionsDir);
+
+      for (const filePath of files) {
+        const session = await this.readSessionMeta(filePath);
+        if (session) {
+          sessions.push(session);
+          sessionFileCache.set(session.id, session);
+        }
+      }
+
+      sharedState.sessionFileCache = sessionFileCache;
+      sharedState.sessions = sessions.filter((session) => !session.isSubagent);
+      sharedState.cacheTimestamp = Date.now();
+      await this.savePersistedScan(sharedState.sessions);
+      return sharedState.sessions;
+    })();
+
+    sharedState.inFlightScan = scanPromise;
+
+    try {
+      return await scanPromise;
+    } finally {
+      if (sharedState.inFlightScan === scanPromise) {
+        sharedState.inFlightScan = null;
+      }
+    }
   }
 
   async getSessionFilePath(sessionId: string): Promise<string | null> {
@@ -338,13 +396,84 @@ export class CodexSessionReader implements ISessionReader {
   private async findSessionFile(
     sessionId: string,
   ): Promise<CodexSessionFile | null> {
+    const sharedState = this.getSharedScanState();
+
     // Check cache first
-    const cached = this.sessionFileCache.get(sessionId);
+    const cached = sharedState.sessionFileCache.get(sessionId);
     if (cached) return cached;
 
     // Scan if cache miss
     await this.scanSessions();
-    return this.sessionFileCache.get(sessionId) ?? null;
+    return sharedState.sessionFileCache.get(sessionId) ?? null;
+  }
+
+  private getSharedCacheKey(): string {
+    const resolved = resolve(this.sessionsDir);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  }
+
+  private getPersistentIndexPath(): string {
+    const hash = createHash("sha256")
+      .update(this.getSharedCacheKey())
+      .digest("hex")
+      .slice(0, 16);
+    return join(this.dataDir, "indexes", `codex-session-files-${hash}.json`);
+  }
+
+  private async loadPersistedScan(): Promise<CodexSessionFile[] | null> {
+    try {
+      const raw = await readFile(this.getPersistentIndexPath(), "utf-8");
+      const parsed = JSON.parse(raw) as PersistedSessionScanState;
+      if (parsed.version !== 1 || !Array.isArray(parsed.sessions)) {
+        return null;
+      }
+
+      const existingSessions = await Promise.all(
+        parsed.sessions.map(async (session) => {
+          try {
+            await stat(session.filePath);
+            return session;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      return existingSessions.filter(
+        (session): session is CodexSessionFile => session !== null,
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  private async savePersistedScan(sessions: CodexSessionFile[]): Promise<void> {
+    try {
+      const indexPath = this.getPersistentIndexPath();
+      await mkdir(join(this.dataDir, "indexes"), { recursive: true });
+      const payload: PersistedSessionScanState = {
+        version: 1,
+        sessions,
+      };
+      await writeFile(indexPath, JSON.stringify(payload), "utf-8");
+    } catch {
+      // Ignore persistence errors; the in-memory cache still helps this process.
+    }
+  }
+
+  private getSharedScanState(): SharedSessionScanState {
+    const key = this.getSharedCacheKey();
+    let state = CodexSessionReader.sharedScanCache.get(key);
+    if (!state) {
+      state = {
+        sessionFileCache: new Map<string, CodexSessionFile>(),
+        sessions: [],
+        cacheTimestamp: 0,
+        inFlightScan: null,
+      };
+      CodexSessionReader.sharedScanCache.set(key, state);
+    }
+    return state;
   }
 
   /**

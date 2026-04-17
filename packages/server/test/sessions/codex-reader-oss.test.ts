@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { UrlProjectId } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 
@@ -21,6 +21,7 @@ describe("CodexSessionReader - OSS Support", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await rm(testDir, { recursive: true, force: true });
   });
 
@@ -226,6 +227,83 @@ describe("CodexSessionReader - OSS Support", () => {
     );
     expect(summaries).toHaveLength(1);
     expect(summaries[0].id).toBe(sessionId);
+  });
+
+  it("reuses a shared sessions scan across project-scoped readers", async () => {
+    const now = new Date().toISOString();
+    const projectA = "C:/work/project-a";
+    const projectB = "C:/work/project-b";
+
+    await writeFile(
+      join(testDir, "session-a.jsonl"),
+      `${[
+        JSON.stringify({
+          type: "session_meta",
+          timestamp: now,
+          payload: {
+            id: "session-a",
+            cwd: projectA,
+            timestamp: now,
+            model_provider: "openai",
+          },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          timestamp: now,
+          payload: {
+            type: "user_message",
+            message: "hello from project a",
+          },
+        }),
+      ].join("\n")}\n`,
+    );
+
+    await writeFile(
+      join(testDir, "session-b.jsonl"),
+      `${[
+        JSON.stringify({
+          type: "session_meta",
+          timestamp: now,
+          payload: {
+            id: "session-b",
+            cwd: projectB,
+            timestamp: now,
+            model_provider: "openai",
+          },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          timestamp: now,
+          payload: {
+            type: "user_message",
+            message: "hello from project b",
+          },
+        }),
+      ].join("\n")}\n`,
+    );
+
+    const readerA = new CodexSessionReader({
+      sessionsDir: testDir,
+      projectPath: projectA,
+    });
+    const readerB = new CodexSessionReader({
+      sessionsDir: testDir,
+      projectPath: projectB,
+    });
+
+    const findJsonlFilesSpy = vi.spyOn(
+      CodexSessionReader.prototype as unknown as {
+        findJsonlFiles(dir: string): Promise<string[]>;
+      },
+      "findJsonlFiles",
+    );
+
+    const filesA = await readerA.listSessionFiles(testDir);
+    const filesB = await readerB.listSessionFiles(testDir);
+
+    expect(filesA.map((file) => file.sessionId)).toEqual(["session-a"]);
+    expect(filesB.map((file) => file.sessionId)).toEqual(["session-b"]);
+    expect(findJsonlFilesSpy).toHaveBeenCalledTimes(1);
   });
 
   it("identifies codex based on model name (gpt-4)", async () => {

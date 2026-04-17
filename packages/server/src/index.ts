@@ -47,6 +47,7 @@ import {
   RemoteAccessService,
   RemoteSessionService,
 } from "./remote-access/index.js";
+import { buildProviderProjectCatalog } from "./routes/provider-catalog.js";
 import { createUploadRoutes } from "./routes/upload.js";
 import { getServerCompatibilityInfo } from "./routes/version.js";
 import { createWsRelayRoutes } from "./routes/ws-relay.js";
@@ -65,7 +66,9 @@ import {
   ServerSettingsService,
   SharingService,
 } from "./services/index.js";
+import { listSessionsAcrossProviders } from "./sessions/provider-resolution.js";
 import { ClaudeSessionReader } from "./sessions/reader.js";
+import { prewarmProjectSessions } from "./warmup/project-session-prewarm.js";
 import { UploadManager } from "./uploads/manager.js";
 import {
   EventBus,
@@ -496,7 +499,7 @@ async function startServer() {
 
   // Create the app first (without WebSocket support initially)
   // We'll add WebSocket routes after setting up WebSocket support
-  const { app, supervisor, scanner } = createApp({
+  const { app, supervisor, scanner, readerFactory } = createApp({
     realSdk,
     projectsDir: config.claudeProjectsDir,
     idleTimeoutMs: config.idleTimeoutMs,
@@ -536,6 +539,51 @@ async function startServer() {
     voiceInputEnabled: config.voiceInputEnabled,
     allowedImagePaths: config.allowedImagePaths,
   });
+
+  void scanner.prewarm().catch((error) => {
+    console.warn("[ProjectScanner] Prewarm failed:", error);
+  });
+
+  const projectSessionPrewarmLimit = Math.max(
+    0,
+    parseInt(process.env.PROJECT_SESSION_PREWARM_LIMIT ?? "10", 10) || 10,
+  );
+
+  if (projectSessionPrewarmLimit > 0) {
+    const prewarmGeminiScanner = new GeminiSessionScanner({
+      sessionsDir: config.geminiSessionsDir,
+    });
+
+    void scanner
+      .prewarm()
+      .then(() =>
+        prewarmProjectSessions({
+          listProjects: () => scanner.listProjects(),
+          buildProviderCatalog: (projects) =>
+            buildProviderProjectCatalog({
+              projects,
+              geminiScanner: prewarmGeminiScanner,
+            }),
+          warmProject: async (project, providerCatalog) => {
+            await listSessionsAcrossProviders(
+              project,
+              {
+                readerFactory,
+                sessionIndexService,
+                codexSessionsDir: config.codexSessionsDir,
+                geminiSessionsDir: config.geminiSessionsDir,
+                geminiHashToCwd: providerCatalog.geminiHashToCwd,
+              },
+              providerCatalog,
+            );
+          },
+          limit: projectSessionPrewarmLimit,
+        }),
+      )
+      .catch((error) => {
+        console.warn("[ProjectSessionPrewarm] Failed:", error);
+      });
+  }
 
   const focusedSessionWatchManager = new FocusedSessionWatchManager({
     scanner,

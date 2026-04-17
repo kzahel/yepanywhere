@@ -1,4 +1,4 @@
-import { access, readdir, stat } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import {
@@ -25,6 +25,7 @@ export interface ScannerOptions {
   projectsDir?: string; // override for testing
   codexSessionsDir?: string; // override for testing
   geminiSessionsDir?: string; // override for testing
+  dataDir?: string; // override for persisted snapshot state
   enableCodex?: boolean; // whether to include Codex projects (default: true)
   enableGemini?: boolean; // whether to include Gemini projects (default: true)
   projectMetadataService?: ProjectMetadataService; // for persisting added projects
@@ -41,8 +42,16 @@ interface ProjectSnapshot {
   timestamp: number;
 }
 
+interface PersistedProjectSnapshot {
+  version: 1;
+  savedAt: string;
+  projects: Project[];
+}
+
 export class ProjectScanner {
   private projectsDir: string;
+  private dataDir: string;
+  private snapshotFilePath: string;
   private codexScanner: CodexSessionScanner | null;
   private geminiScanner: GeminiSessionScanner | null;
   private enableCodex: boolean;
@@ -52,10 +61,13 @@ export class ProjectScanner {
   private cacheDirty = true;
   private snapshot: ProjectSnapshot | null = null;
   private inFlightScan: Promise<ProjectSnapshot> | null = null;
+  private persistedSnapshotLoaded = false;
   private unsubscribeEventBus: (() => void) | null = null;
 
   constructor(options: ScannerOptions = {}) {
     this.projectsDir = options.projectsDir ?? CLAUDE_PROJECTS_DIR;
+    this.dataDir = options.dataDir ?? join(homedir(), ".yep-anywhere");
+    this.snapshotFilePath = join(this.dataDir, "project-snapshot.json");
     this.enableCodex = options.enableCodex ?? true;
     this.enableGemini = options.enableGemini ?? true;
     this.codexScanner = this.enableCodex
@@ -99,7 +111,20 @@ export class ProjectScanner {
     this.cacheDirty = true;
   }
 
+  async prewarm(): Promise<void> {
+    await this.getSnapshot(true);
+  }
+
   private async getSnapshot(forceRefresh = false): Promise<ProjectSnapshot> {
+    if (!this.persistedSnapshotLoaded) {
+      this.persistedSnapshotLoaded = true;
+      const persisted = await this.loadPersistedSnapshot();
+      if (persisted) {
+        this.snapshot = persisted;
+        this.cacheDirty = false;
+      }
+    }
+
     const now = Date.now();
     const isFresh =
       this.snapshot &&
@@ -119,6 +144,7 @@ export class ProjectScanner {
         const snapshot = this.buildSnapshot(projects);
         this.snapshot = snapshot;
         this.cacheDirty = false;
+        void this.savePersistedSnapshot(snapshot.projects);
         return snapshot;
       })
       .finally(() => {
@@ -161,6 +187,35 @@ export class ProjectScanner {
       bySessionDirSuffix,
       timestamp: Date.now(),
     };
+  }
+
+  private async loadPersistedSnapshot(): Promise<ProjectSnapshot | null> {
+    try {
+      const raw = await readFile(this.snapshotFilePath, "utf-8");
+      const parsed = JSON.parse(raw) as PersistedProjectSnapshot;
+      if (parsed.version !== 1 || !Array.isArray(parsed.projects)) {
+        return null;
+      }
+      const snapshot = this.buildSnapshot(parsed.projects);
+      snapshot.timestamp = Date.now();
+      return snapshot;
+    } catch {
+      return null;
+    }
+  }
+
+  private async savePersistedSnapshot(projects: Project[]): Promise<void> {
+    try {
+      await mkdir(this.dataDir, { recursive: true });
+      const payload: PersistedProjectSnapshot = {
+        version: 1,
+        savedAt: new Date().toISOString(),
+        projects,
+      };
+      await writeFile(this.snapshotFilePath, JSON.stringify(payload), "utf-8");
+    } catch {
+      // Ignore persistence failures; the in-memory snapshot still helps.
+    }
   }
 
   private sessionDirToSuffix(sessionDir: string): string {

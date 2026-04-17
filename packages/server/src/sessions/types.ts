@@ -117,4 +117,13 @@ export interface ISessionReader {
    * includes the logical project scope to avoid cache/index contamination.
    */
   getIndexScopeKey?(sessionDir: string): string;
+
+  /**
+   * Invalidate any reader-local cache.
+   *
+   * Providers that maintain their own file discovery cache (for example Codex's
+   * shared sessions tree) can implement this so higher layers can force a
+   * refresh after watcher-driven dirty events.
+   */
+  invalidateCache?(): void;
 }
