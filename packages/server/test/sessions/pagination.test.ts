@@ -281,4 +281,68 @@ describe("sliceAtCompactBoundaries", () => {
     expect(result.pagination.totalCompactions).toBe(2);
     expect(result.pagination.hasOlderMessages).toBe(true);
   });
+
+  it("caps the returned tail when maxMessages is smaller than the sliced window", () => {
+    const messages = [
+      msg("user", "u1"),
+      compactBoundary("cb1"),
+      msg("assistant", "a1"),
+      compactBoundary("cb2"),
+      msg("user", "u2"),
+      msg("assistant", "a2"),
+      msg("user", "u3"),
+      msg("assistant", "a3"),
+    ];
+
+    const result = sliceAtCompactBoundaries(messages, 1, undefined, 3);
+
+    expect(result.messages.map((m) => m.uuid)).toEqual(["a2", "u3", "a3"]);
+    expect(result.pagination).toEqual({
+      hasOlderMessages: true,
+      totalMessageCount: 8,
+      returnedMessageCount: 3,
+      truncatedBeforeMessageId: "a2",
+      totalCompactions: 2,
+    } satisfies PaginationInfo);
+  });
+
+  it("supports progressive loading when maxMessages trims the tail chunk", () => {
+    const messages = [
+      msg("user", "u1"),
+      compactBoundary("cb1"),
+      msg("assistant", "a1"),
+      compactBoundary("cb2"),
+      msg("user", "u2"),
+      msg("assistant", "a2"),
+      msg("user", "u3"),
+      msg("assistant", "a3"),
+    ];
+
+    const first = sliceAtCompactBoundaries(messages, 1, undefined, 3);
+    expect(first.messages.map((m) => m.uuid)).toEqual(["a2", "u3", "a3"]);
+
+    const second = sliceAtCompactBoundaries(
+      messages,
+      1,
+      first.pagination.truncatedBeforeMessageId,
+      3,
+    );
+
+    expect(second.messages.map((m) => m.uuid)).toEqual(["cb2", "u2"]);
+    expect(second.pagination.hasOlderMessages).toBe(true);
+    expect(second.pagination.truncatedBeforeMessageId).toBe("cb2");
+
+    const third = sliceAtCompactBoundaries(
+      messages,
+      1,
+      second.pagination.truncatedBeforeMessageId,
+      3,
+    );
+
+    expect(third.messages.map((m) => m.uuid)).toEqual(["u1", "cb1", "a1"]);
+    expect(third.pagination.hasOlderMessages).toBe(false);
+
+    const allLoaded = [...third.messages, ...second.messages, ...first.messages];
+    expect(allLoaded.map((m) => m.uuid)).toEqual(messages.map((m) => m.uuid));
+  });
 });

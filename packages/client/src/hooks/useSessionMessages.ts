@@ -13,6 +13,9 @@ import {
 import { getProvider } from "../providers/registry";
 import type { Message, Session, SessionStatus } from "../types";
 
+const INITIAL_SESSION_TAIL_COMPACTIONS = 1;
+const INITIAL_SESSION_MAX_MESSAGES = 400;
+
 /** Content from a subagent (Task tool) */
 export interface AgentContent {
   messages: Message[];
@@ -295,7 +298,10 @@ export function useSessionMessages(
     setAgentContent({});
 
     api
-      .getSession(projectId, sessionId, undefined, { tailCompactions: 2 })
+      .getSession(projectId, sessionId, undefined, {
+        tailCompactions: INITIAL_SESSION_TAIL_COMPACTIONS,
+        maxMessages: INITIAL_SESSION_MAX_MESSAGES,
+      })
       .then((data) => {
         setSession(data.session);
         setPagination(data.pagination);
@@ -479,8 +485,9 @@ export function useSessionMessages(
     setLoadingOlder(true);
     try {
       const data = await api.getSession(projectId, sessionId, undefined, {
-        tailCompactions: 2,
+        tailCompactions: INITIAL_SESSION_TAIL_COMPACTIONS,
         beforeMessageId: pagination.truncatedBeforeMessageId,
+        maxMessages: INITIAL_SESSION_MAX_MESSAGES,
       });
       setMessages((prev) => {
         const taggedOlder = data.messages.map((m) => ({

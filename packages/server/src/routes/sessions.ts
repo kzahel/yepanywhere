@@ -525,15 +525,21 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   //   ?afterMessageId=<id> - incremental forward-fetch (append new messages)
   //   ?tailCompactions=<n> - return only last N compact boundaries worth of messages
   //   ?beforeMessageId=<id> - cursor for loading older chunks (used with tailCompactions)
+  //   ?maxMessages=<n> - cap the returned message count after compact-boundary slicing
   routes.get("/projects/:projectId/sessions/:sessionId", async (c) => {
     const projectId = c.req.param("projectId");
     const sessionId = c.req.param("sessionId");
     const afterMessageId = c.req.query("afterMessageId");
     const tailCompactionsParam = c.req.query("tailCompactions");
     const beforeMessageId = c.req.query("beforeMessageId");
+    const maxMessagesParam = c.req.query("maxMessages");
     const tailCompactions =
       tailCompactionsParam !== undefined
         ? Number.parseInt(tailCompactionsParam, 10)
+        : undefined;
+    const maxMessages =
+      maxMessagesParam !== undefined
+        ? Number.parseInt(maxMessagesParam, 10)
         : undefined;
 
     // Validate projectId format at API boundary
@@ -738,6 +744,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         session.messages,
         tailCompactions,
         beforeMessageId,
+        maxMessages,
       );
       session = { ...session, messages: sliced.messages };
       paginationInfo = sliced.pagination;
