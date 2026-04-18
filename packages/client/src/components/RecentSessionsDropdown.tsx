@@ -84,6 +84,7 @@ export function RecentSessionsDropdown({
   const { sessions } = useGlobalSessions({
     limit: MAX_RECENT_SESSIONS + 5,
     includeStats: false,
+    enabled: isOpen,
   });
 
   // Filter out current session and limit

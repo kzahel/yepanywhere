@@ -50,6 +50,7 @@ export function sliceAtCompactBoundaries(
   messages: Message[],
   tailCompactions: number,
   beforeMessageId?: string,
+  maxMessages?: number,
 ): SliceResult {
   const totalMessageCount = messages.length;
 
@@ -74,32 +75,49 @@ export function sliceAtCompactBoundaries(
 
   const totalCompactions = compactIndices.length;
 
-  // If fewer or equal compactions than requested, return everything
+  let slicedMessages: Message[];
+  let hasOlderMessages = compactIndices.length > tailCompactions;
+
+  // If fewer or equal compactions than requested, start from the full working set
   if (compactIndices.length <= tailCompactions) {
+    slicedMessages = workingMessages;
+  } else {
+    // Slice starting from the Nth-from-last compact boundary (inclusive)
+    const sliceFromIdx =
+      compactIndices[compactIndices.length - tailCompactions] ?? 0;
+    slicedMessages = workingMessages.slice(sliceFromIdx);
+  }
+
+  if (
+    maxMessages !== undefined &&
+    maxMessages > 0 &&
+    slicedMessages.length > maxMessages
+  ) {
+    slicedMessages = slicedMessages.slice(-maxMessages);
+    hasOlderMessages = true;
+  }
+
+  const firstId = slicedMessages[0]
+    ? getMessageId(slicedMessages[0])
+    : undefined;
+
+  if (!hasOlderMessages) {
     return {
-      messages: workingMessages,
+      messages: slicedMessages,
       pagination: {
         hasOlderMessages: false,
         totalMessageCount,
-        returnedMessageCount: workingMessages.length,
+        returnedMessageCount: slicedMessages.length,
         truncatedBeforeMessageId: undefined,
         totalCompactions,
       },
     };
   }
 
-  // Slice starting from the Nth-from-last compact boundary (inclusive)
-  const sliceFromIdx =
-    compactIndices[compactIndices.length - tailCompactions] ?? 0;
-  const slicedMessages = workingMessages.slice(sliceFromIdx);
-  const firstId = slicedMessages[0]
-    ? getMessageId(slicedMessages[0])
-    : undefined;
-
   return {
     messages: slicedMessages,
     pagination: {
-      hasOlderMessages: true,
+      hasOlderMessages,
       totalMessageCount,
       returnedMessageCount: slicedMessages.length,
       truncatedBeforeMessageId: firstId,

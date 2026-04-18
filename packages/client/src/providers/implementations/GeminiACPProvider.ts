@@ -17,6 +17,9 @@ export class GeminiACPProvider implements Provider {
   readonly capabilities: ProviderCapabilities = {
     supportsDag: false,
     supportsCloning: false,
+    supportsPermissionMode: true,
+    supportsThinkingToggle: false,
+    supportsSlashCommands: false,
   };
 
   readonly metadata: ProviderMetadata = {

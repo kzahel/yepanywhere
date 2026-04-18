@@ -27,7 +27,6 @@ import type { DraftControls } from "../hooks/useDraftPersistence";
 import { useEngagementTracking } from "../hooks/useEngagementTracking";
 import { getModelSetting, getThinkingSetting } from "../hooks/useModelSettings";
 import { useProject } from "../hooks/useProjects";
-import { useProviders } from "../hooks/useProviders";
 import { recordSessionVisit } from "../hooks/useRecentSessions";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import {
@@ -37,6 +36,7 @@ import {
 import { useI18n } from "../i18n";
 import { useNavigationLayout } from "../layouts";
 import { preprocessMessages } from "../lib/preprocessMessages";
+import { getProvider } from "../providers/registry";
 import { generateUUID } from "../lib/uuid";
 import { getSessionDisplayTitle } from "../utils";
 
@@ -186,12 +186,15 @@ function SessionPageContent({
 
   // Sharing: check if configured (hidden unless sharing.json exists on server)
   const [sharingConfigured, setSharingConfigured] = useState(false);
-  useEffect(() => {
-    api
+  const [sharingStatusChecked, setSharingStatusChecked] = useState(false);
+  const ensureSharingStatus = useCallback(() => {
+    if (sharingStatusChecked) return;
+    setSharingStatusChecked(true);
+    void api
       .getSharingStatus()
       .then((res) => setSharingConfigured(res.configured))
       .catch(() => {});
-  }, []);
+  }, [sharingStatusChecked]);
 
   // Connection for uploads (uses WebSocket when enabled)
   const connection = useConnection();
@@ -206,19 +209,16 @@ function SessionPageContent({
     return slashCommands;
   }, [slashCommands, status.owner]);
 
-  // Get provider capabilities based on session's provider
-  const { providers } = useProviders();
-  const currentProviderInfo = useMemo(() => {
-    if (!session?.provider) return null;
-    return providers.find((p) => p.name === session.provider) ?? null;
-  }, [providers, session?.provider]);
-  // Default to true for backwards compatibility (except slash commands)
+  const currentProvider = useMemo(
+    () => getProvider(session?.provider ?? initialProvider),
+    [initialProvider, session?.provider],
+  );
   const supportsPermissionMode =
-    currentProviderInfo?.supportsPermissionMode ?? true;
+    currentProvider.capabilities.supportsPermissionMode;
   const supportsThinkingToggle =
-    currentProviderInfo?.supportsThinkingToggle ?? true;
+    currentProvider.capabilities.supportsThinkingToggle;
   const supportsSlashCommands =
-    currentProviderInfo?.supportsSlashCommands ?? false;
+    currentProvider.capabilities.supportsSlashCommands;
 
   // Inline title editing state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -1028,6 +1028,7 @@ function SessionPageContent({
                     onTerminate={handleTerminate}
                     sharingConfigured={sharingConfigured}
                     onShare={handleShare}
+                    onOpen={ensureSharingStatus}
                     useFixedPositioning
                     useEllipsisIcon
                   />

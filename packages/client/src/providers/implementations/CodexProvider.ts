@@ -11,6 +11,9 @@ export class CodexProvider implements Provider {
   readonly capabilities: ProviderCapabilities = {
     supportsDag: false, // Linear history
     supportsCloning: true,
+    supportsPermissionMode: true,
+    supportsThinkingToggle: true,
+    supportsSlashCommands: false,
   };
 
   readonly metadata: ProviderMetadata = {
@@ -32,6 +35,9 @@ export class CodexOssProvider implements Provider {
   readonly capabilities: ProviderCapabilities = {
     supportsDag: false, // Linear history
     supportsCloning: true,
+    supportsPermissionMode: false,
+    supportsThinkingToggle: false,
+    supportsSlashCommands: false,
   };
 
   readonly metadata: ProviderMetadata = {

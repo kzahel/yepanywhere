@@ -396,7 +396,11 @@ export const api = {
     projectId: string,
     sessionId: string,
     afterMessageId?: string,
-    options?: { tailCompactions?: number; beforeMessageId?: string },
+    options?: {
+      tailCompactions?: number;
+      beforeMessageId?: string;
+      maxMessages?: number;
+    },
   ) => {
     const params = new URLSearchParams();
     if (afterMessageId) params.set("afterMessageId", afterMessageId);
@@ -404,6 +408,8 @@ export const api = {
       params.set("tailCompactions", String(options.tailCompactions));
     if (options?.beforeMessageId)
       params.set("beforeMessageId", options.beforeMessageId);
+    if (options?.maxMessages !== undefined)
+      params.set("maxMessages", String(options.maxMessages));
     const qs = params.toString();
     return fetchJSON<{
       session: Session;

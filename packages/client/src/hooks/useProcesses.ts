@@ -51,13 +51,17 @@ export function useProcesses() {
   const [error, setError] = useState<Error | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchProcesses = useCallback(async () => {
+  const fetchProcesses = useCallback(async (includeTerminated = false) => {
     try {
       const data = await fetchJSON<ProcessesResponse>(
-        "/processes?includeTerminated=true",
+        includeTerminated
+          ? "/processes?includeTerminated=true"
+          : "/processes",
       );
       setProcesses(data.processes);
-      setTerminatedProcesses(data.terminatedProcesses ?? []);
+      if (includeTerminated) {
+        setTerminatedProcesses(data.terminatedProcesses ?? []);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
@@ -69,11 +73,15 @@ export function useProcesses() {
   // Initial fetch
   useEffect(() => {
     fetchProcesses();
+    void fetchProcesses(true);
   }, [fetchProcesses]);
 
-  // Polling
+  // Poll only the active processes. The terminated list is informational and
+  // doesn't need to block navigation or refresh every interval.
   useEffect(() => {
-    pollTimerRef.current = setInterval(fetchProcesses, POLL_INTERVAL_MS);
+    pollTimerRef.current = setInterval(() => {
+      void fetchProcesses();
+    }, POLL_INTERVAL_MS);
     return () => {
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);

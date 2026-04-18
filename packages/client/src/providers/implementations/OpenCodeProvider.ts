@@ -11,6 +11,9 @@ export class OpenCodeProvider implements Provider {
   readonly capabilities: ProviderCapabilities = {
     supportsDag: false,
     supportsCloning: false,
+    supportsPermissionMode: false,
+    supportsThinkingToggle: false,
+    supportsSlashCommands: false,
   };
 
   readonly metadata: ProviderMetadata = {

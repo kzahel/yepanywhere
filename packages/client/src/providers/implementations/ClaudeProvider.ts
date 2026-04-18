@@ -11,6 +11,9 @@ export class ClaudeProvider implements Provider {
   readonly capabilities: ProviderCapabilities = {
     supportsDag: true,
     supportsCloning: true,
+    supportsPermissionMode: true,
+    supportsThinkingToggle: true,
+    supportsSlashCommands: true,
   };
 
   readonly metadata: ProviderMetadata = {
