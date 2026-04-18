@@ -1,10 +1,11 @@
 import { type ReactNode, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { ConnectionBar } from "./components/ConnectionBar";
 import { FloatingActionButton } from "./components/FloatingActionButton";
 import { ReloadBanner } from "./components/ReloadBanner";
 import { OnboardingWizard } from "./components/onboarding";
 import { AuthProvider } from "./contexts/AuthContext";
-import { InboxProvider } from "./contexts/InboxContext";
+import { InboxProvider, useInboxContext } from "./contexts/InboxContext";
 import { SchemaValidationProvider } from "./contexts/SchemaValidationContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { useActivityBusConnection } from "./hooks/useActivityBusConnection";
@@ -14,6 +15,7 @@ import { useOnboarding } from "./hooks/useOnboarding";
 import { useReloadNotifications } from "./hooks/useReloadNotifications";
 import { I18nProvider } from "./i18n";
 import { initClientLogCollection } from "./lib/diagnostics";
+import { shouldEnableInboxForPathname } from "./lib/inboxRouteActivation";
 
 interface Props {
   children: ReactNode;
@@ -23,6 +25,10 @@ interface Props {
  * Inner component that uses hooks requiring InboxContext.
  */
 function AppContent({ children }: Props) {
+  const location = useLocation();
+  const { setEnabled } = useInboxContext();
+  const shouldEnableInbox = shouldEnableInboxForPathname(location.pathname);
+
   // Manage SSE connection based on auth state (prevents 401s on login page)
   useActivityBusConnection();
 
@@ -31,6 +37,10 @@ function AppContent({ children }: Props) {
 
   // Sync notifyInApp setting to service worker on app startup and SW restarts
   useSyncNotifyInAppSetting();
+
+  useEffect(() => {
+    setEnabled(shouldEnableInbox);
+  }, [setEnabled, shouldEnableInbox]);
 
   // Update tab title with needs-attention badge count (uses InboxContext)
   useNeedsAttentionBadge();
@@ -81,7 +91,7 @@ export function App({ children }: Props) {
     <I18nProvider>
       <ToastProvider>
         <AuthProvider>
-          <InboxProvider>
+          <InboxProvider initialEnabled={false}>
             <SchemaValidationProvider>
               <AppContent>{children}</AppContent>
               {!isLoading && showWizard && (
