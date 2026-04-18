@@ -14,6 +14,21 @@ export interface ProviderCapabilities {
    * Whether the provider supports cloning sessions.
    */
   supportsCloning: boolean;
+
+  /**
+   * Whether the provider supports permission mode switching.
+   */
+  supportsPermissionMode: boolean;
+
+  /**
+   * Whether the provider supports the thinking toggle.
+   */
+  supportsThinkingToggle: boolean;
+
+  /**
+   * Whether the provider exposes slash commands.
+   */
+  supportsSlashCommands: boolean;
 }
 
 /**
