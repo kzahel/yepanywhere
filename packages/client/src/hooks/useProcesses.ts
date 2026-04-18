@@ -54,9 +54,7 @@ export function useProcesses() {
   const fetchProcesses = useCallback(async (includeTerminated = false) => {
     try {
       const data = await fetchJSON<ProcessesResponse>(
-        includeTerminated
-          ? "/processes?includeTerminated=true"
-          : "/processes",
+        includeTerminated ? "/processes?includeTerminated=true" : "/processes",
       );
       setProcesses(data.processes);
       if (includeTerminated) {

@@ -96,12 +96,18 @@ export function useProject(projectId: string | undefined) {
 const REFETCH_DEBOUNCE_MS = 500;
 
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>(sharedProjectsState.projects);
-  const [loading, setLoading] = useState(sharedProjectsState.projects.length === 0);
+  const [projects, setProjects] = useState<Project[]>(
+    sharedProjectsState.projects,
+  );
+  const [loading, setLoading] = useState(
+    sharedProjectsState.projects.length === 0,
+  );
   const [error, setError] = useState<Error | null>(sharedProjectsState.error);
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasFetchedRef = useRef(false);
-  const hasResolvedInitialFetchRef = useRef(sharedProjectsState.projects.length > 0);
+  const hasResolvedInitialFetchRef = useRef(
+    sharedProjectsState.projects.length > 0,
+  );
 
   const fetch = useCallback(async () => {
     // Preserve existing UI during background refetches triggered by activity
