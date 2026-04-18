@@ -2539,6 +2539,7 @@ a.sidebar-nav-item {
 /* Slash command button */
 .slash-command-container {
   position: relative;
+  flex-shrink: 0;
 }
 
 .slash-command-button {
@@ -2578,18 +2579,7 @@ a.sidebar-nav-item {
 }
 
 .slash-command-menu {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: var(--space-1);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  min-width: 160px;
-  max-height: 240px;
-  overflow-y: auto;
-  z-index: 100;
+  display: none;
 }
 
 .slash-command-item {
@@ -2620,6 +2610,85 @@ a.sidebar-nav-item {
 
 .slash-command-item:only-child {
   border-radius: var(--radius-md);
+}
+
+.slash-command-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10001;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.slash-command-sheet {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slashCommandSlideUp 0.2s ease-out;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+@keyframes slashCommandSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.slash-command-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.slash-command-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.slash-command-sheet-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) 0;
+}
+
+.slash-command-sheet .slash-command-item {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-base);
+}
+
+@media (min-width: 769px) {
+  .slash-command-menu {
+    display: block;
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: var(--space-1);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 160px;
+    max-width: min(18rem, calc(100vw - 1rem));
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 100;
+  }
+
+  .slash-command-overlay {
+    display: none;
+  }
 }
 
 /* Attachment list */
