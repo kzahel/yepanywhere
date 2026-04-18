@@ -14,7 +14,7 @@ import { getProvider } from "../providers/registry";
 import type { Message, Session, SessionStatus } from "../types";
 
 const INITIAL_SESSION_TAIL_COMPACTIONS = 1;
-const INITIAL_SESSION_MAX_MESSAGES = 400;
+const INITIAL_SESSION_MAX_MESSAGES = 300;
 
 /** Content from a subagent (Task tool) */
 export interface AgentContent {

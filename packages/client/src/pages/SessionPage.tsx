@@ -186,12 +186,15 @@ function SessionPageContent({
 
   // Sharing: check if configured (hidden unless sharing.json exists on server)
   const [sharingConfigured, setSharingConfigured] = useState(false);
-  useEffect(() => {
-    api
+  const [sharingStatusChecked, setSharingStatusChecked] = useState(false);
+  const ensureSharingStatus = useCallback(() => {
+    if (sharingStatusChecked) return;
+    setSharingStatusChecked(true);
+    void api
       .getSharingStatus()
       .then((res) => setSharingConfigured(res.configured))
       .catch(() => {});
-  }, []);
+  }, [sharingStatusChecked]);
 
   // Connection for uploads (uses WebSocket when enabled)
   const connection = useConnection();
@@ -1025,6 +1028,7 @@ function SessionPageContent({
                     onTerminate={handleTerminate}
                     sharingConfigured={sharingConfigured}
                     onShare={handleShare}
+                    onOpen={ensureSharingStatus}
                     useFixedPositioning
                     useEllipsisIcon
                   />

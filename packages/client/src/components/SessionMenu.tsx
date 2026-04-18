@@ -28,6 +28,8 @@ export interface SessionMenuProps {
   sharingConfigured?: boolean;
   /** Called to share the session as a snapshot */
   onShare?: () => void | Promise<void>;
+  /** Called when opening the menu, for lazy-loading menu-only state */
+  onOpen?: () => void | Promise<void>;
   /** Additional class for the wrapper */
   className?: string;
   /** Use fixed positioning for dropdown (escapes overflow clipping) */
@@ -50,6 +52,7 @@ export function SessionMenu({
   onTerminate,
   sharingConfigured,
   onShare,
+  onOpen,
   useEllipsisIcon = false,
   className = "",
   useFixedPositioning = false,
@@ -110,6 +113,7 @@ export function SessionMenu({
       setDropdownPosition(null);
       triggerRef.current?.blur();
     } else {
+      void onOpen?.();
       // Calculate position synchronously before opening to avoid flicker
       if (useFixedPositioning && triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
