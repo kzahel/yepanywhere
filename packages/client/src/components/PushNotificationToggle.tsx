@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNotifyInApp } from "../hooks/useNotifyInApp";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+import {
+  PUSH_ERROR_DEV_MODE_DISABLED,
+  PUSH_ERROR_INSECURE_CONTEXT,
+} from "../hooks/pushSupport";
 import { useI18n } from "../i18n";
 
 export type TestNotificationUrgency = "normal" | "persistent" | "silent";
@@ -36,15 +40,20 @@ export function PushNotificationToggle() {
   // Not supported - show message with reason and help link
   if (!isSupported) {
     // Check if this is specifically the dev mode SW disabled case
-    const isDevModeDisabled = error?.includes(
-      "Service worker disabled in dev mode",
-    );
+    const isDevModeDisabled = error === PUSH_ERROR_DEV_MODE_DISABLED;
+    const isInsecureContext = error === PUSH_ERROR_INSECURE_CONTEXT;
 
     return (
       <div className="settings-item">
         <div className="settings-item-info">
           <strong>{t("pushToggleTitle")}</strong>
           <p>{error || t("pushToggleUnsupported")}</p>
+          {isInsecureContext && (
+            <div className="settings-info-box" style={{ marginTop: "0.5rem" }}>
+              <p>{t("pushToggleSecureContextHint")}</p>
+              <p>{t("pushToggleSecureContextAction")}</p>
+            </div>
+          )}
           {isDevModeDisabled && (
             <div className="settings-info-box" style={{ marginTop: "0.5rem" }}>
               <p>{t("pushToggleThisDeviceOnly")}</p>

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
+import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
 import { ProjectScanner } from "../../src/projects/scanner.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
@@ -306,5 +307,44 @@ describe("ProjectScanner cache", () => {
       path: "/home/user/project-one",
       hasCodexSessions: true,
     });
+  });
+
+  it("hides discovered projects and suppresses the home fallback once hidden", async () => {
+    const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
+    const metadataDir = join(tmpdir(), `project-metadata-${randomUUID()}`);
+    tempDirs.push(projectsDir, metadataDir);
+
+    await createClaudeProject(
+      projectsDir,
+      "localhost",
+      "/home/user/project-one",
+      "sess-1",
+    );
+
+    const metadataService = new ProjectMetadataService({ dataDir: metadataDir });
+    await metadataService.initialize();
+    await metadataService.hideProject(
+      encodeProjectId("/home/user/project-one"),
+      "/home/user/project-one",
+    );
+
+    const scanner = new ProjectScanner({
+      projectsDir,
+      enableCodex: false,
+      enableGemini: false,
+      projectMetadataService: metadataService,
+    });
+
+    expect(await scanner.listProjects()).toEqual([]);
+
+    await metadataService.addProject(
+      encodeProjectId("/home/user/project-one"),
+      "/home/user/project-one",
+    );
+    scanner.invalidateCache();
+
+    const restored = await scanner.listProjects();
+    expect(restored).toHaveLength(1);
+    expect(restored[0]?.path).toBe("/home/user/project-one");
   });
 });

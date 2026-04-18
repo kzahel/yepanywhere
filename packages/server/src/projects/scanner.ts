@@ -207,8 +207,17 @@ export class ProjectScanner {
   private async scanProjects(): Promise<Project[]> {
     const projects: Project[] = [];
     const seenPaths = new Set<string>();
+    const hiddenPaths = new Set<string>();
     // Map from normalized path to project index for cross-machine dedup
     const normalizedIndex = new Map<string, number>();
+
+    if (this.projectMetadataService) {
+      for (const metadata of Object.values(
+        this.projectMetadataService.getAllHiddenProjects(),
+      )) {
+        hiddenPaths.add(canonicalizeProjectPath(metadata.path));
+      }
+    }
 
     // ~/.claude/projects/ can have two structures:
     // 1. Projects directly as -home-user-project/
@@ -231,6 +240,7 @@ export class ProjectScanner {
       lastActivity: string | null,
     ) => {
       const projectPath = canonicalizeProjectPath(rawProjectPath);
+      if (hiddenPaths.has(projectPath)) return;
       if (seenPaths.has(projectPath)) return; // exact path duplicate
       seenPaths.add(projectPath);
 
@@ -338,6 +348,7 @@ export class ProjectScanner {
       const codexProjects = await this.codexScanner.listProjects();
       for (const codexProject of codexProjects) {
         const projectPath = canonicalizeProjectPath(codexProject.path);
+        if (hiddenPaths.has(projectPath)) continue;
         const existing = projects.find(
           (project) => canonicalizeProjectPath(project.path) === projectPath,
         );
@@ -365,6 +376,7 @@ export class ProjectScanner {
       const geminiProjects = await this.geminiScanner.listProjects();
       for (const geminiProject of geminiProjects) {
         const projectPath = canonicalizeProjectPath(geminiProject.path);
+        if (hiddenPaths.has(projectPath)) continue;
         const existing = projects.find(
           (project) => canonicalizeProjectPath(project.path) === projectPath,
         );
@@ -389,6 +401,7 @@ export class ProjectScanner {
       const addedProjects = this.projectMetadataService.getAllProjects();
       for (const metadata of Object.values(addedProjects)) {
         const projectPath = canonicalizeProjectPath(metadata.path);
+        if (hiddenPaths.has(projectPath)) continue;
         // Skip if we've already seen this path from another source
         if (seenPaths.has(projectPath)) continue;
 
@@ -422,7 +435,13 @@ export class ProjectScanner {
     // Fallback: if no projects were found from any source, include the user's
     // home directory so sessions can always be created even if detection is broken
     if (projects.length === 0) {
+      if (hiddenPaths.size > 0) {
+        return projects;
+      }
       const home = homedir();
+      if (hiddenPaths.has(home)) {
+        return projects;
+      }
       const encodedPath = home.replace(/[/\\:]/g, "-");
       projects.push({
         id: encodeProjectId(home),

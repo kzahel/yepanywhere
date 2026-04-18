@@ -321,6 +321,29 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     return c.json({ project });
   });
 
+  // DELETE /api/projects/:projectId - Hide a project from the visible list
+  routes.delete("/:projectId", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    if (!isUrlProjectId(projectId)) {
+      return c.json({ error: "Invalid project ID format" }, 400);
+    }
+
+    if (!deps.projectMetadataService) {
+      return c.json({ error: "Project removal is not supported" }, 501);
+    }
+
+    const project = await deps.scanner.getProject(projectId);
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    await deps.projectMetadataService.hideProject(projectId, project.path);
+    deps.scanner.invalidateCache();
+
+    return c.json({ removed: true, projectId });
+  });
+
   // GET /api/projects/:projectId/sessions - List sessions
   routes.get("/:projectId/sessions", async (c) => {
     const projectId = c.req.param("projectId");

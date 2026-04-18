@@ -8,6 +8,7 @@ import { useProjects } from "../hooks/useProjects";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
 import { useNavigationLayout } from "../layouts";
+import type { Project } from "../types";
 
 export function ProjectsPage() {
   const { t } = useI18n();
@@ -17,6 +18,10 @@ export function ProjectsPage() {
   const [newProjectPath, setNewProjectPath] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [removingProjectId, setRemovingProjectId] = useState<string | null>(
+    null,
+  );
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const navigate = useNavigate();
   const basePath = useRemoteBasePath();
 
@@ -66,6 +71,7 @@ export function ProjectsPage() {
 
     setAdding(true);
     setAddError(null);
+    setRemoveError(null);
 
     try {
       const { project } = await api.addProject(newProjectPath.trim());
@@ -78,6 +84,29 @@ export function ProjectsPage() {
       setAddError(err instanceof Error ? err.message : t("projectsAddFailed"));
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handleRemoveProject = async (project: Project) => {
+    const confirmed = confirm(
+      t("projectsRemoveConfirm", { name: project.name }),
+    );
+    if (!confirmed) return;
+
+    setRemovingProjectId(project.id);
+    setRemoveError(null);
+
+    try {
+      await api.deleteProject(project.id);
+      await refetch();
+    } catch (err) {
+      setRemoveError(
+        err instanceof Error ? err.message : t("projectsRemoveFailed"),
+      );
+    } finally {
+      setRemovingProjectId((current) =>
+        current === project.id ? null : current,
+      );
     }
   };
 
@@ -171,6 +200,9 @@ export function ProjectsPage() {
                 </form>
               )}
             </div>
+            {removeError && (
+              <div className="add-project-error">{removeError}</div>
+            )}
 
             {isEmpty ? (
               <div className="inbox-empty">
@@ -201,6 +233,8 @@ export function ProjectsPage() {
                     }
                     thinkingCount={thinkingByProject.get(project.id) ?? 0}
                     basePath={basePath}
+                    onRemove={handleRemoveProject}
+                    removing={removingProjectId === project.id}
                   />
                 ))}
               </ul>

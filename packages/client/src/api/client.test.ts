@@ -33,3 +33,36 @@ describe("api.updateServerSettings", () => {
     expect(request?.body).toBe(JSON.stringify({ globalInstructions: null }));
   });
 });
+
+describe("api.deleteProject", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        removed: true,
+        projectId: "proj-123",
+      }),
+    } as Response);
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState({}, "", "/");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends a DELETE request to the project endpoint", async () => {
+    await api.deleteProject("proj-123");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/proj-123",
+      expect.objectContaining({
+        method: "DELETE",
+      }),
+    );
+  });
+});

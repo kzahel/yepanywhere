@@ -16,14 +16,23 @@ export interface ProjectMetadata {
   addedAt: string;
 }
 
+export interface HiddenProjectMetadata {
+  /** The absolute path to the project directory */
+  path: string;
+  /** When the project was hidden */
+  hiddenAt: string;
+}
+
 export interface ProjectMetadataState {
   /** Map of projectId -> metadata */
   projects: Record<string, ProjectMetadata>;
+  /** Map of projectId -> hidden metadata */
+  hiddenProjects: Record<string, HiddenProjectMetadata>;
   /** Schema version for future migrations */
   version: number;
 }
 
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 export interface ProjectMetadataServiceOptions {
   /** Directory to store metadata state (defaults to ~/.yep-anywhere) */
@@ -45,7 +54,11 @@ export class ProjectMetadataService {
         ".yep-anywhere",
       );
     this.filePath = path.join(this.dataDir, "project-metadata.json");
-    this.state = { projects: {}, version: CURRENT_VERSION };
+    this.state = {
+      projects: {},
+      hiddenProjects: {},
+      version: CURRENT_VERSION,
+    };
   }
 
   /**
@@ -66,14 +79,12 @@ export class ProjectMetadataService {
       );
 
       // Validate and migrate if needed
-      if (parsed.version === CURRENT_VERSION) {
-        this.state = this.normalizeState(parsed);
-      } else {
-        // Future: handle migrations here
-        this.state = this.normalizeState({
-          projects: parsed.projects ?? {},
-          version: CURRENT_VERSION,
-        });
+      this.state = this.normalizeState({
+        projects: parsed.projects ?? {},
+        hiddenProjects: parsed.hiddenProjects ?? {},
+        version: CURRENT_VERSION,
+      });
+      if (parsed.version !== CURRENT_VERSION) {
         await this.save();
       }
     } catch (error) {
@@ -84,7 +95,11 @@ export class ProjectMetadataService {
           error,
         );
       }
-      this.state = { projects: {}, version: CURRENT_VERSION };
+      this.state = {
+        projects: {},
+        hiddenProjects: {},
+        version: CURRENT_VERSION,
+      };
     }
   }
 
@@ -103,14 +118,24 @@ export class ProjectMetadataService {
   }
 
   /**
+   * Get all hidden projects.
+   */
+  getAllHiddenProjects(): Record<string, HiddenProjectMetadata> {
+    return { ...this.state.hiddenProjects };
+  }
+
+  /**
    * Add a project. The projectId should be a UrlProjectId (base64url encoded path).
+   * If the project was previously hidden, restore it to the visible list.
    */
   async addProject(projectId: string, projectPath: string): Promise<void> {
     const canonicalPath = canonicalizeProjectPath(projectPath);
     const canonicalProjectId = encodeProjectId(canonicalPath);
     if (projectId !== canonicalProjectId) {
       delete this.state.projects[projectId];
+      delete this.state.hiddenProjects[projectId];
     }
+    delete this.state.hiddenProjects[canonicalProjectId];
     this.state.projects[canonicalProjectId] = {
       path: canonicalPath,
       addedAt: new Date().toISOString(),
@@ -130,10 +155,33 @@ export class ProjectMetadataService {
   }
 
   /**
+   * Hide a project from the list without deleting its sessions from disk.
+   */
+  async hideProject(projectId: string, projectPath: string): Promise<void> {
+    const canonicalPath = canonicalizeProjectPath(projectPath);
+    const canonicalProjectId = encodeProjectId(canonicalPath);
+    delete this.state.projects[projectId];
+    delete this.state.projects[canonicalProjectId];
+    delete this.state.hiddenProjects[projectId];
+    this.state.hiddenProjects[canonicalProjectId] = {
+      path: canonicalPath,
+      hiddenAt: new Date().toISOString(),
+    };
+    await this.save();
+  }
+
+  /**
    * Check if a project was manually added.
    */
   isAddedProject(projectId: string): boolean {
     return projectId in this.state.projects;
+  }
+
+  /**
+   * Check if a project is hidden from the visible project list.
+   */
+  isHiddenProject(projectId: string): boolean {
+    return projectId in this.state.hiddenProjects;
   }
 
   /**
@@ -176,6 +224,7 @@ export class ProjectMetadataService {
 
   private normalizeState(state: ProjectMetadataState): ProjectMetadataState {
     const projects: Record<string, ProjectMetadata> = {};
+    const hiddenProjects: Record<string, HiddenProjectMetadata> = {};
 
     for (const [projectId, metadata] of Object.entries(state.projects ?? {})) {
       const canonicalPath = canonicalizeProjectPath(metadata.path);
@@ -200,8 +249,34 @@ export class ProjectMetadataService {
       }
     }
 
+    for (const [projectId, metadata] of Object.entries(
+      state.hiddenProjects ?? {},
+    )) {
+      const canonicalPath = canonicalizeProjectPath(metadata.path);
+      const canonicalProjectId = encodeProjectId(canonicalPath);
+      const existing = hiddenProjects[canonicalProjectId];
+
+      if (
+        !existing ||
+        new Date(metadata.hiddenAt).getTime() >
+          new Date(existing.hiddenAt).getTime()
+      ) {
+        hiddenProjects[canonicalProjectId] = {
+          path: canonicalPath,
+          hiddenAt: metadata.hiddenAt,
+        };
+      }
+
+      if (projectId !== canonicalProjectId) {
+        console.log(
+          `[ProjectMetadataService] Canonicalized hidden project metadata key ${projectId} -> ${canonicalProjectId}`,
+        );
+      }
+    }
+
     return {
       projects,
+      hiddenProjects,
       version: CURRENT_VERSION,
     };
   }

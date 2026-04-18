@@ -626,6 +626,13 @@ h2 {
   white-space: nowrap;
 }
 
+.project-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .project-card__attention-badge {
   display: inline-flex;
   align-items: center;
@@ -641,7 +648,8 @@ h2 {
   flex-shrink: 0;
 }
 
-.project-card__new-session {
+.project-card__new-session,
+.project-card__remove {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -657,10 +665,28 @@ h2 {
   transition: all 0.15s ease;
 }
 
-.project-card__new-session:hover {
+.project-card__new-session:hover,
+.project-card__remove:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
   border-color: var(--text-muted);
+}
+
+.project-card__new-session:disabled,
+.project-card__remove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.project-card__remove {
+  color: var(--error-color);
+  border-color: color-mix(in srgb, var(--error-color) 35%, var(--border-input));
+}
+
+.project-card__remove:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error-color) 10%, var(--bg-hover));
+  color: var(--error-color);
+  border-color: var(--error-color);
 }
 
 .project-card__meta {

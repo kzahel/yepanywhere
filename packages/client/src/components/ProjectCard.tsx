@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useI18n } from "../i18n";
 import { shortenPath } from "../lib/text";
 import type { Project } from "../types";
 import { ThinkingIndicator } from "./ThinkingIndicator";
@@ -11,6 +12,10 @@ interface ProjectCardProps {
   thinkingCount: number;
   /** Base path prefix for relay mode (e.g., "/remote/my-server") */
   basePath?: string;
+  /** Hide/remove this project from the visible list */
+  onRemove?: (project: Project) => void;
+  /** Whether this project is currently being removed */
+  removing?: boolean;
 }
 
 /**
@@ -40,13 +45,22 @@ export function ProjectCard({
   needsAttentionCount,
   thinkingCount,
   basePath = "",
+  onRemove,
+  removing = false,
 }: ProjectCardProps) {
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const handleNewSession = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     navigate(`${basePath}/new-session?projectId=${project.id}`);
+  };
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRemove?.(project);
   };
 
   return (
@@ -64,27 +78,59 @@ export function ProjectCard({
             )}
             {project.name}
           </strong>
-          <button
-            type="button"
-            className="project-card__new-session"
-            onClick={handleNewSession}
-            title="New session"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          <div className="project-card__actions">
+            <button
+              type="button"
+              className="project-card__new-session"
+              onClick={handleNewSession}
+              title={t("projectsNewSession")}
+              aria-label={t("projectsNewSession")}
+              disabled={removing}
             >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            {onRemove && (
+              <button
+                type="button"
+                className="project-card__remove"
+                onClick={handleRemove}
+                title={removing ? t("projectsRemoving") : t("projectsRemove")}
+                aria-label={t("projectsRemove")}
+                disabled={removing}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         <div className="project-card__meta">
           <span className="project-card__path" title={project.path}>
