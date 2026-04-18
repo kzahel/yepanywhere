@@ -24,6 +24,7 @@ import { HostOfflineModal } from "./components/HostOfflineModal";
 import { ReloadBanner } from "./components/ReloadBanner";
 import { Modal } from "./components/ui/Modal";
 import { InboxProvider, useInboxContext } from "./contexts/InboxContext";
+import { InstallIdProvider } from "./contexts/InstallIdContext";
 import {
   RemoteConnectionProvider,
   useRemoteConnection,
@@ -240,13 +241,15 @@ export function RemoteApp({ children }: Props) {
 
   return (
     <ToastProvider>
-      <RemoteConnectionProvider>
-        <InboxProvider initialEnabled={false}>
-          <SchemaValidationProvider>
-            <RemoteAppInner>{children}</RemoteAppInner>
-          </SchemaValidationProvider>
-        </InboxProvider>
-      </RemoteConnectionProvider>
+      <InstallIdProvider>
+        <RemoteConnectionProvider>
+          <InboxProvider initialEnabled={false}>
+            <SchemaValidationProvider>
+              <RemoteAppInner>{children}</RemoteAppInner>
+            </SchemaValidationProvider>
+          </InboxProvider>
+        </RemoteConnectionProvider>
+      </InstallIdProvider>
     </ToastProvider>
   );
 }

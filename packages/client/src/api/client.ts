@@ -569,6 +569,15 @@ export const api = {
       models: Array<{ id: string; name: string; description?: string }>;
     }>(`/processes/${processId}/models`),
 
+  getProcessCommands: (processId: string) =>
+    fetchJSON<{
+      commands: Array<{
+        name: string;
+        description: string;
+        argumentHint?: string;
+      }>;
+    }>(`/processes/${processId}/commands`),
+
   setProcessModel: (processId: string, model?: string) =>
     fetchJSON<{ success: boolean; model?: string }>(
       `/processes/${processId}/model`,

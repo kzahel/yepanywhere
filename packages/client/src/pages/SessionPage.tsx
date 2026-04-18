@@ -1238,7 +1238,9 @@ function SessionPageContent({
                 onAttach={handleAttach}
                 onRemoveAttachment={handleRemoveAttachment}
                 uploadProgress={uploadProgress}
-                slashCommands={status.owner === "self" ? allSlashCommands : []}
+                slashCommands={
+                  status.owner === "external" ? [] : allSlashCommands
+                }
                 onCustomCommand={handleCustomCommand}
               />
             )}

@@ -24,7 +24,7 @@ const InstallIdContext = createContext<InstallIdContextValue>({
  * Provider that fetches and provides the server's installation ID.
  *
  * This should wrap the app (or the part of the app that needs server-scoped storage).
- * On mount, it fetches /api/server-info to get the installId.
+ * On mount, it fetches /server-info via the active connection to get the installId.
  */
 export function InstallIdProvider({ children }: { children: ReactNode }) {
   const connection = useConnection();
@@ -40,7 +40,7 @@ export function InstallIdProvider({ children }: { children: ReactNode }) {
           installId?: string;
           host: string;
           port: number;
-        }>("/api/server-info");
+        }>("/server-info");
 
         if (!cancelled && response.installId) {
           setInstallId(response.installId);

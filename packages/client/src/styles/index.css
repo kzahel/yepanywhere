@@ -2183,6 +2183,23 @@ a.sidebar-nav-item {
   flex-shrink: 0;
 }
 
+@media (max-width: 480px) {
+  .message-input-toolbar {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .message-input-left {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+
+  .message-input-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 .send-button,
 .stop-button,
 .queue-button {

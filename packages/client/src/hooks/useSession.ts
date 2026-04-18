@@ -4,7 +4,7 @@ import {
   getModelContextWindow,
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../api/client";
+import { api, fetchJSON } from "../api/client";
 import { getMessageId } from "../lib/mergeMessages";
 import { findPendingTasks } from "../lib/pendingTasks";
 import { extractSessionIdFromFileEvent } from "../lib/sessionFile";
@@ -21,6 +21,7 @@ import {
   type SessionUpdatedEvent,
   useFileActivity,
 } from "./useFileActivity";
+import { useInstallId } from "../contexts/InstallIdContext";
 import {
   type AgentContentMap,
   type SessionLoadResult,
@@ -32,6 +33,10 @@ import {
   type StreamingMarkdownCallbacks,
   useStreamingContent,
 } from "./useStreamingContent";
+import {
+  getCachedSlashCommands,
+  setCachedSlashCommands,
+} from "./slashCommandCache";
 
 export type ProcessState = "idle" | "in-turn" | "waiting-input" | "hold";
 
@@ -94,6 +99,7 @@ export function useSession(
   initialStatus?: { owner: "self"; processId: string },
   streamingMarkdownCallbacks?: StreamingMarkdownCallbacks,
 ) {
+  const { installId, isLoading: isInstallIdLoading } = useInstallId();
   // Use initial status if provided (from navigation state) to connect stream immediately
   const [status, setStatus] = useState<SessionStatus>(
     initialStatus ?? { owner: "none" },
@@ -157,6 +163,58 @@ export function useSession(
   // MCP servers available for this session (from init message)
   const [mcpServers, setMcpServers] = useState<string[]>([]);
   const lastKnownModeVersionRef = useRef<number>(0);
+  const slashHydrationAttemptRef = useRef<string | null>(null);
+
+  const hydrateSlashCommands = useCallback(
+    async (
+      provider: string | undefined,
+      ownership: SessionStatus,
+      commandsFromServer?:
+        | Array<{
+            name: string;
+            description: string;
+            argumentHint?: string;
+          }>
+        | null,
+    ) => {
+      if (commandsFromServer?.length) {
+        const commandNames = commandsFromServer.map((command) => command.name);
+        setSlashCommands(commandNames);
+        setCachedSlashCommands(provider, commandNames);
+        return;
+      }
+
+      const cached = getCachedSlashCommands(provider);
+      if (cached.length > 0) {
+        setSlashCommands(cached);
+        return;
+      }
+
+      if (ownership.owner === "external" || !provider) {
+        return;
+      }
+
+      try {
+        const processes = await fetchJSON<{
+          processes: Array<{ id: string; provider?: string }>;
+        }>("/processes");
+        const matchingProcess = processes.processes.find(
+          (process) => process.provider === provider,
+        );
+        if (!matchingProcess) return;
+
+        const result = await api.getProcessCommands(matchingProcess.id);
+        const commandNames = result.commands.map((command) => command.name);
+        if (commandNames.length > 0) {
+          setSlashCommands(commandNames);
+          setCachedSlashCommands(provider, commandNames);
+        }
+      } catch {
+        // Ignore slash command hydration failures.
+      }
+    },
+    [],
+  );
 
   // Apply server mode update only if version is >= our last known version
   // This syncs both local and server mode to the confirmed value
@@ -208,11 +266,13 @@ export function useSession(
       }
       // Set slash commands from API response so the "/" button appears reliably
       // (the SSE init message that normally carries these is discarded after ~30s)
-      if (result.slashCommands?.length) {
-        setSlashCommands(result.slashCommands.map((c) => c.name));
-      }
+      void hydrateSlashCommands(
+        result.session.provider,
+        result.status,
+        result.slashCommands,
+      );
     },
-    [applyServerModeUpdate],
+    [applyServerModeUpdate, hydrateSlashCommands],
   );
 
   // Handle initial load error
@@ -246,6 +306,37 @@ export function useSession(
     onLoadComplete: handleLoadComplete,
     onLoadError: handleLoadError,
   });
+
+  useEffect(() => {
+    if (isInstallIdLoading || status.owner === "external") {
+      return;
+    }
+
+    const provider = session?.provider;
+    if (!provider || slashCommands.length > 0) {
+      return;
+    }
+
+    const attemptKey = [
+      sessionId,
+      provider,
+      installId ?? "pending-install-id",
+      status.owner,
+    ].join(":");
+    if (slashHydrationAttemptRef.current === attemptKey) {
+      return;
+    }
+    slashHydrationAttemptRef.current = attemptKey;
+    void hydrateSlashCommands(provider, status);
+  }, [
+    hydrateSlashCommands,
+    installId,
+    isInstallIdLoading,
+    session?.provider,
+    sessionId,
+    slashCommands.length,
+    status,
+  ]);
 
   // Update local mode (UI selection) and sync to server if process is active
   const setPermissionMode = useCallback(
@@ -729,7 +820,9 @@ export function useSession(
         // Extract slash_commands, tools, and mcp_servers from init messages
         if (msgType === "system" && sdkMessage.subtype === "init") {
           if (Array.isArray(sdkMessage.slash_commands)) {
-            setSlashCommands(sdkMessage.slash_commands as string[]);
+            const commandNames = sdkMessage.slash_commands as string[];
+            setSlashCommands(commandNames);
+            setCachedSlashCommands(session?.provider, commandNames);
           }
           if (Array.isArray(sdkMessage.tools)) {
             setSessionTools(sdkMessage.tools as string[]);

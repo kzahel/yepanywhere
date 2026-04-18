@@ -6,6 +6,7 @@ import { ReloadBanner } from "./components/ReloadBanner";
 import { OnboardingWizard } from "./components/onboarding";
 import { AuthProvider } from "./contexts/AuthContext";
 import { InboxProvider, useInboxContext } from "./contexts/InboxContext";
+import { InstallIdProvider } from "./contexts/InstallIdContext";
 import { SchemaValidationProvider } from "./contexts/SchemaValidationContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { useActivityBusConnection } from "./hooks/useActivityBusConnection";
@@ -90,16 +91,18 @@ export function App({ children }: Props) {
   return (
     <I18nProvider>
       <ToastProvider>
-        <AuthProvider>
-          <InboxProvider initialEnabled={false}>
-            <SchemaValidationProvider>
-              <AppContent>{children}</AppContent>
-              {!isLoading && showWizard && (
-                <OnboardingWizard onComplete={completeOnboarding} />
-              )}
-            </SchemaValidationProvider>
-          </InboxProvider>
-        </AuthProvider>
+        <InstallIdProvider>
+          <AuthProvider>
+            <InboxProvider initialEnabled={false}>
+              <SchemaValidationProvider>
+                <AppContent>{children}</AppContent>
+                {!isLoading && showWizard && (
+                  <OnboardingWizard onComplete={completeOnboarding} />
+                )}
+              </SchemaValidationProvider>
+            </InboxProvider>
+          </AuthProvider>
+        </InstallIdProvider>
       </ToastProvider>
     </I18nProvider>
   );
