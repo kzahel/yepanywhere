@@ -388,7 +388,6 @@ export const api = {
         method: "POST",
       },
     ),
-
   getProject: (projectId: string) =>
     fetchJSON<{ project: Project }>(`/projects/${projectId}`),
 
