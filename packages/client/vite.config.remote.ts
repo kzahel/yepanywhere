@@ -32,6 +32,12 @@ const remoteDevPort = process.env.REMOTE_PORT
 // In watch mode (staging), don't empty the output dir to avoid race conditions
 const isWatchMode = process.argv.includes("--watch");
 
+// Base path for built assets. Defaults to "/" (for deployment at the server root,
+// e.g. GitHub Pages). Self-hosters who serve the remote SPA under a sub-path
+// (e.g. https://example.com/remote/) should build with VITE_BASE=/remote/ so the
+// emitted HTML references /remote/assets/* instead of /assets/*. See issue #27.
+const basePath = process.env.VITE_BASE || "/";
+
 /**
  * Plugin to serve remote.html instead of index.html in dev mode.
  * This makes the dev server behave like the production build.
@@ -64,6 +70,7 @@ function serveRemoteHtml(): Plugin {
 
 export default defineConfig({
   clearScreen: false,
+  base: basePath,
   plugins: [serveRemoteHtml(), react(), cspPlugin({ isRemote: true })],
   resolve: {
     conditions: ["source"],

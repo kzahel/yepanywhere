@@ -20,7 +20,7 @@ yepanywhere --setup-remote-access --username myserver --password "secretpass123"
 - Your yepanywhere server connects to our public relay
 - Your phone connects to the same relay and authenticates with SRP-6a (zero-knowledge password proof)
 - All traffic is end-to-end encrypted with TweetNaCl — the relay only sees opaque blobs
-- You can [run your own relay](relay-design.md) if you prefer
+- You can [run your own relay](self-hosted-relay.md) if you prefer (full end-to-end self-hosted setup)
 
 **Security:**
 - The relay never sees your password or session keys
