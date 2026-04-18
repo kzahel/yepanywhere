@@ -85,4 +85,28 @@ describe("Recents Routes", () => {
       "proj-1",
     );
   });
+
+  it("skips recent entries for hidden projects that are no longer listed", async () => {
+    const routes = createRecentsRoutes({
+      recentsService: {
+        getRecentsWithLimit: vi.fn(() => [
+          {
+            sessionId: "sess-1",
+            projectId: "proj-hidden",
+            visitedAt: new Date("2026-03-10T09:47:00.000Z").toISOString(),
+          },
+        ]),
+      } as unknown as RecentsService,
+      scanner: {
+        listProjects: vi.fn(async () => []),
+      } as unknown as ProjectScanner,
+      readerFactory: vi.fn(),
+    });
+
+    const response = await routes.request("/");
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.recents).toEqual([]);
+  });
 });

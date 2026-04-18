@@ -74,4 +74,33 @@ describe("prewarmProjectSessions", () => {
     expect(warmProject).toHaveBeenCalledTimes(2);
     expect(warmProject.mock.calls[1]?.[0].id).toBe("second");
   });
+
+  it("prioritizes recent and frequently visited projects ahead of pure lastActivity ordering", async () => {
+    const projects = [
+      createProject("cold", "/work/cold", "2026-04-17T00:00:00.000Z"),
+      createProject(
+        "playgrounds",
+        "/work/playgrounds",
+        "2026-04-15T00:00:00.000Z",
+      ),
+      createProject("ghost", "/work/ghost", "2026-04-16T00:00:00.000Z"),
+    ];
+
+    const warmed: string[] = [];
+
+    await prewarmProjectSessions({
+      listProjects: async () => projects,
+      buildProviderCatalog: async () => ({
+        codexPaths: new Set<string>(),
+        geminiPaths: new Set<string>(),
+      }),
+      warmProject: async (project) => {
+        warmed.push(project.id);
+      },
+      recentProjectIds: ["playgrounds", "ghost", "playgrounds"],
+      limit: 2,
+    });
+
+    expect(warmed).toEqual(["playgrounds", "ghost"]);
+  });
 });

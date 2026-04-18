@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { PageHeader } from "../components/PageHeader";
@@ -8,6 +8,23 @@ import { useProjects } from "../hooks/useProjects";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
 import { useNavigationLayout } from "../layouts";
+import { emitProjectsChanged } from "../lib/projectEvents";
+import type { HiddenProject, Project } from "../types";
+
+function formatRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
 
 export function ProjectsPage() {
   const { t } = useI18n();
@@ -17,11 +34,41 @@ export function ProjectsPage() {
   const [newProjectPath, setNewProjectPath] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [removingProjectId, setRemovingProjectId] = useState<string | null>(
+    null,
+  );
+  const [hiddenProjects, setHiddenProjects] = useState<HiddenProject[]>([]);
+  const [loadingHiddenProjects, setLoadingHiddenProjects] = useState(true);
+  const [showHiddenProjects, setShowHiddenProjects] = useState(false);
+  const [restoringProjectId, setRestoringProjectId] = useState<string | null>(
+    null,
+  );
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const navigate = useNavigate();
   const basePath = useRemoteBasePath();
 
   const { openSidebar, isWideScreen, toggleSidebar, isSidebarCollapsed } =
     useNavigationLayout();
+
+  const loadHiddenProjects = useCallback(async () => {
+    setLoadingHiddenProjects(true);
+    try {
+      const data = await api.getHiddenProjects();
+      setHiddenProjects(data.projects);
+    } catch (err) {
+      setRemoveError(
+        err instanceof Error
+          ? err.message
+          : t("projectsHiddenLoadFailed"),
+      );
+    } finally {
+      setLoadingHiddenProjects(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadHiddenProjects();
+  }, [loadHiddenProjects]);
 
   // Count needs-attention items per project (client-side filter - free)
   const attentionByProject = useMemo(() => {
@@ -66,10 +113,13 @@ export function ProjectsPage() {
 
     setAdding(true);
     setAddError(null);
+    setRemoveError(null);
 
     try {
       const { project } = await api.addProject(newProjectPath.trim());
       await refetch();
+      await loadHiddenProjects();
+      emitProjectsChanged();
       setNewProjectPath("");
       setShowAddForm(false);
       // Navigate to sessions filtered by the new project
@@ -78,6 +128,53 @@ export function ProjectsPage() {
       setAddError(err instanceof Error ? err.message : t("projectsAddFailed"));
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handleRemoveProject = async (project: Project) => {
+    const confirmed = confirm(
+      t("projectsRemoveConfirm", { name: project.name }),
+    );
+    if (!confirmed) return;
+
+    setRemovingProjectId(project.id);
+    setRemoveError(null);
+
+    try {
+      await api.deleteProject(project.id);
+      await refetch();
+      await loadHiddenProjects();
+      emitProjectsChanged();
+      setShowHiddenProjects(true);
+    } catch (err) {
+      setRemoveError(
+        err instanceof Error ? err.message : t("projectsRemoveFailed"),
+      );
+    } finally {
+      setRemovingProjectId((current) =>
+        current === project.id ? null : current,
+      );
+    }
+  };
+
+  const handleRestoreProject = async (project: HiddenProject) => {
+    setRestoringProjectId(project.id);
+    setRemoveError(null);
+
+    try {
+      const { project: restoredProject } = await api.restoreProject(project.id);
+      await refetch();
+      await loadHiddenProjects();
+      emitProjectsChanged();
+      navigate(`${basePath}/sessions?project=${restoredProject.id}`);
+    } catch (err) {
+      setRemoveError(
+        err instanceof Error ? err.message : t("projectsRestoreFailed"),
+      );
+    } finally {
+      setRestoringProjectId((current) =>
+        current === project.id ? null : current,
+      );
     }
   };
 
@@ -171,6 +268,68 @@ export function ProjectsPage() {
                 </form>
               )}
             </div>
+            {removeError && (
+              <div className="add-project-error">{removeError}</div>
+            )}
+            <section className="hidden-projects-panel">
+              <button
+                type="button"
+                className="hidden-projects-toggle"
+                onClick={() => setShowHiddenProjects((current) => !current)}
+                aria-expanded={showHiddenProjects}
+              >
+                <span>
+                  {t("projectsHiddenSectionTitle", {
+                    count: hiddenProjects.length,
+                  })}
+                </span>
+                <span className="hidden-projects-toggle__icon">
+                  {showHiddenProjects ? "−" : "+"}
+                </span>
+              </button>
+              {showHiddenProjects && (
+                <div className="hidden-projects-body">
+                  <p className="hidden-projects-description">
+                    {t("projectsHiddenSectionDescription")}
+                  </p>
+                  {loadingHiddenProjects ? (
+                    <div className="hidden-projects-loading">
+                      {t("projectsHiddenLoading")}
+                    </div>
+                  ) : hiddenProjects.length === 0 ? (
+                    <div className="hidden-projects-loading">
+                      {t("projectsHiddenEmpty")}
+                    </div>
+                  ) : (
+                    <ul className="hidden-projects-list">
+                      {hiddenProjects.map((project) => (
+                        <li key={project.id} className="hidden-projects-item">
+                          <div className="hidden-projects-item__content">
+                            <strong>{project.name}</strong>
+                            <span title={project.path}>{project.path}</span>
+                            <span>
+                              {t("projectsHiddenAt", {
+                                time: formatRelativeTime(project.hiddenAt),
+                              })}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="hidden-projects-item__restore"
+                            onClick={() => handleRestoreProject(project)}
+                            disabled={restoringProjectId === project.id}
+                          >
+                            {restoringProjectId === project.id
+                              ? t("projectsRestoring")
+                              : t("projectsRestore")}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </section>
 
             {isEmpty ? (
               <div className="inbox-empty">
@@ -201,6 +360,8 @@ export function ProjectsPage() {
                     }
                     thinkingCount={thinkingByProject.get(project.id) ?? 0}
                     basePath={basePath}
+                    onRemove={handleRemoveProject}
+                    removing={removingProjectId === project.id}
                   />
                 ))}
               </ul>

@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
@@ -9,7 +10,9 @@ describe("ProjectMetadataService", () => {
   let service: ProjectMetadataService;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join("/tmp", "project-metadata-test-"));
+    tempDir = await fs.mkdtemp(
+      path.join(tmpdir(), "project-metadata-test-"),
+    );
     service = new ProjectMetadataService({ dataDir: tempDir });
     await service.initialize();
   });
@@ -133,6 +136,36 @@ describe("ProjectMetadataService", () => {
     });
   });
 
+  describe("hideProject", () => {
+    it("hides a project without deleting its sessions from disk", async () => {
+      const projectPath = "/home/user/code/project1";
+      const projectId = encodeProjectId(projectPath);
+      await service.hideProject(projectId, projectPath);
+
+      expect(service.getMetadata(projectId)).toBeUndefined();
+      expect(service.getAllHiddenProjects()[projectId]).toEqual(
+        expect.objectContaining({
+          path: projectPath,
+        }),
+      );
+    });
+
+    it("restores a hidden project when it is added again", async () => {
+      const projectPath = "/home/user/code/project1";
+      const projectId = encodeProjectId(projectPath);
+      await service.hideProject(projectId, projectPath);
+
+      await service.addProject(projectId, projectPath);
+
+      expect(service.getAllHiddenProjects()[projectId]).toBeUndefined();
+      expect(service.getMetadata(projectId)).toEqual(
+        expect.objectContaining({
+          path: projectPath,
+        }),
+      );
+    });
+  });
+
   describe("isAddedProject", () => {
     it("returns true for added projects", async () => {
       const projectId = encodeProjectId("/path1");
@@ -151,6 +184,20 @@ describe("ProjectMetadataService", () => {
       await service.addProject(projectId2, "/path2");
 
       const projects = service.getAllProjects();
+      expect(Object.keys(projects)).toHaveLength(2);
+      expect(projects[projectId1].path).toBe("/path1");
+      expect(projects[projectId2].path).toBe("/path2");
+    });
+  });
+
+  describe("getAllHiddenProjects", () => {
+    it("returns all hidden projects", async () => {
+      const projectId1 = encodeProjectId("/path1");
+      const projectId2 = encodeProjectId("/path2");
+      await service.hideProject(projectId1, "/path1");
+      await service.hideProject(projectId2, "/path2");
+
+      const projects = service.getAllHiddenProjects();
       expect(Object.keys(projects)).toHaveLength(2);
       expect(projects[projectId1].path).toBe("/path1");
       expect(projects[projectId2].path).toBe("/path2");

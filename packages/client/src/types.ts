@@ -161,3 +161,10 @@ export interface Project {
   activeExternalCount: number;
   lastActivity: string | null;
 }
+
+export interface HiddenProject {
+  id: string;
+  path: string;
+  name: string;
+  hiddenAt: string;
+}

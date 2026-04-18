@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
+import { subscribeProjectsChanged } from "../lib/projectEvents";
 import type { Project } from "../types";
 import { type SessionStatusEvent, useFileActivity } from "./useFileActivity";
 
@@ -109,6 +110,12 @@ export function useProjects() {
   useFileActivity({
     onSessionStatusChange: handleSessionStatusChange,
   });
+
+  useEffect(() => {
+    return subscribeProjectsChanged(() => {
+      void fetch();
+    });
+  }, [fetch]);
 
   // Cleanup debounce timer
   useEffect(() => {

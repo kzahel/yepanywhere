@@ -1,6 +1,7 @@
 import type { EnrichedRecentEntry } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
+import { subscribeProjectsChanged } from "../lib/projectEvents";
 
 export type { EnrichedRecentEntry };
 
@@ -54,6 +55,12 @@ export function useRecentSessions(): {
 
   useEffect(() => {
     fetchRecents();
+  }, [fetchRecents]);
+
+  useEffect(() => {
+    return subscribeProjectsChanged(() => {
+      void fetchRecents();
+    });
   }, [fetchRecents]);
 
   const recordVisit = useCallback(

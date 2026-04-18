@@ -18,6 +18,7 @@ import { authEvents } from "../lib/authEvents";
 import { getGlobalConnection, isRemoteClient } from "../lib/connection";
 import type {
   AgentSession,
+  HiddenProject,
   InputRequest,
   Message,
   PermissionMode,
@@ -358,6 +359,9 @@ export const api = {
 
   getProjects: () => fetchJSON<{ projects: Project[] }>("/projects"),
 
+  getHiddenProjects: () =>
+    fetchJSON<{ projects: HiddenProject[] }>("/projects/hidden"),
+
   /**
    * Add a project by file path.
    * Validates the path exists on disk and returns project info.
@@ -368,6 +372,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ path }),
     }),
+
+  deleteProject: (projectId: string) =>
+    fetchJSON<{ removed: boolean; projectId: string }>(
+      `/projects/${projectId}`,
+      {
+        method: "DELETE",
+      },
+    ),
+
+  restoreProject: (projectId: string) =>
+    fetchJSON<{ restored: boolean; project: Project }>(
+      `/projects/${projectId}/restore`,
+      {
+        method: "POST",
+      },
+    ),
 
   getProject: (projectId: string) =>
     fetchJSON<{ project: Project }>(`/projects/${projectId}`),

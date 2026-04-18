@@ -546,7 +546,7 @@ async function startServer() {
 
   const projectSessionPrewarmLimit = Math.max(
     0,
-    parseInt(process.env.PROJECT_SESSION_PREWARM_LIMIT ?? "10", 10) || 10,
+    parseInt(process.env.PROJECT_SESSION_PREWARM_LIMIT ?? "20", 10) || 20,
   );
 
   if (projectSessionPrewarmLimit > 0) {
@@ -564,6 +564,9 @@ async function startServer() {
               projects,
               geminiScanner: prewarmGeminiScanner,
             }),
+          recentProjectIds: recentsService
+            .getRecentsWithLimit(50)
+            .map((entry) => entry.projectId),
           warmProject: async (project, providerCatalog) => {
             await listSessionsAcrossProviders(
               project,

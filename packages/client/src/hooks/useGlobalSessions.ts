@@ -14,6 +14,7 @@ import {
   type SessionUpdatedEvent,
   useFileActivity,
 } from "./useFileActivity";
+import { subscribeProjectsChanged } from "../lib/projectEvents";
 
 const REFETCH_DEBOUNCE_MS = 500;
 
@@ -371,6 +372,12 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
     onSessionUpdated: handleSessionUpdated,
     onReconnect: fetch,
   });
+
+  useEffect(() => {
+    return subscribeProjectsChanged(() => {
+      void fetch();
+    });
+  }, [fetch]);
 
   // Initial fetch and refetch when options change
   useEffect(() => {

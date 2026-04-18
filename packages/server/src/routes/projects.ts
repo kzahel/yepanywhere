@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { basename } from "node:path";
 import { isUrlProjectId, toUrlProjectId } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import type { SessionIndexService } from "../indexes/index.js";
@@ -97,6 +98,22 @@ async function getProjectActivityCounts(
 
 export function createProjectsRoutes(deps: ProjectsDeps): Hono {
   const routes = new Hono();
+
+  const buildHiddenProjects = () => {
+    if (!deps.projectMetadataService) return [];
+
+    return Object.entries(deps.projectMetadataService.getAllHiddenProjects())
+      .map(([id, metadata]) => ({
+        id,
+        path: metadata.path,
+        name: basename(metadata.path),
+        hiddenAt: metadata.hiddenAt,
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.hiddenAt).getTime() - new Date(a.hiddenAt).getTime(),
+      );
+  };
 
   /**
    * Get owned sessions for a project that might not be in the file list yet.
@@ -253,6 +270,39 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     return c.json({ projects });
   });
 
+  // GET /api/projects/hidden - List hidden projects
+  routes.get("/hidden", async (c) => {
+    return c.json({ projects: buildHiddenProjects() });
+  });
+
+  // POST /api/projects/:projectId/restore - Restore a hidden project
+  routes.post("/:projectId/restore", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    if (!isUrlProjectId(projectId)) {
+      return c.json({ error: "Invalid project ID format" }, 400);
+    }
+
+    if (!deps.projectMetadataService) {
+      return c.json({ error: "Project restoration is not supported" }, 501);
+    }
+
+    const restoredPath = await deps.projectMetadataService.restoreProject(
+      projectId,
+    );
+    if (!restoredPath) {
+      return c.json({ error: "Hidden project not found" }, 404);
+    }
+
+    deps.scanner.invalidateCache();
+    const project = await deps.scanner.getOrCreateProject(projectId);
+    if (!project) {
+      return c.json({ error: "Project path no longer exists" }, 404);
+    }
+
+    return c.json({ restored: true, project });
+  });
+
   // GET /api/projects/:projectId - Get project info
   routes.get("/:projectId", async (c) => {
     const projectId = c.req.param("projectId");
@@ -319,6 +369,29 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     }
 
     return c.json({ project });
+  });
+
+  // DELETE /api/projects/:projectId - Hide a project from the visible list
+  routes.delete("/:projectId", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    if (!isUrlProjectId(projectId)) {
+      return c.json({ error: "Invalid project ID format" }, 400);
+    }
+
+    if (!deps.projectMetadataService) {
+      return c.json({ error: "Project removal is not supported" }, 501);
+    }
+
+    const project = await deps.scanner.getProject(projectId);
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    await deps.projectMetadataService.hideProject(projectId, project.path);
+    deps.scanner.invalidateCache();
+
+    return c.json({ removed: true, projectId });
   });
 
   // GET /api/projects/:projectId/sessions - List sessions
