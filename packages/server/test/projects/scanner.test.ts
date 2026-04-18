@@ -296,6 +296,58 @@ describe("ProjectScanner cache", () => {
     expect(getProjectDirInfoSpy).not.toHaveBeenCalled();
   });
 
+  it("filters hidden projects out of a persisted snapshot", async () => {
+    const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
+    const dataDir = join(tmpdir(), `project-scanner-data-${randomUUID()}`);
+    const metadataDir = join(tmpdir(), `project-metadata-${randomUUID()}`);
+    tempDirs.push(projectsDir, dataDir, metadataDir);
+    await mkdir(dataDir, { recursive: true });
+
+    const hiddenPath = "/home/user/hidden-project";
+    await writeFile(
+      join(dataDir, "project-snapshot.json"),
+      JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        projects: [
+          {
+            id: encodeProjectId(hiddenPath),
+            path: hiddenPath,
+            name: "hidden-project",
+            sessionCount: 3,
+            sessionDir: join(projectsDir, "localhost", "-home-user-hidden-project"),
+            activeOwnedCount: 0,
+            activeExternalCount: 0,
+            lastActivity: "2026-01-01T00:00:00.000Z",
+            provider: "claude",
+            hasCodexSessions: false,
+            hasGeminiSessions: false,
+          },
+        ],
+      }),
+      "utf-8",
+    );
+
+    const metadataService = new ProjectMetadataService({ dataDir: metadataDir });
+    await metadataService.initialize();
+    await metadataService.hideProject(
+      encodeProjectId(hiddenPath),
+      hiddenPath,
+    );
+
+    const scanner = new ProjectScanner({
+      projectsDir,
+      dataDir,
+      enableCodex: false,
+      enableGemini: false,
+      projectMetadataService: metadataService,
+      cacheTtlMs: 60000,
+    });
+
+    const projects = await scanner.listProjects();
+    expect(projects).toEqual([]);
+  });
+
   it("refreshes the persisted snapshot during prewarm", async () => {
     const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
     const dataDir = join(tmpdir(), `project-scanner-data-${randomUUID()}`);

@@ -189,6 +189,28 @@ export class ProjectScanner {
     };
   }
 
+  private getHiddenProjectPaths(): Set<string> {
+    const hiddenPaths = new Set<string>();
+    if (!this.projectMetadataService) return hiddenPaths;
+
+    for (const metadata of Object.values(
+      this.projectMetadataService.getAllHiddenProjects(),
+    )) {
+      hiddenPaths.add(canonicalizeProjectPath(metadata.path));
+    }
+
+    return hiddenPaths;
+  }
+
+  private filterHiddenProjects(projects: Project[]): Project[] {
+    const hiddenPaths = this.getHiddenProjectPaths();
+    if (hiddenPaths.size === 0) return projects;
+
+    return projects.filter(
+      (project) => !hiddenPaths.has(canonicalizeProjectPath(project.path)),
+    );
+  }
+
   private async loadPersistedSnapshot(): Promise<ProjectSnapshot | null> {
     try {
       const raw = await readFile(this.snapshotFilePath, "utf-8");
@@ -196,7 +218,9 @@ export class ProjectScanner {
       if (parsed.version !== 1 || !Array.isArray(parsed.projects)) {
         return null;
       }
-      const snapshot = this.buildSnapshot(parsed.projects);
+      const snapshot = this.buildSnapshot(
+        this.filterHiddenProjects(parsed.projects),
+      );
       snapshot.timestamp = Date.now();
       return snapshot;
     } catch {
@@ -253,17 +277,9 @@ export class ProjectScanner {
   private async scanProjects(): Promise<Project[]> {
     const projects: Project[] = [];
     const seenPaths = new Set<string>();
-    const hiddenPaths = new Set<string>();
+    const hiddenPaths = this.getHiddenProjectPaths();
     // Map from normalized path to project index for cross-machine dedup
     const normalizedIndex = new Map<string, number>();
-
-    if (this.projectMetadataService) {
-      for (const metadata of Object.values(
-        this.projectMetadataService.getAllHiddenProjects(),
-      )) {
-        hiddenPaths.add(canonicalizeProjectPath(metadata.path));
-      }
-    }
 
     // ~/.claude/projects/ can have two structures:
     // 1. Projects directly as -home-user-project/

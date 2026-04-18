@@ -146,6 +146,31 @@ function filterByProject(
   return items.filter((item) => item.projectId === projectId);
 }
 
+export function buildInboxProjectOptions(
+  projects: Project[],
+  items: InboxItem[],
+  allProjectsLabel: string,
+): FilterOption<string>[] {
+  const visibleProjectIds = new Set(items.map((item) => item.projectId));
+  const matchedProjects = projects.filter((project) =>
+    visibleProjectIds.has(project.id),
+  );
+
+  const nameCounts = matchedProjects.reduce<Map<string, number>>((map, project) => {
+    map.set(project.name, (map.get(project.name) ?? 0) + 1);
+    return map;
+  }, new Map());
+
+  const options = matchedProjects.map((project) => ({
+    value: project.id,
+    label: project.name,
+    description:
+      (nameCounts.get(project.name) ?? 0) > 1 ? project.path : undefined,
+  }));
+
+  return [{ value: "", label: allProjectsLabel }, ...options];
+}
+
 /**
  * Shared inbox content component.
  * Displays inbox tiers, refresh button, and empty/loading/error states.
@@ -205,12 +230,16 @@ export function InboxContent({
   // Track which sessions have unsent drafts
   const drafts = useDrafts();
 
-  // Build project options for FilterDropdown
+  // Build project options from projects that actually appear in inbox tiers.
+  const allItems = [
+    ...allNeedsAttention,
+    ...allActive,
+    ...allRecentActivity,
+    ...allUnread8h,
+    ...allUnread24h,
+  ];
   const projectOptions: FilterOption<string>[] = projects
-    ? [
-        { value: "", label: t("inboxAllProjects") },
-        ...projects.map((p) => ({ value: p.id, label: p.name })),
-      ]
+    ? buildInboxProjectOptions(projects, allItems, t("inboxAllProjects"))
     : [];
 
   const handleProjectSelect = (selected: string[]) => {
