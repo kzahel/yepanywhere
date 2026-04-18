@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../api/client";
+import { fetchJSON } from "../api/client";
 import { useFileActivity } from "./useFileActivity";
 
 // Debounce interval for refetch on SSE events
 const REFETCH_DEBOUNCE_MS = 500;
+
+interface ProcessesResponse {
+  processes: Array<{ state: string }>;
+}
 
 /**
  * Hook that monitors the global count of active agents (running processes).
@@ -16,8 +20,13 @@ export function useGlobalActiveAgents() {
   // Fetch just the active count
   const fetchCount = useCallback(async () => {
     try {
-      const data = await api.getInbox();
-      setCount(data.active.length);
+      const data = await fetchJSON<ProcessesResponse>("/processes");
+      setCount(
+        data.processes.filter(
+          (process) =>
+            process.state === "in-turn" || process.state === "waiting-input",
+        ).length,
+      );
     } catch {
       // Silently ignore errors - indicator is non-critical
     }
