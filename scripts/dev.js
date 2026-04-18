@@ -18,6 +18,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { findAvailablePort } from "./dev-port.js";
 import { exitIfUnsafeHome } from "./safe-home.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -39,7 +40,7 @@ function isSuppressedViteBannerLine(line) {
   );
 }
 
-function forwardWithLineFilter(stream, output, shouldSuppressLine) {
+function forwardWithLineFilter(stream, output, shouldSuppressLine, onLine) {
   if (!stream) return;
   let buffered = "";
 
@@ -50,6 +51,7 @@ function forwardWithLineFilter(stream, output, shouldSuppressLine) {
     buffered = lines.pop() ?? "";
 
     for (const line of lines) {
+      onLine?.(line);
       if (!shouldSuppressLine(line)) {
         output.write(`${line}\n`);
       }
@@ -57,6 +59,9 @@ function forwardWithLineFilter(stream, output, shouldSuppressLine) {
   });
 
   stream.on("end", () => {
+    if (buffered) {
+      onLine?.(buffered);
+    }
     if (buffered && !shouldSuppressLine(buffered)) {
       output.write(buffered);
     }
@@ -120,7 +125,7 @@ const noFrontendReload = args.includes("--no-frontend-reload");
 const basePort = process.env.PORT
   ? Number.parseInt(process.env.PORT, 10)
   : 3400;
-const vitePort = process.env.VITE_PORT
+const preferredVitePort = process.env.VITE_PORT
   ? Number.parseInt(process.env.VITE_PORT, 10)
   : basePort + 2;
 const protocol = process.env.HTTPS_SELF_SIGNED === "true" ? "https" : "http";
@@ -129,29 +134,13 @@ const displayHost =
   configuredHost && configuredHost !== "0.0.0.0" && configuredHost !== "::"
     ? configuredHost
     : "localhost";
+const viteLocalLineRegex = /Local:\s+http:\/\/localhost:(\d+)\//;
 
 console.log("Starting dev server...");
 console.log(`  Access at: ${protocol}://${displayHost}:${basePort}`);
-console.log(
-  `  Ports: server=${basePort}, maintenance=${basePort + 1}, vite=${vitePort}`,
-);
-console.log(
-  `  Note: Vite output on :${vitePort} is internal HMR only; browse ${protocol}://${displayHost}:${basePort}`,
-);
-if (backendWatch) console.log("  Backend auto-reload: ENABLED (--watch)");
-if (noFrontendReload) console.log("  Frontend HMR: DISABLED");
-if (!backendWatch && !noFrontendReload)
-  console.log("  Frontend HMR: ENABLED, Backend: manual restart only");
-
-// Build environment for child processes
-const env = {
-  ...process.env,
-  // When not using --watch, enable manual reload mode (shows banner on file changes)
-  NO_BACKEND_RELOAD: backendWatch ? "" : "true",
-  NO_FRONTEND_RELOAD: noFrontendReload ? "true" : "",
-  // Pass vite port to both server and client for consistency
-  VITE_PORT: String(vitePort),
-};
+let env;
+let currentServer = null;
+let restartingForVitePort = false;
 
 // Track child processes for cleanup
 const children = [];
@@ -189,11 +178,27 @@ function startServer() {
   });
 
   children.push(server);
+  currentServer = server;
 
   server.on("exit", (code, signal) => {
     // Remove from children list
     const idx = children.indexOf(server);
     if (idx !== -1) children.splice(idx, 1);
+    if (currentServer === server) {
+      currentServer = null;
+    }
+
+    if (restartingForVitePort && server === currentServer) {
+      restartingForVitePort = false;
+      startServer();
+      return;
+    }
+
+    if (restartingForVitePort) {
+      restartingForVitePort = false;
+      startServer();
+      return;
+    }
 
     // If server exited cleanly (code 0) and we're in manual reload mode,
     // it was a reload request - restart it
@@ -212,6 +217,35 @@ function startServer() {
  * Start the client dev server
  */
 function startClient() {
+  const handleClientLine = (line) => {
+    const match = viteLocalLineRegex.exec(line);
+    if (!match?.[1] || !env) return;
+
+    const actualVitePort = Number.parseInt(match[1], 10);
+    const currentVitePort = Number.parseInt(env.VITE_PORT ?? "", 10);
+    if (
+      Number.isNaN(actualVitePort) ||
+      Number.isNaN(currentVitePort) ||
+      actualVitePort === currentVitePort
+    ) {
+      return;
+    }
+
+    env = {
+      ...env,
+      VITE_PORT: String(actualVitePort),
+    };
+    console.log(
+      `[Dev] Detected Vite on :${actualVitePort}; restarting server proxy`,
+    );
+    if (currentServer && !currentServer.killed) {
+      restartingForVitePort = true;
+      currentServer.kill("SIGTERM");
+    } else {
+      startServer();
+    }
+  };
+
   const client = spawn(pnpmBin, ["--filter", "client", "dev"], {
     cwd: rootDir,
     env,
@@ -223,11 +257,13 @@ function startClient() {
     client.stdout,
     process.stdout,
     isSuppressedViteBannerLine,
+    handleClientLine,
   );
   forwardWithLineFilter(
     client.stderr,
     process.stderr,
     isSuppressedViteBannerLine,
+    handleClientLine,
   );
 
   children.push(client);
@@ -241,6 +277,36 @@ function startClient() {
   return client;
 }
 
-// Start both processes
-startServer();
-startClient();
+async function main() {
+  const vitePort = await findAvailablePort(preferredVitePort);
+
+  console.log(
+    `  Ports: server=${basePort}, maintenance=${basePort + 1}, vite=${vitePort}`,
+  );
+  console.log(
+    `  Note: Vite output on :${vitePort} is internal HMR only; browse ${protocol}://${displayHost}:${basePort}`,
+  );
+  if (backendWatch) console.log("  Backend auto-reload: ENABLED (--watch)");
+  if (noFrontendReload) console.log("  Frontend HMR: DISABLED");
+  if (!backendWatch && !noFrontendReload)
+    console.log("  Frontend HMR: ENABLED, Backend: manual restart only");
+
+  // Build environment for child processes
+  env = {
+    ...process.env,
+    // When not using --watch, enable manual reload mode (shows banner on file changes)
+    NO_BACKEND_RELOAD: backendWatch ? "" : "true",
+    NO_FRONTEND_RELOAD: noFrontendReload ? "true" : "",
+    // Pass vite port to both server and client for consistency
+    VITE_PORT: String(vitePort),
+  };
+
+  startServer();
+  startClient();
+}
+
+main().catch((error) => {
+  console.error("Failed to start dev server:", error);
+  cleanup();
+  process.exit(1);
+});
