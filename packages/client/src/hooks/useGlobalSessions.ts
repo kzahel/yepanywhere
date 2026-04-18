@@ -69,6 +69,7 @@ export function useGlobalSessions(options: UseGlobalSessionsOptions = {}) {
     includeArchived?: boolean;
     starred?: boolean;
     includeStats?: boolean;
+    enabled?: boolean;
   }>({});
 
   const fetch = useCallback(async () => {
