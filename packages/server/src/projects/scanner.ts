@@ -59,8 +59,8 @@ interface PersistedProjectSnapshot {
 
 export class ProjectScanner {
   private projectsDir: string;
-  private dataDir: string;
-  private snapshotFilePath: string;
+  private dataDir: string | null;
+  private snapshotFilePath: string | null;
   private codexScanner: CodexSessionScanner | null;
   private geminiScanner: GeminiSessionScanner | null;
   private enableCodex: boolean;
@@ -75,8 +75,10 @@ export class ProjectScanner {
 
   constructor(options: ScannerOptions = {}) {
     this.projectsDir = options.projectsDir ?? CLAUDE_PROJECTS_DIR;
-    this.dataDir = options.dataDir ?? join(homedir(), ".yep-anywhere");
-    this.snapshotFilePath = join(this.dataDir, "project-snapshot.json");
+    this.dataDir = options.dataDir ?? process.env.YEP_ANYWHERE_DATA_DIR ?? null;
+    this.snapshotFilePath = this.dataDir
+      ? join(this.dataDir, "project-snapshot.json")
+      : null;
     this.enableCodex = options.enableCodex ?? true;
     this.enableGemini = options.enableGemini ?? true;
     this.codexScanner = this.enableCodex
@@ -223,6 +225,9 @@ export class ProjectScanner {
   }
 
   private async loadPersistedSnapshot(): Promise<ProjectSnapshot | null> {
+    if (!this.snapshotFilePath) {
+      return null;
+    }
     try {
       const raw = await readFile(this.snapshotFilePath, "utf-8");
       const parsed = JSON.parse(raw) as PersistedProjectSnapshot;
@@ -240,6 +245,9 @@ export class ProjectScanner {
   }
 
   private async savePersistedSnapshot(projects: Project[]): Promise<void> {
+    if (!this.dataDir || !this.snapshotFilePath) {
+      return;
+    }
     try {
       await mkdir(this.dataDir, { recursive: true });
       const payload: PersistedProjectSnapshot = {

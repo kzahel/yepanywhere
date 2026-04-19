@@ -20,7 +20,6 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import {
   type CodexEventMsgEntry,
@@ -127,7 +126,7 @@ export class CodexSessionReader implements ISessionReader {
 
   private sessionsDir: string;
   private projectPath?: string;
-  private dataDir: string;
+  private dataDir: string | null;
   private readonly CACHE_TTL_MS = 60000; // 60 second shared scan cache
 
   constructor(options: CodexSessionReaderOptions) {
@@ -135,15 +134,15 @@ export class CodexSessionReader implements ISessionReader {
     this.projectPath = options.projectPath
       ? canonicalizeProjectPath(options.projectPath)
       : undefined;
-    this.dataDir =
-      options.dataDir ??
-      process.env.YEP_ANYWHERE_DATA_DIR ??
-      join(homedir(), ".yep-anywhere");
+    this.dataDir = options.dataDir ?? process.env.YEP_ANYWHERE_DATA_DIR ?? null;
   }
 
   invalidateCache(): void {
     CodexSessionReader.sharedScanCache.delete(this.getSharedCacheKey());
-    void rm(this.getPersistentIndexPath(), { force: true }).catch(() => {});
+    const persistentIndexPath = this.getPersistentIndexPath();
+    if (persistentIndexPath) {
+      void rm(persistentIndexPath, { force: true }).catch(() => {});
+    }
   }
 
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
@@ -490,7 +489,10 @@ export class CodexSessionReader implements ISessionReader {
     return process.platform === "win32" ? filePath.toLowerCase() : filePath;
   }
 
-  private getPersistentIndexPath(): string {
+  private getPersistentIndexPath(): string | null {
+    if (!this.dataDir) {
+      return null;
+    }
     const hash = createHash("sha256")
       .update(this.getSharedCacheKey())
       .digest("hex")
@@ -499,8 +501,12 @@ export class CodexSessionReader implements ISessionReader {
   }
 
   private async loadPersistedScan(): Promise<CodexSessionFile[] | null> {
+    const persistentIndexPath = this.getPersistentIndexPath();
+    if (!persistentIndexPath) {
+      return null;
+    }
     try {
-      const raw = await readFile(this.getPersistentIndexPath(), "utf-8");
+      const raw = await readFile(persistentIndexPath, "utf-8");
       const parsed = JSON.parse(raw) as PersistedSessionScanState;
       if (parsed.version !== 1 || !Array.isArray(parsed.sessions)) {
         return null;
@@ -526,14 +532,17 @@ export class CodexSessionReader implements ISessionReader {
   }
 
   private async savePersistedScan(sessions: CodexSessionFile[]): Promise<void> {
+    const persistentIndexPath = this.getPersistentIndexPath();
+    if (!this.dataDir || !persistentIndexPath) {
+      return;
+    }
     try {
-      const indexPath = this.getPersistentIndexPath();
       await mkdir(join(this.dataDir, "indexes"), { recursive: true });
       const payload: PersistedSessionScanState = {
         version: 1,
         sessions,
       };
-      await writeFile(indexPath, JSON.stringify(payload), "utf-8");
+      await writeFile(persistentIndexPath, JSON.stringify(payload), "utf-8");
     } catch {
       // Ignore persistence errors; the in-memory cache still helps this process.
     }
