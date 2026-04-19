@@ -56,12 +56,17 @@ describe("PushNotificationToggle", () => {
 
     expect(
       screen.getByText(
-        "HTTP IP address access is not a secure context, so mobile browsers will not expose push support.",
+        "Push notifications require HTTPS or localhost. Open this site over HTTPS to enable them.",
       ),
     ).toBeDefined();
     expect(
       screen.getByText(
-        "Put this site behind an HTTPS domain, then reopen Notifications and subscribe again.",
+        "Push notifications require a secure context. Open Yep Anywhere from https, localhost, or a trusted local-network origin.",
+      ),
+    ).toBeDefined();
+    expect(
+      screen.getByText(
+        "If you're using a raw IP or an untrusted host, switch to localhost, Tailscale, or HTTPS before trying again.",
       ),
     ).toBeDefined();
   });
