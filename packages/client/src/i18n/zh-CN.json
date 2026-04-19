@@ -556,6 +556,8 @@
   "notificationsRemove": "移除",
   "pushToggleTitle": "推送通知",
   "pushToggleUnsupported": "当前浏览器不支持推送通知。",
+  "pushToggleSecureContextHint": "推送通知要求处于安全上下文。请通过 https、localhost 或受信任的局域网地址访问 Yep Anywhere。",
+  "pushToggleSecureContextAction": "如果你现在使用的是裸 IP 或未受信任主机名，请切换到 localhost、Tailscale 或 HTTPS 后再试。",
   "pushToggleThisDeviceOnly": "这只影响当前设备。其他已订阅设备仍会收到服务器通知。",
   "pushToggleDevModeHint": "如需在开发模式下为当前设备启用推送，请使用 VITE_ENABLE_SW=true 重启。",
   "pushToggleTroubleshooting": "故障排查指南",

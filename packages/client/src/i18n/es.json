@@ -556,6 +556,8 @@
   "notificationsRemove": "Eliminar",
   "pushToggleTitle": "Notificaciones push",
   "pushToggleUnsupported": "Las notificaciones push no son compatibles con este navegador.",
+  "pushToggleSecureContextHint": "Las notificaciones push requieren un contexto seguro. Abre Yep Anywhere desde https, localhost o un origen local de confianza.",
+  "pushToggleSecureContextAction": "Si estás usando una IP directa o un host no confiable, cambia a localhost, Tailscale o HTTPS antes de volver a intentarlo.",
   "pushToggleThisDeviceOnly": "Esto solo afecta a este dispositivo. Otros dispositivos suscritos seguirán recibiendo notificaciones.",
   "pushToggleDevModeHint": "Para habilitar push en este dispositivo en modo dev, reinicia con VITE_ENABLE_SW=true.",
   "pushToggleTroubleshooting": "Guía de solución de problemas",

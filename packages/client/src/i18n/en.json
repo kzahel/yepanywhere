@@ -556,6 +556,8 @@
   "notificationsRemove": "Remove",
   "pushToggleTitle": "Push Notifications",
   "pushToggleUnsupported": "Push notifications are not supported in this browser.",
+  "pushToggleSecureContextHint": "Push notifications require a secure context. Open Yep Anywhere from https, localhost, or a trusted local-network origin.",
+  "pushToggleSecureContextAction": "If you're using a raw IP or an untrusted host, switch to localhost, Tailscale, or HTTPS before trying again.",
   "pushToggleThisDeviceOnly": "This only affects this device. Other subscribed devices will still receive notifications from the server.",
   "pushToggleDevModeHint": "To enable push on this device in dev mode, restart with VITE_ENABLE_SW=true.",
   "pushToggleTroubleshooting": "Troubleshooting guide",

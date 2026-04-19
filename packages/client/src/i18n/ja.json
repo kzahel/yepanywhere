@@ -556,6 +556,8 @@
   "notificationsRemove": "削除",
   "pushToggleTitle": "プッシュ通知",
   "pushToggleUnsupported": "このブラウザではプッシュ通知がサポートされていません。",
+  "pushToggleSecureContextHint": "プッシュ通知には安全なコンテキストが必要です。Yep Anywhere は https、localhost、または信頼できるローカル接続から開いてください。",
+  "pushToggleSecureContextAction": "生の IP や未信頼ホストを使っている場合は、localhost、Tailscale、または HTTPS に切り替えてから再試行してください。",
   "pushToggleThisDeviceOnly": "この設定はこのデバイスのみ影響します。他の購読デバイスはサーバーから通知を受け続けます。",
   "pushToggleDevModeHint": "開発モードでこのデバイスにプッシュを有効化するには、VITE_ENABLE_SW=true で再起動してください。",
   "pushToggleTroubleshooting": "トラブルシューティングガイド",

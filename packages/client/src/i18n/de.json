@@ -556,6 +556,8 @@
   "notificationsRemove": "Entfernen",
   "pushToggleTitle": "Push-Benachrichtigungen",
   "pushToggleUnsupported": "Push-Benachrichtigungen werden in diesem Browser nicht unterstützt.",
+  "pushToggleSecureContextHint": "Push-Benachrichtigungen benötigen einen sicheren Kontext. Öffne Yep Anywhere über https, localhost oder eine vertrauenswürdige lokale Adresse.",
+  "pushToggleSecureContextAction": "Wenn du eine rohe IP oder einen nicht vertrauenswürdigen Host verwendest, wechsle vor dem nächsten Versuch zu localhost, Tailscale oder HTTPS.",
   "pushToggleThisDeviceOnly": "Gilt nur für dieses Gerät. Andere abonnierte Geräte erhalten weiterhin Notifications vom Server.",
   "pushToggleDevModeHint": "Um Push in diesem Gerät im Dev-Modus zu aktivieren, starte mit VITE_ENABLE_SW=true neu.",
   "pushToggleTroubleshooting": "Fehlerbehebung",

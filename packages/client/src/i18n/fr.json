@@ -556,6 +556,8 @@
   "notificationsRemove": "Supprimer",
   "pushToggleTitle": "Notifications push",
   "pushToggleUnsupported": "Les notifications push ne sont pas prises en charge dans ce navigateur.",
+  "pushToggleSecureContextHint": "Les notifications push exigent un contexte sécurisé. Ouvrez Yep Anywhere via https, localhost ou une origine locale approuvée.",
+  "pushToggleSecureContextAction": "Si vous utilisez une IP brute ou un hôte non approuvé, basculez vers localhost, Tailscale ou HTTPS avant de réessayer.",
   "pushToggleThisDeviceOnly": "Cela n’affecte que cet appareil. Les autres appareils abonnés continueront à recevoir des notifications.",
   "pushToggleDevModeHint": "Pour activer les push en mode dev sur cet appareil, redémarrez avec `VITE_ENABLE_SW=true`.",
   "pushToggleTroubleshooting": "Guide de dépannage",
