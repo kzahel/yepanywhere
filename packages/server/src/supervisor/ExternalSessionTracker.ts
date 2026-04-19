@@ -398,7 +398,7 @@ export class ExternalSessionTracker {
     // - projects/<hostname>/<projectId>/<sessionId>.jsonl
     // - <projectId>/<sessionId>.jsonl (when watchDir is already ~/.claude/projects)
     // - <hostname>/<projectId>/<sessionId>.jsonl (same case with hostname)
-    const parts = relativePath.split(path.sep).filter(Boolean);
+    const parts = relativePath.split(/[\\/]+/).filter(Boolean);
     if (parts.length < 2) return null;
 
     const startIdx = parts[0] === "projects" ? 1 : 0;
@@ -457,7 +457,7 @@ export class ExternalSessionTracker {
   }
 
   private extractCodexSessionId(relativePath: string): string | null {
-    const filename = relativePath.split(path.sep).pop();
+    const filename = relativePath.split(/[\\/]+/).pop();
     if (!filename || !filename.endsWith(".jsonl")) return null;
     const base = filename.slice(0, -6);
     const match = base.match(/([0-9a-fA-F-]{36})$/);
