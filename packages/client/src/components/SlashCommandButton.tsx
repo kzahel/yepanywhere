@@ -92,7 +92,7 @@ export function SlashCommandButton({
     if (isOpen) {
       menuRef.current?.focus();
     }
-  }, [isDesktop, isOpen]);
+  }, [isOpen]);
 
   const handleCommandClick = useCallback(
     (command: string) => {

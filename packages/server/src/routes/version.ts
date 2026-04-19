@@ -109,13 +109,14 @@ function refreshLatestVersionInBackground(
     return latestVersionFetchInFlight;
   }
 
-  const request = fetchLatestVersionFromServer(currentVersion, installId).finally(
-    () => {
-      if (latestVersionFetchInFlight === request) {
-        latestVersionFetchInFlight = null;
-      }
-    },
-  );
+  const request = fetchLatestVersionFromServer(
+    currentVersion,
+    installId,
+  ).finally(() => {
+    if (latestVersionFetchInFlight === request) {
+      latestVersionFetchInFlight = null;
+    }
+  });
 
   latestVersionFetchInFlight = request;
   return request;

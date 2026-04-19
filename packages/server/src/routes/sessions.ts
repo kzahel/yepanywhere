@@ -23,7 +23,7 @@ import type { ModelInfoService } from "../services/ModelInfoService.js";
 import type { ServerSettingsService } from "../services/ServerSettingsService.js";
 import { CodexSessionReader } from "../sessions/codex-reader.js";
 import { cloneClaudeSession, cloneCodexSession } from "../sessions/fork.js";
-import { GeminiSessionReader } from "../sessions/gemini-reader.js";
+import type { GeminiSessionReader } from "../sessions/gemini-reader.js";
 import { normalizeSession } from "../sessions/normalization.js";
 import {
   type PaginationInfo,
@@ -695,9 +695,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     let paginationInfo: PaginationInfo | undefined;
     const canUsePersistedResponseCache =
-      !afterMessageId &&
-      !!loadedSession &&
-      !!session;
+      !afterMessageId && !!loadedSession && !!session;
 
     if (canUsePersistedResponseCache && loadedSession) {
       const cacheKey = buildPersistedSessionResponseCacheKey({

@@ -287,9 +287,8 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       return c.json({ error: "Project restoration is not supported" }, 501);
     }
 
-    const restoredPath = await deps.projectMetadataService.restoreProject(
-      projectId,
-    );
+    const restoredPath =
+      await deps.projectMetadataService.restoreProject(projectId);
     if (!restoredPath) {
       return c.json({ error: "Hidden project not found" }, 404);
     }

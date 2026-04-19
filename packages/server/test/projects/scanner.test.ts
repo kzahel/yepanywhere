@@ -3,8 +3,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
+import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
 import { ProjectScanner } from "../../src/projects/scanner.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
@@ -315,7 +315,11 @@ describe("ProjectScanner cache", () => {
             path: hiddenPath,
             name: "hidden-project",
             sessionCount: 3,
-            sessionDir: join(projectsDir, "localhost", "-home-user-hidden-project"),
+            sessionDir: join(
+              projectsDir,
+              "localhost",
+              "-home-user-hidden-project",
+            ),
             activeOwnedCount: 0,
             activeExternalCount: 0,
             lastActivity: "2026-01-01T00:00:00.000Z",
@@ -328,12 +332,11 @@ describe("ProjectScanner cache", () => {
       "utf-8",
     );
 
-    const metadataService = new ProjectMetadataService({ dataDir: metadataDir });
+    const metadataService = new ProjectMetadataService({
+      dataDir: metadataDir,
+    });
     await metadataService.initialize();
-    await metadataService.hideProject(
-      encodeProjectId(hiddenPath),
-      hiddenPath,
-    );
+    await metadataService.hideProject(encodeProjectId(hiddenPath), hiddenPath);
 
     const scanner = new ProjectScanner({
       projectsDir,

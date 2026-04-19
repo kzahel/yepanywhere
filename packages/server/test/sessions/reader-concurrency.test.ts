@@ -8,9 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const readFileSpy = vi.fn();
 
 vi.mock("node:fs/promises", async () => {
-  const actual = await vi.importActual<typeof import("node:fs/promises")>(
-    "node:fs/promises",
-  );
+  const actual =
+    await vi.importActual<typeof import("node:fs/promises")>(
+      "node:fs/promises",
+    );
 
   return {
     ...actual,

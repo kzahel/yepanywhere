@@ -115,7 +115,9 @@ export function Sidebar({
   const inboxCount = useNeedsAttentionBadge();
   const projectIdFromUrl = extractProjectIdFromPath(location.pathname);
   const shouldLoadProjectLists = !isSessionPage && !isAgentsPage;
-  const { recentProjects, projects } = useRecentProjects(shouldLoadProjectLists);
+  const { recentProjects, projects } = useRecentProjects(
+    shouldLoadProjectLists,
+  );
   const recentProjectId = getRecentProjectId();
   const newSessionProjectId =
     projectIdFromUrl ??

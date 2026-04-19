@@ -54,8 +54,7 @@ export function usePushNotifications() {
     hasServiceWorker:
       typeof window !== "undefined" && "serviceWorker" in navigator,
     hasPushManager: typeof window !== "undefined" && "PushManager" in window,
-    hasNotification:
-      typeof window !== "undefined" && "Notification" in window,
+    hasNotification: typeof window !== "undefined" && "Notification" in window,
   });
   const hasBrowserSupport = browserSupportError === null;
 
@@ -137,7 +136,7 @@ export function usePushNotifications() {
     };
 
     init();
-  }, [hasBrowserSupport]);
+  }, [browserSupportError, hasBrowserSupport]);
 
   // Subscribe to push notifications
   const subscribe = useCallback(async () => {

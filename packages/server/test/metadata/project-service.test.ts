@@ -10,9 +10,7 @@ describe("ProjectMetadataService", () => {
   let service: ProjectMetadataService;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(
-      path.join(tmpdir(), "project-metadata-test-"),
-    );
+    tempDir = await fs.mkdtemp(path.join(tmpdir(), "project-metadata-test-"));
     service = new ProjectMetadataService({ dataDir: tempDir });
     await service.initialize();
   });

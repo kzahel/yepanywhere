@@ -29,7 +29,10 @@ describe("prewarmProjectSessions", () => {
       createProject("new", "/work/new", "2026-04-17T00:00:00.000Z"),
       createProject("mid", "/work/mid", "2026-04-16T00:00:00.000Z"),
     ];
-    const providerCatalog = { codexPaths: new Set<string>(), geminiPaths: new Set<string>() };
+    const providerCatalog = {
+      codexPaths: new Set<string>(),
+      geminiPaths: new Set<string>(),
+    };
 
     const buildProviderCatalog = vi.fn(async () => providerCatalog);
     const warmProject = vi.fn(async () => {});
@@ -57,7 +60,18 @@ describe("prewarmProjectSessions", () => {
     ];
 
     const warmProject = vi
-      .fn<Parameters<NonNullable<Parameters<typeof prewarmProjectSessions>[0]["warmProject"]>>, ReturnType<NonNullable<Parameters<typeof prewarmProjectSessions>[0]["warmProject"]>>>()
+      .fn<
+        Parameters<
+          NonNullable<
+            Parameters<typeof prewarmProjectSessions>[0]["warmProject"]
+          >
+        >,
+        ReturnType<
+          NonNullable<
+            Parameters<typeof prewarmProjectSessions>[0]["warmProject"]
+          >
+        >
+      >()
       .mockRejectedValueOnce(new Error("boom"))
       .mockResolvedValue(undefined);
 

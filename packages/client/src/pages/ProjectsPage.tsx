@@ -57,9 +57,7 @@ export function ProjectsPage() {
       setHiddenProjects(data.projects);
     } catch (err) {
       setRemoveError(
-        err instanceof Error
-          ? err.message
-          : t("projectsHiddenLoadFailed"),
+        err instanceof Error ? err.message : t("projectsHiddenLoadFailed"),
       );
     } finally {
       setLoadingHiddenProjects(false);

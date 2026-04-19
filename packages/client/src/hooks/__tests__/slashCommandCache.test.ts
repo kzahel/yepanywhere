@@ -41,7 +41,10 @@ describe("slashCommandCache", () => {
 
   it("returns an empty list for missing providers or malformed data", () => {
     expect(getCachedSlashCommands(undefined)).toEqual([]);
-    localStorage.setItem("yep-anywhere-test-install-slash-commands-claude", "{");
+    localStorage.setItem(
+      "yep-anywhere-test-install-slash-commands-claude",
+      "{",
+    );
     expect(getCachedSlashCommands("claude")).toEqual([]);
   });
 

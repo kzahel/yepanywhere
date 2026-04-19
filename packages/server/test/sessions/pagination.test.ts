@@ -342,7 +342,11 @@ describe("sliceAtCompactBoundaries", () => {
     expect(third.messages.map((m) => m.uuid)).toEqual(["u1", "cb1", "a1"]);
     expect(third.pagination.hasOlderMessages).toBe(false);
 
-    const allLoaded = [...third.messages, ...second.messages, ...first.messages];
+    const allLoaded = [
+      ...third.messages,
+      ...second.messages,
+      ...first.messages,
+    ];
     expect(allLoaded.map((m) => m.uuid)).toEqual(messages.map((m) => m.uuid));
   });
 });

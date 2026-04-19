@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildInboxProjectOptions } from "../InboxContent";
 import type { Project } from "../../types";
+import { buildInboxProjectOptions } from "../InboxContent";
 
 describe("buildInboxProjectOptions", () => {
   it("only includes projects that actually appear in inbox tiers", () => {

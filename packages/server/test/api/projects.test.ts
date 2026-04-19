@@ -286,11 +286,13 @@ describe("Projects API", () => {
       expect(restoreRes.status).toBe(200);
 
       expect(
-        recentsService.getRecentsWithLimit(10).some(
-          (entry) =>
-            entry.projectId === listedProject.id &&
-            entry.sessionId === "sess-123",
-        ),
+        recentsService
+          .getRecentsWithLimit(10)
+          .some(
+            (entry) =>
+              entry.projectId === listedProject.id &&
+              entry.sessionId === "sess-123",
+          ),
       ).toBe(true);
     });
   });

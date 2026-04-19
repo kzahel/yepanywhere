@@ -5,6 +5,7 @@ import {
   type ProjectOption,
   api,
 } from "../api/client";
+import { subscribeProjectsChanged } from "../lib/projectEvents";
 import {
   type ProcessStateEvent,
   type SessionCreatedEvent,
@@ -14,7 +15,6 @@ import {
   type SessionUpdatedEvent,
   useFileActivity,
 } from "./useFileActivity";
-import { subscribeProjectsChanged } from "../lib/projectEvents";
 
 const REFETCH_DEBOUNCE_MS = 500;
 

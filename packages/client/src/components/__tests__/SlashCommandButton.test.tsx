@@ -36,7 +36,9 @@ describe("SlashCommandButton", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Show slash commands" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show slash commands" }),
+    );
 
     const menu = screen.getByRole("menu", { name: "Slash commands" });
     expect(menu.className).toContain("slash-command-menu");
@@ -58,7 +60,9 @@ describe("SlashCommandButton", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Show slash commands" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show slash commands" }),
+    );
 
     const menu = screen.getByRole("menu", { name: "Slash commands" });
     expect(menu.className).toContain("slash-command-sheet");
@@ -78,7 +82,9 @@ describe("SlashCommandButton", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Show slash commands" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show slash commands" }),
+    );
     expect(screen.getByRole("menu", { name: "Slash commands" })).not.toBeNull();
 
     fireEvent.mouseDown(document.body);

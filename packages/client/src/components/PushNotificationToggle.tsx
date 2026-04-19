@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useNotifyInApp } from "../hooks/useNotifyInApp";
-import { usePushNotifications } from "../hooks/usePushNotifications";
 import {
   PUSH_ERROR_DEV_MODE_DISABLED,
   PUSH_ERROR_INSECURE_CONTEXT,
 } from "../hooks/pushSupport";
+import { useNotifyInApp } from "../hooks/useNotifyInApp";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useI18n } from "../i18n";
 
 export type TestNotificationUrgency = "normal" | "persistent" | "silent";

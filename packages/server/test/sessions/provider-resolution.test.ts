@@ -1,7 +1,10 @@
 import type { UrlProjectId } from "@yep-anywhere/shared";
 import { describe, expect, it, vi } from "vitest";
 import { findLoadedSessionAcrossProviders } from "../../src/sessions/provider-resolution.js";
-import type { ISessionReader, LoadedSession } from "../../src/sessions/types.js";
+import type {
+  ISessionReader,
+  LoadedSession,
+} from "../../src/sessions/types.js";
 import type { Project } from "../../src/supervisor/types.js";
 
 function createProject(): Project {

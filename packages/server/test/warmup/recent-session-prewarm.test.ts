@@ -1,7 +1,10 @@
 import type { UrlProjectId } from "@yep-anywhere/shared";
 import { describe, expect, it, vi } from "vitest";
 import type { RecentEntry } from "../../src/recents/RecentsService.js";
-import type { ISessionReader, LoadedSession } from "../../src/sessions/types.js";
+import type {
+  ISessionReader,
+  LoadedSession,
+} from "../../src/sessions/types.js";
 import type { Project } from "../../src/supervisor/types.js";
 import { prewarmRecentSessions } from "../../src/warmup/recent-session-prewarm.js";
 
@@ -31,7 +34,10 @@ function createRecentEntry(
   };
 }
 
-function createLoadedSession(sessionId: string, projectId: UrlProjectId): LoadedSession {
+function createLoadedSession(
+  sessionId: string,
+  projectId: UrlProjectId,
+): LoadedSession {
   return {
     summary: {
       id: sessionId,

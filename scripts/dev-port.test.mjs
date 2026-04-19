@@ -1,6 +1,6 @@
+import assert from "node:assert/strict";
 import { createServer } from "node:net";
 import test from "node:test";
-import assert from "node:assert/strict";
 import { findAvailablePort } from "./dev-port.js";
 
 function listen(server, port) {

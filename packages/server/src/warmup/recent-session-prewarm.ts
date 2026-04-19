@@ -1,6 +1,6 @@
 import type { UrlProjectId } from "@yep-anywhere/shared";
-import type { Project } from "../supervisor/types.js";
 import type { RecentEntry } from "../recents/RecentsService.js";
+import { normalizeSession } from "../sessions/normalization.js";
 import { sliceAtCompactBoundaries } from "../sessions/pagination.js";
 import { augmentPersistedSessionMessages } from "../sessions/persisted-augments.js";
 import {
@@ -9,7 +9,7 @@ import {
 } from "../sessions/persisted-response-cache.js";
 import type { ProviderResolutionDeps } from "../sessions/provider-resolution.js";
 import { findLoadedSessionAcrossProviders } from "../sessions/provider-resolution.js";
-import { normalizeSession } from "../sessions/normalization.js";
+import type { Project } from "../supervisor/types.js";
 
 export interface RecentSessionPrewarmDeps {
   resolveProject: (projectId: UrlProjectId) => Promise<Project | null>;
@@ -56,7 +56,12 @@ export async function prewarmRecentSessions(
 
       // 预热与会话页首屏一致的正文链路，避免用户首开时再付出渲染初始化成本。
       const normalized = normalizeSession(loaded.loaded);
-      const sliced = sliceAtCompactBoundaries(normalized.messages, 1, undefined, 300);
+      const sliced = sliceAtCompactBoundaries(
+        normalized.messages,
+        1,
+        undefined,
+        300,
+      );
       await augmentPersistedSessionMessages(sliced.messages);
       primePersistedSessionResponse(
         buildPersistedSessionResponseCacheKey({

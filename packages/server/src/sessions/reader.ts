@@ -9,6 +9,7 @@ import {
   isIdeMetadata,
   stripIdeMetadata,
 } from "@yep-anywhere/shared";
+import type { ClaudeSessionFile } from "@yep-anywhere/shared";
 import type {
   ContentBlock,
   ContextUsage,
@@ -20,7 +21,6 @@ import type {
   ISessionReader,
   LoadedSession,
 } from "./types.js";
-import type { ClaudeSessionFile } from "@yep-anywhere/shared";
 
 // Re-export interface types
 export type { GetSessionOptions, ISessionReader } from "./types.js";
@@ -228,11 +228,7 @@ export class ClaudeSessionReader implements ISessionReader {
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
     for (const dir of this.allSessionDirs) {
-      const result = await this.loadSessionFromDir(
-        dir,
-        sessionId,
-        projectId,
-      );
+      const result = await this.loadSessionFromDir(dir, sessionId, projectId);
       if (result) return result.summary;
     }
     return null;
@@ -263,7 +259,11 @@ export class ClaudeSessionReader implements ISessionReader {
       const stats = await stat(filePath);
       const cacheKey = this.getSessionCacheKey(filePath);
       const cached = ClaudeSessionReader.sessionCache.get(cacheKey);
-      if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+      if (
+        cached &&
+        cached.mtimeMs === stats.mtimeMs &&
+        cached.size === stats.size
+      ) {
         return this.cloneLoadedSession(cached.loaded, afterMessageId);
       }
 
@@ -363,7 +363,9 @@ export class ClaudeSessionReader implements ISessionReader {
         const loaded = await loadPromise;
         return loaded ? this.cloneLoadedSession(loaded, afterMessageId) : null;
       } finally {
-        if (ClaudeSessionReader.inFlightSessionLoads.get(cacheKey) === loadPromise) {
+        if (
+          ClaudeSessionReader.inFlightSessionLoads.get(cacheKey) === loadPromise
+        ) {
           ClaudeSessionReader.inFlightSessionLoads.delete(cacheKey);
         }
       }

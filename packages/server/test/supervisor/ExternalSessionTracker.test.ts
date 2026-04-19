@@ -1,10 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DirProjectId, UrlProjectId } from "@yep-anywhere/shared";
 import { asDirProjectId } from "@yep-anywhere/shared";
-import { ExternalSessionTracker } from "../../src/supervisor/ExternalSessionTracker.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
+import { ExternalSessionTracker } from "../../src/supervisor/ExternalSessionTracker.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
-import { EventBus, type SessionStatusEvent } from "../../src/watcher/EventBus.js";
+import {
+  EventBus,
+  type SessionStatusEvent,
+} from "../../src/watcher/EventBus.js";
 
 describe("ExternalSessionTracker", () => {
   let eventBus: EventBus;
@@ -31,7 +34,8 @@ describe("ExternalSessionTracker", () => {
   it("retries project lookup after invalidating scanner cache", async () => {
     const sessionId = "session-1";
     const dirProjectId = asDirProjectId("C--Users-Administrator-Project");
-    const projectId = "QzovVXNlcnMvQWRtaW5pc3RyYXRvci9Qcm9qZWN0" as UrlProjectId;
+    const projectId =
+      "QzovVXNlcnMvQWRtaW5pc3RyYXRvci9Qcm9qZWN0" as UrlProjectId;
     const statusEvents: SessionStatusEvent[] = [];
 
     vi.mocked(scanner.getProjectBySessionDirSuffix)

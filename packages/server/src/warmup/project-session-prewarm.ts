@@ -1,5 +1,5 @@
-import type { Project } from "../supervisor/types.js";
 import type { ProviderProjectCatalog } from "../routes/provider-catalog.js";
+import type { Project } from "../supervisor/types.js";
 
 export interface ProjectSessionPrewarmDeps {
   listProjects: () => Promise<Project[]>;
@@ -36,7 +36,8 @@ export async function prewarmProjectSessions(
   const sortedProjects = [...projects]
     .sort((a, b) => {
       const recentDelta =
-        (recentProjectScores.get(b.id) ?? 0) - (recentProjectScores.get(a.id) ?? 0);
+        (recentProjectScores.get(b.id) ?? 0) -
+        (recentProjectScores.get(a.id) ?? 0);
       if (recentDelta !== 0) {
         return recentDelta;
       }

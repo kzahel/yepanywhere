@@ -12,7 +12,14 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import {
@@ -185,7 +192,11 @@ export class CodexSessionReader implements ISessionReader {
       const stats = await stat(sessionFile.filePath);
       const cacheKey = this.getSessionCacheKey(sessionFile.filePath);
       const cached = CodexSessionReader.sessionCache.get(cacheKey);
-      if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+      if (
+        cached &&
+        cached.mtimeMs === stats.mtimeMs &&
+        cached.size === stats.size
+      ) {
         return structuredClone(cached.loaded);
       }
 
@@ -197,7 +208,8 @@ export class CodexSessionReader implements ISessionReader {
 
       const loadPromise = (async (): Promise<LoadedCodexSession | null> => {
         const lines = await readJsonlLines(sessionFile.filePath);
-        if (lines.length === 0 || (lines.length === 1 && !lines[0])) return null;
+        if (lines.length === 0 || (lines.length === 1 && !lines[0]))
+          return null;
         const entries: CodexSessionEntry[] = [];
 
         for (const line of lines) {
@@ -246,7 +258,8 @@ export class CodexSessionReader implements ISessionReader {
           sandboxPolicy: turnContext?.payload.sandbox_policy
             ? {
                 type: turnContext.payload.sandbox_policy.type,
-                networkAccess: turnContext.payload.sandbox_policy.network_access,
+                networkAccess:
+                  turnContext.payload.sandbox_policy.network_access,
                 excludeTmpdirEnvVar:
                   turnContext.payload.sandbox_policy.exclude_tmpdir_env_var,
                 excludeSlashTmp:
@@ -279,7 +292,9 @@ export class CodexSessionReader implements ISessionReader {
         const loaded = await loadPromise;
         return loaded ? structuredClone(loaded) : null;
       } finally {
-        if (CodexSessionReader.inFlightSessionLoads.get(cacheKey) === loadPromise) {
+        if (
+          CodexSessionReader.inFlightSessionLoads.get(cacheKey) === loadPromise
+        ) {
           CodexSessionReader.inFlightSessionLoads.delete(cacheKey);
         }
       }

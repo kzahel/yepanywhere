@@ -5,6 +5,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, fetchJSON } from "../api/client";
+import { useInstallId } from "../contexts/InstallIdContext";
 import { getMessageId } from "../lib/mergeMessages";
 import { findPendingTasks } from "../lib/pendingTasks";
 import { extractSessionIdFromFileEvent } from "../lib/sessionFile";
@@ -15,13 +16,16 @@ import type {
   SessionStatus,
 } from "../types";
 import {
+  getCachedSlashCommands,
+  setCachedSlashCommands,
+} from "./slashCommandCache";
+import {
   type FileChangeEvent,
   type ProcessStateEvent,
   type SessionStatusEvent,
   type SessionUpdatedEvent,
   useFileActivity,
 } from "./useFileActivity";
-import { useInstallId } from "../contexts/InstallIdContext";
 import {
   type AgentContentMap,
   type SessionLoadResult,
@@ -33,10 +37,6 @@ import {
   type StreamingMarkdownCallbacks,
   useStreamingContent,
 } from "./useStreamingContent";
-import {
-  getCachedSlashCommands,
-  setCachedSlashCommands,
-} from "./slashCommandCache";
 
 export type ProcessState = "idle" | "in-turn" | "waiting-input" | "hold";
 
@@ -169,13 +169,11 @@ export function useSession(
     async (
       provider: string | undefined,
       ownership: SessionStatus,
-      commandsFromServer?:
-        | Array<{
-            name: string;
-            description: string;
-            argumentHint?: string;
-          }>
-        | null,
+      commandsFromServer?: Array<{
+        name: string;
+        description: string;
+        argumentHint?: string;
+      }> | null,
     ) => {
       if (commandsFromServer?.length) {
         const commandNames = commandsFromServer.map((command) => command.name);

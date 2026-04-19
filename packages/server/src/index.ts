@@ -68,9 +68,9 @@ import {
 } from "./services/index.js";
 import { listSessionsAcrossProviders } from "./sessions/provider-resolution.js";
 import { ClaudeSessionReader } from "./sessions/reader.js";
+import { UploadManager } from "./uploads/manager.js";
 import { prewarmProjectSessions } from "./warmup/project-session-prewarm.js";
 import { prewarmRecentSessions } from "./warmup/recent-session-prewarm.js";
-import { UploadManager } from "./uploads/manager.js";
 import {
   EventBus,
   FileWatcher,
@@ -547,16 +547,19 @@ async function startServer() {
 
   const projectSessionPrewarmLimit = Math.max(
     0,
-    parseInt(process.env.PROJECT_SESSION_PREWARM_LIMIT ?? "20", 10) || 20,
+    Number.parseInt(process.env.PROJECT_SESSION_PREWARM_LIMIT ?? "20", 10) ||
+      20,
   );
   const projectSessionPrewarmDelayMs = Math.max(
     0,
-    parseInt(process.env.PROJECT_SESSION_PREWARM_DELAY_MS ?? "10000", 10) ||
-      10000,
+    Number.parseInt(
+      process.env.PROJECT_SESSION_PREWARM_DELAY_MS ?? "10000",
+      10,
+    ) || 10000,
   );
   const recentSessionPrewarmLimit = Math.max(
     0,
-    parseInt(process.env.RECENT_SESSION_PREWARM_LIMIT ?? "1", 10) || 1,
+    Number.parseInt(process.env.RECENT_SESSION_PREWARM_LIMIT ?? "1", 10) || 1,
   );
 
   if (projectSessionPrewarmLimit > 0 || recentSessionPrewarmLimit > 0) {

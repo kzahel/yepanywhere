@@ -1,7 +1,4 @@
-import {
-  type ProviderName,
-  type UploadedFile,
-} from "@yep-anywhere/shared";
+import type { ProviderName, UploadedFile } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -38,8 +35,8 @@ import {
 import { useI18n } from "../i18n";
 import { useNavigationLayout } from "../layouts";
 import { preprocessMessages } from "../lib/preprocessMessages";
-import { getProvider } from "../providers/registry";
 import { generateUUID } from "../lib/uuid";
+import { getProvider } from "../providers/registry";
 import { getSessionDisplayTitle } from "../utils";
 
 export function SessionPage() {
@@ -78,9 +75,9 @@ function SessionPageContent({
   projectId: string;
   sessionId: string;
 }) {
-  const decodeProjectPath = (encodedProjectId: string): string | null => {
+  const decodedProjectPath = useMemo(() => {
     try {
-      const normalized = encodedProjectId.replace(/-/g, "+").replace(/_/g, "/");
+      const normalized = projectId.replace(/-/g, "+").replace(/_/g, "/");
       const padLength = (4 - (normalized.length % 4)) % 4;
       const padded = normalized + "=".repeat(padLength);
       const binary = atob(padded);
@@ -89,9 +86,6 @@ function SessionPageContent({
     } catch {
       return null;
     }
-  };
-  const decodedProjectPath = useMemo(() => {
-    return decodeProjectPath(projectId);
   }, [projectId]);
   const projectName = useMemo(() => {
     if (!decodedProjectPath) return null;

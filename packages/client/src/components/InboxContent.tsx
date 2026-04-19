@@ -156,10 +156,13 @@ export function buildInboxProjectOptions(
     visibleProjectIds.has(project.id),
   );
 
-  const nameCounts = matchedProjects.reduce<Map<string, number>>((map, project) => {
-    map.set(project.name, (map.get(project.name) ?? 0) + 1);
-    return map;
-  }, new Map());
+  const nameCounts = matchedProjects.reduce<Map<string, number>>(
+    (map, project) => {
+      map.set(project.name, (map.get(project.name) ?? 0) + 1);
+      return map;
+    },
+    new Map(),
+  );
 
   const options = matchedProjects.map((project) => ({
     value: project.id,

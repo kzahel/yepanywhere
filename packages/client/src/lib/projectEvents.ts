@@ -5,9 +5,7 @@ export function emitProjectsChanged(): void {
   window.dispatchEvent(new CustomEvent(PROJECTS_CHANGED_EVENT));
 }
 
-export function subscribeProjectsChanged(
-  listener: () => void,
-): () => void {
+export function subscribeProjectsChanged(listener: () => void): () => void {
   if (typeof window === "undefined") {
     return () => {};
   }
