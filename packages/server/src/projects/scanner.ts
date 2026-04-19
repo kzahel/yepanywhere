@@ -26,6 +26,8 @@ export interface ScannerOptions {
   codexSessionsDir?: string; // override for testing
   geminiSessionsDir?: string; // override for testing
   dataDir?: string; // override for persisted snapshot state
+  codexScanner?: CodexSessionScanner | null; // shared provider scanner
+  geminiScanner?: GeminiSessionScanner | null; // shared provider scanner
   enableCodex?: boolean; // whether to include Codex projects (default: true)
   enableGemini?: boolean; // whether to include Gemini projects (default: true)
   projectMetadataService?: ProjectMetadataService; // for persisting added projects
@@ -71,14 +73,16 @@ export class ProjectScanner {
     this.enableCodex = options.enableCodex ?? true;
     this.enableGemini = options.enableGemini ?? true;
     this.codexScanner = this.enableCodex
-      ? new CodexSessionScanner({
+      ? (options.codexScanner ??
+        new CodexSessionScanner({
           sessionsDir: options.codexSessionsDir ?? CODEX_SESSIONS_DIR,
-        })
+        }))
       : null;
     this.geminiScanner = this.enableGemini
-      ? new GeminiSessionScanner({
+      ? (options.geminiScanner ??
+        new GeminiSessionScanner({
           sessionsDir: options.geminiSessionsDir ?? GEMINI_TMP_DIR,
-        })
+        }))
       : null;
     this.projectMetadataService = options.projectMetadataService ?? null;
     this.cacheTtlMs = Math.max(0, options.cacheTtlMs ?? 5000);
@@ -272,6 +276,11 @@ export class ProjectScanner {
 
     // Any session file delta can affect project existence/count/lastActivity.
     this.invalidateCache();
+    if (event.provider === "codex") {
+      this.codexScanner?.invalidateCache();
+    } else if (event.provider === "gemini") {
+      this.geminiScanner?.invalidateCache();
+    }
   }
 
   private async scanProjects(): Promise<Project[]> {

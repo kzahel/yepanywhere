@@ -416,7 +416,6 @@ describe("ProjectScanner cache", () => {
       "/home/user/project-one",
       "sess-1",
     );
-
     const metadataService = new ProjectMetadataService({ dataDir });
     await metadataService.initialize();
     await metadataService.hideProject(
@@ -443,5 +442,75 @@ describe("ProjectScanner cache", () => {
     const restored = await scanner.listProjects();
     expect(restored).toHaveLength(1);
     expect(restored[0]?.path).toBe("/home/user/project-one");
+  });
+
+  it("invalidates shared codex scanner cache on codex file-change events", async () => {
+    const projectsDir = join(tmpdir(), `project-scanner-${randomUUID()}`);
+    tempDirs.push(projectsDir);
+    const eventBus = new EventBus();
+
+    await createClaudeProject(
+      projectsDir,
+      "localhost",
+      "/home/user/project-one",
+      "sess-1",
+    );
+
+    const codexProject = {
+      id: encodeProjectId("/home/user/project-one"),
+      path: "/home/user/project-one",
+      name: "project-one",
+      sessionCount: 1,
+      sessionDir: "/codex/sessions",
+      activeOwnedCount: 0,
+      activeExternalCount: 0,
+      lastActivity: "2025-01-01T00:00:00.000Z",
+      provider: "codex" as const,
+    };
+    let nextProjects: (typeof codexProject)[] = [];
+    let cachedProjects: (typeof codexProject)[] | null = null;
+    const codexScanner = {
+      listProjects: vi.fn(async () => {
+        if (cachedProjects) return cachedProjects;
+        cachedProjects = [...nextProjects];
+        return cachedProjects;
+      }),
+      invalidateCache: vi.fn(() => {
+        cachedProjects = null;
+      }),
+    } as unknown as CodexSessionScanner;
+
+    const scanner = new ProjectScanner({
+      projectsDir,
+      codexScanner,
+      enableCodex: true,
+      enableGemini: false,
+      cacheTtlMs: 60000,
+      eventBus,
+    });
+
+    const initialProjects = await scanner.listProjects();
+    expect(initialProjects[0]).toMatchObject({
+      path: "/home/user/project-one",
+      hasCodexSessions: false,
+    });
+
+    nextProjects = [codexProject];
+    eventBus.emit({
+      type: "file-change",
+      provider: "codex",
+      path: "/codex/sessions/2025/01/01/rollout-1.jsonl",
+      relativePath: "2025/01/01/rollout-1.jsonl",
+      changeType: "create",
+      timestamp: new Date().toISOString(),
+      fileType: "session",
+    });
+
+    const refreshedProjects = await scanner.listProjects();
+    expect(codexScanner.invalidateCache).toHaveBeenCalledTimes(1);
+    expect(refreshedProjects[0]).toMatchObject({
+      path: "/home/user/project-one",
+      hasCodexSessions: true,
+    });
   });
 });

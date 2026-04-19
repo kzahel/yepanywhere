@@ -57,6 +57,10 @@ export class GeminiSessionScanner {
     this.sessionsDir = options.sessionsDir ?? GEMINI_TMP_DIR;
   }
 
+  invalidateCache(): void {
+    this.cachedScan = null;
+  }
+
   /**
    * Register known project paths for hash resolution.
    * Call this with paths from Claude/Codex projects to enable cwd lookup.

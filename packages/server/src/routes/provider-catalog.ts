@@ -68,10 +68,10 @@ export async function buildProviderProjectCatalog(
 
     const [codexProjects, geminiProjects] = await Promise.all([
       needsCodexScan
-        ? deps.codexScanner?.listProjects() ?? Promise.resolve([])
+        ? (deps.codexScanner?.listProjects() ?? Promise.resolve([]))
         : Promise.resolve([]),
       needsGeminiScan
-        ? deps.geminiScanner?.listProjects() ?? Promise.resolve([])
+        ? (deps.geminiScanner?.listProjects() ?? Promise.resolve([]))
         : Promise.resolve([]),
     ]);
 
