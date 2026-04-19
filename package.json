@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "setup:core": "pnpm --filter yep-anywhere --filter @yep-anywhere/server... --filter @yep-anywhere/client... install",
+    "setup:exfat": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-exfat.ps1",
     "setup-vapid": "tsx scripts/setup-vapid.ts",
     "codex:protocol:update": "node scripts/update-codex-protocol.mjs",
     "codex:protocol:check": "node scripts/update-codex-protocol.mjs --check",
