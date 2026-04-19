@@ -86,6 +86,16 @@ interface PersistedSessionScanState {
   sessions: CodexSessionFile[];
 }
 
+interface LoadedCodexSession {
+  summary: SessionSummary;
+  data: {
+    provider: "codex" | "codex-oss";
+    session: {
+      entries: CodexSessionEntry[];
+    };
+  };
+}
+
 const CODEX_META_READ_MAX_BYTES = 1024 * 1024;
 
 /**
@@ -155,7 +165,14 @@ export class CodexSessionReader implements ISessionReader {
   ): Promise<SessionSummary | null> {
     const sessionFile = await this.findSessionFile(sessionId);
     if (!sessionFile) return null;
+    const loaded = await this.loadSessionFromFile(sessionFile, projectId);
+    return loaded?.summary ?? null;
+  }
 
+  private async loadSessionFromFile(
+    sessionFile: CodexSessionFile,
+    projectId: UrlProjectId,
+  ): Promise<LoadedCodexSession | null> {
     try {
       const lines = await readJsonlLines(sessionFile.filePath);
       if (lines.length === 0 || (lines.length === 1 && !lines[0])) return null;
@@ -180,15 +197,17 @@ export class CodexSessionReader implements ISessionReader {
       const { title, fullTitle } = this.extractTitle(entries);
       const messageCount = this.countMessages(entries);
       const model = this.extractModel(entries);
-      const provider = this.determineProvider(metaEntry, model);
+      const provider = this.determineProvider(metaEntry, model) as
+        | "codex"
+        | "codex-oss";
       const turnContext = this.extractTurnContext(entries);
       const contextUsage = this.extractContextUsage(entries, model, provider);
 
       // Skip sessions with no actual conversation messages
       if (messageCount === 0) return null;
 
-      return {
-        id: sessionId,
+      const summary: SessionSummary = {
+        id: sessionFile.id,
         projectId,
         title,
         fullTitle,
@@ -214,6 +233,16 @@ export class CodexSessionReader implements ISessionReader {
             }
           : undefined,
       };
+
+      return {
+        summary,
+        data: {
+          provider,
+          session: {
+            entries,
+          },
+        },
+      };
     } catch {
       return null;
     }
@@ -225,35 +254,25 @@ export class CodexSessionReader implements ISessionReader {
     afterMessageId?: string,
     _options?: GetSessionOptions,
   ): Promise<LoadedSession | null> {
-    const summary = await this.getSessionSummary(sessionId, projectId);
-    if (!summary) return null;
-
     const sessionFile = await this.findSessionFile(sessionId);
     if (!sessionFile) return null;
 
-    const lines = await readJsonlLines(sessionFile.filePath);
-
-    const entries: CodexSessionEntry[] = [];
-    for (const line of lines) {
-      const entry = parseCodexSessionEntry(line);
-      if (entry) {
-        entries.push(entry);
-      }
-    }
+    const loaded = await this.loadSessionFromFile(sessionFile, projectId);
+    if (!loaded) return null;
 
     // Filter entries if needed (for incremental fetching)
     // Note: Codex entries are not 1:1 with messages, so standard ID filtering is tricky
     // with raw format. We return all entries for now.
     // Ideally the client handles diffing/appending.
-    const finalEntries = entries;
+    const finalEntries = loaded.data.session.entries;
     if (afterMessageId) {
       // Logic to filter entries would go here if strict incremental loading is needed
     }
 
     return {
-      summary,
+      summary: loaded.summary,
       data: {
-        provider: this.determineProviderFromEntries(entries),
+        provider: loaded.data.provider,
         session: {
           entries: finalEntries,
         },

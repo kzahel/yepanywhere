@@ -191,13 +191,13 @@ export class ClaudeSessionReader implements ISessionReader {
           const sessionId = file.replace(".jsonl", "");
           if (seenIds.has(sessionId)) continue;
           seenIds.add(sessionId);
-          const summary = await this.getSessionSummaryFromDir(
+          const loaded = await this.loadSessionFromDir(
             dir,
             sessionId,
             projectId,
           );
-          if (summary) {
-            summaries.push(summary);
+          if (loaded) {
+            summaries.push(loaded.summary);
           }
         }
       } catch {
@@ -219,23 +219,37 @@ export class ClaudeSessionReader implements ISessionReader {
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
     for (const dir of this.allSessionDirs) {
-      const result = await this.getSessionSummaryFromDir(
+      const result = await this.loadSessionFromDir(
         dir,
         sessionId,
         projectId,
       );
-      if (result) return result;
+      if (result) return result.summary;
     }
     return null;
   }
 
-  private async getSessionSummaryFromDir(
+  private async loadSessionFromDir(
     dir: string,
     sessionId: string,
     projectId: UrlProjectId,
-  ): Promise<SessionSummary | null> {
+    afterMessageId?: string,
+  ): Promise<LoadedSession | null> {
     const filePath = join(dir, `${sessionId}.jsonl`);
+    return this.loadSessionFromFilePath(
+      filePath,
+      sessionId,
+      projectId,
+      afterMessageId,
+    );
+  }
 
+  private async loadSessionFromFilePath(
+    filePath: string,
+    sessionId: string,
+    projectId: UrlProjectId,
+    afterMessageId?: string,
+  ): Promise<LoadedSession | null> {
     try {
       const content = await readFile(filePath, "utf-8");
       const trimmed = content.trim();
@@ -289,7 +303,17 @@ export class ClaudeSessionReader implements ISessionReader {
         provider,
       );
 
-      return {
+      let finalMessages = messages;
+      if (afterMessageId) {
+        const afterIndex = messages.findIndex(
+          (m) => "uuid" in m && m.uuid === afterMessageId,
+        );
+        if (afterIndex !== -1) {
+          finalMessages = messages.slice(afterIndex + 1);
+        }
+      }
+
+      const summary: SessionSummary = {
         id: sessionId,
         projectId,
         title: this.extractTitle(firstUserMessage),
@@ -302,6 +326,16 @@ export class ClaudeSessionReader implements ISessionReader {
         provider,
         model,
       };
+
+      return {
+        summary,
+        data: {
+          provider: summary.provider as "claude" | "claude-ollama",
+          session: {
+            messages: finalMessages,
+          },
+        },
+      };
     } catch {
       return null;
     }
@@ -313,46 +347,18 @@ export class ClaudeSessionReader implements ISessionReader {
     afterMessageId?: string,
     _options?: GetSessionOptions,
   ): Promise<LoadedSession | null> {
-    const summary = await this.getSessionSummary(sessionId, projectId);
-    if (!summary) return null;
-
-    // Find the session file across all dirs
-    const filePath = await this.findSessionFile(sessionId);
-    if (!filePath) return null;
-    const content = await readFile(filePath, "utf-8");
-    const lines = content.trim().split("\n");
-
-    const rawMessages: ClaudeSessionEntry[] = [];
-    for (const line of lines) {
-      try {
-        rawMessages.push(JSON.parse(line) as ClaudeSessionEntry);
-      } catch {
-        // Skip malformed lines
-      }
-    }
-
-    // Filter messages for incremental fetching if needed
-    // Note: Raw messages might not have UUIDs if they are old format or haven't been normalized.
-    // But typically they do.
-    let finalMessages = rawMessages;
-    if (afterMessageId) {
-      const afterIndex = rawMessages.findIndex(
-        (m) => "uuid" in m && m.uuid === afterMessageId,
+    for (const dir of this.allSessionDirs) {
+      const loaded = await this.loadSessionFromDir(
+        dir,
+        sessionId,
+        projectId,
+        afterMessageId,
       );
-      if (afterIndex !== -1) {
-        finalMessages = rawMessages.slice(afterIndex + 1);
+      if (loaded) {
+        return loaded;
       }
     }
-
-    return {
-      summary,
-      data: {
-        provider: summary.provider as "claude" | "claude-ollama",
-        session: {
-          messages: finalMessages,
-        },
-      },
-    };
+    return null;
   }
 
   /**
