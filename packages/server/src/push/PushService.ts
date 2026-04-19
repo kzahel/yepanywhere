@@ -51,6 +51,20 @@ export class PushService {
     this.state = { version: CURRENT_VERSION, subscriptions: {} };
   }
 
+  private getPushProxy(): string | undefined {
+    const proxy =
+      process.env.HTTPS_PROXY ??
+      process.env.HTTP_PROXY ??
+      process.env.https_proxy ??
+      process.env.http_proxy;
+
+    if (!proxy || typeof proxy !== "string") {
+      return undefined;
+    }
+
+    return proxy.trim() || undefined;
+  }
+
   /**
    * Initialize the service by loading state from disk.
    */
@@ -271,9 +285,14 @@ export class PushService {
     }
 
     try {
+      const proxy = this.getPushProxy();
       const response = await webPush.sendNotification(
         stored.subscription,
         JSON.stringify(payload),
+        {
+          ...(proxy ? { proxy } : {}),
+          timeout: 15000,
+        },
       );
 
       return {

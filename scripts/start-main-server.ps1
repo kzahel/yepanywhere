@@ -9,7 +9,9 @@ param(
   [string]$CodexHome = "C:\Users\Administrator\.codex",
   [string]$CodexSessionsDir = "C:\Users\Administrator\.codex\sessions",
   [string]$GeminiSessionsDir = "C:\Users\Administrator\.gemini\tmp",
-  [string]$AllowedHosts = "100.83.110.112,desktop-pd2lhe1.tail5b09a.ts.net"
+  [string]$AllowedHosts = "100.83.110.112,desktop-pd2lhe1.tail5b09a.ts.net",
+  [string]$HttpsProxy = "",
+  [string]$HttpProxy = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,6 +30,28 @@ function Stop-ListenerIfPresent {
       Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
     }
   }
+}
+
+function Get-DefaultProxy {
+  try {
+    $internetSettings = Get-ItemProperty `
+      'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' `
+      -ErrorAction Stop
+    if ($internetSettings.ProxyEnable -eq 1 -and $internetSettings.ProxyServer) {
+      $proxyValue = [string]$internetSettings.ProxyServer
+      if ($proxyValue -match '=') {
+        $firstProxy = ($proxyValue -split ';' | Select-Object -First 1)
+        if ($firstProxy -match '^[^=]+=') {
+          return ($firstProxy -replace '^[^=]+=', '')
+        }
+      }
+      return $proxyValue
+    }
+  } catch {
+    # Ignore proxy autodiscovery errors and fall back to direct access.
+  }
+
+  return $null
 }
 
 $resolvedRepoRoot = (Resolve-Path $RepoRoot).Path
@@ -71,6 +95,25 @@ $env:CLAUDE_PROJECTS_DIR = $ClaudeProjectsDir
 $env:CODEX_HOME = $CodexHome
 $env:CODEX_SESSIONS_DIR = $CodexSessionsDir
 $env:GEMINI_SESSIONS_DIR = $GeminiSessionsDir
+
+$resolvedProxy = if ($HttpsProxy) {
+  $HttpsProxy
+} else {
+  Get-DefaultProxy
+}
+
+if ($resolvedProxy) {
+  $proxyUrl = if ($resolvedProxy -match '^https?://') {
+    $resolvedProxy
+  } else {
+    "http://$resolvedProxy"
+  }
+  $env:HTTPS_PROXY = $proxyUrl
+  $env:HTTP_PROXY = if ($HttpProxy) { $HttpProxy } else { $proxyUrl }
+} else {
+  Remove-Item Env:HTTPS_PROXY -ErrorAction SilentlyContinue
+  Remove-Item Env:HTTP_PROXY -ErrorAction SilentlyContinue
+}
 
 Start-Process `
   -FilePath $NodePath `

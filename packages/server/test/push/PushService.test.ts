@@ -197,6 +197,9 @@ describe("PushService", () => {
       expect(webPush.sendNotification).toHaveBeenCalledWith(
         mockSubscription,
         expect.stringContaining('"type":"test"'),
+        expect.objectContaining({
+          timeout: 15000,
+        }),
       );
     });
 
@@ -289,6 +292,9 @@ describe("PushService", () => {
       expect(webPush.sendNotification).toHaveBeenCalledWith(
         mockSubscription,
         expect.stringContaining('"type":"test"'),
+        expect.objectContaining({
+          timeout: 15000,
+        }),
       );
     });
 
@@ -305,7 +311,40 @@ describe("PushService", () => {
       expect(webPush.sendNotification).toHaveBeenCalledWith(
         mockSubscription,
         expect.stringContaining("Custom test message"),
+        expect.objectContaining({
+          timeout: 15000,
+        }),
       );
+    });
+
+    it("passes proxy settings to web-push when HTTPS_PROXY is configured", async () => {
+      vi.mocked(webPush.sendNotification).mockResolvedValue({
+        statusCode: 201,
+        body: "",
+        headers: {},
+      });
+      const originalHttpsProxy = process.env.HTTPS_PROXY;
+      process.env.HTTPS_PROXY = "http://127.0.0.1:7897";
+
+      try {
+        await pushService.subscribe("profile-1", mockSubscription);
+        await pushService.sendTest("profile-1", "Proxy test");
+
+        expect(webPush.sendNotification).toHaveBeenCalledWith(
+          mockSubscription,
+          expect.stringContaining("Proxy test"),
+          expect.objectContaining({
+            proxy: "http://127.0.0.1:7897",
+            timeout: 15000,
+          }),
+        );
+      } finally {
+        if (originalHttpsProxy === undefined) {
+          delete process.env.HTTPS_PROXY;
+        } else {
+          process.env.HTTPS_PROXY = originalHttpsProxy;
+        }
+      }
     });
   });
 });
