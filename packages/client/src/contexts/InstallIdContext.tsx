@@ -34,7 +34,7 @@ export function InstallIdProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const connection = isRemoteClient()
-      ? remoteConnection?.connection ?? null
+      ? (remoteConnection?.connection ?? null)
       : directConnection;
 
     if (!connection) {
