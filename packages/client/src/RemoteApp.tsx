@@ -241,15 +241,15 @@ export function RemoteApp({ children }: Props) {
 
   return (
     <ToastProvider>
-      <InstallIdProvider>
-        <RemoteConnectionProvider>
+      <RemoteConnectionProvider>
+        <InstallIdProvider>
           <InboxProvider initialEnabled={false}>
             <SchemaValidationProvider>
               <RemoteAppInner>{children}</RemoteAppInner>
             </SchemaValidationProvider>
           </InboxProvider>
-        </RemoteConnectionProvider>
-      </InstallIdProvider>
+        </InstallIdProvider>
+      </RemoteConnectionProvider>
     </ToastProvider>
   );
 }

@@ -5,8 +5,9 @@ import {
   useEffect,
   useState,
 } from "react";
-import { useConnection } from "../hooks/useConnection";
+import { directConnection, isRemoteClient } from "../lib/connection";
 import { setCurrentInstallId } from "../lib/storageKeys";
+import { useOptionalRemoteConnection } from "./RemoteConnectionContext";
 
 interface InstallIdContextValue {
   /** The server's installation ID (undefined while loading) */
@@ -27,16 +28,25 @@ const InstallIdContext = createContext<InstallIdContextValue>({
  * On mount, it fetches /server-info via the active connection to get the installId.
  */
 export function InstallIdProvider({ children }: { children: ReactNode }) {
-  const connection = useConnection();
+  const remoteConnection = useOptionalRemoteConnection();
   const [installId, setInstallId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const connection = isRemoteClient()
+      ? remoteConnection?.connection ?? null
+      : directConnection;
+
+    if (!connection) {
+      return;
+    }
+    const activeConnection = connection;
+
     let cancelled = false;
 
     async function fetchInstallId() {
       try {
-        const response = await connection.fetch<{
+        const response = await activeConnection.fetch<{
           installId?: string;
           host: string;
           port: number;
@@ -63,7 +73,7 @@ export function InstallIdProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [connection]);
+  }, [remoteConnection?.connection]);
 
   return (
     <InstallIdContext.Provider value={{ installId, isLoading }}>
