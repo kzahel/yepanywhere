@@ -1,9 +1,83 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type VersionInfo, api } from "../api/client";
 
 interface UseVersionOptions {
   /** Request a fresh update check on initial mount. */
   freshOnMount?: boolean;
+}
+
+interface VersionStoreState {
+  version: VersionInfo | null;
+  loading: boolean;
+  error: Error | null;
+}
+
+const versionStoreListeners = new Set<() => void>();
+let versionStoreState: VersionStoreState = {
+  version: null,
+  loading: false,
+  error: null,
+};
+let versionRequestInFlight: Promise<VersionInfo> | null = null;
+
+function emitVersionStore(): void {
+  for (const listener of versionStoreListeners) {
+    listener();
+  }
+}
+
+function subscribeVersionStore(listener: () => void): () => void {
+  versionStoreListeners.add(listener);
+  return () => {
+    versionStoreListeners.delete(listener);
+  };
+}
+
+function getVersionStoreSnapshot(): VersionStoreState {
+  return versionStoreState;
+}
+
+async function fetchSharedVersion(fresh = false): Promise<VersionInfo> {
+  if (!fresh && versionStoreState.version) {
+    return versionStoreState.version;
+  }
+
+  if (versionRequestInFlight && (!fresh || !versionStoreState.version)) {
+    return versionRequestInFlight;
+  }
+
+  versionStoreState = {
+    ...versionStoreState,
+    loading: true,
+    error: null,
+  };
+  emitVersionStore();
+
+  const request = api.getVersion({ fresh });
+  versionRequestInFlight = request;
+
+  try {
+    const data = await request;
+    versionStoreState = {
+      version: data,
+      loading: false,
+      error: null,
+    };
+    emitVersionStore();
+    return data;
+  } catch (err) {
+    versionStoreState = {
+      ...versionStoreState,
+      loading: false,
+      error: err instanceof Error ? err : new Error(String(err)),
+    };
+    emitVersionStore();
+    throw err;
+  } finally {
+    if (versionRequestInFlight === request) {
+      versionRequestInFlight = null;
+    }
+  }
 }
 
 /**
@@ -16,36 +90,35 @@ interface UseVersionOptions {
  * - refetch: Function to manually refresh version info
  */
 export function useVersion(options?: UseVersionOptions) {
-  const [version, setVersion] = useState<VersionInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const hasFetchedRef = useRef(false);
+  const [state, setState] = useState<VersionStoreState>(() =>
+    getVersionStoreSnapshot(),
+  );
 
-  const fetchVersion = useCallback(async (fresh = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.getVersion({ fresh });
-      setVersion(data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    return subscribeVersionStore(() => {
+      setState(getVersionStoreSnapshot());
+    });
   }, []);
 
-  // Initial fetch - only once (avoid StrictMode double-fetch)
   useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-    void fetchVersion(options?.freshOnMount ?? false);
-  }, [fetchVersion, options?.freshOnMount]);
+    if (options?.freshOnMount) {
+      void fetchSharedVersion(true);
+      return;
+    }
+
+    if (!versionStoreState.version && !versionStoreState.loading) {
+      void fetchSharedVersion(false);
+    }
+  }, [options?.freshOnMount]);
+
+  const refetch = useCallback(() => fetchSharedVersion(false), []);
+  const refetchFresh = useCallback(() => fetchSharedVersion(true), []);
 
   return {
-    version,
-    loading,
-    error,
-    refetch: () => fetchVersion(false),
-    refetchFresh: () => fetchVersion(true),
+    version: state.version,
+    loading: state.loading,
+    error: state.error,
+    refetch,
+    refetchFresh,
   };
 }

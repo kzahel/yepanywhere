@@ -52,26 +52,13 @@ const UPDATE_SERVER_URL = "https://updates.yepanywhere.com/version";
 
 // Cache for update server check (24 hour TTL for routine app traffic)
 let cachedLatestVersion: { version: string; timestamp: number } | null = null;
+let latestVersionFetchInFlight: Promise<string | null> | null = null;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-/**
- * Fetch the latest version from the update server.
- * Sends current version and install ID for analytics.
- */
-async function getLatestVersion(
+async function fetchLatestVersionFromServer(
   currentVersion: string,
   installId?: string,
-  options?: { forceRefresh?: boolean },
 ): Promise<string | null> {
-  // Return cached value if fresh
-  if (
-    !options?.forceRefresh &&
-    cachedLatestVersion &&
-    Date.now() - cachedLatestVersion.timestamp < CACHE_TTL_MS
-  ) {
-    return cachedLatestVersion.version;
-  }
-
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -112,6 +99,50 @@ async function getLatestVersion(
     // Network error, timeout, etc. - fail silently
     return null;
   }
+}
+
+function refreshLatestVersionInBackground(
+  currentVersion: string,
+  installId?: string,
+): Promise<string | null> {
+  if (latestVersionFetchInFlight) {
+    return latestVersionFetchInFlight;
+  }
+
+  const request = fetchLatestVersionFromServer(currentVersion, installId).finally(
+    () => {
+      if (latestVersionFetchInFlight === request) {
+        latestVersionFetchInFlight = null;
+      }
+    },
+  );
+
+  latestVersionFetchInFlight = request;
+  return request;
+}
+
+/**
+ * Fetch the latest version from the update server.
+ * Sends current version and install ID for analytics.
+ */
+async function getLatestVersion(
+  currentVersion: string,
+  installId?: string,
+  options?: { forceRefresh?: boolean },
+): Promise<string | null> {
+  if (options?.forceRefresh) {
+    return fetchLatestVersionFromServer(currentVersion, installId);
+  }
+
+  if (cachedLatestVersion) {
+    if (Date.now() - cachedLatestVersion.timestamp >= CACHE_TTL_MS) {
+      void refreshLatestVersionInBackground(currentVersion, installId);
+    }
+    return cachedLatestVersion.version;
+  }
+
+  void refreshLatestVersionInBackground(currentVersion, installId);
+  return null;
 }
 
 export interface VersionInfo {

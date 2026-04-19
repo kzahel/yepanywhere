@@ -26,16 +26,13 @@ describe("GET /version", () => {
     global.fetch = vi.fn(handler) as unknown as typeof fetch;
   }
 
-  it("parses version from update server 200 response", async () => {
+  it("returns null latest immediately on first non-fresh request and refreshes in background", async () => {
+    let resolveFetch: ((value: Response) => void) | null = null;
     mockFetch(
       () =>
-        new Response(
-          JSON.stringify({
-            version: "99.0.0",
-            notes: "New release",
-            pub_date: "2026-01-01T00:00:00Z",
-          }),
-        ),
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
     );
 
     const { createVersionRoutes } = await importVersion();
@@ -44,16 +41,33 @@ describe("GET /version", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.latest).toBe("99.0.0");
+    expect(json.latest).toBeNull();
+    expect(json.updateAvailable).toBe(false);
     expect(json.current).toBeDefined();
+
+    resolveFetch?.(
+      new Response(
+        JSON.stringify({
+          version: "99.0.0",
+          notes: "New release",
+          pub_date: "2026-01-01T00:00:00Z",
+        }),
+      ),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const warmedRes = await routes.request("/");
+    const warmedJson = await warmedRes.json();
+    expect(warmedJson.latest).toBe("99.0.0");
   });
 
-  it("treats 204 as up-to-date", async () => {
+  it("treats 204 as up-to-date on fresh requests", async () => {
     mockFetch(() => new Response(null, { status: 204 }));
 
     const { createVersionRoutes } = await importVersion();
     const routes = createVersionRoutes();
-    const res = await routes.request("/");
+    const res = await routes.request("/?fresh=1");
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -61,12 +75,12 @@ describe("GET /version", () => {
     expect(json.latest).toBeDefined();
   });
 
-  it("returns null latest on server error", async () => {
+  it("returns null latest on server error for fresh requests", async () => {
     mockFetch(() => new Response("Internal Server Error", { status: 500 }));
 
     const { createVersionRoutes } = await importVersion();
     const routes = createVersionRoutes();
-    const res = await routes.request("/");
+    const res = await routes.request("/?fresh=1");
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -74,14 +88,14 @@ describe("GET /version", () => {
     expect(json.updateAvailable).toBe(false);
   });
 
-  it("returns null latest on network error", async () => {
+  it("returns null latest on network error for fresh requests", async () => {
     mockFetch(() => {
       throw new Error("Network error");
     });
 
     const { createVersionRoutes } = await importVersion();
     const routes = createVersionRoutes();
-    const res = await routes.request("/");
+    const res = await routes.request("/?fresh=1");
     const json = await res.json();
 
     expect(res.status).toBe(200);
