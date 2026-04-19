@@ -122,7 +122,10 @@ export function getProjectName(projectPath: string): string {
  * - lowercase vs uppercase drive letters
  */
 export function canonicalizeProjectPath(path: string): string {
-  const normalized = path.replace(/\\/g, "/");
+  const withoutWin32Namespace = path
+    .replace(/^\\\\\?\\/, "")
+    .replace(/^\/\/\?\//, "");
+  const normalized = withoutWin32Namespace.replace(/\\/g, "/");
   return normalized.replace(/^([a-z]):/, (_match, drive: string) => {
     return `${drive.toUpperCase()}:`;
   });

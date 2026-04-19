@@ -66,7 +66,7 @@ describe("Project Path Utilities", () => {
       const sessionDir = "/home/user/.claude/projects/hostname/-encoded-path";
       const sessionId = "abc-123";
       const result = getSessionFilePath(sessionDir, sessionId);
-      expect(result).toBe(
+      expect(result.replace(/\\/g, "/")).toBe(
         "/home/user/.claude/projects/hostname/-encoded-path/abc-123.jsonl",
       );
     });
@@ -154,6 +154,15 @@ describe("Project Path Utilities", () => {
       );
     });
 
+    it("canonicalizes Win32 namespace paths", () => {
+      expect(
+        canonicalizeProjectPath("\\\\?\\C:\\Users\\pf\\Projects\\myapp"),
+      ).toBe("C:/Users/pf/Projects/myapp");
+      expect(canonicalizeProjectPath("//?/c:/Users/pf/Projects/myapp")).toBe(
+        "C:/Users/pf/Projects/myapp",
+      );
+    });
+
     it("normalizes macOS home paths", () => {
       expect(normalizeProjectPathForDedup("/Users/kgraehl/dotfiles")).toBe(
         "kgraehl/dotfiles",
@@ -210,6 +219,14 @@ describe("Project Path Utilities", () => {
       expect(normalizeProjectPathForDedup("C:/Users/pf/Projects/myapp")).toBe(
         "pf/Projects/myapp",
       );
+    });
+
+    it("deduplicates Win32 namespace paths with normal Windows paths", () => {
+      const namespaced = normalizeProjectPathForDedup(
+        "\\\\?\\C:\\Users\\pf\\Projects\\myapp",
+      );
+      const normal = normalizeProjectPathForDedup("C:/Users/pf/Projects/myapp");
+      expect(namespaced).toBe(normal);
     });
 
     it("matches Windows and macOS paths for same user/project", () => {
