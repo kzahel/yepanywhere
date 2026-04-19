@@ -5,7 +5,11 @@ import type { Project, SessionSummary } from "../supervisor/types.js";
 import { CodexSessionReader } from "./codex-reader.js";
 import { GeminiSessionReader } from "./gemini-reader.js";
 import { ClaudeSessionReader } from "./reader.js";
-import type { ISessionReader } from "./types.js";
+import type {
+  GetSessionOptions,
+  ISessionReader,
+  LoadedSession,
+} from "./types.js";
 
 type ProviderGroup = "claude" | "codex" | "gemini" | "opencode";
 
@@ -35,6 +39,11 @@ export interface SessionSource {
 export interface ResolvedSessionSummary {
   source: SessionSource;
   summary: SessionSummary;
+}
+
+export interface ResolvedLoadedSession {
+  source: SessionSource;
+  loaded: LoadedSession;
 }
 
 function normalizeProviderGroup(
@@ -256,11 +265,47 @@ export async function findSessionSummaryAcrossProviders(
   projectId: UrlProjectId,
   deps: ProviderResolutionDeps,
   preferredProvider?: ProviderName | string,
+  catalog?: ProviderProjectCatalog,
 ): Promise<ResolvedSessionSummary | null> {
-  for (const source of getSessionSources(project, deps, preferredProvider)) {
+  for (const source of getSessionSources(
+    project,
+    deps,
+    preferredProvider,
+    catalog,
+  )) {
     const summary = await source.reader.getSessionSummary(sessionId, projectId);
     if (summary) {
       return { source, summary };
+    }
+  }
+
+  return null;
+}
+
+export async function findLoadedSessionAcrossProviders(
+  project: Project,
+  sessionId: string,
+  projectId: UrlProjectId,
+  deps: ProviderResolutionDeps,
+  afterMessageId?: string,
+  preferredProvider?: ProviderName | string,
+  catalog?: ProviderProjectCatalog,
+  options?: GetSessionOptions,
+): Promise<ResolvedLoadedSession | null> {
+  for (const source of getSessionSources(
+    project,
+    deps,
+    preferredProvider,
+    catalog,
+  )) {
+    const loaded = await source.reader.getSession(
+      sessionId,
+      projectId,
+      afterMessageId,
+      options,
+    );
+    if (loaded) {
+      return { source, loaded };
     }
   }
 

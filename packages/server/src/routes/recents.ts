@@ -112,7 +112,11 @@ export function createRecentsRoutes(deps: RecentsDeps): Hono {
       return c.json({ error: "sessionId and projectId are required" }, 400);
     }
 
-    await deps.recentsService.recordVisit(body.sessionId, body.projectId);
+    await deps.recentsService.recordVisit(
+      body.sessionId,
+      body.projectId as UrlProjectId,
+    );
+
     return c.json({ recorded: true });
   });
 

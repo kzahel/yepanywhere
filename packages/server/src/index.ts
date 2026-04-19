@@ -69,6 +69,7 @@ import {
 import { listSessionsAcrossProviders } from "./sessions/provider-resolution.js";
 import { ClaudeSessionReader } from "./sessions/reader.js";
 import { prewarmProjectSessions } from "./warmup/project-session-prewarm.js";
+import { prewarmRecentSessions } from "./warmup/recent-session-prewarm.js";
 import { UploadManager } from "./uploads/manager.js";
 import {
   EventBus,
@@ -548,44 +549,80 @@ async function startServer() {
     0,
     parseInt(process.env.PROJECT_SESSION_PREWARM_LIMIT ?? "20", 10) || 20,
   );
+  const projectSessionPrewarmDelayMs = Math.max(
+    0,
+    parseInt(process.env.PROJECT_SESSION_PREWARM_DELAY_MS ?? "10000", 10) ||
+      10000,
+  );
+  const recentSessionPrewarmLimit = Math.max(
+    0,
+    parseInt(process.env.RECENT_SESSION_PREWARM_LIMIT ?? "1", 10) || 1,
+  );
 
-  if (projectSessionPrewarmLimit > 0) {
+  if (projectSessionPrewarmLimit > 0 || recentSessionPrewarmLimit > 0) {
     const prewarmGeminiScanner = new GeminiSessionScanner({
       sessionsDir: config.geminiSessionsDir,
     });
+    const scannerPrewarmPromise = scanner.prewarm();
 
-    void scanner
-      .prewarm()
-      .then(() =>
-        prewarmProjectSessions({
-          listProjects: () => scanner.listProjects(),
-          buildProviderCatalog: (projects) =>
-            buildProviderProjectCatalog({
-              projects,
-              geminiScanner: prewarmGeminiScanner,
-            }),
-          recentProjectIds: recentsService
-            .getRecentsWithLimit(50)
-            .map((entry) => entry.projectId),
-          warmProject: async (project, providerCatalog) => {
-            await listSessionsAcrossProviders(
-              project,
-              {
-                readerFactory,
-                sessionIndexService,
-                codexSessionsDir: config.codexSessionsDir,
-                geminiSessionsDir: config.geminiSessionsDir,
-                geminiHashToCwd: providerCatalog.geminiHashToCwd,
-              },
-              providerCatalog,
-            );
+    if (recentSessionPrewarmLimit > 0) {
+      try {
+        await scannerPrewarmPromise;
+        await prewarmRecentSessions({
+          resolveProject: (projectId) => scanner.getProject(projectId),
+          providerDeps: {
+            readerFactory,
+            codexSessionsDir: config.codexSessionsDir,
+            geminiSessionsDir: config.geminiSessionsDir,
+            geminiHashToCwd: prewarmGeminiScanner.getHashToCwd(),
           },
-          limit: projectSessionPrewarmLimit,
-        }),
-      )
-      .catch((error) => {
-        console.warn("[ProjectSessionPrewarm] Failed:", error);
-      });
+          recentEntries: recentsService.getRecentsWithLimit(50),
+          limit: recentSessionPrewarmLimit,
+        });
+      } catch (error) {
+        console.warn("[RecentSessionPrewarm] Failed:", error);
+      }
+    }
+
+    if (projectSessionPrewarmLimit > 0) {
+      void (async () => {
+        try {
+          await scannerPrewarmPromise;
+          if (projectSessionPrewarmDelayMs > 0) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, projectSessionPrewarmDelayMs),
+            );
+          }
+          await prewarmProjectSessions({
+            listProjects: () => scanner.listProjects(),
+            buildProviderCatalog: (projects) =>
+              buildProviderProjectCatalog({
+                projects,
+                geminiScanner: prewarmGeminiScanner,
+              }),
+            recentProjectIds: recentsService
+              .getRecentsWithLimit(50)
+              .map((entry) => entry.projectId),
+            warmProject: async (project, providerCatalog) => {
+              await listSessionsAcrossProviders(
+                project,
+                {
+                  readerFactory,
+                  sessionIndexService,
+                  codexSessionsDir: config.codexSessionsDir,
+                  geminiSessionsDir: config.geminiSessionsDir,
+                  geminiHashToCwd: providerCatalog.geminiHashToCwd,
+                },
+                providerCatalog,
+              );
+            },
+            limit: projectSessionPrewarmLimit,
+          });
+        } catch (error) {
+          console.warn("[ProjectSessionPrewarm] Failed:", error);
+        }
+      })();
+    }
   }
 
   const focusedSessionWatchManager = new FocusedSessionWatchManager({

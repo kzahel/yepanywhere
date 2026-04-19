@@ -113,6 +113,10 @@ export class CodexSessionReader implements ISessionReader {
     string,
     { mtimeMs: number; size: number; loaded: LoadedCodexSession }
   >();
+  private static readonly inFlightSessionLoads = new Map<
+    string,
+    Promise<LoadedCodexSession | null>
+  >();
 
   private sessionsDir: string;
   private projectPath?: string;
@@ -185,82 +189,100 @@ export class CodexSessionReader implements ISessionReader {
         return structuredClone(cached.loaded);
       }
 
-      const lines = await readJsonlLines(sessionFile.filePath);
-      if (lines.length === 0 || (lines.length === 1 && !lines[0])) return null;
-      const entries: CodexSessionEntry[] = [];
-
-      for (const line of lines) {
-        const entry = parseCodexSessionEntry(line);
-        if (entry) {
-          entries.push(entry);
-        }
+      const inFlight = CodexSessionReader.inFlightSessionLoads.get(cacheKey);
+      if (inFlight) {
+        const loaded = await inFlight;
+        return loaded ? structuredClone(loaded) : null;
       }
 
-      if (entries.length === 0) return null;
+      const loadPromise = (async (): Promise<LoadedCodexSession | null> => {
+        const lines = await readJsonlLines(sessionFile.filePath);
+        if (lines.length === 0 || (lines.length === 1 && !lines[0])) return null;
+        const entries: CodexSessionEntry[] = [];
 
-      // Extract session metadata from first entry
-      const metaEntry = entries.find((e) => e.type === "session_meta") as
-        | CodexSessionMetaEntry
-        | undefined;
-      if (!metaEntry) return null;
+        for (const line of lines) {
+          const entry = parseCodexSessionEntry(line);
+          if (entry) {
+            entries.push(entry);
+          }
+        }
 
-      const { title, fullTitle } = this.extractTitle(entries);
-      const messageCount = this.countMessages(entries);
-      const model = this.extractModel(entries);
-      const provider = this.determineProvider(metaEntry, model) as
-        | "codex"
-        | "codex-oss";
-      const turnContext = this.extractTurnContext(entries);
-      const contextUsage = this.extractContextUsage(entries, model, provider);
+        if (entries.length === 0) return null;
 
-      // Skip sessions with no actual conversation messages
-      if (messageCount === 0) return null;
+        // Extract session metadata from first entry
+        const metaEntry = entries.find((e) => e.type === "session_meta") as
+          | CodexSessionMetaEntry
+          | undefined;
+        if (!metaEntry) return null;
 
-      const summary: SessionSummary = {
-        id: sessionFile.id,
-        projectId,
-        title,
-        fullTitle,
-        createdAt: metaEntry.payload.timestamp,
-        updatedAt: stats.mtime.toISOString(),
-        messageCount,
-        ownership: { owner: "none" },
-        contextUsage,
-        provider,
-        model,
-        originator: metaEntry.payload.originator,
-        cliVersion: metaEntry.payload.cli_version,
-        source: metaEntry.payload.source,
-        approvalPolicy: turnContext?.payload.approval_policy,
-        sandboxPolicy: turnContext?.payload.sandbox_policy
-          ? {
-              type: turnContext.payload.sandbox_policy.type,
-              networkAccess: turnContext.payload.sandbox_policy.network_access,
-              excludeTmpdirEnvVar:
-                turnContext.payload.sandbox_policy.exclude_tmpdir_env_var,
-              excludeSlashTmp:
-                turnContext.payload.sandbox_policy.exclude_slash_tmp,
-            }
-          : undefined,
-      };
+        const { title, fullTitle } = this.extractTitle(entries);
+        const messageCount = this.countMessages(entries);
+        const model = this.extractModel(entries);
+        const provider = this.determineProvider(metaEntry, model) as
+          | "codex"
+          | "codex-oss";
+        const turnContext = this.extractTurnContext(entries);
+        const contextUsage = this.extractContextUsage(entries, model, provider);
 
-      const loaded: LoadedCodexSession = {
-        summary,
-        data: {
+        // Skip sessions with no actual conversation messages
+        if (messageCount === 0) return null;
+
+        const summary: SessionSummary = {
+          id: sessionFile.id,
+          projectId,
+          title,
+          fullTitle,
+          createdAt: metaEntry.payload.timestamp,
+          updatedAt: stats.mtime.toISOString(),
+          messageCount,
+          ownership: { owner: "none" },
+          contextUsage,
           provider,
-          session: {
-            entries,
+          model,
+          originator: metaEntry.payload.originator,
+          cliVersion: metaEntry.payload.cli_version,
+          source: metaEntry.payload.source,
+          approvalPolicy: turnContext?.payload.approval_policy,
+          sandboxPolicy: turnContext?.payload.sandbox_policy
+            ? {
+                type: turnContext.payload.sandbox_policy.type,
+                networkAccess: turnContext.payload.sandbox_policy.network_access,
+                excludeTmpdirEnvVar:
+                  turnContext.payload.sandbox_policy.exclude_tmpdir_env_var,
+                excludeSlashTmp:
+                  turnContext.payload.sandbox_policy.exclude_slash_tmp,
+              }
+            : undefined,
+        };
+
+        const loaded: LoadedCodexSession = {
+          summary,
+          data: {
+            provider,
+            session: {
+              entries,
+            },
           },
-        },
-      };
+        };
 
-      CodexSessionReader.sessionCache.set(cacheKey, {
-        mtimeMs: stats.mtimeMs,
-        size: stats.size,
-        loaded,
-      });
+        CodexSessionReader.sessionCache.set(cacheKey, {
+          mtimeMs: stats.mtimeMs,
+          size: stats.size,
+          loaded,
+        });
 
-      return structuredClone(loaded);
+        return loaded;
+      })();
+
+      CodexSessionReader.inFlightSessionLoads.set(cacheKey, loadPromise);
+      try {
+        const loaded = await loadPromise;
+        return loaded ? structuredClone(loaded) : null;
+      } finally {
+        if (CodexSessionReader.inFlightSessionLoads.get(cacheKey) === loadPromise) {
+          CodexSessionReader.inFlightSessionLoads.delete(cacheKey);
+        }
+      }
     } catch {
       return null;
     }
