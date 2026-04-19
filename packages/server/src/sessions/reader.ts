@@ -20,6 +20,7 @@ import type {
   ISessionReader,
   LoadedSession,
 } from "./types.js";
+import type { ClaudeSessionFile } from "@yep-anywhere/shared";
 
 // Re-export interface types
 export type { GetSessionOptions, ISessionReader } from "./types.js";
@@ -158,6 +159,10 @@ export function computeCompactionOverhead(
  * agent sessions, orphaned tool detection, and context window tracking.
  */
 export class ClaudeSessionReader implements ISessionReader {
+  private static readonly sessionCache = new Map<
+    string,
+    { mtimeMs: number; size: number; loaded: LoadedSession }
+  >();
   private sessionDir: string;
   private allSessionDirs: string[];
   private resolveContextWindow: (
@@ -251,6 +256,13 @@ export class ClaudeSessionReader implements ISessionReader {
     afterMessageId?: string,
   ): Promise<LoadedSession | null> {
     try {
+      const stats = await stat(filePath);
+      const cacheKey = this.getSessionCacheKey(filePath);
+      const cached = ClaudeSessionReader.sessionCache.get(cacheKey);
+      if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+        return this.cloneLoadedSession(cached.loaded, afterMessageId);
+      }
+
       const content = await readFile(filePath, "utf-8");
       const trimmed = content.trim();
 
@@ -287,7 +299,6 @@ export class ClaudeSessionReader implements ISessionReader {
         return null;
       }
 
-      const stats = await stat(filePath);
       const firstUserMessage = this.findFirstUserMessage(messages);
       const fullTitle = firstUserMessage?.trim() || null;
       const model = this.extractModel(conversationMessages);
@@ -327,15 +338,23 @@ export class ClaudeSessionReader implements ISessionReader {
         model,
       };
 
-      return {
+      const loaded: LoadedSession = {
         summary,
         data: {
           provider: summary.provider as "claude" | "claude-ollama",
           session: {
-            messages: finalMessages,
+            messages,
           },
         },
       };
+
+      ClaudeSessionReader.sessionCache.set(cacheKey, {
+        mtimeMs: stats.mtimeMs,
+        size: stats.size,
+        loaded,
+      });
+
+      return this.cloneLoadedSession(loaded, afterMessageId);
     } catch {
       return null;
     }
@@ -584,6 +603,30 @@ export class ClaudeSessionReader implements ISessionReader {
       }
     }
     return null;
+  }
+
+  private getSessionCacheKey(filePath: string): string {
+    return process.platform === "win32" ? filePath.toLowerCase() : filePath;
+  }
+
+  private cloneLoadedSession(
+    loaded: LoadedSession,
+    afterMessageId?: string,
+  ): LoadedSession {
+    const cloned = structuredClone(loaded);
+    const sessionData = cloned.data.session as ClaudeSessionFile;
+    const rawMessages = sessionData.messages as ClaudeSessionEntry[];
+    if (!afterMessageId) {
+      return cloned;
+    }
+
+    const afterIndex = rawMessages.findIndex(
+      (message) => "uuid" in message && message.uuid === afterMessageId,
+    );
+    if (afterIndex !== -1) {
+      sessionData.messages = rawMessages.slice(afterIndex + 1);
+    }
+    return cloned;
   }
 
   private findFirstUserMessage(messages: ClaudeSessionEntry[]): string | null {

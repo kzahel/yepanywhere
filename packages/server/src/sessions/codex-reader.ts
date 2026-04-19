@@ -109,6 +109,10 @@ export class CodexSessionReader implements ISessionReader {
     string,
     SharedSessionScanState
   >();
+  private static readonly sessionCache = new Map<
+    string,
+    { mtimeMs: number; size: number; loaded: LoadedCodexSession }
+  >();
 
   private sessionsDir: string;
   private projectPath?: string;
@@ -174,6 +178,13 @@ export class CodexSessionReader implements ISessionReader {
     projectId: UrlProjectId,
   ): Promise<LoadedCodexSession | null> {
     try {
+      const stats = await stat(sessionFile.filePath);
+      const cacheKey = this.getSessionCacheKey(sessionFile.filePath);
+      const cached = CodexSessionReader.sessionCache.get(cacheKey);
+      if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+        return structuredClone(cached.loaded);
+      }
+
       const lines = await readJsonlLines(sessionFile.filePath);
       if (lines.length === 0 || (lines.length === 1 && !lines[0])) return null;
       const entries: CodexSessionEntry[] = [];
@@ -193,7 +204,6 @@ export class CodexSessionReader implements ISessionReader {
         | undefined;
       if (!metaEntry) return null;
 
-      const stats = await stat(sessionFile.filePath);
       const { title, fullTitle } = this.extractTitle(entries);
       const messageCount = this.countMessages(entries);
       const model = this.extractModel(entries);
@@ -234,7 +244,7 @@ export class CodexSessionReader implements ISessionReader {
           : undefined,
       };
 
-      return {
+      const loaded: LoadedCodexSession = {
         summary,
         data: {
           provider,
@@ -243,6 +253,14 @@ export class CodexSessionReader implements ISessionReader {
           },
         },
       };
+
+      CodexSessionReader.sessionCache.set(cacheKey, {
+        mtimeMs: stats.mtimeMs,
+        size: stats.size,
+        loaded,
+      });
+
+      return structuredClone(loaded);
     } catch {
       return null;
     }
@@ -429,6 +447,10 @@ export class CodexSessionReader implements ISessionReader {
   private getSharedCacheKey(): string {
     const resolved = resolve(this.sessionsDir);
     return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  }
+
+  private getSessionCacheKey(filePath: string): string {
+    return process.platform === "win32" ? filePath.toLowerCase() : filePath;
   }
 
   private getPersistentIndexPath(): string {
