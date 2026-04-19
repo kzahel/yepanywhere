@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { AgentActivity } from "../hooks/useFileActivity";
+import { prefetchSessionLoad } from "../lib/sessionLoadCache";
 import type {
   ContextUsage,
   PendingInputType,
@@ -167,6 +168,44 @@ export function SessionListItem({
     undefined,
   );
   const hasUnread = localHasUnread ?? hasUnreadProp;
+  const linkRef = useRef<HTMLAnchorElement | null>(null);
+  const hasPrefetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      hasPrefetchedRef.current ||
+      isSelectionMode ||
+      isCurrent ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    const element = linkRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting || hasPrefetchedRef.current) {
+            continue;
+          }
+          hasPrefetchedRef.current = true;
+          void prefetchSessionLoad(projectId, sessionId);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "200px 0px",
+        threshold: 0,
+      },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isCurrent, isSelectionMode, projectId, sessionId]);
 
   // Handlers for menu actions
   const handleToggleStar = async () => {
@@ -364,7 +403,26 @@ export function SessionListItem({
         />
       ) : (
         <Link
+          ref={linkRef}
           to={`${basePath}/projects/${projectId}/sessions/${sessionId}`}
+          onPointerDown={() => {
+            if (!isSelectionMode) {
+              hasPrefetchedRef.current = true;
+              void prefetchSessionLoad(projectId, sessionId);
+            }
+          }}
+          onMouseEnter={() => {
+            if (!isSelectionMode && !hasPrefetchedRef.current) {
+              hasPrefetchedRef.current = true;
+              void prefetchSessionLoad(projectId, sessionId);
+            }
+          }}
+          onFocus={() => {
+            if (!isSelectionMode) {
+              hasPrefetchedRef.current = true;
+              void prefetchSessionLoad(projectId, sessionId);
+            }
+          }}
           onClick={(e) => {
             if (isSelectionMode) {
               e.preventDefault();

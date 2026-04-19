@@ -13,6 +13,7 @@ import { useRecentProjects } from "../hooks/useRecentProjects";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
+import { prefetchSessionLoad } from "../lib/sessionLoadCache";
 import { getSessionDisplayTitle, toUrlProjectId } from "../utils";
 import { AgentsNavItem } from "./AgentsNavItem";
 import { SessionListItem } from "./SessionListItem";
@@ -28,6 +29,7 @@ const SWIPE_ENGAGE_THRESHOLD = 15; // Minimum horizontal distance before swipe e
 const RECENT_SESSIONS_INITIAL = 12; // Initial number of recent sessions to show
 const RECENT_SESSIONS_INCREMENT = 10; // How many more to show on each expand
 const SESSION_LIST_DELAY_MS = 750; // Let page-critical data load first
+const COMPACT_SESSION_LIST_LIMIT = 8; // Session/Agents 页只显示少量最近会话
 
 function extractProjectIdFromPath(pathname: string): string | null {
   const match = pathname.match(/\/projects\/([^/]+)/);
@@ -82,13 +84,12 @@ export function Sidebar({
     location.pathname,
   );
   const isAgentsPage = /\/agents$/.test(location.pathname);
-  const canShowSessionLists =
-    (isDesktop ? !isCollapsed : isOpen) && !isSessionPage && !isAgentsPage;
+  const useCompactSessionLists = isSessionPage || isAgentsPage;
+  const canShowSessionLists = isDesktop ? !isCollapsed : isOpen;
   const [sessionListsEnabled, setSessionListsEnabled] = useState(false);
 
   useEffect(() => {
     if (!canShowSessionLists) {
-      setSessionListsEnabled(false);
       return;
     }
 
@@ -102,7 +103,7 @@ export function Sidebar({
   // Fetch one shared session list for the expanded sidebar only.
   const { sessions: sidebarSessions, loading: sessionsLoading } =
     useGlobalSessions({
-      limit: 100,
+      limit: useCompactSessionLists ? COMPACT_SESSION_LIST_LIMIT : 100,
       includeStats: false,
       enabled: sessionListsEnabled,
     });
@@ -131,6 +132,7 @@ export function Sidebar({
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const swipeEngaged = useRef<boolean>(false);
+  const prefetchedSidebarSessionsRef = useRef<Set<string>>(new Set());
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartX = useRef<number | null>(null);
@@ -268,6 +270,35 @@ export function Sidebar({
         isOlderThanOneDay(new Date(s.updatedAt)),
     );
   }, [sidebarSessions]);
+
+  useEffect(() => {
+    if (!sessionListsEnabled) {
+      return;
+    }
+
+    const sessionsToPrefetch = (useCompactSessionLists
+      ? sidebarSessions
+      : [...filteredStarredSessions, ...recentDaySessions, ...olderSessions]
+    ).slice(0, COMPACT_SESSION_LIST_LIMIT);
+
+    for (const session of sessionsToPrefetch) {
+      if (prefetchedSidebarSessionsRef.current.has(session.id)) {
+        continue;
+      }
+
+      prefetchedSidebarSessionsRef.current.add(session.id);
+      void prefetchSessionLoad(session.projectId, session.id).catch(() => {
+        prefetchedSidebarSessionsRef.current.delete(session.id);
+      });
+    }
+  }, [
+    filteredStarredSessions,
+    olderSessions,
+    recentDaySessions,
+    sessionListsEnabled,
+    sidebarSessions,
+    useCompactSessionLists,
+  ]);
 
   // Track which sessions have unsent drafts in localStorage
   const drafts = useDrafts();
@@ -468,7 +499,45 @@ export function Sidebar({
           </SidebarNavSection>
 
           {/* Global sessions list */}
-          {sessionListsEnabled && filteredStarredSessions.length > 0 && (
+          {sessionListsEnabled &&
+            useCompactSessionLists &&
+            sidebarSessions.length > 0 && (
+              <div className="sidebar-section">
+                <h3 className="sidebar-section-title">
+                  {t("sidebarSectionLast24Hours")}
+                </h3>
+                <ul className="sidebar-session-list">
+                  {sidebarSessions.map((session) => (
+                    <SessionListItem
+                      key={session.id}
+                      sessionId={session.id}
+                      projectId={session.projectId}
+                      title={getSessionDisplayTitle(session)}
+                      fullTitle={getSessionDisplayTitle(session)}
+                      provider={session.provider}
+                      status={session.ownership}
+                      pendingInputType={session.pendingInputType}
+                      hasUnread={session.hasUnread}
+                      isStarred={session.isStarred}
+                      isArchived={session.isArchived}
+                      mode="compact"
+                      isCurrent={session.id === currentSessionId}
+                      activity={session.activity}
+                      onNavigate={onNavigate}
+                      showProjectName
+                      projectName={session.projectName}
+                      basePath={basePath}
+                      messageCount={session.messageCount}
+                      hasDraft={drafts.has(session.id)}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+
+          {sessionListsEnabled &&
+            !useCompactSessionLists &&
+            filteredStarredSessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">
                 {t("sidebarSectionStarred")}
@@ -522,7 +591,9 @@ export function Sidebar({
             </div>
           )}
 
-          {sessionListsEnabled && recentDaySessions.length > 0 && (
+          {sessionListsEnabled &&
+            !useCompactSessionLists &&
+            recentDaySessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">
                 {t("sidebarSectionLast24Hours")}
@@ -576,7 +647,9 @@ export function Sidebar({
             </div>
           )}
 
-          {sessionListsEnabled && olderSessions.length > 0 && (
+          {sessionListsEnabled &&
+            !useCompactSessionLists &&
+            olderSessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">
                 {t("sidebarSectionOlder")}
@@ -629,9 +702,11 @@ export function Sidebar({
           )}
 
           {sessionListsEnabled &&
-            filteredStarredSessions.length === 0 &&
-            recentDaySessions.length === 0 &&
-            olderSessions.length === 0 && (
+            ((useCompactSessionLists && sidebarSessions.length === 0) ||
+              (!useCompactSessionLists &&
+                filteredStarredSessions.length === 0 &&
+                recentDaySessions.length === 0 &&
+                olderSessions.length === 0)) && (
               <p className="sidebar-empty">
                 {sessionsLoading
                   ? t("sidebarLoadingSessions")
