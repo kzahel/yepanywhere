@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { GlobalSessionItem } from "../api/client";
 import { useOptionalRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useDrafts } from "../hooks/useDrafts";
 import { useGlobalSessions } from "../hooks/useGlobalSessions";
 import { useNeedsAttentionBadge } from "../hooks/useNeedsAttentionBadge";
-import { resolvePreferredProjectId } from "../hooks/useRecentProject";
+import {
+  getRecentProjectId,
+  resolvePreferredProjectId,
+} from "../hooks/useRecentProject";
 import { useRecentProjects } from "../hooks/useRecentProjects";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useVersion } from "../hooks/useVersion";
@@ -25,6 +28,11 @@ const SWIPE_ENGAGE_THRESHOLD = 15; // Minimum horizontal distance before swipe e
 const RECENT_SESSIONS_INITIAL = 12; // Initial number of recent sessions to show
 const RECENT_SESSIONS_INCREMENT = 10; // How many more to show on each expand
 const SESSION_LIST_DELAY_MS = 750; // Let page-critical data load first
+
+function extractProjectIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/\/projects\/([^/]+)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
 
 interface SidebarProps {
   isOpen: boolean;
@@ -67,13 +75,19 @@ export function Sidebar({
   const { t } = useI18n();
   // Get base path for relay mode (e.g., "/remote/my-server")
   const basePath = useRemoteBasePath();
+  const location = useLocation();
   const navigate = useNavigate();
   const remoteConnection = useOptionalRemoteConnection();
-  const shouldLoadSessionLists = !isDesktop || !isCollapsed;
+  const isSessionPage = /^\/projects\/[^/]+\/sessions\/[^/]+$/.test(
+    location.pathname,
+  );
+  const isAgentsPage = /\/agents$/.test(location.pathname);
+  const canShowSessionLists =
+    (isDesktop ? !isCollapsed : isOpen) && !isSessionPage && !isAgentsPage;
   const [sessionListsEnabled, setSessionListsEnabled] = useState(false);
 
   useEffect(() => {
-    if (!shouldLoadSessionLists) {
+    if (!canShowSessionLists) {
       setSessionListsEnabled(false);
       return;
     }
@@ -83,7 +97,7 @@ export function Sidebar({
     }, SESSION_LIST_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [shouldLoadSessionLists]);
+  }, [canShowSessionLists]);
 
   // Fetch one shared session list for the expanded sidebar only.
   const { sessions: sidebarSessions, loading: sessionsLoading } =
@@ -99,11 +113,17 @@ export function Sidebar({
 
   // Global inbox count
   const inboxCount = useNeedsAttentionBadge();
-  const { recentProjects, projects } = useRecentProjects();
-  const newSessionProjectId = resolvePreferredProjectId(
-    projects,
-    recentProjects[0]?.id,
-  );
+  const projectIdFromUrl = extractProjectIdFromPath(location.pathname);
+  const shouldLoadProjectLists = !isSessionPage && !isAgentsPage;
+  const { recentProjects, projects } = useRecentProjects(shouldLoadProjectLists);
+  const recentProjectId = getRecentProjectId();
+  const newSessionProjectId =
+    projectIdFromUrl ??
+    resolvePreferredProjectId(
+      projects,
+      recentProjects[0]?.id ?? recentProjectId,
+    ) ??
+    recentProjectId;
 
   const sidebarRef = useRef<HTMLElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -401,7 +421,11 @@ export function Sidebar({
                 basePath={basePath}
               />
             )}
-            <AgentsNavItem onClick={onNavigate} basePath={basePath} />
+            <AgentsNavItem
+              onClick={onNavigate}
+              basePath={basePath}
+              enabled={!isAgentsPage}
+            />
             <SidebarNavItem
               to="/settings"
               icon={SidebarIcons.settings}
@@ -442,7 +466,7 @@ export function Sidebar({
           </SidebarNavSection>
 
           {/* Global sessions list */}
-          {filteredStarredSessions.length > 0 && (
+          {sessionListsEnabled && filteredStarredSessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">
                 {t("sidebarSectionStarred")}
@@ -496,7 +520,7 @@ export function Sidebar({
             </div>
           )}
 
-          {recentDaySessions.length > 0 && (
+          {sessionListsEnabled && recentDaySessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">
                 {t("sidebarSectionLast24Hours")}
@@ -550,7 +574,7 @@ export function Sidebar({
             </div>
           )}
 
-          {olderSessions.length > 0 && (
+          {sessionListsEnabled && olderSessions.length > 0 && (
             <div className="sidebar-section">
               <h3 className="sidebar-section-title">
                 {t("sidebarSectionOlder")}
@@ -602,7 +626,8 @@ export function Sidebar({
             </div>
           )}
 
-          {filteredStarredSessions.length === 0 &&
+          {sessionListsEnabled &&
+            filteredStarredSessions.length === 0 &&
             recentDaySessions.length === 0 &&
             olderSessions.length === 0 && (
               <p className="sidebar-empty">

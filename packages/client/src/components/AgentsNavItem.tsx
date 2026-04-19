@@ -6,6 +6,8 @@ interface AgentsNavItemProps {
   onClick?: () => void;
   /** Base path prefix for relay mode (e.g., "/remote/my-server") */
   basePath?: string;
+  /** Disable background count fetch when the current page already shows agents. */
+  enabled?: boolean;
 }
 
 /**
@@ -13,8 +15,12 @@ interface AgentsNavItemProps {
  * Use this component instead of manually wiring up SidebarNavItem for agents
  * to ensure consistent behavior across all sidebars.
  */
-export function AgentsNavItem({ onClick, basePath }: AgentsNavItemProps) {
-  const activeAgentsCount = useGlobalActiveAgents();
+export function AgentsNavItem({
+  onClick,
+  basePath,
+  enabled = true,
+}: AgentsNavItemProps) {
+  const activeAgentsCount = useGlobalActiveAgents(enabled);
 
   return (
     <SidebarNavItem

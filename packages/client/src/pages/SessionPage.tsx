@@ -1,4 +1,7 @@
-import type { ProviderName, UploadedFile } from "@yep-anywhere/shared";
+import {
+  type ProviderName,
+  type UploadedFile,
+} from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -26,7 +29,6 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import type { DraftControls } from "../hooks/useDraftPersistence";
 import { useEngagementTracking } from "../hooks/useEngagementTracking";
 import { getModelSetting, getThinkingSetting } from "../hooks/useModelSettings";
-import { useProject } from "../hooks/useProjects";
 import { recordSessionVisit } from "../hooks/useRecentSessions";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import {
@@ -76,11 +78,33 @@ function SessionPageContent({
   projectId: string;
   sessionId: string;
 }) {
+  const decodeProjectPath = (encodedProjectId: string): string | null => {
+    try {
+      const normalized = encodedProjectId.replace(/-/g, "+").replace(/_/g, "/");
+      const padLength = (4 - (normalized.length % 4)) % 4;
+      const padded = normalized + "=".repeat(padLength);
+      const binary = atob(padded);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    } catch {
+      return null;
+    }
+  };
+  const decodedProjectPath = useMemo(() => {
+    return decodeProjectPath(projectId);
+  }, [projectId]);
+  const projectName = useMemo(() => {
+    if (!decodedProjectPath) return null;
+    const normalized = decodedProjectPath
+      .replace(/\\/g, "/")
+      .replace(/\/+$/, "");
+    const parts = normalized.split("/").filter(Boolean);
+    return parts.at(-1) ?? normalized;
+  }, [decodedProjectPath]);
   const { t } = useI18n();
   const { openSidebar, isWideScreen, toggleSidebar, isSidebarCollapsed } =
     useNavigationLayout();
   const basePath = useRemoteBasePath();
-  const { project } = useProject(projectId);
   const navigate = useNavigate();
   const location = useLocation();
   // Get initial status and title from navigation state (passed by NewSessionPage)
@@ -723,7 +747,7 @@ function SessionPageContent({
   const isStarred = localIsStarred ?? session?.isStarred ?? false;
 
   // Update browser tab title
-  useDocumentTitle(project?.name, displayTitle);
+  useDocumentTitle(projectName ?? undefined, displayTitle);
 
   const handleStartEditingTitle = () => {
     setRenameValue(displayTitle);
@@ -924,15 +948,15 @@ function SessionPageContent({
                 </button>
               )}
               {/* Project breadcrumb */}
-              {project?.name && (
+              {projectName && (
                 <Link
                   to={`${basePath}/sessions?project=${projectId}`}
                   className="project-breadcrumb"
-                  title={project.name}
+                  title={projectName}
                 >
-                  {project.name.length > 12
-                    ? `${project.name.slice(0, 12)}...`
-                    : project.name}
+                  {projectName.length > 12
+                    ? `${projectName.slice(0, 12)}...`
+                    : projectName}
                 </Link>
               )}
               <div className="session-title-row">
@@ -1105,7 +1129,7 @@ function SessionPageContent({
           ) : (
             <SessionMetadataProvider
               projectId={projectId}
-              projectPath={project?.path ?? null}
+              projectPath={decodedProjectPath}
               sessionId={sessionId}
             >
               <AgentContentProvider

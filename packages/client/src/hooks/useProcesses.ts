@@ -72,7 +72,6 @@ export function useProcesses() {
 
   // Initial fetch
   useEffect(() => {
-    fetchProcesses();
     void fetchProcesses(true);
   }, [fetchProcesses]);
 

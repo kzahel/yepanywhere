@@ -9,8 +9,8 @@ const MAX_RECENT_PROJECTS = 12;
  * Uses the `lastActivity` field from the projects API to sort by recency.
  * Returns up to 12 most recently active projects.
  */
-export function useRecentProjects() {
-  const { projects, loading } = useProjects();
+export function useRecentProjects(enabled = true) {
+  const { projects, loading } = useProjects(enabled);
 
   const recentProjects = useMemo(() => {
     // Filter to projects with activity, sort by lastActivity descending

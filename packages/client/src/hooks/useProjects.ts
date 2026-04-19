@@ -96,12 +96,12 @@ export function useProject(projectId: string | undefined) {
 
 const REFETCH_DEBOUNCE_MS = 500;
 
-export function useProjects() {
+export function useProjects(enabled = true) {
   const [projects, setProjects] = useState<Project[]>(
     sharedProjectsState.projects,
   );
   const [loading, setLoading] = useState(
-    sharedProjectsState.projects.length === 0,
+    enabled && sharedProjectsState.projects.length === 0,
   );
   const [error, setError] = useState<Error | null>(sharedProjectsState.error);
   const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +111,13 @@ export function useProjects() {
   );
 
   const fetch = useCallback(async () => {
+    if (!enabled) {
+      setProjects(sharedProjectsState.projects);
+      setError(sharedProjectsState.error);
+      setLoading(false);
+      return;
+    }
+
     // Preserve existing UI during background refetches triggered by activity
     // events so pages don't bounce back to their initial loading state.
     setLoading(!hasResolvedInitialFetchRef.current);
@@ -120,14 +127,15 @@ export function useProjects() {
     setError(nextState.error);
     hasResolvedInitialFetchRef.current = true;
     setLoading(false);
-  }, []);
+  }, [enabled]);
 
   // Initial fetch - only once (avoid StrictMode double-fetch)
   useEffect(() => {
+    if (!enabled) return;
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
     fetch();
-  }, [fetch]);
+  }, [enabled, fetch]);
 
   // Debounced refetch for status change events
   const debouncedRefetch = useCallback(() => {
@@ -148,15 +156,20 @@ export function useProjects() {
   );
 
   // Subscribe to session status changes
-  useFileActivity({
-    onSessionStatusChange: handleSessionStatusChange,
-  });
+  useFileActivity(
+    enabled
+      ? {
+          onSessionStatusChange: handleSessionStatusChange,
+        }
+      : {},
+  );
 
   useEffect(() => {
+    if (!enabled) return;
     return subscribeProjectsChanged(() => {
       void fetch();
     });
-  }, [fetch]);
+  }, [enabled, fetch]);
 
   // Cleanup debounce timer
   useEffect(() => {
