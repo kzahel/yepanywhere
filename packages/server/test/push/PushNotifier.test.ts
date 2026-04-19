@@ -8,6 +8,7 @@ import type {
   BusEvent,
   EventBus,
   ProcessStateEvent,
+  ProcessTerminatedEvent,
 } from "../../src/watcher/EventBus.js";
 
 describe("PushNotifier", () => {
@@ -630,7 +631,7 @@ describe("PushNotifier", () => {
   });
 
   describe("connected browser filtering", () => {
-    it("should exclude connected browser profiles from push", async () => {
+    it("should still send push when browser profiles are connected", async () => {
       const mockProcess = {
         state: {
           type: "waiting-input",
@@ -679,11 +680,9 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      // Verify sendToAll was called with exclude option
-      const options = vi.mocked(mockPushService.sendToAll).mock.calls[0][1];
-      expect(options?.excludeBrowserProfileIds).toEqual([
-        "connected-profile-1",
-      ]);
+      expect(vi.mocked(mockPushService.sendToAll).mock.calls[0][1]).toBe(
+        undefined,
+      );
     });
 
     it("should send to all when no connectedBrowsers service", async () => {
@@ -728,9 +727,200 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      // Verify sendToAll was called with empty exclude list
-      const options = vi.mocked(mockPushService.sendToAll).mock.calls[0][1];
-      expect(options?.excludeBrowserProfileIds).toEqual([]);
+      expect(vi.mocked(mockPushService.sendToAll).mock.calls[0][1]).toBe(
+        undefined,
+      );
+    });
+  });
+
+  describe("session halted notifications", () => {
+    it("should send session-halted notification when a live process goes idle", async () => {
+      const idleProcess = {
+        state: {
+          type: "idle",
+          since: new Date("2026-04-19T10:00:05.000Z"),
+        } as ProcessState,
+      };
+
+      vi.mocked(mockSupervisor.getProcessForSession).mockImplementation(((
+        sessionId: string,
+      ) => {
+        if (sessionId === "session-1") {
+          return idleProcess as unknown as ReturnType<
+            Supervisor["getProcessForSession"]
+          >;
+        }
+        return undefined;
+      }) as Supervisor["getProcessForSession"]);
+
+      new PushNotifier({
+        eventBus: mockEventBus,
+        pushService: mockPushService,
+        supervisor: mockSupervisor,
+      });
+
+      const startedEvent: ProcessStateEvent = {
+        type: "process-state-changed",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        activity: "in-turn",
+        timestamp: "2026-04-19T10:00:00.000Z",
+      };
+      const idleEvent: ProcessStateEvent = {
+        type: "process-state-changed",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        activity: "idle",
+        timestamp: "2026-04-19T10:00:05.000Z",
+      };
+
+      eventHandler?.(startedEvent);
+      eventHandler?.(idleEvent);
+
+      await vi.waitFor(() => {
+        expect(mockPushService.sendToAll).toHaveBeenCalledTimes(1);
+      });
+
+      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      expect(payload.type).toBe("session-halted");
+      expect(payload.reason).toBe("completed");
+      expect(payload.sessionId).toBe("session-1");
+      expect(payload.projectName).toBe("test-project");
+      expect(payload.duration).toBe(5000);
+    });
+
+    it("should not send completion push for synthetic idle during unregister", async () => {
+      vi.mocked(mockSupervisor.getProcessForSession).mockReturnValue(undefined);
+
+      new PushNotifier({
+        eventBus: mockEventBus,
+        pushService: mockPushService,
+        supervisor: mockSupervisor,
+      });
+
+      const startedEvent: ProcessStateEvent = {
+        type: "process-state-changed",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        activity: "in-turn",
+        timestamp: "2026-04-19T10:00:00.000Z",
+      };
+      const idleEvent: ProcessStateEvent = {
+        type: "process-state-changed",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        activity: "idle",
+        timestamp: "2026-04-19T10:00:05.000Z",
+      };
+
+      eventHandler?.(startedEvent);
+      eventHandler?.(idleEvent);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockPushService.sendToAll).not.toHaveBeenCalled();
+    });
+
+    it("should send error session-halted notification when process terminates", async () => {
+      new PushNotifier({
+        eventBus: mockEventBus,
+        pushService: mockPushService,
+        supervisor: mockSupervisor,
+      });
+
+      const startedEvent: ProcessStateEvent = {
+        type: "process-state-changed",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        activity: "in-turn",
+        timestamp: "2026-04-19T10:00:00.000Z",
+      };
+      const terminatedEvent: ProcessTerminatedEvent = {
+        type: "process-terminated",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        processId: "process-1",
+        provider: "claude",
+        reason: "underlying process terminated",
+        timestamp: "2026-04-19T10:00:07.000Z",
+      };
+
+      eventHandler?.(startedEvent);
+      eventHandler?.(terminatedEvent);
+
+      await vi.waitFor(() => {
+        expect(mockPushService.sendToAll).toHaveBeenCalledTimes(1);
+      });
+
+      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      expect(payload.type).toBe("session-halted");
+      expect(payload.reason).toBe("error");
+      expect(payload.duration).toBe(7000);
+    });
+
+    it("should dismiss pending approval before sending error notification", async () => {
+      const waitingProcess = {
+        state: {
+          type: "waiting-input",
+          request: {
+            id: "req-1",
+            sessionId: "session-1",
+            type: "tool-approval",
+            prompt: "Allow Edit?",
+            toolName: "Edit",
+            timestamp: new Date().toISOString(),
+          } as InputRequest,
+        } as ProcessState,
+      };
+
+      vi.mocked(mockSupervisor.getProcessForSession).mockReturnValue(
+        waitingProcess as unknown as ReturnType<
+          Supervisor["getProcessForSession"]
+        >,
+      );
+
+      new PushNotifier({
+        eventBus: mockEventBus,
+        pushService: mockPushService,
+        supervisor: mockSupervisor,
+      });
+
+      const waitingEvent: ProcessStateEvent = {
+        type: "process-state-changed",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        activity: "waiting-input",
+        timestamp: "2026-04-19T10:00:00.000Z",
+      };
+      const terminatedEvent: ProcessTerminatedEvent = {
+        type: "process-terminated",
+        sessionId: "session-1",
+        projectId: testProjectId,
+        processId: "process-1",
+        provider: "claude",
+        reason: "underlying process terminated",
+        timestamp: "2026-04-19T10:00:08.000Z",
+      };
+
+      eventHandler?.(waitingEvent);
+
+      await vi.waitFor(() => {
+        expect(mockPushService.sendToAll).toHaveBeenCalledTimes(1);
+      });
+
+      eventHandler?.(terminatedEvent);
+
+      await vi.waitFor(() => {
+        expect(mockPushService.sendToAll).toHaveBeenCalledTimes(3);
+      });
+
+      const dismissPayload = vi.mocked(mockPushService.sendToAll).mock
+        .calls[1][0];
+      const haltedPayload = vi.mocked(mockPushService.sendToAll).mock
+        .calls[2][0];
+      expect(dismissPayload.type).toBe("dismiss");
+      expect(haltedPayload.type).toBe("session-halted");
+      expect(haltedPayload.reason).toBe("error");
     });
   });
 });

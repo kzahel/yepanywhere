@@ -16,7 +16,7 @@
 // Version constant for controlled updates
 // Increment this when making intentional SW changes
 // Browsers reinstall SW only when file content changes
-const SW_VERSION = "1.0.4";
+const SW_VERSION = "1.0.5";
 
 // Resolve asset URLs relative to SW scope (handles /remote/ deployment)
 function assetUrl(path) {
@@ -257,6 +257,7 @@ async function handlePush(data) {
 
   const focusedClients = clients.filter((client) => client.focused);
   const hasFocusedClient = focusedClients.length > 0;
+  const alwaysNotifyTypes = new Set(["pending-input", "session-halted"]);
 
   // Handle dismiss payload - close matching notification
   if (data.type === "dismiss") {
@@ -288,7 +289,7 @@ async function handlePush(data) {
   }
 
   // Determine if we should suppress notification
-  if (hasFocusedClient) {
+  if (hasFocusedClient && !alwaysNotifyTypes.has(data.type)) {
     if (settings.notifyInApp) {
       // Check if any focused client is viewing THIS session
       const sessionId = data.sessionId;

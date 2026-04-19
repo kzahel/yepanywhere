@@ -1,10 +1,12 @@
 /**
- * PushNotifier - Sends push notifications when sessions need user input
+ * PushNotifier - Sends push notifications for session lifecycle events.
  *
- * Listens to EventBus for process state changes and sends push notifications
- * when a session enters waiting-input state (tool approval or user question).
- * The service worker on the client handles suppressing notifications when
- * the app is already focused.
+ * Listens to EventBus and sends push notifications for:
+ * - waiting-input: tool approval or user question needed
+ * - idle: session turn completed
+ * - terminated: session crashed/stopped unexpectedly
+ *
+ * The service worker on the client handles focused-window suppression.
  */
 
 import { basename } from "node:path";
@@ -17,9 +19,14 @@ import type {
   BusEvent,
   EventBus,
   ProcessStateEvent,
+  ProcessTerminatedEvent,
 } from "../watcher/EventBus.js";
 import type { PushService } from "./PushService.js";
-import type { DismissPayload, PendingInputPayload } from "./types.js";
+import type {
+  DismissPayload,
+  PendingInputPayload,
+  SessionHaltedPayload,
+} from "./types.js";
 
 export interface PushNotifierOptions {
   eventBus: EventBus;
@@ -37,6 +44,8 @@ export class PushNotifier {
   private unsubscribe: (() => void) | null = null;
   /** Track sessions we've sent notifications for (to know when to send dismiss) */
   private sessionsWithNotification = new Set<string>();
+  /** Track when the current active turn started so completion push can show duration */
+  private activeSessionStartedAt = new Map<string, string>();
 
   constructor(options: PushNotifierOptions) {
     this.eventBus = options.eventBus;
@@ -48,6 +57,10 @@ export class PushNotifier {
     this.unsubscribe = this.eventBus.subscribe((event: BusEvent) => {
       if (event.type === "process-state-changed") {
         void this.handleProcessStateChange(event);
+        return;
+      }
+      if (event.type === "process-terminated") {
+        void this.handleProcessTerminated(event);
       }
     });
   }
@@ -60,11 +73,18 @@ export class PushNotifier {
   private async handleProcessStateChange(
     event: ProcessStateEvent,
   ): Promise<void> {
+    if (event.activity === "in-turn" || event.activity === "waiting-input") {
+      this.markSessionActive(event.sessionId, event.timestamp);
+    }
+
     // Send dismiss when leaving waiting-input (if we sent a notification for it)
     if (event.activity !== "waiting-input") {
       if (this.sessionsWithNotification.has(event.sessionId)) {
         await this.sendDismiss(event.sessionId);
         this.sessionsWithNotification.delete(event.sessionId);
+      }
+      if (event.activity === "idle") {
+        await this.sendSessionCompleted(event);
       }
       return;
     }
@@ -106,18 +126,17 @@ export class PushNotifier {
     };
 
     try {
-      // Skip push for browser profiles that are already connected
-      const connectedIds =
-        this.connectedBrowsers?.getConnectedBrowserProfileIds() ?? [];
-      if (connectedIds.length > 0) {
+      // Connected browsers still receive the push. The service worker decides
+      // whether to surface it based on focus/current-session state.
+      const connectedCount =
+        this.connectedBrowsers?.getConnectedBrowserProfileIds().length ?? 0;
+      if (connectedCount > 0) {
         console.log(
-          `[PushNotifier] Skipping push for ${connectedIds.length} connected browser profile(s)`,
+          `[PushNotifier] Sending pending-input push while ${connectedCount} browser profile(s) are connected`,
         );
       }
 
-      const results = await this.pushService.sendToAll(payload, {
-        excludeBrowserProfileIds: connectedIds,
-      });
+      const results = await this.pushService.sendToAll(payload);
       const successCount = results.filter((r) => r.success).length;
       if (successCount > 0) {
         console.log(
@@ -129,6 +148,26 @@ export class PushNotifier {
     } catch (error) {
       console.error("[PushNotifier] Failed to send push notification:", error);
     }
+  }
+
+  /**
+   * Handle unexpected process termination events.
+   * Sends dismiss for any pending approval notification, then an error notification.
+   */
+  private async handleProcessTerminated(
+    event: ProcessTerminatedEvent,
+  ): Promise<void> {
+    if (this.sessionsWithNotification.has(event.sessionId)) {
+      await this.sendDismiss(event.sessionId);
+      this.sessionsWithNotification.delete(event.sessionId);
+    }
+
+    await this.sendSessionHalted({
+      sessionId: event.sessionId,
+      projectId: event.projectId,
+      timestamp: event.timestamp,
+      reason: "error",
+    });
   }
 
   /**
@@ -151,6 +190,105 @@ export class PushNotifier {
     } catch (error) {
       console.error("[PushNotifier] Failed to send dismiss:", error);
     }
+  }
+
+  /**
+   * Send completion notification when a live process transitions to idle.
+   * Ignores the synthetic idle event emitted during unregister.
+   */
+  private async sendSessionCompleted(event: ProcessStateEvent): Promise<void> {
+    const process = this.supervisor.getProcessForSession(event.sessionId);
+    if (!process || process.state.type !== "idle") {
+      return;
+    }
+
+    await this.sendSessionHalted({
+      sessionId: event.sessionId,
+      projectId: event.projectId,
+      timestamp: event.timestamp,
+      reason: "completed",
+    });
+  }
+
+  /**
+   * Send a session-halted notification when a run completes or errors out.
+   */
+  private async sendSessionHalted(input: {
+    sessionId: string;
+    projectId: UrlProjectId;
+    timestamp: string;
+    reason: SessionHaltedPayload["reason"];
+  }): Promise<void> {
+    const startedAt = this.consumeActiveSessionStart(
+      input.sessionId,
+      input.timestamp,
+    );
+
+    if (this.pushService.getSubscriptionCount() === 0) {
+      return;
+    }
+
+    if (!this.pushService.isNotificationTypeEnabled("sessionHalted")) {
+      return;
+    }
+
+    const payload: SessionHaltedPayload = {
+      type: "session-halted",
+      sessionId: input.sessionId,
+      projectId: input.projectId,
+      projectName: this.getProjectName(input.projectId),
+      reason: input.reason,
+      duration: this.calculateDurationMs(startedAt, input.timestamp),
+      timestamp: input.timestamp,
+    };
+
+    try {
+      const results = await this.pushService.sendToAll(payload);
+      const successCount = results.filter((result) => result.success).length;
+      if (successCount > 0) {
+        console.log(
+          `[PushNotifier] Sent session-halted (${input.reason}) notification to ${successCount}/${results.length} devices`,
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[PushNotifier] Failed to send session-halted notification:",
+        error,
+      );
+    }
+  }
+
+  /**
+   * Remember when a session starts active work for the current turn.
+   */
+  private markSessionActive(sessionId: string, timestamp: string): void {
+    if (!this.activeSessionStartedAt.has(sessionId)) {
+      this.activeSessionStartedAt.set(sessionId, timestamp);
+    }
+  }
+
+  /**
+   * Consume the current active-run start time for a session.
+   */
+  private consumeActiveSessionStart(
+    sessionId: string,
+    fallbackTimestamp: string,
+  ): string {
+    const startedAt = this.activeSessionStartedAt.get(sessionId);
+    this.activeSessionStartedAt.delete(sessionId);
+    return startedAt ?? fallbackTimestamp;
+  }
+
+  /**
+   * Calculate duration between two ISO timestamps.
+   */
+  private calculateDurationMs(startedAt: string, endedAt: string): number {
+    const startMs = Date.parse(startedAt);
+    const endMs = Date.parse(endedAt);
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+      return 0;
+    }
+    return Math.max(0, endMs - startMs);
   }
 
   /**
