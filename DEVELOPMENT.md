@@ -18,10 +18,26 @@ pnpm setup:core
 pnpm dev
 ```
 
+If this repo lives on an `exFAT` volume, the default pnpm workspace linker will
+break because `exFAT` does not support the junction/reparse-point layout pnpm
+expects. In that case, use the repo-local recovery/bootstrap command instead:
+
+```bash
+pnpm setup:exfat
+```
+
+That command:
+
+- backs up the current `node_modules` tree to a sibling `_install-backups` folder
+- installs dependencies with an `exFAT`-compatible pnpm layout
+- materializes local `workspace:*` packages into each package's `node_modules`
+- rebuilds the core workspaces (`shared`, `client`, `server`, `relay`)
+
 ## Commands
 
 ```bash
 pnpm setup:core # Install root + client + server + shared, skipping relay
+pnpm setup:exfat # Recover/install on exFAT and rebuild core workspaces
 pnpm dev        # Start dev server
 pnpm lint       # Biome linter
 pnpm typecheck  # TypeScript type checking
