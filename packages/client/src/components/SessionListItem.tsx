@@ -170,12 +170,15 @@ export function SessionListItem({
   const hasUnread = localHasUnread ?? hasUnreadProp;
   const linkRef = useRef<HTMLAnchorElement | null>(null);
   const hasPrefetchedRef = useRef(false);
+  const shouldPrefetchSession =
+    status?.owner !== "self" && activity !== "in-turn";
 
   useEffect(() => {
     if (
       hasPrefetchedRef.current ||
       isSelectionMode ||
       isCurrent ||
+      !shouldPrefetchSession ||
       typeof window === "undefined"
     ) {
       return;
@@ -205,7 +208,7 @@ export function SessionListItem({
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [isCurrent, isSelectionMode, projectId, sessionId]);
+  }, [isCurrent, isSelectionMode, projectId, sessionId, shouldPrefetchSession]);
 
   // Handlers for menu actions
   const handleToggleStar = async () => {
@@ -406,19 +409,23 @@ export function SessionListItem({
           ref={linkRef}
           to={`${basePath}/projects/${projectId}/sessions/${sessionId}`}
           onPointerDown={() => {
-            if (!isSelectionMode) {
+            if (!isSelectionMode && shouldPrefetchSession) {
               hasPrefetchedRef.current = true;
               void prefetchSessionLoad(projectId, sessionId);
             }
           }}
           onMouseEnter={() => {
-            if (!isSelectionMode && !hasPrefetchedRef.current) {
+            if (
+              !isSelectionMode &&
+              shouldPrefetchSession &&
+              !hasPrefetchedRef.current
+            ) {
               hasPrefetchedRef.current = true;
               void prefetchSessionLoad(projectId, sessionId);
             }
           }}
           onFocus={() => {
-            if (!isSelectionMode) {
+            if (!isSelectionMode && shouldPrefetchSession) {
               hasPrefetchedRef.current = true;
               void prefetchSessionLoad(projectId, sessionId);
             }

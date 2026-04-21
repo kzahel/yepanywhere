@@ -695,7 +695,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     let paginationInfo: PaginationInfo | undefined;
     const canUsePersistedResponseCache =
-      !afterMessageId && !!loadedSession && !!session;
+      !afterMessageId && !process && !!loadedSession && !!session;
 
     if (canUsePersistedResponseCache && loadedSession) {
       const cacheKey = buildPersistedSessionResponseCacheKey({
