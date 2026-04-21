@@ -67,9 +67,9 @@ describe("useSessionMessages", () => {
     });
 
     await waitFor(() => {
-      expect(
-        result.current.messages.map((message) => message.uuid),
-      ).toContain("stream-2");
+      expect(result.current.messages.map((message) => message.uuid)).toContain(
+        "stream-2",
+      );
     });
 
     await act(async () => {
@@ -85,7 +85,7 @@ describe("useSessionMessages", () => {
         ownership: { owner: "self", processId: "process-1" },
         pagination: { hasMoreBefore: false },
       });
-        await networkLoad.promise;
+      await networkLoad.promise;
     });
 
     await waitFor(() => {

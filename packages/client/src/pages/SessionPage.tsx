@@ -35,6 +35,7 @@ import {
 import { useI18n } from "../i18n";
 import { useNavigationLayout } from "../layouts";
 import { preprocessMessages } from "../lib/preprocessMessages";
+import { mergeFallbackSlashCommands } from "../lib/slashCommands";
 import { generateUUID } from "../lib/uuid";
 import { getProvider } from "../providers/registry";
 import { getSessionDisplayTitle } from "../utils";
@@ -219,13 +220,15 @@ function SessionPageContent({
 
   // Inject custom client-side commands alongside SDK-discovered ones
   const allSlashCommands = useMemo(() => {
+    const merged = mergeFallbackSlashCommands(
+      session?.provider ?? initialProvider,
+      slashCommands,
+    );
     if (status.owner === "self") {
-      return slashCommands.includes("model")
-        ? slashCommands
-        : ["model", ...slashCommands];
+      return merged.includes("model") ? merged : ["model", ...merged];
     }
-    return slashCommands;
-  }, [slashCommands, status.owner]);
+    return merged;
+  }, [initialProvider, session?.provider, slashCommands, status.owner]);
 
   const currentProvider = useMemo(
     () => getProvider(session?.provider ?? initialProvider),

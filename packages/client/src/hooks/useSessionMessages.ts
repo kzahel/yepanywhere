@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type PaginationInfo, api } from "../api/client";
 import {
-  getCachedSessionLoad,
-  getInflightSessionLoad,
-  primeSessionLoadCache,
-} from "../lib/sessionLoadCache";
-import {
   getMessageTimestampMs,
   hasEquivalentJsonlMessage,
   reconcileCodexLinearMessages,
@@ -15,6 +10,11 @@ import {
   mergeJSONLMessages,
   mergeStreamMessage,
 } from "../lib/mergeMessages";
+import {
+  getCachedSessionLoad,
+  getInflightSessionLoad,
+  primeSessionLoadCache,
+} from "../lib/sessionLoadCache";
 import { getProvider } from "../providers/registry";
 import type { Message, Session, SessionStatus } from "../types";
 
@@ -426,12 +426,9 @@ export function useSessionMessages(
   }, [
     projectId,
     sessionId,
-    onLoadComplete,
     onLoadError,
     applyInitialSessionLoad,
     refreshSessionLoadFromNetwork,
-    flushBuffer,
-    updatePersistedTimestampWatermark,
   ]);
 
   // Handle streaming content updates (from useStreamingContent)

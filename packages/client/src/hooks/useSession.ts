@@ -543,16 +543,12 @@ export function useSession(
         return;
       }
 
-      // For owned sessions: messages come via stream stream, metadata via session-updated event
-      // No API call needed - skip file change processing entirely
-      if (status.owner === "self") {
-        return;
-      }
-
-      // For external/idle sessions: fetch both messages and metadata via API
+      // Owned sessions still primarily rely on stream updates, but file changes are a
+      // useful throttled safety net when the stream misses or delays an event.
+      // External/idle sessions also refresh through this path.
       throttledFetch();
     },
-    [sessionId, status.owner, throttledFetch],
+    [sessionId, throttledFetch],
   );
 
   // Handle session content updates via stream (title, messageCount, updatedAt, contextUsage)
