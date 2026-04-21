@@ -341,12 +341,53 @@ export function useSessionMessages(
     [flushBuffer, onLoadComplete, updatePersistedTimestampWatermark],
   );
 
+  const refreshSessionLoadFromNetwork = useCallback(
+    (data: {
+      session: Session;
+      messages: Message[];
+      ownership: SessionStatus;
+      pendingInputRequest?: unknown;
+      slashCommands?: Array<{
+        name: string;
+        description: string;
+        argumentHint?: string;
+      }> | null;
+      pagination?: PaginationInfo;
+    }) => {
+      setSession(data.session);
+      setPagination(data.pagination);
+      providerRef.current = data.session.provider;
+
+      const taggedMessages = data.messages.map((m) => ({
+        ...m,
+        _source: "jsonl" as const,
+      }));
+      updatePersistedTimestampWatermark(taggedMessages);
+      setMessages((prev) => {
+        const merged = mergeJSONLMessages(prev, taggedMessages);
+        return isCodexProvider(data.session.provider)
+          ? reconcileCodexLinearMessages(merged.messages)
+          : merged.messages;
+      });
+
+      setLoading(false);
+      onLoadComplete?.({
+        session: data.session,
+        status: data.ownership,
+        pendingInputRequest: data.pendingInputRequest,
+        slashCommands: data.slashCommands,
+      });
+    },
+    [onLoadComplete, updatePersistedTimestampWatermark],
+  );
+
   // Initial load
   useEffect(() => {
     initialLoadCompleteRef.current = false;
     streamBufferRef.current = [];
     maxPersistedTimestampMsRef.current = Number.NEGATIVE_INFINITY;
     const cachedLoad = getCachedSessionLoad(projectId, sessionId);
+    const loadedFromCache = Boolean(cachedLoad);
     setLoading(!cachedLoad);
     setAgentContent({});
 
@@ -372,6 +413,10 @@ export function useSessionMessages(
           slashCommands: data.slashCommands,
           pagination: data.pagination,
         });
+        if (loadedFromCache) {
+          refreshSessionLoadFromNetwork(data);
+          return;
+        }
         applyInitialSessionLoad(data);
       })
       .catch((err) => {
@@ -384,6 +429,7 @@ export function useSessionMessages(
     onLoadComplete,
     onLoadError,
     applyInitialSessionLoad,
+    refreshSessionLoadFromNetwork,
     flushBuffer,
     updatePersistedTimestampWatermark,
   ]);
