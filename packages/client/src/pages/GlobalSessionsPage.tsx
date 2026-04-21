@@ -13,8 +13,8 @@ import { useDrafts } from "../hooks/useDrafts";
 import { useGlobalSessions } from "../hooks/useGlobalSessions";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
-import { prefetchSessionLoad } from "../lib/sessionLoadCache";
 import { useNavigationLayout } from "../layouts";
+import { prefetchSessionLoad } from "../lib/sessionLoadCache";
 import { getSessionDisplayTitle, toUrlProjectId } from "../utils";
 
 // Long-press threshold for entering selection mode on mobile
@@ -325,6 +325,12 @@ export function GlobalSessionsPage() {
     const candidates = filteredSessions.slice(0, PREFETCH_SESSION_COUNT);
 
     for (const [index, session] of candidates.entries()) {
+      if (
+        session.ownership.owner === "self" ||
+        session.activity === "in-turn"
+      ) {
+        continue;
+      }
       if (prefetchedSessionsRef.current.has(session.id)) {
         continue;
       }

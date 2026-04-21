@@ -340,7 +340,7 @@ describe("PushService", () => {
         );
       } finally {
         if (originalHttpsProxy === undefined) {
-          delete process.env.HTTPS_PROXY;
+          process.env.HTTPS_PROXY = undefined;
         } else {
           process.env.HTTPS_PROXY = originalHttpsProxy;
         }

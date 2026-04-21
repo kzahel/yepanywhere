@@ -1,4 +1,4 @@
-import { api, type PaginationInfo } from "../api/client";
+import { type PaginationInfo, api } from "../api/client";
 import type { Message, Session, SessionStatus } from "../types";
 
 export interface SessionLoadCacheEntry {
@@ -33,8 +33,14 @@ function getStorageKey(cacheKey: string): string {
   return `${SESSION_LOAD_STORAGE_PREFIX}${cacheKey}`;
 }
 
-function persistSessionLoad(cacheKey: string, entry: SessionLoadCacheEntry): void {
-  if (typeof window === "undefined" || typeof localStorage?.setItem !== "function") {
+function persistSessionLoad(
+  cacheKey: string,
+  entry: SessionLoadCacheEntry,
+): void {
+  if (
+    typeof window === "undefined" ||
+    typeof localStorage?.setItem !== "function"
+  ) {
     return;
   }
 
@@ -48,13 +54,15 @@ function persistSessionLoad(cacheKey: string, entry: SessionLoadCacheEntry): voi
 
     const rawIndex = localStorage.getItem(SESSION_LOAD_STORAGE_INDEX);
     const existingIndex = rawIndex ? (JSON.parse(rawIndex) as string[]) : [];
-    const nextIndex = [cacheKey, ...existingIndex.filter((key) => key !== cacheKey)].slice(
-      0,
-      MAX_PERSISTED_SESSION_LOADS,
-    );
+    const nextIndex = [
+      cacheKey,
+      ...existingIndex.filter((key) => key !== cacheKey),
+    ].slice(0, MAX_PERSISTED_SESSION_LOADS);
     localStorage.setItem(SESSION_LOAD_STORAGE_INDEX, JSON.stringify(nextIndex));
 
-    for (const staleKey of existingIndex.slice(MAX_PERSISTED_SESSION_LOADS - 1)) {
+    for (const staleKey of existingIndex.slice(
+      MAX_PERSISTED_SESSION_LOADS - 1,
+    )) {
       if (!nextIndex.includes(staleKey)) {
         localStorage.removeItem(getStorageKey(staleKey));
       }
@@ -64,8 +72,13 @@ function persistSessionLoad(cacheKey: string, entry: SessionLoadCacheEntry): voi
   }
 }
 
-function readPersistedSessionLoad(cacheKey: string): SessionLoadCacheEntry | null {
-  if (typeof window === "undefined" || typeof localStorage?.getItem !== "function") {
+function readPersistedSessionLoad(
+  cacheKey: string,
+): SessionLoadCacheEntry | null {
+  if (
+    typeof window === "undefined" ||
+    typeof localStorage?.getItem !== "function"
+  ) {
     return null;
   }
 
