@@ -411,6 +411,9 @@ export function useSession(
 
   // Track if we've loaded pending agents for this session
   const pendingAgentsLoadedRef = useRef<string | null>(null);
+  const pendingAgentRetryTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   // Load pending agent content on session load
   // This handles page reload while Tasks are running: loads agent content-so-far
@@ -419,13 +422,26 @@ export function useSession(
     if (loading || pendingAgentsLoadedRef.current === sessionId) return;
     if (messages.length === 0) return;
 
-    const loadPendingAgents = async () => {
-      // Mark as loaded to prevent re-running
-      pendingAgentsLoadedRef.current = sessionId;
+    let cancelled = false;
 
+    const scheduleRetry = () => {
+      if (pendingAgentRetryTimerRef.current) {
+        clearTimeout(pendingAgentRetryTimerRef.current);
+      }
+      pendingAgentRetryTimerRef.current = setTimeout(() => {
+        if (!cancelled) {
+          void loadPendingAgents();
+        }
+      }, 1000);
+    };
+
+    const loadPendingAgents = async (): Promise<void> => {
       // Find pending Tasks (tool_use without matching tool_result)
       const pendingTasks = findPendingTasks(messages);
-      if (pendingTasks.length === 0) return;
+      if (pendingTasks.length === 0) {
+        pendingAgentsLoadedRef.current = sessionId;
+        return;
+      }
 
       try {
         // Get agent mappings (toolUseId → agentId)
@@ -433,6 +449,16 @@ export function useSession(
         const mappingsMap = new Map(
           mappings.map((m) => [m.toolUseId, m.agentId]),
         );
+        if (cancelled) return;
+
+        const pendingAgentIds = pendingTasks
+          .map((task) => mappingsMap.get(task.toolUseId))
+          .filter((agentId): agentId is string => Boolean(agentId));
+
+        if (pendingAgentIds.length === 0) {
+          scheduleRetry();
+          return;
+        }
 
         // Update the toolUseToAgent state with loaded mappings
         // This allows TaskRenderer to access agentContent even after page reload
@@ -447,9 +473,9 @@ export function useSession(
         });
 
         // Load content for each pending task that has an agent file
-        for (const task of pendingTasks) {
-          const agentId = mappingsMap.get(task.toolUseId);
-          if (!agentId) continue;
+        let loadedAnyAgent = false;
+        for (const agentId of pendingAgentIds) {
+          if (cancelled) return;
 
           try {
             const agentData = await api.getAgentSession(
@@ -484,16 +510,32 @@ export function useSession(
                 [agentId]: agentData,
               };
             });
+            loadedAnyAgent = true;
           } catch {
             // Skip agents that can't be loaded
           }
         }
+
+        if (loadedAnyAgent) {
+          pendingAgentsLoadedRef.current = sessionId;
+          return;
+        }
+
+        scheduleRetry();
       } catch {
-        // Silent fail for agent mappings - not critical
+        scheduleRetry();
       }
     };
 
-    loadPendingAgents();
+    void loadPendingAgents();
+
+    return () => {
+      cancelled = true;
+      if (pendingAgentRetryTimerRef.current) {
+        clearTimeout(pendingAgentRetryTimerRef.current);
+        pendingAgentRetryTimerRef.current = null;
+      }
+    };
   }, [
     loading,
     messages,
@@ -541,6 +583,14 @@ export function useSession(
       const fileSessionId = extractSessionIdFromFileEvent(event);
       if (fileSessionId !== sessionId) {
         return;
+      }
+
+      if (event.fileType === "agent-session") {
+        pendingAgentsLoadedRef.current = null;
+        if (pendingAgentRetryTimerRef.current) {
+          clearTimeout(pendingAgentRetryTimerRef.current);
+          pendingAgentRetryTimerRef.current = null;
+        }
       }
 
       // Owned sessions still primarily rely on stream updates, but file changes are a
