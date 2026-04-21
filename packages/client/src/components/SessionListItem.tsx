@@ -172,6 +172,17 @@ export function SessionListItem({
   const hasPrefetchedRef = useRef(false);
   const shouldPrefetchSession =
     status?.owner !== "self" && activity !== "in-turn";
+  const initialSessionState =
+    status?.owner === "self"
+      ? {
+          initialStatus: {
+            owner: "self" as const,
+            processId: status.processId,
+          },
+          initialTitle: displayTitle,
+          initialProvider: provider,
+        }
+      : undefined;
 
   useEffect(() => {
     if (
@@ -408,6 +419,7 @@ export function SessionListItem({
         <Link
           ref={linkRef}
           to={`${basePath}/projects/${projectId}/sessions/${sessionId}`}
+          state={initialSessionState}
           onPointerDown={() => {
             if (!isSelectionMode && shouldPrefetchSession) {
               hasPrefetchedRef.current = true;

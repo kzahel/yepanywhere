@@ -114,6 +114,15 @@ function ProcessCard({ process, isTerminated = false }: ProcessCardProps) {
   return (
     <Link
       to={`/projects/${process.projectId}/sessions/${process.sessionId}`}
+      state={{
+        initialStatus: {
+          owner: "self" as const,
+          processId: process.id,
+        },
+        initialTitle: process.sessionTitle ?? null,
+        initialModel: process.model,
+        initialProvider: process.provider,
+      }}
       className={`agent-card ${isTerminated ? "agent-card-terminated" : ""}`}
     >
       <div className="agent-card-header">
