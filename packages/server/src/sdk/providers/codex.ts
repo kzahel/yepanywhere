@@ -983,14 +983,25 @@ export class CodexProvider implements AgentProvider {
 
     if (permissionMode === "plan") {
       return applyOverrides({
-        approvalPolicy: "on-request",
+        approvalPolicy: "untrusted",
         sandbox: "read-only",
       });
     }
 
+    if (permissionMode === "acceptEdits") {
+      return applyOverrides({
+        approvalPolicy: "untrusted",
+        sandbox: "workspace-write",
+      });
+    }
+
     return applyOverrides({
-      approvalPolicy: "on-request",
-      sandbox: "workspace-write",
+      // Codex's "on-request" + workspace-write combination can skip mutating
+      // approvals for local workspace edits. Start "default" sessions in
+      // read-only mode so writes must explicitly request approval, matching the
+      // cross-provider "ask before edits" behavior.
+      approvalPolicy: "untrusted",
+      sandbox: "read-only",
     });
   }
 
@@ -1203,6 +1214,7 @@ export class CodexProvider implements AgentProvider {
         const turnStartParams: TurnStartParams = {
           threadId: sessionId,
           input: [{ type: "text", text: userPrompt, text_elements: [] }],
+          approvalPolicy: policy.approvalPolicy,
           effort: this.mapEffortToReasoningEffort(
             options.effort,
             options.thinking,

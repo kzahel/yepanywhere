@@ -513,6 +513,82 @@ describe("CodexProvider Event Normalization", () => {
   });
 });
 
+describe("CodexProvider approval policy mapping", () => {
+  function createTestProvider(): CodexProvider {
+    return new CodexProvider();
+  }
+
+  it("maps default mode to untrusted read-only", () => {
+    const provider = createTestProvider() as unknown as {
+      mapPermissionModeToThreadPolicy: (
+        permissionMode?:
+          | "default"
+          | "acceptEdits"
+          | "plan"
+          | "bypassPermissions",
+      ) => { approvalPolicy: string; sandbox: string };
+    };
+
+    expect(provider.mapPermissionModeToThreadPolicy("default")).toEqual({
+      approvalPolicy: "untrusted",
+      sandbox: "read-only",
+    });
+  });
+
+  it("maps acceptEdits mode to untrusted workspace-write", () => {
+    const provider = createTestProvider() as unknown as {
+      mapPermissionModeToThreadPolicy: (
+        permissionMode?:
+          | "default"
+          | "acceptEdits"
+          | "plan"
+          | "bypassPermissions",
+      ) => { approvalPolicy: string; sandbox: string };
+    };
+
+    expect(provider.mapPermissionModeToThreadPolicy("acceptEdits")).toEqual({
+      approvalPolicy: "untrusted",
+      sandbox: "workspace-write",
+    });
+  });
+
+  it("maps plan mode to untrusted read-only", () => {
+    const provider = createTestProvider() as unknown as {
+      mapPermissionModeToThreadPolicy: (
+        permissionMode?:
+          | "default"
+          | "acceptEdits"
+          | "plan"
+          | "bypassPermissions",
+      ) => { approvalPolicy: string; sandbox: string };
+    };
+
+    expect(provider.mapPermissionModeToThreadPolicy("plan")).toEqual({
+      approvalPolicy: "untrusted",
+      sandbox: "read-only",
+    });
+  });
+
+  it("keeps bypassPermissions mode as never danger-full-access", () => {
+    const provider = createTestProvider() as unknown as {
+      mapPermissionModeToThreadPolicy: (
+        permissionMode?:
+          | "default"
+          | "acceptEdits"
+          | "plan"
+          | "bypassPermissions",
+      ) => { approvalPolicy: string; sandbox: string };
+    };
+
+    expect(
+      provider.mapPermissionModeToThreadPolicy("bypassPermissions"),
+    ).toEqual({
+      approvalPolicy: "never",
+      sandbox: "danger-full-access",
+    });
+  });
+});
+
 describe("CodexProvider Configuration", () => {
   it("should accept custom timeout", () => {
     const config: CodexProviderConfig = {
