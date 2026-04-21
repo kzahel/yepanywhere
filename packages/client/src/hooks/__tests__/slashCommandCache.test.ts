@@ -35,17 +35,20 @@ describe("slashCommandCache", () => {
   });
 
   it("persists and restores cached slash commands for a provider", () => {
-    setCachedSlashCommands("claude", ["docs", "model"]);
-    expect(getCachedSlashCommands("claude")).toEqual(["docs", "model"]);
+    setCachedSlashCommands("claude", "project-a", ["docs", "model"]);
+    expect(getCachedSlashCommands("claude", "project-a")).toEqual([
+      "docs",
+      "model",
+    ]);
   });
 
   it("returns an empty list for missing providers or malformed data", () => {
-    expect(getCachedSlashCommands(undefined)).toEqual([]);
+    expect(getCachedSlashCommands(undefined, "project-a")).toEqual([]);
     localStorage.setItem(
       "yep-anywhere-test-install-slash-commands-claude",
       "{",
     );
-    expect(getCachedSlashCommands("claude")).toEqual([]);
+    expect(getCachedSlashCommands("claude", "project-a")).toEqual([]);
   });
 
   it("falls back to legacy cache and promotes it to the scoped key", () => {
@@ -54,12 +57,30 @@ describe("slashCommandCache", () => {
       JSON.stringify(["docs", "model"]),
     );
 
-    expect(getCachedSlashCommands("claude")).toEqual(["docs", "model"]);
+    expect(getCachedSlashCommands("claude", "project-a")).toEqual([
+      "docs",
+      "model",
+    ]);
     expect(
       localStorage.getItem("yep-anywhere-test-install-slash-commands-claude"),
+    ).toBe(JSON.stringify(["docs", "model"]));
+    expect(
+      localStorage.getItem(
+        "yep-anywhere-test-install-slash-commands-claude-project-a",
+      ),
     ).toBe(JSON.stringify(["docs", "model"]));
     expect(localStorage.getItem("yep-anywhere-slash-commands-claude")).toBe(
       null,
     );
+  });
+
+  it("isolates cached slash commands by project", () => {
+    setCachedSlashCommands("claude", "project-a", ["docs"]);
+    setCachedSlashCommands("claude", "project-b", ["bug-loop-next"]);
+
+    expect(getCachedSlashCommands("claude", "project-a")).toEqual(["docs"]);
+    expect(getCachedSlashCommands("claude", "project-b")).toEqual([
+      "bug-loop-next",
+    ]);
   });
 });

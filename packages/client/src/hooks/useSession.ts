@@ -178,40 +178,32 @@ export function useSession(
       if (commandsFromServer?.length) {
         const commandNames = commandsFromServer.map((command) => command.name);
         setSlashCommands(commandNames);
-        setCachedSlashCommands(provider, commandNames);
+        setCachedSlashCommands(provider, projectId, commandNames);
         return;
       }
 
-      const cached = getCachedSlashCommands(provider);
+      const cached = getCachedSlashCommands(provider, projectId);
       if (cached.length > 0) {
         setSlashCommands(cached);
         return;
       }
 
-      if (ownership.owner === "external" || !provider) {
+      if (ownership.owner !== "self" || !provider) {
         return;
       }
 
       try {
-        const processes = await fetchJSON<{
-          processes: Array<{ id: string; provider?: string }>;
-        }>("/processes");
-        const matchingProcess = processes.processes.find(
-          (process) => process.provider === provider,
-        );
-        if (!matchingProcess) return;
-
-        const result = await api.getProcessCommands(matchingProcess.id);
+        const result = await api.getProcessCommands(ownership.processId);
         const commandNames = result.commands.map((command) => command.name);
         if (commandNames.length > 0) {
           setSlashCommands(commandNames);
-          setCachedSlashCommands(provider, commandNames);
+          setCachedSlashCommands(provider, projectId, commandNames);
         }
       } catch {
         // Ignore slash command hydration failures.
       }
     },
-    [],
+    [projectId],
   );
 
   // Apply server mode update only if version is >= our last known version
@@ -820,7 +812,7 @@ export function useSession(
           if (Array.isArray(sdkMessage.slash_commands)) {
             const commandNames = sdkMessage.slash_commands as string[];
             setSlashCommands(commandNames);
-            setCachedSlashCommands(session?.provider, commandNames);
+            setCachedSlashCommands(session?.provider, projectId, commandNames);
           }
           if (Array.isArray(sdkMessage.tools)) {
             setSessionTools(sdkMessage.tools as string[]);
@@ -1098,6 +1090,7 @@ export function useSession(
       setMessages,
       setSession,
       fetchNewMessages,
+      projectId,
       session?.provider,
     ],
   );

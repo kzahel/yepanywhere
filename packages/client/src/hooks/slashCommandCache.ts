@@ -10,6 +10,14 @@ function getScopedStorageKey(provider: string, installId: string): string {
   return `yep-anywhere-${installId}-slash-commands-${provider}`;
 }
 
+function getProjectScopedStorageKey(
+  provider: string,
+  installId: string,
+  projectId: string,
+): string {
+  return `yep-anywhere-${installId}-slash-commands-${provider}-${projectId}`;
+}
+
 function readStoredCommands(storageKey: string): string[] | null {
   const raw = localStorage.getItem(storageKey);
   if (!raw) return null;
@@ -23,7 +31,10 @@ function readStoredCommands(storageKey: string): string[] | null {
   }
 }
 
-export function getCachedSlashCommands(provider?: string): string[] {
+export function getCachedSlashCommands(
+  provider?: string,
+  projectId?: string,
+): string[] {
   if (
     !provider ||
     typeof window === "undefined" ||
@@ -33,10 +44,25 @@ export function getCachedSlashCommands(provider?: string): string[] {
   }
 
   const installId = getCurrentInstallId();
+  const projectScopedKey =
+    installId && projectId
+      ? getProjectScopedStorageKey(provider, installId, projectId)
+      : null;
   const scopedKey = installId ? getScopedStorageKey(provider, installId) : null;
+
+  if (projectScopedKey) {
+    const projectScopedCommands = readStoredCommands(projectScopedKey);
+    if (projectScopedCommands) {
+      return projectScopedCommands;
+    }
+  }
+
   if (scopedKey) {
     const scopedCommands = readStoredCommands(scopedKey);
     if (scopedCommands) {
+      if (projectScopedKey) {
+        localStorage.setItem(projectScopedKey, JSON.stringify(scopedCommands));
+      }
       return scopedCommands;
     }
   }
@@ -45,6 +71,9 @@ export function getCachedSlashCommands(provider?: string): string[] {
     const legacyCommands = readStoredCommands(getLegacyStorageKey(provider));
     if (!legacyCommands) return [];
 
+    if (projectScopedKey) {
+      localStorage.setItem(projectScopedKey, JSON.stringify(legacyCommands));
+    }
     if (scopedKey) {
       localStorage.setItem(scopedKey, JSON.stringify(legacyCommands));
       localStorage.removeItem(getLegacyStorageKey(provider));
@@ -58,6 +87,7 @@ export function getCachedSlashCommands(provider?: string): string[] {
 
 export function setCachedSlashCommands(
   provider: string | undefined,
+  projectId: string | undefined,
   commands: string[],
 ): void {
   if (
@@ -70,10 +100,21 @@ export function setCachedSlashCommands(
 
   try {
     const installId = getCurrentInstallId();
-    const storageKey = installId
-      ? getScopedStorageKey(provider, installId)
-      : getLegacyStorageKey(provider);
-    localStorage.setItem(storageKey, JSON.stringify(commands));
+    const storageKeys = new Set<string>();
+    if (installId) {
+      storageKeys.add(getScopedStorageKey(provider, installId));
+      if (projectId) {
+        storageKeys.add(
+          getProjectScopedStorageKey(provider, installId, projectId),
+        );
+      }
+    } else {
+      storageKeys.add(getLegacyStorageKey(provider));
+    }
+
+    for (const storageKey of storageKeys) {
+      localStorage.setItem(storageKey, JSON.stringify(commands));
+    }
     if (installId) {
       localStorage.removeItem(getLegacyStorageKey(provider));
     }
