@@ -87,6 +87,8 @@ export interface UseSessionMessagesResult {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   /** Fetch new messages incrementally (for file change events) */
   fetchNewMessages: () => Promise<void>;
+  /** Refresh full session snapshot (for foreground restore / hard resync) */
+  refreshSessionSnapshot: () => Promise<void>;
   /** Fetch session metadata only */
   fetchSessionMetadata: () => Promise<void>;
   /** Pagination info from compact-boundary-based loading */
@@ -553,6 +555,28 @@ export function useSessionMessages(
     }
   }, [projectId, sessionId, updatePersistedTimestampWatermark]);
 
+  const refreshSessionSnapshot = useCallback(async () => {
+    try {
+      const data = await api.getSession(projectId, sessionId, undefined, {
+        tailCompactions: INITIAL_SESSION_TAIL_COMPACTIONS,
+        maxMessages: INITIAL_SESSION_MAX_MESSAGES,
+      });
+
+      primeSessionLoadCache(projectId, sessionId, {
+        session: data.session,
+        messages: data.messages,
+        ownership: data.ownership,
+        pendingInputRequest: data.pendingInputRequest,
+        slashCommands: data.slashCommands,
+        pagination: data.pagination,
+      });
+
+      refreshSessionLoadFromNetwork(data);
+    } catch {
+      // Silent fail - foreground restore is best-effort
+    }
+  }, [projectId, refreshSessionLoadFromNetwork, sessionId]);
+
   // Load older messages (previous chunk before the current truncation point)
   const loadOlderMessages = useCallback(async () => {
     if (!pagination?.hasOlderMessages || !pagination.truncatedBeforeMessageId) {
@@ -614,6 +638,7 @@ export function useSessionMessages(
     setToolUseToAgent,
     setMessages,
     fetchNewMessages,
+    refreshSessionSnapshot,
     fetchSessionMetadata,
     pagination,
     loadingOlder,

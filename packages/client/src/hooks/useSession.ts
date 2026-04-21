@@ -286,6 +286,7 @@ export function useSession(
     setToolUseToAgent,
     setMessages,
     fetchNewMessages,
+    refreshSessionSnapshot,
     fetchSessionMetadata,
     pagination,
     loadingOlder,
@@ -681,7 +682,7 @@ export function useSession(
   // data because the session stream unsubscribes when ownership becomes "none" and
   // nobody triggers fetchNewMessages().
   const handleActivityReconnect = useCallback(async () => {
-    fetchNewMessages();
+    await refreshSessionSnapshot();
     try {
       const data = await api.getSessionMetadata(projectId, sessionId);
       setStatus(data.ownership);
@@ -692,7 +693,7 @@ export function useSession(
     } catch {
       // Silent fail - non-critical
     }
-  }, [projectId, sessionId, fetchNewMessages]);
+  }, [projectId, sessionId, refreshSessionSnapshot]);
 
   useFileActivity({
     onSessionStatusChange: handleSessionStatusChange,
