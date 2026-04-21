@@ -27,6 +27,8 @@ export interface ProcessInfo {
   permissionMode?: string;
   /** Provider running this process (claude, codex, gemini, etc.) */
   provider?: ProviderName;
+  /** Current model for this process when available */
+  model?: string;
   /** Context window usage from the last assistant message */
   contextUsage?: ContextUsage;
 }
