@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type PaginationInfo,
   sliceAtCompactBoundaries,
+  sliceLastMessages,
 } from "../../src/sessions/pagination.js";
 import type { Message } from "../../src/supervisor/types.js";
 
@@ -14,6 +15,111 @@ function msg(type: string, uuid: string, subtype?: string): Message {
 function compactBoundary(uuid: string): Message {
   return msg("system", uuid, "compact_boundary");
 }
+
+describe("sliceLastMessages", () => {
+  it("returns all messages when total is within limit", () => {
+    const messages = [msg("user", "u1"), msg("assistant", "a1")];
+
+    const result = sliceLastMessages(messages, 20);
+
+    expect(result.messages).toEqual(messages);
+    expect(result.pagination).toEqual({
+      hasOlderMessages: false,
+      totalMessageCount: 2,
+      returnedMessageCount: 2,
+      truncatedBeforeMessageId: undefined,
+      totalCompactions: 0,
+    } satisfies PaginationInfo);
+  });
+
+  it("returns only the latest N messages", () => {
+    const messages = [
+      msg("user", "u1"),
+      msg("assistant", "a1"),
+      compactBoundary("cb1"),
+      msg("user", "u2"),
+      msg("assistant", "a2"),
+    ];
+
+    const result = sliceLastMessages(messages, 3);
+
+    expect(result.messages.map((message) => message.uuid)).toEqual([
+      "cb1",
+      "u2",
+      "a2",
+    ]);
+    expect(result.pagination).toEqual({
+      hasOlderMessages: true,
+      totalMessageCount: 5,
+      returnedMessageCount: 3,
+      truncatedBeforeMessageId: "cb1",
+      totalCompactions: 1,
+    } satisfies PaginationInfo);
+  });
+
+  it("supports beforeMessageId cursor for loading older message chunks", () => {
+    const messages = [
+      msg("user", "u1"),
+      msg("assistant", "a1"),
+      compactBoundary("cb1"),
+      msg("user", "u2"),
+      msg("assistant", "a2"),
+      msg("user", "u3"),
+    ];
+
+    const first = sliceLastMessages(messages, 2);
+    expect(first.messages.map((message) => message.uuid)).toEqual(["a2", "u3"]);
+    expect(first.pagination.truncatedBeforeMessageId).toBe("a2");
+
+    const second = sliceLastMessages(
+      messages,
+      2,
+      first.pagination.truncatedBeforeMessageId,
+    );
+    expect(second.messages.map((message) => message.uuid)).toEqual([
+      "cb1",
+      "u2",
+    ]);
+    expect(second.pagination.truncatedBeforeMessageId).toBe("cb1");
+    expect(second.pagination.hasOlderMessages).toBe(true);
+  });
+
+  it("returns all remaining messages when older chunk is smaller than limit", () => {
+    const messages = [
+      msg("user", "u1"),
+      msg("assistant", "a1"),
+      msg("user", "u2"),
+      msg("assistant", "a2"),
+    ];
+
+    const result = sliceLastMessages(messages, 20, "u2");
+
+    expect(result.messages.map((message) => message.uuid)).toEqual([
+      "u1",
+      "a1",
+    ]);
+    expect(result.pagination.hasOlderMessages).toBe(false);
+    expect(result.pagination.totalMessageCount).toBe(4);
+    expect(result.pagination.returnedMessageCount).toBe(2);
+  });
+
+  it("gracefully handles beforeMessageId not found", () => {
+    const messages = [
+      msg("user", "u1"),
+      compactBoundary("cb1"),
+      msg("assistant", "a1"),
+    ];
+
+    const result = sliceLastMessages(messages, 2, "nonexistent");
+
+    expect(result.messages.map((message) => message.uuid)).toEqual([
+      "cb1",
+      "a1",
+    ]);
+    expect(result.pagination.hasOlderMessages).toBe(true);
+    expect(result.pagination.truncatedBeforeMessageId).toBe("cb1");
+  });
+});
 
 describe("sliceAtCompactBoundaries", () => {
   it("returns all messages when no compactions exist", () => {
@@ -148,7 +254,7 @@ describe("sliceAtCompactBoundaries", () => {
     // Load chunk before cb1
     const result = sliceAtCompactBoundaries(messages, 2, "cb1");
 
-    // Working set is [u1, a1], no compactions → return all
+    // Working set is [u1, a1], no compactions -> return all
     expect(result.messages.length).toBe(2);
     expect(result.messages[0]).toEqual(msg("user", "u1"));
     expect(result.pagination.hasOlderMessages).toBe(false);
@@ -218,7 +324,7 @@ describe("sliceAtCompactBoundaries", () => {
       msg("assistant", "a1"),
     ];
 
-    // Non-existent ID → falls back to all messages
+    // Non-existent ID -> falls back to all messages
     const result = sliceAtCompactBoundaries(messages, 2, "nonexistent");
 
     expect(result.messages).toEqual(messages);

@@ -1,9 +1,8 @@
 /**
- * Compact-boundary pagination for session messages.
+ * Pagination helpers for session messages.
  *
- * Slices a normalized message array at compact_boundary positions to reduce
- * payload size for initial loads. This runs AFTER normalization but BEFORE
- * expensive augmentation (markdown, diffs, syntax highlighting).
+ * Slicing runs AFTER normalization but BEFORE expensive augmentation
+ * (markdown, diffs, syntax highlighting).
  */
 
 import type { Message } from "../supervisor/types.js";
@@ -22,59 +21,110 @@ export interface PaginationInfo {
   totalCompactions: number;
 }
 
-/** Result of slicing messages at compact boundaries */
+/** Result of slicing messages */
 export interface SliceResult {
   messages: Message[];
   pagination: PaginationInfo;
 }
 
-function getMessageId(m: Message): string | undefined {
-  return m.uuid ?? (typeof m.id === "string" ? m.id : undefined);
+function getMessageId(message: Message): string | undefined {
+  return (
+    message.uuid ?? (typeof message.id === "string" ? message.id : undefined)
+  );
 }
 
-function isCompactBoundary(m: Message): boolean {
-  return m.type === "system" && m.subtype === "compact_boundary";
+function isCompactBoundary(message: Message): boolean {
+  return message.type === "system" && message.subtype === "compact_boundary";
+}
+
+function buildWorkingSet(
+  messages: Message[],
+  beforeMessageId?: string,
+): { totalMessageCount: number; workingMessages: Message[] } {
+  const totalMessageCount = messages.length;
+
+  let workingMessages = messages;
+  if (beforeMessageId) {
+    const idx = messages.findIndex(
+      (message) => getMessageId(message) === beforeMessageId,
+    );
+    if (idx > 0) {
+      workingMessages = messages.slice(0, idx);
+    }
+  }
+
+  return { totalMessageCount, workingMessages };
 }
 
 /**
- * Slice messages to return only the tail portion starting from the Nth-from-last
- * compact_boundary. The boundary message itself is included so the client sees
- * the "Context compacted" divider.
- *
- * @param messages - Normalized message array (active branch, in conversation order)
- * @param tailCompactions - Number of compact boundaries to include from the end
- * @param beforeMessageId - Optional cursor: only consider messages before this ID
- *                          (used for loading progressively older chunks)
+ * Slice messages to return only the last N messages.
+ */
+export function sliceLastMessages(
+  messages: Message[],
+  tailMessages: number,
+  beforeMessageId?: string,
+): SliceResult {
+  const { totalMessageCount, workingMessages } = buildWorkingSet(
+    messages,
+    beforeMessageId,
+  );
+
+  const totalCompactions = workingMessages.filter(isCompactBoundary).length;
+
+  if (workingMessages.length <= tailMessages) {
+    return {
+      messages: workingMessages,
+      pagination: {
+        hasOlderMessages: false,
+        totalMessageCount,
+        returnedMessageCount: workingMessages.length,
+        truncatedBeforeMessageId: undefined,
+        totalCompactions,
+      },
+    };
+  }
+
+  const sliceFromIdx = Math.max(workingMessages.length - tailMessages, 0);
+  const slicedMessages = workingMessages.slice(sliceFromIdx);
+  const firstId = slicedMessages[0]
+    ? getMessageId(slicedMessages[0])
+    : undefined;
+
+  return {
+    messages: slicedMessages,
+    pagination: {
+      hasOlderMessages: true,
+      totalMessageCount,
+      returnedMessageCount: slicedMessages.length,
+      truncatedBeforeMessageId: firstId,
+      totalCompactions,
+    },
+  };
+}
+
+/**
+ * Slice messages starting at the Nth-from-last compact boundary.
  */
 export function sliceAtCompactBoundaries(
   messages: Message[],
   tailCompactions: number,
   beforeMessageId?: string,
 ): SliceResult {
-  const totalMessageCount = messages.length;
+  const { totalMessageCount, workingMessages } = buildWorkingSet(
+    messages,
+    beforeMessageId,
+  );
 
-  // For "load older" requests: work with messages before the cursor
-  let workingMessages = messages;
-  if (beforeMessageId) {
-    const idx = messages.findIndex((m) => getMessageId(m) === beforeMessageId);
-    if (idx > 0) {
-      workingMessages = messages.slice(0, idx);
-    }
-    // If not found or idx === 0, use all messages (graceful fallback)
-  }
-
-  // Find all compact_boundary indices in the working set
   const compactIndices: number[] = [];
   for (let i = 0; i < workingMessages.length; i++) {
-    const m = workingMessages[i];
-    if (m && isCompactBoundary(m)) {
+    const message = workingMessages[i];
+    if (message && isCompactBoundary(message)) {
       compactIndices.push(i);
     }
   }
 
   const totalCompactions = compactIndices.length;
 
-  // If fewer or equal compactions than requested, return everything
   if (compactIndices.length <= tailCompactions) {
     return {
       messages: workingMessages,
@@ -88,7 +138,6 @@ export function sliceAtCompactBoundaries(
     };
   }
 
-  // Slice starting from the Nth-from-last compact boundary (inclusive)
   const sliceFromIdx =
     compactIndices[compactIndices.length - tailCompactions] ?? 0;
   const slicedMessages = workingMessages.slice(sliceFromIdx);

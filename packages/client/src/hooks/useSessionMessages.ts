@@ -12,6 +12,10 @@ import {
 } from "../lib/mergeMessages";
 import { getProvider } from "../providers/registry";
 import type { Message, Session, SessionStatus } from "../types";
+import { useServerSettings } from "./useServerSettings";
+
+const DEFAULT_HISTORY_PAGE_SIZE = 2;
+const DEFAULT_HISTORY_PAGINATION_MODE = "compactions";
 
 /** Content from a subagent (Task tool) */
 export interface AgentContent {
@@ -81,7 +85,7 @@ export interface UseSessionMessagesResult {
   fetchNewMessages: () => Promise<void>;
   /** Fetch session metadata only */
   fetchSessionMetadata: () => Promise<void>;
-  /** Pagination info from compact-boundary-based loading */
+  /** Pagination info from bounded session message loading */
   pagination: PaginationInfo | undefined;
   /** Whether older messages are being loaded */
   loadingOlder: boolean;
@@ -156,6 +160,8 @@ export function useSessionMessages(
   options: UseSessionMessagesOptions,
 ): UseSessionMessagesResult {
   const { projectId, sessionId, onLoadComplete, onLoadError } = options;
+  const { settings: serverSettings, isLoading: serverSettingsLoading } =
+    useServerSettings();
 
   // Core state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -167,6 +173,14 @@ export function useSessionMessages(
   const [session, setSession] = useState<Session | null>(null);
   const [pagination, setPagination] = useState<PaginationInfo | undefined>();
   const [loadingOlder, setLoadingOlder] = useState(false);
+
+  const historyPaginationMode =
+    serverSettings?.sessionHistoryPaginationMode ??
+    DEFAULT_HISTORY_PAGINATION_MODE;
+  const historyPageSize = Math.max(
+    serverSettings?.sessionHistoryPageSize ?? DEFAULT_HISTORY_PAGE_SIZE,
+    1,
+  );
 
   // Buffering: queue stream messages until initial load completes
   const streamBufferRef = useRef<
@@ -288,6 +302,10 @@ export function useSessionMessages(
 
   // Initial load
   useEffect(() => {
+    if (serverSettingsLoading) {
+      return;
+    }
+
     initialLoadCompleteRef.current = false;
     streamBufferRef.current = [];
     maxPersistedTimestampMsRef.current = Number.NEGATIVE_INFINITY;
@@ -295,7 +313,11 @@ export function useSessionMessages(
     setAgentContent({});
 
     api
-      .getSession(projectId, sessionId, undefined, { tailCompactions: 2 })
+      .getSession(projectId, sessionId, undefined, {
+        ...(historyPaginationMode === "compactions"
+          ? { tailCompactions: historyPageSize }
+          : { tailMessages: historyPageSize }),
+      })
       .then((data) => {
         setSession(data.session);
         setPagination(data.pagination);
@@ -341,6 +363,9 @@ export function useSessionMessages(
         onLoadError?.(err);
       });
   }, [
+    historyPaginationMode,
+    historyPageSize,
+    serverSettingsLoading,
     projectId,
     sessionId,
     onLoadComplete,
@@ -479,7 +504,9 @@ export function useSessionMessages(
     setLoadingOlder(true);
     try {
       const data = await api.getSession(projectId, sessionId, undefined, {
-        tailCompactions: 2,
+        ...(historyPaginationMode === "compactions"
+          ? { tailCompactions: historyPageSize }
+          : { tailMessages: historyPageSize }),
         beforeMessageId: pagination.truncatedBeforeMessageId,
       });
       setMessages((prev) => {
@@ -499,7 +526,14 @@ export function useSessionMessages(
     } finally {
       setLoadingOlder(false);
     }
-  }, [projectId, sessionId, pagination, updatePersistedTimestampWatermark]);
+  }, [
+    historyPaginationMode,
+    historyPageSize,
+    projectId,
+    sessionId,
+    pagination,
+    updatePersistedTimestampWatermark,
+  ]);
 
   // Fetch session metadata only
   const fetchSessionMetadata = useCallback(async () => {

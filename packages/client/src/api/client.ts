@@ -27,13 +27,14 @@ import type {
   SessionSummary,
 } from "../types";
 
-/** Pagination metadata for compact-boundary-based session loading */
+/** Pagination metadata for session message loading */
 export interface PaginationInfo {
   hasOlderMessages: boolean;
   totalMessageCount: number;
   returnedMessageCount: number;
   truncatedBeforeMessageId?: string;
   totalCompactions: number;
+  mode?: "compactions" | "messages";
 }
 
 /**
@@ -376,10 +377,16 @@ export const api = {
     projectId: string,
     sessionId: string,
     afterMessageId?: string,
-    options?: { tailCompactions?: number; beforeMessageId?: string },
+    options?: {
+      tailMessages?: number;
+      tailCompactions?: number;
+      beforeMessageId?: string;
+    },
   ) => {
     const params = new URLSearchParams();
     if (afterMessageId) params.set("afterMessageId", afterMessageId);
+    if (options?.tailMessages !== undefined)
+      params.set("tailMessages", String(options.tailMessages));
     if (options?.tailCompactions !== undefined)
       params.set("tailCompactions", String(options.tailCompactions));
     if (options?.beforeMessageId)
@@ -1026,6 +1033,10 @@ export interface RemoteExecutorTestResult {
 export interface ServerSettings {
   /** Whether clients should register the service worker */
   serviceWorkerEnabled: boolean;
+  /** Default session history pagination mode for initial loads */
+  sessionHistoryPaginationMode?: "compactions" | "messages";
+  /** Default page size used by the selected session history pagination mode */
+  sessionHistoryPageSize?: number;
   /** Whether remote SRP resume sessions should be persisted to disk */
   persistRemoteSessionsToDisk: boolean;
   /** SSH host aliases for remote executors */

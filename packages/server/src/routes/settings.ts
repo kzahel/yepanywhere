@@ -154,6 +154,22 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps): Hono {
     if (typeof body.serviceWorkerEnabled === "boolean") {
       updates.serviceWorkerEnabled = body.serviceWorkerEnabled;
     }
+    if (
+      body.sessionHistoryPaginationMode === "compactions" ||
+      body.sessionHistoryPaginationMode === "messages"
+    ) {
+      updates.sessionHistoryPaginationMode = body.sessionHistoryPaginationMode;
+    }
+    if (typeof body.sessionHistoryPageSize === "number") {
+      const pageSize = Math.trunc(body.sessionHistoryPageSize);
+      if (pageSize < 1 || pageSize > 500) {
+        return c.json(
+          { error: "sessionHistoryPageSize must be between 1 and 500" },
+          400,
+        );
+      }
+      updates.sessionHistoryPageSize = pageSize;
+    }
     if (typeof body.persistRemoteSessionsToDisk === "boolean") {
       updates.persistRemoteSessionsToDisk = body.persistRemoteSessionsToDisk;
     }

@@ -15,6 +15,10 @@ const CURRENT_VERSION = 1;
 export interface ServerSettings {
   /** Whether clients should register the service worker (for push notifications) */
   serviceWorkerEnabled: boolean;
+  /** Default session history pagination mode for initial loads */
+  sessionHistoryPaginationMode?: "compactions" | "messages";
+  /** Default page size used by the selected session history pagination mode */
+  sessionHistoryPageSize?: number;
   /** Whether remote SRP resume sessions should be persisted to disk (default: false/in-memory only) */
   persistRemoteSessionsToDisk: boolean;
   /** SSH host aliases for remote executors (from ~/.ssh/config) */
@@ -48,6 +52,8 @@ export interface ServerSettings {
 /** Default settings */
 export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   serviceWorkerEnabled: true,
+  sessionHistoryPaginationMode: "compactions",
+  sessionHistoryPageSize: 2,
   persistRemoteSessionsToDisk: false,
   lifecycleWebhooksEnabled: false,
   lifecycleWebhookDryRun: true,
