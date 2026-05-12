@@ -6,6 +6,7 @@ import {
   SESSION_TITLE_MAX_LENGTH,
   type ThinkingConfig,
   type UrlProjectId,
+  stripIdeMetadata,
 } from "@yep-anywhere/shared";
 import type { AgentActivity, PendingInputType } from "@yep-anywhere/shared";
 import { getLogger } from "../logging/logger.js";
@@ -1447,7 +1448,9 @@ export class Supervisor {
     );
     const firstContent = firstUser?.message?.content;
     const fullTitle =
-      typeof firstContent === "string" ? firstContent.trim() : "";
+      typeof firstContent === "string"
+        ? stripIdeMetadata(firstContent).trim()
+        : "";
     if (!fullTitle) {
       return { title: null, fullTitle: null, messageCount: 0 };
     }

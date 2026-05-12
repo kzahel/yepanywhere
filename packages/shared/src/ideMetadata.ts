@@ -12,6 +12,12 @@ const IDE_TAG_PATTERN = /<ide_(opened_file|selection)>[\s\S]*?<\/ide_\1>/g;
 const OPENED_FILE_TAG_PATTERN =
   /<ide_opened_file>([\s\S]*?)<\/ide_opened_file>/g;
 
+/** VSCode/Codex IDE context preamble injected ahead of the real prompt */
+const IDE_SETUP_PREAMBLE_HEADER = "# Context from my IDE setup:";
+
+/** Marks the beginning of the actual user request after IDE setup metadata */
+const IDE_REQUEST_HEADER_PATTERN = /^## My request for .+?:\s*$/m;
+
 /**
  * Check if text block is purely IDE metadata (for skipping in title extraction).
  * Returns true if the trimmed text starts with an IDE metadata tag.
@@ -19,6 +25,7 @@ const OPENED_FILE_TAG_PATTERN =
 export function isIdeMetadata(text: string): boolean {
   const trimmed = text.trim();
   return (
+    trimmed.startsWith(IDE_SETUP_PREAMBLE_HEADER) ||
     trimmed.startsWith("<ide_opened_file>") ||
     trimmed.startsWith("<ide_selection>")
   );
@@ -29,7 +36,22 @@ export function isIdeMetadata(text: string): boolean {
  * Returns the text with all <ide_opened_file> and <ide_selection> tags removed.
  */
 export function stripIdeMetadata(text: string): string {
-  return text.replace(IDE_TAG_PATTERN, "").trim();
+  const withoutTags = text.replace(IDE_TAG_PATTERN, "").trim();
+  return stripIdeSetupPreamble(withoutTags);
+}
+
+function stripIdeSetupPreamble(text: string): string {
+  if (!text.startsWith(IDE_SETUP_PREAMBLE_HEADER)) {
+    return text.trim();
+  }
+
+  const requestHeaderMatch = text.match(IDE_REQUEST_HEADER_PATTERN);
+  if (!requestHeaderMatch || requestHeaderMatch.index === undefined) {
+    return "";
+  }
+
+  const requestStart = requestHeaderMatch.index + requestHeaderMatch[0].length;
+  return text.slice(requestStart).trim();
 }
 
 /**

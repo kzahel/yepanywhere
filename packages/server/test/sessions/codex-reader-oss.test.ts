@@ -322,6 +322,103 @@ describe("CodexSessionReader - OSS Support", () => {
     expect(summary?.messageCount).toBe(1);
   });
 
+  it("strips VSCode IDE setup preambles from event_msg titles", async () => {
+    const sessionId = "ide-preamble-event-msg";
+    const now = new Date().toISOString();
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        timestamp: now,
+        payload: {
+          id: sessionId,
+          cwd: "/test/project",
+          timestamp: now,
+          model_provider: "openai",
+        },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        timestamp: now,
+        payload: {
+          type: "user_message",
+          message: `# Context from my IDE setup:
+
+## Active file: /tmp/foo.ts
+
+## Open tabs:
+- foo.ts: /tmp/foo.ts
+- bar.ts: /tmp/bar.ts
+
+## My request for Codex:
+Please explain this function`,
+        },
+      }),
+    ];
+
+    await writeFile(
+      join(testDir, `${sessionId}.jsonl`),
+      `${lines.join("\n")}\n`,
+    );
+
+    const summary = await reader.getSessionSummary(
+      sessionId,
+      "test-project" as UrlProjectId,
+    );
+    expect(summary?.title).toBe("Please explain this function");
+    expect(summary?.fullTitle).toBe("Please explain this function");
+  });
+
+  it("strips VSCode IDE setup preambles from response_item titles", async () => {
+    const sessionId = "ide-preamble-response-item";
+    const now = new Date().toISOString();
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        timestamp: now,
+        payload: {
+          id: sessionId,
+          cwd: "/test/project",
+          timestamp: now,
+          model_provider: "openai",
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        timestamp: now,
+        payload: {
+          type: "message",
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `# Context from my IDE setup:
+
+## Active file: /tmp/foo.ts
+
+## Open tabs:
+- foo.ts: /tmp/foo.ts
+
+## My request for Codex:
+Summarize the bug`,
+            },
+          ],
+        },
+      }),
+    ];
+
+    await writeFile(
+      join(testDir, `${sessionId}.jsonl`),
+      `${lines.join("\n")}\n`,
+    );
+
+    const summary = await reader.getSessionSummary(
+      sessionId,
+      "test-project" as UrlProjectId,
+    );
+    expect(summary?.title).toBe("Summarize the bug");
+    expect(summary?.fullTitle).toBe("Summarize the bug");
+  });
+
   it("preserves originator from session metadata", async () => {
     const sessionId = "originator-passthrough";
     await createSessionFile(sessionId, "openai", "gpt-4o", "yep-anywhere");

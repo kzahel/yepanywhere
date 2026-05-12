@@ -424,6 +424,59 @@ describe("Supervisor", () => {
       expect(created?.session.messageCount).toBe(1);
     });
 
+    it("strips IDE setup preambles from optimistic session titles", async () => {
+      const eventBus = new EventBus();
+      const events: BusEvent[] = [];
+      eventBus.subscribe((event) => events.push(event));
+
+      const realSdk: RealClaudeSDKInterface = {
+        startSession: async () => {
+          async function* iterator() {
+            yield {
+              type: "system",
+              subtype: "init",
+              session_id: "real-session-ide-1",
+            };
+            yield { type: "result", session_id: "real-session-ide-1" };
+          }
+          return {
+            iterator: iterator(),
+            queue: new MessageQueue(),
+            abort: () => {},
+          };
+        },
+      };
+
+      const supervisorWithBus = new Supervisor({
+        realSdk,
+        idleTimeoutMs: 100,
+        eventBus,
+      });
+
+      await supervisorWithBus.startSession("/tmp/test", {
+        text: `# Context from my IDE setup:
+
+## Active file: /tmp/foo.ts
+
+## Open tabs:
+- foo.ts: /tmp/foo.ts
+
+## My request for Codex:
+Investigate the bad session title`,
+      });
+
+      const created = events.find(
+        (e): e is Extract<BusEvent, { type: "session-created" }> =>
+          e.type === "session-created",
+      );
+      expect(created).toBeDefined();
+      expect(created?.session.title).toBe("Investigate the bad session title");
+      expect(created?.session.fullTitle).toBe(
+        "Investigate the bad session title",
+      );
+      expect(created?.session.messageCount).toBe(1);
+    });
+
     it("emits timed session-updated reconciliation from onSessionSummary", async () => {
       vi.useFakeTimers();
       try {

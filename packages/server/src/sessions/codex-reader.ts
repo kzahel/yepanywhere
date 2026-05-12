@@ -28,6 +28,7 @@ import {
   type UrlProjectId,
   getModelContextWindow,
   parseCodexSessionEntry,
+  stripIdeMetadata,
 } from "@yep-anywhere/shared";
 import { canonicalizeProjectPath } from "../projects/paths.js";
 import type {
@@ -445,10 +446,11 @@ export class CodexSessionReader implements ISessionReader {
         entry.type === "event_msg" &&
         entry.payload.type === "user_message"
       ) {
-        const fullTitle = entry.payload.message.trim();
+        const fullTitle = this.sanitizeTitleText(entry.payload.message);
         if (
-          skipLeadingSystemPrompts &&
-          this.isSystemPromptUserMessage(fullTitle)
+          !fullTitle ||
+          (skipLeadingSystemPrompts &&
+            this.isSystemPromptUserMessage(fullTitle))
         ) {
           continue;
         }
@@ -462,10 +464,9 @@ export class CodexSessionReader implements ISessionReader {
       if (entry.type === "response_item") {
         const payload = entry.payload;
         if (payload.type === "message" && payload.role === "user") {
-          const text = payload.content
-            .map((c) => ("text" in c ? c.text : ""))
-            .join("\n")
-            .trim();
+          const text = this.sanitizeTitleText(
+            payload.content.map((c) => ("text" in c ? c.text : "")).join("\n"),
+          );
           if (
             text &&
             !(skipLeadingSystemPrompts && this.isSystemPromptUserMessage(text))
@@ -489,6 +490,10 @@ export class CodexSessionReader implements ISessionReader {
       trimmed.startsWith("# AGENTS.md instructions") ||
       trimmed.startsWith("<environment_context>")
     );
+  }
+
+  private sanitizeTitleText(text: string): string {
+    return stripIdeMetadata(text).trim();
   }
 
   /**

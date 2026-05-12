@@ -48,12 +48,12 @@ export interface CachedSessionSummary {
 }
 
 export interface SessionIndexState {
-  version: 1;
+  version: 2;
   projectId: string;
   sessions: Record<string, CachedSessionSummary>;
 }
 
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 export interface SessionIndexServiceOptions {
   /** Directory to store index files (defaults to ~/.yep-anywhere/indexes) */

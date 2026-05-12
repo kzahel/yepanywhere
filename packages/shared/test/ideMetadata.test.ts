@@ -33,6 +33,14 @@ describe("ideMetadata", () => {
       ).toBe(true);
     });
 
+    it("detects VSCode IDE setup preambles", () => {
+      expect(
+        isIdeMetadata(
+          "# Context from my IDE setup:\n\n## Active file: /tmp/foo.ts\n\n## My request for Codex:\nExplain this",
+        ),
+      ).toBe(true);
+    });
+
     it("returns false for regular text", () => {
       expect(isIdeMetadata("Hello, how can I help you?")).toBe(false);
     });
@@ -97,6 +105,30 @@ function foo() {
       expect(stripIdeMetadata("<ide_opened_file>file</ide_opened_file>")).toBe(
         "",
       );
+    });
+
+    it("strips VSCode IDE setup preambles and keeps the actual request", () => {
+      const input = `# Context from my IDE setup:
+
+## Active file: /tmp/foo.ts
+
+## Open tabs:
+- foo.ts: /tmp/foo.ts
+- bar.ts: /tmp/bar.ts
+
+## My request for Codex:
+What does this function do?`;
+      expect(stripIdeMetadata(input)).toBe("What does this function do?");
+    });
+
+    it("returns empty string when IDE setup preamble has no request body", () => {
+      const input = `# Context from my IDE setup:
+
+## Active file: /tmp/foo.ts
+
+## Open tabs:
+- foo.ts: /tmp/foo.ts`;
+      expect(stripIdeMetadata(input)).toBe("");
     });
   });
 
