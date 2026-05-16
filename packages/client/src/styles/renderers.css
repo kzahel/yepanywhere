@@ -394,16 +394,22 @@
 
 .thinking-block.collapsible {
   margin: var(--space-1) 0;
+  opacity: 0.72;
 }
 
 .collapsible__summary {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--text-muted);
-  font-size: var(--font-size-base);
+  color: color-mix(in srgb, var(--text-muted) 85%, transparent);
+  font-size: var(--font-size-sm);
   cursor: pointer;
   list-style: none;
+}
+
+.thinking-block.collapsible:hover,
+.thinking-block.collapsible[open] {
+  opacity: 0.88;
 }
 
 .collapsible__summary::-webkit-details-marker {
@@ -424,8 +430,8 @@ details[open] .collapsible__icon {
 }
 
 .collapsible__content .text-content {
-  color: var(--text-muted);
-  font-size: var(--font-size-base);
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  font-size: var(--font-size-sm);
   line-height: 1.5;
   white-space: pre-wrap;
 }

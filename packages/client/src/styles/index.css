@@ -1541,10 +1541,17 @@ a.sidebar-nav-item {
 }
 
 /* User prompts - compact bubble that shrinks to fit content */
+.user-prompt-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
 .message-user-prompt {
   background: var(--bg-user-message);
   border-radius: 6px;
-  margin-left: 0;
+  margin-left: auto;
   width: fit-content;
   max-width: 80%;
   padding: 0.25rem 0.5rem;
@@ -1553,6 +1560,9 @@ a.sidebar-nav-item {
 
 /* Pending messages - waiting for server confirmation */
 .pending-message {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   margin-bottom: var(--space-3);
 }
 
@@ -1571,12 +1581,13 @@ a.sidebar-nav-item {
 .user-prompt-metadata {
   margin-top: var(--space-1);
   margin-bottom: var(--space-3);
-  padding-left: var(--space-2);
+  justify-content: flex-end;
   font-size: var(--font-size-xs);
   color: var(--text-dimmed);
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+  max-width: 80%;
 }
 
 .opened-file {
@@ -2130,6 +2141,9 @@ a.sidebar-nav-item {
 
 /* Deferred messages - queued server-side */
 .deferred-message {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   margin-bottom: var(--space-3);
 }
 

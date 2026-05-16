@@ -9,14 +9,39 @@ import type { RenderItem } from "../types/renderItems";
 import { ProcessingIndicator } from "./ProcessingIndicator";
 import { RenderItemComponent } from "./RenderItemComponent";
 
+interface AssistantTurnGroup {
+  isUserPrompt: false;
+  items: RenderItem[];
+}
+
+interface UserPromptGroup {
+  isUserPrompt: true;
+  items: RenderItem[];
+}
+
+type TurnGroup = AssistantTurnGroup | UserPromptGroup;
+
+interface OperationSegment {
+  kind: "operations";
+  id: string;
+  items: RenderItem[];
+}
+
+interface ItemSegment {
+  kind: "items";
+  items: RenderItem[];
+}
+
+type AssistantTurnSegment = OperationSegment | ItemSegment;
+
 /**
  * Groups consecutive assistant items (text, thinking, tool_call) into turns.
  * User prompts break the grouping and are returned as separate groups.
  */
 function groupItemsIntoTurns(
   items: RenderItem[],
-): Array<{ isUserPrompt: boolean; items: RenderItem[] }> {
-  const groups: Array<{ isUserPrompt: boolean; items: RenderItem[] }> = [];
+): TurnGroup[] {
+  const groups: TurnGroup[] = [];
   let currentAssistantGroup: RenderItem[] = [];
 
   for (const item of items) {
@@ -40,6 +65,84 @@ function groupItemsIntoTurns(
   }
 
   return groups;
+}
+
+function isIntermediateOperationItem(item: RenderItem): boolean {
+  return item.type === "tool_call";
+}
+
+export function groupAssistantTurnSegments(
+  items: RenderItem[],
+): AssistantTurnSegment[] {
+  const segments: AssistantTurnSegment[] = [];
+  let currentItems: RenderItem[] = [];
+  let operationRun: RenderItem[] = [];
+
+  const flushCurrentItems = () => {
+    if (currentItems.length > 0) {
+      segments.push({ kind: "items", items: currentItems });
+      currentItems = [];
+    }
+  };
+
+  const flushOperationRun = () => {
+    if (operationRun.length === 0) {
+      return;
+    }
+
+    const first = operationRun[0];
+    const last = operationRun[operationRun.length - 1];
+    if (first && last) {
+      flushCurrentItems();
+      segments.push({
+        kind: "operations",
+        id: `ops-${first.id}-${last.id}`,
+        items: operationRun,
+      });
+    }
+
+    operationRun = [];
+  };
+
+  for (const item of items) {
+    if (isIntermediateOperationItem(item)) {
+      operationRun.push(item);
+      continue;
+    }
+
+    flushOperationRun();
+    currentItems.push(item);
+  }
+
+  flushOperationRun();
+  flushCurrentItems();
+
+  return segments;
+}
+
+function getOperationSegmentSummary(items: RenderItem[]): string {
+  const toolCalls = items.filter((item) => item.type === "tool_call");
+  const total = toolCalls.length;
+  const pending = toolCalls.filter((item) => item.status === "pending").length;
+  const errors = toolCalls.filter((item) => item.status === "error").length;
+  const aborted = toolCalls.filter((item) => item.status === "aborted").length;
+
+  const toolNames = Array.from(
+    new Set(toolCalls.map((item) => item.toolName).filter(Boolean)),
+  );
+  const label =
+    toolNames.length > 0
+      ? toolNames.slice(0, 3).join(" · ")
+      : "Intermediate operations";
+
+  const suffix: string[] = [];
+  if (pending > 0) suffix.push(`${pending} running`);
+  if (errors > 0) suffix.push(`${errors} failed`);
+  if (aborted > 0) suffix.push(`${aborted} interrupted`);
+
+  return suffix.length > 0
+    ? `${total} operations · ${label} · ${suffix.join(" · ")}`
+    : `${total} operations · ${label}`;
 }
 
 /** Pending message waiting for server confirmation */
@@ -107,6 +210,9 @@ export const MessageList = memo(function MessageList({
   const lastHeightRef = useRef(0);
   const followUpScrollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
+  const [expandedOperationSegments, setExpandedOperationSegments] = useState<
+    Record<string, boolean>
+  >({});
 
   // Scroll to bottom, marking it as programmatic so scroll handler ignores it
   const scrollToBottom = useCallback((container: HTMLElement) => {
@@ -152,6 +258,13 @@ export const MessageList = memo(function MessageList({
 
   const toggleThinkingExpanded = useCallback(() => {
     setThinkingExpanded((prev) => !prev);
+  }, []);
+
+  const toggleOperationSegment = useCallback((segmentId: string) => {
+    setExpandedOperationSegments((prev) => ({
+      ...prev,
+      [segmentId]: !prev[segmentId],
+    }));
   }, []);
 
   // Load older messages with scroll position preservation
@@ -303,18 +416,59 @@ export const MessageList = memo(function MessageList({
         // Assistant items wrapped in timeline container - key based on first item
         const firstItem = group.items[0];
         if (!firstItem) return null;
+        const segments = groupAssistantTurnSegments(group.items);
         return (
           <div key={`turn-${firstItem.id}`} className="assistant-turn">
-            {group.items.map((item) => (
-              <RenderItemComponent
-                key={item.id}
-                item={item}
-                isStreaming={isStreaming}
-                thinkingExpanded={thinkingExpanded}
-                toggleThinkingExpanded={toggleThinkingExpanded}
-                sessionProvider={provider}
-              />
-            ))}
+            {segments.map((segment) => {
+              if (segment.kind === "items") {
+                return segment.items.map((item) => (
+                  <RenderItemComponent
+                    key={item.id}
+                    item={item}
+                    isStreaming={isStreaming}
+                    thinkingExpanded={thinkingExpanded}
+                    toggleThinkingExpanded={toggleThinkingExpanded}
+                    sessionProvider={provider}
+                  />
+                ));
+              }
+
+              const expanded = expandedOperationSegments[segment.id] ?? false;
+              const summary = getOperationSegmentSummary(segment.items);
+
+              return (
+                <div
+                  key={segment.id}
+                  className={`operation-segment ${expanded ? "expanded" : "collapsed"}`}
+                >
+                  <button
+                    type="button"
+                    className="operation-segment-toggle timeline-item"
+                    onClick={() => toggleOperationSegment(segment.id)}
+                    aria-expanded={expanded}
+                  >
+                    <span className="operation-segment-label">{summary}</span>
+                    <span className="operation-segment-chevron" aria-hidden="true">
+                      {expanded ? "▾" : "▸"}
+                    </span>
+                  </button>
+                  {expanded && (
+                    <div className="operation-segment-content">
+                      {segment.items.map((item) => (
+                        <RenderItemComponent
+                          key={item.id}
+                          item={item}
+                          isStreaming={isStreaming}
+                          thinkingExpanded={thinkingExpanded}
+                          toggleThinkingExpanded={toggleThinkingExpanded}
+                          sessionProvider={provider}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       })}
