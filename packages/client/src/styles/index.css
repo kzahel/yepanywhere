@@ -8128,7 +8128,7 @@ a.sidebar-nav-item {
 }
 
 .turn-diff-summary {
-  margin-top: var(--space-2);
+  margin-top: var(--space-4);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
@@ -8183,7 +8183,6 @@ a.sidebar-nav-item {
 }
 
 .turn-diff-file-list {
-  margin-top: var(--space-1);
   background: transparent;
 }
 
