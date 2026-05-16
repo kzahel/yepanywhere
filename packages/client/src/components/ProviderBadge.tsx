@@ -46,6 +46,21 @@ export function ProviderBadge({
   const color = PROVIDER_COLORS[provider];
   const label = PROVIDER_LABELS[provider];
 
+  const formatGenericModelName = (value: string): string =>
+    value
+      .trim()
+      .split("-")
+      .map((part) => {
+        const lower = part.toLowerCase();
+        if (lower === "gpt") return "GPT";
+        if (lower === "codex") return "Codex";
+        if (lower === "mini") return "Mini";
+        if (lower === "max") return "Max";
+        if (lower.length === 0) return "";
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join("-");
+
   // Format model name for display
   const getModelLabel = (modelName: string | undefined): string | null => {
     if (!modelName) return null;
@@ -75,9 +90,8 @@ export function ProviderBadge({
       return isExtendedContext ? `${capitalized} 1M` : capitalized;
     }
 
-    // For other models, capitalize first letter
-    const capitalized = modelName.charAt(0).toUpperCase() + modelName.slice(1);
-    return isExtendedContext ? `${capitalized} 1M` : capitalized;
+    const formatted = formatGenericModelName(modelName);
+    return isExtendedContext ? `${formatted} 1M` : formatted;
   };
 
   const modelLabel = getModelLabel(model);
