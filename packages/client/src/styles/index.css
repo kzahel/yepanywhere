@@ -8183,6 +8183,7 @@ a.sidebar-nav-item {
 }
 
 .turn-diff-file-list {
+  margin-top: var(--space-1);
   background: transparent;
 }
 

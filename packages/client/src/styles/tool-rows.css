@@ -264,6 +264,62 @@
   margin: 2px 0;
 }
 
+.reasoning-segment {
+  margin: 2px 0;
+}
+
+.reasoning-segment-toggle.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  text-align: left;
+  cursor: pointer;
+  min-height: 20px;
+  line-height: 1.4;
+}
+
+.reasoning-segment-toggle.timeline-item:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.reasoning-segment-toggle.timeline-item::before {
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--timeline-dot-thinking, var(--timeline-dot-text));
+}
+
+.reasoning-segment-toggle.timeline-item::after {
+  top: calc(50% + 3px);
+}
+
+.reasoning-segment-label {
+  font-size: calc(var(--font-size-sm) - 1px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(100%, 42rem);
+}
+
+.reasoning-segment-chevron {
+  flex: 0 0 auto;
+  color: inherit;
+  font-size: calc(var(--font-size-sm) - 1px);
+  opacity: 0.7;
+}
+
+.reasoning-segment-content {
+  margin-top: 4px;
+}
+
 .operation-segment-toggle.timeline-item {
   display: flex;
   align-items: center;

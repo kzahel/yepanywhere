@@ -35,6 +35,16 @@ interface ItemSegment {
 
 type AssistantTurnSegment = OperationSegment | ItemSegment;
 
+interface FoldedReasoningSegment {
+  kind: "folded_reasoning";
+  id: string;
+  summary: string;
+  collapsedItems: RenderItem[];
+  visibleItems: RenderItem[];
+}
+
+type AssistantTurnRenderSegment = AssistantTurnSegment | FoldedReasoningSegment;
+
 /**
  * Groups consecutive assistant items (text, thinking, tool_call) into turns.
  * User prompts break the grouping and are returned as separate groups.
@@ -144,6 +154,84 @@ function getOperationSegmentSummary(items: RenderItem[]): string {
     : `${total} operations · ${label}`;
 }
 
+function isTextItem(item: RenderItem): item is RenderItem & { type: "text" } {
+  return item.type === "text";
+}
+
+function getTurnDurationMs(items: RenderItem[]): number | null {
+  const timestamps = items
+    .flatMap((item) => item.sourceMessages)
+    .map((msg) =>
+      typeof msg.timestamp === "string"
+        ? Date.parse(msg.timestamp)
+        : Number.NaN,
+    )
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  if (timestamps.length < 2) {
+    return null;
+  }
+
+  const first = timestamps[0];
+  const last = timestamps[timestamps.length - 1];
+  if (first === undefined || last === undefined) {
+    return null;
+  }
+
+  return last > first ? last - first : null;
+}
+
+function formatDurationLabel(durationMs: number | null): string {
+  if (!durationMs || durationMs < 1000) {
+    return "Worked for a moment";
+  }
+
+  const totalSeconds = Math.round(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes <= 0) {
+    return `Worked for ${seconds}s`;
+  }
+
+  if (seconds === 0) {
+    return `Worked for ${minutes}m`;
+  }
+
+  return `Worked for ${minutes}m ${seconds}s`;
+}
+
+export function buildAssistantTurnRenderSegments(
+  items: RenderItem[],
+  isTurnStreaming: boolean,
+): AssistantTurnRenderSegment[] {
+  if (isTurnStreaming) {
+    return groupAssistantTurnSegments(items);
+  }
+
+  const lastItem = items[items.length - 1];
+  if (!lastItem || !isTextItem(lastItem) || items.length < 2) {
+    return groupAssistantTurnSegments(items);
+  }
+
+  const collapsedItems = items.slice(0, -1);
+  if (collapsedItems.length === 0) {
+    return groupAssistantTurnSegments(items);
+  }
+
+  const durationMs = getTurnDurationMs(items);
+  return [
+    {
+      kind: "folded_reasoning",
+      id: `reasoning-${items[0]?.id ?? "turn"}-${lastItem.id}`,
+      summary: formatDurationLabel(durationMs),
+      collapsedItems,
+      visibleItems: [lastItem],
+    },
+  ];
+}
+
 /** Pending message waiting for server confirmation */
 interface PendingMessage {
   tempId: string;
@@ -186,6 +274,13 @@ interface Props {
   onLoadOlderMessages?: () => void;
 }
 
+interface SegmentRenderContext {
+  isStreaming: boolean;
+  provider?: string;
+  thinkingExpanded: boolean;
+  toggleThinkingExpanded: () => void;
+}
+
 export const MessageList = memo(function MessageList({
   messages,
   provider,
@@ -210,6 +305,9 @@ export const MessageList = memo(function MessageList({
   const followUpScrollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
   const [expandedOperationSegments, setExpandedOperationSegments] = useState<
+    Record<string, boolean>
+  >({});
+  const [expandedReasoningSegments, setExpandedReasoningSegments] = useState<
     Record<string, boolean>
   >({});
 
@@ -273,6 +371,64 @@ export const MessageList = memo(function MessageList({
       [segmentId]: !prev[segmentId],
     }));
   }, []);
+
+  const toggleReasoningSegment = useCallback((segmentId: string) => {
+    setExpandedReasoningSegments((prev) => ({
+      ...prev,
+      [segmentId]: !prev[segmentId],
+    }));
+  }, []);
+
+  const renderItemsSegment = useCallback(
+    (items: RenderItem[], context: SegmentRenderContext) =>
+      items.map((item) => (
+        <RenderItemComponent
+          key={item.id}
+          item={item}
+          isStreaming={context.isStreaming}
+          thinkingExpanded={context.thinkingExpanded}
+          toggleThinkingExpanded={context.toggleThinkingExpanded}
+          sessionProvider={context.provider}
+        />
+      )),
+    [],
+  );
+
+  const renderOperationSegment = useCallback(
+    (
+      segment: OperationSegment,
+      context: SegmentRenderContext,
+      expanded: boolean,
+      onToggle: (segmentId: string) => void,
+    ) => {
+      const summary = getOperationSegmentSummary(segment.items);
+
+      return (
+        <div
+          key={segment.id}
+          className={`operation-segment ${expanded ? "expanded" : "collapsed"}`}
+        >
+          <button
+            type="button"
+            className="operation-segment-toggle timeline-item"
+            onClick={() => onToggle(segment.id)}
+            aria-expanded={expanded}
+          >
+            <span className="operation-segment-label">{summary}</span>
+            <span className="operation-segment-chevron" aria-hidden="true">
+              {expanded ? "▾" : "▸"}
+            </span>
+          </button>
+          {expanded && (
+            <div className="operation-segment-content">
+              {renderItemsSegment(segment.items, context)}
+            </div>
+          )}
+        </div>
+      );
+    },
+    [renderItemsSegment],
+  );
 
   // Load older messages with scroll position preservation
   const handleLoadOlder = useCallback(() => {
@@ -423,60 +579,85 @@ export const MessageList = memo(function MessageList({
         // Assistant items wrapped in timeline container - key based on first item
         const firstItem = group.items[0];
         if (!firstItem) return null;
-        const segments = groupAssistantTurnSegments(group.items);
+        const isCurrentStreamingTurn =
+          isStreaming && groupIndex === lastAssistantGroupIndex;
+        const segments = buildAssistantTurnRenderSegments(
+          group.items,
+          isCurrentStreamingTurn,
+        );
         return (
           <div key={`turn-${firstItem.id}`} className="assistant-turn">
             {segments.map((segment) => {
+              const renderContext: SegmentRenderContext = {
+                isStreaming,
+                provider,
+                thinkingExpanded,
+                toggleThinkingExpanded,
+              };
+
+              if (segment.kind === "folded_reasoning") {
+                const expanded = expandedReasoningSegments[segment.id] ?? false;
+
+                return (
+                  <div
+                    key={segment.id}
+                    className={`reasoning-segment ${expanded ? "expanded" : "collapsed"}`}
+                  >
+                    <button
+                      type="button"
+                      className="reasoning-segment-toggle timeline-item"
+                      onClick={() => toggleReasoningSegment(segment.id)}
+                      aria-expanded={expanded}
+                    >
+                      <span className="reasoning-segment-label">
+                        {segment.summary}
+                      </span>
+                      <span
+                        className="reasoning-segment-chevron"
+                        aria-hidden="true"
+                      >
+                        {expanded ? "▾" : "▸"}
+                      </span>
+                    </button>
+                    {expanded && (
+                      <div className="reasoning-segment-content">
+                        {groupAssistantTurnSegments(segment.collapsedItems).map(
+                          (collapsedSegment) => {
+                            if (collapsedSegment.kind === "items") {
+                              return renderItemsSegment(
+                                collapsedSegment.items,
+                                renderContext,
+                              );
+                            }
+
+                            const operationExpanded =
+                              expandedOperationSegments[collapsedSegment.id] ??
+                              false;
+                            return renderOperationSegment(
+                              collapsedSegment,
+                              renderContext,
+                              operationExpanded,
+                              toggleOperationSegment,
+                            );
+                          },
+                        )}
+                      </div>
+                    )}
+                    {renderItemsSegment(segment.visibleItems, renderContext)}
+                  </div>
+                );
+              }
+
               if (segment.kind === "items") {
-                return segment.items.map((item) => (
-                  <RenderItemComponent
-                    key={item.id}
-                    item={item}
-                    isStreaming={isStreaming}
-                    thinkingExpanded={thinkingExpanded}
-                    toggleThinkingExpanded={toggleThinkingExpanded}
-                    sessionProvider={provider}
-                  />
-                ));
+                return renderItemsSegment(segment.items, renderContext);
               }
 
               const expanded = expandedOperationSegments[segment.id] ?? false;
-              const summary = getOperationSegmentSummary(segment.items);
-
-              return (
-                <div
-                  key={segment.id}
-                  className={`operation-segment ${expanded ? "expanded" : "collapsed"}`}
-                >
-                  <button
-                    type="button"
-                    className="operation-segment-toggle timeline-item"
-                    onClick={() => toggleOperationSegment(segment.id)}
-                    aria-expanded={expanded}
-                  >
-                    <span className="operation-segment-label">{summary}</span>
-                    <span
-                      className="operation-segment-chevron"
-                      aria-hidden="true"
-                    >
-                      {expanded ? "▾" : "▸"}
-                    </span>
-                  </button>
-                  {expanded && (
-                    <div className="operation-segment-content">
-                      {segment.items.map((item) => (
-                        <RenderItemComponent
-                          key={item.id}
-                          item={item}
-                          isStreaming={isStreaming}
-                          thinkingExpanded={thinkingExpanded}
-                          toggleThinkingExpanded={toggleThinkingExpanded}
-                          sessionProvider={provider}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+              return renderOperationSegment(
+                segment,
+                renderContext,
+                expanded,
+                toggleOperationSegment,
               );
             })}
             {(!isStreaming || groupIndex !== lastAssistantGroupIndex) && (
