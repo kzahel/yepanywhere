@@ -8,6 +8,7 @@ import type { Message } from "../types";
 import type { RenderItem } from "../types/renderItems";
 import { ProcessingIndicator } from "./ProcessingIndicator";
 import { RenderItemComponent } from "./RenderItemComponent";
+import { TurnDiffSummary } from "./TurnDiffSummary";
 
 interface AssistantTurnGroup {
   isUserPrompt: false;
@@ -38,9 +39,7 @@ type AssistantTurnSegment = OperationSegment | ItemSegment;
  * Groups consecutive assistant items (text, thinking, tool_call) into turns.
  * User prompts break the grouping and are returned as separate groups.
  */
-function groupItemsIntoTurns(
-  items: RenderItem[],
-): TurnGroup[] {
+function groupItemsIntoTurns(items: RenderItem[]): TurnGroup[] {
   const groups: TurnGroup[] = [];
   let currentAssistantGroup: RenderItem[] = [];
 
@@ -255,6 +254,14 @@ export const MessageList = memo(function MessageList({
     () => groupItemsIntoTurns(renderItems),
     [renderItems],
   );
+  const lastAssistantGroupIndex = useMemo(() => {
+    for (let i = turnGroups.length - 1; i >= 0; i -= 1) {
+      if (!turnGroups[i]?.isUserPrompt) {
+        return i;
+      }
+    }
+    return -1;
+  }, [turnGroups]);
 
   const toggleThinkingExpanded = useCallback(() => {
     setThinkingExpanded((prev) => !prev);
@@ -397,7 +404,7 @@ export const MessageList = memo(function MessageList({
           </button>
         </div>
       )}
-      {turnGroups.map((group) => {
+      {turnGroups.map((group, groupIndex) => {
         if (group.isUserPrompt) {
           // User prompts render directly without timeline wrapper
           const item = group.items[0];
@@ -448,7 +455,10 @@ export const MessageList = memo(function MessageList({
                     aria-expanded={expanded}
                   >
                     <span className="operation-segment-label">{summary}</span>
-                    <span className="operation-segment-chevron" aria-hidden="true">
+                    <span
+                      className="operation-segment-chevron"
+                      aria-hidden="true"
+                    >
                       {expanded ? "▾" : "▸"}
                     </span>
                   </button>
@@ -469,6 +479,9 @@ export const MessageList = memo(function MessageList({
                 </div>
               );
             })}
+            {(!isStreaming || groupIndex !== lastAssistantGroupIndex) && (
+              <TurnDiffSummary items={group.items} />
+            )}
           </div>
         );
       })}

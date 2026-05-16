@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { groupAssistantTurnSegments } from "../MessageList";
 import type { RenderItem } from "../../types/renderItems";
+import { groupAssistantTurnSegments } from "../MessageList";
 
 function createTextItem(id: string, text: string): RenderItem {
   return {

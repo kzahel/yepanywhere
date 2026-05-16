@@ -8126,3 +8126,131 @@ a.sidebar-nav-item {
 .git-lines-deleted {
   color: var(--error-color);
 }
+
+.turn-diff-summary {
+  margin-top: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  overflow: hidden;
+  font-size: var(--font-size-base);
+  box-shadow: inset 0 1px 0
+    color-mix(in srgb, var(--text-muted) 6%, transparent);
+}
+
+.turn-diff-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--border-color) 70%, transparent);
+}
+
+.turn-diff-summary-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.turn-diff-summary-title {
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.turn-diff-summary-count {
+  color: var(--text-muted);
+}
+
+.turn-diff-total-counts {
+  gap: 0;
+}
+
+.turn-diff-total-counts .git-lines-added,
+.turn-diff-total-counts .git-lines-deleted,
+.turn-diff-line-counts .git-lines-added,
+.turn-diff-line-counts .git-lines-deleted {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-diff-file-list {
+  background: transparent;
+}
+
+.turn-diff-file-item {
+  padding: 0;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--border-color) 55%, transparent);
+}
+
+.turn-diff-file-item:last-child {
+  border-bottom: none;
+}
+
+.turn-diff-file-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-size: inherit;
+  line-height: 1.25;
+}
+
+.turn-diff-file-button:hover {
+  background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
+}
+
+.turn-diff-path {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: inherit;
+  color: var(--text-secondary);
+}
+
+.turn-diff-path-directory {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+  color: var(--text-muted);
+}
+
+.turn-diff-path-filename {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.turn-diff-file-button:hover .turn-diff-path-directory,
+.turn-diff-file-button:hover .turn-diff-path-filename {
+  color: var(--text-primary);
+}
+
+.turn-diff-line-counts {
+  margin-left: auto;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0;
+  font-size: inherit;
+}
