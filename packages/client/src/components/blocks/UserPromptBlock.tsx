@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import { getUploadUrl, isImageMimeType } from "../../api/upload";
 import { useRemoteImage } from "../../hooks/useRemoteImage";
 import {
   type UploadedFileInfo,
@@ -41,34 +42,6 @@ function OpenedFilesMetadata({ files }: { files: string[] }) {
       ))}
     </div>
   );
-}
-
-/**
- * Check if a MIME type is an image type
- */
-function isImageMimeType(mimeType: string): boolean {
-  return mimeType.startsWith("image/");
-}
-
-/**
- * Extract URL components from an uploaded file path.
- * Path format: /.../.yep-anywhere/uploads/{projectId}/{sessionId}/{filename}
- */
-function getUploadUrl(filePath: string): string | null {
-  // Split path and get last 3 components: projectId, sessionId, filename
-  const parts = filePath.split("/");
-  if (parts.length < 3) return null;
-
-  const filename = parts[parts.length - 1];
-  const sessionId = parts[parts.length - 2];
-  const projectId = parts[parts.length - 3];
-
-  if (!filename || !sessionId || !projectId) return null;
-
-  // Validate filename has UUID prefix
-  if (!/^[0-9a-f-]{36}_/.test(filename)) return null;
-
-  return `/api/projects/${projectId}/sessions/${sessionId}/upload/${encodeURIComponent(filename)}`;
 }
 
 function isInputImageBlock(block: ContentBlock): block is InputImageBlock {
@@ -231,11 +204,25 @@ function UploadedFileItem({ file }: { file: UploadedFileInfo }) {
       <>
         <button
           type="button"
-          className="uploaded-file uploaded-file-clickable"
+          className="uploaded-file uploaded-file-clickable uploaded-file-image"
           title={`${file.mimeType}, ${file.size}`}
           onClick={() => setShowModal(true)}
         >
-          📎 {file.originalName}
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={file.originalName}
+              className="uploaded-file-image-preview"
+            />
+          ) : (
+            <span className="uploaded-file-image-placeholder">Img</span>
+          )}
+          <span className="uploaded-file-image-meta">
+            <span className="uploaded-file-image-name">
+              {file.originalName}
+            </span>
+            <span className="uploaded-file-image-size">{file.size}</span>
+          </span>
         </button>
         {showModal && (
           <Modal title={file.originalName} onClose={() => setShowModal(false)}>
@@ -268,7 +255,7 @@ function UploadedFilesMetadata({ files }: { files: UploadedFileInfo[] }) {
   if (files.length === 0) return null;
 
   return (
-    <div className="user-prompt-metadata">
+    <div className="user-prompt-metadata uploaded-files-metadata">
       {files.map((file) => (
         <UploadedFileItem key={file.path} file={file} />
       ))}
@@ -338,10 +325,10 @@ export const UserPromptBlock = memo(function UserPromptBlock({
     if (!text) {
       const hasMetadata = openedFiles.length > 0 || uploadedFiles.length > 0;
       return hasMetadata ? (
-        <>
+        <div className="user-prompt-container">
           <UploadedFilesMetadata files={uploadedFiles} />
           <OpenedFilesMetadata files={openedFiles} />
-        </>
+        </div>
       ) : null;
     }
 
@@ -376,10 +363,10 @@ export const UserPromptBlock = memo(function UserPromptBlock({
   if (!text) {
     const hasMetadata = openedFiles.length > 0 || allUploadedFiles.length > 0;
     return hasMetadata ? (
-      <>
+      <div className="user-prompt-container">
         <UploadedFilesMetadata files={allUploadedFiles} />
         <OpenedFilesMetadata files={openedFiles} />
-      </>
+      </div>
     ) : (
       <div className="message message-user-prompt">
         <div className="message-content">

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { getUploadUrl, isImageMimeType } from "../api/upload";
 import { ENTER_SENDS_MESSAGE } from "../constants";
 import {
   type DraftControls,
@@ -376,26 +377,54 @@ export function MessageInput({
         {!collapsed &&
           (attachments.length > 0 || uploadProgress.length > 0) && (
             <div className="attachment-list">
-              {attachments.map((file) => (
-                <div key={file.id} className="attachment-chip">
-                  <span className="attachment-name" title={file.path}>
-                    {file.originalName}
-                  </span>
-                  <span className="attachment-size">
-                    {formatSize(file.size)}
-                  </span>
-                  <button
-                    type="button"
-                    className="attachment-remove"
-                    onClick={() => onRemoveAttachment?.(file.id)}
-                    aria-label={t("messageInputRemoveAttachment", {
-                      name: file.originalName,
-                    })}
+              {attachments.map((file) => {
+                const uploadUrl = isImageMimeType(file.mimeType)
+                  ? getUploadUrl(file.path)
+                  : null;
+                return (
+                  <div
+                    key={file.id}
+                    className={`attachment-chip ${uploadUrl ? "attachment-chip-image" : ""}`}
                   >
-                    x
-                  </button>
-                </div>
-              ))}
+                    {uploadUrl ? (
+                      <>
+                        <img
+                          src={uploadUrl}
+                          alt={file.originalName}
+                          className="attachment-image-preview"
+                        />
+                        <div className="attachment-image-meta">
+                          <span className="attachment-name" title={file.path}>
+                            {file.originalName}
+                          </span>
+                          <span className="attachment-size">
+                            {formatSize(file.size)}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span className="attachment-name" title={file.path}>
+                          {file.originalName}
+                        </span>
+                        <span className="attachment-size">
+                          {formatSize(file.size)}
+                        </span>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className="attachment-remove"
+                      onClick={() => onRemoveAttachment?.(file.id)}
+                      aria-label={t("messageInputRemoveAttachment", {
+                        name: file.originalName,
+                      })}
+                    >
+                      x
+                    </button>
+                  </div>
+                );
+              })}
               {uploadProgress.map((progress) => (
                 <div
                   key={progress.fileId}

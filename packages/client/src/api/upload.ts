@@ -282,3 +282,21 @@ export async function uploadFile(
 
   return uploadChunks(url, metadata, chunks, restOptions);
 }
+
+export function isImageMimeType(mimeType: string): boolean {
+  return mimeType.startsWith("image/");
+}
+
+export function getUploadUrl(filePath: string): string | null {
+  const parts = filePath.split("/");
+  if (parts.length < 3) return null;
+
+  const filename = parts[parts.length - 1];
+  const sessionId = parts[parts.length - 2];
+  const projectId = parts[parts.length - 3];
+
+  if (!filename || !sessionId || !projectId) return null;
+  if (!/^[0-9a-f-]{36}_/.test(filename)) return null;
+
+  return `/api/projects/${projectId}/sessions/${sessionId}/upload/${encodeURIComponent(filename)}`;
+}

@@ -58,8 +58,8 @@ describe("UserPromptBlock", () => {
     fireEvent.click(attachmentButton);
 
     expect(
-      screen.getByRole("img", { name: /pasted-image-1\.png/i }),
-    ).toBeDefined();
+      screen.getByRole("dialog").querySelector('img[alt="pasted-image-1.png"]'),
+    ).not.toBeNull();
   });
 
   it("uses file_path name for Codex input_image attachments", () => {
@@ -83,5 +83,23 @@ describe("UserPromptBlock", () => {
     expect(screen.getByText(/Annotated image:/)).toBeDefined();
     expect(screen.queryByText("<image>")).toBeNull();
     expect(screen.getByText(/annotated-shot\.jpg/)).toBeDefined();
+  });
+
+  it("keeps attachment-only prompts in the user prompt container", () => {
+    const content: ContentBlock[] = [
+      {
+        type: "input_image",
+        image_url: "data:image/png;base64,AAAA",
+      },
+    ];
+
+    const { container } = render(
+      <I18nProvider>
+        <UserPromptBlock content={content} />
+      </I18nProvider>,
+    );
+
+    expect(container.querySelector(".user-prompt-container")).not.toBeNull();
+    expect(container.querySelector(".uploaded-file-image")).not.toBeNull();
   });
 });
