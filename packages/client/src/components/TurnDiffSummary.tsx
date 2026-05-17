@@ -6,6 +6,9 @@ import { Modal } from "./ui/Modal";
 
 interface EditInputWithAugment {
   file_path?: string;
+  old_string?: string;
+  new_string?: string;
+  replace_all?: boolean;
   _structuredPatch?: PatchHunk[];
   _diffHtml?: string;
   _rawPatch?: string;
@@ -14,6 +17,10 @@ interface EditInputWithAugment {
 interface EditStructuredResult {
   filePath?: string;
   structuredPatch?: PatchHunk[];
+  oldString?: string;
+  newString?: string;
+  originalFile?: string;
+  replaceAll?: boolean;
 }
 
 export interface TurnDiffEntry {
@@ -23,6 +30,12 @@ export interface TurnDiffEntry {
   diffHtml?: string;
   additions: number;
   deletions: number;
+}
+
+interface AggregatedTurnDiffEntry extends TurnDiffEntry {
+  baseOriginalFile?: string;
+  currentContent?: string;
+  canRebuildFinalDiff: boolean;
 }
 
 function isEditToolCall(item: RenderItem): item is ToolCallItem {
@@ -61,8 +74,98 @@ function countPatchChanges(structuredPatch: PatchHunk[]) {
   return { additions, deletions };
 }
 
+function applyEditToContent(
+  content: string,
+  oldString: string,
+  newString: string,
+  replaceAll: boolean,
+): string | null {
+  if (oldString === "") {
+    return `${newString}${content}`;
+  }
+
+  if (!content.includes(oldString)) {
+    return null;
+  }
+
+  if (replaceAll) {
+    return content.split(oldString).join(newString);
+  }
+
+  return content.replace(oldString, newString);
+}
+
+function buildStructuredPatchFromContents(
+  oldContent: string,
+  newContent: string,
+): PatchHunk[] {
+  if (oldContent === newContent) {
+    return [];
+  }
+
+  const oldLines = oldContent.split("\n");
+  const newLines = newContent.split("\n");
+  const oldLen = oldLines.length;
+  const newLen = newLines.length;
+  const dp: number[][] = Array.from({ length: oldLen + 1 }, () =>
+    Array<number>(newLen + 1).fill(0),
+  );
+
+  for (let i = oldLen - 1; i >= 0; i -= 1) {
+    for (let j = newLen - 1; j >= 0; j -= 1) {
+      if (oldLines[i] === newLines[j]) {
+        dp[i]![j] = (dp[i + 1]![j + 1] ?? 0) + 1;
+      } else {
+        dp[i]![j] = Math.max(dp[i + 1]![j] ?? 0, dp[i]![j + 1] ?? 0);
+      }
+    }
+  }
+
+  const lines: string[] = [];
+  let i = 0;
+  let j = 0;
+
+  while (i < oldLen && j < newLen) {
+    if (oldLines[i] === newLines[j]) {
+      lines.push(` ${oldLines[i]}`);
+      i += 1;
+      j += 1;
+      continue;
+    }
+
+    if ((dp[i + 1]![j] ?? 0) >= (dp[i]![j + 1] ?? 0)) {
+      lines.push(`-${oldLines[i]}`);
+      i += 1;
+    } else {
+      lines.push(`+${newLines[j]}`);
+      j += 1;
+    }
+  }
+
+  while (i < oldLen) {
+    lines.push(`-${oldLines[i]}`);
+    i += 1;
+  }
+
+  while (j < newLen) {
+    lines.push(`+${newLines[j]}`);
+    j += 1;
+  }
+
+  return [
+    {
+      oldStart: 1,
+      oldLines: oldLen,
+      newStart: 1,
+      newLines: newLen,
+      lines,
+    },
+  ];
+}
+
 export function collectTurnDiffEntries(items: RenderItem[]): TurnDiffEntry[] {
-  const entries: TurnDiffEntry[] = [];
+  const entriesByFilePath = new Map<string, AggregatedTurnDiffEntry>();
+  const entryOrder: string[] = [];
 
   for (const item of items) {
     if (!isEditToolCall(item) || item.status !== "complete") {
@@ -74,9 +177,6 @@ export function collectTurnDiffEntries(items: RenderItem[]): TurnDiffEntry[] {
       {}) as EditStructuredResult;
     const structuredPatch =
       structured.structuredPatch ?? input._structuredPatch ?? [];
-    if (structuredPatch.length === 0) {
-      continue;
-    }
 
     const filePath =
       structured.filePath ??
@@ -86,18 +186,141 @@ export function collectTurnDiffEntries(items: RenderItem[]): TurnDiffEntry[] {
       continue;
     }
 
-    const { additions, deletions } = countPatchChanges(structuredPatch);
-    entries.push({
+    const oldString = structured.oldString ?? input.old_string;
+    const newString = structured.newString ?? input.new_string;
+    const originalFile = structured.originalFile;
+    const replaceAll = structured.replaceAll ?? input.replace_all ?? false;
+    const canRebuildFromContent =
+      typeof originalFile === "string" &&
+      typeof oldString === "string" &&
+      typeof newString === "string";
+
+    if (structuredPatch.length === 0 && !canRebuildFromContent) {
+      continue;
+    }
+    const existingEntry = entriesByFilePath.get(filePath);
+    if (existingEntry) {
+      existingEntry.id = item.id;
+
+      if (
+        existingEntry.canRebuildFinalDiff &&
+        existingEntry.currentContent !== undefined &&
+        typeof oldString === "string" &&
+        typeof newString === "string"
+      ) {
+        const nextContent = applyEditToContent(
+          existingEntry.currentContent,
+          oldString,
+          newString,
+          replaceAll,
+        );
+
+        if (nextContent !== null) {
+          const diffBase =
+            existingEntry.baseOriginalFile ?? existingEntry.currentContent;
+          existingEntry.currentContent = nextContent;
+          existingEntry.structuredPatch = buildStructuredPatchFromContents(
+            diffBase,
+            nextContent,
+          );
+          const counts = countPatchChanges(existingEntry.structuredPatch);
+          existingEntry.additions = counts.additions;
+          existingEntry.deletions = counts.deletions;
+          existingEntry.diffHtml = undefined;
+          continue;
+        }
+      }
+
+      // Rebuild path failed — try using this edit's originalFile as a new base
+      if (canRebuildFromContent && typeof originalFile === "string") {
+        const nextContent = applyEditToContent(
+          originalFile,
+          oldString as string,
+          newString as string,
+          replaceAll,
+        );
+        if (nextContent !== null) {
+          const base = existingEntry.baseOriginalFile ?? originalFile;
+          existingEntry.baseOriginalFile = base;
+          existingEntry.currentContent = nextContent;
+          existingEntry.canRebuildFinalDiff = true;
+          existingEntry.structuredPatch = buildStructuredPatchFromContents(
+            base,
+            nextContent,
+          );
+          const counts = countPatchChanges(existingEntry.structuredPatch);
+          existingEntry.additions = counts.additions;
+          existingEntry.deletions = counts.deletions;
+          existingEntry.diffHtml = undefined;
+          continue;
+        }
+      }
+
+      existingEntry.canRebuildFinalDiff = false;
+      if (structuredPatch.length > 0) {
+        existingEntry.structuredPatch.push(...structuredPatch);
+        const mergedCounts = countPatchChanges(existingEntry.structuredPatch);
+        existingEntry.additions = mergedCounts.additions;
+        existingEntry.deletions = mergedCounts.deletions;
+        existingEntry.diffHtml = undefined;
+      }
+      continue;
+    }
+
+    const initialEntry: AggregatedTurnDiffEntry = {
       id: item.id,
       filePath,
-      structuredPatch,
+      structuredPatch: [...structuredPatch],
       diffHtml: input._diffHtml,
-      additions,
-      deletions,
-    });
+      additions: 0,
+      deletions: 0,
+      baseOriginalFile: originalFile,
+      currentContent: undefined,
+      canRebuildFinalDiff: false,
+    };
+
+    if (
+      typeof originalFile === "string" &&
+      typeof oldString === "string" &&
+      typeof newString === "string"
+    ) {
+      const nextContent = applyEditToContent(
+        originalFile,
+        oldString,
+        newString,
+        replaceAll,
+      );
+      if (nextContent !== null) {
+        initialEntry.baseOriginalFile = originalFile;
+        initialEntry.currentContent = nextContent;
+        initialEntry.canRebuildFinalDiff = true;
+        initialEntry.structuredPatch = buildStructuredPatchFromContents(
+          originalFile,
+          nextContent,
+        );
+        initialEntry.diffHtml = undefined;
+      }
+    }
+
+    const initialCounts = countPatchChanges(initialEntry.structuredPatch);
+    initialEntry.additions = initialCounts.additions;
+    initialEntry.deletions = initialCounts.deletions;
+
+    entriesByFilePath.set(filePath, initialEntry);
+    entryOrder.push(filePath);
   }
 
-  return entries;
+  return entryOrder
+    .map((filePath) => entriesByFilePath.get(filePath))
+    .filter((entry): entry is AggregatedTurnDiffEntry => entry !== undefined)
+    .map(({ id, filePath, structuredPatch, diffHtml, additions, deletions }) => ({
+      id,
+      filePath,
+      structuredPatch,
+      diffHtml,
+      additions,
+      deletions,
+    }));
 }
 
 function getRelativePath(filePath: string, projectPath: string | null): string {
