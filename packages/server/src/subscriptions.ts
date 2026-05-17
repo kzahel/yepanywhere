@@ -138,6 +138,9 @@ export function createSessionSubscription(
         case "state-change":
           emit("status", {
             state: event.state.type,
+            ...(event.state.type === "in-turn"
+              ? { turnStartedAt: event.state.since.toISOString() }
+              : {}),
             ...(event.state.type === "waiting-input"
               ? { request: event.state.request }
               : {}),
@@ -187,6 +190,9 @@ export function createSessionSubscription(
     processId: process.id,
     sessionId: process.sessionId,
     state: currentState.type,
+    ...(currentState.type === "in-turn"
+      ? { turnStartedAt: currentState.since.toISOString() }
+      : {}),
     permissionMode: process.permissionMode,
     modeVersion: process.modeVersion,
     provider: process.provider,

@@ -102,6 +102,7 @@ export function useSession(
   const [processState, setProcessState] = useState<ProcessState>(
     initialStatus ? "in-turn" : "idle",
   );
+  const [turnStartedAt, setTurnStartedAt] = useState<string | null>(null);
   const [pendingInputRequest, setPendingInputRequest] =
     useState<InputRequest | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -526,6 +527,9 @@ export function useSession(
         event.activity === "hold"
       ) {
         setProcessState(event.activity);
+        if (event.activity !== "in-turn") {
+          setTurnStartedAt(null);
+        }
       }
 
       // If activity bus says waiting-input but we don't have the request,
@@ -796,6 +800,7 @@ export function useSession(
         const statusData = data as {
           eventType: string;
           state: string;
+          turnStartedAt?: string;
           request?: InputRequest;
         };
         // Track process state (in-turn, idle, waiting-input, hold)
@@ -806,6 +811,15 @@ export function useSession(
           statusData.state === "hold"
         ) {
           setProcessState(statusData.state as ProcessState);
+          if (statusData.state !== "in-turn") {
+            setTurnStartedAt(null);
+          }
+        }
+        if (
+          statusData.state === "in-turn" &&
+          typeof statusData.turnStartedAt === "string"
+        ) {
+          setTurnStartedAt(statusData.turnStartedAt);
         }
         // Capture pending input request when waiting for user input
         if (statusData.state === "waiting-input" && statusData.request) {
@@ -840,6 +854,7 @@ export function useSession(
           eventType: string;
           sessionId?: string;
           state?: string;
+          turnStartedAt?: string;
           permissionMode?: PermissionMode;
           modeVersion?: number;
           request?: InputRequest;
@@ -866,6 +881,14 @@ export function useSession(
           connectedData.state === "hold"
         ) {
           setProcessState(connectedData.state as ProcessState);
+        }
+        if (
+          connectedData.state === "in-turn" &&
+          typeof connectedData.turnStartedAt === "string"
+        ) {
+          setTurnStartedAt(connectedData.turnStartedAt);
+        } else {
+          setTurnStartedAt(null);
         }
         // Restore pending input request if state is waiting-input, clear if not
         // (handles reconnection after another tab already approved/denied)
@@ -1060,6 +1083,7 @@ export function useSession(
     markdownAugments, // Pre-rendered markdown HTML from REST response (keyed by blockId)
     status,
     processState,
+    turnStartedAt,
     isCompacting, // True when context is being compressed
     isHeld: processState === "hold", // Derived from process state
     pendingInputRequest,

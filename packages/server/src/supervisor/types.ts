@@ -170,7 +170,7 @@ export interface Session extends SessionSummary {
 
 // Process state machine
 export type ProcessState =
-  | { type: "in-turn" }
+  | { type: "in-turn"; since: Date }
   | { type: "idle"; since: Date }
   | { type: "waiting-input"; request: InputRequest }
   | { type: "hold"; since: Date }

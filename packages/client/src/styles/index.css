@@ -1545,6 +1545,7 @@ a.sidebar-nav-item {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  margin-top: calc(var(--space-4) * 4);
   margin-bottom: 1rem;
 }
 

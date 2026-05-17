@@ -123,6 +123,7 @@ function SessionPageContent({
     markdownAugments,
     status,
     processState,
+    turnStartedAt,
     isCompacting,
     pendingInputRequest,
     actualSessionId,
@@ -1120,6 +1121,7 @@ function SessionPageContent({
                   isProcessing={
                     status.owner === "self" && processState === "in-turn"
                   }
+                  turnStartedAt={turnStartedAt}
                   isCompacting={isCompacting}
                   scrollTrigger={scrollTrigger}
                   pendingMessages={pendingMessages}

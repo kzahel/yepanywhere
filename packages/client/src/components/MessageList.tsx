@@ -158,7 +158,13 @@ function isTextItem(item: RenderItem): item is RenderItem & { type: "text" } {
   return item.type === "text";
 }
 
-function getTurnDurationMs(items: RenderItem[]): number | null {
+function isThinkingItem(
+  item: RenderItem,
+): item is RenderItem & { type: "thinking" } {
+  return item.type === "thinking";
+}
+
+function getLatestTimestampMs(items: RenderItem[]): number | null {
   const timestamps = items
     .flatMap((item) => item.sourceMessages)
     .map((msg) =>
@@ -169,22 +175,56 @@ function getTurnDurationMs(items: RenderItem[]): number | null {
     .filter((value) => Number.isFinite(value))
     .sort((a, b) => a - b);
 
-  if (timestamps.length < 2) {
-    return null;
-  }
-
-  const first = timestamps[0];
-  const last = timestamps[timestamps.length - 1];
-  if (first === undefined || last === undefined) {
-    return null;
-  }
-
-  return last > first ? last - first : null;
+  return timestamps.at(-1) ?? null;
 }
 
-function formatDurationLabel(durationMs: number | null): string {
-  if (!durationMs || durationMs < 1000) {
-    return "Worked for a moment";
+function getGroupStartedAt(group: TurnGroup | undefined): string | null {
+  if (!group?.isUserPrompt) {
+    return null;
+  }
+
+  const timestamp = group.items
+    .flatMap((item) => item.sourceMessages)
+    .map((msg) => msg.timestamp)
+    .find((value): value is string => typeof value === "string");
+
+  return timestamp ?? null;
+}
+
+function getEarliestTimestampMs(items: RenderItem[]): number | null {
+  const timestamps = items
+    .flatMap((item) => item.sourceMessages)
+    .map((msg) =>
+      typeof msg.timestamp === "string"
+        ? Date.parse(msg.timestamp)
+        : Number.NaN,
+    )
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  return timestamps[0] ?? null;
+}
+
+function getDurationFromTurnStart(
+  turnStartedAt: string | null | undefined,
+  endTimeMs: number | null,
+): number | null {
+  const startMs =
+    typeof turnStartedAt === "string" ? Date.parse(turnStartedAt) : Number.NaN;
+  if (!Number.isFinite(startMs) || endTimeMs === null) {
+    return null;
+  }
+  return Math.max(0, endTimeMs - startMs);
+}
+
+function formatDurationLabel(
+  durationMs: number | null,
+  verb: "worked" | "working",
+): string {
+  const prefix = verb === "working" ? "Working for" : "Worked for";
+
+  if (durationMs === null) {
+    return `${prefix} 0s`;
   }
 
   const totalSeconds = Math.round(durationMs / 1000);
@@ -192,19 +232,35 @@ function formatDurationLabel(durationMs: number | null): string {
   const seconds = totalSeconds % 60;
 
   if (minutes <= 0) {
-    return `Worked for ${seconds}s`;
+    return `${prefix} ${seconds}s`;
   }
 
   if (seconds === 0) {
-    return `Worked for ${minutes}m`;
+    return `${prefix} ${minutes}m`;
   }
 
-  return `Worked for ${minutes}m ${seconds}s`;
+  return `${prefix} ${minutes}m ${seconds}s`;
+}
+
+export function getDisplayAssistantTurnItems(items: RenderItem[]): RenderItem[] {
+  return items.filter((item) => !isThinkingItem(item));
+}
+
+export function getStreamingTurnSummary(
+  nowMs: number,
+  turnStartedAt?: string | null,
+): string | null {
+  const durationMs = getDurationFromTurnStart(turnStartedAt, nowMs);
+  return durationMs === null
+    ? null
+    : formatDurationLabel(durationMs, "working");
 }
 
 export function buildAssistantTurnRenderSegments(
   items: RenderItem[],
   isTurnStreaming: boolean,
+  durationItems: RenderItem[] = items,
+  turnStartedAt?: string | null,
 ): AssistantTurnRenderSegment[] {
   if (isTurnStreaming) {
     return groupAssistantTurnSegments(items);
@@ -219,13 +275,18 @@ export function buildAssistantTurnRenderSegments(
   if (collapsedItems.length === 0) {
     return groupAssistantTurnSegments(items);
   }
-
-  const durationMs = getTurnDurationMs(items);
+  const endTimeMs = getLatestTimestampMs(durationItems);
+  const startTimeMs = getEarliestTimestampMs(durationItems);
+  const durationMs =
+    getDurationFromTurnStart(turnStartedAt, endTimeMs) ??
+    (startTimeMs !== null && endTimeMs !== null
+      ? Math.max(0, endTimeMs - startTimeMs)
+      : null);
   return [
     {
       kind: "folded_reasoning",
       id: `reasoning-${items[0]?.id ?? "turn"}-${lastItem.id}`,
-      summary: formatDurationLabel(durationMs),
+      summary: formatDurationLabel(durationMs, "worked"),
       collapsedItems,
       visibleItems: [lastItem],
     },
@@ -252,6 +313,7 @@ interface Props {
   provider?: string;
   isStreaming?: boolean;
   isProcessing?: boolean;
+  turnStartedAt?: string | null;
   /** True when context is being compressed */
   isCompacting?: boolean;
   /** Increment this to force scroll to bottom (e.g., when user sends a message) */
@@ -286,6 +348,7 @@ export const MessageList = memo(function MessageList({
   provider,
   isStreaming = false,
   isProcessing = false,
+  turnStartedAt = null,
   isCompacting = false,
   scrollTrigger = 0,
   pendingMessages = [],
@@ -297,6 +360,7 @@ export const MessageList = memo(function MessageList({
   loadingOlder = false,
   onLoadOlderMessages,
 }: Props) {
+  const isActiveTurn = isStreaming || isProcessing;
   const containerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const isInitialLoadRef = useRef(true);
@@ -310,6 +374,7 @@ export const MessageList = memo(function MessageList({
   const [expandedReasoningSegments, setExpandedReasoningSegments] = useState<
     Record<string, boolean>
   >({});
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
   // Scroll to bottom, marking it as programmatic so scroll handler ignores it
   const scrollToBottom = useCallback((container: HTMLElement) => {
@@ -360,6 +425,17 @@ export const MessageList = memo(function MessageList({
     }
     return -1;
   }, [turnGroups]);
+  const hasStreamingAssistantOutput = useMemo(() => {
+    const lastGroup = turnGroups[turnGroups.length - 1];
+    return Boolean(isActiveTurn && lastGroup && !lastGroup.isUserPrompt);
+  }, [isActiveTurn, turnGroups]);
+  const streamingFallbackSummary = useMemo(() => {
+    if (!isActiveTurn || hasStreamingAssistantOutput) {
+      return null;
+    }
+
+    return getStreamingTurnSummary(currentTimeMs, turnStartedAt);
+  }, [isActiveTurn, hasStreamingAssistantOutput, currentTimeMs, turnStartedAt]);
 
   const toggleThinkingExpanded = useCallback(() => {
     setThinkingExpanded((prev) => !prev);
@@ -378,6 +454,21 @@ export const MessageList = memo(function MessageList({
       [segmentId]: !prev[segmentId],
     }));
   }, []);
+
+  useEffect(() => {
+    if (!isActiveTurn) {
+      return;
+    }
+
+    setCurrentTimeMs(Date.now());
+    const intervalId = window.setInterval(() => {
+      setCurrentTimeMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isActiveTurn]);
 
   const renderItemsSegment = useCallback(
     (items: RenderItem[], context: SegmentRenderContext) =>
@@ -580,13 +671,28 @@ export const MessageList = memo(function MessageList({
         const firstItem = group.items[0];
         if (!firstItem) return null;
         const isCurrentStreamingTurn =
-          isStreaming && groupIndex === lastAssistantGroupIndex;
+          hasStreamingAssistantOutput && groupIndex === lastAssistantGroupIndex;
+        const completedTurnStartedAt =
+          groupIndex > 0 ? getGroupStartedAt(turnGroups[groupIndex - 1]) : null;
+        const displayItems = getDisplayAssistantTurnItems(group.items);
+        const streamingSummary = isCurrentStreamingTurn
+          ? getStreamingTurnSummary(currentTimeMs, turnStartedAt)
+          : null;
         const segments = buildAssistantTurnRenderSegments(
-          group.items,
+          displayItems,
           isCurrentStreamingTurn,
+          group.items,
+          isCurrentStreamingTurn ? turnStartedAt : completedTurnStartedAt,
         );
         return (
           <div key={`turn-${firstItem.id}`} className="assistant-turn">
+            {streamingSummary && (
+              <div className="reasoning-progress timeline-item">
+                <span className="reasoning-segment-label">
+                  {streamingSummary}
+                </span>
+              </div>
+            )}
             {segments.map((segment) => {
               const renderContext: SegmentRenderContext = {
                 isStreaming,
@@ -666,6 +772,15 @@ export const MessageList = memo(function MessageList({
           </div>
         );
       })}
+      {streamingFallbackSummary && (
+        <div className="assistant-turn assistant-turn-placeholder">
+          <div className="reasoning-progress timeline-item">
+            <span className="reasoning-segment-label">
+              {streamingFallbackSummary}
+            </span>
+          </div>
+        </div>
+      )}
       {/* Pending messages - shown as "Uploading..." or "Sending..." until server confirms */}
       {pendingMessages.map((pending) => (
         <div key={pending.tempId} className="pending-message">

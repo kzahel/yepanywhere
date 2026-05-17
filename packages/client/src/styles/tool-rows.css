@@ -268,6 +268,26 @@
   margin: 2px 0;
 }
 
+.reasoning-progress.timeline-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 20px;
+  padding: 2px 0;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  line-height: 1.4;
+}
+
+.reasoning-progress.timeline-item::before {
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--timeline-dot-thinking, var(--timeline-dot-text));
+}
+
+.reasoning-progress.timeline-item::after {
+  top: calc(50% + 3px);
+}
+
 .reasoning-segment-toggle.timeline-item {
   display: flex;
   align-items: center;
