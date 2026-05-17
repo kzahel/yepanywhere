@@ -369,6 +369,11 @@
   background: var(--timeline-dot-tool);
 }
 
+.operation-segment-toggle.timeline-item.running::before {
+  background: var(--timeline-dot-tool);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
 .operation-segment-toggle.timeline-item::after {
   top: calc(50% + 3px);
 }

@@ -6,6 +6,7 @@ import {
   MessageList,
   buildAssistantTurnRenderSegments,
   getDisplayAssistantTurnItems,
+  hasPendingOperation,
   getStreamingTurnSummary,
   groupAssistantTurnSegments,
 } from "../MessageList";
@@ -20,13 +21,17 @@ function createTextItem(id: string, text: string): RenderItem {
   };
 }
 
-function createToolCallItem(id: string, toolName: string): RenderItem {
+function createToolCallItem(
+  id: string,
+  toolName: string,
+  status: "pending" | "complete" | "error" | "aborted" = "complete",
+): RenderItem {
   return {
     type: "tool_call",
     id,
     toolName,
     toolInput: {},
-    status: "complete",
+    status,
     sourceMessages: [],
   };
 }
@@ -90,6 +95,26 @@ describe("groupAssistantTurnSegments", () => {
       kind: "items",
       items: [{ type: "text", id: "text-2" }],
     });
+  });
+});
+
+describe("hasPendingOperation", () => {
+  it("returns true when any operation is still pending", () => {
+    expect(
+      hasPendingOperation([
+        createToolCallItem("tool-1", "Read", "pending"),
+        createToolCallItem("tool-2", "Bash"),
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns false when all operations are finished", () => {
+    expect(
+      hasPendingOperation([
+        createToolCallItem("tool-1", "Read"),
+        createToolCallItem("tool-2", "Bash", "aborted"),
+      ]),
+    ).toBe(false);
   });
 });
 
@@ -395,6 +420,8 @@ describe("streaming fallback layout", () => {
   });
 
   it("renders the initial working summary inside an assistant-turn placeholder", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-17T10:01:00.000Z"));
     vi.stubGlobal("localStorage", {
       getItem: vi.fn().mockReturnValue("false"),
       setItem: vi.fn(),
@@ -419,5 +446,6 @@ describe("streaming fallback layout", () => {
 
     expect(html).toContain("Working for 0s");
     expect(html).toContain("assistant-turn assistant-turn-placeholder");
+    vi.useRealTimers();
   });
 });

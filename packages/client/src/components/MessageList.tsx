@@ -154,6 +154,12 @@ function getOperationSegmentSummary(items: RenderItem[]): string {
     : `${total} operations · ${label}`;
 }
 
+export function hasPendingOperation(items: RenderItem[]): boolean {
+  return items.some(
+    (item) => item.type === "tool_call" && item.status === "pending",
+  );
+}
+
 function isTextItem(item: RenderItem): item is RenderItem & { type: "text" } {
   return item.type === "text";
 }
@@ -493,6 +499,7 @@ export const MessageList = memo(function MessageList({
       onToggle: (segmentId: string) => void,
     ) => {
       const summary = getOperationSegmentSummary(segment.items);
+      const isRunning = hasPendingOperation(segment.items);
 
       return (
         <div
@@ -501,7 +508,7 @@ export const MessageList = memo(function MessageList({
         >
           <button
             type="button"
-            className="operation-segment-toggle timeline-item"
+            className={`operation-segment-toggle timeline-item ${isRunning ? "running" : ""}`}
             onClick={() => onToggle(segment.id)}
             aria-expanded={expanded}
           >
