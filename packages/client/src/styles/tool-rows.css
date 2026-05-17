@@ -364,14 +364,16 @@
 }
 
 .operation-segment-toggle.timeline-item::before {
-  top: 50%;
-  transform: translateY(-50%);
+  top: 8px;
   background: var(--timeline-dot-tool);
 }
 
 .operation-segment-toggle.timeline-item.running::before {
+  left: -12px;
+  width: 8px;
+  height: 8px;
   background: var(--timeline-dot-tool);
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: thinking-pulse 1.5s ease-in-out infinite;
 }
 
 .operation-segment-toggle.timeline-item::after {
