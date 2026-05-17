@@ -753,58 +753,53 @@ export function GlobalSessionsPage() {
                   className={`session-list ${isSelectionMode ? "session-list--selection-mode" : ""}`}
                 >
                   {filteredSessions.map((session) => (
-                    <div
+                    <SessionListItem
                       key={session.id}
-                      onTouchStart={(e) => handleLongPressStart(session.id, e)}
-                      onTouchMove={handleTouchMove}
-                      onTouchEnd={handleLongPressEnd}
-                      onTouchCancel={handleLongPressEnd}
-                      onMouseDown={(e) =>
-                        !isWideScreen && handleLongPressStart(session.id, e)
-                      }
-                      onMouseUp={handleLongPressEnd}
-                      onMouseLeave={handleLongPressEnd}
-                      onContextMenu={handleContextMenu}
-                    >
-                      <SessionListItem
-                        sessionId={session.id}
-                        projectId={session.projectId}
-                        title={getSessionDisplayTitle(session)}
-                        fullTitle={getSessionDisplayTitle(session)}
-                        updatedAt={session.updatedAt}
-                        hasUnread={session.hasUnread}
-                        activity={session.activity}
-                        pendingInputType={session.pendingInputType}
-                        status={session.ownership}
-                        provider={session.provider}
-                        executor={session.executor}
-                        isStarred={session.isStarred}
-                        isArchived={session.isArchived}
-                        mode="card"
-                        showContextUsage={false}
-                        isSelected={selectedIds.has(session.id)}
-                        isSelectionMode={isSelectionMode && !isWideScreen}
-                        onNavigate={() => {
-                          // In selection mode on mobile, tap toggles selection
-                          if (isSelectionMode && !isWideScreen) {
-                            handleSelect(
-                              session.id,
-                              !selectedIds.has(session.id),
-                            );
-                          }
-                        }}
-                        onSelect={
-                          isWideScreen || isSelectionMode
-                            ? handleSelect
-                            : undefined
+                      sessionId={session.id}
+                      projectId={session.projectId}
+                      title={getSessionDisplayTitle(session)}
+                      fullTitle={getSessionDisplayTitle(session)}
+                      updatedAt={session.updatedAt}
+                      hasUnread={session.hasUnread}
+                      activity={session.activity}
+                      pendingInputType={session.pendingInputType}
+                      status={session.ownership}
+                      provider={session.provider}
+                      executor={session.executor}
+                      isStarred={session.isStarred}
+                      isArchived={session.isArchived}
+                      mode="card"
+                      showContextUsage={false}
+                      isSelected={selectedIds.has(session.id)}
+                      isSelectionMode={isSelectionMode && !isWideScreen}
+                      onNavigate={() => {
+                        // In selection mode on mobile, tap toggles selection
+                        if (isSelectionMode && !isWideScreen) {
+                          handleSelect(session.id, !selectedIds.has(session.id));
                         }
-                        showProjectName={!projectFilter}
-                        projectName={session.projectName}
-                        basePath={basePath}
-                        messageCount={session.messageCount}
-                        hasDraft={drafts.has(session.id)}
-                      />
-                    </div>
+                      }}
+                      onSelect={
+                        isWideScreen || isSelectionMode
+                          ? handleSelect
+                          : undefined
+                      }
+                      showProjectName={!projectFilter}
+                      projectName={session.projectName}
+                      basePath={basePath}
+                      messageCount={session.messageCount}
+                      hasDraft={drafts.has(session.id)}
+                      itemProps={{
+                        onTouchStart: (e) => handleLongPressStart(session.id, e),
+                        onTouchMove: handleTouchMove,
+                        onTouchEnd: handleLongPressEnd,
+                        onTouchCancel: handleLongPressEnd,
+                        onMouseDown: (e) =>
+                          !isWideScreen && handleLongPressStart(session.id, e),
+                        onMouseUp: handleLongPressEnd,
+                        onMouseLeave: handleLongPressEnd,
+                        onContextMenu: handleContextMenu,
+                      }}
+                    />
                   ))}
                 </ul>
 

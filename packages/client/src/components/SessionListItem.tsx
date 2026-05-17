@@ -65,6 +65,10 @@ interface SessionListItemProps {
 
   /** Number of messages in session (0 indicates brand new session) */
   messageCount?: number;
+
+  /** Optional event handlers/classes for the root list item */
+  itemClassName?: string;
+  itemProps?: React.LiHTMLAttributes<HTMLLIElement>;
 }
 
 /**
@@ -123,6 +127,8 @@ export function SessionListItem({
   basePath = "",
   // New session detection
   messageCount,
+  itemClassName,
+  itemProps,
 }: SessionListItemProps) {
   const navigate = useNavigate();
 
@@ -314,6 +320,7 @@ export function SessionListItem({
     hasUnread && "unread",
     isSelected && "selected",
     isArchived && "archived",
+    itemClassName,
   ]
     .filter(Boolean)
     .join(" ");
@@ -338,7 +345,7 @@ export function SessionListItem({
   );
 
   return (
-    <li className={liClasses}>
+    <li className={liClasses} {...itemProps}>
       {/* Checkbox for multi-select (only shown when onSelect is provided) */}
       {onSelect && (
         <input
