@@ -5,6 +5,7 @@ import {
   type Tokens,
 } from "marked";
 import sanitizeHtml from "sanitize-html";
+import { isLikelyFilePath } from "@yep-anywhere/shared";
 
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 const ALLOWED_IMAGE_PROTOCOLS = new Set(["http:", "https:"]);
@@ -26,15 +27,22 @@ const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "avi", "mkv", "ogv"]);
 const MEDIA_EXTENSIONS = new Set([...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS]);
 
 /**
- * Check if a string looks like an absolute local file path.
- * Must start with / (but not //) and contain a file extension.
+ * Check if a string looks like a local file path.
+ * Accepts both absolute paths and repo-relative file paths.
  */
 function isLocalFilePath(href: string): boolean {
   const trimmed = href.trim();
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return false;
-  // Must have a file extension after the last /
-  const basename = trimmed.split("/").pop() ?? "";
-  return basename.includes(".");
+  if (!trimmed || trimmed.startsWith("//")) return false;
+  if (/^(?:https?|file|ftp|mailto|tel|data):/i.test(trimmed)) return false;
+  if (
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../")
+  ) {
+    const basename = trimmed.split("/").pop() ?? "";
+    return basename.includes(".") || isLikelyFilePath(trimmed);
+  }
+  return isLikelyFilePath(trimmed);
 }
 
 /**
@@ -56,6 +64,24 @@ function getFileName(path: string): string {
  */
 function localFileApiUrl(path: string): string {
   return `/api/local-image?path=${encodeURIComponent(path.trim())}`;
+}
+
+function renderLocalFileLink(
+  path: string,
+  label: string,
+  title?: string | null,
+  line?: number,
+): string {
+  const escapedLabel = escapeHtml(label || getFileName(path));
+  const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
+  const dataAttrs = [
+    `data-file-path="${escapeHtml(path.trim())}"`,
+    line !== undefined ? `data-line="${line}"` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return `<a href="#" class="file-link local-file-link" ${dataAttrs}${titleAttr}>${escapedLabel}</a>`;
 }
 
 /**
@@ -106,7 +132,14 @@ const MARKDOWN_SANITIZE_OPTIONS = {
     "ul",
   ],
   allowedAttributes: {
-    a: ["href", "title", "class", "data-media-type"],
+    a: [
+      "href",
+      "title",
+      "class",
+      "data-media-type",
+      "data-file-path",
+      "data-line",
+    ],
     code: ["class"],
     img: ["src", "alt", "title"],
     input: ["type", "checked", "disabled"],
@@ -142,10 +175,7 @@ const renderer: RendererObject<string, string> = {
       if (MEDIA_EXTENSIONS.has(ext)) {
         return renderLocalMediaLink(href, renderedText, ext);
       }
-      // Other local file — render as a link to the API
-      const apiUrl = escapeHtml(localFileApiUrl(href));
-      const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
-      return `<a href="${apiUrl}"${titleAttr}>${renderedText}</a>`;
+      return renderLocalFileLink(href, renderedText, title);
     }
 
     const safeHref = sanitizeUrl(href);
@@ -168,8 +198,7 @@ const renderer: RendererObject<string, string> = {
       if (MEDIA_EXTENSIONS.has(ext)) {
         return renderLocalMediaLink(href, text, ext);
       }
-      // Unrecognized extension — just show text
-      return escapeHtml(text || getFileName(href));
+      return renderLocalFileLink(href, text || getFileName(href), title);
     }
 
     const safeSrc = sanitizeUrl(href, ALLOWED_IMAGE_PROTOCOLS);
@@ -245,4 +274,5 @@ export {
   VIDEO_EXTENSIONS,
   isLocalFilePath,
   localFileApiUrl,
+  renderLocalFileLink,
 };

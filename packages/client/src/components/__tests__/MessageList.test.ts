@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { Message } from "../../types";
 import type { RenderItem } from "../../types/renderItems";
 import {
+  MessageList,
   buildAssistantTurnRenderSegments,
+  getDisplayAssistantTurnItems,
+  getStreamingTurnSummary,
   groupAssistantTurnSegments,
 } from "../MessageList";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 function createTextItem(id: string, text: string): RenderItem {
   return {
@@ -20,6 +26,16 @@ function createToolCallItem(id: string, toolName: string): RenderItem {
     id,
     toolName,
     toolInput: {},
+    status: "complete",
+    sourceMessages: [],
+  };
+}
+
+function createThinkingItem(id: string, thinking: string): RenderItem {
+  return {
+    type: "thinking",
+    id,
+    thinking,
     status: "complete",
     sourceMessages: [],
   };
@@ -95,6 +111,21 @@ describe("buildAssistantTurnRenderSegments", () => {
         },
       ],
       false,
+      [
+        {
+          ...createTextItem("text-1", "Planning the next step."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.000Z" }],
+        },
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:10.000Z" }],
+        },
+        {
+          ...createTextItem("text-2", "Done."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:01:12.000Z" }],
+        },
+      ],
+      "2026-05-17T10:00:00.000Z",
     );
 
     expect(segments).toHaveLength(1);
@@ -103,6 +134,194 @@ describe("buildAssistantTurnRenderSegments", () => {
       summary: "Worked for 1m 12s",
       collapsedItems: [{ id: "text-1" }, { id: "tool-1" }],
       visibleItems: [{ id: "text-2" }],
+    });
+  });
+
+  it("uses the final visible summary text timestamp as the completed end time", () => {
+    const segments = buildAssistantTurnRenderSegments(
+      [
+        {
+          ...createTextItem("text-1", "Thinking..."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.000Z" }],
+        },
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:10.000Z" }],
+        },
+        {
+          ...createTextItem("text-2", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:18.000Z" }],
+        },
+      ],
+      false,
+      [
+        {
+          ...createTextItem("text-1", "Thinking..."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.000Z" }],
+        },
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:10.000Z" }],
+        },
+        {
+          ...createTextItem("text-2", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:18.000Z" }],
+        },
+      ],
+      "2026-05-17T10:00:00.000Z",
+    );
+
+    expect(segments[0]).toMatchObject({
+      kind: "folded_reasoning",
+      summary: "Worked for 18s",
+    });
+  });
+
+  it("includes hidden thinking items in worked-for timing", () => {
+    const visibleItems = getDisplayAssistantTurnItems([
+      {
+        ...createThinkingItem("thinking-1", "Hidden thinking"),
+        sourceMessages: [{ timestamp: "2026-05-17T10:00:00.000Z" }],
+      },
+      {
+        ...createToolCallItem("tool-1", "Read"),
+        sourceMessages: [{ timestamp: "2026-05-17T10:00:20.000Z" }],
+      },
+      {
+        ...createTextItem("text-1", "Final answer."),
+        sourceMessages: [{ timestamp: "2026-05-17T10:00:30.000Z" }],
+      },
+    ]);
+
+    const segments = buildAssistantTurnRenderSegments(
+      visibleItems,
+      false,
+      [
+        {
+          ...createThinkingItem("thinking-1", "Hidden thinking"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.000Z" }],
+        },
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:20.000Z" }],
+        },
+        {
+          ...createTextItem("text-1", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:30.000Z" }],
+        },
+      ],
+      "2026-05-17T10:00:00.000Z",
+    );
+
+    expect(segments[0]).toMatchObject({
+      kind: "folded_reasoning",
+      summary: "Worked for 30s",
+    });
+  });
+
+  it("prefers explicit turnStartedAt when provided", () => {
+    const visibleItems = getDisplayAssistantTurnItems([
+      {
+        ...createThinkingItem("thinking-1", "Hidden thinking"),
+        sourceMessages: [{ timestamp: "2026-05-17T10:00:05.000Z" }],
+      },
+      {
+        ...createToolCallItem("tool-1", "Read"),
+        sourceMessages: [{ timestamp: "2026-05-17T10:00:20.000Z" }],
+      },
+      {
+        ...createTextItem("text-1", "Final answer."),
+        sourceMessages: [{ timestamp: "2026-05-17T10:00:30.000Z" }],
+      },
+    ]);
+
+    const segments = buildAssistantTurnRenderSegments(
+      visibleItems,
+      false,
+      [
+        {
+          ...createThinkingItem("thinking-1", "Hidden thinking"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:05.000Z" }],
+        },
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:20.000Z" }],
+        },
+        {
+          ...createTextItem("text-1", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:30.000Z" }],
+        },
+      ],
+      "2026-05-17T10:00:00.000Z",
+    );
+
+    expect(segments[0]).toMatchObject({
+      kind: "folded_reasoning",
+      summary: "Worked for 30s",
+    });
+  });
+
+  it("uses the user prompt timestamp as the completed turn start when provided", () => {
+    const segments = buildAssistantTurnRenderSegments(
+      [
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:05.000Z" }],
+        },
+        {
+          ...createTextItem("text-1", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:30.000Z" }],
+        },
+      ],
+      false,
+      [
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:05.000Z" }],
+        },
+        {
+          ...createTextItem("text-1", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:30.000Z" }],
+        },
+      ],
+      "2026-05-17T10:00:00.000Z",
+    );
+
+    expect(segments[0]).toMatchObject({
+      kind: "folded_reasoning",
+      summary: "Worked for 30s",
+    });
+  });
+
+  it("falls back to turn item timestamps when turnStartedAt is missing", () => {
+    const segments = buildAssistantTurnRenderSegments(
+      [
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.100Z" }],
+        },
+        {
+          ...createTextItem("text-1", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.650Z" }],
+        },
+      ],
+      false,
+      [
+        {
+          ...createToolCallItem("tool-1", "Read"),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.100Z" }],
+        },
+        {
+          ...createTextItem("text-1", "Final answer."),
+          sourceMessages: [{ timestamp: "2026-05-17T10:00:00.650Z" }],
+        },
+      ],
+      null,
+    );
+
+    expect(segments[0]).toMatchObject({
+      kind: "folded_reasoning",
+      summary: "Worked for 1s",
     });
   });
 
@@ -120,5 +339,85 @@ describe("buildAssistantTurnRenderSegments", () => {
     expect(segments[0]).toMatchObject({ kind: "items" });
     expect(segments[1]).toMatchObject({ kind: "operations" });
     expect(segments[2]).toMatchObject({ kind: "items" });
+  });
+});
+
+describe("getDisplayAssistantTurnItems", () => {
+  it("hides all thinking items from assistant turns", () => {
+    const items = getDisplayAssistantTurnItems([
+      createThinkingItem("thinking-1", "Reasoning [internal]"),
+      createThinkingItem("thinking-2", "Visible thinking"),
+      createToolCallItem("tool-1", "Read"),
+      createTextItem("text-1", "Current answer"),
+    ]);
+
+    expect(items).toMatchObject([
+      { type: "tool_call", id: "tool-1" },
+      { type: "text", id: "text-1" },
+    ]);
+  });
+});
+
+describe("getStreamingTurnSummary", () => {
+  it("shows a working label based on the current time", () => {
+    const summary = getStreamingTurnSummary(
+      Date.parse("2026-05-17T10:00:12.000Z"),
+      "2026-05-17T10:00:00.000Z",
+    );
+
+    expect(summary).toBe("Working for 12s");
+  });
+
+  it("rounds sub-second active turns to the nearest second", () => {
+    const summary = getStreamingTurnSummary(
+      Date.parse("2026-05-17T10:00:00.450Z"),
+      "2026-05-17T10:00:00.000Z",
+    );
+
+    expect(summary).toBe("Working for 0s");
+  });
+});
+
+describe("streaming fallback duration", () => {
+  it("starts fallback timing from the latest user prompt when older assistant turns exist", () => {
+    const summary = getStreamingTurnSummary(
+      Date.parse("2026-05-17T10:00:12.000Z"),
+      "2026-05-17T10:00:00.000Z",
+    );
+
+    expect(summary).toBe("Working for 12s");
+  });
+});
+
+describe("streaming fallback layout", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders the initial working summary inside an assistant-turn placeholder", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn().mockReturnValue("false"),
+      setItem: vi.fn(),
+    });
+
+    const messages: Message[] = [
+      {
+        uuid: "user-1",
+        type: "user",
+        timestamp: "2026-05-17T10:01:00.000Z",
+        content: "Next prompt",
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      createElement(MessageList, {
+        messages,
+        isProcessing: true,
+        turnStartedAt: "2026-05-17T10:01:00.000Z",
+      }),
+    );
+
+    expect(html).toContain("Working for 0s");
+    expect(html).toContain("assistant-turn assistant-turn-placeholder");
   });
 });

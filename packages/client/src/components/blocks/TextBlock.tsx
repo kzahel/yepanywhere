@@ -1,7 +1,10 @@
 import { memo, useCallback, useEffect, useState } from "react";
+import { useSessionMetadata } from "../../contexts/SessionMetadataContext";
 import { useStreamingMarkdownContext } from "../../contexts/StreamingMarkdownContext";
 import { useStreamingMarkdown } from "../../hooks/useStreamingMarkdown";
+import { FileViewer } from "../FileViewer";
 import { LocalMediaModal, useLocalMediaClick } from "../LocalMediaModal";
+import { Modal } from "../ui/Modal";
 
 interface Props {
   text: string;
@@ -10,12 +13,42 @@ interface Props {
   augmentHtml?: string;
 }
 
+function toProjectRelativePath(
+  filePath: string,
+  projectPath: string | null,
+): string {
+  const normalizedFilePath = filePath.replaceAll("\\", "/");
+  if (!projectPath) {
+    return normalizedFilePath.replace(/^\.?\//, "");
+  }
+
+  const normalizedProjectPath = projectPath.replaceAll("\\", "/");
+  if (normalizedFilePath === normalizedProjectPath) {
+    return "";
+  }
+
+  const projectPrefix = normalizedProjectPath.endsWith("/")
+    ? normalizedProjectPath
+    : `${normalizedProjectPath}/`;
+
+  if (normalizedFilePath.startsWith(projectPrefix)) {
+    return normalizedFilePath.slice(projectPrefix.length);
+  }
+
+  return normalizedFilePath.replace(/^\.?\//, "");
+}
+
 export const TextBlock = memo(function TextBlock({
   text,
   isStreaming = false,
   augmentHtml,
 }: Props) {
+  const { projectId, projectPath } = useSessionMetadata();
   const [copied, setCopied] = useState(false);
+  const [fileModal, setFileModal] = useState<{
+    path: string;
+    lineNumber?: number;
+  } | null>(null);
 
   // Streaming markdown hook for server-rendered content
   const streamingMarkdown = useStreamingMarkdown();
@@ -61,7 +94,40 @@ export const TextBlock = memo(function TextBlock({
     }
   }, [text]);
 
-  const { modal, handleClick, closeModal } = useLocalMediaClick();
+  const { modal, handleClick: handleMediaClick, closeModal } =
+    useLocalMediaClick();
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      handleMediaClick(e);
+      if (e.defaultPrevented) return;
+
+      const fileTarget = (e.target as HTMLElement).closest?.(
+        "a.file-link, a.local-file-link",
+      ) as HTMLAnchorElement | null;
+      if (!fileTarget) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const path = fileTarget.getAttribute("data-file-path");
+      if (!path) return;
+      const relativePath = toProjectRelativePath(path, projectPath);
+      if (!relativePath) return;
+
+      const lineAttr = fileTarget.getAttribute("data-line");
+      const parsedLine =
+        lineAttr && /^\d+$/.test(lineAttr)
+          ? Number.parseInt(lineAttr, 10)
+          : undefined;
+
+      setFileModal({
+        path: relativePath,
+        lineNumber: parsedLine,
+      });
+    },
+    [handleMediaClick, projectPath],
+  );
 
   const showStreamingContent = isStreaming && useStreamingContent;
 
@@ -114,6 +180,19 @@ export const TextBlock = memo(function TextBlock({
           mediaType={modal.mediaType}
           onClose={closeModal}
         />
+      )}
+      {fileModal && (
+        <Modal
+          title={fileModal.path.split("/").pop() ?? fileModal.path}
+          onClose={() => setFileModal(null)}
+        >
+          <FileViewer
+            projectId={projectId}
+            filePath={fileModal.path}
+            lineNumber={fileModal.lineNumber}
+            onClose={() => setFileModal(null)}
+          />
+        </Modal>
       )}
     </div>
   );
