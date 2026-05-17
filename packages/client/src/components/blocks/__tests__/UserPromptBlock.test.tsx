@@ -30,7 +30,10 @@ describe("UserPromptBlock", () => {
     expect(screen.getByText(/Please review this screenshot\./)).toBeDefined();
     expect(screen.getByText(/Thanks\./)).toBeDefined();
     expect(screen.queryByText("<image>")).toBeNull();
-    expect(screen.getByText(/pasted-image-1\.png/)).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: /pasted-image-1\.png/i }),
+    ).toBeDefined();
+    expect(screen.queryByText(/pasted-image-1\.png/)).toBeNull();
     expect(screen.queryByText(/data:image\/png;base64/i)).toBeNull();
   });
 
@@ -57,6 +60,7 @@ describe("UserPromptBlock", () => {
     });
     fireEvent.click(attachmentButton);
 
+    expect(screen.getByText("pasted-image-1.png (3 B)")).toBeDefined();
     expect(
       screen.getByRole("dialog").querySelector('img[alt="pasted-image-1.png"]'),
     ).not.toBeNull();

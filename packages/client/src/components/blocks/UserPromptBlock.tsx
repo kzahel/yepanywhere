@@ -205,6 +205,7 @@ function UploadedFileItem({ file }: { file: UploadedFileInfo }) {
         <button
           type="button"
           className="uploaded-file uploaded-file-clickable uploaded-file-image"
+          aria-label={file.originalName}
           title={`${file.mimeType}, ${file.size}`}
           onClick={() => setShowModal(true)}
         >
@@ -217,15 +218,12 @@ function UploadedFileItem({ file }: { file: UploadedFileInfo }) {
           ) : (
             <span className="uploaded-file-image-placeholder">Img</span>
           )}
-          <span className="uploaded-file-image-meta">
-            <span className="uploaded-file-image-name">
-              {file.originalName}
-            </span>
-            <span className="uploaded-file-image-size">{file.size}</span>
-          </span>
         </button>
         {showModal && (
-          <Modal title={file.originalName} onClose={() => setShowModal(false)}>
+          <Modal
+            title={`${file.originalName} (${file.size})`}
+            onClose={() => setShowModal(false)}
+          >
             <div className="uploaded-image-modal">
               {apiPath && loading && (
                 <div className="image-loading">Loading...</div>
