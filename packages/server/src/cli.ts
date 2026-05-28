@@ -102,6 +102,16 @@ SETUP OPTIONS (for headless installation):
                         --password: SRP password (min 8 characters)
                         --relay: Relay URL (default: wss://relay.yepanywhere.com/ws)
 
+AUTO-START SERVICE:
+  --install-service     Install yepanywhere to start automatically at login,
+                        running silently in the background (no console window).
+                        Uses the platform-native mechanism: a Scheduled Task on
+                        Windows, a launchd LaunchAgent on macOS, or a systemd
+                        user service on Linux. Pass --port/--host to bake them
+                        into the service. Starts immediately after installing.
+  --uninstall-service   Remove the auto-start service.
+  --service-status      Show whether the auto-start service is installed.
+
 ENVIRONMENT VARIABLES:
   PORT                          Server port (default: 3400)
   HOST                          Host/interface to bind (default: localhost)
@@ -147,6 +157,15 @@ EXAMPLES:
 
   # Emergency auth bypass (temporary)
   yepanywhere --auth-disable
+
+  # Start automatically at login (silent background service)
+  yepanywhere --install-service
+
+  # Auto-start on a custom port bound to the LAN
+  yepanywhere --install-service --port 8000 --host 0.0.0.0
+
+  # Remove the auto-start service
+  yepanywhere --uninstall-service
 
   # Headless setup: configure remote access
   yepanywhere --setup-remote-access --username myserver --password "secretpass123"
@@ -251,6 +270,28 @@ if (authDisableIndex !== -1) {
   args.splice(authDisableIndex, 1);
 }
 
+// Parse auto-start service flags
+const installServiceIndex = args.indexOf("--install-service");
+let installServiceFlag = false;
+if (installServiceIndex !== -1) {
+  installServiceFlag = true;
+  args.splice(installServiceIndex, 1);
+}
+
+const uninstallServiceIndex = args.indexOf("--uninstall-service");
+let uninstallServiceFlag = false;
+if (uninstallServiceIndex !== -1) {
+  uninstallServiceFlag = true;
+  args.splice(uninstallServiceIndex, 1);
+}
+
+const serviceStatusIndex = args.indexOf("--service-status");
+let serviceStatusFlag = false;
+if (serviceStatusIndex !== -1) {
+  serviceStatusFlag = true;
+  args.splice(serviceStatusIndex, 1);
+}
+
 // Parse --setup-auth flag
 const setupAuthIndex = args.indexOf("--setup-auth");
 let setupAuthPassword: string | undefined;
@@ -338,8 +379,25 @@ if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = "production";
 }
 
-// Handle setup commands (exit after completion)
-if (setupAuthPassword || setupRemoteAccess) {
+// Reconstruct startup args to embed in an installed auto-start service,
+// so the service launches with the same port/host the user specified.
+const serviceLaunchArgs: string[] = [];
+if (process.env.CLI_PORT_OVERRIDE === "true" && process.env.PORT) {
+  serviceLaunchArgs.push("--port", process.env.PORT);
+}
+if (process.env.CLI_HOST_OVERRIDE === "true" && process.env.HOST) {
+  serviceLaunchArgs.push("--host", process.env.HOST);
+}
+
+// Handle commands that exit after completion
+if (installServiceFlag || uninstallServiceFlag || serviceStatusFlag) {
+  runServiceCommand(
+    installServiceFlag,
+    uninstallServiceFlag,
+    serviceStatusFlag,
+    serviceLaunchArgs,
+  );
+} else if (setupAuthPassword || setupRemoteAccess) {
   runSetup(
     setupAuthPassword,
     setupRemoteAccess,
@@ -352,6 +410,38 @@ if (setupAuthPassword || setupRemoteAccess) {
   checkClaudeCli();
   // Normal server startup
   runServer();
+}
+
+async function runServiceCommand(
+  install: boolean,
+  uninstall: boolean,
+  status: boolean,
+  launchArgs: string[],
+): Promise<never> {
+  try {
+    const { installService, uninstallService, serviceStatus } = await import(
+      "./cli-service.js"
+    );
+
+    if (install) {
+      await installService({
+        nodePath: process.execPath,
+        scriptPath: __filename,
+        launchArgs,
+      });
+    } else if (uninstall) {
+      await uninstallService();
+    } else if (status) {
+      await serviceStatus();
+    }
+
+    process.exit(0);
+  } catch (error) {
+    console.error(
+      `Service command failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  }
 }
 
 async function runSetup(

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `--install-service` / `--uninstall-service` / `--service-status` flags to run
+  yepanywhere as a silent background auto-start service at login (Windows
+  Scheduled Task, macOS launchd, or Linux systemd user service)
+
 ## [0.4.28] - 2026-04-16
 
 ### Changed
