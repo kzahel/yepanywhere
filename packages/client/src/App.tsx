@@ -18,6 +18,7 @@ import { useOnboarding } from "./hooks/useOnboarding";
 import { useReloadNotifications } from "./hooks/useReloadNotifications";
 import { I18nProvider } from "./i18n";
 import { initClientLogCollection } from "./lib/diagnostics";
+import { installExternalLinkHandler } from "./lib/externalLinks";
 
 interface Props {
   children: ReactNode;
@@ -35,6 +36,10 @@ function AppContent({ children }: Props) {
 
   // Client-side log collection for connection diagnostics
   useEffect(() => initClientLogCollection(), []);
+
+  // In the desktop webview, route external links to the system browser so they
+  // never navigate the app's own webview (which would lose the auth token).
+  useEffect(() => installExternalLinkHandler(), []);
 
   // Sync notifyInApp setting to service worker on app startup and SW restarts
   useSyncNotifyInAppSetting();

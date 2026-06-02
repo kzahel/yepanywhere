@@ -173,25 +173,55 @@ const API_BASE = "/api";
 /**
  * Desktop auth token read from URL query parameter (?desktop_token=...).
  * When present, sent as X-Desktop-Token header on every API request.
- * The Tauri desktop app passes this token to authenticate the iframe
+ * The Tauri desktop app passes this token to authenticate the webview
  * without cookies or sessions — the token is valid for the server's lifetime.
  */
-let desktopAuthToken: string | null = null;
-if (typeof window !== "undefined") {
+const DESKTOP_TOKEN_STORAGE_KEY = "yep-desktop-token";
+
+/**
+ * Resolve the desktop auth token on load.
+ *
+ * The token arrives once as a URL query param, after which it is stripped from
+ * the URL (so it never lands in history/bookmarks) and persisted to
+ * sessionStorage. Persisting it is what survives a document reload or a
+ * back-navigation: without it, reloading the page re-runs this module with no
+ * token in the URL, which previously bricked the desktop app with 401s.
+ *
+ * sessionStorage (not localStorage) matches the token's lifetime — it lives for
+ * the duration of the webview session and is not carried across app restarts,
+ * which would otherwise leave a stale token for a freshly-minted server.
+ */
+export function resolveDesktopAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+
   const params = new URLSearchParams(window.location.search);
-  const token = params.get("desktop_token");
-  if (token) {
-    desktopAuthToken = token;
-    // Strip token from URL to keep it out of history/bookmarks
+  const urlToken = params.get("desktop_token");
+
+  if (urlToken) {
+    try {
+      window.sessionStorage.setItem(DESKTOP_TOKEN_STORAGE_KEY, urlToken);
+    } catch {
+      // sessionStorage may be unavailable; in-memory token still works.
+    }
+    // Strip token from URL to keep it out of history/bookmarks.
     params.delete("desktop_token");
     const cleanUrl = params.toString()
       ? `${window.location.pathname}?${params.toString()}${window.location.hash}`
       : `${window.location.pathname}${window.location.hash}`;
     window.history.replaceState({}, "", cleanUrl);
+    return urlToken;
+  }
+
+  try {
+    return window.sessionStorage.getItem(DESKTOP_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
   }
 }
 
-/** Get the desktop auth token (if running inside Tauri iframe). */
+const desktopAuthToken: string | null = resolveDesktopAuthToken();
+
+/** Get the desktop auth token (if running inside Tauri webview). */
 export function getDesktopAuthToken(): string | null {
   return desktopAuthToken;
 }
