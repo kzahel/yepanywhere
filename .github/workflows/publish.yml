@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271  # v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271  # v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -206,7 +206,7 @@ jobs:
           cat /tmp/release-notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           name: v${{ steps.version.outputs.VERSION }}
           body_path: /tmp/release-notes.md
