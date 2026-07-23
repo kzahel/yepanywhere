@@ -53,7 +53,7 @@ jobs:
 
       - name: Install pnpm
         if: steps.cloudflare-config.outputs.enabled == 'true'
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271  # v6
 
       - name: Setup Node.js
         if: steps.cloudflare-config.outputs.enabled == 'true'
