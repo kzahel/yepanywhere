@@ -8,7 +8,23 @@ import type {
   EventBus,
   ProcessStateEvent,
   ProcessTerminatedEvent,
+  SessionCreatedEvent,
 } from "../watcher/index.js";
+
+interface SessionCreatedWebhookPayload {
+  type: "session-created";
+  timestamp: string;
+  session: {
+    id: string;
+    url?: string;
+    parentSessionId?: string;
+  };
+  project: {
+    id: UrlProjectId;
+    name?: string;
+  };
+  dryRun: boolean;
+}
 
 interface SessionInactiveWebhookPayload {
   type: "session-inactive";
@@ -55,6 +71,11 @@ export class LifecycleWebhookService {
   }
 
   private async handleEvent(event: BusEvent): Promise<void> {
+    if (event.type === "session-created") {
+      await this.handleSessionCreated(event);
+      return;
+    }
+
     if (event.type === "process-state-changed") {
       await this.handleProcessStateChanged(event);
       return;
@@ -63,6 +84,40 @@ export class LifecycleWebhookService {
     if (event.type === "process-terminated") {
       await this.handleProcessTerminated(event);
     }
+  }
+
+  private async handleSessionCreated(
+    event: SessionCreatedEvent,
+  ): Promise<void> {
+    const baseUrl = this.options.serverSettingsService
+      .getSetting("yaClientBaseUrl")
+      ?.replace(/\/$/, "");
+
+    const sessionUrl = baseUrl
+      ? `${baseUrl}/sessions/${event.session.id}`
+      : undefined;
+
+    const payload: SessionCreatedWebhookPayload = {
+      type: "session-created",
+      timestamp: new Date().toISOString(),
+      session: {
+        id: event.session.id,
+        ...(sessionUrl ? { url: sessionUrl } : {}),
+        ...(event.session.parentSessionId
+          ? { parentSessionId: event.session.parentSessionId }
+          : {}),
+      },
+      project: {
+        id: event.session.projectId,
+        name: event.session.projectName,
+      },
+      dryRun:
+        this.options.serverSettingsService.getSetting(
+          "lifecycleWebhookDryRun",
+        ) ?? true,
+    };
+
+    await this.send(payload);
   }
 
   private async handleProcessStateChanged(
@@ -169,7 +224,9 @@ export class LifecycleWebhookService {
     };
   }
 
-  private async send(payload: SessionInactiveWebhookPayload): Promise<void> {
+  private async send(
+    payload: SessionCreatedWebhookPayload | SessionInactiveWebhookPayload,
+  ): Promise<void> {
     const settings = this.options.serverSettingsService.getSettings();
     if (!settings.lifecycleWebhooksEnabled) {
       return;
