@@ -102,6 +102,7 @@ export class BrowserNativeProvider implements SpeechProvider {
   private readonly subscribers = new Set<SpeechProviderSubscriber>();
   private recognition: SpeechRecognition | null = null;
   private isStopping = false;
+  private terminalError = false;
   private lastFinalTranscript = "";
   private disposed = false;
   private speechActivityTimer: ReturnType<typeof setTimeout> | null = null;
@@ -145,6 +146,7 @@ export class BrowserNativeProvider implements SpeechProvider {
     }
 
     this.isStopping = false;
+    this.terminalError = false;
     this.lastFinalTranscript = "";
     this.setState({
       status: "starting",
@@ -269,6 +271,7 @@ export class BrowserNativeProvider implements SpeechProvider {
           errorMessage = `Error: ${event.error}`;
       }
 
+      this.terminalError = true;
       this.setState({
         error: errorMessage,
         status: "error",
@@ -279,8 +282,14 @@ export class BrowserNativeProvider implements SpeechProvider {
 
     recognition.onend = () => {
       this.clearSpeechActivityTimer();
-      if (!this.isStopping && this.recognition === recognition) {
-        // Auto-restart after Chrome's ~60s idle timeout.
+      if (
+        !this.isStopping &&
+        !this.terminalError &&
+        this.recognition === recognition
+      ) {
+        // Auto-restart after Chrome's ~60s idle timeout, but never after a
+        // recognition error: retrying a failed speech service immediately can
+        // create a tight start/error/end loop.
         this.setState({ status: "reconnecting", error: null });
         try {
           recognition.start();
@@ -296,7 +305,7 @@ export class BrowserNativeProvider implements SpeechProvider {
         this.setState({
           isListening: false,
           interimTranscript: "",
-          status: "idle",
+          status: this.terminalError ? "error" : "idle",
         });
         this.options.onEnd?.();
       }

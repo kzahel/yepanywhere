@@ -642,6 +642,25 @@ describe("browser-native speech provider", () => {
 
     provider.dispose();
   });
+
+  it("does not restart after a browser-native network error", () => {
+    const Recognition = installFakeSpeechRecognition();
+    const start = vi.spyOn(Recognition.prototype, "start");
+    const provider = new BrowserNativeProvider();
+
+    provider.start();
+    Recognition.instance?.onerror?.({ error: "network" } as unknown as Event);
+    Recognition.instance?.onend?.(new Event("end"));
+
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(provider.getState()).toMatchObject({
+      status: "error",
+      isListening: false,
+      error: "Network error - check connection",
+    });
+
+    provider.dispose();
+  });
 });
 
 describe("YA server speech provider", () => {
