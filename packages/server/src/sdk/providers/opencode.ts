@@ -34,6 +34,7 @@ import { parseOpenCodeSSEEvent } from "@yep-anywhere/shared";
 import { getLogger } from "../../logging/logger.js";
 import { whichCommand } from "../cli-detection.js";
 import { MessageQueue } from "../messageQueue.js";
+import { selectOpenCodeBinary } from "./opencode-binary-selection.js";
 import {
   mapOpenCodeQuestionAnswers,
   normalizeOpenCodeTool,
@@ -1670,9 +1671,9 @@ export class OpenCodeProvider implements AgentProvider {
       const { stdout } = await execAsync(whichCommand("opencode"), {
         encoding: "utf-8",
       });
-      const result = stdout.trim();
-      if (result && existsSync(result)) {
-        return result;
+      const resolved = selectOpenCodeBinary(stdout);
+      if (resolved) {
+        return resolved;
       }
     } catch {
       // Not in PATH
