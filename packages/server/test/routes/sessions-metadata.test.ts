@@ -210,6 +210,62 @@ async function createGrokRedirectFixture(): Promise<{
 }
 
 describe("Sessions metadata route", () => {
+  it("writes Codex titles through the native provider without persisting a local copy", async () => {
+    const rename = vi.fn(async () => undefined);
+    const updateMetadata = vi.fn(async () => undefined);
+    const emit = vi.fn();
+    const routes = createSessionsRoutes({
+      supervisor: {} as SessionsDeps["supervisor"],
+      sessionMetadataService: {
+        getProvider: vi.fn(() => "codex"),
+        updateMetadata,
+      } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>,
+      codexNativeTitleService: {
+        rename,
+      } as unknown as NonNullable<SessionsDeps["codexNativeTitleService"]>,
+      eventBus: { emit } as unknown as NonNullable<SessionsDeps["eventBus"]>,
+    } as SessionsDeps);
+
+    const response = await routes.request("/sessions/thread-1/metadata", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Native Codex title" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(rename).toHaveBeenCalledWith("thread-1", "Native Codex title");
+    expect(updateMetadata).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("does not persist a Codex title when the native provider rejects it", async () => {
+    const updateMetadata = vi.fn(async () => undefined);
+    const routes = createSessionsRoutes({
+      supervisor: {} as SessionsDeps["supervisor"],
+      sessionMetadataService: {
+        getProvider: vi.fn(() => "codex"),
+        updateMetadata,
+      } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>,
+      codexNativeTitleService: {
+        rename: vi.fn(async () => {
+          throw new Error("app-server rename failed");
+        }),
+      } as unknown as NonNullable<SessionsDeps["codexNativeTitleService"]>,
+    } as SessionsDeps);
+
+    const response = await routes.request("/sessions/thread-1/metadata", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Never persisted locally" }),
+    });
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error: "app-server rename failed",
+    });
+    expect(updateMetadata).not.toHaveBeenCalled();
+  });
+
   it("verifiably stops an owned process after persisting archive metadata", async () => {
     const order: string[] = [];
     const updateMetadata = vi.fn(async () => {

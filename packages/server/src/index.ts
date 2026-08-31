@@ -88,11 +88,13 @@ import {
 import { ClaudeGatewayProvider } from "./sdk/providers/claude-gateway.js";
 import { ClaudeOllamaProvider } from "./sdk/providers/claude-ollama.js";
 import { grokACPProvider } from "./sdk/providers/grok-acp.js";
+import { getRawProvider } from "./sdk/providers/index.js";
 import { RealClaudeSDK } from "./sdk/real.js";
 import {
   BrowserProfileService,
   BrowserSettingsBackupService,
   ConnectedBrowsersService,
+  CodexNativeTitleService,
   DirtyFileEditorService,
   HostAwakeService,
   InstallService,
@@ -198,6 +200,7 @@ let projectWorktreeSubscriptionsForShutdown: ProjectWorktreeSubscriptionManager 
   null;
 let hostAwakeForShutdown: HostAwakeService | null = null;
 let securityClientForShutdown: SecurityClientService | null = null;
+let codexNativeTitlesForShutdown: CodexNativeTitleService | null = null;
 let providerSessionWatchersForShutdown: ProviderSessionWatcherRegistry | null =
   null;
 let attachmentStagingCleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -263,6 +266,19 @@ async function gracefulShutdown(signal: string): Promise<void> {
     } catch (error) {
       console.error("[Shutdown] Error flushing security-client audit:", error);
     }
+  }
+
+  if (codexNativeTitlesForShutdown) {
+    try {
+      await codexNativeTitlesForShutdown.stop();
+      console.log("[Shutdown] Codex native-title synchronization stopped");
+    } catch (error) {
+      console.error(
+        "[Shutdown] Error stopping Codex native-title synchronization:",
+        error,
+      );
+    }
+    codexNativeTitlesForShutdown = null;
   }
 
   if (supervisorForShutdown) {
@@ -547,6 +563,35 @@ const notificationService = new NotificationService({
 const sessionMetadataService = new SessionMetadataService({
   dataDir: config.dataDir,
 });
+let codexNativeTitleService: CodexNativeTitleService | undefined;
+if (
+  config.enabledProviders.length === 0 ||
+  config.enabledProviders.includes("codex")
+) {
+  const rawCodexProvider = getRawProvider("codex");
+  if (
+    !rawCodexProvider?.listNativeSessionTitles ||
+    !rawCodexProvider.setNativeSessionTitle ||
+    !rawCodexProvider.onNativeSessionTitleChanged ||
+    !rawCodexProvider.closeNativeSessionTitles
+  ) {
+    throw new Error("Codex provider native-title capability is unavailable");
+  }
+  codexNativeTitleService = new CodexNativeTitleService({
+    provider: {
+      listNativeSessionTitles:
+        rawCodexProvider.listNativeSessionTitles.bind(rawCodexProvider),
+      setNativeSessionTitle:
+        rawCodexProvider.setNativeSessionTitle.bind(rawCodexProvider),
+      onNativeSessionTitleChanged:
+        rawCodexProvider.onNativeSessionTitleChanged.bind(rawCodexProvider),
+      closeNativeSessionTitles:
+        rawCodexProvider.closeNativeSessionTitles.bind(rawCodexProvider),
+    },
+    metadataService: sessionMetadataService,
+    eventBus,
+  });
+}
 const projectMetadataService = new ProjectMetadataService({
   dataDir: config.dataDir,
 });
@@ -967,6 +1012,7 @@ async function startServer() {
     // Note: uploadeWebSocket not passed yet - will be added below
     notificationService,
     sessionMetadataService,
+    codexNativeTitleService,
     onSuccessfulProviderSession: async (_sessionId, provider) => {
       await installService.recordSuccessfulProviders([provider]);
       providerSessionWatchers.requestActivation([
@@ -1044,6 +1090,11 @@ async function startServer() {
   });
   markStartup("app created");
   disposeAppForShutdown = disposeSessionReaders;
+  if (codexNativeTitleService) {
+    codexNativeTitlesForShutdown = codexNativeTitleService;
+    await codexNativeTitleService.start();
+    markStartup("Codex native-title synchronization started");
+  }
 
   const focusedSessionWatchManager = new FocusedSessionWatchManager({
     scanner,

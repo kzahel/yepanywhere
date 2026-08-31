@@ -1148,6 +1148,66 @@ describe("SessionMetadataService", () => {
     });
   });
 
+  describe("provider-native title overlay", () => {
+    it("prefers native titles without persisting them", async () => {
+      await service.initialize();
+      await service.setTitle("session-1", "Yep fallback");
+
+      expect(
+        service.replaceNativeTitles(
+          new Map([
+            ["session-1", "Codex native"],
+            ["session-2", "External Codex session"],
+          ]),
+        ),
+      ).toEqual([
+        { sessionId: "session-1", title: "Codex native" },
+        { sessionId: "session-2", title: "External Codex session" },
+      ]);
+      expect(service.getMetadata("session-1")?.customTitle).toBe(
+        "Codex native",
+      );
+      expect(service.getAllMetadata()["session-2"]?.customTitle).toBe(
+        "External Codex session",
+      );
+
+      const state = JSON.parse(
+        await readFile(join(testDir, "session-metadata.json"), "utf-8"),
+      );
+      expect(state.sessions["session-1"].customTitle).toBe("Yep fallback");
+      expect(state.sessions["session-2"]).toBeUndefined();
+    });
+
+    it("merges bounded snapshots and replaces complete snapshots", async () => {
+      await service.initialize();
+      service.replaceNativeTitles(new Map([["session-1", "One"]]));
+
+      service.mergeNativeTitles(new Map([["session-2", "Two"]]));
+      expect(service.getMetadata("session-1")?.customTitle).toBe("One");
+      expect(service.getMetadata("session-2")?.customTitle).toBe("Two");
+
+      service.replaceNativeTitles(new Map([["session-2", "Two updated"]]));
+      expect(service.getMetadata("session-1")).toBeUndefined();
+      expect(service.getMetadata("session-2")?.customTitle).toBe("Two updated");
+    });
+
+    it("moves and clears native titles with session identity", async () => {
+      await service.initialize();
+      service.setNativeTitle("temporary", "Native title");
+
+      await service.remapSessionId("temporary", "canonical");
+      expect(service.getMetadata("temporary")?.customTitle).toBe(
+        "Native title",
+      );
+      expect(service.getMetadata("canonical")?.customTitle).toBe(
+        "Native title",
+      );
+
+      await service.clearSession("canonical");
+      expect(service.getMetadata("canonical")).toBeUndefined();
+    });
+  });
+
   describe("executor with other metadata", () => {
     it("loads executor from existing state", async () => {
       const existingState = {

@@ -194,6 +194,7 @@ import {
   createBrowserDebugCallerToken,
 } from "./services/BrowserDebugService.js";
 import { CodexUpdateChecker } from "./services/CodexUpdateChecker.js";
+import type { CodexNativeTitleService } from "./services/CodexNativeTitleService.js";
 import type { ConnectedBrowsersService } from "./services/ConnectedBrowsersService.js";
 import type { DirtyFileEditorService } from "./services/DirtyFileEditorService.js";
 import { HeartbeatCandidateRegistry } from "./services/HeartbeatCandidateRegistry.js";
@@ -275,6 +276,8 @@ export interface AppOptions {
   notificationService?: NotificationService;
   /** SessionMetadataService for custom titles and archive status */
   sessionMetadataService?: SessionMetadataService;
+  /** Provider-native Codex title projection and rename owner. */
+  codexNativeTitleService?: CodexNativeTitleService;
   /** Persist install-wide provider use before registering a live process. */
   onSuccessfulProviderSession?: (
     sessionId: string,
@@ -1759,6 +1762,7 @@ export function createApp(options: AppOptions): AppResult {
       notificationService: options.notificationService,
       sessionIndexService: options.sessionIndexService,
       sessionMetadataService: options.sessionMetadataService,
+      codexNativeTitleService: options.codexNativeTitleService,
       projectMetadataService: options.projectMetadataService,
       projectQueueScheduler,
       eventBus: options.eventBus,

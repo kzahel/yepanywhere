@@ -154,6 +154,7 @@ export class SessionMetadataService {
   private dataDir: string;
   private filePath: string;
   private sessionIdAliases = new Map<string, string>();
+  private nativeTitles = new Map<string, string>();
   private metadataSaver = createCoalescingSaver(() => this.doSave());
   private save = this.metadataSaver.save;
 
@@ -254,14 +255,70 @@ export class SessionMetadataService {
    * Get metadata for a session.
    */
   getMetadata(sessionId: string): SessionMetadata | undefined {
-    return this.state.sessions[this.resolveSessionId(sessionId)];
+    const resolvedSessionId = this.resolveSessionId(sessionId);
+    const persisted = this.state.sessions[resolvedSessionId];
+    const nativeTitle = this.nativeTitles.get(resolvedSessionId);
+    if (!nativeTitle) return persisted;
+    return { ...persisted, customTitle: nativeTitle };
   }
 
   /**
    * Get all session metadata.
    */
   getAllMetadata(): Record<string, SessionMetadata> {
-    return { ...this.state.sessions };
+    const metadata = { ...this.state.sessions };
+    for (const [sessionId, nativeTitle] of this.nativeTitles) {
+      metadata[sessionId] = {
+        ...metadata[sessionId],
+        customTitle: nativeTitle,
+      };
+    }
+    return metadata;
+  }
+
+  /** Replace the in-memory provider-native title projection. */
+  replaceNativeTitles(
+    titles: ReadonlyMap<string, string>,
+  ): Array<{ sessionId: string; title: string }> {
+    const next = new Map<string, string>();
+    const changed: Array<{ sessionId: string; title: string }> = [];
+    for (const [sessionId, rawTitle] of titles) {
+      const title = sanitizeSessionTitle(rawTitle);
+      if (!title) continue;
+      const resolvedSessionId = this.resolveSessionId(sessionId);
+      next.set(resolvedSessionId, title);
+      if (this.nativeTitles.get(resolvedSessionId) !== title) {
+        changed.push({ sessionId: resolvedSessionId, title });
+      }
+    }
+    this.nativeTitles = next;
+    return changed;
+  }
+
+  /** Merge a bounded native-title page without removing unseen entries. */
+  mergeNativeTitles(
+    titles: ReadonlyMap<string, string>,
+  ): Array<{ sessionId: string; title: string }> {
+    const changed: Array<{ sessionId: string; title: string }> = [];
+    for (const [sessionId, rawTitle] of titles) {
+      const title = sanitizeSessionTitle(rawTitle);
+      if (!title) continue;
+      const resolvedSessionId = this.resolveSessionId(sessionId);
+      if (this.nativeTitles.get(resolvedSessionId) === title) continue;
+      this.nativeTitles.set(resolvedSessionId, title);
+      changed.push({ sessionId: resolvedSessionId, title });
+    }
+    return changed;
+  }
+
+  /** Update one provider-native title after a confirmed provider write. */
+  setNativeTitle(sessionId: string, rawTitle: string): boolean {
+    const title = sanitizeSessionTitle(rawTitle);
+    if (!title) return false;
+    const resolvedSessionId = this.resolveSessionId(sessionId);
+    if (this.nativeTitles.get(resolvedSessionId) === title) return false;
+    this.nativeTitles.set(resolvedSessionId, title);
+    return true;
   }
 
   /** Distinct providers persisted by prior successful YA session boundaries. */
@@ -747,6 +804,12 @@ export class SessionMetadataService {
       this.sessionIdAliases.set(sourceId, targetId);
     }
 
+    const sourceNativeTitle = this.nativeTitles.get(sourceId);
+    if (sourceNativeTitle && !this.nativeTitles.has(targetId)) {
+      this.nativeTitles.set(targetId, sourceNativeTitle);
+    }
+    this.nativeTitles.delete(sourceId);
+
     const source = this.state.sessions[sourceId];
     if (!source || sourceId === targetId) return;
 
@@ -1024,6 +1087,7 @@ export class SessionMetadataService {
    */
   async clearSession(sessionId: string): Promise<void> {
     const resolvedSessionId = this.resolveSessionId(sessionId);
+    this.nativeTitles.delete(resolvedSessionId);
     if (this.state.sessions[resolvedSessionId]) {
       const { [resolvedSessionId]: _, ...rest } = this.state.sessions;
       this.state.sessions = rest;

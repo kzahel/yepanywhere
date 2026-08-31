@@ -2108,6 +2108,65 @@ describe("CodexProvider app-server lifecycle", () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("lists and renames provider-native thread titles over one app-server", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "codex-native-titles-"));
+    const logPath = join(tempDir, "fake-codex-requests.jsonl");
+    const codexPath = createFakeCodexCommand(
+      tempDir,
+      "fake-codex-native-titles",
+      buildFakeCodexNativeTitleServer(logPath),
+    );
+    const testProvider = new CodexProvider({ codexPath });
+
+    try {
+      const snapshot = await testProvider.listNativeSessionTitles();
+      expect(snapshot.complete).toBe(true);
+      expect([...snapshot.titles]).toEqual([
+        ["thread-active", "Active native title"],
+        ["thread-archived", "Archived native title"],
+      ]);
+
+      const notified = new Promise<[string, string]>((resolve) => {
+        testProvider.onNativeSessionTitleChanged((sessionId, title) =>
+          resolve([sessionId, title]),
+        );
+      });
+      await testProvider.setNativeSessionTitle("thread-active", "Yep rename");
+      await expect(notified).resolves.toEqual(["thread-active", "Yep rename"]);
+
+      const requests = readFakeCodexRequests(logPath);
+      const listRequests = requests.filter(
+        (request) => request.method === "thread/list",
+      );
+      expect(listRequests).toHaveLength(3);
+      expect(listRequests[0]?.params).toMatchObject({
+        archived: false,
+        useStateDbOnly: true,
+        sourceKinds: ["cli", "vscode", "appServer", "unknown"],
+      });
+      expect(listRequests[2]?.params).toMatchObject({ archived: true });
+      expect(
+        requests.find((request) => request.method === "thread/name/set")
+          ?.params,
+      ).toEqual({ threadId: "thread-active", name: "Yep rename" });
+
+      await testProvider.closeNativeSessionTitles();
+      await expect(
+        testProvider.listNativeSessionTitles(),
+      ).resolves.toMatchObject({
+        complete: true,
+      });
+      expect(
+        readFakeCodexRequests(logPath).filter(
+          (request) => request.method === "initialize",
+        ),
+      ).toHaveLength(2);
+    } finally {
+      await testProvider.closeNativeSessionTitles();
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
 
 const describeRealCodexContract =
@@ -2187,6 +2246,65 @@ function runNodeProbe(
       resolve({ code, stdout, stderr });
     });
   });
+}
+
+function buildFakeCodexNativeTitleServer(logPath: string): string {
+  return `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+
+const logPath = ${JSON.stringify(logPath)};
+let buffer = "";
+
+function write(payload) {
+  process.stdout.write(JSON.stringify({ jsonrpc: "2.0", ...payload }) + "\\n");
+}
+
+function handleMessage(message) {
+  appendFileSync(logPath, JSON.stringify(message) + "\\n");
+  if (message.id === undefined) return;
+  if (message.method === "initialize") {
+    write({ id: message.id, result: { userAgent: "fake-codex" } });
+    return;
+  }
+  if (message.method === "thread/list") {
+    const archived = message.params?.archived === true;
+    if (archived) {
+      write({ id: message.id, result: {
+        data: [{ id: "thread-archived", name: "Archived native title" }],
+        nextCursor: null,
+        backwardsCursor: null,
+      } });
+      return;
+    }
+    const secondPage = message.params?.cursor === "active-page-2";
+    write({ id: message.id, result: {
+      data: secondPage
+        ? [{ id: "thread-unnamed", name: null }]
+        : [{ id: "thread-active", name: "Active native title" }],
+      nextCursor: secondPage ? null : "active-page-2",
+      backwardsCursor: null,
+    } });
+    return;
+  }
+  if (message.method === "thread/name/set") {
+    write({ id: message.id, result: {} });
+    write({ method: "thread/name/updated", params: {
+      threadId: message.params.threadId,
+      threadName: message.params.name,
+    } });
+  }
+}
+
+process.stdin.setEncoding("utf-8");
+process.stdin.on("data", (chunk) => {
+  buffer += chunk;
+  const lines = buffer.split("\\n");
+  buffer = lines.pop() ?? "";
+  for (const line of lines) {
+    if (line.trim()) handleMessage(JSON.parse(line));
+  }
+});
+`;
 }
 
 function buildFakeCodexAppServer(

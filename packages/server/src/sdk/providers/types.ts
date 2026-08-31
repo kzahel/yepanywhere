@@ -472,6 +472,26 @@ export interface AgentProvider {
   ): Promise<ProviderSubscriptionUsage | null>;
 
   /**
+   * Read provider-owned user-facing session titles without parsing session
+   * transcripts. Absence means titles remain YA-local for this provider.
+   */
+  listNativeSessionTitles?(): Promise<{
+    titles: ReadonlyMap<string, string>;
+    complete: boolean;
+  }>;
+
+  /** Persist a non-empty user-facing title through the provider's API. */
+  setNativeSessionTitle?(sessionId: string, title: string): Promise<void>;
+
+  /** Observe title notifications emitted by this provider process. */
+  onNativeSessionTitleChanged?(
+    listener: (sessionId: string, title: string) => void,
+  ): () => void;
+
+  /** Release provider resources owned only by native-title synchronization. */
+  closeNativeSessionTitles?(): Promise<void>;
+
+  /**
    * Server-maintained choices users may opt into separately from the primary
    * provider catalog. Absence means the provider has no such settings surface.
    */

@@ -34,6 +34,16 @@ Related topics: [recaps](recaps.md), [side-session-config](side-session-config.m
   provider-session option. A live change must report whether it was applied,
   needs a restart, is unsupported, or remains unknown; it must not silently
   reuse YA's generated-retitle preference as authorization.
+- Codex user-confirmed titles are provider-owned metadata. YA reads
+  `thread.name` through app-server, writes accepted manual or generated titles
+  through `thread/name/set`, and keeps its persisted `customTitle` only as a
+  fallback when no native title exists. A native write failure must leave the
+  local title unchanged rather than reporting a YA-only success.
+- One process-wide Codex title projection refreshes every ten seconds through
+  bounded, state-database-only `thread/list` pages. Notifications update names
+  immediately within YA's app-server process; names changed by a separate
+  Codex app-server converge on the next refresh. No title path reads or writes
+  Codex's private index or database files directly.
 
 ## Manual Rename Surface
 
@@ -184,3 +194,7 @@ retitle-only helper configuration.
   normal send into a second resume.
 - `/title <text>` persists no provider turn, while bare `/title` starts the
   existing generated-and-apply helper. Neither command reaches a focused aside.
+- A Codex rename is visible through `thread/read`, and a native Codex rename
+  replaces YA's displayed title without changing the rollout transcript.
+- A failed Codex native rename does not create or update Yep-only
+  `customTitle` state.

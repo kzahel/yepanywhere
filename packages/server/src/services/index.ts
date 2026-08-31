@@ -112,6 +112,11 @@ export {
 export { ModelInfoService } from "./ModelInfoService.js";
 
 export {
+  CodexNativeTitleService,
+  type CodexNativeTitleServiceOptions,
+} from "./CodexNativeTitleService.js";
+
+export {
   SecurityClientService,
   SecurityClientServiceError,
   type PreparedSecurityClientRevocation,

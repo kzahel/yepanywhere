@@ -49,6 +49,7 @@ import type { PermissionMode, SDKMessage, UserMessage } from "../sdk/types.js";
 import { appendApprovalAuditLog } from "../security/approvalAuditLog.js";
 import { getSessionSandboxSettingsError } from "../session-sandbox.js";
 import type { ModelInfoService } from "../services/ModelInfoService.js";
+import type { CodexNativeTitleService } from "../services/CodexNativeTitleService.js";
 import type { ProjectQueueScheduler } from "../services/ProjectQueueScheduler.js";
 import type { ServerSettingsService } from "../services/ServerSettingsService.js";
 import type { SessionQueuePersistenceService } from "../services/SessionQueuePersistenceService.js";
@@ -227,6 +228,7 @@ export interface SessionsDeps {
   notificationService?: NotificationService;
   sessionIndexService?: ISessionIndexService;
   sessionMetadataService?: SessionMetadataService;
+  codexNativeTitleService?: CodexNativeTitleService;
   projectMetadataService?: ProjectMetadataService;
   projectQueueScheduler?: Pick<
     ProjectQueueScheduler,
@@ -7253,7 +7255,39 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     }
     const { patch } = parsed;
 
-    await deps.sessionMetadataService.updateMetadata(sessionId, patch);
+    let metadataPatch = patch;
+    if (patch.title !== undefined && deps.codexNativeTitleService) {
+      const persistedProvider =
+        deps.sessionMetadataService.getProvider(sessionId);
+      const isCodexSession =
+        persistedProvider === "codex" ||
+        (persistedProvider === undefined &&
+          deps.codexScanner !== undefined &&
+          (await deps.codexScanner?.getSessionProjectPath(sessionId)) !== null);
+      if (isCodexSession) {
+        try {
+          await deps.codexNativeTitleService.rename(sessionId, patch.title);
+        } catch (error) {
+          return c.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Codex native title update failed",
+            },
+            502,
+          );
+        }
+        metadataPatch = { ...patch, title: undefined };
+      }
+    }
+
+    if (Object.values(metadataPatch).some((value) => value !== undefined)) {
+      await deps.sessionMetadataService.updateMetadata(
+        sessionId,
+        metadataPatch,
+      );
+    }
 
     // Archive is a stop boundary, including for older clients that only know
     // the generic metadata route. Provider-owned background jobs can outlive a
@@ -7286,26 +7320,29 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     }
 
     // Emit SSE event so sidebar and other clients can update
-    if (deps.eventBus) {
+    if (
+      deps.eventBus &&
+      Object.values(metadataPatch).some((value) => value !== undefined)
+    ) {
       deps.eventBus.emit({
         type: "session-metadata-changed",
         sessionId,
-        title: patch.title,
-        archived: patch.archived,
-        starred: patch.starred,
-        parentSessionId: patch.parentSessionId,
+        title: metadataPatch.title,
+        archived: metadataPatch.archived,
+        starred: metadataPatch.starred,
+        parentSessionId: metadataPatch.parentSessionId,
         parentSessionKind:
-          patch.parentSessionId === undefined
+          metadataPatch.parentSessionId === undefined
             ? undefined
-            : patch.parentSessionId
+            : metadataPatch.parentSessionId
               ? "btw-aside"
               : null,
-        heartbeatTurnsEnabled: patch.heartbeatTurnsEnabled,
-        heartbeatTurnsAfterMinutes: patch.heartbeatTurnsAfterMinutes,
-        heartbeatTurnText: patch.heartbeatTurnText,
-        heartbeatForceAfterMinutes: patch.heartbeatForceAfterMinutes,
-        promptSuggestionMode: patch.promptSuggestionMode ?? undefined,
-        recapAfterSeconds: patch.recapAfterSeconds ?? undefined,
+        heartbeatTurnsEnabled: metadataPatch.heartbeatTurnsEnabled,
+        heartbeatTurnsAfterMinutes: metadataPatch.heartbeatTurnsAfterMinutes,
+        heartbeatTurnText: metadataPatch.heartbeatTurnText,
+        heartbeatForceAfterMinutes: metadataPatch.heartbeatForceAfterMinutes,
+        promptSuggestionMode: metadataPatch.promptSuggestionMode ?? undefined,
+        recapAfterSeconds: metadataPatch.recapAfterSeconds ?? undefined,
         timestamp: new Date().toISOString(),
       });
     }

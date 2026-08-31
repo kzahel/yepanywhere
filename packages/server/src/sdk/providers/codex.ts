@@ -71,8 +71,13 @@ import type {
   SkillsListResponse,
   ThreadForkParams,
   ThreadForkResponse,
+  ThreadListParams,
+  ThreadListResponse,
+  ThreadNameUpdatedNotification,
   ThreadReadParams,
   ThreadReadResponse,
+  ThreadSetNameParams,
+  ThreadSetNameResponse,
   ThreadItem as CodexThreadItem,
   ThreadCompactStartParams,
   ThreadCompactStartResponse,
@@ -225,6 +230,15 @@ function stringifyTraceValue(value: unknown): string {
 }
 
 const MODEL_CACHE_TTL_MS = 60 * 60 * 1000;
+const NATIVE_TITLE_PAGE_SIZE = 100;
+const NATIVE_TITLE_MAX_THREADS = 5_000;
+const NATIVE_TITLE_REQUEST_TIMEOUT_MS = 8_000;
+const NATIVE_TITLE_SOURCE_KINDS = [
+  "cli",
+  "vscode",
+  "appServer",
+  "unknown",
+] as const;
 const MODEL_LIST_TIMEOUT_MS = 8000;
 const ACCOUNT_RATE_LIMITS_TIMEOUT_MS = 8000;
 const APP_SERVER_INIT_REQUEST_ID = 1;
@@ -1150,6 +1164,13 @@ export class CodexProvider implements AgentProvider {
     DEFAULT_CODEX_REASONING_SUMMARY;
   private getConfiguredSubagentMaxDepth: () => SubagentMaxDepth = () =>
     DEFAULT_SUBAGENT_MAX_DEPTH;
+  private nativeTitleClient: CodexAppServerClient | null = null;
+  private nativeTitleClientPromise: Promise<CodexAppServerClient> | null = null;
+  private nativeTitleClientSourceVersion: string | null = null;
+  private nativeTitleClientGeneration = 0;
+  private readonly nativeTitleListeners = new Set<
+    (sessionId: string, title: string) => void
+  >();
 
   constructor(config: CodexProviderConfig = {}) {
     if (config.externalChatgptAuth && (config.apiKey || config.baseUrl)) {
@@ -1165,6 +1186,210 @@ export class CodexProvider implements AgentProvider {
   setCodexPath(codexPath: string | undefined): void {
     this.config.codexPath = codexPath;
     this.modelCache = null;
+    void this.closeNativeSessionTitles();
+  }
+
+  async listNativeSessionTitles(): Promise<{
+    titles: ReadonlyMap<string, string>;
+    complete: boolean;
+  }> {
+    return this.installationCoordinator.withReadLease(
+      CODEX_INSTALLATION_FAMILY,
+      async () => {
+        const client = await this.getNativeTitleClient();
+        const titles = new Map<string, string>();
+        let complete = true;
+        let scannedThreads = 0;
+
+        for (const archived of [false, true]) {
+          let cursor: string | null = null;
+          do {
+            const response: ThreadListResponse = await this.requestNativeTitle(
+              client,
+              "thread/list",
+              {
+                cursor,
+                limit: NATIVE_TITLE_PAGE_SIZE,
+                sortKey: "updated_at",
+                sortDirection: "desc",
+                sourceKinds: [...NATIVE_TITLE_SOURCE_KINDS],
+                archived,
+                useStateDbOnly: true,
+              } satisfies ThreadListParams,
+            );
+            scannedThreads += response.data.length;
+            for (const thread of response.data) {
+              const title = thread.name?.trim();
+              if (title) titles.set(thread.id, title);
+            }
+            cursor = response.nextCursor;
+            if (cursor && scannedThreads >= NATIVE_TITLE_MAX_THREADS) {
+              complete = false;
+              cursor = null;
+            }
+          } while (cursor);
+          if (!complete) break;
+        }
+
+        return { titles, complete };
+      },
+    );
+  }
+
+  async setNativeSessionTitle(sessionId: string, title: string): Promise<void> {
+    const normalizedTitle = title.trim();
+    if (!normalizedTitle) {
+      throw new Error("Codex thread name must not be empty");
+    }
+    await this.installationCoordinator.withReadLease(
+      CODEX_INSTALLATION_FAMILY,
+      async () => {
+        const client = await this.getNativeTitleClient();
+        await this.requestNativeTitle<ThreadSetNameResponse>(
+          client,
+          "thread/name/set",
+          {
+            threadId: sessionId,
+            name: normalizedTitle,
+          } satisfies ThreadSetNameParams,
+        );
+      },
+    );
+  }
+
+  onNativeSessionTitleChanged(
+    listener: (sessionId: string, title: string) => void,
+  ): () => void {
+    this.nativeTitleListeners.add(listener);
+    return () => this.nativeTitleListeners.delete(listener);
+  }
+
+  async closeNativeSessionTitles(): Promise<void> {
+    this.nativeTitleClientGeneration += 1;
+    const pending = this.nativeTitleClientPromise;
+    this.nativeTitleClientPromise = null;
+    const client = this.nativeTitleClient;
+    this.nativeTitleClient = null;
+    this.nativeTitleClientSourceVersion = null;
+    if (client) {
+      await client.close();
+    } else if (pending) {
+      const connected = await pending.catch(() => null);
+      await connected?.close();
+    }
+  }
+
+  private async getNativeTitleClient(): Promise<CodexAppServerClient> {
+    const sourceVersion = this.getModelCatalogCacheKey();
+    if (
+      this.nativeTitleClient?.isAlive() &&
+      this.nativeTitleClientSourceVersion === sourceVersion
+    ) {
+      return this.nativeTitleClient;
+    }
+    if (this.nativeTitleClientPromise) {
+      return this.nativeTitleClientPromise;
+    }
+
+    const generation = ++this.nativeTitleClientGeneration;
+    const connecting = this.connectNativeTitleClient(sourceVersion, generation);
+    this.nativeTitleClientPromise = connecting;
+    try {
+      return await connecting;
+    } finally {
+      if (this.nativeTitleClientPromise === connecting) {
+        this.nativeTitleClientPromise = null;
+      }
+    }
+  }
+
+  private async connectNativeTitleClient(
+    sourceVersion: string,
+    generation: number,
+  ): Promise<CodexAppServerClient> {
+    const previous = this.nativeTitleClient;
+    this.nativeTitleClient = null;
+    if (previous) await previous.close();
+
+    const client = new CodexAppServerClient(
+      await this.resolveCodexCommand(),
+      process.cwd(),
+      this.getCodexEnv(),
+    );
+    try {
+      await client.connect();
+      await withCodexTimeout(
+        this.initializeAppServer(client, "yep-anywhere-title-sync"),
+        NATIVE_TITLE_REQUEST_TIMEOUT_MS,
+        "Codex native-title initialize",
+      );
+      client.notify("initialized");
+    } catch (error) {
+      await client.close();
+      throw error;
+    }
+
+    if (generation !== this.nativeTitleClientGeneration) {
+      await client.close();
+      throw new Error("Codex native-title connection was superseded");
+    }
+    this.nativeTitleClient = client;
+    this.nativeTitleClientSourceVersion = sourceVersion;
+    void this.consumeNativeTitleNotifications(client, generation);
+    return client;
+  }
+
+  private async requestNativeTitle<T>(
+    client: CodexAppServerClient,
+    method: string,
+    params: unknown,
+  ): Promise<T> {
+    try {
+      return await withCodexTimeout(
+        client.request<T>(method, params),
+        NATIVE_TITLE_REQUEST_TIMEOUT_MS,
+        `Codex native-title ${method}`,
+      );
+    } catch (error) {
+      if (this.nativeTitleClient === client) {
+        this.nativeTitleClientGeneration += 1;
+        this.nativeTitleClient = null;
+        this.nativeTitleClientSourceVersion = null;
+      }
+      await client.close();
+      throw error;
+    }
+  }
+
+  private async consumeNativeTitleNotifications(
+    client: CodexAppServerClient,
+    generation: number,
+  ): Promise<void> {
+    try {
+      while (
+        generation === this.nativeTitleClientGeneration &&
+        client.isAlive()
+      ) {
+        const notification = await client.nextNotification();
+        if (notification.method !== "thread/name/updated") continue;
+        const params = notification.params as
+          | ThreadNameUpdatedNotification
+          | undefined;
+        const sessionId = params?.threadId;
+        const title = params?.threadName?.trim();
+        if (!sessionId || !title) continue;
+        for (const listener of this.nativeTitleListeners) {
+          listener(sessionId, title);
+        }
+      }
+    } catch (error) {
+      if (generation !== this.nativeTitleClientGeneration) return;
+      log.warn({ error }, "Codex native-title app-server connection closed");
+      if (this.nativeTitleClient === client) {
+        this.nativeTitleClient = null;
+        this.nativeTitleClientSourceVersion = null;
+      }
+    }
   }
 
   setReasoningSummaryGetter(getter: () => CodexReasoningSummary): void {
