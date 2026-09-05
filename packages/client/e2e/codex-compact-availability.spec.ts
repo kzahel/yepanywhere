@@ -59,6 +59,12 @@ test("warns before compacting an active Codex turn and enables it when idle", as
       });
     },
   );
+  await page.route(
+    (url) => url.pathname === "/api/onboarding",
+    async (route) => {
+      await route.fulfill({ json: { complete: true } });
+    },
+  );
   await page.routeWebSocket("**/api/ws", (socket) => {
     const upstream = socket.connectToServer();
     socket.onMessage((message) => {
