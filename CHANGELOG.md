@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-05
+
+### Added
+- Add native Codex goal commands with argument completion, live status notices,
+  persistence across reloads and worker loss, and explicit clear, pause, and
+  resume actions.
+- Add a Codex plan-checklist provider setting, quick-hide actions for composer
+  toolbar controls, and inline editing for queued prompt attachments.
+
+### Changed
+- Refresh the bundled Claude runtime to Claude Code 2.1.258 and Agent SDK
+  0.3.258, including Fable 5.1 catalog metadata and its 1M-context capability.
+- Refresh Codex compatibility through CLI 0.153.3, including current model
+  defaults, app-server protocol fields, and provider-controlled plan tooling.
+- Page large Codex histories directly from source offsets, stream oversized
+  rollouts, and reconstruct reference-backed fork history.
+- Extend in-session reverse search into older history and make Session Defaults
+  guidance match the New Session controls.
+- Render supported image and video links in live and newly frozen public session
+  shares.
+
+### Fixed
+- Keep very large and incrementally updated Codex transcripts readable across
+  restarts, UTF-8 boundaries, identity migrations, and nested forks.
+- Keep managed viewers responsive in long sessions and prevent Markdown SVG
+  previews, transcript selections, and themed hover feedback from doing stale
+  or repeated work.
+- Preserve selected model and effort state through idle cleanup or rejected live
+  updates, and warn before attempting to compact an active Codex turn.
+- Resolve runnable Claude shims correctly on Windows and reject shims that
+  cannot spawn.
+- Make queued attachment replacement recoverable and keep client snapshots
+  within the generation that produced them.
+- Patch audited URL and query dependencies and document the bounded sanitizer
+  configurations used for the remaining upstream advisories.
+
 ## [0.8.0] - 2026-08-31
 
 ### Added
