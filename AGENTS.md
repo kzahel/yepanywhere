@@ -1,5 +1,11 @@
 Read and follow `CLAUDE.md` for repo context and instructions, and `DEVELOPMENT.md` for dev/contributor policy (setup, commands, contribution ethos). For architectural context (server message routing, client render pipeline, transports, auth state, large-scope refactor proposals), start at `ARCHITECTURE.md` rather than re-deriving from source.
 
+For product priorities, read the [Roadmap](docs/roadmap/README.md) before
+proposing or reprioritizing work. It is the canonical initiative overview;
+linked tactical plans and topic docs supply implementation detail and
+contracts. Keep its status and blockers current when roadmap work changes.
+Roadmap priority does not expand the scope of an unrelated user request.
+
 When `AGENTS.local.md` exists here, it is the machine-local final-authority
 amendment to these instructions: read it before acting in this repo — it
 defines request verbs such as `push` and `publish` and their standing

@@ -4,6 +4,10 @@ For cross-project context (how this project relates to other Kyle projects), see
 
 For dev/contributor guidance (setup, commands, style, contribution ethos), see [DEVELOPMENT.md](DEVELOPMENT.md).
 
+For current product priorities and initiative blockers, start at the
+[Roadmap](docs/roadmap/README.md). It is the canonical priority overview;
+implementation plans and behavior contracts remain in their linked documents.
+
 A mobile-first supervisor for Claude Code agents. Like the VS Code Claude extension, but designed for phones and multi-session workflows.
 
 **Key ideas:**
