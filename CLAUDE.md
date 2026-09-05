@@ -233,7 +233,7 @@ there is no silent WASM fallback), `@firebase/util` (bakes
 Advisories triaged as unreachable are suppressed via
 `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`; that list and this
 table must stay in sync — every ignored GHSA needs a row here, and removing a
-row means removing the ignore. As of 2026-09-02 four advisories are triaged as
+row means removing the ignore. As of 2026-09-05 five advisories are triaged as
 unreachable with no fix compatible with YA's current dependency and runtime
 constraints. Re-check when the listed trigger fires rather than re-deriving the
 analysis:
@@ -244,6 +244,7 @@ analysis:
 | `@hono/node-server` serve-static traversal (GHSA-frvp-7c67-39w9) | `serveStatic` is never imported; only `serve`, `getRequestListener`, `HttpBindings`, `RESPONSE_ALREADY_SENT` | `@hono/node-ws` supports node-server 2.x — its peer is currently `^1.19.11`, so 2.x breaks the WebSocket path |
 | `uuid` buffer bounds (GHSA-w5hq-g745-h8pq) | Only path is `firebase-admin -> @google-cloud/storage -> gaxios@6`, which calls `uuid.v4()` with no arguments; the defect needs v3/v5/v6 with a caller-supplied `buf`. Patched only in `>=11.1.1`, outside gaxios 6's `^9` range | `firebase-admin`/`gaxios` declare uuid `>=11`, or a 9.x patch release appears |
 | `sanitize-html` SVG SMIL URL-list XSS (GHSA-g8qq-57p8-ggw5) | The exploit needs allowed SVG `animate`/`set` markup targeting a link; YA allows neither those tags nor their attributes, and escapes disallowed embedded HTML | YA supports Node `>=22.12` and can take `sanitize-html` 2.17.7, a Node 20-compatible patch appears, or YA begins allowing SVG animation markup |
+| `sanitize-html` raw-text mutation XSS (GHSA-jxwj-j7wr-gfrw) | The exploit needs `textarea` or `xmp` in the allowed-tag set; YA allows neither and tests the literal-solidus payload | YA supports Node `>=22.12` and can take `sanitize-html` 2.17.6 or later, a Node 20-compatible patch appears, or YA begins allowing either raw-text tag |
 
 Anything not on this list is untriaged — treat a new advisory as actionable.
 

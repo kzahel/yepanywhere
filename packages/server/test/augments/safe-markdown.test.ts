@@ -318,6 +318,17 @@ describe("renderSafeMarkdown — embedded HTML", () => {
 
     expect(html).not.toMatch(/<(?:svg|animate|text)\b/i);
   });
+
+  it("does not admit raw-text tags that can bypass sanitizer parsing", () => {
+    const html = renderSafeMarkdown(`
+<textarea></textarea/><img src=x onerror="alert(document.domain)">
+<xmp></xmp/><img src=x onerror="alert(document.domain)">
+`);
+
+    expect(html).not.toMatch(/<(?:textarea|xmp|img)\b/i);
+    expect(html).toContain("&lt;textarea&gt;");
+    expect(html).toContain("&lt;xmp&gt;");
+  });
 });
 
 describe("parseMarkdownSourceSpans", () => {

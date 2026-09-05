@@ -34,3 +34,4 @@ auditConfig:
     - GHSA-frvp-7c67-39w9
     - GHSA-w5hq-g745-h8pq
     - GHSA-g8qq-57p8-ggw5
+    - GHSA-jxwj-j7wr-gfrw

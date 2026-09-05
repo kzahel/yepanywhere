@@ -1,6 +1,6 @@
-# Production dependency audit reports four ignored advisories
+# Production dependency audit reports five ignored advisories
 
-`pnpm audit --prod` currently reports four ignored advisories:
+`pnpm audit --prod` currently reports five ignored advisories:
 
 - high, `react-router@7.18.0`, GHSA-qwww-vcr4-c8h2. The affected behavior is
   React Server Components action handling; YA uses client-side
@@ -15,6 +15,11 @@
   requires allowed SVG animation markup targeting a link; YA permits neither
   the tags nor their attributes and escapes disallowed embedded HTML. The first
   patched release requires Node 22.12, beyond YA's current Node 20 contract.
+- moderate, direct `sanitize-html@2.17.5`, GHSA-jxwj-j7wr-gfrw. The exploit
+  requires `textarea` or `xmp` in the allowed-tag set; YA permits neither and
+  has a regression that rejects both raw-text tags and the escaped event
+  handler. The first patched release requires Node 22.12, beyond YA's current
+  Node 20 contract.
 
 Re-audit the exact consuming paths when their triggers fire, then update the
 corresponding dependencies with their own compatibility tests.
