@@ -3,12 +3,15 @@ import type { SessionMetadataService } from "../metadata/SessionMetadataService.
 import type { Process } from "./Process.js";
 
 /** Native controls share acknowledgement and persistence across send paths. */
-export function dispatchProviderCommand(
+export async function dispatchProviderCommand(
   process: Process,
   command: { name: string; argument: string },
   tempId: string | undefined,
   metadata: SessionMetadataService | undefined,
 ) {
+  if (process.supportsNativeCommands) {
+    await process.waitForProviderSessionId();
+  }
   return process.runProviderCommand(command.name, command.argument, {
     tempId,
     ...(command.name === "goal" && metadata

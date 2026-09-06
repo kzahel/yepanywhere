@@ -429,6 +429,8 @@ function getActiveHeartbeatAction(params: {
   return { type: "queue" };
 }
 
+export class SessionMessageRejectedError extends Error {}
+
 export class RetryableSessionLaunchError extends Error {
   readonly cause: unknown;
 
@@ -1399,7 +1401,7 @@ export class Supervisor {
     process.noteInputIntent();
     await process.primeSupportedCommandsForMessage(message);
     const command = parseSlashCommandSubmission(message.text);
-    if (command?.name === "goal") {
+    if (command) {
       const result = await dispatchProviderCommand(
         process,
         command,
@@ -1414,6 +1416,26 @@ export class Supervisor {
     return process.queueMessage(message, {
       allowSteer: options?.allowSteer,
     });
+  }
+
+  private async queueInitialProcessMessage(
+    process: Process,
+    message: UserMessage,
+  ): Promise<void> {
+    try {
+      const result = await this.queueProcessMessage(process, message, {
+        allowSteer: false,
+      });
+      if (!result.success) {
+        throw new SessionMessageRejectedError(
+          result.error ?? "Failed to queue initial message",
+        );
+      }
+    } catch (error) {
+      // This worker is not registered yet; no supervisor cleanup owns it.
+      await process.abort();
+      throw error;
+    }
   }
 
   private watchResumeCompaction(
@@ -2474,13 +2496,7 @@ export class Supervisor {
     const queueBeforeProviderSettlement =
       !resumeSessionId && requireProviderSessionId;
     if (queueBeforeProviderSettlement) {
-      const queued = await this.queueProcessMessage(process, message, {
-        allowSteer: false,
-      });
-      if (!queued.success) {
-        await process.abort();
-        throw new Error(queued.error ?? "Failed to queue initial message");
-      }
+      await this.queueInitialProcessMessage(process, message);
     }
 
     // Wait for the real session ID from the provider before registering.
@@ -2493,13 +2509,7 @@ export class Supervisor {
     }
 
     if (!queueBeforeProviderSettlement) {
-      const queued = await this.queueProcessMessage(process, message, {
-        allowSteer: false,
-      });
-      if (!queued.success) {
-        await process.abort();
-        throw new Error(queued.error ?? "Failed to queue initial message");
-      }
+      await this.queueInitialProcessMessage(process, message);
     }
 
     await this.activationCoordinator.persistSuccessfulSessionBoundaryOrAbort(
@@ -2698,7 +2708,13 @@ export class Supervisor {
               }
               return existingProcess;
             }
-            // Failed to queue - process likely terminated, clean up and start fresh.
+            // A rejected command is not evidence that the worker died.
+            if (!existingProcess.isTerminated) {
+              throw new SessionMessageRejectedError(
+                result.error ?? "Failed to queue message",
+              );
+            }
+            // Failed to queue to a terminated process; clean up and start fresh.
             // Idle teardown may have started during an awaited configuration step.
             this.assertProviderOwnershipSettled(existingProcess, "resume");
             this.unregisterProcess(existingProcess);

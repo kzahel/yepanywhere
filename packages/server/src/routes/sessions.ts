@@ -132,6 +132,7 @@ import {
   ResumeCompactionError,
   RetryableSessionLaunchError,
   SessionConfigurationConflictError,
+  SessionMessageRejectedError,
 } from "../supervisor/Supervisor.js";
 import type { QueuedResponse } from "../supervisor/WorkerQueue.js";
 import type {
@@ -4504,6 +4505,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           409,
         );
       }
+      if (error instanceof SessionMessageRejectedError) {
+        return c.json({ error: error.message, reason: error.message }, 409);
+      }
       if (error instanceof RetryableSessionLaunchError) {
         getLogger().warn(
           {
@@ -6661,26 +6665,24 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // through the provider's own protocol rather than delivered as turn text the
     // model would never interpret. Claude's `/compact` reports handled:false and
     // falls through to normal delivery so the SDK handles it as a regular turn
-    // (and any trailing focus instructions reach the SDK verbatim). Goal
+    // (and any trailing focus instructions reach the SDK verbatim). Native
     // controls are out-of-band even when the composer requests deferred send.
     const parsed = parseSlashCommandSubmission(body.message);
-    if (!body.deferred || parsed?.name === "goal") {
-      if (parsed) {
-        const providerResult = await dispatchProviderCommand(
-          process,
-          parsed,
-          body.tempId,
-          deps.sessionMetadataService,
-        );
-        if (providerResult.handled) {
-          if (providerResult.error) {
-            return c.json(
-              { error: providerResult.error, reason: providerResult.error },
-              409,
-            );
-          }
-          return c.json({ queued: true, serverTimestamp });
+    if (parsed) {
+      const providerResult = await dispatchProviderCommand(
+        process,
+        parsed,
+        body.tempId,
+        deps.sessionMetadataService,
+      );
+      if (providerResult.handled) {
+        if (providerResult.error) {
+          return c.json(
+            { error: providerResult.error, reason: providerResult.error },
+            409,
+          );
         }
+        return c.json({ queued: true, serverTimestamp });
       }
     }
 

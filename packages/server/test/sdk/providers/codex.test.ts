@@ -463,6 +463,42 @@ describe("CodexProvider", () => {
       }
     });
 
+    it("preserves an unchanged objective without resetting its goal", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-goal-unchanged-"));
+      const logPath = join(tempDir, "requests.jsonl");
+      const codexPath = createFakeCodexCommand(
+        tempDir,
+        "codex",
+        buildFakeCodexAppServer(logPath),
+      );
+      const session = await new CodexProvider({ codexPath }).startSession({
+        cwd: tempDir,
+      });
+      try {
+        await session.iterator.next();
+        await session.runProviderCommand?.("goal", "Keep the accounting");
+        await session.runProviderCommand?.("goal", "pause");
+        const before = readFakeCodexRequests(logPath).length;
+        await expect(
+          session.runProviderCommand?.("goal", "  Keep the accounting  "),
+        ).resolves.toMatchObject({
+          handled: true,
+          output: {
+            details: ["Keep the accounting", "Goal paused"],
+          },
+        });
+        expect(
+          readFakeCodexRequests(logPath)
+            .slice(before)
+            .map((r) => r.method),
+        ).toEqual(["thread/goal/get"]);
+      } finally {
+        await session.abort();
+        await session.iterator.return?.(undefined);
+        rmSync(tempDir, { recursive: true });
+      }
+    });
+
     it.each([false, true])(
       "streams goal-started work without another user turn (already working: %s)",
       async (alreadyWorking) => {

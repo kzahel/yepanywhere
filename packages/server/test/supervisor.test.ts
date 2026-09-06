@@ -1133,10 +1133,11 @@ describe("Supervisor", () => {
 
     it("lets newly arrived input beat speculative idle compaction", async () => {
       const delivered: string[] = [];
-      const runProviderCommand = vi.fn(async () => ({
-        handled: true,
-        error: "compaction should not start",
-      }));
+      const runProviderCommand = vi.fn(async (command: string) =>
+        command === "compact"
+          ? { handled: true, error: "compaction should not start" }
+          : { handled: false },
+      );
       let resolveSummary!: (summary: SessionSummary) => void;
       const summary = new Promise<SessionSummary>((resolve) => {
         resolveSummary = resolve;
@@ -1262,7 +1263,7 @@ describe("Supervisor", () => {
       await vi.waitFor(() => {
         expect(delivered).toEqual(["first", "/help"]);
       });
-      expect(runProviderCommand).not.toHaveBeenCalled();
+      expect(runProviderCommand.mock.calls).toEqual([["help", ""]]);
       await supervisorWithProvider.abortProcess(started.id);
     });
 

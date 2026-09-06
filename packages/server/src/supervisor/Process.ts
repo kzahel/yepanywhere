@@ -2316,6 +2316,10 @@ export class Process {
     return result;
   }
 
+  get supportsNativeCommands(): boolean {
+    return this.runProviderCommandFn !== null;
+  }
+
   /**
    * Whether this process supports model switching mid-session.
    * Only Claude SDK 0.2.7+ supports this.

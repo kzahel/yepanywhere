@@ -2133,6 +2133,18 @@ export class CodexProvider implements AgentProvider {
                   "thread/goal/get",
                   { threadId } satisfies ThreadGoalGetParams,
                 );
+                if (current.goal?.objective === goalArgument) {
+                  return {
+                    handled: true,
+                    output: {
+                      summary: "/goal",
+                      details: [
+                        current.goal.objective,
+                        formatCodexGoalStatus(current.goal.status),
+                      ],
+                    },
+                  };
+                }
                 if (current.goal) {
                   await client.request<ThreadGoalClearResponse>(
                     "thread/goal/clear",
@@ -2292,7 +2304,10 @@ export class CodexProvider implements AgentProvider {
               threadId: runtimeState.threadId,
             } satisfies ThreadCompactStartParams,
           );
-          return { handled: true };
+          return {
+            handled: true,
+            output: { summary: "Compaction requested" },
+          };
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);

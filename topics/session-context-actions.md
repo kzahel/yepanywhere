@@ -233,6 +233,18 @@ the provider's reason in the response's primary `error` field (and retains
 `reason`), so clients show why the action failed instead of a generic command
 failure.
 
+Native slash commands use the same provider dispatch for live sends, deferred
+sends, and session startup or resume. YA waits for provider initialization
+before dispatching a startup command. Codex `/compact` calls
+`thread/compact/start`; it never becomes model-visible text or a deferred
+model turn. Providers that handle slash commands through their ordinary input
+queue retain that delivery path. Acceptance emits a local command receipt
+with the submitted message ID, clearing the composer's pending send without
+claiming that compaction has finished. Compaction status, boundary, and completion
+are consumed while idle without requiring another user message. A command
+rejection on a live worker preserves that worker and returns the reason; it
+must not be interpreted as a dead worker and retried on a replacement.
+
 While Codex is in a turn or waiting for input, the compact autocomplete entry
 explains that it is unavailable until the turn finishes, including tool waits.
 The session menu disables Compact with a visible turn-active label. Submitting

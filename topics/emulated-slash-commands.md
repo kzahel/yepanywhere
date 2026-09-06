@@ -84,9 +84,17 @@ Goal controls execute out-of-band even with the composer's deferred-send option;
 providers that do not handle the command retain ordinary delivery semantics.
 Setting a new objective clears any preceding goal before setting the new one.
 This resets the provider goal without falsely marking the preceding goal
-complete. Pause and resume results report the status Codex
+complete. Submitting the existing objective again (after command-argument
+whitespace trimming) only reads the goal: it preserves status, token budget,
+usage counters, and creation time. Pause and resume results report the status Codex
 actually returns, including a preserved usage- or budget-limited state, rather
 than echoing the requested transition.
+
+Goal pause/resume can be applied during an active Codex turn. Pause prevents
+autonomous continuation without interrupting that turn; resume continues when
+idle. Ordinary steering preserves goal status. The Codex TUI separately
+pauses an active goal when Escape interrupts its work; that pause is not an
+intrinsic effect of `turn/steer` and YA does not automatically undo it.
 
 The Codex inventory preserves the original “Keep working toward a verifiable
 end state until it is met” description and `<verifiable end state>` free-form
