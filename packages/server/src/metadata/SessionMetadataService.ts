@@ -159,6 +159,7 @@ export class SessionMetadataService {
   private dataDir: string;
   private filePath: string;
   private sessionIdAliases = new Map<string, string>();
+  private unsavedGoalObservations = new Set<string>();
   private metadataSaver = createCoalescingSaver(() => this.doSave());
   private save = this.metadataSaver.save;
 
@@ -320,7 +321,7 @@ export class SessionMetadataService {
         message,
       ],
     }));
-    await this.save();
+    await this.metadataSaver.flush();
   }
 
   async observeCommandInventory(
@@ -330,13 +331,22 @@ export class SessionMetadataService {
     const goal = commands.find((command) => command.name === "goal");
     // An inventory without goal state is unknown, not evidence of a clear.
     if (goal?.providerDetails?.codex?.goalObjective === undefined) return;
+    sessionId = this.resolveSessionId(sessionId);
     const previous = this.getMetadata(sessionId)?.codexGoalCommand;
-    if (JSON.stringify(previous) === JSON.stringify(goal)) return;
+    if (
+      JSON.stringify(previous) === JSON.stringify(goal) &&
+      !this.unsavedGoalObservations.has(sessionId)
+    )
+      return;
+    this.unsavedGoalObservations.add(sessionId);
     this.updateSessionMetadata(sessionId, (metadata) => ({
       ...metadata,
       codexGoalCommand: goal,
     }));
-    await this.save();
+    await this.metadataSaver.flush();
+    if (this.getMetadata(sessionId)?.codexGoalCommand === goal) {
+      this.unsavedGoalObservations.delete(sessionId);
+    }
   }
 
   getCacheMissBillingEvents(

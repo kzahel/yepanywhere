@@ -2425,6 +2425,7 @@ export class Supervisor {
       projectId,
       sessionId: tempSessionId,
       idleTimeoutMs: this.idleTimeoutMs,
+      initialState: "idle",
       queue,
       sessionQueuePersistenceService: this.sessionQueuePersistenceService,
       toolResultMediaStore: this.toolResultMediaStore,

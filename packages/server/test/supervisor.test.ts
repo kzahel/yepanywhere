@@ -5115,6 +5115,7 @@ describe("Supervisor", () => {
             : await owner.startSession("/tmp/test", input);
           if (!("id" in result)) throw new Error("expected process");
           expect(command).toHaveBeenCalledWith("goal", "Keep working");
+          expect(result.state.type).toBe("idle");
           expect(addLocalCommandMessage).toHaveBeenCalledWith(
             "goal-session",
             expect.objectContaining({

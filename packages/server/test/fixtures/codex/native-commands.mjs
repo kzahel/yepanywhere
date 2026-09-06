@@ -38,6 +38,17 @@ for await (const line of createInterface({ input: process.stdin })) {
       goal = { ...goal, ...request.params };
       reply({ goal });
       notify("thread/goal/updated", { threadId, goal });
+      if (request.params.objective === "Work autonomously") {
+        notify("turn/started", {
+          threadId,
+          turn: {
+            id: "autonomous",
+            status: "inProgress",
+            items: [],
+            error: null,
+          },
+        });
+      }
       break;
     case "thread/start":
     case "thread/resume":

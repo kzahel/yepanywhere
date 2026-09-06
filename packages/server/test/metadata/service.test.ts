@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import * as fs from "node:fs/promises";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,10 @@ import type {
 } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+
+vi.mock("node:fs/promises", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("node:fs/promises")>()),
+}));
 
 function cacheMissRecord(
   id: string,
@@ -60,6 +65,99 @@ describe("SessionMetadataService", () => {
   });
 
   describe("initialization", () => {
+    it("retries an unchanged goal after a failed save", async () => {
+      await service.initialize();
+      const goal: SlashCommand = {
+        name: "goal",
+        description: "Goal",
+        providerDetails: { codex: { goalObjective: "Keep working" } },
+      };
+      await mkdir(service.getFilePath());
+      // The write failure is deliberate; assert its diagnostic as well.
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        await expect(
+          service.observeCommandInventory("session", [goal]),
+        ).rejects.toThrow();
+        expect(error).toHaveBeenCalled();
+      } finally {
+        error.mockRestore();
+      }
+      await rm(service.getFilePath(), { recursive: true });
+      await service.observeCommandInventory("session", [goal]);
+      const restored = new SessionMetadataService({ dataDir: testDir });
+      await restored.initialize();
+      expect(restored.getMetadata("session").codexGoalCommand).toEqual(goal);
+    });
+
+    it("waits for overlapping goal observations and skips durable duplicates", async () => {
+      await service.initialize();
+      const goal: SlashCommand = {
+        name: "goal",
+        description: "Goal",
+        providerDetails: { codex: { goalObjective: "Keep working" } },
+      };
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const write = fs.writeFile;
+      const writes = vi
+        .spyOn(fs, "writeFile")
+        .mockImplementation(async (...args) => {
+          await gate;
+          return write(...args);
+        });
+      let settled = 0;
+      const first = service
+        .observeCommandInventory("session", [goal])
+        .then(() => {
+          settled++;
+        });
+      const second = service
+        .observeCommandInventory("session", [goal])
+        .then(() => {
+          settled++;
+        });
+      const receipt: DurableLocalCommandMessage = {
+        type: "system",
+        subtype: "local_command",
+        content: "/goal",
+        timestamp: "2026-09-06T00:00:00.000Z",
+        uuid: "goal-receipt",
+        id: "goal-receipt",
+        session_id: "session",
+        isSynthetic: true,
+      };
+      const receiptSave = service
+        .addLocalCommandMessage("session", receipt)
+        .then(() => {
+          settled++;
+        });
+      try {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(writes).toHaveBeenCalledOnce();
+        expect(settled).toBe(0);
+        release();
+        await Promise.all([first, second, receiptSave]);
+        const count = writes.mock.calls.length;
+        await service.observeCommandInventory("session", [goal]);
+        expect(writes).toHaveBeenCalledTimes(count);
+        expect(
+          JSON.parse(await readFile(service.getFilePath(), "utf8")).sessions
+            .session.codexGoalCommand,
+        ).toEqual(goal);
+        expect(
+          JSON.parse(await readFile(service.getFilePath(), "utf8")).sessions
+            .session.localCommandMessages,
+        ).toEqual([receipt]);
+      } finally {
+        release();
+        await Promise.allSettled([first, second, receiptSave]);
+        writes.mockRestore();
+      }
+    });
+
     it("restores observed goals and clears without inferring from receipts", async () => {
       await service.initialize();
       const goal: SlashCommand = {

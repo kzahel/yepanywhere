@@ -2777,6 +2777,14 @@ export class CodexProvider implements AgentProvider {
         runtimeState.backgroundToolCallIds.clear();
         failureTrace.activeTurnId = activeTurnId;
         let turnComplete = turn.status !== "inProgress";
+        if (!turnComplete) {
+          yield {
+            type: "system",
+            subtype: "session_state_changed",
+            state: "running",
+            session_id: sessionId,
+          };
+        }
         let emittedTurnError = false;
         let overloadError: SDKMessage | null = null;
         let suppressedPreTurnNotifications: {

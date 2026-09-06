@@ -116,6 +116,58 @@ describe("Codex native compaction delivery", () => {
   }
 
   it.each([null, "paused"])(
+    "keeps an initial goal query idle with goal status %s",
+    async (goalStatus) => {
+      if (goalStatus) {
+        await writeFile(
+          join(root, "goal.json"),
+          JSON.stringify({
+            threadId: sessionId,
+            objective: "Keep the paused goal",
+            status: goalStatus,
+            tokenBudget: null,
+            tokensUsed: 0,
+            timeUsedSeconds: 0,
+            createdAt: 1,
+            updatedAt: 1,
+          }),
+        );
+      }
+      const response = await resume("/goal");
+      expect(response.status).toBe(200);
+      const process = server.supervisor.getProcessForSession(sessionId);
+      expect(process?.state.type).toBe("idle");
+      expect(
+        (await requests()).filter((r) => r.method === "turn/start"),
+      ).toEqual([]);
+      const deferred = process?.deferMessage(
+        { text: "next work" },
+        { promoteIfReady: true },
+      );
+      expect(deferred).toMatchObject({ success: true, promoted: true });
+      await expect
+        .poll(
+          async () =>
+            (await requests()).filter((r) => r.method === "turn/start").length,
+        )
+        .toBe(1);
+    },
+  );
+
+  it("observes a goal-started turn before any assistant output", async () => {
+    const response = await resume("/goal Work autonomously");
+    expect(response.status).toBe(200);
+    const process = server.supervisor.getProcessForSession(sessionId);
+    await expect.poll(() => process?.state.type).toBe("in-turn");
+    expect(
+      process?.getMessageHistory().some((m) => m.type === "assistant"),
+    ).toBe(false);
+    expect((await requests()).filter((r) => r.method === "turn/start")).toEqual(
+      [],
+    );
+  });
+
+  it.each([null, "paused"])(
     "resumes directly into native compaction with goal status %s",
     async (goalStatus) => {
       if (goalStatus)
