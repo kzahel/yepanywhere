@@ -80,7 +80,7 @@
   "yepAnywhere": {
     "codexCli": {
       "expectedVersion": "0.153.3",
-      "compatibleThroughVersion": "0.153.3"
+      "compatibleThroughVersion": "0.153.4"
     },
     "claudeCode": {
       "compatibleThroughVersion": "2.1.258",

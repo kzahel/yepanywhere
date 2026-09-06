@@ -163,7 +163,30 @@ older installs may continue to work when YA does not need newer protocol fields,
 and version-sensitive behavior should be capability- or version-gated where
 possible.
 
-Current source refresh, 2026-09-04 (0.153.3):
+Current compatibility audit, 2026-09-06 (0.153.4):
+
+- Installed Codex is `0.153.4`. Official tag `rust-v0.153.4` resolves to
+  `3d2ee51ca2d5db578f328aa75e20aa22c0197c9a`. Compared with `rust-v0.153.3`,
+  only the workspace version, bundled model catalog, and model-picker snapshot
+  changed. No app-server, durable transcript, or compaction implementation
+  changed.
+- Astra's bundled visibility changes from `hide` to `list`. Its instructions
+  now qualify asynchronous user-input tool guidance with "When available".
+  YA already consumes provider model visibility and exposes Astra as the
+  provider-marked default; its authenticated-discovery failure fallback remains
+  Sol.
+- `pnpm codex:protocol:check` passes against the installed binary with no
+  generated subset drift. The running YA `/api/providers/codex` response
+  exposes Astra as default with its existing 272,000-token metadata.
+
+Status: no YA runtime change is needed for 0.153.4. Advance only
+`compatibleThroughVersion`; `expectedVersion` and the reference checkout stay
+at 0.153.3 because the checked-in protocol source needs no refresh. This
+release contains no fix for the observed upstream compaction stream timeout.
+The next provider release or consumed protocol/catalog change triggers another
+audit.
+
+Previous source refresh, 2026-09-04 (0.153.3):
 
 - Installed Codex is `0.153.3`. The official `rust-v0.153.3` annotated tag
   object is `29d1e7f316229cd65c7e4a70476050c14962cf10`; it peels to commit
