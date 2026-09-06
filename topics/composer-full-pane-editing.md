@@ -23,6 +23,12 @@ Topic: composer-full-pane-editing
   it sideways.
 - Full-pane mode is transient UI state. Leaving the page or restoring the
   ordinary composer does not change a saved preference or the draft text.
+- A nonempty in-session composer exposes **Clear composer** at its upper left
+  on phone widths (600px or less). It shares `Ctrl+G` behavior: stop dictation,
+  clear the text through the browser undo path, remove draft attachments and
+  correction state, persist the cleared draft, and focus the composer. Empty
+  composers hide it, and disabled composers cannot clear. Desktop retains the
+  keyboard shortcut without another visible control.
 - The textarea continually resizes as the draft changes. Its target height is
   the rendered draft plus one additional text line, capped by the space
   available in the pane; once capped, the textarea scrolls internally.

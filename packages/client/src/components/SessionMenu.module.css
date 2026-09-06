@@ -44,7 +44,8 @@
   width: max-content;
   max-width: calc(100vw - 16px);
   z-index: 10000; /* High z-index to appear above sidebar (z-index: 101) and modals */
-  overflow: hidden;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
 }
 
 .dropdown button {

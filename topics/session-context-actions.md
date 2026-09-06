@@ -245,6 +245,12 @@ are consumed while idle without requiring another user message. A command
 rejection on a live worker preserves that worker and returns the reason; it
 must not be interpreted as a dead worker and retried on a replacement.
 
+A paused goal does not block native compaction on resume. Codex's “Resume
+paused goal?” interview belongs to its TUI; YA uses the app-server protocol,
+which has no such interview. YA preserves the provider's goal status while
+requesting compaction and never sends an implicit goal-resume operation to
+complete it. Goal pause/resume remains an explicit user control.
+
 While Codex is in a turn or waiting for input, the compact autocomplete entry
 explains that it is unavailable until the turn finishes, including tool waits.
 The session menu disables Compact with a visible turn-active label. Submitting

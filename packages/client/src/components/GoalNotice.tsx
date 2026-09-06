@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useI18n } from "../i18n";
 import { useTextTooltipAttributes } from "../hooks/useTooltipAppearance";
 import { LinkifiedText } from "./ui/LinkifiedText";
@@ -21,15 +22,69 @@ export function GoalNotice({
   );
 }
 
-export function GoalFlag({ objective }: { objective: string }) {
+export function GoalFlag({
+  objective,
+  status,
+  onToggle,
+  onEdit,
+}: {
+  objective: string;
+  status?: string | null;
+  onToggle?: (action: "pause" | "resume") => Promise<unknown>;
+  onEdit?: () => void;
+}) {
   const { t } = useI18n();
-  const tooltip = useTextTooltipAttributes(objective);
+  const [pending, setPending] = useState(false);
+  const action =
+    status === "active"
+      ? "pause"
+      : status === "paused" || status === "blocked" || status === "usageLimited"
+        ? "resume"
+        : undefined;
+  const statusLabels: Record<string, string> = {
+    active: t("goalStatusActive"),
+    paused: t("goalStatusPaused"),
+    blocked: t("goalStatusBlocked"),
+    usageLimited: t("goalStatusUsageLimited"),
+    budgetLimited: t("goalStatusBudgetLimited"),
+    complete: t("goalStatusComplete"),
+  };
+  const statusLabel = status ? (statusLabels[status] ?? status) : undefined;
+  const tooltip = useTextTooltipAttributes(
+    [
+      statusLabel && t("goalFlagStatus", { status: statusLabel }),
+      objective,
+      pending
+        ? t("goalFlagUpdating")
+        : onToggle && action
+          ? t(action === "pause" ? "goalFlagPauseHint" : "goalFlagResumeHint")
+          : undefined,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  );
   return (
     <button
       type="button"
       className={styles.flag}
       {...tooltip}
       aria-label={t("goalFlagLabel", { objective })}
+      data-goal-status={status ?? undefined}
+      aria-busy={pending}
+      aria-disabled={pending}
+      onClick={async () => {
+        if (pending || !action || !onToggle) return;
+        setPending(true);
+        try {
+          await onToggle(action);
+        } finally {
+          setPending(false);
+        }
+      }}
+      onMouseDown={(event) => {
+        if (event.button === 2) event.preventDefault();
+      }}
+      onContextMenu={onEdit}
     >
       <svg
         width="16"

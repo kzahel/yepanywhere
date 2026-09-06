@@ -129,6 +129,35 @@ resume:
   liveness, ownership, idempotency, first-message wake, ordinary idle reaping,
   and recovered patient-message promotion.
 
+## Restart provider
+
+The full session's options menu offers **Restart provider** beside Terminate
+when YA owns a process and the server supports `sidebar-session-resume`.
+It stops current provider work, waits for verified termination, then reactivates
+the same saved session without a user message or launch-setting overrides.
+The page reloads after activation so provider transcript reads include turns
+saved by a separately resumed TUI. The composer draft is flushed before the
+operation and survives the reload. The session id and saved launch policy stay
+the same; this action neither forks nor creates a handoff.
+
+Failure to verify termination prevents reactivation and shows the error. A
+reactivation failure leaves the session stopped and shows the error; it does
+not silently restart another session. Restart does not set Terminate's durable
+auto-resume exemption. Existing stop behavior pauses recap automation until a
+subsequent user turn. Provider goal state is preserved, so an active native goal
+may autonomously continue after the provider resumes.
+
+Restart controls only the YA-owned process. A separate TUI process is neither
+stopped nor continuously synchronized; the action reads its saved work at the
+new provider attachment. Late writes still require another refresh/restart.
+The menu measures its rendered size, stays within the viewport, and scrolls
+when its actions exceed the available height.
+
+This composes existing verified-abort and message-less-reactivation routes.
+Both are supported by the optional-feature corpus `v0.8.1` (2026-09-05) and
+`v0.8.0` (2026-08-31). Older servers without `sidebar-session-resume` omit the
+action; no capability meaning or server wire contract is expanded.
+
 ## Direct-message resume readiness
 
 `POST …/sessions/:sessionId/resume` reports `resume.outcome: "started"` only

@@ -375,6 +375,12 @@ describe("CodexProvider", () => {
                   description: "Current goal",
                 },
               ]),
+              providerDetails: {
+                codex: {
+                  goalObjective: "Ship the native goal path",
+                  goalStatus: "paused",
+                },
+              },
             }),
           ]),
         );
@@ -406,7 +412,9 @@ describe("CodexProvider", () => {
           expect.arrayContaining([
             expect.objectContaining({
               name: "goal",
-              providerDetails: { codex: { goalObjective: null } },
+              providerDetails: {
+                codex: { goalObjective: null, goalStatus: null },
+              },
             }),
           ]),
         );
@@ -553,10 +561,34 @@ describe("CodexProvider", () => {
               slash_command_inventory: expect.arrayContaining([
                 expect.objectContaining({
                   name: "goal",
-                  providerDetails: { codex: { goalObjective: "Keep working" } },
+                  providerDetails: {
+                    codex: {
+                      goalObjective: "Keep working",
+                      goalStatus: "active",
+                    },
+                  },
                 }),
               ]),
             }),
+          );
+          await session.runProviderCommand?.("goal", "pause");
+          await vi.waitFor(() =>
+            expect(messages).toContainEqual(
+              expect.objectContaining({
+                subtype: "commands_changed",
+                slash_command_inventory: expect.arrayContaining([
+                  expect.objectContaining({
+                    name: "goal",
+                    providerDetails: {
+                      codex: {
+                        goalObjective: "Keep working",
+                        goalStatus: "paused",
+                      },
+                    },
+                  }),
+                ]),
+              }),
+            ),
           );
         } finally {
           await session.abort();

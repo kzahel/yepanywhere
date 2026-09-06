@@ -112,6 +112,22 @@ is saved too. Unknown inventory never erases a saved observation; a fresh
 provider observation replaces it. Changes made outside YA while no worker is
 observing become visible when the provider is attached and queried again.
 Historical receipts are never used to infer current provider state.
+When inventory includes `providerDetails.codex.goalStatus`, the outlined flag
+uses subtle green for active and yellow for paused, and its tooltip names the
+actual status. Click, tap, or keyboard activation pauses an active goal or
+resumes a paused, blocked, or usage-limited goal. Complete, budget-limited, and
+unknown states remain inspectable without a toggle. While a request is pending,
+the tooltip says so and duplicate activation is ignored. The flag changes only
+on a provider observation, including status-only notifications; rejected or
+limited transitions never acquire an optimistic success color. These controls
+use the existing native command delivery during active turns and preserve the
+composer draft, attachments, and current turn status.
+
+Right-click retains the themed tooltip's enlarge/copy behavior. It also fills
+an empty or whitespace-only composer with `/goal <current objective>` and
+focuses it for editing. A nonempty draft remains untouched. This is an explicit
+user action and does not submit or replace the goal by itself.
+
 Interactive `/goal edit` is not advertised because YA has no provider goal
 editor; an explicit attempt directs the user to `/goal <objective>`.
 
@@ -120,6 +136,9 @@ the objective itself, rather than a collapsed “Goal set” heading. Read, clea
 pause, and resume receipts share that style. The receipt acknowledges the
 submitted composer temp ID, so the local command does not leave a “Sending…”
 bubble while waiting for a provider user-turn echo that will never exist.
+With status-aware inventory, submitting a native goal command also preserves
+the observed idle/busy state until actual provider lifecycle events change it;
+reading or reissuing the same goal must not create a synthetic busy turn.
 
 Goal receipts are YA-owned display history. YA saves the existing
 `system/local_command` row in session metadata before publishing it, preserving
@@ -147,6 +166,12 @@ Current-objective metadata and argument completions are optional inventory
 fields. Servers that omit them retain command-name completion and no current
 goal flag; the client makes no additional provider or REST requests for these
 enhancements. No existing capability is expanded.
+The optional status field also gates flag toggling: inventories without it keep
+the neutral objective-only flag and make no toggle request. The optional-feature
+review covered `v0.8.1` (2026-09-05) and `v0.8.0` (2026-08-31), the latest two
+stable releases and all stable releases within 14 days. Both lack the status
+field; no route, command meaning, or existing capability changes. The maintainer
+approved completing this plan on 2026-09-06.
 
 ## Default Skill Vocabulary
 

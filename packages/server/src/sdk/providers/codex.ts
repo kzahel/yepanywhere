@@ -418,6 +418,7 @@ interface TokenUsageSnapshot {
 interface CodexTurnRuntimeState {
   threadId: string;
   goalObjective?: string | null;
+  goalStatus?: ThreadGoalSetResponse["goal"]["status"] | null;
   resolvedModel: string;
   turnModelOverride: string | null;
   latestTokenUsage?: TokenUsageSnapshot;
@@ -1915,6 +1916,7 @@ export class CodexProvider implements AgentProvider {
                   } satisfies ThreadGoalGetParams,
                 );
               runtimeState.goalObjective = goal?.objective ?? null;
+              runtimeState.goalStatus = goal?.status ?? null;
             } catch (error) {
               log.debug({ error }, "Codex goal completion is unavailable");
             }
@@ -1924,6 +1926,7 @@ export class CodexProvider implements AgentProvider {
           skillInventory.skills,
           skillInventory.stale ? "stale" : "current",
           runtimeState.goalObjective,
+          runtimeState.goalStatus,
         );
       },
       steer: async (message) => {
@@ -2701,13 +2704,14 @@ export class CodexProvider implements AgentProvider {
               skillInventory.skills,
               skillInventory.stale ? "stale" : "current",
               runtimeState.goalObjective,
+              runtimeState.goalStatus,
             ),
           } as SDKMessage);
         }
         const params = notification.params as
           | {
               threadId?: string;
-              goal?: { objective?: string };
+              goal?: ThreadGoalSetResponse["goal"];
             }
           | undefined;
         if (
@@ -2721,8 +2725,17 @@ export class CodexProvider implements AgentProvider {
             ? null
             : params.goal?.objective;
         if (objective !== null && typeof objective !== "string") return null;
-        if (objective === runtimeState.goalObjective) return null;
+        const goalStatus =
+          notification.method === "thread/goal/cleared"
+            ? null
+            : params.goal?.status;
+        if (
+          objective === runtimeState.goalObjective &&
+          goalStatus === runtimeState.goalStatus
+        )
+          return null;
         runtimeState.goalObjective = objective;
+        runtimeState.goalStatus = goalStatus;
         return withCodexTimestamp({
           type: "system",
           subtype: "commands_changed",
@@ -2731,6 +2744,7 @@ export class CodexProvider implements AgentProvider {
             skillInventory.skills,
             skillInventory.stale ? "stale" : "current",
             objective,
+            goalStatus,
           ),
         } as SDKMessage);
       };
@@ -3763,12 +3777,13 @@ export class CodexProvider implements AgentProvider {
     skills: readonly SkillMetadata[],
     inventoryState: "current" | "stale" = "current",
     goalObjective?: string | null,
+    goalStatus?: ThreadGoalSetResponse["goal"]["status"] | null,
   ): SlashCommand[] {
     const commands: SlashCommand[] = CODEX_BUILTIN_COMMANDS.map((command) =>
       command.name === "goal" && goalObjective !== undefined
         ? {
             ...command,
-            providerDetails: { codex: { goalObjective } },
+            providerDetails: { codex: { goalObjective, goalStatus } },
             argumentCompletions: [
               ...(goalObjective
                 ? [{ value: goalObjective, description: "Current goal" }]

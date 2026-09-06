@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,9 @@ if (process.argv[2] === "--version") {
 }
 
 const logPath = join(dirname(fileURLToPath(import.meta.url)), "requests.jsonl");
+let goal = JSON.parse(
+  readFileSync(join(dirname(logPath), "goal.json"), "utf8"),
+);
 let threadId = "compact-session";
 let sequence = 0;
 const send = (value) =>
@@ -29,7 +32,12 @@ for await (const line of createInterface({ input: process.stdin })) {
       reply({ data: [{ cwd: process.cwd(), skills: [], errors: [] }] });
       break;
     case "thread/goal/get":
-      reply({ goal: null });
+      reply({ goal });
+      break;
+    case "thread/goal/set":
+      goal = { ...goal, ...request.params };
+      reply({ goal });
+      notify("thread/goal/updated", { threadId, goal });
       break;
     case "thread/start":
     case "thread/resume":
@@ -39,6 +47,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         model: "gpt-6-astra",
         reasoningEffort: "high",
       });
+      if (goal) notify("thread/goal/updated", { threadId, goal });
       break;
     case "thread/compact/start": {
       reply({});

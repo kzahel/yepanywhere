@@ -27,6 +27,7 @@ describe("Codex native compaction delivery", () => {
     projectPath = join(root, "project");
     projectId = encodeProjectId(projectPath);
     await mkdir(projectPath);
+    await writeFile(join(root, "goal.json"), "null");
     const sessionsDir = join(root, "sessions");
     await mkdir(sessionsDir);
     await writeFile(
@@ -114,43 +115,75 @@ describe("Codex native compaction delivery", () => {
     });
   }
 
-  it("resumes directly into native compaction without a model turn", async () => {
-    const response = await resume("/compact");
-    expect(await response.json()).not.toHaveProperty("error");
-    expect(response.status).toBe(200);
-    expect(
-      server.supervisor.getProcessForSession(sessionId)?.getMessageHistory(),
-    ).toContainEqual(
-      expect.objectContaining({
-        type: "system",
-        subtype: "local_command",
-        tempId: "compact-send",
-      }),
-    );
-    await expect
-      .poll(
-        async () =>
-          (await requests()).filter((r) => r.method === "thread/compact/start")
-            .length,
-      )
-      .toBe(1);
-    const process = server.supervisor.getProcessForSession(sessionId);
-    expect(process).toBeDefined();
-    await expect
-      .poll(() =>
-        process
-          ?.getMessageHistory()
-          .some((m) => m.type === "system" && m.subtype === "compact_boundary"),
-      )
-      .toBe(true);
-    expect(process?.getMessageHistory()).toContainEqual(
-      expect.objectContaining({ type: "system", status: "compacting" }),
-    );
-    await expect.poll(() => process?.state.type).toBe("idle");
-    expect((await requests()).filter((r) => r.method === "turn/start")).toEqual(
-      [],
-    );
-  });
+  it.each([null, "paused"])(
+    "resumes directly into native compaction with goal status %s",
+    async (goalStatus) => {
+      if (goalStatus)
+        await writeFile(
+          join(root, "goal.json"),
+          JSON.stringify({
+            threadId: sessionId,
+            objective: "Keep the paused goal",
+            status: goalStatus,
+            tokenBudget: null,
+            tokensUsed: 12,
+            timeUsedSeconds: 3,
+            createdAt: 1,
+            updatedAt: 1,
+          }),
+        );
+      const response = await resume("/compact");
+      expect(await response.json()).not.toHaveProperty("error");
+      expect(response.status).toBe(200);
+      expect(
+        server.supervisor.getProcessForSession(sessionId)?.getMessageHistory(),
+      ).toContainEqual(
+        expect.objectContaining({
+          type: "system",
+          subtype: "local_command",
+          tempId: "compact-send",
+        }),
+      );
+      await expect
+        .poll(
+          async () =>
+            (await requests()).filter(
+              (r) => r.method === "thread/compact/start",
+            ).length,
+        )
+        .toBe(1);
+      const process = server.supervisor.getProcessForSession(sessionId);
+      expect(process).toBeDefined();
+      await expect
+        .poll(() =>
+          process
+            ?.getMessageHistory()
+            .some(
+              (m) => m.type === "system" && m.subtype === "compact_boundary",
+            ),
+        )
+        .toBe(true);
+      expect(process?.getMessageHistory()).toContainEqual(
+        expect.objectContaining({ type: "system", status: "compacting" }),
+      );
+      await expect.poll(() => process?.state.type).toBe("idle");
+      expect(
+        (await requests()).filter((r) => r.method === "turn/start"),
+      ).toEqual([]);
+      expect(
+        (await requests()).filter((r) => r.method === "thread/goal/set"),
+      ).toEqual([]);
+      if (goalStatus)
+        expect(await process?.supportedCommands()).toContainEqual(
+          expect.objectContaining({
+            name: "goal",
+            providerDetails: {
+              codex: { goalObjective: "Keep the paused goal", goalStatus },
+            },
+          }),
+        );
+    },
+  );
 
   it.each(["resume", "direct", "deferred"] as const)(
     "compacts an idle session through %s delivery",
@@ -175,6 +208,61 @@ describe("Codex native compaction delivery", () => {
         (await requests()).filter((r) => r.method === "turn/start"),
       ).toHaveLength(1);
       expect(process?.getDeferredQueueSummary()).toEqual([]);
+    },
+  );
+
+  it.each(["pause", "resume"])(
+    "applies goal %s during work without another turn",
+    async (action) => {
+      await writeFile(
+        join(root, "goal.json"),
+        JSON.stringify({
+          threadId: sessionId,
+          objective: "Preserve current work",
+          status: action === "pause" ? "active" : "paused",
+          tokenBudget: null,
+          tokensUsed: 12,
+          timeUsedSeconds: 3,
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+      );
+      expect((await resume("hold")).status).toBe(200);
+      const process = server.supervisor.getProcessForSession(sessionId);
+      await expect
+        .poll(async () =>
+          (await requests()).some((r) => r.method === "turn/start"),
+        )
+        .toBe(true);
+      const response = await server.app.request(
+        `/api/sessions/${sessionId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Yep-Anywhere": "true",
+          },
+          body: JSON.stringify({ message: `/goal ${action}`, deferred: true }),
+        },
+      );
+      expect(response.status).toBe(200);
+      expect(process?.state.type).toBe("in-turn");
+      expect(process?.getDeferredQueueSummary()).toEqual([]);
+      expect(await process?.supportedCommands()).toContainEqual(
+        expect.objectContaining({
+          name: "goal",
+          providerDetails: {
+            codex: {
+              goalObjective: "Preserve current work",
+              goalStatus: action === "pause" ? "paused" : "active",
+            },
+          },
+        }),
+      );
+      const log = await requests();
+      expect(log.filter((r) => r.method === "thread/goal/set")).toHaveLength(1);
+      expect(log.filter((r) => r.method === "turn/start")).toHaveLength(1);
+      expect(log.filter((r) => r.method === "turn/interrupt")).toEqual([]);
     },
   );
 

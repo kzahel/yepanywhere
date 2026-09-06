@@ -1,5 +1,5 @@
 import type { PromptSuggestionMode } from "@yep-anywhere/shared";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../i18n";
 import styles from "./SessionMenu.module.css";
@@ -39,6 +39,8 @@ export interface SessionMenuProps {
   onClear?: () => void | Promise<void>;
   /** Called to terminate the session's process */
   onTerminate?: () => void | Promise<void>;
+  /** Stop the provider, reopen its saved session, and refresh the view. */
+  onRestartProvider?: () => Promise<void>;
   /** Reload the page (non-swipe alternative for mobile) */
   onReload?: () => void;
   /** Called to configure session heartbeat settings */
@@ -94,6 +96,7 @@ export function SessionMenu({
   onHandoff,
   onClear,
   onTerminate,
+  onRestartProvider,
   onReload,
   onConfigureHeartbeat,
   onConfigureProjectSettings,
@@ -112,6 +115,7 @@ export function SessionMenu({
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [isTerminating, setIsTerminating] = useState(false);
+  const [isRestartingProvider, setIsRestartingProvider] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{
@@ -122,25 +126,6 @@ export function SessionMenu({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const dropdownItemCount =
-    3 +
-    (onOpenNewTab ? 1 : 0) +
-    (onClone || cloneUnavailableMessage ? 1 : 0) +
-    (onGenerateTitle ? 1 : 0) +
-    (onCopyPrompt ? 1 : 0) +
-    (onConfigureProjectSettings ? 1 : 0) +
-    (onConfigureHeartbeat ? 1 : 0) +
-    (onConfigureRecaps ? 1 : 0) +
-    (onTogglePromptSuggestions ? 1 : 0) +
-    (warningRestoreAvailable && onRestoreWarnings ? 1 : 0) +
-    (onCompact ? 1 : 0) +
-    (onHandoff ? 1 : 0) +
-    (onClear ? 1 : 0) +
-    (onShare ? 1 : 0) +
-    (onToggleRead ? 1 : 0) +
-    (processId && onTerminate ? 1 : 0) +
-    (onReload ? 1 : 0);
 
   // Close menu when clicking outside or scrolling (mobile)
   useEffect(() => {
@@ -172,9 +157,11 @@ export function SessionMenu({
     };
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
     };
   }, [isOpen]);
 
@@ -190,39 +177,34 @@ export function SessionMenu({
       setDropdownPosition(null);
       triggerRef.current?.blur();
     } else {
-      // Calculate position synchronously before opening to avoid flicker
-      if (useFixedPositioning && triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        const dropdownWidth = 180; // Approximate width of dropdown
-        const dropdownHeight = Math.max(180, dropdownItemCount * 36 + 2);
-        const rightPosition = window.innerWidth - rect.right;
-        const margin = 8;
-
-        // Check if dropdown would overflow bottom of viewport
-        const wouldOverflowBottom =
-          rect.bottom + margin + dropdownHeight > window.innerHeight;
-
-        // Calculate vertical position - show above trigger if it would overflow bottom
-        const top = wouldOverflowBottom
-          ? rect.top - dropdownHeight - margin
-          : rect.bottom + margin;
-
-        // If right-aligned would overflow left edge, use left-aligned instead
-        if (rect.right - dropdownWidth < margin) {
-          setDropdownPosition({
-            top,
-            left: rect.left,
-          });
-        } else {
-          setDropdownPosition({
-            top,
-            right: rightPosition,
-          });
-        }
-      }
       setIsOpen(true);
     }
   };
+
+  useLayoutEffect(() => {
+    if (!isOpen || !useFixedPositioning) return;
+    const trigger = triggerRef.current;
+    const dropdown = dropdownRef.current;
+    if (!trigger || !dropdown) return;
+    const rect = trigger.getBoundingClientRect();
+    const { width, height } = dropdown.getBoundingClientRect();
+    const margin = 8;
+    const below = rect.bottom + margin;
+    const preferredTop =
+      below + height <= window.innerHeight - margin
+        ? below
+        : rect.top - height - margin;
+    setDropdownPosition({
+      top: Math.max(
+        margin,
+        Math.min(preferredTop, window.innerHeight - height - margin),
+      ),
+      left: Math.max(
+        margin,
+        Math.min(rect.right - width, window.innerWidth - width - margin),
+      ),
+    });
+  }, [isOpen, useFixedPositioning]);
 
   const handleAction = (action: () => void | Promise<void>) => {
     setIsOpen(false);
@@ -289,6 +271,7 @@ export function SessionMenu({
   const dropdownStyle = useFixedPositioning
     ? {
         position: "fixed" as const,
+        marginTop: 0,
         top: dropdownPosition?.top ?? 100,
         ...(dropdownPosition?.left !== undefined
           ? { left: dropdownPosition.left }
@@ -635,6 +618,39 @@ export function SessionMenu({
             )}
           </svg>
           {hasUnread ? t("sessionMenuMarkRead") : t("sessionMenuMarkUnread")}
+        </button>
+      )}
+      {processId && onRestartProvider && (
+        <button
+          type="button"
+          disabled={isRestartingProvider || isTerminating}
+          title={t("sessionMenuRestartProviderHint")}
+          onClick={async () => {
+            if (isRestartingProvider) return;
+            setIsRestartingProvider(true);
+            setIsOpen(false);
+            triggerRef.current?.blur();
+            try {
+              await onRestartProvider();
+            } finally {
+              setIsRestartingProvider(false);
+            }
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <path d="M3 11a9 9 0 1 1 2.7 7M3 4v7h7" />
+          </svg>
+          {isRestartingProvider
+            ? t("sessionMenuRestartingProvider")
+            : t("sessionMenuRestartProvider")}
         </button>
       )}
       {processId && onTerminate && (

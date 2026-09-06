@@ -38,3 +38,15 @@
   border-radius: 4px;
   cursor: pointer;
 }
+
+.flag[data-goal-status="active"] {
+  color: color-mix(in srgb, var(--success-color) 75%, var(--text-secondary));
+}
+
+.flag[data-goal-status="paused"] {
+  color: color-mix(in srgb, var(--warning-color) 75%, var(--text-secondary));
+}
+
+.flag[aria-busy="true"] {
+  cursor: progress;
+}

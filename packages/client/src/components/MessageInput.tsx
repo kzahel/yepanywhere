@@ -2310,6 +2310,29 @@ export function MessageInput({
     setRecallDrawer(null);
   };
 
+  const clearComposer = () => {
+    if (disabled) return;
+    voiceButtonRef.current?.stopAndFinalize();
+    if (textareaRef.current) {
+      clearTextareaContentsUndoably(textareaRef.current);
+    }
+    setInterimTranscript("");
+    noteDraftTextChange(text, "", {
+      start: 0,
+      end: text.length,
+      insertedText: "",
+      inputType: "deleteContent",
+    });
+    setText("");
+    resetCompositionMetadata();
+    controls.flushDraft();
+    for (const attachment of attachments) {
+      onRemoveAttachment?.(attachment.id);
+    }
+    onCancelCorrection?.();
+    textareaRef.current?.focus();
+  };
+
   const handleKeyDown = (e: KeyboardEvent) => {
     if (isFullPaneComposerShortcut(e)) {
       e.preventDefault();
@@ -2662,27 +2685,7 @@ export function MessageInput({
 
     if (e.key.toLowerCase() === "g" && e.ctrlKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
-      if (!disabled) {
-        voiceButtonRef.current?.stopAndFinalize();
-        if (textareaRef.current) {
-          clearTextareaContentsUndoably(textareaRef.current);
-        }
-        setInterimTranscript("");
-        noteDraftTextChange(text, "", {
-          start: 0,
-          end: text.length,
-          insertedText: "",
-          inputType: "deleteContent",
-        });
-        setText("");
-        resetCompositionMetadata();
-        controls.flushDraft();
-        for (const attachment of attachments) {
-          onRemoveAttachment?.(attachment.id);
-        }
-        onCancelCorrection?.();
-        textareaRef.current?.focus();
-      }
+      clearComposer();
       return;
     }
 
@@ -3337,6 +3340,29 @@ export function MessageInput({
       data-composer-full-pane={fullPane ? "true" : undefined}
       onKeyDownCapture={handleComposerKeyDown}
     >
+      {!composerIsEmpty && (
+        <button
+          type="button"
+          className={styles.clearComposer}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={clearComposer}
+          disabled={disabled}
+          aria-label={t("toolbarShortcutClearComposer")}
+          title={t("toolbarShortcutClearComposer")}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            aria-hidden="true"
+          >
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      )}
       {/* Floating toggle button - only show when user can control collapse (not externally collapsed) */}
       {!externalCollapsed && (
         <button

@@ -17,6 +17,7 @@ import {
   PROJECT_SESSION_DEFAULTS_CAPABILITY,
   PROJECT_CODE_NAMES_CAPABILITY,
   PUBLIC_SHARE_MANAGEMENT_CAPABILITY,
+  SIDEBAR_SESSION_RESUME_CAPABILITY,
   SYNTHETIC_ARCHIVE_COMMAND_CAPABILITY,
   SYNTHETIC_DONE_COMMAND_CAPABILITY,
   SYNTHETIC_TERMINATE_COMMAND_CAPABILITY,
@@ -659,8 +660,9 @@ function SessionPageContent({
   );
   const providerRuntimeStatus =
     useProviderRuntimeStatusForSession(actualSessionId);
-  const currentGoal = slashCommands.find((command) => command.name === "goal")
-    ?.providerDetails?.codex?.goalObjective;
+  const goalDetails = slashCommands.find((command) => command.name === "goal")
+    ?.providerDetails?.codex;
+  const currentGoal = goalDetails?.goalObjective;
   const sessionLoadingProgressText =
     sessionLoadingProgressEnabled && sessionLoadingProgressDetailsVisible
       ? getSessionLoadingProgressText(sessionLoadProgress, t)
@@ -2236,14 +2238,20 @@ function SessionPageContent({
   const handleSend = async (
     text: string,
     metadata?: MessageSubmissionMetadata,
-    options: { preserveComposer?: boolean } = {},
+    options: { preserveComposer?: boolean; localControl?: boolean } = {},
   ): Promise<boolean> => {
-    const prepared = prepareComposerSubmission(text);
+    const prepared: PreparedComposerSubmission | null = options.localControl
+      ? { outgoingText: text }
+      : prepareComposerSubmission(text);
     if (!prepared) {
       return false;
     }
     const preserveComposer = options.preserveComposer === true;
     const { outgoingText, slashCommand } = prepared;
+    const localControl =
+      options.localControl ||
+      (goalDetails?.goalStatus !== undefined &&
+        /^\/goal(?:\s|$)/i.test(outgoingText));
     if (
       !preserveComposer &&
       requiresAttachmentOnlyServerUpdate({
@@ -2269,8 +2277,10 @@ function SessionPageContent({
       undefined,
       clientTimestampIso,
     );
-    setProcessState("in-turn"); // Optimistic: show processing indicator immediately
-    setScrollTrigger((prev) => prev + 1); // Force scroll to bottom
+    if (!localControl) {
+      setProcessState("in-turn"); // Optimistic: show processing indicator immediately
+      setScrollTrigger((prev) => prev + 1); // Force scroll to bottom
+    }
     logSessionUiTrace("composer-send-start", {
       sessionId,
       projectId,
@@ -2506,7 +2516,7 @@ function SessionPageContent({
         draftControlsRef.current?.restoreFromStorage();
         setComposerAttachments(currentAttachments, { persistDraft: false });
       }
-      setProcessState("idle");
+      if (!localControl) setProcessState("idle");
       const errorMsg =
         finalError instanceof Error ? finalError.message : String(finalError);
       if (
@@ -4659,6 +4669,24 @@ function SessionPageContent({
     }
   };
 
+  const handleRestartProvider = async () => {
+    if (status.owner !== "self" || !status.processId) return;
+    draftControlsRef.current?.flushDraft();
+    try {
+      await api.abortProcess(status.processId);
+      setStatus({ owner: "none" });
+      await api.reactivateSession(projectId, actualSessionId);
+      window.location.reload();
+    } catch (error) {
+      showToast(
+        t("sessionRestartProviderFailed", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
+        "error",
+      );
+    }
+  };
+
   const handleShare = useCallback(() => {
     if (showShareModal) {
       setShowShareModal(false);
@@ -5080,7 +5108,27 @@ function SessionPageContent({
                   >
                     <span className="session-title-text">{displayTitle}</span>
                   </button>
-                  {currentGoal && <GoalFlag objective={currentGoal} />}
+                  {currentGoal && (
+                    <GoalFlag
+                      objective={currentGoal}
+                      status={goalDetails?.goalStatus}
+                      onToggle={
+                        goalDetails?.goalStatus
+                          ? (action) =>
+                              handleSend(`/goal ${action}`, undefined, {
+                                preserveComposer: true,
+                                localControl: true,
+                              })
+                          : undefined
+                      }
+                      onEdit={() => {
+                        const controls = draftControlsRef.current;
+                        if (!controls || controls.getDraft().trim()) return;
+                        controls.setDraft(`/goal ${currentGoal}`);
+                        controls.focus?.();
+                      }}
+                    />
+                  )}
                   <button
                     type="button"
                     className={`session-title-chevron-trigger${
@@ -5219,6 +5267,14 @@ function SessionPageContent({
                   }
                   compactDisabled={manualCompactBlocked}
                   onTerminate={handleTerminate}
+                  onRestartProvider={
+                    serverHasCapability(
+                      versionInfo,
+                      SIDEBAR_SESSION_RESUME_CAPABILITY,
+                    )
+                      ? handleRestartProvider
+                      : undefined
+                  }
                   onReload={() => window.location.reload()}
                   onShare={publicShareActionAvailable ? handleShare : undefined}
                   useFixedPositioning

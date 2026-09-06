@@ -4063,32 +4063,41 @@ describe("MessageInput", () => {
     expect(button.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("clears the composer with Ctrl+G through the textarea undo stack", () => {
-    const previousExecCommand = document.execCommand;
-    const execCommand = vi.fn(() => true);
-    Object.defineProperty(document, "execCommand", {
-      configurable: true,
-      value: execCommand,
-    });
-    const textarea = renderMessageInput();
+  it.each(["keyboard", "button"])(
+    "clears the composer through the textarea undo stack via %s",
+    (input) => {
+      const previousExecCommand = document.execCommand;
+      const execCommand = vi.fn(() => true);
+      Object.defineProperty(document, "execCommand", {
+        configurable: true,
+        value: execCommand,
+      });
+      const textarea = renderMessageInput();
 
-    try {
-      fireEvent.change(textarea, { target: { value: "undoable draft" } });
-      fireEvent.keyDown(textarea, { key: "g", ctrlKey: true });
+      try {
+        fireEvent.change(textarea, { target: { value: "undoable draft" } });
+        if (input === "keyboard") {
+          fireEvent.keyDown(textarea, { key: "g", ctrlKey: true });
+        } else {
+          fireEvent.click(
+            screen.getByRole("button", { name: "Clear composer" }),
+          );
+        }
 
-      expect(execCommand).toHaveBeenCalledWith("delete");
-      expect((textarea as HTMLTextAreaElement).value).toBe("");
-    } finally {
-      if (previousExecCommand) {
-        Object.defineProperty(document, "execCommand", {
-          configurable: true,
-          value: previousExecCommand,
-        });
-      } else {
-        Reflect.deleteProperty(document, "execCommand");
+        expect(execCommand).toHaveBeenCalledWith("delete");
+        expect((textarea as HTMLTextAreaElement).value).toBe("");
+      } finally {
+        if (previousExecCommand) {
+          Object.defineProperty(document, "execCommand", {
+            configurable: true,
+            value: previousExecCommand,
+          });
+        } else {
+          Reflect.deleteProperty(document, "execCommand");
+        }
       }
-    }
-  });
+    },
+  );
 
   it("shows stale last activity in the composer chrome", () => {
     vi.useFakeTimers();

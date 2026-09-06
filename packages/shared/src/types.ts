@@ -386,7 +386,11 @@ export interface GrokSlashCommandDetails {
 
 export interface SlashCommandProviderDetails {
   grok?: GrokSlashCommandDetails;
-  codex?: { goalObjective?: string | null };
+  codex?: {
+    goalObjective?: string | null;
+    /** Provider-observed status; omission keeps older inventories read-only. */
+    goalStatus?: string | null;
+  };
   [provider: string]: unknown;
 }
 

@@ -2,7 +2,29 @@
   overflow: hidden;
 }
 
+.clearComposer {
+  display: none;
+}
+
 @media (max-width: 600px) {
+  .clearComposer {
+    position: absolute;
+    top: -16px;
+    left: 10px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: var(--text-muted);
+    background: var(--bg-code);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+
   .collapsedWithLeadingMicrophone.collapsedWithLeadingMicrophone
     :global(.speech-draft-field)
     textarea {
