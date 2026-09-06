@@ -165,6 +165,44 @@ describe("AppearanceSettings", () => {
     ).toBeDefined();
   });
 
+  it("persists the tooltip offset, restores it on mount, and resets typography", () => {
+    const view = renderAppearanceSettings();
+    const number = screen.getByRole<HTMLInputElement>("spinbutton", {
+      name: "Tooltip size offset",
+    });
+    expect(number.value).toBe("0");
+    expect(
+      screen.getByRole("slider", { name: "Tooltip size offset" }),
+    ).toBeTruthy();
+    expect(
+      view.container.querySelector("[data-tooltip-specimen]")?.textContent,
+    ).toContain("Themed tooltip");
+
+    fireEvent.change(number, { target: { value: "2.5" } });
+    fireEvent.blur(number);
+    expect(localStorage.getItem(UI_KEYS.tooltipFontSizeOffset)).toBe("2.5");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        "--tooltip-font-size-offset",
+      ),
+    ).toBe("2.5px");
+    view.unmount();
+    renderAppearanceSettings();
+    expect(
+      screen.getByRole<HTMLInputElement>("spinbutton", {
+        name: "Tooltip size offset",
+      }).value,
+    ).toBe("2.5");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset typography" }));
+    expect(localStorage.getItem(UI_KEYS.tooltipFontSizeOffset)).toBeNull();
+    expect(
+      document.documentElement.style.getPropertyValue(
+        "--tooltip-font-size-offset",
+      ),
+    ).toBe("0px");
+  });
+
   it("places compact image galleries beside inline media and defaults them on", () => {
     const { container } = renderAppearanceSettings();
     const galleryToggle = screen.getByRole<HTMLInputElement>("checkbox", {

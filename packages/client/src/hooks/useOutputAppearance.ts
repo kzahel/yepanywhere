@@ -61,6 +61,11 @@ export const USER_TURN_FONT_SIZE_OFFSET_MAX_PX = 6;
 export const USER_TURN_FONT_SIZE_OFFSET_STEP_PX = 0.5;
 export const DEFAULT_USER_TURN_FONT_SIZE_OFFSET_PX = 0;
 
+export const TOOLTIP_FONT_SIZE_OFFSET_MIN_PX = -3;
+export const TOOLTIP_FONT_SIZE_OFFSET_MAX_PX = 6;
+export const TOOLTIP_FONT_SIZE_OFFSET_STEP_PX = 0.5;
+export const DEFAULT_TOOLTIP_FONT_SIZE_OFFSET_PX = 0;
+
 export const OUTPUT_LINE_SPACING_MIN_PERCENT = -30;
 export const OUTPUT_LINE_SPACING_MAX_PERCENT = 50;
 export const OUTPUT_LINE_SPACING_STEP_PERCENT = 1;
@@ -81,6 +86,7 @@ interface OutputAppearance {
   font: OutputProseFont;
   uiFont: OutputProseFont;
   userTurnFontSizeOffsetPx: number;
+  tooltipFontSizeOffsetPx: number;
   fontSizePx: number;
   fixedFont: OutputFixedFont;
   fixedFontSizeOffsetPx: number;
@@ -95,6 +101,7 @@ const DEFAULT_OUTPUT_APPEARANCE: OutputAppearance = {
   font: "system",
   uiFont: "system",
   userTurnFontSizeOffsetPx: DEFAULT_USER_TURN_FONT_SIZE_OFFSET_PX,
+  tooltipFontSizeOffsetPx: DEFAULT_TOOLTIP_FONT_SIZE_OFFSET_PX,
   fontSizePx: DEFAULT_OUTPUT_FONT_SIZE_PX,
   fixedFont: "system",
   fixedFontSizeOffsetPx: DEFAULT_OUTPUT_FIXED_FONT_SIZE_OFFSET_PX,
@@ -182,6 +189,15 @@ function normalizeUserTurnFontSizeOffset(value: number): number {
     roundToStep(value, USER_TURN_FONT_SIZE_OFFSET_STEP_PX),
     USER_TURN_FONT_SIZE_OFFSET_MIN_PX,
     USER_TURN_FONT_SIZE_OFFSET_MAX_PX,
+  );
+}
+
+function normalizeTooltipFontSizeOffset(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TOOLTIP_FONT_SIZE_OFFSET_PX;
+  return clamp(
+    roundToStep(value, TOOLTIP_FONT_SIZE_OFFSET_STEP_PX),
+    TOOLTIP_FONT_SIZE_OFFSET_MIN_PX,
+    TOOLTIP_FONT_SIZE_OFFSET_MAX_PX,
   );
 }
 
@@ -280,6 +296,7 @@ function clearStoredOutputAppearance(): void {
   localStorage.removeItem(UI_KEYS.outputProseFont);
   localStorage.removeItem(UI_KEYS.outputUiFont);
   localStorage.removeItem(UI_KEYS.userTurnFontSizeOffset);
+  localStorage.removeItem(UI_KEYS.tooltipFontSizeOffset);
   localStorage.removeItem(UI_KEYS.outputProseFontSize);
   localStorage.removeItem(UI_KEYS.outputFixedFont);
   localStorage.removeItem(UI_KEYS.outputFixedFontSizeOffset);
@@ -303,6 +320,12 @@ function loadOutputAppearance(): OutputAppearance {
       readStoredNumber(
         UI_KEYS.userTurnFontSizeOffset,
         DEFAULT_USER_TURN_FONT_SIZE_OFFSET_PX,
+      ),
+    ),
+    tooltipFontSizeOffsetPx: normalizeTooltipFontSizeOffset(
+      readStoredNumber(
+        UI_KEYS.tooltipFontSizeOffset,
+        DEFAULT_TOOLTIP_FONT_SIZE_OFFSET_PX,
       ),
     ),
     fontSizePx,
@@ -361,6 +384,10 @@ function applyOutputAppearance(appearance: OutputAppearance) {
   root.style.setProperty(
     "--user-turn-font-size-offset",
     `${appearance.userTurnFontSizeOffsetPx}px`,
+  );
+  root.style.setProperty(
+    "--tooltip-font-size-offset",
+    `${appearance.tooltipFontSizeOffsetPx}px`,
   );
   root.style.setProperty(
     "--output-prose-font-size",
@@ -468,6 +495,15 @@ export function useOutputAppearance() {
     }));
   }, []);
 
+  const setTooltipFontSizeOffsetPx = useCallback((offsetPx: number) => {
+    const normalized = normalizeTooltipFontSizeOffset(offsetPx);
+    localStorage.setItem(UI_KEYS.tooltipFontSizeOffset, String(normalized));
+    setAppearance((current) => ({
+      ...current,
+      tooltipFontSizeOffsetPx: normalized,
+    }));
+  }, []);
+
   const setOutputFontSizePx = useCallback((fontSizePx: number) => {
     const normalized = normalizeFontSize(fontSizePx);
     localStorage.setItem(UI_KEYS.outputProseFontSize, String(normalized));
@@ -566,6 +602,7 @@ export function useOutputAppearance() {
     outputFont: appearance.font,
     outputUiFont: appearance.uiFont,
     userTurnFontSizeOffsetPx: appearance.userTurnFontSizeOffsetPx,
+    tooltipFontSizeOffsetPx: appearance.tooltipFontSizeOffsetPx,
     outputFontSizePx: appearance.fontSizePx,
     outputFixedFont: appearance.fixedFont,
     outputFixedFontSizeOffsetPx: appearance.fixedFontSizeOffsetPx,
@@ -577,6 +614,7 @@ export function useOutputAppearance() {
     setOutputFont,
     setOutputUiFont,
     setUserTurnFontSizeOffsetPx,
+    setTooltipFontSizeOffsetPx,
     setOutputFontSizePx,
     setOutputFixedFont,
     setOutputFixedFontSizeOffsetPx,

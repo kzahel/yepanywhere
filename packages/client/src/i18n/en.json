@@ -183,6 +183,8 @@
   "appearanceOutputUiFontLabel": "UI font",
   "appearanceUserTurnSizeOffsetLabel": "User turn size offset",
   "appearanceUserTurnPreview": "User turn: paths and terms stay readable.",
+  "appearanceTooltipSizeOffsetLabel": "Tooltip size offset",
+  "appearanceTooltipPreview": "Themed tooltip: extra details at a glance. Native tooltip sizes follow your browser.",
   "appearanceOutputFontSizeLabel": "Content Size",
   "appearanceOutputFixedFontLabel": "Fixed font",
   "appearanceOutputFixedSizeOffsetLabel": "Fixed size offset",

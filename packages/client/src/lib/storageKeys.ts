@@ -22,6 +22,7 @@ export const UI_KEYS = {
   outputProseFont: "yep-anywhere-output-prose-font",
   outputUiFont: "yep-anywhere-output-ui-font",
   userTurnFontSizeOffset: "yep-anywhere-user-turn-font-size-offset",
+  tooltipFontSizeOffset: "yep-anywhere-tooltip-font-size-offset",
   outputProseFontSize: "yep-anywhere-output-prose-font-size",
   outputFixedFont: "yep-anywhere-output-fixed-font",
   outputFixedFontSizeOffset: "yep-anywhere-output-fixed-font-size-offset",

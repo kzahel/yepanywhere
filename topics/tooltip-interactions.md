@@ -186,12 +186,25 @@ is the fallback when neither side fits.
 
 ## Themed presentation
 
+Appearance → Typography offers a **Tooltip size offset** slider and numeric
+entry from -3 to +6 px in 0.5 px steps. The browser-local value defaults to
+0 px, preserving the existing size, and adds to the UI-size-derived text of
+ordinary, enlarged, and glossary tooltips in the shared layer. It does not
+resize session preview cards, rich risk explanations, or browser-native hints.
+The typography specimen always includes an in-flow themed tooltip sample with
+the same font, size, colors, border, and shadow as an ordinary tooltip. Committed
+slider or number edits update that sample and live tooltips together; reload
+preserves the offset. Reset typography restores 0 px, and Appearance's Undo
+restores the value from when the pane opened. Changing the offset does not
+switch the saved Native/Themed mode.
+
 Plain text tooltips retain familiar tooltip geometry: a compact monochrome
 surface with maximum black/white contrast and polarity opposite the active
 light or dark color scheme, a visible border and modest shadow, 500-weight UI
 text for legible glyph strokes, tight unzoomed line spacing, and no decorative
-animation. The ordinary themed tooltip is one pixel larger than the compact
-`--font-size-xs` UI token; its enlarged treatment advances to half a pixel above
+animation. Before the user offset, the ordinary themed tooltip is one pixel
+larger than the compact `--font-size-xs` UI token; its enlarged treatment
+advances to half a pixel above
 `--font-size-sm`. Glossary text retains its additional one-pixel offset in both
 states. Multiline content preserves line breaks. Content taller than the
 viewport-relative cap scrolls inside the tooltip rather than being clipped.
