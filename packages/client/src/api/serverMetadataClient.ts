@@ -1,5 +1,6 @@
 import type {
   ArtifactViewerStatus,
+  SqliteStatus,
   CapabilityBitset,
   ClientDefaults,
   OptionalServerCapabilityBitset,
@@ -8,6 +9,8 @@ import type {
 import { fetchJSON } from "./sourceApiFetch";
 
 export interface VersionInfo {
+  /** Storage diagnostic only; absent on older servers. */
+  sqlite?: SqliteStatus;
   artifactViewer?: ArtifactViewerStatus;
   current: string;
   latest: string | null;

@@ -1297,3 +1297,5 @@ export {
 } from "./relay-mux.js";
 
 export * from "./glossary/index.js";
+
+export type { SqliteStatus } from "./sqlite-status.js";

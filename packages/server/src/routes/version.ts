@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import {
   APPROVAL_AUDIT_LOG_CAPABILITY,
   SERVER_CAPABILITIES,
+  type SqliteStatus,
   ACLI_COMMENTARY_RENDERING_CAPABILITY,
   ATTACHMENT_ONLY_SESSION_MESSAGES_CAPABILITY,
   BANG_COMMANDS_CAPABILITY,
@@ -305,6 +306,8 @@ async function getLatestVersion(
 }
 
 export interface VersionInfo {
+  /** Storage diagnostic only; absent on older servers. */
+  sqlite?: SqliteStatus;
   artifactViewer?: ArtifactViewerStatus;
   current: string;
   latest: string | null;
@@ -432,6 +435,8 @@ export interface DeviceBridgeStatus {
 }
 
 export interface VersionRouteOptions {
+  /** Read retained startup state; never probe storage in the version route. */
+  getSqliteStatus?: () => SqliteStatus;
   getArtifactViewerStatus?: () => ArtifactViewerStatus;
   /** Test/service override for the process-generation version snapshot. */
   getCurrentVersionInfo?: () => Promise<CurrentVersionInfo>;
@@ -635,6 +640,9 @@ export function createVersionRoutes(options?: VersionRouteOptions): Hono {
 
     const info: VersionInfo = {
       current,
+      ...(options?.getSqliteStatus
+        ? { sqlite: options.getSqliteStatus() }
+        : {}),
       ...(options?.getArtifactViewerStatus
         ? { artifactViewer: options.getArtifactViewerStatus() }
         : {}),

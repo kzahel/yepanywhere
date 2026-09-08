@@ -680,6 +680,13 @@ unchanged. The complete UI and timing contract is in
 
 ## Server Use
 
+Optional discovery storage reports `sqlite?: { state }` on `/api/version`;
+absence means the server does not report storage status. This diagnostic does
+not allocate a capability or imply session search. Future discovery endpoints
+need their own runtime-dependent optional gate. See
+[optional SQLite](optional-sqlite.md) for startup policy and the approved
+v0.8.0/v0.8.1 compatibility corpus.
+
 `packages/server/src/routes/version.ts` advertises capability names from the
 shared registry. Static capabilities can be included directly. Dynamic
 capabilities, such as environment-backed integrations, still use registry

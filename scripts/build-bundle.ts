@@ -166,7 +166,12 @@ step("Rewrite @yep-anywhere/shared imports", () => {
         const content = fs.readFileSync(fullPath, "utf-8");
         if (!content.includes("@yep-anywhere/shared")) continue;
 
-        let relPath = path.relative(path.dirname(fullPath), sharedEntry);
+        // Module specifiers use forward slashes even when built on Windows.
+        // Backslashes here become JavaScript escapes (e.g. \b in bundled).
+        let relPath = path
+          .relative(path.dirname(fullPath), sharedEntry)
+          .split(path.sep)
+          .join("/");
         // Ensure it starts with ./ for Node.js ESM resolution
         if (!relPath.startsWith(".")) relPath = `./${relPath}`;
 

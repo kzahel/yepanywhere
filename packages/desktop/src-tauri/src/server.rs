@@ -507,6 +507,10 @@ fn apply_desktop_server_env(command: &mut Command, port: u16, data_dir: &std::pa
         .env("PORT", port.to_string())
         .env("YEP_DATA_DIR", data_dir)
         .env("YEP_DESKTOP", "1")
+        .env(
+            "YEP_SQLITE",
+            std::env::var_os("YEP_SQLITE").unwrap_or_else(|| "auto".into()),
+        )
         .env("YEP_DESKTOP_BOOTSTRAP", "stdin-v1")
         .env_remove("DESKTOP_AUTH_TOKEN");
 }
@@ -979,13 +983,28 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        decide_start, needs_windows_arm64_bun, redact_server_output, server_entry_candidates,
-        windows_arm64_bun_candidates, ServerLifecycle, ServerPhase, StartDecision,
-        DESKTOP_READY_PREFIX,
+        apply_desktop_server_env, decide_start, needs_windows_arm64_bun, redact_server_output,
+        server_entry_candidates, windows_arm64_bun_candidates, ServerLifecycle, ServerPhase,
+        StartDecision, DESKTOP_READY_PREFIX,
     };
 
     fn lifecycle(phase: ServerPhase, attempt: u64) -> ServerLifecycle {
         ServerLifecycle { phase, attempt }
+    }
+
+    #[test]
+    fn sqlite_launch_mode_preserves_the_operator_override() {
+        let mut command = tokio::process::Command::new("unused-test-command");
+        apply_desktop_server_env(&mut command, 0, Path::new("test-data"));
+        let expected = std::env::var_os("YEP_SQLITE").unwrap_or_else(|| "auto".into());
+        let actual = command
+            .as_std()
+            .get_envs()
+            .find(|(key, _)| *key == "YEP_SQLITE");
+        assert_eq!(
+            actual.and_then(|(_, value)| value),
+            Some(expected.as_os_str())
+        );
     }
 
     #[test]

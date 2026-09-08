@@ -82,6 +82,26 @@ describe("hermetic config env setup", () => {
   });
 });
 
+describe("optional SQLite configuration", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("defaults off and honors explicit startup mode", async () => {
+    const { loadConfig } = await import("../src/config.js");
+    expect(loadConfig().sqliteMode).toBe("off");
+    vi.stubEnv("YEP_SQLITE", "auto");
+    expect(loadConfig().sqliteMode).toBe("auto");
+    vi.stubEnv("YEP_SQLITE", "off");
+    vi.stubEnv("YEP_DESKTOP", "1");
+    expect(loadConfig().sqliteMode).toBe("off");
+  });
+
+  it("rejects misspelled modes instead of silently enabling storage", async () => {
+    vi.stubEnv("YEP_SQLITE", "yes");
+    const { loadConfig } = await import("../src/config.js");
+    expect(() => loadConfig()).toThrow("YEP_SQLITE must be one of: off, auto");
+  });
+});
+
 describe("loadConfig codex paths", () => {
   afterEach(() => {
     vi.unstubAllEnvs();

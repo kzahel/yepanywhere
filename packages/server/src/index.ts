@@ -993,6 +993,7 @@ async function startServer() {
     desktopAuthToken: config.desktopAuthToken,
     desktopBootstrapService,
     desktopRuntime: config.desktopRuntime,
+    sqliteMode: config.sqliteMode,
     remoteAccessService,
     remoteSessionService,
     securityClientService,

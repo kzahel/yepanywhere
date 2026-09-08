@@ -1,0 +1,61 @@
+name: Optional SQLite
+
+on:
+  push:
+  pull_request:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  sqlite:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      # Only core ships this feature. Relay/push-broker's separate native
+      # better-sqlite3 dependency must not require a compiler for this matrix.
+      - run: pnpm --filter yep-anywhere --filter @yep-anywhere/server... --filter @yep-anywhere/client... install --frozen-lockfile
+      - id: bun
+        name: Read desktop runtime pin
+        run: node -e "const fs = require('node:fs'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + JSON.parse(fs.readFileSync('packages/desktop/runtime-versions.json')).bun.version + '\n')"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ steps.bun.outputs.version }}
+      - run: pnpm build:bundle
+      - name: Attach locked runtime dependencies to npm distribution
+        # Exercise the published modules with the repository's tested dependency
+        # versions, rather than re-resolving npm ranges to unrelated newer deps.
+        run: node -e "require('node:fs').symlinkSync(require('node:path').resolve('packages/server/node_modules'), 'dist/npm-package/node_modules', 'junction')"
+      - name: Node storage contract in npm distribution
+        run: node scripts/test-discovery-sqlite.mjs ready dist/npm-package/dist/storage shared-runtime.sqlite
+      - name: Bun storage contract and Node file interoperability
+        run: bun scripts/test-discovery-sqlite.mjs ready dist/npm-package/dist/storage shared-runtime.sqlite
+      - name: Node reads Bun file
+        run: node scripts/test-discovery-sqlite.mjs ready dist/npm-package/dist/storage shared-runtime.sqlite
+      - name: Node distribution startup
+        # Full Windows boot currently fails in provider coordination before
+        # SQLite initializes; see gaps/windows-packaged-startup-provider-identity.md.
+        # Storage, bundle loading, and Node 20 fallback still run on Windows.
+        if: runner.os != 'Windows'
+        run: node scripts/test-sqlite-startup.mjs ready
+      - name: Bun distribution startup
+        if: runner.os != 'Windows'
+        run: bun scripts/test-sqlite-startup.mjs ready
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.12.2
+      - name: Engines-floor storage fallback
+        run: node scripts/test-discovery-sqlite.mjs unsupported dist/npm-package/dist/storage
+      - name: Engines-floor distribution startup
+        if: runner.os != 'Windows'
+        run: node scripts/test-sqlite-startup.mjs unsupported

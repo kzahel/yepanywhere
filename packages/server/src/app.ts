@@ -191,6 +191,10 @@ import { createLocalResourcePathPolicy } from "./routes/local-resource-policy.js
 import { type UploadDeps, createUploadRoutes } from "./routes/upload.js";
 import { createSpeechRoutes } from "./routes/speech.js";
 import { createSecurityClientRoutes } from "./routes/security-clients.js";
+import {
+  DiscoverySqliteService,
+  type SqliteMode,
+} from "./storage/discovery-sqlite.js";
 import { createVersionRoutes } from "./routes/version.js";
 import { createProviderHostRoutes } from "./routes/provider-host.js";
 import { createWorkstreamRoutes } from "./routes/workstreams.js";
@@ -374,6 +378,7 @@ export interface AppOptions {
   getCatalogFamilies?: () => readonly ProviderCatalogFamily[];
   /** Data directory for persistent state (for onboarding state) */
   dataDir?: string;
+  sqliteMode?: SqliteMode;
   /** NetworkBindingService for runtime binding configuration */
   networkBindingService?: NetworkBindingService;
   /**
@@ -608,6 +613,12 @@ export function createApp(options: AppOptions): AppResult {
   const effectiveDataDir =
     options.dataDir ??
     join(process.env.HOME ?? process.env.USERPROFILE ?? ".", ".yep-anywhere");
+  const discoverySqlite = new DiscoverySqliteService({
+    dataDir: effectiveDataDir,
+    mode: options.sqliteMode ?? "off",
+    onError: (error) =>
+      console.warn("[DiscoverySqlite] Storage failed:", error),
+  });
   const projectStoragePolicy =
     options.projectStoragePolicy ??
     new ProjectStoragePolicy({
@@ -803,6 +814,7 @@ export function createApp(options: AppOptions): AppResult {
   };
   let retainedCollections: RetainedSessionCollections | undefined;
   const disposeSessionReaders = async (): Promise<void> => {
+    discoverySqlite.close();
     await retainedCollections?.dispose();
     await projectQueueScheduler?.dispose();
     await artifactServer.close();
@@ -1574,6 +1586,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/version",
     createVersionRoutes({
+      getSqliteStatus: () => discoverySqlite.getStatus(),
       getArtifactViewerStatus: () => ({
         ...artifactServer.config,
         available: artifactServer.available,

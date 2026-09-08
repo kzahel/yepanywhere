@@ -42,6 +42,38 @@ describe("GET /version", () => {
     global.fetch = vi.fn(handler) as unknown as typeof fetch;
   }
 
+  it.each(["disabled", "unsupported", "ready", "error"] as const)(
+    "reports retained SQLite %s status without changing capability negotiation",
+    async (state) => {
+      mockFetch(() => new Response(JSON.stringify({ version: "0.8.1" })));
+      const { createVersionRoutes } = await importVersion();
+      const getSqliteStatus = vi.fn(() => ({ state }));
+      const options = {
+        getCurrentVersionInfo: async () => ({
+          version: "0.8.1",
+          installSource: "source" as const,
+        }),
+        getSessionSandboxAvailability: async () => ({
+          state: "unsupported-platform" as const,
+          platform: "test",
+        }),
+      };
+      const legacy = createVersionRoutes(options);
+      const routes = createVersionRoutes({ ...options, getSqliteStatus });
+      for (const query of [
+        "/",
+        "/?clientVersion=0.8.1",
+        "/?capabilities=compact-v1",
+      ]) {
+        const before = await (await legacy.request(query)).json();
+        const after = await (await routes.request(query)).json();
+        expect(before.sqlite).toBeUndefined();
+        expect(after).toEqual({ ...before, sqlite: { state } });
+      }
+      expect(getSqliteStatus).toHaveBeenCalledTimes(3);
+    },
+  );
+
   it("parses version from update server 200 response", async () => {
     mockFetch(
       () =>

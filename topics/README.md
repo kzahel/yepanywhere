@@ -20,6 +20,8 @@
   opt-in, writer audit, and Git-metadata boundary)
 - Storage settings (YA data directory vs. project `.yep`, default lazy media,
   and live managed-session preservation opt-in)
+- [Optional discovery SQLite storage](optional-sqlite.md) (Node/Bun adapters,
+  startup opt-in, migrations, and source-server readiness)
 - OpenCode backend capability and rendering parity
 - OpenCode ses_ session ID unification with YA session ID
 - MessageQueue batch delivery and steering UI
