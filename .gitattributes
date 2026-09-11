@@ -1,0 +1,2 @@
+# Keep Node ESM scripts executable and their shebangs parseable by Vite on Windows.
+*.mjs text eol=lf
