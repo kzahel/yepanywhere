@@ -476,3 +476,30 @@ subscriptions/connections. No background polling or automatic retry loop remains
 when the page closes. Missing capability/revision metadata requires a server
 update; a different revision reports a mismatch. Neither sends experimental
 requests, and healthy peers remain usable.
+
+
+## First Android preview (2026-09-12)
+
+The existing multi-host Compose home now opens a native Conversation activity
+from each session card. Its selected `(profileId, sessionId)` owns the same
+experimental contract through the shared native connection manager. Home summary
+catalog/grouping remains the existing adapter; SourceOverview is still a later
+operation review. The generated schema and API revision are unchanged.
+
+The screen follows the web preview's history limits, plain text rendering,
+condensed activity, failure/media placeholders and opaque unknown fallbacks.
+Pending requests are informational; the full session handles interaction.
+Visibility owns and releases its lease, capability checks precede subscription,
+and reconnect creates a new binding with sequence zero. Conversation bindings
+are deliberately excluded from the connection manager's ordinary event replay.
+Stale snapshots remain marked until replacement; no token assembler is added.
+
+Full-session handoff retains the selected direct deployment or relay URL and
+identity. Direct links use the external browser; relay links use the configured
+full web client with its separate sign-in. An explicit relay login is allowed to
+redirect only when the live connection matches both requested identity and URL,
+including connections without Remember me. No native credentials cross into the
+WebView. An unsupported direct endpoint shape has no guessed handoff URL.
+
+The [tactical checkpoint](../docs/tactical/130-simple-client-api-and-three-client-demo.md#first-android-compose-preview--2026-09-12)
+records AVD evidence and the remaining deployed/physical-device boundaries.

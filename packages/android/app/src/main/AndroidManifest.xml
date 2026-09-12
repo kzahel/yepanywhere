@@ -56,5 +56,6 @@
                     android:scheme="https" />
             </intent-filter>
         </activity>
+        <activity android:name=".YaConversationActivity" android:exported="false" />
     </application>
 </manifest>

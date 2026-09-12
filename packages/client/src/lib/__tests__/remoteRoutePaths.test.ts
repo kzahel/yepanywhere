@@ -5,6 +5,7 @@ import {
   getRelayCanonicalRedirectTarget,
   getRelayUsernameFromRoute,
   getSafeRemoteReturnTarget,
+  matchesRelayLoginTarget,
 } from "../remoteRoutePaths";
 
 describe("relay route parsing", () => {
@@ -191,5 +192,33 @@ describe("getSafeRemoteReturnTarget", () => {
     expect(
       getSafeRemoteReturnTarget("/login?returnTo=/projects", "macbook"),
     ).toBe(null);
+  });
+});
+
+describe("explicit relay login targets", () => {
+  const location = {
+    pathname: "/login/relay",
+    search: "?u=studio&r=wss%3A%2F%2Fprivate.test%2Fws",
+  };
+  it("keeps a different machine or relay on the selected sign-in form", () => {
+    expect(
+      matchesRelayLoginTarget(location, "laptop", "wss://private.test/ws"),
+    ).toBe(false);
+    expect(
+      matchesRelayLoginTarget(location, "studio", "wss://public.test/ws"),
+    ).toBe(false);
+    expect(matchesRelayLoginTarget(location, null, null)).toBe(false);
+  });
+  it("allows the exact signed-in target and ordinary unspecified login", () => {
+    expect(
+      matchesRelayLoginTarget(location, "studio", "wss://private.test/ws"),
+    ).toBe(true);
+    expect(
+      matchesRelayLoginTarget(
+        { pathname: "/login/relay" },
+        "studio",
+        "wss://private.test/ws",
+      ),
+    ).toBe(true);
   });
 });

@@ -1,5 +1,7 @@
 package com.yepanywhere.mobile.connection
 
+import com.yepanywhere.mobile.experimental.ConversationQuery
+import com.yepanywhere.mobile.experimental.CONVERSATION_API_REVISION
 import com.yepanywhere.mobile.profiles.YaPairedServerProfile
 import com.yepanywhere.mobile.profiles.YaPairedServerRepository
 import com.yepanywhere.mobile.profiles.YaPairedServerSnapshot
@@ -92,6 +94,36 @@ class YaServerConnectionManagerTest {
         lease.releaseAndAwait()
         assertTrue(secondTransport.cancelled)
         manager.shutdownAndAwait()
+    }
+
+    @Test
+    fun conversationBindingsCloseOnDisconnectWhileActivityReplays() = runBlocking {
+        val fixture = Fixture()
+        val first = FakeTransport(fixture.credential)
+        val second = FakeTransport(fixture.credential)
+        fixture.connector.results.send(Result.success(first))
+        fixture.connector.results.send(Result.success(second))
+        val manager = fixture.manager(retryDelaysMs = listOf(0))
+        val lease = manager.acquire()
+        try {
+            lease.subscribe(channel = "activity")
+            val conversation = lease.subscribeConversation("binding-one", ConversationQuery("session", 20, null))
+            val frame = first.sent.first { it.optString("subscriptionId") == "binding-one" }
+            assertEquals("/api/experimental/conversation/subscribe", frame.getString("channel"))
+            assertEquals(CONVERSATION_API_REVISION, frame.getString("apiRevision"))
+            assertEquals(20, frame.getJSONObject("query").getInt("maxMessages"))
+            val closed = async { runCatching { conversation.events.first() }.exceptionOrNull() }
+            first.incoming.close(IllegalStateException("Disconnected"))
+            val restored = second.awaitSent("subscribe")
+            assertEquals("activity", restored.getString("channel"))
+            assertNotNull(withTimeout(2000) { closed.await() })
+            assertFalse(second.sent.any { it.optString("subscriptionId") == "binding-one" })
+            val fresh = lease.subscribeConversation("binding-two", ConversationQuery("session", 40, "anchor"))
+            val event = async { fresh.events.first() }
+            second.incoming.send(JSONObject().put("type", "event").put("subscriptionId", "binding-two")
+                .put("eventType", "snapshot").put("data", JSONObject().put("sequence", 0)))
+            assertEquals(0, (withTimeout(2000) { event.await() }.data as JSONObject).getInt("sequence"))
+        } finally { lease.releaseAndAwait(); manager.shutdownAndAwait() }
     }
 
     @Test

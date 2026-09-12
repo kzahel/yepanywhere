@@ -25,6 +25,16 @@ class MainActivity : ComponentActivity() {
                 YaNativeHomeScreen(
                     viewModel = homeViewModel,
                     openWebClient = ::openWebClient,
+                    openConversation = { row ->
+                        startActivity(Intent(this, YaConversationActivity::class.java).apply {
+                            putExtra("profileId", row.profileId)
+                            putExtra("sessionId", row.session.id)
+                            putExtra("projectId", row.session.projectId)
+                            putExtra("projectName", row.session.projectName)
+                            putExtra("title", row.session.title)
+                            putExtra("sourceName", row.serverUsername)
+                        })
+                    },
                 )
             }
         }

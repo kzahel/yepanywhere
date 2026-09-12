@@ -3,6 +3,9 @@ package com.yepanywhere.mobile.experimental
 import com.yepanywhere.mobile.connection.YaApiException
 import com.yepanywhere.mobile.connection.YaApiResponse
 import com.yepanywhere.mobile.connection.YaConnectionLease
+import com.yepanywhere.mobile.connection.YaSubscription
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import java.net.URLEncoder
 import java.util.UUID
 import org.json.JSONObject
@@ -11,6 +14,7 @@ const val CONVERSATION_API_REVISION = "simple-client-spike-1"
 private const val CAPABILITY = "experimental-simple-client-conversation"
 
 enum class ConversationAvailability { AVAILABLE, UPDATE_REQUIRED, REVISION_MISMATCH }
+class ConversationUnavailableException(val reason: ConversationAvailability) : IllegalStateException()
 
 fun conversationAvailability(version: JSONObject): ConversationAvailability {
     fun contains(field: String): Boolean {
@@ -66,7 +70,39 @@ class ConversationClient(
     private val sourceId: String,
     private val request: suspend (String) -> YaApiResponse,
 ) {
-    constructor(sourceId: String, lease: YaConnectionLease) : this(sourceId, { path -> lease.request("GET", path) })
+    private var subscribe: (suspend (String, ConversationQuery) -> YaSubscription)? = null
+    constructor(sourceId: String, lease: YaConnectionLease) : this(sourceId,
+        { path -> lease.request("GET", path) }) {
+        subscribe = { id, query -> lease.subscribeConversation(id, query) }
+    }
+
+    fun watch(query: ConversationQuery): Flow<SnapshotEnvelope> = flow {
+        val version = request("/api/version").successfulBody() as? JSONObject
+            ?: error("Invalid server version response")
+        val availability = conversationAvailability(version)
+        if (availability != ConversationAvailability.AVAILABLE) throw ConversationUnavailableException(availability)
+        val binding = ConversationBinding(sourceId, UUID.randomUUID().toString(), query.sessionId)
+        var subscription: YaSubscription? = null
+        var initial = true
+        try {
+            subscription = checkNotNull(subscribe) { "Live transport is unavailable" }(binding.subscriptionId, query)
+            subscription.events.collect { event ->
+                if (event.eventType == "closed") error("Conversation closed")
+                if (event.eventType == "snapshot") {
+                    val snapshot = binding.accept(sourceId, event.data.toString())
+                    if (snapshot != null) {
+                        require(!initial || snapshot.sequence == 0) { "Invalid initial Conversation sequence" }
+                        initial = false
+                        emit(snapshot)
+                    }
+                }
+            }
+            error("Conversation ended")
+        } finally {
+            binding.close()
+            subscription?.close()
+        }
+    }
 
     suspend fun read(query: ConversationQuery): ConversationReadResult {
         val version = request("/api/version").successfulBody() as? JSONObject

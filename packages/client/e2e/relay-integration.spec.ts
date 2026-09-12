@@ -189,6 +189,53 @@ test.describe("Full Relay Integration", () => {
     ).toBeVisible();
   });
 
+  test("explicit relay handoff preserves its source without remembered credentials", async ({
+    page,
+    remoteClientURL,
+    relayWsURL,
+  }) => {
+    const target = (username: string, relayUrl: string) =>
+      `/login/relay?${new URLSearchParams({
+        u: username,
+        r: relayUrl,
+        returnTo: relayAppPath("settings"),
+      })}`;
+    for (const [otherUsername, otherRelay] of [
+      ["another-machine", relayWsURL],
+      [TEST_RELAY_USERNAME, "wss://different-relay.invalid/ws"],
+    ] as const) {
+      await page.goto(
+        `${remoteClientURL}${target(TEST_RELAY_USERNAME, relayWsURL)}`,
+      );
+      await page.fill('[data-testid="srp-password-input"]', TEST_SRP_PASSWORD);
+      await page.locator('[data-testid="remember-me-checkbox"]').uncheck();
+      await page.click('[data-testid="login-button"]');
+      await expect(page).toHaveURL(
+        `${remoteClientURL}${relayAppPath("settings")}`,
+      );
+      await expect(page.locator(".sidebar")).toBeVisible();
+
+      // A client-side handoff initially encounters the existing connection.
+      // Leaving its route may then release that source's demand.
+      await page.evaluate(
+        (next) => {
+          history.pushState(null, "", next);
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        },
+        target(otherUsername, otherRelay),
+      );
+      await expect(
+        page.locator('[data-testid="relay-login-form"]'),
+      ).toBeVisible();
+      await expect(
+        page.locator('[data-testid="relay-username-input"]'),
+      ).toHaveValue(otherUsername);
+      await expect(
+        page.locator('[data-testid="custom-relay-url-input"]'),
+      ).toHaveValue(otherRelay);
+    }
+  });
+
   test("development settings links to the configured relay monitor", async ({
     page,
     remoteClientURL,

@@ -13,6 +13,7 @@ data class YaSessionSummary(
     val activity: String?,
     val hasUnread: Boolean,
     val lastAgentText: String?,
+    val projectId: String = "",
 ) {
     companion object {
         fun parseResponse(body: Any?): List<YaSessionSummary> {
@@ -36,6 +37,7 @@ data class YaSessionSummary(
                     activity = item.optionalString("activity"),
                     hasUnread = item.optBoolean("hasUnread", false),
                     lastAgentText = item.optionalString("lastAgentText"),
+                    projectId = item.optionalString("projectId") ?: "",
                 )
             }
         }

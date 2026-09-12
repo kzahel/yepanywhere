@@ -1,5 +1,5 @@
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { appendFile, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
@@ -16,6 +16,7 @@ import {
 } from "../src/routes/ws-relay.js";
 import { MockClaudeSDK } from "../src/sdk/mock.js";
 import { UploadManager } from "../src/uploads/manager.js";
+import { InstallService } from "../src/services/InstallService.js";
 import { EventBus } from "../src/watcher/index.js";
 
 const username = process.env.YA_NATIVE_PROBE_USERNAME;
@@ -58,6 +59,48 @@ await mkdir(grokSessionsDir, { recursive: true });
 await mkdir(piSessionsDir, { recursive: true });
 await mkdir(dataDir, { recursive: true });
 
+// Optional native-provider history for the Compose conversation AVD proof.
+const conversationProbe = process.env.YA_NATIVE_PROBE_CONVERSATION === "true";
+const sessionId = "android-preview-session";
+const projectPath = join(root, "preview-project");
+const nativeDir = join(
+  projectsDir,
+  hostname(),
+  projectPath.replace(/[^a-zA-Z0-9]/g, "-"),
+);
+const nativePath = join(nativeDir, `${sessionId}.jsonl`);
+let rowCount = 0;
+function row(text: string) {
+  const index = rowCount++;
+  const role = index % 2 === 0 ? "user" : "assistant";
+  return (
+    JSON.stringify({
+      type: role,
+      uuid: `preview-${index}`,
+      parentUuid: index ? `preview-${index - 1}` : null,
+      sessionId,
+      cwd: projectPath,
+      timestamp: new Date(Date.now() - (100 - index) * 1000).toISOString(),
+      message: { role, content: [{ type: "text", text }] },
+    }) + "\n"
+  );
+}
+const install = new InstallService({ dataDir });
+await install.initialize();
+if (conversationProbe) {
+  await mkdir(projectPath, { recursive: true });
+  await mkdir(nativeDir, { recursive: true });
+  await writeFile(
+    nativePath,
+    Array.from({ length: 50 }, (_, i) =>
+      row(
+        i === 0 ? "Android conversation fixture" : `Preview message ${i + 1}`,
+      ),
+    ).join(""),
+  );
+  await install.recordSuccessfulProviders(["claude"]);
+}
+
 const eventBus = new EventBus();
 const authService = new AuthService({
   dataDir,
@@ -84,7 +127,15 @@ const securityClientService = new SecurityClientService({
 });
 await securityClientService.initialize();
 
-const { app, supervisor } = createApp({
+const {
+  app,
+  supervisor,
+  conversationSubscriptions,
+  disposeSessionReaders,
+  stopNotifications,
+} = createApp({
+  dataDir,
+  getCatalogFamilies: () => install.getCatalogFamilies(),
   sdk: new MockClaudeSDK(),
   projectsDir,
   codexSessionsDir,
@@ -108,8 +159,21 @@ const wsHandler = createWsRelayRoutes({
   remoteAccessService,
   remoteSessionService,
   securityClientService,
+  conversationSubscriptions,
 });
 app.get("/api/ws", wsHandler);
+if (conversationProbe) {
+  // Only this disposable loopback diagnostic server mounts fixture controls.
+  app.post("/__probe/append", async (c) => {
+    const message = `Live preview response ${rowCount + 2}`;
+    await appendFile(nativePath, row("Live preview request") + row(message));
+    return c.json({ ok: true, message });
+  });
+  app.post("/__probe/disconnect", (c) => {
+    for (const socket of wss.clients) socket.close(1012, "Probe reconnect");
+    return c.json({ ok: true });
+  });
+}
 
 const relayClientService = relayUrl ? new RelayClientService() : null;
 if (relayClientService) {
@@ -122,6 +186,7 @@ if (relayClientService) {
     remoteAccessService,
     remoteSessionService,
     securityClientService,
+    conversationSubscriptions,
   });
   relayClientService.start({
     relayUrl,
@@ -159,6 +224,8 @@ await new Promise<void>((resolveStop) => {
   process.once("SIGTERM", resolveStop);
 });
 
+stopNotifications();
+await disposeSessionReaders();
 await securityClientService.shutdown();
 remoteSessionService.shutdown();
 relayClientService?.stop();

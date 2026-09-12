@@ -245,3 +245,15 @@ The first human checkpoint was reached with the Pixel's three existing
 profiles plus two disposable mux-capable local profiles: one physical mux,
 isolated profile failure, persisted inclusion, and successful removal were all
 observed. WebView work may now proceed from this source/runtime boundary.
+
+## Conversation consumer checkpoint — 2026-09-12
+
+The [simple-client plan](130-simple-client-api-and-three-client-demo.md#first-android-compose-preview--2026-09-12)
+now adds a read-only Compose Conversation activity to native session cards.
+It consumes the experimental snapshot contract through a selected profile's
+foreground lease; it does not change home catalog/grouping or introduce a
+WebView transport proxy. Unlike activity subscriptions, Conversation bindings
+close on disconnect and require a fresh binding/sequence after reconnect.
+Direct encrypted AVD navigation, live updates, rotation and lifecycle release
+are covered by the new instrumentation test. Full-session handoff retains the
+selected endpoint and uses the web client's separate authentication.

@@ -7,8 +7,8 @@ Topic: client-source-runtime-topology
 Status: Offline TypeScript/Kotlin contract, shared compiler and bounded live
 Conversation API implemented 2026-09-12. The first deliberate-entry multi-server
 web preview is implemented at `/-/preview`; browser validation is recorded in the
-checkpoint below. Android UI and remaining measurement/acquisition gates are
-next. Raw token assembly is explicitly deferred. iOS remains out of scope.
+checkpoint below. The Android Compose preview and direct-server AVD proof are
+implemented; remaining measurement/acquisition gates are open. Raw token assembly is explicitly deferred. iOS remains out of scope.
 
 ## Outcome
 
@@ -173,7 +173,9 @@ pixel layout or implementation code.
 
 **Exit:** web and Android browse real sessions and independently recover from a
 source failure. Contract changes include fixtures and both decoder checks.
-Android’s offline decoding spike is complete; live consumption is not.
+Android’s decoding spike and first direct-server live Compose proof are complete.
+The AVD checkpoint below records its boundaries; broader grouping, deployed
+relay UI evidence and release acceptance remain open.
 
 iOS is deferred. Its eventual work includes SRP, NaCl, pairing, endpoint/relay
 selection and connection ownership before live SwiftUI consumption, in addition
@@ -416,3 +418,65 @@ source isolation, reload, and connection release. Desktop (1000×600) and phone
 (375×812) captures were generated through the artifact capture facility and
 visually inspected. CSS ownership checks pass; the console scan adds no new
 production logging. No Latest deployment or Android-device validation is claimed.
+
+
+### First Android Compose preview — 2026-09-12
+
+Session cards on the existing multi-host native home now open a source-scoped,
+read-only Conversation activity. It uses the generated Kotlin contract and the
+existing native secure runtime, with the same 20-message initial window, anchored
+Show more increments, 100-message cap, Latest behavior and safe content fallbacks
+as the web preview. This slice retains the native home's existing catalog and
+grouping; it does not claim a SourceOverview migration or grouping parity.
+
+Foreground visibility owns a connection lease. Leaving the activity releases it;
+returning acquires a fresh binding after checking capability and exact revision.
+Conversation subscriptions close on transport loss instead of replaying their old
+sequence, while existing summary/activity subscriptions retain their replay
+behavior. Explicit reconnect keeps the previous snapshot visibly stale until a
+fresh sequence-zero snapshot arrives. Full-session handoff preserves the source:
+known direct endpoints open their own deployment in a browser, and relay sources
+open the configured full web client's selected relay sign-in/return route. Web
+authentication remains separate; the native-to-WebView credential bridge is not
+part of this slice. Unknown direct endpoint shapes disable the handoff.
+
+A repeatable instrumentation test pairs through real SRP/encryption with an
+isolated diagnostic server, taps the actual home session card, expands history,
+observes a uniquely identified finalized native append, rotates, verifies the
+external full-session intent, forces a transport disconnect, reconnects, and
+checks lease release in the background and fresh live updates on return. It
+cleans up only its own paired profile. The existing probe now passes app data,
+provider catalog eligibility and Conversation subscription ownership explicitly;
+its optional fixture controls exist only in that disposable loopback process.
+
+Validation used an existing API 34 arm64 phone AVD (1080×2400); portrait and landscape captures were
+visually inspected. This proves direct encrypted transport and the Compose UI on
+an emulator, not a physical-device, store-release or deployed relay UI milestone.
+The native runtime's prior relay/crypto interoperability tests remain applicable.
+Partial-message tokens, reply/approval actions, iOS, rich rendering and indexed
+history acquisition remain deferred.
+
+
+To repeat the native proof, start
+`packages/server/scripts/android-native-secure-probe-server.ts` with
+`YA_NATIVE_PROBE_CONVERSATION=true`, a disposable `YA_NATIVE_PROBE_USERNAME` and
+`YA_NATIVE_PROBE_PASSWORD` (at least eight characters). Its default port is
+38901. Select an AVD explicitly, reverse TCP port 38901 with ADB, and build/install
+`assembleHostedLatestDebug` and `assembleHostedLatestDebugAndroidTest` with
+`-PyaNativeProbeCleartext=true`. Run
+`com.yepanywhere.mobile.ui.YaConversationInstrumentedTest` with instrumentation
+arguments `yaProbeWsUrl=ws://127.0.0.1:38901/api/ws`, `yaProbeUsername` and
+`yaProbePassword`. The cleartext allowance is debug-only; the YA payload still
+uses native encryption. Captures are under the application's external files
+`conversation-captures` directory; present them through the repository artifact
+capture facility. Stop the probe and remove the ADB reverse mapping afterward.
+
+Final checks: 84 Android JVM tests, Android lint and both debug APK builds
+passed. The new AVD instrumentation test passed, including distinct live appends
+before and after background/foreground. Workspace lint, formatting and typecheck
+passed; final server and client runs passed 5,225 and 5,780 tests respectively.
+The full browser run passed 231 tests with seven skipped; subsequent focused
+checks passed the relay handoff without remembered credentials, fresh relay login
+and remembered-session resumption. The first workspace unit run hit the already
+recorded [filesystem watcher deadline](../../gaps/project-file-completion-watcher-test-deadline.md);
+both its focused rerun and the final full server rerun passed.

@@ -129,8 +129,12 @@ implemented, followed by the shared subscription owner and bounded live API. The
 was approved on 2026-09-12. The deliberate-entry web preview now consumes live
 Conversation snapshots with a temporary existing-catalog adapter. A self-hosted
 browser entry at `/-/preview` also connects to the serving server through
-same-origin HTTP/SSE, without relay or saved pairing. Next add the
-Android preview screen, evaluate the web experiment on Latest, and extend indexed
+same-origin HTTP/SSE, without relay or saved pairing. Android session cards now
+open a native Compose Conversation preview through saved source leases, with
+history controls, live finalized snapshots, and explicit reconnect. An encrypted
+direct-server AVD proof covers native navigation, rotation, live updates and
+foreground lifecycle. Next evaluate both previews against everyday sessions on
+Latest, review the SourceOverview operation, and extend indexed
 history acquisition beyond the initial hard-budget refusal. Partial-message token
 assembly is deferred; finalized-message snapshots update live.
 Measure the recorded cost budgets; offline fixtures are not live integration.

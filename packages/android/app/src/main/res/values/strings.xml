@@ -1,4 +1,34 @@
 <resources>
+    <string name="conversation_title">Conversation preview</string>
+    <string name="conversation_read_only">Experimental · Read-only</string>
+    <string name="conversation_open_full">Open full session</string>
+    <string name="conversation_loading">Loading conversation…</string>
+    <string name="conversation_update_required">This server needs an update to support the conversation preview.</string>
+    <string name="conversation_revision_mismatch">The app and server use different preview revisions. Update them to matching builds.</string>
+    <string name="conversation_invalid">The server returned an invalid preview. Open the full session or reconnect.</string>
+    <string name="conversation_offline">Updates stopped. Any messages shown are the last received snapshot. Reconnect or go back to check the server connection.</string>
+    <string name="conversation_reconnect">Reconnect</string>
+    <string name="conversation_unavailable">This conversation or history window is unavailable. Try Latest or open the full session.</string>
+    <string name="conversation_unknown">Unsupported content. Open the full session to view it.</string>
+    <string name="conversation_activity_unknown">Activity unknown</string>
+    <plurals name="conversation_message_count">
+        <item quantity="one">%1$d message</item>
+        <item quantity="other">%1$d messages</item>
+    </plurals>
+    <string name="conversation_more">Show more</string>
+    <string name="conversation_latest">Latest</string>
+    <string name="conversation_scope_limit">Older history may exist outside this preview’s compaction scope.</string>
+    <string name="conversation_partial">Some history is unavailable or exceeds the preview size limit.</string>
+    <string name="conversation_anchored">Showing an anchored history window. Latest returns to the live tail.</string>
+    <string name="conversation_empty">No messages in this window.</string>
+    <string name="conversation_you">You</string>
+    <string name="conversation_agent">Agent</string>
+    <string name="conversation_interrupted">Interrupted</string>
+    <string name="conversation_truncated">Message shortened for this preview.</string>
+    <string name="conversation_pending">Input requested</string>
+    <string name="conversation_pending_full">Respond or approve in the full session.</string>
+    <string name="conversation_tools">Tools: %1$d · Failed: %2$d</string>
+    <string name="conversation_media">Attachment: %1$s — open the full session to view.</string>
     <string name="app_name">Yep Anywhere</string>
     <string name="open_full_app">Open full app</string>
     <string name="connect_to_server">Connect to your server</string>

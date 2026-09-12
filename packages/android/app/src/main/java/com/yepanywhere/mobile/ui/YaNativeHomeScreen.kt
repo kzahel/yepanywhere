@@ -60,6 +60,7 @@ import com.yepanywhere.mobile.profiles.YaServerRouteKind
 fun YaNativeHomeScreen(
     viewModel: YaNativeHomeViewModel,
     openWebClient: () -> Unit,
+    openConversation: (YaSourcedSession) -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     var showAddServer by rememberSaveable { mutableStateOf(false) }
@@ -242,6 +243,7 @@ fun YaNativeHomeScreen(
                     onReauthenticate = viewModel::reauthenticate,
                     onDismissError = viewModel::clearError,
                     onRetry = viewModel::retryConnection,
+                    onOpenConversation = openConversation,
                 )
             }
         }
@@ -438,6 +440,7 @@ private fun PairingScreen(
 @Composable
 private fun UnifiedHome(
     state: YaNativeHomeState,
+    onOpenConversation: (YaSourcedSession) -> Unit,
     onSetFilter: (String?) -> Unit,
     onRefresh: () -> Unit,
     onReauthenticate: (String, String) -> Unit,
@@ -540,7 +543,7 @@ private fun UnifiedHome(
             }
         }
         items(state.sourcedSessions, key = YaSourcedSession::key) { sourced ->
-            SessionCard(sourced)
+            SessionCard(sourced) { onOpenConversation(sourced) }
         }
     }
 }
@@ -761,9 +764,9 @@ private fun ReauthenticationCard(
 }
 
 @Composable
-private fun SessionCard(sourced: YaSourcedSession) {
+private fun SessionCard(sourced: YaSourcedSession, onClick: () -> Unit) {
     val session = sourced.session
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = sourceLabel(sourced.serverUsername, sourced.serverIcon),

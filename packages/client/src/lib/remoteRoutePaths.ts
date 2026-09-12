@@ -164,3 +164,19 @@ export function getSafeRemoteReturnTarget(
     target.pathname.startsWith(`${relayBasePath}/`);
   return isActiveRelayTarget ? formatRouteTarget(target) : null;
 }
+
+/** An explicit relay sign-in/handoff must not land in another active source. */
+export function matchesRelayLoginTarget(
+  location: RemoteRouteLocationParts,
+  currentRelayUsername: string | null,
+  currentUrl: string | null,
+): boolean {
+  if (location.pathname !== "/login/relay") return true;
+  const params = new URLSearchParams(location.search);
+  const username = params.get("u");
+  const relayUrl = params.get("r");
+  return (
+    (!username || username === currentRelayUsername) &&
+    (!relayUrl || relayUrl === currentUrl)
+  );
+}

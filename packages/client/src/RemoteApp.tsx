@@ -62,6 +62,7 @@ import { initClientLogCollection } from "./lib/diagnostics";
 import {
   getRelayCanonicalRedirectTarget,
   getSafeRemoteReturnTarget,
+  matchesRelayLoginTarget,
 } from "./lib/remoteRoutePaths";
 
 const FloatingActionButton = lazy(() =>
@@ -175,8 +176,12 @@ export function ConnectedAppContent({ children }: { children: ReactNode }) {
  * Renders <Outlet /> (login pages) when not connected.
  */
 export function UnauthenticatedGate() {
-  const { connection, currentRelayUsername, isIntentionalDisconnect } =
-    useRemoteConnection();
+  const {
+    connection,
+    currentRelayUsername,
+    currentRelayUrl,
+    isIntentionalDisconnect,
+  } = useRemoteConnection();
   const basePath = useRemoteBasePath();
   const location = useLocation();
 
@@ -188,7 +193,11 @@ export function UnauthenticatedGate() {
   );
 
   // If connected and user didn't intentionally disconnect, redirect to app
-  if (connection && !isIntentionalDisconnect) {
+  if (
+    connection &&
+    !isIntentionalDisconnect &&
+    matchesRelayLoginTarget(location, currentRelayUsername, currentRelayUrl)
+  ) {
     return <Navigate to={safeReturnTo ?? `${basePath}/projects`} replace />;
   }
 

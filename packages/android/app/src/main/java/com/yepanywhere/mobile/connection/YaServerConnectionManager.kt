@@ -4,6 +4,9 @@ import com.yepanywhere.mobile.profiles.YaPairedServerRepository
 import com.yepanywhere.mobile.profiles.YaStoredResumeCredential
 import com.yepanywhere.mobile.security.YaSecurityClientLifecycle
 import com.yepanywhere.mobile.security.YaSecurityClientRevokedException
+import com.yepanywhere.mobile.experimental.CONVERSATION_API_REVISION
+import com.yepanywhere.mobile.experimental.ConversationQuery
+import com.yepanywhere.mobile.experimental.SimpleClientContract
 import java.io.Closeable
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -119,6 +122,22 @@ class YaConnectionLease internal constructor(
         if (released.compareAndSet(false, true)) manager.releaseLease(id)
     }
 
+    suspend fun subscribeConversation(subscriptionId: String, query: ConversationQuery): YaSubscription {
+        check(!released.get()) { "Connection lease is released" }
+        SimpleClientContract.decodeId(subscriptionId)
+        return manager.subscribe(
+            leaseId = id,
+            channel = "/api/experimental/conversation/subscribe",
+            sessionId = null,
+            projectId = null,
+            provider = null,
+            lastEventId = null,
+            wantsLiveDeltas = null,
+            conversation = query,
+            bindingId = subscriptionId,
+        )
+    }
+
     override fun close() {
         if (released.compareAndSet(false, true)) manager.releaseLeaseAsync(id)
     }
@@ -219,12 +238,16 @@ class YaServerConnectionManager(
         provider: String?,
         lastEventId: String?,
         wantsLiveDeltas: Boolean?,
+        conversation: ConversationQuery? = null,
+        bindingId: String? = null,
     ): YaSubscription {
-        require(channel in SUPPORTED_SUBSCRIPTION_CHANNELS)
+        require(channel in SUPPORTED_SUBSCRIPTION_CHANNELS ||
+            (channel == "/api/experimental/conversation/subscribe" && conversation != null && bindingId != null))
+        if (conversation != null) SimpleClientContract.decodeConversationQuery(conversation.toJson())
         require(channel != "session" || !sessionId.isNullOrBlank())
         require(channel != "session-watch" || (!sessionId.isNullOrBlank() && !projectId.isNullOrBlank()))
         val transport = ensureConnected(leaseId)
-        val subscriptionId = UUID.randomUUID().toString()
+        val subscriptionId = bindingId ?: UUID.randomUUID().toString()
         val eventChannel = Channel<YaSubscriptionEvent>(SUBSCRIPTION_BUFFER_SIZE)
         val record = SubscriptionRecord(
             id = subscriptionId,
@@ -236,9 +259,11 @@ class YaServerConnectionManager(
             lastEventId = lastEventId,
             wantsLiveDeltas = wantsLiveDeltas,
             events = eventChannel,
+            conversation = conversation,
         )
         mutex.withLock {
             val owned = checkNotNull(leases[leaseId]) { "Connection lease is released" }
+            check(subscriptionId !in subscriptions) { "Subscription identity already in use" }
             check(connection?.transport === transport) {
                 "Native connection changed before subscription send"
             }
@@ -510,6 +535,7 @@ class YaServerConnectionManager(
             if (connectionGeneration != generation) return
             if (transport == null || connection?.transport === transport) connection = null
             failPendingLocked(YaConnectionUnavailableException("Native connection was lost", error))
+            failConversationsLocked(error)
         }
     }
 
@@ -525,6 +551,7 @@ class YaServerConnectionManager(
             connection = null
             mutableState.value = YaConnectionState(phase = phase, errorMessage = message)
             failPendingLocked(YaConnectionUnavailableException(message, error))
+            failConversationsLocked(error)
             ready.completeExceptionally(YaConnectionUnavailableException(message, error))
         }
     }
@@ -566,6 +593,15 @@ class YaServerConnectionManager(
         pendingRequests.clear()
     }
 
+    /** Conversations restart at sequence zero; never replay their old binding. */
+    private fun failConversationsLocked(error: Throwable) {
+        subscriptions.values.filter { it.conversation != null }.forEach { record ->
+            subscriptions.remove(record.id)
+            leases[record.leaseId]?.remove(record.id)
+            record.events.close(YaConnectionUnavailableException("Conversation disconnected", error))
+        }
+    }
+
     private data class SubscriptionRecord(
         val id: String,
         val leaseId: String,
@@ -576,8 +612,14 @@ class YaServerConnectionManager(
         var lastEventId: String?,
         val wantsLiveDeltas: Boolean?,
         val events: Channel<YaSubscriptionEvent>,
+        val conversation: ConversationQuery? = null,
     ) {
         fun subscribeMessage(): JSONObject {
+            conversation?.let {
+                return JSONObject().put("type", "subscribe").put("subscriptionId", id)
+                    .put("channel", channel).put("apiRevision", CONVERSATION_API_REVISION)
+                    .put("query", it.toJson())
+            }
             return JSONObject()
                 .put("type", "subscribe")
                 .put("subscriptionId", id)
@@ -600,6 +642,10 @@ class YaServerConnectionManager(
         private const val SUBSCRIPTION_BUFFER_SIZE = 64
     }
 }
+
+private fun ConversationQuery.toJson(): JSONObject = JSONObject()
+    .put("sessionId", sessionId).put("maxMessages", maxMessages)
+    .put("anchorMessageId", anchorMessageId ?: JSONObject.NULL)
 
 private fun JSONObject.toApiResponse(): YaApiResponse {
     val headersObject = optJSONObject("headers")

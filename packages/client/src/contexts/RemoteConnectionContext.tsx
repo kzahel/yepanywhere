@@ -116,6 +116,8 @@ interface RemoteConnectionState {
   currentHostId: string | null;
   /** Relay username of the active connection, including unsaved hosts */
   currentRelayUsername: string | null;
+  /** Live relay URL, including connections that are not remembered. */
+  currentRelayUrl: string | null;
   /** Direct WebSocket URL for direct connections without a saved host */
   currentDirectUrl: string | null;
   /** Set the current host ID (called by RelayConnectionGate after connect) */
@@ -334,6 +336,9 @@ export function RemoteConnectionProvider({ children }: Props) {
       ? (initialStored.relayUsername ?? null)
       : null,
   );
+  const [currentRelayUrl, setCurrentRelayUrl] = useState<string | null>(() =>
+    initialStored?.mode === "relay" ? initialStored.wsUrl : null,
+  );
   const [currentDirectUrl, setCurrentDirectUrlState] = useState<string | null>(
     null,
   );
@@ -536,6 +541,7 @@ export function RemoteConnectionProvider({ children }: Props) {
       setError(null);
       setIsIntentionalDisconnect(false);
       setCurrentRelayUsername(null);
+      setCurrentRelayUrl(null);
       setCurrentDirectUrl(wsUrl);
 
       try {
@@ -600,6 +606,7 @@ export function RemoteConnectionProvider({ children }: Props) {
       setIsConnecting(true);
       setError(null);
       setCurrentRelayUsername(null);
+      setCurrentRelayUrl(null);
       setCurrentDirectUrl(currentStored.wsUrl);
 
       try {
@@ -665,6 +672,7 @@ export function RemoteConnectionProvider({ children }: Props) {
       setError(null);
       setIsIntentionalDisconnect(false);
       setCurrentRelayUsername(relayUsername);
+      setCurrentRelayUrl(relayUrl);
       setCurrentDirectUrl(null);
       const currentHost = currentHostIdRef.current
         ? getHostById(currentHostIdRef.current)
@@ -798,6 +806,7 @@ export function RemoteConnectionProvider({ children }: Props) {
         // Use isIntentional=false for programmatic host switches (e.g., browser back/forward)
         setCurrentHostId(null);
         setCurrentRelayUsername(null);
+        setCurrentRelayUrl(null);
         setCurrentDirectUrl(null);
         setIsIntentionalDisconnect(isIntentional);
       });
@@ -865,6 +874,7 @@ export function RemoteConnectionProvider({ children }: Props) {
             throw new Error("Missing relay credentials for auto-resume");
           }
           setCurrentRelayUsername(relayUsername);
+          setCurrentRelayUrl(relayUrl);
 
           // 1. Connect to the relay and claim the server's waiting socket.
           const ws = await openRelayClientSocket({
@@ -889,6 +899,7 @@ export function RemoteConnectionProvider({ children }: Props) {
           );
         } else {
           setCurrentRelayUsername(null);
+          setCurrentRelayUrl(null);
           setCurrentDirectUrl(currentStored.wsUrl);
           // Direct mode: just create connection and resume
           conn = SecureConnection.forResumeOnly(storedSession, {
@@ -1007,6 +1018,7 @@ export function RemoteConnectionProvider({ children }: Props) {
     autoResumeError,
     currentHostId,
     currentRelayUsername,
+    currentRelayUrl,
     currentDirectUrl,
     setCurrentHostId,
     isIntentionalDisconnect,

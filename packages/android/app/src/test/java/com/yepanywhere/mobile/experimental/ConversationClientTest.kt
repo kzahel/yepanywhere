@@ -2,6 +2,7 @@ package com.yepanywhere.mobile.experimental
 
 import com.yepanywhere.mobile.connection.YaApiResponse
 import java.net.URLDecoder
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -23,6 +24,10 @@ class ConversationClientTest {
             val paths = mutableListOf<String>()
             val client = ConversationClient("old") { path -> paths.add(path); YaApiResponse(200, emptyMap(), version) }
             assertTrue(client.read(ConversationQuery("s", 20, null)) is ConversationReadResult.Unavailable)
+            assertEquals(listOf("/api/version"), paths)
+            paths.clear()
+            val error = runCatching { client.watch(ConversationQuery("s", 20, null)).first() }.exceptionOrNull()
+            assertTrue(error is ConversationUnavailableException)
             assertEquals(listOf("/api/version"), paths)
         }
     }
