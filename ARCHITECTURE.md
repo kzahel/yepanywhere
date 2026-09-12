@@ -444,11 +444,14 @@ tripwires. See the completed
 This is useful web architecture but is not yet the versioned envelope or
 platform-neutral projection proposed above.
 
-**Next trigger.** Continue only after a human identifies a real second consumer
-and decides its bounded input, minimum projection contract, packaging/runtime,
-and compatibility policy. Do not add a public/versioned IR, projection
-transport, server/client negotiation, alternate runtime, or native live-session
-behavior implicitly from the successful web extraction.
+**Next consumer and decisions.** The 2026-09-12 direction selects a minimal
+multi-server web demo of a [Simple Client API](topics/simple-client-api.md),
+followed closely by Kotlin/Compose and Swift/SwiftUI consumers. It uses finished
+server projections, message-based limits, and a new small client state machine.
+The [three-client plan](docs/tactical/130-simple-client-api-and-three-client-demo.md)
+must settle concrete schemas, history semantics, packaging/runtime, and
+capability/fallback review before protocol implementation. The earlier extraction
+alone does not authorize a public/versioned IR or a client compiler runtime.
 
 ### Disk-pressure degraded mode
 

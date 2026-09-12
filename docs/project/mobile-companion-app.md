@@ -8,15 +8,21 @@ host, App Link, and minimal FCM registration/receive probe exist. The
 Gradle/Kotlin replacement has landed and Tauri Mobile has been removed; its
 validation evidence and CI contract are recorded in
 [`080-first-class-android-shell.md`](../tactical/080-first-class-android-shell.md).
-Broker enrollment, native notification presentation, and native foreground UI
-remain later slices.
+Native pairing, concurrent multi-host summaries, settings, and relay-mux/fallback
+behavior have since landed and passed Pixel validation in
+[`084-android-native-multi-host-runtime.md`](../tactical/084-android-native-multi-host-runtime.md).
+Broker installation registration also exists; server-specific push enrollment,
+notification presentation, and native Conversation detail remain later slices.
 
-The first native foreground surface was selected on 2026-08-02: Android uses a
-Compose companion shell and Conversation-view session detail, with SwiftUI as
-the corresponding later iOS renderer. The existing full web client remains an
-explicit permanent full-fidelity alternative. This decision does not yet
-approve a projection wire schema, native connection-core implementation, or
-client/server protocol change.
+The native foreground direction selected on 2026-08-02 remains Compose with
+Conversation-view session detail and SwiftUI on iOS. On 2026-09-12 the development
+sequence changed: first prove a [Simple Client API](../../topics/simple-client-api.md)
+with a minimal multi-server web demo at an unlisted Latest URL, experimenting
+with machine/project/issue grouping. Kotlin and Swift decoding and small native
+consumers follow immediately so web, Android, and iOS shape the same contract.
+The existing full web client remains a permanent full-fidelity alternative.
+The exact schema and compatibility review remain open in the
+[three-client plan](../tactical/130-simple-client-api-and-three-client-demo.md).
 
 The Android notification path is specified separately in
 [`topics/android-fcm-push.md`](../../topics/android-fcm-push.md).
@@ -209,8 +215,8 @@ the web login screen or maintaining a second browser-only list of servers.
 
 Android should provide a focused native session-detail experience without
 removing the complete full-screen web presentation. Android renders the native
-surface with Compose; a later iOS app renders the same semantic projection with
-SwiftUI. Platform renderers share projection schemas, generated data types,
+surface with Compose; an early iOS consumer renders the same semantic projection
+with SwiftUI. Platform renderers share projection schemas, generated data types,
 stable identities, fixtures, pagination and fallback meanings. They do not
 share layout widgets or aim for pixel identity.
 
@@ -222,12 +228,14 @@ initially use bounded generic tool rows. A deliberate **Open full activity**
 action enters the packaged web client when the user needs rich diffs, file
 viewers, provider-specific tools, or settings.
 
-The first renderer prototype should be read-only and consume saved projection
-fixtures before it owns live transport, approvals, or a composer. Basic text
-response follows only after foreground connection and reconciliation behavior
-are established. An approval that requires command, diff, or other rich context
-must open the full web presentation until the native renderer can show enough
-information for an informed decision; the compact native surface must not offer
+The first native renderer slices should be read-only and consume the same typed
+fixtures as the new web demo, then connect to the live API before that demo grows
+into a larger client. This supersedes waiting for an Android-first foreground
+implementation before beginning iOS. Basic text response follows after
+foreground connection and reconciliation behavior are established. An approval
+that requires command, diff, or other rich context must open the full web
+presentation until the native renderer can show enough information for an
+informed decision; the compact native surface must not offer
 an under-explained approval action.
 
 The server-compiled projection is the preferred efficient path. Native clients

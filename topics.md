@@ -390,3 +390,5 @@
   and PR links, durable association evidence, and SQLite schema evolution.
 - optional-sqlite - Built-in SQLite discovery storage: runtime adapters, data
   directory placement, and the transaction cost callers must respect.
+- simple-client-api - Experimental typed server views with a multi-server web
+  demo and early Kotlin/Compose and Swift/SwiftUI consumers.

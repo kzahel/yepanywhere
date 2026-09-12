@@ -8,12 +8,15 @@
 Topic: portable-transcript-compiler
 
 Status: Architecture direction approved; the internal web-only foundation is
-complete. A native Conversation-view renderer is now the selected second
-consumer, but its bounded input, projection ABI, runtime boundary, and
-compatibility policy still require a separately approved implementation plan.
+complete. The 2026-09-12 consumer sequence starts with a minimal multi-server web
+demo of a server-owned Simple Client API, followed closely by Compose and SwiftUI
+consumers. Its schema, runtime boundary, and compatibility policy remain under
+design; the internal web output is not a published native contract.
 
 See also:
 
+- [simple-client-api](simple-client-api.md) — current three-client API direction,
+  message-based limits, and server-owned Conversation views;
 - [provider-output-contract](provider-output-contract.md) — the current
   provider-normalized message contract;
 - [session-detail-data-layer](session-detail-data-layer.md) — the canonical
@@ -65,7 +68,25 @@ No later migration step is authorized by this checkpoint. A human must first
 identify a real second consumer and choose the bounded input, minimum projection
 contract, package/runtime target, and compatibility policy.
 
-## Native Consumer Direction (2026-08-02)
+## Current Consumer Sequence (2026-09-12)
+
+The [Simple Client API](simple-client-api.md) is the selected next application
+of this boundary. A minimal web demo provides fast iteration on real multi-YA
+server summaries, Conversation detail, and machine/project/issue sidebar
+grouping. Kotlin/Compose and Swift/SwiftUI follow immediately as consumers of
+the same generated schema and fixture corpus, before web behavior stabilizes.
+Clients intentionally use a new small state machine rather than adopting the
+existing web session-detail logic.
+
+These clients consume finished server projections. A client-bundled portable
+compiler remains a possible broader architecture, not a prerequisite for this
+experiment. Public limits use logical user/agent message counts, not turns;
+history and reconnect bookkeeping belong below the simple screen-facing API.
+The [implementation plan](../docs/tactical/130-simple-client-api-and-three-client-demo.md)
+owns the exact schema, history-scope, transport, and compatibility decisions.
+This sequencing supersedes the native-first prototype order recorded below.
+
+## Original Native Consumer Direction (2026-08-02)
 
 The real second consumer is now identified: an Android Compose companion whose
 default session detail is the compact Conversation view, followed later by a

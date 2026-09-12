@@ -1,0 +1,227 @@
+# Simple Client API
+
+Topic: simple-client-api
+
+Status: Product, sequencing, and `/api/experimental/` namespace direction selected
+on 2026-09-12. API schemas, operation names, synchronization details, and release
+compatibility remain a design proposal; no new endpoint or client is implemented
+by this document.
+
+## Purpose and first consumers
+
+YA should expose a small, transport-independent application API for basic
+clients. Each server interprets its own provider history and live activity and
+returns typed session summaries and a finished, condensed Conversation view.
+Clients should not need the existing web session reducer, provider event
+interpretation, compaction bookkeeping, or live/durable reconciliation.
+
+The first consumer is a minimal experimental web client for rapid iteration.
+It connects to multiple YA servers from its first useful slice and experiments
+with sidebar grouping by machine, project, and issue. It should be testable at
+an unlisted URL on `latest.yepanywhere.com` through the existing Latest release
+pipeline. Kotlin/Compose and Swift/SwiftUI consumers follow immediately in
+small vertical slices and help shape the same contract before it stabilizes.
+React Native is not the chosen mobile direction.
+
+The web demo is a real API consumer with its own small state machine. Shared
+transport/authentication primitives and design tokens may be reused, but
+importing the existing session-detail machinery would defeat this experiment.
+Shipping Android and iOS remains the product outcome; the demo is not a new
+full-web rewrite prerequisite.
+
+Implementation sequence and unresolved decisions live in
+[`docs/tactical/130-simple-client-api-and-three-client-demo.md`](../docs/tactical/130-simple-client-api-and-three-client-demo.md).
+
+## Relationship to existing work
+
+- [Portable transcript compiler](portable-transcript-compiler.md) supplies the
+  server-ingest and semantic-projection direction. The internal web compiler
+  is useful source material, not the new wire schema. For these consumers,
+  projection runs on the server; a client-bundled compiler is not a prerequisite.
+- [Conversation view](conversation-view.md) owns the meaning of condensed
+  content: user/agent prose, media, important failures, and summarized activity.
+- [Source transport](source-transport.md),
+  [source runtimes](client-source-runtime-topology.md), and the landed
+  [multi-host monitor](../docs/tactical/066-multi-host-monitor-coexistence-harness.md)
+  provide reusable connection ownership and coexistence evidence.
+- [Android multi-host](../docs/tactical/084-android-native-multi-host-runtime.md)
+  and [mobile pairing](mobile-server-pairing.md) supply existing native
+  connection ownership. An API redesign is not a reason to rewrite crypto.
+- [Issue/session associations](issue-session-associations.md) owns association
+  discovery, canonical references, feature enablement, and coverage.
+
+## Server and client responsibilities
+
+Each YA server owns provider reads, stable YA session identity, live/durable
+reconciliation, message grouping, activity summaries, failure classification,
+media references, and the selection of a bounded conversation window. Its
+existing provider-native history remains authoritative. A new canonical shadow
+transcript or event-sourced database is not a prerequisite.
+
+Each client owns its saved-server catalog, source-scoped connection demand,
+aggregation, sidebar grouping, selected session, scroll state, and later local
+draft/action state. A screen consumes typed models and a small client API;
+transport or provider conditionals do not belong in the renderer.
+
+Server computations must follow [architecture mandates](architecture-mandates.md):
+shared keyed work, bounded acquisition, no transcript scan per sidebar render,
+no refetch per provider token, and subscription teardown after the final owner
+leaves. Moving interpretation server-side must not multiply full-history work
+by the number of connected clients.
+
+## Proposed data boundary
+
+The first schema review should cover these semantic families without assuming
+these are final type or operation names:
+
+| Family | Required meaning |
+| --- | --- |
+| Source overview | Server display facts, projects, session summaries, attention, freshness and coverage |
+| Session summary | YA session identity, source-local project reference, title, provider, activity, latest text preview, pending-input state, and issue references where available |
+| Conversation | Ordered user/agent messages with stable IDs, structured content, compact activity, important failures, current session state, and pending requests |
+| History coverage | Whether earlier messages exist, whether the returned window is complete for the request, and explicit content/payload limits |
+| Subscription delivery | An authoritative initial state, ordered subsequent delivery, and a defined snapshot recovery/reset path |
+| Actions, later | Explicit request identity, acceptance/failure outcome, and action eligibility for reply, stop, and question answering |
+
+Message limits count logical user-visible user or agent messages, not provider
+events, stream chunks, tool calls, or ambiguous "turns". Streaming growth of one
+message does not consume another slot. Adjacent agent-block grouping, activity
+attachment, and system/boundary placement must be decided with real fixtures.
+Pending requests and current session status remain available even when the
+message that originated them is outside the requested window.
+
+The wire schema must support generated TypeScript, Kotlin, and Swift models and
+decoders. Define tagged content variants, opaque string identities/revisions,
+timestamp format, null-versus-omitted fields, errors, and unknown-variant
+behavior explicitly. Native models must compile and decode fixtures early;
+exporting TypeScript interfaces alone is not the acceptance criterion.
+
+Media travels by authenticated, source-scoped reference rather than inline
+unbounded payloads. Counts and serialized bytes both have limits, including a
+defined representation and recovery path for an oversized individual message.
+Unknown visible content gets an explicit safe fallback; unsupported pending
+actions cannot acquire an unexplained native approval button.
+
+## Simple history and synchronization
+
+A basic consumer asks for the latest `maxMessages` and may never browse older
+history. Older history is an optional explicit operation, expressed to screen
+code as "show earlier messages". Provider offsets, compaction boundaries,
+prefix-fact folds, and raw replay cursors stay on the server or below the
+small client facade.
+
+The first candidate is an authoritative snapshot on subscription and after
+recovery, with coalesced replacement snapshots for a small bounded window.
+An expanded window can likewise replace client data using stable message IDs
+to preserve the reading anchor. This is a candidate to measure, not a promise
+to resend the whole window on every token. Bounded row updates may be needed;
+their reducer must remain small and have snapshot recovery.
+
+Before implementation, define what happens as new messages arrive while the
+user reads older content, how a window is anchored, how history expansion is
+capped, and how stale responses are rejected. No rolling window may silently
+evict the message being read. Revisions and subscription generations must make
+initial snapshot/live handoff, reconnect, and out-of-order completions
+unambiguous without provider-specific client repair.
+
+The older compiler proposal's two-compaction baseline is not silently removed.
+The schema review must explicitly decide how this new API's message-based
+coverage relates to that existing limit and what unavailable older content
+looks like. The present web API retains its existing contract.
+
+## Transport bindings
+
+Application operations and payload meanings are independent of framing:
+
+- HTTP can deliver reads and actions, with SSE for subscriptions.
+- Plain WebSocket can carry requests and subscriptions.
+- Existing authenticated encrypted WebSocket/relay connections can carry the
+  same operations and payloads.
+
+SSE is server-to-client; its actions need an accompanying request transport.
+Every binding must preserve authorization, cancellation, recovery, and error
+meanings. Existing endpoint selection and SRP/NaCl behavior stay authoritative.
+The first hosted proof needs encrypted WebSocket; adapters can land in sequence,
+but the contract must not depend on that binding or require every client to
+implement every transport.
+
+## Multi-server identity and sidebar experiments
+
+A source is explicit in every client operation and entity key. Use a client
+saved-profile/source key plus the server's YA session/project ID; equal IDs on
+two servers must remain distinct. A server response need not echo a client-only
+profile ID. Machine filtering and grouping are presentation state, not a global
+connection switch. Healthy sources stay useful when another source is loading,
+offline, incompatible, revoked, or requires sign-in.
+
+Do not identify a machine by its display name, relay username, or shared SRP
+credentials. Do not add a public installation ID as an implicit requirement.
+Route continuity follows the existing pairing/source contracts; independent
+saved profiles are not automatically deduplicated.
+
+Server data supplies facts and relationships; clients arrange them. The first
+demo should support switching these strategies without a new server endpoint:
+
+- **Machine:** source, then its sessions or projects.
+- **Project:** source-local project groups, with source badges. Cross-machine
+  project merging needs an explicit mapping or authoritative repository identity;
+  matching basenames or filesystem paths alone is insufficient.
+- **Issue:** canonical tracker identities collect associated sessions, retaining
+  source badges. Equal short keys on different tracker sites remain distinct.
+  A session can appear under several issues while sharing one selected-session
+  identity. Unassociated sessions remain reachable.
+
+Grouping preferences belong to the client. Coverage must distinguish "no known
+association" from disabled, unsupported, partial, or unavailable indexing.
+The new API must reuse permitted server association discovery; opening this
+demo must not silently enable Issues & PRs or trigger tracker requests. Audit
+the existing viewed-window capture path so the new API does not accidentally
+bypass discovery that currently happens during ordinary session reads.
+
+## Experimental hosting and compatibility
+
+All new API URLs begin with `/api/experimental/`. This explicitly marks an
+iteration surface rather than a promoted, supported public contract. Operation
+names, payload shapes, and behavior may change incompatibly during the
+experiment; publishing preview builds does not freeze them. Requests carried
+over WebSocket or encrypted WebSocket retain the same experimental operation
+identity. This namespace is separate from the web demo's entry URL.
+
+Generated models and fixtures still describe each experimental revision
+precisely. Preview clients and servers must detect unsupported revisions and
+show a source-scoped preview-version mismatch rather than misinterpret data.
+Experimental revisions identify compatible builds; they do not promise a
+long-term version-support policy or a permanent fallback for every experiment.
+The existing supported API retains its compatibility obligations.
+
+Before published mobile apps rely on this as their supported API, explicitly
+promote the contract out of `/api/experimental/`: choose its stable namespace
+and any public versioning scheme, document compatibility/support policy, and
+define the preview-to-stable client/server transition. A versioned stable URL
+is a candidate, not a decision already made. Generated types alone do not
+constitute promotion.
+
+Use an unlisted route in the reserved `/-/` namespace on the existing Latest
+origin; the exact path is a deployment detail to settle with the demo. The URL
+is a discoverability choice, not a credential. Each source still requires its
+ordinary authentication. Keep the demo absent from ordinary navigation and
+avoid changing the main app's startup, persistent settings, or service-worker
+behavior. Demo preferences should have their own storage namespace.
+
+Extend the existing
+[`latest-remote-client.yml`](../.github/workflows/latest-remote-client.yml)
+build/deployment path, preserving exact-CI-commit publication and previous
+asset-generation retention. Hosted preview code does not change the signed,
+bundled trust model selected for production native apps.
+
+The experimental API is additive and needs a capability and supported-revision
+check that distinguish its presence from schema compatibility.
+Proposed older-server behavior is a source-scoped "preview API requires a server
+update" state with an explicit route to the existing full client. Other sources
+continue working. The demo makes no new API request before support is known;
+it does not import the old transcript reducer as a hidden compatibility layer.
+
+The [compatibility review](server-capabilities.md#minimum-compatibility-horizons)
+must settle the release corpus, exact operations/events, gate, and fallback
+before implementing the wire contract. "v2" is the working name for this new
+surface, not approval to raise the existing web client's compatibility floor.

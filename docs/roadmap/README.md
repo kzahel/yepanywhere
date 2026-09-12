@@ -15,8 +15,10 @@ automatically published **Latest** channel for bleeding-edge builds. Desktop
 should graduate from its current beta positioning; mobile should reach the
 App Store and Google Play, not stop at internal testing.
 
-**Status:** in progress, with mobile product scope still a design blocker.
-The release outcome is decided; the first mobile release design remains open.
+**Status:** in progress. The API/client development sequence is selected: a
+minimal multi-server web demo first, with Android and iOS following closely on
+the same simplified contracts. Exact API and mobile release scope remain design
+work; the release outcome is decided.
 
 ### Current baseline
 
@@ -94,21 +96,34 @@ compatibility checks belong to the release criteria, not just compilation.
 
 ### Mobile scope decisions and next action
 
-The leading direction is a native multi-machine interface with condensed
-Conversation view as the only native transcript presentation initially.
-Source browsing, file viewing, detailed activity, and complex settings may use
-embedded web screens. This is a design direction to resolve, not a settled
-release checklist: the native/web boundary, action and approval coverage,
-navigation, and minimum scope for each platform still need decisions.
+The 2026-09-12 direction is a [Simple Client API](../../topics/simple-client-api.md)
+that returns server-owned summaries and condensed Conversation data through
+transport-independent, generated TypeScript/Kotlin/Swift contracts. The API
+starts under `/api/experimental/` and can evolve incompatibly; stable namespace,
+versioning, and support policy are explicit promotion decisions before public
+mobile reliance. Start with a minimal web client at an unlisted Latest URL,
+connecting to multiple YA servers from the first useful slice and experimenting
+with sidebar grouping by machine, project, and issue. Android Compose and iOS
+SwiftUI follow immediately
+in small vertical slices and shape the contract together; React Native is not
+the selected direction. Message limits count user/agent messages rather than
+turns, with history/reconciliation complexity kept below the frontend.
 
-**Next action:** reconcile the existing mobile plans into a concrete first
-release scope and acceptance criteria, while defining the stable desktop and
-Latest delivery work that can proceed independently. Mobile design should not
-block desktop publication or the continuous-delivery foundation.
+The demo is an API consumer with a new small state machine, not a full-web
+rewrite prerequisite. Native remains focused on Conversation view, with rich
+activity, files, complex settings, and unsupported actions using the full-web
+alternative. Exact action coverage and store-release acceptance remain open.
+
+**Next action:** follow the [three-client demo plan](../tactical/130-simple-client-api-and-three-client-demo.md):
+review concrete bounded payloads, prove generated native decoding, settle
+capability/fallback and snapshot/history semantics, then implement the server
+and real multi-source web slice with early native consumers. Desktop release
+and continuous-delivery work continue independently.
 
 Start from these existing plans and contracts:
 
 - [Mobile companion product shape](../project/mobile-companion-app.md)
+- [Simple Client API and three-client demo](../tactical/130-simple-client-api-and-three-client-demo.md)
 - [Native Android multi-host runtime](../tactical/084-android-native-multi-host-runtime.md)
 - [Bundled web over native transport](../tactical/083-android-bundled-web-native-transport.md)
 - [Conversation view](../../topics/conversation-view.md) and
@@ -125,8 +140,8 @@ documents before defining work.
 
 | Direction | Existing context / decision still needed |
 | --- | --- |
-| Multi-machine experience across web and desktop | Extend the native-mobile direction through [source runtimes](../../topics/client-source-runtime-topology.md); decide the unified attention and navigation surface. |
-| Related work across repositories | [Issues & PRs](../../topics/issue-session-associations.md) now has experimental, default-off automatic ticket/URL discovery from viewed sessions and a configurable recent-session window, durable evidence, search and correction controls. Conservative URL/known-prefix matching, durable Jira project learning, and session-grouped browsing are implemented and locally validated. SQLite migrations and compatibility gating are implemented. Workstream/branch inference, multi-server aggregation and tracker synchronization remain deferred. |
+| Multi-machine experience across the full web and desktop clients | The simple-client demo above now owns the first grouping experiment; broader adoption follows evidence from that work and [source runtimes](../../topics/client-source-runtime-topology.md). |
+| Related work across repositories | [Issues & PRs](../../topics/issue-session-associations.md) now has experimental, default-off automatic ticket/URL discovery from viewed sessions and a configurable recent-session window, durable evidence, search and correction controls. Conservative URL/known-prefix matching, durable Jira project learning, and session-grouped browsing are implemented and locally validated. SQLite migrations and compatibility gating are implemented. Multi-server issue grouping enters the simple-client demo above; workstream/branch inference and tracker synchronization remain deferred. |
 | Parallel work within one repository | Follow the [workstreams proposal](../../topics/workstreams.md), which uses ordinary lane clones; do not revive the old automatic-worktree sketch as an approved design. |
 | Scheduling | Follow [yacron](../../topics/yacron.md) and its [open gap](../../gaps/yacron-scheduler.md); the first management UI remains a design prerequisite. |
 | Agent command runtime | Opt-in [`ya-agent self`](../../topics/agent-self.md) implements ownership and model/effort evidence reporting. Use operator-managed global instructions initially; defer automatic advertisement, private input, broader session access, and scheduling integration. |
