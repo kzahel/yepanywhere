@@ -432,6 +432,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "issue-session-associations-v1",
     introducedIn: "0.8.2",
   },
+  computerControl: {
+    id: 70,
+    direction: "server",
+    name: "optional-computer-control",
+    introducedIn: "0.8.2",
+  },
   codexCyberAccessProgramSetting: {
     id: 67,
     direction: "server",

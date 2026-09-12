@@ -602,6 +602,7 @@ export interface SupervisorOptions {
 export type { SessionDoneResult };
 
 export class Supervisor {
+  computerControl?: import("../computer-control/service.js").ComputerControlService;
   private processes: Map<string, Process> = new Map();
   private sessionToProcess: Map<string, string> = new Map(); // sessionId -> processId
   private terminalProviderStatuses = createLruMap<
@@ -2188,7 +2189,15 @@ export class Supervisor {
     const sessionSandbox = await prepareSessionSandbox(sessionSandboxOptions);
 
     // Start session WITHOUT an initial message - agent will wait
+    const computerControl = this.computerControl?.select(
+      tempSessionId,
+      modelSettings?.computerControl,
+      activeProvider.name,
+      modelSettings?.executor,
+      modelSettings?.sandboxLevel,
+    );
     const start = activeProvider.startSession({
+      computerControl,
       cwd: projectPath,
       // No initialMessage - queue will block until one is pushed
       resumeSessionId,
@@ -2229,7 +2238,10 @@ export class Supervisor {
       },
     });
     const result = await this.settleProviderStart(
-      start,
+      start.catch(async (error: unknown) => {
+        await computerControl?.close();
+        throw error;
+      }),
       retryProviderStartupFailure || requireProviderSessionId,
     );
 
@@ -2445,7 +2457,15 @@ export class Supervisor {
     });
     const sessionSandbox = await prepareSessionSandbox(sessionSandboxOptions);
 
+    const computerControl = this.computerControl?.select(
+      tempSessionId,
+      modelSettings?.computerControl,
+      activeProvider.name,
+      modelSettings?.executor,
+      modelSettings?.sandboxLevel,
+    );
     const start = activeProvider.startSession({
+      computerControl,
       cwd: projectPath,
       resumeSessionId,
       resumeSessionAt: resumeSessionId
@@ -2487,7 +2507,10 @@ export class Supervisor {
       },
     });
     const result = await this.settleProviderStart(
-      start,
+      start.catch(async (error: unknown) => {
+        await computerControl?.close();
+        throw error;
+      }),
       retryProviderStartupFailure || requireProviderSessionId,
     );
 

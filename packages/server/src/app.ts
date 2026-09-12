@@ -1,4 +1,6 @@
 import { ConversationSubscriptions } from "./experimental/conversation-subscriptions.js";
+import { ComputerControlService } from "./computer-control/service.js";
+import { createComputerControlRoutes } from "./routes/computer-control.js";
 import { createConversationSource } from "./experimental/conversation-source.js";
 import { createExperimentalConversationRoutes } from "./routes/experimental-conversation.js";
 import { IssueStore } from "./services/issues/IssueStore.js";
@@ -643,6 +645,15 @@ export function createApp(options: AppOptions): AppResult {
   const effectiveDataDir =
     options.dataDir ??
     join(process.env.HOME ?? process.env.USERPROFILE ?? ".", ".yep-anywhere");
+  const computerControl = options.serverSettingsService
+    ? new ComputerControlService(
+        options.serverSettingsService,
+        effectiveDataDir,
+      )
+    : undefined;
+  if (computerControl) {
+    app.route("/api", createComputerControlRoutes(computerControl));
+  }
   const discoverySqlite = new DiscoverySqliteService({
     dataDir: effectiveDataDir,
     mode: options.sqliteMode ?? "auto",
@@ -866,6 +877,7 @@ export function createApp(options: AppOptions): AppResult {
   let vocabularyKeyterms: VocabularyKeyterms | undefined;
   let unsubscribeVocabulary: (() => void) | undefined;
   const disposeSessionReaders = async (): Promise<void> => {
+    await computerControl?.close();
     conversationSubscriptions?.close();
     focusedSessionWatchManager.dispose();
     for (const dispose of issueDisposers) dispose();
@@ -1486,6 +1498,7 @@ export function createApp(options: AppOptions): AppResult {
     getClaudeSteerBackgroundBashSettings: () =>
       options.serverSettingsService?.getSetting("claudeSteerBackgroundBash"),
   });
+  supervisor.computerControl = computerControl;
   if (sessionWakeService) {
     app.use("/session-wake/*", hostCheckMiddleware);
     app.route("/session-wake", createSessionWakeRoutes(sessionWakeService));

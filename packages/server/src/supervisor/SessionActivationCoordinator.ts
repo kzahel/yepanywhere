@@ -23,6 +23,8 @@ import { persistedSandboxFromProcess } from "./sessionSandboxMetadata.js";
 
 /** Launch and live configuration settings for a session. */
 export interface ModelSettings {
+  /** Explicit launch opt-in, never inherited by forks or automatic resumes. */
+  computerControl?: boolean;
   /** Model to use (e.g., "sonnet", "opus", "haiku"). undefined = use CLI default */
   model?: string;
   /** Exact YA request token, including "default", used for durable restore. */

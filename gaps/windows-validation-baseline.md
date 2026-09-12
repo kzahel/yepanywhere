@@ -65,3 +65,33 @@ that owns its backend and Vite without this unrelated global fixture corpus.
 The Windows run used a fresh private temporary directory and the Windows
 PowerShell module path for its ACL subprocess; the inherited PowerShell 7
 module path otherwise prevents Windows PowerShell from loading `Get-Acl`.
+
+The optional Computer Control candidate rechecked the gates on native ARM64
+Windows with Node 24.13.0 and Biome 2.5.6 on 2026-09-12. The ARM64 Biome binary
+crashes with exit code `0xC0000005`, including on a single source file, although
+`--version` works. The same version's x64 binary works under emulation; an
+ignored local tooling copy supplied `BIOME_BINARY` without dependency changes.
+Root lint stops at `simple-client:check`: checkout CRLF makes
+`packages/shared/src/experimental/simple-client.generated.ts` appear stale.
+The full formatter still reports the checkout-wide CRLF debt. Scoped new and
+modified source formatting/lint pass without warnings. Rewriting generated
+contracts or changing dependency versions would hide unrelated checkout/tool
+failures rather than establish portability.
+
+The completed full unit run reports server totals of 298 failed, 4,860 passed,
+103 skipped and three unhandled errors (36 failed, 344 passed, 11 skipped
+files). It includes the existing ACL, SQLite cleanup, Windows path/shell,
+provider launch and timing failure families above. One exposed dynamic-tool
+text-normalization regression was fixed and its existing focused test passes;
+the remaining aggregate must not be claimed as an exact baseline match or as
+passing. A redundant final aggregate was cancelled when overlapping validation
+exhausted the 4 GB VM; final focused/native checks run without that load.
+The default UI E2E gate still fails in the POSIX-only global fixture setup.
+The isolated Computer Control E2E owns its backend and Windows PowerShell
+module environment and passes operator controls and old-server fallback.
+
+`pnpm console:scan` remains at its existing budget of 110 ungated call sites
+(warn 60, error 92), with no additions. Broad logging cleanup spans unrelated
+owners and is not part of this feature. CSS architecture and capability audits
+pass. Final cross-platform aggregate checks remain a controller/CI gate;
+focused native tests and signed-package acceptance do not replace them.

@@ -4,6 +4,24 @@ Owning topic: [Optional Computer Control](../../topics/optional-computer-control
 
 Status: implementation in progress, 2026-09-12.
 
+Candidate implementation now covers stages 2 and 3: signed local preview
+management, deferred Codex dynamic tools, direct named-pipe operations,
+session grants, bounded images, operator controls and session selection.
+Windows tests cover native pipe uncertainty and complete owned descendant
+cleanup. Source-independent acceptance against the existing signed ARM64
+preview passes inspection, image production, idle restart and revocation.
+The YA Job Object launcher addresses resident/provider lifetime without a
+Machine Control source change or a new signing run.
+
+Stage 4 remains open for the controller's independent real Codex discovery,
+fixture effect, candidate crash and live/reloaded screenshot UI acceptance.
+Windows full-suite and formatter debt is recorded in
+[the validation gap](../../gaps/windows-validation-baseline.md); it is not
+treated as a passing gate. The controller reviews/imports commits, runs final
+controller-side checks, pushes and owns cleanup. Windows does not push or
+alter the stable supervisor. Public release-feed integration remains outside
+the authenticated local-preview slice.
+
 ## Objective
 
 Implement a Windows-first optional computer-control integration that works

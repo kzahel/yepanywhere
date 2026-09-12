@@ -12,6 +12,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  computerControl: {
+    name: "optional-computer-control",
+    index: CAPABILITY_ID_ALLOCATIONS.computerControl.id,
+    introducedIn: "0.8.2",
+  },
   experimentalConversation: {
     name: "experimental-simple-client-conversation",
     index: CAPABILITY_ID_ALLOCATIONS.experimentalConversation.id,
@@ -179,6 +184,37 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  computerControl: {
+    id: CAPABILITY_ID_ALLOCATIONS.computerControl.id,
+    name: "optional-computer-control",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.8.2",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.computerControl.id,
+    },
+    description:
+      "Operator-managed signed Windows preview and explicit local Codex session grants.",
+    clientFallback:
+      "Hide computer controls and send no computer-control requests or launch fields.",
+    serverContract: {
+      routes: [
+        "GET /api/computer-control",
+        "PUT /api/computer-control/settings",
+        "POST /api/computer-control/install",
+        "POST /api/computer-control/stop",
+        "DELETE /api/computer-control/installation",
+        "DELETE /api/computer-control/sessions/:sessionId",
+      ],
+      routeModules: ["packages/server/src/routes/computer-control.ts"],
+      requestFields: ["computerControl"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason: "Experimental Windows-only optional component.",
+    },
+  },
   experimentalConversation: {
     id: CAPABILITY_ID_ALLOCATIONS.experimentalConversation.id,
     name: "experimental-simple-client-conversation",

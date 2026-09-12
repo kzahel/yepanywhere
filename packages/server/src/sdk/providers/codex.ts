@@ -1844,6 +1844,7 @@ export class CodexProvider implements AgentProvider {
         yield* sessionIterator;
       } finally {
         settleInitialActiveClient(null);
+        await options.computerControl?.close();
         await installationLease.release();
       }
     })();
@@ -1879,6 +1880,7 @@ export class CodexProvider implements AgentProvider {
       iterator,
       queue,
       abort: async () => {
+        await options.computerControl?.close();
         settleInitialActiveClient(null);
         if (
           activeClient &&
@@ -2738,7 +2740,7 @@ export class CodexProvider implements AgentProvider {
       const experimentalApiEnabled = await this.initializeAppServer(
         appServer,
         options.clientName,
-        Boolean(this.config.externalChatgptAuth),
+        Boolean(this.config.externalChatgptAuth || options.computerControl),
       );
       appServer.notify("initialized");
       await this.loginWithExternalChatgptAuth(appServer);
@@ -2774,6 +2776,7 @@ export class CodexProvider implements AgentProvider {
       sessionId = threadResult.thread.id;
       agentctlSessionEnvBridge.publishSessionId(sessionId);
       runtimeState.threadId = sessionId;
+      options.computerControl?.rename(sessionId);
       runtimeState.resolvedModel = threadResult.model;
       if (threadResult.sandbox?.type === "workspaceWrite") {
         runtimeState.workspaceWriteSandboxPolicy = threadResult.sandbox;
@@ -3817,6 +3820,9 @@ export class CodexProvider implements AgentProvider {
       ...this.buildThreadPermissionParams(policy),
       config: this.buildThreadConfigOverrides(options),
       experimentalRawEvents: false,
+      ...(options.computerControl
+        ? { dynamicTools: options.computerControl.tools }
+        : {}),
     };
   }
 
@@ -5008,6 +5014,31 @@ export class CodexProvider implements AgentProvider {
         : {};
 
     switch (request.method) {
+      case "item/tool/call": {
+        if (
+          !options.computerControl?.acceptsThread(params.threadId) ||
+          signal.aborted ||
+          typeof params.tool !== "string" ||
+          params.namespace != null
+        ) {
+          return {
+            success: false,
+            contentItems: [
+              {
+                type: "inputText",
+                text: "Computer control is unavailable or revoked for this session",
+              },
+            ],
+          };
+        }
+        return options.computerControl.call(
+          params.tool,
+          params.arguments,
+          typeof params.callId === "string"
+            ? params.callId
+            : String(request.id),
+        );
+      }
       case "item/commandExecution/requestApproval": {
         const commandParams = this.asCommandExecutionRequestApprovalParams(
           request.params,
@@ -7063,6 +7094,9 @@ export class CodexProvider implements AgentProvider {
 
         if (isComplete && item.status !== "in_progress") {
           const isError = item.success === false || item.status === "failed";
+          const normalized = normalizeCodexToolOutputWithContext(
+            item.content_items,
+          );
           const toolResultBlock: {
             type: "tool_result";
             tool_use_id: string;
@@ -7071,7 +7105,7 @@ export class CodexProvider implements AgentProvider {
           } = {
             type: "tool_result",
             tool_use_id: item.id,
-            content: this.formatDynamicToolContent(item.content_items),
+            content: normalized.content,
           };
           if (isError) {
             toolResultBlock.is_error = true;
@@ -7088,6 +7122,10 @@ export class CodexProvider implements AgentProvider {
               },
             } as SDKMessage,
             observedAt,
+          );
+          attachToolResultMediaCandidates(
+            toolResultMessage,
+            normalized.mediaCandidates,
           );
           logSdkCorrelationDebug(sessionId, toolResultMessage, {
             eventKind: "tool_result",
@@ -7302,30 +7340,6 @@ export class CodexProvider implements AgentProvider {
       default:
         return [];
     }
-  }
-
-  private formatDynamicToolContent(contentItems: unknown[] | null | undefined) {
-    if (!Array.isArray(contentItems) || contentItems.length === 0) {
-      return "(no output)";
-    }
-
-    const parts = contentItems
-      .map((item) => {
-        if (!item || typeof item !== "object") return "";
-        const record = item as Record<string, unknown>;
-        const type = this.getOptionalString(record.type);
-        if (type === "inputText") {
-          return this.getOptionalString(record.text) ?? "";
-        }
-        if (type === "inputImage") {
-          const imageUrl = this.getOptionalString(record.imageUrl);
-          return imageUrl ? `[image: ${imageUrl}]` : "[image]";
-        }
-        return "";
-      })
-      .filter(Boolean);
-
-    return parts.length > 0 ? parts.join("\n") : JSON.stringify(contentItems);
   }
 
   private getPermissionModeFromMessage(

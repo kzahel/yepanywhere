@@ -1,0 +1,12 @@
+.selection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  min-height: 44px;
+}
+.selection small {
+  display: block;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}

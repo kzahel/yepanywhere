@@ -194,6 +194,8 @@ export function inactiveProviderSessionOptionsResult(
  * Options for starting a new agent session.
  */
 export interface StartSessionOptions {
+  /** Local session-owned grant; never serialized into a remote provider host. */
+  computerControl?: import("../../computer-control/contract.js").ComputerSession;
   /** Operator opt-in, preserved across provider-host process boundaries. */
   agentSelf?: boolean;
   /** Trusted owner-supplied child environment; never a client request field. */

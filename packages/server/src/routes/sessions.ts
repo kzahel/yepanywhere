@@ -396,6 +396,7 @@ async function resolveSessionReader({
 }
 
 interface StartSessionBody {
+  computerControl?: boolean;
   message: string;
   images?: string[];
   documents?: string[];
@@ -444,6 +445,7 @@ function hasSessionMessageContent(body: StartSessionBody): boolean {
 }
 
 interface CreateSessionBody {
+  computerControl?: boolean;
   mode?: PermissionMode;
   model?: string;
   serviceTier?: string;
@@ -3806,6 +3808,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         thinking,
         effort,
         providerName: body.provider,
+        computerControl: body.computerControl,
         executor,
         sandboxLevel: sandboxSelection.sandboxLevel,
         sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,
@@ -3950,6 +3953,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         thinking,
         effort,
         providerName: body.provider,
+        computerControl: body.computerControl,
         executor,
         sandboxLevel: sandboxSelection.sandboxLevel,
         sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,
@@ -4089,6 +4093,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         thinking,
         effort,
         providerName: body.provider,
+        computerControl: body.computerControl,
         executor,
         sandboxLevel: sandboxSelection.sandboxLevel,
         sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,
@@ -4195,6 +4200,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       thinking,
       effort,
       providerName: body.provider,
+      computerControl: body.computerControl,
       executor,
       sandboxLevel: sandboxSelection.sandboxLevel,
       sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,

@@ -2,10 +2,119 @@
 
 Topic: optional-computer-control
 
-Status: direction and reference findings, recorded 2026-09-12. An isolated
-MCP experiment passed; YA product integration and direct local transport are
-not implemented by this work. Implementation is tracked in
+Status: Windows Node/Codex candidate implemented, 2026-09-12. Direct native
+pipe, signed-package, lifecycle and adapter checks pass. Independent real
+provider/effect and live/reloaded browser-image acceptance remain required.
+Implementation and release gates are tracked in
 [Tactical 131](../docs/tactical/131-optional-windows-computer-control.md).
+
+## Implemented Windows preview contract
+
+Computer Control settings are stored in YA server settings. Installation and
+global enablement are separate from an explicit session selection, which is
+never saved as a session default or restored as authority after a restart.
+Unselected sessions receive no computer tool definitions or grants and create
+no resident, guardian, JavaScript evaluator or computer-specific worker.
+Selected sessions register one deferred typed `computer_control` tool with
+Codex 0.154.0 through `thread/start.dynamicTools`. Existing Code Mode discovery
+exposes it; actual calls return through `item/tool/call` on the same provider
+connection. This feature does not register an MCP server or use SSH.
+The implementation reference is `references/codex` at `rust-v0.154.0`
+(`6b9826e3aa83b1a5947db50f4332cb9c65f1b340`), particularly the App Server
+dynamic-tool contract and `core/src/tools/handlers/dynamic.rs`. Provider
+versions and generated protocol schemas are unchanged.
+
+Eligibility requires Windows, the Node YA runtime, local Codex execution, no
+YA session sandbox, an installed authenticated preview, global enablement and
+explicit selection when starting/creating the session. Other operating systems,
+Bun, providers and executors are unavailable. Grants expire after 30 minutes
+by default (operator API range 10 seconds to one hour). They are scoped to the
+selected provider thread: child threads, revoked grants and aborted sessions
+cannot dispatch. An agent with unrelated unsandboxed same-user shell access is
+not contained by these grants; this is a computer-tool authority boundary.
+
+The operator selects an extracted local Machine Control workstation preview
+and supplies its publisher from an independently trusted source. YA verifies
+the manager's timestamped Authenticode signature and exact publisher before
+executing any imported script. The signed manager then verifies the existing
+Machine Control inventory, hashes, catalog and native signatures. No unsigned
+override exists. The managed per-user package path and publisher are persisted;
+each cold start revalidates the complete package. Archive self-asserted hashes
+or publishers alone do not establish trust. Public release-feed discovery,
+downloads, update policy and distribution packaging remain release work.
+Removing the original extracted import folder must not break cold startup or
+uninstall. Failed uninstall leaves the feature disabled and retains the installed
+manager locator and publisher so the operator can retry removal.
+
+The first actual operation lazily launches a dedicated Medium user resident.
+Its identity includes the current user SID, interactive Windows session and
+YA data-directory-derived instance. Startup attests the exact launched PID,
+instance, session, workstation profile, Medium integrity, readiness and native
+generation. Direct newline JSON IPC uses only that user's named pipe; no
+appliance fallback, arbitrary provider dispatch or SYSTEM authority is exposed.
+The appliance's installation, ProgramData and services remain independent.
+Privileged unlock and its separate signed component are outside this slice.
+
+The desktop surface includes window enumeration, bounded semantic snapshots,
+screenshots, semantic invoke/value setting, click/key/text input, activation
+and non-closing window state changes. Unknown fields are refused. Snapshots
+are limited to depth 12 and 500 elements; text to 4096 characters; responses
+to 2 MiB with a 15-second operation deadline. Mutations require a generation
+observed by that session, and semantic references must come from its latest
+snapshot. Unknown, stale and cross-session references fail before dispatch.
+The native runtime additionally validates its own generations and references.
+
+Only one desktop operation runs at a time across at most 32 grants. Busy calls
+are refused without dispatch; they are not queued. Each grant accepts at most
+2048 distinct provider call IDs; duplicate IDs are refused, never replayed.
+Connection acquisition may wait before a write. A disconnect, malformed reply
+or timeout after writing is unknown delivery and is never automatically retried.
+Native provider, fidelity, delivery, effect and uncertainty remain in results;
+confirmed delivery is not independent proof of a desktop effect. Revocation
+during an in-flight operation withholds desktop data while preserving known
+delivery/effect metadata and the need to inspect effects independently.
+
+Native screenshot reads accept only exact artifact IDs under the owned
+instance/session directory, reject links/path substitution and validate PNG
+identity, extent, SHA-256 and dimensions. Reads are bounded to 8 MiB,
+16384 pixels per dimension and 64 megapixels. Model results contain normalized
+image content; the existing YA tool-result media pipeline handles live and
+persisted images with its own storage/retention settings.
+
+Inactivity stops the resident after 60 seconds by default (operator range
+5–240 seconds); an operation near expiry refreshes the deadline. A later call
+can cold-start again, but previous observations/references lose authority.
+Session close, expiry and revocation remove grants; the last grant releases
+the resident. Disable revokes all grants and stops the resident. Re-enabling
+does not revive old grants. Operator status supports explicit refresh without
+an idle polling loop.
+
+A YA-owned launcher creates the native process suspended, assigns it to a
+private Windows Job Object with kill-on-close, then resumes it. Descendant
+provider processes inherit the job. The guardian refreshes its five-minute
+inactivity deadline on operation activity; parent disconnect starts bounded
+native shutdown, with launcher termination as fallback. Resident crash,
+launcher crash and owner EOF reclaim the owned descendants. Stop confirmation
+has a 12-second deadline; failure is reported rather than called a successful
+cleanup. Unrelated processes and the appliance tree are outside this job.
+
+Authenticated operator routes are `GET /api/computer-control`,
+`PUT /api/computer-control/settings`, `POST /api/computer-control/install`,
+`POST /api/computer-control/stop`, `DELETE /api/computer-control/installation`
+and `DELETE /api/computer-control/sessions/:sessionId`. Settings PUT requires
+`enabled`, `idleMs` and `grantMs`; install requires `packageDirectory` and
+`trustedPublisher`. Session start/create accepts optional `computerControl`.
+These frontend operations do not expose an agent HTTP execution endpoint.
+Permanent optional capability ID 70, `optional-computer-control`, gates all
+new client requests and launch fields. Missing support hides selection and
+shows an unavailable settings deep link without requesting the new routes.
+
+The repeatable candidate runner is `scripts/start-computer-control-candidate.ps1`;
+the native acceptance script is
+`packages/server/scripts/computer-control-native-acceptance.ts`. Credentials,
+machine-specific run contracts and captured desktop data stay outside commits.
+Native source changes are not required by the current Job Object ownership
+implementation. Signed-payload acceptance is separate from native source tests.
 
 ## Intended experience and ownership
 
@@ -120,9 +229,9 @@ a client can implement tools and return content, including images, over its
 existing Codex connection. This is a candidate YA integration mechanism, not
 evidence that Sky uses that particular hook or that YA already handles it.
 
-## Candidate YA implementation and acceptance questions
+## Earlier candidate exploration (superseded by the preview contract)
 
-**Proposal:** Supply a compact discoverable skill plus a bundled SDK or CLI.
+**Historical proposal:** Supply a compact discoverable skill plus a bundled SDK or CLI.
 Start a supervised persistent JavaScript worker only when needed, if that
 provider benefits from a REPL, and have its SDK reach the signed resident over
 direct local IPC. Codex dynamic tools could expose the execution surface
@@ -137,7 +246,7 @@ resume and crash behavior under [resource quiescence](architecture-mandates.md).
 Preserve resident generation/reference checks and distinguish delivery from
 independently observed effect. Never automatically retry uncertain input.
 
-**Open:** Prove the direct local path and its latency; choose per-provider
+**Original acceptance questions:** Prove the direct local path and its latency; choose per-provider
 registration and activation mechanisms; validate native image delivery and YA
 rendering; define session grants, revocation and worker ownership; then scope
 install/enable controls. Reuse YA's existing runtime where suitable and verify

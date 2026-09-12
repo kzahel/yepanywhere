@@ -83,6 +83,11 @@ const CATEGORY_COMPONENTS: Record<string, React.ComponentType> = {
   issues: lazy(() =>
     import("./IssueSettings").then((m) => ({ default: m.IssueSettings })),
   ),
+  "computer-control": lazy(() =>
+    import("./ComputerControlSettings").then((m) => ({
+      default: m.ComputerControlSettings,
+    })),
+  ),
   storage: lazy(() =>
     import("./StorageSettings").then((m) => ({ default: m.StorageSettings })),
   ),
@@ -273,6 +278,14 @@ export function SettingsLayout() {
   const categories: SettingsCategory[] = [
     ...getSettingsCategories((key) => t(key as never)),
   ];
+  if (
+    !serverHasCapability(versionInfo, SERVER_CAPABILITIES.computerControl.name)
+  ) {
+    const index = categories.findIndex(
+      (item) => item.id === "computer-control",
+    );
+    if (index >= 0) categories.splice(index, 1);
+  }
   if (
     !serverHasCapability(versionInfo, GIT_SOURCE_REVIEW_SUBMISSIONS_CAPABILITY)
   ) {

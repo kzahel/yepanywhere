@@ -819,6 +819,17 @@ The audit complements, rather than replaces, released-server behavior
 fixtures. A capability may be registered perfectly while the client still
 mounts its consumers before checking it.
 
+## Optional Windows Computer Control
+
+The 2026-09-12 optional compatibility review covers stable v0.8.0 and v0.8.1;
+neither has the new contract. Permanent optional ID 70,
+`optional-computer-control`, covers the authenticated operator routes and
+explicit session-start selection. Advertisement means the server can report
+availability; Windows/Node/local-Codex eligibility and default-off enablement
+remain separate checks. Absent support sends no computer-control requests or
+launch fields. See [Computer Control](optional-computer-control.md) for the
+exact routes and authority contract. No older capability changes meaning.
+
 ## Experimental issue/session associations
 
 The approved 2026-09-10 optional review used v0.8.0 and v0.8.1 (latest two stable

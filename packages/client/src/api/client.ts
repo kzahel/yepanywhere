@@ -252,6 +252,7 @@ export function isUnchangedGlobalSessionsResponse(
 }
 
 export interface SessionOptions {
+  computerControl?: boolean;
   mode?: PermissionMode;
   /** Model ID (e.g., "sonnet", "opus", "qwen2.5-coder:0.5b") */
   model?: string;
@@ -664,6 +665,7 @@ export const api = {
         thinking: options?.thinking,
         showThinking: options?.showThinking,
         provider: options?.provider,
+        computerControl: options?.computerControl,
         executor: options?.executor,
         sandboxLevel: options?.sandboxLevel,
         sandboxNetworkFirewall: options?.sandboxNetworkFirewall,
@@ -702,6 +704,7 @@ export const api = {
         thinking: options?.thinking,
         showThinking: options?.showThinking,
         provider: options?.provider,
+        computerControl: options?.computerControl,
         executor: options?.executor,
         sandboxLevel: options?.sandboxLevel,
         sandboxNetworkFirewall: options?.sandboxNetworkFirewall,
@@ -740,6 +743,7 @@ export const api = {
         thinking: options?.thinking,
         showThinking: options?.showThinking,
         provider: options?.provider,
+        computerControl: options?.computerControl,
         executor: options?.executor,
         sandboxLevel: options?.sandboxLevel,
         sandboxNetworkFirewall: options?.sandboxNetworkFirewall,
@@ -773,6 +777,7 @@ export const api = {
         thinking: options?.thinking,
         showThinking: options?.showThinking,
         provider: options?.provider,
+        computerControl: options?.computerControl,
         executor: options?.executor,
         sandboxLevel: options?.sandboxLevel,
         sandboxNetworkFirewall: options?.sandboxNetworkFirewall,

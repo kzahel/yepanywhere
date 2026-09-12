@@ -648,7 +648,7 @@ function extractTextOnlyFunctionCallOutput(
   for (const item of output) {
     if (
       !isRecord(item) ||
-      item.type !== "input_text" ||
+      (item.type !== "input_text" && item.type !== "inputText") ||
       typeof item.text !== "string"
     ) {
       return undefined;

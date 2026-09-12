@@ -1,3 +1,4 @@
+import { ComputerSessionSelection } from "./ComputerSessionSelection";
 import {
   DEFAULT_PROVIDER,
   SERVER_CAPABILITIES,
@@ -406,6 +407,7 @@ export function NewSessionForm({
     useState<EffortLevel>("high");
   const [selectedRecapMode, setSelectedRecapMode] = useState<RecapMode>("off");
   const [sandboxLevel, setSandboxLevel] = useState<SessionSandboxLevel>("none");
+  const [computerSelected, setComputerSelected] = useState(false);
   const [sandboxNetworkFirewall, setSandboxNetworkFirewall] = useState(true);
   const [recapAfterSeconds, setRecapAfterSeconds] = useState(
     DEFAULT_RECAP_AFTER_SECONDS,
@@ -2197,6 +2199,16 @@ export function NewSessionForm({
         // server requests provider summaries independently.
         const showThinking = getShowThinkingSetting();
         const sessionOptions = {
+          ...(computerSelected &&
+          selectedProvider === "codex" &&
+          !effectiveExecutor &&
+          effectiveSandboxLevel === "none" &&
+          serverHasCapability(
+            versionInfo,
+            SERVER_CAPABILITIES.computerControl.name,
+          )
+            ? { computerControl: true }
+            : {}),
           mode: sessionMode,
           model: selectedModel ?? undefined,
           thinking,
@@ -2463,6 +2475,7 @@ export function NewSessionForm({
     [
       basePath,
       draftControls,
+      computerSelected,
       effectiveEffortLevel,
       effectiveExecutor,
       effectivePermissionMode,
@@ -4032,6 +4045,16 @@ export function NewSessionForm({
           {helperSideModelSection}
           {promptSuggestionSection}
           {sandboxSection}
+          <ComputerSessionSelection
+            eligible={
+              selectedProvider === "codex" &&
+              !effectiveExecutor &&
+              effectiveSandboxLevel === "none" &&
+              !launch
+            }
+            selected={computerSelected}
+            onChange={setComputerSelected}
+          />
         </div>
       </div>
 
