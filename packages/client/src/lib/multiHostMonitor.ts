@@ -1,10 +1,15 @@
+import {
+  connectSavedHost,
+  isSavedHostSignInRequiredError,
+  MultiHostSignInRequiredError,
+} from "./savedHostConnection";
+export { MultiHostSignInRequiredError } from "./savedHostConnection";
 import type { GlobalSessionsResponse, InboxResponse } from "../api/client";
 import { RelayMuxSocketPool } from "./connection/RelayMuxPool";
-import {
+import type {
   SecureConnection,
-  type RelaySocketFactory,
+  RelaySocketFactory,
 } from "./connection/SecureConnection";
-import { openRelayClientSocket } from "./connection/RelayClientSocket";
 import {
   createGlobalSessionsCollectionQueryDescriptor,
   createGlobalSessionsQueryKey,
@@ -13,11 +18,7 @@ import {
   selectSessionCollectionQueryRecords,
 } from "./clientSummaryQueries";
 import type { SessionCollectionRecord } from "./clientSummaryCollections";
-import {
-  clearHostSession,
-  type SavedHost,
-  updateHostSession,
-} from "./hostStorage";
+import { clearHostSession, type SavedHost } from "./hostStorage";
 import { resolveSourceKeyForSavedHost } from "./sourceIdentity";
 import {
   getSourceRuntimeRegistry,
@@ -84,13 +85,6 @@ export interface MultiHostMonitorConnector {
     options: MultiHostMonitorConnectorOptions,
   ): Promise<MultiHostMonitorConnection>;
   dispose?(): void;
-}
-
-export class MultiHostSignInRequiredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MultiHostSignInRequiredError";
-  }
 }
 
 type Listener = () => void;
@@ -313,83 +307,6 @@ function summarizeRuntime(
   };
 }
 
-function isSignInRequiredError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("authentication") ||
-    normalized.includes("invalid_identity") ||
-    normalized.includes("resume_incompatible") ||
-    normalized.includes("session invalid") ||
-    normalized.includes("session resume") ||
-    normalized.includes("unauthorized")
-  );
-}
-
-async function createSecureConnection(
-  host: SavedHost,
-  signal: AbortSignal,
-  relaySocketFactory?: RelaySocketFactory,
-): Promise<SecureConnection> {
-  const session = host.session;
-  if (!session) {
-    throw new MultiHostSignInRequiredError("A saved session is required");
-  }
-
-  const callbacks = {
-    onSessionEstablished: (nextSession: typeof session) => {
-      updateHostSession(host.id, nextSession);
-    },
-  };
-
-  if (host.mode === "direct") {
-    if (!host.wsUrl) {
-      throw new MultiHostSignInRequiredError(
-        "The saved direct host has no WebSocket URL",
-      );
-    }
-    const connection = SecureConnection.forResumeOnly(session, callbacks);
-    const abort = () => connection.close();
-    signal.addEventListener("abort", abort, { once: true });
-    try {
-      await connection.fetch("/auth/status");
-      return connection;
-    } finally {
-      signal.removeEventListener("abort", abort);
-    }
-  }
-
-  if (!host.relayUrl || !host.relayUsername) {
-    throw new MultiHostSignInRequiredError(
-      "The saved relay host is incomplete",
-    );
-  }
-  const openSocket = relaySocketFactory ?? openRelayClientSocket;
-  const ws = await openSocket({
-    relayUrl: host.relayUrl,
-    relayUsername: host.relayUsername,
-    signal,
-  });
-  const abort = () => ws.close();
-  signal.addEventListener("abort", abort, { once: true });
-  try {
-    const connection = await SecureConnection.forResumeOnlyWithSocket(
-      ws,
-      session,
-      callbacks,
-      {
-        relayUrl: host.relayUrl,
-        relayUsername: host.relayUsername,
-        openSocket: relaySocketFactory,
-      },
-    );
-    await connection.fetch("/auth/status");
-    return connection;
-  } finally {
-    signal.removeEventListener("abort", abort);
-  }
-}
-
 class RuntimeMonitorConnection implements MultiHostMonitorConnection {
   private readonly listeners = new Set<Listener>();
   private readonly releases: Array<() => void>;
@@ -466,7 +383,7 @@ export async function connectSavedHostForMonitor(
   let connection: SecureConnection | null = null;
   let monitorConnection: RuntimeMonitorConnection | null = null;
   try {
-    connection = await createSecureConnection(
+    connection = await connectSavedHost(
       host,
       options.signal,
       relaySocketFactory,
@@ -518,7 +435,7 @@ export async function connectSavedHostForMonitor(
       registry.disposeSource(sourceKey);
     }
     connection?.close();
-    if (isSignInRequiredError(error)) {
+    if (isSavedHostSignInRequiredError(error)) {
       clearHostSession(host.id);
       throw new MultiHostSignInRequiredError(
         error instanceof Error ? error.message : String(error),

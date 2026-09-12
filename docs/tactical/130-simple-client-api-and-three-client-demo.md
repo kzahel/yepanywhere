@@ -4,12 +4,11 @@ Topic: simple-client-api
 Topic: portable-transcript-compiler
 Topic: client-source-runtime-topology
 
-Status: Offline contract spike implemented 2026-09-12: JSON Schema, generated
-TypeScript/Kotlin decoders, and shared real-derived/synthetic examples. The
-shared compiler extraction and bounded server Conversation producer are now
-implemented. Wire compatibility review and live server/client integration
-remain open. No endpoint
-or demo route is implemented. iOS is outside this plan’s current scope.
+Status: Offline TypeScript/Kotlin contract, shared compiler and bounded live
+Conversation API implemented 2026-09-12. The first deliberate-entry multi-server
+web preview is implemented at `/-/preview`; browser validation is recorded in the
+checkpoint below. Android UI and remaining measurement/acquisition gates are
+next. Raw token assembly is explicitly deferred. iOS remains out of scope.
 
 ## Outcome
 
@@ -99,8 +98,9 @@ Synthetic tests cover interruptions, retries, scope/prefix identity, unknown
 content, missing results, and serialized limits. See the
 [owning contract](../../topics/simple-client-api.md#implemented-projection-checkpoint-2026-09-12).
 
-The live service portion of this gate is still open. The following remains the
-acceptance scope for that service; offline reuse is not subscription evidence.
+The live service is now implemented, as recorded in the backend checkpoint
+below. Representative cost and real provider-loop continuity evidence remain
+open; offline reuse alone is not subscription evidence.
 
 The compiler extraction keeps web rendering adapters local; the condensed
 wire model remains independent of `RenderItem[]`. Continue with catalog facts
@@ -114,7 +114,7 @@ necessary. Apply the spike’s acceptance budgets: 200 ms coalescing, at most fi
 publications/s, 32 KiB for its specified 20-message workload, 256 KiB hard cap,
 and p95 projection/encoding at most 20 ms on a documented host. Prove shared
 per-session projection with one versus ten subscribers and final-owner teardown.
-These budgets are not yet measured.
+A diagnostic cost sample is recorded below; this is not a performance-gate pass.
 Do not build another canonical transcript store.
 
 **Exit:** a minimal client can show current data and recover from reconnect
@@ -315,18 +315,19 @@ No new canonical transcript store is authorized.
 
 The [spike record](../../packages/shared/contracts/README.md) owns the concrete
 candidate and its evidence limits. Gate 1's offline decoding work is complete;
-the final operation/capability compatibility review is still outstanding.
+the first live operation/capability review was approved and implemented. The
+remote web preview now consumes Conversation snapshots from multiple servers.
 
-Next, obtain review of the concrete operation/capability proposal above, then
-wire bounded acquisition into the implemented shared subscription owner and
-producer. Prove real input-queue reconciliation and cold-reader prefix identity;
-the adapter fixture assembly cannot establish those live guarantees. Measure
-the stated projection and snapshot budgets before expanding web scope.
+Next add the Android Compose screen and evaluate the web preview on Latest.
+Replace its temporary legacy catalog adapter with a reviewed SourceOverview
+operation once grouping and coverage feedback establish the needed shape.
+Overview row/byte limits and stable-contract promotion remain open. Cross-machine
+project mappings remain an optional experiment.
 
-Still open: exact operations under `/api/experimental/`, capability registry
-identity and release audit, atomic binding and cancellation, overview row/byte
-limits, the unlisted demo route/bundle boundary, and stable-contract
-promotion policy. Cross-machine project mappings remain an optional experiment.
+Extend indexed native acquisition beyond the initial bounded-reader refusal and
+prove real input-queue reconciliation and cold-reader prefix identity. Measure
+the stated projection/acquisition budgets on a qualified host. Raw token assembly
+is deferred; it is not a prerequisite for the current web/Android preview.
 
 These are implementation and review tasks over the existing normalization and
 source-runtime work. They do not require a second transcript store or a port of
@@ -379,3 +380,39 @@ The app-level test also exposed [scanner persistence after shutdown](../../gaps/
 recorded separately from this API work. Validation here is macOS plus JVM;
 Linux/Windows filesystem execution and real Android-device consumption remain
 unverified by this checkpoint.
+
+
+### First web preview
+
+The [owning topic](../../topics/simple-client-api.md#first-web-preview-2026-09-12)
+records the route, transitional legacy catalog adapter, saved-host lifecycle,
+grouping rules, issue coverage, history controls and safe renderer behavior.
+`/-/preview` mounts outside the full session runtime in the remote bundle.
+The existing API revision is unchanged. Partial-message assembly is deferred by
+maintainer direction; finalized-message snapshots remain live.
+
+The real encrypted multi-server harness now supports optional profile preparation.
+The preview test records Claude as previously used before expecting its retained
+catalog to discover fixtures; mere transcript presence intentionally does not
+enroll a provider. It exercises colliding session/project IDs, grouping, disabled
+issue coverage, a disconnected peer, saved selection and route teardown. Unit
+checks cover revision gates, late/cross-source frames, reconnect, cancellation,
+anchored windows, unknown content and read-only issue queries.
+
+Next implement the Android Compose preview against the same contract and saved
+host leases. Then evaluate the web layout on Latest and replace the transitional
+catalog adapter with a reviewed SourceOverview operation. Indexed history and
+representative projection/acquisition cost evidence remain separate open gates.
+This checkpoint does not publish mobile apps or promote the API contract.
+
+
+Web preview validation on macOS: workspace lint (zero warnings), format check,
+TypeScript checking and the full workspace unit suite passed. The full browser
+suite passed 228 tests with 8 skipped. After final handoff/auth recovery changes,
+39 focused unit tests and 15 browser tests passed, including both existing monitor
+transport modes and the preview in the built remote bundle. The preview case
+also verifies a finalized native append reaching the current live subscription,
+source isolation, reload, and connection release. Desktop (1000×600) and phone
+(375×812) captures were generated through the artifact capture facility and
+visually inspected. CSS ownership checks pass; the console scan adds no new
+production logging. No Latest deployment or Android-device validation is claimed.

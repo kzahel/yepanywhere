@@ -1,0 +1,361 @@
+.page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+.page :where(h1, h2, h3, p) {
+  margin: 0;
+}
+.page button,
+.page select {
+  font: inherit;
+}
+.page a {
+  color: var(--accent-primary);
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+.topbar h1 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.muted {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.control {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+.control:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.control:hover:not(:disabled),
+.session:hover {
+  background: var(--bg-hover);
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.sidebar {
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  padding-bottom: 24px;
+}
+.sources {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sectionHeading h2 {
+  font-size: 13px;
+}
+.sectionHeading a {
+  padding: 12px 0 12px 12px;
+}
+.source {
+  position: relative;
+  padding: 0 78px 8px 0;
+}
+.source label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.source input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--accent-primary);
+}
+.sourceDetail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-left: 28px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.source p {
+  padding: 8px 0 0 28px;
+}
+.sourceDetail .control {
+  position: absolute;
+  top: 8px;
+  right: 0;
+}
+.groupControl {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.groupControl select {
+  min-height: 44px;
+  padding: 8px;
+  max-width: 170px;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+}
+.groups {
+  padding: 0 12px;
+}
+.groups section {
+  margin-bottom: 18px;
+}
+.groups h3 {
+  padding: 4px 8px 10px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.groups :where(h3) small {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.session {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 54px;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+}
+.session span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.session small {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.session[aria-current="true"] {
+  background: color-mix(
+    in srgb,
+    var(--accent-primary) 12%,
+    var(--bg-secondary)
+  );
+  border-color: var(--accent-primary);
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.empty {
+  margin: auto;
+  padding: 32px;
+  max-width: 520px;
+}
+.empty h2 {
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+.empty p {
+  margin-top: 12px;
+  line-height: 1.6;
+}
+.conversationHeader {
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.conversationHeader h2 {
+  font-size: 20px;
+  line-height: 1.4;
+  margin: 8px 0 12px;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.actions a {
+  margin-left: auto;
+}
+.badge {
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 5px 9px;
+}
+.transcript {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 16px 28px 40px;
+  overflow-wrap: anywhere;
+}
+.history {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.history span {
+  margin-right: auto;
+}
+.message {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+.message[data-role="user"] {
+  background: var(--bg-secondary);
+}
+.message header {
+  display: flex;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.prose {
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+.activity {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-left: 2px solid var(--border-color);
+  line-height: 1.5;
+}
+.activity small {
+  color: var(--text-secondary);
+}
+.failure {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--error-color);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.notice {
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  line-height: 1.5;
+}
+.notice .control {
+  margin-top: 8px;
+}
+.mobileToggle {
+  display: none;
+}
+@media (max-width: 640px) {
+  .topbar {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  .topbar h1 {
+    font-size: 16px;
+  }
+  .topbar .muted {
+    font-size: 11px;
+  }
+  .topbar .control {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .mobileToggle {
+    display: flex;
+    margin: 8px 12px;
+    flex-shrink: 0;
+  }
+  .workspace {
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar {
+    display: none;
+    border-right: 0;
+    flex: 1;
+  }
+  .sidebar[data-open="true"] {
+    display: block;
+  }
+  .workspace:has(.sidebar[data-open="true"]) .main {
+    display: none;
+  }
+  .main {
+    flex: 1;
+  }
+  .conversationHeader {
+    padding: 12px 16px;
+  }
+  .conversationHeader h2 {
+    font-size: 18px;
+  }
+  .transcript {
+    padding: 12px 16px 24px;
+  }
+  .message {
+    padding: 12px;
+  }
+}

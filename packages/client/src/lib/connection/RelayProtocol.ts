@@ -1,3 +1,8 @@
+import {
+  CONVERSATION_API_REVISION,
+  CONVERSATION_CHANNEL,
+} from "@yep-anywhere/shared/experimental/conversation-protocol";
+import type { ConversationQuery } from "@yep-anywhere/shared/experimental/simple-client.generated";
 import type {
   ClientPing,
   DeviceServerMessage,
@@ -267,8 +272,8 @@ export class RelayProtocol {
     handlers: StreamHandlers,
     buildMessage: (subscriptionId: string) => RelaySubscribe,
     lifecycle: RelaySubscriptionLifecycle = {},
+    subscriptionId = generateId(),
   ): Subscription {
-    const subscriptionId = generateId();
     let state: SubscriptionState = "pending";
 
     const settle = (settlement: SubscriptionSettlement): void => {
@@ -774,9 +779,26 @@ export class RelayProtocol {
     });
   }
 
-  /**
-   * Subscribe to session events.
-   */
+  /** Subscribe to bounded experimental Conversation snapshots. */
+  subscribeConversation(
+    subscriptionId: string,
+    query: ConversationQuery,
+    handlers: StreamHandlers,
+  ): Subscription {
+    return this.createSubscription(
+      handlers,
+      (id) => ({
+        type: "subscribe",
+        subscriptionId: id,
+        channel: CONVERSATION_CHANNEL,
+        apiRevision: CONVERSATION_API_REVISION,
+        query,
+      }),
+      {},
+      subscriptionId,
+    );
+  }
+
   subscribeSession(
     sessionId: string,
     handlers: StreamHandlers,

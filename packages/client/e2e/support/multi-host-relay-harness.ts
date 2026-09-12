@@ -5,6 +5,7 @@ import {
   startYaServerProcess,
   stopYaServerProcess,
   type YaServerProcess,
+  type StartYaServerProcessOptions,
 } from "./ya-server-process.js";
 
 export interface MultiHostRelayTarget {
@@ -27,6 +28,7 @@ export interface MultiHostRelayHarness {
 }
 
 export interface StartMultiHostRelayHarnessOptions {
+  setupProfile?: StartYaServerProcessOptions["setupProfile"];
   relayUrl: string;
   testRoot: string;
 }
@@ -53,6 +55,7 @@ export async function startMultiHostRelayHarness(
     PROFILE_NAMES.map((profile) =>
       startYaServerProcess({
         label: `multi-host ${profile}`,
+        setupProfile: options.setupProfile,
         tempPrefix: `ya-multi-host-${profile}-`,
         mockClaudeSession: {
           content: `${profile[0]?.toUpperCase()}${profile.slice(1)} previous message`,

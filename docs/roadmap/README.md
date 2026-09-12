@@ -20,7 +20,8 @@ minimal multi-server web demo first with Android following closely on the same
 simplified contracts. The offline TypeScript/Kotlin schema and bounded server
 Conversation producer, shared subscription owner, bounded native acquisition and
 experimental HTTP/SSE/WebSocket bindings are implemented. Typed TypeScript/Kotlin
-read helpers are ready; the web and native preview screens remain ahead. iOS is deferred
+read helpers and the first multi-server web preview at `/-/preview` are implemented.
+The Android preview screen remains next. iOS is deferred
 to a later scoped effort.
 Exact API and mobile release scope remain design work.
 
@@ -125,9 +126,11 @@ with unknown fallbacks, and an explicit two-compaction-then-message-count rule.
 The shared compiler extraction and automatic Conversation projection are now
 implemented, followed by the shared subscription owner and bounded live API. The
 [concrete operation/capability review](../tactical/130-simple-client-api-and-three-client-demo.md#first-live-operation-review-proposal-2026-09-12)
-was approved on 2026-09-12. Next mount the deliberate-entry web preview and Android
-preview screen, prove real multi-source consumption, and extend indexed history
-acquisition beyond the initial hard-budget refusal.
+was approved on 2026-09-12. The deliberate-entry web preview now consumes live
+Conversation snapshots with a temporary existing-catalog adapter. Next add the
+Android preview screen, evaluate the web experiment on Latest, and extend indexed
+history acquisition beyond the initial hard-budget refusal. Partial-message token
+assembly is deferred; finalized-message snapshots update live.
 Measure the recorded cost budgets; offline fixtures are not live integration.
 Desktop release and continuous-delivery work continue independently.
 

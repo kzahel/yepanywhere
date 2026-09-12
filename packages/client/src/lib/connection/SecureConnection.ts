@@ -1,3 +1,4 @@
+import type { ConversationQuery } from "@yep-anywhere/shared/experimental/simple-client.generated";
 /**
  * Secure connection for remote access using SRP authentication and NaCl encryption.
  *
@@ -1504,6 +1505,14 @@ export class SecureConnection implements Connection {
 
   async fetchResponse(path: string, init?: RequestInit): Promise<Response> {
     return this.protocol.fetchResponse(path, init);
+  }
+
+  subscribeConversation(
+    subscriptionId: string,
+    query: ConversationQuery,
+    handlers: StreamHandlers,
+  ): Subscription {
+    return this.protocol.subscribeConversation(subscriptionId, query, handlers);
   }
 
   subscribeSession(

@@ -2,11 +2,11 @@
 
 Topic: simple-client-api
 
-Status: Product, sequencing, and `/api/experimental/` namespace direction selected
-on 2026-09-12. The offline JSON Schema/TypeScript/Kotlin contract spike is
-implemented, and the server now produces bounded Conversation snapshots over
-the shared compiler. Operation names, synchronization implementation, and release
-compatibility remain proposals; no new endpoint or live consumer is implemented.
+Status: The offline TypeScript/Kotlin contract, shared compiler, bounded live
+Conversation API, and first multi-server web preview are implemented. The web
+preview is deliberate-entry only; Android UI, indexed history acquisition,
+representative cost measurements, and stable-contract promotion remain ahead.
+Partial-message token assembly and iOS are deferred.
 
 ## Purpose and first consumers
 
@@ -393,3 +393,60 @@ The [compatibility review](server-capabilities.md#minimum-compatibility-horizons
 must settle the release corpus, exact operations/events, gate, and fallback
 before implementing the wire contract. "v2" is the working name for this new
 surface, not approval to raise the existing web client's compatibility floor.
+
+
+## First web preview (2026-09-12)
+
+The remote bundle exposes `/-/preview` outside the ordinary `RemoteApp` session
+runtime. The path is unlisted; it still uses saved authenticated hosts. Latest
+receives it through the normal remote build/deployment pipeline, with no separate
+preview service or auth scheme. Local validation does not itself deploy Latest.
+
+The independent preview controller owns saved-host connections, capability and
+exact revision checks, a small source-scoped session catalog, and one selected
+Conversation binding. It reuses the monitor's saved-session connection primitive
+and relay mux socket pool, not its data model. Hosts start excluded unless the
+preview's own local preference includes them. Inclusion preferences use
+`yep-experimental-preview-sources`; selection uses source/session URL query
+parameters. A selected source from the URL is included on reload.
+
+Discovery temporarily adapts `GET /api/sessions?limit=50` to identity, title, and
+project metadata. This is a bounded legacy-catalog bridge, not a SourceOverview
+implementation or an additional experimental contract. Refresh is explicit;
+opening/grouping a sidebar does not read transcripts. Project groups retain their
+machine identity. Issue groups merge canonical issue identities across machines;
+unassociated rows stay source-scoped. Switching grouping neither reconnects nor
+changes the selected Conversation binding.
+
+Issue associations use the existing optional capability, settings read, and
+DB-only issue search by session ID. Disabled discovery stays disabled. Enabled
+sources read at most ten saved links for each of at most fifty catalog sessions,
+with three requests in flight per source. Coverage is explicitly partial even
+when all these reads succeed; disabled, unsupported and unavailable are separate
+states. The preview never writes issue settings or confirms or discovers links.
+Provider catalog eligibility remains governed by
+[session catalog observation](session-catalog-observation.md); a legacy catalog
+row does not guarantee that a provider is enrolled for retained acquisition.
+
+The initial Conversation window is twenty logical messages. Show more expands
+by twenty, up to one hundred, anchored at the last currently included message;
+Latest returns to the live tail. Coverage limitations remain visible. Renderers
+show plain text (including literal Markdown source), condensed tool activity,
+failures and media placeholders. Unknown variants have safe visible fallbacks;
+opaque payloads are never rendered. Pending requests are read-only with a full
+session handoff. Partial assistant text/token assembly is deferred; finalized
+message snapshots and activity changes update live.
+
+Expired authentication shows a source-scoped sign-in action. Unavailable or
+incompatible sources offer their existing full client, retaining the saved relay
+identity or direct deployment base. Direct handoffs require the known `/api/ws`
+endpoint shape; an unrecognized endpoint falls back to explicit sign-in.
+
+Connection and stream failure stops updates for that source; a retained view is
+visibly stale. Refresh/reconnect is explicit, uses a fresh binding ID and accepts
+sequence zero again. Stale or cross-source frames cannot replace current content.
+Excluding a host, changing selection, or leaving the route releases its owned
+subscriptions/connections. No background polling or automatic retry loop remains
+when the page closes. Missing capability/revision metadata requires a server
+update; a different revision reports a mismatch. Neither sends experimental
+requests, and healthy peers remain usable.

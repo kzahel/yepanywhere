@@ -81,6 +81,11 @@ const loadIssuesPageModule = cachedModule(() => import("./pages/IssuesPage"));
 const loadLegacyRelayRouteRedirectModule = cachedModule(
   () => import("./pages/LegacyRelayRouteRedirect"),
 );
+const ConversationPreviewPage = lazy(() =>
+  import("./pages/ConversationPreviewPage").then(
+    ({ ConversationPreviewPage }) => ({ default: ConversationPreviewPage }),
+  ),
+);
 const loadMultiHostMonitorPageModule = cachedModule(
   () => import("./pages/MultiHostMonitorPage"),
 );
@@ -423,6 +428,10 @@ createRoot(rootElement).render(
           <Route
             path="/remote/share/:secret"
             element={routeModule(<PublicSharePage />)}
+          />
+          <Route
+            path="/-/preview"
+            element={routeModule(<ConversationPreviewPage />)}
           />
           <Route
             path="/-/monitor"
