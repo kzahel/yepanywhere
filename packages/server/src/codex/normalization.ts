@@ -44,6 +44,14 @@ export interface CodexWriteShellInfo {
 export interface CodexToolCallContext {
   toolName: string;
   input: unknown;
+  /** Present only for a code-mode call with a known owning turn. */
+  codeModeTurnId?: string;
+  /** Null means multiple native executions made the association ambiguous. */
+  commandExecution?: {
+    itemId: string;
+    exitCode?: number;
+    status: string;
+  } | null;
   readShellInfo?: CodexReadShellInfo;
   writeShellInfo?: CodexWriteShellInfo;
   patchApplyResult?: {
@@ -283,6 +291,14 @@ export function normalizeCodexToolOutputWithContext(
         bashExitCode = chunk.exitCode;
         isError = chunk.exitCode !== 0;
       }
+    }
+    // A uniquely matched native execution is stronger evidence than the
+    // outer script's success or anything the script happened to print.
+    if (context.commandExecution) {
+      bashExitCode = context.commandExecution.exitCode;
+      isError =
+        context.commandExecution.status === "failed" ||
+        (bashExitCode !== undefined && bashExitCode !== 0);
     }
     structured = createBashToolResult(
       interrupted ? "" : bashContent,

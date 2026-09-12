@@ -44,6 +44,16 @@ The roadmap's release priority remains authoritative.
 
 ### 1 — review the small contract with concrete fixture payloads
 
+Start from [127's real captured provider corpus](127-captured-provider-fixtures.md)
+and its native/adapter replay helper when deriving the first Conversation
+examples. The two-message Claude/Codex cases provide read/write, success/failure,
+and follow-up evidence. They are provider inputs, not an already-designed
+experimental API schema; add explicitly synthetic source collisions, disabled
+issue discovery, and unknown contract variants separately. The captured Codex
+native failure-status regression is now repaired and enforced by replay.
+The broader fixture tactical need not finish before schema
+design starts.
+
 Draft source overview, session summary, issue references, conversation messages,
 pending requests, coverage, and subscription envelopes. Decide logical message
 grouping and limits using actual user/agent exchanges; do not expose `turns` as

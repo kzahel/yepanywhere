@@ -426,3 +426,37 @@ The expanded tests still do not prove every distinct provider conversion or
 observed specimen promised by tactical 124. Remaining coverage is recorded in
 `gaps/tool-display-native-provider-coverage.md`; transport wiring and paid live
 sessions are not exercised by these deterministic conversion/reader controls.
+
+## Captured provider replay baseline — 2026-09-12
+
+[The captured corpus](../packages/server/test/fixtures/captured/README.md) adds
+two real sessions independent of renderer fixtures: Claude Haiku through Agent
+SDK 0.3.258 and Codex Luna through app-server 0.154.0. Each retains the full
+selected native transcript and ordered per-session raw logger messages before
+provider conversion. Explicit string redactions remove capture-machine context
+while preserving JSON structure and call/result relationships.
+
+`packages/server/test/captured-provider.test.ts` uses production native readers,
+provider conversion methods and the existing normalization/augmentation/compiler
+harness. Assertions cover two user inputs in durable history, ordered tool
+calls/results, main-session ownership, completion text, rich/partial preparation,
+failure status, and an observed unfinished Claude live prefix. Missing-file,
+broken-result-reference, and rich-to-raw negative controls must fail their gates.
+Normal root tests discover this corpus and root typechecking includes its code.
+
+These are adapter/reader replays, not full RPC/session-loop recordings or UI
+tests. User submissions are verified from native history, not invented in the
+provider output. No browser subscriber was attached during capture; browser
+micro-deltas, media, compaction, subagents, cold provider resume, and transport
+authentication are outside this slice. Expected facts must be stated from the
+scenario and raw evidence rather than copied from current compiler output.
+
+The corpus exposed and now guards a repaired native Codex failure-status loss.
+A uniquely associated native `CommandExecution` supplies status/exit code for
+the outer code-mode Bash row; both paths must mark the captured exit-code-7
+command failed. Synthetic mutations verify missing/wrong/ambiguous evidence
+does not cause guessed attribution, and native success overrides misleading
+printed JSON. See [the association contract](codex-code-mode-render-convergence.md#2026-09-12-native-code-mode-command-status).
+All positive assertions are ordinary passing tests. Refresh captures in new
+versioned directories; retain old evidence unless retirement is deliberate and
+documented.

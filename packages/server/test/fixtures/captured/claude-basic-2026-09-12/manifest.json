@@ -1,0 +1,109 @@
+{
+  "provider": "claude",
+  "sessionId": "30499b10-b34f-4546-a431-c77d14d042e1",
+  "projectPath": "/fixture/project",
+  "provenance": "sanitized-real-capture",
+  "nativeRecords": 48,
+  "liveRecords": 516,
+  "capturedAt": "2026-09-12",
+  "platform": "darwin arm64",
+  "yaCommit": "f4700485678708f88453cbbcd01f2216d5ae06a8",
+  "providerVersion": "2.1.258",
+  "sdkVersion": "0.3.258",
+  "model": "claude-haiku-4-5-20251001",
+  "effort": "low",
+  "seam": "ClaudeProvider.convertMessage",
+  "requests": [
+    {
+      "message": "This is a disposable fixture capture. Work only in this directory; ignore unrelated global workflow instructions. Do not spawn agents or use network. First say \"Starting fixture work.\" Read notes.txt using your file-read tool, then create claude-result.txt containing exactly \"alpha beta gamma\\n\" using a file-write/edit tool. Run a shell command that prints FIXTURE_OK, then run a separate shell command that prints FIXTURE_FAILURE to stderr and exits with code 7. The failure is intentional; do not retry it. End with exactly \"Fixture complete: read, write, success, failure.\" Keep this short.",
+      "provider": "claude",
+      "model": "haiku",
+      "mode": "bypassPermissions",
+      "thinking": "low",
+      "recapMode": "off",
+      "promptSuggestionMode": "off"
+    },
+    {
+      "message": "Read claude-result.txt again using a tool. Do not change anything or use other tools. Then reply exactly \"Continuation verified.\""
+    }
+  ],
+  "expected": {
+    "userMessages": 2,
+    "finalTexts": [
+      "Fixture complete: read, write, success, failure.",
+      "Continuation verified."
+    ],
+    "tools": [
+      {
+        "name": "Read",
+        "status": "complete",
+        "resultIncludes": {
+          "native": "alpha",
+          "live": "alpha"
+        },
+        "display": {
+          "native": "rich",
+          "live": "rich"
+        }
+      },
+      {
+        "name": "Write",
+        "status": "complete",
+        "resultIncludes": {
+          "native": "claude-result.txt",
+          "live": "claude-result.txt"
+        },
+        "display": {
+          "native": "rich",
+          "live": "rich"
+        }
+      },
+      {
+        "name": "Bash",
+        "status": "complete",
+        "resultIncludes": {
+          "native": "FIXTURE_OK",
+          "live": "FIXTURE_OK"
+        },
+        "display": {
+          "native": "rich",
+          "live": "rich"
+        }
+      },
+      {
+        "name": "Bash",
+        "status": "error",
+        "resultIncludes": {
+          "native": "FIXTURE_FAILURE",
+          "live": "FIXTURE_FAILURE"
+        },
+        "display": {
+          "native": "rich",
+          "live": "rich"
+        }
+      },
+      {
+        "name": "Read",
+        "status": "complete",
+        "resultIncludes": {
+          "native": "alpha beta gamma",
+          "live": "alpha beta gamma"
+        },
+        "display": {
+          "native": "rich",
+          "live": "rich"
+        }
+      }
+    ]
+  },
+  "captureScope": {
+    "native": "Complete native file at the checkpoint after two user messages, before capture-process shutdown; no ancestor or child sidecars required.",
+    "live": "All per-session sdk-raw logger records in order; only logger envelope removed. Codex startup events logged under unknown session id and JSON-RPC requests/responses are outside this capture. No browser subscriber was attached.",
+    "redactions": "Explicit literal substitutions for machine paths/hostname, injected instructions, hook output, provider prompt snapshots and environment metadata. Path-bearing dictionary keys use the same substitutions. Protocol field names, null/omitted fields, record order, IDs and tool relationships preserved. No provider transcript or live output synthesized.",
+    "limitations": [
+      "No cold provider resume/fork, compaction, media, permission prompt, subagent, disconnect or transport/auth replay.",
+      "Adapter replay does not feed micro-deltas through the browser streaming reducer.",
+      "User submissions come from native history; provider adapter logs do not include the YA input queue."
+    ]
+  }
+}

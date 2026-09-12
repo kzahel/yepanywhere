@@ -1,8 +1,44 @@
 # Capture small provider sessions for offline regression tests
 
-Status: proposed, 2026-09-11. This document records the fixture improvement;
-capture tooling, VM sessions, replay additions, and CI wiring remain pending.
+Status: first bounded capture/replay slice implemented locally, 2026-09-12.
+Two real Claude/Codex sessions, import tooling, native/adapter replay, and
+negative controls are available. The broader matrix, independent review,
+mounted/browser coverage, and full transport replay remain pending.
 Renderer repairs remain owned by [tactical 126](126-tool-display-regression-follow-up.md).
+
+## First implemented slice — 2026-09-12
+
+The [checked-in corpus and refresh recipe](../../packages/server/test/fixtures/captured/README.md)
+contains complete native files and pre-conversion per-session logger records
+from Claude Haiku (Agent SDK 0.3.258 / bundled CLI 2.1.258) and Codex Luna
+(app-server 0.154.0, low effort). Both sessions performed read/write work,
+successful and intentionally failing commands, then a second user-requested
+read. A recorded Claude prefix also proves pending-tool behavior.
+
+The maintainer authorized local capture with inexpensive models; this slice
+used an isolated YA data directory and disposable project on macOS, rather than
+the originally proposed Linux VM. Provider credentials/history remained in
+their existing provider locations. Only the two selected sessions were imported.
+
+The replay calls actual native readers and provider conversion methods, then
+the existing normalization/augmentation/compiler harness. It does not replay
+the provider transport/session loop or browser micro-delta reducer. Logger
+envelopes are removed; raw provider variants/order and native relationships are
+retained, with explicit string redactions for private capture context.
+
+Thirteen offline tests enforce semantic expectations and negative controls through
+the normal server test discovery; root tools typechecking includes the helper
+and importer. The initial corpus is 269,033 JSONL bytes, with about 205 ms of
+test time locally. Full tactical completion still requires broader scenarios
+and mounted/browser evidence.
+
+The real Codex case revealed a native failure-status discrepancy, now repaired.
+Cold normalization associates authoritative native command metadata with the
+single matching open code-mode Bash call. The captured failure is an ordinary
+passing assertion; synthetic mutations cover missing, wrong-turn,
+wrong-command, concurrent, and multiple-execution evidence, plus native success
+with misleading printed JSON. Broader live/durable convergence remains outside
+this slice.
 
 ## Motivation and existing work
 
@@ -151,11 +187,18 @@ when refreshing captures, and document deliberate retirements.
 
 - [ ] Claude/Codex baseline captured, sanitized, and independently reviewed
   for structure and expected behavior; exact paths and missing cells recorded.
-- [ ] Persisted and captured live paths replayed at their declared seams.
+- [x] First two persisted/captured-live cases replayed at their declared reader
+  and adapter seams; broader matrix and transport/session loop remain pending.
 - [ ] Positive mounted assertions and representative browser interactions pass.
-- [ ] Root tests and CI execute the corpus offline; negative probes prove gates.
-- [ ] Capture/refresh procedure and durable coverage rules moved into owning
+- [x] Root tests execute this corpus offline through the existing CI test
+  command; negative probes prove gates. Remote CI has not been run for this slice.
+- [x] First-slice capture/refresh procedure and durable coverage rules moved into owning
   parity/provider/testing documentation as implementation lands.
+
+Local validation: `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, and
+`pnpm test` passed. The new sources also received explicit lint/format checks.
+The ordinary root test run included the capture checks with no provider authentication. All thirteen
+checks now pass without expected-failure exceptions.
 
 Fixture infrastructure can land before renderer repairs. Keep known failing
 specimens linked to tactical 126 with explicit pending positive assertions;

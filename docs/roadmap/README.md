@@ -115,7 +115,8 @@ activity, files, complex settings, and unsupported actions using the full-web
 alternative. Exact action coverage and store-release acceptance remain open.
 
 **Next action:** follow the [three-client demo plan](../tactical/130-simple-client-api-and-three-client-demo.md):
-review concrete bounded payloads, prove generated native decoding, settle
+use [127's first real provider captures](../tactical/127-captured-provider-fixtures.md)
+to review concrete bounded payloads, prove generated native decoding, settle
 capability/fallback and snapshot/history semantics, then implement the server
 and real multi-source web slice with early native consumers. Desktop release
 and continuous-delivery work continue independently.

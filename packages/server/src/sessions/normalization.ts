@@ -560,6 +560,11 @@ function convertCodexEntries(
         observeCodexToolLifecycleMessage(msg, state.openToolUses);
       }
     } else if (entry.type === "event_msg") {
+      attachCodexCodeModeCommandExecution(
+        entry.payload,
+        state.toolCallContexts,
+        state.openToolUses,
+      );
       if (entry.payload.type === "patch_apply_end") {
         attachCodexCodeModePatchResult(entry.payload, state.toolCallContexts);
       }
@@ -802,6 +807,57 @@ function findCodexToolUseInput(message: Message, callId: string): unknown {
   return content.find(
     (block) => block.type === "tool_use" && block.id === callId,
   )?.input;
+}
+
+/** Native nested executions have their own IDs, not the outer exec call ID.
+ * Only associate a single exact command in the same turn with one open Bash
+ * call. Ambiguous/missing evidence must not turn arbitrary stdout into status.
+ */
+function attachCodexCodeModeCommandExecution(
+  payload: CodexEventMsgEntry["payload"],
+  contexts: Map<string, CodexToolCallContext>,
+  openToolUses: Map<string, Message>,
+): void {
+  // Without a native parent ID, concurrent tool calls make attribution ambiguous.
+  if (openToolUses.size !== 1) return;
+  if (payload.type !== "item_completed" || typeof payload.turn_id !== "string")
+    return;
+  const item = payload.item;
+  if (
+    !isRecord(item) ||
+    item.type !== "CommandExecution" ||
+    typeof item.id !== "string" ||
+    (item.status !== "completed" && item.status !== "failed") ||
+    !Array.isArray(item.parsed_cmd) ||
+    item.parsed_cmd.length !== 1
+  )
+    return;
+  const command = item.parsed_cmd[0];
+  if (!isRecord(command) || typeof command.cmd !== "string") return;
+  if (
+    item.exit_code != null &&
+    (typeof item.exit_code !== "number" || !Number.isInteger(item.exit_code))
+  )
+    return;
+  const callId = openToolUses.keys().next().value;
+  const context = callId ? contexts.get(callId) : undefined;
+  if (
+    context?.toolName !== "Bash" ||
+    context.codeModeTurnId !== payload.turn_id ||
+    !isRecord(context.input) ||
+    context.input.command !== command.cmd ||
+    context.commandExecution === null
+  )
+    return;
+  if (context.commandExecution && context.commandExecution.itemId !== item.id) {
+    context.commandExecution = null;
+    return;
+  }
+  context.commandExecution = {
+    itemId: item.id,
+    status: item.status,
+    ...(typeof item.exit_code === "number" ? { exitCode: item.exit_code } : {}),
+  };
 }
 
 function attachCodexCodeModePatchResult(
@@ -1438,6 +1494,7 @@ function convertCodexCustomToolCallPayload(
     context: {
       toolName: normalizedInvocation.toolName,
       input: normalizedInvocation.input,
+      ...(rawToolName === "exec" && turnId ? { codeModeTurnId: turnId } : {}),
       readShellInfo: normalizedInvocation.readShellInfo,
       writeShellInfo: normalizedInvocation.writeShellInfo,
     },

@@ -25,6 +25,13 @@ Gradle work does not contend with the JavaScript workspace test processes.
 Android JVM unit-test tasks have a five-minute task timeout and emit per-test
 lifecycle output so a stalled worker fails with attributable evidence.
 
+Captured provider regressions run offline in the normal server suite:
+`pnpm --dir packages/server exec vitest run test/captured-provider.test.ts`.
+The [corpus README](../../packages/server/test/fixtures/captured/README.md)
+owns the capture/import recipe, coverage limits, and manifest format. These
+tests use production readers/adapters and require no provider credentials or
+private histories. Root typechecking includes their helpers and importer.
+
 Environment-dependent subprocess tests must control both the child environment
 and relevant process descriptors. In particular, Bash `BASH_ENV` probes use
 ignored stdin rather than inheriting a test runner's socket-backed stdin. See

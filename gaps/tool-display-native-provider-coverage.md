@@ -25,9 +25,12 @@ turn every provider's transport into a new integration project. Delete this
 entry only when the remaining matrix has explicit independent evidence or an
 approved narrower obligation.
 
-[Tactical 127](../docs/tactical/127-captured-provider-fixtures.md) proposes a
-small real-provider capture baseline, offline replay through production
-ingestion, and mounted presentation assertions in normal tests and CI. The
-plan is pending and does not close the broader coverage gaps above.
+[Tactical 127](../docs/tactical/127-captured-provider-fixtures.md) now has a first
+real Claude Haiku/Codex Luna baseline with native files, pre-conversion live
+records, and offline reader/adapter replay in the ordinary server tests.
+See the [capture manifest/recipe](../packages/server/test/fixtures/captured/README.md).
+Mounted presentation, the wider scenario matrix, and full transport replay
+remain pending; this does not close the broader gaps above. The corpus also
+guards the repaired Codex native code-mode failure-status regression.
 
 Found 2026-09-10 during the independent tactical 124 implementation review.

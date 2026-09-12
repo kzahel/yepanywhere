@@ -143,6 +143,22 @@ falsified two assumptions of the shipped extractor:
   are not unique across a rollout (numbering restarts); the maps process
   in transcript order so the latest declaration wins.
 
+### 2026-09-12 native code-mode command status
+
+A captured Luna session retained a native `item_completed/CommandExecution`
+with exit code 7, while its outer `exec` succeeded after printing a reduced
+`{output, exit_code}` object. Cold history now uses the native execution status
+and exit code for the corresponding Bash result, preserving the script's
+original output. An outer script completing does not make its command successful.
+
+Without a native parent-call ID, association is deliberately conservative:
+there must be exactly one open tool call, normalized as Bash from code-mode
+`exec`, with the same owning turn and exact parsed command text. Multiple
+executions with different IDs invalidate the association. Missing, ambiguous,
+unmatched, or invalid execution metadata keeps the existing output behavior;
+it does not authorize interpreting arbitrary printed JSON as command status.
+The native transcript remains the authority; no extra persisted state is added.
+
 ### 2026-08-02 plan updates nested in code mode
 
 Codex may invoke `tools.update_plan({ plan })` inside an outer code-mode `exec`.
