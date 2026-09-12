@@ -1,4 +1,5 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { createRequire } from "node:module";
 import {
   existsSync,
   mkdirSync,
@@ -9,7 +10,7 @@ import {
 } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { getE2ERunDirectory } from "./run-directory.js";
 
@@ -17,6 +18,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, "..", "..", "..", "..");
 const serverRoot = join(repoRoot, "packages", "server");
+const tsxLoader = pathToFileURL(
+  createRequire(import.meta.url).resolve("tsx"),
+).href;
+
+function signalServerProcess(pid: number): void {
+  if (process.platform === "win32") {
+    execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      windowsHide: true,
+      stdio: "ignore",
+    });
+  } else {
+    process.kill(-pid, "SIGTERM");
+  }
+}
 
 /** The run-wide provider-host directory, falling back to this server's own. */
 function providerHostRuntimeDir(serverTempDir: string): string {
@@ -243,13 +258,14 @@ export async function startYaServerProcess(
   }
 
   const child = spawn(
-    "pnpm",
-    ["exec", "tsx", "--conditions", "source", "src/index.ts"],
+    process.execPath,
+    ["--import", tsxLoader, "--conditions", "source", "src/index.ts"],
     {
       cwd: serverRoot,
       env: childEnv,
       stdio: ["ignore", "pipe", "pipe"],
-      detached: true,
+      detached: process.platform !== "win32",
+      windowsHide: true,
     },
   );
   const output = { stderr: [] as string[], stdout: [] as string[] };
@@ -305,7 +321,7 @@ async function terminateYaServerProcess(
     });
   });
   try {
-    process.kill(-pid, "SIGTERM");
+    signalServerProcess(pid);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
       throw error;
@@ -329,13 +345,14 @@ export async function restartYaServerProcess(
     PORT_FILE: server.portFile,
   };
   const child = spawn(
-    "pnpm",
-    ["exec", "tsx", "--conditions", "source", "src/index.ts"],
+    process.execPath,
+    ["--import", tsxLoader, "--conditions", "source", "src/index.ts"],
     {
       cwd: serverRoot,
       env: childEnv,
       stdio: ["ignore", "pipe", "pipe"],
-      detached: true,
+      detached: process.platform !== "win32",
+      windowsHide: true,
     },
   );
   const output = { stderr: [] as string[], stdout: [] as string[] };
@@ -370,14 +387,23 @@ export async function restartYaServerProcess(
 export function stopYaServerProcess(server: YaServerProcess | null): void {
   if (!server) return;
   const pid = server.process.pid;
-  if (pid) {
+  if (
+    pid &&
+    server.process.exitCode === null &&
+    server.process.signalCode === null
+  ) {
     try {
-      process.kill(-pid, "SIGTERM");
+      signalServerProcess(pid);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
         throw error;
       }
     }
   }
-  rmSync(server.tempDir, { recursive: true, force: true });
+  rmSync(server.tempDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
 }

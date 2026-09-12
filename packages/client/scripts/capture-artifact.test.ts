@@ -5,13 +5,15 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { parseCaptureArgs } from "./capture-artifact";
 
 const exec = promisify(execFile);
-const loader = createRequire(import.meta.url).resolve("tsx/esm");
+const loader = pathToFileURL(
+  createRequire(import.meta.url).resolve("tsx/esm"),
+).href;
 const script = fileURLToPath(new URL("./capture-artifact.ts", import.meta.url));
 
 describe("artifact capture command", () => {
@@ -184,7 +186,7 @@ describe("artifact capture command", () => {
       );
       for (const capture of data.screenshots) {
         expect(data._acli.commentary[1].text).toContain(
-          `![${capture.name}](<${capture.path}>)`,
+          `![${capture.name}](<${capture.path.replaceAll("\\", "/")}>)`,
         );
       }
       const suppressed = await exec(

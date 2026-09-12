@@ -113,6 +113,10 @@ not invalidate modules served by the suite's long-lived remote client.
 Optimized modules stay beneath `node_modules` so React/Babel treats them as
 dependencies. These fixtures explicitly disable unrelated onboarding and CLI
 update overlays, independent of test order or developer shell settings.
+Backend fixtures launch the current Node executable with a file-URL `tsx`
+loader, so Windows does not depend on spawning a `pnpm.cmd` shim. Teardown
+stops the owned process group on POSIX or the exact fixture process tree on
+Windows and permits bounded retries while file handles close.
 Navigation URLs use the server's bound loopback address: a listener bound to
 `127.0.0.1` is opened at that address, since `localhost` may resolve to an
 unrelated IPv6 listener using the same port.
