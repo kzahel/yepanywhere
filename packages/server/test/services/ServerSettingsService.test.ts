@@ -5,8 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_PROJECT_QUEUE_QUIET_SECONDS } from "@yep-anywhere/shared";
 import {
   ServerSettingsService,
+  CommittedSettingsSaveError,
   defaultLiveWorktreeMonitoringEnabled,
 } from "../../src/services/ServerSettingsService.js";
+import * as directorySync from "../../src/utils/syncDirectory.js";
+
+vi.mock("node:fs/promises", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("node:fs/promises")>()),
+}));
 
 describe("ServerSettingsService", () => {
   let testDir: string;
@@ -16,6 +22,7 @@ describe("ServerSettingsService", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
@@ -25,6 +32,98 @@ describe("ServerSettingsService", () => {
     await service.initialize();
 
     expect(service.getSetting("heartbeatTurnText")).toBe("continue");
+  });
+
+  it("does not fall back to defaults after a committed migration fails to sync", async () => {
+    await fs.writeFile(
+      path.join(testDir, "server-settings.json"),
+      JSON.stringify({
+        version: 1,
+        settings: { serviceWorkerEnabled: false },
+      }),
+    );
+    const service = new ServerSettingsService({
+      dataDir: testDir,
+      logger: { error: vi.fn() },
+    });
+    vi.spyOn(directorySync, "syncDirectory").mockRejectedValueOnce(
+      new Error("disk I/O failure"),
+    );
+    await expect(service.initialize()).rejects.toBeInstanceOf(
+      CommittedSettingsSaveError,
+    );
+    expect(() => service.getSettings()).toThrow("not initialized");
+    await service.initialize();
+    expect(service.getSetting("serviceWorkerEnabled")).toBe(false);
+  });
+
+  it("keeps committed settings and queued updates after a directory I/O failure", async () => {
+    const error = vi.fn();
+    const service = new ServerSettingsService({
+      dataDir: testDir,
+      logger: { error },
+    });
+    await service.initialize();
+    const changed = vi.fn();
+    service.onSettingsChanged(changed);
+    const failure = Object.assign(new Error("disk I/O failure"), {
+      code: "EIO",
+    });
+    vi.spyOn(directorySync, "syncDirectory").mockRejectedValueOnce(failure);
+    const first = service.updateSettings({
+      fileAccess: {
+        projects: true,
+        uploads: true,
+        temp: true,
+        home: false,
+        custom: ["C:\\tmp", "D:\\code"],
+      },
+    });
+    const second = service.updateSettings({ serviceWorkerEnabled: false });
+    await expect(first).rejects.toBeInstanceOf(CommittedSettingsSaveError);
+    await second;
+    expect(changed).toHaveBeenCalledTimes(2);
+    const reloaded = new ServerSettingsService({ dataDir: testDir });
+    await reloaded.initialize();
+    expect(service.getSetting("fileAccess")).toEqual(
+      reloaded.getSetting("fileAccess"),
+    );
+    expect(service.getSetting("serviceWorkerEnabled")).toBe(false);
+    expect(reloaded.getSetting("serviceWorkerEnabled")).toBe(false);
+    expect(reloaded.getSetting("fileAccess")?.custom).toEqual([
+      "C:\\tmp",
+      "D:\\code",
+    ]);
+    expect(error).toHaveBeenCalledWith(
+      "[ServerSettingsService] Failed to save settings:",
+      failure,
+    );
+  });
+
+  it("does not swallow a file fsync permission error or replace saved settings", async () => {
+    const service = new ServerSettingsService({
+      dataDir: testDir,
+      logger: { error: vi.fn() },
+    });
+    await service.initialize();
+    await service.updateSettings({ serviceWorkerEnabled: true });
+    const originalOpen = fs.open;
+    const failure = Object.assign(new Error("file fsync denied"), {
+      code: "EPERM",
+    });
+    vi.spyOn(fs, "open").mockImplementationOnce(async (...args) => {
+      const handle = await originalOpen(...args);
+      vi.spyOn(handle, "sync").mockRejectedValueOnce(failure);
+      return handle;
+    });
+    await expect(
+      service.updateSettings({ serviceWorkerEnabled: false }),
+    ).rejects.toBe(failure);
+    expect(service.getSetting("serviceWorkerEnabled")).toBe(true);
+    const reloaded = new ServerSettingsService({ dataDir: testDir });
+    await reloaded.initialize();
+    expect(reloaded.getSetting("serviceWorkerEnabled")).toBe(true);
+    expect(await fs.readdir(testDir)).toEqual(["server-settings.json"]);
   });
 
   it("preserves server-wide readiness configuration and explicit disabling across reloads", async () => {

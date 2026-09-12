@@ -2,6 +2,9 @@ import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { enforceOwnerOnlyPathPermissionsStrict } from "../utils/filePermissions.js";
+import { syncDirectory } from "../utils/syncDirectory.js";
+
+export { syncDirectory };
 
 export interface PublicShareAtomicWriteHooks {
   beforeAtomicRename?: (filePath: string) => Promise<void> | void;
@@ -30,24 +33,6 @@ export async function removeOwnedAtomicControlTemps(
     );
     if (!entry.isFile() || !match?.[1] || !names.has(match[1])) continue;
     await fs.rm(path.join(directory, entry.name));
-  }
-}
-
-export async function syncDirectory(directory: string): Promise<void> {
-  let handle: fs.FileHandle | undefined;
-  try {
-    handle = await fs.open(directory, "r");
-    await handle.sync();
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (
-      process.platform !== "win32" ||
-      !["EISDIR", "EINVAL", "EPERM"].includes(code ?? "")
-    ) {
-      throw error;
-    }
-  } finally {
-    await handle?.close();
   }
 }
 

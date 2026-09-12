@@ -11,6 +11,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { runGit, runGitBytes } from "../git/gitExec.js";
 import type { ProjectDirectoryStorage } from "../services/ServerSettingsService.js";
+import { syncDirectory } from "../utils/syncDirectory.js";
 import { ensureManagedProjectDir } from "./managedProjectDir.js";
 
 const PROJECT_STORAGE_TRANSITION_VERSION = 1;
@@ -292,15 +293,6 @@ async function removeTransitionJournal(filePath: string): Promise<void> {
     throw error;
   }
   await syncDirectory(dirname(filePath));
-}
-
-async function syncDirectory(directoryPath: string): Promise<void> {
-  const directory = await open(directoryPath, "r");
-  try {
-    await directory.sync();
-  } finally {
-    await directory.close();
-  }
 }
 
 export function projectStorageKey(projectPath: string): string {

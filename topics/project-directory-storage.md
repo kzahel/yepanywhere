@@ -151,7 +151,11 @@ current project set. Projects with no durable review state remain untouched.
 For each durable store it loads both roots under the revision rule above, writes
 and verifies that state at the target location, and only then invokes the
 durable settings commit. A failed preflight, copy, verification, or settings
-write leaves the old mode selected. A later attempt consumes the stale intent
+write before settings replacement leaves the old mode selected. A genuine
+directory-flush error after settings replacement completes the committed mode
+transition and reports the durability error; it cannot undo the replaced file.
+See [cross-platform persistence](server-runtime.md#cross-platform-file-persistence).
+A later attempt consumes any stale intent
 and repeats the idempotent reconciliation. After a successful mode publication,
 retained review stores are released so subsequent operations reload under the
 new routing choice.

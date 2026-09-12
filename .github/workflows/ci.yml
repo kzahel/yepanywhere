@@ -8,6 +8,35 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  persistence-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.16.0
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @yep-anywhere/shared build
+      - name: Native settings, review persistence and storage transitions
+        run: >-
+          pnpm --filter @yep-anywhere/server test
+          test/utils/syncDirectory.test.ts
+          test/services/ServerSettingsService.test.ts
+          test/routes/settings.test.ts
+          test/routes/settings-persistence.test.ts
+          test/projects/projectStoragePolicy.test.ts
+          test/review/ReviewCaptureService.test.ts
+          test/review/ReviewCommentService.test.ts
+          test/review/ReviewStorageTransition.test.ts
+          test/review/ReviewStoreRetention.test.ts
+
   provider-host-native:
     strategy:
       fail-fast: false

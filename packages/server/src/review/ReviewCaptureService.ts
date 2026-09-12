@@ -16,6 +16,7 @@ import { getDataDir } from "../config.js";
 import { buildGitArgs, runGit, runGitBytes } from "../git/gitExec.js";
 import { HttpError } from "../middleware/error-handler.js";
 import { ProjectStoragePolicy } from "../projects/projectStoragePolicy.js";
+import { syncDirectory } from "../utils/syncDirectory.js";
 import {
   repositoryFilePath,
   repositoryFilePathIfExists,
@@ -251,12 +252,7 @@ export class ReviewCaptureService {
       }
       await rename(temporaryPath, capturePath);
       published = true;
-      const directory = await open(dirname(capturePath), "r");
-      try {
-        await directory.sync();
-      } finally {
-        await directory.close();
-      }
+      await syncDirectory(dirname(capturePath));
     } finally {
       if (!published) {
         await unlink(temporaryPath).catch((error: NodeJS.ErrnoException) => {

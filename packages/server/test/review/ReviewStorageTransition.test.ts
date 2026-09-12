@@ -320,7 +320,11 @@ describe("Source Review storage transitions", () => {
     const service = makeService();
     policy.registerTransitionParticipant(service);
     await service.addComment(projectPath, { anchor: anchor(), text: "safe" });
-    await symlink(outsidePath, join(projectPath, ".yep"));
+    await symlink(
+      outsidePath,
+      join(projectPath, ".yep"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
     let persisted = false;
 
     await expect(

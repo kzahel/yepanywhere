@@ -45,6 +45,7 @@ import type {
 } from "../services/ServerSettingsService.js";
 import {
   CODEX_UPDATE_POLICIES,
+  CommittedSettingsSaveError,
   DEFAULT_SERVER_SETTINGS,
   MAX_SOURCE_REVIEW_RESPONSE_TURNS,
   MIN_SOURCE_REVIEW_RESPONSE_TURNS,
@@ -982,8 +983,18 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps): Hono {
         }
       }
 
-      const persistSettings = () =>
-        serverSettingsService.updateSettings(updates);
+      let durabilityError: CommittedSettingsSaveError | undefined;
+      const persistSettings = async () => {
+        try {
+          return await serverSettingsService.updateSettings(updates);
+        } catch (error) {
+          if (!(error instanceof CommittedSettingsSaveError)) throw error;
+          // The replacement happened. Complete storage transitions and runtime
+          // callbacks before reporting the durability failure to the client.
+          durabilityError = error;
+          return error.settings;
+        }
+      };
       const settings =
         updates.projectDirectoryStorage !== undefined && projectStoragePolicy
           ? await projectStoragePolicy.transitionMode(
@@ -1069,6 +1080,8 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps): Hono {
       if (typeof updates.idleReapHours === "number" && onIdleReapHoursChanged) {
         onIdleReapHoursChanged(updates.idleReapHours);
       }
+
+      if (durabilityError) throw durabilityError;
 
       return c.json({
         settings: {

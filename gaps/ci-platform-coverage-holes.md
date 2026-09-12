@@ -15,6 +15,11 @@ WebView instrumentation on ubuntu. `bridge-ci.yml` covers its own runner matrix.
 
 The holes:
 
+The focused `persistence-native` job now covers settings, directory-sync error
+handling, Source Review persistence, and storage transitions on Linux, macOS and
+Windows. This closes that persistence coverage hole; the broader suite gaps below
+remain.
+
 | Not exercised | Where |
 |---|---|
 | `pnpm test` on macOS or Windows | `ci.yml` `unit-tests`, `runs-on: ubuntu-latest` |

@@ -239,14 +239,25 @@ describe("ReviewCaptureService", () => {
     const outside = await mkdtemp(join(tmpdir(), "yep-review-outside-"));
     try {
       await writeFile(join(outside, "secret.ts"), "secret\n");
-      await symlink(join(outside, "secret.ts"), join(repo, "src", "escape.ts"));
+      // Junctions exercise the same containment boundary without requiring
+      // Windows Developer Mode or elevated file-symlink privileges.
+      const escapePath =
+        process.platform === "win32" ? "src/escape/secret.ts" : "src/escape.ts";
+      if (process.platform === "win32") {
+        await symlink(outside, join(repo, "src", "escape"), "junction");
+      } else {
+        await symlink(
+          join(outside, "secret.ts"),
+          join(repo, "src", "escape.ts"),
+        );
+      }
       const service = new ReviewCaptureService({
         storagePolicy: projectStoragePolicy,
       });
       await expect(
         service.capture(repo, {
           kind: "worktree",
-          path: "src/escape.ts",
+          path: escapePath,
           side: "new",
         }),
       ).rejects.toMatchObject({ status: 400 });

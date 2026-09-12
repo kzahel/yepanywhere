@@ -46,6 +46,27 @@ itself. Both services retain their existing database ownership and schemas,
 and now require the same Node floor as the core because they depend on
 `node:sqlite`.
 
+### Cross-platform file persistence
+
+Settings, Source Review state/captures/submission manifests, and project-storage
+transition journals flush their written file contents before atomic publication.
+Their directory-metadata flush uses the same platform fallback as public-share
+storage: only Windows `EISDIR`, `EINVAL`, and `EPERM` from opening or syncing the
+directory are tolerated. File-write, file-sync, rename/link, close, and other
+directory failures remain errors. Linux and macOS directory failures propagate.
+Windows saves therefore succeed without claiming Unix directory-fsync durability.
+
+If a genuine settings error occurs after file replacement, YA adopts the saved
+settings, notifies its listeners, and the settings route completes runtime
+callbacks and any storage transition before returning an explicit durability
+error. Later partial updates retain those committed values. A failure before
+replacement leaves the previous settings active. Startup migration failures
+after replacement abort initialization instead of silently loading defaults.
+
+The `persistence-native` CI job exercises settings, review persistence and storage
+transitions on Linux, macOS and Windows. Fault-injection tests separately enforce
+the narrow directory fallback and the before/after-replacement behavior.
+
 ## Older-server compatibility
 
 The engine floor changes immediately for new server releases. There is no

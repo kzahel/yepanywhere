@@ -160,7 +160,11 @@ describe("ProjectStoragePolicy", () => {
   });
 
   it("rejects a symlinked .yep root", async () => {
-    await symlink(outsidePath, join(projectPath, ".yep"));
+    await symlink(
+      outsidePath,
+      join(projectPath, ".yep"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
     const policy = new ProjectStoragePolicy({
       dataDir,
       getMode: () => "project",

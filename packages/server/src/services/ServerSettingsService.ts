@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import type { ArtifactViewerConfig } from "@yep-anywhere/shared";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { syncDirectory } from "../utils/syncDirectory.js";
 import type {
   AgentContextHints,
   CacheMissBillingSettings,
@@ -551,6 +552,18 @@ export type ServerSettingsChangeListener = (
   previousSettings: Readonly<ServerSettings>,
 ) => void;
 
+/** The file was replaced, but its directory durability could not be confirmed. */
+export class CommittedSettingsSaveError extends Error {
+  constructor(
+    readonly settings: ServerSettings,
+    cause: unknown,
+  ) {
+    super("Settings were saved, but crash durability could not be confirmed", {
+      cause,
+    });
+  }
+}
+
 export class ServerSettingsService {
   private state: SettingsState;
   private dataDir: string;
@@ -597,6 +610,7 @@ export class ServerSettingsService {
         await this.doSave(this.state);
       }
     } catch (error) {
+      if (error instanceof CommittedSettingsSaveError) throw error;
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         console.warn(
           "[ServerSettingsService] Failed to load settings, using defaults:",
@@ -661,7 +675,13 @@ export class ServerSettingsService {
           ...updates,
         },
       };
-      await this.doSave(nextState);
+      let durabilityError: CommittedSettingsSaveError | undefined;
+      try {
+        await this.doSave(nextState);
+      } catch (error) {
+        if (!(error instanceof CommittedSettingsSaveError)) throw error;
+        durabilityError = error;
+      }
       this.state = nextState;
 
       const settings = { ...nextState.settings };
@@ -670,6 +690,7 @@ export class ServerSettingsService {
         listener(settings, previous);
       }
       this.publishDeferredDelivery();
+      if (durabilityError) throw durabilityError;
       return settings;
     });
     this.updateTail = operation.then(
@@ -703,17 +724,15 @@ export class ServerSettingsService {
       }
       await fs.rename(temporaryPath, this.filePath);
       published = true;
-      const directory = await fs.open(this.dataDir, "r");
-      try {
-        await directory.sync();
-      } finally {
-        await directory.close();
-      }
+      await syncDirectory(this.dataDir);
     } catch (error) {
       this.logger.error(
         "[ServerSettingsService] Failed to save settings:",
         error,
       );
+      if (published) {
+        throw new CommittedSettingsSaveError({ ...state.settings }, error);
+      }
       throw error;
     } finally {
       if (!published) {

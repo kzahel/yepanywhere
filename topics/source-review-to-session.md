@@ -401,7 +401,10 @@ resending them.
 
 Manifest publication is atomic and no-clobber: YA writes and fsyncs a unique
 temporary file, links the completed inode into the final `request.json` name,
-then fsyncs the submission directory. A crash before publication may leave only
+then syncs the submission directory where supported, using the shared
+[Windows directory-sync fallback](server-runtime.md#cross-platform-file-persistence).
+The same fallback applies to review state and app-data capture publication.
+A crash before publication may leave only
 an ignored temporary file, never a truncated final manifest. If an older crash
 left an invalid manifest for an unaccepted `prepared` submission, retry removes
 that invalid reservation and rebuilds it from the still-pending entries. An

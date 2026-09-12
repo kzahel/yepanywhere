@@ -42,6 +42,7 @@ import {
   type ProjectStorageTransitionParticipant,
 } from "../projects/projectStoragePolicy.js";
 import type { ProjectDirectoryStorage } from "../services/ServerSettingsService.js";
+import { syncDirectory } from "../utils/syncDirectory.js";
 
 const REVIEW_COMMENTS_FILENAME = "review-comments.json";
 const SOURCE_REVIEW_DIR = "source-review";
@@ -1021,12 +1022,7 @@ export class ReviewCommentService
     }
     if (publicationError) throw publicationError;
     if (cleanupError) throw cleanupError;
-    const directoryHandle = await fs.open(directory, "r");
-    try {
-      await directoryHandle.sync();
-    } finally {
-      await directoryHandle.close();
-    }
+    await syncDirectory(directory);
   }
 
   private async removeSubmissionRequest(
@@ -1476,12 +1472,7 @@ async function writePersistedReviewStore(
     }
     await fs.rename(temporaryPath, filePath);
     published = true;
-    const directory = await fs.open(path.dirname(filePath), "r");
-    try {
-      await directory.sync();
-    } finally {
-      await directory.close();
-    }
+    await syncDirectory(path.dirname(filePath));
   } finally {
     if (!published) {
       await fs.unlink(temporaryPath).catch((error: NodeJS.ErrnoException) => {
