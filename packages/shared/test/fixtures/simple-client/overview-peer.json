@@ -1,0 +1,50 @@
+{
+  "apiRevision": "simple-client-spike-1",
+  "subscriptionId": "fixture-subscription",
+  "sequence": 0,
+  "view": {
+    "kind": "overview",
+    "displayName": "Fixture machine",
+    "projects": [
+      {
+        "id": "fixture-project",
+        "name": "Fixture project"
+      }
+    ],
+    "sessions": [
+      {
+        "id": "30499b10-b34f-4546-a431-c77d14d042e1",
+        "projectId": "fixture-project",
+        "title": "claude fixture session",
+        "provider": "claude",
+        "activity": "idle",
+        "preview": "Continuation verified.",
+        "updatedAt": null,
+        "pendingRequestCount": 0,
+        "issues": [
+          {
+            "id": "https://tracker-a.example/issues/YA-1",
+            "key": "YA-1",
+            "provider": "fixture",
+            "kind": "issue",
+            "title": "Example issue",
+            "url": "https://tracker-a.example/issues/YA-1"
+          },
+          {
+            "id": "https://tracker-b.example/issues/YA-1",
+            "key": "YA-1",
+            "provider": "fixture",
+            "kind": "issue",
+            "title": "Example issue",
+            "url": "https://tracker-b.example/issues/YA-1"
+          }
+        ],
+        "issueCoverage": "partial"
+      }
+    ],
+    "coverage": {
+      "complete": false,
+      "limitedBy": ["sessions"]
+    }
+  }
+}

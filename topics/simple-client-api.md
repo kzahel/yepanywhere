@@ -3,9 +3,9 @@
 Topic: simple-client-api
 
 Status: Product, sequencing, and `/api/experimental/` namespace direction selected
-on 2026-09-12. API schemas, operation names, synchronization details, and release
-compatibility remain a design proposal; no new endpoint or client is implemented
-by this document.
+on 2026-09-12. The offline JSON Schema/TypeScript/Kotlin contract spike is
+implemented. Operation names, synchronization implementation, and release
+compatibility remain proposals; no new endpoint or live consumer is implemented.
 
 ## Purpose and first consumers
 
@@ -19,8 +19,9 @@ The first consumer is a minimal experimental web client for rapid iteration.
 It connects to multiple YA servers from its first useful slice and experiments
 with sidebar grouping by machine, project, and issue. It should be testable at
 an unlisted URL on `latest.yepanywhere.com` through the existing Latest release
-pipeline. Kotlin/Compose and Swift/SwiftUI consumers follow immediately in
-small vertical slices and help shape the same contract before it stabilizes.
+pipeline. Kotlin/Compose follows closely in small vertical slices and helps
+shape the same contract before it stabilizes. iOS is deferred until a later,
+separately scoped transport and client effort.
 React Native is not the chosen mobile direction.
 
 The web demo is a real API consumer with its own small state machine. Shared
@@ -43,7 +44,8 @@ Implementation sequence and unresolved decisions live in
 - [Source transport](source-transport.md),
   [source runtimes](client-source-runtime-topology.md), and the landed
   [multi-host monitor](../docs/tactical/066-multi-host-monitor-coexistence-harness.md)
-  provide reusable connection ownership and coexistence evidence.
+  provide reusable connection ownership and coexistence evidence. Reuse from the
+  monitor is transport/lifecycle, not its full existing summary data model.
 - [Android multi-host](../docs/tactical/084-android-native-multi-host-runtime.md)
   and [mobile pairing](mobile-server-pairing.md) supply existing native
   connection ownership. An API redesign is not a reason to rewrite crypto.
@@ -85,16 +87,19 @@ these are final type or operation names:
 
 Message limits count logical user-visible user or agent messages, not provider
 events, stream chunks, tool calls, or ambiguous "turns". Streaming growth of one
-message does not consume another slot. Adjacent agent-block grouping, activity
-attachment, and system/boundary placement must be decided with real fixtures.
+message does not consume another slot. The spike groups consecutive agent prose
+and activity associated with a user submission into one agent message, preserving
+failures and prose order. System boundaries, orphan agent history and interrupted
+response identity still need producer evidence.
 Pending requests and current session status remain available even when the
 message that originated them is outside the requested window.
 
-The wire schema must support generated TypeScript, Kotlin, and Swift models and
-decoders. Define tagged content variants, opaque string identities/revisions,
-timestamp format, null-versus-omitted fields, errors, and unknown-variant
-behavior explicitly. Native models must compile and decode fixtures early;
-exporting TypeScript interfaces alone is not the acceptance criterion.
+The [offline contract spike](../packages/shared/contracts/README.md) selects
+JSON Schema with a deterministic TypeScript/Zod and Kotlin/org.json emitter.
+It defines tagged content, string identities, timestamps, explicit nulls, errors,
+and generated opaque unknown-kind fallbacks. Both decoders consume the same
+serialized examples. Swift generation/decoding is future iOS work. This native
+decoding evidence does not yet establish a live producer or UI.
 
 Media travels by authenticated, source-scoped reference rather than inline
 unbounded payloads. Counts and serialized bytes both have limits, including a
@@ -117,17 +122,26 @@ to preserve the reading anchor. This is a candidate to measure, not a promise
 to resend the whole window on every token. Bounded row updates may be needed;
 their reducer must remain small and have snapshot recovery.
 
-Before implementation, define what happens as new messages arrive while the
-user reads older content, how a window is anchored, how history expansion is
-capped, and how stale responses are rejected. No rolling window may silently
-evict the message being read. Revisions and subscription generations must make
-initial snapshot/live handoff, reconnect, and out-of-order completions
-unambiguous without provider-specific client repair.
+The selected history rule applies the existing two-compaction session-detail
+scope first, groups messages, then selects the `maxMessages` tail within it.
+The client facade defaults to 20; the explicit request count is 1–100. Coverage
+separates earlier content inside that scope from older content beyond it
+(`yes`/`no`/`unknown`). A complete requested tail does not mean complete history.
+Count/scope limits, unavailable content and truncation are explicit; no new API
+bypasses the existing scope or changes the present web API contract.
 
-The older compiler proposal's two-compaction baseline is not silently removed.
-The schema review must explicitly decide how this new API's message-based
-coverage relates to that existing limit and what unavailable older content
-looks like. The present web API retains its existing contract.
+The candidate query uses `anchorMessageId: null` to follow the latest tail.
+A fixed anchor is the newest included message while expanding earlier history;
+new messages do not evict it. An unavailable anchor produces an explicit error.
+Every query/reconnect/reset gets a fresh binding ID, and replacement snapshots
+carry increasing sequence numbers within that binding. Clients reject old
+bindings and stale sequences. The schema does not implement atomic handoff,
+continuity recovery, or cancellation; those still need live evidence.
+
+The spike records concrete gate-2 budgets for 200 ms coalescing, encoded bytes,
+projection latency, shared computation across subscribers and teardown. Those
+are acceptance thresholds to measure during server implementation, not a
+performance claim established by offline payload decoding.
 
 ## Transport bindings
 

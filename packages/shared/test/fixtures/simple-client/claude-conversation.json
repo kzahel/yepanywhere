@@ -1,0 +1,103 @@
+{
+  "apiRevision": "simple-client-spike-1",
+  "subscriptionId": "fixture-subscription",
+  "sequence": 0,
+  "view": {
+    "kind": "conversation",
+    "sessionId": "30499b10-b34f-4546-a431-c77d14d042e1",
+    "activity": "idle",
+    "messages": [
+      {
+        "id": "35dfdbf5-40b8-4104-a367-6de75bd80bf9",
+        "role": "user",
+        "createdAt": "2026-09-12T09:53:53.154Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "This is a disposable fixture capture. Work only in this directory; ignore unrelated global workflow instructions. Do not spawn agents or use network. First say \"Starting fixture work.\" Read notes.txt using your file-read tool, then create claude-result.txt containing exactly \"alpha beta gamma\\n\" using a file-write/edit tool. Run a shell command that prints FIXTURE_OK, then run a separate shell command that prints FIXTURE_FAILURE to stderr and exits with code 7. The failure is intentional; do not retry it. End with exactly \"Fixture complete: read, write, success, failure.\" Keep this short."
+          }
+        ]
+      },
+      {
+        "id": "agent:35dfdbf5-40b8-4104-a367-6de75bd80bf9",
+        "role": "agent",
+        "createdAt": "2026-09-12T09:53:55.670Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Starting fixture work."
+          },
+          {
+            "kind": "activity",
+            "summary": "Read, write and shell commands",
+            "toolCount": 4,
+            "failedToolCount": 1
+          },
+          {
+            "kind": "failure",
+            "toolName": "Bash",
+            "message": "FIXTURE_FAILURE",
+            "exitCode": 7
+          },
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Fixture complete: read, write, success, failure."
+          }
+        ]
+      },
+      {
+        "id": "d0927fc9-77b5-434c-9327-f13d9ceac501",
+        "role": "user",
+        "createdAt": "2026-09-12T09:54:59.588Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Read claude-result.txt again using a tool. Do not change anything or use other tools. Then reply exactly \"Continuation verified.\""
+          }
+        ]
+      },
+      {
+        "id": "agent:d0927fc9-77b5-434c-9327-f13d9ceac501",
+        "role": "agent",
+        "createdAt": "2026-09-12T09:55:01.589Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "activity",
+            "summary": "Read result file",
+            "toolCount": 1,
+            "failedToolCount": 0
+          },
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Continuation verified."
+          }
+        ]
+      }
+    ],
+    "pendingRequests": [],
+    "coverage": {
+      "scope": "recentCompactions",
+      "compactions": 2,
+      "maxMessages": 20,
+      "returnedMessages": 4,
+      "earlierInScope": false,
+      "earlierOutsideScope": "no",
+      "completeForRequest": true,
+      "limitedBy": [],
+      "anchorMessageId": null
+    }
+  }
+}

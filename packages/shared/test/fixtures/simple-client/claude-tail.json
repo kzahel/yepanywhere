@@ -1,0 +1,58 @@
+{
+  "apiRevision": "simple-client-spike-1",
+  "subscriptionId": "fixture-tail",
+  "sequence": 0,
+  "view": {
+    "kind": "conversation",
+    "sessionId": "30499b10-b34f-4546-a431-c77d14d042e1",
+    "activity": "idle",
+    "messages": [
+      {
+        "id": "d0927fc9-77b5-434c-9327-f13d9ceac501",
+        "role": "user",
+        "createdAt": "2026-09-12T09:54:59.588Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Read claude-result.txt again using a tool. Do not change anything or use other tools. Then reply exactly \"Continuation verified.\""
+          }
+        ]
+      },
+      {
+        "id": "agent:d0927fc9-77b5-434c-9327-f13d9ceac501",
+        "role": "agent",
+        "createdAt": "2026-09-12T09:55:01.589Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "activity",
+            "summary": "Read result file",
+            "toolCount": 1,
+            "failedToolCount": 0
+          },
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Continuation verified."
+          }
+        ]
+      }
+    ],
+    "pendingRequests": [],
+    "coverage": {
+      "scope": "recentCompactions",
+      "compactions": 2,
+      "maxMessages": 2,
+      "returnedMessages": 2,
+      "earlierInScope": true,
+      "earlierOutsideScope": "no",
+      "completeForRequest": true,
+      "limitedBy": ["maxMessages"],
+      "anchorMessageId": null
+    }
+  }
+}

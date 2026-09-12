@@ -1,0 +1,50 @@
+[
+  {
+    "file": "claude-conversation.json",
+    "provenance": "manual-projection-of-real-capture",
+    "capture": "claude-basic-2026-09-12",
+    "sourceKey": "fixture-source-a",
+    "kind": "conversation",
+    "messageCount": 4
+  },
+  {
+    "file": "codex-conversation.json",
+    "provenance": "manual-projection-of-real-capture",
+    "capture": "codex-basic-2026-09-12",
+    "sourceKey": "fixture-source-a",
+    "kind": "conversation",
+    "messageCount": 4
+  },
+  {
+    "file": "overview-disabled.json",
+    "provenance": "synthetic-metadata-real-session-ids",
+    "sourceKey": "fixture-source-a",
+    "kind": "overview"
+  },
+  {
+    "file": "overview-peer.json",
+    "provenance": "synthetic-colliding-source-and-short-issue-keys",
+    "sourceKey": "fixture-source-b",
+    "kind": "overview"
+  },
+  {
+    "file": "waiting-history.json",
+    "provenance": "synthetic-waiting-truncation-compaction-unknowns",
+    "sourceKey": "fixture-source-a",
+    "kind": "conversation",
+    "messageCount": 1
+  },
+  {
+    "file": "unknown-view.json",
+    "provenance": "synthetic-unknown-root",
+    "sourceKey": "fixture-source-a",
+    "kind": "unknown"
+  },
+  {
+    "file": "claude-tail.json",
+    "provenance": "manual-tail-of-real-projection",
+    "sourceKey": "fixture-source-a",
+    "kind": "conversation",
+    "messageCount": 2
+  }
+]

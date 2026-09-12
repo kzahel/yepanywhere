@@ -1,0 +1,13 @@
+{
+  "apiRevision": "simple-client-spike-1",
+  "subscriptionId": "fixture-subscription",
+  "sequence": 0,
+  "view": {
+    "kind": "future-view",
+    "payload": [
+      {
+        "key": null
+      }
+    ]
+  }
+}

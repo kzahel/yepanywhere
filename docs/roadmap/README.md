@@ -16,9 +16,10 @@ should graduate from its current beta positioning; mobile should reach the
 App Store and Google Play, not stop at internal testing.
 
 **Status:** in progress. The API/client development sequence is selected: a
-minimal multi-server web demo first, with Android and iOS following closely on
-the same simplified contracts. Exact API and mobile release scope remain design
-work; the release outcome is decided.
+minimal multi-server web demo first with Android following closely on the same
+simplified contracts. The offline TypeScript/Kotlin schema spike is implemented;
+live API/client work remains ahead. iOS is deferred to a later scoped effort.
+Exact API and mobile release scope remain design work.
 
 ### Current baseline
 
@@ -98,33 +99,36 @@ compatibility checks belong to the release criteria, not just compilation.
 
 The 2026-09-12 direction is a [Simple Client API](../../topics/simple-client-api.md)
 that returns server-owned summaries and condensed Conversation data through
-transport-independent, generated TypeScript/Kotlin/Swift contracts. The API
+transport-independent, generated TypeScript/Kotlin contracts initially. The API
 starts under `/api/experimental/` and can evolve incompatibly; stable namespace,
 versioning, and support policy are explicit promotion decisions before public
 mobile reliance. Start with a minimal web client at an unlisted Latest URL,
 connecting to multiple YA servers from the first useful slice and experimenting
-with sidebar grouping by machine, project, and issue. Android Compose and iOS
-SwiftUI follow immediately
-in small vertical slices and shape the contract together; React Native is not
-the selected direction. Message limits count user/agent messages rather than
-turns, with history/reconciliation complexity kept below the frontend.
+with sidebar grouping by machine, project, and issue. Android Compose follows
+closely in small vertical slices and shapes the contract early. iOS transport,
+Swift decoding and SwiftUI are deferred; React Native is not selected. Message
+limits count user/agent messages rather than turns, with history/reconciliation
+complexity kept below the frontend.
 
 The demo is an API consumer with a new small state machine, not a full-web
 rewrite prerequisite. Native remains focused on Conversation view, with rich
 activity, files, complex settings, and unsupported actions using the full-web
 alternative. Exact action coverage and store-release acceptance remain open.
 
-**Next action:** follow the [three-client demo plan](../tactical/130-simple-client-api-and-three-client-demo.md):
-use [127's first real provider captures](../tactical/127-captured-provider-fixtures.md)
-to review concrete bounded payloads, prove generated native decoding, settle
-capability/fallback and snapshot/history semantics, then implement the server
-and real multi-source web slice with early native consumers. Desktop release
-and continuous-delivery work continue independently.
+**Next action:** continue the [web/Android demo plan](../tactical/130-simple-client-api-and-three-client-demo.md).
+The [offline contract spike](../../packages/shared/contracts/README.md) has shared
+Claude/Codex-derived and synthetic examples, generated TypeScript/Kotlin decoding
+with unknown fallbacks, and an explicit two-compaction-then-message-count rule.
+Next make the compiler core server-usable with existing parity tests, complete
+the operation/capability release review, and implement the first bounded
+read/subscription slice with real multi-source web and Android consumption.
+Measure the recorded cost budgets; offline fixtures are not live integration.
+Desktop release and continuous-delivery work continue independently.
 
 Start from these existing plans and contracts:
 
 - [Mobile companion product shape](../project/mobile-companion-app.md)
-- [Simple Client API and three-client demo](../tactical/130-simple-client-api-and-three-client-demo.md)
+- [Simple Client API and web/Android demo](../tactical/130-simple-client-api-and-three-client-demo.md)
 - [Native Android multi-host runtime](../tactical/084-android-native-multi-host-runtime.md)
 - [Bundled web over native transport](../tactical/083-android-bundled-web-native-transport.md)
 - [Conversation view](../../topics/conversation-view.md) and

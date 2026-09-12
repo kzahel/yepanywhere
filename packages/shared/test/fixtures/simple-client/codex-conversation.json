@@ -1,0 +1,103 @@
+{
+  "apiRevision": "simple-client-spike-1",
+  "subscriptionId": "fixture-subscription",
+  "sequence": 0,
+  "view": {
+    "kind": "conversation",
+    "sessionId": "01a09509-a912-7403-9a87-c71de38153b4",
+    "activity": "idle",
+    "messages": [
+      {
+        "id": "ab326b6f-4466-4b64-ae49-ac7ae7e69698",
+        "role": "user",
+        "createdAt": "2026-09-12T09:53:55.735Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "This is a disposable fixture capture. Work only in this directory; ignore unrelated global workflow instructions. Do not spawn agents or use network. First say \"Starting fixture work.\" Read notes.txt using your file-read tool, then create codex-result.txt containing exactly \"alpha beta gamma\\n\" using a file-write/edit tool. Run a shell command that prints FIXTURE_OK, then run a separate shell command that prints FIXTURE_FAILURE to stderr and exits with code 7. The failure is intentional; do not retry it. End with exactly \"Fixture complete: read, write, success, failure.\" Keep this short."
+          }
+        ]
+      },
+      {
+        "id": "agent:ab326b6f-4466-4b64-ae49-ac7ae7e69698",
+        "role": "agent",
+        "createdAt": "2026-09-12T09:53:59.014Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Starting fixture work."
+          },
+          {
+            "kind": "activity",
+            "summary": "Read, write and shell commands",
+            "toolCount": 4,
+            "failedToolCount": 1
+          },
+          {
+            "kind": "failure",
+            "toolName": "Bash",
+            "message": "FIXTURE_FAILURE",
+            "exitCode": 7
+          },
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Fixture complete: read, write, success, failure."
+          }
+        ]
+      },
+      {
+        "id": "5fa7c7d2-1790-469e-a3bb-9a204ad1e062",
+        "role": "user",
+        "createdAt": "2026-09-12T09:54:59.592Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Read codex-result.txt again using a tool. Do not change anything or use other tools. Then reply exactly \"Continuation verified.\""
+          }
+        ]
+      },
+      {
+        "id": "agent:5fa7c7d2-1790-469e-a3bb-9a204ad1e062",
+        "role": "agent",
+        "createdAt": "2026-09-12T09:55:02.845Z",
+        "state": "complete",
+        "truncated": false,
+        "content": [
+          {
+            "kind": "activity",
+            "summary": "Read result file",
+            "toolCount": 1,
+            "failedToolCount": 0
+          },
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Continuation verified."
+          }
+        ]
+      }
+    ],
+    "pendingRequests": [],
+    "coverage": {
+      "scope": "recentCompactions",
+      "compactions": 2,
+      "maxMessages": 20,
+      "returnedMessages": 4,
+      "earlierInScope": false,
+      "earlierOutsideScope": "no",
+      "completeForRequest": true,
+      "limitedBy": [],
+      "anchorMessageId": null
+    }
+  }
+}

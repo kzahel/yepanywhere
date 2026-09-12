@@ -66,7 +66,9 @@
     "site:dev": "node scripts/run-site-npm.mjs dev",
     "site:build": "node scripts/run-site-npm.mjs build",
     "tools:typecheck": "tsc -p packages/server/tsconfig.tool-display-tests.json --noEmit",
-    "tools:check": "node --test scripts/check-tool-display-boundaries.test.mjs && node scripts/check-tool-display-boundaries.mjs"
+    "tools:check": "node --test scripts/check-tool-display-boundaries.test.mjs && node scripts/check-tool-display-boundaries.mjs && pnpm simple-client:check",
+    "simple-client:generate": "node scripts/generate-simple-client.mjs",
+    "simple-client:check": "node --test scripts/simple-client-schema.test.mjs && node scripts/generate-simple-client.mjs --check"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",

@@ -1,0 +1,45 @@
+{
+  "apiRevision": "simple-client-spike-1",
+  "subscriptionId": "fixture-subscription",
+  "sequence": 0,
+  "view": {
+    "kind": "overview",
+    "displayName": "Fixture machine",
+    "projects": [
+      {
+        "id": "fixture-project",
+        "name": "Fixture project"
+      }
+    ],
+    "sessions": [
+      {
+        "id": "30499b10-b34f-4546-a431-c77d14d042e1",
+        "projectId": "fixture-project",
+        "title": "claude fixture session",
+        "provider": "claude",
+        "activity": "idle",
+        "preview": "Continuation verified.",
+        "updatedAt": null,
+        "pendingRequestCount": 0,
+        "issues": [],
+        "issueCoverage": "disabled"
+      },
+      {
+        "id": "01a09509-a912-7403-9a87-c71de38153b4",
+        "projectId": "fixture-project",
+        "title": "codex fixture session",
+        "provider": "codex",
+        "activity": "idle",
+        "preview": "Continuation verified.",
+        "updatedAt": null,
+        "pendingRequestCount": 0,
+        "issues": [],
+        "issueCoverage": "disabled"
+      }
+    ],
+    "coverage": {
+      "complete": true,
+      "limitedBy": []
+    }
+  }
+}

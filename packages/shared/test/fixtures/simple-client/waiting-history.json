@@ -1,0 +1,68 @@
+{
+  "apiRevision": "simple-client-spike-1",
+  "subscriptionId": "fixture-subscription",
+  "sequence": 0,
+  "view": {
+    "kind": "conversation",
+    "sessionId": "synthetic-waiting",
+    "activity": "waiting",
+    "messages": [
+      {
+        "id": "synthetic-agent",
+        "role": "agent",
+        "createdAt": null,
+        "state": "growing",
+        "truncated": true,
+        "content": [
+          {
+            "kind": "text",
+            "format": "plain",
+            "text": "Partial reply 👋"
+          },
+          {
+            "kind": "future-diagram",
+            "version": 2,
+            "payload": {
+              "nodes": ["one"],
+              "enabled": true
+            }
+          },
+          {
+            "kind": "media",
+            "mediaId": "image-1",
+            "description": "Image unavailable",
+            "availability": "unavailable"
+          }
+        ]
+      }
+    ],
+    "pendingRequests": [
+      {
+        "kind": "question",
+        "id": "question-1",
+        "prompt": "Which file?",
+        "options": ["one", "two"],
+        "canAnswer": false
+      },
+      {
+        "kind": "future-approval",
+        "id": "unknown-request",
+        "canApprove": true,
+        "payload": {
+          "command": "untrusted fixture only"
+        }
+      }
+    ],
+    "coverage": {
+      "scope": "recentCompactions",
+      "compactions": 2,
+      "maxMessages": 2,
+      "returnedMessages": 1,
+      "earlierInScope": true,
+      "earlierOutsideScope": "yes",
+      "completeForRequest": false,
+      "limitedBy": ["compactionScope", "bytes"],
+      "anchorMessageId": "synthetic-agent"
+    }
+  }
+}

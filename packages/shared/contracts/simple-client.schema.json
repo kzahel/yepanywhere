@@ -1,0 +1,678 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:yepanywhere:experimental:simple-client:spike-1",
+  "title": "Experimental simple client contract spike",
+  "$comment": "Offline candidate only. No advertised capability or implemented route. x-open-kind instructs code generation to preserve unknown discriminators as opaque fallback values.",
+  "$ref": "#/$defs/SnapshotEnvelope",
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "Timestamp": {
+      "type": "string",
+      "minLength": 24,
+      "maxLength": 24,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "ActivityState": {
+      "type": "string",
+      "enum": ["idle", "working", "waiting", "unknown"]
+    },
+    "IssueCoverage": {
+      "type": "string",
+      "enum": ["complete", "partial", "disabled", "unsupported", "unavailable"]
+    },
+    "IssueRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["id", "key", "provider", "kind", "title", "url"],
+      "additionalProperties": true
+    },
+    "ProjectSummary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "required": ["id", "name"],
+      "additionalProperties": true
+    },
+    "SessionSummary": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "projectId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "activity": {
+          "$ref": "#/$defs/ActivityState"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updatedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingRequestCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IssueRef"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        },
+        "issueCoverage": {
+          "$ref": "#/$defs/IssueCoverage"
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "title",
+        "provider",
+        "activity",
+        "preview",
+        "updatedAt",
+        "pendingRequestCount",
+        "issues",
+        "issueCoverage"
+      ],
+      "additionalProperties": true
+    },
+    "OverviewLimit": {
+      "type": "string",
+      "enum": ["sessions", "projects", "bytes", "unavailable"]
+    },
+    "OverviewCoverage": {
+      "type": "object",
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "limitedBy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OverviewLimit"
+          },
+          "minItems": 0,
+          "maxItems": 4
+        }
+      },
+      "required": ["complete", "limitedBy"],
+      "additionalProperties": true
+    },
+    "SourceOverview": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "overview"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProjectSummary"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "sessions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SessionSummary"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        },
+        "coverage": {
+          "$ref": "#/$defs/OverviewCoverage"
+        }
+      },
+      "required": ["kind", "displayName", "projects", "sessions", "coverage"],
+      "additionalProperties": true
+    },
+    "TextFormat": {
+      "type": "string",
+      "enum": ["plain", "markdown"]
+    },
+    "TextContent": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "text"
+        },
+        "format": {
+          "$ref": "#/$defs/TextFormat"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 16000
+        }
+      },
+      "required": ["kind", "format", "text"],
+      "additionalProperties": true
+    },
+    "ActivityContent": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "activity"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "toolCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "failedToolCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      },
+      "required": ["kind", "summary", "toolCount", "failedToolCount"],
+      "additionalProperties": true
+    },
+    "FailureContent": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "failure"
+        },
+        "toolName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["kind", "toolName", "message", "exitCode"],
+      "additionalProperties": true
+    },
+    "MediaAvailability": {
+      "type": "string",
+      "enum": ["available", "unavailable"]
+    },
+    "MediaContent": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "media"
+        },
+        "mediaId": {
+          "$ref": "#/$defs/Id"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 512
+        },
+        "availability": {
+          "$ref": "#/$defs/MediaAvailability"
+        }
+      },
+      "required": ["kind", "mediaId", "description", "availability"],
+      "additionalProperties": true
+    },
+    "Content": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextContent"
+        },
+        {
+          "$ref": "#/$defs/ActivityContent"
+        },
+        {
+          "$ref": "#/$defs/FailureContent"
+        },
+        {
+          "$ref": "#/$defs/MediaContent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "not": {
+                "enum": ["text", "activity", "failure", "media"]
+              }
+            }
+          },
+          "required": ["kind"],
+          "additionalProperties": true
+        }
+      ],
+      "x-open-kind": true
+    },
+    "MessageRole": {
+      "type": "string",
+      "enum": ["user", "agent"]
+    },
+    "MessageState": {
+      "type": "string",
+      "enum": ["complete", "growing", "interrupted"]
+    },
+    "ConversationMessage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "role": {
+          "$ref": "#/$defs/MessageRole"
+        },
+        "createdAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/MessageState"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Content"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        }
+      },
+      "required": ["id", "role", "createdAt", "state", "truncated", "content"],
+      "additionalProperties": true
+    },
+    "QuestionRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "question"
+        },
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "minItems": 0,
+          "maxItems": 20
+        },
+        "canAnswer": {
+          "const": false
+        }
+      },
+      "required": ["kind", "id", "prompt", "options", "canAnswer"],
+      "additionalProperties": true
+    },
+    "PendingRequest": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/QuestionRequest"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "not": {
+                "enum": ["question"]
+              }
+            }
+          },
+          "required": ["kind"],
+          "additionalProperties": true
+        }
+      ],
+      "x-open-kind": true
+    },
+    "Knowledge": {
+      "type": "string",
+      "enum": ["yes", "no", "unknown"]
+    },
+    "HistoryLimit": {
+      "type": "string",
+      "enum": ["maxMessages", "compactionScope", "bytes", "unavailable"]
+    },
+    "HistoryCoverage": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "const": "recentCompactions"
+        },
+        "compactions": {
+          "const": 2
+        },
+        "maxMessages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "returnedMessages": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "earlierInScope": {
+          "type": "boolean"
+        },
+        "earlierOutsideScope": {
+          "$ref": "#/$defs/Knowledge"
+        },
+        "completeForRequest": {
+          "type": "boolean"
+        },
+        "limitedBy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HistoryLimit"
+          },
+          "minItems": 0,
+          "maxItems": 4
+        },
+        "anchorMessageId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scope",
+        "compactions",
+        "maxMessages",
+        "returnedMessages",
+        "earlierInScope",
+        "earlierOutsideScope",
+        "completeForRequest",
+        "limitedBy",
+        "anchorMessageId"
+      ],
+      "additionalProperties": true
+    },
+    "Conversation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "conversation"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "activity": {
+          "$ref": "#/$defs/ActivityState"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConversationMessage"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "pendingRequests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PendingRequest"
+          },
+          "minItems": 0,
+          "maxItems": 16
+        },
+        "coverage": {
+          "$ref": "#/$defs/HistoryCoverage"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "activity",
+        "messages",
+        "pendingRequests",
+        "coverage"
+      ],
+      "additionalProperties": true
+    },
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "revisionMismatch",
+        "unavailable",
+        "notFound",
+        "anchorUnavailable",
+        "invalidRequest"
+      ]
+    },
+    "ApiError": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "error"
+        },
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": ["kind", "code", "message"],
+      "additionalProperties": true
+    },
+    "SnapshotView": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SourceOverview"
+        },
+        {
+          "$ref": "#/$defs/Conversation"
+        },
+        {
+          "$ref": "#/$defs/ApiError"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "not": {
+                "enum": ["overview", "conversation", "error"]
+              }
+            }
+          },
+          "required": ["kind"],
+          "additionalProperties": true
+        }
+      ],
+      "x-open-kind": true
+    },
+    "SnapshotEnvelope": {
+      "type": "object",
+      "properties": {
+        "apiRevision": {
+          "const": "simple-client-spike-1"
+        },
+        "subscriptionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "view": {
+          "$ref": "#/$defs/SnapshotView"
+        }
+      },
+      "required": ["apiRevision", "subscriptionId", "sequence", "view"],
+      "additionalProperties": true
+    },
+    "ConversationQuery": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/Id"
+        },
+        "maxMessages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "anchorMessageId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["sessionId", "maxMessages", "anchorMessageId"],
+      "additionalProperties": true
+    }
+  }
+}
