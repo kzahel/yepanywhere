@@ -155,11 +155,11 @@ Start from these existing plans and contracts:
 ## Later directions
 
 The separately authorized [optional Windows Computer Control preview](../tactical/131-optional-windows-computer-control.md)
-has a candidate implementation with signed local package management, deferred
-Codex tools and owned native lifecycle tests. Independent real-agent effect
-and browser-image acceptance, final cross-platform checks and public release
-distribution remain gates; this default-off preview does not displace release
-delivery above.
+is implemented and accepted for source-run Windows Node/Codex: signed local
+package management, deferred tools, explicit session selection, native images
+and crash-isolated lifecycle. Public download/update distribution and packaged
+YA acceptance remain future work; this default-off preview does not displace
+release delivery above.
 
 These remain candidates behind publishing and continuous delivery, not a
 ranked or approved implementation queue. Recheck current code and owning

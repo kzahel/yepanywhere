@@ -2,9 +2,10 @@
 
 Topic: optional-computer-control
 
-Status: Windows Node/Codex candidate implemented, 2026-09-12. Direct native
-pipe, signed-package, lifecycle and adapter checks pass. Independent real
-provider/effect and live/reloaded browser-image acceptance remain required.
+Status: Windows Node/Codex local preview accepted, 2026-09-12. Signed-package
+lifecycle, real deferred discovery, independent fixture effects, live/reloaded
+browser images and candidate crash isolation pass. Public release download
+and update integration remain open.
 Implementation and release gates are tracked in
 [Tactical 131](../docs/tactical/131-optional-windows-computer-control.md).
 
@@ -118,11 +119,55 @@ new client requests and launch fields. Missing support hides selection and
 shows an unavailable settings deep link without requesting the new routes.
 
 The repeatable candidate runner is `scripts/start-computer-control-candidate.ps1`;
-the native acceptance script is
+it requires a built client and serves those assets in production mode, without
+a Vite process. The native acceptance script is
 `packages/server/scripts/computer-control-native-acceptance.ts`. Credentials,
 machine-specific run contracts and captured desktop data stay outside commits.
 Native source changes are not required by the current Job Object ownership
 implementation. Signed-payload acceptance is separate from native source tests.
+
+## Direct Windows acceptance, 2026-09-12
+
+**Current:** Native ARM64 Windows acceptance places Node YA, Codex 0.154.0
+and the signed workstation resident in the same interactive user session.
+Both the developer and real acceptance agents used GPT-6 Astra with high
+reasoning. The controller used SSH only for supervision and independent
+checks; agent operations used the local named pipe.
+
+An ordinary session created no grant or resident. A selected session discovered
+`yep_computer__computer_control` while the resident remained stopped. First use
+started the resident; one accepted semantic invocation changed the deterministic
+fixture counter from zero to one, independently read from the same fixture
+process. Cua supplied snapshot-bound semantics and exact window-content
+capture. An invalid invocation shape was refused before dispatch, then corrected;
+no uncertain mutation was replayed.
+
+The actual New Session checkbox submitted explicit selection with Astra/high.
+A subsequent read-only screenshot reached the model and YA's live browser view;
+the stored PNG also rendered after reload on desktop and phone. Revoking one of
+two selected sessions refused its next call while the other remained usable.
+Killing the candidate server with the resident and Cua active reclaimed all
+eight owned processes in the first observation, approximately 0.36 seconds.
+SSH, the separate YA supervisor and appliance control remained healthy.
+Restarted YA does not restore the old grants.
+
+The authenticated ARM64 preview from Machine Control source
+`046a79804676f6d4dfa8441106f9911a96756a0a` was installed without importing
+native source. Tampered manager code was refused. Removing the original import
+directory preserved cold startup and uninstall from the managed installed copy.
+Idle stop/restart, expiry/reference refusal and guardian/job failure handling
+also have focused native coverage. Three warm, read-only window-enumeration
+round trips measured 6, 4 and 4 ms; these include native enumeration and IPC,
+exclude model/supervision/startup, and are observations rather than a benchmark.
+
+Final macOS repository checks passed: lint, formatting, typecheck, 11,964 unit
+tests, CSS/capability audits and 232 browser tests (8 skipped). The native
+Windows focused tests and isolated UI checks pass; its broad aggregate and
+checkout/tooling limitations remain explicitly recorded in
+[the Windows validation gap](../gaps/windows-validation-baseline.md).
+This is source-run Node/Codex consumer acceptance, not acceptance of a packaged
+YA executable, Bun, other providers, x64 YA integration, macOS/Linux control,
+public download/update feeds or privileged unlock settings.
 
 ## Intended experience and ownership
 

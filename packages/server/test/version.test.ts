@@ -390,7 +390,10 @@ describe("GET /version", () => {
     const version = await response.json();
 
     expect(version.capabilities).toBeUndefined();
-    expect(version.optionalCapabilityBits).toEqual([[0, 1]]);
+    expect(version.optionalCapabilityBits).toEqual([
+      [0, 1],
+      [2, 64],
+    ]);
     expect(serverHasCapability(version, PROJECT_QUEUE_CAPABILITY)).toBe(true);
     expect(
       serverHasCapability(

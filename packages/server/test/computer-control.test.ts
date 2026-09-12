@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -366,7 +366,11 @@ describe("native transport and artifact provenance", () => {
     }
   });
   it("checks exact artifact identity, extent, hash and bounded reads", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "ya-image-"));
+    // macOS exposes its temporary directory through /var -> /private/var.
+    // Use a canonical fixture root without weakening production link checks.
+    const root = await realpath(
+      await mkdtemp(path.join(tmpdir(), "ya-image-")),
+    );
     const artifactId = "b".repeat(32);
     const buffer = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=",

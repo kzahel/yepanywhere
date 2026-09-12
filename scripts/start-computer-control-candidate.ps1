@@ -25,6 +25,10 @@ $env:HOST = '127.0.0.1'
 $env:MAINTENANCE_PORT = '0'
 $env:ENABLED_PROVIDERS = 'codex'
 $env:CLIENT_DIST_PATH = Join-Path $candidateRoot 'packages/client/dist'
+$env:NODE_ENV = 'production'
+if (-not (Test-Path -LiteralPath (Join-Path $env:CLIENT_DIST_PATH 'index.html') -PathType Leaf)) {
+    throw 'Build the candidate client before starting the acceptance server'
+}
 # YA's native ACL probes use Windows PowerShell, not PowerShell 7 modules.
 $env:PSModulePath = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/Modules'
 $env:AUTH_DISABLED = 'false'

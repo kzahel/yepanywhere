@@ -93,5 +93,6 @@ module environment and passes operator controls and old-server fallback.
 `pnpm console:scan` remains at its existing budget of 110 ungated call sites
 (warn 60, error 92), with no additions. Broad logging cleanup spans unrelated
 owners and is not part of this feature. CSS architecture and capability audits
-pass. Final cross-platform aggregate checks remain a controller/CI gate;
-focused native tests and signed-package acceptance do not replace them.
+pass. The controller completed the final macOS aggregate gates: lint, formatting,
+typecheck, 11,964 unit tests and 232 UI E2E tests (8 skipped). These passing
+checks do not replace the unresolved native Windows aggregate gate above.

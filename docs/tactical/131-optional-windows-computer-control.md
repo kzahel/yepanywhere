@@ -2,31 +2,28 @@
 
 Owning topic: [Optional Computer Control](../../topics/optional-computer-control.md).
 
-Status: implementation in progress, 2026-09-12.
+Status: implementation and independent acceptance complete, 2026-09-12.
 
-Candidate implementation now covers stages 2 and 3: signed local preview
-management, deferred Codex dynamic tools, direct named-pipe operations,
-session grants, bounded images, operator controls and session selection.
-Windows tests cover native pipe uncertainty and complete owned descendant
-cleanup. Source-independent acceptance against the existing signed ARM64
-preview passes inspection, image production, idle restart and revocation.
-The YA Job Object launcher addresses resident/provider lifetime without a
-Machine Control source change or a new signing run.
+The Windows Node/Codex preview now provides signed local package management,
+deferred namespaced dynamic tools, direct named-pipe operations, bounded
+session grants, native images and operator/session controls. The controller
+accepted real discovery, one independently observed fixture mutation,
+UI-selected Astra/high, live/reloaded images, concurrent revocation and a live
+candidate crash with independent access preserved. The owning topic records
+[the accepted scope and evidence](../../topics/optional-computer-control.md#direct-windows-acceptance-2026-09-12).
 
-Stage 4 remains open for the controller's independent real Codex discovery,
-fixture effect, candidate crash and live/reloaded screenshot UI acceptance.
-The first real selected-session run exposed the pinned CLI's mandatory
-namespace for deferred tools. A follow-up wraps the tool in `yep_computer`,
-checks namespace dispatch and marks rejected thread starts terminal. A direct
-0.154.0 ephemeral-thread probe reproduces the original rejection and accepts
-the fixed adapter without a model turn. Real discovery/effect acceptance must
-still be repeated after a controller-coordinated candidate restart.
-Windows full-suite and formatter debt is recorded in
-[the validation gap](../../gaps/windows-validation-baseline.md); it is not
-treated as a passing gate. The controller reviews/imports commits, runs final
-controller-side checks, pushes and owns cleanup. Windows does not push or
-alter the stable supervisor. Public release-feed integration remains outside
-the authenticated local-preview slice.
+The first real selected session exposed Codex 0.154.0's mandatory namespace
+for deferred tools. The fixed adapter uses `yep_computer`, rejects unrelated
+namespace/thread dispatch and treats rejected thread starts as terminal.
+Controller validation also fixed the settings icon maps, canonicalized the
+macOS image-test fixture root, updated the permanent capability assertion and
+made the candidate runner serve its built client without Vite.
+
+All final macOS repository gates passed. Native Windows focused, signed-payload
+and isolated UI acceptance pass; the broad Windows validation limitations
+remain in [the existing gap](../../gaps/windows-validation-baseline.md).
+No Machine Control runtime change or new signing run was needed. Public
+release-feed integration remains outside the authenticated local-preview slice.
 
 ## Objective
 
