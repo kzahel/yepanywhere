@@ -14,7 +14,7 @@
  *     PORT=4000
  */
 
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
@@ -316,6 +316,28 @@ function waitForChildExit(child, timeoutMs) {
 async function stopManagedChild(child, name, firstWaitMs = 3_000) {
   const targets = managedTargets(child);
   if (!targets.some(processTargetAlive)) return;
+  if (isWindows) {
+    // Kill the tree while its launcher still exists. Killing cmd.exe first
+    // loses the ancestry needed to stop pnpm, tsx, Vite and their descendants.
+    for (const target of targets) {
+      if (!processTargetAlive(target)) continue;
+      await new Promise((resolve, reject) => {
+        execFile(
+          "taskkill.exe",
+          ["/PID", String(target), "/T", "/F"],
+          { windowsHide: true, timeout: 10_000 },
+          (error) => {
+            if (error && processTargetAlive(target)) reject(error);
+            else resolve();
+          },
+        );
+      });
+    }
+    if (!(await waitForProcessTargetsExit(targets, 1_500))) {
+      throw new Error(`${name} process target survived tree termination`);
+    }
+    return;
+  }
   signalManagedChild(child, "SIGTERM");
   if (await waitForProcessTargetsExit(targets, firstWaitMs)) return;
   console.warn(`[Shutdown] ${name} did not stop after SIGTERM; forcing it`);
@@ -706,14 +728,18 @@ async function requestServerReload(source) {
   }
   wrapperState = "reloading";
   console.log(`[Reload] Replacing backend and Vite after ${source}...`);
-  signalManagedChild(server, isWindows ? "SIGTERM" : "SIGHUP");
+  if (!isWindows) signalManagedChild(server, "SIGHUP");
   void completeServerReload(server);
 }
 
 async function completeServerReload(server) {
   const client = clientChild;
   try {
-    if (!(await waitForProcessTargetsExit(managedTargets(server), 10_000))) {
+    if (isWindows) {
+      await stopManagedChild(server, "backend reload");
+    } else if (
+      !(await waitForProcessTargetsExit(managedTargets(server), 10_000))
+    ) {
       console.warn("[Reload] Backend did not stop after SIGHUP; escalating");
       await stopManagedChild(server, "backend reload", 2_000);
     }
@@ -743,7 +769,7 @@ async function recoverUnexpectedServer(server, code) {
     await shutdownWrapper("Backend recovery cleanup failed", 1);
     return;
   }
-  if (wrapperState !== "running") return;
+  if (wrapperState !== "running" || serverChild !== server) return;
   if (serverChild === server) serverChild = null;
   console.error(`[Recovery] Backend exited with code ${code}; retrying once`);
   startServer();
@@ -814,6 +840,9 @@ function startServer() {
   serverChild = server;
 
   server.on("exit", (code, signal) => {
+    // Windows can report process death to kill(pid, 0) before Node delivers
+    // this event. A retired launcher must not recover or stop its replacement.
+    if (serverChild !== server) return;
     if (wrapperState === "shutting-down") return;
     if (wrapperState === "reloading") {
       return;

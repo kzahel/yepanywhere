@@ -58,6 +58,7 @@ jobs:
           pnpm --filter @yep-anywhere/server exec vitest run
           test/scripts/provider-process-identity.test.mjs
           test/scripts/dev-reload.test.mjs
+          test/scripts/dev-reload-portable.test.mjs
           test/scripts/provider-host-ownership.test.mjs
           test/scripts/provider-host-system.test.mjs
           test/sdk/providers/provider-runtime-host.test.ts

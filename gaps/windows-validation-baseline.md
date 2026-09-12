@@ -36,4 +36,16 @@ cleanup of the settings-save fix. Continue with focused platform-specific
 regressions and the broader CI coverage work in
 [ci-platform-coverage-holes.md](ci-platform-coverage-holes.md).
 
+The Windows dev-restart fix rechecked this baseline on 2026-09-12: lint and
+typecheck passed; the full server suite still reported 273 failed, 4,784 passed,
+103 skipped and three unhandled rejections (32 failed files). The full formatter
+still reported the checkout-wide debt above; all restart source files passed
+their exact-file lint and formatting checks. Those unrelated permission,
+database, watcher and formatting failures remain outside the restart repair.
+The new portable reload regression and server-admin tests passed, and a real
+dev wrapper with a disposable HOME/profile completed five API restarts while
+replacing backend/Vite PIDs, removing the prior launchers, and releasing all
+three test ports on cleanup. Native Linux/macOS validation is delegated to the
+existing provider-host CI matrix, which now includes the portable reload test.
+
 Found 2026-09-12 while validating Windows directory-sync persistence fixes.

@@ -725,6 +725,13 @@ rejects new input once its volatile-queue blocker check passes. The wrapper
 waits for the old generation to detach and exit, then starts exactly one
 replacement. It never forwards HUP to Codex app-server.
 
+Delayed exit notifications from a retired backend generation must not start
+recovery or shut down its replacement. On Windows, replacement and terminal
+cleanup stop each owned launcher tree before starting new children; stopping
+only the shell PID must not leave old pnpm, tsx or Vite descendants alive.
+Windows retains ordinary in-Hono provider ownership and interrupting restart
+semantics; process-tree cleanup does not imply provider continuity.
+
 ### Development bind takeover
 
 Every process spawned beneath `scripts/dev.js` carries a non-secret dev
