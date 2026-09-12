@@ -364,17 +364,17 @@ export function hasUnreadProviderContent(
  */
 export function getEffectiveProviderUpdatedAt(
   summaryUpdatedAt: string,
-  process: { lastProviderMessageTime?: Date | null } | undefined,
+  process: { lastProviderContentTime?: Date | null } | undefined,
 ): string {
-  const lastProviderMessageTime = process?.lastProviderMessageTime;
-  if (!(lastProviderMessageTime instanceof Date)) return summaryUpdatedAt;
+  const lastProviderContentTime = process?.lastProviderContentTime;
+  if (!(lastProviderContentTime instanceof Date)) return summaryUpdatedAt;
 
-  const processUpdatedAtMs = lastProviderMessageTime.getTime();
+  const processUpdatedAtMs = lastProviderContentTime.getTime();
   if (!Number.isFinite(processUpdatedAtMs)) return summaryUpdatedAt;
 
   const summaryUpdatedAtMs = Date.parse(summaryUpdatedAt);
   return !Number.isFinite(summaryUpdatedAtMs) ||
     processUpdatedAtMs > summaryUpdatedAtMs
-    ? lastProviderMessageTime.toISOString()
+    ? lastProviderContentTime.toISOString()
     : summaryUpdatedAt;
 }

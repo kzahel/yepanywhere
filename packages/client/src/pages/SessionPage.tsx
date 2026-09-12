@@ -152,6 +152,7 @@ import {
   useActiveProjectSessionIds,
   useClientSummarySourceKey,
   useProviderRuntimeStatusForSession,
+  useSessionCollectionRecord,
 } from "../lib/clientSummaryStore";
 import { activityBus } from "../lib/activityBus";
 import {
@@ -1833,9 +1834,7 @@ function SessionPageContent({
   const [localPromptSuggestionMode, setLocalPromptSuggestionMode] = useState<
     PromptSuggestionMode | undefined
   >(undefined);
-  const [localHasUnread, setLocalHasUnread] = useState<boolean | undefined>(
-    undefined,
-  );
+  const sessionCollectionRecord = useSessionCollectionRecord(sessionId);
 
   useEffect(() => {
     generatedRetitleRef.current = generatedRetitle;
@@ -1852,7 +1851,6 @@ function SessionPageContent({
     setLocalHeartbeatTurnText(undefined);
     setLocalHeartbeatForceAfterMinutes(undefined);
     setLocalPromptSuggestionMode(undefined);
-    setLocalHasUnread(undefined);
   }, [sessionId]);
 
   const projectReclassifyOptions = useMemo(
@@ -4817,11 +4815,11 @@ function SessionPageContent({
     }
   };
 
-  const hasUnread = localHasUnread ?? session?.hasUnread ?? false;
+  const hasUnread =
+    sessionCollectionRecord?.hasUnread ?? session?.hasUnread ?? false;
 
   const handleToggleRead = async () => {
     const newHasUnread = !hasUnread;
-    setLocalHasUnread(newHasUnread);
     try {
       if (newHasUnread) {
         await api.markSessionUnread(sessionId);
@@ -4834,7 +4832,6 @@ function SessionPageContent({
       );
     } catch (err) {
       console.error("Failed to update read status:", err);
-      setLocalHasUnread(undefined); // Revert on error
       showToast(t("sessionReadFailed"), "error");
     }
   };

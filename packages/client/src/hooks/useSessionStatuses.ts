@@ -135,7 +135,7 @@ export function useSessionStatuses(
           const current = next.get(event.sessionId) ?? {};
           next.set(event.sessionId, {
             ...current,
-            hasUnread: false,
+            hasUnread: event.timestamp === "",
           });
           return next;
         });

@@ -121,13 +121,27 @@ poll loop behind.
 Unread state comes from `NotificationService.hasUnread(session.id,
 effectiveProviderUpdatedAt)`. For an unowned session this is the provider list
 summary's transcript recency. For a YA-owned process it is the later of that
-summary and nullable `Process.lastProviderMessageTime`, because the live
+summary and nullable `Process.lastProviderContentTime`, because the live
 runtime can observe a provider message before every supported filesystem
 publishes its final write timestamp. Construction and reactivation leave that
 clock null until a real provider message arrives, so process ownership alone
 cannot manufacture recency or unread state. The same effective recency is
 returned and used for sorting; recap overlays may still make a row newer for
 display but never participate in the provider-unread comparison.
+
+Provider receipt and provider content have separate clocks. Initialization,
+command/skill inventory changes, configuration acknowledgements, token-usage
+telemetry, and session-state notifications remain available for diagnostics
+and live controls, but do not advance the content clock or make an idle session
+unread. Actual provider output still advances recency before a filesystem flush.
+Session detail, its metadata endpoint, project lists, global lists, and Inbox
+all use this same effective content recency and keep recap-only freshness out
+of the unread comparison.
+
+Read/unread actions are server-owned. A `session-seen` event with an empty
+timestamp means explicitly unread; a nonempty timestamp means read. Session
+menus and list rows follow the current shared state without retaining a local
+toggle that can mask a later server update.
 
 Unread means YA believes the session changed after the user's last seen
 marker. It is not limited to "an idle assistant produced output and now needs

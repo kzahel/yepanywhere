@@ -217,6 +217,59 @@ async function createGrokRedirectFixture(): Promise<{
 }
 
 describe("Sessions metadata route", () => {
+  it.each(["", "/metadata"])(
+    "uses provider content recency for read state at %s",
+    async (suffix) => {
+      const project = { ...createProject(), provider: "grok" as const };
+      const loaded = createLoadedGrokSession();
+      const lastSeenAt = "2026-03-10T09:49:00.000Z";
+      const process = {
+        id: "process-1",
+        projectId: project.id,
+        provider: "grok",
+        state: { type: "idle" },
+        lastProviderContentTime: new Date("2026-03-10T09:48:00.000Z"),
+        lastProviderMessageTime: new Date("2026-03-10T09:55:00.000Z"),
+        getProviderRuntimeStatus: () => null,
+        getDeferredQueueSummary: () => [],
+      };
+      const routes = createSessionsRoutes({
+        supervisor: {
+          getProcessForSession: () => process,
+          wasEverOwned: () => true,
+        } as unknown as SessionsDeps["supervisor"],
+        scanner: {
+          getOrCreateProject: async () => project,
+        } as unknown as SessionsDeps["scanner"],
+        readerFactory: () =>
+          ({
+            getSession: async () => loaded,
+            getSessionSummary: async () => loaded.summary,
+          }) as unknown as ISessionReader,
+        notificationService: {
+          getLastSeen: () => ({ timestamp: lastSeenAt }),
+          hasUnread: (_id: string, updatedAt: string) => updatedAt > lastSeenAt,
+        } as unknown as SessionsDeps["notificationService"],
+      });
+      const url = `/projects/${project.id}/sessions/sess-1${suffix}`;
+      const read = await routes.request(url);
+      expect(read.status).toBe(200);
+      expect((await read.json()).session).toMatchObject({
+        updatedAt: "2026-03-10T09:48:00.000Z",
+        hasUnread: false,
+      });
+      process.lastProviderContentTime = new Date("2026-03-10T09:50:00.000Z");
+      const unread = await routes.request(url);
+      expect(unread.status).toBe(200);
+      expect((await unread.json()).session).toMatchObject({
+        updatedAt: "2026-03-10T09:50:00.000Z",
+        hasUnread: true,
+      });
+      // A list/detail read must not mutate the cached transcript snapshot.
+      expect(loaded.summary.updatedAt).toBe("2026-03-10T09:46:00.000Z");
+    },
+  );
+
   it("verifiably stops an owned process after persisting archive metadata", async () => {
     const order: string[] = [];
     const updateMetadata = vi.fn(async () => {

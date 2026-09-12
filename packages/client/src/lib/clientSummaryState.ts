@@ -2180,7 +2180,7 @@ export function applySessionCollectionSeen(
   );
   const record = withUnreadField(
     getRecord(state, event.sessionId),
-    false,
+    event.timestamp === "",
     observation,
   );
   return putRecord(state, record);

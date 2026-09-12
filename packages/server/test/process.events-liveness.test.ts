@@ -176,7 +176,86 @@ describe("Process", () => {
       await waitFor(() =>
         expect(process.lastProviderMessageTime).toBeInstanceOf(Date),
       );
+      expect(process.lastProviderContentTime).toBeNull();
+      expect(getEffectiveProviderUpdatedAt(summaryUpdatedAt, process)).toBe(
+        summaryUpdatedAt,
+      );
       controller.finish();
+    });
+
+    it("keeps a read idle session read through command and telemetry updates", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime("2026-09-12T10:00:00.000Z");
+      const controller = createControllableIterator();
+      const onCommandsObserved = vi.fn();
+      const process = new Process(controller.iterator, {
+        projectPath: "/test",
+        projectId: "proj-1" as UrlProjectId,
+        sessionId: "sess-1",
+        provider: "codex",
+        idleTimeoutMs: 10_000,
+        onCommandsObserved,
+      });
+      const received: SDKMessage[] = [];
+      process.subscribe((event) => {
+        if (event.type === "message") received.push(event.message);
+      });
+      try {
+        controller.push({ type: "assistant", message: { content: "Done" } });
+        controller.push({ type: "result", session_id: "sess-1" });
+        await waitFor(() => expect(process.state.type).toBe("idle"));
+        const contentAt = process.lastProviderContentTime;
+        const lastSeenAt = "2026-09-12T10:01:00.000Z";
+        vi.setSystemTime("2026-09-12T10:02:00.000Z");
+        for (const subtype of [
+          "commands_changed",
+          "config_ack",
+          "token_usage",
+          "session_state_changed",
+        ]) {
+          const message = {
+            type: "system",
+            subtype,
+            session_id: "sess-1",
+            ...(subtype === "commands_changed"
+              ? { slash_command_inventory: [] }
+              : {}),
+            ...(subtype === "session_state_changed" ? { state: "idle" } : {}),
+          } as SDKMessage;
+          const count = received.length;
+          controller.push(message);
+          await waitFor(() => expect(received).toHaveLength(count + 1));
+          expect(process.lastProviderContentTime).toBe(contentAt);
+          expect(
+            getEffectiveProviderUpdatedAt("2026-09-12T09:00:00.000Z", process) >
+              lastSeenAt,
+          ).toBe(false);
+          expect(process.state.type).toBe("idle");
+        }
+        expect(onCommandsObserved).toHaveBeenCalledWith("sess-1", []);
+        expect(process.lastProviderMessageTime?.toISOString()).toBe(
+          "2026-09-12T10:02:00.000Z",
+        );
+
+        // Actual streamed content still becomes unread before the file is flushed.
+        vi.setSystemTime("2026-09-12T10:03:00.000Z");
+        controller.push({
+          type: "assistant",
+          message: { content: "New output" },
+        });
+        await waitFor(() =>
+          expect(process.lastProviderContentTime?.toISOString()).toBe(
+            "2026-09-12T10:03:00.000Z",
+          ),
+        );
+        expect(
+          getEffectiveProviderUpdatedAt("2026-09-12T09:00:00.000Z", process) >
+            lastSeenAt,
+        ).toBe(true);
+      } finally {
+        controller.finish();
+        vi.useRealTimers();
+      }
     });
 
     it("publishes the provider session id for agentctl-active shells", async () => {

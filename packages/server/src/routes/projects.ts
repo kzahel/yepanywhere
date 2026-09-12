@@ -37,6 +37,7 @@ import type { EventBus } from "../watcher/index.js";
 import {
   applyRecapOverlayToSummary,
   hasUnreadProviderContent,
+  getEffectiveProviderUpdatedAt,
 } from "../sessions/recap-overlays.js";
 import type { ExternalSessionTracker } from "../supervisor/ExternalSessionTracker.js";
 import type { Process } from "../supervisor/Process.js";
@@ -359,6 +360,10 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
 
       // Get session metadata (custom title, archived, starred)
       const metadata = deps.sessionMetadataService?.getMetadata(session.id);
+      const providerUpdatedAt = getEffectiveProviderUpdatedAt(
+        session.updatedAt,
+        process,
+      );
       const overlaidSession = deps.sessionMetadataService
         ? applyRecapOverlayToSummary(
             session,
@@ -371,7 +376,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       const hasUnread = hasUnreadProviderContent(
         deps.notificationService,
         session.id,
-        session.updatedAt,
+        providerUpdatedAt,
       );
 
       const customTitle = metadata?.customTitle;
@@ -388,6 +393,10 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
 
       return {
         ...overlaidSession,
+        updatedAt: getEffectiveProviderUpdatedAt(
+          overlaidSession.updatedAt,
+          process,
+        ),
         projectId: effectiveProjectId,
         ownership,
         pendingInputType,

@@ -106,7 +106,7 @@ describe("Inbox Routes", () => {
       getPendingInputRequest: () => unknown;
       state: { type: string };
       isRetainingProviderWork?: () => boolean;
-      lastProviderMessageTime?: Date | null;
+      lastProviderContentTime?: Date | null;
     }
   >;
   let unreadMap: Map<string, boolean>;
@@ -276,7 +276,7 @@ describe("Inbox Routes", () => {
       processMap.set("sess1", {
         getPendingInputRequest: () => null,
         state: { type: "in-turn" },
-        lastProviderMessageTime: processUpdatedAt,
+        lastProviderContentTime: processUpdatedAt,
       });
       vi.mocked(mockNotificationService.hasUnread).mockImplementation(
         (_sessionId: string, updatedAt: string) => updatedAt > lastSeenAt,

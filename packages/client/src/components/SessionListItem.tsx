@@ -304,11 +304,7 @@ export function SessionListItem({
     }
   }, [isEditing]);
 
-  // Local state for optimistic unread toggle
-  const [localHasUnread, setLocalHasUnread] = useState<boolean | undefined>(
-    undefined,
-  );
-  const hasUnread = localHasUnread ?? hasUnreadProp;
+  const hasUnread = hasUnreadProp;
 
   // Handlers for menu actions
   const handleToggleStar = async () => {
@@ -349,7 +345,6 @@ export function SessionListItem({
 
   const handleToggleRead = async () => {
     const newHasUnread = !hasUnread;
-    setLocalHasUnread(newHasUnread);
     try {
       if (newHasUnread) {
         await api.markSessionUnread(sessionId);
@@ -359,7 +354,6 @@ export function SessionListItem({
       onToggleRead?.();
     } catch (err) {
       console.error("Failed to update read status:", err);
-      setLocalHasUnread(undefined); // Revert on error
     }
   };
 

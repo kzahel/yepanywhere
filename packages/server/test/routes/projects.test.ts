@@ -68,6 +68,47 @@ function createProcess(
 }
 
 describe("Projects Routes", () => {
+  it("uses content rather than housekeeping recency for project unread state", async () => {
+    const project = { ...createProject(), provider: "grok" as const };
+    const summary = { ...createSummary(), provider: "grok" as const };
+    const process = {
+      ...createProcess(project.id),
+      lastProviderContentTime: new Date("2026-03-10T09:48:00.000Z"),
+      lastProviderMessageTime: new Date("2026-03-10T09:55:00.000Z"),
+    };
+    const routes = createProjectsRoutes({
+      scanner: {
+        getOrCreateProject: async () => project,
+      } as unknown as ProjectScanner,
+      readerFactory: () =>
+        ({ listSessions: async () => [summary] }) as unknown as ISessionReader,
+      supervisor: {
+        getProcessForSession: () => process,
+        getAllProcesses: () => [],
+      } as unknown as Parameters<typeof createProjectsRoutes>[0]["supervisor"],
+      notificationService: {
+        getLastSeen: () => ({ timestamp: "2026-03-10T09:49:00.000Z" }),
+        hasUnread: (_id: string, updatedAt: string) =>
+          updatedAt > "2026-03-10T09:49:00.000Z",
+      } as unknown as Parameters<
+        typeof createProjectsRoutes
+      >[0]["notificationService"],
+    });
+    const read = await routes.request("/proj-1/sessions");
+    expect(read.status).toBe(200);
+    expect((await read.json()).sessions[0]).toMatchObject({
+      updatedAt: "2026-03-10T09:48:00.000Z",
+      hasUnread: false,
+    });
+    process.lastProviderContentTime = new Date("2026-03-10T09:50:00.000Z");
+    const unread = await routes.request("/proj-1/sessions");
+    expect(unread.status).toBe(200);
+    expect((await unread.json()).sessions[0]).toMatchObject({
+      updatedAt: "2026-03-10T09:50:00.000Z",
+      hasUnread: true,
+    });
+  });
+
   it("enriches project list responses with Project Queue counts", async () => {
     const project = createProject();
     const routes = createProjectsRoutes({

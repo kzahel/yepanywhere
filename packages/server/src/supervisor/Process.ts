@@ -719,6 +719,21 @@ function isProviderRuntimeProgressMessage(message: SDKMessage): boolean {
   );
 }
 
+/** Control-plane updates are observable, but do not make a transcript unread. */
+function isProviderContentMessage(message: SDKMessage): boolean {
+  if (message.type === "system") {
+    switch (message.subtype) {
+      case "init":
+      case "commands_changed":
+      case "config_ack":
+      case "session_state_changed":
+      case "token_usage":
+        return false;
+    }
+  }
+  return true;
+}
+
 function getClaudeSessionStateChange(
   message: SDKMessage,
 ): ClaudeSessionState | null {
@@ -1111,6 +1126,8 @@ export class Process {
   private _lastMessageTime: Date;
   /** Timestamp of last real provider/SDK message; null until one arrives. */
   private _lastProviderMessageTime: Date | null;
+  /** Last provider content receipt, excluding command/configuration telemetry. */
+  private _lastProviderContentTime: Date | null = null;
   /** Timestamp of last Process state transition. */
   private _lastStateChangeTime: Date;
 
@@ -1413,6 +1430,10 @@ export class Process {
   /** Last real provider message, or null before this Process observes one. */
   get lastProviderMessageTime(): Date | null {
     return this._lastProviderMessageTime;
+  }
+
+  get lastProviderContentTime(): Date | null {
+    return this._lastProviderContentTime;
   }
 
   get lastPromptCacheRefreshTime(): Date | null {
@@ -4752,6 +4773,9 @@ export class Process {
         const receivedAt = new Date();
         this._lastMessageTime = receivedAt;
         this._lastProviderMessageTime = receivedAt;
+        if (isProviderContentMessage(message)) {
+          this._lastProviderContentTime = receivedAt;
+        }
         this.recordNativeRecap(message, receivedAt);
         this.observeProviderRuntimeStatus(message, receivedAt);
         if (Array.isArray(message.slash_command_inventory)) {

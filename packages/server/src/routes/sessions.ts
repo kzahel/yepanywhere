@@ -83,6 +83,7 @@ import {
   applyRecapOverlayToSummary,
   hasEquivalentRecapMessage,
   hasUnreadProviderContent,
+  getEffectiveProviderUpdatedAt,
   latestRecapMessage,
   mergeSessionOverlayMessages,
   mergeLocalCommandMessages,
@@ -2658,10 +2659,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       metadataProvider ?? process?.provider,
     );
     const rawSessionSummary = sessionSummaryResult?.summary ?? null;
+    const providerUpdatedAt = getEffectiveProviderUpdatedAt(
+      rawSessionSummary?.updatedAt ?? "",
+      process,
+    );
     const recapMessages =
       deps.sessionMetadataService?.getRecapMessages?.(sessionId) ?? [];
     const sessionSummary = rawSessionSummary
-      ? applyRecapOverlayToSummary(rawSessionSummary, recapMessages)
+      ? applyRecapOverlayToSummary(
+          { ...rawSessionSummary, updatedAt: providerUpdatedAt },
+          recapMessages,
+        )
       : null;
 
     if (!sessionSummary && !process) {
@@ -2683,11 +2691,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: "Session not found" }, 404);
     }
 
-    const hasUnread = rawSessionSummary
+    const hasUnread = providerUpdatedAt
       ? hasUnreadProviderContent(
           deps.notificationService,
           sessionId,
-          rawSessionSummary.updatedAt,
+          providerUpdatedAt,
         )
       : undefined;
 
@@ -2708,7 +2716,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         title: sessionSummary?.title ?? null,
         fullTitle: sessionSummary?.fullTitle ?? null,
         createdAt: sessionSummary?.createdAt ?? new Date().toISOString(),
-        updatedAt: sessionSummary?.updatedAt ?? new Date().toISOString(),
+        updatedAt:
+          sessionSummary?.updatedAt ||
+          providerUpdatedAt ||
+          new Date().toISOString(),
         messageCount: sessionSummary?.messageCount ?? 0,
         provider:
           metadataProvider ??
@@ -3149,7 +3160,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         // are computed on a detached client projection, as on file-backed reads.
         const sdkMessages = process.getMessageHistory();
         const transcriptSnapshotUpdatedAt =
-          process.lastProviderMessageTime?.toISOString() ??
+          process.lastProviderContentTime?.toISOString() ??
           process.startedAt.toISOString();
         const processMessages = sdkMessagesToClientMessages(
           structuredClone(sdkMessages),
@@ -3454,9 +3465,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     }
     // The overlay reassigns `session` below; hasUnreadProviderContent needs
     // the pre-overlay timestamp.
-    const preRecapUpdatedAt = session.updatedAt;
+    const preRecapUpdatedAt = getEffectiveProviderUpdatedAt(
+      session.updatedAt,
+      process,
+    );
     session = {
       ...session,
+      updatedAt: preRecapUpdatedAt,
       messages: mergeLocalCommandMessages(
         session.messages,
         localCommandMessages,

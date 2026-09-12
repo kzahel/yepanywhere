@@ -27,6 +27,7 @@ import {
   applySessionCollectionIdRemapped,
   applySessionCollectionMetadataChanged,
   applySessionCollectionProcessStateChanged,
+  applySessionCollectionSeen,
   applySessionCollectionUpdated,
   createEmptyClientSummaryState,
 } from "../clientSummaryState";
@@ -61,6 +62,45 @@ import { sessionCollectionRecordToGlobalSessionItem } from "../sessionCollection
 const PROJECT_ID = "project-1" as UrlProjectId;
 const NOW = Date.parse("2026-06-27T12:00:00.000Z");
 const RECENT = "2026-06-27T11:00:00.000Z";
+
+it("shares both mark-read and mark-unread events and accepts later server state", () => {
+  let state = applySessionCollectionSeen(
+    createEmptyClientSummaryState(),
+    {
+      type: "session-seen",
+      sessionId: "session-1",
+      timestamp: RECENT,
+    },
+    NOW,
+  );
+  expect(selectSessionCollectionRecord(state, "session-1")?.hasUnread).toBe(
+    false,
+  );
+  state = applySessionCollectionSeen(
+    state,
+    {
+      type: "session-seen",
+      sessionId: "session-1",
+      timestamp: "",
+    },
+    NOW + 1,
+  );
+  expect(selectSessionCollectionRecord(state, "session-1")?.hasUnread).toBe(
+    true,
+  );
+  state = applySessionCollectionSeen(
+    state,
+    {
+      type: "session-seen",
+      sessionId: "session-1",
+      timestamp: RECENT,
+    },
+    NOW + 2,
+  );
+  expect(selectSessionCollectionRecord(state, "session-1")?.hasUnread).toBe(
+    false,
+  );
+});
 const RUNTIME_STATUS: Exclude<ProviderRuntimeStatus, null> = {
   kind: "retrying",
   provider: "claude",

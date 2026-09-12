@@ -49,3 +49,19 @@ three test ports on cleanup. Native Linux/macOS validation is delegated to the
 existing provider-host CI matrix, which now includes the portable reload test.
 
 Found 2026-09-12 while validating Windows directory-sync persistence fixes.
+
+The unread-state repair rechecked the full workspace suite on 2026-09-12:
+the server still reports 273 failed, 4,788 passed, 103 skipped and three
+unhandled rejections (the same 32 failed files). The full formatter still hits
+the existing checkout-wide CRLF debt. These broad permission, database,
+watcher and formatting failures remain outside the read-state change;
+focused server regressions, lint, typecheck and exact-file formatting pass.
+
+The default Playwright global setup also assumes POSIX paths at
+`packages/client/e2e/global-setup.ts:173`: replacing only `/` leaves a Windows
+drive colon and backslashes inside the fixture directory name, so it fails
+before any browser test. The read-state regression has a standalone config
+that owns its backend and Vite without this unrelated global fixture corpus.
+The Windows run used a fresh private temporary directory and the Windows
+PowerShell module path for its ACL subprocess; the inherited PowerShell 7
+module path otherwise prevents Windows PowerShell from loading `Get-Acl`.
