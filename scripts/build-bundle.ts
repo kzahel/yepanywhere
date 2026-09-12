@@ -15,6 +15,7 @@
 import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { rewriteSharedImports } from "./rewrite-shared-imports.js";
 
 const ROOT_DIR = path.resolve(import.meta.dirname, "..");
 const CLIENT_DIST = path.join(ROOT_DIR, "packages/client/dist");
@@ -175,18 +176,7 @@ step("Rewrite @yep-anywhere/shared imports", () => {
         // Ensure it starts with ./ for Node.js ESM resolution
         if (!relPath.startsWith(".")) relPath = `./${relPath}`;
 
-        // Each "./<name>" subpath in shared's exports map builds to
-        // dist/<name>.js, so one rule covers server-runtime, sqlite, and any
-        // subpath added later.
-        const subpathRewritten = content.replace(
-          /@yep-anywhere\/shared\/([A-Za-z0-9-]+)/g,
-          (_match: string, subpath: string) =>
-            relPath.replace(/index\.js$/, `${subpath}.js`),
-        );
-        const rewritten = subpathRewritten.replace(
-          /(?<=(from\s+|import\(\s*))(["'])@yep-anywhere\/shared\2/g,
-          `$2${relPath}$2`,
-        );
+        const rewritten = rewriteSharedImports(content, relPath);
         fs.writeFileSync(fullPath, rewritten);
         count++;
       }

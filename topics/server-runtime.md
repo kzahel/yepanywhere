@@ -158,6 +158,13 @@ Android tool lookup must not block the server event loop.
 Startup readiness requires a responsive `/api/version` within the same startup
 deadline as port publication; transient connection/time-out failures retry that
 read-only probe, while any HTTP response still undergoes the full assertions.
+The npm bundle rewrites shared-package module specifiers to relative bundled
+files, preserving complete nested subpaths and dotted filenames before adding
+the compiled `.js` suffix. Static imports, re-exports, dynamic imports and
+side-effect imports use the same rule. Workspace resolution alone cannot verify
+this boundary: an isolated module-loading regression and clean npm installation
+exercise the rewritten imports without workspace links.
+
 Full packaged startup is exercised on Linux, macOS and Windows. The
 Windows matrix has a 30-minute job budget for the restored clean-install and
 locked-dependency Node/Bun launches; individual startup deadlines remain bounded.
