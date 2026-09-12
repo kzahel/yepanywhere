@@ -1,5 +1,7 @@
 import { z } from "zod";
-import type { DynamicToolSpec } from "../sdk/providers/codex-protocol/generated/v2/DynamicToolSpec.js";
+import type { DynamicToolNamespaceTool } from "../sdk/providers/codex-protocol/generated/v2/DynamicToolNamespaceTool.js";
+
+export const COMPUTER_TOOL_NAMESPACE = "yep_computer";
 
 const hwnd = z.number().int().positive().safe();
 const generation = z.string().regex(/^[a-f0-9]{32}$/);
@@ -80,7 +82,7 @@ advertisedProperties.operation = {
   type: "string",
   enum: computerOperation.options.map((option) => option.shape.operation.value),
 };
-export const COMPUTER_TOOLS: DynamicToolSpec[] = [
+export const COMPUTER_TOOLS: DynamicToolNamespaceTool[] = [
   {
     type: "function",
     name: "computer_control",
@@ -107,7 +109,7 @@ export interface ComputerToolResult {
 }
 
 export interface ComputerSession {
-  tools: DynamicToolSpec[];
+  tools: DynamicToolNamespaceTool[];
   call(
     tool: string,
     args: unknown,

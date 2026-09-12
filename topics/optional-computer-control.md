@@ -19,6 +19,14 @@ Selected sessions register one deferred typed `computer_control` tool with
 Codex 0.154.0 through `thread/start.dynamicTools`. Existing Code Mode discovery
 exposes it; actual calls return through `item/tool/call` on the same provider
 connection. This feature does not register an MCP server or use SSH.
+The deferred function is registered inside the `yep_computer` namespace, as
+required by the pinned App Server validator. Calls from any other namespace
+are refused. A rejected thread start is terminal for that provider session;
+YA must not leave a dead provider in-turn or treat queued input as dispatched.
+`packages/server/scripts/computer-control-codex-probe.ts` checks the actual
+pinned CLI with an ephemeral thread and no model turn: the original flat
+registration must be rejected and the adapter's namespaced registration must
+start successfully. The probe uses a fresh unauthenticated Codex home.
 The implementation reference is `references/codex` at `rust-v0.154.0`
 (`6b9826e3aa83b1a5947db50f4332cb9c65f1b340`), particularly the App Server
 dynamic-tool contract and `core/src/tools/handlers/dynamic.rs`. Provider

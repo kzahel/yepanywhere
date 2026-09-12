@@ -1,4 +1,5 @@
 import { startAgentSelfSession } from "./agent-self.js";
+import { COMPUTER_TOOL_NAMESPACE } from "../../computer-control/contract.js";
 /**
  * Codex Provider implementation using codex app-server JSON-RPC.
  *
@@ -3517,16 +3518,13 @@ export class CodexProvider implements AgentProvider {
           { error, codexFailureTrace },
           "Error in codex app-server session",
         );
-        const isProcessFailure = appServer.isClosed;
         yield {
           type: "error",
-          ...(isProcessFailure
-            ? {
-                uuid: `codex-error-${sessionId || "unknown"}-process-exit`,
-                codexWillRetry: false,
-                codexErrorScope: "app_server_process",
-              }
-            : {}),
+          // This catch exits the session loop and closes app-server below,
+          // including a rejected thread/start while the RPC process is alive.
+          uuid: `codex-error-${sessionId || "unknown"}-process-exit`,
+          codexWillRetry: false,
+          codexErrorScope: "app_server_process",
           session_id: sessionId,
           error: error instanceof Error ? error.message : String(error),
           codexFailureTrace,
@@ -3821,7 +3819,17 @@ export class CodexProvider implements AgentProvider {
       config: this.buildThreadConfigOverrides(options),
       experimentalRawEvents: false,
       ...(options.computerControl
-        ? { dynamicTools: options.computerControl.tools }
+        ? {
+            dynamicTools: [
+              {
+                type: "namespace" as const,
+                name: COMPUTER_TOOL_NAMESPACE,
+                description:
+                  "Optional Windows desktop control for this selected session.",
+                tools: options.computerControl.tools,
+              },
+            ],
+          }
         : {}),
     };
   }
@@ -5019,7 +5027,7 @@ export class CodexProvider implements AgentProvider {
           !options.computerControl?.acceptsThread(params.threadId) ||
           signal.aborted ||
           typeof params.tool !== "string" ||
-          params.namespace != null
+          params.namespace !== COMPUTER_TOOL_NAMESPACE
         ) {
           return {
             success: false,

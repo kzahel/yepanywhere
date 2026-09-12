@@ -1,9 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { CodexProvider } from "../src/sdk/providers/codex.js";
 import type { ComputerSession } from "../src/computer-control/contract.js";
-import { COMPUTER_TOOLS } from "../src/computer-control/contract.js";
+import {
+  COMPUTER_TOOLS,
+  COMPUTER_TOOL_NAMESPACE,
+} from "../src/computer-control/contract.js";
 import { TOOL_RESULT_MEDIA_CANDIDATES } from "../src/media/inlineImageData.js";
 import { normalizeCodexToolOutputWithContext } from "../src/codex/normalization.js";
+import {
+  MessageQueue,
+  Process,
+  type SDKMessage,
+  type UrlProjectId,
+  getLogger,
+} from "./process.test-support.js";
 
 // Exercises the actual pinned adapter seams without provider credentials.
 function adapter() {
@@ -26,6 +36,73 @@ function adapter() {
   };
 }
 describe("Codex computer-control adapter", () => {
+  it("marks a rejected thread/start terminal even while app-server is still alive", async () => {
+    const provider = new CodexProvider() as unknown as {
+      resolveCodexCommand(): Promise<string>;
+      getCodexEnv(): NodeJS.ProcessEnv;
+      refreshCodexSkills(): Promise<void>;
+      runSession(...args: unknown[]): AsyncIterableIterator<SDKMessage>;
+    };
+    vi.spyOn(provider, "resolveCodexCommand").mockResolvedValue("unused-codex");
+    vi.spyOn(provider, "getCodexEnv").mockReturnValue({});
+    vi.spyOn(provider, "refreshCodexSkills").mockResolvedValue();
+    const errorLog = vi
+      .spyOn(getLogger(), "error")
+      .mockImplementation(() => {});
+    const close = vi.fn(async () => {});
+    const requested: string[] = [];
+    const iterator = provider.runSession(
+      { cwd: "." },
+      new MessageQueue(),
+      new AbortController().signal,
+      { activeTurnId: null, activePermissionMode: "default" },
+      (client: {
+        isClosed: boolean;
+        connect(): Promise<void>;
+        close(): Promise<void>;
+        notify(): void;
+        request(method: string): Promise<unknown>;
+      }) => {
+        expect(client.isClosed).toBe(false);
+        vi.spyOn(client, "connect").mockResolvedValue();
+        vi.spyOn(client, "notify").mockImplementation(() => {});
+        vi.spyOn(client, "close").mockImplementation(close);
+        vi.spyOn(client, "request").mockImplementation(async (method) => {
+          requested.push(method);
+          if (method === "thread/start")
+            throw new Error(
+              "deferred dynamic tool must include a namespace: computer_control",
+            );
+          return {};
+        });
+      },
+      () => {},
+      { skills: [], stale: true },
+    );
+    const process = new Process(iterator, {
+      projectPath: ".",
+      projectId: "probe" as UrlProjectId,
+      sessionId: "provisional",
+      provider: "codex",
+      initialState: "in-turn",
+      idleTimeoutMs: 100,
+    });
+    try {
+      await vi.waitFor(() => expect(close).toHaveBeenCalledOnce());
+      expect(requested).toContain("thread/start");
+      expect(requested).not.toContain("turn/start");
+      expect(process.getInfo().providerRuntimeStatus).toMatchObject({
+        kind: "terminal",
+        scope: "provider_process",
+        message: expect.stringContaining("must include a namespace"),
+      });
+      expect(process.getInfo().state).not.toBe("in-turn");
+    } finally {
+      await process.abort();
+      errorLog.mockRestore();
+      vi.restoreAllMocks();
+    }
+  });
   it("omits tools for vanilla and registers only deferred selected tools", () => {
     const provider = adapter();
     const policy = { approvalPolicy: "never", sandbox: "danger-full-access" };
@@ -44,7 +121,17 @@ describe("Codex computer-control adapter", () => {
         { cwd: ".", computerControl: session },
         policy,
       ).dynamicTools,
-    ).toEqual(COMPUTER_TOOLS);
+    ).toEqual([
+      {
+        type: "namespace",
+        name: COMPUTER_TOOL_NAMESPACE,
+        description: expect.any(String),
+        tools: COMPUTER_TOOLS,
+      },
+    ]);
+    expect(COMPUTER_TOOLS.every((tool) => tool.deferLoading === true)).toBe(
+      true,
+    );
   });
   it("refuses unselected, child-thread and aborted calls before reaching the grant", async () => {
     const provider = adapter();
@@ -62,6 +149,7 @@ describe("Codex computer-control adapter", () => {
         threadId: "child",
         callId: "call",
         tool: "computer_control",
+        namespace: COMPUTER_TOOL_NAMESPACE,
         arguments: { operation: "windows" },
       },
     };
@@ -85,6 +173,16 @@ describe("Codex computer-control adapter", () => {
       ),
     ).toMatchObject({ success: false });
     expect(session.call).not.toHaveBeenCalled();
+    request.params.namespace = "other_namespace";
+    expect(
+      await provider.handleServerRequestApproval(
+        request,
+        { computerControl: session },
+        signal,
+      ),
+    ).toMatchObject({ success: false });
+    expect(session.call).not.toHaveBeenCalled();
+    request.params.namespace = COMPUTER_TOOL_NAMESPACE;
     expect(
       await provider.handleServerRequestApproval(
         request,

@@ -15,6 +15,12 @@ Machine Control source change or a new signing run.
 
 Stage 4 remains open for the controller's independent real Codex discovery,
 fixture effect, candidate crash and live/reloaded screenshot UI acceptance.
+The first real selected-session run exposed the pinned CLI's mandatory
+namespace for deferred tools. A follow-up wraps the tool in `yep_computer`,
+checks namespace dispatch and marks rejected thread starts terminal. A direct
+0.154.0 ephemeral-thread probe reproduces the original rejection and accepts
+the fixed adapter without a model turn. Real discovery/effect acceptance must
+still be repeated after a controller-coordinated candidate restart.
 Windows full-suite and formatter debt is recorded in
 [the validation gap](../../gaps/windows-validation-baseline.md); it is not
 treated as a passing gate. The controller reviews/imports commits, runs final
