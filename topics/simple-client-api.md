@@ -90,8 +90,8 @@ Message limits count logical user-visible user or agent messages, not provider
 events, stream chunks, tool calls, or ambiguous "turns". Streaming growth of one
 message does not consume another slot. The spike groups consecutive agent prose
 and activity associated with a user submission into one agent message, preserving
-failures and prose order. System boundaries, orphan agent history and interrupted
-response identity still need producer evidence.
+failures and prose order. Synthetic producer tests now cover system boundaries, orphan agent history and
+interrupted responses; real reader/live continuity remains an integration gate.
 Pending requests and current session status remain available even when the
 message that originated them is outside the requested window.
 
@@ -208,6 +208,94 @@ not contain YA's input queue; this does not prove a live queue/reader merger.
 Synthetic tests cover growth, interruption, scope cuts, fixed anchors, missing
 results, unknown content and count/byte limits. The wider web regression suites
 continue to exercise the extracted core through the existing web adapter.
+
+## Subscription-owner checkpoint (2026-09-12)
+
+The internal `ConversationSubscriptions` service now owns reference-counted
+per-session acquisition and projection. The live-operation checkpoint below
+now connects it to bounded native acquisition and experimental transport routes.
+This remains an experiment, not a shipped mobile client.
+
+- Consumers of one session join one source lease and one in-flight read and
+  compilation. A source installs invalidation observation before its initial
+  read. An invalidation during acquisition rejects that completion and queues
+  one coalesced follow-up; an obsolete snapshot is never sent to a late joiner.
+- Content changes schedule at most one refresh, with 200 ms between completed
+  acquisition and the next read. Unchanged selected views publish nothing.
+  New consumers can receive a current prepared result without another read.
+  Initial delivery uses sequence zero; only changed deliveries advance it.
+- Last-consumer removal aborts acquisition, clears scheduled work, closes the
+  lease and drops the prepared projection. Late opens are immediately closed;
+  late reads cannot publish. Server shutdown also closes transport bindings.
+  Failed consumers are removed without blocking healthy peers. Source failures
+  yield a bounded `unavailable` view and have no timer-driven retry loop.
+- One service instance admits at most 16 source leases and 128 consumers.
+  Admission rejects before opening another source. Canceled opens and reads
+  retain their slots until they settle, so rapid reconnects cannot bypass the
+  acquisition ceiling; settled released capacity is reusable.
+  These bound service ownership, not all underlying provider memory or I/O.
+- Source adapters must acquire bounded data, reconcile identity before returning
+  input, honor cancellation, and release native observation on close. Provider
+  token events must update owned memory rather than reload provider files.
+  The service's `read` callback is not authorization for a full transcript read.
+
+Deterministic tests cover ten consumers sharing one compilation, invalidation
+races, changing and unchanged snapshots, reconnect bindings, source failure,
+transport failure, admission, pending-open/read cancellation, queued timer
+teardown and synchronous reconnect during abort. Real provider-loop queue/prefix
+continuity and representative latency/bytes measurements remain gates.
+
+## First live-operation checkpoint (2026-09-12)
+
+The maintainer approved the exact optional contract in tactical 130 on
+2026-09-12. The server mounts `GET /api/experimental/conversation` and
+`GET /api/experimental/conversation/subscribe`. The latter is also the existing
+plain/encrypted WebSocket `subscribe` channel. All use the existing authentication;
+no alternate authentication or provider transcript store is introduced.
+
+- HTTP parameters are `apiRevision`, `subscriptionId`, `sessionId`,
+  `maxMessages` (whole decimal 1–100) and optional `anchorMessageId`.
+  WebSocket subscriptions carry `apiRevision`, `subscriptionId` and generated
+  `query`. Revision mismatch returns 409 before source acquisition; malformed
+  binding/count returns 400. Replay cursors have no meaning on this channel.
+- Capability `experimental-simple-client-conversation` has permanent ID 69 and
+  is optional, never semver-implied. `/api/version` advertises
+  `experimentalSimpleClientApiRevision: "simple-client-spike-1"` with it.
+  TypeScript and Kotlin request helpers require both before making experimental
+  calls. Missing support and revision mismatch are distinct source-scoped
+  results; existing full-client navigation remains the UI fallback.
+- Each binding starts at sequence zero. SSE event `snapshot` and WebSocket
+  event type `snapshot` carry the identical generated envelope. WebSocket
+  server teardown emits `closed`; SSE closes its body. HTTP one-shot demand,
+  request abort, SSE cancellation, WebSocket unsubscribe and app shutdown all
+  release ownership. A slow SSE reader retains at most one queued frame and one
+  pending replacement, so it can skip intermediate sequence values.
+- Native acquisition resolves an unambiguous session through the retained
+  catalog and reuses the existing Claude active-branch and Codex normalizers.
+  Before parsing it caps the file at 8 MiB, individual records at 1 MiB and the
+  record count at 10,000. Descriptor reads use a fixed allocation and reject
+  concurrent file mutation. An unfinished final row marks coverage incomplete.
+  Larger files, unsupported providers and inherited Codex rollouts return
+  `unavailable`; this initial reader does not pretend a byte tail is a correct
+  provider history window. The two-compaction scope still precedes `maxMessages`.
+- One source subscribes to its managed Process before replay/bootstrap. YA
+  user echoes and finalized provider messages retain their IDs in bounded
+  memory. Raw token frames and provisional `_isStreaming` frames are not yet
+  assembled. A working managed session does not reread disk for provider
+  events; idle reconciliation refreshes durable evidence. Unknown approvals
+  remain opaque read-only rows. Unmanaged activity is `unknown`.
+- Existing focused file watches are shared with the full client and released
+  with source demand. Native history is not polled by a new permanent loop.
+  Activity/file observation can retry an unavailable source; absence of new
+  evidence creates no retry timer.
+
+The TypeScript and Kotlin binding helpers reject duplicate/out-of-order frames,
+old subscription IDs, closed bindings and mismatched client-owned source IDs.
+Android's one-shot consumer uses the existing foreground connection lease and
+generated decoder. It does not alter native subscription replay semantics.
+Neither a web preview page nor a Compose preview screen is mounted yet. Live
+native subscription/reconnect integration, raw token assembly, provider-indexed
+tail acquisition, and real provider-loop identity continuity remain follow-ups.
 
 ## Transport bindings
 

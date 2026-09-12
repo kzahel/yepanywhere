@@ -1,3 +1,6 @@
+import { ConversationSubscriptions } from "./experimental/conversation-subscriptions.js";
+import { createConversationSource } from "./experimental/conversation-source.js";
+import { createExperimentalConversationRoutes } from "./routes/experimental-conversation.js";
 import { IssueStore } from "./services/issues/IssueStore.js";
 import {
   IssueIndexer,
@@ -295,7 +298,7 @@ import {
   type HeartbeatTurnCandidate,
 } from "./supervisor/Supervisor.js";
 import type { Message, Project } from "./supervisor/types.js";
-import type { EventBus } from "./watcher/index.js";
+import { FocusedSessionWatchManager, type EventBus } from "./watcher/index.js";
 import { LifecycleWebhookService } from "./webhooks/LifecycleWebhookService.js";
 
 export interface AppOptions {
@@ -471,6 +474,8 @@ export interface AppOptions {
 }
 
 export interface AppResult {
+  focusedSessionWatchManager: FocusedSessionWatchManager;
+  conversationSubscriptions: ConversationSubscriptions;
   artifactServer: ArtifactServer;
   app: Hono<{ Bindings: HttpBindings }>;
   /** Supervisor instance for debug API access */
@@ -847,6 +852,12 @@ export function createApp(options: AppOptions): AppResult {
       console.warn(`[App] Failed to close session reader ${key}:`, error);
     }
   };
+  const focusedSessionWatchManager = new FocusedSessionWatchManager({
+    scanner,
+    codexScanner,
+    geminiScanner,
+  });
+  let conversationSubscriptions: ConversationSubscriptions | undefined;
   let retainedCollections: RetainedSessionCollections | undefined;
   let issueIndexer: IssueIndexer | undefined;
   let issueConfirmer: IssueConfirmer | undefined;
@@ -855,6 +866,8 @@ export function createApp(options: AppOptions): AppResult {
   let vocabularyKeyterms: VocabularyKeyterms | undefined;
   let unsubscribeVocabulary: (() => void) | undefined;
   const disposeSessionReaders = async (): Promise<void> => {
+    conversationSubscriptions?.close();
+    focusedSessionWatchManager.dispose();
     for (const dispose of issueDisposers) dispose();
     await issueIndexer?.close();
     await issueConfirmer?.close();
@@ -1644,6 +1657,8 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/version",
     createVersionRoutes({
+      getExperimentalConversationAvailable: () =>
+        Boolean(conversationSubscriptions),
       getSqliteStatus: () => discoverySqlite.getStatus(),
       getIssueAssociationsAvailable: () => Boolean(issueIndexer),
       getArtifactViewerStatus: () => ({
@@ -2072,6 +2087,31 @@ export function createApp(options: AppOptions): AppResult {
         changedPaths,
       ),
   });
+  const conversationCatalog = retainedCollections;
+  conversationSubscriptions = new ConversationSubscriptions(
+    createConversationSource({
+      resolve: async (sessionId) => {
+        const { rows } = await conversationCatalog.read();
+        const candidates = rows.filter((row) => row.sessionId === sessionId);
+        return candidates.length === 1 ? candidates[0] : undefined;
+      },
+      getProcess: (sessionId) => supervisor.getProcessForSession(sessionId),
+      watch: (row, invalidate) =>
+        focusedSessionWatchManager.subscribe(
+          {
+            sessionId: row.sessionId,
+            projectId: row.projectId,
+            providerHint: row.provider ?? row.catalogFamily,
+          },
+          invalidate,
+        ),
+      eventBus: options.eventBus,
+    }),
+  );
+  app.route(
+    "/api/experimental/conversation",
+    createExperimentalConversationRoutes(conversationSubscriptions),
+  );
   const issueDatabase = discoverySqlite.getDatabase();
   if (issueDatabase && options.serverSettingsService) {
     const catalog = retainedCollections;
@@ -2999,6 +3039,8 @@ export function createApp(options: AppOptions): AppResult {
 
   return {
     app,
+    conversationSubscriptions,
+    focusedSessionWatchManager,
     artifactServer,
     supervisor,
     scanner,

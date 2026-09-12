@@ -57,8 +57,6 @@ import {
 import { updateAllowedHosts } from "./middleware/allowed-hosts.js";
 import { initFileAccess, updateFileAccess } from "./middleware/file-access.js";
 import { NotificationService } from "./notifications/index.js";
-import { CodexSessionScanner } from "./projects/codex-scanner.js";
-import { GeminiSessionScanner } from "./projects/gemini-scanner.js";
 import { ProjectGlossarySubscriptionManager } from "./projects/projectGlossarySubscriptionManager.js";
 import { ProjectWorktreeSubscriptionManager } from "./projects/projectWorktreeSubscriptionManager.js";
 import { projectPathCacheDiagnostics } from "./projects/projectPathIndex.js";
@@ -125,7 +123,6 @@ import { AttachmentStagingService } from "./uploads/AttachmentStagingService.js"
 import { UploadManager } from "./uploads/manager.js";
 import {
   EventBus,
-  FocusedSessionWatchManager,
   ProviderSessionWatcherRegistry,
   SourceWatcher,
 } from "./watcher/index.js";
@@ -997,6 +994,8 @@ async function startServer() {
     externalTracker,
     resolveAbsoluteFilePaths,
     artifactServer,
+    conversationSubscriptions,
+    focusedSessionWatchManager,
   } = createApp({
     getCatalogFamilies: () => installService.getCatalogFamilies(),
     artifacts: config.artifacts,
@@ -1093,16 +1092,6 @@ async function startServer() {
   await artifactServer.configure(artifactServer.config);
   disposeAppForShutdown = disposeSessionReaders;
 
-  const focusedSessionWatchManager = new FocusedSessionWatchManager({
-    scanner,
-    codexScanner: new CodexSessionScanner({
-      sessionsDir: config.codexSessionsDir,
-      dataDir: config.dataDir,
-    }),
-    geminiScanner: new GeminiSessionScanner({
-      sessionsDir: config.geminiSessionsDir,
-    }),
-  });
   const projectGlossarySubscriptionManager =
     new ProjectGlossarySubscriptionManager({
       scanner,
@@ -1238,6 +1227,7 @@ async function startServer() {
     storagePolicy: projectStoragePolicy,
   });
   const wsRelayHandler = createWsRelayRoutes({
+    conversationSubscriptions,
     upgradeWebSocket,
     app,
     baseUrl,
@@ -1265,6 +1255,7 @@ async function startServer() {
   // Create relay connection handler for connections from relay server (Phase 7)
   // This accepts WebSocket connections that have already been upgraded at the relay
   const acceptRelayConnection = createAcceptRelayConnection({
+    conversationSubscriptions,
     app,
     baseUrl,
     supervisor,

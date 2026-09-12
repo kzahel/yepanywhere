@@ -1,3 +1,4 @@
+import type { ConversationQuery } from "./experimental/simple-client.generated.js";
 /**
  * Relay protocol types for remote access via WebSocket.
  *
@@ -66,6 +67,7 @@ export interface RelayResponse {
 
 /** Subscription channel types */
 export type RelaySubscriptionChannel =
+  | "/api/experimental/conversation/subscribe"
   | "session"
   | "activity"
   | "session-watch"
@@ -74,6 +76,8 @@ export type RelaySubscriptionChannel =
 
 /** Client -> Server: Subscribe to events */
 export interface RelaySubscribe {
+  apiRevision?: string;
+  query?: ConversationQuery;
   type: "subscribe";
   /** Client-generated ID for this subscription (used to unsubscribe) */
   subscriptionId: string;

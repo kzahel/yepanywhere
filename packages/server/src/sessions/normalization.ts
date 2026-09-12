@@ -298,6 +298,23 @@ function normalizeClaudeQueueOperationContent(content: unknown): string {
     .join("\n");
 }
 
+/** Normalize a bounded provider acquisition using the existing presentation rules. */
+export function normalizeConversationEntries(
+  input:
+    | { provider: "claude"; entries: ClaudeSessionEntry[] }
+    | { provider: "codex"; entries: CodexSessionEntry[] },
+  sessionId: string,
+): Message[] {
+  if (input.provider === "codex")
+    return convertCodexEntries(input.entries, sessionId);
+  const { entries, orphanedToolUses } = collectVisibleClaudeEntries(
+    input.entries,
+  );
+  return entries.map((raw, index) =>
+    convertClaudeMessage(raw, index, orphanedToolUses),
+  );
+}
+
 /**
  * Normalize a UnifiedSession into the generic Session format expected by the frontend.
  */

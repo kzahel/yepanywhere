@@ -1,3 +1,4 @@
+import type { ConversationSubscriptions } from "../experimental/conversation-subscriptions.js";
 import type { HttpBindings } from "@hono/node-server";
 import type { Context, Hono } from "hono";
 import type { WSEvents } from "hono/ws";
@@ -44,6 +45,7 @@ import {
 type UpgradeWebSocketFn = (createEvents: (c: Context) => WSEvents) => any;
 
 export interface WsRelayDeps {
+  conversationSubscriptions?: ConversationSubscriptions;
   upgradeWebSocket: UpgradeWebSocketFn;
   /** The main Hono app to route requests through */
   app: Hono<{ Bindings: HttpBindings }>;
@@ -94,6 +96,7 @@ export interface WsRelayDeps {
  * Subset of WsRelayDeps without upgradeWebSocket since the connection is already established.
  */
 export interface AcceptRelayConnectionDeps {
+  conversationSubscriptions?: ConversationSubscriptions;
   /** The main Hono app to route requests through */
   app: Hono<{ Bindings: HttpBindings }>;
   /** Base URL for internal requests (e.g., "http://localhost:3400") */
@@ -254,6 +257,7 @@ export function createWsRelayRoutes(
     dataDir,
     serverSettingsService,
     resolveAbsoluteFilePaths,
+    conversationSubscriptions,
   } = deps;
 
   // Build handler dependencies
@@ -278,6 +282,7 @@ export function createWsRelayRoutes(
     dataDir,
     serverSettingsService,
     resolveAbsoluteFilePaths,
+    conversationSubscriptions,
   };
 
   // Return the WebSocket handler with origin validation
@@ -466,6 +471,7 @@ export function createAcceptRelayConnection(
     dataDir,
     serverSettingsService,
     resolveAbsoluteFilePaths,
+    conversationSubscriptions,
   } = deps;
 
   // Build handler dependencies
@@ -490,6 +496,7 @@ export function createAcceptRelayConnection(
     dataDir,
     serverSettingsService,
     resolveAbsoluteFilePaths,
+    conversationSubscriptions,
   };
 
   // Return the accept relay connection handler

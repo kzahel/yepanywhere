@@ -420,6 +420,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "speech-vocabulary-session-terms",
     introducedIn: "0.8.2",
   },
+  experimentalConversation: {
+    id: 69,
+    direction: "server",
+    name: "experimental-simple-client-conversation",
+    introducedIn: "0.8.2",
+  },
   issueSessionAssociations: {
     id: 68,
     direction: "server",

@@ -12,6 +12,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  experimentalConversation: {
+    name: "experimental-simple-client-conversation",
+    index: CAPABILITY_ID_ALLOCATIONS.experimentalConversation.id,
+    introducedIn: "0.8.2",
+  },
   issueSessionAssociations: {
     name: "issue-session-associations-v1",
     index: CAPABILITY_ID_ALLOCATIONS.issueSessionAssociations.id,
@@ -174,6 +179,42 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  experimentalConversation: {
+    id: CAPABILITY_ID_ALLOCATIONS.experimentalConversation.id,
+    name: "experimental-simple-client-conversation",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.8.2",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.experimentalConversation.id,
+    },
+    description:
+      "Experimental bounded Conversation reads and snapshot subscriptions with an exact schema revision.",
+    clientFallback:
+      "Show this source as update-required and offer its existing full client; send no experimental requests.",
+    serverContract: {
+      routes: [
+        "GET /api/experimental/conversation",
+        "GET /api/experimental/conversation/subscribe",
+      ],
+      requestFields: [
+        "apiRevision",
+        "subscriptionId",
+        "sessionId",
+        "maxMessages",
+        "anchorMessageId",
+        "query",
+      ],
+      responseFields: ["experimentalSimpleClientApiRevision"],
+      events: ["snapshot", "closed"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "The allocation remains reserved when the experimental API is promoted or retired.",
+    },
+  },
   issueSessionAssociations: {
     id: CAPABILITY_ID_ALLOCATIONS.issueSessionAssociations.id,
     name: "issue-session-associations-v1",

@@ -1,3 +1,4 @@
+import { CONVERSATION_API_REVISION } from "@yep-anywhere/shared/experimental/conversation-protocol";
 import {
   getServerRuntime,
   type ServerRuntimeInfo,
@@ -313,6 +314,7 @@ async function getLatestVersion(
 }
 
 export interface VersionInfo {
+  experimentalSimpleClientApiRevision?: typeof CONVERSATION_API_REVISION;
   /** Absent on older servers; never implies storage readiness. */
   serverRuntime?: ServerRuntimeInfo;
   /** Storage diagnostic only; absent on older servers. */
@@ -452,6 +454,7 @@ export interface DeviceBridgeStatus {
 }
 
 export interface VersionRouteOptions {
+  getExperimentalConversationAvailable?: () => boolean;
   /** Read retained startup state; never probe storage in the version route. */
   getSqliteStatus?: () => SqliteStatus;
   getIssueAssociationsAvailable?: () => boolean;
@@ -539,6 +542,8 @@ function getCapabilitiesForDeviceBridgeState(
 
 export function getServerCapabilities(options?: VersionRouteOptions): string[] {
   const capabilities: string[] = [...BASE_CAPABILITIES];
+  if (options?.getExperimentalConversationAvailable?.())
+    capabilities.push(SERVER_CAPABILITIES.experimentalConversation.name);
   if (options?.getSqliteStatus?.().state === "ready") {
     capabilities.push(SERVER_CAPABILITIES.speechVocabulary.name);
     if (options.getIssueAssociationsAvailable?.())
@@ -689,6 +694,11 @@ export function createVersionRoutes(options?: VersionRouteOptions): Hono {
               deniedCapabilities,
             )
           : { capabilities }),
+      ...(capabilities.includes(
+        SERVER_CAPABILITIES.experimentalConversation.name,
+      )
+        ? { experimentalSimpleClientApiRevision: CONVERSATION_API_REVISION }
+        : {}),
       sessionSandboxing: sessionSandboxAvailability,
       voiceBackends,
       voiceBackendStatuses,
