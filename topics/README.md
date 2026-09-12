@@ -14,6 +14,8 @@
 - Active content security (confirmed same-origin HTML execution, source-first
   file viewing, and isolated origins for agent-built applications)
 - Trusted client packaging for signed/local app installs
+- [Optional computer control](optional-computer-control.md) (on-demand local
+  native control, session eligibility, MCP spike evidence and Codex/Sky mechanics)
 - Hard development rules for upstream-facing defaults
 - Kzahel-disabled feature decisions
 - Session UI customization

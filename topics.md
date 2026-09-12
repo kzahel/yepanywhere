@@ -392,3 +392,5 @@
   directory placement, and the transaction cost callers must respect.
 - simple-client-api - Experimental typed server views with a multi-server web
   demo and early Kotlin/Compose and Swift/SwiftUI consumers.
+- optional-computer-control - On-demand session-scoped native control,
+  local transport and Codex/Sky execution reference findings.

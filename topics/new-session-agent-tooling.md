@@ -25,6 +25,8 @@ instructions for advertisement. The capability fragments, New Session UI,
 private input, and broader session tooling described here remain later work.
 
 See also:
+[optional computer control](optional-computer-control.md) — session-selective,
+on-demand native control and the Codex/Sky execution reference;
 [`agent-context-injection.md`](agent-context-injection.md) — current
 instruction placement and the dormant personal-launch-integration
 sketch this overlaps;
