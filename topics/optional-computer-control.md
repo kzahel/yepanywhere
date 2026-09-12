@@ -143,3 +143,37 @@ install/enable controls. Reuse YA's existing runtime where suitable and verify
 Node/Bun and packaged-distribution behavior before adding another bundled runtime.
 A general JavaScript evaluator is not same-user containment, and its existence
 must not grant arbitrary privileged service execution.
+
+## Agreed development and validation placement
+
+**Decision:** Develop the next Windows slice in a native Windows development
+session, with YA and Machine Control checkouts inside a claimed isolated VM
+workspace. Local editing, builds and tests avoid a repeated Mac-to-Windows copy
+cycle and exercise the intended same-machine deployment.
+
+The controller first runs Machine Control's doctor and acquires the workspace
+and exclusive claim. A Windows YA server owns the development session. The
+controller may reach its authenticated loopback API through an SSH port forward
+to create the session, observe events and send guidance. SSH carries supervision,
+deployment and independent diagnostics; agent computer-control calls under test
+must use local IPC inside Windows. The controller retains independent Machine
+Control access for verification and recovery.
+
+The requested development model is **GPT-6 Astra with high reasoning**. Resolve
+and verify the Windows provider's actual model ID and reasoning support before
+launch; do not silently substitute another model or effort level.
+
+Commit the instructions, findings and relevant source before handoff. Push
+repositories with configured remotes and check out recorded commits in Windows.
+A local-only experiment repository may travel as a committed Git bundle or
+tracked-source archive instead; verify its commit or digest after transfer.
+Do not copy local authentication, inventory, grants, captures, ignored caches or
+the controller's dependency directories into the source handoff.
+
+Use a separate temporary YA profile for acceptance sessions. Check ordinary
+sessions create no computer-control worker, authorized first use starts it,
+reuse does not multiply workers, and disable/revocation/idle cleanup work.
+Exercise real discovery, semantic action and screenshot consumption with an
+independent fixture effect check. After local development, repeat acceptance
+against exact signed CI artifacts without a source checkout. Release all test
+sessions, profiles and the VM workspace when finished.
