@@ -4,7 +4,8 @@ Topic: optional-computer-control
 
 Status: direction and reference findings, recorded 2026-09-12. An isolated
 MCP experiment passed; YA product integration and direct local transport are
-not implemented by this work.
+not implemented by this work. Implementation is tracked in
+[Tactical 131](../docs/tactical/131-optional-windows-computer-control.md).
 
 ## Intended experience and ownership
 
