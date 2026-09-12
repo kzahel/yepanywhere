@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { type MessageKey, useI18n } from "../i18n";
 import { loadSavedHosts } from "../lib/hostStorage";
 import { previewFullClientPath } from "../lib/experimental/previewLinks";
+import { connectLocalPreview } from "../lib/experimental/localPreviewConnection";
 import {
   PreviewController,
   type PreviewStatus,
@@ -62,14 +63,22 @@ export function PreviewContent({ content }: { content: Content }) {
   }
 }
 
-function Preview({ controller }: { controller: PreviewController }) {
+function Preview({
+  controller,
+  local,
+}: {
+  controller: PreviewController;
+  local: boolean;
+}) {
   const { t } = useI18n();
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
   );
-  const [, setSearch] = useSearchParams();
-  const [grouping, setGrouping] = useState<PreviewGrouping>("machine");
+  const [search, setSearch] = useSearchParams();
+  const [grouping, setGrouping] = useState<PreviewGrouping>(
+    local ? "none" : "machine",
+  );
   const [sidebarOpen, setSidebarOpen] = useState(!state.selection);
   const groups = useMemo(
     () => previewGroups(state.sources, grouping),
@@ -108,7 +117,7 @@ function Preview({ controller }: { controller: PreviewController }) {
           <h1>{t("preview.title")}</h1>
           <span className={styles.muted}>{t("preview.subtitle")}</span>
         </div>
-        <Link className={styles.control} to="/login">
+        <Link className={styles.control} to={local ? "/projects" : "/login"}>
           {t("preview.fullApp")}
         </Link>
       </header>
@@ -119,7 +128,13 @@ function Preview({ controller }: { controller: PreviewController }) {
         aria-controls="preview-sidebar"
         onClick={() => setSidebarOpen(!sidebarOpen)}
       >
-        {t(sidebarOpen ? "preview.hideSessions" : "preview.showSessions")}
+        {t(
+          sidebarOpen
+            ? "preview.hideSessions"
+            : local
+              ? "preview.sessions"
+              : "preview.showSessions",
+        )}
       </button>
       <div className={styles.workspace}>
         <aside
@@ -130,8 +145,8 @@ function Preview({ controller }: { controller: PreviewController }) {
         >
           <section className={styles.sources}>
             <div className={styles.sectionHeading}>
-              <h2>{t("preview.machines")}</h2>
-              <Link to="/login">{t("preview.addMachine")}</Link>
+              <h2>{t(local ? "preview.localServer" : "preview.machines")}</h2>
+              {!local && <Link to="/login">{t("preview.addMachine")}</Link>}
             </div>
             {state.sources.length === 0 && (
               <p className={styles.muted}>{t("preview.noMachines")}</p>
@@ -139,21 +154,25 @@ function Preview({ controller }: { controller: PreviewController }) {
             {state.sources.map((item) => (
               <div
                 key={item.host.id}
-                className={styles.source}
+                className={`${styles.source} ${local ? styles.localSource : ""}`}
                 data-testid="preview-source"
                 data-source-name={item.host.displayName}
                 data-source-status={item.status}
               >
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={item.status !== "excluded"}
-                    onChange={(event) =>
-                      include(item.host.id, event.target.checked)
-                    }
-                  />
-                  <span>{item.host.displayName}</span>
-                </label>
+                {local ? (
+                  <strong>{item.host.displayName}</strong>
+                ) : (
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={item.status !== "excluded"}
+                      onChange={(event) =>
+                        include(item.host.id, event.target.checked)
+                      }
+                    />
+                    <span>{item.host.displayName}</span>
+                  </label>
+                )}
                 <div className={styles.sourceDetail}>
                   <span>{t(statusKeys[item.status])}</span>
                   {item.status !== "excluded" &&
@@ -170,9 +189,18 @@ function Preview({ controller }: { controller: PreviewController }) {
                 {item.status === "sign-in-required" && (
                   <Link
                     to={
-                      item.host.mode === "relay"
-                        ? `/login/relay?u=${encodeURIComponent(item.host.relayUsername ?? "")}&r=${encodeURIComponent(item.host.relayUrl ?? "")}`
-                        : "/login/direct"
+                      item.host.mode === "local"
+                        ? "/login"
+                        : item.host.mode === "relay"
+                          ? `/login/relay?u=${encodeURIComponent(item.host.relayUsername ?? "")}&r=${encodeURIComponent(item.host.relayUrl ?? "")}`
+                          : "/login/direct"
+                    }
+                    state={
+                      local
+                        ? {
+                            from: `/-/preview${search.size ? `?${search}` : ""}`,
+                          }
+                        : undefined
                     }
                   >
                     {t("preview.signIn")}
@@ -214,7 +242,10 @@ function Preview({ controller }: { controller: PreviewController }) {
                 setGrouping(event.target.value as PreviewGrouping)
               }
             >
-              <option value="machine">{t("preview.byMachine")}</option>
+              <option value="none">{t("preview.byNone")}</option>
+              {!local && (
+                <option value="machine">{t("preview.byMachine")}</option>
+              )}
               <option value="project">{t("preview.byProject")}</option>
               <option value="issue">{t("preview.byIssue")}</option>
             </select>
@@ -225,10 +256,12 @@ function Preview({ controller }: { controller: PreviewController }) {
             )}
             {groups.map((group) => (
               <section key={group.id}>
-                <h3>
-                  {group.label ?? t("preview.noIssueLinks")}
-                  <small>{group.sourceName}</small>
-                </h3>
+                {grouping !== "none" && (
+                  <h3>
+                    {group.label ?? t("preview.noIssueLinks")}
+                    <small>{group.sourceName}</small>
+                  </h3>
+                )}
                 {group.rows.map(({ source: rowSource, session: row }) => (
                   <button
                     type="button"
@@ -251,7 +284,7 @@ function Preview({ controller }: { controller: PreviewController }) {
                   >
                     <span>{row.title}</span>
                     <small>
-                      {grouping === "machine"
+                      {local || grouping === "machine"
                         ? row.projectName
                         : rowSource.host.displayName}
                     </small>
@@ -451,25 +484,35 @@ function Preview({ controller }: { controller: PreviewController }) {
   );
 }
 
-export function ConversationPreviewPage() {
+export function ConversationPreviewPage({
+  local = false,
+}: {
+  local?: boolean;
+}) {
   const [controller, setController] = useState<PreviewController | null>(null);
   const [search] = useSearchParams();
   // An effect owns each controller lifetime, including StrictMode remounts.
   const [initialSelection] = useState(() =>
-    search.get("source") && search.get("session")
+    (local || search.get("source")) && search.get("session")
       ? {
-          sourceId: search.get("source") as string,
+          sourceId: local ? "local" : (search.get("source") as string),
           sessionId: search.get("session") as string,
         }
       : null,
   );
   useEffect(() => {
     const next = new PreviewController(
-      loadSavedHosts().hosts,
-      undefined,
+      local
+        ? [{ id: "local", mode: "local", displayName: window.location.host }]
+        : loadSavedHosts().hosts,
+      local ? connectLocalPreview : undefined,
       initialSelection,
     );
     setController(next);
+    if (local) {
+      next.include("local", true);
+      return () => next.dispose();
+    }
     let included: string[] = [];
     try {
       const value: unknown = JSON.parse(
@@ -483,6 +526,6 @@ export function ConversationPreviewPage() {
     if (initialSelection) included.push(initialSelection.sourceId);
     for (const id of new Set(included)) next.include(id, true);
     return () => next.dispose();
-  }, [initialSelection]);
-  return controller ? <Preview controller={controller} /> : null;
+  }, [initialSelection, local]);
+  return controller ? <Preview controller={controller} local={local} /> : null;
 }

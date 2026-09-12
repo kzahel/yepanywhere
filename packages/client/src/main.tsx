@@ -1,10 +1,16 @@
-import { Fragment, lazy, StrictMode } from "react";
+import { Fragment, lazy, StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
 // Toggle to disable StrictMode for easier debugging (avoids double renders)
 const STRICT_MODE = false;
 const Wrapper = STRICT_MODE ? StrictMode : Fragment;
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { RouteModule, routeModule } from "./components/RouteModule";
 import { TooltipLayer } from "./components/ui/TooltipLayer";
@@ -19,6 +25,17 @@ import { I18nProvider, useI18n } from "./i18n";
 import "./styles/index.css";
 
 const App = lazy(() => import("./App").then(({ App }) => ({ default: App })));
+const ConversationPreviewPage = lazy(() =>
+  import("./pages/ConversationPreviewPage").then(
+    ({ ConversationPreviewPage }) => ({ default: ConversationPreviewPage }),
+  ),
+);
+
+/** The experimental client owns its connections without the full app runtime. */
+function LocalAppShell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return /^\/-\/preview\/?$/.test(pathname) ? children : <App>{children}</App>;
+}
 const NavigationLayout = lazy(() =>
   import("./layouts").then(({ NavigationLayout }) => ({
     default: NavigationLayout,
@@ -268,8 +285,12 @@ if (import.meta.env.DEV && window.location.port === String(__VITE_DEV_PORT__)) {
         <BrowserRouter basename={basename}>
           <I18nProvider>
             <RouteModule>
-              <App>
+              <LocalAppShell>
                 <Routes>
+                  <Route
+                    path="/-/preview"
+                    element={routeModule(<ConversationPreviewPage local />)}
+                  />
                   <Route
                     path="/"
                     element={<Navigate to="/projects" replace />}
@@ -378,7 +399,7 @@ if (import.meta.env.DEV && window.location.port === String(__VITE_DEV_PORT__)) {
                     element={routeModule(<ActivityPage />)}
                   />
                 </Routes>
-              </App>
+              </LocalAppShell>
             </RouteModule>
           </I18nProvider>
         </BrowserRouter>

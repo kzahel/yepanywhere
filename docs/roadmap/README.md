@@ -127,7 +127,9 @@ The shared compiler extraction and automatic Conversation projection are now
 implemented, followed by the shared subscription owner and bounded live API. The
 [concrete operation/capability review](../tactical/130-simple-client-api-and-three-client-demo.md#first-live-operation-review-proposal-2026-09-12)
 was approved on 2026-09-12. The deliberate-entry web preview now consumes live
-Conversation snapshots with a temporary existing-catalog adapter. Next add the
+Conversation snapshots with a temporary existing-catalog adapter. A self-hosted
+browser entry at `/-/preview` also connects to the serving server through
+same-origin HTTP/SSE, without relay or saved pairing. Next add the
 Android preview screen, evaluate the web experiment on Latest, and extend indexed
 history acquisition beyond the initial hard-budget refusal. Partial-message token
 assembly is deferred; finalized-message snapshots update live.

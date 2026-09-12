@@ -402,6 +402,25 @@ runtime. The path is unlisted; it still uses saved authenticated hosts. Latest
 receives it through the normal remote build/deployment pipeline, with no separate
 preview service or auth scheme. Local validation does not itself deploy Latest.
 
+The server-served web bundle also exposes `/-/preview`, for example
+`http://localhost:3400/-/preview`. It runs outside the full App runtime and
+automatically includes the serving origin as one local source. It uses the
+existing same-origin JSON reads and experimental Conversation SSE endpoint with
+browser cookie authentication; no saved pairing, remote-access setup, or relay
+is needed. A protected server shows a sign-in link to its ordinary login page,
+preserving the preview path and session selection for the return navigation.
+Local mode ignores saved remote hosts and inclusion preferences, defaults to
+None (recent activity), and omits Add machine, inclusion checkboxes, and machine
+grouping. It retains status, Refresh, project/issue grouping, and local full-app
+handoffs. This is the browser entry point; desktop-token-only authentication is
+not supplied to native EventSource streams.
+
+The local connection owns and cancels its pending reads and SSE subscriptions
+on refresh, route exit, or disposal. An SSE error closes the stream rather than
+allowing EventSource to retry the same binding implicitly. Reconnect creates a
+new subscription identity and sequence-zero snapshot. Closed bindings ignore
+late events. The saved-host remote preview keeps its own connection behavior.
+
 The independent preview controller owns saved-host connections, capability and
 exact revision checks, a small source-scoped session catalog, and one selected
 Conversation binding. It reuses the monitor's saved-session connection primitive
@@ -410,13 +429,20 @@ preview's own local preference includes them. Inclusion preferences use
 `yep-experimental-preview-sources`; selection uses source/session URL query
 parameters. A selected source from the URL is included on reload.
 
-Discovery temporarily adapts `GET /api/sessions?limit=50` to identity, title, and
-project metadata. This is a bounded legacy-catalog bridge, not a SourceOverview
-implementation or an additional experimental contract. Refresh is explicit;
-opening/grouping a sidebar does not read transcripts. Project groups retain their
+Discovery temporarily adapts `GET /api/sessions?limit=50` to identity, title,
+activity timestamp, and project metadata. This is a bounded legacy-catalog bridge,
+not a SourceOverview implementation or an additional experimental contract.
+Refresh is explicit; opening/grouping a sidebar does not read transcripts.
+Project groups retain their
 machine identity. Issue groups merge canonical issue identities across machines;
 unassociated rows stay source-scoped. Switching grouping neither reconnects nor
 changes the selected Conversation binding.
+
+“None (recent activity)” shows one flat list across included machines, newest
+session `updatedAt` first, with machine labels and no group headings. Equal
+timestamps retain source/catalog order; missing or invalid dates sort last.
+Ordering uses the last explicitly fetched catalog, not raw token activity or
+the time a machine connected. Machine grouping remains the initial default.
 
 Issue associations use the existing optional capability, settings read, and
 DB-only issue search by session ID. Disabled discovery stays disabled. Enabled

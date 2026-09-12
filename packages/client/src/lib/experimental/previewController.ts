@@ -20,7 +20,6 @@ import type { SavedHost } from "../hostStorage";
 import {
   connectSavedHost,
   isSavedHostSignInRequiredError,
-  MultiHostSignInRequiredError,
 } from "../savedHostConnection";
 import { generateUUID } from "../uuid";
 
@@ -37,16 +36,20 @@ export interface PreviewSession {
   title: string;
   projectId: string;
   projectName: string;
+  updatedAt: string;
   issues: Array<{ id: string; key: string }>;
 }
 export interface PreviewSource {
-  host: SavedHost;
+  host: PreviewHost;
   status: PreviewStatus;
   sessions: PreviewSession[];
   hasMore: boolean;
   updatedAt: number | null;
   issueCoverage: "disabled" | "unsupported" | "partial" | "unavailable";
 }
+export type PreviewHost =
+  | SavedHost
+  | { id: string; displayName: string; mode: "local" };
 export interface PreviewState {
   sources: PreviewSource[];
   selection: { sourceId: string; sessionId: string } | null;
@@ -60,7 +63,7 @@ export type PreviewConnection = Pick<
   "fetch" | "subscribeConversation" | "close"
 >;
 export type PreviewConnector = (
-  host: SavedHost,
+  host: PreviewHost,
   signal: AbortSignal,
   disconnected: (error?: Error) => void,
 ) => Promise<PreviewConnection>;
@@ -81,7 +84,7 @@ export class PreviewController {
   private connect: PreviewConnector;
 
   constructor(
-    hosts: SavedHost[],
+    hosts: PreviewHost[],
     connector?: PreviewConnector,
     selection: PreviewState["selection"] = null,
   ) {
@@ -100,18 +103,24 @@ export class PreviewController {
       maxMessages: 20,
       anchorMessageId: null,
     };
-    if (!connector) this.pool = new RelayMuxSocketPool(hosts);
+    if (!connector)
+      this.pool = new RelayMuxSocketPool(
+        hosts.filter((host) => host.mode !== "local"),
+      );
     this.connect =
       connector ??
-      ((host, signal, disconnected) =>
-        connectSavedHost(
+      ((host, signal, disconnected) => {
+        if (host.mode === "local")
+          throw new Error("Local source requires a local connector");
+        return connectSavedHost(
           host,
           signal,
           host.mode === "relay"
             ? this.pool?.createSocketFactory(host)
             : undefined,
           disconnected,
-        ));
+        );
+      });
   }
   getSnapshot = (): PreviewState => this.state;
   subscribe = (listener: () => void): (() => void) => {
@@ -181,8 +190,6 @@ export class PreviewController {
       this.publish({ conversationStatus: "loading" });
     void (async () => {
       try {
-        if (!source.host.session)
-          throw new MultiHostSignInRequiredError("Sign in required");
         const connection = await this.connect(
           source.host,
           owner.abort.signal,
@@ -220,6 +227,7 @@ export class PreviewController {
               session.id,
             projectId: session.projectId,
             projectName: session.projectName,
+            updatedAt: session.updatedAt,
             issues: [],
           }));
         this.source(id, {

@@ -1,6 +1,6 @@
 import type { PreviewSession, PreviewSource } from "./previewController";
 
-export type PreviewGrouping = "machine" | "project" | "issue";
+export type PreviewGrouping = "none" | "machine" | "project" | "issue";
 export interface PreviewGroup {
   id: string;
   label: string | null;
@@ -13,6 +13,22 @@ export function previewGroups(
   sources: PreviewSource[],
   by: PreviewGrouping,
 ): PreviewGroup[] {
+  if (by === "none") {
+    const rows = sources
+      .filter((source) => source.status !== "excluded")
+      .flatMap((source) =>
+        source.sessions.map((session) => ({ source, session })),
+      );
+    const activity = (row: (typeof rows)[number]) => {
+      const timestamp = Date.parse(row.session.updatedAt);
+      return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+    };
+    // Stable ties preserve source/catalog order; unknown dates go last.
+    rows.sort((a, b) => activity(b) - activity(a) || 0);
+    return rows.length
+      ? [{ id: "none", label: null, sourceName: null, rows }]
+      : [];
+  }
   const groups = new Map<string, PreviewGroup>();
   for (const source of sources) {
     if (source.status === "excluded") continue;

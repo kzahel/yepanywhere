@@ -128,7 +128,20 @@ test("experimental preview isolates real encrypted sources and groups without re
     await expect(
       page.getByRole("button", { name: /Beta previous message/ }),
     ).toHaveAttribute("aria-current", "true");
-    await page.getByLabel("Group by").selectOption("machine");
+    await page.getByLabel("Group by").selectOption("none");
+    const sessions = page.getByRole("navigation", {
+      name: "Sessions",
+      exact: true,
+    });
+    await expect(sessions.getByRole("button")).toHaveCount(3);
+    await expect(sessions.getByRole("heading")).toHaveCount(0);
+    // Catalog timestamps tie; token/native updates don't refresh the catalog.
+    await expect(sessions.getByRole("button").first()).toContainText(
+      "Alpha previous message",
+    );
+    await expect(
+      sessions.getByRole("button", { name: /Beta previous message/ }),
+    ).toHaveAttribute("aria-current", "true");
     const gamma = harness.hosts[2];
     if (!gamma) throw new Error("Missing Gamma");
     stopYaServerProcess(gamma.server);

@@ -12,6 +12,12 @@ const session = { projectId: "project/a", id: "session/b" };
 it("keeps full-client handoffs on the selected machine and deployment base", () => {
   expect(
     previewFullClientPath(
+      { id: "local", displayName: "localhost", mode: "local" },
+      session,
+    ),
+  ).toBe("/projects/project%2Fa/sessions/session%2Fb");
+  expect(
+    previewFullClientPath(
       { ...host, wsUrl: "wss://machine.example/ya/api/ws" },
       session,
     ),

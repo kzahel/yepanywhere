@@ -120,6 +120,15 @@
   top: 8px;
   right: 0;
 }
+.localSource > strong {
+  display: block;
+  padding: 12px 0 8px;
+  overflow-wrap: anywhere;
+}
+.localSource .sourceDetail,
+.localSource p {
+  padding-left: 0;
+}
 .groupControl {
   display: flex;
   justify-content: space-between;

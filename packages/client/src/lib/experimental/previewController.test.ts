@@ -26,7 +26,10 @@ const host = (id: string): SavedHost => ({
     sessionKey: "test",
   },
 });
-function connection(version: object = supported) {
+function connection(
+  version: object = supported,
+  updatedAt = "2026-01-01T00:00:00Z",
+) {
   const streams: Array<{
     id: string;
     query: ConversationQuery;
@@ -43,6 +46,7 @@ function connection(version: object = supported) {
               title: "Session",
               projectId: "project",
               projectName: "Project",
+              updatedAt,
             },
           ],
           hasMore: false,
@@ -122,7 +126,7 @@ describe("experimental web preview owner", () => {
   );
   it("isolates colliding identities, rejects late frames and keeps grouping local", async () => {
     const a = connection();
-    const b = connection();
+    const b = connection(supported, "2026-01-02T00:00:00Z");
     const controller = new PreviewController(
       [host("a"), host("b")],
       async (h) => (h.id === "a" ? a.api : b.api),
@@ -140,9 +144,26 @@ describe("experimental web preview owner", () => {
       expect(a.streams[0]!.close).toHaveBeenCalledTimes(1);
       expect(previewGroups(snapshot.sources, "project")).toHaveLength(2);
       expect(previewGroups(snapshot.sources, "issue")).toHaveLength(2);
+      const flat = previewGroups(snapshot.sources, "none");
+      expect(flat).toHaveLength(1);
+      expect(
+        flat[0]?.rows.map(({ source, session }) => [
+          source.host.id,
+          session.id,
+        ]),
+      ).toEqual([
+        ["b", "collision"],
+        ["a", "collision"],
+      ]);
+      expect(controller.getSnapshot()).toBe(snapshot);
+      expect(b.subscribeConversation).toHaveBeenCalledTimes(1);
+      expect(b.streams[0]!.close).not.toHaveBeenCalled();
       expect(a.fetch).toHaveBeenCalledTimes(2);
       expect(b.fetch).toHaveBeenCalledTimes(2);
       controller.include("a", false);
+      expect(
+        previewGroups(controller.getSnapshot().sources, "none")[0]?.rows,
+      ).toHaveLength(1);
       expect(b.close).not.toHaveBeenCalled();
       expect(controller.getSnapshot().view).toBe(snapshot.view);
     } finally {
@@ -226,6 +247,7 @@ describe("experimental web preview owner", () => {
               title: "Session",
               projectId: "project",
               projectName: "Project",
+              updatedAt: "2026-01-01T00:00:00Z",
             },
           ],
           hasMore: false,
