@@ -1,5 +1,5 @@
 import type { MouseEventHandler } from "react";
-import type { ToolCallItem } from "../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import styles from "./TimelineDisclosure.module.css";
 
 export function TimelineDisclosure({

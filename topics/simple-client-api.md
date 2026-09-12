@@ -4,7 +4,8 @@ Topic: simple-client-api
 
 Status: Product, sequencing, and `/api/experimental/` namespace direction selected
 on 2026-09-12. The offline JSON Schema/TypeScript/Kotlin contract spike is
-implemented. Operation names, synchronization implementation, and release
+implemented, and the server now produces bounded Conversation snapshots over
+the shared compiler. Operation names, synchronization implementation, and release
 compatibility remain proposals; no new endpoint or live consumer is implemented.
 
 ## Purpose and first consumers
@@ -142,6 +143,71 @@ The spike records concrete gate-2 budgets for 200 ms coalescing, encoded bytes,
 projection latency, shared computation across subscribers and teardown. Those
 are acceptance thresholds to measure during server implementation, not a
 performance claim established by offline payload decoding.
+
+## Implemented projection checkpoint (2026-09-12)
+
+The internal producer now compiles normalized active-branch messages into the
+experimental Conversation contract. The reusable semantic compiler, structural
+message/row types and parsers live under `packages/shared/src/transcript`; the
+web client retains its cache, reconciliation, rendering and DOM adapters. Both
+consumers use the same tool pairing, failure classification and shell folding.
+No experimental route or capability is advertised by this checkpoint.
+
+Preparation and window selection are separate. One prepared source revision can
+serve multiple `maxMessages`/anchor requests without compiling again. This is
+pure reuse evidence, not an implemented subscription owner or live fan-out
+benchmark. The producer reuses the existing server compaction selector before
+compilation and grouping. Intake is capped at 10,000 normalized records and
+8 MiB for the scoped input; over-budget input produces `unavailable`. The caller
+must acquire bounded data and provide honest source coverage. This function
+does not read provider files or schedule any work.
+
+Observable projection rules:
+
+- User submissions retain their normalized IDs; responses use `agent:<user ID>`.
+  Long derived IDs use a deterministic SHA-256 suffix. Missing or ambiguous
+  visible source/group identities return `unavailable`; no clock/index identity
+  is invented. Input contains one current normalized snapshot per record ID.
+- A response ID persists through thinking-only/empty working state, streamed
+  prose, completed prose, interruption and a same-submission retry. An explicit
+  interruption remains visible; later response content can resume the same ID.
+  A new user input starts a new response. Completion metadata can end a reply
+  even while coarse session activity still reports working.
+- When a reader cuts through an existing response, it may supply the bounded
+  `leadingUserMessageId` prefix fact. The producer can also recover only that
+  ID from an already supplied pre-scope prefix; it does not compile or return
+  older text. Without the fact, a leading agent response has a deterministic
+  orphan ID and explicit incomplete coverage. Recovering that identity across
+  real cold-reader/live transitions remains a service-integration obligation.
+- Routine calls become factual activity counts. Failures stay in order with
+  bounded original output and structured exit status. Missing results on an
+  ended response are visible unavailable content, not successful completion.
+  Pending results in a working response do not imply missing history.
+- Agent prose is Markdown data, user text is plain data, and HTML augments are
+  excluded. Unsupported content becomes a bounded opaque fallback identifying
+  the unsupported type; raw provider objects are not forwarded. Inline media
+  has an unavailable reference until a serving media adapter exists; stored
+  tool-media handles retain their existing source-scoped identity.
+- Current pending requests survive historical window selection. Unknown requests
+  remain opaque; this read-only revision never enables an action. More than 16
+  requests or 32 KiB of request models returns `unavailable`, rather than hiding
+  a pending decision to make the snapshot fit.
+- Content-count/text limits mark affected messages truncated. If the complete
+  encoded snapshot exceeds 256 KiB, older selected rows are omitted first while
+  retaining the requested newest anchor. An individually oversized remaining
+  message becomes a visible omission notice that explicitly mentions omitted
+  failures when present. Coverage records the byte limit and incompleteness.
+  `serializeConversationSnapshot` restores the original kinds of opaque content
+  and pending requests before validating the actual wire representation.
+
+The Claude/Codex fixtures are now exact native-input producer outputs consumed
+by TypeScript and Kotlin tests. Adapter replay also verifies grouped identities,
+prose, counts and failure metadata after fixture assembly supplies the recorded
+user IDs and coalesces repeated normalized snapshots. The adapter recordings do
+not contain YA's input queue; this does not prove a live queue/reader merger.
+Synthetic tests cover growth, interruption, scope cuts, fixed anchors, missing
+results, unknown content and count/byte limits. The wider web regression suites
+continue to exercise the extracted core through the existing web adapter.
 
 ## Transport bindings
 

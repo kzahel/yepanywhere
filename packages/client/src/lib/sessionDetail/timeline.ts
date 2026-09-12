@@ -1,5 +1,8 @@
 import { getLatestMessageTimestampMs, parseTimestampMs } from "../messageAge";
-import type { RenderItem, ToolCallItem } from "../../types/renderItems";
+import type {
+  RenderItem,
+  ToolCallItem,
+} from "@yep-anywhere/shared/transcript/items";
 import { buildAssistantRenderSegments } from "./exploration";
 import type { ExplorationProjection } from "./explorationProjection";
 import {

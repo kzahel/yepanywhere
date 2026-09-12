@@ -3,9 +3,9 @@ import type {
   ToolDisplayAction,
   ToolResultMedia,
   TranscriptDisplayObject,
-} from "@yep-anywhere/shared";
-import type { ContentBlock, Message } from "../types";
-import type { WorkflowAnnotation } from "../lib/transcriptProjection/workflowTags";
+} from "../index.js";
+import type { ContentBlock, Message } from "./message.js";
+import type { WorkflowAnnotation } from "./workflowTags.js";
 
 /**
  * RenderItem types for the preprocessed message rendering system.

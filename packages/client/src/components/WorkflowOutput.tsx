@@ -3,12 +3,12 @@ import { useI18n } from "../i18n";
 import type {
   WorkflowAnnotation,
   WorkflowMarker,
-} from "../lib/transcriptProjection/workflowTags";
+} from "@yep-anywhere/shared/transcript/workflowTags";
 import styles from "./WorkflowOutput.module.css";
 import { TimelineDisclosure } from "./TimelineDisclosure";
 import { ToolOutputText } from "./ToolOutputText";
 import { SessionFilePathLink } from "./SessionFilePathLink";
-import { workflowSchemaReference } from "../lib/transcriptProjection/workflowTags";
+import { workflowSchemaReference } from "@yep-anywhere/shared/transcript/workflowTags";
 
 function SchemaLabel({ marker }: { marker: WorkflowMarker }) {
   const { t } = useI18n();

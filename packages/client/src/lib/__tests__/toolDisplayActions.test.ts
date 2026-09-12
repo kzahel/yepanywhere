@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../types.js";
-import { compileTranscriptProjection } from "../transcriptProjection/compiler.js";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 
 describe("tool display-action preprocessing", () => {
   it("carries derived actions without changing tool-call structure", () => {

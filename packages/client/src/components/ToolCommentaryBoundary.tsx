@@ -31,8 +31,11 @@ import {
   joinWorkflowOutputs,
   projectWorkflowFragments,
   type WorkflowAnnotation,
-} from "../lib/transcriptProjection/workflowTags";
-import type { ToolCallItem, ToolResultData } from "../types/renderItems";
+} from "@yep-anywhere/shared/transcript/workflowTags";
+import type {
+  ToolCallItem,
+  ToolResultData,
+} from "@yep-anywhere/shared/transcript/items";
 import { AcliCommentary } from "./AcliCommentary";
 import { ActivityDetailModal } from "./ActivityDetailModal";
 import { BashModalContent } from "./renderers/tools/BashOutputDetail";

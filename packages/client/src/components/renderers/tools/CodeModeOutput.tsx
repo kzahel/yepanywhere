@@ -4,7 +4,7 @@ import { useI18n } from "../../../i18n";
 import { ToolOutputText } from "../../ToolOutputText";
 import { isAcliMetadata } from "../../../lib/toolOutputPresentation";
 import styles from "./CodeModeOutput.module.css";
-import { formatCommandDuration } from "../../../lib/shellToolOutput";
+import { formatCommandDuration } from "@yep-anywhere/shared/transcript/shellToolOutput";
 
 type CodeModeExecInput = import("zod").z.output<
   typeof toolDisplayContracts.Exec.input

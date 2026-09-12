@@ -1,4 +1,4 @@
-import type { ContentBlock } from "../../types";
+import type { ContentBlock } from "./message.js";
 
 /**
  * Parse Agent tool result from text content blocks (SDK 0.2.76+).

@@ -2,10 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const projectionDirectory = resolve(
-  process.cwd(),
-  "src/lib/transcriptProjection",
-);
+const projectionDirectory = resolve(process.cwd(), "../shared/src/transcript");
 const legacyFacadePath = resolve(
   process.cwd(),
   "src/lib/preprocessMessages.ts",
@@ -15,6 +12,7 @@ const sourceDirectories = [
   resolve(process.cwd(), "scripts"),
   resolve(process.cwd(), "../server/src"),
   resolve(process.cwd(), "../server/test"),
+  resolve(process.cwd(), "../shared/src/transcript"),
 ];
 const canonicalWebConsumerFiles = [
   "src/components/renderers/tools/TaskNestedContent.tsx",
@@ -23,6 +21,11 @@ const canonicalWebConsumerFiles = [
 ];
 
 const forbiddenDependencies = [
+  {
+    label: "client package",
+    pattern:
+      /(?:from|import)\s*[(]?\s*["'][^"']*(?:client\/src|@yep-anywhere\/client)/u,
+  },
   {
     label: "React runtime",
     pattern: /from\s+["'](?:react|react-dom)(?:\/[^"']*)?["']/u,
@@ -50,7 +53,7 @@ const forbiddenDependencies = [
 const legacyFacadeImport =
   /from\s+["'][^"']*preprocessMessages(?:\.[^"']*)?["']/u;
 const directCompilerOrCacheImport =
-  /from\s+["'][^"']*transcriptProjection\/(?:compiler|cache)(?:\.[^"']*)?["']/u;
+  /from\s+["'](?:@yep-anywhere\/shared\/transcript\/compiler|[^"']*transcriptProjection\/cache)(?:\.[^"']*)?["']/u;
 
 function collectTypeScriptFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -136,6 +139,10 @@ describe("transcript projection module boundary", () => {
       (filePath) =>
         !hasPathSegment(filePath, "__tests__") &&
         !isWithinDirectory(projectionDirectory, filePath) &&
+        !isWithinDirectory(
+          resolve(process.cwd(), "src/lib/transcriptProjection"),
+          filePath,
+        ) &&
         filePath !== adapterPath,
     );
     for (const filePath of productionFiles) {

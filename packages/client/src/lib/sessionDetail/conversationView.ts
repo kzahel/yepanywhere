@@ -14,7 +14,7 @@ import type {
   ConversationThinkingPreviewSlot,
   RenderItem,
   ToolCallItem,
-} from "../../types/renderItems";
+} from "@yep-anywhere/shared/transcript/items";
 import { groupRenderItemsIntoTurns } from "./renderItems";
 
 // Upper bound on activity rows produced; the visible count is decided by

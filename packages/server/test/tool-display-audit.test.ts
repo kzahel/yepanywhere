@@ -24,7 +24,7 @@ import {
   runAudit,
   runAuditWorker,
 } from "../../../scripts/audit-tool-displays.js";
-import type { ToolCallItem } from "../../client/src/types/renderItems.js";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 
 const roots: string[] = [];
 afterEach(async () => {

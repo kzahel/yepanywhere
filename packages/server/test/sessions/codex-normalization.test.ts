@@ -6,7 +6,7 @@ import {
   type CodexSessionEntry,
 } from "@yep-anywhere/shared";
 import { describe, expect, it, vi } from "vitest";
-import { compileTranscriptProjection } from "../../../client/src/lib/transcriptProjection/compiler.ts";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import type { LoadedSession } from "../../src/sessions/types.js";
 

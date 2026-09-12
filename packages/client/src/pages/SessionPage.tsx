@@ -209,7 +209,7 @@ import {
   type PreparedComposerSubmission,
   uploadComposerAttachmentFile,
 } from "../lib/sessionComposerSubmission";
-import { isLegacyCodexSetupText } from "../lib/codexLegacySetup";
+import { isLegacyCodexSetupText } from "@yep-anywhere/shared/transcript/codexLegacySetup";
 import { resolveSessionProviderCapabilities } from "../lib/providerCapabilities";
 import {
   serverSupportsProjectQueue,

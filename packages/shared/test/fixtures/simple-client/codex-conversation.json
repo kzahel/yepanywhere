@@ -30,24 +30,24 @@
         "content": [
           {
             "kind": "text",
-            "format": "plain",
+            "format": "markdown",
             "text": "Starting fixture work."
           },
           {
             "kind": "activity",
-            "summary": "Read, write and shell commands",
+            "summary": "4 tool calls",
             "toolCount": 4,
             "failedToolCount": 1
           },
           {
             "kind": "failure",
             "toolName": "Bash",
-            "message": "FIXTURE_FAILURE",
+            "message": "Script completed\nWall time 1.3 seconds\nOutput:\n{\"output\":\"nvm is not compatible with the \\\"npm_config_prefix\\\" environment variable: currently set to \\\"/fixture/home/code/yepanywhere/packages/server\\\"\\nRun `unset npm_config_prefix` to unset it.\\nnvm is not compatible with the \\\"npm_config_prefix\\\" environment variable: currently set to \\\"/fixture/home/code/yepanywhere/packages/server\\\"\\nRun `unset npm_config_prefix` to unset it.\\nFIXTURE_FAILURE\\n\",\"exit_code\":7}",
             "exitCode": 7
           },
           {
             "kind": "text",
-            "format": "plain",
+            "format": "markdown",
             "text": "Fixture complete: read, write, success, failure."
           }
         ]
@@ -75,13 +75,13 @@
         "content": [
           {
             "kind": "activity",
-            "summary": "Read result file",
+            "summary": "1 tool call",
             "toolCount": 1,
             "failedToolCount": 0
           },
           {
             "kind": "text",
-            "format": "plain",
+            "format": "markdown",
             "text": "Continuation verified."
           }
         ]

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RenderItem } from "../../../types/renderItems";
-import { annotateBackgroundCommands } from "../shellFolding";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
+import { annotateBackgroundCommands } from "@yep-anywhere/shared/transcript/shellFolding";
 
 /**
  * Grok names its background-command poll and kill tools differently from the

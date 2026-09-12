@@ -1,13 +1,9 @@
-import type { ContentBlock } from "../../types";
-import type {
-  RenderItem,
-  SessionSetupItem,
-  UserPromptItem,
-} from "../../types/renderItems";
+import type { ContentBlock } from "./message.js";
+import type { RenderItem, SessionSetupItem, UserPromptItem } from "./items.js";
 import {
   isLegacyCodexEnvironmentContextText,
   isLegacyCodexSetupText,
-} from "../codexLegacySetup";
+} from "./codexLegacySetup.js";
 
 const RESUME_ENVIRONMENT_CONTEXT_MAX_GAP_MS = 5_000;
 

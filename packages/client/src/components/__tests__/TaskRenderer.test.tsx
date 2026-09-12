@@ -16,7 +16,7 @@ import { SessionMetadataProvider } from "../../contexts/SessionMetadataContext";
 import { ToastProvider } from "../../contexts/ToastContext";
 import type { AgentContent, AgentContentMap } from "../../hooks/useSession";
 import { I18nProvider } from "../../i18n";
-import { compileTranscriptProjection } from "../../lib/transcriptProjection/compiler";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import type { Message } from "../../types";
 import { RenderItemComponent } from "../RenderItemComponent";
 

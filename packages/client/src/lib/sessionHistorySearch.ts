@@ -17,7 +17,7 @@ import type {
   ConversationActivityItem,
   ConversationThinkingPreview,
   RenderItem,
-} from "../types/renderItems";
+} from "@yep-anywhere/shared/transcript/items";
 
 export const HISTORY_SEARCH_PAGE_MATCH_LIMIT = 200;
 

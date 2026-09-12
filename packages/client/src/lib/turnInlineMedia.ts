@@ -1,5 +1,5 @@
 import { getPathBasename } from "./text";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 
 const INLINE_IMAGE_LINK_SELECTOR =
   'a.local-media-link[data-media-type="image"], a.local-media-link[data-ya-media-type="image"]';

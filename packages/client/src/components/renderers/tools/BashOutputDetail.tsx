@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { getDisplayBashCommandFromInput as getBashCommand } from "../../../lib/bashCommand";
 import { normalizeBashResult } from "../../../lib/bashResult";
-import { formatCommandDuration } from "../../../lib/shellToolOutput";
+import { formatCommandDuration } from "@yep-anywhere/shared/transcript/shellToolOutput";
 import { ProjectPathLinkedText } from "../../ProjectPathLinkedText";
 import { ToolOutputText } from "../../ToolOutputText";
 import { FixedFontMathToggle } from "../../ui/FixedFontMathToggle";

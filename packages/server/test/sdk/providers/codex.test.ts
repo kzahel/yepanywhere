@@ -30,7 +30,7 @@ import {
   vi,
 } from "vitest";
 import type { CodexPlanToolMode } from "@yep-anywhere/shared";
-import { compileTranscriptProjection } from "../../../../client/src/lib/transcriptProjection/compiler.ts";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { getLogger } from "../../../src/logging/logger.js";
 import { getCodexCommonPaths } from "../../../src/sdk/cli-detection.js";
 import { logSDKMessage } from "../../../src/sdk/messageLogger.js";

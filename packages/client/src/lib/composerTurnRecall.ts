@@ -1,6 +1,7 @@
 import type { ContentBlock, Message } from "../types";
 import { isPlainUserTurn } from "./linearMessageDedup";
-import { getMessageContent, getMessageId } from "./mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
+import { getMessageContent } from "./mergeMessages";
 import {
   getPromptTextForCorrection,
   getSearchPreviewFallback,

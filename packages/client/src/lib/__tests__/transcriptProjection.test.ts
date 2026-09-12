@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Message } from "../../types";
-import { compileTranscriptProjection } from "../transcriptProjection/compiler";
-import { stripAwaySummaryHintSuffix } from "../transcriptProjection/messageProjection";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
+import { stripAwaySummaryHintSuffix } from "@yep-anywhere/shared/transcript/messageProjection";
 
 describe("compileTranscriptProjection", () => {
   it("pairs tool_use with tool_result", () => {

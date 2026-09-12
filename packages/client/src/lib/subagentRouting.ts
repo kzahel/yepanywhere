@@ -1,6 +1,6 @@
 import type { AgentContent, AgentContentMap } from "../hooks/useSession";
 import type { Message } from "../types";
-import { getMessageId } from "./mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 
 /**
  * Check if a message is from a subagent (Task tool).

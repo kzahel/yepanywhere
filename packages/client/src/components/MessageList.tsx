@@ -54,7 +54,7 @@ import {
 } from "../lib/browserDebugPerformance";
 import { markReloadPerfPhase } from "../lib/diagnostics/reloadPerfProbe";
 import { selectionIntersectsElement } from "../lib/domSelection";
-import { getMessageId } from "../lib/mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import { formatFileSize } from "../lib/formatFileSize";
 import type { GetSessionResult } from "../lib/sourceRuntime";
 import {
@@ -67,7 +67,7 @@ import {
   getLatestMessageTimestampMs,
   MESSAGE_STALE_THRESHOLD_MS,
 } from "../lib/messageAge";
-import type { ActiveToolApproval } from "../lib/transcriptProjection/types";
+import type { ActiveToolApproval } from "@yep-anywhere/shared/transcript/types";
 import type { SessionIsearchScope } from "../lib/sessionIsearchGuide";
 import {
   decideSessionScrollRestore,
@@ -124,7 +124,7 @@ import type { Message } from "../types";
 import type {
   ConversationThinkingPreviewSlot,
   RenderItem,
-} from "../types/renderItems";
+} from "@yep-anywhere/shared/transcript/items";
 import { AttachmentChip } from "./AttachmentChip";
 import { useSessionViewerSessionId } from "./SessionManagedViewer";
 import {

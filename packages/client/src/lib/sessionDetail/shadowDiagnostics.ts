@@ -1,4 +1,4 @@
-import { getMessageId } from "../mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import { UI_KEYS } from "../storageKeys";
 import type { Message, SessionMetadata } from "../../types";
 import type { SessionDetailRuntimeSnapshot } from "./selectors";

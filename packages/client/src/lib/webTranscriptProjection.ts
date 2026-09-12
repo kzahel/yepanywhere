@@ -1,9 +1,9 @@
 import type { Message } from "../types";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { getCachedTranscriptProjection } from "./transcriptProjection/cache";
-import { compileTranscriptProjection } from "./transcriptProjection/compiler";
-import type { MessageProjectionDiagnostics } from "./transcriptProjection/messageProjection";
-import type { TranscriptProjectionAugments } from "./transcriptProjection/types";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
+import type { MessageProjectionDiagnostics } from "@yep-anywhere/shared/transcript/messageProjection";
+import type { TranscriptProjectionAugments } from "@yep-anywhere/shared/transcript/types";
 import { applyRecentProjectPathLinks } from "./recentProjectPathLinks";
 
 const webProjectionDiagnostics: MessageProjectionDiagnostics = {

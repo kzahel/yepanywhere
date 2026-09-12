@@ -34,7 +34,7 @@ them. Most of the data already exists server-side — this is mostly UI.
     `result.backgroundTaskId` (rendered in `BashRenderer.tsx`), polled via
     `BashOutput` (`bash_id`), killed via `KillShell`.
   - **Background agent / Monitor tasks** — `Task*` / `Agent run_in_background`
-    → `<task-notification>` (`packages/client/src/lib/parseTaskNotification.ts`)
+    → `<task-notification>` (`packages/shared/src/transcript/parseTaskNotification.ts`)
     and the retained-task counts above.
   - **Session crons** — Stop-hook `session_crons`.
   - Recommended: one combined count, grouped sections on expand.

@@ -1,4 +1,4 @@
-import { isCompactionLocalCommandOutput } from "../commandTurn";
+import { isCompactionLocalCommandOutput } from "@yep-anywhere/shared/transcript/commandTurn";
 import { parseUserPrompt } from "../parseUserPrompt";
 import { turnContentText } from "../sessionMessageText";
 import { getPathBasename } from "../text";
@@ -7,7 +7,7 @@ import type {
   RenderItem,
   ToolCallItem,
   UserPromptItem,
-} from "../../types/renderItems";
+} from "@yep-anywhere/shared/transcript/items";
 import {
   conversationViewSurfaceReason,
   isMediaToolCall,

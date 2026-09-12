@@ -1,13 +1,13 @@
+import { decodeCodeModeOutput } from "../code-mode-output.js";
 import {
   AcliStreamDecoder,
   initialAcliFormat,
   acliRecordFragments,
   type AcliOutputFragment,
-  decodeCodeModeOutput,
-} from "@yep-anywhere/shared";
-import { parseShellToolOutput } from "../shellToolOutput";
-import type { Message } from "../../types";
-import type { RenderItem, ToolCallItem } from "../../types/renderItems";
+} from "../acli-output.js";
+import { parseShellToolOutput } from "./shellToolOutput.js";
+import type { Message } from "./message.js";
+import type { RenderItem, ToolCallItem } from "./items.js";
 
 export interface WorkflowMarker {
   start: number;

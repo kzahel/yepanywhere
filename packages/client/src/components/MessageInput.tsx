@@ -134,7 +134,7 @@ import {
 } from "./VoiceInputButton";
 import styles from "./MessageInput.module.css";
 import { useProjectFileCompletion } from "../hooks/useProjectFileCompletion";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { ProjectFileCompletionMenu } from "./ProjectFileCompletionMenu";
 import { QuestionAsideHint } from "./QuestionAsideCard";
 

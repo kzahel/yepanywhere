@@ -19,7 +19,7 @@ import type {
   ExplorationProjection,
 } from "../../lib/sessionDetail/explorationProjection";
 import { makeDisplayPath } from "../../lib/text";
-import type { ToolCallItem } from "../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { MessageAge } from "../MessageAge";
 import {
   collectExploredImages,

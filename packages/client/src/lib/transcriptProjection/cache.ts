@@ -1,6 +1,6 @@
 import type { Message } from "../../types";
-import type { RenderItem } from "../../types/renderItems";
-import type { TranscriptProjectionAugments } from "./types";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
+import type { TranscriptProjectionAugments } from "@yep-anywhere/shared/transcript/types";
 
 export type TranscriptProjectionCompiler = (
   messages: Message[],

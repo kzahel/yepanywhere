@@ -18,7 +18,7 @@ import { LOCAL_CLIENT_SUMMARY_SOURCE_KEY } from "../../../lib/clientSummaryStore
 import { UI_KEYS } from "../../../lib/storageKeys";
 import { SessionViewerProvider } from "../../SessionManagedViewer";
 import { ToolCallRow } from "../ToolCallRow";
-import { compileTranscriptProjection } from "../../../lib/transcriptProjection/compiler";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { assistant, call, result } from "../../../../test-fixtures/workflow";
 
 const version = vi.hoisted(() => ({ value: { current: "0.8.2" } }));

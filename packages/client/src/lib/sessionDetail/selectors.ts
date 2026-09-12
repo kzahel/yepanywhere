@@ -4,7 +4,7 @@ import type { SessionRouteScrollSnapshot } from "../sessionRouteSnapshots";
 import type {
   ActiveToolApproval,
   TranscriptProjectionAugments,
-} from "../transcriptProjection/types";
+} from "@yep-anywhere/shared/transcript/types";
 import type {
   AgentContentMap,
   MarkdownAugmentMap,

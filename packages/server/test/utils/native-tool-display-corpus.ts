@@ -17,7 +17,7 @@ import {
   toolDisplayContracts,
   type ToolDisplayName,
 } from "../../../client/src/components/renderers/tools/toolDisplayContracts.js";
-import type { ToolCallItem } from "../../../client/src/types/renderItems.js";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
 import { CodexOSSProvider } from "../../src/sdk/providers/codex-oss.js";
 import { CodexProvider } from "../../src/sdk/providers/codex.js";

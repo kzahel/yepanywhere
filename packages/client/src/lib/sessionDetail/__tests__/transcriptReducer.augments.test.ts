@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileTranscriptProjection } from "../../transcriptProjection/compiler";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import type { Message, SessionMetadata } from "../../../types";
 import { createFinalMarkdownAugmentAction } from "../actionAdapters";
 import { selectSessionDetailProjectionAugments } from "../selectors";

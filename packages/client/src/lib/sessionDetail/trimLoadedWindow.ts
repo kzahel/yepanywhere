@@ -1,6 +1,7 @@
 import type { PaginationInfo } from "../../api/client";
 import type { Message } from "../../types";
-import { findMessageIndexById, getMessageId } from "../mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
+import { findMessageIndexById } from "../mergeMessages";
 import { parseTimestampMs } from "../messageAge";
 import {
   ACTIVE_WINDOW_MIN_BOUNDARY_AGE_MS,

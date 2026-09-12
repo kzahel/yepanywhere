@@ -16,7 +16,7 @@ import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useInlineMedia } from "../../hooks/useInlineMedia";
 import { useI18n, type MessageKey } from "../../i18n";
 import { toSourceTransportApiPath } from "../../lib/sourceTransportPaths";
-import type { ToolCallItem } from "../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { useImageResourceActions } from "../ImageResourceActions";
 import { LocalMediaModal, type LocalMediaSource } from "../LocalMediaModal";
 import { TimelineDisclosure } from "../TimelineDisclosure";

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { compileTranscriptProjection } from "../../transcriptProjection/compiler";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import type { Message } from "../../../types";
 import type {
   ConversationActivityItem,
   RenderItem,
   ToolCallItem,
-} from "../../../types/renderItems";
+} from "@yep-anywhere/shared/transcript/items";
 import {
   compactCommandActivityPreview,
   projectConversationView,

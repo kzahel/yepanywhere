@@ -1,7 +1,7 @@
 import { toolDisplayDiagnostics } from "../renderers/tools/displayDiagnostics";
 import { Component, type ReactNode } from "react";
 import { useI18n } from "../../i18n";
-import type { ToolCallItem } from "../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import styles from "./ToolDisplayBoundary.module.css";
 
 interface ToolRecord {

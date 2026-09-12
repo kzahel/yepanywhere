@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../types";
-import type { RenderItem } from "../../types/renderItems";
-import { compileTranscriptProjection } from "../transcriptProjection/compiler";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { getCachedWebTranscriptProjection } from "../webTranscriptProjection";
 
 function sourceIds(item: RenderItem): string[] {

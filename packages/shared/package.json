@@ -20,6 +20,16 @@
       "source": "./src/sqlite.ts",
       "import": "./dist/sqlite.js",
       "types": "./dist/sqlite.d.ts"
+    },
+    "./transcript/*": {
+      "source": "./src/transcript/*.ts",
+      "import": "./dist/transcript/*.js",
+      "types": "./dist/transcript/*.d.ts"
+    },
+    "./experimental/*": {
+      "source": "./src/experimental/*.ts",
+      "import": "./dist/experimental/*.js",
+      "types": "./dist/experimental/*.d.ts"
     }
   },
   "scripts": {

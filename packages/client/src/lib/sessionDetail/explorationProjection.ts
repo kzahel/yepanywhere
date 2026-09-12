@@ -1,6 +1,9 @@
 import type { ToolDisplayAction } from "@yep-anywhere/shared";
 import { getExplorationKind } from "../toolNames";
-import type { RenderItem, ToolCallItem } from "../../types/renderItems";
+import type {
+  RenderItem,
+  ToolCallItem,
+} from "@yep-anywhere/shared/transcript/items";
 import { getLatestMessageTimestampMs } from "../messageAge";
 import { getPathBasename } from "../text";
 

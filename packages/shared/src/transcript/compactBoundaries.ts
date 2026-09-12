@@ -1,4 +1,4 @@
-import type { RenderItem, SystemItem } from "../../types/renderItems";
+import type { RenderItem, SystemItem } from "./items.js";
 
 function isCompactBoundaryItem(
   item: RenderItem,

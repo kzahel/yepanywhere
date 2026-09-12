@@ -1,5 +1,5 @@
 import type { Message } from "../../types";
-import { getMessageId } from "../mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import { parseTimestampMs } from "../messageAge";
 
 export const DEFAULT_ACTIVE_WINDOW_TURN_TARGET = 20;

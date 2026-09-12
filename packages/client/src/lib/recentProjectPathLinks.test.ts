@@ -3,7 +3,11 @@
 import type { ProjectPathLinkTarget } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
 import type { Message } from "../types";
-import type { RenderItem, TextItem, ToolCallItem } from "../types/renderItems";
+import type {
+  RenderItem,
+  TextItem,
+  ToolCallItem,
+} from "@yep-anywhere/shared/transcript/items";
 import { annotateProjectPathLinksHtml } from "./projectPathLinks";
 import {
   applyRecentProjectPathLinks,

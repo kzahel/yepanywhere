@@ -5,8 +5,10 @@ Topic: portable-transcript-compiler
 Topic: client-source-runtime-topology
 
 Status: Offline contract spike implemented 2026-09-12: JSON Schema, generated
-TypeScript/Kotlin decoders, and shared real-derived/synthetic examples. Wire
-compatibility review and server/client implementation remain open. No endpoint
+TypeScript/Kotlin decoders, and shared real-derived/synthetic examples. The
+shared compiler extraction and bounded server Conversation producer are now
+implemented. Wire compatibility review and live server/client integration
+remain open. No endpoint
 or demo route is implemented. iOS is outside this plan’s current scope.
 
 ## Outcome
@@ -87,13 +89,23 @@ compatibility decisions are explicit.
 
 ### 2 — produce authoritative server views over existing data
 
-Map existing provider normalization, catalog facts, and browser-free projection
-helpers into the new semantic output. First extract the reusable browser-free
-compiler core into a server-usable package and keep its existing parity and
-identity tests passing. This package seam is an explicit deliverable, not just
-an inventory. Keep web rendering adapters local; the new condensed output does
-not reuse `RenderItem[]` as its wire model. Derive issue associations through
-existing enabled server facilities and preserve coverage when unavailable.
+**Implemented checkpoint:** the semantic compiler, its structural types and pure
+parsers now live in `packages/shared/src/transcript`, consumed by the existing
+web adapter and the new server producer. `prepareConversation` compiles/groups
+once; `selectConversation` chooses anchored bounded windows without repeating
+compilation. Native capture fixtures are actual outputs, with adapter replay
+checking identities and facts using explicitly supplied recorded user inputs.
+Synthetic tests cover interruptions, retries, scope/prefix identity, unknown
+content, missing results, and serialized limits. See the
+[owning contract](../../topics/simple-client-api.md#implemented-projection-checkpoint-2026-09-12).
+
+The live service portion of this gate is still open. The following remains the
+acceptance scope for that service; offline reuse is not subscription evidence.
+
+The compiler extraction keeps web rendering adapters local; the condensed
+wire model remains independent of `RenderItem[]`. Continue with catalog facts
+and issue associations through existing enabled server facilities, preserving
+coverage when unavailable.
 
 Implement bounded reads and one subscription binding, including an atomic
 snapshot/live boundary and authoritative reset after lost continuity. Measure
@@ -215,14 +227,15 @@ The [spike record](../../packages/shared/contracts/README.md) owns the concrete
 candidate and its evidence limits. Gate 1's offline decoding work is complete;
 the final operation/capability compatibility review is still outstanding.
 
-Next, prepare the compiler extraction and the reviewed first read/subscription
-binding. Prove grouped IDs across live/durable reconciliation, system boundaries,
-interruption and retry; the two clean captures cannot settle those edge cases.
-Measure the stated projection and snapshot budgets before expanding web scope.
+Next, review the first read/subscription operation and capability gate, then
+wire bounded acquisition and a shared source-revision owner to the implemented
+producer. Prove real input-queue reconciliation and cold-reader prefix identity;
+the adapter fixture assembly cannot establish those live guarantees. Measure
+the stated projection and snapshot budgets before expanding web scope.
 
 Still open: exact operations under `/api/experimental/`, capability registry
-identity and release audit, atomic binding and cancellation, oversized-content
-producer behavior, the unlisted demo route/bundle boundary, and stable-contract
+identity and release audit, atomic binding and cancellation, overview row/byte
+limits, the unlisted demo route/bundle boundary, and stable-contract
 promotion policy. Cross-machine project mappings remain an optional experiment.
 
 These are implementation and review tasks over the existing normalization and

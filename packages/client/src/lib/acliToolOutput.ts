@@ -12,7 +12,7 @@ import {
   type WorkflowAnnotation,
   type WorkflowMarker,
   type WorkflowToolContext,
-} from "./transcriptProjection/workflowTags";
+} from "@yep-anywhere/shared/transcript/workflowTags";
 
 export interface PresentedCommentary {
   id: string;

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "../../types";
-import type { RenderItem } from "../../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import {
   assistantMessage,
   assistantToolUseMessage,

@@ -1,9 +1,9 @@
-import type { RenderItem, ToolCallItem } from "../../types/renderItems";
+import type { RenderItem, ToolCallItem } from "./items.js";
 import {
   extractDetachedCellId,
   getCommandResultMeta,
   parseShellToolOutput,
-} from "../shellToolOutput";
+} from "./shellToolOutput.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);

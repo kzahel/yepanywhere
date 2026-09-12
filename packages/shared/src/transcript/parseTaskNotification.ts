@@ -1,4 +1,4 @@
-import type { Message } from "../types";
+import type { Message } from "./message.js";
 
 /**
  * Parsed view of a Claude Code `<task-notification>` entry — the message the SDK

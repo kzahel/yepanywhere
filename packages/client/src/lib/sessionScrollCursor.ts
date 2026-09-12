@@ -1,4 +1,4 @@
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { getLatestMessageTimestampMs } from "./messageAge";
 import {
   getLastTimestampedRenderItem,

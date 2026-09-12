@@ -11,7 +11,7 @@ import { renderCommentary } from "../lib/renderCommentary";
 import {
   type WorkflowAnnotation,
   workflowCommentarySegments,
-} from "../lib/transcriptProjection/workflowTags";
+} from "@yep-anywhere/shared/transcript/workflowTags";
 import { WorkflowBoundary, WorkflowOutput } from "./WorkflowOutput";
 
 export function WorkflowAssistantOutput({

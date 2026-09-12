@@ -7,7 +7,7 @@ import { useSessionMetadata } from "../../../contexts/SessionMetadataContext";
 import { useRemoteBasePath } from "../../../hooks/useRemoteBasePath";
 import { useI18n } from "../../../i18n";
 import { providerChildSessionHref } from "../../../lib/providerChildSessions";
-import type { ToolCallItem } from "../../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { Spinner, TaskNestedContent } from "./TaskNestedContent";
 import styles from "./TaskRenderer.module.css";
 

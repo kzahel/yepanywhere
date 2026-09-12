@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../types";
-import { compileTranscriptProjection } from "../transcriptProjection/compiler";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import {
   assistant,
   asCodeMode,
@@ -12,7 +12,7 @@ import {
   simulatedPublish,
 } from "../../../test-fixtures/workflow";
 import { buildSessionDetailRenderItems } from "../sessionDetail/renderItems";
-import { readWorkflowSchema } from "../transcriptProjection/workflowTags";
+import { readWorkflowSchema } from "@yep-anywhere/shared/transcript/workflowTags";
 import { AcliToolOutput, type AcliOutputProjection } from "../acliToolOutput";
 
 describe("workflow tag projection", () => {

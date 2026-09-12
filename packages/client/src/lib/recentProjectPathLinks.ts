@@ -3,8 +3,8 @@ import {
   type ProjectPathLinkTarget,
 } from "@yep-anywhere/shared";
 import type { ContentBlock } from "../types";
-import type { RenderItem } from "../types/renderItems";
-import { readProjectPathLinkTargets } from "./projectPathLinks";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
+import { readProjectPathLinkTargets } from "@yep-anywhere/shared/transcript/projectPathLinks";
 import { getPathBasename } from "./text";
 
 type RecentProjectPathLinks = Map<string, string>;

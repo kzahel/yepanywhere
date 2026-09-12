@@ -1,6 +1,9 @@
 import { getPathBasename, makeDisplayPath } from "../text";
 import { canonicalizeToolName, getExplorationKind } from "../toolNames";
-import type { RenderItem, ToolCallItem } from "../../types/renderItems";
+import type {
+  RenderItem,
+  ToolCallItem,
+} from "@yep-anywhere/shared/transcript/items";
 import {
   buildExplorationProjectionSegments,
   type ExplorationProjection,

@@ -26,7 +26,7 @@ import {
   packTurnGalleryRows,
   type TurnInlineImage,
 } from "../lib/turnInlineMedia";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import {
   fetchLocalMediaBlob,
   LocalMediaModal,

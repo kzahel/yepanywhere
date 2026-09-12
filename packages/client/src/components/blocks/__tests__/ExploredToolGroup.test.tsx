@@ -9,7 +9,10 @@ import { SessionMetadataProvider } from "../../../contexts/SessionMetadataContex
 import { I18nProvider } from "../../../i18n";
 import { buildAssistantRenderSegments } from "../../../lib/sessionDetail/renderSelectors";
 import type { Message } from "../../../types";
-import type { RenderItem, ToolCallItem } from "../../../types/renderItems";
+import type {
+  RenderItem,
+  ToolCallItem,
+} from "@yep-anywhere/shared/transcript/items";
 import grepStyles from "../../renderers/tools/GrepRenderer.module.css";
 import { ExploredToolGroup } from "../ExploredToolGroup";
 

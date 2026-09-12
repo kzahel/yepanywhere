@@ -18,9 +18,9 @@ import { iterateJsonlLines } from "../packages/server/src/utils/jsonl.js";
 import { normalizeSession } from "../packages/server/src/sessions/normalization.js";
 import { augmentTaskListSnapshots } from "../packages/server/src/augments/task-list-augments.js";
 import { augmentPersistedSessionMessages } from "../packages/server/src/sessions/persisted-augments.js";
-import { compileTranscriptProjection } from "../packages/client/src/lib/transcriptProjection/compiler.js";
+import { compileTranscriptProjection } from "../packages/shared/src/transcript/compiler.js";
 import type { Message } from "../packages/client/src/types.js";
-import type { ToolCallItem } from "../packages/client/src/types/renderItems.js";
+import type { ToolCallItem } from "../packages/shared/src/transcript/items.js";
 import { canonicalizeToolName } from "../packages/client/src/lib/toolNames.js";
 import {
   prepareDisplay,

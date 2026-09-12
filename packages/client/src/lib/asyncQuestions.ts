@@ -1,5 +1,5 @@
-import type { RenderItem } from "../types/renderItems";
-import { getMessageId } from "./mergeMessages";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 
 export interface AsyncQuestion {
   id: string;

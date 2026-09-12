@@ -1,5 +1,5 @@
 import type { TranscriptDisplayObject } from "@yep-anywhere/shared";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 
 export function insertTranscriptDisplayObjects(
   items: RenderItem[],

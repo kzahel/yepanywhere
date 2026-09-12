@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { compileTranscriptProjection } from "../../../client/src/lib/transcriptProjection/compiler.ts";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import { SessionReader } from "../../src/sessions/reader.js";
 

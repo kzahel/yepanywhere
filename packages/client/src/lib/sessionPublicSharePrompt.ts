@@ -1,6 +1,6 @@
 import { PUBLIC_SHARE_INITIAL_PROMPT_MAX_LENGTH } from "@yep-anywhere/shared";
 import { messageContentToPlainText } from "./sessionMessageText";
-import { isLegacyCodexSetupText } from "./codexLegacySetup";
+import { isLegacyCodexSetupText } from "@yep-anywhere/shared/transcript/codexLegacySetup";
 
 export { PUBLIC_SHARE_INITIAL_PROMPT_MAX_LENGTH } from "@yep-anywhere/shared";
 

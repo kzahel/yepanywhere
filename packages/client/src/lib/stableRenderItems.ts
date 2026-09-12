@@ -2,8 +2,8 @@ import type {
   ConversationRecentActivity,
   ConversationThinkingPreview,
   RenderItem,
-} from "../types/renderItems";
-import { readProjectPathLinkTargets } from "./projectPathLinks";
+} from "@yep-anywhere/shared/transcript/items";
+import { readProjectPathLinkTargets } from "@yep-anywhere/shared/transcript/projectPathLinks";
 
 function getRenderItemKey(item: RenderItem): string {
   return `${item.type}:${item.id}`;

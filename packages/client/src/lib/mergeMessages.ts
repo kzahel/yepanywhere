@@ -1,13 +1,7 @@
 import { orderByParentChain } from "@yep-anywhere/shared";
 import type { Message } from "../types";
 
-/**
- * Get the message ID, preferring uuid over id.
- * Messages should always have at least one identifier; returns empty string as fallback.
- */
-export function getMessageId(m: Message): string {
-  return m.uuid ?? m.id ?? "";
-}
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 
 export function findMessageIndexById(
   messages: readonly Message[],

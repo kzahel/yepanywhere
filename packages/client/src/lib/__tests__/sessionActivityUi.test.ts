@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SessionLivenessSnapshot } from "@yep-anywhere/shared";
 import type { Message } from "../../types";
-import type { RenderItem } from "../../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { getSessionActivityUiState } from "../sessionActivityUi";
 
 const sourceMessages: Message[] = [];

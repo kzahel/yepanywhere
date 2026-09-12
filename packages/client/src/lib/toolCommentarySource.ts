@@ -1,6 +1,6 @@
 import { decodeCodeModeOutput, initialAcliFormat } from "@yep-anywhere/shared";
 import { normalizeBashResult } from "./bashResult";
-import type { ToolCallItem } from "../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 
 type Invocation = Pick<
   ToolCallItem,

@@ -10,7 +10,7 @@ import { buildSessionDetailRenderItems } from "../sessionDetail/renderItems";
 import {
   readWorkflowSchema,
   workflowSchemaReference,
-} from "../transcriptProjection/workflowTags";
+} from "@yep-anywhere/shared/transcript/workflowTags";
 import {
   WORKFLOW_SCHEMA_TTL_MS,
   WorkflowSchemaFileStore,

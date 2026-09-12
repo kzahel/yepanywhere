@@ -8,9 +8,9 @@ import {
 } from "../linearMessageDedup";
 import { isUnconfirmedSelfSend } from "../deliveryState";
 import { reconcileCodexToolMessages } from "../codexToolReconciliation";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import {
   findMessageIndexById,
-  getMessageId,
   mergeJSONLMessages,
   mergeStreamMessage,
 } from "../mergeMessages";

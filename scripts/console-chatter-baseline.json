@@ -1,20 +1,20 @@
 {
   "limits": {
     "warnings": 110,
-    "method.warn": 61,
+    "method.warn": 60,
     "method.error": 92
   },
   "observed": {
     "warnings": 110,
-    "info": 157,
-    "total": 267,
+    "info": 156,
+    "total": 266,
     "method.log": 112,
     "method.info": 1,
     "method.debug": 1,
     "method.trace": 0,
-    "method.warn": 61,
+    "method.warn": 60,
     "method.error": 92
   },
-  "updated": "2026-08-23",
+  "updated": "2026-09-12",
   "note": "Per-metric ratchet for pnpm console:scan over packages/client/src. warnings = ungated chatty call sites; method.warn/method.error bound total warn/error sites (reserved for actionable conditions). info/total are deliberately unbounded so dev-gating a site (the preferred remediation) never fails the check. Lower a limit in the same change that gates or removes a batch; raise one only with justification in that commit."
 }

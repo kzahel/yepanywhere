@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import type { RenderItem } from "../../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import type { RenderTurnGroup } from "../sessionDetail/renderItems";
 import {
   deriveVisibleSessionScrollCursor,

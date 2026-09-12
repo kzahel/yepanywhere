@@ -26,7 +26,7 @@ import {
   ownedSessionShouldFetchDurableTranscript,
   PENDING_SEND_RECONCILE_MS,
 } from "../lib/deliveryState";
-import { getMessageId } from "../lib/mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import { findPendingTasks } from "../lib/pendingTasks";
 import {
   extractParentSessionIdFromAgentFileEvent,

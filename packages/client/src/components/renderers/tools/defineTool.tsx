@@ -2,7 +2,7 @@ import styles from "./defineTool.module.css";
 import { ToolOutputText } from "../../ToolOutputText";
 import type { ReactNode } from "react";
 import type { z } from "zod";
-import type { ToolCallItem } from "../../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import type { RenderContext } from "../types";
 import {
   RawToolDisplay,

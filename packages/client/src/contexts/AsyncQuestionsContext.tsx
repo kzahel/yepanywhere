@@ -24,7 +24,7 @@ import {
 import { quoteMarkdown } from "../lib/commentAnchors";
 import type { ComposerDraftSignal } from "../lib/composerDraftSignal";
 import type { SessionRouteScrollSnapshot } from "../lib/sessionRouteSnapshots";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 
 export type { AsyncQuestionRecord } from "../lib/asyncQuestionRecords";
 

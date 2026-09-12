@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { PaginationInfo } from "../api/client";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
-import { getMessageId } from "../lib/mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
 import { createFinalMarkdownAugmentAction } from "../lib/sessionDetail/actionAdapters";
 import type { SessionDetailRevealSnapshotResult } from "../lib/sessionDetail/revealSnapshot";
 import {

@@ -1,7 +1,10 @@
 import type { ToolDisplayAction } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../../types";
-import type { RenderItem, ToolCallItem } from "../../../types/renderItems";
+import type {
+  RenderItem,
+  ToolCallItem,
+} from "@yep-anywhere/shared/transcript/items";
 import { buildAssistantRenderSegments } from "../exploration";
 import {
   buildExplorationProjectionSegments,

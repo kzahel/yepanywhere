@@ -8,7 +8,7 @@ import {
   formatCommandDuration,
   getCommandResultMeta,
   parseShellToolOutput,
-} from "../../../lib/shellToolOutput";
+} from "@yep-anywhere/shared/transcript/shellToolOutput";
 import { getPathBasename, makeDisplayPath } from "../../../lib/text";
 import { ActivityDetailModal } from "../../ActivityDetailModal";
 import { AnsiText } from "../../ui/AnsiText";

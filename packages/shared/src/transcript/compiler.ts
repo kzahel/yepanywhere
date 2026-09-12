@@ -1,20 +1,20 @@
-import type { Message } from "../../types";
-import type { RenderItem } from "../../types/renderItems";
-import { coalesceCompactBoundaryItems } from "./compactBoundaries";
+import type { Message } from "./message.js";
+import type { RenderItem } from "./items.js";
+import { coalesceCompactBoundaryItems } from "./compactBoundaries.js";
 import {
   type MessageProjectionDiagnostics,
   projectTranscriptMessages,
-} from "./messageProjection";
-import { collapseSessionSetupRuns } from "./sessionSetup";
-import { coalesceSlashCommandSkillBodies } from "./slashCommandBodies";
+} from "./messageProjection.js";
+import { collapseSessionSetupRuns } from "./sessionSetup.js";
+import { coalesceSlashCommandSkillBodies } from "./slashCommandBodies.js";
 import {
   annotateBackgroundCommands,
   coalesceDetachedPollContinuations,
   enrichWriteStdinWithCommand,
   hideContextFreeEmptyShellPolls,
-} from "./shellFolding";
-import type { TranscriptProjectionAugments } from "./types";
-import { annotateWorkflowTags } from "./workflowTags";
+} from "./shellFolding.js";
+import type { TranscriptProjectionAugments } from "./types.js";
+import { annotateWorkflowTags } from "./workflowTags.js";
 
 /**
  * Compile normalized transcript messages into the current semantic render

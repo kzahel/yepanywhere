@@ -6,6 +6,8 @@
     "../client/test/tool-display-native.test.tsx",
     "test/tool-display-native.test.ts",
     "test/captured-provider.test.ts",
+    "test/simple-client-examples.test.ts",
+    "test/simple-client-projection.test.ts",
     "scripts/import-provider-capture.ts",
     "test/utils/native-tool-display-corpus.ts",
     "../../scripts/audit-tool-displays.ts",

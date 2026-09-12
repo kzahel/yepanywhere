@@ -8,7 +8,7 @@ import { SessionMetadataProvider } from "../../src/contexts/SessionMetadataConte
 import { ToastProvider } from "../../src/contexts/ToastContext";
 import { useVersion } from "../../src/hooks/useVersion";
 import { I18nProvider } from "../../src/i18n";
-import { compileTranscriptProjection } from "../../src/lib/transcriptProjection/compiler";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { projectConversationView } from "../../src/lib/sessionDetail/conversationView";
 import "../../src/styles/index.css";
 

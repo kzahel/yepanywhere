@@ -92,7 +92,8 @@
   facts, and shared semantic projection for web/Android/iOS native renderers)
 - [Simple Client API](simple-client-api.md) (server-owned typed summaries and
   Conversation views; multi-server web demo with early Compose consumption and
-  an offline TypeScript/Kotlin schema proof; iOS deferred)
+  TypeScript/Kotlin schema conformance and a capture-tested server producer;
+  iOS deferred)
 - Agents multi-session activity preview (default-off condensed live activity
   for active processes and last-output previews for recently idle ones)
 - Agents process observability (default-off host metrics plus read-only

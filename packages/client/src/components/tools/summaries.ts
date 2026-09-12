@@ -1,7 +1,10 @@
 import type { PreparedToolDisplay } from "../renderers/tools/defineTool";
 import { getDisplayBashCommandFromInput } from "../../lib/bashCommand";
 import { getPathBasename } from "../../lib/text";
-import type { ToolCallItem, ToolResultData } from "../../types/renderItems";
+import type {
+  ToolCallItem,
+  ToolResultData,
+} from "@yep-anywhere/shared/transcript/items";
 import { toolRegistry } from "../renderers/tools";
 import type { ToolSummaryContext } from "../renderers/tools/types";
 

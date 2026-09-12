@@ -15,7 +15,7 @@ import {
 } from "../../../contexts/SessionMetadataContext";
 import { classifyToolError } from "../../../lib/classifyToolError";
 import { validateToolResult } from "../../../lib/validateToolResult";
-import type { ToolCallItem } from "../../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import { SchemaWarning } from "../../SchemaWarning";
 import { ContentBlockRenderer } from "../ContentBlockRenderer";
 import { Spinner, TaskNestedContent } from "./TaskNestedContent";

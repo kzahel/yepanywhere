@@ -27,19 +27,22 @@ import {
 import { useQuoteableTextSource } from "../../hooks/useQuoteableTextSource";
 import { useSchemaValidationContext } from "../../contexts/SchemaValidationContext";
 import { getDisplayBashCommandFromInput } from "../../lib/bashCommand";
-import { readProjectPathLinkTargets } from "../../lib/projectPathLinks";
+import { readProjectPathLinkTargets } from "@yep-anywhere/shared/transcript/projectPathLinks";
 import { PREDICTIVE_SCROLL_ROOT_MARGIN } from "../../lib/predictiveScroll";
 import {
   formatCommandDuration,
   getCommandResultMeta,
   parseShellToolOutput,
-} from "../../lib/shellToolOutput";
+} from "@yep-anywhere/shared/transcript/shellToolOutput";
 import {
   getVisibilityAwareTooltipText,
   isElementFullyScrollVisible,
 } from "../../lib/tooltipVisibility";
 import { validateToolResult } from "../../lib/validateToolResult";
-import type { ToolCallItem, ToolResultData } from "../../types/renderItems";
+import type {
+  ToolCallItem,
+  ToolResultData,
+} from "@yep-anywhere/shared/transcript/items";
 import { observeViewportActivityAnimation } from "../../lib/viewportActivityAnimation";
 import { ProjectPathLinkedText } from "../ProjectPathLinkedText";
 import {
@@ -51,7 +54,7 @@ import { getOutputTailTooltip } from "../renderers/tools/outputPreview";
 import type { RenderContext } from "../renderers/types";
 import { getToolSummary } from "../tools/summaries";
 import { HiddenContentBadge } from "../ui/HiddenContentBadge";
-import type { WorkflowAnnotation } from "../../lib/transcriptProjection/workflowTags";
+import type { WorkflowAnnotation } from "@yep-anywhere/shared/transcript/workflowTags";
 import { WorkflowOutput } from "../WorkflowOutput";
 import { ToolCommentaryBoundary } from "../ToolCommentaryBoundary";
 import { TimelineDisclosure } from "../TimelineDisclosure";

@@ -1,12 +1,12 @@
 import type { TranscriptDisplayObject } from "@yep-anywhere/shared";
 import { getLatestMessageTimestampMs, parseTimestampMs } from "../messageAge";
-import type { RenderItem } from "../../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { stabilizeRenderItems } from "../stableRenderItems";
 import { insertTranscriptDisplayObjects } from "../transcriptDisplayObjects";
-import type { ActiveToolApproval } from "../transcriptProjection/types";
+import type { ActiveToolApproval } from "@yep-anywhere/shared/transcript/types";
 import { getCachedWebTranscriptProjection } from "../webTranscriptProjection";
 import type { Message } from "../../types";
-import type { WorkflowSchemaFiles } from "../transcriptProjection/workflowTags";
+import type { WorkflowSchemaFiles } from "@yep-anywhere/shared/transcript/workflowTags";
 import type { MarkdownAugmentMap, SessionDetailState } from "./types";
 
 export interface SessionDetailRenderItemInput {

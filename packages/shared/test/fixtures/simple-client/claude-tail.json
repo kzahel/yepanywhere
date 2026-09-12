@@ -30,13 +30,13 @@
         "content": [
           {
             "kind": "activity",
-            "summary": "Read result file",
+            "summary": "1 tool call",
             "toolCount": 1,
             "failedToolCount": 0
           },
           {
             "kind": "text",
-            "format": "plain",
+            "format": "markdown",
             "text": "Continuation verified."
           }
         ]

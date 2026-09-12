@@ -5,7 +5,7 @@ import {
   isLocalCommandCaveatOnly,
   parseCommandTurn,
   parseLocalCommandStdout,
-} from "../commandTurn";
+} from "@yep-anywhere/shared/transcript/commandTurn";
 
 describe("parseCommandTurn", () => {
   it("extracts the command from a wrapped no-arg turn", () => {

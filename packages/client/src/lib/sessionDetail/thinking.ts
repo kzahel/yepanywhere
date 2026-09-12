@@ -1,6 +1,6 @@
 import { getLatestMessageTimestampMs, parseTimestampMs } from "../messageAge";
 import type { Message } from "../../types";
-import type { RenderItem } from "../../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 
 function getEarliestMessageTimestampMs(
   messages: readonly Message[],

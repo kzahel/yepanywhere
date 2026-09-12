@@ -2,7 +2,7 @@ import {
   readWorkflowSchema,
   workflowSchemaReference,
   type WorkflowSchemaFiles,
-} from "./transcriptProjection/workflowTags";
+} from "@yep-anywhere/shared/transcript/workflowTags";
 
 export const WORKFLOW_SCHEMA_TTL_MS = 5 * 60 * 1000;
 

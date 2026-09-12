@@ -1,6 +1,6 @@
 import type { SessionLivenessSnapshot } from "@yep-anywhere/shared";
 import type { Message } from "../types";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 
 export type SessionActivityOwner = "self" | "external" | "none";
 export type SessionActivityProcessState = "idle" | "in-turn" | "waiting-input";

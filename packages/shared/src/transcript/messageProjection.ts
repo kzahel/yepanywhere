@@ -1,35 +1,39 @@
 import {
   isInjectedContinuationPrompt,
   isSyntheticNoResponseTurn,
-} from "@yep-anywhere/shared";
-import type { ContentBlock, Message } from "../../types";
+} from "../claude-sdk-schema/guards.js";
+import type { ContentBlock, Message } from "./message.js";
 import type {
   RenderItem,
   SystemItem,
   ToolCallItem,
   ToolResultData,
-} from "../../types/renderItems";
+} from "./items.js";
 import {
   formatCommandTurn,
   isCompactionLocalCommandOutput,
   isLocalCommandCaveatOnly,
   parseCommandTurn,
   parseLocalCommandStdout,
-} from "../commandTurn";
-import { getMessageId } from "../mergeMessages";
+} from "./commandTurn.js";
+import { getMessageId } from "./message.js";
 import {
   isTaskNotificationMessage,
   parseTaskNotification,
-} from "../parseTaskNotification";
-import { readProjectPathLinkTargets } from "../projectPathLinks";
-import { parseShellToolOutput } from "../shellToolOutput";
-import { parseAgentResultFromText } from "./agentResults";
-import { contentBlocksText } from "./slashCommandBodies";
-import type { TranscriptProjectionAugments } from "./types";
+} from "./parseTaskNotification.js";
+import { readProjectPathLinkTargets } from "./projectPathLinks.js";
+import { parseShellToolOutput } from "./shellToolOutput.js";
+import { parseAgentResultFromText } from "./agentResults.js";
+import { contentBlocksText } from "./slashCommandBodies.js";
+import type { TranscriptProjectionAugments } from "./types.js";
 
 const AWAY_SUMMARY_HINT_SUFFIX_RE = /\s*\(disable recaps in \/config\)\s*$/u;
 
 export interface MessageProjectionDiagnostics {
+  onUnmatchedToolResult?: (details: {
+    toolUseId: string;
+    message: Message;
+  }) => void;
   onAssistantMessage?: (details: {
     _isStreaming: boolean | undefined;
     id: string | undefined;
@@ -245,7 +249,7 @@ function isSlashCommandSkillBodyMessage(msg: Message): boolean {
   );
 }
 
-function isUserPromptMessage(msg: Message): boolean {
+export function isUserPromptMessage(msg: Message): boolean {
   const content = getPreprocessMessageContent(msg);
   const role =
     (msg.message as { role?: "user" | "assistant" } | undefined)?.role ??
@@ -569,7 +573,7 @@ function processMessage(
     // Attach results to pending tool calls
     for (const block of content) {
       if (block.type === "tool_result" && block.tool_use_id) {
-        attachToolResult(block, msg, items, pendingToolCalls);
+        attachToolResult(block, msg, items, pendingToolCalls, diagnostics);
       }
     }
     return;
@@ -742,6 +746,7 @@ function attachToolResult(
   resultMessage: Message,
   items: RenderItem[],
   pendingToolCalls: Map<string, number>,
+  diagnostics?: MessageProjectionDiagnostics,
 ): void {
   const toolUseId = block.tool_use_id;
   if (!toolUseId) return;
@@ -749,7 +754,11 @@ function attachToolResult(
   const index = pendingToolCalls.get(toolUseId);
   if (index === undefined) {
     // Orphan result - shouldn't happen normally
-    console.warn(`Tool result for unknown tool_use: ${toolUseId}`);
+    if (diagnostics?.onUnmatchedToolResult) {
+      diagnostics.onUnmatchedToolResult({ toolUseId, message: resultMessage });
+    } else {
+      console.warn(`Tool result for unknown tool_use: ${toolUseId}`);
+    }
     return;
   }
 

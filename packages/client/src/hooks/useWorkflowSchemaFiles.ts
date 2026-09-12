@@ -7,9 +7,9 @@ import {
 } from "react";
 import { useOptionalSessionMetadata } from "../contexts/SessionMetadataContext";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
-import type { WorkflowSchemaFiles } from "../lib/transcriptProjection/workflowTags";
+import type { WorkflowSchemaFiles } from "@yep-anywhere/shared/transcript/workflowTags";
 import { WorkflowSchemaFileStore } from "../lib/workflowSchemaFiles";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 
 const EMPTY: WorkflowSchemaFiles = {};
 const emptySnapshot = () => EMPTY;

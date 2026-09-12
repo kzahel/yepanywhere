@@ -27,8 +27,8 @@ import type {
   ConversationThinkingPreview as ConversationThinkingPreviewData,
   ConversationThinkingPreviewSlot,
   RenderItem,
-} from "../types/renderItems";
-import { formatCommandDuration } from "../lib/shellToolOutput";
+} from "@yep-anywhere/shared/transcript/items";
+import { formatCommandDuration } from "@yep-anywhere/shared/transcript/shellToolOutput";
 import { useStickToBottom } from "../lib/stickToBottom";
 import {
   type ActivityHeightReserve,

@@ -8,7 +8,7 @@ import {
   stabilizeRenderItems,
 } from "../src/lib/stableRenderItems";
 import { getCachedTranscriptProjection } from "../src/lib/transcriptProjection/cache";
-import { compileTranscriptProjection } from "../src/lib/transcriptProjection/compiler";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 
 interface Metric {
   iterations: number;

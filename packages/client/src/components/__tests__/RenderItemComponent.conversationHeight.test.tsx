@@ -9,7 +9,7 @@ import type {
   ConversationActivityItem,
   ConversationThinkingPreviewSlot,
   RenderItem,
-} from "../../types/renderItems";
+} from "@yep-anywhere/shared/transcript/items";
 import { RenderItemComponent } from "../RenderItemComponent";
 
 // jsdom has no ResizeObserver and reports offsetHeight 0, so drive the

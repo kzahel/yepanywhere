@@ -6,7 +6,7 @@ import type { SessionHoverCardAnchor } from "../hooks/useSessionHoverCardControl
 import type { PendingInputType, SessionStatus } from "../types";
 import { DEFAULT_HOVERCARD_MAX_HEIGHT_PX } from "../hooks/useHoverCardAppearance";
 import { useQuoteableTextSource } from "../hooks/useQuoteableTextSource";
-import { parseCommandTurn } from "../lib/commandTurn";
+import { parseCommandTurn } from "@yep-anywhere/shared/transcript/commandTurn";
 import { QUOTE_SELECTION_ROOT_ATTRIBUTES } from "../lib/markdownSelectionCopy";
 import { estimateHoverCardPromptLines } from "./sessionHoverCardLines";
 import { ProviderBadge } from "./ProviderBadge";

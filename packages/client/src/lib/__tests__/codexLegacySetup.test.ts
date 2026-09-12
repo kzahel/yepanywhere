@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isLegacyCodexEnvironmentContextText,
   isLegacyCodexSetupText,
-} from "../codexLegacySetup";
+} from "@yep-anywhere/shared/transcript/codexLegacySetup";
 
 const environment =
   "<environment_context>\n<cwd>/repo</cwd>\n</environment_context>";

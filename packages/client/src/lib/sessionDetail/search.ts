@@ -1,12 +1,12 @@
 import { getLatestMessageTimestampMs } from "../messageAge";
 import { parseUserPrompt } from "../parseUserPrompt";
-import { isLegacyCodexSetupText } from "../codexLegacySetup";
+import { isLegacyCodexSetupText } from "@yep-anywhere/shared/transcript/codexLegacySetup";
 import type { ContentBlock } from "../../types";
 import type {
   RenderItem,
   ToolCallItem,
   UserPromptItem,
-} from "../../types/renderItems";
+} from "@yep-anywhere/shared/transcript/items";
 import {
   type AssistantRenderSegment,
   buildAssistantRenderSegments,

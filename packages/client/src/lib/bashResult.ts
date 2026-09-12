@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseShellToolOutput } from "./shellToolOutput";
+import { parseShellToolOutput } from "@yep-anywhere/shared/transcript/shellToolOutput";
 export const BashOutputSchema = z
   .object({
     stdout: z.string().optional(),

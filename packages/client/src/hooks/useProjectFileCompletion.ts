@@ -16,7 +16,7 @@ import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useClientSummarySourceKey } from "../lib/clientSummaryStore";
 import { replaceTextareaRangeUndoably } from "../lib/composerTextarea";
 import { recentProjectFileMentions } from "../lib/recentProjectPathLinks";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { useVersion } from "./useVersion";
 
 const EMPTY_ITEMS: RenderItem[] = [];

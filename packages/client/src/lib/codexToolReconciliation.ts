@@ -4,7 +4,8 @@ import {
   type CodexToolCorrelationMetadata,
 } from "@yep-anywhere/shared";
 import type { Message } from "../types";
-import { getMessageContent, getMessageId, mergeMessage } from "./mergeMessages";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
+import { getMessageContent, mergeMessage } from "./mergeMessages";
 
 // A durable tool call is written near its live nested-tool or plan-update
 // event. Keep this window deliberately narrow and require exact normalized

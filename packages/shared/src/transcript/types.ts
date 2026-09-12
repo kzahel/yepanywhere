@@ -1,5 +1,5 @@
-import type { MarkdownAugment } from "@yep-anywhere/shared";
-import type { WorkflowSchemaFiles } from "./workflowTags";
+import type { MarkdownAugment } from "../index.js";
+import type { WorkflowSchemaFiles } from "./workflowTags.js";
 
 /**
  * When true, the session has active tool work or approval. Orphaned tools in

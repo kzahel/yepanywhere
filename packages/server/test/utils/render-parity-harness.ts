@@ -1,10 +1,10 @@
 import { augmentTaskListSnapshots } from "../../src/augments/task-list-augments.js";
 import { inspect } from "node:util";
-import { getMessageId } from "../../../client/src/lib/mergeMessages.js";
-import { compileTranscriptProjection } from "../../../client/src/lib/transcriptProjection/compiler.js";
-import type { TranscriptProjectionAugments } from "../../../client/src/lib/transcriptProjection/types.js";
-import type { Message as ClientMessage } from "../../../client/src/types.js";
-import type { RenderItem } from "../../../client/src/types/renderItems.js";
+import { getMessageId } from "@yep-anywhere/shared/transcript/message";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
+import type { TranscriptProjectionAugments } from "@yep-anywhere/shared/transcript/types";
+import type { Message as ClientMessage } from "@yep-anywhere/shared/transcript/message";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import { createStreamAugmenter } from "../../src/augments/stream-augmenter.js";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import { augmentPersistedSessionMessages } from "../../src/sessions/persisted-augments.js";

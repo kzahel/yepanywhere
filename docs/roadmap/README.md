@@ -17,8 +17,8 @@ App Store and Google Play, not stop at internal testing.
 
 **Status:** in progress. The API/client development sequence is selected: a
 minimal multi-server web demo first with Android following closely on the same
-simplified contracts. The offline TypeScript/Kotlin schema spike is implemented;
-live API/client work remains ahead. iOS is deferred to a later scoped effort.
+simplified contracts. The offline TypeScript/Kotlin schema and bounded server
+Conversation producer are implemented; live API/client work remains ahead. iOS is deferred to a later scoped effort.
 Exact API and mobile release scope remain design work.
 
 ### Current baseline
@@ -119,9 +119,10 @@ alternative. Exact action coverage and store-release acceptance remain open.
 The [offline contract spike](../../packages/shared/contracts/README.md) has shared
 Claude/Codex-derived and synthetic examples, generated TypeScript/Kotlin decoding
 with unknown fallbacks, and an explicit two-compaction-then-message-count rule.
-Next make the compiler core server-usable with existing parity tests, complete
-the operation/capability release review, and implement the first bounded
-read/subscription slice with real multi-source web and Android consumption.
+The shared compiler extraction and automatic Conversation projection are now
+implemented. Next complete the operation/capability release review and connect
+bounded acquisition plus shared subscription ownership to that producer, then
+prove real multi-source web and Android consumption.
 Measure the recorded cost budgets; offline fixtures are not live integration.
 Desktop release and continuous-delivery work continue independently.
 

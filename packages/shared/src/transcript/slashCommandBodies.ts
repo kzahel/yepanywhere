@@ -1,10 +1,6 @@
-import type { ContentBlock, Message } from "../../types";
-import type {
-  RenderItem,
-  SystemItem,
-  UserPromptItem,
-} from "../../types/renderItems";
-import { getMessageId } from "../mergeMessages";
+import type { ContentBlock, Message } from "./message.js";
+import type { RenderItem, SystemItem, UserPromptItem } from "./items.js";
+import { getMessageId } from "./message.js";
 
 export function contentBlocksText(content: string | ContentBlock[]): string {
   if (typeof content === "string") {

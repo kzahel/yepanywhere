@@ -2,7 +2,7 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { RenderItem } from "../../client/src/types/renderItems.js";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import {
   captureRoot,
   discoverCaptures,

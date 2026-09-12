@@ -10,7 +10,7 @@ import {
   mergeStreamMessage,
 } from "../../client/src/lib/mergeMessages.ts";
 import { reconcileCodexToolMessages } from "../../client/src/lib/codexToolReconciliation.ts";
-import { compileTranscriptProjection } from "../../client/src/lib/transcriptProjection/compiler.ts";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import type { Message as ClientMessage } from "../../client/src/types.ts";
 import { CodexProvider } from "../src/sdk/providers/codex.js";
 import { normalizeSession } from "../src/sessions/normalization.js";

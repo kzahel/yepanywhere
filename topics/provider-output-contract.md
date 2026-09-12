@@ -375,7 +375,7 @@ combined output and `exitCode`. Without `is_error: true`, identical text
 remains command output.
 
 Display rules (client, `getCommandResultMeta`/`formatCommandDuration` in
-`packages/client/src/lib/shellToolOutput.ts`):
+`packages/shared/src/transcript/shellToolOutput.ts`):
 
 - **Exit code 0 is never shown** — success is the default; a visible exit
   code always means failure. Every nonzero command result shows `rc=N` in the

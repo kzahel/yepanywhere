@@ -37,7 +37,7 @@ import {
   type SessionHistorySearchWorkerResponse,
 } from "../lib/sessionHistorySearch";
 import type { GetSessionResult } from "../lib/sourceRuntime";
-import type { RenderItem } from "../types/renderItems";
+import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import type {
   UserTurnNavAnchor,
   UserTurnNavSearchState,

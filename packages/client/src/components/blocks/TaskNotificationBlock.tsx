@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { getFilename } from "../../lib/parseUserPrompt";
-import type { TaskNotificationItem } from "../../types/renderItems";
+import type { TaskNotificationItem } from "@yep-anywhere/shared/transcript/items";
 
 interface Props {
   item: TaskNotificationItem;

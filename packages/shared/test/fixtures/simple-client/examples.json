@@ -1,7 +1,7 @@
 [
   {
     "file": "claude-conversation.json",
-    "provenance": "manual-projection-of-real-capture",
+    "provenance": "server-projection-of-real-capture",
     "capture": "claude-basic-2026-09-12",
     "sourceKey": "fixture-source-a",
     "kind": "conversation",
@@ -9,7 +9,7 @@
   },
   {
     "file": "codex-conversation.json",
-    "provenance": "manual-projection-of-real-capture",
+    "provenance": "server-projection-of-real-capture",
     "capture": "codex-basic-2026-09-12",
     "sourceKey": "fixture-source-a",
     "kind": "conversation",
@@ -42,7 +42,7 @@
   },
   {
     "file": "claude-tail.json",
-    "provenance": "manual-tail-of-real-projection",
+    "provenance": "server-selected-tail-of-real-projection",
     "sourceKey": "fixture-source-a",
     "kind": "conversation",
     "messageCount": 2

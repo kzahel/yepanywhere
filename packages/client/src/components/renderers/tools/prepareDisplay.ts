@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ToolCallItem } from "../../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 
 export type DisplayStatus = ToolCallItem["status"];
 export interface DisplayRecord {

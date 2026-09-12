@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { canonicalizeToolName } from "../../../lib/toolNames";
-import type { ToolCallItem } from "../../../types/renderItems";
+import type { ToolCallItem } from "@yep-anywhere/shared/transcript/items";
 import type { RenderContext } from "../types";
 import type { DisplayRecord, CheckedToolDefinition } from "./defineTool";
 import { defineTool } from "./defineTool";

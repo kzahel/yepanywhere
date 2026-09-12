@@ -5,7 +5,7 @@ import {
   type UrlProjectId,
 } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
-import { compileTranscriptProjection } from "../../../client/src/lib/transcriptProjection/compiler.js";
+import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import type { Message as ClientMessage } from "../../../client/src/types.js";
 import { CodexProvider } from "../../src/sdk/providers/codex.js";
 import { normalizeSession } from "../../src/sessions/normalization.js";
