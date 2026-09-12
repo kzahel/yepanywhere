@@ -279,8 +279,8 @@ were not established by inspecting the public repository.
 The [App Server documentation](https://learn.chatgpt.com/docs/app-server)
 also describes experimental `dynamicTools` and the `item/tool/call` exchange:
 a client can implement tools and return content, including images, over its
-existing Codex connection. This is a candidate YA integration mechanism, not
-evidence that Sky uses that particular hook or that YA already handles it.
+existing Codex connection. YA now uses this hook for the preview described
+above; that does not establish that Sky uses the same hook.
 
 ## Earlier candidate exploration (superseded by the preview contract)
 
