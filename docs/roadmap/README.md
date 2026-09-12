@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-09-11.
+Last updated: 2026-09-12.
 
 This is Yep Anywhere's canonical product-priority overview. Keep initiative
 status, the next action, and major blockers here; keep implementation steps in
@@ -133,7 +133,7 @@ documents before defining work.
 | Node 22 and built-in SQLite | Follow the approved [runtime cutover plan](../tactical/123-node-22-builtin-sqlite-cutover.md): raise the server runtime floor now, retain older-server hosted frontend support with advisory runtime warnings, and gate new SQLite-backed features by their exact capabilities before considering any separate frontend cutoff. |
 | Source workflow depth and traceability | Build on [Source Control](../../topics/source-control.md), [review handoff](../../topics/source-review-to-session.md), and [commit/session attribution](../../gaps/committed-change-session-attribution.md). Additional Git or terminal controls need a concrete user workflow. |
 | Provider maturity and other deferred work | Consult the owning provider topics and [deferred backlog](../../topics/deferred-roadmap.md); its local ordering does not override this product priority. |
-| macOS backend reload continuity | [Provider-host port](../tactical/128-macos-provider-host.md) implemented for Node source checkouts; native Mac ownership and live Codex reload/approval verified. Live Claude and simultaneous-provider verification remain blocked by organization access; Linux native and assembled tests pass; detailed evidence is tracked in the plan. This developer iteration work does not displace release delivery. |
+| macOS backend reload continuity | [Provider-host port](../tactical/128-macos-provider-host.md) completed for Node source checkouts: live Claude/Codex reload, approval, durable resume, concurrent sessions and terminal cleanup verified. Native CI passes on Linux, Apple Silicon/Intel Mac and Windows fallback; [evidence](../../topics/reload-safe-provider-runtimes.md#macos-live-verification-2026-09-12) records the exact runtime scope. The separate [Claude project-alias history gap](../../gaps/claude-symlink-project-transcript-routing.md) remains open. This developer iteration work does not displace release delivery. |
 
 ## What changed from the old roadmap
 

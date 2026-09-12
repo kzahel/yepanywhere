@@ -1,10 +1,14 @@
-import { readFile, writeFile, rm } from "node:fs/promises";
+import { readFile, writeFile, rm, realpath } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture.js";
 
 const statePath = process.env.YA_LIVE_HOST_STATE;
+const provider = process.env.YA_LIVE_HOST_PROVIDER ?? "codex";
+if (provider !== "claude" && provider !== "codex") {
+  throw new Error("YA_LIVE_HOST_PROVIDER must be claude or codex");
+}
 test.skip(
   !statePath,
   "Requires an explicitly isolated live provider-host wrapper",
@@ -13,11 +17,19 @@ test.afterAll(async () => {
   await presentUiCaptures();
 });
 
-test("Codex durable resume, browser reload and original native approval", async ({
+test(`${provider} durable resume, browser reload and original native approval`, async ({
   page,
 }) => {
   const state = JSON.parse(await readFile(statePath!, "utf8"));
-  const { directory, port, projectId, codexSmoke: session } = state;
+  const { directory, port, projectId } = state;
+  const session = provider === "claude" ? state.claudeSmoke : state.codexSmoke;
+  const model =
+    session.model ?? (provider === "claude" ? "sonnet" : "gpt-6-astra");
+  // Claude resolves its cwd before choosing its native transcript directory.
+  // On macOS /tmp is an alias of /private/tmp; use the canonical fixture path.
+  expect(await realpath(join(directory, "project"))).toBe(
+    join(directory, "project"),
+  );
   const root = resolve("../..");
   const api = async (path: string, body?: unknown) => {
     const response = await fetch(`http://127.0.0.1:${port}/api${path}`, {
@@ -103,8 +115,8 @@ test("Codex durable resume, browser reload and original native approval", async 
   let sourceEdited = false;
   try {
     await api(`/projects/${projectId}/sessions/${session.sessionId}/resume`, {
-      provider: "codex",
-      model: "gpt-6-astra",
+      provider,
+      model,
       effort: "low",
       mode: "bypassPermissions",
       message:
@@ -150,6 +162,10 @@ test("Codex durable resume, browser reload and original native approval", async 
     evidence.after = after;
     expect(after.pid).toBe(before.pid);
     expect(after.runtimeId).toBe(before.runtimeId);
+    expect(after.providerSessionId).toBe(before.providerSessionId);
+    expect(after.providerProcessGroupIds).toEqual(
+      before.providerProcessGroupIds,
+    );
     expect(after.attachedServerGeneration).not.toBe(
       before.attachedServerGeneration,
     );
@@ -182,7 +198,10 @@ test("Codex durable resume, browser reload and original native approval", async 
       .toBe(false);
     await api(`/sessions/${session.sessionId}/messages`, {
       mode: "default",
-      message: `Request explicit permission to execute this command with escalated sandbox permissions, then execute it: echo APPROVED > ${directory}/approval-result.txt . This is a deliberate approval test; do not use a different tool or path.`,
+      message:
+        provider === "claude"
+          ? `Use Bash to execute exactly: echo APPROVED > ${directory}/approval-result.txt . Request tool permission and wait for approval; do not use another tool or path.`
+          : `Request explicit permission to execute this command with escalated sandbox permissions, then execute it: echo APPROVED > ${directory}/approval-result.txt . This is a deliberate approval test; do not use a different tool or path.`,
     });
     await expect
       .poll(
@@ -208,6 +227,10 @@ test("Codex durable resume, browser reload and original native approval", async 
       await api(`/sessions/${session.sessionId}/pending-input`)
     ).request;
     evidence.approvalAfter = requestAfter;
+    // Process creates a new UI request id after attach; the worker retains
+    // the original provider callback and routes the new response back to it.
+    expect(requestAfter.toolName).toBe(requestBefore.toolName);
+    expect(requestAfter.toolInput).toEqual(requestBefore.toolInput);
     await api(`/sessions/${session.sessionId}/input`, {
       requestId: requestAfter.id,
       response: "approve",
@@ -218,6 +241,25 @@ test("Codex durable resume, browser reload and original native approval", async 
       })
       .toBe(true);
     expect((await runtime()).pid).toBe(approvalWorker.pid);
+    await expect
+      .poll(
+        async () =>
+          (await api(`/sessions/${session.sessionId}/process`)).process?.state,
+        { timeout: 30_000 },
+      )
+      .toBe("idle");
+    // An empty persisted transcript plus a surviving live tail is not recovery.
+    const transcriptPath = `/projects/${projectId}/sessions/${session.sessionId}`;
+    await expect
+      .poll(async () => JSON.stringify((await api(transcriptPath)).messages), {
+        timeout: 30_000,
+      })
+      .toContain("browser-progress.txt");
+    const transcript = await api(transcriptPath);
+    expect(JSON.stringify(transcript.messages)).toContain(
+      "approval-result.txt",
+    );
+    evidence.persistedMessageCount = transcript.messages.length;
     evidence.outcome = "passed";
     await page.reload();
     for (const viewport of [
@@ -234,7 +276,7 @@ test("Codex durable resume, browser reload and original native approval", async 
       ).not.toBeVisible({ timeout: 30_000 });
       await recordUiCapture(
         page,
-        `codex-live-reload-${viewport.width}`,
+        `${provider}-live-reload-${viewport.width}`,
         viewport,
       );
     }
@@ -245,7 +287,7 @@ test("Codex durable resume, browser reload and original native approval", async 
     }
     await writeFile(release, "cleanup");
     await writeFile(
-      join(directory, "browser-live.json"),
+      join(directory, `${provider}-browser-live.json`),
       JSON.stringify(evidence, null, 2),
     );
   }

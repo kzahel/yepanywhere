@@ -10,9 +10,10 @@
 Topic: reload-safe-provider-runtimes
 
 Status: **implemented on Linux and macOS Node source checkouts for the non-watch
-development wrapper and foreground host.** macOS live Codex continuity is
-verified; live Claude and simultaneous Claude/Codex verification remain blocked
-by native account access. See [macOS evidence](#macos-verification-2026-09-11). Codex, Claude, Gemini, Grok, OpenCode, Pi, and
+development wrapper and foreground host.** macOS live Claude, Codex, and
+simultaneous Claude/Codex continuity are verified on canonical project paths.
+See [initial macOS evidence](#macos-verification-2026-09-11) and
+[live completion evidence](#macos-live-verification-2026-09-12). Codex, Claude, Gemini, Grok, OpenCode, Pi, and
 Codex OSS all use the shared provider host. The former
 `codexReloadSafeSessions` setting remains accepted and stored for compatibility
 but is inert and hidden from the current client.
@@ -275,7 +276,11 @@ new request id. A new Hono generation receives the same pending request once
 and routes it through the new `Process.handleToolApproval` callback. If the
 provider cancels the request, the worker aborts that callback's signal so the
 UI cannot wait on a request that no longer exists. YA never auto-approves
-across a reload.
+across a reload. The stable id belongs to the worker protocol: the replacement
+`Process` allocates a fresh UI `InputRequest.id`. Clients answer the currently
+published UI request; its response resolves the original worker promise.
+Continuity checks compare the pending tool/input and original provider
+execution, rather than requiring UI request ids to survive Hono replacement.
 
 Callbacks that are observations rather than questions are represented as
 state: the worker records the most recently applied permission mode, provider
@@ -1034,6 +1039,95 @@ conversation contains nine distinct test turns with no duplicate starts or
 terminal records across the repeated smoke attempts.
 A live smoke does not provide exact cursor/byte replay telemetry; the native
 transcript and live-only lifecycle evidence serve different assertions.
+
+## macOS live verification, 2026-09-12
+
+The account-access deferral in tactical 128 is closed. Validation used YA
+`6ef7771748797ab5ac5ffb943a54adcf609f3a43` plus the credentialed test extension,
+macOS 26.5.1 (25F80), arm64, Node 24.20.0, and the non-watch source wrapper.
+The actual Claude session used SDK 0.3.258 / bundled CLI 2.1.258 with
+`claude-sonnet-5`; the actual Codex transcript reports app-server
+`0.154.0-alpha.6.2`, `gpt-6-astra`, low effort. The shell's independently
+installed `claude` 2.1.268 and `codex` 0.153.4 were not the runtime-version
+oracle. This validation did not update providers or widen compatibility.
+
+The canonical synthetic project, YA data, private host directory and three
+ports were isolated. Same-user provider authentication and native transcript
+stores were intentionally shared; credentials were not copied or logged.
+
+| Scenario | Result |
+| --- | --- |
+| New Claude session, API reload during a numbered foreground command | Same host, worker, provider process group, YA/native session and original tool call; complete ordered progress |
+| Second Claude command, wrapper HUP | Same retained runtime and original tool call; complete ordered progress |
+| Native Claude approval across reload, then another turn | Reconstructed UI approval resolves the original SDK callback; later turn completes |
+| Claude and Codex commands active together, API and HUP | Both original workers/providers survive each replacement; both commands complete |
+| Terminal shutdown, then durable resume for each provider | Old process groups and sockets disappear; each native conversation resumes into a fresh hosted worker |
+| Hono-only edit and browser Server changed → Reload, each provider | Changed backend property appears, worker/provider identity persists, unsent draft survives, test edit is restored |
+| Browser-run native approvals, each provider | Same pending tool/input after attach; approval completes the original command and persisted history remains readable |
+| Two native approvals pending across the same reload | Both requests return; approving Claude leaves Codex pending; each command executes exactly once |
+| Final terminal cleanup | Every recorded worker/provider process group and owned socket is gone |
+
+The initial Claude API/HUP replacements attached in 1812/1264 ms; its approval
+replacement took 1531 ms. Combined API/HUP replacements took 1791/1786 ms.
+These are observed smoke timings, not performance ceilings. Wrapper-child
+snapshots show the host retained while Hono and Vite were replaced.
+The native audit pairs all eight Claude tool calls with exactly one successful
+result and records ten user turns with ten assistant end-turns. Codex has six
+unique started turns, each with one matching terminal event. Each measured
+API/HUP reload interval lies within its original Claude tool call or Codex
+turn, rather than an implicit restart/resume. After the combined approval run,
+the session-detail API returned 97 Claude and 41 Codex persisted records.
+
+The 54 focused native tests passed locally without skips. The existing
+[CI run for the tested base commit](https://github.com/kzahel/yepanywhere/actions/runs/34641697632)
+also passed native provider-host jobs on Linux, Apple Silicon Mac, Intel Mac,
+and Windows fallback, closing the previously pending CI evidence. The
+assembled production-worker test remains the exact replay/callback oracle:
+its provider seam is fake, while wrapper, Hono, owner, worker and sockets are
+real. Live smokes do not claim exact acknowledgement cursor/byte telemetry.
+Bun, compiled macOS servers and Desktop remain outside the enabled boundary.
+
+Final local checks passed: `pnpm lint` (zero warnings, two informational
+suggestions), `pnpm format:check`, `pnpm typecheck`, `pnpm test` (11,763 passed,
+29 skipped), and `pnpm test:e2e` (226 passed, eight skipped). Both explicit
+credentialed browser runs passed in addition to the ordinary suite. The console
+scan passed with unchanged budgets: 110 ungated sites, 61 warn sites and 92
+error sites; this validation adds no client console calls.
+
+Local evidence is under `.artifacts/ui-testing/2026-09-12-provider-host/`:
+`evidence/live.json`, `native-audit.json`, `dual-approval.json`, both
+`*-browser-live.json` files, and `final-cleanup.json`. Desktop 1000×600 and
+phone 375×812 captures in `canonical-captures/` show recovered transcripts,
+completed approvals and reachable composer controls, without a stale-server
+banner. The artifact capture facility presents those captures.
+
+The credentialed browser runner now selects Claude or Codex explicitly:
+
+```bash
+YA_LIVE_HOST_STATE=/absolute/path/to/state.json \
+YA_LIVE_HOST_PROVIDER=claude \
+YEP_E2E_UI_CAPTURE_DIR=/absolute/path/to/captures \
+pnpm --filter @yep-anywhere/client exec playwright test \
+  --config playwright.provider-host.config.ts
+```
+
+Repeat with `YA_LIVE_HOST_PROVIDER=codex` (the default). State contains the
+canonical fixture `directory`, server `port`, `projectId`, and the chosen
+`claudeSmoke` or `codexSmoke` object with `sessionId` and optional `model`.
+The wrapper must already be running with its host under `directory/host` and
+project under `directory/project`. To prove durable resume, stop the prior
+wrapper, verify cleanup, and start a fresh wrapper with the same isolated data
+before running the browser case. API/HUP command and simultaneous-approval
+smokes use the same session REST routes and private host inventory; wait for
+actual command progress or pending input before requesting replacement.
+
+Resolve the fixture directory with `realpath` before registering the project.
+A `/tmp` alias initially appeared to pass live continuity, but Claude persisted
+under `/private/tmp` and the selected YA route lost access to history. The
+browser test now rejects noncanonical fixtures and explicitly requires
+persisted command/approval records after reload. The general alias-routing
+bug remains in [its own gap](../gaps/claude-symlink-project-transcript-routing.md);
+this test correction does not fix or hide that separate defect.
 
 ## Verification Matrix
 

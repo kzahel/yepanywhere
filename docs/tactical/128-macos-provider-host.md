@@ -1,11 +1,12 @@
 # macOS provider-host support
 
-Status: implemented with remaining live-provider verification, 2026-09-11.
-macOS Node source support, native ownership, assembled production-worker tests,
-Linux regression coverage, and live Codex reload/approval are verified. Native
-Claude refuses this account with `oauth_org_not_allowed`; the maintainer has
-deferred live Claude and concurrent Claude/Codex validation until later. Those
-cells remain open. This plan is not retired or marked fully complete.
+Status: completed for the approved Node source-checkout scope, 2026-09-12.
+Native Mac ownership, assembled production-worker replay/callbacks, live Claude
+and Codex reload/approval/resume, simultaneous active turns and approvals, and
+terminal cleanup are verified. The previous `oauth_org_not_allowed` deferral
+is closed. Linux, Apple Silicon Mac, Intel Mac and Windows fallback CI jobs
+passed for the tested base commit. Evidence and remaining support boundaries
+are in the owning [runtime topic](../../topics/reload-safe-provider-runtimes.md#macos-live-verification-2026-09-12).
 
 Topic: reload-safe-provider-runtimes
 
@@ -270,22 +271,24 @@ test commands when source changes land, plus browser E2E for UI source changes.
 - [x] Launch modes/capabilities and unsupported-runtime fallbacks documented.
 - [x] Existing process tests pass on Linux and Mac without unintentional skips.
 - [x] Assembled real-worker test proves replay, callbacks and replacement.
-- [ ] Real Claude and Codex active-turn, approval and subsequent-turn runs pass.
+- [x] Real Claude and Codex active-turn, approval and subsequent-turn runs pass.
 - [x] Browser reload, pending input, and degraded-mode controls verified.
 - [x] Failure/terminal tests leave no owned survivors or recurring idle work.
 - [x] Focused CI coverage and evidence locations recorded.
 - [x] Owning architecture/runtime/API topics updated to actual supported modes.
 
 Implementation evidence and repeatable commands are in the owning
-[runtime topic](../../topics/reload-safe-provider-runtimes.md#macos-verification-2026-09-11).
-CI jobs are configured, not claimed as executed: Intel Mac and Windows runner
-results remain pending the next CI run. Detailed live transport cursor/byte
-telemetry and the full combined-provider matrix are not established by these
-smokes; deterministic tests cover the replay protocol separately.
+[runtime topic](../../topics/reload-safe-provider-runtimes.md#macos-live-verification-2026-09-12).
+The 2026-09-12 validation closes the live Claude/concurrent-provider cells and
+the previously pending native CI results. Both credentialed browser cases
+verify durable history as well as surviving workers. Exact replay cursor/byte
+assertions remain in the deterministic production-worker/protocol suites;
+these live smokes are integration evidence, not a transport benchmark.
 
-Keep unchecked cells and provider-specific gaps visible. Host PID survival,
-mock-only success, a resumed conversation, or a green Linux job is insufficient
-to mark the port complete. Disable the new Mac capability if its probe or
-ownership guarantees cannot be met; fall back before launching sessions rather
-than trying to migrate live adapters after failure. Retire this plan only after
-durable contracts and verification procedures are in their owning topics.
+The `/tmp` versus `/private/tmp` Claude transcript-routing issue discovered in
+validation remains a [separate gap](../../gaps/claude-symlink-project-transcript-routing.md).
+It is not repaired by canonicalizing the test fixture. Bun, compiled macOS
+servers and Desktop remain excluded rather than inheriting this result.
+
+This completed plan is retained as the implementation record; current
+contracts and repeatable verification procedures live in the owning topics.
