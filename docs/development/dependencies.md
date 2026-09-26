@@ -56,3 +56,31 @@ analysis:
 | `uuid` buffer bounds (GHSA-w5hq-g745-h8pq) | Only path is `firebase-admin -> @google-cloud/storage -> gaxios@6`, which calls `uuid.v4()` with no arguments; the defect needs v3/v5/v6 with a caller-supplied `buf`. Patched only in `>=11.1.1`, outside gaxios 6's `^9` range | `firebase-admin`/`gaxios` declare uuid `>=11`, or a 9.x patch release appears |
 
 Anything not on this list is untriaged — treat a new advisory as actionable.
+
+## Automated Dependency Updates
+
+The hosted Mend Renovate app proposes updates from `renovate.json`, using
+GitHub's Dependabot alerts and OSV as advisory sources. Dependabot security
+and version updates stay off so the same bump never arrives twice. Update
+PRs open weekly, at most five at a time, after a release is 3 days old;
+security fixes skip both waits. The Dependency Dashboard issue lists
+everything pending.
+
+- Renovate automerges only non-major devDependency updates at 1.0 or later
+  and non-major GitHub Actions updates and digest pins. Everything else waits
+  for review.
+- `platformAutomerge` is off: `main` has no required status checks, so
+  GitHub's native automerge could merge a PR with failing checks. Renovate
+  merges only after every check on the branch passes.
+- Workflow runtime inputs (`node-version`, `go-version`, `toolchain`,
+  `java-version`) are not updated; CI deliberately runs at the supported
+  Node floor.
+- Major updates to `pnpm-workspace.yaml` overrides are disabled; see the
+  exact `fast-uri` pin above.
+- `@anthropic-ai/claude-agent-sdk` and the pixi STT environment update
+  only when requested from the dashboard, because they follow the
+  [provider refresh](../../topics/provider-refresh.md) audit and the
+  known-good STT snapshot respectively.
+
+Before changing `renovate.json`, run
+`npx --package=renovate -- renovate-config-validator --strict`.

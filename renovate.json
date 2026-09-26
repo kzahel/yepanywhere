@@ -1,0 +1,64 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Policy and rationale: docs/development/dependencies.md (Automated dependency updates).",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "schedule:weekly"
+  ],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "minimumReleaseAge": "3 days",
+  "osvVulnerabilityAlerts": true,
+  "platformAutomerge": false,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 0-3 1 * *"]
+  },
+  "packageRules": [
+    {
+      "description": "Automerge non-major devDependency updates once every check passes. 0.x packages stay manual because their minor releases may break.",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^[~^]?0\\./",
+      "groupName": "devDependencies (non-major)",
+      "automerge": true
+    },
+    {
+      "description": "Group and automerge non-major GitHub Actions updates and digest pins.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pinDigest"],
+      "groupName": "GitHub Actions (non-major)",
+      "automerge": true
+    },
+    {
+      "description": "Workflow runtime versions (node-version, go-version, toolchain) are deliberate; CI runs at the supported Node floor.",
+      "matchManagers": ["github-actions"],
+      "matchDepTypes": ["uses-with"],
+      "enabled": false
+    },
+    {
+      "description": "pnpm overrides are security pins; a major can escape the parent's declared range (fast-uri must stay 3.x for ajv).",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["pnpm-workspace.overrides"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "Keep Tauri plugins moving together across npm and Cargo. Core Tauri is grouped by monorepo:tauri.",
+      "matchPackageNames": ["@tauri-apps/plugin-*", "tauri-plugin-*"],
+      "groupName": "Tauri plugins"
+    },
+    {
+      "description": "Claude Agent SDK refreshes follow topics/provider-refresh.md and update yepAnywhere.claudeCode.claudeAgentSdkVersion; request them from the Dependency Dashboard.",
+      "matchPackageNames": ["@anthropic-ai/claude-agent-sdk"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "The optional STT pixi environment is held to a known-good snapshot and is not exercised by CI; request updates from the Dependency Dashboard.",
+      "matchManagers": ["pixi"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}
