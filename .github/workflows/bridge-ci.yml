@@ -108,8 +108,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # The runner image ships the Android SDK; install only what the build
+      # needs, as android-app-ci.yml does.
+      - name: Install Android SDK packages
+        run: >-
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          'platforms;android-36' 'build-tools;35.0.0'
 
       - name: Build APK
         working-directory: packages/android-device-server
