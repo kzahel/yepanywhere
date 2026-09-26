@@ -1,5 +1,10 @@
 name: CI
-on: [push, pull_request]
+# Other branches run through their pull request; pushing them too would run
+# every PR (Renovate's included) twice.
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 # Server checks run at the supported Node floor. SQLite boundary and Bun
 # distribution checks live in sqlite.yml; managed runners retain their own floor.

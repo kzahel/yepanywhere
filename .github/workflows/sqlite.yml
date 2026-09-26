@@ -2,6 +2,7 @@ name: Server Runtime And SQLite
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 env:

@@ -7,8 +7,9 @@ otherwise.
 
 ## Dependency Security Maintenance
 
-CI runs `pnpm audit --prod` on every push (the `audit` job in `ci.yml`) and it
-must exit 0. Pay special attention to the `web-push -> asn1.js -> bn.js` chain.
+CI runs `pnpm audit --prod` on every pull request and push to `main` (the
+`audit` job in `ci.yml`) and it must exit 0. Pay special attention to the
+`web-push -> asn1.js -> bn.js` chain.
 Keep `bn.js` patched (currently via pnpm override) until `web-push` ships an
 upstream fix.
 
