@@ -6201,7 +6201,7 @@ version = "0.2.1"
 dependencies = [
  "dirs 5.0.1",
  "libc",
- "rand 0.8.5",
+ "rand 0.9.2",
  "reqwest 0.12.28",
  "rustls",
  "semver",

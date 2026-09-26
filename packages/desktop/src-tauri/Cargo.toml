@@ -19,7 +19,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 dirs = "5.0"
 reqwest = { version = "0.12", features = ["rustls-tls", "stream", "json"] }
-rand = "0.8"
+rand = "0.9"
 semver = "1"
 url = "2"
 tempfile = "3"
