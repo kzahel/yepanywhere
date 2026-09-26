@@ -26,6 +26,11 @@
         "tagPrefix": "desktop-latest-v",
         "releaseKind": "prerelease"
       }
+    },
+    "downloads": {
+      "macos-arm64": { "asset": "YepAnywhere_*_aarch64.dmg" },
+      "macos-x64": { "asset": "YepAnywhere_*_x64.dmg" },
+      "windows-x64": { "asset": "YepAnywhere_*_x64-setup.exe" }
     }
   },
   {

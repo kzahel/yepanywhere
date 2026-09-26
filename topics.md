@@ -406,3 +406,5 @@
 - limited-users - A second class of principal beside the superuser: per-project
   grants, join freshness, provider/model/effort lock, and default-deny
   authorization behind a sticky sidebar Users section.
+- desktop-downloads - Stable desktop installer redirects and one public
+  downloads page for the macOS and Windows beta apps.
