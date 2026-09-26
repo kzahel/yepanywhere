@@ -10,7 +10,7 @@
     "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.13",
+    "@hono/node-server": "^1.19.17",
     "@yep-anywhere/shared": "workspace:*",
     "firebase-admin": "^14.2.0",
     "hono": "^4.13.5",

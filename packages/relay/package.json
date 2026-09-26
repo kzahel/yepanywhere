@@ -10,7 +10,7 @@
     "test": "node ../../scripts/run-with-safe-home.js vitest run"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.13",
+    "@hono/node-server": "^1.19.17",
     "@yep-anywhere/shared": "workspace:*",
     "hono": "^4.13.5",
     "pino": "^10.1.0",
