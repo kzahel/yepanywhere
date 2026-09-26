@@ -1007,7 +1007,7 @@ pnpm --filter @yep-anywhere/server exec vitest run \
   test/sdk/providers/provider-host-status.test.ts \
   test/sdk/providers/managed-runner.test.ts \
   test/supervisor/sessionActivationCoordinator.test.ts \
-  --maxWorkers=1 --minWorkers=1 --testTimeout=20000
+  --maxWorkers=1 --testTimeout=20000
 ```
 
 The assembled case runs actual wrapper, Hono, production worker,

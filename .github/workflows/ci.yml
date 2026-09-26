@@ -91,7 +91,7 @@ jobs:
           test/scripts/provider-host-system.test.mjs
           test/sdk/providers/provider-runtime-host.test.ts
           test/sdk/providers/provider-host-status.test.ts
-          --maxWorkers=1 --minWorkers=1 --testTimeout=20000
+          --maxWorkers=1 --testTimeout=20000
 
   agent-self-source:
     strategy:
