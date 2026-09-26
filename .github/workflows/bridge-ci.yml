@@ -56,6 +56,14 @@ jobs:
           go-version-file: packages/device-bridge/go.mod
           cache-dependency-path: packages/device-bridge/go.sum
 
+      # Tests run on the runner's own platform; darwin/amd64 is cross-compiled.
+      - name: Test
+        if: ${{ !(matrix.goos == 'darwin' && matrix.goarch == 'amd64') }}
+        working-directory: packages/device-bridge
+        env:
+          CGO_ENABLED: '1'
+        run: go test ./...
+
       - name: Build binary
         working-directory: packages/device-bridge
         env:
