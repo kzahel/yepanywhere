@@ -39,9 +39,11 @@ Exact API and mobile release scope remain design work.
   desktop releases. [Nightly Desktop](../../.github/workflows/nightly-desktop.yml)
   publishes verified `main` changes to Latest; the first signed nightlies and
   the unchanged-source skip have passed release validation. The
-  [2026-09-10 nightly run](https://github.com/kzahel/yepanywhere/actions/runs/34450193826)
-  is blocked by a release-creation authorization error (HTTP 403); credential
-  repair is excluded from the current CI repair work.
+  release-creation authorization failures of 2026-09-09 to 2026-09-15 have not
+  recurred: every nightly from 2026-09-16 through 2026-09-26 succeeded.
+- The website still sends desktop visitors to the mixed GitHub Releases page.
+  [Desktop download links](../tactical/134-desktop-download-links.md) plans
+  platform-detected stable installer links through the update server.
 - The [server runtime matrix](https://github.com/kzahel/yepanywhere/actions/runs/34485119811)
   now passes full packaged startup on Linux, macOS and Windows across all four
   Node versions and the pinned Bun runtime, including clean npm installations.
