@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-26
+
+### Security
+- A limited user who logged in directly and opened the WebSocket no longer
+  acts as the superuser; the socket binds the login instead of trusting
+  per-request headers.
+- Turning limited users off now refuses their live logins instead of
+  promoting them to the superuser.
+- Limited-user access is judged by the routed path, never the query string,
+  so an unlisted route is no longer reachable by adding a granted
+  `projectId`. Settings secrets (such as the lifecycle webhook token),
+  host activity and recents are withheld from limited users, and file
+  editing is listed among the routes they never reach.
+- Computer-control routes now sit behind the same host, CORS, header, auth
+  and limited-user checks as the rest of `/api`.
+- Artifact rebuild is refused to anyone but the superuser, and approving a
+  rebuild approves only the command the dialog showed, not whatever is on
+  disk when the request arrives.
+- Artifact frames can no longer open popups that escape the sandbox and
+  reach the YA tab.
+- Copy public URL on a running preview no longer mints an unlisted public
+  grant covering the file's whole directory for a week; it copies the same
+  revocable file share as the file link's entry.
+- Updated `@hono/node-server` to 1.19.17, which fixes the serve-static
+  advisory (GHSA-frvp-7c67-39w9) that had been ignored as unreachable.
+
+### Added
+- The file viewer shows PDFs inline, plays audio and video, previews fonts,
+  and shows text files up to 100 MB. An opt-in Appearance setting,
+  "Draw PDFs with pdf.js", renders PDFs the browser will not show, with
+  pinch, Ctrl+wheel and button zoom; a PDF the browser blocks in a frame
+  offers a new tab.
+- Ctrl+F inside an artifact or file viewer searches only that viewer, and
+  the find field stays open until Escape.
+- A reload button in the session right pane refetches a rebuilt artifact
+  or app.
+- Cost estimates for GPT-6 Sol and Luna.
+
+### Changed
+- Codex 0.156.1 support: message-anchor forks no longer depend on the
+  removed `thread/rollback` method. Codex 0.157.0 is recorded as
+  compatible.
+
+### Fixed
+- Sessions with thinking off on Codex models without a "none" effort (such
+  as GPT-6 Astra) no longer fail their first turn with a 400.
+- Parked sessions keep their scroll position across A/B switches instead
+  of jumping to the top of the transcript.
+- A slash command typed in front of existing composer text now offers
+  completions.
+- Artifacts played in a file viewer or opened from session prose become
+  the session's App.
+- Section links in the sanitized HTML preview and fragment links in play
+  frames scroll in place; iframe titles no longer show as hover tooltips;
+  composer popovers draw over the docked right pane.
+- Shutting the server down no longer races the artifact server's startup
+  state writes.
+
 ## [0.9.1] - 2026-09-24
 
 ### Fixed
