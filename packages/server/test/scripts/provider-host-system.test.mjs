@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -10,6 +11,7 @@ import { requestProviderHost } from "../../../../scripts/provider-runtime-discov
 import { processGroupAlive } from "../../../../scripts/provider-process-identity.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+const tsxLoader = createRequire(import.meta.url).resolve("tsx");
 async function freePort() {
   const server = createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -42,7 +44,7 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
       const vitePort = await freePort();
       const env = {
         ...process.env,
-        NODE_OPTIONS: `--import tsx --import ${join(root, "packages/server/test/scripts/fixtures/provider-host-preload.mjs")}`,
+        NODE_OPTIONS: `--import ${tsxLoader} --import ${join(root, "packages/server/test/scripts/fixtures/provider-host-preload.mjs")}`,
         YA_HOST_TEST_ROOT: directory,
         YEP_DATA_DIR: join(directory, "data"),
         YEP_PROVIDER_HOST_ENABLED: "true",

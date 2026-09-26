@@ -28,6 +28,8 @@ export default defineConfig({
     setupFiles: ["./test/setup/hermetic-env.ts"],
     passWithNoTests: true,
     maxWorkers: 4,
+    // Vitest's CPU-derived minimum can exceed this cap on large hosts.
+    minWorkers: 1,
     // Root-invoked runs group projects by this order, and projects in one
     // group must share maxWorkers; client, shared and relay use other limits.
     sequence: { groupOrder: 2 },
