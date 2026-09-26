@@ -589,6 +589,9 @@ for (const viewport of [
       `all-sessions-provider-support-${viewport.name}`,
       viewport,
     );
+    // The session list keeps polling. Let intercepted requests finish before
+    // Playwright closes the page, or a route can be fulfilled after teardown.
+    await page.unrouteAll({ behavior: "wait" });
   });
 
   test(`All Sessions expands retained matches through scanning and live updates on ${viewport.name}`, async ({
