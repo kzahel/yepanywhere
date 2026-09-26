@@ -23,6 +23,7 @@ vi.mock("../../../hooks/useDeveloperMode", () => ({
 
 vi.mock("../ClientLogCollector", () => ({
   // A function implementation, not an arrow: the module constructs it with new.
+  // biome-ignore lint/complexity/useArrowFunction: this mock is called with new.
   ClientLogCollector: vi.fn(function () {
     return mocks.collector;
   }),
