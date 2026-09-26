@@ -1,10 +1,16 @@
 # Desktop downloads page and stable installer links
 
-Status: implementation verified locally, update-server routes deployed,
-website release pending, 2026-09-26. The server change is in
-`simple-app-update-server` commit `a6b5240`; this repository configures it in
-commit `2ed359595`.
+Status: shipped 2026-09-26 in website release `site-v1.11.0`. The server
+change is in `simple-app-update-server` commit `a6b5240`; this repository
+configures it in commit `2ed359595`. The website change is `1a8bfb3b7`.
 Contributing-model: opus-5.5.
+
+The [Pages deployment](https://github.com/kzahel/yepanywhere/actions/runs/36249703830)
+succeeded. The public `/download` page and its three installer links were
+verified live; each server route redirects to the corresponding Stable
+`desktop-v0.2.2` GitHub asset. Site build, validators, and visual checks passed
+locally at desktop and phone widths in light and dark themes. The full browser
+suite passed with 316 tests and 9 skips.
 
 ## Problem
 
