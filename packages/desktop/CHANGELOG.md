@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-26
+
+### Security
+- Updated the desktop shell's Rust dependencies past published advisories: rustls and rustls-webpki (certificate revocation list and name-constraint handling), h2 (unbounded empty DATA frames), tar (PAX header handling when the macOS updater unpacks an update), serde_with, quick-xml and anyhow.
+
 ## [0.2.1] - 2026-09-22
 
 ### Fixed
