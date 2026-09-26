@@ -465,6 +465,10 @@ export class ArtifactServer {
   }
 
   async close(): Promise<void> {
+    // Startup restores and writes state under stateDir; closing before that
+    // settles lets a caller remove the directory mid-write. Its failure is
+    // already reported by the constructor.
+    await this.ready.catch(() => {});
     this.listening = false;
     // Persisted grants outlive the process; only this listener stops here.
     clearInterval(this.sweepTimer);
