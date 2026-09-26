@@ -168,6 +168,21 @@ describe("fetchPlainJSON", () => {
 
   it("abandons a request the server never answers", async () => {
     vi.useFakeTimers();
+    // jsdom schedules AbortSignal.timeout on its own window timers, which the
+    // fake clock does not control; drive the same TimeoutError from it.
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockImplementation((milliseconds) => {
+        const controller = new AbortController();
+        setTimeout(
+          () =>
+            controller.abort(
+              new DOMException("The operation timed out.", "TimeoutError"),
+            ),
+          milliseconds,
+        );
+        return controller.signal;
+      });
     try {
       const fetchImpl = vi.fn<typeof fetch>((_url, init) => {
         return new Promise((_resolve, reject) => {
@@ -185,7 +200,9 @@ describe("fetchPlainJSON", () => {
 
       expect(settled).toHaveBeenCalledTimes(1);
       expect(isRequestDeadlineError(settled.mock.calls[0]?.[0])).toBe(true);
+      expect(timeout).toHaveBeenCalledWith(API_REQUEST_DEADLINE_MS);
     } finally {
+      timeout.mockRestore();
       vi.useRealTimers();
     }
   });

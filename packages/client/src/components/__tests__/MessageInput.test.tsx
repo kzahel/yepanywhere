@@ -6450,17 +6450,24 @@ describe("MessageInput bang commands", () => {
     history,
   });
 
+  type BangSupport = NonNullable<
+    ComponentProps<typeof MessageInput>["bangSupport"]
+  >;
+
   function bangSupport(
     overrides: Partial<{
-      onRun: ReturnType<typeof vi.fn>;
-      fetchCompletions: ReturnType<typeof vi.fn>;
+      onRun: BangSupport["onRun"];
+      fetchCompletions: BangSupport["fetchCompletions"];
       history: string[];
     }> = {},
-  ) {
+  ): BangSupport {
     return {
-      onRun: overrides.onRun ?? vi.fn(),
+      onRun: overrides.onRun ?? vi.fn<BangSupport["onRun"]>(),
       fetchCompletions:
-        overrides.fetchCompletions ?? vi.fn(async () => completionsResult([])),
+        overrides.fetchCompletions ??
+        vi.fn<BangSupport["fetchCompletions"]>(async () =>
+          completionsResult([]),
+        ),
       history: overrides.history ?? [],
     };
   }

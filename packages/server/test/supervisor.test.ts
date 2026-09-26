@@ -3,7 +3,7 @@ import {
   POST_COMPACT_REPLAY_CONTINUE,
   POST_COMPACT_REPLAY_PREAMBLE,
 } from "@yep-anywhere/shared";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ComputerSession } from "../src/computer-control/contract.js";
 import type { ComputerControlService } from "../src/computer-control/service.js";
 import { MessageQueue } from "../src/sdk/messageQueue.js";
@@ -122,6 +122,12 @@ describe("Supervisor", () => {
   beforeEach(() => {
     mockSdk = new MockClaudeSDK();
     supervisor = new Supervisor({ sdk: mockSdk, idleTimeoutMs: 100 });
+  });
+
+  // vi.spyOn returns the existing spy for an already-spied method, so an
+  // unrestored logger spy would carry one test's calls into the next.
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe("startSession", () => {

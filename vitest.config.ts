@@ -6,11 +6,17 @@
  * plus its setup file; server files get the hermetic-env setup. Without this,
  * root runs silently dropped every per-package test option and could fail
  * spuriously (RTL DOM accumulating across tests). `pnpm test` (pnpm -r test)
- * runs per package and is unaffected.
+ * runs per package and is unaffected. The root package does not depend on
+ * vitest, so this config exports a plain object rather than importing
+ * `vitest/config`.
  */
-export default [
-  "packages/client/vitest.config.ts",
-  "packages/server/vitest.config.ts",
-  "packages/shared",
-  "packages/relay",
-];
+export default {
+  test: {
+    projects: [
+      "packages/client/vitest.config.ts",
+      "packages/server/vitest.config.ts",
+      "packages/shared",
+      "packages/relay",
+    ],
+  },
+};

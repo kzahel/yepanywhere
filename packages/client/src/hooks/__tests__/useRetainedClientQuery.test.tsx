@@ -2,6 +2,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type ClientQueryCoverage,
+  type ClientQueryRequestContext,
   getClientQueryState,
   invalidateClientQuery,
   resetClientQueryControllerForTests,
@@ -81,7 +82,7 @@ function renderRetainedQuery({
   ready?: boolean;
   fetcher?: ReturnType<typeof vi.fn<() => Promise<string>>>;
   coverage?: ClientQueryCoverage;
-  applySnapshot?: ReturnType<typeof vi.fn>;
+  applySnapshot?: (result: string, context: ClientQueryRequestContext) => void;
   shouldRevalidateEvent?: (event: {
     eventType: string;
     data: unknown;

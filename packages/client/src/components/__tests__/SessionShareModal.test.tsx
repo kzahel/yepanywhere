@@ -141,6 +141,8 @@ describe("SessionShareModal", () => {
       configurable: true,
       value: { writeText },
     });
+    // vi.restoreAllMocks() only restores spies, so reset this shared mock.
+    writeText.mockReset();
     writeText.mockResolvedValue(undefined);
   });
 
@@ -779,6 +781,16 @@ describe("SessionShareModal", () => {
 
   it("revokes one opaque managed link", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    // Once revoked, the inventory refresh must not return the link again;
+    // otherwise the empty state shows only until that refresh lands.
+    vi.mocked(api.revokePublicShare).mockImplementation(async () => {
+      vi.mocked(api.getPublicShares).mockResolvedValue({
+        items: [],
+        nextCursor: null,
+        totalCount: 0,
+      });
+      return { revoked: true };
+    });
     render(
       <I18nProvider>
         <SessionShareModal

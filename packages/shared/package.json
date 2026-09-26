@@ -42,8 +42,9 @@
     "test": "node ../../scripts/run-with-safe-home.js vitest run"
   },
   "devDependencies": {
+    "@types/node": "^22.19.15",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "tssrp6a": "^3.0.0",

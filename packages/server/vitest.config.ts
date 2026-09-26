@@ -28,20 +28,15 @@ export default defineConfig({
     setupFiles: ["./test/setup/hermetic-env.ts"],
     passWithNoTests: true,
     maxWorkers: 4,
-    minWorkers: 1,
-    poolOptions: {
-      // node:sqlite (opencode-db-reader, a deliberate zero-native-dependency
-      // choice with guarded fallbacks) makes Node print an ExperimentalWarning
-      // per worker. Silence it in test output only, so real warnings stay
-      // visible; production server logs still show Node's notice. The flag
-      // is supported at the Node 22.16 server floor. Keep the acceptance check
-      // for alternate runtimes; this test-only setting never affects the server.
-      threads: {
-        execArgv: testExecArgv,
-      },
-      forks: {
-        execArgv: testExecArgv,
-      },
-    },
+    // Root-invoked runs group projects by this order, and projects in one
+    // group must share maxWorkers; client, shared and relay use other limits.
+    sequence: { groupOrder: 2 },
+    // node:sqlite (opencode-db-reader, a deliberate zero-native-dependency
+    // choice with guarded fallbacks) makes Node print an ExperimentalWarning
+    // per worker. Silence it in test output only, so real warnings stay
+    // visible; production server logs still show Node's notice. The flag
+    // is supported at the Node 22.16 server floor. Keep the acceptance check
+    // for alternate runtimes; this test-only setting never affects the server.
+    execArgv: testExecArgv,
   },
 });

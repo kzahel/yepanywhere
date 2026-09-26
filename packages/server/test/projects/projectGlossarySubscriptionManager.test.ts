@@ -202,6 +202,9 @@ async function subscribeReady(
 }
 
 afterEach(async () => {
+  // vi.spyOn returns the existing spy for an already-spied method, so an
+  // unrestored timer spy would carry one test's calls into the next.
+  vi.restoreAllMocks();
   await Promise.all(
     temporaryDirectories
       .splice(0)

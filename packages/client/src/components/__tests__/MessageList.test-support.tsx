@@ -1,5 +1,5 @@
 import { cleanup } from "@testing-library/react";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, type Mock, vi } from "vitest";
 import { AgentContentProvider } from "../../contexts/AgentContentContext";
 import { RenderModeProvider } from "../../contexts/RenderModeContext";
 import { SessionMetadataProvider } from "../../contexts/SessionMetadataContext";
@@ -234,8 +234,11 @@ export function recapMessage(uuid: string, content: string): Message {
   };
 }
 
-export function dispatchCopyEvent() {
-  const setData = vi.fn();
+export function dispatchCopyEvent(): {
+  event: ClipboardEvent;
+  setData: Mock<DataTransfer["setData"]>;
+} {
+  const setData = vi.fn<DataTransfer["setData"]>();
   const event = new Event("copy", {
     bubbles: true,
     cancelable: true,

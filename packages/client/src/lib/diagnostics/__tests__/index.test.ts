@@ -22,7 +22,10 @@ vi.mock("../../../hooks/useDeveloperMode", () => ({
 }));
 
 vi.mock("../ClientLogCollector", () => ({
-  ClientLogCollector: vi.fn(() => mocks.collector),
+  // A function implementation, not an arrow: the module constructs it with new.
+  ClientLogCollector: vi.fn(function () {
+    return mocks.collector;
+  }),
 }));
 
 async function flushPromises() {
