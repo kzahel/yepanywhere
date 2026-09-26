@@ -132,6 +132,12 @@ instructions.
 - Signed macOS and Windows desktop installers are published through GitHub
   Releases and are publicly labeled **Beta** while release-readiness work
   continues.
+- /download is the canonical destination for desktop download actions. It
+  offers the current Stable macOS Apple Silicon, macOS Intel, and Windows
+  installers through update-server redirects to GitHub assets; it never offers
+  nightly Latest builds. A visitor's platform chooses the prominent installer,
+  while every supported installer and the GitHub Releases fallback remain
+  reachable. With JavaScript disabled, all installer links remain visible.
 - The Android app is in development and iOS is planned afterward. Neither is
   published. The normal phone experience is the browser client. The website
   must not expose an Android or iOS download, store badge, or installation

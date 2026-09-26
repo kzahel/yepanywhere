@@ -21,8 +21,8 @@ export const distributions = [
     summary:
       "A signed and notarized desktop app with Yep Anywhere bundled inside.",
     docsPath: "/docs/desktop-apps",
-    downloadUrl: "https://github.com/kzahel/yepanywhere/releases",
-    actionLabel: "View macOS downloads",
+    downloadUrl: "/download",
+    actionLabel: "Choose installer",
     sourceRefs: [
       "packages/desktop/README.md",
       ".github/workflows/desktop-ci.yml",
@@ -36,8 +36,8 @@ export const distributions = [
     summary:
       "A signed installer with the server, client, and private runtime bundled.",
     docsPath: "/docs/desktop-apps",
-    downloadUrl: "https://github.com/kzahel/yepanywhere/releases",
-    actionLabel: "View Windows downloads",
+    downloadUrl: "/download",
+    actionLabel: "Choose installer",
     sourceRefs: [
       "packages/desktop/README.md",
       ".github/workflows/desktop-ci.yml",

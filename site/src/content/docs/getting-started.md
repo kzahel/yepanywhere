@@ -24,7 +24,7 @@ see [Providers](/docs/providers#use-your-subscription-plan) for details.
 
 | Installation | Best for | Status |
 | --- | --- | --- |
-| [Desktop app](/docs/desktop-apps) | A one-click app, tray controls, and bundled updates on macOS or Windows | Beta |
+| [Desktop app](/download) | A one-click app, tray controls, and bundled updates on macOS or Windows | Beta |
 | [npm install](/docs/install-npm) | Linux, servers, terminals, and full configuration control | Available |
 | Source checkout | Contributors and anyone who wants to fork, customize, or follow `main` | Available, development-oriented |
 

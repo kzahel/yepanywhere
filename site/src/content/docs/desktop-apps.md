@@ -1,12 +1,12 @@
 ---
 title: Desktop apps
-description: Install the beta signed macOS or Windows app from GitHub Releases and understand its bundled runtime.
+description: Download the beta signed macOS or Windows app and understand its bundled runtime.
 ---
 
 Yep Anywhere publishes beta desktop installers for macOS and Windows.
 They are available now while release-readiness work continues.
 
-[Open Yep Anywhere releases](https://github.com/kzahel/yepanywhere/releases)
+[Choose a desktop installer](/download)
 
 ## What the desktop app includes
 
@@ -30,11 +30,8 @@ security confirmation for an app downloaded from the internet.
 
 ## Windows
 
-The signed `x64-setup.exe` installer is the normal choice. A signed `.msi` is
-also published for managed, all-users deployment and requires administrator
-privileges.
-
-Use the `.exe` unless you specifically need MSI deployment tooling.
+Use the signed per-user `x64-setup.exe` installer. It also works on Windows
+ARM64 because the app bundles a native ARM64 runtime.
 
 ## Tray behavior and data
 

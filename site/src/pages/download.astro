@@ -1,0 +1,330 @@
+---
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Download Yep Anywhere for desktop"
+  description="Download the current Stable beta installer for macOS Apple Silicon, macOS Intel, or Windows."
+>
+  <Header />
+  <main id="main-content">
+    <section class="download-hero">
+      <div class="site-container">
+        <p class="eyebrow">Desktop app · Beta</p>
+        <h1>Download Yep Anywhere.</h1>
+        <p class="lede">Run your agents on your own computer, then pick up the full workspace from any browser. Signed desktop installers are available for macOS and Windows.</p>
+      </div>
+    </section>
+
+    <section class="download-section" aria-labelledby="installer-heading">
+      <div class="site-container">
+        <div class="download-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Stable desktop release</p>
+              <h2 id="installer-heading">Choose your installer</h2>
+            </div>
+            <span class="beta-badge">Beta</span>
+          </div>
+
+          <p id="platform-hint" class="platform-hint">Choose the installer that matches your computer.</p>
+          <p id="unsupported-note" class="unsupported-note" hidden>This device does not have a desktop installer. The app runs on macOS and Windows; use the <a href="/docs/install-npm">npm install</a> on Linux or <a href="/docs/remote-access">connect from a phone browser</a>.</p>
+
+          <div id="installer-links" class="installer-links">
+            <a class="installer-link" data-platform="macos-arm64" href="https://updates.yepanywhere.com/desktop/download/macos-arm64">
+              <span class="installer-system">macOS</span>
+              <strong>Apple Silicon</strong>
+              <span>For M-series Macs · DMG</span>
+              <span class="installer-action">Download installer <span aria-hidden="true">↗</span></span>
+            </a>
+            <a class="installer-link" data-platform="macos-x64" href="https://updates.yepanywhere.com/desktop/download/macos-x64">
+              <span class="installer-system">macOS</span>
+              <strong>Intel</strong>
+              <span>For Intel Macs · DMG</span>
+              <span class="installer-action">Download installer <span aria-hidden="true">↗</span></span>
+            </a>
+            <a class="installer-link" data-platform="windows-x64" href="https://updates.yepanywhere.com/desktop/download/windows-x64">
+              <span class="installer-system">Windows</span>
+              <strong>Windows x64</strong>
+              <span>Also works on Windows ARM64 · EXE</span>
+              <span class="installer-action">Download installer <span aria-hidden="true">↗</span></span>
+            </a>
+          </div>
+
+          <details id="other-platforms" class="other-platforms" hidden>
+            <summary>Other platforms</summary>
+            <div id="other-platform-links" class="installer-links"></div>
+          </details>
+
+          <div class="download-help">
+            <a href="/docs/desktop-apps">Desktop installation guide <span aria-hidden="true">→</span></a>
+            <a href="https://github.com/kzahel/yepanywhere/releases">All releases <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+
+        <div class="other-paths">
+          <div>
+            <h2>Prefer the command line?</h2>
+            <p>Install the server from npm on macOS, Windows, or Linux.</p>
+            <a href="/docs/install-npm">Install from npm <span aria-hidden="true">→</span></a>
+          </div>
+          <div>
+            <h2>Using a phone or tablet?</h2>
+            <p>The complete client works in your browser; no native mobile app is needed.</p>
+            <a href="/docs/remote-access">Connect from a browser <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</BaseLayout>
+
+<script is:inline>
+  (async function () {
+    var list = document.getElementById("installer-links");
+    var other = document.getElementById("other-platforms");
+    var otherLinks = document.getElementById("other-platform-links");
+    var hint = document.getElementById("platform-hint");
+    var unsupported = document.getElementById("unsupported-note");
+    if (!list || !other || !otherLinks || !hint || !unsupported) return;
+
+    var ua = navigator.userAgent;
+    var isIpad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+    var platform = null;
+    if (/Windows/.test(ua)) {
+      platform = "windows-x64";
+      hint.textContent = "Recommended for this Windows computer.";
+    } else if (!isIpad && /Macintosh/.test(ua)) {
+      platform = "macos-arm64";
+      try {
+        var uaData = navigator.userAgentData;
+        if (uaData && uaData.getHighEntropyValues) {
+          var arch = await Promise.race([
+            uaData.getHighEntropyValues(["architecture"]),
+            new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 300); })
+          ]);
+          if (arch && arch.architecture === "x86") platform = "macos-x64";
+        }
+      } catch (_) {
+        // Browser does not expose CPU architecture; visitors can choose Intel.
+      }
+      hint.textContent = platform === "macos-x64"
+        ? "Recommended for this Intel Mac."
+        : "Apple Silicon is suggested. Intel Mac users can choose Other platforms.";
+    } else {
+      hint.hidden = true;
+      unsupported.hidden = false;
+    }
+
+    var links = Array.from(list.querySelectorAll(".installer-link"));
+    for (var link of links) {
+      if (link.dataset.platform === platform) {
+        link.classList.add("recommended");
+      } else {
+        otherLinks.appendChild(link);
+      }
+    }
+    if (!platform) list.hidden = true;
+    other.hidden = false;
+  })();
+</script>
+
+<style>
+  .download-hero {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 0 20px;
+  }
+
+  .download-hero h1 {
+    font-size: clamp(38px, 6vw, 50px);
+    letter-spacing: -0.05em;
+    line-height: 1.02;
+    margin-top: 12px;
+  }
+
+  .lede {
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin-top: 10px;
+    max-width: 730px;
+  }
+
+  .download-section {
+    padding: 22px 0 80px;
+  }
+
+  .download-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    margin: 0 auto;
+    max-width: 830px;
+    padding: clamp(24px, 4vw, 32px);
+  }
+
+  .panel-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+  }
+
+  .panel-heading h2 {
+    font-size: clamp(25px, 4vw, 34px);
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+    margin-top: 8px;
+  }
+
+  .beta-badge {
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    color: var(--accent-hover);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+  }
+
+  .platform-hint, .unsupported-note {
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin: 24px 0 18px;
+  }
+
+  .unsupported-note a, .download-help a, .other-paths a {
+    color: var(--accent-hover);
+  }
+
+  .installer-links {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+
+  .installer-links[hidden] {
+    display: none;
+  }
+
+  .installer-link {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    min-height: 142px;
+    padding: 16px;
+    text-decoration: none;
+  }
+
+  .installer-link:hover {
+    border-color: var(--accent);
+  }
+
+  .installer-link.recommended {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+    max-width: 410px;
+  }
+
+  .installer-system {
+    color: var(--accent-hover);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .installer-link strong {
+    font-size: 20px;
+    margin-top: 7px;
+  }
+
+  .installer-link > span:nth-child(3) {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .installer-action {
+    color: var(--accent-hover);
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: auto;
+    padding-top: 12px;
+  }
+
+  .other-platforms {
+    margin-top: 24px;
+  }
+
+  .other-platforms summary {
+    align-items: center;
+    color: var(--accent-hover);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 14px;
+    font-weight: 650;
+    min-height: 44px;
+    width: fit-content;
+  }
+
+  .other-platforms .installer-links {
+    margin-top: 16px;
+  }
+
+  .download-help {
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    margin-top: 34px;
+    padding-top: 20px;
+  }
+
+  .download-help a, .other-paths a {
+    align-items: center;
+    display: inline-flex;
+    font-size: 14px;
+    font-weight: 650;
+    min-height: 44px;
+  }
+
+  .other-paths {
+    display: grid;
+    gap: 32px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 46px auto 0;
+    max-width: 830px;
+  }
+
+  .other-paths h2 {
+    font-size: 18px;
+  }
+
+  .other-paths p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 8px 0;
+  }
+
+  @media (max-width: 650px) {
+    .download-hero {
+      padding: 24px 0;
+    }
+
+    .download-section {
+      padding: 20px 0 60px;
+    }
+
+    .panel-heading {
+      align-items: flex-start;
+    }
+
+    .other-paths {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

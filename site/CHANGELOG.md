@@ -4,6 +4,20 @@ All notable changes to the Yep Anywhere website and remote relay client will be 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [site-v1.11.0] - 2026-09-26
+
+### Added
+- Add a standalone desktop downloads page with current Stable beta installers
+  for macOS Apple Silicon, macOS Intel, and Windows. Desktop download actions
+  lead to this page, and visitors can choose another platform or view all
+  releases.
+
+### Changed
+- Remove obsolete Windows MSI guidance and direct manual desktop reinstalls
+  to the downloads page.
+- Publish the current hosted remote client, including file-viewer and artifact
+  interaction improvements merged since the previous website release.
+
 ## [site-v1.10.0] - 2026-08-31
 
 ### Changed

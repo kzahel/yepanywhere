@@ -1,17 +1,13 @@
 ---
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
-import { distributions, features, providers } from "../data/catalog";
-import type { PublicDistribution } from "../data/distributions";
+import { features, providers } from "../data/catalog";
 import type { PublicFeature } from "../data/features";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const featuredFeatures = (features as readonly PublicFeature[]).filter(
   (feature) => feature.featured,
 );
-const desktopDistributions = (
-  distributions as readonly PublicDistribution[]
-).filter((distribution) => distribution.id.startsWith("desktop-"));
 const formatProviderNames = (names: readonly string[]) => {
   if (names.length < 3) return names.join(" and ");
   return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
@@ -37,7 +33,7 @@ const experimentalProviderNames = formatProviderNames(
   <div class="announcement">
     <div class="site-container announcement-content">
       <span>Beta</span>
-      <p>Desktop apps for macOS and Windows are now on GitHub Releases.</p>
+      <p>Signed desktop apps for macOS and Windows are available in beta.</p>
       <a href="/docs/desktop-apps">See what is ready <span aria-hidden="true">→</span></a>
     </div>
   </div>
@@ -198,9 +194,7 @@ const experimentalProviderNames = formatProviderNames(
             <h3>macOS and Windows</h3>
             <p>Signed installers bundle the server and web client for a guided local setup.</p>
             <div class="platform-list">
-              {desktopDistributions.map((distribution) => (
-                <a href={distribution.downloadUrl}>{distribution.name.replace("Desktop for ", "")} <span aria-hidden="true">↗</span></a>
-              ))}
+              <a href="/download">Download desktop app <span aria-hidden="true">→</span></a>
             </div>
             <a class="text-link" href="/docs/desktop-apps">Desktop installation guide <span aria-hidden="true">→</span></a>
           </article>
@@ -727,12 +721,18 @@ const experimentalProviderNames = formatProviderNames(
   }
 
   .platform-list a {
-    border: 1px solid var(--border);
+    background: var(--accent);
+    border: 1px solid var(--accent);
     border-radius: 7px;
-    color: var(--text-primary);
-    font-size: 13px;
-    padding: 9px 12px;
+    color: white;
+    font-size: 14px;
+    font-weight: 650;
+    padding: 11px 16px;
     text-decoration: none;
+  }
+
+  .platform-list a:hover {
+    background: var(--accent-hover);
   }
 
   .command-block {

@@ -28,8 +28,8 @@ discard an edited checkout merely to update it.
 ## Desktop apps
 
 Use the in-app update check when an update is offered. A manual reinstall from
-[GitHub Releases](https://github.com/kzahel/yepanywhere/releases) is the v0
-recovery path. Desktop updates replace the shell, private runtime, and bundled
+the [desktop downloads page](/download) is the v0 recovery path. Desktop
+updates replace the shell, private runtime, and bundled
 Yep Anywhere build as one unit while preserving the desktop data directory.
 
 Automatic downgrade is not supported. Keep the installer for a version you
