@@ -165,7 +165,7 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.19.17
-        version: 1.19.17(hono@4.13.5)
+        version: 1.19.17(hono@4.13.7)
       '@yep-anywhere/shared':
         specifier: workspace:*
         version: link:../shared
@@ -174,7 +174,7 @@ importers:
         version: 14.2.0
       hono:
         specifier: ^4.13.5
-        version: 4.13.5
+        version: 4.13.7
       pino:
         specifier: ^10.1.0
         version: 10.3.1
@@ -196,13 +196,13 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.19.17
-        version: 1.19.17(hono@4.13.5)
+        version: 1.19.17(hono@4.13.7)
       '@yep-anywhere/shared':
         specifier: workspace:*
         version: link:../shared
       hono:
         specifier: ^4.13.5
-        version: 4.13.5
+        version: 4.13.7
       pino:
         specifier: ^10.1.0
         version: 10.3.1
@@ -242,10 +242,10 @@ importers:
         version: 0.100.1(zod@4.3.6)
       '@hono/node-server':
         specifier: ^1.19.17
-        version: 1.19.17(hono@4.13.5)
+        version: 1.19.17(hono@4.13.7)
       '@hono/node-ws':
         specifier: ^1.2.0
-        version: 1.3.0(@hono/node-server@1.19.17(hono@4.13.5))(hono@4.13.5)
+        version: 1.3.0(@hono/node-server@1.19.17(hono@4.13.7))(hono@4.13.7)
       '@mdit/plugin-katex':
         specifier: 1.1.0
         version: 1.1.0(markdown-it@15.0.1)
@@ -263,7 +263,7 @@ importers:
         version: 8.0.3
       hono:
         specifier: ^4.13.5
-        version: 4.13.5
+        version: 4.13.7
       http-proxy:
         specifier: ^1.18.1
         version: 1.18.1
@@ -2561,8 +2561,8 @@ packages:
   help-me@5.0.0:
     resolution: {integrity: sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==}
 
-  hono@4.13.5:
-    resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
+  hono@4.13.7:
+    resolution: {integrity: sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==}
     engines: {node: '>=16.9.0'}
 
   html-encoding-sniffer@4.0.0:
@@ -3408,6 +3408,10 @@ packages:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
+  source-map-js@1.2.2:
+    resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
+    engines: {node: '>=0.10.0'}
+
   space-separated-tokens@2.0.2:
     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
 
@@ -3505,15 +3509,15 @@ packages:
   tldts-core@6.1.86:
     resolution: {integrity: sha512-Je6p7pkk+KMzMv2XXKmAE3McmolOQFdxkKw0R8EYNr7sELW46JqnNeTX8ybPiQgvg1ymCoF8LXs5fzFaZvJPTA==}
 
-  tldts-core@7.4.15:
-    resolution: {integrity: sha512-ERuv0p98XgSzmlSLJr8vDNxX+uATGInlN97V3R+JpYWaSqn5IG3ewWgCwczk4bkOpgth/o8Nt5FOi4B4w0n/1A==}
+  tldts-core@7.4.16:
+    resolution: {integrity: sha512-MDolfaSJtlSK5Y0A1xl3277ekubZwobpBjugknDizI9O5Rm60a1m8k4ICK+MRsCDzPygT81mp3BBf5RKDlFRfA==}
 
   tldts@6.1.86:
     resolution: {integrity: sha512-WMi/OQ2axVTf/ykqCQgXiIct+mSQDFdH2fkwhPwgEwvJ1kSzZRiinb0zF2Xb8u4+OqPChmyI6MEu4EezNJz+FQ==}
     hasBin: true
 
-  tldts@7.4.15:
-    resolution: {integrity: sha512-SJVBeHOxDbNoq14CvpAoA2mLEWdbldGK8nR+yumpjY5nrlZxOflcA7p1Qj1gbTGmbu9DY9qLj/bENSWhBzjxRQ==}
+  tldts@7.4.16:
+    resolution: {integrity: sha512-QwBER5KMR86IIjpIiO7H/Z3IMJPsZ1A6RKPAqzTTgOyUQUSt9FdnKcqhTaJmkY6HVrgouZHZR0ncK5QxvmnQeg==}
     hasBin: true
 
   toidentifier@1.0.1:
@@ -4491,14 +4495,14 @@ snapshots:
       yargs: 17.7.3
     optional: true
 
-  '@hono/node-server@1.19.17(hono@4.13.5)':
+  '@hono/node-server@1.19.17(hono@4.13.7)':
     dependencies:
-      hono: 4.13.5
+      hono: 4.13.7
 
-  '@hono/node-ws@1.3.0(@hono/node-server@1.19.17(hono@4.13.5))(hono@4.13.5)':
+  '@hono/node-ws@1.3.0(@hono/node-server@1.19.17(hono@4.13.7))(hono@4.13.7)':
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.5)
-      hono: 4.13.5
+      '@hono/node-server': 1.19.17(hono@4.13.7)
+      hono: 4.13.7
       ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
@@ -4568,7 +4572,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0(zod@4.3.6)':
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.5)
+      '@hono/node-server': 1.19.17(hono@4.13.7)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       content-type: 1.0.5
@@ -4578,7 +4582,7 @@ snapshots:
       eventsource-parser: 3.0.6
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
-      hono: 4.13.5
+      hono: 4.13.7
       jose: 6.2.2
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -5359,7 +5363,7 @@ snapshots:
   css-tree@3.2.1:
     dependencies:
       mdn-data: 2.27.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
     optional: true
 
   cssesc@3.0.0: {}
@@ -6155,7 +6159,7 @@ snapshots:
 
   help-me@5.0.0: {}
 
-  hono@4.13.5: {}
+  hono@4.13.7: {}
 
   html-encoding-sniffer@4.0.0:
     dependencies:
@@ -7102,6 +7106,9 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
+  source-map-js@1.2.2:
+    optional: true
+
   space-separated-tokens@2.0.2: {}
 
   split2@4.2.0: {}
@@ -7214,16 +7221,16 @@ snapshots:
 
   tldts-core@6.1.86: {}
 
-  tldts-core@7.4.15:
+  tldts-core@7.4.16:
     optional: true
 
   tldts@6.1.86:
     dependencies:
       tldts-core: 6.1.86
 
-  tldts@7.4.15:
+  tldts@7.4.16:
     dependencies:
-      tldts-core: 7.4.15
+      tldts-core: 7.4.16
     optional: true
 
   toidentifier@1.0.1: {}
@@ -7234,7 +7241,7 @@ snapshots:
 
   tough-cookie@6.0.2:
     dependencies:
-      tldts: 7.4.15
+      tldts: 7.4.16
     optional: true
 
   tr46@0.0.3:
