@@ -15,10 +15,12 @@ The design and deferred work are in [plan 143](../docs/tactical/143-agent-auth-r
    **Connect local router**, optionally specifying a different socket path.
    With router-owned pools, pairing initially grants no accounts. In AAR,
    grant this integration permission to use a pool. Its current members become
-   available without restarting or pairing again. Reload the overview after edits.
-   Older AAR versions retain their original enrollment and pairing behavior.
+   available without restarting or pairing again. New Session refreshes discovery
+   automatically on opening, provider changes and returning to the visible form.
 3. On **New Session**, choose native Claude or Codex, expand advanced options,
-   choose a router account, then choose a model from that account's catalog.
+   keep the normal Model and Thinking selections and optionally choose a compatible
+   Pool. The pool uses its router-configured policy; only multi-account Manual
+   pools require an account choice.
    Use a local, unsandboxed launch. Normal direct-provider sessions stay opt-in
    to their existing authentication path; selecting a router never changes a
    native profile's login.
@@ -349,8 +351,8 @@ reply and visible account pin, explicit pairing/quotas, and sequential socket
 path typing (under 10 ms per keystroke in the measured run). Desktop 1000×600
 and phone 375×812 captures were inspected. The test browser blocks service worker
 registration; Node 26 reports the existing tsx loader deprecation. Neither is
-an assertion failure. A regression covers routed creation using automatic
-reasoning instead of the direct-account model's thinking default.
+an assertion failure. The original default-thinking regression is superseded by unified selection
+coverage below.
 
 
 ## Router-owned pool compatibility
@@ -377,3 +379,27 @@ does not authorize bypassing pool membership. Shared pool allocation state
 arbitrates across integrations. Disconnect/revocation leaves router pools and
 other integrations intact. Existing pins cannot switch accounts; revoking a
 grant blocks subsequent requests while accepted streams may finish.
+
+
+## Unified session selection (2026-10-04)
+
+The maintainer confirmed this integration is unshipped. Its new discovery and
+unified launch UI use the existing overall `agent-auth-router` capability; no
+additional feature bit or legacy launch UI is introduced. The plan is
+[AAR unified selection](https://github.com/kzahel/agent-auth-router/blob/main/docs/unified-session-selection.md).
+
+The ordinary provider/model/thinking controls remain visible. One Pool selector
+uses compatible granted members and the router's configured policy. Model family
+aliases resolve to a concrete catalog model before allocation. An unavailable
+selection remains selected and cannot silently fall back to direct login.
+Explicit thinking travels through allocation, persistence, native launch and
+resume. Native adapters use the pinned account's model metadata, including
+Codex Max-to-ultra mapping, instead of querying the direct login's catalog.
+
+`POST /api/agent-auth-router/selection` performs catalog-only discovery through
+the private control socket. Requests coalesce by connection/provider. The client
+revalidates on mount, provider/source changes, focus/visibility and connection
+changes, discarding obsolete results. There is no idle polling; quota admission
+still happens when starting a session. Recovery and usage diagnostics remain in
+Settings. Browser tests cover desktop/phone layouts and sequential prompt typing
+during discovery; synthetic AAR integration tests prove the native boundaries.

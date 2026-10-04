@@ -20,6 +20,9 @@ export function createAgentAuthRouterRoutes(router: AgentAuthRouter) {
     ),
   );
   routes.get("/agent-auth-router", (c) => c.json(router.summary()));
+  routes.post("/agent-auth-router/selection", async (c) =>
+    c.json(await router.selection((await c.req.json()).provider)),
+  );
   registerAgentAuthRouterRecoveryRoutes(routes, router);
   registerAgentAuthRouterPoolRoutes(routes, router);
   routes.post("/agent-auth-router/connect", async (c) => {

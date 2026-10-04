@@ -1,0 +1,24 @@
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.control label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.control select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+.control span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}

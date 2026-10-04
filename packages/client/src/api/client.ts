@@ -430,6 +430,11 @@ function getGlobalSessionsRequest(
 
 export const api = {
   ...createSessionApi(fetchJSON),
+  routerSelection: (provider: string) =>
+    fetchJSON<AgentAuthRouterOverview | null>("/agent-auth-router/selection", {
+      method: "POST",
+      body: JSON.stringify({ provider }),
+    }),
   routerStatus: () => fetchJSON<AgentAuthRouterStatus>("/agent-auth-router"),
   routerRecovery: () =>
     fetchJSON<AgentAuthRouterRecovery>("/agent-auth-router/recovery"),

@@ -1,3 +1,4 @@
+import { routerModelSupportsThinking } from "@yep-anywhere/shared";
 import {
   codexRouterArguments,
   codexRouterEnvironment,
@@ -1769,9 +1770,19 @@ export class CodexProvider implements AgentProvider {
     effort?: import("@yep-anywhere/shared").EffortLevel,
     thinking?: import("@yep-anywhere/shared").ThinkingConfig,
     model?: StartSessionOptions["model"],
+    accountModels?: readonly ModelInfo[],
   ): NonNullable<TurnStartParams["effort"]> | undefined {
+    if (
+      accountModels &&
+      effort &&
+      !routerModelSupportsThinking(
+        accountModels.find((m) => m.id === model),
+        `on:${effort}`,
+      )
+    )
+      throw new Error("Thinking level unavailable for the pinned account");
     if (thinking?.type === "disabled") {
-      const supported = this.modelCache?.models.find(
+      const supported = (accountModels ?? this.modelCache?.models)?.find(
         (candidate) => candidate.id === model,
       )?.supportedReasoningEfforts;
       if (
@@ -1814,7 +1825,7 @@ export class CodexProvider implements AgentProvider {
       case "xhigh":
         return "xhigh";
       case "max": {
-        const selectedModel = this.modelCache?.models.find(
+        const selectedModel = (accountModels ?? this.modelCache?.models)?.find(
           (candidate) =>
             candidate.id === model || (!model && candidate.isDefault),
         );
@@ -2055,14 +2066,12 @@ export class CodexProvider implements AgentProvider {
         if (effort === "max" && !options.routerLaunch)
           await this.getAvailableModels();
         if (runtimeState.activeTurnHasEffortOverride) {
-          if (options.routerLaunch)
-            throw new Error(
-              "One-turn effort is not available for routed Codex sessions",
-            );
           runtimeState.turnEffortOverride = effort ?? null;
-          const model = (await this.getAvailableModels()).find(
-            (candidate) => candidate.id === runtimeState.resolvedModel,
-          );
+          const model = (
+            options.routerLaunch
+              ? (options.routerLaunch.models ?? [])
+              : await this.getAvailableModels()
+          ).find((candidate) => candidate.id === runtimeState.resolvedModel);
           await activeClient?.request("thread/settings/update", {
             threadId: runtimeState.threadId,
             effort:
@@ -2070,6 +2079,7 @@ export class CodexProvider implements AgentProvider {
                 effort,
                 options.thinking,
                 runtimeState.resolvedModel,
+                options.routerLaunch?.models,
               ) ?? model?.defaultReasoningEffort,
           });
           return;
@@ -2081,6 +2091,7 @@ export class CodexProvider implements AgentProvider {
                 effort,
                 options.thinking,
                 runtimeState.turnModelOverride ?? runtimeState.resolvedModel,
+                options.routerLaunch?.models,
               ),
             });
           } catch (error) {
@@ -2104,8 +2115,22 @@ export class CodexProvider implements AgentProvider {
         }
         runtimeState.turnEffortOverride = effort ?? null;
       },
+      supportedModels: async () =>
+        options.routerLaunch
+          ? (options.routerLaunch.models ?? [])
+          : this.getAvailableModels(),
       effortUpdatesActiveTurn: true,
       setModel: async (model) => {
+        if (
+          options.routerLaunch?.models &&
+          !routerModelSupportsThinking(
+            options.routerLaunch.models.find((m) => m.id === model),
+            runtimeState.turnEffortOverride
+              ? `on:${runtimeState.turnEffortOverride}`
+              : "auto",
+          )
+        )
+          throw new Error("Model unavailable for the pinned account");
         if (model !== undefined) {
           await updateActiveTurnSettings({ model });
         }
@@ -2977,6 +3002,8 @@ export class CodexProvider implements AgentProvider {
       const requestedReasoningEffort = this.mapEffortToReasoningEffort(
         options.effort,
         options.thinking,
+        options.model,
+        options.routerLaunch?.models,
       );
       const sessionConfigAck = this.createSessionConfigAckMessage(
         sessionId,
@@ -3563,15 +3590,13 @@ export class CodexProvider implements AgentProvider {
           );
           let restoreThreadEffort: (() => Promise<unknown>) | undefined;
           if (message.turnEffort) {
-            if (options.routerLaunch)
-              throw new Error(
-                "One-turn effort is not available for routed Codex sessions",
-              );
             const modelId =
               runtimeState.turnModelOverride ?? runtimeState.resolvedModel;
-            const model = (await this.getAvailableModels()).find(
-              (candidate) => candidate.id === modelId,
-            );
+            const model = (
+              options.routerLaunch
+                ? (options.routerLaunch.models ?? [])
+                : await this.getAvailableModels()
+            ).find((candidate) => candidate.id === modelId);
             if (!model)
               throw new Error(`No effort catalog for model ${modelId}`);
             const normal: ThinkingOption =
@@ -3595,6 +3620,7 @@ export class CodexProvider implements AgentProvider {
               selected.effort,
               selected.thinking,
               modelId,
+              options.routerLaunch?.models,
             );
             runtimeState.activeTurnHasEffortOverride = true;
             restoreThreadEffort = () =>
@@ -3605,6 +3631,7 @@ export class CodexProvider implements AgentProvider {
                     runtimeState.turnEffortOverride ?? undefined,
                     options.thinking,
                     modelId,
+                    options.routerLaunch?.models,
                   ) ??
                   model.defaultReasoningEffort ??
                   threadResult.reasoningEffort ??
@@ -4232,7 +4259,11 @@ export class CodexProvider implements AgentProvider {
   private buildThreadConfigOverrides(
     options: Pick<
       StartSessionOptions,
-      "compactAtContextTokenLimit" | "effort" | "thinking" | "model"
+      | "compactAtContextTokenLimit"
+      | "effort"
+      | "thinking"
+      | "model"
+      | "routerLaunch"
     >,
   ): NonNullable<ThreadStartParams["config"]> {
     // The OpenAI browser plugin controls a desktop-owned browser backend that
@@ -4266,6 +4297,7 @@ export class CodexProvider implements AgentProvider {
       options.effort,
       options.thinking,
       options.model,
+      options.routerLaunch?.models,
     );
     if (reasoningEffort) {
       config.model_reasoning_effort = reasoningEffort;
@@ -4428,6 +4460,7 @@ export class CodexProvider implements AgentProvider {
               effortOverride,
               options.thinking,
               modelOverride ?? undefined,
+              options.routerLaunch?.models,
             ),
       ...this.buildTurnPermissionParams(
         turnPolicy,

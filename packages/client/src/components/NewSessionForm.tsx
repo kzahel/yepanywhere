@@ -1,7 +1,11 @@
+import { useRouterDiscovery } from "../hooks/useRouterDiscovery";
 import {
-  RouterAccountSelection,
-  type RouterSelection,
-} from "./AgentAuthRouterControls";
+  RouterPoolSelector,
+  routedModels,
+  routerPoolMembers,
+} from "./RouterPoolSelector";
+import { resolveRouterModel } from "@yep-anywhere/shared";
+import type { RouterSelection } from "./RouterPoolSelector";
 import { DraftSyncNotice } from "./DraftSyncNotice";
 import { DRAFT_STORAGE_EVENT } from "../lib/draftSyncStorage";
 import { MachineControlSessionSelection } from "./MachineControlSessionSelection";
@@ -1188,7 +1192,50 @@ export function NewSessionForm({
   );
   const selectedProviderInfo =
     selectedProviderQuery.row ?? aggregateProviderInfo;
-  const availableModels: ModelInfo[] = selectedProviderInfo?.models ?? [];
+  const routerEnabled =
+    serverHasCapability(
+      versionInfo,
+      SERVER_CAPABILITIES.agentAuthRouter.name,
+    ) &&
+    !launchLock.limited &&
+    !effectiveExecutor &&
+    effectiveSandboxLevel === "none" &&
+    (selectedProvider === "claude" || selectedProvider === "codex");
+  const routerDiscovery = useRouterDiscovery(selectedProvider, routerEnabled);
+  const accountModels = useMemo(
+    () =>
+      routedModels(
+        routerDiscovery.data,
+        selectedProvider,
+        routerSelection?.poolId,
+      ),
+    [routerDiscovery.data, selectedProvider, routerSelection?.poolId],
+  );
+  const availableModels: ModelInfo[] = useMemo(() => {
+    const direct = selectedProviderInfo?.models ?? [];
+    const merged = new Map(direct.map((m) => [m.id, m]));
+    for (const m of accountModels) {
+      const representedByAlias = direct.some(
+        (d) =>
+          d.id !== m.id && resolveRouterModel(d.id, accountModels) === m.id,
+      );
+      if (representedByAlias && selectedModel !== m.id) continue;
+      if (!merged.has(m.id) || routerSelection) merged.set(m.id, m);
+    }
+    if (routerSelection)
+      for (const m of direct) {
+        const routed = accountModels.find(
+          (a) => a.id === resolveRouterModel(m.id, accountModels),
+        );
+        if (routed) merged.set(m.id, { ...routed, id: m.id, name: m.name });
+      }
+    return [...merged.values()];
+  }, [
+    selectedProviderInfo?.models,
+    accountModels,
+    routerSelection,
+    selectedModel,
+  ]);
   const visibleModels = useMemo(
     () =>
       withProviderVisibleModelSelection(
@@ -1204,22 +1251,44 @@ export function NewSessionForm({
     (selectedProviderQuery.fresh &&
       !selectedProviderQuery.refreshing &&
       selectedProviderQuery.error === null);
+  const routerThinking: ThinkingOption =
+    selectedThinkingMode === "off"
+      ? "off"
+      : selectedThinkingMode === "auto"
+        ? "auto"
+        : `on:${selectedEffortLevel}`;
+  const compatibleMembers = routerSelection?.poolId
+    ? routerPoolMembers(
+        routerDiscovery.data,
+        routerSelection.poolId,
+        selectedProvider,
+        selectedModel,
+        routerThinking,
+      )
+    : [];
+  const selectedRouterPool = routerDiscovery.data?.pools.find(
+    (p) => p.id === routerSelection?.poolId,
+  );
+  const routerAccountId =
+    selectedRouterPool?.policy === "manual"
+      ? compatibleMembers.length === 1
+        ? compatibleMembers[0]?.id
+        : routerSelection?.accountId
+      : undefined;
+  const routedModel = resolveRouterModel(selectedModel, accountModels);
   const hasSelectedProviderModel = routerSelection
-    ? Boolean(
-        routerSelection.model &&
-          (!routerSelection.poolId ||
-            routerSelection.policy === "round-robin" ||
-            (routerSelection.policy === "most-remaining" &&
-              serverHasCapability(
-                versionInfo,
-                SERVER_CAPABILITIES.agentAuthRouterMostRemaining.name,
-              )) ||
-            routerSelection.accountId),
+    ? !!(
+        routerEnabled &&
+        routedModel &&
+        !routerDiscovery.error &&
+        compatibleMembers.length &&
+        (selectedRouterPool?.policy !== "manual" ||
+          compatibleMembers.some((a) => a.id === routerAccountId))
       )
     : selectedProviderCatalogCurrent &&
       hasRequiredProviderModel(
         selectedProvider,
-        availableModels,
+        selectedProviderInfo?.models ?? [],
         selectedModel,
       );
   const helperSelectableModels = useMemo(
@@ -1262,10 +1331,9 @@ export function NewSessionForm({
       }),
     [selectedModelInfo, selectedProviderInfo, t],
   );
-  const effectiveEffortLevel = resolveSupportedEffortLevel(
-    selectedEffortLevel,
-    effortOptions,
-  );
+  const effectiveEffortLevel = routerSelection
+    ? selectedEffortLevel
+    : resolveSupportedEffortLevel(selectedEffortLevel, effortOptions);
   const thinkingModeOptions = useMemo(
     () =>
       getThinkingModeOptions({
@@ -1275,10 +1343,9 @@ export function NewSessionForm({
       }),
     [effortOptions, selectedModelInfo, selectedProviderInfo],
   );
-  const effectiveThinkingMode = resolveSupportedThinkingMode(
-    selectedThinkingMode,
-    thinkingModeOptions,
-  );
+  const effectiveThinkingMode = routerSelection
+    ? selectedThinkingMode
+    : resolveSupportedThinkingMode(selectedThinkingMode, thinkingModeOptions);
   // A locked effort also settles the thinking mode it implies, so the panel
   // that would let either be changed is withheld rather than shown inert.
   const showThinkingControls =
@@ -2496,12 +2563,7 @@ export function NewSessionForm({
           launchLock.limited ||
           effectiveExecutor ||
           effectiveSandboxLevel !== "none" ||
-          launch ||
-          (routerSelection.poolId &&
-            !serverHasCapability(
-              versionInfo,
-              SERVER_CAPABILITIES.agentAuthRouterPools.name,
-            )))
+          launch)
       ) {
         showToast(t("routerLaunchUnsupported"), "error");
         return;
@@ -2627,23 +2689,22 @@ export function NewSessionForm({
             : {}),
 
           mode: sessionMode,
-          model: routerSelection?.model || selectedModel || undefined,
+          model: routerSelection ? routedModel : selectedModel || undefined,
           ...(routerSelection &&
           serverHasCapability(
             versionInfo,
             SERVER_CAPABILITIES.agentAuthRouter.name,
           )
             ? {
-                routerAccountId: routerSelection.accountId || undefined,
+                routerAccountId,
                 ...(routerSelection.poolId
                   ? {
                       routerPoolId: routerSelection.poolId,
-                      routerPolicy: routerSelection.policy,
                     }
                   : {}),
               }
             : {}),
-          thinking: routerSelection ? ("auto" as const) : thinking,
+          thinking: routerSelection ? routerThinking : thinking,
           showThinking,
           provider: selectedProvider ?? undefined,
           executor: effectiveExecutor ?? undefined,
@@ -2859,8 +2920,9 @@ export function NewSessionForm({
                 recapAfterSeconds,
               },
               initialTitle: trimmedMessage,
-              initialModel:
-                routerSelection?.model || selectedModel || undefined,
+              initialModel: routerSelection
+                ? routedModel
+                : selectedModel || undefined,
               initialProvider: selectedProvider ?? undefined,
             }),
           },
@@ -2915,6 +2977,9 @@ export function NewSessionForm({
       basePath,
       draftControls,
       routerSelection,
+      routedModel,
+      routerAccountId,
+      routerThinking,
       clientSummarySourceKey,
       supportsInstalledMachineControl,
       machineControlSelected,
@@ -4865,8 +4930,8 @@ export function NewSessionForm({
           <div className="new-session-provider-slot">
             {fixedLaunchSection}
             {showProviderPicker && providerSection}
-            {showModelPicker && !routerSelection && modelSection}
-            {!routerSelection && effortSection}
+            {showModelPicker && modelSection}
+            {effortSection}
           </div>
         )}
         <div className={styles.advancedSection}>
@@ -4933,9 +4998,15 @@ export function NewSessionForm({
             !effectiveExecutor &&
             effectiveSandboxLevel === "none" &&
             (selectedProvider === "claude" || selectedProvider === "codex") && (
-              <RouterAccountSelection
-                key={`${clientSummarySourceKey}:${selectedProvider}`}
+              <RouterPoolSelector
                 provider={selectedProvider}
+                model={selectedModel}
+                thinking={routerThinking}
+                data={routerDiscovery.data}
+                busy={routerDiscovery.busy}
+                error={routerDiscovery.error}
+                retry={() => void routerDiscovery.reload()}
+                sourceKey={clientSummarySourceKey}
                 value={
                   routerSelection?.sourceKey === clientSummarySourceKey
                     ? routerSelection

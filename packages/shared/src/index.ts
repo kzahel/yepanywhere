@@ -1655,3 +1655,8 @@ export type {
   AgentAuthRouterPoolInput,
   AgentAuthRouterOverview,
 } from "./agent-auth-router.js";
+
+export {
+  routerModelSupportsThinking,
+  resolveRouterModel,
+} from "./agent-auth-router.js";

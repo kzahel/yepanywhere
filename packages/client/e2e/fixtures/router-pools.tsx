@@ -3,11 +3,12 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import type { AgentAuthRouterOverview } from "@yep-anywhere/shared";
 import { api, type VersionInfo } from "../../src/api/client";
+import { AgentAuthRouterPools } from "../../src/components/AgentAuthRouterPools";
 import {
-  AgentAuthRouterPools,
-  RouterPoolSelection,
-} from "../../src/components/AgentAuthRouterPools";
-import type { RouterSelection } from "../../src/components/AgentAuthRouterControls";
+  RouterPoolSelector,
+  type RouterSelection,
+} from "../../src/components/RouterPoolSelector";
+import { useRouterDiscovery } from "../../src/hooks/useRouterDiscovery";
 import { I18nProvider } from "../../src/i18n";
 import "../../src/styles/index.css";
 
@@ -49,7 +50,16 @@ const state: AgentAuthRouterOverview = {
     renewal: "manual",
     freshness: i === 1 ? "stale" : i === 3 ? "unknown" : "fresh",
     error: i === 1 ? "Quota refresh unavailable" : null,
-    models: [{ id: "fixture-model", name: "Fixture model" }],
+    models: [
+      {
+        id: "fixture-model",
+        name: "Fixture model",
+        supportsEffort: true,
+        supportedReasoningEfforts: [
+          { reasoningEffort: "high", description: "High" },
+        ],
+      },
+    ],
     catalogAt: "2026-10-03T08:00:00Z",
     attemptedAt: "2026-10-03T08:00:00Z",
     quota: i === 3 ? null : { observedAt: "2026-10-03T08:00:00Z" },
@@ -75,6 +85,10 @@ const state: AgentAuthRouterOverview = {
             },
           ],
   })),
+};
+api.routerSelection = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  return structuredClone(state);
 };
 api.routerOverview = async (body = {}) => {
   await new Promise((resolve) => setTimeout(resolve, 150));
@@ -130,6 +144,8 @@ api.routerRemovePool = async (body) => {
   return {};
 };
 function Fixture() {
+  const discovery = useRouterDiscovery("codex", true);
+  const [prompt, setPrompt] = useState("");
   const [updates, setUpdates] = useState(0),
     [selection, setSelection] = useState<RouterSelection | null>(null);
   useEffect(() => {
@@ -143,7 +159,21 @@ function Fixture() {
     >
       <AgentAuthRouterPools />
       <section aria-label="New session">
-        <RouterPoolSelection
+        <label>
+          Prompt
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+        </label>
+        <RouterPoolSelector
+          data={discovery.data}
+          model="fixture-model"
+          thinking="on:high"
+          sourceKey="fixture"
+          busy={discovery.busy}
+          error={discovery.error}
+          retry={() => void discovery.reload()}
           provider="codex"
           value={selection}
           onChange={setSelection}

@@ -9,12 +9,8 @@ import {
 } from "@testing-library/react";
 import type { AgentAuthRouterRecovery } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { RouterPoolSelection } from "../AgentAuthRouterPools";
 import english from "../../i18n/en.json";
-import {
-  AgentAuthRouterSettings,
-  RouterAccountSelection,
-} from "../AgentAuthRouterControls";
+import { AgentAuthRouterSettings } from "../AgentAuthRouterControls";
 
 const fixture = vi.hoisted(() => ({
   source: "host:first",
@@ -199,63 +195,6 @@ it("discards old-source mutation results without starting follow-up requests on 
   expect(screen.queryByText("codex · work")).toBeNull();
 });
 
-it("keeps the selected router account on failure and marks disabled accounts", async () => {
-  const change = vi.fn();
-  fixture.api.routerAccounts.mockResolvedValue({
-    accounts: [
-      { id: "work", provider: "codex", enabled: false, renewal: "manual" },
-    ],
-  });
-  fixture.api.routerCatalog.mockRejectedValue(
-    new Error("Pinned account is disabled. Re-enable it in AAR."),
-  );
-  render(
-    <RouterAccountSelection
-      provider="codex"
-      value={{ accountId: "work", model: "model", sourceKey: "host:first" }}
-      onChange={change}
-      disabled={false}
-    />,
-  );
-  const option = await screen.findByRole("option", { name: "work — disabled" });
-  expect((option as HTMLOptionElement).disabled).toBe(true);
-  expect(
-    (
-      screen.getByRole("combobox", {
-        name: "Router account",
-      }) as HTMLSelectElement
-    ).value,
-  ).toBe("work");
-  await screen.findByText("Pinned account is disabled. Re-enable it in AAR.");
-  expect(change).not.toHaveBeenCalled();
-});
-
-it("clears the previous catalog error when the user deliberately chooses another account", async () => {
-  const change = vi.fn();
-  fixture.api.routerCatalog.mockRejectedValueOnce(
-    new Error("Old catalog unavailable"),
-  );
-  const view = render(
-    <RouterAccountSelection
-      provider="codex"
-      value={{ accountId: "work", model: "", sourceKey: "host:first" }}
-      onChange={change}
-      disabled={false}
-    />,
-  );
-  await screen.findByText("Old catalog unavailable");
-  view.rerender(
-    <RouterAccountSelection
-      provider="codex"
-      value={{ accountId: "other", model: "", sourceKey: "host:first" }}
-      onChange={change}
-      disabled={false}
-    />,
-  );
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-  expect(change).not.toHaveBeenCalled();
-});
-
 it("does not request pool APIs from a server without the exact pool capability", async () => {
   render(<AgentAuthRouterSettings />);
   await screen.findByText("Paired with local router");
@@ -335,103 +274,3 @@ it("does not follow an old source's pool refresh with a request to the new sourc
   await act(async () => resolve());
   expect(fixture.api.routerOverview).toHaveBeenCalledTimes(2);
 });
-
-it("keeps pool-only accounts out of standalone direct-account selection", async () => {
-  fixture.api.routerAccounts.mockResolvedValue({
-    accounts: [
-      {
-        id: "pool-only",
-        provider: "codex",
-        enabled: true,
-        renewal: "manual",
-        directAccountAccess: false,
-      },
-      {
-        id: "direct",
-        provider: "codex",
-        enabled: true,
-        renewal: "manual",
-        directAccountAccess: true,
-      },
-    ],
-  });
-  render(
-    <RouterAccountSelection
-      provider="codex"
-      value={null}
-      onChange={vi.fn()}
-      disabled={false}
-    />,
-  );
-  await screen.findByRole("option", { name: "direct" });
-  expect(screen.queryByRole("option", { name: "pool-only" })).toBeNull();
-});
-
-it.each([false, true])(
-  "gates Most remaining on YA and AAR support (YA support: %s)",
-  async (supported) => {
-    if (supported)
-      fixture.capabilities.push("agent-auth-router-most-remaining");
-    const data = {
-      supportedPolicies: ["manual", "round-robin", "most-remaining"],
-      pools: [
-        {
-          id: "pool",
-          provider: "codex",
-          name: "Work",
-          accountIds: [],
-          policy: "most-remaining",
-        },
-      ],
-      accounts: [],
-    };
-    fixture.api.routerOverview.mockResolvedValue(data);
-    const view = render(
-      <RouterPoolSelection
-        provider="codex"
-        value={null}
-        onChange={vi.fn()}
-        disabled={false}
-      />,
-    );
-    const option = await screen.findByRole("option", {
-      name: supported ? "Work" : /Update YA and AAR/,
-    });
-    expect((option as HTMLOptionElement).disabled).toBe(!supported);
-    expect(fixture.api.routerRefreshOverview).not.toHaveBeenCalled();
-    if (supported) {
-      view.rerender(
-        <RouterPoolSelection
-          provider="codex"
-          value={{
-            sourceKey: "host:first",
-            poolId: "pool",
-            policy: "most-remaining",
-            accountId: "",
-            model: "model",
-          }}
-          onChange={vi.fn()}
-          disabled={false}
-        />,
-      );
-      await screen.findByRole("option", { name: "Most remaining" });
-      data.supportedPolicies = ["manual", "round-robin"];
-      view.unmount();
-      render(
-        <RouterPoolSelection
-          provider="codex"
-          value={null}
-          onChange={vi.fn()}
-          disabled={false}
-        />,
-      );
-      expect(
-        (
-          (await screen.findByRole("option", {
-            name: /Update YA and AAR/,
-          })) as HTMLOptionElement
-        ).disabled,
-      ).toBe(true);
-    }
-  },
-);

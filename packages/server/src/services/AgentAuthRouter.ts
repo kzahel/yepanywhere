@@ -4,7 +4,12 @@ import { mkdir } from "node:fs/promises";
 import http from "node:http";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { routerModelSupportsThinking } from "@yep-anywhere/shared";
 import type {
+  ModelInfo,
+  ThinkingConfig,
+  EffortLevel,
+  ThinkingOption,
   AgentAuthRouterIssueCode,
   AgentAuthRouterOverview,
   AgentAuthRouterPoolInput,
@@ -15,6 +20,7 @@ import type { SessionMetadataService } from "../metadata/SessionMetadataService.
 import { writeFileAtomically } from "../utils/writeFileAtomically.js";
 
 export interface RouterLaunch {
+  models?: ModelInfo[];
   bindingId: string;
   accountId: string;
   baseUrl: string;
@@ -28,6 +34,7 @@ interface Connection {
   state: "pairing" | "connected" | "revocation-pending" | "disconnected";
 }
 interface Allocation {
+  thinking?: ThinkingOption;
   poolId?: string;
   policy?: AgentAuthRouterPoolPolicy;
   requestedAccountId?: string;
@@ -58,11 +65,8 @@ export interface RouterAccount {
   enabled: boolean;
   renewal: string;
 }
-export interface RouterModel {
-  id: string;
-  name: string;
-  contextWindow?: number;
-}
+export type RouterModel = ModelInfo;
+
 export class RouterUnavailable extends Error {
   constructor(
     readonly status: number,
@@ -475,6 +479,34 @@ export class AgentAuthRouter {
       return result;
     });
   }
+  private readonly discoveryJobs = new Map<
+    string,
+    Promise<AgentAuthRouterOverview>
+  >();
+  async selection(provider: unknown): Promise<AgentAuthRouterOverview | null> {
+    if (provider !== "claude" && provider !== "codex")
+      throw new RouterUnavailable(400, "Invalid router provider");
+    if (this.summary().state === "disconnected") return null;
+    const c = this.connection();
+    const key = `${c.id}:${provider}`;
+    let job = this.discoveryJobs.get(key);
+    if (!job) {
+      job = (async () => {
+        await this.info(c);
+        const result = await routerRequest<AgentAuthRouterOverview>(
+          c.socketPath,
+          "/v1/selection",
+          c.token,
+          { provider },
+        );
+        if (this.connection().id !== c.id)
+          throw new RouterUnavailable(409, "Router connection changed");
+        return result;
+      })().finally(() => this.discoveryJobs.delete(key));
+      this.discoveryJobs.set(key, job);
+    }
+    return job;
+  }
   overview(
     body: {
       poolId?: string;
@@ -515,6 +547,40 @@ export class AgentAuthRouter {
       await this.flushCancellations(c);
     });
   }
+  async validateSessionSettings(
+    sessionId: string,
+    model: string | undefined,
+    settings?: { thinking?: ThinkingConfig; effort?: EffortLevel },
+  ): Promise<void> {
+    const binding = this.metadata?.getMetadata(sessionId)?.routerBinding;
+    if (!binding) return;
+    const allocation = this.state.allocations[binding.id];
+    const c = this.connection();
+    if (
+      !allocation ||
+      allocation.connectionId !== c.id ||
+      binding.routerId !== c.routerId
+    )
+      throw new RouterUnavailable(409, "Session router binding unavailable");
+    await this.info(c);
+    const { models } = await this.catalog(binding.accountId);
+    const thinking: ThinkingOption =
+      settings?.thinking?.type === "disabled"
+        ? "off"
+        : settings?.effort
+          ? `on:${settings.effort}`
+          : "auto";
+    if (
+      !routerModelSupportsThinking(
+        models.find((m) => m.id === (model ?? allocation.model)),
+        thinking,
+      )
+    )
+      throw new RouterUnavailable(
+        409,
+        "The pinned account does not support the selected model and thinking level",
+      );
+  }
   async launch(
     sessionId: string,
     provider: string,
@@ -522,6 +588,7 @@ export class AgentAuthRouter {
     accountId?: string,
     poolId?: string,
     policy?: AgentAuthRouterPoolPolicy,
+    settings?: { thinking?: ThinkingConfig; effort?: EffortLevel },
   ): Promise<RouterLaunch | undefined> {
     return this.serialize(async () => {
       const existing = this.metadata?.getMetadata(sessionId)?.routerBinding;
@@ -592,6 +659,12 @@ export class AgentAuthRouter {
           "The pinned router account is disabled, removed, or no longer granted. Re-enable the same account in AAR and retry, or start a new session with an available account. This session's pin will not change.",
           "account-unavailable",
         );
+      const requestedThinking: ThinkingOption =
+        settings?.thinking?.type === "disabled"
+          ? "off"
+          : settings?.effort
+            ? `on:${settings.effort}`
+            : "auto";
       if (!allocation) {
         if (!model || (!accountId && !poolId))
           throw new RouterUnavailable(
@@ -605,6 +678,7 @@ export class AgentAuthRouter {
           ...(poolId ? { poolId, policy, requestedAccountId: accountId } : {}),
           provider,
           model,
+          thinking: requestedThinking,
           token: token("aar_"),
         };
         await this.save({
@@ -624,14 +698,7 @@ export class AgentAuthRouter {
           },
         });
       }
-      if (allocation.accountId && model && model !== allocation.model) {
-        const catalog = await this.catalog(allocation.accountId);
-        if (!catalog.models.some((m) => m.id === model))
-          throw new RouterUnavailable(
-            409,
-            "Model is unavailable for the pinned account",
-          );
-      }
+      let accountModels: ModelInfo[] = [];
       try {
         const selected = await routerRequest<{
           accountId: string;
@@ -659,6 +726,7 @@ export class AgentAuthRouter {
                 }
               : { accountId: allocation.accountId }),
             model: allocation.model,
+            thinking: allocation.thinking,
             tokenHash: hash(allocation.token),
           },
         );
@@ -693,6 +761,18 @@ export class AgentAuthRouter {
             },
           });
         }
+        accountModels = (await this.catalog(allocation.accountId)).models;
+        const requestedModel = model ?? allocation.model;
+        if (
+          !routerModelSupportsThinking(
+            accountModels.find((m) => m.id === requestedModel),
+            requestedThinking,
+          )
+        )
+          throw new RouterUnavailable(
+            409,
+            "The pinned account does not support the selected model and thinking level",
+          );
         await routerRequest(c.socketPath, "/v1/bindings/commit", c.token, {
           id: allocation.id,
         });
@@ -720,6 +800,7 @@ export class AgentAuthRouter {
         throw error;
       }
       return {
+        models: accountModels,
         bindingId: allocation.id,
         accountId: allocation.accountId,
         baseUrl: `${info.inferenceOrigin}/${provider}`,

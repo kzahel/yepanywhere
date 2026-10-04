@@ -378,12 +378,13 @@ export const SERVER_CAPABILITIES = {
       index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouter.id,
     },
     description:
-      "Local owner pairing and manually pinned native provider sessions.",
+      "Local router pairing, automatic compatible-pool discovery, unified model/thinking selection and pinned native provider sessions.",
     clientFallback:
-      "Hide router controls and omit routerAccountId when absent.",
+      "Hide router controls and omit router launch fields when absent.",
     serverContract: {
       routes: [
         "GET /api/agent-auth-router",
+        "POST /api/agent-auth-router/selection",
         "POST /api/agent-auth-router/connect",
         "POST /api/agent-auth-router/disconnect",
         "GET /api/agent-auth-router/accounts",
@@ -391,7 +392,7 @@ export const SERVER_CAPABILITIES = {
         "GET /api/agent-auth-router/accounts/:id/quotas",
       ],
       routeModules: ["packages/server/src/routes/agent-auth-router.ts"],
-      requestFields: ["routerAccountId"],
+      requestFields: ["routerAccountId", "routerPoolId", "thinking"],
       responseFields: ["routerId", "state", "accounts"],
     },
     lifecycle: {

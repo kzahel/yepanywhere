@@ -2490,6 +2490,7 @@ export class Supervisor {
       modelSettings?.routerAccountId,
       modelSettings?.routerPoolId,
       modelSettings?.routerPolicy,
+      modelSettings,
     );
     try {
       const start = activeProvider.startSession({
@@ -2814,6 +2815,7 @@ export class Supervisor {
       modelSettings?.routerAccountId,
       modelSettings?.routerPoolId,
       modelSettings?.routerPolicy,
+      modelSettings,
     );
     try {
       const start = activeProvider.startSession({
@@ -3145,6 +3147,23 @@ export class Supervisor {
             effortWasRequested &&
             existingProcess.effort !== modelSettings?.effort;
 
+          if (
+            thinkingChanged ||
+            effortChanged ||
+            (modelSettings?.model &&
+              modelSettings.model !== existingProcess.model)
+          ) {
+            await this.agentAuthRouter?.validateSessionSettings(
+              sessionId,
+              modelSettings?.model ?? existingProcess.model,
+              {
+                thinking: modelSettings?.thinking ?? existingProcess.thinking,
+                effort: effortWasRequested
+                  ? modelSettings?.effort
+                  : existingProcess.effort,
+              },
+            );
+          }
           if (thinkingChanged || effortChanged) {
             if (
               thinkingChanged &&

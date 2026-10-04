@@ -1,3 +1,4 @@
+import { routerModelSupportsThinking } from "@yep-anywhere/shared";
 import { claudeRouterEnvironment } from "./router-transport.js";
 import { startAgentSelfSession } from "./agent-self.js";
 import {
@@ -2267,16 +2268,11 @@ export class ClaudeProvider implements AgentProvider {
       () => sdkQuery,
       async () => {
         const models = options.routerLaunch
-          ? CLAUDE_MODELS_FALLBACK
+          ? (options.routerLaunch.models ?? [])
           : await this.getAvailableModels();
         const model = models.find(
           (candidate) => candidate.id === (selectedModel ?? "default"),
         );
-        if (options.routerLaunch && !model)
-          return {
-            ...CLAUDE_MODELS_FALLBACK[0]!,
-            id: selectedModel ?? "default",
-          };
         if (!model)
           throw new Error(
             `No effort catalog for model ${selectedModel ?? "default"}`,
@@ -2496,7 +2492,17 @@ export class ClaudeProvider implements AgentProvider {
       },
       setMaxThinkingTokens: (tokens: number | null) =>
         turnEffort.setThinking(tokens),
-      setEffort: (effort?: EffortLevel) => turnEffort.setEffort(effort),
+      setEffort: (effort?: EffortLevel) => {
+        if (
+          options.routerLaunch?.models &&
+          !routerModelSupportsThinking(
+            options.routerLaunch.models.find((m) => m.id === selectedModel),
+            effort ? `on:${effort}` : "auto",
+          )
+        )
+          throw new Error("Thinking level unavailable for the pinned account");
+        return turnEffort.setEffort(effort);
+      },
       setSessionOptions: (requested) =>
         Promise.resolve(
           evaluateClaudeSessionOptionsUpdate(
@@ -2509,6 +2515,7 @@ export class ClaudeProvider implements AgentProvider {
         return true;
       },
       supportedModels: async (): Promise<ModelInfo[]> => {
+        if (options.routerLaunch) return options.routerLaunch.models ?? [];
         const models = await sdkQuery.supportedModels();
         return this.normalizeSupportedModels(models);
       },
@@ -2555,6 +2562,11 @@ export class ClaudeProvider implements AgentProvider {
         return operation;
       },
       setModel: async (model?: string) => {
+        if (
+          options.routerLaunch?.models &&
+          !options.routerLaunch.models.some((m) => m.id === model)
+        )
+          throw new Error("Model unavailable for the pinned account");
         await sdkQuery.setModel(normalizeClaudeLaunchModel(model));
         selectedModel = model;
       },

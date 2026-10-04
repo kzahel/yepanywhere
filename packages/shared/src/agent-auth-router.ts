@@ -1,3 +1,5 @@
+import type { ModelInfo, ThinkingOption } from "./types.js";
+
 export interface AgentAuthRouterStatus {
   state: "pairing" | "connected" | "revocation-pending" | "disconnected";
   routerId: string | null;
@@ -14,6 +16,7 @@ export type AgentAuthRouterIssueCode =
   | "operation-rejected";
 
 export interface AgentAuthRouterAccount {
+  displayName?: string;
   directAccountAccess?: boolean;
   id: string;
   provider: "claude" | "codex";
@@ -54,7 +57,7 @@ export interface AgentAuthRouterOverview {
   pools: AgentAuthRouterPool[];
   accounts: (AgentAuthRouterAccount & {
     freshness: "fresh" | "stale" | "unknown";
-    models: { id: string; name: string }[];
+    models: ModelInfo[];
     catalogAt: string | null;
     attemptedAt: string | null;
     error: string | null;
@@ -86,4 +89,37 @@ export interface AgentAuthRouterOverview {
       };
     }[];
   };
+}
+
+/** Explicit effort must come from the selected account, never the direct login. */
+export function routerModelSupportsThinking(
+  model: ModelInfo | undefined,
+  thinking: ThinkingOption = "auto",
+): boolean {
+  if (!model) return false;
+  if (thinking === "auto" || thinking === "off") return true;
+  if (
+    model.supportsEffort === false ||
+    model.supportsAdaptiveThinking === false
+  )
+    return false;
+  const effort = thinking.replace(/^on:/, "");
+  return !!model.supportedReasoningEfforts?.some(
+    (r) =>
+      r.reasoningEffort === effort ||
+      (effort === "max" && r.reasoningEffort === "ultra"),
+  );
+}
+
+/** Resolve only ordinary family aliases, never composite modes or arbitrary names. */
+export function resolveRouterModel(
+  model: string | null | undefined,
+  models: readonly ModelInfo[],
+): string | undefined {
+  if (!model) return undefined;
+  if (models.some((m) => m.id === model)) return model;
+  if (!["opus", "sonnet", "haiku", "fable"].includes(model)) return undefined;
+  return models
+    .filter((m) => m.id.startsWith(`claude-${model}-`))
+    .sort((a, b) => b.id.localeCompare(a.id, "en", { numeric: true }))[0]?.id;
 }

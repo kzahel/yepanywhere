@@ -4509,5 +4509,9 @@
   "routerPoolWeeklySonnet": "Weekly · Sonnet",
   "routerPoolWeeklyApps": "Weekly · OAuth apps",
   "routerPoolPrimary": "Primary window",
-  "routerPoolSecondary": "Secondary window"
+  "routerPoolSecondary": "Secondary window",
+  "routerAccountNumber": "Account {number}",
+  "routerDiscoveryFailed": "Router unavailable. Start AAR and retry.",
+  "routerRetry": "Retry",
+  "routerSelectionUnavailable": "This pool cannot run the selected model and thinking level."
 }

@@ -1793,54 +1793,86 @@ describe("CodexProvider app-server lifecycle", () => {
     }
   });
 
-  it("isolates one-turn effort and maps regular Max to the model's ultra", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "codex-turn-effort-"));
-    const logPath = join(tempDir, "requests.jsonl");
-    const codexPath = createFakeCodexCommand(
-      tempDir,
-      "fake-effort",
-      buildFakeCodexPermissionAppServer(logPath),
-    );
-    const testProvider = new CodexProvider({ codexPath });
-    const session = await testProvider.startSession({
-      cwd: tempDir,
-      model: "gpt-5.4-mini",
-      effort: "high",
-      initialMessage: { text: "careful", metadata: { turnEffort: "slow" } },
-    });
-    try {
-      await consumeCodexTurn(session.iterator);
-      session.queue.push({ text: "ordinary" });
-      await consumeCodexTurn(session.iterator);
-      session.queue.push({
-        text: "maximum",
-        metadata: { turnEffort: "slowest" },
+  it.each([false, true])(
+    "isolates one-turn effort and maps Max using the selected catalog (routed: %s)",
+    async (routed) => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-turn-effort-"));
+      const logPath = join(tempDir, "requests.jsonl");
+      const codexPath = createFakeCodexCommand(
+        tempDir,
+        "fake-effort",
+        buildFakeCodexPermissionAppServer(logPath),
+      );
+      const testProvider = new CodexProvider({ codexPath });
+      const session = await testProvider.startSession({
+        cwd: tempDir,
+        model: "gpt-5.4-mini",
+        effort: "high",
+        ...(routed
+          ? {
+              routerLaunch: {
+                bindingId: "binding",
+                accountId: "account",
+                baseUrl: "http://127.0.0.1:9999",
+                token: "synthetic-test-token",
+                models: [
+                  {
+                    id: "gpt-5.4-mini",
+                    name: "Pinned model",
+                    supportsEffort: true,
+                    defaultReasoningEffort: "high",
+                    supportedReasoningEfforts: [
+                      "none",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh",
+                      "ultra",
+                    ].map((reasoningEffort) => ({
+                      reasoningEffort,
+                      description: reasoningEffort,
+                    })),
+                  },
+                ],
+              },
+            }
+          : {}),
+        initialMessage: { text: "careful", metadata: { turnEffort: "slow" } },
       });
-      await consumeCodexTurn(session.iterator);
-      session.queue.push({
-        text: "brief",
-        metadata: { turnEffort: "fastest" },
-      });
-      await consumeCodexTurn(session.iterator);
-      await session.setEffort?.("max");
-      session.queue.push({ text: "normal max" });
-      await consumeCodexTurn(session.iterator);
-      const requests = readFakeCodexRequests(logPath);
-      expect(
-        requests
-          .filter((request) => request.method === "turn/start")
-          .map((request) => request.params?.effort),
-      ).toEqual(["xhigh", "high", "ultra", "none", "ultra"]);
-      expect(
-        requests
-          .filter((request) => request.method === "thread/settings/update")
-          .map((request) => request.params?.effort),
-      ).toEqual(["high", "high", "high", "ultra"]);
-    } finally {
-      await session.abort();
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
+      try {
+        await consumeCodexTurn(session.iterator);
+        session.queue.push({ text: "ordinary" });
+        await consumeCodexTurn(session.iterator);
+        session.queue.push({
+          text: "maximum",
+          metadata: { turnEffort: "slowest" },
+        });
+        await consumeCodexTurn(session.iterator);
+        session.queue.push({
+          text: "brief",
+          metadata: { turnEffort: "fastest" },
+        });
+        await consumeCodexTurn(session.iterator);
+        await session.setEffort?.("max");
+        session.queue.push({ text: "normal max" });
+        await consumeCodexTurn(session.iterator);
+        const requests = readFakeCodexRequests(logPath);
+        expect(
+          requests
+            .filter((request) => request.method === "turn/start")
+            .map((request) => request.params?.effort),
+        ).toEqual(["xhigh", "high", "ultra", "none", "ultra"]);
+        expect(
+          requests
+            .filter((request) => request.method === "thread/settings/update")
+            .map((request) => request.params?.effort),
+        ).toEqual(["high", "high", "high", "ultra"]);
+      } finally {
+        await session.abort();
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("updates model and effort during a live turn and retains both", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "codex-provider-settings-"));

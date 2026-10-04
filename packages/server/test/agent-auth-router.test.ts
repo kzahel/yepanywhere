@@ -84,7 +84,11 @@ async function fixture(
           observedAt: "2026-10-03T08:00:00Z",
         }),
       );
-    if (req.url === "/v1/overview" || req.url === "/v1/overview/refresh")
+    if (
+      req.url === "/v1/overview" ||
+      req.url === "/v1/overview/refresh" ||
+      req.url === "/v1/selection"
+    )
       return res.end(
         JSON.stringify({
           accounts: [],
@@ -107,7 +111,17 @@ async function fixture(
     }
     return res.end(
       JSON.stringify({
-        models: [{ id: "fixture-model", name: "Fixture" }],
+        models: [
+          {
+            id: "fixture-model",
+            name: "Fixture",
+            supportsEffort: true,
+            supportedReasoningEfforts: [
+              { reasoningEffort: "high", description: "High" },
+              { reasoningEffort: "ultra", description: "Maximum" },
+            ],
+          },
+        ],
         accounts: [
           { id: "account", provider: "codex", enabled, renewal: "manual" },
         ],
@@ -190,6 +204,74 @@ describe.skipIf(process.platform === "win32")(
       expect(await disconnected.json()).toMatchObject({
         state: "disconnected",
       });
+    });
+    it("discovers selection through the owner route and coalesces concurrent reads", async () => {
+      const f = await fixture();
+      expect(await f.connector.selection("codex")).toBeNull();
+      await f.connector.connect(f.socketPath);
+      await Promise.all([
+        f.connector.selection("codex"),
+        f.connector.selection("codex"),
+      ]);
+      expect(f.requests.filter((r) => r.path === "/v1/selection")).toHaveLength(
+        1,
+      );
+      expect(f.requests.find((r) => r.path === "/v1/selection")?.body).toEqual({
+        provider: "codex",
+      });
+      const app = new Hono().route(
+        "/api",
+        createAgentAuthRouterRoutes(f.connector),
+      );
+      expect(
+        (
+          await app.request("/api/agent-auth-router/selection", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ provider: "codex" }),
+          })
+        ).status,
+      ).toBe(200);
+      await expect(f.connector.selection("arbitrary")).rejects.toThrow();
+    });
+    it("persists requested thinking, returns the pinned model metadata and refuses unsupported changes", async () => {
+      const f = await fixture(true, true, true);
+      await f.connector.connect(f.socketPath);
+      const launch = await f.connector.launch(
+        "effort-session",
+        "codex",
+        "fixture-model",
+        undefined,
+        "pool",
+        undefined,
+        { effort: "max" },
+      );
+      expect(
+        f.requests.find((r) => r.path === "/v1/pools/prepare")?.body.thinking,
+      ).toBe("on:max");
+      expect(
+        launch.models?.[0]?.supportedReasoningEfforts?.[1]?.reasoningEffort,
+      ).toBe("ultra");
+      await expect(
+        f.connector.validateSessionSettings("effort-session", "fixture-model", {
+          effort: "low",
+        }),
+      ).rejects.toThrow();
+      const resumed = await f.connector.launch(
+        "effort-session",
+        "codex",
+        "fixture-model",
+        undefined,
+        undefined,
+        undefined,
+        { effort: "high" },
+      );
+      expect(resumed.token).toBe(launch.token);
+      expect(
+        f.requests
+          .filter((r) => r.path === "/v1/pools/prepare")
+          .every((r) => r.body.thinking === "on:max"),
+      ).toBe(true);
     });
     it("persists before prepare, recovers response loss, remaps identity and resumes the exact token", async () => {
       const f = await fixture();

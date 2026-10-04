@@ -1,7 +1,4 @@
-import {
-  AgentAuthRouterPools,
-  RouterPoolSelection,
-} from "./AgentAuthRouterPools";
+import { AgentAuthRouterPools } from "./AgentAuthRouterPools";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   SERVER_CAPABILITIES,
@@ -84,7 +81,10 @@ function RouterSettingsForSource() {
       setBusy(true);
       setError("");
       try {
-        if (action) await action(id);
+        if (action) {
+          await action(id);
+          window.dispatchEvent(new Event("router-connection-changed"));
+        }
         if (request.current === id) await read(id);
       } catch (failure) {
         if (request.current !== id) return;
@@ -267,177 +267,5 @@ function RouterSettingsForSource() {
           </div>
         ))}
     </section>
-  );
-}
-
-export interface RouterSelection {
-  poolId?: string;
-  policy?: "manual" | "round-robin" | "most-remaining";
-  sourceKey: string;
-  accountId: string;
-  model: string;
-}
-export function RouterAccountSelection({
-  provider,
-  value,
-  onChange,
-  disabled,
-}: {
-  provider: string;
-  value: RouterSelection | null;
-  onChange: (value: RouterSelection | null) => void;
-  disabled: boolean;
-}) {
-  const { t } = useI18n();
-  const { version } = useVersion();
-  const supportsPools = serverHasCapability(
-    version,
-    SERVER_CAPABILITIES.agentAuthRouterPools.name,
-  );
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const sourceKey = useClientSummarySourceKey();
-  const [models, setModels] = useState<{ id: string; name: string }[]>([]);
-  const [error, setError] = useState("");
-  const [catalogError, setCatalogError] = useState("");
-  const [refresh, setRefresh] = useState(0);
-  const [connected, setConnected] = useState(false);
-  const hasSelection = Boolean(value);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: The API resolves the current source at call time; source switches and explicit refreshes must invalidate these reads.
-  useEffect(() => {
-    let current = true;
-    setAccounts([]);
-    setError("");
-    setConnected(false);
-    void api
-      .routerStatus()
-      .then(async (status) => {
-        if (!current) return;
-        if (status.state !== "connected") {
-          if (status.state === "revocation-pending")
-            setError(t("routerRevocationHelp"));
-          else if (hasSelection) setError(t("routerDisconnectedHelp"));
-          return;
-        }
-        setConnected(true);
-        const result = await api.routerAccounts();
-        if (current)
-          setAccounts(
-            result.accounts.filter(
-              (a) => a.provider === provider && a.directAccountAccess !== false,
-            ),
-          );
-      })
-      .catch((failure) => {
-        if (current) setError(errorMessage(failure, t("routerUnavailable")));
-      });
-    return () => {
-      current = false;
-    };
-  }, [provider, sourceKey, refresh, t, hasSelection]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Re-read the selected catalog after an explicit refresh or source switch, including when the account ID is unchanged.
-  useEffect(() => {
-    let current = true;
-    setModels([]);
-    setCatalogError("");
-    if (value?.accountId)
-      void api
-        .routerCatalog(value.accountId)
-        .then((result) => {
-          if (current) setModels(result.models);
-        })
-        .catch((failure) => {
-          if (current)
-            setCatalogError(errorMessage(failure, t("routerUnavailable")));
-        });
-    return () => {
-      current = false;
-    };
-  }, [value?.accountId, sourceKey, refresh, t]);
-  if (!accounts.length && !value && !connected && !error) return null;
-  return (
-    <div className={styles.panel}>
-      {supportsPools && connected && (
-        <RouterPoolSelection
-          key={sourceKey}
-          provider={provider}
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-        />
-      )}
-      {!value?.poolId && (
-        <label>
-          {t("routerAccount")}
-          <select
-            aria-label={t("routerAccount")}
-            disabled={disabled}
-            value={value?.accountId ?? ""}
-            onChange={(event) =>
-              onChange(
-                event.target.value
-                  ? { accountId: event.target.value, model: "", sourceKey }
-                  : null,
-              )
-            }
-          >
-            <option value="">{t("routerDirect")}</option>
-            {value && !accounts.some((a) => a.id === value.accountId) && (
-              <option value={value.accountId} disabled>
-                {value.accountId} — {t("routerAccountUnavailableLabel")}
-              </option>
-            )}
-            {accounts.map((account) => (
-              <option
-                key={account.id}
-                value={account.id}
-                disabled={!account.enabled}
-              >
-                {account.id}
-                {!account.enabled
-                  ? ` — ${t("routerAccountDisabledLabel")}`
-                  : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {value && !value.poolId && (
-        <label>
-          {t("routerModel")}
-          <select
-            aria-label={t("routerModel")}
-            disabled={
-              disabled ||
-              !accounts.some((a) => a.id === value.accountId && a.enabled)
-            }
-            value={value.model}
-            onChange={(event) =>
-              onChange({ ...value, model: event.target.value })
-            }
-          >
-            <option value="">{t("routerChooseModel")}</option>
-            {models.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {value && <p>{t("routerReasoningDefault")}</p>}
-      {connected && !accounts.some((a) => a.enabled) && (
-        <p>{t("routerNoAvailableAccounts")}</p>
-      )}
-      {(error || catalogError) && <p role="alert">{error || catalogError}</p>}
-      {(error || catalogError || connected) && (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => setRefresh((old) => old + 1)}
-        >
-          {t("routerRefreshAccounts")}
-        </button>
-      )}
-    </div>
   );
 }

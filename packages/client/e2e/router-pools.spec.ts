@@ -118,57 +118,57 @@ test("pool overview, editor and policy selection retain typing under 48-account 
   await selector
     .getByRole("combobox", { name: "Pool", exact: true })
     .selectOption("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-  await expect(
-    selector.getByRole("combobox", { name: "Router model", exact: true }),
-  ).toBeEnabled();
-  await selector
-    .getByRole("combobox", { name: "Router model", exact: true })
-    .selectOption("fixture-model");
   await expect(selector.getByLabel("Selected route")).toContainText(
-    '"policy":"round-robin"',
+    '"poolId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"',
   );
-  await expect(
-    selector.getByRole("combobox", { name: "Selection policy", exact: true }),
-  ).toBeEnabled();
-  await selector
-    .getByRole("combobox", { name: "Selection policy", exact: true })
-    .selectOption("most-remaining");
-  await expect(selector.getByLabel("Selected route")).toContainText(
-    '"policy":"most-remaining"',
+  await expect(selector.getByRole("combobox")).toHaveCount(1);
+  const prompt = selector.getByRole("textbox", { name: "Prompt" });
+  await prompt.evaluate((element) => {
+    const field = element as HTMLTextAreaElement;
+    const samples: { latency: number; retained: boolean }[] = [];
+    (window as unknown as { typing: typeof samples }).typing = samples;
+    field.addEventListener("input", () => {
+      const start = performance.now(),
+        expected = field.value;
+      requestAnimationFrame(() =>
+        samples.push({
+          latency: performance.now() - start,
+          retained: field.value.startsWith(expected),
+        }),
+      );
+    });
+  });
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("router-connection-changed")),
   );
-  await expect(
-    selector
-      .getByText("Tightest window: 45% remaining", { exact: false })
-      .first(),
-  ).toBeVisible();
-  await expect(
-    selector.getByText("Starting a session refreshes stale quota", {
-      exact: false,
-    }),
-  ).toBeVisible();
+  await prompt.pressSequentially(name, { delay: 20 });
+  await expect(prompt).toHaveValue(name);
+  const promptSamples = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          typing: { latency: number; retained: boolean }[];
+        }
+      ).typing,
+  );
+  expect(promptSamples).toHaveLength(name.length);
+  expect(promptSamples.every((s) => s.retained && s.latency < 100)).toBe(true);
+  console.log(
+    `Prompt during discovery: maximum ${Math.max(...promptSamples.map((s) => s.latency)).toFixed(1)} ms`,
+  );
   for (const size of [
     { width: 1000, height: 600 },
     { width: 375, height: 812 },
   ]) {
     await page.setViewportSize(size);
-    await expect(
-      selector.getByRole("combobox", { name: "Selection policy", exact: true }),
-    ).toBeEnabled();
     await selector.evaluate((el) => el.scrollIntoView({ block: "start" }));
-    await recordUiCapture(page, `router-most-remaining-${size.width}`, size);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await recordUiCapture(page, `router-unified-selection-${size.width}`, size);
   }
-  await selector
-    .getByRole("combobox", { name: "Selection policy", exact: true })
-    .selectOption("manual");
-  await expect(
-    selector.getByRole("combobox", { name: "Router account", exact: true }),
-  ).toBeEnabled();
-  await selector
-    .getByRole("combobox", { name: "Router account", exact: true })
-    .selectOption("account-2");
-  await expect(selector.getByLabel("Selected route")).toContainText(
-    '"accountId":"account-2"',
-  );
   expect(warnings).toEqual([]);
 });
 

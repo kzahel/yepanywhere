@@ -314,6 +314,35 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../../api/client", () => ({
   api: {
     addProject: mockAddProject,
+    routerSelection: vi.fn(async () => ({
+      accounts: [
+        {
+          id: "routed-account",
+          provider: "claude",
+          enabled: true,
+          models: [
+            {
+              id: "claude-opus-4-8",
+              name: "Opus 4.8",
+              supportsEffort: true,
+              supportsAdaptiveThinking: true,
+              supportedReasoningEfforts: [
+                { reasoningEffort: "high", description: "High" },
+              ],
+            },
+          ],
+        },
+      ],
+      pools: [
+        {
+          id: "work",
+          name: "Work",
+          provider: "claude",
+          accountIds: ["routed-account"],
+          policy: "round-robin",
+        },
+      ],
+    })),
     routerStatus: vi.fn(async () => ({ state: "connected" })),
     routerAccounts: vi.fn(async () => ({
       accounts: [{ id: "routed-account", provider: "claude", enabled: true }],
@@ -1493,8 +1522,10 @@ describe("NewSessionForm", () => {
     ]);
   });
 
-  it("launches a selected router account with its catalog model and provider-default reasoning", async () => {
+  it("keeps the normal model and thinking selection when using a compatible pool", async () => {
     versionState.version = { capabilities: ["agent-auth-router"] };
+    modelSettingsState.thinkingMode = "on";
+    serverSettingsState.isLoading = false;
     render(
       <NewSessionForm
         projectId="project-1"
@@ -1504,13 +1535,12 @@ describe("NewSessionForm", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Claude" }));
     openAdvancedOptions();
-    fireEvent.change(await screen.findByLabelText("routerAccount"), {
-      target: { value: "routed-account" },
+    fireEvent.click(screen.getAllByRole("button", { name: "Opus 4.8" })[0]!);
+    fireEvent.change(await screen.findByLabelText("routerPool"), {
+      target: { value: "work" },
     });
-    await screen.findByRole("option", { name: "Routed model" });
-    fireEvent.change(screen.getByLabelText("routerModel"), {
-      target: { value: "routed-model" },
-    });
+    expect(screen.queryByLabelText("routerModel")).toBeNull();
+    expect(screen.queryByLabelText("routerAccount")).toBeNull();
     fireEvent.change(screen.getByPlaceholderText("newSessionPlaceholder"), {
       target: { value: "hello" },
     });
@@ -1520,9 +1550,9 @@ describe("NewSessionForm", () => {
     await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
     expect(mockStartSession.mock.calls[0]?.[2]).toMatchObject({
       provider: "claude",
-      routerAccountId: "routed-account",
-      model: "routed-model",
-      thinking: "auto",
+      routerPoolId: "work",
+      model: "claude-opus-4-8",
+      thinking: "on:high",
     });
   });
 
