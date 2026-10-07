@@ -34,7 +34,7 @@
     "@hono/node-server": "^1.19.17",
     "@hono/node-ws": "^1.2.0",
     "@mdit/plugin-katex": "1.1.0",
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@yep-anywhere/shared": "workspace:*",
     "bcrypt": "^6.0.0",
     "diff": "^8.0.3",
