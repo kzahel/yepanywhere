@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import type { ArtifactServer } from "../artifacts/ArtifactServer.js";
+import { createVhostOauthProviderRoutes } from "./vhostOauthProviders.js";
 
 export function createVhostOauthRoutes(server: ArtifactServer) {
   const routes = new Hono();
+  routes.route("/", createVhostOauthProviderRoutes(server));
   routes.get("/artifacts/vhosts/oauth", async (c) => {
     await server.ready;
     return c.json(server.vhostOauth.status());

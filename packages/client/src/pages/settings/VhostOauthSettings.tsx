@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   redundantVhostEmail,
   vhostOauthPolicy,
+  vhostOauthProviderName,
   type VhostOauthLogEntry,
   type VhostOauthStatus,
 } from "@yep-anywhere/shared";
@@ -11,16 +12,147 @@ import { useI18n } from "../../i18n";
 import { downloadBlob } from "../../lib/imageActions";
 import styles from "./VhostOauthSettings.module.css";
 
-type Update = (path: string, body: unknown) => Promise<void>;
+type Update = (
+  path: string,
+  body: unknown,
+  method?: "PUT" | "DELETE",
+) => Promise<void>;
 
 const GOOGLE_ISSUER = "https://accounts.google.com";
 
 export function VhostOauthProviderSettings({
   status,
   update,
+  multipleProviders = false,
 }: {
   status: VhostOauthStatus;
   update: Update;
+  multipleProviders?: boolean;
+}) {
+  const { t } = useI18n();
+  const [newId, setNewId] = useState<string>();
+  if (!multipleProviders)
+    return <ProviderEditor status={status} update={update} />;
+  const entries = status.providers ?? [];
+  return (
+    <div className={styles.settings}>
+      <ProviderToggle
+        enabled={status.enabled ?? true}
+        path="/artifacts/vhosts/oauth/enabled"
+        label={t("vhostOauthEnabled")}
+        update={update}
+      />
+      <p>{t("vhostOauthEnabledHint")}</p>
+      {entries.map((entry) => (
+        <section
+          key={entry.id}
+          className={styles.providerCard}
+          aria-label={vhostOauthProviderName(entry.provider)}
+        >
+          <ProviderToggle
+            enabled={entry.enabled}
+            path={`/artifacts/vhosts/oauth/providers/${entry.id}/enabled`}
+            label={vhostOauthProviderName(entry.provider)}
+            update={update}
+          />
+          <details>
+            <summary>{t("vhostOauthEditProvider")}</summary>
+            <ProviderEditor
+              status={{ ...status, ...entry, enabled: undefined }}
+              update={update}
+              id={entry.id}
+            />
+          </details>
+        </section>
+      ))}
+      {newId && !entries.some((entry) => entry.id === newId) ? (
+        <section className={styles.providerCard}>
+          <ProviderEditor
+            key={newId}
+            status={{
+              ...status,
+              provider: {
+                ...status.provider,
+                kind: "oidc",
+                issuer: GOOGLE_ISSUER,
+                clientId: "",
+              },
+              locked: false,
+              secretConfigured: false,
+              secretSuffix: undefined,
+              enabled: undefined,
+            }}
+            update={update}
+            id={newId}
+          />
+          <button type="button" onClick={() => setNewId(undefined)}>
+            {t("cancel")}
+          </button>
+        </section>
+      ) : (
+        entries.length < 8 && (
+          <button
+            type="button"
+            onClick={() =>
+              setNewId(entries.length ? crypto.randomUUID() : "default")
+            }
+          >
+            {t("vhostOauthAddProvider")}
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
+function ProviderToggle({
+  enabled,
+  path,
+  label,
+  update,
+}: {
+  enabled: boolean;
+  path: string;
+  label: string;
+  update: Update;
+}) {
+  const [pending, setPending] = useState<boolean>();
+  const [error, setError] = useState("");
+  return (
+    <div>
+      <label className={styles.toggle}>
+        <input
+          type="checkbox"
+          checked={pending ?? enabled}
+          disabled={pending !== undefined}
+          onChange={async (event) => {
+            const value = event.target.checked;
+            setPending(value);
+            setError("");
+            try {
+              await update(path, { enabled: value });
+            } catch (failure) {
+              setError(String(failure));
+            } finally {
+              setPending(undefined);
+            }
+          }}
+        />
+        {label}
+      </label>
+      {error && <p role="alert">{error}</p>}
+    </div>
+  );
+}
+
+function ProviderEditor({
+  status,
+  update,
+  id,
+}: {
+  status: VhostOauthStatus;
+  update: Update;
+  id?: string;
 }) {
   const { t } = useI18n();
   const [provider, setProvider] = useState(status.provider);
@@ -168,10 +300,15 @@ export function VhostOauthProviderSettings({
               setBusy(true);
               setMessage("");
               try {
-                await update("/artifacts/vhosts/oauth", {
-                  provider,
-                  ...(secret ? { secret } : {}),
-                });
+                await update(
+                  id
+                    ? `/artifacts/vhosts/oauth/providers/${id}`
+                    : "/artifacts/vhosts/oauth",
+                  {
+                    provider,
+                    ...(secret ? { secret } : {}),
+                  },
+                );
                 setSecret("");
                 setMessage(t("artifactSaved"));
               } catch (error) {
@@ -185,6 +322,29 @@ export function VhostOauthProviderSettings({
           </button>
         )}
       </fieldset>
+      {id && id !== "default" && status.secretConfigured && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setMessage("");
+            try {
+              await update(
+                `/artifacts/vhosts/oauth/providers/${id}`,
+                undefined,
+                "DELETE",
+              );
+            } catch (error) {
+              setMessage(String(error));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t("vhostOauthRemoveProvider")}
+        </button>
+      )}
       {message && <p role="status">{message}</p>}
     </div>
   );

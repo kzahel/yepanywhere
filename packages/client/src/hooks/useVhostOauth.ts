@@ -38,11 +38,11 @@ export function useVhostOauth() {
     };
   }, [supported, sourceKey, transport]);
   const update = useCallback(
-    (path: string, body: unknown) => {
+    (path: string, body: unknown, method: "PUT" | "DELETE" = "PUT") => {
       const current = generation.current;
       const operation = pending.current.then(async () => {
         const value = await transport.fetch<VhostOauthStatus>(path, {
-          method: "PUT",
+          method,
           body: JSON.stringify(body),
         });
         if (current === generation.current) {
@@ -57,6 +57,10 @@ export function useVhostOauth() {
   );
   return {
     supported,
+    multipleProviders: serverHasCapability(
+      version,
+      SERVER_CAPABILITIES.vhostOauthProviders.name,
+    ),
     status: state?.source === sourceKey ? state.value : undefined,
     error,
     update,

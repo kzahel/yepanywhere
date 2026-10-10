@@ -18,8 +18,25 @@ export interface VhostOauthStatus {
   configured: boolean;
   /** Absent on servers predating the independent enable switch. */
   enabled?: boolean;
+  /** Present when independently managed sign-in providers are supported. */
+  providers?: VhostOauthProviderEntry[];
   policies: Record<string, string[]>;
   accessedHosts: string[];
+}
+
+export interface VhostOauthProviderEntry {
+  id: string;
+  enabled: boolean;
+  locked: boolean;
+  provider: VhostOauthProvider;
+  secretConfigured: boolean;
+  secretSuffix?: string;
+}
+
+export function vhostOauthProviderName(provider: VhostOauthProvider): string {
+  if (provider.kind === "entra") return "Microsoft";
+  if (provider.issuer === "https://accounts.google.com") return "Google";
+  return provider.issuer ? new URL(provider.issuer).hostname : "OpenID Connect";
 }
 
 export interface VhostOauthLogEntry {

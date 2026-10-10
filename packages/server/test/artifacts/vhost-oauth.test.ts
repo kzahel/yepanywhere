@@ -161,6 +161,89 @@ async function fixture(kind: "oidc" | "entra" = "oidc") {
   };
 }
 
+it("selects providers independently, binds callbacks and revokes disabled providers", async () => {
+  const f = await fixture();
+  const second = {
+    ...settings,
+    clientId: "second-client",
+    callbackUrl: "https://second-auth.example.net/callback",
+  };
+  await f.service.configure(
+    { provider: second, secret: "second-secret" },
+    "second",
+  );
+  const page = (await f.service.admit(
+    f.request("/memo?section=2"),
+    row,
+  )) as Response;
+  const document = await page.text();
+  expect(document).toContain("provider=default");
+  expect(document).toContain("provider=second");
+  expect(page.headers.get("content-security-policy")).toContain(
+    "style-src 'sha256-",
+  );
+  const begin = (await f.service.admit(
+    f.request("/_ya/oauth/start?provider=second&return=%2Fmemo"),
+    row,
+  )) as Response;
+  expect(begin.status).toBe(303);
+  const auth = new URL(begin.headers.get("location")!);
+  expect(auth.searchParams.get("client_id")).toBe("second-client");
+  expect(auth.searchParams.get("redirect_uri")).toBe(second.callbackUrl);
+  const state = auth.searchParams.get("state")!;
+  f.state.nonce = auth.searchParams.get("nonce")!;
+  f.state.audience = "second-client";
+  expect(
+    (await f.service.callback(
+      new Request(`${settings.callbackUrl}?state=${state}&code=code`),
+    ))!.status,
+  ).toBe(400);
+  const callback = (await f.service.callback(
+    new Request(`${second.callbackUrl}?state=${state}&code=code`),
+  ))!;
+  expect(callback.status).toBe(303);
+  const finish = (await f.service.admit(
+    new Request(callback.headers.get("location")!, {
+      headers: { cookie: begin.headers.get("set-cookie")!.split(";")[0]! },
+    }),
+    row,
+  )) as Response;
+  expect(finish.status).toBe(303);
+  const cookie = finish.headers.getSetCookie()[0]!.split(";")[0]!;
+  await f.service.setProviderEnabled("second", false);
+  expect(
+    ((await f.service.admit(f.request("/", cookie), row)) as Response).status,
+  ).toBe(401);
+  expect(
+    (
+      (await f.service.admit(
+        f.request("/_ya/oauth/start?provider=second"),
+        row,
+      )) as Response
+    ).status,
+  ).toBe(400);
+  await f.service.configure({ provider: settings });
+  expect(f.service.status().providers).toHaveLength(2);
+  const restarted = new VhostOauth(
+    f.directory,
+    () => ({ port: 4402 }),
+    () => "",
+    () => {},
+  );
+  await restarted.ready;
+  expect(
+    restarted.status().providers?.find((entry) => entry.id === "second")
+      ?.enabled,
+  ).toBe(false);
+  expect(JSON.stringify(restarted.status())).not.toContain("second-secret");
+  await f.service.setProviderEnabled("default", false);
+  expect(
+    ((await f.service.admit(f.request("/"), row)) as Response).status,
+  ).toBe(503);
+  await f.service.removeProvider("second");
+  expect(f.service.status().providers).toHaveLength(1);
+});
+
 it("verifies signed OIDC, binds the callback to the initiating browser and logs only the check", async () => {
   const f = await fixture();
   const flow = await f.start();
@@ -312,6 +395,14 @@ it("validates environment precedence without disclosing or persisting its creden
   });
   expect(JSON.stringify(oauth.status())).not.toContain("environment-secret");
   await expect(oauth.configure({})).rejects.toThrow("environment variables");
+  await oauth.configure(
+    { provider: settings, secret: "additional-secret" },
+    "additional",
+  );
+  expect(oauth.status().providers).toMatchObject([
+    { id: "default", locked: true },
+    { id: "additional", locked: false },
+  ]);
   await oauth.setEnabled(false);
   expect(oauth.status()).toMatchObject({
     enabled: false,
@@ -457,7 +548,7 @@ it("enforces OAuth before the real file and proxy dispatch, including public and
         proxy,
       );
       expect(response?.status).toBe(401);
-      expect(await response?.text()).toContain("Sign-in required");
+      expect(await response?.text()).toContain("Sign in to continue");
     }
     expect(proxy).not.toHaveBeenCalled();
     await server.vhostOauth.setEnabled(false);

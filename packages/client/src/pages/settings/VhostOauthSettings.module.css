@@ -3,6 +3,23 @@
   gap: 10px;
   min-width: 0;
 }
+.providerCard {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+.providerCard summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: list-item;
+  align-content: center;
+}
+.providerCard details[open] > summary {
+  margin-bottom: 16px;
+}
 .settings p {
   margin: 0;
   color: var(--text-secondary);

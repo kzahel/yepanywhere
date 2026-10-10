@@ -1756,6 +1756,31 @@ export const SERVER_CAPABILITIES = {
         "Sign-in enforcement and its settings must be available together.",
     },
   },
+  vhostOauthProviders: {
+    id: CAPABILITY_ID_ALLOCATIONS.vhostOauthProviders.id,
+    name: "vhost-oauth-providers",
+    kind: "permanent",
+    area: "remoteAccess",
+    introducedIn: "0.9.4",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Independently managed hosted sign-in providers and visitor provider selection.",
+    clientFallback:
+      "Keep the single-provider form and make no provider-list management requests.",
+    serverContract: {
+      routes: [
+        "PUT /api/artifacts/vhosts/oauth/providers/:id",
+        "PUT /api/artifacts/vhosts/oauth/providers/:id/enabled",
+        "DELETE /api/artifacts/vhosts/oauth/providers/:id",
+      ],
+      routeModules: ["packages/server/src/routes/vhostOauthProviders.ts"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Provider configuration and selection must be supported together.",
+    },
+  },
   vhostAppControl: {
     id: CAPABILITY_ID_ALLOCATIONS.vhostAppControl.id,
     name: "vhost-app-control",

@@ -633,10 +633,19 @@ without a bearer for these hosts. Forwarding the visitor identity to served
 content is not implemented; authentication cookies and credentials are stripped
 before proxying.
 
-One confidential OpenID Connect registration serves all configured hosts.
+Up to eight confidential OpenID Connect registrations can serve all configured
+hosts. Apps lists them with independent enable switches, editable settings and
+an add-provider action; additional registrations can be removed. The default
+registration can be disabled. Visitors choose among enabled providers using
+provider-named buttons on a responsive sign-in page. A denied login offers the
+same choices again. These pages need no scripts or external assets; their
+stylesheet is authorized by a content hash.
 The separate HTTPS callback host must route to this YA server (either its main
 listener or artifact listener); a static Pages site cannot exchange codes.
-The callback uses authorization code flow, PKCE, state and nonce, verifies
+Each pending login binds its chosen provider and callback URL. A callback at
+another configured host or path cannot consume that login. Providers may share
+the same callback URL; state selects the bound provider, never a callback query
+parameter. The callback uses authorization code flow, PKCE, state and nonce, verifies
 signed ID tokens, then issues a one-use, one-minute handoff bound to the
 initiating host and browser cookie. The return address is stored server-side
 and must be relative. Host-only `__Host-` cookies are Secure, HttpOnly and
@@ -685,10 +694,10 @@ Optional variables are `YEP_VHOST_OAUTH_PROVIDER` (`entra` by default, or
 UUID), `YEP_VHOST_OAUTH_ISSUER` (required for generic OIDC), and
 `YEP_VHOST_OAUTH_VISITOR_IP` (`peer`, `cloudflare`, or `x-real-ip`). Any OAuth
 environment variable activates this authoritative mode: incomplete/invalid
-configuration fails explicitly. Provider settings become read-only in Apps,
+configuration fails explicitly. The default provider settings become read-only in Apps,
 with an environment-management explanation and no provider-save action;
 the full environment secret is neither returned nor copied into persisted settings.
-Host allow-lists remain editable. Provider configuration never enables a host
+Additional providers and host allow-lists remain editable. Provider configuration never enables a host
 implicitly. Restart after changing environment variables.
 
 The separate **Enable hosted sign-in** switch defaults on and becomes
@@ -701,6 +710,21 @@ highlights those host rows red with the reason. Their saved email lists remain
 editable for repair. Re-enabling requires a fresh sign-in. Older OAuth servers
 without the `enabled` status field retain their existing behavior and receive
 no requests to the enable endpoint.
+
+Disabling or removing any provider invalidates pending logins, app sessions and
+sockets. With no enabled configured provider, protected hosts remain blocked.
+Existing single-provider storage and API writes address the default provider
+and preserve additional providers. This additive storage choice preserves
+configured credentials and old-client edits without replacing the saved schema.
+Environment credentials are never copied into that storage.
+
+The separate `vhost-oauth-providers` capability gates provider-list management
+routes and controls. Without it, clients retain the single-provider form and
+make no requests to `/artifacts/vhosts/oauth/providers/:id` or its enable route.
+The optional-feature release review checked v0.9.1 and v0.9.2 (the latest two
+stable releases; none were released in the preceding fourteen days on
+2026-10-10). Both predate hosted OAuth. The original `vhost-oauth-access`
+capability keeps its existing meaning and fallback.
 
 Only completed browser-bound OAuth checks are logged, with UTC timestamp,
 hostname, account address when available, outcome and optional IP. Ordinary paths,

@@ -6,8 +6,10 @@ import { z } from "zod";
 import {
   vhostEmailMatches,
   vhostOauthPolicy,
+  vhostOauthProviderName,
   type VhostOauthLogEntry,
   type VhostOauthStatus,
+  type VhostOauthProvider,
 } from "@yep-anywhere/shared";
 import {
   isAllowedHostname,
@@ -18,6 +20,7 @@ import { enforceOwnerOnlyPathPermissionsStrict } from "../utils/filePermissions.
 import { writeFileAtomically } from "../utils/writeFileAtomically.js";
 import type { ArtifactConfig } from "./config.js";
 import type { AppAccessTarget } from "./VhostAccess.js";
+import { vhostOauthPage } from "./VhostOauthPage.js";
 import {
   VhostOauthProviderClient,
   vhostEmailPatternsSchema,
@@ -54,6 +57,22 @@ function identityAllowed(identity: VhostOauthIdentity, patterns: string[]) {
 }
 const stateSchema = z.object({
   enabled: z.boolean().default(true),
+  providerEnabled: z.boolean().default(true),
+  providers: z
+    .array(
+      z.object({
+        id: z
+          .string()
+          .regex(/^[a-z0-9-]{1,64}$/)
+          .refine((id) => id !== "default"),
+        enabled: z.boolean(),
+        provider: vhostOauthProviderSchema,
+        secret: z.string().min(1).max(4096),
+      }),
+    )
+    .max(7)
+    .refine((rows) => new Set(rows.map((row) => row.id)).size === rows.length)
+    .default([]),
   provider: vhostOauthProviderSchema.optional(),
   secret: z.string().max(4096).default(""),
   policies: z
@@ -119,11 +138,13 @@ export class VhostOauth {
   readonly ready: Promise<void>;
   private state: State = {
     enabled: true,
+    providerEnabled: true,
+    providers: [],
     secret: "",
     policies: {},
     accessedHosts: [],
   };
-  private provider?: VhostOauthProviderClient;
+  private providers = new Map<string, VhostOauthProviderClient>();
   private writing = Promise.resolve();
   private revision = 0;
   /** At most 256 pending sign-ins and 256 one-minute browser handoffs. */
@@ -194,18 +215,33 @@ export class VhostOauth {
   }
 
   private setProvider(): void {
-    const settings = this.providerSettings;
-    if (settings) this.validateCallback(settings.callbackUrl, this.config());
-    this.provider =
-      settings && this.clientSecret
-        ? new VhostOauthProviderClient(
-            settings,
-            this.clientSecret,
+    this.providers.clear();
+    for (const entry of this.providerEntries()) {
+      if (!entry.provider) continue;
+      this.validateCallback(entry.provider.callbackUrl, this.config());
+      registerArtifactOrigins([new URL(entry.provider.callbackUrl).origin]);
+      if (entry.enabled && entry.secret)
+        this.providers.set(
+          entry.id,
+          new VhostOauthProviderClient(
+            entry.provider,
+            entry.secret,
             this.fetcher,
-          )
-        : undefined;
-    if (settings)
-      registerArtifactOrigins([new URL(settings.callbackUrl).origin]);
+          ),
+        );
+    }
+  }
+
+  private providerEntries() {
+    return [
+      {
+        id: "default",
+        enabled: this.state.providerEnabled,
+        provider: this.providerSettings,
+        secret: this.clientSecret,
+      },
+      ...this.state.providers,
+    ];
   }
 
   status(): VhostOauthStatus {
@@ -225,8 +261,24 @@ export class VhostOauth {
       ...(this.clientSecret.length >= 12
         ? { secretSuffix: this.clientSecret.slice(-4) }
         : {}),
-      configured: !!this.provider,
+      configured: this.providers.size > 0,
       enabled: this.state.enabled,
+      providers: this.providerEntries().flatMap((entry) =>
+        entry.provider
+          ? [
+              {
+                id: entry.id,
+                enabled: entry.enabled,
+                locked: entry.id === "default" && !!this.environment,
+                provider: entry.provider,
+                secretConfigured: !!entry.secret,
+                ...(entry.secret.length >= 12
+                  ? { secretSuffix: entry.secret.slice(-4) }
+                  : {}),
+              },
+            ]
+          : [],
+      ),
       policies: this.state.policies,
       accessedHosts: this.state.accessedHosts,
     };
@@ -248,8 +300,9 @@ export class VhostOauth {
   }
 
   validateConfig(config: ArtifactConfig): void {
-    if (this.providerSettings)
-      this.validateCallback(this.providerSettings.callbackUrl, config);
+    for (const entry of this.providerEntries())
+      if (entry.provider)
+        this.validateCallback(entry.provider.callbackUrl, config);
   }
 
   logs(host?: string): VhostOauthLogEntry[] {
@@ -281,9 +334,12 @@ export class VhostOauth {
     this.invalidate();
   }
 
-  async configure(input: unknown): Promise<void> {
+  async configure(input: unknown, id = "default"): Promise<void> {
     await this.ready;
-    if (this.environment)
+    z.string()
+      .regex(/^[a-z0-9-]{1,64}$/)
+      .parse(id);
+    if (id === "default" && this.environment)
       throw new Error(
         "OAuth provider is configured by YEP_VHOST_OAUTH environment variables",
       );
@@ -300,16 +356,65 @@ export class VhostOauth {
     const { provider, secret } = parsed.data;
     this.validateCallback(provider.callbackUrl, this.config());
     await this.update((current) => {
+      const previous =
+        id === "default"
+          ? current
+          : current.providers.find((entry) => entry.id === id);
       const sameClient =
-        current.provider?.kind === provider.kind &&
-        current.provider.clientId === provider.clientId &&
-        current.provider.tenantId === provider.tenantId &&
-        current.provider.issuer === provider.issuer;
-      const nextSecret = secret || (sameClient ? current.secret : "");
+        previous?.provider?.kind === provider.kind &&
+        previous.provider.clientId === provider.clientId &&
+        previous.provider.tenantId === provider.tenantId &&
+        previous.provider.issuer === provider.issuer;
+      const nextSecret = secret || (sameClient ? previous.secret : "");
       if (!nextSecret)
         throw new Error("A client secret is required for this OAuth client");
-      return { ...current, provider, secret: nextSecret };
+      if (id === "default") return { ...current, provider, secret: nextSecret };
+      if (!previous && current.providers.length >= 7)
+        throw new Error("Use up to eight sign-in providers");
+      const entry = {
+        id,
+        provider,
+        secret: nextSecret,
+        enabled:
+          current.providers.find((row) => row.id === id)?.enabled ?? true,
+      };
+      return {
+        ...current,
+        providers: previous
+          ? current.providers.map((row) => (row.id === id ? entry : row))
+          : [...current.providers, entry],
+      };
     });
+    this.invalidate();
+    this.setProvider();
+  }
+
+  async setProviderEnabled(id: string, input: unknown): Promise<void> {
+    await this.ready;
+    const enabled = z.boolean().parse(input);
+    await this.update((current) => {
+      if (id === "default") return { ...current, providerEnabled: enabled };
+      if (!current.providers.some((entry) => entry.id === id))
+        throw new Error("Unknown sign-in provider");
+      return {
+        ...current,
+        providers: current.providers.map((entry) =>
+          entry.id === id ? { ...entry, enabled } : entry,
+        ),
+      };
+    });
+    this.invalidate();
+    this.setProvider();
+  }
+
+  async removeProvider(id: string): Promise<void> {
+    await this.ready;
+    if (id === "default")
+      throw new Error("Disable the default provider instead");
+    await this.update((current) => ({
+      ...current,
+      providers: current.providers.filter((entry) => entry.id !== id),
+    }));
     this.invalidate();
     this.setProvider();
   }
@@ -324,7 +429,7 @@ export class VhostOauth {
     if (
       parsed.data !== null &&
       vhostOauthPolicy(this.state.policies, name) === undefined &&
-      (!this.provider ||
+      (!this.providers.size ||
         !this.config().vhostPublicRoot ||
         !this.config().publicOrigin)
     )
@@ -373,22 +478,28 @@ export class VhostOauth {
   /** Handle the shared callback only at the configured public host and path. */
   async callback(request: Request): Promise<Response | undefined> {
     await this.ready;
-    const settings = this.providerSettings;
-    if (!settings) return;
-    const callback = new URL(settings.callbackUrl);
     const incoming = new URL(request.url);
+    const matchesCallback = (settings: VhostOauthProvider) => {
+      const callback = new URL(settings.callbackUrl);
+      return (
+        (request.headers.get("host") ?? incoming.host).toLowerCase() ===
+          callback.host && incoming.pathname === callback.pathname
+      );
+    };
     if (
-      (request.headers.get("host") ?? incoming.host).toLowerCase() !==
-      callback.host
+      !this.providerEntries().some(
+        (entry) => entry.provider && matchesCallback(entry.provider),
+      )
     )
       return;
-    if (incoming.pathname !== callback.pathname) return;
     if (!this.state.enabled)
       return authResponse("Hosted sign-in is disabled", 503);
     if (request.method !== "GET")
       return authResponse("Method not allowed", 405);
     const key = incoming.searchParams.get("state") ?? "";
     const flow = this.flows.get(key);
+    if (flow && !matchesCallback(flow.provider.settings))
+      return authResponse("Incorrect sign-in callback", 400);
     this.flows.delete(key);
     this.prune();
     if (!flow || flow.expiresAt <= Date.now())
@@ -399,6 +510,7 @@ export class VhostOauth {
     const revision = this.revision;
     let identity: VhostOauthIdentity | undefined;
     try {
+      const callback = new URL(flow.provider.settings.callbackUrl);
       callback.search = incoming.search;
       identity = await flow.provider.identity(
         callback,
@@ -443,7 +555,7 @@ export class VhostOauth {
     const publicAuthority = new URL(`https://${host}`);
     if (publicAuthority.hostname !== publicHost || patterns === undefined)
       return;
-    if (!this.state.enabled || !this.provider)
+    if (!this.state.enabled || !this.providers.size)
       return authResponse(
         "Hosted sign-in is unavailable; this app remains protected",
         503,
@@ -476,15 +588,21 @@ export class VhostOauth {
         host,
         ...(result.identity ? { email: result.identity.email } : {}),
         outcome: result.identity ? (allowed ? "allowed" : "denied") : "error",
-        ...this.visitorAddress(request, peer),
+        ...this.visitorAddress(
+          request,
+          peer,
+          result.provider.settings.visitorIp,
+        ),
       });
       if (revision !== this.revision)
         return authResponse("Sign-in settings changed. Try again.", 409);
       if (!allowed || !result.identity)
-        return authResponse(
+        return this.signInPage(
+          host,
+          result.destination,
           result.identity
             ? "This account is not allowed to access this app."
-            : "Sign-in could not be verified. Return to the app and try again.",
+            : "Sign-in could not be verified. Try again or choose another provider.",
           403,
         );
       if (this.sessions.size >= 2048)
@@ -517,8 +635,14 @@ export class VhostOauth {
     if (url.pathname === `${AUTH_PATH}start`) {
       if (request.method !== "GET")
         return authResponse("Method not allowed", 405);
-      if (!this.provider)
-        return authResponse("App sign-in is not configured", 503);
+      const selected = url.searchParams.get("provider");
+      const provider = selected
+        ? this.providers.get(selected)
+        : this.providers.size === 1
+          ? this.providers.values().next().value
+          : undefined;
+      if (selected && !provider)
+        return authResponse("Unknown or disabled sign-in provider", 400);
       if (Date.now() - this.startWindow >= 60_000) {
         this.startWindow = Date.now();
         this.starts = 0;
@@ -537,6 +661,7 @@ export class VhostOauth {
         destination.startsWith(AUTH_PATH)
       )
         return authResponse("Invalid return address", 400);
+      if (!provider) return this.signInPage(host, destination);
       const key = token();
       const flow: Flow = {
         expiresAt: Date.now() + FLOW_MS,
@@ -547,7 +672,7 @@ export class VhostOauth {
         browser: token(),
         nonce: token(),
         verifier: token(),
-        provider: this.provider,
+        provider,
       };
       this.flows.set(key, flow);
       try {
@@ -594,20 +719,32 @@ export class VhostOauth {
     if (request.method !== "GET" || request.headers.has("upgrade"))
       return authResponse("Sign-in required", 401);
     url.searchParams.delete("ya_access");
-    const start = `${AUTH_PATH}start?return=${encodeURIComponent(url.pathname + url.search)}`;
-    const response = authResponse(
-      `<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign-in required</title><h1>Sign-in required</h1><p>Sign in with an allowed account to view this app.</p><p><a href="${start}">Sign in</a></p></html>`,
-      401,
-    );
-    response.headers.set("Content-Type", "text/html; charset=utf-8");
-    return response;
+    return this.signInPage(host, url.pathname + url.search);
+  }
+
+  private signInPage(
+    host: string,
+    destination: string,
+    message = "Sign in with an account that has access to this app.",
+    status = 401,
+  ): Response {
+    return vhostOauthPage({
+      host,
+      title: status === 403 ? "Unable to sign in" : "Sign in to continue",
+      message,
+      status,
+      buttons: [...this.providers].map(([id, provider]) => ({
+        label: `Continue with ${vhostOauthProviderName(provider.settings)}`,
+        href: `${AUTH_PATH}start?${new URLSearchParams({ provider: id, return: destination })}`,
+      })),
+    });
   }
 
   private visitorAddress(
     request: Request,
-    peer?: string,
+    peer: string | undefined,
+    mode: VhostOauthProvider["visitorIp"],
   ): Pick<VhostOauthLogEntry, "ip" | "ipSource"> {
-    const mode = this.providerSettings?.visitorIp ?? "peer";
     const loopback =
       peer === "127.0.0.1" || peer === "::1" || peer === "::ffff:127.0.0.1";
     if (loopback && mode !== "peer") {

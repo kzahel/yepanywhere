@@ -715,6 +715,7 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     capabilities.push(SERVER_CAPABILITIES.draftSync.name);
   capabilities.push(SERVER_CAPABILITIES.vhostBearerAccess.name);
   capabilities.push(SERVER_CAPABILITIES.vhostOauthAccess.name);
+  capabilities.push(SERVER_CAPABILITIES.vhostOauthProviders.name);
   if (options?.vhostAppControlAvailable)
     capabilities.push(SERVER_CAPABILITIES.vhostAppControl.name);
   if (options?.agentAuthRouterAvailable) {

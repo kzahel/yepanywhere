@@ -561,6 +561,7 @@ function ArtifactSettingsForm({
           <VhostOauthProviderSettings
             status={oauth.status}
             update={oauth.update}
+            multipleProviders={oauth.multipleProviders}
           />
         </details>
       )}
