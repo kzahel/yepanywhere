@@ -218,10 +218,19 @@
   white-space: nowrap;
 }
 .table {
-  --settings-first-column-width: 50%;
+  --settings-first-column-width: 40%;
 }
 .table th:nth-child(2) {
-  width: 26%;
+  width: 22%;
+}
+/* One line per access label; a cramped column ellipsizes, never breaks
+   the word letter by letter. */
+.accessButton {
+  max-width: 100%;
+  padding-inline: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 @container settings-collection (max-width: 560px) {
   .table {

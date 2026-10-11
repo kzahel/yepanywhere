@@ -1014,6 +1014,7 @@ function ArtifactSettingsForm({
                           <td>
                             <button
                               type="button"
+                              className={styles.accessButton}
                               onClick={() => {
                                 setSelectedId(row.id);
                                 setOauthFocus((value) => value + 1);
