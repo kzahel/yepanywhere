@@ -68,7 +68,12 @@ test.beforeAll(async () => {
   process.env.VITE_DISABLE_CLI_UPDATE_NOTIFICATIONS = "true";
   vite = await createViteServer({
     root: clientRoot,
-    optimizeDeps: { entries: ["e2e/fixtures/artifact-viewer.html"] },
+    // The Edit-link test opens the full app at /file-view. A dependency the
+    // scan misses is optimized mid-load, and the forced reload strands a page
+    // on a second React copy.
+    optimizeDeps: {
+      entries: ["e2e/fixtures/artifact-viewer.html", "index.html"],
+    },
     server: { port: 0, host: "127.0.0.1" },
   });
   await vite.listen();
