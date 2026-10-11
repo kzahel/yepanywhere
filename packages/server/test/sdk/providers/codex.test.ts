@@ -630,6 +630,16 @@ describe("CodexProvider", () => {
           ]),
         );
         expect(methods).not.toContain("turn/start");
+        // Codex records only user-origin goal edits in model history.
+        const goalMutations = readFakeCodexRequests(logPath).filter(
+          (request) =>
+            request.method === "thread/goal/set" ||
+            request.method === "thread/goal/clear",
+        );
+        expect(goalMutations.length).toBeGreaterThan(0);
+        for (const request of goalMutations) {
+          expect(request.params?.origin).toBe("user");
+        }
       } finally {
         await session.abort();
         await session.iterator.return?.(undefined);

@@ -61,7 +61,7 @@ deltas: `text_delta`, etc.), `tool_execution_start/update/end`, plus
 `auto_retry_start/end`, and (from 0.80.4) `agent_settled`. This is already
 close to a normalized envelope.
 
-### Settled-turn boundary — compatible through Pi 0.84.2
+### Settled-turn boundary — compatible through Pi 1.1.0
 
 The official `v0.79.9..v0.81.1` source diff changed the RPC lifecycle contract:
 `agent_end` ends one low-level agent run and reports `willRetry`, while
@@ -110,6 +110,25 @@ message/partial fields. YA already accumulates `text_delta` and
 the authoritative settled usage source. Pi 0.84.2 restores cumulative usage on
 the delta event itself, which YA may ignore without losing settled usage. No
 new lifecycle or normalization branch is required.
+
+The 2026-10-11 refresh through Pi 1.1.0 keeps `agent_settled` as the boundary.
+Pi 0.87.0 defers runs requested from settled handlers until every handler
+finishes, so `agent_settled` still marks the end of all automatic work. Pi
+1.1.0 adds `aborted` to it, which YA does not yet read. Evidence, transcript
+format changes, and the launch-entry move are recorded in
+[provider-refresh](provider-refresh.md#pi).
+
+A prompt that starts no run has no `agent_settled`. YA therefore also reads
+the `prompt` response:
+
+- `success: false` (rejected before acceptance) ends the turn with Pi's error.
+- `disposition: "handled"` (an extension command or input handler consumed
+  it, Pi 0.99+) ends the turn without error, unless an `agent_start` arrived
+  since the send or `get_state` reports Pi still streaming. A handled command
+  may start its own run, and that run's `agent_settled` then ends the turn.
+- A missing disposition (Pi before 0.99) or a missing response leaves the
+  settled event as the only boundary, as before. On those versions a handled
+  command still leaves the turn busy until it is stopped.
 
 ## Why YA cares
 

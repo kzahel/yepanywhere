@@ -501,16 +501,22 @@ type CodexTurnErrorText = Pick<TurnError, "message" | "codexErrorInfo"> &
   Partial<Pick<TurnError, "additionalDetails">>;
 
 function codexTurnErrorHttpStatus(error: CodexTurnErrorText): number | null {
+  // Codex 0.162 declares `codexErrorInfo` open to future variants, so a known
+  // variant key no longer narrows its body; read the status defensively.
   const info = error.codexErrorInfo;
-  if (info && typeof info === "object" && "httpConnectionFailed" in info) {
-    return info.httpConnectionFailed.httpStatusCode;
-  }
-  if (
-    info &&
-    typeof info === "object" &&
-    "responseStreamDisconnected" in info
-  ) {
-    return info.responseStreamDisconnected.httpStatusCode;
+  if (info && typeof info === "object") {
+    for (const variant of [
+      "httpConnectionFailed",
+      "responseStreamDisconnected",
+    ]) {
+      if (!(variant in info)) continue;
+      const body = (info as Record<string, unknown>)[variant];
+      const status =
+        body && typeof body === "object"
+          ? (body as { httpStatusCode?: unknown }).httpStatusCode
+          : null;
+      return typeof status === "number" ? status : null;
+    }
   }
   // Codex's error text carries the status even when the structured info
   // does not, for example `unexpected status 403 Forbidden: {...}`.
@@ -2490,11 +2496,17 @@ export class CodexProvider implements AgentProvider {
                   };
                 }
 
+                // Every mutation below is a user-typed /goal. Codex 0.161+
+                // records only `origin: "user"` edits in model history as user
+                // instructions; older app-servers ignore the field.
                 if (goalControl === "clear") {
                   const response =
                     await client.request<ThreadGoalClearResponse>(
                       "thread/goal/clear",
-                      { threadId } satisfies ThreadGoalClearParams,
+                      {
+                        threadId,
+                        origin: "user",
+                      } satisfies ThreadGoalClearParams,
                     );
                   return {
                     handled: true,
@@ -2515,6 +2527,7 @@ export class CodexProvider implements AgentProvider {
                     {
                       threadId,
                       status: requestedStatus,
+                      origin: "user",
                     } satisfies ThreadGoalSetParams,
                   );
                   return {
@@ -2560,7 +2573,10 @@ export class CodexProvider implements AgentProvider {
                 if (current.goal) {
                   await client.request<ThreadGoalClearResponse>(
                     "thread/goal/clear",
-                    { threadId } satisfies ThreadGoalClearParams,
+                    {
+                      threadId,
+                      origin: "user",
+                    } satisfies ThreadGoalClearParams,
                   );
                 }
                 const response = await client.request<ThreadGoalSetResponse>(
@@ -2569,6 +2585,7 @@ export class CodexProvider implements AgentProvider {
                     threadId,
                     objective: goalArgument,
                     status: "active",
+                    origin: "user",
                   } satisfies ThreadGoalSetParams,
                 );
                 return {

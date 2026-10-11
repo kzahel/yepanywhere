@@ -355,6 +355,24 @@ export type CodexConfigurationUpdatePayload = z.infer<
 >;
 
 /**
+ * Tool declarations Codex 0.162 adds to model context mid-thread. Like
+ * `configuration_update`, it carries no user-visible content, so YA parses it
+ * as a known type and renders nothing for it.
+ */
+export const CodexAdditionalToolsPayloadSchema = z
+  .object({
+    type: z.literal("additional_tools"),
+    id: z.string().optional(),
+    role: z.string(),
+    tools: z.array(z.unknown()),
+  })
+  .passthrough();
+
+export type CodexAdditionalToolsPayload = z.infer<
+  typeof CodexAdditionalToolsPayloadSchema
+>;
+
+/**
  * Ghost commit snapshot for git state tracking.
  */
 export const CodexGhostSnapshotPayloadSchema = z.object({
@@ -386,6 +404,7 @@ export const CodexResponseItemPayloadSchema = z.discriminatedUnion("type", [
   CodexToolSearchOutputPayloadSchema,
   CodexWebSearchCallPayloadSchema,
   CodexConfigurationUpdatePayloadSchema,
+  CodexAdditionalToolsPayloadSchema,
   CodexGhostSnapshotPayloadSchema,
 ]);
 

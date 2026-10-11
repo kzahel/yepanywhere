@@ -93,15 +93,15 @@
   },
   "yepAnywhere": {
     "codexCli": {
-      "expectedVersion": "0.159.0",
-      "compatibleThroughVersion": "0.160.0"
+      "expectedVersion": "0.162.1",
+      "compatibleThroughVersion": "0.162.1"
     },
     "claudeCode": {
-      "compatibleThroughVersion": "2.1.293",
-      "claudeAgentSdkVersion": "0.3.293"
+      "compatibleThroughVersion": "2.1.296",
+      "claudeAgentSdkVersion": "0.3.296"
     },
     "piCli": {
-      "compatibleThroughVersion": "0.84.2"
+      "compatibleThroughVersion": "1.1.0"
     },
     "grokCli": {
       "compatibleThroughVersion": "1.0.4"

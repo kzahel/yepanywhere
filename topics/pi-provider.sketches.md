@@ -16,6 +16,23 @@ Related topics: [agent context injection](agent-context-injection.md),
 [session sandbox network boundary](session-sandbox-network-boundary.md),
 [vanilla defaults](vanilla-defaults.md).
 
+## Pi 1.x adoption candidates
+
+Surfaces Pi added between 0.84.2 and 1.1.0 that YA could use but does not.
+The 2026-10-11 refresh adopted only the `prompt` disposition, for handled
+commands ([pi-provider](pi-provider.md#settled-turn-boundary--compatible-through-pi-110)).
+
+- **Cancelled versus finished turns.** Pi 1.1.0 adds `aborted` to
+  `agent_settled`. YA could show a stopped Pi turn as interrupted rather than
+  completed, the way it treats other providers' interrupted turns.
+- **Steer and follow-up dispositions.** `steer` and `follow_up` responses also
+  report `handled` or `queued`. YA's queued-message UI could confirm that Pi
+  actually queued a steer instead of assuming it.
+- **Windows launch entry.** The published bin is now `dist/bundle/cli.js`. YA's
+  Windows descriptor still launches the unbundled `dist/cli.js`, which works.
+  Prefer the bundle when present, if its startup is measurably faster on
+  Windows.
+
 ## YA-supplied web tools for tool-light providers
 
 ### Problem

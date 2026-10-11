@@ -75,6 +75,12 @@ import type {
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const PI_AGENT_SETTLED_MIN_VERSION = [0, 80, 4] as const;
+/**
+ * Pi answers `prompt` once it accepts, queues, or handles it; a handled
+ * extension command answers only after its handler finishes. The response is
+ * advisory (see `runSession`), so this bounds how long YA listens for it.
+ */
+const PI_PROMPT_RESPONSE_TIMEOUT_MS = 120_000;
 
 /** pi image content block, as accepted by the RPC `prompt`/`steer` commands. */
 interface PiImageContent {
@@ -643,6 +649,8 @@ export class PiProvider implements AgentProvider {
     const events: SDKMessage[] = [];
     let wake: (() => void) | null = null;
     let processExited = false;
+    /** Whether a run started since the current turn's latest prompt send. */
+    let runStartedSinceSend = false;
 
     const stream: PiStreamState = {
       currentAssistantId: null,
@@ -670,6 +678,7 @@ export class PiProvider implements AgentProvider {
     const unsubscribe = client.subscribe((event) => {
       runtime.lastRawProviderEventAt = new Date();
       runtime.lastRawProviderEventSource = `pi:event:${event.type}`;
+      if (event.type === "agent_start") runStartedSinceSend = true;
       for (const sdk of this.mapEvent(event, sessionId, stream)) {
         events.push(sdk);
       }
@@ -722,16 +731,70 @@ export class PiProvider implements AgentProvider {
         stream.text = "";
         stream.thinking = "";
         stream.toolStates.clear();
+        // A prompt that starts no run never reaches `agent_settled`: an
+        // extension command or input handler consumed it (Pi 0.99+ reports
+        // `disposition: "handled"`), or Pi rejected it before acceptance. Its
+        // response ends the turn instead. A handled command may still start
+        // its own run, so the turn ends only when none started and Pi reports
+        // itself idle. Older Pi omits the disposition, and only the settled
+        // event ends the turn there.
+        let promptEnd: SDKMessage | null = null;
+        let promptSends = 0;
         const sendPrompt = () => {
-          client.notify({
-            type: "prompt",
-            message: text,
-            ...(images.length > 0 ? { images } : {}),
-          });
+          const send = ++promptSends;
+          runStartedSinceSend = false;
+          const endTurn = (error?: string) => {
+            if (send !== promptSends) return;
+            promptEnd = {
+              type: "result",
+              session_id: sessionId,
+              ...(error ? { error } : {}),
+            } as SDKMessage;
+            wake?.();
+          };
+          client
+            .request(
+              {
+                type: "prompt",
+                message: text,
+                ...(images.length > 0 ? { images } : {}),
+              },
+              PI_PROMPT_RESPONSE_TIMEOUT_MS,
+            )
+            .then(async (response) => {
+              if (send !== promptSends) return;
+              if (!response.success) {
+                endTurn(response.error ?? "pi rejected the prompt");
+                return;
+              }
+              const disposition = (
+                response.data as { disposition?: unknown } | undefined
+              )?.disposition;
+              if (disposition !== "handled" || runStartedSinceSend) return;
+              const state = await client.request({ type: "get_state" }, 5000);
+              if (
+                runStartedSinceSend ||
+                !state.success ||
+                (state.data as PiSessionState).isStreaming === true
+              ) {
+                return;
+              }
+              endTurn();
+            })
+            .catch((error: unknown) => {
+              log.debug(
+                { sessionId, err: error },
+                "pi prompt response unavailable; waiting for agent_settled",
+              );
+            });
         };
         sendPrompt();
 
         while (!turnComplete && !signal.aborted) {
+          if (promptEnd && events.length === 0) {
+            yield promptEnd;
+            break;
+          }
           while (events.length > 0) {
             const sdk = events.shift();
             if (!sdk) continue;

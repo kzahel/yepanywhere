@@ -11,6 +11,7 @@ Related topics: [claude](claude.md), [grok](grok.md),
 [opencode-backend](opencode-backend.md),
 [pi-provider](pi-provider.md),
 [provider-installation-updates](provider-installation-updates.md),
+[provider-version-support](provider-version-support.md),
 [provider-state-machine](provider-state-machine.md),
 [provider-model-glyphs](provider-model-glyphs.md),
 [cost-efficiency](cost-efficiency.md).
@@ -90,7 +91,30 @@ matching upstream release tags when the version changed; the real zero-token
 probe covers the production model-discovery command but intentionally does not
 exercise authenticated assistant events or persisted sessions.
 
-Current refresh, 2026-08-20: official `v0.82.1..v0.84.2` preserves Pi's
+Current refresh, 2026-10-11 (Pi 1.1.0): the installed package's changelog
+from 0.84.2 through 1.1.0 changes no RPC command, response, or lifecycle event
+that YA consumes. The real zero-token check passes with `PI_EXECUTABLE`
+pointed at the 1.1.0 install; without that override it checks whatever
+`PI_EXECUTABLE` / `PI_PATH` already name, which on a maintainer host can be a
+local fork rather than the updated package. YA's extension still loads and registers its effort-retry command: the
+`registerCommand`, `appendEntry`, `navigateTree`, and session-manager calls it
+uses survive the 0.87 and 0.99 extension-API breaks. Session files stay v3 and
+gain `system`-role messages (transcript-backed prompt and tool changes),
+`usage` entries, and `context_edit` entries. `PiSessionReader` dispatches only
+on known types and roles, so it skips all three. Skipping `context_edit` is
+also Pi's own UI-history semantics, which leave raw history unchanged. The
+published bin moves to `dist/bundle/cli.js`. `dist/cli.js`, which YA's
+Windows launch descriptor targets, still exists and reports 1.1.0. Pi 0.99
+adds a `disposition` to successful `prompt` responses. A `handled` prompt starts
+no run and is never followed by `agent_settled`, so a user-typed extension
+command used to leave the YA turn busy indefinitely. YA now reads the prompt
+response and ends such a turn ([pi-provider](pi-provider.md#settled-turn-boundary--compatible-through-pi-110)).
+A real `PiProvider` session against 1.1.0 ended a handled command's turn 5 ms
+after the user message. Remaining optional adoptions are in
+[pi-provider sketches](pi-provider.sketches.md#pi-1x-adoption-candidates).
+Root compatibility is recorded through Pi 1.1.0.
+
+Previous refresh, 2026-08-20: official `v0.82.1..v0.84.2` preserves Pi's
 published JavaScript bin entry and the RPC commands, response fields,
 `agent_settled` boundary, and v3 coding-agent session assumptions consumed by
 YA. The 0.84.0 delta-only `message_update` change matches YA's existing
@@ -175,9 +199,45 @@ Difference detectors:
 protocol subset was last audited against. It is not a minimum supported version:
 older installs may continue to work when YA does not need newer protocol fields,
 and version-sensitive behavior should be capability- or version-gated where
-possible.
+possible ([provider-version-support](provider-version-support.md)).
 
-Current compatibility audit, 2026-10-01 (0.160.0, no-op):
+Current source refresh, 2026-10-11 (0.162.1):
+
+- Installed Codex is `codex-cli 0.162.1`. The official `rust-v0.162.1` tag
+  resolves to `092d3acd6`. `expectedVersion`, `compatibleThroughVersion`, and
+  the reference checkout all record `0.162.1`.
+- Regeneration adds `ThreadGoalMutationOrigin` and changes eleven subset files.
+  The consumed change: `thread/goal/set` and `thread/goal/clear` accept
+  `origin: "user" | "automatic"`, and from 0.161.0 Codex writes a goal edit
+  into model history as a user instruction only when `origin` is `user`
+  (upstream `de0201679`; omitted origins "do not supply user authorization").
+  Every YA goal mutation comes from a user-typed `/goal`, so YA now sends
+  `origin: "user"` unconditionally. Earlier app-servers deserialize these
+  params without `deny_unknown_fields` and ignore the field
+  ([provider-version-support](provider-version-support.md)).
+- `CodexErrorInfo` is now declared open to future string and object variants.
+  A known variant key no longer narrows its body in TypeScript, so
+  `codexTurnErrorHttpStatus` reads `httpStatusCode` defensively; behavior is
+  unchanged.
+- `ResponseItem` gains `additional_tools` (tool declarations added to model
+  context). `CodexResponseItemPayloadSchema` accepts it as a known,
+  non-rendered type, like `configuration_update`; no local rollout contains
+  one yet.
+- The remaining changes are additive or ignored by YA:
+  - `MessagePhase` adds `partial_answer`; YA does not read phases.
+  - `turn/start` gains optional `parentTurnId`/`rootTurnId`, and `Turn` gains
+    `rootTurnId`.
+  - Sub-agent activity items carry `model`/`reasoningEffort`.
+  - `MisalignmentErrorDetails` gains an optional `reviewTarget`.
+  - `SkillMetadata.path` becomes a string alias.
+- A zero-token `model/list` returns the same eight models as the 0.160.0
+  audit, with `gpt-6.1-sol` the default at low effort.
+- All 28,836 lines across 12 local 0.162.0/0.162.1 rollouts validate against
+  the schema.
+- No credentialed `/goal` smoke ran. A fake app-server test asserts the
+  `origin` on every goal mutation.
+
+Previous compatibility audit, 2026-10-01 (0.160.0, no-op):
 
 - Installed Codex is `codex-cli 0.160.0`. The official `rust-v0.160.0` tag
   peels to `a956835d020762cb2b570053af06f643a11c0ecc`. `pnpm
@@ -1103,7 +1163,29 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-10-08 (Claude Code 2.1.293 / SDK 0.3.293):
+Current source refresh, 2026-10-11 (Claude Code 2.1.296 / SDK 0.3.296):
+
+- `@anthropic-ai/claude-agent-sdk` advances from `0.3.293` to `0.3.296`, and its
+  bundled executable reports Claude Code `2.1.296`. Root compatibility and SDK
+  markers advance together.
+- The declared SDK diff is additive for YA:
+  - `autoCompactWindow` for subagent definitions;
+  - the `sandbox` option documents filesystem, network, and credential
+    restrictions and how it merges with inline `settings`. YA wraps the
+    spawned process with its own session sandbox and does not pass this
+    option;
+  - `Read` gains `allow_large`, and a web-fetch result gains a `snippet`
+    visible only to hooks.
+- A no-turn handshake returns the same 13 model rows as 0.3.293: `default`,
+  the `opus`, `fable`, `sonnet`, and `haiku` aliases (Opus 5.5, Fable 5.1,
+  Sonnet 5.5, Haiku 5.5), and concrete Claude 5 and 4.x ids. `/goal` and
+  `/loop` remain native. The command count (94) included the host's user
+  skills, so it is not comparable with the clean-environment count recorded
+  below.
+- Persisted-schema sampling is thin: the one local 2.1.296 transcript (7
+  lines) validates. Re-run once YA sessions on 0.3.296 write more.
+
+Previous source refresh, 2026-10-08 (Claude Code 2.1.293 / SDK 0.3.293):
 
 - `@anthropic-ai/claude-agent-sdk` advances from `0.3.283` to `0.3.293`,
   which makes the `haiku` alias resolve to Haiku 5.5. Its native executable

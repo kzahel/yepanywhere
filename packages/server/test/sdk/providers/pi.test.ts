@@ -393,6 +393,79 @@ describe("PiProvider turn refused over its thinking level", () => {
   });
 });
 
+/**
+ * A stand-in pi 1.x child whose extension consumes the user's prompt: it
+ * answers `disposition: "handled"`, and when `startsRun` is set the command
+ * then starts its own run, as an extension calling `pi.sendMessage()` would.
+ */
+function handlingPiProcess(options: { startsRun: boolean }) {
+  const pi = refusingPiProcess({ extensionLoaded: true });
+  const stdin = new PassThrough();
+  const send = (line: object) =>
+    pi.proc.stdout.write(`${JSON.stringify(line)}\n`);
+  const commands: string[] = [];
+  attachJsonlLineReader(stdin, (line) => {
+    const command = JSON.parse(line) as { type: string; id?: string };
+    commands.push(command.type);
+    const reply = (data: object) =>
+      send({
+        type: "response",
+        id: command.id,
+        command: command.type,
+        success: true,
+        data,
+      });
+    if (command.type === "prompt") {
+      if (options.startsRun) send({ type: "agent_start" });
+      reply({ disposition: "handled" });
+      if (options.startsRun) {
+        send({
+          type: "message_update",
+          assistantMessageEvent: { type: "text_delta", delta: "from command" },
+        });
+        send({ type: "message_end", message: { role: "assistant" } });
+        send({ type: "agent_settled" });
+      }
+      return;
+    }
+    if (command.type === "get_state") {
+      reply({ sessionId: "pi-session", isStreaming: false });
+    }
+  });
+  return { proc: Object.assign(pi.proc, { stdin }), commands };
+}
+
+describe("PiProvider prompt consumed by an extension command", () => {
+  async function runHandledTurn(startsRun: boolean) {
+    const pi = handlingPiProcess({ startsRun });
+    const yielded = await runRefusedTurn(pi);
+    return { pi, yielded };
+  }
+
+  it("ends the turn when the handled prompt starts no run", async () => {
+    const { pi, yielded } = await runHandledTurn(false);
+    expect(pi.commands).toEqual(["prompt", "get_state"]);
+    expect(yielded.map((message) => message.type)).toEqual([
+      "system",
+      "user",
+      "result",
+    ]);
+    expect(yielded.at(-1)).not.toHaveProperty("error");
+  });
+
+  it("waits for the run a handled command starts", async () => {
+    const { pi, yielded } = await runHandledTurn(true);
+    expect(pi.commands).toEqual(["prompt"]);
+    expect(yielded.map((message) => message.type)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "result",
+    ]);
+    expect(textOf(yielded[2])).toBe("from command");
+  });
+});
+
 describe("PiProvider turn failure reporting", () => {
   it("carries pi's error message into the turn result", () => {
     const provider = new PiProvider();
