@@ -13,6 +13,7 @@ import {
   prepareArtifactEditPreview,
   type ArtifactSourceTarget,
 } from "../lib/artifactSourceTargets";
+import { generateUUID } from "../lib/uuid";
 import { useModalBackGesture, useModalLayer } from "./ui/Modal";
 import styles from "./SourceEditor.module.css";
 import { ViewerModeToggle } from "./ViewerModeToggle";
@@ -199,7 +200,7 @@ export function SourceEditor({
   const editor = useRef<HTMLTextAreaElement>(null);
   const workspace = useRef<HTMLDivElement>(null);
   const requestSequence = useRef(0);
-  const nonce = useMemo(() => crypto.randomUUID().replaceAll("-", ""), []);
+  const nonce = useMemo(() => generateUUID().replaceAll("-", ""), []);
   const normalizedOriginal = snapshot?.editable
     ? snapshot.content.replaceAll("\r\n", "\n")
     : "";

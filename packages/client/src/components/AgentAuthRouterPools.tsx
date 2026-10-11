@@ -8,6 +8,7 @@ import {
 import { api } from "../api/client";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
+import { generateUUID } from "../lib/uuid";
 import styles from "./AgentAuthRouterPools.module.css";
 
 const reasonKeys = {
@@ -178,7 +179,7 @@ export function AgentAuthRouterPools() {
             disabled={busy || !!draft}
             onClick={() =>
               setDraft({
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 name: "",
                 provider: "codex",
                 accountIds: [],

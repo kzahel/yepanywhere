@@ -11,6 +11,7 @@ import {
   notifyReviewCommentsChanged,
   subscribeReviewComments,
 } from "../lib/reviewCommentsBus";
+import { generateUUID } from "../lib/uuid";
 import { useRemoteBasePath } from "./useRemoteBasePath";
 
 export type SubmitNowOutcome = "navigated" | "queued" | "error";
@@ -102,7 +103,7 @@ export function useReviewCommentDraft(
         const commentId = prior
           ? prior.commentId
           : (await api.addReviewComment(projectId, anchor, text)).comment.id;
-        const submissionId = prior?.submissionId ?? crypto.randomUUID();
+        const submissionId = prior?.submissionId ?? generateUUID();
         if (submissionsEnabled && !prior) {
           immediateAttemptRef.current = {
             key: attemptKey,

@@ -1,4 +1,5 @@
 import type { ClientSummarySourceKey } from "./clientSummaryStore";
+import { generateUUID } from "./uuid";
 
 const NEW_SESSION_PREFILL_KEY_PREFIX = "new-session-prefill:";
 const NEW_SESSION_PREFILL_TOKEN_PREFIX = "new-session-prefill-token:";
@@ -100,7 +101,7 @@ function forgetStaleNewSessionPrefillTokens(): void {
 }
 
 export function createNewSessionPrefillToken(): string {
-  return crypto.randomUUID();
+  return generateUUID();
 }
 
 /**

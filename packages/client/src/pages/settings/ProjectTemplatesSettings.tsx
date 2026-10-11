@@ -8,6 +8,7 @@ import {
 import { fetchJSON } from "../../api/sourceApiFetch";
 import { useActingPrincipal } from "../../hooks/useActingPrincipal";
 import { useI18n } from "../../i18n";
+import { generateUUID } from "../../lib/uuid";
 import { SettingsSection } from "./SettingsSection";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
 import styles from "./ProjectTemplatesSettings.module.css";
@@ -318,7 +319,7 @@ export function ProjectTemplatesSettings() {
                 ...previous.sources,
                 {
                   ...DEFAULT_PROJECT_TEMPLATE_SOURCE,
-                  id: `source-${crypto.randomUUID()}`,
+                  id: `source-${generateUUID()}`,
                   repository: "",
                   contentPath: "",
                   location: "",

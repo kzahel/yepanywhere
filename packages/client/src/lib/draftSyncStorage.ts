@@ -20,6 +20,7 @@ import {
 import { readDraftEnvelopeValue } from "./draftEnvelope";
 import { accountDraftStorageKey } from "./draftAccountStorage";
 import type { SourceTransport } from "./transport/types";
+import { generateUUID } from "./uuid";
 
 export const DRAFT_STORAGE_EVENT = "yep-draft-storage";
 export const DRAFT_SYNC_STATUS_EVENT = "yep-draft-sync-status";
@@ -66,10 +67,7 @@ interface Entry {
  */
 const SIBLING_EDIT_MS = 15_000;
 const FOREGROUND_KEY = "draft-sync-foreground";
-const TAB_ID =
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random()}`;
+const TAB_ID = generateUUID();
 const owners = new Map<string, string>();
 const clients = new Map<string, DraftSyncClient>();
 let currentSource = "local";
@@ -786,7 +784,7 @@ export class DraftSyncClient {
             slot: e.address.slot,
             baseRevision: read.snapshot.revision,
             ticket: read.ticket,
-            operationId: crypto.randomUUID(),
+            operationId: generateUUID(),
             payload: EMPTY_DRAFT,
           };
           this.persist(e);
@@ -886,7 +884,7 @@ export class DraftSyncClient {
         slot: e.address.slot,
         baseRevision: read.snapshot.revision,
         ticket: read.ticket,
-        operationId: crypto.randomUUID(),
+        operationId: generateUUID(),
         payload: merged,
         recovery: !draftPayloadEqual(local, merged),
       };
@@ -1115,7 +1113,7 @@ export class DraftSyncClient {
       raw: e.saved.raw,
       base: e.saved.base,
       discard: {},
-      discardId: crypto.randomUUID(),
+      discardId: generateUUID(),
     };
     e.remote = undefined;
     e.needsRecovery = false;
@@ -1178,7 +1176,7 @@ export class DraftSyncClient {
         slot: e.address.slot,
         baseRevision: read.snapshot.revision,
         ticket: read.ticket,
-        operationId: crypto.randomUUID(),
+        operationId: generateUUID(),
         payload: submitted.payload,
       };
       e.saved.pending = operation;
@@ -1235,7 +1233,7 @@ export class DraftSyncClient {
         slot: e.address.slot,
         baseRevision: read.snapshot.revision,
         ticket: read.ticket,
-        operationId: crypto.randomUUID(),
+        operationId: generateUUID(),
       });
       if (this.stopped || e.saved !== saved) return;
       if (result.outcome === "accepted") e.saved.base = result.snapshot;

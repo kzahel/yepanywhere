@@ -25,6 +25,7 @@ import {
 } from "@yep-anywhere/shared";
 import { useVersion } from "../hooks/useVersion";
 import { useToastContext } from "../contexts/ToastContext";
+import { generateUUID } from "../lib/uuid";
 import { TemplateCreationProgress } from "./TemplateCreationProgress";
 
 /** One radio in a project's starting-point palette. */
@@ -137,7 +138,7 @@ export function TemplateProjectForm({
   const [recentUploadsOpen, setRecentUploadsOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const attachmentBatch = useRef(crypto.randomUUID());
+  const attachmentBatch = useRef(generateUUID());
   const attachGesture = useRef({ y: 0, swiped: false });
   const storageKey = `ya-template-creation:${sourceKey}${limited ? `:${principal.username}` : ""}`;
   const id = useId();
@@ -278,7 +279,7 @@ export function TemplateProjectForm({
     )
       return;
     request.current ??= {
-      operationId: crypto.randomUUID(),
+      operationId: generateUUID(),
       sourceId: selected.sourceId,
       templateId: selected.id,
       path,

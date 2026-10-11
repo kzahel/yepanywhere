@@ -10,6 +10,7 @@ import { Modal } from "../../components/ui/Modal";
 import { useCurrentSourceRuntime } from "../../contexts/SourceRuntimeContext";
 import { useI18n } from "../../i18n";
 import { downloadBlob } from "../../lib/imageActions";
+import { generateUUID } from "../../lib/uuid";
 import styles from "./VhostOauthSettings.module.css";
 
 type Update = (
@@ -94,7 +95,7 @@ export function VhostOauthProviderSettings({
           <button
             type="button"
             onClick={() =>
-              setNewId(entries.length ? crypto.randomUUID() : "default")
+              setNewId(entries.length ? generateUUID() : "default")
             }
           >
             {t("vhostOauthAddProvider")}

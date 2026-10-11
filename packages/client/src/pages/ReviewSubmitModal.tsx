@@ -16,6 +16,7 @@ import {
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
 import { loadProjectSessions, reviewSessionLabel } from "../lib/reviewSessions";
 import type { TranslationFn } from "../i18n";
+import { generateUUID } from "../lib/uuid";
 import styles from "./ReviewSubmitModal.module.css";
 
 /**
@@ -55,7 +56,7 @@ export function ReviewSubmitModal({
   const [name, setName] = useState("");
   const submissionIdRef = useRef<string | null>(null);
   if (submissionsEnabled && !submissionIdRef.current) {
-    submissionIdRef.current = crypto.randomUUID();
+    submissionIdRef.current = generateUUID();
   }
   const [sessions, setSessions] = useState<GlobalSessionItem[] | null>(null);
   const [sessionsError, setSessionsError] = useState<string | null>(null);

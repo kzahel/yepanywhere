@@ -9,6 +9,7 @@ import {
   type SessionFileCommentAnchor,
   type SessionFileCommentDraft,
 } from "../lib/sessionFileComments";
+import { generateUUID } from "../lib/uuid";
 
 function removeUnchangedSubmittedDrafts(
   current: readonly SessionFileCommentDraft[],
@@ -108,7 +109,7 @@ export function useSessionFileComments({
       }
       const draft: SessionFileCommentDraft = {
         ...anchor,
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         text: "",
       };
       replaceDrafts([...retained, draft]);
