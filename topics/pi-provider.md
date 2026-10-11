@@ -181,6 +181,14 @@ This mirrors the kzahel-vs-graehl staging relationship YA already runs. **Do not
 assume a delta landed upstream — check the fork's actual `git log origin/main`
 vs `upstream/main` before relying on a change.
 
+Current state, 2026-10-11: the fork's `main` carries no deltas. It was
+fast-forwarded to upstream `v1.1.0-22` (`ea448f454`). The only kept fork work
+is the unmerged `login-github-oauth` branch, a Copilot sign-in hardening held
+for a recurrence
+([sketch](pi-provider.sketches.md#port-the-copilot-device-login-fix-if-pis-copilot-sign-in-fails)).
+A server whose `PI_EXECUTABLE` names the `~/pi` build runs whatever was last
+built there, not the checked-out commit.
+
 ## Plan A — subprocess RPC mode (likely first version)
 
 **Status: LANDED (live path) 2026-06-21.** `PiProvider`

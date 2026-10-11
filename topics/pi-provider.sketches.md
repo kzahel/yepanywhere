@@ -33,6 +33,35 @@ commands ([pi-provider](pi-provider.md#settled-turn-boundary--compatible-through
   Prefer the bundle when present, if its startup is measurably faster on
   Windows.
 
+## Port the Copilot device-login fix if Pi's Copilot sign-in fails
+
+Trigger: Pi's GitHub Copilot `/login` fails again, so Copilot-routed models
+(Sol, Opus, and others under `github-copilot/*`) are unreachable through Pi.
+
+Branch `login-github-oauth` on `graehl/pi` (`60a50dd7b`, `7b9194c62`; based on
+pre-0.81 upstream, about 109 lines including a test) hardens the Copilot
+device flow in Pi's `github-copilot` OAuth module:
+
+- rejects a blank `device_code` or `user_code` when the flow starts, before
+  polling a code GitHub will refuse;
+- turns `incorrect_device_code` and `expired_token` into "start the login
+  again" instead of a raw `Device flow failed: …`;
+- adds poll-count and elapsed-time diagnostics, which separate a blank or
+  truncated issued code from a valid code GitHub's token endpoint rejected on
+  its first poll.
+
+It came from upstream issue earendil-works/pi#5928 (a first Copilot `/login`
+failing with `incorrect_device_code` after a blank organization). The issue
+closed as not reproducible, and upstream `main` at `v1.1.0-22` still lacks all
+three changes. The module has since moved from
+`packages/ai/src/utils/oauth/github-copilot.ts` to
+`packages/ai/src/auth/oauth/github-copilot.ts`, so the commits need a manual
+port rather than a rebase.
+
+If it recurs: port onto current upstream, run Pi from the `~/pi` build
+(`PI_EXECUTABLE`), reproduce, and open an upstream PR with the diagnostics.
+Neither YA nor Pi's normal RPC path needs the fork otherwise.
+
 ## YA-supplied web tools for tool-light providers
 
 ### Problem
