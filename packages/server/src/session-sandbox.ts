@@ -583,7 +583,9 @@ async function requireSupportedBwrapVersion(
     child.once("error", (error) => {
       rejectVersion(sandboxRuntimeError(error.message));
     });
-    child.once("exit", (code, signal) => {
+    // "exit" can precede the last stdout chunk; a loaded host then reads the
+    // version as empty. "close" fires after the pipes drain.
+    child.once("close", (code, signal) => {
       if (code === 0) {
         resolveVersion(stdout.trim());
         return;
