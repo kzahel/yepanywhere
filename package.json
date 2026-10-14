@@ -76,7 +76,7 @@
     "simple-client:check": "node --test scripts/simple-client-schema.test.mjs && node scripts/generate-simple-client.mjs --check"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.6",
+    "@biomejs/biome": "2.5.15",
     "@eslint/css": "^2.0.0",
     "esbuild": "0.27.2",
     "eslint": "^10.12.0",
