@@ -2,7 +2,7 @@ module github.com/kzahel/yepanywhere/device-bridge
 
 go 1.26.0
 
-toolchain go1.26.8
+toolchain go1.26.9
 
 require (
 	github.com/gen2brain/x264-go v0.3.1
