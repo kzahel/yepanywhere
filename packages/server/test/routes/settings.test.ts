@@ -2084,6 +2084,7 @@ describe("Settings Routes", () => {
                 model: "opus",
                 thinkingMode: "on",
                 effortLevel: "high",
+                modelEffortLevels: { haiku: "high", opus: "low" },
                 helperSideModel: "haiku",
               },
               codex: {
@@ -2114,6 +2115,7 @@ describe("Settings Routes", () => {
               model: "opus",
               thinkingMode: "on",
               effortLevel: "high",
+              modelEffortLevels: { haiku: "high", opus: "low" },
               helperSideModel: "haiku",
             },
             codex: {
@@ -2349,28 +2351,31 @@ describe("Settings Routes", () => {
       expect(mockServerSettingsService.updateSettings).not.toHaveBeenCalled();
     });
 
-    it("rejects invalid provider-scoped new-session defaults", async () => {
-      const routes = createSettingsRoutes({
-        serverSettingsService: mockServerSettingsService,
-      });
+    it.each([
+      { effortLevel: "extreme" },
+      { modelEffortLevels: { opus: "extreme" } },
+      { modelEffortLevels: ["low"] },
+    ])(
+      "rejects invalid provider-scoped new-session defaults %o",
+      async (claude) => {
+        const routes = createSettingsRoutes({
+          serverSettingsService: mockServerSettingsService,
+        });
 
-      const response = await routes.request("/", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          newSessionDefaults: {
-            providers: {
-              claude: { effortLevel: "extreme" },
-            },
-          },
-        }),
-      });
+        const response = await routes.request("/", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            newSessionDefaults: { providers: { claude } },
+          }),
+        });
 
-      expect(response.status).toBe(400);
-      const json = await response.json();
-      expect(json.error).toBe("Invalid newSessionDefaults setting");
-      expect(mockServerSettingsService.updateSettings).not.toHaveBeenCalled();
-    });
+        expect(response.status).toBe(400);
+        const json = await response.json();
+        expect(json.error).toBe("Invalid newSessionDefaults setting");
+        expect(mockServerSettingsService.updateSettings).not.toHaveBeenCalled();
+      },
+    );
 
     it("accepts post-compact replay settings", async () => {
       const routes = createSettingsRoutes({

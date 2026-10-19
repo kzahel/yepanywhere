@@ -822,6 +822,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "rendez-project-status",
     introducedIn: "0.9.4",
   },
+  modelEffortDefaults: {
+    id: 134,
+    direction: "server",
+    name: "model-effort-defaults",
+    introducedIn: "0.9.4",
+  },
 } as const satisfies Record<string, CapabilityIdAllocation>;
 
 export type CapabilityBitset = readonly (readonly [

@@ -706,6 +706,9 @@ export function createApp(options: AppOptions): AppResult {
     codexCliPath: options.codexCliPath,
     getClaudeAdditionalModels: () =>
       options.serverSettingsService?.getSetting("claudeAdditionalModels"),
+    getClaudeModelEffortLevels: () =>
+      options.serverSettingsService?.getSetting("newSessionDefaults")?.providers
+        ?.claude?.modelEffortLevels,
     isClaudeOllamaVisible: () =>
       ClaudeOllamaProvider.isExplicitlyConfigured() ||
       Boolean(

@@ -2228,6 +2228,32 @@ export const SERVER_CAPABILITIES = {
       reason: "Older servers do not report .rendez observer status.",
     },
   },
+  modelEffortDefaults: {
+    id: CAPABILITY_ID_ALLOCATIONS.modelEffortDefaults.id,
+    name: "model-effort-defaults",
+    kind: "permanent",
+    area: "settings",
+    introducedIn: "0.9.4",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Server persists per-model Claude effort defaults, applies them to auto-thinking launches, and reports them as the model catalog's default effort.",
+    clientFallback:
+      "Hide the per-model effort setting and send no modelEffortLevels field.",
+    serverContract: {
+      routes: ["GET /api/settings", "PUT /api/settings"],
+      requestFields: [
+        "settings.newSessionDefaults.providers.claude.modelEffortLevels",
+      ],
+      responseFields: [
+        "settings.newSessionDefaults.providers.claude.modelEffortLevels",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Older servers drop the field and launch auto-thinking sessions at the Claude Code default.",
+    },
+  },
   patientTopicShift: {
     id: CAPABILITY_ID_ALLOCATIONS.patientTopicShift.id,
     name: "patient-topic-shift",
@@ -4357,6 +4383,8 @@ export const PATIENT_TOPIC_SHIFT_CAPABILITY =
 export const RENDEZ_UPLOADS_CAPABILITY = SERVER_CAPABILITIES.rendezUploads.name;
 export const RENDEZ_PROJECT_STATUS_CAPABILITY =
   SERVER_CAPABILITIES.rendezProjectStatus.name;
+export const MODEL_EFFORT_DEFAULTS_CAPABILITY =
+  SERVER_CAPABILITIES.modelEffortDefaults.name;
 export const SYNTHETIC_DONE_COMMAND_CAPABILITY =
   SERVER_CAPABILITIES.syntheticDoneCommand.name;
 export const SYNTHETIC_ARCHIVE_COMMAND_CAPABILITY =

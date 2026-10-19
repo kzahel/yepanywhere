@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPreferredModelId,
   getPreferredProviderModelId,
+  withProviderSessionDefaults,
 } from "../newSessionDefaults";
 
 describe("getPreferredModelId", () => {
@@ -47,5 +48,27 @@ describe("getPreferredModelId", () => {
         "missing",
       ),
     ).toBe("default");
+  });
+});
+
+describe("withProviderSessionDefaults model effort levels", () => {
+  const saved = {
+    providers: {
+      claude: { model: "opus", modelEffortLevels: { opus: "low" } },
+    },
+  } as const;
+
+  it("keeps per-model effort when another default changes", () => {
+    expect(
+      withProviderSessionDefaults(saved, "claude", { thinkingMode: "auto" })
+        .providers?.claude?.modelEffortLevels,
+    ).toEqual({ opus: "low" });
+  });
+
+  it("drops the map when every model returns to its default", () => {
+    expect(
+      withProviderSessionDefaults(saved, "claude", { modelEffortLevels: {} })
+        .providers?.claude,
+    ).toEqual({ model: "opus" });
   });
 });

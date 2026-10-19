@@ -88,6 +88,11 @@ function compactProviderDefaults(
   }
   if (defaults.thinkingMode) compacted.thinkingMode = defaults.thinkingMode;
   if (defaults.effortLevel) compacted.effortLevel = defaults.effortLevel;
+  if (
+    defaults.modelEffortLevels &&
+    Object.keys(defaults.modelEffortLevels).length > 0
+  )
+    compacted.modelEffortLevels = defaults.modelEffortLevels;
   if (helperSideModel) compacted.helperSideModel = helperSideModel;
   return compacted;
 }
@@ -114,6 +119,7 @@ export function getProviderSessionDefaults(
     routerPolicy: scoped.routerPolicy,
     thinkingMode: scoped.thinkingMode ?? seed.thinkingMode ?? undefined,
     effortLevel: scoped.effortLevel ?? seed.effortLevel ?? undefined,
+    modelEffortLevels: scoped.modelEffortLevels,
     helperSideModel: scoped.helperSideModel ?? undefined,
   });
 }

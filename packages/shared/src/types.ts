@@ -734,6 +734,11 @@ export interface ProviderSessionDefaults {
   thinkingMode?: ThinkingMode;
   /** Provider-local effort level for new sessions on this provider. */
   effortLevel?: EffortLevel;
+  /**
+   * Per-model effort used when thinking is `auto` (no explicit effort),
+   * keyed by provider-local model id. Absent models use the catalog default.
+   */
+  modelEffortLevels?: Record<string, EffortLevel>;
   /** Provider-local helper model for tailed recaps. */
   helperSideModel?: string;
 }

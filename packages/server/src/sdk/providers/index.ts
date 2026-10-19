@@ -15,6 +15,7 @@ import {
   DEFAULT_SUBAGENT_MAX_DEPTH,
   type ClaudeAdditionalModelSelection,
   type CodexCyberAccessProgram,
+  type EffortLevel,
   type CodexPlanToolMode,
   type CodexReasoningSummary,
   type GatewayService,
@@ -117,6 +118,10 @@ export interface ProviderRuntimeConfig {
   getClaudeAdditionalModels?: () =>
     | readonly ClaudeAdditionalModelSelection[]
     | undefined;
+  /** Saved per-model effort defaults for auto-thinking Claude launches. */
+  getClaudeModelEffortLevels?: () =>
+    | Readonly<Record<string, EffortLevel>>
+    | undefined;
   /** Whether legacy ClaudeOllama has configured or persisted usage. */
   isClaudeOllamaVisible?: () => boolean;
   /** Cloneable process-scoped settings supplied to a provider worker. */
@@ -155,6 +160,9 @@ const hostedProviderProxies = new Map<ProviderName, AgentProvider>();
 export function configureProviderRuntime(config: ProviderRuntimeConfig): void {
   claudeProvider.setAdditionalModelsGetter(
     config.getClaudeAdditionalModels ?? (() => []),
+  );
+  claudeProvider.setModelEffortLevelsGetter(
+    config.getClaudeModelEffortLevels ?? (() => undefined),
   );
   codexProvider.setCodexPath(config.codexCliPath);
   codexOSSProvider.setCodexPath(config.codexCliPath);

@@ -279,6 +279,25 @@ function parseOptionalString(
   return value.length > 0 ? value.slice(0, maxLength) : undefined;
 }
 
+const MAX_MODEL_EFFORT_LEVELS = 100;
+
+/** Model id → effort map; an empty map clears the setting. */
+function parseModelEffortLevels(
+  raw: unknown,
+): Record<string, EffortLevel> | undefined | null {
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  if (!isRecord(raw) || Array.isArray(raw)) return null;
+  const entries = Object.entries(raw);
+  if (entries.length > MAX_MODEL_EFFORT_LEVELS) return null;
+  const parsed: Record<string, EffortLevel> = {};
+  for (const [modelId, level] of entries) {
+    if (modelId.length === 0 || modelId.length > 200) return null;
+    if (!EFFORT_LEVELS.includes(level as EffortLevel)) return null;
+    parsed[modelId] = level as EffortLevel;
+  }
+  return entries.length > 0 ? parsed : undefined;
+}
+
 function parseProviderSessionDefaults(
   raw: unknown,
 ): ProviderSessionDefaults | undefined | null {
@@ -337,6 +356,11 @@ function parseProviderSessionDefaults(
     if (typeof raw.effortLevel === "string" && raw.effortLevel.length > 0) {
       parsed.effortLevel = raw.effortLevel as EffortLevel;
     }
+  }
+  if ("modelEffortLevels" in raw) {
+    const modelEffortLevels = parseModelEffortLevels(raw.modelEffortLevels);
+    if (modelEffortLevels === null) return null;
+    if (modelEffortLevels) parsed.modelEffortLevels = modelEffortLevels;
   }
   if ("helperSideModel" in raw) {
     const helperSideModel = parseOptionalString(raw.helperSideModel, 200);

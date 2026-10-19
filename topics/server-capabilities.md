@@ -19,6 +19,13 @@ response for older clients. Existing capabilities keep their meanings.
 Standing maintainer compatibility authorization applies; gate removal remains
 an explicit review after the core support corpus moves forward.
 
+`model-effort-defaults` (permanent ID 134, version-implied from 0.9.4) owns
+`newSessionDefaults.providers.claude.modelEffortLevels` on GET/PUT
+`/api/settings`. Stable v0.9.0–v0.9.2 drop the field on save and launch Auto
+Claude sessions with no effort; without the capability clients hide the
+per-model effort setting and send no field. No existing capability changes
+meaning. See [session defaults](session-defaults.md).
+
 `rendez-project-status` (permanent ID 133, version-implied from 0.9.4) adds
 `GET /api/settings/rendez/status`, listing the projects whose `.rendez`
 observer runs, for the per-project rendez table. The optional review on

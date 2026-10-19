@@ -3,6 +3,7 @@ import {
   DEFAULT_PROMPT_CACHE_KEEPALIVE_INACTIVITY_MINUTES,
   HELPER_SIDE_MODEL_CHEAPEST,
   HELPER_SIDE_MODEL_SAME_AS_MAIN,
+  MODEL_EFFORT_DEFAULTS_CAPABILITY,
   PROMPT_CACHE_KEEPALIVE_MODES,
   PROMPT_SUGGESTION_MODES,
   type EffortLevel,
@@ -19,6 +20,7 @@ import {
   type RecapMode,
   type ThinkingMode,
   normalizeRecapAfterSeconds,
+  serverHasCapability,
 } from "@yep-anywhere/shared";
 import {
   MODEL_OPTIONS,
@@ -57,6 +59,7 @@ import {
   ClaudeAutoCompactPercentOverrideControl,
   YaCompactContextEarlyControl,
 } from "./compactSettingsControls";
+import { ModelEffortDefaultsControl } from "./ModelEffortDefaultsControl";
 import { SettingsItem } from "./SettingsItem";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
 import { SettingsSection } from "./SettingsSection";
@@ -213,7 +216,11 @@ export function ModelSettings() {
     showThinking,
     setShowThinking,
   } = useModelSettings();
-  const { providers, loading: providersLoading } = useProviders();
+  const {
+    providers,
+    loading: providersLoading,
+    reload: reloadProviders,
+  } = useProviders();
   const [forkSummaryAutoOpen, setForkSummaryAutoOpen] =
     useForkSummaryAutoOpen();
   const {
@@ -413,6 +420,10 @@ export function ModelSettings() {
   const showThinkingControls =
     supportsThinkingToggle &&
     thinkingModeOptions.some((option) => option !== "off");
+  const showModelEffortDefaults =
+    selectedProvider?.name === "claude" &&
+    showThinkingControls &&
+    serverHasCapability(version, MODEL_EFFORT_DEFAULTS_CAPABILITY);
   const availableRecapModes = RECAP_MODE_ORDER;
   const availablePromptSuggestionModes = PROMPT_SUGGESTION_MODE_ORDER;
   const showHelperSideModel = selectedRecapMode === "side-session";
@@ -702,6 +713,20 @@ export function ModelSettings() {
                 className="thinking-controls-panel--inline session-default-thinking-controls"
               />
             </SettingsItem>
+          )}
+
+          {showModelEffortDefaults && (
+            <ModelEffortDefaultsControl
+              models={selectedModels}
+              levels={selectedProviderDefaults.modelEffortLevels}
+              disabled={settingsLoading}
+              onChange={(modelEffortLevels) =>
+                void updateProviderSessionDefaults({ modelEffortLevels }).then(
+                  // The catalog reports the override as the model default.
+                  () => reloadProviders(),
+                )
+              }
+            />
           )}
 
           {supportsPermissionMode && (

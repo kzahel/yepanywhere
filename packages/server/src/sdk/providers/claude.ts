@@ -55,6 +55,11 @@ import { logSDKMessage } from "../messageLogger.js";
 import { MessageQueue } from "../messageQueue.js";
 import { ClaudeTurnEffort } from "./claude-turn-effort.js";
 import {
+  applyClaudeModelEffortDefaults,
+  type ClaudeModelEffortLevels,
+  resolveClaudeLaunchEffort,
+} from "./claude-model-effort.js";
+import {
   fallbackModelCatalog,
   modelCatalogError,
 } from "./model-catalog-status.js";
@@ -1140,6 +1145,15 @@ export class ClaudeProvider implements AgentProvider {
     this.getConfiguredSubagentMaxDepth = getter;
   }
 
+  private getModelEffortLevels: () => ClaudeModelEffortLevels | undefined =
+    () => undefined;
+
+  setModelEffortLevelsGetter(
+    getter: () => ClaudeModelEffortLevels | undefined,
+  ): void {
+    this.getModelEffortLevels = getter;
+  }
+
   setAdditionalModelsGetter(
     getter: () => readonly ClaudeAdditionalModelSelection[] | undefined,
   ): void {
@@ -1185,9 +1199,19 @@ export class ClaudeProvider implements AgentProvider {
   }
 
   private projectAdditionalModels(models: readonly ModelInfo[]): ModelInfo[] {
-    return projectClaudeAdditionalModels(
-      models,
-      this.getAdditionalModelSelections(),
+    return applyClaudeModelEffortDefaults(
+      projectClaudeAdditionalModels(
+        models,
+        this.getAdditionalModelSelections(),
+      ),
+      this.getModelEffortLevels(),
+    );
+  }
+
+  /** The catalog last served, without probing; launches must not wait. */
+  private currentModelCatalog(): ModelInfo[] {
+    return this.projectAdditionalModels(
+      this.cachedModels ?? CLAUDE_MODELS_FALLBACK,
     );
   }
 
@@ -2091,8 +2115,25 @@ export class ClaudeProvider implements AgentProvider {
   }
 
   private async startSessionInternal(
-    options: StartSessionOptions,
+    requestedOptions: StartSessionOptions,
   ): Promise<AgentSession> {
+    // "auto" requests the effort the catalog shows as the model default.
+    // Gateway and Ollama subclasses keep their own effort semantics.
+    const options: StartSessionOptions =
+      this.name === "claude"
+        ? {
+            ...requestedOptions,
+            effort: resolveClaudeLaunchEffort({
+              ...requestedOptions,
+              models: requestedOptions.routerLaunch
+                ? applyClaudeModelEffortDefaults(
+                    requestedOptions.routerLaunch.models ?? [],
+                    this.getModelEffortLevels(),
+                  )
+                : this.currentModelCatalog(),
+            }),
+          }
+        : requestedOptions;
     const log = getLogger();
     const queue = new MessageQueue();
     const abortController = new AbortController();

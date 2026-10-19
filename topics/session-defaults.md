@@ -72,6 +72,16 @@ resolved against that provider's available model metadata.
 - **Thinking mode** — `off` / `auto` / `on` changes provider work requested.
 - **Effort level** — effort labels are not comparable across providers; `high`
   on one backend is not a portable meaning or cost on another.
+- **Effort per model (Claude)** — an optional model id → effort map that
+  defines what Thinking **Auto** requests for each Claude model. With Auto and
+  no explicit effort, a Claude launch requests the selected model's saved
+  effort, else the catalog's `defaultEffortLevel`, else no effort (Claude
+  Code's own default). An explicit effort always wins and disabled thinking
+  requests none. The server reports a supported saved effort as that model's
+  `defaultEffortLevel`, so the level a client shows for Auto is the level
+  launched. Unsupported saved levels are ignored. Claude Gateway and Ollama
+  launches are unaffected. Without the `model-effort-defaults` capability the
+  setting is hidden and never sent.
 - **Tailed Recap Model** — tailed recap model ids, costs, and availability are
   provider-local. The selector is intentionally lower-priority than thinking
   mode and effort. OpenAI-compatible helper targets stay hidden until
