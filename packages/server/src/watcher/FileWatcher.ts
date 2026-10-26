@@ -13,6 +13,8 @@ import type {
 export interface FileWatcherOptions {
   /** Directory to watch (e.g., ~/.claude) */
   watchDir: string;
+  /** Restrict a parent-root watch to these immediate child directories. */
+  watchSubdirectories?: readonly string[];
   /** Provider that owns this directory */
   provider: WatchProvider;
   /** EventBus to emit events to */
@@ -106,6 +108,7 @@ const PERIODIC_RESCAN_DEFAULT_MAX_BACKOFF_MS = 60 * 60 * 1000;
 export class FileWatcher {
   private observationError: string | null = null;
   private watchDir: string;
+  private readonly watchSubdirectories?: readonly string[];
   private provider: WatchProvider;
   private eventBus: EventBus;
   private debounceMs: number;
@@ -134,6 +137,7 @@ export class FileWatcher {
 
   constructor(options: FileWatcherOptions) {
     this.watchDir = options.watchDir;
+    this.watchSubdirectories = options.watchSubdirectories;
     this.provider = options.provider;
     this.eventBus = options.eventBus;
     this.debounceMs = options.debounceMs ?? 200;
@@ -392,6 +396,12 @@ export class FileWatcher {
 
       const files: string[] = [];
       for (const entry of entries) {
+        if (
+          dir === this.watchDir &&
+          this.watchSubdirectories &&
+          !this.watchSubdirectories.includes(entry.name)
+        )
+          continue;
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) pendingDirectories.push(fullPath);
         else files.push(fullPath);
@@ -443,6 +453,11 @@ export class FileWatcher {
   }
 
   private handleFileEvent(eventType: string, filename: string): void {
+    if (
+      this.watchSubdirectories &&
+      !this.watchSubdirectories.includes(filename.split(/[\\/]/)[0] ?? "")
+    )
+      return;
     const fullPath = path.join(this.watchDir, filename);
     const duringInitialBaseline =
       this.initialBaselineState === "scheduled" ||

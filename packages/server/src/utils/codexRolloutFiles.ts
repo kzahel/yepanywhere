@@ -2,6 +2,36 @@ import * as path from "node:path";
 
 export type CodexRolloutRepresentation = "plain" | "zstd";
 
+/** Native archives are siblings of the standard sessions root, not ancestors. */
+export function getCodexSessionRoots(sessionsDir: string): string[] {
+  return path.basename(sessionsDir) === "sessions"
+    ? [sessionsDir, path.join(path.dirname(sessionsDir), "archived_sessions")]
+    : [sessionsDir];
+}
+
+/** Active storage wins during an archive/unarchive copy transition. */
+export function preferActiveCodexRollouts(
+  sessionsDir: string,
+  filePaths: string[],
+): string[] {
+  const roots = getCodexSessionRoots(sessionsDir);
+  const isActive = (file: string) => {
+    const relative = path.relative(sessionsDir, file);
+    return !path.isAbsolute(relative) && relative.split(path.sep)[0] !== "..";
+  };
+  const active = new Set(
+    filePaths
+      .filter(isActive)
+      .map((file) => path.basename(plainCodexRolloutPath(file))),
+  );
+  return preferPlainCodexRollouts(filePaths).filter(
+    (file) =>
+      roots.length === 1 ||
+      isActive(file) ||
+      !active.has(path.basename(plainCodexRolloutPath(file))),
+  );
+}
+
 export interface CodexRolloutDiscoveryIdentity {
   key: string;
   shardKey: string;

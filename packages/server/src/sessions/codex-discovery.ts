@@ -142,7 +142,7 @@ export async function readCodexRolloutMetadata(
         metadata: cached.metadata,
         metadataByteLength: cached.metadataByteLength,
         fileSize: stats.size,
-        fileMtimeMs: stats.mtimeMs,
+        fileMtimeMs: activityTimeMs,
         sourceFingerprint,
       });
     }
@@ -188,7 +188,7 @@ export async function readCodexRolloutMetadata(
     metadata,
     metadataByteLength: Buffer.byteLength(firstLine, "utf-8") + 1,
     fileSize: stats.size,
-    fileMtimeMs: stats.mtimeMs,
+    fileMtimeMs: activityTimeMs,
     sourceFingerprint,
   });
 
@@ -207,6 +207,16 @@ function isCachedRecordUsable(
   if (
     !representationChanged &&
     hasSourceFingerprintChanged(record.sourceFingerprint, sourceFingerprint)
+  ) {
+    return false;
+  }
+  // Size growth does not prove append-only writes (restore/sync may rewrite
+  // the header). Revalidate just the bounded first line on source changes.
+  if (
+    !representationChanged &&
+    (record.fileSize !== stats.size ||
+      record.fileMtimeMs !==
+        getCodexRolloutActivityTimeMs(identity.relativePath, stats))
   ) {
     return false;
   }

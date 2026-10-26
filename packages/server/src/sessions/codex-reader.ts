@@ -16,6 +16,7 @@ import {
  */
 
 import { randomUUID } from "node:crypto";
+import { isTransientFileReadError } from "../utils/fileReadError.js";
 import { open, readdir, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import {
@@ -49,8 +50,10 @@ import {
   getCodexRolloutActivityTimeMs,
   getCodexRolloutFileIdentity,
   getCodexRolloutId,
+  getCodexSessionRoots,
   isCompressedCodexRolloutPath,
   isCodexRolloutFileName,
+  preferActiveCodexRollouts,
   preferPlainCodexRollouts,
 } from "../utils/codexRolloutFiles.js";
 import { iterateJsonlLines, readJsonlLines } from "../utils/jsonl.js";
@@ -662,7 +665,13 @@ export class CodexSessionReader implements ISessionReader {
     this.providerChildProjectionKeys.clear();
     for (const cacheKey of codexSharedScanCache.keys()) {
       if (cacheKey.startsWith(`${this.sessionsDir}::`)) {
-        codexSharedScanCache.delete(cacheKey);
+        const accepted = codexSharedScanCache.get(cacheKey);
+        if (accepted && !accepted.inFlight)
+          codexSharedScanCache.set(cacheKey, {
+            timestamp: 0,
+            sessions: accepted.sessions,
+          });
+        else codexSharedScanCache.delete(cacheKey);
       }
     }
   }
@@ -816,7 +825,8 @@ export class CodexSessionReader implements ISessionReader {
           return result.summary;
         },
       );
-    } catch {
+    } catch (error) {
+      if (isTransientFileReadError(error)) throw error;
       return null;
     }
   }
@@ -1047,7 +1057,8 @@ export class CodexSessionReader implements ISessionReader {
       if (!summary) return null;
 
       return { summary, mtime, size };
-    } catch {
+    } catch (error) {
+      if (isTransientFileReadError(error)) throw error;
       return null;
     }
   }
@@ -1459,19 +1470,28 @@ export class CodexSessionReader implements ISessionReader {
       sharedCacheStatus: "miss",
     });
     const startedAt = Date.now();
-    const inFlight = this.scanSessionsUncached(options, metrics);
+    let retained = false;
+    const inFlight = this.scanSessionsUncached(options, metrics).catch(
+      (error: unknown) => {
+        if (!cached || !isTransientFileReadError(error)) throw error;
+        retained = true;
+        return cached.sessions;
+      },
+    );
     codexSharedScanCache.set(cacheKey, {
       timestamp: now,
-      sessions: [],
+      sessions: cached?.sessions ?? [],
       inFlight,
     });
 
     try {
       const sessions = await inFlight;
-      codexSharedScanCache.set(cacheKey, {
-        timestamp: Date.now(),
-        sessions,
-      });
+      if (codexSharedScanCache.get(cacheKey)?.inFlight === inFlight) {
+        codexSharedScanCache.set(cacheKey, {
+          timestamp: retained ? 0 : Date.now(),
+          sessions,
+        });
+      }
       if (options?.activeAfterMs !== undefined)
         this.retainLatestCutoff(cacheKey);
       this.hydrateSessionFileCache(sessions);
@@ -1616,11 +1636,20 @@ export class CodexSessionReader implements ISessionReader {
     try {
       await stat(this.sessionsDir);
       if (metrics) metrics.sessionsDirExists = true;
-    } catch {
-      return [];
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
 
-    const files = await this.findJsonlFiles(this.sessionsDir, metrics);
+    const files = preferActiveCodexRollouts(
+      this.sessionsDir,
+      (
+        await Promise.all(
+          getCodexSessionRoots(this.sessionsDir).map((root) =>
+            this.findJsonlFiles(root, metrics),
+          ),
+        )
+      ).flat(),
+    );
 
     for (const filePath of files) {
       this.cacheRolloutPath(filePath);
@@ -1685,9 +1714,37 @@ export class CodexSessionReader implements ISessionReader {
   private async findSessionFile(
     sessionId: string,
   ): Promise<CodexSessionFile | null> {
+    // Retained failed scans must retry even after hydrating a local entry.
+    if (
+      codexSharedScanCache.get(this.getSharedScanCacheKey())?.timestamp === 0
+    ) {
+      return (
+        (await this.scanSessions()).find(
+          (session) => session.id === sessionId,
+        ) ?? null
+      );
+    }
     // Check cache first
     const cached = this.sessionFileCache.get(sessionId);
-    if (cached) return cached;
+    if (cached) {
+      try {
+        const stats = await stat(cached.filePath);
+        if (
+          stats.size !== cached.size ||
+          getCodexRolloutActivityTimeMs(cached.filePath, stats) !== cached.mtime
+        ) {
+          const refreshed = await this.readSessionMeta(cached.filePath);
+          if (refreshed) this.hydrateSessionFileCache([refreshed]);
+          else this.sessionFileCache.delete(sessionId);
+          return refreshed;
+        }
+        return cached;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        // Native archive/unarchive moves keep the same logical thread id.
+        this.invalidateCache();
+      }
+    }
 
     // Fork completion supplies an exact path before the scan cache catches up.
     // Read only that file; an older in-flight scan cannot erase this hint.
@@ -1711,8 +1768,10 @@ export class CodexSessionReader implements ISessionReader {
     }
 
     // Scan if cache miss
-    await this.scanSessions();
-    return this.sessionFileCache.get(sessionId) ?? null;
+    return (
+      (await this.scanSessions()).find((session) => session.id === sessionId) ??
+      null
+    );
   }
 
   private async readEntries(
@@ -2938,8 +2997,8 @@ export class CodexSessionReader implements ISessionReader {
     await this.collectJsonlFiles(dir, files, metrics);
     const preferredFiles = preferPlainCodexRollouts(files);
     if (metrics) {
-      metrics.rolloutFilesAfterPrecedence = preferredFiles.length;
-      metrics.precedenceSkippedCompressed =
+      metrics.rolloutFilesAfterPrecedence += preferredFiles.length;
+      metrics.precedenceSkippedCompressed +=
         files.length - preferredFiles.length;
     }
     return preferredFiles;
@@ -2970,9 +3029,9 @@ export class CodexSessionReader implements ISessionReader {
           }
         }
       }
-    } catch {
+    } catch (error) {
       if (metrics) metrics.directoryReadErrors += 1;
-      // Ignore errors (permission denied, etc.)
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
 
@@ -3004,8 +3063,9 @@ export class CodexSessionReader implements ISessionReader {
         size: session.size,
         isSubagent: session.isSubagent,
       };
-    } catch {
-      return null;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
     }
   }
 

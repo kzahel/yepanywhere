@@ -1,4 +1,6 @@
 import { existsSync } from "node:fs";
+import { basename, dirname } from "node:path";
+import { getCodexSessionRoots } from "../utils/codexRolloutFiles.js";
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
 import { FileWatcher, type FileWatcherOptions } from "./FileWatcher.js";
 
@@ -93,8 +95,13 @@ export class ProviderSessionWatcherRegistry {
     const spec = this.specs.get(family);
     if (!spec) return;
 
+    const roots =
+      family === "codex"
+        ? getCodexSessionRoots(spec.watchDir)
+        : [spec.watchDir];
+    const watchDir = roots.length > 1 ? dirname(spec.watchDir) : spec.watchDir;
     this.directoryProbes += 1;
-    if (!this.directoryExists(spec.watchDir)) {
+    if (!this.directoryExists(watchDir)) {
       this.missingDirectories += 1;
       return;
     }
@@ -102,6 +109,10 @@ export class ProviderSessionWatcherRegistry {
     const { family: _family, ...watcherOptions } = spec;
     const watcher = this.createWatcher({
       ...watcherOptions,
+      watchDir,
+      ...(roots.length > 1
+        ? { watchSubdirectories: roots.map((root) => basename(root)) }
+        : {}),
       eventBus: this.eventBus,
     });
     watcher.start();

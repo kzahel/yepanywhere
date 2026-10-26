@@ -4,7 +4,7 @@
 > rollout files to projects and session summaries by reading rollout head
 > metadata; its current shortcut caches and durable discovery index help common
 > navigation, but date-bucket scheduling, dirty-scope precision, and
-> same-identity overwrite validation still have known scale gaps.
+> large-tree scheduling still has known scale gaps.
 
 Topic: codex-metadata-scanner
 
@@ -30,8 +30,9 @@ scanner exists to bridge that mismatch without spawning a Codex runtime.
 
 The important invariant: `session_meta` is head metadata. After the first
 successful parse for a rollout, its id/cwd/timestamp should be treated as
-stable unless there is evidence the file was replaced or corrupted. Ordinary
-append activity should not force repeated metadata reads.
+stable while the observed file identity, size and activity timestamp stay
+unchanged. Growth alone cannot distinguish an append from a restored head,
+so changed files revalidate their bounded first line.
 
 ## Current Implementation Shape
 
@@ -76,17 +77,16 @@ index:
   files scanned, emitted create/modify/delete counts, and overlap skips.
 
 These layers are useful for normal navigation and request bursts. The discovery
-index now avoids rereading `session_meta` for observed known rollouts, including
-ordinary append/mtime/size changes. It does not change the underlying
+index avoids rereading `session_meta` for unchanged observed rollouts. It does
+not change the underlying
 enumeration cost: discovering an uncached or invalidated Codex tree still walks
 provider-owned rollout files.
 
-Cached Codex metadata is treated as suspect and reread when the file identity
-changes for the same representation, when a plain file shrinks below the
-cached observation, or when compressed size changes for an indexed compressed
-rollout. A same-path overwrite that preserves file identity and non-shrinking
-size remains a known gap because stat metadata alone cannot prove line 1
-changed.
+Cached metadata is revalidated when identity, size, or activity time changes
+within the same representation, including equal-size and growing in-place
+rewrites. Only the bounded first record is read. This trades a small head read
+on ordinary appends for correct routing after sync/restore. A rewrite preserving
+all observed stat fields is outside this contract; no content hashes are added.
 
 The discovery index is derived and non-authoritative. YA must enumerate
 provider files first and then consult the cache only for those observed files.
@@ -126,7 +126,9 @@ decompression.
 
 There is not yet a date-bucket-aware Codex scanner scheduler.
 
-The server creates a `FileWatcher` for the Codex sessions directory. On
+The server creates one `FileWatcher` over Codex home, restricted to `sessions`
+and `archived_sessions`. Custom nonstandard roots remain isolated. Other home
+files are neither inventoried nor emitted as session changes. On
 Windows and macOS, the Codex watcher currently enables a periodic full-tree
 rescan by default because recursive `fs.watch` can miss deep file writes.
 `CODEX_WATCH_PERIODIC_RESCAN_MS` is the minimum interval: periodic rescans use
@@ -152,8 +154,7 @@ The main costs are filesystem and metadata costs, not full transcript parsing:
 - recursive `readdir` over the sessions tree;
 - `stat` calls during validation and watcher rescans;
 - first-line reads for new, suspect, or unindexed rollouts;
-- replacement validation gaps for same-path files whose first line changes
-  without changing source identity or shrinking below the cached observation;
+- bounded head revalidation when changed files are restored or appended;
 - full decompression if compressed files are read without streaming
   first-line support;
 - compressed sessions being hidden on Node runtimes without native zstd
@@ -172,9 +173,8 @@ session filtering.
 Before broadening Codex history discovery further, especially around compressed
 transitions and very large trees, the scanner should gain:
 
-1. An explicit validation strategy for same-identity, non-shrinking header
-   overwrites; current source-fingerprint and shrink checks cover common
-   replacement/truncation cases without rereading ordinary appends.
+1. Preserve bounded head revalidation for changed files while avoiding reads
+   of unchanged metadata. Never infer append-only behavior from growth alone.
 2. Add dirty-scope metrics so broad Codex invalidation is visible before
    changing the dirty-marking strategy.
 3. Keep streaming zstd first-line reads covered by tests so scanner discovery

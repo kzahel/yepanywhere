@@ -1,4 +1,5 @@
 import type { Dirent } from "node:fs";
+import { isTransientFileReadError } from "../utils/fileReadError.js";
 import {
   mkdir,
   readFile,
@@ -457,6 +458,16 @@ export class ProjectScanner {
           }
         }
         return snapshot;
+      })
+      .catch((error: unknown) => {
+        if (isTransientFileReadError(error) && this.snapshot && !forceRefresh) {
+          // A TTL refresh may have discarded the directory map before failing.
+          // Retry the filesystem rather than accepting an older disk snapshot.
+          this.cacheRevision += 1;
+          this.cleanRevision = -1;
+          return this.snapshot;
+        }
+        throw error;
       })
       .finally(() => {
         if (this.inFlightScan?.promise === scanPromise) {

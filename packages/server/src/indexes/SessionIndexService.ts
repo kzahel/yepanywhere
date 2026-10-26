@@ -21,6 +21,7 @@ import {
 } from "@yep-anywhere/shared";
 import { createLruMap, refreshLruMap } from "../lib/lruCollections.js";
 import { getLogger } from "../logging/logger.js";
+import { isTransientFileReadError } from "../utils/fileReadError.js";
 import { getProjectIdentityKey } from "../projects/paths.js";
 import {
   type CodexRolloutDiscoveryMetadata,
@@ -1360,6 +1361,11 @@ export class SessionIndexService implements ISessionIndexService {
     for (const _segment of relativeDir.split("/")) {
       current = path.dirname(current);
     }
+    // The native Codex watcher covers the active and archived sibling roots.
+    const first = relativeDir.split("/")[0];
+    if (first === "sessions" || first === "archived_sessions") {
+      return path.join(current, "sessions");
+    }
     return current;
   }
 
@@ -1472,6 +1478,10 @@ export class SessionIndexService implements ISessionIndexService {
       if (warmupJobKey) {
         this.failWarmupJob(warmupJobKey, error);
       }
+      if (isTransientFileReadError(error)) {
+        // Leave dirty work pending for the next read, without erasing history.
+        return { indexChanged, statCalls, parseCalls };
+      }
       throw error;
     }
 
@@ -1548,7 +1558,10 @@ export class SessionIndexService implements ISessionIndexService {
             // statted: its mtime/size cannot validate individual sessions.
             if (f.sharedFilePath) return Promise.resolve(null);
             statCalls += 1;
-            return fs.stat(f.filePath).catch(() => null);
+            return fs.stat(f.filePath).catch((error: unknown) => {
+              if (isTransientFileReadError(error)) throw error;
+              return null;
+            });
           }),
         );
         for (let j = 0; j < batch.length; j++) {
@@ -1763,7 +1776,9 @@ export class SessionIndexService implements ISessionIndexService {
         this.failWarmupJob(warmupJobKey, error);
       }
       return {
-        summaries: [],
+        summaries: isTransientFileReadError(error)
+          ? this.buildSummariesFromIndex(index, projectId, options)
+          : [],
         statCalls,
         parseCalls,
         totalFiles,
@@ -2192,14 +2207,19 @@ export class SessionIndexService implements ISessionIndexService {
     const cached = index.sessions[sessionId];
     const dirtySessions = this.dirtySessionsByDir.get(scopeKey);
     const isDirty = dirtySessions?.has(sessionId) ?? false;
-    const filePath =
-      (await reader.getSessionFilePath?.(sessionId)) ??
-      path.join(sessionDir, `${sessionId}.jsonl`);
-
+    let filePath: string;
     let stats: Stats;
     try {
+      filePath =
+        (await reader.getSessionFilePath?.(sessionId)) ??
+        path.join(sessionDir, `${sessionId}.jsonl`);
       stats = await fs.stat(filePath);
-    } catch {
+    } catch (error) {
+      if (isTransientFileReadError(error) && cached) {
+        return cached.isEmpty
+          ? null
+          : this.toSessionSummary(sessionId, cached, projectId);
+      }
       // Some readers can resolve a session across fallback locations even when
       // they do not expose a concrete file path for the index. Preserve that
       // behavior, but skip caching because we have no reliable mtime/size key.
@@ -2214,7 +2234,10 @@ export class SessionIndexService implements ISessionIndexService {
           );
           return summary;
         }
-      } catch {
+      } catch (readError) {
+        if (isTransientFileReadError(readError) && cached && !cached.isEmpty) {
+          return this.toSessionSummary(sessionId, cached, projectId);
+        }
         // Fall through to clear any stale indexed entry below.
       }
 
@@ -2281,8 +2304,11 @@ export class SessionIndexService implements ISessionIndexService {
         observedDirtyRevision,
       );
       await this.saveIndex(sessionDir, reader);
-    } catch {
+    } catch (error) {
       // Reader errors should not break callers that only need display metadata.
+      if (isTransientFileReadError(error) && cached && !cached.isEmpty) {
+        return this.toSessionSummary(sessionId, cached, projectId);
+      }
     }
 
     return null;

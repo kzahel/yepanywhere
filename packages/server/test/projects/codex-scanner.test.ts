@@ -517,7 +517,7 @@ describe("CodexSessionScanner", () => {
     expect(projects[0].path).toBe("/home/user/project-large");
   });
 
-  it("persists normalized metadata and reuses it after append", async () => {
+  it("persists normalized metadata and revalidates the head after append", async () => {
     const sessionsDir = join(tmpdir(), `codex-scan-${randomUUID()}`);
     const dataDir = join(tmpdir(), `codex-data-${randomUUID()}`);
     tempDirs.push(sessionsDir, dataDir);
@@ -576,8 +576,8 @@ describe("CodexSessionScanner", () => {
     const after = JSON.parse(await readFile(shardPath, "utf-8")) as {
       records: Record<string, { lastValidatedAtMs: number }>;
     };
-    expect(after.records[identity.key]?.lastValidatedAtMs).toBe(
-      lastValidatedAtMs,
+    expect(after.records[identity.key]?.lastValidatedAtMs).toBeGreaterThan(
+      lastValidatedAtMs ?? 0,
     );
   });
 

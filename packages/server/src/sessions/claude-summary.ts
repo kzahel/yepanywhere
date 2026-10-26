@@ -842,6 +842,23 @@ function logParseMetrics(args: {
   );
 }
 
+/** Replica selection stops at the first entry accepted by the summary parser. */
+export async function hasClaudeTranscriptEntries(
+  filePath: string,
+): Promise<boolean> {
+  const state = createParseState();
+  for await (const line of iterateJsonlLines(filePath)) {
+    if (!line.trim()) continue;
+    try {
+      addEntryToState(state, JSON.parse(line) as ClaudeSessionEntry, 0);
+    } catch {
+      continue;
+    }
+    if (state.metrics.parsedEntries > 0) return true;
+  }
+  return false;
+}
+
 export async function readClaudeSessionSummaryWithMetrics(
   options: ReadClaudeSessionSummaryOptions,
 ): Promise<ClaudeSessionSummaryRead> {

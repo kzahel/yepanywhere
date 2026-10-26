@@ -35,6 +35,20 @@ This differs from Claude. Claude's local session path already encodes the
 project directory, so project discovery can start from directory names. Codex
 stores by date, so project discovery requires metadata.
 
+### Native archived history
+
+With the standard `sessions` root, ordinary project discovery, session lists,
+and detail also read its sibling `archived_sessions`, even when `sessions`
+does not exist. Native archive storage is not YA's own archived metadata flag;
+YA filters continue to use the latter. A custom root not named `sessions`
+does not implicitly expose sibling directories.
+
+The same physical rollout copied into both roots appears once, with its active
+copy preferred. Plain JSONL wins over zstd within a root. Archive/unarchive
+moves retain the logical ID and are observed without restarting YA; detail
+resolution repairs a disappeared cached path. Compressed-only archives require
+native zstd support. Discovery never moves or rewrites provider files.
+
 ### Reference-backed fork history
 
 Paginated Codex rollouts may store a fork as a small child file whose

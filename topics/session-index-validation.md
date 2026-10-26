@@ -40,6 +40,24 @@ next applicable validation instead of being erased by the older completion.
 
 ## Stale-while-revalidate
 
+### Failed filesystem observations
+
+Claude and Codex readers distinguish absent/empty/invalid metadata from an
+I/O failure. Sharing locks, temporary permission failures, and transient device
+errors must not certify an empty summary. Project discovery and indexed
+list/title reads keep accepted entries and leave validation pending. A later
+request retries without another filesystem event. Cold reads cannot invent
+history; genuinely missing files disappear after successful validation. Direct
+transcript reads may still report an unavailable source while it is locked.
+
+For merged Claude sources, an empty or malformed earlier replica must not
+hide the same ID in a later usable directory. Summary, detail, file-path, and
+index enumeration select the usable source. Replica probing stops at the first
+parseable entry rather than loading the whole transcript just for selection.
+
+See [native session discovery verification](../docs/development/native-session-discovery-verification.md)
+for executable filesystem/HTTP checks and manual acceptance.
+
 The TTL walk is a consistency backstop for missed watcher events, so a
 request must not pay for it in-line. When full validation is due only
 because the TTL lapsed and the scope has a usable index — validated earlier

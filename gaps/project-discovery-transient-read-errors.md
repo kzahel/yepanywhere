@@ -1,5 +1,12 @@
 # Transient metadata read errors can remove retained discovery inputs
 
+Status: addressed by the native discovery fixes. Acceptance exercises real
+Windows exclusive locks, retained project/index rows, recovery without a second
+event, and true absence. The contract lives in `topics/session-index-validation.md`.
+This historical entry is retained in this draft rather than deleted.
+
+## Original diagnosis
+
 `packages/server/src/utils/jsonl.ts` `readFirstLine` catches open/read errors
 and returns null. `packages/server/src/sessions/codex-discovery.ts`
 `readCodexRolloutMetadata` treats that result as unreadable metadata, so the

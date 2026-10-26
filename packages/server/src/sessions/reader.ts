@@ -3,6 +3,7 @@ import {
   type IssueReadOptions,
 } from "./issue-text-reader.js";
 import { randomUUID } from "node:crypto";
+import { isTransientFileReadError } from "../utils/fileReadError.js";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -43,6 +44,7 @@ import {
 import { collectVisibleClaudeEntries } from "./claude-messages.js";
 import {
   buildSummaryFromState,
+  hasClaudeTranscriptEntries,
   lastAgentExcerptFromState,
   readClaudeSessionSummary,
 } from "./claude-summary.js";
@@ -161,18 +163,15 @@ export class ClaudeSessionReader implements ISessionReader {
         for (const file of jsonlFiles) {
           const sessionId = file.replace(".jsonl", "");
           if (seenIds.has(sessionId)) continue;
-          seenIds.add(sessionId);
-          const summary = await this.getSessionSummaryFromDir(
-            dir,
-            sessionId,
-            projectId,
-          );
+          const summary = await this.getSessionSummary(sessionId, projectId);
           if (summary) {
+            seenIds.add(sessionId);
             summaries.push(summary);
           }
         }
-      } catch {
-        // Directory doesn't exist or not readable — continue to next
+      } catch (error) {
+        if (isTransientFileReadError(error)) throw error;
+        // Absent directories do not prevent reading another replica.
       }
     }
 
@@ -190,15 +189,21 @@ export class ClaudeSessionReader implements ISessionReader {
     projectId: UrlProjectId,
     options?: GetSessionSummaryOptions,
   ): Promise<SessionSummary | null> {
+    let readError: unknown;
     for (const dir of this.allSessionDirs) {
-      const result = await this.getSessionSummaryFromDir(
-        dir,
-        sessionId,
-        projectId,
-        options,
-      );
-      if (result) return result;
+      try {
+        const result = await this.getSessionSummaryFromDir(
+          dir,
+          sessionId,
+          projectId,
+          options,
+        );
+        if (result) return result;
+      } catch (error) {
+        readError = error;
+      }
     }
+    if (readError) throw readError;
     return null;
   }
 
@@ -284,9 +289,33 @@ export class ClaudeSessionReader implements ISessionReader {
         inProcessParser,
       );
       return result.summary;
-    } catch {
+    } catch (error) {
+      if (isTransientFileReadError(error)) throw error;
       return null;
     }
+  }
+
+  /** Use the same replica selection for indexes, retained catalogs and detail. */
+  async listSessionFiles(
+    _sessionDir: string,
+  ): Promise<{ sessionId: string; filePath: string }[]> {
+    const ids = new Set<string>();
+    for (const dir of this.allSessionDirs) {
+      try {
+        for (const name of await readdir(dir)) {
+          if (name.endsWith(".jsonl") && !name.startsWith("agent-"))
+            ids.add(name.slice(0, -6));
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+    const files: { sessionId: string; filePath: string }[] = [];
+    for (const sessionId of ids) {
+      const filePath = await this.findSessionFile(sessionId);
+      if (filePath) files.push({ sessionId, filePath });
+    }
+    return files;
   }
 
   private getSummaryParserClient(): SummaryParserClient {
@@ -308,16 +337,7 @@ export class ClaudeSessionReader implements ISessionReader {
   }
 
   async getSessionFilePath(sessionId: string): Promise<string | null> {
-    for (const dir of this.allSessionDirs) {
-      const filePath = join(dir, `${sessionId}.jsonl`);
-      try {
-        const stats = await stat(filePath);
-        if (stats.isFile()) return filePath;
-      } catch {
-        // Try the next candidate directory.
-      }
-    }
-    return null;
+    return this.findSessionFile(sessionId);
   }
 
   async getSession(
@@ -650,17 +670,22 @@ export class ClaudeSessionReader implements ISessionReader {
     return [...new Set(directories)];
   }
 
-  /** Find the session file across all session dirs, returning the first match. */
+  /** Select a readable transcript, not an empty/partial replica ahead of it. */
   private async findSessionFile(sessionId: string): Promise<string | null> {
+    let readError: unknown;
     for (const dir of this.allSessionDirs) {
       const candidate = join(dir, `${sessionId}.jsonl`);
       try {
-        await stat(candidate);
+        if (!(await stat(candidate)).isFile()) continue;
+        if (this.allSessionDirs.length > 1) {
+          if (!(await hasClaudeTranscriptEntries(candidate))) continue;
+        }
         return candidate;
-      } catch {
-        // Not in this dir
+      } catch (error) {
+        if (isTransientFileReadError(error)) readError = error;
       }
     }
+    if (readError) throw readError;
     return null;
   }
 
@@ -752,8 +777,9 @@ export class ClaudeSessionReader implements ISessionReader {
       if (!summary) return null;
 
       return { summary, mtime, size };
-    } catch {
-      return null; // File doesn't exist or error
+    } catch (error) {
+      if (isTransientFileReadError(error)) throw error;
+      return null;
     }
   }
 

@@ -334,8 +334,10 @@ export async function readCwdFromSessionFile(
     if (cwd) return cwd;
 
     return null;
-  } catch {
-    return null;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return null;
+    throw error;
   } finally {
     await fd?.close();
   }

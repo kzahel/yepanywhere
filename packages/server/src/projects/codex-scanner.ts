@@ -12,6 +12,7 @@
  */
 
 import { readdir, stat } from "node:fs/promises";
+import { isTransientFileReadError } from "../utils/fileReadError.js";
 import { homedir } from "node:os";
 import { basename, isAbsolute, join, relative, sep } from "node:path";
 import type { SessionDiscoveryIndex } from "../indexes/SessionDiscoveryIndex.js";
@@ -25,8 +26,10 @@ import {
 import type { Project } from "../supervisor/types.js";
 import {
   codexRolloutRepresentation,
+  getCodexSessionRoots,
   isCodexRolloutFileName,
   plainCodexRolloutPath,
+  preferActiveCodexRollouts,
   preferPlainCodexRollouts,
 } from "../utils/codexRolloutFiles.js";
 import {
@@ -132,18 +135,22 @@ export class CodexSessionScanner {
 
   invalidateCache(filePath?: string): void {
     if (filePath) {
-      const relativePath = relative(this.sessionsDir, filePath);
       if (
-        relativePath.split(sep)[0] !== ".." &&
-        !isAbsolute(relativePath) &&
-        isCodexRolloutFileName(filePath)
+        getCodexSessionRoots(this.sessionsDir).some((root) => {
+          const relativePath = relative(root, filePath);
+          return (
+            relativePath.split(sep)[0] !== ".." &&
+            !isAbsolute(relativePath) &&
+            isCodexRolloutFileName(filePath)
+          );
+        })
       ) {
         this.changedFiles.add(plainCodexRolloutPath(filePath));
         return;
       }
     }
     this.scanEpoch += 1;
-    this.cachedScan = null;
+    if (this.cachedScan) this.cachedScan.timestamp = 0;
     this.changedFiles.clear();
   }
 
@@ -160,7 +167,9 @@ export class CodexSessionScanner {
   async listProjects(
     options: { allowStaleSnapshot?: boolean } = {},
   ): Promise<Project[]> {
-    const sessions = await this.scanAllSessions(options.allowStaleSnapshot);
+    const sessions = this.selectSessions(
+      await this.scanAllSessions(options.allowStaleSnapshot),
+    );
 
     // Group sessions by cwd
     const projectMap = new Map<
@@ -248,7 +257,7 @@ export class CodexSessionScanner {
   async getSessionsForProject(
     projectPath: string,
   ): Promise<CodexSessionInfo[]> {
-    const sessions = await this.scanAllSessions();
+    const sessions = this.selectSessions(await this.scanAllSessions());
     const canonicalProjectPath = canonicalizeProjectPath(projectPath);
     const projectIdentityKey = getProjectIdentityKey(canonicalProjectPath);
     return sessions
@@ -260,10 +269,27 @@ export class CodexSessionScanner {
   }
 
   async getSessionProjectPath(sessionId: string): Promise<string | null> {
-    const session = (await this.scanAllSessions()).find(
+    const session = this.selectSessions(await this.scanAllSessions()).find(
       (candidate) => !candidate.isSubagent && candidate.id === sessionId,
     );
     return session ? canonicalizeProjectPath(session.cwd) : null;
+  }
+
+  private selectSessions(sessions: CodexSessionInfo[]): CodexSessionInfo[] {
+    const preferredPaths = new Set(
+      preferActiveCodexRollouts(
+        this.sessionsDir,
+        sessions.map((session) => session.filePath),
+      ),
+    );
+    const unique = new Map<string, CodexSessionInfo>();
+    for (const session of sessions) {
+      if (!preferredPaths.has(session.filePath)) continue;
+      const previous = unique.get(session.id);
+      if (!previous || session.mtime > previous.mtime)
+        unique.set(session.id, session);
+    }
+    return [...unique.values()];
   }
 
   /**
@@ -279,6 +305,7 @@ export class CodexSessionScanner {
     }
     if (
       this.cachedScan &&
+      this.cachedScan.timestamp !== 0 &&
       this.changedFiles.size === 0 &&
       (allowStaleSnapshot ||
         Date.now() - this.cachedScan.timestamp < SCAN_CACHE_TTL)
@@ -314,6 +341,11 @@ export class CodexSessionScanner {
         if (epoch === this.scanEpoch) {
           for (const filePath of changed) this.changedFiles.add(filePath);
         }
+        if (accepted && isTransientFileReadError(error)) {
+          accepted.timestamp = 0;
+          getLogger().debug({ err: error }, "Codex discovery read deferred");
+          return accepted.result;
+        }
         throw error;
       }
     })();
@@ -338,17 +370,24 @@ export class CodexSessionScanner {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       // Sessions directory doesn't exist
-      metrics.durationMs = Date.now() - scanStartedAt;
-      this.lastScanMetrics = cloneCodexScannerMetrics(metrics);
-      this.logScanMetrics(metrics);
-      return [];
+      // An archive-only installation is still a valid source of history.
     }
 
     // Recursively find all Codex rollout files. Codex may compress cold
     // rollouts from rollout-*.jsonl to rollout-*.jsonl.zst.
+    // Keep both roots in the raw snapshot so removing an active duplicate
+    // can expose its archived copy during an incremental refresh.
     const files = changed
       ? []
-      : await this.findJsonlFiles(this.sessionsDir, metrics);
+      : preferPlainCodexRollouts(
+          (
+            await Promise.all(
+              getCodexSessionRoots(this.sessionsDir).map((root) =>
+                this.findJsonlFiles(root, metrics),
+              ),
+            )
+          ).flat(),
+        );
     if (changed) {
       for (const plainPath of changed) {
         for (const filePath of [plainPath, `${plainPath}.zst`]) {
@@ -419,8 +458,8 @@ export class CodexSessionScanner {
     const files: string[] = [];
     await this.collectJsonlFiles(dir, files, metrics);
     const preferredFiles = preferPlainCodexRollouts(files);
-    metrics.rolloutFilesAfterPrecedence = preferredFiles.length;
-    metrics.precedenceSkippedCompressed = files.length - preferredFiles.length;
+    metrics.rolloutFilesAfterPrecedence += preferredFiles.length;
+    metrics.precedenceSkippedCompressed += files.length - preferredFiles.length;
     return preferredFiles;
   }
 

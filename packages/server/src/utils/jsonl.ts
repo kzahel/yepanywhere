@@ -97,6 +97,7 @@ async function readFirstLineFromZstd(
 
   const source = createReadStream(filePath);
   const decompressor = createZstdDecompress();
+  source.on("error", (error) => decompressor.destroy(error));
   const stream = source.pipe(decompressor);
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -128,17 +129,23 @@ async function readFirstLineFromZstd(
 /**
  * Read the first line of a file using a partial read.
  * Reads in chunks until it finds a newline, reaches EOF, or hits maxBytes.
- * Returns null for empty files or empty first lines.
+ * Returns null for missing/empty files. Other I/O errors remain distinguishable
+ * from invalid metadata so discovery can retain an accepted snapshot and retry.
  */
 export async function readFirstLine(
   filePath: string,
   maxBytes = 4096,
 ): Promise<string | null> {
   if (isZstdPath(filePath)) {
+    if (!isZstdJsonlSupported()) return null;
     try {
       return await readFirstLineFromZstd(filePath, maxBytes);
-    } catch {
-      return null;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTDIR") return null;
+      // Corrupt compressed content is invalid metadata, not an I/O outage.
+      if (code?.startsWith("ZSTD_")) return null;
+      throw error;
     }
   }
 
@@ -165,8 +172,10 @@ export async function readFirstLine(
     if (totalBytes === 0) return null;
 
     return firstLineFromContent(content);
-  } catch {
-    return null;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return null;
+    throw error;
   } finally {
     await fd?.close();
   }
@@ -201,6 +210,7 @@ async function* streamZstdJsonlText(filePath: string): AsyncIterable<string> {
   const decompressor = createZstdDecompress();
   const stream = source.pipe(decompressor);
   const decoder = new TextDecoder("utf-8");
+  source.on("error", (error) => decompressor.destroy(error));
 
   try {
     for await (const chunk of stream) {

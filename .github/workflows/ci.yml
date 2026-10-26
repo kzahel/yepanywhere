@@ -96,6 +96,8 @@ jobs:
           test/review/ReviewCommentService.test.ts
           test/review/ReviewStorageTransition.test.ts
           test/review/ReviewStoreRetention.test.ts
+      - name: Native history discovery and real-file recovery
+        run: node --import tsx --conditions source packages/server/scripts/verify-native-session-discovery.mjs
 
   provider-host-native:
     strategy:
