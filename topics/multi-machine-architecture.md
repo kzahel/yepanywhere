@@ -277,15 +277,18 @@ universal failover or migrate reasoning automatically.
 
 ## Optional hosted discovery and grant issuance
 
-Candidate for YA raised on 2026-09-13: a server owner could explicitly trust a
-YA-operated authorization service, use Google or another identity provider to
-sign in, and manage access to enrolled YA servers from that account. No
-existing YA hosted-issuer implementation or dedicated proposal was found in the
-reviewed documents. This would extend the current manual peer-pairing direction;
-it is not authority already held by the relay. The later
-[[principals-and-grants]] sketch now records the shared relationship between
-this possible credential source, local limited users, target-enforced policy,
-and peer grants; it does not approve this hosted protocol.
+Maintainer-agreed direction, 2026-10-31, extending the 2026-09-13 candidate:
+an optional hosted or self-hosted account service can introduce clients to
+enrolled YA servers. Authentication may use basic administrator-managed local
+username/password accounts, an external OIDC provider, or a managed service
+such as Clerk. OIDC and a central account service are not prerequisites for
+YA or manual peer enrollment. The
+[replaceable-authentication sketch](principals-and-grants.md#replaceable-authentication-and-a-basic-local-configuration)
+owns that boundary, including a production-usable minimal backend and isolated
+testing. No vendor or library is selected, and hosted issuance remains
+unimplemented. Each target explicitly chooses issuer trust and its local
+ceiling; the relay acquires no authorization authority. Exact enrollment,
+credential and grant protocols remain proposals.
 
 | Hosted role | Authority delegated by the owner |
 | --- | --- |
@@ -294,8 +297,9 @@ and peer grants; it does not approve this hosted protocol.
 | Trusted grant issuer | Issue access grants within an explicitly enrolled server's local policy; target verifies issuer, recipient, scope, validity and revocation |
 
 These roles may share infrastructure without sharing credentials or authority.
-Google login would establish identity to the hosted service; each YA server
-would separately opt into trusting its issuer key and define permitted access.
+The configured login backend establishes identity to the account service;
+each YA server would separately opt into trusting its issuer key and define
+permitted access.
 A candidate grant binds an authenticated client/peer key to a target and action
 set; possession of the corresponding private key must be proved. An issuer's
 signing key is distinct from both Google's credentials and endpoint encryption

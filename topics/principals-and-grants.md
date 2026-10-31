@@ -25,7 +25,7 @@ product shapes differ:
 | --- | --- | --- |
 | [[limited-users]] | Local username with password, cookie, or SRP proof | Selected projects and actions, with execution restrictions |
 | Session guests / participatory Live Share | Invitation/client proof initially; local or hosted account credentials later are candidates | One session with separate discussion, suggestion, send, queue, and steer actions |
-| Hosted discovery and grant issuance in [[multi-machine-architecture]] | External account plus a device-key-bound issuer grant | Enrolled-server policy and the grant's target/action scope |
+| Optional account-based discovery and grant issuance in [[multi-machine-architecture]] | Local or external account plus a device-key-bound issuer grant | Enrolled-server policy and the grant's target/action scope |
 | [[cross-host-delegation]] | A distinct peer credential established during pairing | Directional worker/controller permissions and local ceilings |
 
 The hosted issuer is potentially a more general way to introduce people and
@@ -95,6 +95,65 @@ storage schema:
 - Authorization does not overstate execution isolation. A grant that permits
   agent input must still account for the session sandbox and the authority of
   the operating-system account running YA.
+
+## Replaceable authentication and a basic local configuration
+
+Maintainer-agreed sketch, 2026-10-31: authentication is replaceable; OIDC is
+one optional adapter. YA's enrollment and grant services consume an
+authenticated identity and authentication context, without requiring every
+backend to implement an OAuth/OIDC server. This selects an architectural
+boundary and supported configuration direction, not a wire protocol, vendor,
+library, implementation schedule, or change to current authentication.
+
+| Intended configuration | Login and account ownership |
+| --- | --- |
+| Built-in local accounts | Administrator-provisioned username/password accounts, with local password administration. No external account, OIDC service, public signup, email delivery, or self-service password-reset flow is required. |
+| External OIDC provider | Login through Google, a self-hosted Keycloak/Dex instance, or another configured compatible provider. The provider owns its account lifecycle and authentication policy. |
+| Managed authentication | An optional service such as Clerk, integrated through its supported protocol or adapter. No managed vendor is mandatory. |
+
+```text
+local password ----+
+OIDC provider -----+--> authenticated identity/context --> YA sessions and grants
+managed service ---+
+```
+
+The basic local backend is an intended production-usable configuration, not a
+development mock or a forced stepping stone to external login. Minimal means
+a small feature surface; reuse maintained password, session and protocol
+implementations rather than inventing authentication or cryptography. Existing
+local-password and limited-user services are relevant starting points, not an
+automatic migration of their current principal or permission semantics.
+
+The same separation applies to an optional hosted or self-hosted fleet
+enrollment service: it may use basic local accounts while managing access to
+several YA servers. Local account storage does not imply single-machine scope.
+Each target still explicitly enrolls and trusts an issuer within its local
+policy. Manual peer enrollment and existing local/SRP access remain usable
+without an account service; a relay does not gain issuance authority.
+
+Keep server identities, client-key bindings, resource grants and revocation
+semantics independent of the login backend. Provider changes must not widen
+authority or merge accounts by matching username/email. External identities
+are issuer/subject scoped; local identities need their own namespace. Linking
+identities or migrating providers requires an explicit verified operation.
+
+Browser, native mobile and YA-server clients should share these concepts while
+retaining platform-appropriate key storage. Existing continuity-key proof is
+not automatically permission for unattended login. Mutual identity binding
+and reverse-direction access grants remain separate decisions; exact
+enrollment, key authentication, renewal and recovery are still protocol work.
+
+For external login, the upstream provider owns passwords, MFA and recovery.
+Accepting that provider's login does not by itself assert a fresh MFA event;
+explicit assurance/step-up requirements need a separate policy. The basic
+configuration need not add email or MFA management merely to share the same
+enrollment/grant services.
+
+The basic backend should also exercise real login, session issuance,
+enrollment and grants in isolated tests without external services. Keep core
+identity/grant tests in-memory where practical, with focused real local-auth
+and provider-protocol boundary tests. A fake OIDC server is not a prerequisite
+for testing the common authorization layer.
 
 ## Relationship to current YA
 
