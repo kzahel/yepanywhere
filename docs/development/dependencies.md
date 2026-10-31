@@ -179,6 +179,13 @@ No new override or audit exclusion is added.
 
 ### Install-script allowlist
 
+The same day's fresh production audit found
+[cross-realm redirect credential filtering](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p).
+The `http-proxy -> follow-redirects` edge moves from 1.16.1 to 1.16.2 within its
+declared range. Unrelated lockfile resolutions remain unchanged. The two
+new glob/minimatch advisories are triaged below; no forced major overrides are
+introduced for unreachable build cleanup dependencies.
+
 Dependency install scripts (preinstall/install/postinstall) are blocked by
 default via `onlyBuiltDependencies` in `pnpm-workspace.yaml`; only
 `bcrypt` may run its native build. Relay and push broker used to add
@@ -202,13 +209,15 @@ there is no silent WASM fallback), `@firebase/util` (bakes
 Advisories triaged as unreachable are suppressed via
 `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`; that list and this
 table must stay in sync — every ignored GHSA needs a row here, and removing a
-row means removing the ignore. As of 2026-10-29 three advisories are triaged as
+row means removing the ignore. As of 2026-10-31 five advisories are triaged as
 unreachable with no fix compatible with YA's current dependency and runtime
 constraints. Re-check when the listed trigger fires rather than re-deriving the
 analysis:
 
 | Advisory | Why unreachable | Revisit when |
 |---|---|---|
+| `minimatch` globparts amplification ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) | Production audit reaches only push broker `firebase-admin -> firestore -> google-gax@5.0.8 -> rimraf@5 -> glob@10 -> minimatch@9`. The affected preprocessing requires attacker patterns and optimization level 2. The installed Google GAX published `build/` imports neither rimraf nor glob; rimraf is unused cleanup tooling carried as a production dependency. Push broker never invokes it or the glob CLI | GAX begins invoking that dependency at runtime, YA adds a glob/minimatch consumer, or the parent declares a compatible patched range (currently patch requires minimatch 11) |
+| `glob` traversal continuing after cancellation ([GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)) | Same unused GAX/rimraf chain. No production push-broker path starts this traversal, with an attacker pattern or otherwise. Patched glob 14 is outside rimraf 5's declared glob 10 range; a forced major replacement is unnecessary for build-only code | GAX/YA starts using glob traversal at runtime, or the dependency chain accepts the patched major |
 | `react-router` RSC-mode CSRF (GHSA-qwww-vcr4-c8h2) | Client is SPA-only — `BrowserRouter`/`Routes`, no `createBrowserRouter`, RSC, or server actions | Migrating to react-router v8. The fix lands in 8.3.0 and `react-router-dom` never reaches it (v8 consolidated into `react-router`) |
 | `uuid` buffer bounds (GHSA-w5hq-g745-h8pq) | Only path is `firebase-admin -> @google-cloud/storage -> gaxios@6`, which calls `uuid.v4()` with no arguments; the defect needs v3/v5/v6 with a caller-supplied `buf`. Patched only in `>=11.1.1`, outside gaxios 6's `^9` range | `firebase-admin`/`gaxios` declare uuid `>=11`, or a 9.x patch release appears |
 | `@hono/node-server` static-path double decoding ([GHSA-rmxm-3fg6-px4f](https://github.com/advisories/GHSA-rmxm-3fg6-px4f)) | Affects the package's `serveStatic` middleware. YA never imports or calls that helper: server, artifact server, relay and push broker use `serve`/`getRequestListener`, types or the response sentinel, and YA's file routes own their authorization and serving. The installed `@hono/node-ws` adapter also does not import it. The patched 2.1.3 is outside the current 1.x consumer ranges | Adopting `@hono/node-server/serve-static` anywhere, a 1.x backport, or qualifying the 2.x adapter migration |
