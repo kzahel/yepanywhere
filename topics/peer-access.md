@@ -286,19 +286,23 @@ Authentication, a durable directional grant and a route remain distinct under
 
 ### Connect using an existing owner login
 
-On A, the owner chooses Connect to another server and signs into B using its
-existing browser relay/SRP login, or reuses an authenticated owner connection.
-The Connect action authorizes creating the dedicated A-to-B peer grant and
-importing its credential into A. There is no separate approval request on B:
-authentication as B's owner already authorizes that administration. Scope and
-expiry can be advanced choices. Keep B's owner password in the browser's SRP
-login path; A's backend receives only its dedicated peer credential.
+On A, the owner chooses Connect to another server and supplies B's direct or
+relay locator and owner credentials. A's backend performs a short-lived owner
+SRP login to B, creates the dedicated A-to-B peer grant through B's owner API,
+and saves only the peer credential. The browser is the settings form; pairing
+does not switch its current host or create a separate browser connection to B.
+B's owner password is used transiently for setup and is not saved in A's
+settings, peer store, or audit records. There is no separate approval request
+on B: authentication as B's owner already authorizes that administration.
 
-The target grant is created through B's existing owner API over that encrypted
-browser connection. The subsequent peer connection remains restricted to v0
-and cannot create grants for itself. Server UUIDs and the dedicated credential
-bind the pair; neither the human relay username nor a display name becomes
-server identity. Peer credentials keep their existing expiry/revocation rules.
+The first UI focuses on trusted server control. Read-only invitations and
+project/session scope selection are useful future UI work; the existing API's
+project/action filters do not confine unrestricted execution. The subsequent
+peer connection remains restricted to v0 and cannot create grants for itself.
+Server UUIDs and the dedicated credential bind the pair; neither the human
+relay username nor a display name becomes server identity. Peer credentials
+keep their existing expiry/revocation rules. Human SRP resume persistence is
+independent of these durable peer credentials.
 
 ### Inspect both directions on both servers
 
