@@ -580,15 +580,29 @@ export function getProviderHostStatus(): Promise<Record<string, unknown>> {
   return requestHost("status");
 }
 
+/**
+ * Features the provider host process advertises in its `status` reply
+ * (scripts/provider-runtime-host.mjs). These describe the running host
+ * build, not server capabilities, though some names coincide.
+ */
+const PROVIDER_HOST_FEATURE = {
+  agentApiRevocation: "agent-api-revocation",
+  agentApiManagement: "agent-api-management",
+} as const;
+
+function providerHostHasFeature(
+  status: Record<string, unknown>,
+  feature: (typeof PROVIDER_HOST_FEATURE)[keyof typeof PROVIDER_HOST_FEATURE],
+): boolean {
+  return Array.isArray(status.features) && status.features.includes(feature);
+}
+
 export async function revokeHostedAgentApiAccess(
   serverId: string,
 ): Promise<void> {
   if (!isProviderRuntimeHostAvailable()) return;
   const status = await getProviderHostStatus();
-  if (
-    Array.isArray(status.features) &&
-    status.features.includes("agent-api-revocation")
-  )
+  if (providerHostHasFeature(status, PROVIDER_HOST_FEATURE.agentApiRevocation))
     await requestHost("revokeAgentApi", { serverId });
 }
 
@@ -746,15 +760,14 @@ export async function startHostedProviderSession(
   if (options.agentApi) {
     const status = await getProviderHostStatus();
     if (
-      !Array.isArray(status.features) ||
-      !status.features.includes("agent-api-revocation")
+      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.agentApiRevocation)
     )
       throw new Error(
         "Restart the provider host before enabling agent API discovery for this launch",
       );
     if (
       options.agentApi.management &&
-      !status.features?.includes("agent-api-management")
+      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.agentApiManagement)
     )
       throw new Error(
         "Restart the provider host before enabling agent API session commands for this launch",
