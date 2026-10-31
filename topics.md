@@ -470,3 +470,5 @@
   paths before resuming session-core work.
 
 - http-api-v0 — server-addressed unstable HTTP API and isolated core.
+
+- peer-access — directional v0 routing, manual enrollment and optional fleet login.

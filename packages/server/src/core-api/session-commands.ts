@@ -47,7 +47,8 @@ export class SessionCommands {
   ) {
     store.recoverInterrupted();
   }
-  creator(launch?: ApiLaunchContext): ApiCreator {
+  creator(launch?: ApiLaunchContext, authenticated?: ApiCreator): ApiCreator {
+    if (authenticated) return authenticated;
     return {
       serverId: this.serverId,
       sessionId: launch?.id ?? null,
@@ -55,20 +56,29 @@ export class SessionCommands {
       principal: { kind: "superuser" },
     };
   }
-  replayCreate(request: CreateSessionRequest, launch?: ApiLaunchContext) {
-    return this.store.lookup({
-      requestId: request.requestId,
-      kind: "createSession",
-      projectId: request.projectId,
-      sessionId: null,
-      creator: this.creator(launch),
-      payload: request,
-    });
+  replayCreate(
+    request: CreateSessionRequest,
+    launch?: ApiLaunchContext,
+    authenticated?: ApiCreator,
+    checkPayload = true,
+  ) {
+    return this.store.lookup(
+      {
+        requestId: request.requestId,
+        kind: "createSession",
+        projectId: request.projectId,
+        sessionId: null,
+        creator: this.creator(launch, authenticated),
+        payload: request,
+      },
+      checkPayload,
+    );
   }
   create(
     project: ApiProject,
     request: CreateSessionRequest,
     launch?: ApiLaunchContext,
+    authenticated?: ApiCreator,
   ) {
     if (!this.enabled())
       throw new CoreApiError(
@@ -88,7 +98,7 @@ export class SessionCommands {
       kind: "createSession",
       projectId: project.id,
       sessionId: null,
-      creator: this.creator(launch),
+      creator: this.creator(launch, authenticated),
       destinationServerId: this.serverId,
       payload: request,
     });
@@ -193,20 +203,26 @@ export class SessionCommands {
     sessionId: string,
     request: SendMessageRequest,
     launch?: ApiLaunchContext,
+    authenticated?: ApiCreator,
+    checkPayload = true,
   ) {
-    return this.store.lookup({
-      requestId: request.requestId,
-      kind: "sendMessage",
-      projectId: "",
-      sessionId,
-      creator: this.creator(launch),
-      payload: request,
-    });
+    return this.store.lookup(
+      {
+        requestId: request.requestId,
+        kind: "sendMessage",
+        projectId: "",
+        sessionId,
+        creator: this.creator(launch, authenticated),
+        payload: request,
+      },
+      checkPayload,
+    );
   }
   send(
     session: ApiSession,
     request: SendMessageRequest,
     launch?: ApiLaunchContext,
+    authenticated?: ApiCreator,
   ) {
     if (this.disposed)
       throw new CoreApiError(
@@ -220,7 +236,7 @@ export class SessionCommands {
         "Session command enablement was revoked before admission",
         403,
       );
-    const replay = this.replaySend(session.id, request, launch);
+    const replay = this.replaySend(session.id, request, launch, authenticated);
     if (replay) return replay;
     if (!this.owner.canSend?.(session.id) || !this.owner.send)
       throw new CoreApiError(
@@ -233,7 +249,7 @@ export class SessionCommands {
       kind: "sendMessage",
       projectId: session.projectId,
       sessionId: session.id,
-      creator: this.creator(launch),
+      creator: this.creator(launch, authenticated),
       destinationServerId: this.serverId,
       payload: request,
     });

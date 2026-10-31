@@ -99,7 +99,16 @@ export const creatorSchema = z.object({
       "Trusted owning launch session; null for ordinary operator HTTP calls.",
     ),
   launchId: z.string().nullable(),
-  principal: z.object({ kind: z.literal("superuser") }),
+  principal: z.object({ kind: z.enum(["superuser", "peer"]) }),
+  authentication: z
+    .object({
+      credentialId: z.string(),
+      sessionAttribution: z.literal("source-attested"),
+    })
+    .optional()
+    .describe(
+      "Immediate peer proof and explicitly source-attested session identity.",
+    ),
 });
 export type ApiCreator = z.infer<typeof creatorSchema>;
 export const receiptSchema = z.object({
@@ -113,6 +122,12 @@ export const receiptSchema = z.object({
     ),
   projectId: z.string(),
   sessionId: z.string().nullable(),
+  requestedSessionId: z
+    .string()
+    .optional()
+    .describe(
+      "On message command responses, the exact submitted target path. sessionId is the target's canonical identity and may differ after remapping. This field is response correlation, not a new persisted receipt scope.",
+    ),
   queueId: z.string().optional(),
   creator: creatorSchema,
   destinationServerId: z.string(),
@@ -131,6 +146,26 @@ export const receiptSchema = z.object({
   failure: z.object({ code: z.string(), message: z.string() }).optional(),
 });
 export type ApiReceipt = z.infer<typeof receiptSchema>;
+export const outboundSchema = z.object({
+  id: z.string(),
+  sourceServerId: z.string(),
+  sourceSessionId: z.string().nullable(),
+  attestedSessionId: z
+    .string()
+    .nullable()
+    .describe(
+      "Original source attribution retained on retries across local canonical ID remaps.",
+    ),
+  sourceLaunchId: z.string().nullable(),
+  destinationServerId: z.string(),
+  operation: z.enum(["createSession", "sendMessage"]),
+  resource: z.string(),
+  requestId: requestIdSchema,
+  state: z.enum(["uncertain", "confirmed"]),
+  createdAt: z.string(),
+  receipt: receiptSchema.nullable(),
+});
+export type ApiOutbound = z.infer<typeof outboundSchema>;
 export const relationshipsSchema = z.object({
   sessionId: z.string(),
   creation: receiptSchema
@@ -140,4 +175,13 @@ export const relationshipsSchema = z.object({
     ),
   initiated: z.array(receiptSchema).max(100),
   nextCursor: z.string().nullable(),
+  outbound: z
+    .object({
+      items: z.array(outboundSchema).max(100),
+      nextCursor: z.string().nullable(),
+    })
+    .optional()
+    .describe(
+      "Separately paged source ledger. An uncertain record may have been accepted remotely.",
+    ),
 });

@@ -495,6 +495,70 @@ invented translations to older UI routes. Expose reachable/unreachable,
 unauthorized and unsupported separately. Do not replay a possibly accepted
 mutation on another route without its defined idempotency behavior.
 
+## Isolated two-peer adapter
+
+Revision `2026-10-31.1` adds an independently constructible v0 peer receiver,
+router and durable outbound ledger. This is development enrollment: normal YA
+startup does not install the peer receiver or issue peer-capable launch leases.
+Production enrollment, HTTPS/SRP/relay qualification and grant UI remain later
+work under [plan 168](../docs/tactical/168-peer-access-and-enrollment.md).
+
+The isolated receiver authenticates a distinct high-entropy peer bearer into a
+v0-only `peer` principal with explicit operation/project grants and expiry.
+It exposes no legacy `/api` routes. `GET /peer/id` identifies its public profile;
+this is configuration error detection, not cryptographic authentication. The
+HTTP adapter requires HTTPS except explicit loopback fixtures, checks identity
+before credential release, refuses redirects and checks response identity and
+operation schemas. HTTPS credentials rely on normal certificate validation;
+plain loopback evidence does not qualify production enrollment or target proof.
+
+A source router lists configured outgoing peers only for an operator, or a
+launch with separately issued `peerAccess` plus management authority and a bound
+session ID. Existing read and management leases do not gain peer access.
+Limited users and incoming peers cannot route onward. Local capabilities report
+whether this adapter is available; the remote target governs its own operations.
+There is no automatic retry, route failover, SSH or workflow orchestration.
+Request bodies have a cancellable ten-second acquisition deadline and 256-KiB
+cap, including when a sender never finishes an upload. Revocation releases its
+slot even if that stream's cancellation promise does not finish. Outgoing
+requests have a ten-second deadline and two-MiB response cap; each directory
+holds at most 64 peers and each receiving/source owner at most 128 live requests.
+Idle directories schedule no work. Expiry is checked at admission and response;
+revocation aborts current observations and blocks new admission. It leaves
+already admitted native agent work intact.
+
+The target checks originating-peer identity and current project grants on
+receipt reads, follows, mutation retries and provenance. A receipt for an
+existing session also requires current access to that session. One peer cannot
+read another peer's receipts even if both may view the same project. A peer's
+relationship response exposes only its own creation receipt and no target-local
+initiated relationships. The operator retains the full local view. Foreign
+source IDs neither resolve through local aliases nor appear in local-only
+native input metadata or initiated queries.
+
+Before sending a mutation, the source reserves a bounded durable outbound
+record keyed by source server/session, destination server, operation/resource
+and request ID, with a payload hash. Prompts and credentials are excluded.
+A missing response leaves `uncertain`, including after restart. A matching
+retry reaches the target's durable receipt scope; changed payloads conflict.
+Even confirmed retries reauthorize at the target, including conflicts before
+revealing a payload mismatch. Message command responses carry the submitted
+`requestedSessionId` separately from canonical target `sessionId`, so a target
+alias remap can recover the original submission without repeating input. Source relationships include
+a separately paged `outbound` collection; its `nextCursor` uses the ordinary
+cursor parameter and the consumer treats that collection independently of
+`initiated`. Ledger and receipt stores each cap at 10,000 records and refuse
+new reservations at capacity without discarding retry identity.
+
+Target receipt creators identify the authenticated immediate server and mark
+any source session as `source-attested`. The source retains its current local
+session identity separately from original `attestedSessionId` used on retries.
+Canonical local remaps update the outbound scope while retaining that original
+attestation, preventing duplicate target admission after a source ID change.
+Integrators call both receipt and outbound remapping on canonical changes.
+Source and target have separate transactions; `confirmed` means a matching
+remote receipt was received, not that work completed or a response succeeded.
+
 ## Authentication and grants: defer UI, keep the boundary
 
 Use [principals and grants](principals-and-grants.md)' vocabulary: principal,

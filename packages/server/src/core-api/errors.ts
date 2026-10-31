@@ -1,5 +1,9 @@
 /** Wire errors shared by core and the trusted provider/controller bridge. */
 const statuses = {
+  unauthorized: 401,
+  peer_unavailable: 503,
+  peer_unsupported: 501,
+  peer_identity_mismatch: 502,
   forbidden: 403,
   session_not_running: 409,
   identity_pending: 409,

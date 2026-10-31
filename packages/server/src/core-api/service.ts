@@ -12,7 +12,13 @@ import {
   type ApiConversation,
   type ConversationReadQuery,
 } from "./conversation.js";
-import type { Principal } from "../auth/principal.js";
+import {
+  assertPeerOperation,
+  peerProject,
+  peerCreator,
+  type ApiPrincipal,
+} from "./peer-policy.js";
+import type { ApiReceipt } from "./command-contracts.js";
 import { levelFor } from "../auth/limitedUserPolicy.js";
 import {
   API_REVISION,
@@ -56,10 +62,12 @@ export interface CoreApiSources {
 export { CoreApiError } from "./errors.js";
 import { CoreApiError } from "./errors.js";
 
-const describePrincipal = (principal: Principal) =>
+const describePrincipal = (principal: ApiPrincipal) =>
   principal.kind === "limited"
     ? { kind: principal.kind, username: principal.username }
-    : { kind: principal.kind };
+    : principal.kind === "peer"
+      ? { kind: principal.kind, serverId: principal.serverId }
+      : { kind: principal.kind };
 
 /** Application operations have no HTTP, provider-registry or discovery ownership. */
 export class CoreApi {
@@ -75,7 +83,7 @@ export class CoreApi {
 
   async read(
     operation: Operation,
-    caller: Principal,
+    caller: ApiPrincipal,
     input: {
       serverId?: string;
       sessionId?: string;
@@ -86,6 +94,60 @@ export class CoreApi {
       /** Established by a trusted launch authenticator, never a request field. */
       launch?: ApiLaunchContext;
     } = {},
+  ) {
+    assertPeerOperation(caller, operation);
+    if (caller.kind === "peer")
+      input = {
+        ...input,
+        signal: AbortSignal.any([
+          caller.signal,
+          ...(input.signal ? [input.signal] : []),
+        ]),
+      };
+    try {
+      const result = await this.dispatch(operation, caller, input);
+      if (operation === "createSession" || operation === "sendMessage")
+        await this.assertReceipt(caller, result as ApiReceipt);
+      return operation === "sendMessage"
+        ? { ...(result as ApiReceipt), requestedSessionId: input.sessionId }
+        : result;
+    } catch (error) {
+      // A payload conflict itself reveals a scoped receipt. Authorize it even
+      // when reserve/lookup discovered it after an asynchronous catalog read.
+      if (
+        caller.kind === "peer" &&
+        error instanceof CoreApiError &&
+        error.code === "request_id_conflict"
+      ) {
+        const commands = this.sources.commands!;
+        const creator = peerCreator(caller);
+        const receipt =
+          operation === "createSession"
+            ? commands.replayCreate(
+                createSessionRequest.parse(input.body),
+                input.launch,
+                creator,
+                false,
+              )
+            : commands.replaySend(
+                input.sessionId!,
+                sendMessageRequest.parse(input.body),
+                input.launch,
+                creator,
+                false,
+              );
+        await this.assertReceipt(caller, receipt);
+      }
+      throw error;
+    } finally {
+      if (caller.kind === "peer") caller.assertActive();
+    }
+  }
+
+  private async dispatch(
+    operation: Operation,
+    caller: ApiPrincipal,
+    input: Parameters<CoreApi["read"]>[2] = {},
   ) {
     input.signal?.throwIfAborted();
     if (input.serverId !== undefined && input.serverId !== this.serverId) {
@@ -122,7 +184,9 @@ export class CoreApi {
       );
     const visible = (projectId: string) =>
       caller.kind === "superuser" ||
-      levelFor(caller.grants, projectId) !== "none";
+      (caller.kind === "peer"
+        ? peerProject(caller, projectId)
+        : levelFor(caller.grants, projectId) !== "none");
     const server = { id: this.serverId, local: true as const };
     switch (operation) {
       case "describe":
@@ -167,6 +231,12 @@ export class CoreApi {
           scope:
             caller.kind === "superuser" ? "all-projects" : "project-grants",
           operations: operationIds.filter((id) => {
+            if (caller.kind === "peer")
+              return (
+                caller.operations.includes(id) &&
+                (readOperationIds.includes(id) ||
+                  Boolean(this.sources.commands?.enabled()))
+              );
             if (
               caller.kind !== "superuser" &&
               [
@@ -223,8 +293,19 @@ export class CoreApi {
             "Invalid native session creation request; inspect this operation's schema",
             400,
           );
-        const replay = commands.replayCreate(body.data, input.launch);
-        if (replay) return replay;
+        if (!visible(body.data.projectId))
+          throw new CoreApiError("project_not_found", "Project not found", 404);
+        const authenticated =
+          caller.kind === "peer" ? peerCreator(caller) : undefined;
+        const replay = commands.replayCreate(
+          body.data,
+          input.launch,
+          authenticated,
+        );
+        if (replay) {
+          await this.assertReceipt(caller, replay);
+          return replay;
+        }
         const [projects, providers] = await Promise.all([
           this.sources.projects(input.signal),
           this.sources.providers(input.signal),
@@ -247,7 +328,8 @@ export class CoreApi {
             400,
           );
         input.signal?.throwIfAborted();
-        return commands.create(project, body.data, input.launch);
+        assertPeerOperation(caller, operation);
+        return commands.create(project, body.data, input.launch, authenticated);
       }
       case "sendMessage": {
         const commands = this.commandAccess(caller, input.launch);
@@ -258,20 +340,27 @@ export class CoreApi {
             "Invalid queued input request; inspect this operation's schema",
             400,
           );
+        const authenticated =
+          caller.kind === "peer" ? peerCreator(caller) : undefined;
         const replay = commands.replaySend(
           input.sessionId!,
           body.data,
           input.launch,
+          authenticated,
         );
-        if (replay) return replay;
+        if (replay) {
+          await this.assertReceipt(caller, replay);
+          return replay;
+        }
         const session = sessionSchema.parse(
           await this.read("session", caller, { ...input, query: undefined }),
         );
         input.signal?.throwIfAborted();
-        return commands.send(session, body.data, input.launch);
+        assertPeerOperation(caller, operation);
+        return commands.send(session, body.data, input.launch, authenticated);
       }
       case "followReceipt": {
-        if (caller.kind !== "superuser")
+        if (caller.kind === "limited")
           throw new CoreApiError(
             "forbidden",
             "Receipt access requires operator authority",
@@ -286,34 +375,69 @@ export class CoreApi {
           );
         if (!this.sources.commands)
           throw new CoreApiError("receipt_not_found", "Receipt not found", 404);
-        return this.sources.commands.follow(
+        await this.assertReceipt(
+          caller,
+          this.sources.commands.store.get(input.receiptId!),
+        );
+        const followed = await this.sources.commands.follow(
           input.receiptId!,
           query.data,
-          input.signal,
+          caller.kind === "peer"
+            ? AbortSignal.any([
+                caller.signal,
+                ...(input.signal ? [input.signal] : []),
+              ])
+            : input.signal,
         );
+        await this.assertReceipt(
+          caller,
+          this.sources.commands.store.get(input.receiptId!),
+        );
+        return followed;
       }
       case "receipt": {
-        if (caller.kind !== "superuser")
+        if (caller.kind === "limited")
           throw new CoreApiError(
             "forbidden",
             "Receipt access requires operator authority",
             403,
           );
+        await this.assertReceipt(
+          caller,
+          this.sources.commands?.store.get(input.receiptId ?? ""),
+        );
         const receipt = await this.sources.commands?.receipt(
           input.receiptId ?? "",
         );
         if (!receipt)
           throw new CoreApiError("receipt_not_found", "Receipt not found", 404);
+        await this.assertReceipt(caller, receipt);
         return receipt;
       }
       case "relationships": {
-        if (caller.kind !== "superuser")
+        if (caller.kind === "limited")
           throw new CoreApiError(
             "forbidden",
             "Provenance access requires operator authority",
             403,
           );
         await this.read("session", caller, { ...input, query: undefined });
+        if (caller.kind === "peer") {
+          const creation = this.sources.commands?.store.relationships(
+            input.sessionId!,
+            0,
+            1,
+          ).creation;
+          return {
+            sessionId: input.sessionId!,
+            creation:
+              creation && this.receiptVisible(caller, creation)
+                ? creation
+                : null,
+            initiated: [],
+            nextCursor: null,
+          };
+        }
         return (
           this.sources.commands?.store.relationships(
             input.sessionId!,
@@ -345,7 +469,12 @@ export class CoreApi {
         return this.sources.followConversation(
           input.sessionId!,
           parsed.data,
-          input.signal,
+          caller.kind === "peer"
+            ? AbortSignal.any([
+                caller.signal,
+                ...(input.signal ? [input.signal] : []),
+              ])
+            : input.signal,
         );
       }
       case "conversation": {
@@ -366,7 +495,12 @@ export class CoreApi {
         return this.sources.conversation(
           input.sessionId!,
           parsed.data,
-          input.signal,
+          caller.kind === "peer"
+            ? AbortSignal.any([
+                caller.signal,
+                ...(input.signal ? [input.signal] : []),
+              ])
+            : input.signal,
         );
       }
       case "sessions":
@@ -422,13 +556,34 @@ export class CoreApi {
     }
   }
 
+  private receiptVisible(caller: ApiPrincipal, receipt: ApiReceipt) {
+    return (
+      caller.kind !== "peer" ||
+      (receipt.creator.principal.kind === "peer" &&
+        receipt.creator.serverId === caller.serverId &&
+        peerProject(caller, receipt.projectId))
+    );
+  }
+  private async assertReceipt(caller: ApiPrincipal, receipt?: ApiReceipt) {
+    if (
+      caller.kind === "peer" &&
+      (!receipt || !this.receiptVisible(caller, receipt))
+    )
+      throw new CoreApiError("receipt_not_found", "Receipt not found", 404);
+    if (caller.kind === "peer" && receipt?.sessionId)
+      await this.read("session", caller, {
+        serverId: this.serverId,
+        sessionId: receipt.sessionId,
+      });
+  }
+
   private commandAccess(
-    caller: Principal,
+    caller: ApiPrincipal,
     launch?: ApiLaunchContext,
   ): SessionCommands {
     const commands = this.sources.commands;
     if (
-      caller.kind !== "superuser" ||
+      caller.kind === "limited" ||
       !commands?.enabled() ||
       (launch && !launch.management)
     )

@@ -118,7 +118,10 @@ export function nativeSessionCommandOwner(deps: {
             metadata: {
               apiSubmissionId: receipt.id,
               origin: "coordination",
-              sourceSessionId: receipt.creator.sessionId ?? undefined,
+              sourceSessionId:
+                receipt.creator.principal.kind === "peer"
+                  ? undefined
+                  : (receipt.creator.sessionId ?? undefined),
               serverReceivedAt: receipt.createdAt,
             },
           },
@@ -173,7 +176,10 @@ export function nativeSessionCommandOwner(deps: {
           metadata: {
             apiSubmissionId: receipt.id,
             origin: "coordination",
-            sourceSessionId: receipt.creator.sessionId ?? undefined,
+            sourceSessionId:
+              receipt.creator.principal.kind === "peer"
+                ? undefined
+                : (receipt.creator.sessionId ?? undefined),
             serverReceivedAt: receipt.createdAt,
           },
         },

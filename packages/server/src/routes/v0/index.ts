@@ -1,6 +1,7 @@
 import { bodyLimit } from "hono/body-limit";
 import { Hono } from "hono";
-import { PRINCIPAL_VARIABLE, type Principal } from "../../auth/principal.js";
+import { PRINCIPAL_VARIABLE } from "../../auth/principal.js";
+import type { ApiPrincipal } from "../../core-api/peer-policy.js";
 import {
   operations,
   operationMethod,
@@ -11,10 +12,15 @@ import {
 import { type CoreApi, CoreApiError } from "../../core-api/service.js";
 
 /** Mount after the hosting app's authentication and principal resolution. */
-export function createV0Routes(api: Pick<CoreApi, "read">) {
+export function createV0Routes(
+  api: {
+    read(...args: Parameters<CoreApi["read"]>): Promise<unknown>;
+  },
+  readBody?: (request: Request, caller: ApiPrincipal) => Promise<unknown>,
+) {
   const routes = new Hono<{
     Variables: {
-      yaPrincipal: Principal;
+      yaPrincipal: ApiPrincipal;
       yaApiLaunch: ApiLaunchContext;
       yaApiSignal: AbortSignal;
     };
@@ -42,29 +48,33 @@ export function createV0Routes(api: Pick<CoreApi, "read">) {
       500,
     );
   });
-  routes.use(
-    "*",
-    bodyLimit({
-      maxSize: 256 * 1024,
-      onError: (c) =>
-        c.json(
-          {
-            error: {
-              code: "invalid_request",
-              message: "API request body exceeds 256 KiB",
+  if (!readBody)
+    routes.use(
+      "*",
+      bodyLimit({
+        maxSize: 256 * 1024,
+        onError: (c) =>
+          c.json(
+            {
+              error: {
+                code: "invalid_request",
+                message: "API request body exceeds 256 KiB",
+              },
             },
-          },
-          400,
-        ),
-    }),
-  );
+            400,
+          ),
+      }),
+    );
   for (const operation of operations) {
     routes.on(operationMethod(operation), operation.path || "/", async (c) => {
       let body: unknown;
       if (operationMethod(operation) === "POST") {
         try {
-          body = await c.req.json();
-        } catch {
+          body = readBody
+            ? await readBody(c.req.raw, c.get(PRINCIPAL_VARIABLE))
+            : await c.req.json();
+        } catch (error) {
+          if (error instanceof CoreApiError) throw error;
           throw new CoreApiError(
             "invalid_request",
             "Expected a JSON request body",
@@ -74,7 +84,7 @@ export function createV0Routes(api: Pick<CoreApi, "read">) {
       }
       const result = await api.read(
         operation.id,
-        c.get(PRINCIPAL_VARIABLE) as Principal,
+        c.get(PRINCIPAL_VARIABLE) as ApiPrincipal,
         {
           serverId: c.req.param("serverId"),
           sessionId: c.req.param("sessionId"),

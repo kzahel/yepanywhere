@@ -80,17 +80,22 @@ export class ApiReceiptStore {
     }
     throw new Error("API session alias depth exceeded");
   }
-  lookup(input: {
-    requestId: string;
-    kind: ApiReceipt["kind"];
-    projectId: string;
-    sessionId: string | null;
-    creator: ApiCreator;
-    payload: unknown;
-  }) {
+  lookup(
+    input: {
+      requestId: string;
+      kind: ApiReceipt["kind"];
+      projectId: string;
+      sessionId: string | null;
+      creator: ApiCreator;
+      payload: unknown;
+    },
+    checkPayload = true,
+  ) {
     const scope = JSON.stringify([
       input.creator.serverId,
-      input.creator.sessionId ? this.resolveId(input.creator.sessionId) : null,
+      input.creator.sessionId && input.creator.principal.kind !== "peer"
+        ? this.resolveId(input.creator.sessionId)
+        : input.creator.sessionId,
       input.creator.principal,
       input.kind,
       input.sessionId ? this.resolveId(input.sessionId) : input.projectId,
@@ -103,7 +108,7 @@ export class ApiReceiptStore {
     const hash = createHash("sha256")
       .update(JSON.stringify(input.payload))
       .digest("hex");
-    if (previous.payload_hash !== hash)
+    if (checkPayload && previous.payload_hash !== hash)
       throw new CoreApiError(
         "request_id_conflict",
         "Retry key already names a different request",
@@ -125,9 +130,10 @@ export class ApiReceiptStore {
       sessionId: input.sessionId ? this.resolveId(input.sessionId) : null,
       creator: {
         ...input.creator,
-        sessionId: input.creator.sessionId
-          ? this.resolveId(input.creator.sessionId)
-          : null,
+        sessionId:
+          input.creator.sessionId && input.creator.principal.kind !== "peer"
+            ? this.resolveId(input.creator.sessionId)
+            : input.creator.sessionId,
       },
     };
     const scope = JSON.stringify([
@@ -253,7 +259,7 @@ export class ApiReceiptStore {
         ).get<{ receipt_json: string }>(sessionId),
       ) ?? null;
     const rows = this.statement(
-      "SELECT receipt_json FROM agent_api_receipts WHERE source_session_id = ? ORDER BY id LIMIT ? OFFSET ?",
+      "SELECT receipt_json FROM agent_api_receipts WHERE source_session_id = ? AND json_extract(receipt_json, '$.creator.principal.kind') != 'peer' ORDER BY id LIMIT ? OFFSET ?",
     ).all<{ receipt_json: string }>(sessionId, limit + 1, offset);
     return {
       sessionId,
@@ -286,13 +292,15 @@ export class ApiReceiptStore {
           creator: {
             ...previous.creator,
             sessionId:
+              previous.creator.principal.kind !== "peer" &&
               previous.creator.sessionId === oldId
                 ? newId
                 : previous.creator.sessionId,
           },
         };
         const scope = JSON.parse(row.scope_key) as unknown[];
-        if (scope[1] === oldId) scope[1] = newId;
+        if (previous.creator.principal.kind !== "peer" && scope[1] === oldId)
+          scope[1] = newId;
         if (previous.kind === "sendMessage" && scope[4] === oldId)
           scope[4] = newId;
         this.statement(

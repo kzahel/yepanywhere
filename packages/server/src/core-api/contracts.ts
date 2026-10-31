@@ -13,7 +13,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-10-30.7";
+export const API_REVISION = "2026-10-31.1";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -43,7 +43,7 @@ export const pageQuery = paginationQuery.extend({
 export type PageQuery = z.infer<typeof pageQuery>;
 export const principalSchema = z.object({
   kind: z
-    .enum(["superuser", "limited"])
+    .enum(["superuser", "limited", "peer"])
     .describe(
       "Resolved acting principal, not inferred from caller-supplied session ids.",
     ),
@@ -51,6 +51,10 @@ export const principalSchema = z.object({
     .string()
     .optional()
     .describe("Local limited-user name; absent for the operator."),
+  serverId: z
+    .string()
+    .optional()
+    .describe("Authenticated immediate peer, when present."),
 });
 export const serverSchema = z.object({
   id: z
@@ -59,8 +63,10 @@ export const serverSchema = z.object({
       "Persistent public profile UUID; independent of relay username and relay installId.",
     ),
   local: z
-    .literal(true)
-    .describe("Only the receiving server is supported in this revision."),
+    .boolean()
+    .describe(
+      "Whether this is the access server, rather than a configured peer.",
+    ),
 });
 export const projectSchema = z.object({
   id: z.string(),
@@ -140,7 +146,7 @@ export const capabilitiesSchema = z.object({
   revision: z.literal(API_REVISION),
   stability: z.literal("unstable"),
   operations: z.array(z.string()),
-  peerRouting: z.literal(false),
+  peerRouting: z.boolean(),
 });
 export const accessSchema = z.object({
   principal: principalSchema,
@@ -148,6 +154,12 @@ export const accessSchema = z.object({
   operations: z.array(z.string()),
 });
 export const launchContextSchema = z.object({
+  peerAccess: z
+    .literal(true)
+    .optional()
+    .describe(
+      "Separately issued peer-routing authority. Absent on existing local leases; management alone does not grant remote access.",
+    ),
   management: z
     .literal(true)
     .optional()
@@ -368,7 +380,7 @@ export const operationDocumentation: Record<
   followReceipt: {
     summary: "Follow one submission receipt",
     description:
-      "Operator-only bounded status observation. Without after returns the current receipt and r1 cursor. Reissue with after and waitMs0–4000 to wait for admission/delivery/provenance changes; unchanged returns changed=false,receipt=null. Changed responses replace the full receipt, including after reconnect. This does not infer which reply completed a batched input, and does not poll transcripts or restart work. Use receipt.sessionId to follow conversation prose separately.",
+      "Operator or authorized originating-peer bounded status observation. Without after returns the current receipt and r1 cursor. Reissue with after and waitMs0–4000 to wait for admission/delivery/provenance changes; unchanged returns changed=false,receipt=null. Changed responses replace the full receipt, including after reconnect. This does not infer which reply completed a batched input, and does not poll transcripts or restart work. Use receipt.sessionId to follow conversation prose separately.",
     example: "/v0/servers/{serverId}/receipts/{receiptId}/follow?waitMs=4000",
   },
   createSession: {
@@ -441,7 +453,7 @@ export function apiHelp(selected?: Operation) {
     "",
     `Revision: ${API_REVISION}. Unstable: routes, fields and behavior may change.`,
     "",
-    "Use this API to inspect authorized projects, configured provider harnesses and coding-agent session summaries and compact conversations. Reading includes compact conversations and following. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. Input messaging requires the same explicit management authority. Configuration, interruption, command execution, terminals and peer routing remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
+    "Use this API to inspect authorized projects, configured provider harnesses and coding-agent session summaries and compact conversations. Reading includes compact conversations and following. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. Input messaging requires the same explicit management authority. Configured peer adapters expose target-authorized server addressing; inspect servers, access and capabilities.peerRouting rather than assuming a route. Configuration, interruption, command execution and terminals remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
     "",
     "## Connect and discover",
     "",

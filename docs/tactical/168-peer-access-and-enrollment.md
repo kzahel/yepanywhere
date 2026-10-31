@@ -28,6 +28,27 @@ restart/reconfigure the primary server or provider host during verification.
 
 ## 1 — Route a complete session workflow between two isolated peers
 
+Complete: independently constructed router/receiver, distinct peer principal,
+revocable grants and durable outbound SQLite ledger. Normal startup remains
+unchanged; fixture enrollment is not production enrollment.
+
+Evidence, 2026-10-31: 47 core tests pass, including ten new peer integration
+cases and two owned ephemeral TCP listeners. Workspace checks pass (6,631 server
+and 7,062 client cases, plus remaining packages); known client jsdom navigation
+diagnostics remain [tracked](../../gaps/client-unit-navigation-diagnostics.md).
+Lint, format and types pass. A durable intent/remap/foreign-alias probe passes
+on Node 22.23.3 and desktop's pinned Bun 1.3.14. One opt-in Sol 6.1 medium local
+workflow regression succeeds in 31.6 seconds, 14 requests, zero errors and 14,863
+fetched documentation bytes; processed input is 152,408 tokens, including
+130,432 cached, not unique context. This is local workflow regression evidence,
+not peer or protected-route model qualification.
+
+Independent Sol high and Daybreak Blue high code reviews found five bugs:
+stalled-body revocation, conflict privacy, target canonical retries, late
+source remap confirmation and old-lease outbound history. All have fixes and
+integration regressions; both reviewers rechecked and found no remaining
+material issue in those paths before this slice's commit.
+
 Add a small independently constructible peer directory, authenticator and v0
 router around the existing application API. Two profiles have separate public
 server UUIDs, credentials, grants, receipt stores and native owners. Bind an
