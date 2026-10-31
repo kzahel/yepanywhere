@@ -1,206 +1,323 @@
-# Optional fleet accounts and key-bound enrollment
+# Optional fleet accounts and enrollment
 
-Status: candidate for independent design review before plan 168 steps 3–4.
-Manual [peer access](peer-access.md) remains independent. This is not an
-implemented authentication service or a new requirement for ordinary YA.
+Status: independently reviewed design for plan 168 steps 3–4; implementation
+is authorized. Sol 6.1 high and Daybreak Blue high confirmed the final
+pre-session, lifetime, rate, trust and coexistence conditions before source edits. Manual [peer access](peer-access.md) remains independent. This is not an
+implemented account service or a new requirement for ordinary YA.
 
-## Boundary
+## Scope and first-key trust
 
-The fleet service introduces authenticated accounts and enrolled clients. It
-proposes directional relationships; targets accept them within explicit local
-ceilings. It never becomes the relay or an agent workflow coordinator. Joining
-an account does not grant execution, legacy `/api` access or the YA operator
-principal. Browser/mobile clients can later use the same identity vocabulary;
-the first consumer is a YA server with its own persistent profile UUID.
+A separate constructible Hono service and standalone entry point introduces
+accounts and enrolled clients. It imports no provider registry/scanner or main
+YA app, has no hosted default and coordinates no agent workflow. Joining an
+account grants no execution or legacy operator API access. The first consumer
+is a YA server; profile UUID, client UUID, account, keys and route are distinct.
+This one service owns authentication, directory, issuance and the opaque mailbox;
+"broker" names that mailbox component, not another required deployment or the
+relay/push broker. Opaque-only concerns invitation payloads; the service still
+knows account, public-key and relationship metadata.
 
-The implementation remains a separate constructible Hono service and standalone
-entry point under the server package. It imports no provider registry, scanner
-or ordinary YA app. It starts only when invoked explicitly, with a private data
-directory and configured issuer URL. There is no hosted default endpoint.
+Owner configuration chooses an exact HTTPS issuer and account UUID. Initial
+client introductions trust that issuer; target acceptance and source import
+persist the exact introduced client/profile and signature/encryption keys.
+Fingerprints are inspectable. Independently comparing fingerprints is a stronger
+ceremony, not something this flow claims. An actively malicious issuer can
+substitute a first-introduction key; opaque delivery protects credentials only
+when encrypted to the intended accepted recipient. Manual peers are unaffected.
 
-## Real local accounts first
+Each profile generates separate P-256 signature and encryption key pairs in
+owner-only storage. No key, password, refresh capability or peer secret enters
+agent environments. Changed/lost keys never replace a pin transparently. Recovery
+revokes the old enrolled client, requires fresh owner login/enrollment and
+explicit reacceptance at peers. No automatic key rotation in this slice.
 
-The minimal backend has administrator-provisioned local username/password
-accounts with immutable account UUIDs. Reuse bcrypt and existing private-file
-publication/permission helpers. Provide offline administrator add/change-password
-commands reading passwords from private stdin. No public signup, email delivery,
-self-service reset or local MFA UI. Password changes invalidate existing account
-sessions. Account names are not portable identities and do not merge external
-identities. OIDC is a later adapter into the same authenticated account result.
+## Basic accounts and common account result
 
-The service is not an OAuth/OpenID authorization server for arbitrary clients.
-Its small account-session API uses standard JOSE JWTs and RFC 9449 sender
-constraints, rather than implementing an OP and requiring all backends to do so.
-Network deployment requires an explicit HTTPS public origin and TLS termination;
-plain HTTP is an explicit loopback testing configuration only. Bind behind that
-TLS boundary, preserve exact origin/host admission, reject redirects and never
-infer proxy headers as authority. Password and token bodies are not logged.
+Provide a real administrator-provisioned username/password backend. Local
+accounts have immutable UUIDs, normalized local names and bcrypt hashes. Reuse
+maintained hashing and private-file publication/permission primitives. Passwords
+are 12 or more characters and at most 72 UTF-8 bytes, without normalization or
+silent truncation. Unknown users perform a dummy comparison; failures are
+generic. Password changes increment an authentication generation and invalidate
+sessions and pending enrollment. No signup, email, self-service reset or MFA UI.
 
-Use a bounded login limiter, a fixed dummy bcrypt comparison for unknown users,
-a small concurrent-hash ceiling, and generic failure responses. Persist at most
-64 accounts, 256 enrolled clients and 1,024 relationship proposals. Refuse excess
-state instead of evicting revocations or active identities. Atomic private state
-has an eight-MiB limit and one serialized owner; uncertain publication fails
-closed. One service process owns its data directory.
+Offline administrator add/change-password commands read passwords from private
+stdin and refuse concurrent directory ownership. Service and commands acquire
+an exclusive transaction in a separate private SQLite ownership file, released
+on process exit. It guards the atomic state file without heartbeat timers or
+PID-based stale-lock recovery. Failed acquisition publishes nothing. Publication
+failure/corruption closes admission until recovery; never regenerate missing
+signing keys over an existing identity.
 
-## Enrolled client identity and account sessions
+Basic and OIDC adapters return the same internal account UUID, authentication
+generation and absolute session lifetime. Local and `(issuer, subject)` identities
+have separate namespaces. No email/name matching or implicit linking. Basic
+session families have a 30-day absolute lifetime. OIDC families default to one
+hour, requiring a new upstream login afterward. This is not continuous upstream
+logout/account-disable detection; no fresh MFA assertion is invented.
 
-Each YA profile generates two separate P-256 key pairs: one for signatures and
-DPoP, one for JWE encryption. Private keys remain in owner-only profile storage,
-never agent environments. Profile UUID, enrolled client UUID, key thumbprint,
-account UUID and route stay distinct. A lost or changed key requires explicit
-re-enrollment/recovery; a familiar profile UUID cannot replace a pinned key.
+This small account-session API is not an OAuth/OpenID provider for arbitrary
+applications. Use `jose` for JWS/JWT/JWE and `oauth4webapi` for DPoP resource
+request construction/validation. Signatures accept ES256 only; envelopes use
+ECDH-ES/A256GCM. Explicit HTTPS public origin and TLS termination are required
+for network deployment; plain HTTP is an explicit loopback fixture option.
+Do not infer authority from proxy headers, token-supplied URLs or relay names.
 
-Basic login authenticates the account and accepts public key thumbprints. It
-returns a 90-second, one-use enrollment bootstrap JWT bound to the signature key,
-not a durable enrolled identity. No server/profile binding is published until a
-subsequent DPoP-protected enrollment proves that key. Its recorded encryption
-key must match the bootstrap's encryption-key thumbprint. Concurrent or changed
-profile/key bindings conflict rather than silently replacing an enrolled client.
+## Pending login, enrollment and refresh
 
-Enrollment returns a five-minute access token and a 30-day refresh capability,
-both sender-constrained to the enrolled key. They use RFC 9068 access-token
-shape with strict purpose/scope separation; a refresh capability authorizes
-only refresh, not fleet reads or grant issuance. The service retains revocable
-session identity/generation, rotates refresh capabilities and rejects superseded
-ones. Refresh is demand-driven and coalesced by the YA client, without idle
-polling or automatic mutation replay. Password change and explicit account,
-client or session revocation apply at the service immediately.
+Basic password login creates a 90-second outstanding pending enrollment and a
+sender-constrained bootstrap JWT. Pending state binds account/auth generation,
+profile UUID, complete signature/encryption public keys and thumbprints, nonce,
+audience, purpose and expiry. No client binding is published by password login.
 
-Use `jose` for JWT/JWS/JWE and `oauth4webapi` for RFC 9449 resource request
-construction/validation. These are cryptography/protocol dependencies, not new
-handwritten primitives. Pin accepted algorithms to ES256 for signatures and
-ECDH-ES/A256GCM for envelopes. No symmetric token key or issuer signing key is
-shared with YA targets or agent sessions.
+A subsequent DPoP-protected enrollment proves the signing key and matching
+pending encryption key. After asynchronous verification, one serialized mutation
+rechecks account state, consumes pending authority and publishes client/session
+atomically. Repeated consumption is refused. Pending logins are invalid after
+restart, so recovery is fresh login with the same keys/profile; that reuses the
+existing client identity. Different keys require explicit recovery, not a new
+binding under a familiar profile UUID.
 
-The resource validator still needs application checks: expected issuer,
-account, audience, client/profile identity, token purpose, scope and current
-session generation. It does not validate these meanings for the application,
-and explicitly does not validate DPoP nonces. Control-plane requests therefore
-also use a bounded, one-use nonce/replay policy. Do not treat successful JWT
-parsing or a public key alone as authentication.
+Control-plane tokens use RFC 9068 access-token shape (`typ=at+jwt`) with exact
+issuer/fleet-service audience, `iat`, `exp`, `jti`, `cnf.jkt` and explicit purpose.
+Required identity and ledger fields depend on the purpose:
 
-## Directional proposals and protected credential delivery
+| Purpose | Subject and client ID | Applicable authority before dispatch |
+| --- | --- | --- |
+| Basic enrollment | Account UUID; pending-enrollment UUID as `client_id` | Outstanding pending ID, account/auth generation, exact profile and both keys, expiry; no published client/session is required |
+| OIDC redemption/status | OIDC-flow UUID for both `sub` and `client_id` | Outstanding flow, provider/profile/key binding and expiry; no account/session exists before callback. Redemption additionally requires its ready account result and current auth generation |
+| Enrolled control | Account UUID; enrolled-client UUID | Current session ID, account/auth generation, active client and exact profile/key binding |
+| Refresh only | Account UUID; enrolled-client UUID | Same current-session checks plus exact current refresh-token hash and absolute family expiry |
 
-An authenticated account may propose source-client to target-client access with
-bounded projects, operations and expiry. Targets separately configure the exact
-trusted issuer/account and their local project/action ceiling. An owner accepts
-a proposal through the existing strongly authenticated `/api/peers` management
-boundary, with the existing execution-authority acknowledgment. No account-wide
-implicit execution grant is introduced.
+Bootstrap and OIDC tokens include their pending/flow ID and profile/key bindings;
+session tokens require session ID and auth generation. A pre-session token never
+uses a fabricated active session or account. Nonce admission validates the
+applicable pending authority for pre-session purposes. Bootstrap scope authorizes
+only enrollment. Five-minute control tokens authorize only enrolled-client
+control operations. A rotating refresh-only JWT authorizes only the refresh
+resource and never reads, proposals or peer access. It has the family's absolute
+expiry; rotation cannot extend that deadline. The service stores only its current
+hash/identity and session generation. This JWT capability lets the maintained
+resource validator verify DPoP on refresh without a custom opaque-token proof
+validator. It is not advertised as an interoperable OAuth refresh grant.
 
-The target creates a distinct fleet SRP credential, using the current canonical
-SRP verifier machinery. It signs an invitation with its enrolled signature key,
-then encrypts that signed value to the source's separate encryption key using
-JWS inside JWE. The broker carries only that opaque envelope, associated with
-the exact source, target, relationship and generation. It receives no manual
-peer secret, browser password/resume credential or target registration secret.
+Refresh is serialized and generation-fenced. A consumed old capability cannot
+rotate twice. Lost refresh response or failed client publication requires fresh
+login; no recovery/grace protocol or saved password is introduced. Client key
+bindings and manual peers survive. Account/client/session revocation also fences
+pending enrollments, in-flight signing and late refresh/import publication.
+Fresh enrollment with the same client binding replaces its previous session
+family, retiring inaccessible old refresh capabilities. There is one active
+family per client. Every issued control/refresh token is capped at that family's
+absolute expiry, including tokens minted immediately before the deadline.
 
-The source verifies the target's issuer-attested, explicitly pinned enrolled key
-and all invitation bindings before decrypting/importing it. A changed target
-key is not a transparent route update. Enrollment supplies inspectable key
-fingerprints. Replay, expiry, generation and stale-preflight fences apply as in
-manual enrollment. Importing fleet access never silently replaces an existing
-manual grant or route. Manual and fleet credentials remain independently
-revocable and usable when the other mechanism is absent.
+## Control-plane nonce admission
 
-Publish only target-owner-selected routes, signed with the invitation. Source
-adoption explicitly accepts the configured fleet route policy; do not repoint
-an existing configured relay or infer Tailscale. A target can advertise its
-separate peer relay route. Source and target still address the profile UUID,
-and the existing SRP target metadata proof precedes any token or mutation.
+DPoP is used on actual fleet HTTP resources, not synthetic peer URLs. The library
+validates signature, token hash, method and URI. YA additionally checks token
+purpose, account/client/profile/session generation, nonce and authorization.
+A proof has a 60-second maximum age and five-second future allowance.
 
-## Fleet authorization on each peer request
+An otherwise authenticated request missing a usable nonce gets an explicit
+`use_dpop_nonce` challenge before mutation. Issued random nonces are bound to key
+thumbprint and token identity, expire after 60 seconds and consume atomically
+once before application dispatch. At most 256 exist, with eight per token;
+expired entries are removed on demand. No nonce is issued before proof/token and
+applicable pending-authority or current-session validation. Challenge admission is bounded per authenticated
+key and globally. Restart invalidates outstanding nonces.
 
-SRP continues to authenticate and protect the channel; it is not replaced by a
-new public-key challenge protocol. A fleet credential additionally requires a
-fresh issuer JWT with target audience, account, source profile/client,
-relationship ID, key thumbprint, expiry and allowed projects/operations.
-Intersect it with the current target-local record and ceiling on every request.
-Manual credentials keep their existing separate authenticator.
+Rate policies use elapsed-time token buckets, bounded before expensive work:
+basic login is 64/minute globally (burst eight) and six/minute per normalized
+username (burst three). Unauthenticated OIDC initiation is 64/minute globally
+(burst eight) and eight/minute per actual admitted remote IP (burst four).
+Nonce challenges are 256/minute globally (burst 32) and 60/minute per verified
+key (burst eight). Never trust forwarded IP headers implicitly. A depleted
+bucket returns 429 with `Retry-After`; no mutation or nonce issuance occurs.
+At 1,024 limiter keys, reclaim only entries inactive for ten minutes; otherwise
+refuse a new key rather than evicting an active/blocked identity. Existing keys
+retain their limits. No retry loop or timer is attached to a denied request.
 
-Inside the encrypted HTTP request use standard `Authorization: DPoP <token>`
-and a DPoP proof. The source signs the canonical logical v0 method/URI, token
-hash and the authenticated channel's transport nonce. The logical HTTPS URI is
-stable across direct and relay routes and includes the target UUID in the
-resource path. The receiver validates RFC 9449 with `oauth4webapi`, then requires
-that exact channel nonce and local identity/grant bindings. One HTTP request
-per channel and its unique single-use nonce prevent proof reuse across
-channels. The internal SRP handoff remains unforgeable by HTTP headers.
+The client may retry one explicit pre-admission nonce challenge. It never retries
+an ambiguous application mutation automatically. Fleet calls are serialized per
+profile with at most eight waiters and retain caller deadlines. Token renewal
+is demand-driven/coalesced; no idle polling or per-session timer is added.
 
-Only after both proofs may the receiver construct the ordinary immediate-peer
-API principal. Do not place fleet callers in the legacy superuser/limited-user
-classes. Session attribution remains source-attested. Audit records may add
-issuer/account/client/relationship identity, never raw tokens or keys.
+## Directional proposals and opaque delivery
 
-Issuer peer tokens live at most five minutes. A target uses its explicitly
-trusted issuer and bounded JWKS cache; an unknown issuer/key never falls back
-to manual authentication. Existing cached tokens can work during an issuer
-outage only until expiry. Issuer revocation stops renewal, with a stated maximum
-five-minute offline delay; local target revocation is immediate. In-flight
-observations also stop at token expiry. Already admitted native work remains.
-No auth refresh, reconnect or route fallback resubmits an ambiguous mutation.
+An account proposes one client/profile to another, with exact bounded projects,
+operations and expiry. Issuance derives identity from the authenticated session,
+not request-supplied account or source fields. The target owner separately trusts
+the exact issuer/account and accepts the exact introduced source keys within a
+local project/action ceiling, acknowledging server-account execution authority
+for create/message. Initial acceptance/sync is explicit, not account-wide mesh
+permission. Human UI can follow these owner-only HTTP operations.
 
-Removing a local fleet enrollment first retires its local incoming/outgoing
-credentials and private key/session material. Manual peers survive. Report
-external revocation as unconfirmed if the optional service is unavailable;
-never restore local authority to hide that partial outcome.
+The target creates a distinct fleet SRP credential. A signed invitation binds
+issuer/account, both client/profile IDs and accepted public keys/generations,
+relationship ID/generation, credential ID/generation, policy, owner-selected
+route and validity. Use `typ=ya-peer-invitation+jwt`, exact source-client audience
+and target-client subject. Encrypt that JWS to the source encryption key as JWE.
+The target durably publishes its incoming credential and ciphertext outbox in
+one local state change before uploading. It never retains a re-exportable plain
+secret. Upload retries reuse the exact envelope ID and ciphertext.
 
-## Owner API and source runtime
+The broker stores bounded opaque ciphertext and indexing metadata only. It
+receives no manual peer secret or plaintext invitation. Only the authenticated
+target publishes/replaces its generation and only the bound source fetches it.
+Broker metadata alone never grants peer authority.
 
-Add owner-only fleet login/status, proposal acceptance, explicit sync/import,
-revocation and disconnect operations under `/api/peers`. Return sanitized
-identity/direction/expiry/status to normal inspection; never re-export keys,
-refresh tokens or decrypted peer secrets. A minimal local backend is real and
-usable through HTTP, not a test adapter or a CLI prerequisite.
+Source adoption trusts the issuer's first target introduction and pins it
+explicitly. Decrypt untrusted JWE first, then verify the inner target JWS before
+trusting content. Validate every binding, policy/route/expiry and pinned key;
+perform protected SRP preflight and commit with the existing revision fence.
+Acknowledge the exact envelope/generation only after durable import. Fetch may
+repeat before acknowledgement; identical imports are idempotent. Superseded,
+expired or conflicting generations are rejected. Acknowledged ciphertext can be
+removed; recovery after lost local keys/state needs target reissuance, not secret
+export. Outboxes survive restart and are retired by revocation/disconnect.
 
-Native agents retain their existing private connection, `/me`, `servers`, access
-and schema discovery. The source owns fleet token renewal, key use and routing.
-Existing immutable peer leases and outgoing `allowAgentSessions` still apply;
-fleet login does not upgrade an old local-only lease. No scheduling, cloning,
-worktree policy, task roles or workflow lifecycle enters this layer.
+## Per-request peer authority
 
-## External login slice
+Keep the existing SRP/NaCl channel as credential-possession and target proof.
+The first slice omits peer-side DPoP and synthetic logical HTTP URIs. Fleet
+service key proof controls token renewal, and the SRP secret is delivered only
+to the accepted source encryption key. A fleet peer request additionally carries
+a short-lived issuer-signed token bound to that exact SRP credential/generation.
+A token alone or SRP secret alone cannot enter a fleet record.
 
-Use the existing `openid-client` dependency for actual authorization-code OIDC
-with PKCE, state and nonce, exact issuer/client/callback binding and bounded
-one-use pending flows. The service maps `(issuer, subject)` to its account UUID;
-no email/name linking. Upstream owns password recovery and MFA. A normal
-successful login does not assert fresh MFA.
+Use `typ=ya-peer-grant+jwt`, `iss=trusted issuer`,
+`aud=urn:yep-anywhere:peer:<target-profile-uuid>`, source-client `sub`, `iat`,
+`exp`, `jti`, and a strict versioned YA claim containing account, both
+clients/profiles, accepted source signature/encryption thumbprints, relationship
+ID/generation, credential ID/generation, project IDs and operation IDs. The
+issuer derives these from the active session and published accepted relationship.
+No arbitrary audience, account or credential supplied by a caller is signed.
 
-Provide the same enrollment/session result as the basic backend, including key
-proof and local target ceilings. Support compatible providers by configuration,
-including self-hosted Keycloak/Dex and Clerk's OIDC-provider configuration.
-Qualify the protocol with an owned local issuer fixture; do not require paid
-accounts or public services in CI. Record provider-specific live qualification
-separately. Existing artifact OAuth policy is not reused as fleet authority.
+Retain encrypted `Authorization: Bearer <peer-secret>` and add the fleet token
+in a separate bounded header. A durable credential-origin discriminator makes
+fleet records require both proofs; missing/invalid tokens never fall through to
+manual auth. The unforgeable SRP handoff and bearer credential must identify the
+same current record/generation. Intersect token authority, accepted relationship
+and current local ceiling; preserve source launch/outgoing-record checks.
+Construct the existing immediate-peer principal only after these checks.
 
-## Implementation and review gates
+Peer tokens last at most 290 seconds, with at most five seconds future issuance
+accepted and no observation/admission beyond token expiry. The conservative
+advertised issuer-revocation bound remains five minutes. Target local revocation
+is immediate. Account refresh never extends a target relationship or its
+30-day maximum SRP credential lifetime; reissuance is an explicit owner action.
+Recheck generations/authority after async verification and before admission or
+reply. Accepted native work remains. Issuer outage permits only still-valid
+cached authority with sufficient request budget, never stale tokens or manual
+fallback. No auth refresh resubmits an ambiguous native mutation.
 
-Before source edits independently review the exact token/envelope binding,
-replay/nonce policy, refresh/recovery, trusted-target key discovery, local ceiling
-intersection, offline lifetime, persistence/cancellation bounds and basic-login
-admission. Reviewers may simplify or reject this candidate; merely choosing a
-library does not establish a safe protocol.
+Every peer token's expiry is also capped at the originating account family's
+absolute expiry and the relationship, credential and target acceptance/grant
+expiries. A last-moment refresh cannot carry authority past any of these bounds.
 
-Implement and test in these units: constructible real account/session service;
-key-bound client enrollment and directional proposals; target acceptance and
-opaque credential delivery; per-request peer authorization and independent
-revocation; then OIDC login into the same flow. Commit coherent reviewed slices.
-An implementation is complete only after actual authenticated consumers complete
-create/message/follow and revocation with both login backends, while independent
-manual access works with the fleet service stopped.
+JWKS comes only from configured issuer trust: at most four ES256 public keys,
+ten-minute cache, one in-flight fetch per issuer, at most one unknown-key refresh
+per minute, 64-KiB response and five-second timeout. Unknown issuer/key fails
+closed. This slice persists one issuer signing key and supports explicit offline
+rotation with bounded retained public keys; no automatic key-rotation service.
+The five-minute offline revocation bound covers account, client and relationship
+revocation by stopping renewal. It does not cover compromise/removal of an issuer
+signing key: cached trust can last ten minutes. Emergency local issuer distrust
+immediately retires its fleet grants/channels and cache; manual peers survive.
 
-Keep deterministic account/core tests isolated. Retain real password/session,
-DPoP/JWS/JWE, SRP/owned-relay, corruption/restart, wrong-key/issuer/audience,
-expired/revoked grant, refresh race and manual-survival integration boundaries.
-Use a light opt-in subscription workflow after those pass; model calls stay out
-of CI. UI and Windows packaged-provider qualification remain separate.
+## Coexistence and versioned peer state
 
-## Protocol references
+Peer state v2 explicitly migrates v1 credentials as manual, preserving all
+existing IDs, meaning, retry scopes and source attestations. Incoming uniqueness
+becomes `(source profile, origin)`; manual and one fleet relationship may coexist.
+Each outgoing credential has its own ID/origin and policy. A separate map selects
+one credential per public target UUID. Existing v1 selections stay manual.
 
-The [oauth4webapi resource validator](https://github.com/panva/oauth4webapi/blob/main/docs/functions/validateJwtAccessToken.md)
-implements RFC 6750/9068/9449 while leaving nonce and authorization semantics to
-the application. [Clerk's SSO guide](https://clerk.com/docs/guides/configure/auth-strategies/oauth/single-sign-on)
-describes Clerk acting as an OIDC identity provider with the `openid` scope.
-Neither statement is live qualification of a specific configured issuer.
+Fleet import never changes an existing manual selection. An owner selects a
+new/standby credential explicitly. Deleting/disconnecting fleet access removes
+only fleet credentials and clears a removed selection; surviving manual records
+remain inspectable and can be explicitly selected. There is no silent fallback
+after denial, expiry or an ambiguous mutation, and topology never duplicates the
+same public target. `DELETE outgoing/<target>` deliberately removes all its
+credentials; origin-specific operations support narrower removal.
+
+Atomic migration leaves either complete v1 or complete v2 state; repeated
+migration derives the same IDs. Unknown versions fail closed and older code
+refuses v2 rather than interpreting fleet credentials as manual. Manual wire
+messages remain unchanged. Fleet invitations/metadata advertise their distinct
+version; unsupported targets/importers fail explicitly before credential release.
+Both sides preserve current receipt/retry identity across credential changes.
+
+YA enrollment/disconnect has its own durable generation. Removing it retires its
+local fleet records/keys first and aborts pending work; late refresh/sync cannot
+recreate them. Manual records survive. If the optional service is unavailable,
+report remote revocation unconfirmed without restoring local authority.
+
+## OIDC into the same enrollment
+
+Use existing `openid-client` authorization-code OIDC with PKCE/state/nonce,
+exact configured issuer/client/callback and one-use pending flows. External
+accounts must be administrator-provisioned by exact `(issuer, subject)`; a login
+at an arbitrary account of a configured provider does not create fleet membership.
+No implicit local/external account linking is offered.
+
+The initiating YA owner creates a pending flow bound to its profile, both keys,
+local enrollment generation and the authenticated owner-session binding. The
+service stores that binding with provider, callback, state/nonce/verifier and
+five-minute expiry. A key-bound, enrollment-only redemption JWT is returned to
+YA, never placed in browser URLs. It conveys no account authority before OIDC
+completion. Callback consumption is single-use before exchange; completion
+stores the authenticated account result against that exact flow, not a browser
+refresh capability. Browser output contains status only.
+
+The same originating owner session then completes through YA. YA checks local
+flow/generation/session binding and redeems with DPoP using the initiating key.
+The service atomically consumes the ready flow, rechecks account generation and
+calls the same enrollment/session path as basic login. A detached/changed owner,
+wrong profile/key or expired/restarted flow cannot redeem it. Missing stable
+owner-session binding refuses initiation rather than weakening that check.
+
+Configured Keycloak/Dex-compatible and Clerk OIDC providers share this adapter.
+Upstream owns MFA/recovery. One-hour absolute OIDC fleet sessions bound later
+refresh without asserting continuous upstream logout detection. Protocol tests
+use an owned local issuer, real code exchange/JWKS and verified tokens; live
+vendor qualification remains distinct. Existing artifact OAuth/email policy is
+not fleet account authority.
+
+## Resource and verification gates
+
+Bounds apply before expensive work: 64 accounts, 256 clients, 1,024 proposals,
+256 sessions (one family per client), 128 pending basic logins, 64 OIDC flows, 256
+nonces, 128 ciphertext mailbox items and 64 target outbox items; each ciphertext
+is at most 32 KiB as an encoded wire value. Expired transient records are removed on demand, acknowledged
+mail deleted, retired generations limited to current state. Limiters retain at
+most 1,024 keys. Keep at most four bcrypt, eight JWT/key verification/signing
+jobs, four service preflights and one coalesced JWKS fetch per issuer. Abandoned
+native crypto still owns its slot until settlement. Mutation queues cap at 16.
+Service/peer state files cap at eight MiB, service HTTP bodies at 64 KiB, JWTs at
+32 KiB, HTTP replies at 256 KiB and request lifetime at ten seconds. Peer channel
+limits remain unchanged. Refuse capacity instead of evicting active authority.
+Measure the final encoded JWE, not just its plaintext or inner JWS; envelope
+construction that exceeds the cap fails before credential publication. Metadata
+lists are paginated (default 20, maximum 50); ciphertext fetch is per envelope.
+Explicit source adoption handles one envelope per bounded request, not an
+unbounded fleet scan or batch of preflights.
+
+Implement after independent design closure: real local accounts and sessions;
+key-bound enrollment/proposals; target acceptance, mailbox and source adoption;
+per-request credential-bound tokens and revocation; then OIDC into that same flow.
+Native agents keep their existing private `/me`, discovery and v0 workflow.
+No scheduler, cloning/worktree policy, roles or custom delegation lifecycle.
+
+Completion requires real password and OIDC consumers each performing protected
+create/message/follow/revoke, same-pair manual/fleet coexistence with explicit
+selection, and manual access with the fleet service stopped. Cover ownership,
+restart/corruption, one-use login/nonce races, lost refresh/delivery replies,
+wrong issuer/audience/key, local ceiling reductions, downgrade and disconnect
+races. Run light opt-in model evidence only after deterministic boundaries pass.
+
+[oauth4webapi](https://github.com/panva/oauth4webapi/blob/main/docs/functions/validateJwtAccessToken.md)
+leaves nonce and authorization semantics to the application.
+[Clerk's SSO guide](https://clerk.com/docs/guides/configure/auth-strategies/oauth/single-sign-on)
+describes its OIDC-provider mode with the `openid` scope; this is not live
+qualification of a particular configured issuer.

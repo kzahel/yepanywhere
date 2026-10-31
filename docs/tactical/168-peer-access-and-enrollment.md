@@ -170,8 +170,8 @@ available, using the common machine-control interface if a testbed is available.
 
 ## 3 — Offer an optional fleet service with real local accounts
 
-The [concrete fleet candidate](../../topics/fleet-authentication.md) is under
-independent design review before source edits. It separates real basic login
+The [concrete fleet design](../../topics/fleet-authentication.md) has completed
+independent Sol high and Daybreak Blue high review before source edits. It separates real basic login
 from device-key binding, target-enforced proposals and protected peer access;
 manual enrollment remains independent. Its token/envelope protocol is not
 accepted merely because the manual transport has passed qualification.
