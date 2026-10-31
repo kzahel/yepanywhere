@@ -179,6 +179,12 @@ No new override or audit exclusion is added.
 
 ### Install-script allowlist
 
+The 2026-10-31 fleet implementation adds exact `jose` 6.2.14 and
+`oauth4webapi` 3.8.8 server dependencies for maintained ES256 JWT/JWS,
+ECDH-ES JWE and DPoP resource construction/verification. The latter was already
+an `openid-client` dependency; no install script or client bundle is added.
+Library use does not constitute an audit of YA's enrollment protocol.
+
 The same day's fresh production audit found
 [cross-realm redirect credential filtering](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p).
 The `http-proxy -> follow-redirects` edge moves from 1.16.1 to 1.16.2 within its

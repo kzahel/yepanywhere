@@ -170,6 +170,22 @@ available, using the common machine-control interface if a testbed is available.
 
 ## 3 — Offer an optional fleet service with real local accounts
 
+The first implementation unit is complete: independent Hono service, real
+offline-provisioned bcrypt accounts, key-bound DPoP enrollment, absolute-lived
+session families, refresh rotation, client revocation/recovery, bounded issuer
+directory/proposals/mailbox and short-lived peer token issuance. It imports no
+main YA server or provider discovery. Sol high and Daybreak Blue high closed
+all material code findings. Thirteen focused integration scenarios cover real
+JWT/DPoP, durable ownership, restart/corruption, nonce and independent-proof
+commit races, revocation across signing, lost refresh replies, cross-account
+isolation, publication uncertainty and disconnect across a real file write
+(about 3.3 seconds test time). Root lint/format/typecheck pass; workspace tests
+pass with 6,658 server and 7,062 client cases. The current dependency audit also
+passes after the separately committed patch/triage. This unit does not yet
+consume fleet authority at a peer target: state v2, protected token admission,
+opaque enrollment delivery and YA owner endpoints remain the next unit. OIDC
+follows that integrated consumer.
+
 The [concrete fleet design](../../topics/fleet-authentication.md) has completed
 independent Sol high and Daybreak Blue high review before source edits. It separates real basic login
 from device-key binding, target-enforced proposals and protected peer access;

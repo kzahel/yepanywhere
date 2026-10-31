@@ -1,9 +1,12 @@
 # Optional fleet accounts and enrollment
 
-Status: independently reviewed design for plan 168 steps 3–4; implementation
-is authorized. Sol 6.1 high and Daybreak Blue high confirmed the final
-pre-session, lifetime, rate, trust and coexistence conditions before source edits. Manual [peer access](peer-access.md) remains independent. This is not an
-implemented account service or a new requirement for ordinary YA.
+Status: independently reviewed design for plan 168 steps 3–4. The standalone
+basic service/client is implemented and independently code-reviewed; target
+consumption and OIDC are subsequent implementation units. Sol 6.1 high and
+Daybreak Blue high confirmed
+the pre-session, lifetime, rate, trust and coexistence conditions before source
+edits. Manual [peer access](peer-access.md) remains independent. Fleet accounts
+are not a requirement for ordinary YA.
 
 ## Scope and first-key trust
 
@@ -78,6 +81,16 @@ restart, so recovery is fresh login with the same keys/profile; that reuses the
 existing client identity. Different keys require explicit recovery, not a new
 binding under a familiar profile UUID.
 
+Client revocation also advances an account enrollment generation. All outstanding
+enrollments for that account become invalid, including login/signing already in
+progress; unrelated enrolled session families retain their own authority.
+Enrollment compacts revoked clients and their dependent retired records, so the
+256-client limit bounds current identities rather than lifetime enrollments.
+Client disconnect aborts HTTP admission immediately, drains any in-progress
+credential publication and then removes durable credentials. Failed removal
+keeps that client closed; callers await completion before treating removal as
+durable.
+
 Control-plane tokens use RFC 9068 access-token shape (`typ=at+jwt`) with exact
 issuer/fleet-service audience, `iat`, `exp`, `jti`, `cnf.jkt` and explicit purpose.
 Required identity and ledger fields depend on the purpose:
@@ -137,6 +150,11 @@ At 1,024 limiter keys, reclaim only entries inactive for ten minutes; otherwise
 refuse a new key rather than evicting an active/blocked identity. Existing keys
 retain their limits. No retry loop or timer is attached to a denied request.
 
+Successful authenticated responses supply the next single-use nonce. A serialized
+client therefore does not need a challenge for every operation; replay still
+fails because each nonce is consumed once. Lost replies can require a new
+rate-limited challenge.
+
 The client may retry one explicit pre-admission nonce challenge. It never retries
 an ambiguous application mutation automatically. Fleet calls are serialized per
 profile with at most eight waiters and retain caller deadlines. Token renewal
@@ -145,7 +163,11 @@ is demand-driven/coalesced; no idle polling or per-session timer is added.
 ## Directional proposals and opaque delivery
 
 An account proposes one client/profile to another, with exact bounded projects,
-operations and expiry. Issuance derives identity from the authenticated session,
+operations and expiry. A complete policy is limited to 12 KiB of JSON, in
+addition to its individual field limits, before publication; this leaves room
+for token and envelope identity bindings. Expired/revoked proposals are retired
+on new proposal admission, allowing the same pair to propose again without
+accumulating historical generations. Issuance derives identity from the authenticated session,
 not request-supplied account or source fields. The target owner separately trusts
 the exact issuer/account and accepts the exact introduced source keys within a
 local project/action ceiling, acknowledging server-account execution authority
@@ -285,6 +307,42 @@ vendor qualification remains distinct. Existing artifact OAuth/email policy is
 not fleet account authority.
 
 ## Resource and verification gates
+
+### Standalone service surface
+
+The service can be constructed with `createFleetService(FleetStore)` without a
+listener. Its HTTP resources are under `/fleet/v0`; this version remains
+unstable. `GET /fleet/v0` explains the authentication boundary and `GET
+/fleet/v0/jwks` publishes only signing public keys. `POST /login` accepts local
+credentials and a profile introduction, returning pending authority rather than
+membership. DPoP-protected `POST /enroll` publishes membership; `POST /refresh`
+rotates refresh authority. `GET /me`, `GET /clients[/:id]`, `DELETE /clients/:id`,
+`GET|POST /relationships`, `GET|DELETE /relationships/:id`, `PUT
+/relationships/:id/envelope`, `POST /relationships/:id/token`, `GET
+/mailbox[/:id]` and `POST /mailbox/:id/ack` expose the bounded control plane.
+Mailbox list responses omit ciphertext; fetch one envelope explicitly.
+Lists accept `cursor` and `limit` (default 20, maximum 50). Oversized replies
+fail with a request for a smaller page. Responses contain no password hashes,
+private keys or another client's refresh capability.
+
+After building the server package, run `node
+packages/server/dist/fleet/main.js --directory PRIVATE_DIR --issuer
+https://HOST:PORT local-account USERNAME`, supplying the password through private
+stdin. This creates or changes that account, invalidating its session families.
+`oidc-account ISSUER SUBJECT NAME` provisions an exact external identity;
+`revoke-client UUID` supports administrator recovery. Revocation keeps old
+sessions/relationships retired; fresh login may create a new client identity for
+that profile and replacement keys, requiring new peer acceptance.
+`rotate-signing-key` retains the previous public key, up to three; explicitly
+`forget-signing-key KID` before exceeding that bound. Cached trust can outlive
+removal as described above.
+
+`serve --tls-cert CERT_FILE --tls-key KEY_FILE` runs the independent HTTPS
+service. An explicit `--fixture-http` permits only loopback HTTP for owned tests.
+There is no forwarded-header trust or implicit TLS proxy deployment mode.
+Administrator commands and serving refuse concurrent directory ownership. No
+listener is started by importing the fleet modules, and the main YA server
+does not start this service automatically.
 
 Bounds apply before expensive work: 64 accounts, 256 clients, 1,024 proposals,
 256 sessions (one family per client), 128 pending basic logins, 64 OIDC flows, 256

@@ -284,12 +284,18 @@ importers:
       http-proxy:
         specifier: ^1.18.1
         version: 1.18.1
+      jose:
+        specifier: 6.2.14
+        version: 6.2.14
       katex:
         specifier: ^0.18.6
         version: 0.18.7
       markdown-it:
         specifier: 15.0.3
         version: 15.0.3
+      oauth4webapi:
+        specifier: 3.8.8
+        version: 3.8.8
       openid-client:
         specifier: 6.8.8
         version: 6.8.8
@@ -3208,8 +3214,8 @@ packages:
   jose@6.2.12:
     resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
-  jose@6.2.2:
-    resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
+  jose@6.2.14:
+    resolution: {integrity: sha512-3JasLuki1NRLQvY4wCoC37KZk4qxoBx2k2aFqLxT84IezqW0bkJKnNtxnZj/Fu1xsQivoc/lytxaRHJoGLjJ1A==}
 
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -5439,7 +5445,7 @@ snapshots:
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
       hono: 4.13.12
-      jose: 6.2.2
+      jose: 6.2.14
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
@@ -7293,7 +7299,7 @@ snapshots:
 
   jose@6.2.12: {}
 
-  jose@6.2.2: {}
+  jose@6.2.14: {}
 
   joycon@3.1.1: {}
 
@@ -7398,7 +7404,7 @@ snapshots:
     dependencies:
       '@types/jsonwebtoken': 9.0.10
       debug: 4.4.3
-      jose: 6.2.2
+      jose: 6.2.12
       limiter: 1.1.5
       lru-cache: 11.2.7
       lru-memoizer: 3.0.0
@@ -7708,7 +7714,7 @@ snapshots:
 
   openid-client@6.8.8:
     dependencies:
-      jose: 6.2.12
+      jose: 6.2.14
       oauth4webapi: 3.8.8
 
   optionator@0.9.4:
