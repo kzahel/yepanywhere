@@ -147,6 +147,11 @@ test("renders a mermaid fence as a diagram and labels other fences", async ({
 
 test("renders a mermaid fence at phone width", async ({ page, baseURL }) => {
   await page.setViewportSize({ width: 375, height: 812 });
+  // Emulate touch from the start, as on a phone: Chromium keeps
+  // `(hover: none)` after emulation ends, and the touch-sized controls it
+  // selects would shift the transcript between the Back check's samples.
+  const touch = await page.context().newCDPSession(page);
+  await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true });
   await openTranscript(page, baseURL);
 
   const diagram = page.locator("[data-ya-code-rendered] svg").first();
@@ -179,56 +184,50 @@ test("renders a mermaid fence at phone width", async ({ page, baseURL }) => {
     .toBeGreaterThan(initialWidth);
 
   // Real Chromium touch input exercises pointer capture, pinch and pan routing.
-  const touch = await page.context().newCDPSession(page);
-  try {
-    await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true });
-    const stage = image.locator("xpath=../../..");
-    const rect = await stage.boundingBox();
-    if (!rect) throw new Error("Missing image stage");
-    const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    const widthBeforePinch = await image.evaluate(
-      (img) => img.getBoundingClientRect().width,
-    );
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchStart",
-      touchPoints: [
-        { id: 1, x: center.x - 35, y: center.y },
-        { id: 2, x: center.x + 35, y: center.y },
-      ],
-    });
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        { id: 1, x: center.x - 100, y: center.y },
-        { id: 2, x: center.x + 100, y: center.y },
-      ],
-    });
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchEnd",
-      touchPoints: [],
-    });
-    await expect
-      .poll(() => image.evaluate((img) => img.getBoundingClientRect().width))
-      .toBeGreaterThan(widthBeforePinch * 2);
-    const beforePan = await stage.evaluate((node) => node.scrollLeft);
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchStart",
-      touchPoints: [{ id: 1, ...center }],
-    });
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [{ id: 1, x: center.x - 65, y: center.y }],
-    });
-    await touch.send("Input.dispatchTouchEvent", {
-      type: "touchEnd",
-      touchPoints: [],
-    });
-    await expect
-      .poll(() => stage.evaluate((node) => node.scrollLeft))
-      .toBeGreaterThan(beforePan + 40);
-  } finally {
-    await touch.detach();
-  }
+  const stage = image.locator("xpath=../../..");
+  const rect = await stage.boundingBox();
+  if (!rect) throw new Error("Missing image stage");
+  const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  const widthBeforePinch = await image.evaluate(
+    (img) => img.getBoundingClientRect().width,
+  );
+  await touch.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [
+      { id: 1, x: center.x - 35, y: center.y },
+      { id: 2, x: center.x + 35, y: center.y },
+    ],
+  });
+  await touch.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [
+      { id: 1, x: center.x - 100, y: center.y },
+      { id: 2, x: center.x + 100, y: center.y },
+    ],
+  });
+  await touch.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect
+    .poll(() => image.evaluate((img) => img.getBoundingClientRect().width))
+    .toBeGreaterThan(widthBeforePinch * 2);
+  const beforePan = await stage.evaluate((node) => node.scrollLeft);
+  await touch.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ id: 1, ...center }],
+  });
+  await touch.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ id: 1, x: center.x - 65, y: center.y }],
+  });
+  await touch.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect
+    .poll(() => stage.evaluate((node) => node.scrollLeft))
+    .toBeGreaterThan(beforePan + 40);
   await recordUiCapture(page, "mermaid-viewer-phone-zoomed-375x812");
   await viewer.getByRole("button", { name: "Fit", exact: true }).click();
   await recordUiCapture(page, "mermaid-viewer-phone-fit-375x812");
