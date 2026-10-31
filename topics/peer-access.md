@@ -276,6 +276,92 @@ credential-generation claims. A fleet secret never enters manual admission.
 The reviewed ceremony, target ceilings and offline revocation bounds are owned
 by the fleet topic; SRP remains the existing authenticated transport.
 
+## Owner UI direction: relay pairing and audit
+
+Maintainer-agreed direction, 2026-10-31. This section describes the next UI
+slice and future topology options; the owner HTTP and transport implementation
+above does not yet provide these screens or guided browser orchestration.
+Authentication, a durable directional grant and a route remain distinct under
+[principals and grants](principals-and-grants.md).
+
+### Connect using an existing owner login
+
+On A, the owner chooses Connect to another server and signs into B using its
+existing browser relay/SRP login, or reuses an authenticated owner connection.
+The Connect action authorizes creating the dedicated A-to-B peer grant and
+importing its credential into A. There is no separate approval request on B:
+authentication as B's owner already authorizes that administration. Scope and
+expiry can be advanced choices. Keep B's owner password in the browser's SRP
+login path; A's backend receives only its dedicated peer credential.
+
+The target grant is created through B's existing owner API over that encrypted
+browser connection. The subsequent peer connection remains restricted to v0
+and cannot create grants for itself. Server UUIDs and the dedicated credential
+bind the pair; neither the human relay username nor a display name becomes
+server identity. Peer credentials keep their existing expiry/revocation rules.
+
+### Inspect both directions on both servers
+
+Both A and B need a peer detail view that distinguishes This server can use
+this peer from This peer can use this server. Show stable IDs, useful names,
+each direction's projects/actions/expiry, configured route, credential origin
+and status. Distinguish recent observed connectivity from untested or stale
+route information; listing peers must not probe every host continuously.
+
+Audit views should explain who initiated pairing and changed access, when it
+changed, which direction was affected, and the outcome. Connect the existing
+session creation/provenance records to sessions created through that peer.
+Additional durable audit fields/events and retention remain part of the UI
+implementation design; a current-policy listing alone is not a change history.
+Secrets and owner passwords are excluded from these views and audit records.
+
+### Preserve pairs across human login changes
+
+Changing the browser relay username or SRP password should preserve established
+peer grants by default. Pairing creates independent authority, not an ongoing
+use of the human login. Offer an explicit choice to also revoke servers allowed
+to control this server, with the affected incoming directions visible. Do not
+silently remove the opposite outgoing directions or equate password rotation
+with disconnecting every pair. Existing browser-login invalidation and live
+owner checks still apply to unfinished enrollment work.
+
+The current peer credential store and dedicated peer relay registration already
+have this separation. Changing the actual peer relay locator is a separate
+reachability change: a retained grant can be valid while its old route no longer
+works. Any future route-update mechanism must authenticate the same server and
+respect explicit relay configuration; it must not silently repoint a peer.
+
+### Optional bidirectional connection and later changes
+
+Connect offers an explicit bidirectional option. It creates A-to-B and B-to-A
+as two independent grants using the owner's authority on both servers. Neither
+direction is inferred from the other. The same peer detail view allows changing
+either direction later, including upgrading a one-way relationship or removing
+one leg while retaining the other. Reuse valid owner logins; require owner
+reauthentication only where needed to apply the change, without introducing a
+second-person approval ceremony or promoting peer execution rights to owner
+administration.
+
+Writes across two servers are not atomic. If only one leg succeeds, show the
+actual one-way result and let the owner finish or remove it. Do not label a
+partial connection bidirectional or silently re-create a revoked grant.
+
+### Future discovery sharing and full mesh
+
+Retain opt-in sharing of newly discovered hosts and possible automatic mesh
+formation as future work, separate from this first UI. Distinguish sharing
+contact/identity information, authorizing new direct grants, and forwarding
+calls transitively. A newly advertised host does not by itself authorize access.
+An optional trusted-group policy could authorize targets to issue new pairwise
+grants as members join; group membership, sharing and revocation semantics still
+need design and must not require a mandatory central service.
+
+Existing grants and secrets are bound to their named source and target; copying
+A's credential to C does not enroll C. Current peer requests remain immediate,
+directional and non-transitive. No onward-routing or automatic grant propagation
+is enabled by this proposal. See the [multi-machine discussion](multi-machine-architecture.md)
+for the broader topology choices.
+
 ## Independent design review closure
 
 Sol 6.1 high and GPT-6 Sol high with Daybreak Blue independently accepted the
