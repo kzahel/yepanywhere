@@ -362,6 +362,18 @@ directional and non-transitive. No onward-routing or automatic grant propagation
 is enabled by this proposal. See the [multi-machine discussion](multi-machine-architecture.md)
 for the broader topology choices.
 
+This non-transitivity describes the API's routing and recorded immediate peer,
+not confinement of unrestricted agents. If A can execute as B's YA OS account,
+A can use B's credentials and access to C while acting as B. If that access also
+allows unrestricted execution on C, A can arrange persistent direct access
+there too. Project/action grants do not isolate full OS-account execution.
+Within such a trusted set, discovery sharing and full-mesh setup can automate
+access already practically available. Separate direct credentials still make
+connections inspectable, attributable and individually revocable; they do not
+prove that authority stops at each recorded edge. Audit should distinguish
+the immediate authenticated peer from the attested original initiator and
+record how a new direct relationship was created.
+
 ## Independent design review closure
 
 Sol 6.1 high and GPT-6 Sol high with Daybreak Blue independently accepted the
