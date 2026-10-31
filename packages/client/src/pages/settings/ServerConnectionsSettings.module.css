@@ -1,0 +1,152 @@
+.root {
+  min-width: 0;
+}
+.host {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-block: 12px;
+  overflow-wrap: anywhere;
+}
+.icon {
+  font-size: 28px;
+  flex: 0 0 auto;
+}
+.muted {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 12px;
+}
+.actions button,
+.credential button,
+.detail button {
+  min-height: 40px;
+}
+.form {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  margin-block: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+.form h3,
+.form p {
+  margin: 0;
+}
+.form label,
+.detail label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.form input:not([type="checkbox"]),
+.form select,
+.detail input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+}
+.form .check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.check input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+.peers {
+  display: grid;
+  gap: 12px;
+  margin-block: 16px;
+}
+.peer {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  min-width: 0;
+}
+.peer .host {
+  margin-top: 0;
+}
+.directions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.detail {
+  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+.detail code {
+  font-weight: 400;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.detail form {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.detail form label {
+  width: 100%;
+}
+.detail h4,
+.detail p {
+  margin: 0;
+}
+.credential {
+  padding-block: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+.credential button {
+  margin-top: 8px;
+}
+.feedback {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.empty {
+  color: var(--text-secondary);
+  padding-block: 12px;
+}
+@media (width <= 480px) {
+  .form {
+    padding: 12px;
+  }
+  .actions button {
+    min-height: 44px;
+  }
+}
+
+.identifier {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}

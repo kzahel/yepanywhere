@@ -162,6 +162,7 @@ function clearSrpHandshakeTimeout(connState: ConnectionState): void {
 function cleanupSrpHandshakeState(connState: ConnectionState): void {
   clearSrpHandshakeTimeout(connState);
   connState.srpSession = null;
+  connState.srpHandshakeCurrent = undefined;
   connState.pendingResumeChallenge = null;
   if (connState.authState !== "authenticated") {
     connState.authState = "unauthenticated";
@@ -692,6 +693,23 @@ export async function handleSrpHello(
     cleanupSrpHandshakeState(connState);
     connState.srpSession = new SrpServerSession();
     connState.username = msg.identity;
+    const handshake = connState.srpSession;
+    connState.srpHandshakeCurrent = () => {
+      if (
+        connState.cleanupStarted ||
+        connState.srpSession !== handshake ||
+        !remoteAccessService.isEnabled()
+      )
+        return false;
+      const current = limitedCredentials
+        ? limitedUsers?.getSrpChallengeInputs(msg.identity)
+        : remoteAccessService.getCredentials();
+      return (
+        remoteAccessService.getUsername() === configuredUsername &&
+        current?.salt === helloCredentials.salt &&
+        current?.verifier === helloCredentials.verifier
+      );
+    };
 
     // Capture connection metadata for session tracking
     connState.browserProfileId = msg.browserProfileId ?? null;
@@ -709,6 +727,11 @@ export async function handleSrpHello(
       B,
     };
     await finishHello();
+    if (!connState.srpHandshakeCurrent?.()) {
+      cleanupSrpHandshakeState(connState);
+      ws.close(4001, "Credentials changed");
+      return;
+    }
     sendSrpMessage(ws, challenge);
     connState.authState = "srp_waiting_proof";
     startSrpHandshakeTimeout(ws, connState);
@@ -750,7 +773,13 @@ export async function handleSrpProof(
   clearSrpHandshakeTimeout(connState);
 
   try {
+    const handshakeCurrent = connState.srpHandshakeCurrent;
     const result = await connState.srpSession.verifyProof(clientA, msg.M1);
+    if (handshakeCurrent && !handshakeCurrent()) {
+      cleanupSrpHandshakeState(connState);
+      ws.close(4001, "Credentials changed");
+      return;
+    }
 
     if (!result) {
       const now = Date.now();
@@ -826,6 +855,13 @@ export async function handleSrpProof(
           origin: connState.originMetadata?.origin,
         },
       );
+      if (handshakeCurrent && !handshakeCurrent()) {
+        await remoteSessionService.deleteSession(sessionId);
+        cleanupSrpHandshakeState(connState);
+        connState.authState = "unauthenticated";
+        ws.close(4001, "Credentials changed");
+        return;
+      }
       connState.sessionId = sessionId;
       console.log("[WS Relay] Session created:", sessionId);
     }

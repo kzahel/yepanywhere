@@ -205,6 +205,15 @@ export function getSettingsCategories(
       description: t("settingsAppsDescription"),
     },
     {
+      id: "server-connections",
+      label: t("settingsServerConnectionsTitle"),
+      description: t("settingsServerConnectionsDescription"),
+      requires: {
+        anyCapability: [SERVER_CAPABILITIES.peerConnections.name],
+        unsupportedMessage: t("serverConnectionsUnsupported"),
+      },
+    },
+    {
       id: "remote",
       label: t("settingsRemoteTitle"),
       description: t("settingsRemoteDescription"),

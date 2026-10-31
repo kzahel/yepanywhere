@@ -9,6 +9,7 @@ export interface PeerPrincipal {
   serverId: string;
   credentialId: string;
   credentialGeneration?: number;
+  allProjects?: true;
   projects: readonly string[];
   operations: readonly Operation[];
   sourceSessionId: string | null;
@@ -30,7 +31,7 @@ export function assertPeerOperation(
 
 export function peerProject(caller: PeerPrincipal, projectId: string) {
   caller.assertActive();
-  return caller.projects.includes(projectId);
+  return caller.allProjects === true || caller.projects.includes(projectId);
 }
 
 export function peerCreator(caller: PeerPrincipal): ApiCreator {

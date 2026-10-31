@@ -1,5 +1,5 @@
+import { localPeerHost } from "./peer-api/connection-contracts.js";
 import { PeerAccessManager } from "./peer-api/manager.js";
-import { PeerAccessStore } from "./peer-api/state.js";
 import { readServerIdentity } from "./core-api/server-identity.js";
 import { revokeHostedPeerAgentApiAccess } from "./sdk/providers/provider-runtime-host.js";
 import "./startupEnv.js";
@@ -1126,32 +1126,28 @@ async function startServer() {
       : idleReapHoursToMs(savedIdleReapHours);
 
   const publicServerId = readServerIdentity(discoverySqlite.getDatabase());
-  let peerAccess: PeerAccessManager | undefined;
-  if (config.peerApiEnabled) {
-    peerAccess = new PeerAccessManager(
-      publicServerId,
-      config.dataDir,
-      (error) => console.error("[Peers] Lease retirement failed:", error),
-    );
-    await peerAccess.initialize();
-  } else if (
-    fs.existsSync(path.join(config.dataDir, "peer-access", "state.json"))
-  ) {
-    // Persist disablement before a future opt-in can reattach retained workers.
-    const stored = new PeerAccessStore(publicServerId, config.dataDir);
-    try {
-      await stored.initialize();
-      const retiredGrantId = stored.read().agentAccess.grantId;
-      await stored.setAgentAccess(false);
-      if (retiredGrantId)
-        await revokeHostedPeerAgentApiAccess(publicServerId, retiredGrantId);
-    } finally {
-      await stored.close();
-    }
-  }
+  const peerAccess = new PeerAccessManager(
+    publicServerId,
+    config.dataDir,
+    (error) => console.error("[Peers] Lease retirement failed:", error),
+    {
+      runtimeControl: {
+        envOverride:
+          process.env.YEP_PEER_API_ENABLED === undefined
+            ? undefined
+            : config.peerApiEnabled,
+      },
+      identity: () =>
+        localPeerHost(
+          publicServerId,
+          serverSettingsService.getSetting("hostIdentity")?.icon,
+        ),
+    },
+  );
+  const { retiredGrantId } = await peerAccess.initialize();
+  if (retiredGrantId)
+    await revokeHostedPeerAgentApiAccess(publicServerId, retiredGrantId);
 
-  // Create the app first (without WebSocket support initially)
-  // We'll add WebSocket routes after setting up WebSocket support
   const {
     app,
     supervisor,

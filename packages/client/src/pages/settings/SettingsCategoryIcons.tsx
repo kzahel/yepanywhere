@@ -55,6 +55,7 @@ export const settingsCategoryEmojiIcons: Record<string, string> = {
   "project-templates": "📑",
   apps: "▦",
   remote: "🌐",
+  "server-connections": "🖧",
   providers: "🔌",
   speech: "🎙️",
   environment: "⚙️",
@@ -77,6 +78,13 @@ export const settingsCategoryIcons: Record<string, ReactNode> = {
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <rect x="14" y="14" width="7" height="7" rx="1" />
+    </Icon>
+  ),
+  "server-connections": (
+    <Icon>
+      <rect x="2" y="3" width="7" height="7" rx="1" />
+      <rect x="15" y="14" width="7" height="7" rx="1" />
+      <path d="M5 10v7h10M18 14V7H9" />
     </Icon>
   ),
   issues: <IssueIcon size={22} />,

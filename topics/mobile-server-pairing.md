@@ -184,8 +184,19 @@ resume credential currently has:
 - a thirty-day absolute lifetime from full SRP login;
 - a maximum of five active sessions per username, with the oldest evicted when
   full SRP creates another; and
-- in-memory-only server storage by default, so a server restart invalidates it
-  unless remote-session persistence is explicitly enabled.
+- persistent server storage by default, so eligible direct and relay logins can
+  resume after a server restart. A saved `persistRemoteSessionsToDisk: false`
+  remains authoritative; disabling persistence deletes the saved resume file
+  and retains credentials only in memory until the server stops.
+
+The default-on setting was authorized on 2026-10-31 to make reconnects usable
+across ordinary server restarts. New profiles and settings documents without
+the key use the new default; existing saved false values are preserved. Resume
+keys are stored privately in `remote-sessions.json`, without storing the SRP
+password. Expiry and revocation still apply. Standalone internal service
+instances remain in-memory unless configured; normal YA startup applies the
+server setting before initializing that service. Dedicated server-to-server
+peer credentials have their own durable store and do not depend on this option.
 
 These limits make the resume session a credential under the durable pairing,
 not the durable pairing itself. If it expires, the paired device remains a

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
   buildYaClientPublicShareBaseUrl,
   DEFAULT_HOST_AWAKE_BATTERY_FLOOR_PERCENT,
@@ -578,6 +579,7 @@ export function RemoteAccessSettings() {
       <div className="settings-group">
         <SettingsItem
           label={t("developmentPersistRemoteTitle")}
+          doc="topics/mobile-server-pairing.md#current-srp-resume-facts"
           description={`${t("developmentPersistRemoteDescriptionPrefix")} remote-sessions.json ${t("developmentPersistRemoteDescriptionSuffix")}`}
           info={
             <>
@@ -593,7 +595,7 @@ export function RemoteAccessSettings() {
           <label className="toggle-switch">
             <input
               type="checkbox"
-              checked={settings?.persistRemoteSessionsToDisk ?? false}
+              checked={settings?.persistRemoteSessionsToDisk ?? true}
               disabled={isLoading}
               onChange={(e) =>
                 void updateSetting(
@@ -684,6 +686,16 @@ export function RemoteAccessSettings() {
           yaClientInfo={yaClientInfo}
         />
       </HideInSettingsSearch>
+      {serverHasCapability(version, "peer-connections") && (
+        <SettingsItem
+          label={t("connectionsPairedServers")}
+          description={t("connectionsPasswordChangesHint")}
+        >
+          <Link className="settings-link" to="/settings/server-connections">
+            {t("settingsServerConnectionsTitle")}
+          </Link>
+        </SettingsItem>
+      )}
       {persistSessionsToggle}
     </SettingsSection>
   );

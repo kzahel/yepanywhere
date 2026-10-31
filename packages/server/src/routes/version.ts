@@ -688,6 +688,7 @@ export interface VersionRouteOptions {
   /** Agent self inspection is enabled, so tabs' session views are collected. */
   agentSessionViewAvailable?: boolean;
   agentApiAvailable?: boolean;
+  peerConnectionsAvailable?: boolean;
   agentAuthRouterAvailable?: boolean;
   /** Whether the operator enabled experimental live worktree monitoring. */
   isLiveWorktreeMonitoringEnabled?: () => boolean;
@@ -764,6 +765,8 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     capabilities.push(SERVER_CAPABILITIES.installedMachineControl.name);
   if (options?.agentSessionViewAvailable)
     capabilities.push(SERVER_CAPABILITIES.agentSessionView.name);
+  if (options?.peerConnectionsAvailable)
+    capabilities.push(SERVER_CAPABILITIES.peerConnections.name);
   if (options?.agentApiAvailable) {
     capabilities.push(SERVER_CAPABILITIES.agentApiBootstrap.name);
     capabilities.push(SERVER_CAPABILITIES.agentApiManagement.name);

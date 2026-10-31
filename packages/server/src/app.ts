@@ -1,3 +1,4 @@
+import { getAuthenticatedSrpTransport } from "./middleware/authenticated-transport.js";
 import type { PeerAccessManager } from "./peer-api/manager.js";
 import { createPeerOwnerBinding } from "./peer-api/owner-proof.js";
 import { createPeerManagementRoutes } from "./peer-api/routes.js";
@@ -2448,6 +2449,7 @@ export function createApp(options: AppOptions): AppResult {
       getLatestVersion: options.getLatestVersion,
       installedMachineControlAvailable: supportsInstalledMachineControl(),
       agentSessionViewAvailable: agentSelfEnabled(),
+      peerConnectionsAvailable: !!options.peerAccess,
       agentApiAvailable: ["darwin", "linux", "win32"].includes(
         process.platform,
       ),
@@ -3250,7 +3252,26 @@ export function createApp(options: AppOptions): AppResult {
     app.use("/v0/*", peerOwner);
     app.route(
       "/api/peers",
-      createPeerManagementRoutes(options.peerAccess, ownerProof, ownerBinding),
+      createPeerManagementRoutes(
+        options.peerAccess,
+        ownerProof,
+        ownerBinding,
+        async (c) => {
+          const context = getAuthenticatedSrpTransport(c.env);
+          if (
+            !context ||
+            !options.remoteSessionService ||
+            !context.isActive?.()
+          )
+            throw new CoreApiError(
+              "forbidden",
+              "Cleanup requires this authenticated owner SRP session",
+              403,
+            );
+          await options.remoteSessionService.deleteSession(context.sessionId);
+          context.closeAfterResponse();
+        },
+      ),
     );
     options.peerAccess.startRoutes();
   }

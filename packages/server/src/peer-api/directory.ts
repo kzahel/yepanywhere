@@ -17,6 +17,7 @@ export interface IncomingPeerGrant {
   serverId: string;
   tokenHash: string;
   generation?: number;
+  allProjects?: true;
   projects: readonly string[];
   operations: readonly Operation[];
   expiresAt: number;
@@ -120,6 +121,9 @@ export class PeerDirectory {
       serverId: grant.serverId,
       credentialId: grant.id,
       credentialGeneration: grant.generation,
+      ...(!grant.fleet && grant.allProjects
+        ? { allProjects: true as const }
+        : {}),
       projects: authority
         ? grant.projects.filter((id) => authority.projects.includes(id))
         : grant.projects,

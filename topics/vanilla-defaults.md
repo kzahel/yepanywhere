@@ -78,6 +78,13 @@ Maintainer has authorized the exact exception.
 
 ## Known Exceptions
 
+**Remote SRP resume persistence** defaults on, authorized by the maintainer on
+2026-10-31 so normal direct/relay logins survive server restarts. Saved opt-outs
+remain authoritative, storage uses the existing private resume-credential file,
+and existing expiry/revocation still apply. This does not persist owner
+passwords or change independent peer credentials. See the
+[resume contract](mobile-server-pairing.md#current-srp-resume-facts).
+
 The **session read/unread shortcuts** ([inbox](inbox.md#readunread-keyboard-actions))
 are always available, authorized on 2026-10-18 after the maintainer requested
 single-key session triage. Unmodified `r` and `u` explicitly set read state for

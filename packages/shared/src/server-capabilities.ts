@@ -15,6 +15,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  peerConnections: {
+    name: "peer-connections",
+    index: CAPABILITY_ID_ALLOCATIONS.peerConnections.id,
+    introducedIn: "0.11.1",
+  },
   agentApiManagement: {
     name: "agent-api-management",
     index: CAPABILITY_ID_ALLOCATIONS.agentApiManagement.id,
@@ -922,6 +927,34 @@ export const SERVER_CAPABILITIES = {
       kind: "permanent",
       reason:
         "Older servers neither store the setting nor accept agent bearer tokens.",
+    },
+  },
+  peerConnections: {
+    id: CAPABILITY_ID_ALLOCATIONS.peerConnections.id,
+    name: "peer-connections",
+    kind: "permanent",
+    area: "remoteAccess",
+    introducedIn: "0.11.1",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.peerConnections.id,
+    },
+    description:
+      "Owner-only Server Connections settings, server-side SRP pairing, authenticated host identity and directional audit.",
+    clientFallback:
+      "Hide Server Connections and send no peer requests; typed URLs show update guidance.",
+    serverContract: {
+      routes: [
+        "GET /api/peers/connections",
+        "POST /api/peers/connections/connect",
+      ],
+      requestFields: [],
+      responseFields: ["identity", "enabled", "peers", "audit"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Requires dedicated peer credentials and live owner setup authorization.",
     },
   },
   agentApiManagement: {

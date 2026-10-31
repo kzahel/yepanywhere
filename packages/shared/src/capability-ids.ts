@@ -858,6 +858,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "agent-api-management",
     introducedIn: "0.11.1",
   },
+  peerConnections: {
+    id: 140,
+    direction: "server",
+    name: "peer-connections",
+    introducedIn: "0.11.1",
+  },
 } as const satisfies Record<string, CapabilityIdAllocation>;
 
 export type CapabilityBitset = readonly (readonly [

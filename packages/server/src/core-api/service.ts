@@ -256,7 +256,10 @@ export class CoreApi {
         return {
           principal: describePrincipal(caller),
           scope:
-            caller.kind === "superuser" ? "all-projects" : "project-grants",
+            caller.kind === "superuser" ||
+            (caller.kind === "peer" && caller.allProjects)
+              ? "all-projects"
+              : "project-grants",
           operations: operationIds.filter((id) => {
             if (caller.kind === "peer")
               return (

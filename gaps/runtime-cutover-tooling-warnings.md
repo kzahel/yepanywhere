@@ -41,3 +41,18 @@ module.registerHooks() instead.` during tool startup; all 18 scenarios pass.
 This comes from the current Node/loader toolchain. Replacing that loader across
 the shared E2E infrastructure needs separate runtime compatibility validation;
 no warning filter or dependency churn was added to the artifact feature.
+
+
+## Server Connections verification — 2026-10-31
+
+The console scan remains within its 108-site warning budget (no new chatty
+call sites). Cleaning these unrelated transport/rendering/device diagnostics
+still needs the owning-surface review above. Connection/auth focused tests and
+the new page's lint pass without runtime or lint warnings. The whole workspace
+retains the documented SQLite experimental notices and expected negative-path
+service logs; no global suppression or budget increase was added.
+
+The broader client run also retains two jsdom “navigation (except hash changes)”
+notices already present in the pre-Connections peer-access workspace logs. They
+are unrelated to the browser-based new page, whose interactions run in Chromium;
+no global jsdom/navigation suppression was added.

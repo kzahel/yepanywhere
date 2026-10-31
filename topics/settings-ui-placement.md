@@ -212,7 +212,7 @@ UI should state directly.
   credentials, not live sockets and not relay-only connections. Revoke prevents
   that credential from reconnecting; it does not terminate an already-open
   socket. Persist remote login credentials controls whether eligible credentials
-  survive a server restart.
+  survive a server restart. Persistence defaults on; saved opt-outs remain off.
 - **Providers → Compact context early.** Off means YA sends no threshold or
   `/compact` request and leaves provider defaults unchanged. A percentage asks
   YA to initiate compaction at that context-window threshold.
@@ -566,3 +566,11 @@ change and should be documented when it lands.
   Because the auto-open decision is read at the *ready* transition (after a long
   await), read the live toggle value from a ref — like the abort ref — so a flip
   during generation is honored.
+
+
+Server Connections is an owner-only, `peer-connections` capability-gated category
+beside Local/Remote Access. It owns server identity, direct/relay pairing,
+independent control directions and their audit. Supported-but-disabled profiles
+show enablement; absent support hides list/search and typed URLs show update
+guidance without mounting the pane. Remote Access retains the human login and
+links to Server Connections for separately revoking incoming server control.

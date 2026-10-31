@@ -121,7 +121,7 @@ export interface ServerSettings {
   toolResultMediaPreservation: ToolResultMediaPreservation;
   /** Whether clients should register the service worker (for push notifications) */
   serviceWorkerEnabled: boolean;
-  /** Whether remote SRP resume sessions should be persisted to disk (default: false/in-memory only) */
+  /** Whether remote SRP resume sessions survive restarts (default: true). */
   persistRemoteSessionsToDisk: boolean;
   /** Whether the server is requesting browser clients to upload diagnostic logs */
   clientLogCollectionRequested: boolean;
@@ -351,7 +351,7 @@ export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
   projectDirectoryStorage: "app-data",
   toolResultMediaPreservation: "on-demand",
   serviceWorkerEnabled: true,
-  persistRemoteSessionsToDisk: false,
+  persistRemoteSessionsToDisk: true,
   clientLogCollectionRequested: false,
   approvalAuditLogEnabled: false,
   agentServerAccessEnabled: false,

@@ -1,15 +1,85 @@
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
 import { createSettingsRoutes } from "../../src/routes/settings.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
+import { RemoteSessionService } from "../../src/remote-access/RemoteSessionService.js";
 import * as directorySync from "../../src/utils/syncDirectory.js";
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("settings persistence through the API", () => {
+  it.each(["fresh", "existing-unset"])(
+    "restores SRP sessions by default and preserves an API opt-out for %s settings",
+    async (profile) => {
+      const dataDir = await mkdtemp(join(tmpdir(), "ya-resume-default-"));
+      let remote = new RemoteSessionService({ dataDir });
+      try {
+        if (profile === "existing-unset")
+          await writeFile(
+            join(dataDir, "server-settings.json"),
+            JSON.stringify({
+              version: 2,
+              settings: { serviceWorkerEnabled: true },
+            }),
+          );
+        const settings = new ServerSettingsService({ dataDir });
+        await settings.initialize();
+        // Apply the product setting before initialization, as normal startup does.
+        await remote.setDiskPersistenceEnabled(
+          settings.getSetting("persistRemoteSessionsToDisk"),
+        );
+        await remote.initialize();
+        const id = await remote.createSession(
+          "owner",
+          new Uint8Array(32).fill(42),
+        );
+        remote.shutdown();
+        await remote.waitForPendingWrites();
+        remote = new RemoteSessionService({ dataDir });
+        await remote.setDiskPersistenceEnabled(
+          settings.getSetting("persistRemoteSessionsToDisk"),
+        );
+        await remote.initialize();
+        expect(remote.getSession(id)?.username).toBe("owner");
+
+        const routes = createSettingsRoutes({
+          serverSettingsService: settings,
+          onRemoteSessionPersistenceChanged: (enabled) =>
+            remote.setDiskPersistenceEnabled(enabled),
+        });
+        const response = await routes.request("/", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ persistRemoteSessionsToDisk: false }),
+        });
+        expect(response.status).toBe(200);
+        expect(remote.getSession(id)?.username).toBe("owner");
+        await expect(
+          stat(join(dataDir, "remote-sessions.json")),
+        ).rejects.toMatchObject({ code: "ENOENT" });
+        remote.shutdown();
+        await remote.waitForPendingWrites();
+
+        const reloaded = new ServerSettingsService({ dataDir });
+        await reloaded.initialize();
+        expect(reloaded.getSetting("persistRemoteSessionsToDisk")).toBe(false);
+        remote = new RemoteSessionService({ dataDir });
+        await remote.setDiskPersistenceEnabled(
+          reloaded.getSetting("persistRemoteSessionsToDisk"),
+        );
+        await remote.initialize();
+        expect(remote.getSession(id)).toBeNull();
+      } finally {
+        remote.shutdown();
+        await remote.waitForPendingWrites();
+        await rm(dataDir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it.each([false, true])(
     "applies and reloads settings with directory I/O failure=%s",
     async (failSync) => {

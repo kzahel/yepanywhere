@@ -122,6 +122,11 @@ const CATEGORY_COMPONENTS: Record<string, React.ComponentType> = {
   apps: lazy(() =>
     import("./AppsSettings").then((m) => ({ default: m.AppsSettings })),
   ),
+  "server-connections": lazy(() =>
+    import("./ServerConnectionsSettings").then((m) => ({
+      default: m.ServerConnectionsSettings,
+    })),
+  ),
   remote: lazy(() =>
     import("./RemoteAccessSettings").then((m) => ({
       default: m.RemoteAccessSettings,

@@ -30,6 +30,7 @@ function fakeSocket() {
 }
 
 const remoteAccess = {
+  isEnabled: () => true,
   getCredentials: () => ({
     // A well-formed hex salt and verifier; the handshake only needs parseable
     // values to compute a challenge.

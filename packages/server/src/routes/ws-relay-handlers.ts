@@ -177,6 +177,7 @@ export interface ConnectionState extends WsTransportAuthState {
   connectionId: string;
   /** SRP session during handshake */
   srpSession: SrpServerSession | null;
+  srpHandshakeCurrent?: () => boolean;
   /** Long-lived base key derived from SRP/session key for resume proofs. */
   baseSessionKey: Uint8Array | null;
   /**

@@ -1689,3 +1689,14 @@ export {
   routerCliModelTarget,
   sanitizeRouterCliModels,
 } from "./agent-auth-router.js";
+
+export type {
+  PeerServerIdentity,
+  PeerConnectionRoute,
+  PeerConnectionDirection,
+  PeerConnectionEntry,
+  PeerConnectionAudit,
+  PeerConnectionsResponse,
+  PeerConnectionSetupRequest,
+  PeerConnectionSetupResponse,
+} from "./peer-connections.js";

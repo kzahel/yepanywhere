@@ -56,3 +56,16 @@ retry or timeout changed. Evidence: ignored
 `tasks/http-api-v0/167-phase5-root-final-tests.log` (125.36 s server run).
 All new API/native lifecycle regressions passed in that run. The workspace
 result remains red; no isolated watcher rerun replaces it.
+
+
+2026-10-31: final Server Connections workspace verification on macOS /
+Node 22.23.3 missed the second delivery in the top-level prepared-image case
+at line 231 (1 observed, 2 expected), after stopping/restarting the observer
+and replacing the already-observed screenshot. This extends the symptom
+beyond nested files. 6,692 server tests passed, one failed, 74 skipped; all
+7,063 client tests passed. The preceding workspace run passed all 6,691 then
+present server tests. The changed connection/auth tests, source and UI do not
+touch RendezWatchService, RendezObserver or this watcher fixture. No watcher
+source, assertion, timeout or retries changed. Evidence is retained in ignored
+`tasks/server-connections/tests-commit.log`; the earlier green run is
+`all-tests-final.log`. The latest run remains red, not replaced by a retry.

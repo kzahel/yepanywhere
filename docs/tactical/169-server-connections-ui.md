@@ -1,7 +1,8 @@
 # Server Connections settings and owner-assisted pairing
 
-Status: implementation authorized, 2026-10-31. Write the plan, review the
-security/correctness boundary, implement end to end, review UI and commit.
+Status: implemented and independently reviewed, 2026-10-31. The plan was
+committed before implementation. Current behavior is owned by
+[peer access](../../topics/peer-access.md#server-connections-settings).
 
 ## Intent and existing work
 
@@ -60,13 +61,23 @@ durable. Finish/review the paused default-change edits as a coherent slice.
 
 ## 2 — A short-lived owner SRP client on the server
 
+Independent review selected the ordinary owner SRP exchange unchanged. A
+retains no owner password or resume key. B applies its existing persistence and
+five-session policy during login; pairing can evict the oldest saved login, and
+a crash/lost reply can leave B-side resume state until normal expiry/revocation.
+State that once in the form. Cleanup attempts to revoke only this authenticated
+setup session with its own bounded lifetime; report cleanup confirmed or
+unconfirmed separately from pairing. Browser-slot refinement is future work,
+not a new PAKE/purpose-binding prerequisite. There is no restricted owner-login
+authority claim and no new SRP message/proof construction.
+
 Reuse maintained SRP and NaCl implementations and the existing owner protocol
 for direct /api/ws or relay owner connections. Do not route setup through a
 second browser connection. Existing owner SRP configuration is required on B;
 a direct connection does not depend on a live relay. Keep browser protocol
 compatibility and its previous-client grace paths unchanged.
 
-Verify M2 and authenticated server metadata before any owner mutation. Carry
+Verify M2 and authenticated server metadata before any peer/settings mutation. Carry
 normal encrypted sequence and request correlation, bounded buffers/body/header
 sizes, bounded concurrent setup/signing work, cancellation and fixed request/
 handshake lifetimes. No background reconnect, owner resume-key retention or
@@ -96,7 +107,11 @@ replacement/renewal semantics instead of silently exporting another secret.
 Offer Also allow B to control this server, off unless explicitly selected.
 Create and verify the reverse grant independently. Reuse an explicitly
 configured peer relay or configure a separate registration at the chosen relay;
-never reuse the browser registration identity or password. Direct reverse
+never reuse the browser registration identity or password. There is one peer
+relay per profile: use an existing registration even if it differs from the
+owner-login relay, and configure one only when absent and explicitly chosen.
+A conflict yields a clear partial/reverse-route result instead of replacement.
+Direct reverse
 access needs an explicit reachable return address when no configured relay is
 available. Do not guess that localhost or the hosted UI origin reaches A.
 
@@ -160,3 +175,57 @@ review. Reconcile/fix material findings and re-review before committing. Run
 lint, format:check, typecheck, test and applicable CSS/console checks; typecheck
 and tests run sequentially. Commit coherent reviewed slices on the current
 branch with required model attribution; no push/deployment is implied.
+
+
+## Implementation and qualification record
+
+Delivered owner-only Server Connections settings, authenticated host metadata,
+ordinary server-side owner SRP, direct/relay enrollment, independently renewable
+control directions, runtime enablement, current/future-project trusted grants,
+nonsecret audit and recent session attribution. SRP disk resume defaults on for
+fresh/unset profiles and preserves saved opt-outs. The existing owner password,
+peer credentials and optional fleet identity remain distinct authenticators.
+
+Both requested reviewers ran through the existing YA API: actual `gpt-6.1-sol`
+with high reasoning and `gpt-6-sol` with high reasoning and Daybreak Blue.
+They approved final source and captured UI after fixing original/reverse source
+policy preservation, cross-request policy revision fences, session-specific
+cleanup, relay readiness before rotation, exact-generation removal and stale
+activity rendering. No new PAKE/purpose protocol was added.
+
+Qualification uses isolated profiles and real SRP, production direct WebSocket
+admission and an owned real relay. It covers one/two-way setup, independent
+renewal, scoped-policy preservation, future projects, wrong/self identity,
+password independence, old-password pending proofs, source logout/disable,
+partial reverse failure and native create/message/follow with trusted provenance.
+The dedicated connection tests also protect capacity recovery after malformed
+addresses. Broader existing core tests retain malformed, persistence, selected
+credential, revocation and lost-reply boundary coverage.
+
+An earlier full non-Android workspace run passed: 6691 server tests, 7063 client tests,
+962 shared, 139 relay and 45 push-broker tests, plus the other workspace packages.
+The final added policy/handshake regressions pass in the focused 11-case
+connection suite. The final focused core/auth/settings run passes 116 tests in
+20 files (15.11 seconds wall time); retained connection scenarios cover real
+protocol, persistence and policy boundaries without provider/scanner startup.
+The latest full run has 6692 server passes and one known
+[Rendez watcher failure](../../gaps/rendez-nested-watch-event-after-restart.md)
+at the second prepared-image delivery after restart; all 7063 client tests pass.
+It remains recorded as failed, with no retries, watcher changes or wider budget. Lint, formatting, typechecking, CSS ownership and console-budget
+checks pass; the unchanged console baseline is recorded in the existing
+[runtime warning gap](../../gaps/runtime-cutover-tooling-warnings.md).
+
+Two focused browser cases pass: independent direction requests and typed-URL
+compatibility, with no unsupported peer request on older servers. Sequential
+real typing is checked with 50 visible peers/64 total and concurrent metadata
+updates, requiring every character and measured acknowledgement within 100 ms.
+Desktop 1000×600 and phone 375×812 page/form captures were produced through the
+artifact facility, inspected individually and reviewed. Local evidence is under
+`.artifacts/ui-testing/2026-10-31-server-connections-final/` and ignored
+`tasks/server-connections/`. The primary server/provider host was not restarted.
+
+Windows qualification remains deferred as requested; this POSIX/Chromium run
+makes no new Windows acceptance claim. Rich audit pagination, in-flow bulk
+revocation alongside human password changes, fleet/read-only UI and mesh remain
+follow-ups. Remote Access currently explains password independence and links to
+explicit incoming revocation; local Stop use explicitly leaves the remote grant.

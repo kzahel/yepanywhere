@@ -1,3 +1,8 @@
+import {
+  localPeerHost,
+  recordPeerAudit,
+  type PeerHost,
+} from "./connection-contracts.js";
 import { z } from "zod";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -35,6 +40,7 @@ export class PeerAccessManager {
   private receiver?: ReturnType<typeof createPeerReceiver>;
   private router?: PeerApiRouter;
   private outbound?: PeerOutboundStore;
+  private receipts?: ApiReceiptStore;
   private projects?: CoreApiSources["projects"];
   private closePromise?: Promise<void>;
   private closed = false;
@@ -70,8 +76,11 @@ export class PeerAccessManager {
     fleetOptions: {
       allowInsecureLoopback?: boolean;
       fetch?: typeof fetch;
+      runtimeControl?: { envOverride?: boolean };
+      identity?: () => PeerHost;
     } = {},
   ) {
+    this.connectionOptions = fleetOptions;
     this.store = new PeerAccessStore(serverId, dataDir);
     this.fleetAccess = new FleetPeerAccess(this, fleetOptions);
     this.store.observe(
@@ -79,17 +88,58 @@ export class PeerAccessManager {
       () => this.failClosed(),
     );
   }
-  async initialize() {
-    await this.store.initialize();
-    await this.fleetAccess.initialize();
-    this.runtime = await PeerSrpRuntime.create({
+  private readonly connectionOptions: {
+    runtimeControl?: { envOverride?: boolean };
+    identity?: () => PeerHost;
+  };
+  private runtimeReady?: Promise<void>;
+  identity() {
+    return this.connectionOptions.identity?.() ?? localPeerHost(this.serverId);
+  }
+  private enabledIn(state: Readonly<PeerAccessState>) {
+    return this.connectionOptions.runtimeControl
+      ? (this.connectionOptions.runtimeControl.envOverride ??
+          state.enabled ??
+          false)
+      : true;
+  }
+  isEnabled() {
+    return this.enabledIn(this.store.read());
+  }
+  environmentOverride() {
+    return this.connectionOptions.runtimeControl?.envOverride ?? null;
+  }
+  async setEnabled(enabled: boolean, admit?: () => void) {
+    const override = this.environmentOverride();
+    if (override !== null && override !== enabled)
+      throw new CoreApiError(
+        "forbidden",
+        "Server connections are controlled by YEP_PEER_API_ENABLED",
+        403,
+      );
+    admit?.();
+    if (enabled) await this.ensureRuntime();
+    await this.store.mutate((next) => {
+      admit?.();
+      next.enabled = enabled;
+      if (!enabled) next.agentAccess = { enabled: false, grantId: null };
+      recordPeerAudit(next, enabled ? "enabled" : "disabled", null);
+    });
+    await Promise.allSettled(this.pendingRetirements);
+  }
+  private ensureRuntime() {
+    this.runtimeReady ??= PeerSrpRuntime.create({
       serverId: this.serverId,
       decoySecret: this.store.read().decoySecret,
       budget: this.budget,
       lookup: (username) =>
-        this.store.read().incoming.find((peer) => peer.username === username),
+        this.isEnabled()
+          ? this.store
+              .read()
+              .incoming.find((peer) => peer.username === username)
+          : undefined,
       handle: async (request, context) => {
-        if (!this.receiver || this.closed || this.faulted)
+        if (!this.isEnabled() || !this.receiver || this.closed || this.faulted)
           throw new CoreApiError(
             "peer_state_unavailable",
             "Peer API is unavailable",
@@ -97,8 +147,26 @@ export class PeerAccessManager {
           );
         return this.receiver.fetch(request, { [PEER_SRP_CONTEXT]: context });
       },
+    }).then((runtime) => {
+      if (this.closed || this.faulted) {
+        runtime.close();
+        return;
+      }
+      this.runtime = runtime;
     });
+    return this.runtimeReady;
+  }
+  async initialize() {
+    await this.store.initialize();
+    await this.fleetAccess.initialize();
+    const retiredGrantId = !this.isEnabled()
+      ? this.store.read().agentAccess.grantId
+      : null;
+    if (!this.isEnabled() && this.store.read().agentAccess.enabled)
+      await this.store.setAgentAccess(false);
+    if (this.isEnabled()) await this.ensureRuntime();
     this.apply(this.store.read() as PeerAccessState);
+    return { retiredGrantId };
   }
   bind(
     core: CoreApi,
@@ -113,6 +181,7 @@ export class PeerAccessManager {
         503,
       );
     this.projects = projects;
+    this.receipts = receipts;
     this.outbound = new PeerOutboundStore(database);
     this.router = new PeerApiRouter(
       core,
@@ -136,8 +205,42 @@ export class PeerAccessManager {
     this.applyOutgoing(this.store.read() as PeerAccessState);
     return this.router;
   }
+  connectionActivity(serverId: string) {
+    return {
+      incoming: this.receipts?.forPeer(serverId) ?? [],
+      outgoing: this.outbound?.forPeer(serverId) ?? [],
+    };
+  }
+  async waitForRelay(signal: AbortSignal) {
+    const deadline = Date.now() + 5000;
+    while (this.relay.getState().status !== "waiting") {
+      signal.throwIfAborted();
+      if (
+        !this.isEnabled() ||
+        Date.now() >= deadline ||
+        this.relay.getState().status === "rejected"
+      )
+        throw new CoreApiError(
+          "peer_unavailable",
+          "The dedicated peer relay registration is not ready; inspect this server before retrying",
+          503,
+        );
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => {
+          clearTimeout(timer);
+          reject(signal.reason);
+        };
+        const timer = setTimeout(() => {
+          signal.removeEventListener("abort", abort);
+          resolve();
+        }, 25);
+        signal.addEventListener("abort", abort, { once: true });
+      });
+    }
+  }
   agentAccess() {
-    if (this.closed || this.faulted) return { enabled: false };
+    if (this.closed || this.faulted || !this.isEnabled())
+      return { enabled: false };
     const policy = this.store.read().agentAccess;
     return { enabled: policy.enabled, grantId: policy.grantId ?? undefined };
   }
@@ -148,10 +251,14 @@ export class PeerAccessManager {
     this.outbound?.remap(oldId, newId);
   }
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer) {
-    return this.runtime?.handleUpgrade(request, socket, head) ?? false;
+    return (
+      this.isEnabled() &&
+      (this.runtime?.handleUpgrade(request, socket, head) ?? false)
+    );
   }
   startRoutes() {
-    if (!this.receiver || this.closed || this.faulted) return;
+    if (!this.isEnabled() || !this.receiver || this.closed || this.faulted)
+      return;
     const config = this.store.read().relay;
     if (!config?.enabled) return;
     this.relay.start({
@@ -166,6 +273,29 @@ export class PeerAccessManager {
   }
   private apply(next: PeerAccessState, previous?: PeerAccessState) {
     if (this.closed || this.faulted) return;
+    if (previous && previous.agentAccess.grantId !== next.agentAccess.grantId) {
+      this.router?.revokeAgentAccess();
+      if (previous.agentAccess.grantId && this.onPeerAccessRevoked) {
+        // The durable generation already denies old requests. Physical retirement
+        // also removes old private tokens, without holding the policy writer.
+        const pending = this.onPeerAccessRevoked(previous.agentAccess.grantId)
+          .catch(this.onError)
+          .finally(() => this.pendingRetirements.delete(pending));
+        this.pendingRetirements.add(pending);
+      }
+    }
+    if (!this.isEnabled()) {
+      for (const peer of [...(previous?.incoming ?? []), ...next.incoming]) {
+        this.directory.revoke(peer.id);
+        this.runtime?.revoke(peer.id);
+      }
+      for (const peer of [...(previous?.outgoing ?? []), ...next.outgoing])
+        this.router?.revoke(peer.invitation.targetServerId);
+      this.relay.stop();
+      return;
+    }
+    if (previous && !this.enabledIn(previous) && this.enabledIn(next))
+      previous = undefined;
     for (const old of previous?.incoming ?? []) {
       const current = next.incoming.find((p) => p.id === old.id);
       if (!current || current.generation !== old.generation) {
@@ -185,22 +315,12 @@ export class PeerAccessManager {
         serverId: peer.sourceServerId,
         generation: peer.generation,
         tokenHash: peer.tokenHash,
+        ...(peer.allProjects ? { allProjects: true as const } : {}),
         projects: peer.projects,
         operations: peer.operations,
         expiresAt: peer.expiresAt,
         ...(peer.origin === "fleet" ? { fleet: peer.binding } : {}),
       });
-    }
-    if (previous && previous.agentAccess.grantId !== next.agentAccess.grantId) {
-      this.router?.revokeAgentAccess();
-      if (previous.agentAccess.grantId && this.onPeerAccessRevoked) {
-        // The durable generation already denies old requests. Physical retirement
-        // also removes old private tokens, without holding the policy writer.
-        const pending = this.onPeerAccessRevoked(previous.agentAccess.grantId)
-          .catch(this.onError)
-          .finally(() => this.pendingRetirements.delete(pending));
-        this.pendingRetirements.add(pending);
-      }
     }
     this.applyOutgoing(next, previous);
     if (
@@ -212,7 +332,7 @@ export class PeerAccessManager {
     }
   }
   private applyOutgoing(next: PeerAccessState, previous?: PeerAccessState) {
-    if (!this.router) return;
+    if (!this.router || !this.isEnabled()) return;
     const selected = (state: PeerAccessState) =>
       state.outgoing.filter(
         (p) =>
@@ -257,6 +377,11 @@ export class PeerAccessManager {
     const state = this.store.read();
     return {
       serverId: this.serverId,
+      identity: this.identity(),
+      enabled: this.isEnabled(),
+      environmentOverride: this.environmentOverride(),
+      connections: state.connections ?? [],
+      audit: state.audit ?? [],
       agentAccess: state.agentAccess,
       incoming: state.incoming.map(
         ({
@@ -264,6 +389,7 @@ export class PeerAccessManager {
           sourceServerId,
           generation,
           projects,
+          allProjects,
           operations,
           expiresAt,
           origin,
@@ -272,13 +398,22 @@ export class PeerAccessManager {
           sourceServerId,
           generation,
           projects,
+          allProjects,
           operations,
           expiresAt,
           origin,
         }),
       ),
       outgoing: state.outgoing.map(
-        ({ invitation, operations, allowAgentSessions, route, origin }) => ({
+        ({
+          invitation,
+          operations,
+          allProjects,
+          allowAgentSessions,
+          route,
+          origin,
+        }) => ({
+          allProjects: allProjects === true,
           origin,
           selected:
             state.selected[invitation.targetServerId] ===
@@ -333,11 +468,41 @@ export class PeerAccessManager {
       );
     signal?.throwIfAborted();
   }
-  async issue(value: unknown, rotateId?: string, signal?: AbortSignal) {
+  async issue(
+    value: unknown,
+    rotateId?: string,
+    signal?: AbortSignal,
+    admit?: () => void,
+    identity?: PeerHost,
+    operationId?: string,
+    initiatingServerId?: string,
+  ) {
+    const enabledAdmission = () => {
+      admit?.();
+      if (!this.isEnabled())
+        throw new CoreApiError(
+          "forbidden",
+          "Server connections are disabled",
+          403,
+        );
+    };
+    enabledAdmission();
     const input = rotateId
       ? rotatePeerRequest.parse(value)
       : incomingPeerRequest.parse(value);
     const revision = this.store.currentRevision();
+    if (input.allProjects) {
+      signal?.throwIfAborted();
+      return this.store.issue(
+        input,
+        rotateId,
+        revision,
+        enabledAdmission,
+        identity,
+        operationId,
+        initiatingServerId,
+      );
+    }
     if (!this.projects)
       throw new CoreApiError(
         "catalog_not_ready",
@@ -358,9 +523,34 @@ export class PeerAccessManager {
         projects.catalog?.complete === false ? 503 : 404,
       );
     signal?.throwIfAborted();
-    return this.store.issue(input, rotateId, revision);
+    return this.store.issue(
+      input,
+      rotateId,
+      revision,
+      enabledAdmission,
+      identity,
+      operationId,
+      initiatingServerId,
+    );
   }
-  async importOutgoing(value: unknown, signal?: AbortSignal) {
+  async importOutgoing(
+    value: unknown,
+    signal?: AbortSignal,
+    admit?: () => void,
+    identity?: PeerHost,
+    label?: string,
+    operationId?: string,
+  ) {
+    const enabledAdmission = () => {
+      admit?.();
+      if (!this.isEnabled())
+        throw new CoreApiError(
+          "forbidden",
+          "Server connections are disabled",
+          403,
+        );
+    };
+    enabledAdmission();
     const input = outgoingPeerRequest.parse(value),
       invitation = input.invitation;
     if (
@@ -402,12 +592,25 @@ export class PeerAccessManager {
           502,
         );
       signal?.throwIfAborted();
-      await this.store.importOutgoing(input, revision);
+      await this.store.importOutgoing(
+        {
+          ...input,
+          operations: input.operations.filter((op) =>
+            access.operations.includes(op),
+          ),
+        },
+        revision,
+        enabledAdmission,
+        identity,
+        label,
+        operationId,
+        access.scope === "all-projects",
+      );
     } finally {
       this.preflights--;
     }
   }
-  async setAgentAccess(value: unknown) {
+  async setAgentAccess(value: unknown, admit?: () => void) {
     const { enabled } = z
       .object({ enabled: z.boolean() })
       .strict()
@@ -420,7 +623,13 @@ export class PeerAccessManager {
       );
     this.policyChanges++;
     try {
-      await this.store.setAgentAccess(enabled);
+      if (enabled && !this.isEnabled())
+        throw new CoreApiError(
+          "forbidden",
+          "Server connections are disabled",
+          403,
+        );
+      await this.store.setAgentAccess(enabled, admit);
       await Promise.allSettled(this.pendingRetirements);
     } finally {
       this.policyChanges--;

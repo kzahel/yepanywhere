@@ -10,6 +10,23 @@ import { CoreApiError } from "../core-api/errors.js";
 /** Durable intent before network I/O. Stores hashes and outcomes, never prompt bodies. */
 export class PeerOutboundStore {
   private readonly statements = new Map<string, SqliteStatement>();
+  forPeer(serverId: string) {
+    return this.statement(
+      "SELECT record_json FROM peer_api_outbound WHERE destination_server_id = ? AND json_extract(record_json, '$.operation') = 'createSession' ORDER BY json_extract(record_json, '$.createdAt') DESC, id DESC LIMIT 20",
+    )
+      .all<{ record_json: string }>(serverId)
+      .map((row) => {
+        const record = outboundSchema.parse(JSON.parse(row.record_json));
+        return {
+          id: record.id,
+          sessionId: record.destinationSessionId,
+          projectId: record.receipt?.projectId ?? null,
+          createdAt: record.createdAt,
+          state: record.state,
+          sourceSessionId: record.sourceSessionId,
+        };
+      });
+  }
   constructor(private readonly database: SqliteDatabase) {}
   private statement(sql: string) {
     let statement = this.statements.get(sql);

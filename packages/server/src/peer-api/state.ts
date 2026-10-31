@@ -1,4 +1,11 @@
 import {
+  peerConnectionMetadataSchema,
+  peerAuditSchema,
+  recordPeerAudit,
+  rememberPeer,
+  type PeerHost,
+} from "./connection-contracts.js";
+import {
   fleetPeerBindingSchema,
   fleetCredentialsSchema,
   profileKeysSchema,
@@ -71,6 +78,7 @@ export type PeerRoute = z.infer<typeof peerRouteSchema>;
 export const incomingPeerRequest = z
   .object({
     sourceServerId: publicUuid,
+    allProjects: z.literal(true).optional(),
     projects: z.array(boundedId).max(64),
     operations: ops.describe(
       "Explicit resource operations. server/access/capabilities are included; session is required for history, receipts and commands.",
@@ -118,13 +126,17 @@ const incomingSchema = z
     salt: hex,
     verifier: hex,
     tokenHash: z.string().regex(/^[a-f0-9]{64}$/),
+    allProjects: z.literal(true).optional(),
     projects: z.array(boundedId).max(64),
     operations: ops,
     expiresAt: expiration,
   })
   .strict();
 
-const outgoingSchema = outgoingPeerRequest.omit({ replace: true }).strict();
+const outgoingSchema = outgoingPeerRequest
+  .omit({ replace: true })
+  .extend({ allProjects: z.literal(true).optional() })
+  .strict();
 
 export const peerRelayRequest = z
   .object({
@@ -223,6 +235,9 @@ export const fleetOutboxSchema = z
 const stateSchema = legacyStateBase
   .extend({
     version: z.literal(2),
+    enabled: z.boolean().optional(),
+    connections: z.array(peerConnectionMetadataSchema).max(128).optional(),
+    audit: z.array(peerAuditSchema).max(512).optional(),
     incoming: z.array(storedIncomingSchema).max(64),
     outgoing: z.array(storedOutgoingSchema).max(128),
     selected: z.record(publicUuid, publicUuid),
@@ -253,6 +268,10 @@ const stateSchema = legacyStateBase
       );
     if (
       state.agentAccess.enabled !== Boolean(state.agentAccess.grantId) ||
+      !unique((state.connections ?? []).map((p) => p.serverId)) ||
+      (state.connections ?? []).some(
+        (p) => p.identity && p.identity.serverId !== p.serverId,
+      ) ||
       !unique(state.incoming.map((p) => p.id)) ||
       !unique(state.incoming.map((p) => `${p.sourceServerId}/${p.origin}`)) ||
       !unique(state.incoming.map((p) => p.tokenHash)) ||
@@ -268,6 +287,7 @@ const stateSchema = legacyStateBase
           p.username !== `peer-${p.id}` ||
           (p.origin === "fleet" &&
             (!validBinding(p.binding) ||
+              p.allProjects === true ||
               p.binding.source.profileId !== p.sourceServerId ||
               p.binding.target.profileId !== state.serverId ||
               p.expiresAt > p.binding.policy.expiresAt ||
@@ -284,6 +304,7 @@ const stateSchema = legacyStateBase
           p.invitation.targetServerId === state.serverId ||
           (p.origin === "fleet" &&
             (!validBinding(p.binding) ||
+              p.allProjects === true ||
               p.binding.source.profileId !== state.serverId ||
               p.binding.target.profileId !== p.invitation.targetServerId ||
               p.invitation.expiresAt > p.binding.policy.expiresAt)),
@@ -594,6 +615,10 @@ export class PeerAccessStore {
     value: unknown,
     rotateId?: string,
     expectedRevision?: number,
+    admit?: () => void,
+    identity?: PeerHost,
+    operationId?: string,
+    initiatingServerId?: string,
   ): Promise<PeerInvitation> {
     if (this.activeIssuance >= 4)
       throw new CoreApiError(
@@ -650,6 +675,7 @@ export class PeerAccessStore {
         expiresAt: input.expiresAt,
       };
       return await this.mutate((next) => {
+        admit?.();
         const existing = next.incoming.find(
           (p) => p.sourceServerId === sourceServerId && p.origin === "manual",
         );
@@ -679,11 +705,20 @@ export class PeerAccessStore {
           username,
           ...verifier,
           tokenHash: hashPeerToken(secret),
+          ...(input.allProjects ? { allProjects: true as const } : {}),
           projects: [...new Set(input.projects)],
           operations,
           expiresAt: input.expiresAt,
         };
         next.incoming = [...next.incoming.filter((p) => p.id !== id), record];
+        if (identity) rememberPeer(next, identity);
+        recordPeerAudit(
+          next,
+          "incoming-issued",
+          sourceServerId,
+          initiatingServerId ?? identity?.serverId,
+          { operationId, credentialId: id, generation: invitation.generation },
+        );
         return invitation;
       }, revision);
     } finally {
@@ -692,13 +727,23 @@ export class PeerAccessStore {
   }
   revokeIncoming(id: string) {
     return this.mutate((next) => {
+      const peer = next.incoming.find((p) => p.id === id);
+      if (peer) recordPeerAudit(next, "incoming-revoked", peer.sourceServerId);
       next.incoming = next.incoming.filter((p) => p.id !== id);
       next.fleet.outbox = next.fleet.outbox.filter(
         (item) => item.credentialId !== id,
       );
     });
   }
-  importOutgoing(value: OutgoingPeerRequest, revision: number) {
+  importOutgoing(
+    value: OutgoingPeerRequest,
+    revision: number,
+    admit?: () => void,
+    identity?: PeerHost,
+    label?: string,
+    operationId?: string,
+    verifiedAllProjects = false,
+  ) {
     const input = outgoingPeerRequest.parse(value);
     if (
       input.invitation.sourceServerId !== this.serverId ||
@@ -713,6 +758,7 @@ export class PeerAccessStore {
         ),
       );
     return this.mutate((next) => {
+      admit?.();
       const target = input.invitation.targetServerId,
         existing = next.outgoing.find(
           (p) =>
@@ -736,6 +782,16 @@ export class PeerAccessStore {
           "Outgoing peer capacity reached",
           503,
         );
+      if (identity) {
+        const metadata = rememberPeer(next, identity, label);
+        metadata.verifiedAt = new Date().toISOString();
+        metadata.lastOutcome = "verified";
+      }
+      recordPeerAudit(next, "outgoing-imported", target, this.serverId, {
+        operationId,
+        credentialId: input.invitation.credentialId,
+        generation: input.invitation.generation,
+      });
       const { replace: _replace, ...record } = input;
       record.operations = peerGrantOperations(record.operations);
       next.outgoing = [
@@ -743,7 +799,11 @@ export class PeerAccessStore {
           (p) =>
             p.invitation.targetServerId !== target || p.origin !== "manual",
         ),
-        { ...record, origin: "manual" },
+        {
+          ...record,
+          origin: "manual",
+          ...(verifiedAllProjects ? { allProjects: true as const } : {}),
+        },
       ];
       if (
         !next.selected[target] ||
@@ -754,14 +814,16 @@ export class PeerAccessStore {
   }
   revokeOutgoing(targetId: string) {
     return this.mutate((next) => {
+      recordPeerAudit(next, "outgoing-removed", targetId);
       next.outgoing = next.outgoing.filter(
         (p) => p.invitation.targetServerId !== targetId,
       );
       delete next.selected[targetId];
     });
   }
-  setAgentAccess(enabled: boolean) {
+  setAgentAccess(enabled: boolean, admit?: () => void) {
     return this.mutate((next) => {
+      admit?.();
       if (next.agentAccess.enabled === enabled) return;
       next.agentAccess = { enabled, grantId: enabled ? randomUUID() : null };
     });

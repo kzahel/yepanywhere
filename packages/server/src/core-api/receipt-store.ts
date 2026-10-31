@@ -48,6 +48,23 @@ export class ApiReceiptStore {
     }
   }
 
+  forPeer(serverId: string) {
+    return this.statement(
+      "SELECT receipt_json FROM agent_api_receipts WHERE kind = 'createSession' AND json_extract(receipt_json, '$.creator.principal.kind') = 'peer' AND json_extract(receipt_json, '$.creator.serverId') = ? ORDER BY json_extract(receipt_json, '$.createdAt') DESC, id DESC LIMIT 20",
+    )
+      .all<{ receipt_json: string }>(serverId)
+      .map((row) => {
+        const record = receiptSchema.parse(JSON.parse(row.receipt_json));
+        return {
+          id: record.id,
+          sessionId: record.sessionId,
+          projectId: record.projectId,
+          createdAt: record.createdAt,
+          state: record.state,
+          sourceSessionId: record.creator.sessionId,
+        };
+      });
+  }
   constructor(private readonly database: SqliteDatabase) {}
   private statement(sql: string) {
     let statement = this.statements.get(sql);

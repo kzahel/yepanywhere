@@ -20,7 +20,11 @@ import {
 } from "../../src/core-api/conversation.js";
 export async function protectedProfile(
   cleanup: (() => void | Promise<void>)[],
-  fleetOptions: { allowInsecureLoopback?: boolean; fetch?: typeof fetch } = {},
+  fleetOptions: {
+    allowInsecureLoopback?: boolean;
+    fetch?: typeof fetch;
+    runtimeControl?: { envOverride?: boolean };
+  } = {},
 ) {
   const directory = await mkdtemp(join(tmpdir(), "ya-protected-peer-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
@@ -88,12 +92,13 @@ export async function protectedProfile(
       };
     },
   }));
+  const projectItems = [{ id: "p", name: "Project", path: "/fixture/project" }];
   const sources: CoreApiSources = {
     conversation: createConversationRead(subscriptions),
     followConversation: createConversationFollow(subscriptions, id),
     commands,
     projects: async () => ({
-      items: [{ id: "p", name: "Project", path: "/fixture/project" }],
+      items: projectItems,
     }),
     sessions: async () => ({ items: sessions }),
     providers: async () => [
@@ -149,6 +154,8 @@ export async function protectedProfile(
     sends: () => sends,
     receipts,
     sources,
+    addProject: (id: string) =>
+      projectItems.push({ id, name: id, path: `/fixture/${id}` }),
     onStart: (callback: () => void) => {
       onStart = callback;
     },

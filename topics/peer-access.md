@@ -1,9 +1,11 @@
 # Directional peer enrollment
 
-Status: opt-in implementation, step 2 of
-[plan 168](../docs/tactical/168-peer-access-and-enrollment.md). Independent design
-and code reviews precede this slice's commit. Normal startup leaves it disabled;
-`YEP_PEER_API_ENABLED=true` enables the management and protected routing surfaces.
+Status: opt-in implementation through
+[plan 169](../docs/tactical/169-server-connections-ui.md), building on
+[plan 168](../docs/tactical/168-peer-access-and-enrollment.md). Normal startup
+leaves peer routing disabled, with owner administration available. Settings →
+Server Connections enables it durably. Explicit `YEP_PEER_API_ENABLED=true` or
+`false` overrides and locks that choice.
 The qualification record in the plan distinguishes tested adapters from the
 remaining packaging and platform matrix.
 
@@ -33,7 +35,7 @@ signature/challenge protocol is introduced by this slice.
 Peer access and agent use are separately default-off. No enrollment is inferred
 from existing browser logins, remote-access setup or relay registration.
 
-Owner-only `/api/peers` operations initially precede UI. They independently
+Owner-only `/api/peers` operations serve the settings UI and manual administration. They independently
 validate an owner cookie, desktop credential or established owner SRP context,
 even when UI authentication is disabled or localhost is open. Resolved acting
 principal must also be operator. There is no anonymous loopback exception: a
@@ -408,3 +410,95 @@ Run one YA process per data directory. Concurrent instances use separate
 profiles, as in the local development guide; profile state is not a shared
 multi-controller database. Protected-route qualification owns its processes
 and verifies their exit before restarting a profile.
+
+
+## Server Connections settings
+
+Owners see Settings → Server Connections beside the access settings. A distinct
+`peer-connections` capability advertises support independently of whether peer
+routing is enabled. Older servers hide the category and its search results;
+a typed URL shows update guidance without calling peer routes. A local install
+without owner authentication first configures its existing Local Access owner
+password and signs in. Desktop owner credentials and established owner SRP
+connections also work; open loopback and legacy agent tokens do not authorize
+pairing.
+
+The page identifies this profile and each peer by stable UUID, reported hostname,
+OS, architecture and its existing host icon. Friendly names are local labels.
+Host reports are authenticated data, not independent machine attestation.
+A saved browser host and a server connection remain separate records.
+
+Connect accepts the other server's existing Remote Access username/password,
+and either its direct HTTP/WebSocket address or its owner relay registration.
+Direct setup uses `/api/ws`; subsequent dedicated peer traffic uses `/peer/ws`.
+The browser remains on the source server: its backend performs ordinary SRP-6a,
+verifies M2 and the encrypted session/nonce/protocol proof, then reads the target
+UUID before peer mutation. Later changes pin that UUID and refuse self-pairing
+or a changed identity. The password and owner resume key are never persisted on
+the source. There is no additional approval on the target after owner login.
+
+The temporary client uses the target's **ordinary** owner-session lifecycle.
+The normal five-session limit and disk-persistence preference apply; setup can
+evict the oldest login. Cleanup is bound to the authenticated setup session ID,
+returns before closing that socket, and cannot revoke a caller-selected session.
+A lost reply/crash may leave its target-side saved session until ordinary expiry
+or revocation. Setup reports unconfirmed cleanup separately; closing a socket
+alone does not prove revocation. No new SRP purpose or cryptographic protocol
+is introduced. Credential changes and connection teardown fence pending proofs.
+
+A new trusted-control credential includes all current and future projects and
+resource operations, with the existing maximum 30-day expiry. This permits YA
+OS-account execution; project filters are not a sandbox. Global native session
+command settings and provider permission/sandbox policy remain ceilings.
+Renewal preserves an existing scoped/read-only manual credential's projects and
+operations; it never silently upgrades that credential. Fleet policy ceilings
+and explicit credential selection remain unchanged. If a different fleet
+credential is selected, setup asks the owner to resolve selection first rather
+than falsely reporting the new manual grant as the active route.
+
+The two directions are independent. Initial setup can request both; later
+Add / renew peer → this server preserves the working outgoing credential.
+Revoke incoming control is locally enforced immediately. Stop local use deletes
+only this manual outgoing credential, preserves fleet records/selection and
+leaves the target's incoming grant visible there. Its success message explicitly
+says that remote grant remains; local removal does not claim remote cleanup.
+Accepted native agent work continues after access is revoked. Fresh target
+owner login is required for later remote credential issuance/renewal.
+
+There is one dedicated peer relay registration per profile. Relay setup creates
+one only when absent, using the explicitly selected relay URL and a new random
+name distinct from the browser registration. An existing registration is never
+silently repointed. A disabled or unavailable relay fails before credential
+issuance/rotation. Direct reverse access requires an explicit reachable return
+address when this server has no enabled peer relay. Never infer that localhost
+or a hosted-client origin is reachable from the other machine.
+
+Setup admits at most four concurrent clients, with a 45-second whole-operation
+limit, 10-second handshakes/requests, bounded crypto work and bounded frames.
+It never reconnects or automatically resends a mutation. Live initiating owner
+proof and the originally observed policy revision are rechecked after waits,
+before dispatch and inside queued publication. Target policy preconditions span
+bootstrap, grant/prepare and reverse import; a concurrent disable, removal,
+selection change or renewal cannot be undone by stale setup. Failure after
+remote dispatch is explicitly uncertain, or partial if the first leg was
+confirmed. Inspect both ends before renewing a lost one-time invitation.
+
+Owner management remains available while routing is disabled. Disabling closes
+incoming channels, outgoing owner/native routing and the peer relay, and retires
+peer-enabled native leases. Re-enabling retained credentials does not revive
+old launch grants. Agent use is a separate default-off control; qualified new
+sessions also need Local Access Agent API discovery/session-command settings.
+No peer is probed merely by opening Settings. Test connection is explicit;
+listings describe configured directions and last observed verification.
+
+The private policy retains at most 128 host metadata records and 512 audit
+events. Policy and its successful audit event publish together. Both ends record
+owner setup, immediate server identity, credential/generation and operation ID;
+source identity/session assertions are not stronger than source attestation.
+Owner listings paginate server metadata, show recent nonsecret audit and at most
+20 recorded session creations per direction, and link locally created sessions.
+No password, invitation secret, verifier, owner resume key or prompt body enters
+these projections. Changing human Remote Access credentials keeps independent
+peer credentials; Remote Access links to the incoming-control revocation view.
+Read-only UI, richer scopes, route discovery, full mesh and fleet/OIDC settings
+remain separate follow-ups.
