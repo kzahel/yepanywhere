@@ -101,6 +101,15 @@ Both design reviews completed before source edits; neither saw the other's findi
 
 ## 2 — Enroll real peers and qualify protected routes
 
+The [reviewed production contract](../../topics/peer-access.md) now specifies
+manual SRP credentials, independently validated owner management, sessionless
+protected ingress, a separately bounded peer relay registration and native
+launch ownership. Sol high and Daybreak Blue high independently reviewed it;
+all design conditions are closed before source edits. Implementation order:
+owner admission/durable records, restricted direct/relay acceptor, native peer
+leases, then protected-route qualification. Keep production access disabled
+until the complete boundary is verified.
+
 Before production code, write down and independently review the credential
 ceremony, storage, renewal, expiry, target binding and revocation contract.
 Prefer existing SRP/NaCl and client-key continuity mechanisms where their actual

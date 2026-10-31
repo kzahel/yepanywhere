@@ -184,6 +184,11 @@ managed-remote-executors and tactical 119 for the accepted operator evidence.
 Conversely, passing those diagnostic gates does not establish public placement
 UI, all-provider coverage, active-turn reload survival or autonomous workers.
 
+Manual directional peer enrollment has a [reviewed implementation contract](peer-access.md)
+under [plan 168](../docs/tactical/168-peer-access-and-enrollment.md). It keeps
+manual SRP credentials independent of the optional fleet service; production
+transport and enrollment qualification remain pending.
+
 ## External approaches and inspirations
 
 This is an architectural reading map, not a refreshed feature leaderboard.
