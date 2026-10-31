@@ -4,22 +4,14 @@ import { z } from "zod";
 import type { FleetCredentials } from "./auth.js";
 import {
   clientIntroductionSchema,
-  enrolledClientSchema,
+  fleetCredentialsSchema,
   type ProfileKeys,
 } from "./contracts.js";
 import { fleetOrigin, importFleetKey, publicFleetKey } from "./crypto.js";
 import { FleetError } from "./errors.js";
 import { fleetWait } from "./limits.js";
 
-export const fleetCredentialsSchema = z
-  .object({
-    client: enrolledClientSchema,
-    accessToken: z.string().max(32768),
-    refreshToken: z.string().max(32768),
-    expiresAt: z.number(),
-    familyExpiresAt: z.number(),
-  })
-  .strict();
+export { fleetCredentialsSchema } from "./contracts.js";
 
 /** One bounded serial HTTP lane; only an explicit pre-admission nonce is retried. */
 export class FleetHttpClient {
@@ -31,6 +23,7 @@ export class FleetHttpClient {
   private epoch = 0;
   private lifecycle = new AbortController();
   private disconnecting?: Promise<void>;
+  private closed = false;
   constructor(
     readonly issuer: string,
     readonly profileId: string,
@@ -76,6 +69,10 @@ export class FleetHttpClient {
     return this.handle;
   }
   private serialize<T>(signal: AbortSignal, work: () => Promise<T>) {
+    if (this.closed)
+      return Promise.reject(
+        new FleetError("unauthorized", "Fleet client is closed", 401),
+      );
     if (this.disconnecting)
       return Promise.reject(
         new FleetError("unauthorized", "Fleet client is disconnecting", 401),
@@ -345,5 +342,12 @@ export class FleetHttpClient {
       () => {},
     );
     return pending;
+  }
+  async close() {
+    this.closed = true;
+    this.epoch++;
+    this.lifecycle.abort();
+    this.credentials = undefined;
+    await this.tail;
   }
 }

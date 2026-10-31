@@ -13,6 +13,7 @@ import {
   rotatePeerRequest,
   outgoingPeerRequest,
   type PeerAccessState,
+  type StoredOutgoingPeer,
 } from "./state.js";
 import { PeerDirectory } from "./directory.js";
 import { PeerApiRouter } from "./router.js";
@@ -21,10 +22,12 @@ import { createPeerReceiver, PEER_SRP_CONTEXT } from "./http.js";
 import { PeerChannelBudget, PEER_WIRE_BYTES } from "./srp-protocol.js";
 import { PeerSrpRuntime } from "./srp-server.js";
 import { SrpPeerTransport } from "./srp-client.js";
+import { FleetPeerAccess } from "../fleet/peers.js";
 
 /** Composition around the pure API: no provider registry, scanner or HTTP listener. */
 export class PeerAccessManager {
   readonly store: PeerAccessStore;
+  readonly fleetAccess: FleetPeerAccess;
   private readonly budget = new PeerChannelBudget();
   private readonly directory = new PeerDirectory();
   private readonly relay = new RelayClientService();
@@ -38,14 +41,39 @@ export class PeerAccessManager {
   private faulted = false;
   private preflights = 0;
   private policyChanges = 0;
+  private fleet?: {
+    authority: NonNullable<
+      Parameters<typeof createPeerReceiver>[2]
+    >["fleetAuthority"];
+    transport(
+      peer: Extract<StoredOutgoingPeer, { origin: "fleet" }>,
+    ): NonNullable<ConstructorParameters<typeof SrpPeerTransport>[3]>;
+  };
+  setFleet(fleet: NonNullable<PeerAccessManager["fleet"]>) {
+    this.fleet = fleet;
+  }
+  protectedTransport(peer: StoredOutgoingPeer) {
+    return new SrpPeerTransport(
+      peer.invitation,
+      peer.route,
+      this.budget,
+      peer.origin === "fleet" ? this.fleet?.transport(peer) : undefined,
+    );
+  }
+
   private onPeerAccessRevoked?: (grantId: string) => Promise<void>;
   private readonly pendingRetirements = new Set<Promise<void>>();
   constructor(
     readonly serverId: string,
     dataDir: string,
     private readonly onError: (error: unknown) => void = () => {},
+    fleetOptions: {
+      allowInsecureLoopback?: boolean;
+      fetch?: typeof fetch;
+    } = {},
   ) {
     this.store = new PeerAccessStore(serverId, dataDir);
+    this.fleetAccess = new FleetPeerAccess(this, fleetOptions);
     this.store.observe(
       (next, previous) => this.apply(next, previous),
       () => this.failClosed(),
@@ -53,6 +81,7 @@ export class PeerAccessManager {
   }
   async initialize() {
     await this.store.initialize();
+    await this.fleetAccess.initialize();
     this.runtime = await PeerSrpRuntime.create({
       serverId: this.serverId,
       decoySecret: this.store.read().decoySecret,
@@ -94,6 +123,15 @@ export class PeerAccessManager {
     );
     this.receiver = createPeerReceiver(core, this.directory, {
       requireSrp: true,
+      fleetAuthority: (grant, token, signal) => {
+        if (!this.fleet?.authority)
+          throw new CoreApiError(
+            "unauthorized",
+            "Fleet authority is not configured",
+            401,
+          );
+        return this.fleet.authority(grant, token, signal);
+      },
     });
     this.applyOutgoing(this.store.read() as PeerAccessState);
     return this.router;
@@ -150,6 +188,7 @@ export class PeerAccessManager {
         projects: peer.projects,
         operations: peer.operations,
         expiresAt: peer.expiresAt,
+        ...(peer.origin === "fleet" ? { fleet: peer.binding } : {}),
       });
     }
     if (previous && previous.agentAccess.grantId !== next.agentAccess.grantId) {
@@ -174,33 +213,38 @@ export class PeerAccessManager {
   }
   private applyOutgoing(next: PeerAccessState, previous?: PeerAccessState) {
     if (!this.router) return;
-    for (const old of previous?.outgoing ?? [])
+    const selected = (state: PeerAccessState) =>
+      state.outgoing.filter(
+        (p) =>
+          state.selected[p.invitation.targetServerId] ===
+          p.invitation.credentialId,
+      );
+    const before = previous ? selected(previous) : [],
+      after = selected(next);
+    for (const old of before)
       if (
-        !next.outgoing.some(
+        !after.some(
           (p) => p.invitation.targetServerId === old.invitation.targetServerId,
         )
       )
         this.router.revoke(old.invitation.targetServerId);
-    for (const peer of next.outgoing) {
-      if (
-        previous?.outgoing.some(
-          (old) => JSON.stringify(old) === JSON.stringify(peer),
-        )
-      )
+    for (const peer of after) {
+      if (before.some((old) => JSON.stringify(old) === JSON.stringify(peer)))
         continue;
+      if (peer.origin === "fleet" && !this.fleet) {
+        this.router.revoke(peer.invitation.targetServerId);
+        continue;
+      }
       this.router.put({
         serverId: peer.invitation.targetServerId,
         operations: peer.operations,
         allowAgentSessions: peer.allowAgentSessions,
         expiresAt: peer.invitation.expiresAt,
-        transport: new SrpPeerTransport(
-          peer.invitation,
-          peer.route,
-          this.budget,
-        ),
+        transport: this.protectedTransport(peer),
       });
     }
   }
+
   private failClosed() {
     this.faulted = true;
     this.router?.close();
@@ -222,6 +266,7 @@ export class PeerAccessManager {
           projects,
           operations,
           expiresAt,
+          origin,
         }) => ({
           id,
           sourceServerId,
@@ -229,10 +274,15 @@ export class PeerAccessManager {
           projects,
           operations,
           expiresAt,
+          origin,
         }),
       ),
       outgoing: state.outgoing.map(
-        ({ invitation, operations, allowAgentSessions, route }) => ({
+        ({ invitation, operations, allowAgentSessions, route, origin }) => ({
+          origin,
+          selected:
+            state.selected[invitation.targetServerId] ===
+            invitation.credentialId,
           targetServerId: invitation.targetServerId,
           credentialId: invitation.credentialId,
           generation: invitation.generation,
@@ -242,6 +292,15 @@ export class PeerAccessManager {
           route,
         }),
       ),
+      fleet: state.fleet.enrollment
+        ? {
+            issuer: state.fleet.enrollment.issuer,
+            accountId: state.fleet.enrollment.accountId,
+            clientId: state.fleet.enrollment.credentials?.client.id ?? null,
+            epoch: state.fleet.epoch,
+            pendingDeliveries: state.fleet.outbox.length,
+          }
+        : null,
       relay: state.relay
         ? {
             url: state.relay.url,
@@ -251,6 +310,28 @@ export class PeerAccessManager {
           }
         : null,
     };
+  }
+  async validateProjects(projectIds: readonly string[], signal?: AbortSignal) {
+    if (!this.projects)
+      throw new CoreApiError(
+        "catalog_not_ready",
+        "Peer project catalog is unavailable",
+        503,
+      );
+    const projects = await this.projects(signal);
+    if (
+      projectIds.some(
+        (id) => !projects.items.some((project) => project.id === id),
+      )
+    )
+      throw new CoreApiError(
+        projects.catalog?.complete === false
+          ? "catalog_not_ready"
+          : "project_not_found",
+        "Peer project is not available in this profile's catalog",
+        projects.catalog?.complete === false ? 503 : 404,
+      );
+    signal?.throwIfAborted();
   }
   async issue(value: unknown, rotateId?: string, signal?: AbortSignal) {
     const input = rotateId
@@ -346,6 +427,7 @@ export class PeerAccessManager {
     }
   }
   async close() {
+    await this.fleetAccess.close();
     if (this.closePromise) return this.closePromise;
     this.closed = true;
     this.router?.close();

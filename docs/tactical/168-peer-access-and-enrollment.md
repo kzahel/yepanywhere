@@ -181,10 +181,25 @@ commit races, revocation across signing, lost refresh replies, cross-account
 isolation, publication uncertainty and disconnect across a real file write
 (about 3.3 seconds test time). Root lint/format/typecheck pass; workspace tests
 pass with 6,658 server and 7,062 client cases. The current dependency audit also
-passes after the separately committed patch/triage. This unit does not yet
-consume fleet authority at a peer target: state v2, protected token admission,
-opaque enrollment delivery and YA owner endpoints remain the next unit. OIDC
-follows that integrated consumer.
+passes after the separately committed patch/triage.
+
+The integrated consumer is also complete and independently reviewed by both
+models: owner HTTP configuration/login/proposals, target acceptance and atomic
+signed/JWE delivery, source verification and protected preflight, explicit v2
+credential selection, issuer JWT admission, local/remote revocation and manual
+standby access. Seven protected integration scenarios plus a JWKS boundary case
+exercise real owner cookies, SRP, an owned relay, native Unix HTTP creation,
+messaging, compact following and provenance, lost responses, revocation during
+preflight, forged invitations/grants, expiry on both ends, uncertain native
+outcomes and selected-fleet outage without fallback. Mixed-origin capacity and
+atomic v1 migration are covered. Core tests pass 81 cases; workspace gates pass
+with 6,666 server and 7,062 client tests.
+
+A light opt-in Sol subscription trial through fleet-enrolled relay access passed
+in 33.672 seconds: 15 requests, zero API errors, 1,124 bootstrap bytes and 15,163
+fetched help bytes. Processed input was 174,762 tokens with 152,064 cached, not
+unique context. Native worker behavior remains scripted; paid OIDC providers,
+packaged UI and live fleet Windows qualification are separate. OIDC is next.
 
 The [concrete fleet design](../../topics/fleet-authentication.md) has completed
 independent Sol high and Daybreak Blue high review before source edits. It separates real basic login

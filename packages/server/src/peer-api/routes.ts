@@ -3,6 +3,8 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { CoreApiError } from "../core-api/errors.js";
 import type { PeerAccessManager } from "./manager.js";
+import { FleetError } from "../fleet/errors.js";
+import { fleetPageQuery } from "../fleet/contracts.js";
 
 /** Mount after normal host/CSRF/auth and acting-principal resolution. */
 export function createPeerManagementRoutes(
@@ -42,6 +44,11 @@ export function createPeerManagementRoutes(
     }),
   );
   routes.onError((error, c) => {
+    if (error instanceof FleetError)
+      return c.json(
+        { error: { code: error.code, message: error.message } },
+        error.status,
+      );
     if (error instanceof CoreApiError)
       return c.json(
         { error: { code: error.code, message: error.message } },
@@ -69,6 +76,118 @@ export function createPeerManagementRoutes(
     );
   });
   routes.get("/", (c) => c.json(manager.publicState()));
+  routes.put("/fleet", async (c) => {
+    await manager.fleetAccess.configure(await c.req.json());
+    return c.json(manager.publicState().fleet);
+  });
+  routes.post("/fleet/login", async (c) =>
+    c.json(
+      await manager.fleetAccess.login(await c.req.json(), c.req.raw.signal),
+    ),
+  );
+  routes.delete("/fleet", async (c) =>
+    c.json(await manager.fleetAccess.disconnect()),
+  );
+  const page = (query: unknown) => {
+    const parsed = fleetPageQuery.parse(query);
+    return `cursor=${parsed.cursor}&limit=${parsed.limit}`;
+  };
+  routes.get("/fleet/clients", async (c) =>
+    c.json(
+      await manager.fleetAccess.request(
+        `/clients?${page(c.req.query())}`,
+        "GET",
+        undefined,
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.get("/fleet/clients/:id", async (c) =>
+    c.json(
+      await manager.fleetAccess.introduce(
+        z.uuid().parse(c.req.param("id")),
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.get("/fleet/relationships", async (c) =>
+    c.json(
+      await manager.fleetAccess.request(
+        `/relationships?${page(c.req.query())}`,
+        "GET",
+        undefined,
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.get("/fleet/relationships/:id", async (c) =>
+    c.json(
+      await manager.fleetAccess.request(
+        `/relationships/${z.uuid().parse(c.req.param("id"))}`,
+        "GET",
+        undefined,
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.post("/fleet/relationships", async (c) =>
+    c.json(
+      await manager.fleetAccess.propose(await c.req.json(), c.req.raw.signal),
+      201,
+    ),
+  );
+  routes.delete("/fleet/relationships/:id", async (c) =>
+    c.json(
+      await manager.fleetAccess.revokeRelationship(
+        z.uuid().parse(c.req.param("id")),
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.post("/fleet/accept", async (c) =>
+    c.json(
+      await manager.fleetAccess.accept(await c.req.json(), c.req.raw.signal),
+      201,
+    ),
+  );
+  routes.post("/fleet/deliver/:id", async (c) =>
+    c.json(
+      await manager.fleetAccess.deliver(
+        z.uuid().parse(c.req.param("id")),
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.get("/fleet/mailbox", async (c) =>
+    c.json(
+      await manager.fleetAccess.request(
+        `/mailbox?${page(c.req.query())}`,
+        "GET",
+        undefined,
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.post("/fleet/adopt", async (c) =>
+    c.json(
+      await manager.fleetAccess.adopt(await c.req.json(), c.req.raw.signal),
+    ),
+  );
+  routes.post("/outgoing/:id/select", async (c) => {
+    const input = z
+      .object({ credentialId: z.uuid() })
+      .strict()
+      .parse(await c.req.json());
+    await manager.fleetAccess.select(c.req.param("id"), input.credentialId);
+    return c.body(null, 204);
+  });
+  routes.delete("/outgoing/:id/credentials/:credentialId", async (c) => {
+    await manager.fleetAccess.removeOutgoing(
+      c.req.param("id"),
+      c.req.param("credentialId"),
+    );
+    return c.body(null, 204);
+  });
   routes.post("/incoming", async (c) =>
     c.json(
       await manager.issue(await c.req.json(), undefined, c.req.raw.signal),

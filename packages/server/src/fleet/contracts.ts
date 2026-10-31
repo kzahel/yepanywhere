@@ -51,6 +51,13 @@ export const fleetPolicySchema = z
     "A fleet policy must fit within 12 KiB encoded JSON",
   );
 export type FleetPolicy = z.infer<typeof fleetPolicySchema>;
+export function narrowerPolicy(policy: FleetPolicy, ceiling: FleetPolicy) {
+  return (
+    policy.expiresAt <= ceiling.expiresAt &&
+    policy.projects.every((p) => ceiling.projects.includes(p)) &&
+    policy.operations.every((op) => ceiling.operations.includes(op))
+  );
+}
 const accountBase = z.object({
   id: uuid,
   authGeneration: z.number().int().positive(),
@@ -86,6 +93,37 @@ export const enrolledClientSchema = clientIntroductionSchema
   })
   .strict();
 export type EnrolledClient = z.infer<typeof enrolledClientSchema>;
+export const fleetCredentialsSchema = z
+  .object({
+    client: enrolledClientSchema,
+    accessToken: z.string().max(32768),
+    refreshToken: z.string().max(32768),
+    expiresAt: milliseconds,
+    familyExpiresAt: milliseconds,
+  })
+  .strict();
+export const fleetPeerBindingSchema = z
+  .object({
+    issuer: z.string().url().max(2048),
+    accountId: uuid,
+    relationshipId: uuid,
+    relationshipGeneration: z.number().int().positive(),
+    source: enrolledClientSchema,
+    target: enrolledClientSchema,
+    policy: fleetPolicySchema,
+  })
+  .strict()
+  .refine(
+    (binding) =>
+      binding.source.accountId === binding.accountId &&
+      binding.target.accountId === binding.accountId &&
+      binding.source.id !== binding.target.id &&
+      binding.source.profileId !== binding.target.profileId &&
+      !binding.source.revoked &&
+      !binding.target.revoked,
+    "Invalid directional client bindings",
+  );
+export type FleetPeerBinding = z.infer<typeof fleetPeerBindingSchema>;
 export const fleetSessionSchema = z
   .object({
     id: uuid,

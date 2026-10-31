@@ -82,8 +82,14 @@ and mutation rights remain explicit. Outgoing agent use additionally requires
 both a separately issued launch peer-access grant and that outgoing record's
 explicit agent-use policy. Existing local management leases remain local.
 
-Incoming/outgoing records each cap at 64 and use private versioned profile
-storage with durable atomic replacement. Mutation serialization prevents lost
+Incoming credentials cap at 64. Outgoing topology caps at 64 distinct targets,
+with up to 128 credentials so manual and fleet access can coexist per pair.
+Private v2 profile storage caps at eight MiB and uses durable atomic replacement;
+v1 migrates preserving IDs, manual policy and selected routes. Unknown versions
+fail closed. A separate selection maps each target UUID to one credential;
+importing fleet access never replaces a selected manual credential. Owner
+selection is explicit, and denial/removal never falls back automatically.
+Mutation serialization prevents lost
 updates. Invalid/corrupt/unknown-version state fails closed rather than resetting
 and granting access. Publish a new policy only after persistence succeeds. Increment credential
 generation on rotation. Bind pending SRP challenges, verification and encrypted
@@ -91,7 +97,7 @@ HTTP admission to the same active generation, checking it again after async
 crypto. A source import captures a state revision before preflight and checks
 that revision in its serialized durable commit; a delayed import cannot undo
 removal or replacement. Failed preflight never publishes or stores a new route.
-There is at most one production incoming record per source UUID. If a create or
+There is at most one manual and one fleet incoming record per source UUID. If a create or
 rotation response is lost, list its nonsecret source/credential ID and generation,
 then rotate or remove it; do not replay a secret export or silently make another
 record. Incoming and outgoing expiry/revocation survive restart.
@@ -256,16 +262,18 @@ is available; do not infer Windows from POSIX transports.
 
 ## Optional fleet login remains separate
 
-The [replaceable authentication sketch](principals-and-grants.md#replaceable-authentication-and-a-basic-local-configuration)
-remains the direction for later steps: a real minimal local account backend,
-compatible external OIDC and a managed provider adapter feed common enrollment
-and grants. A central service is optional. It does not receive manual peer
-secrets or become a prerequisite for independent manual grants.
-
-Before consuming fleet-issued grants, select and review the audited token and
-proof-of-possession implementation, enrolled-client identity, trusted issuer/
-account/audience binding, local ceilings, offline lifetime and revocation.
-Do not silently replace SRP credentials with a new custom public-key handshake.
+The optional [fleet service](fleet-authentication.md) implements local account
+login, key-bound enrollment and directional proposals. The fleet consumer adds
+owner acceptance, signed/source-encrypted SRP delivery and an additional
+short-lived issuer token at protected admission. Its independent integration
+review is complete; external OIDC follows that unit. A central service never
+receives manual peer secrets or becomes a prerequisite for manual grants.
+Fleet credentials have an explicit stored origin and advertise fleet support
+in the authenticated SRP metadata before the source sends a request. They
+require both current SRP possession and matching issuer/account/client/profile/
+credential-generation claims. A fleet secret never enters manual admission.
+The reviewed ceremony, target ceilings and offline revocation bounds are owned
+by the fleet topic; SRP remains the existing authenticated transport.
 
 ## Independent design review closure
 

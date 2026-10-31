@@ -26,7 +26,11 @@ import {
 } from "./cases.js";
 
 /** Real private adapter, deterministic source functions, no app/profile/scanners. */
-export async function createFixture(caseId: CaseId, peerRelay = false) {
+export async function createFixture(
+  caseId: CaseId,
+  peerRelay = false,
+  peerFleet = false,
+) {
   if (peerRelay && caseId !== "workflow")
     throw new Error("Peer relay fixture supports only the workflow case");
   const localSessions = [...sessions];
@@ -209,6 +213,7 @@ export async function createFixture(caseId: CaseId, peerRelay = false) {
         database!,
         receiptStore!,
         projects,
+        peerFleet,
       );
     runtime.attachController(peers?.router ?? core);
   } catch (error) {

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { FleetAuth, FleetNonceChallenge } from "./auth.js";
 import {
   fleetPage,
+  narrowerPolicy,
   fleetPolicySchema,
   uuid,
   type FleetControlClaims,
@@ -29,16 +30,6 @@ const publicationSchema = z
       .max(32 * 1024),
   })
   .strict();
-export function narrowerPolicy(
-  policy: z.infer<typeof fleetPolicySchema>,
-  ceiling: z.infer<typeof fleetPolicySchema>,
-) {
-  return (
-    policy.expiresAt <= ceiling.expiresAt &&
-    policy.projects.every((p) => ceiling.projects.includes(p)) &&
-    policy.operations.every((op) => ceiling.operations.includes(op))
-  );
-}
 export function fleetRelationship(
   store: FleetStore,
   auth: FleetAuth,
@@ -455,7 +446,11 @@ export function createFleetService(
           409,
         );
       }
-      if (state.mailbox.some((m) => m.id === input.envelopeId))
+      if (
+        state.relationships.some(
+          (other) => other.accepted?.envelopeId === input.envelopeId,
+        )
+      )
         throw new FleetError(
           "conflict",
           "Envelope identity is already in use",

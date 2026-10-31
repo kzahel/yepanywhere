@@ -1,3 +1,9 @@
+import {
+  fleetPeerBindingSchema,
+  fleetCredentialsSchema,
+  profileKeysSchema,
+  type FleetPeerBinding,
+} from "../fleet/contracts.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -10,7 +16,7 @@ import { enforceOwnerOnlyPathPermissionsStrict } from "../utils/filePermissions.
 import { writeFileAtomically } from "../utils/writeFileAtomically.js";
 import { hashPeerToken } from "./directory.js";
 
-const MAX_STATE_BYTES = 2 * 1024 * 1024;
+const MAX_STATE_BYTES = 8 * 1024 * 1024;
 const MAX_CREDENTIAL_MS = 30 * 24 * 60 * 60_000;
 const boundedId = z.string().min(1).max(4096);
 const resourceOperations = operations
@@ -117,9 +123,9 @@ const incomingSchema = z
     expiresAt: expiration,
   })
   .strict();
-export type StoredIncomingPeer = z.infer<typeof incomingSchema>;
+
 const outgoingSchema = outgoingPeerRequest.omit({ replace: true }).strict();
-export type StoredOutgoingPeer = z.infer<typeof outgoingSchema>;
+
 export const peerRelayRequest = z
   .object({
     url: z.string().url().max(2048),
@@ -134,7 +140,7 @@ export const peerRelayRequest = z
     if (!peerRouteSchema.safeParse({ ...value, kind: "relay" }).success)
       context.addIssue({ code: "custom", message: "Invalid peer relay route" });
   });
-const stateSchema = z
+const legacyStateBase = z
   .object({
     version: z.literal(1),
     serverId: publicUuid,
@@ -154,25 +160,151 @@ const stateSchema = z
       .strict()
       .nullable(),
   })
-  .strict()
+  .strict();
+const legacyStateSchema = legacyStateBase.superRefine((state, context) => {
+  if (
+    state.agentAccess.enabled !== Boolean(state.agentAccess.grantId) ||
+    new Set(state.incoming.map((p) => p.id)).size !== state.incoming.length ||
+    new Set(state.incoming.map((p) => p.sourceServerId)).size !==
+      state.incoming.length ||
+    new Set(state.incoming.map((p) => p.tokenHash)).size !==
+      state.incoming.length ||
+    new Set(state.outgoing.map((p) => p.invitation.targetServerId)).size !==
+      state.outgoing.length ||
+    state.incoming.some(
+      (p) =>
+        p.sourceServerId === state.serverId || p.username !== `peer-${p.id}`,
+    ) ||
+    state.outgoing.some(
+      (p) =>
+        p.invitation.sourceServerId !== state.serverId ||
+        p.invitation.targetServerId === state.serverId,
+    ) ||
+    (state.relay &&
+      !peerRelayRequest.safeParse({
+        url: state.relay.url,
+        username: state.relay.username,
+      }).success)
+  )
+    context.addIssue({ code: "custom", message: "Inconsistent peer state" });
+});
+
+const storedIncomingSchema = z.discriminatedUnion("origin", [
+  incomingSchema.extend({ origin: z.literal("manual") }).strict(),
+  incomingSchema
+    .extend({ origin: z.literal("fleet"), binding: fleetPeerBindingSchema })
+    .strict(),
+]);
+export type StoredIncomingPeer = z.infer<typeof storedIncomingSchema>;
+const storedOutgoingSchema = z.discriminatedUnion("origin", [
+  outgoingSchema.extend({ origin: z.literal("manual") }).strict(),
+  outgoingSchema
+    .extend({
+      origin: z.literal("fleet"),
+      binding: fleetPeerBindingSchema,
+      envelopeId: publicUuid,
+      envelopeDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    })
+    .strict(),
+]);
+export type StoredOutgoingPeer = z.infer<typeof storedOutgoingSchema>;
+export const fleetOutboxSchema = z
+  .object({
+    envelopeId: publicUuid,
+    credentialId: publicUuid,
+    credentialGeneration: generation,
+    binding: fleetPeerBindingSchema,
+    ciphertext: z
+      .string()
+      .min(1)
+      .max(32 * 1024),
+  })
+  .strict();
+const stateSchema = legacyStateBase
+  .extend({
+    version: z.literal(2),
+    incoming: z.array(storedIncomingSchema).max(64),
+    outgoing: z.array(storedOutgoingSchema).max(128),
+    selected: z.record(publicUuid, publicUuid),
+    fleet: z
+      .object({
+        epoch: z.number().int().nonnegative(),
+        enrollment: z
+          .object({
+            issuer: z.string().url().max(2048),
+            accountId: publicUuid,
+            keys: profileKeysSchema,
+            credentials: fleetCredentialsSchema.nullable(),
+          })
+          .strict()
+          .nullable(),
+        outbox: z.array(fleetOutboxSchema).max(64),
+      })
+      .strict(),
+  })
   .superRefine((state, context) => {
+    const unique = (values: string[]) => new Set(values).size === values.length;
+    const enrollment = state.fleet.enrollment;
+    const validBinding = (binding: FleetPeerBinding) =>
+      Boolean(
+        enrollment &&
+          binding.issuer === enrollment.issuer &&
+          binding.accountId === enrollment.accountId,
+      );
     if (
       state.agentAccess.enabled !== Boolean(state.agentAccess.grantId) ||
-      new Set(state.incoming.map((p) => p.id)).size !== state.incoming.length ||
-      new Set(state.incoming.map((p) => p.sourceServerId)).size !==
-        state.incoming.length ||
-      new Set(state.incoming.map((p) => p.tokenHash)).size !==
-        state.incoming.length ||
-      new Set(state.outgoing.map((p) => p.invitation.targetServerId)).size !==
-        state.outgoing.length ||
+      !unique(state.incoming.map((p) => p.id)) ||
+      !unique(state.incoming.map((p) => `${p.sourceServerId}/${p.origin}`)) ||
+      !unique(state.incoming.map((p) => p.tokenHash)) ||
+      !unique(state.outgoing.map((p) => p.invitation.credentialId)) ||
+      !unique(
+        state.outgoing.map((p) => `${p.invitation.targetServerId}/${p.origin}`),
+      ) ||
+      new Set(state.outgoing.map((p) => p.invitation.targetServerId)).size >
+        64 ||
       state.incoming.some(
         (p) =>
-          p.sourceServerId === state.serverId || p.username !== `peer-${p.id}`,
+          p.sourceServerId === state.serverId ||
+          p.username !== `peer-${p.id}` ||
+          (p.origin === "fleet" &&
+            (!validBinding(p.binding) ||
+              p.binding.source.profileId !== p.sourceServerId ||
+              p.binding.target.profileId !== state.serverId ||
+              p.expiresAt > p.binding.policy.expiresAt ||
+              p.projects.some(
+                (id) => !p.binding.policy.projects.includes(id),
+              ) ||
+              p.operations.some(
+                (op) => !p.binding.policy.operations.includes(op),
+              ))),
       ) ||
       state.outgoing.some(
         (p) =>
           p.invitation.sourceServerId !== state.serverId ||
-          p.invitation.targetServerId === state.serverId,
+          p.invitation.targetServerId === state.serverId ||
+          (p.origin === "fleet" &&
+            (!validBinding(p.binding) ||
+              p.binding.source.profileId !== state.serverId ||
+              p.binding.target.profileId !== p.invitation.targetServerId ||
+              p.invitation.expiresAt > p.binding.policy.expiresAt)),
+      ) ||
+      Object.entries(state.selected).some(
+        ([target, id]) =>
+          !state.outgoing.some(
+            (p) =>
+              p.invitation.targetServerId === target &&
+              p.invitation.credentialId === id,
+          ),
+      ) ||
+      state.fleet.outbox.some(
+        (item) =>
+          !state.incoming.some(
+            (p) =>
+              p.origin === "fleet" &&
+              p.id === item.credentialId &&
+              p.generation === item.credentialGeneration &&
+              JSON.stringify(p.binding) === JSON.stringify(item.binding),
+          ),
       ) ||
       (state.relay &&
         !peerRelayRequest.safeParse({
@@ -180,9 +312,29 @@ const stateSchema = z
           username: state.relay.username,
         }).success)
     )
-      context.addIssue({ code: "custom", message: "Inconsistent peer state" });
+      context.addIssue({
+        code: "custom",
+        message: "Inconsistent peer v2 state",
+      });
   });
 export type PeerAccessState = z.infer<typeof stateSchema>;
+function peerPolicySnapshot(state: Readonly<PeerAccessState>) {
+  const enrollment = state.fleet.enrollment;
+  return enrollment
+    ? {
+        ...state,
+        fleet: {
+          ...state.fleet,
+          enrollment: {
+            ...enrollment,
+            credentials: enrollment.credentials
+              ? { client: enrollment.credentials.client }
+              : null,
+          },
+        },
+      }
+    : state;
+}
 
 export function peerGrantOperations(operations: readonly Operation[]) {
   const result = [
@@ -245,16 +397,46 @@ export class PeerAccessStore {
         if ((await stat(this.path)).size > MAX_STATE_BYTES)
           throw new Error("Oversized peer state");
         await enforceOwnerOnlyPathPermissionsStrict(this.path, "file");
+        const loaded = JSON.parse(await readFile(this.path, "utf8"));
+        const legacy =
+          loaded.version === 1 ? legacyStateSchema.parse(loaded) : undefined;
         const saved = stateSchema.parse(
-          JSON.parse(await readFile(this.path, "utf8")),
+          legacy
+            ? {
+                ...legacy,
+                version: 2,
+                incoming: legacy.incoming.map((p) => ({
+                  ...p,
+                  origin: "manual",
+                })),
+                outgoing: legacy.outgoing.map((p) => ({
+                  ...p,
+                  origin: "manual",
+                })),
+                selected: Object.fromEntries(
+                  legacy.outgoing.map((p) => [
+                    p.invitation.targetServerId,
+                    p.invitation.credentialId,
+                  ]),
+                ),
+                fleet: { epoch: 0, enrollment: null, outbox: [] },
+              }
+            : loaded,
         );
         if (saved.serverId !== this.serverId)
           throw new Error("Peer state belongs to another logical server");
+        if (legacy)
+          await writeFileAtomically(this.path, JSON.stringify(saved), {
+            mode: 0o600,
+            durable: true,
+          });
         this.state = saved;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         this.state = {
-          version: 1,
+          version: 2,
+          selected: {},
+          fleet: { epoch: 0, enrollment: null, outbox: [] },
           serverId: this.serverId,
           decoySecret: randomBytes(32).toString("base64url"),
           agentAccess: { enabled: false, grantId: null },
@@ -286,9 +468,19 @@ export class PeerAccessStore {
     this.read();
     return this.revision;
   }
-  private mutate<T>(
+  mutate<T>(
     update: (next: PeerAccessState) => T,
     expectedRevision?: number,
+  ): Promise<T> {
+    return this.publish(update, expectedRevision);
+  }
+  publishFleetCredentials<T>(update: (next: PeerAccessState) => T): Promise<T> {
+    return this.publish(update, undefined, true);
+  }
+  private publish<T>(
+    update: (next: PeerAccessState) => T,
+    expectedRevision?: number,
+    credentialPublication = false,
   ): Promise<T> {
     if (this.pendingMutations >= 16)
       return Promise.reject(
@@ -325,7 +517,14 @@ export class PeerAccessStore {
         // The owner-only directory gives Windows staging files its private ACL;
         // Unix staging uses 0600. Rename preserves those rights and file owner.
         this.state = valid;
-        this.revision++;
+        // Routine refresh rotates private session material, not peer policy.
+        // A changed client binding, disconnect, grant or selection still fences.
+        if (
+          !credentialPublication ||
+          JSON.stringify(peerPolicySnapshot(previous)) !==
+            JSON.stringify(peerPolicySnapshot(valid))
+        )
+          this.revision++;
         if (!this.closed) this.changed?.(valid, previous as PeerAccessState);
       } catch {
         // Rename may already have published. Never keep the old live authority
@@ -393,7 +592,9 @@ export class PeerAccessStore {
       const operations = this.validateGrant(input);
       const current = this.read();
       const previous = rotateId
-        ? current.incoming.find((p) => p.id === rotateId)
+        ? current.incoming.find(
+            (p) => p.id === rotateId && p.origin === "manual",
+          )
         : undefined;
       if (rotateId && !previous)
         throw new CoreApiError(
@@ -426,7 +627,7 @@ export class PeerAccessStore {
       };
       return await this.mutate((next) => {
         const existing = next.incoming.find(
-          (p) => p.sourceServerId === sourceServerId,
+          (p) => p.sourceServerId === sourceServerId && p.origin === "manual",
         );
         if (
           (rotateId &&
@@ -447,6 +648,7 @@ export class PeerAccessStore {
             503,
           );
         const record: StoredIncomingPeer = {
+          origin: "manual",
           id,
           sourceServerId,
           generation: invitation.generation,
@@ -467,6 +669,9 @@ export class PeerAccessStore {
   revokeIncoming(id: string) {
     return this.mutate((next) => {
       next.incoming = next.incoming.filter((p) => p.id !== id);
+      next.fleet.outbox = next.fleet.outbox.filter(
+        (item) => item.credentialId !== id,
+      );
     });
   }
   importOutgoing(value: OutgoingPeerRequest, revision: number) {
@@ -486,7 +691,8 @@ export class PeerAccessStore {
     return this.mutate((next) => {
       const target = input.invitation.targetServerId,
         existing = next.outgoing.find(
-          (p) => p.invitation.targetServerId === target,
+          (p) =>
+            p.invitation.targetServerId === target && p.origin === "manual",
         );
       if (existing && !input.replace)
         throw new CoreApiError(
@@ -494,7 +700,13 @@ export class PeerAccessStore {
           "Outgoing peer already exists; replacement must be explicit",
           409,
         );
-      if (!existing && next.outgoing.length >= 64)
+      if (
+        !existing &&
+        (next.outgoing.length >= 128 ||
+          (!next.outgoing.some((p) => p.invitation.targetServerId === target) &&
+            new Set(next.outgoing.map((p) => p.invitation.targetServerId))
+              .size >= 64))
+      )
         throw new CoreApiError(
           "command_capacity",
           "Outgoing peer capacity reached",
@@ -503,9 +715,17 @@ export class PeerAccessStore {
       const { replace: _replace, ...record } = input;
       record.operations = peerGrantOperations(record.operations);
       next.outgoing = [
-        ...next.outgoing.filter((p) => p.invitation.targetServerId !== target),
-        record,
+        ...next.outgoing.filter(
+          (p) =>
+            p.invitation.targetServerId !== target || p.origin !== "manual",
+        ),
+        { ...record, origin: "manual" },
       ];
+      if (
+        !next.selected[target] ||
+        next.selected[target] === existing?.invitation.credentialId
+      )
+        next.selected[target] = record.invitation.credentialId;
     }, revision);
   }
   revokeOutgoing(targetId: string) {
@@ -513,6 +733,7 @@ export class PeerAccessStore {
       next.outgoing = next.outgoing.filter(
         (p) => p.invitation.targetServerId !== targetId,
       );
+      delete next.selected[targetId];
     });
   }
   setAgentAccess(enabled: boolean) {

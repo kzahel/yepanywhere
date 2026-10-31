@@ -42,6 +42,7 @@ export const peerServerInfo = z
     serverId: z.string().uuid(),
     credentialId: z.string().uuid(),
     generation: z.number().int().positive(),
+    fleet: z.literal(1).optional(),
     expiresAt: z.number().int().positive(),
     transportNonce: z.string().regex(/^[A-Za-z0-9+/]{32}$/),
   })
@@ -60,6 +61,10 @@ export const peerWireRequest = z
         Authorization: z.string().max(256),
         "Content-Type": z.literal("application/json"),
         "X-YA-Peer-Context": z.string().max(2048),
+        "X-YA-Fleet-Grant": z
+          .string()
+          .max(32 * 1024)
+          .optional(),
       })
       .strict(),
     body: z.unknown().optional(),

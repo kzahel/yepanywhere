@@ -3,7 +3,12 @@ import type { ApiPrincipal } from "../core-api/peer-policy.js";
 import { type CoreApi, CoreApiError } from "../core-api/service.js";
 import { PRINCIPAL_VARIABLE } from "../auth/principal.js";
 import { createV0Routes } from "../routes/v0/index.js";
-import { peerAttestation, type PeerDirectory } from "./directory.js";
+import {
+  peerAttestation,
+  type PeerDirectory,
+  type IncomingPeerGrant,
+  type PeerRequestAuthority,
+} from "./directory.js";
 
 export const PEER_SRP_CONTEXT = Symbol("verified-peer-srp-context");
 export interface PeerSrpContext {
@@ -66,7 +71,14 @@ async function readPeerBody(request: Request, caller: ApiPrincipal) {
 export function createPeerReceiver(
   api: CoreApi,
   directory: PeerDirectory,
-  options: { requireSrp?: boolean } = {},
+  options: {
+    requireSrp?: boolean;
+    fleetAuthority?: (
+      grant: IncomingPeerGrant,
+      token: string,
+      signal: AbortSignal,
+    ) => Promise<PeerRequestAuthority>;
+  } = {},
 ) {
   const app = new Hono<{
     Bindings: { [PEER_SRP_CONTEXT]?: PeerSrpContext };
@@ -114,7 +126,27 @@ export function createPeerReceiver(
           ? JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"))
           : { sessionId: null, launchId: null },
       );
-      acquired = directory.authenticate(authorization.slice(7), attestation);
+      const grant = directory.lookup(authorization.slice(7));
+      let authority: PeerRequestAuthority | undefined;
+      if (grant?.fleet) {
+        const token = c.req.header("X-YA-Fleet-Grant");
+        if (!token || token.length > 32 * 1024 || !options.fleetAuthority)
+          throw new CoreApiError(
+            "unauthorized",
+            "A fleet grant token is required",
+            401,
+          );
+        authority = await options.fleetAuthority(
+          grant,
+          token,
+          c.req.raw.signal,
+        );
+      }
+      acquired = directory.authenticate(
+        authorization.slice(7),
+        attestation,
+        authority,
+      );
       if (
         expected &&
         (acquired.principal.credentialId !== expected.credentialId ||

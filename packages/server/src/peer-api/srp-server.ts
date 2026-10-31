@@ -299,6 +299,7 @@ class PeerChannel {
       serverId: this.options.serverId,
       credentialId: peer.id,
       generation: peer.generation,
+      ...(peer.origin === "fleet" ? { fleet: 1 as const } : {}),
       expiresAt: peer.expiresAt,
       transportNonce,
     };

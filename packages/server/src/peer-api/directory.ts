@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Operation } from "../core-api/contracts.js";
 import type { PeerPrincipal } from "../core-api/peer-policy.js";
 import { CoreApiError } from "../core-api/errors.js";
+import type { FleetPeerBinding } from "../fleet/contracts.js";
 
 export const peerAttestation = z
   .object({
@@ -19,6 +20,14 @@ export interface IncomingPeerGrant {
   projects: readonly string[];
   operations: readonly Operation[];
   expiresAt: number;
+  fleet?: FleetPeerBinding;
+}
+export interface PeerRequestAuthority {
+  grant: IncomingPeerGrant;
+  projects: readonly string[];
+  operations: readonly Operation[];
+  expiresAt: number;
+  assertActive(): void;
 }
 export const hashPeerToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -46,7 +55,15 @@ export class PeerDirectory {
     this.incoming.delete(id);
     for (const controller of this.active.get(id) ?? []) controller.abort();
   }
-  authenticate(token: string, attestation: PeerAttestation) {
+  lookup(token: string) {
+    const hash = hashPeerToken(token);
+    return [...this.incoming.values()].find((g) => g.tokenHash === hash);
+  }
+  authenticate(
+    token: string,
+    attestation: PeerAttestation,
+    authority?: PeerRequestAuthority,
+  ) {
     const hash = hashPeerToken(token);
     const grant = [...this.incoming.values()].find((g) => g.tokenHash === hash);
     if (
@@ -59,6 +76,19 @@ export class PeerDirectory {
         "Peer credential is not active",
         401,
       );
+    if (grant.fleet && (!authority || authority.grant !== grant))
+      throw new CoreApiError(
+        "unauthorized",
+        "Fleet peer authority is required for this credential",
+        401,
+      );
+    const expiresAt = Math.min(
+      grant.expiresAt,
+      authority?.expiresAt ?? grant.expiresAt,
+    );
+    authority?.assertActive();
+    if (expiresAt <= Date.now())
+      throw new CoreApiError("unauthorized", "Peer authority expired", 401);
     if (this.activeCount >= 128)
       throw new CoreApiError(
         "command_capacity",
@@ -75,7 +105,7 @@ export class PeerDirectory {
             503,
           ),
         ),
-      Math.max(0, Math.min(12_000, grant.expiresAt - Date.now())),
+      Math.max(0, Math.min(12_000, expiresAt - Date.now())),
     );
     deadline.unref?.();
     let active = this.active.get(grant.id);
@@ -90,21 +120,23 @@ export class PeerDirectory {
       serverId: grant.serverId,
       credentialId: grant.id,
       credentialGeneration: grant.generation,
-      projects: grant.projects,
-      operations: grant.operations,
+      projects: authority
+        ? grant.projects.filter((id) => authority.projects.includes(id))
+        : grant.projects,
+      operations: authority
+        ? grant.operations.filter((op) => authority.operations.includes(op))
+        : grant.operations,
       sourceSessionId: attestation.sessionId,
       sourceLaunchId: attestation.launchId,
       signal: controller.signal,
       assertActive: () => {
-        if (
-          this.incoming.get(grant.id) !== grant ||
-          grant.expiresAt <= Date.now()
-        )
+        if (this.incoming.get(grant.id) !== grant || expiresAt <= Date.now())
           throw new CoreApiError(
             "unauthorized",
             "Peer credential is not active",
             401,
           );
+        authority?.assertActive();
         if (controller.signal.aborted)
           throw controller.signal.reason instanceof CoreApiError
             ? controller.signal.reason

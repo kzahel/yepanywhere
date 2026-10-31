@@ -65,7 +65,8 @@ async function main() {
   const cases = option("cases", "identity").split(",") as CaseId[];
   if (cases.some((value) => !Object.hasOwn(CASES, value)))
     throw new Error("Unknown eval case");
-  const peerRelay = process.argv.includes("--peer-relay");
+  const peerFleet = process.argv.includes("--peer-fleet");
+  const peerRelay = process.argv.includes("--peer-relay") || peerFleet;
   if (peerRelay && cases.some((caseId) => caseId !== "workflow"))
     throw new Error("--peer-relay currently supports only workflow");
   const samples = integer("samples", 1, 3);
@@ -90,6 +91,7 @@ async function main() {
   const plan = {
     apiRevision: API_REVISION,
     peerRelay,
+    peerFleet,
     fixtureRevision: FIXTURE_REVISION,
     model,
     effort,
@@ -241,7 +243,7 @@ async function main() {
           let recorded = false;
           try {
             await chmod(root, 0o700);
-            const fixture = await createFixture(caseId, peerRelay);
+            const fixture = await createFixture(caseId, peerRelay, peerFleet);
             closeFixture = fixture.close;
             redactions.push(
               fixture.environment.AGENT_YA_V0_AUTHORIZATION!,

@@ -16,6 +16,7 @@ import {
   verifyFleetKeyMaterial,
   publicFleetKey,
   fleetThumbprint,
+  fleetDigest,
 } from "./crypto.js";
 import { FleetError } from "./errors.js";
 
@@ -59,6 +60,11 @@ function validateState(value: unknown, issuer: string): FleetState {
     !unique(state.sessions.map((s) => s.id)) ||
     !unique(state.sessions.map((s) => s.clientId)) ||
     !unique(state.relationships.map((r) => r.id)) ||
+    !unique(
+      state.relationships.flatMap((r) =>
+        r.accepted ? [r.accepted.envelopeId] : [],
+      ),
+    ) ||
     !unique(state.mailbox.map((m) => m.id)) ||
     state.clients.some(
       (c) => !state.accounts.some((a) => a.id === c.accountId),
@@ -84,7 +90,8 @@ function validateState(value: unknown, issuer: string): FleetState {
             r.generation === m.generation &&
             r.sourceClientId === m.sourceClientId &&
             r.targetClientId === m.targetClientId &&
-            r.accepted?.envelopeId === m.id,
+            r.accepted?.envelopeId === m.id &&
+            r.accepted.digest === fleetDigest(m.ciphertext),
         ),
     )
   )

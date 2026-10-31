@@ -1,3 +1,6 @@
+import { FleetStore } from "../../packages/server/src/fleet/store.js";
+import { createFleetService } from "../../packages/server/src/fleet/service.js";
+import { relationshipSchema } from "../../packages/server/src/fleet/contracts.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,18 +28,41 @@ export async function createPeerEvalRouter(
   database: SqliteDatabase,
   receipts: ApiReceiptStore,
   projects: ApiProject[],
+  fleet = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), "ya-peer-eval-"));
   const sourceDb = openSqliteOrThrow(":memory:");
   migrateDiscoveryDatabase(sourceDb);
   const sourceReceipts = new ReceiptStore(sourceDb);
-  const a = new PeerAccessManager(SERVER_ID, join(root, "source")),
-    b = new PeerAccessManager(PEER_SERVER_ID, join(root, "target"));
+  let fleetStore: FleetStore | undefined,
+    fleetService: ReturnType<typeof createFleetService> | undefined;
+  const fleetOptions = fleet
+    ? {
+        allowInsecureLoopback: true,
+        fetch: (async (input, init) => {
+          if (!fleetService) throw new Error("Fleet fixture not ready");
+          return fleetService.app.fetch(new Request(input, init));
+        }) as typeof fetch,
+      }
+    : {};
+  const a = new PeerAccessManager(
+      SERVER_ID,
+      join(root, "source"),
+      undefined,
+      fleetOptions,
+    ),
+    b = new PeerAccessManager(
+      PEER_SERVER_ID,
+      join(root, "target"),
+      undefined,
+      fleetOptions,
+    );
   let relay: Awaited<ReturnType<typeof createRelayServer>> | undefined;
   const close = async () => {
     await a.close();
     await b.close();
     await relay?.close();
+    await fleetStore?.close();
     sourceReceipts.close();
     sourceDb.close();
     await rm(root, { recursive: true, force: true });
@@ -86,21 +112,65 @@ export async function createPeerEvalRouter(
     const granted = operations
       .filter((operation) => operation.path.includes(":serverId"))
       .map((operation) => operation.id);
-    const invitation = await b.issue({
-      sourceServerId: SERVER_ID,
-      projects: projects.map((p) => p.id),
-      operations: granted,
-      expiresAt: Date.now() + 10 * 60_000,
-      acknowledgeExecutionAuthority: "server-account",
-    });
     await a.setAgentAccess({ enabled: true });
-    await a.importOutgoing({
-      invitation,
-      route: { kind: "relay", url, username },
-      operations: granted,
-      allowAgentSessions: true,
-      replace: false,
-    });
+    if (fleet) {
+      const issuer = "http://127.0.0.1:45679";
+      fleetStore = new FleetStore(join(root, "fleet"), issuer, true);
+      await fleetStore.initialize();
+      const accountId = await fleetStore.provisionLocal(
+        "eval-owner",
+        "temporary fixture-only password",
+      );
+      fleetService = createFleetService(fleetStore);
+      for (const profile of [a, b]) {
+        await profile.fleetAccess.configure({ issuer, accountId });
+        await profile.fleetAccess.login({
+          username: "eval-owner",
+          password: "temporary fixture-only password",
+          displayName: "Owned eval profile",
+        });
+      }
+      const targetClient = b.store.read().fleet.enrollment!.credentials!.client;
+      const policy = {
+        projects: projects.map((p) => p.id),
+        operations: granted,
+        expiresAt: Date.now() + 10 * 60_000,
+      };
+      const proposal = relationshipSchema.parse(
+        await a.fleetAccess.propose({
+          targetClientId: targetClient.id,
+          policy,
+        }),
+      );
+      const delivered = await b.fleetAccess.accept({
+        relationshipId: proposal.id,
+        policy,
+        route: { kind: "relay", url, username },
+        acknowledgeExecutionAuthority: "server-account",
+      });
+      if (!("envelopeId" in delivered) || !delivered.envelopeId)
+        throw new Error("Fleet eval invitation was not published");
+      const adopted = await a.fleetAccess.adopt({
+        envelopeId: delivered.envelopeId,
+        allowAgentSessions: true,
+      });
+      await a.fleetAccess.select(PEER_SERVER_ID, adopted.credentialId);
+    } else {
+      const invitation = await b.issue({
+        sourceServerId: SERVER_ID,
+        projects: projects.map((p) => p.id),
+        operations: granted,
+        expiresAt: Date.now() + 10 * 60_000,
+        acknowledgeExecutionAuthority: "server-account",
+      });
+      await a.importOutgoing({
+        invitation,
+        route: { kind: "relay", url, username },
+        operations: granted,
+        allowAgentSessions: true,
+        replace: false,
+      });
+    }
     return { router, grantId: a.agentAccess().grantId!, close };
   } catch (error) {
     await close();

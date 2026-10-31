@@ -2,10 +2,10 @@
 
 Status: independently reviewed design for plan 168 steps 3–4. The standalone
 basic service/client is implemented and independently code-reviewed; target
-consumption and OIDC are subsequent implementation units. Sol 6.1 high and
-Daybreak Blue high confirmed
-the pre-session, lifetime, rate, trust and coexistence conditions before source
-edits. Manual [peer access](peer-access.md) remains independent. Fleet accounts
+consumption is implemented and independently reviewed through owner HTTP and
+protected native workflows. OIDC is the subsequent implementation unit. Sol
+6.1 high and Daybreak Blue high confirmed the pre-session, lifetime, rate, trust
+and coexistence conditions before source edits. Manual [peer access](peer-access.md) remains independent. Fleet accounts
 are not a requirement for ordinary YA.
 
 ## Scope and first-key trust
@@ -343,6 +343,32 @@ There is no forwarded-header trust or implicit TLS proxy deployment mode.
 Administrator commands and serving refuse concurrent directory ownership. No
 listener is started by importing the fleet modules, and the main YA server
 does not start this service automatically.
+
+### YA owner surface and credential selection
+
+Existing authenticated owner proof gates every `/api/peers/fleet` operation,
+even when ordinary app auth is disabled; native session leases do not authorize
+these routes. `PUT /api/peers/fleet` chooses the exact issuer/account and creates
+profile keys. `POST /fleet/login` supplies basic credentials (never saved),
+returning only public enrolled-client data. Under `/api/peers`, fleet directory
+reads are `GET /fleet/clients[/:id]`, `GET /fleet/relationships[/:id]` and `GET
+/fleet/mailbox`. `POST /fleet/relationships` proposes, `POST /fleet/accept`
+accepts exact projects/actions/expiry and route with execution acknowledgement,
+`POST /fleet/deliver/:credentialId` retries the same durable ciphertext, and
+`POST /fleet/adopt` imports one envelope after verification/preflight. Import
+acknowledgement follows durable local publication; an unsuccessful acknowledgement
+is reported separately and can be repeated after mailbox removal.
+
+`POST /outgoing/:targetId/select` with `{credentialId}` explicitly selects a
+manual or fleet credential. Importing fleet credentials leaves selection alone,
+including when no credential is selected. `DELETE
+/outgoing/:targetId/credentials/:credentialId` removes just that credential;
+`DELETE /outgoing/:targetId` retains its established all-credentials meaning.
+`DELETE /fleet/relationships/:id` removes matching local fleet access first and
+then attempts issuer revocation. `DELETE /fleet` durably removes local keys and
+fleet records before attempting client revocation, reporting remote confirmation
+separately. Surviving manual credentials and unrelated agent leases remain;
+removed selections are cleared and must be chosen again explicitly.
 
 Bounds apply before expensive work: 64 accounts, 256 clients, 1,024 proposals,
 256 sessions (one family per client), 128 pending basic logins, 64 OIDC flows, 256
