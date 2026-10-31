@@ -14,6 +14,8 @@ export interface AuthenticatedSrpTransportContext {
   >;
   transport: Extract<SecurityClientTransport, "direct" | "relay">;
   connectionId: string;
+  /** Live server-owned state; absent cannot authorize queued owner enrollment. */
+  isActive?: () => boolean;
   peerAddress?: string;
   closeConnection: () => void;
   closeAfterResponse: () => void;

@@ -1,3 +1,8 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { RemoteSessionService } from "../../src/remote-access/RemoteSessionService.js";
+import { getAuthenticatedSrpTransport } from "../../src/middleware/authenticated-transport.js";
 import type { HttpBindings } from "@hono/node-server";
 import {
   PUBLIC_SHARE_LEGACY_RELAY_FRAME_MAX_BYTES,
@@ -979,4 +984,58 @@ describe("WS relay legacy public-share response bound", () => {
     expect(response.status).toBe(200);
     expect(response.body).toBe(body);
   });
+});
+
+it("keeps owner authority bound to the current live stored SRP session", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ya-owner-srp-")),
+    sessions = new RemoteSessionService({ dataDir: directory });
+  const state = createConnectionState();
+  try {
+    await sessions.initialize();
+    state.authState = "authenticated";
+    state.sessionKey = new Uint8Array(32).fill(42);
+    state.username = "owner";
+    state.transportNonce = "owned-nonce";
+    state.authenticationMethod = "srp-full";
+    state.sessionId = await sessions.createSession("owner", state.sessionKey);
+    let live: (() => boolean) | undefined;
+    const app = new Hono<{ Bindings: HttpBindings }>();
+    app.get("/proof", (c) => {
+      live = getAuthenticatedSrpTransport(c.env)?.isActive;
+      return c.json({ ok: true });
+    });
+    const ws = { send: vi.fn(), close: vi.fn(), isOpen: () => true };
+    const request = () =>
+      handleRequest(
+        { type: "request", id: "owner-proof", method: "GET", path: "/proof" },
+        vi.fn(),
+        ws,
+        app,
+        "http://localhost",
+        state,
+        sessions,
+      );
+    await request();
+    expect(live?.()).toBe(true);
+    await sessions.deleteSession(state.sessionId);
+    expect(live?.()).toBe(false);
+    state.sessionId = await sessions.createSession("owner", state.sessionKey);
+    expect(live?.()).toBe(false); // A replacement does not revive the captured request.
+    await request();
+    expect(live?.()).toBe(true);
+    sessions.getSession(state.sessionId)!.lastUsed = new Date(
+      Date.now() - 8 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    expect(live?.()).toBe(false);
+    state.sessionId = await sessions.createSession("owner", state.sessionKey);
+    await request();
+    expect(live?.()).toBe(true);
+    cleanupConnectionState(state);
+    expect(live?.()).toBe(false);
+  } finally {
+    sessions.shutdown();
+    cleanupConnectionState(state);
+    await sessions.waitForPendingWrites();
+    await rm(directory, { recursive: true, force: true });
+  }
 });

@@ -1,11 +1,11 @@
 import type { PeerAccessManager } from "./peer-api/manager.js";
-import { createPeerOwnerProof } from "./peer-api/owner-proof.js";
+import { createPeerOwnerBinding } from "./peer-api/owner-proof.js";
 import { createPeerManagementRoutes } from "./peer-api/routes.js";
 import { API_OWNER_VARIABLE } from "./core-api/contracts.js";
 import { ApiReceiptStore } from "./core-api/receipt-store.js";
 import { SessionCommands } from "./core-api/session-commands.js";
 import { nativeSessionCommandOwner } from "./core-api/native-session-commands.js";
-import type { MiddlewareHandler } from "hono";
+import type { MiddlewareHandler, Context } from "hono";
 import {
   createConversationRead,
   createConversationFollow,
@@ -3231,15 +3231,16 @@ export function createApp(options: AppOptions): AppResult {
     options.peerAccess.setRetirementHandler((grantId) =>
       supervisor.revokePeerAgentApiAccess(publicServerId, grantId),
     );
-    const ownerProof = options.authService
-      ? createPeerOwnerProof({
+    const ownerBinding = options.authService
+      ? createPeerOwnerBinding({
           authService: options.authService,
           desktopAuthToken: options.desktopAuthToken,
           desktopBootstrapService: options.desktopBootstrapService,
           remoteAccessService: options.remoteAccessService,
           agentServerTokens,
         })
-      : async () => false;
+      : () => null;
+    const ownerProof = async (c: Context) => Boolean(await ownerBinding(c));
     const peerOwner: MiddlewareHandler = async (c, next) => {
       // A failed optional owner lookup cannot break existing local API access.
       if (await ownerProof(c).catch(() => false))
@@ -3249,7 +3250,7 @@ export function createApp(options: AppOptions): AppResult {
     app.use("/v0/*", peerOwner);
     app.route(
       "/api/peers",
-      createPeerManagementRoutes(options.peerAccess, ownerProof),
+      createPeerManagementRoutes(options.peerAccess, ownerProof, ownerBinding),
     );
     options.peerAccess.startRoutes();
   }

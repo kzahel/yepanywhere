@@ -12,6 +12,15 @@ import { FleetError } from "./errors.js";
 import { fleetWait } from "./limits.js";
 
 export { fleetCredentialsSchema } from "./contracts.js";
+export const fleetOidcPendingSchema = z
+  .object({
+    flowId: z.uuid(),
+    authorizationUrl: z.string().url().max(8192),
+    token: z.string().max(32768),
+    expiresAt: z.number().int().positive(),
+  })
+  .strict();
+export type FleetOidcPending = z.infer<typeof fleetOidcPendingSchema>;
 
 /** One bounded serial HTTP lane; only an explicit pre-admission nonce is retried. */
 export class FleetHttpClient {
@@ -32,8 +41,12 @@ export class FleetHttpClient {
       allowInsecureLoopback?: boolean;
       fetch?: typeof fetch;
       now?: () => number;
-      publish?: (credentials: FleetCredentials) => Promise<void>;
+      publish?: (
+        credentials: FleetCredentials,
+        assertOwner?: () => void,
+      ) => Promise<void>;
       remove?: () => Promise<void>;
+      discard?: (credentials: FleetCredentials) => Promise<void>;
     } = {},
   ) {
     this.issuer = fleetOrigin(issuer, options.allowInsecureLoopback);
@@ -165,6 +178,7 @@ export class FleetHttpClient {
     method: string,
     body: unknown,
     signal: AbortSignal,
+    assertOwner?: () => void,
   ): Promise<unknown> {
     if (
       !path.startsWith("/") ||
@@ -175,8 +189,8 @@ export class FleetHttpClient {
       throw new FleetError("invalid_request", "Use a fleet resource path");
     const url = new URL(`${this.issuer}/fleet/v0${path}`),
       handle = await this.dpop();
-    const send = () =>
-      oauth.protectedResourceRequest(
+    const send = () => {
+      return oauth.protectedResourceRequest(
         token,
         method,
         url,
@@ -185,15 +199,21 @@ export class FleetHttpClient {
         {
           DPoP: handle,
           [oauth.allowInsecureRequests]: this.options.allowInsecureLoopback,
-          [oauth.customFetch]: (input, init) =>
-            (this.options.fetch ?? fetch)(input, {
+          [oauth.customFetch]: (input, init) => {
+            // The maintained helper awaits DPoP signing before invoking fetch.
+            // Admission belongs here, after that await, on every actual send.
+            signal.throwIfAborted();
+            assertOwner?.();
+            return (this.options.fetch ?? fetch)(input, {
               ...init,
               body: typeof init.body === "string" ? init.body : undefined,
               signal,
               redirect: "error",
-            }),
+            });
+          },
         },
       );
+    };
     let response: Response;
     try {
       response = await send();
@@ -205,22 +225,37 @@ export class FleetHttpClient {
     if (response.status === 204) return null;
     return this.json(response, signal);
   }
-  private async publish(credentials: FleetCredentials, epoch: number) {
-    if (epoch !== this.epoch)
-      throw new FleetError(
-        "unauthorized",
-        "Fleet client was disconnected",
-        401,
-      );
-    await this.options.publish?.(credentials);
-    if (epoch !== this.epoch)
-      throw new FleetError(
-        "unauthorized",
-        "Fleet client was disconnected",
-        401,
-      );
-    this.credentials = credentials;
+  private async publish(
+    credentials: FleetCredentials,
+    epoch: number,
+    assertOwner?: () => void,
+  ) {
+    try {
+      assertOwner?.();
+      if (epoch !== this.epoch)
+        throw new FleetError(
+          "unauthorized",
+          "Fleet client was disconnected",
+          401,
+        );
+      await this.options.publish?.(credentials, assertOwner);
+      assertOwner?.();
+      if (epoch !== this.epoch)
+        throw new FleetError(
+          "unauthorized",
+          "Fleet client was disconnected",
+          401,
+        );
+      this.credentials = credentials;
+    } catch (error) {
+      if (assertOwner) {
+        this.credentials = undefined;
+        await this.options.discard?.(credentials);
+      }
+      throw error;
+    }
   }
+
   restore(credentials: FleetCredentials) {
     const valid = fleetCredentialsSchema.parse(credentials);
     if (
@@ -291,6 +326,129 @@ export class FleetHttpClient {
       return credentials.client;
     });
   }
+  startOidc(
+    input: {
+      providerId: string;
+      accountId: string;
+      ownerBinding: string;
+      enrollmentEpoch: number;
+      displayName: string;
+    },
+    caller?: AbortSignal,
+  ) {
+    const signal = this.signal(caller);
+    return this.serialize(signal, async () => {
+      const introduction = {
+        profileId: this.profileId,
+        displayName: input.displayName,
+        signingKey: publicFleetKey(this.keys.signing),
+        encryptionKey: publicFleetKey(this.keys.encryption),
+      };
+      const { displayName: _, ...binding } = input;
+      const response = await (this.options.fetch ?? fetch)(
+        `${this.issuer}/fleet/v0/oidc/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...binding, introduction }),
+          signal,
+          redirect: "error",
+        },
+      );
+      return fleetOidcPendingSchema.parse(await this.json(response, signal));
+    });
+  }
+  oidcProviders(caller?: AbortSignal) {
+    const signal = this.signal(caller);
+    return this.serialize(signal, async () =>
+      this.json(
+        await (this.options.fetch ?? fetch)(
+          `${this.issuer}/fleet/v0/oidc/providers`,
+          { signal, redirect: "error" },
+        ),
+        signal,
+      ),
+    );
+  }
+  oidcStatus(flow: FleetOidcPending, caller?: AbortSignal) {
+    const signal = this.signal(caller);
+    return this.serialize(signal, () =>
+      this.protected(
+        flow.token,
+        `/oidc/flows/${flow.flowId}`,
+        "GET",
+        undefined,
+        signal,
+      ),
+    );
+  }
+  completeOidc(
+    flow: FleetOidcPending,
+    ownerBinding: string,
+    enrollmentEpoch: number,
+    confirmationCode: string | undefined,
+    assertOwner: () => void,
+    caller?: AbortSignal,
+  ) {
+    const signal = this.signal(caller),
+      epoch = this.epoch;
+    return this.serialize(signal, async () => {
+      assertOwner();
+      if (this.options.publish && !this.options.discard)
+        throw new FleetError(
+          "invalid_configuration",
+          "OIDC publication requires conditional local credential discard",
+        );
+      let submitted = false;
+      try {
+        const pending = z
+          .object({ token: z.string().max(32768), expiresAt: z.number() })
+          .strict()
+          .parse(
+            await this.protected(
+              flow.token,
+              `/oidc/flows/${flow.flowId}/redeem`,
+              "POST",
+              { ownerBinding, enrollmentEpoch, confirmationCode },
+              signal,
+              assertOwner,
+            ),
+          );
+        const admit = () => {
+          assertOwner();
+          signal.throwIfAborted();
+          submitted = true;
+        };
+        const credentials = fleetCredentialsSchema.parse(
+          await this.protected(
+            pending.token,
+            "/enroll",
+            "POST",
+            undefined,
+            signal,
+            admit,
+          ),
+        );
+        assertOwner();
+        signal.throwIfAborted();
+        await this.publish(credentials, epoch, assertOwner);
+        return credentials.client;
+      } catch (error) {
+        if (
+          submitted &&
+          error instanceof FleetError &&
+          error.code === "owner_session_changed"
+        )
+          throw new FleetError(
+            "owner_session_changed_remote_unconfirmed",
+            "Owner authorization changed; local adoption was refused and remote enrollment may have committed",
+            403,
+          );
+        throw error;
+      }
+    });
+  }
+
   private async ready(signal: AbortSignal) {
     const credentials = this.credentials;
     if (!credentials || credentials.familyExpiresAt <= this.now())

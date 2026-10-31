@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
 import type { AuthService } from "../auth/AuthService.js";
@@ -16,43 +17,57 @@ import { getAuthenticatedSrpTransport } from "../middleware/authenticated-transp
 import type { RemoteAccessService } from "../remote-access/RemoteAccessService.js";
 
 /** Resolve actual owner proof even when the ordinary UI auth policy is open. */
-export function createPeerOwnerProof(options: {
-  authService: Pick<AuthService, "validateSession" | "getSessionUsername">;
+type OwnerProofOptions = {
+  authService: Pick<AuthService, "isSessionActive" | "getSessionUsername">;
   desktopAuthToken?: string;
   desktopBootstrapService?: Pick<DesktopBootstrapService, "validateSession">;
   remoteAccessService?: Pick<RemoteAccessService, "isEnabled" | "getUsername">;
   agentServerTokens?: Pick<AgentServerTokens, "accepts">;
-}) {
-  return async (c: Context): Promise<boolean> => {
+};
+export function createPeerOwnerBinding(options: OwnerProofOptions) {
+  const bind = (kind: string, value: string) =>
+    value
+      ? createHash("sha256").update(`${kind}:${value}`).digest("hex")
+      : null;
+  return (c: Context): string | null => {
     if (
       (c.get(PRINCIPAL_VARIABLE) as Principal | undefined)?.kind !== "superuser"
     )
-      return false;
+      return null;
     const token = bearerToken(c.req.header("Authorization"));
-    if (token && options.agentServerTokens?.accepts(token)) return false;
+    if (token && options.agentServerTokens?.accepts(token)) return null;
     if (
       options.desktopAuthToken &&
       hasValidDesktopToken(c, options.desktopAuthToken)
     )
-      return true;
+      return bind("desktop-token", options.desktopAuthToken!);
     if (
       options.desktopBootstrapService?.validateSession(
         getCookie(c, DESKTOP_SESSION_COOKIE_NAME),
       )
     )
-      return true;
+      return bind(
+        "desktop-session",
+        getCookie(c, DESKTOP_SESSION_COOKIE_NAME)!,
+      );
     const srp = getAuthenticatedSrpTransport(c.env);
     if (
       srp &&
+      srp.isActive?.() === true &&
       options.remoteAccessService?.isEnabled() &&
       srp.username === options.remoteAccessService.getUsername()
     )
-      return true;
+      return bind("srp-session", srp.sessionId);
     const session = getCookie(c, SESSION_COOKIE_NAME);
-    return Boolean(
-      session &&
-        (await options.authService.validateSession(session)) &&
-        options.authService.getSessionUsername(session) === null,
-    );
+    return session &&
+      options.authService.isSessionActive(session) &&
+      options.authService.getSessionUsername(session) === null
+      ? bind("owner-cookie", session)
+      : null;
   };
+}
+
+export function createPeerOwnerProof(options: OwnerProofOptions) {
+  const binding = createPeerOwnerBinding(options);
+  return async (c: Context) => Boolean(await binding(c));
 }

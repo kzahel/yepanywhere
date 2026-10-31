@@ -1,12 +1,12 @@
 # Optional fleet accounts and enrollment
 
-Status: independently reviewed design for plan 168 steps 3–4. The standalone
-basic service/client is implemented and independently code-reviewed; target
-consumption is implemented and independently reviewed through owner HTTP and
-protected native workflows. OIDC is the subsequent implementation unit. Sol
-6.1 high and Daybreak Blue high confirmed the pre-session, lifetime, rate, trust
-and coexistence conditions before source edits. Manual [peer access](peer-access.md) remains independent. Fleet accounts
-are not a requirement for ordinary YA.
+Status: implemented and independently reviewed for plan 168 steps 3–4,
+2026-10-31. The standalone basic service, owner HTTP consumer and OIDC adapter
+complete protected native workflows. Sol 6.1 high and Daybreak Blue high
+reviewed the design and code, then rechecked all material fixes. Manual
+[peer access](peer-access.md) remains independent. Fleet accounts are optional
+and the API remains unstable; live vendor qualification and enrollment/grant UI
+are follow-ups.
 
 ## Scope and first-key trust
 
@@ -61,7 +61,7 @@ logout/account-disable detection; no fresh MFA assertion is invented.
 
 This small account-session API is not an OAuth/OpenID provider for arbitrary
 applications. Use `jose` for JWS/JWT/JWE and `oauth4webapi` for DPoP resource
-request construction/validation. Signatures accept ES256 only; envelopes use
+request construction/validation. Fleet signatures accept ES256 only; envelopes use
 ECDH-ES/A256GCM. Explicit HTTPS public origin and TLS termination are required
 for network deployment; plain HTTP is an explicit loopback fixture option.
 Do not infer authority from proxy headers, token-supplied URLs or relay names.
@@ -98,7 +98,7 @@ Required identity and ledger fields depend on the purpose:
 | Purpose | Subject and client ID | Applicable authority before dispatch |
 | --- | --- | --- |
 | Basic enrollment | Account UUID; pending-enrollment UUID as `client_id` | Outstanding pending ID, account/auth generation, exact profile and both keys, expiry; no published client/session is required |
-| OIDC redemption/status | OIDC-flow UUID for both `sub` and `client_id` | Outstanding flow, provider/profile/key binding and expiry; no account/session exists before callback. Redemption additionally requires its ready account result and current auth generation |
+| OIDC redemption/status | OIDC-flow UUID for both `sub` and `client_id` | Outstanding flow, provider/profile/key binding and expiry; no authenticated account/session authority before callback. Redemption additionally requires its ready account result and current auth generation |
 | Enrolled control | Account UUID; enrolled-client UUID | Current session ID, account/auth generation, active client and exact profile/key binding |
 | Refresh only | Account UUID; enrolled-client UUID | Same current-session checks plus exact current refresh-token hash and absolute family expiry |
 
@@ -290,10 +290,12 @@ five-minute expiry. A key-bound, enrollment-only redemption JWT is returned to
 YA, never placed in browser URLs. It conveys no account authority before OIDC
 completion. Callback consumption is single-use before exchange; completion
 stores the authenticated account result against that exact flow, not a browser
-refresh capability. Browser output contains status only.
+refresh capability. Browser output contains only transaction confirmation
+information, never a fleet session or refresh capability.
 
 The same originating owner session then completes through YA. YA checks local
-flow/generation/session binding and redeems with DPoP using the initiating key.
+flow/generation/session binding and redeems the browser confirmation code with
+DPoP using the initiating key.
 The service atomically consumes the ready flow, rechecks account generation and
 calls the same enrollment/session path as basic login. A detached/changed owner,
 wrong profile/key or expired/restarted flow cannot redeem it. Missing stable
@@ -305,6 +307,84 @@ refresh without asserting continuous upstream logout detection. Protocol tests
 use an owned local issuer, real code exchange/JWKS and verified tokens; live
 vendor qualification remains distinct. Existing artifact OAuth/email policy is
 not fleet account authority.
+
+### Browser confirmation and owner-publication admission
+
+Independent OIDC review identified that a forwarded upstream login URL could
+otherwise bind the initiator's keys to another browser's account. The same-owner
+check alone does not stop that: the initiator controls its own owner session.
+Keep the standard OIDC exchange, and require an additional 192-bit random
+confirmation code generated only after the verified callback. Store only its
+SHA-256 digest against that exact flow. Display the code only once in that
+callback browser, alongside the claimed server name, profile UUID and signing
+fingerprint, with escaped text, no external resources, no-store/no-referrer and
+framing/opener restrictions. The page contains no scripts, forms or external
+assets. Status, URLs, logs and agent environments never carry it. The initiating owner start response includes the same public identity
+for comparison. This supersedes the earlier status-only browser wording.
+
+The owner supplies that code with completion. The service checks current
+flow/account/key/owner/epoch bindings and readiness, compares the fixed-length
+hash in constant time, and consumes the code and flow before asynchronous
+pending enrollment. Five incorrect codes retire the flow. Not-ready or wrong
+code responses are explicit pre-admission failures and permit manual retry;
+a lost response after consumption requires a fresh ceremony. Neither retry
+nor confirmation extends flow expiry or the callback-derived one-hour deadline.
+This prevents enrollment from a forwarded login link alone; a person who also
+hands the confirmation code to an attacker can still be phished.
+
+Completion revalidates live owner authority after queue waits, after redemption,
+before each enrollment transmission (including a nonce retry), after its reply
+and inside the serialized local credential-publication callback. Cookie and
+desktop sessions check current validity/expiry; SRP checks its underlying live
+connection/session rather than an immutable request snapshot. Logout before
+enrollment transmission prevents remote membership. Once enrollment has been
+sent, the remote durable operation can already have committed: later logout
+prevents local adoption but cannot promise to undo accepted remote work. A
+reserved local persistence-queue slot lets the single serialized fleet client
+discard only its exact newly published refresh family even when ordinary
+policy writes have filled the queue. A newer family or epoch is never removed.
+Report that remote outcome as unconfirmed. Never unconditionally delete a client to
+undo it: enrollment can reuse an existing client and replace its family.
+Fresh owner reauthentication can inspect/recover that profile binding through
+the common ceremony. Ordinary logout after completed enrollment does not
+remove an already enrolled server.
+
+### OIDC configuration and owner HTTP ceremony
+
+The standalone `serve` command accepts `--oidc-config PRIVATE_JSON_FILE`; it
+requires owner-only file permissions and at most four configured providers.
+Each entry has `id`, `displayName`, exact upstream `issuer`, `clientId`,
+`clientSecret`, optional `tokenEndpointAuthMethod` (`client_secret_basic` by
+default, or `client_secret_post`) and `idTokenSigningAlgorithm` (`RS256` by
+default, or `ES256`). These are upstream ID-token algorithms; YA's own fleet
+signatures remain ES256. Register the fixed callback
+`FLEET_ORIGIN/fleet/v0/oidc/callback/PROVIDER_ID` at that provider. Upstream
+responses are limited to 64 KiB with five-second request budgets; redirects are
+refused. Network use requires HTTPS; explicit owned loopback fixtures may use
+HTTP. No provider is enabled or chosen implicitly.
+
+The configured account UUID is supplied at flow start as an expected account,
+not account authority. Its current authentication/enrollment generations are
+captured before upstream login. Callback must establish that exact account's
+provisioned issuer/subject; revocation during the ceremony invalidates it. The
+flow token still uses the flow UUID for subject and client ID before membership
+exists. An OIDC family's absolute deadline is one hour from the verified
+callback; delaying redemption or the common enrollment cannot extend it.
+
+Under `/api/peers`, `GET /fleet/oidc/providers` lists public provider choices.
+`POST /fleet/oidc/start` takes `{providerId, displayName}`, returning only
+`flowId`, `authorizationUrl`, `expiresAt`, `profileId` and
+`signingFingerprint`. The initiating backend keeps the
+key-bound redemption token private. Open the authorization URL in a browser;
+the upstream callback displays a one-use enrollment confirmation code. The
+same authenticated YA owner session calls `GET /fleet/oidc/:flowId` and `POST
+/fleet/oidc/:flowId/complete` with `{confirmationCode}`. Completion uses the common DPoP pending/enrollment
+and session path, then returns public client identity. The local backend keeps
+at most eight pending flows; restart/disconnect removes them. Missing stable
+owner binding, another owner session, an expired flow or a changed profile
+generation is refused. Owner binding derives from an actually validated owner
+cookie, desktop credential/session or established SRP login session, never
+anonymous loopback or an agent's session lease.
 
 ## Resource and verification gates
 
@@ -320,6 +400,9 @@ rotates refresh authority. `GET /me`, `GET /clients[/:id]`, `DELETE /clients/:id
 `GET|POST /relationships`, `GET|DELETE /relationships/:id`, `PUT
 /relationships/:id/envelope`, `POST /relationships/:id/token`, `GET
 /mailbox[/:id]` and `POST /mailbox/:id/ack` expose the bounded control plane.
+OIDC resources are `GET /oidc/providers`, `POST /oidc/start`,
+`GET /oidc/callback/:providerId` and key-bound `GET /oidc/flows/:id` /
+`POST /oidc/flows/:id/redeem`; only the callback returns HTML.
 Mailbox list responses omit ciphertext; fetch one envelope explicitly.
 Lists accept `cursor` and `limit` (default 20, maximum 50). Oversized replies
 fail with a request for a smaller page. Responses contain no password hashes,
@@ -377,7 +460,8 @@ is at most 32 KiB as an encoded wire value. Expired transient records are remove
 mail deleted, retired generations limited to current state. Limiters retain at
 most 1,024 keys. Keep at most four bcrypt, eight JWT/key verification/signing
 jobs, four service preflights and one coalesced JWKS fetch per issuer. Abandoned
-native crypto still owns its slot until settlement. Mutation queues cap at 16.
+native crypto still owns its slot until settlement. Mutation queues cap at 16 ordinary writes; the YA peer store reserves one
+additional slot for conditional cleanup by its single serialized fleet client.
 Service/peer state files cap at eight MiB, service HTTP bodies at 64 KiB, JWTs at
 32 KiB, HTTP replies at 256 KiB and request lifetime at ten seconds. Peer channel
 limits remain unchanged. Refuse capacity instead of evicting active authority.
@@ -387,9 +471,9 @@ lists are paginated (default 20, maximum 50); ciphertext fetch is per envelope.
 Explicit source adoption handles one envelope per bounded request, not an
 unbounded fleet scan or batch of preflights.
 
-Implement after independent design closure: real local accounts and sessions;
-key-bound enrollment/proposals; target acceptance, mailbox and source adoption;
-per-request credential-bound tokens and revocation; then OIDC into that same flow.
+The implemented sequence is real local accounts and sessions, key-bound
+enrollment/proposals, target acceptance/mailbox/source adoption, per-request
+credential-bound tokens and revocation, then OIDC into that same flow.
 Native agents keep their existing private `/me`, discovery and v0 workflow.
 No scheduler, cloning/worktree policy, roles or custom delegation lifecycle.
 
@@ -405,3 +489,37 @@ leaves nonce and authorization semantics to the application.
 [Clerk's SSO guide](https://clerk.com/docs/guides/configure/auth-strategies/oauth/single-sign-on)
 describes its OIDC-provider mode with the `openid` scope; this is not live
 qualification of a particular configured issuer.
+
+
+### OIDC verification evidence
+
+Thirteen owned-issuer cases exercise maintained `openid-client` discovery,
+authorization-code/PKCE/state/nonce, verified RSA/EC ID tokens and JWKS,
+Basic/Post client authentication, exact issuer/subject selection and the common
+protected native create/message/follow/revoke workflow. Negative cases cover
+wrong issuer/subject/nonce/signature, revoked/expired/disconnected flows,
+callback/code replay, cross-flow/missing codes, five-attempt retirement,
+concurrent key-bound DPoP lanes and callback-derived absolute lifetime. Logout
+races include redemption, actual fetch after DPoP signing on first send and
+nonce retry, queued/published local writes and saturated conditional cleanup;
+a fresh store reconstruction confirms rejected credentials stay removed.
+A real stored SRP-session regression covers deletion, replacement, expiry and
+connection cleanup without relying on socket closure alone.
+
+Independent Sol and Daybreak Blue reviews identified browser-to-initiator
+confirmation, fresh owner admission, the async signing-to-fetch gap, live SRP
+session revocation and full-queue cleanup. Both rechecked the final fixes and
+reported no remaining material finding. This is engineering review and owned
+protocol evidence, not a cryptographic audit or live Keycloak/Clerk qualification.
+The confirmation page was captured and inspected at 1000×600 and 375×812 using
+synthetic identities/code, with no browser warnings or overflow. Native agent
+bootstrap and instructions are unchanged; the earlier opt-in basic-fleet relay
+workflow remains the model evidence, while OIDC browser enrollment is tested
+at its deterministic protocol boundary.
+
+
+Final workspace verification passes 6,680 server and 7,062 client tests, all
+remaining packages, lint, formatting and types. The 94 core API cases retain
+basic/manual coexistence and the OIDC path. An isolated desktop Bun 1.3.14 probe
+also completes actual owned-issuer OIDC/PKCE/JWKS, browser confirmation, DPoP and
+durable restart; it does not qualify live vendor configuration or packaged UI.

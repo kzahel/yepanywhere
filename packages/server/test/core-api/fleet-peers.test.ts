@@ -1,23 +1,17 @@
+import { fleetFixture } from "./fleet-fixture.js";
 import { SRPClientSession } from "tssrp6a";
 import { createRelayServer } from "../../../relay/src/server.js";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Hono } from "hono";
 import { afterEach, expect, it, vi } from "vitest";
-import { AuthService } from "../../src/auth/AuthService.js";
-import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
-import { SUPERUSER, type Principal } from "../../src/auth/principal.js";
-import { createPeerOwnerProof } from "../../src/peer-api/owner-proof.js";
-import { createPeerManagementRoutes } from "../../src/peer-api/routes.js";
+import { SUPERUSER } from "../../src/auth/principal.js";
 import { PeerAccessStore } from "../../src/peer-api/state.js";
-import { createFleetService } from "../../src/fleet/service.js";
-import { FleetStore } from "../../src/fleet/store.js";
 import { createAgentApiRuntime } from "../../src/agent-api/runtime.js";
 import type { FleetRelationship } from "../../src/fleet/contracts.js";
 import type { Operation } from "../../src/core-api/contracts.js";
-import { protectedProfile, nativeRequest } from "./peer-fixture.js";
+import { nativeRequest } from "./peer-fixture.js";
 import { SrpPeerTransport } from "../../src/peer-api/srp-client.js";
 import { PeerChannelBudget } from "../../src/peer-api/srp-protocol.js";
 import {
@@ -49,114 +43,10 @@ const operations: Operation[] = [
   "followReceipt",
   "relationships",
 ];
-async function fleetFixture() {
-  const directory = await mkdtemp(join(tmpdir(), "ya-fleet-integration-"));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
-  const issuer = "http://127.0.0.1:45679",
-    store = new FleetStore(directory, issuer, true);
-  await store.initialize();
-  cleanup.push(() => store.close());
-  const accountId = await store.provisionLocal(
-    "owner",
-    "temporary fleet password",
-  );
-  const service = createFleetService(store);
-  let available = true,
-    dropUpload = false,
-    dropAck = false;
-  const fetcher: typeof fetch = async (input, init) => {
-    if (!available) throw new Error("owned issuer outage");
-    const request = new Request(input, init),
-      response = await service.app.fetch(request),
-      path = new URL(request.url).pathname;
-    if (response.ok && dropUpload && path.endsWith("/envelope")) {
-      dropUpload = false;
-      throw new Error("owned lost upload response");
-    }
-    if (response.ok && dropAck && path.endsWith("/ack")) {
-      dropAck = false;
-      throw new Error("owned lost ack response");
-    }
-    return response;
-  };
-  const make = async () => {
-    const profile = await protectedProfile(cleanup, {
-      allowInsecureLoopback: true,
-      fetch: fetcher,
-    });
-    const auth = new AuthService({ dataDir: profile.directory });
-    await auth.initialize();
-    cleanup.push(() => auth.waitForPendingWrites());
-    const cookie = await auth.createSession("owner");
-    const ownerApp = new Hono<{ Variables: { yaPrincipal: Principal } }>();
-    ownerApp.use("*", async (c, next) => {
-      c.set("yaPrincipal", SUPERUSER);
-      await next();
-    });
-    ownerApp.route(
-      "/api/peers",
-      createPeerManagementRoutes(
-        profile.manager,
-        createPeerOwnerProof({ authService: auth }),
-      ),
-    );
-    const call = (
-      path: string,
-      method = "GET",
-      body?: unknown,
-      authenticated = true,
-    ) =>
-      ownerApp.request(`/api/peers${path === "/" ? "" : path}`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...(authenticated
-            ? { Cookie: `${SESSION_COOKIE_NAME}=${cookie}` }
-            : {}),
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
-    const json = async (path: string, method = "GET", body?: unknown) => {
-      const response = await call(path, method, body);
-      if (!response.ok)
-        throw new Error(
-          `Owned management ${path}: ${response.status} ${await response.text()}`,
-        );
-      return response.status === 204 ? null : response.json();
-    };
-    expect(
-      (await call("/fleet", "PUT", { issuer, accountId }, false)).status,
-    ).toBe(403);
-    await json("/fleet", "PUT", { issuer, accountId });
-    const client = await json("/fleet/login", "POST", {
-      username: "owner",
-      password: "temporary fleet password",
-      displayName: "owned YA profile",
-    });
-    return { ...profile, call, json, client };
-  };
-  return {
-    store,
-    service,
-    make,
-    directory,
-    offline: () => {
-      available = false;
-    },
-    online: () => {
-      available = true;
-    },
-    loseUpload: () => {
-      dropUpload = true;
-    },
-    loseAck: () => {
-      dropAck = true;
-    },
-  };
-}
+const fixture = () => fleetFixture(cleanup);
 
 it("uses real basic enrollment and protected SRP for native create/message/follow while retaining manual standby access", async () => {
-  const f = await fleetFixture(),
+  const f = await fixture(),
     source = await f.make(),
     target = await f.make();
   const policy = {
@@ -391,7 +281,7 @@ it("migrates complete v1 manual state atomically without changing IDs or its sel
 });
 
 it("recovers lost opaque delivery replies and rejects peer token/credential downgrade and widened scope", async () => {
-  const f = await fleetFixture(),
+  const f = await fixture(),
     source = await f.make(),
     target = await f.make();
   const policy = {
@@ -562,7 +452,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
 });
 
 it("refuses observation after fleet token expiry while retaining native work already admitted", async () => {
-  const f = await fleetFixture(),
+  const f = await fixture(),
     source = await f.make(),
     target = await f.make();
   const policy = {
@@ -634,7 +524,7 @@ it("refuses observation after fleet token expiry while retaining native work alr
 it("renews fleet account tokens during adoption without invalidating the peer-policy revision fence", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   try {
-    const f = await fleetFixture(),
+    const f = await fixture(),
       source = await f.make(),
       target = await f.make();
     const policy = {
@@ -674,7 +564,7 @@ it("does not confirm an expired source reply even before its expiry timer runs",
   vi.useFakeTimers({ toFake: ["Date"] });
   let spy: ReturnType<typeof vi.spyOn> | undefined;
   try {
-    const f = await fleetFixture(),
+    const f = await fixture(),
       source = await f.make(),
       target = await f.make();
     const policy = {
@@ -759,7 +649,7 @@ it("does not confirm an expired source reply even before its expiry timer runs",
 });
 
 it("admits manual standby at 64 mixed credentials, retains the 64-target bound and permits replacement at 128", async () => {
-  const f = await fleetFixture(),
+  const f = await fixture(),
     source = await f.make(),
     target = await f.make();
   const policy = {

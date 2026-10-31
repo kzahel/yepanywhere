@@ -158,6 +158,7 @@ function createWSAdapter(
   connState: ConnectionState,
 ): WSAdapter {
   return {
+    isOpen: () => ws.readyState === ws.OPEN,
     send(data: string | ArrayBuffer | Uint8Array<ArrayBuffer>): void {
       try {
         if (ws.readyState === ws.OPEN) {
@@ -342,6 +343,7 @@ export function createWsRelayRoutes(
         console.log("[WS Relay] Client connected");
         // Create WSAdapter wrapper for Hono's WSContext
         wsAdapter = {
+          isOpen: () => ws.readyState === 1,
           send(data: string | ArrayBuffer | Uint8Array<ArrayBuffer>): void {
             try {
               ws.send(data);

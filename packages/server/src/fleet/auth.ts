@@ -38,6 +38,7 @@ interface PendingLogin {
   encryptionJkt: string;
   expiresAt: number;
   familyMs: number;
+  familyDeadline?: number;
   clientIdAtLogin: string | null;
 }
 export interface FleetCredentials {
@@ -149,9 +150,16 @@ export class FleetAuth {
           c.profileId === introduction.profileId &&
           !c.revoked,
       )?.id ?? null,
+    familyDeadline?: number,
   ) {
     return this.crypto.run(() =>
-      this.preparePending(account, introduction, familyMs, clientIdAtLogin),
+      this.preparePending(
+        account,
+        introduction,
+        familyMs,
+        clientIdAtLogin,
+        familyDeadline,
+      ),
     );
   }
   private async preparePending(
@@ -159,6 +167,7 @@ export class FleetAuth {
     introduction: ClientIntroduction,
     familyMs: number,
     clientIdAtLogin: string | null,
+    familyDeadline?: number,
   ) {
     for (const [id, item] of this.logins)
       if (item.expiresAt <= this.now()) this.logins.delete(id);
@@ -170,6 +179,7 @@ export class FleetAuth {
       );
     const item: PendingLogin = {
       clientIdAtLogin,
+      familyDeadline,
       id: randomUUID(),
       accountId: account.id,
       authGeneration: account.authGeneration,
@@ -295,7 +305,11 @@ export class FleetAuth {
       );
     return { account, session, client };
   }
-  async authorize(request: Request, purpose: FleetPurpose) {
+  async authorize(
+    request: Request,
+    purpose: FleetPurpose,
+    pendingAuthority?: (claims: FleetControlClaims) => void,
+  ) {
     this.store.read();
     let claims: FleetControlClaims;
     try {
@@ -329,7 +343,8 @@ export class FleetAuth {
       );
     }
     const token = request.headers.get("authorization")?.slice(5);
-    this.assert(claims, purpose, token);
+    if (purpose === "oidc" && pendingAuthority) pendingAuthority(claims);
+    else this.assert(claims, purpose, token);
     // Library verified this exact proof's signature, token hash, method and URI.
     const proof = jose.decodeJwt(request.headers.get("dpop") ?? "");
     if (
@@ -466,7 +481,10 @@ export class FleetAuth {
       clientId: client.id,
       authGeneration: account.authGeneration,
       createdAt: this.now(),
-      expiresAt: this.now() + pending.familyMs,
+      expiresAt: Math.min(
+        this.now() + pending.familyMs,
+        pending.familyDeadline ?? Infinity,
+      ),
       refreshHash: "0".repeat(64),
     };
     const credentials = await this.credentials(client, account, session);

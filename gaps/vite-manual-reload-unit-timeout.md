@@ -43,3 +43,18 @@ A subsequent full run without other validation commands alongside it passed
 all 7,003 client tests in 127.84 seconds and all 6,547 server tests in 121.49
 seconds. That clean run does not establish why the earlier teardown and
 capture deadlines were missed.
+
+
+## 2026-10-31 peer enrollment verification
+
+A full macOS Node 22.23.3 run timed out the notification case, `notifies about
+source changes in manual reload mode`, at 5,000 ms. All 6,676 server tests and
+7,061 other client tests passed. Peer/OIDC changes do not modify Vite or its
+fixture. This adds another observed timeout without establishing its cause;
+keep the existing investigation and measured-budget requirements above.
+
+
+The subsequent full run after final peer/OIDC source changes passed all 7,062
+client tests in 179.55 seconds and all 6,680 server tests in 162.69 seconds. No
+Vite fixture or deadline was changed. This clean run does not establish the
+cause of the earlier timeout.

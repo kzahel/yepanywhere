@@ -292,6 +292,8 @@ export interface RelayUploadState {
  * Note: Hono's WSContext.send uses Uint8Array<ArrayBuffer> (not ArrayBufferLike)
  */
 export interface WSAdapter {
+  /** Live transport state for owner-authorized work spanning async requests. */
+  isOpen?(): boolean;
   send(data: string | ArrayBuffer | Uint8Array<ArrayBuffer>): void;
   close(code?: number, reason?: string): void;
 }
@@ -1225,6 +1227,7 @@ export async function handleRequest(
   app: Hono<{ Bindings: HttpBindings }>,
   baseUrl: string,
   connState: ConnectionState,
+  remoteSessionService?: Pick<RemoteSessionService, "getResumeSessionFailure">,
 ): Promise<void> {
   const responseFrameMode: RequestResponseFrameMode =
     hasEstablishedSrpTransport(connState)
@@ -1290,6 +1293,7 @@ export async function handleRequest(
     // cookie middleware does not re-challenge routed API requests.
     let closeAfterResponse = false;
     const afterResponseTasks: Array<() => Promise<void> | void> = [];
+    const ownerSessionId = connState.sessionId;
     const srpTransport =
       hasEstablishedSrpTransport(connState) &&
       connState.username &&
@@ -1304,6 +1308,14 @@ export async function handleRequest(
             authenticationMethod: connState.authenticationMethod,
             transport: connState.transport,
             connectionId: connState.connectionId,
+            isActive: () =>
+              !connState.cleanupStarted &&
+              hasEstablishedSrpTransport(connState) &&
+              connState.sessionId === ownerSessionId &&
+              typeof ownerSessionId === "string" &&
+              remoteSessionService?.getResumeSessionFailure(ownerSessionId) ===
+                null &&
+              ws.isOpen?.() === true,
             ...(connState.peerAddress
               ? { peerAddress: connState.peerAddress }
               : {}),
@@ -2840,7 +2852,15 @@ export async function handleMessage(
         // but a slow request (e.g. a session index revalidation behind
         // /api/sessions) must not head-of-line block later tunneled requests
         // the way it never would over plain HTTP.
-        void handleRequest(requestMsg, send, ws, app, baseUrl, connState);
+        void handleRequest(
+          requestMsg,
+          send,
+          ws,
+          app,
+          baseUrl,
+          connState,
+          remoteSessionService,
+        );
       },
       onResponseStreamAck: (ackMsg) =>
         handleResponseStreamAck(connState, ackMsg.id, ackMsg.bytes),

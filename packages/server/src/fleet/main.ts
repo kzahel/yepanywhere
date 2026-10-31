@@ -4,6 +4,9 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { serve } from "@hono/node-server";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import { enforceOwnerOnlyPathPermissionsStrict } from "../utils/filePermissions.js";
+import { fleetOidcProvidersSchema } from "./oidc.js";
 import { fleetOrigin } from "./crypto.js";
 import { createFleetService } from "./service.js";
 import { FleetStore } from "./store.js";
@@ -38,6 +41,7 @@ export async function fleetMain(args = process.argv.slice(2)) {
       "fixture-http": { type: "boolean", default: false },
       "tls-cert": { type: "string" },
       "tls-key": { type: "string" },
+      "oidc-config": { type: "string" },
     },
   });
   if (!values.directory || !values.issuer)
@@ -92,7 +96,21 @@ export async function fleetMain(args = process.argv.slice(2)) {
       return;
     }
     if (positionals[0] !== "serve") throw new Error("Unknown fleet command");
-    const service = createFleetService(store),
+    let oidcProviders: unknown;
+    if (values["oidc-config"]) {
+      const path = resolve(values["oidc-config"]);
+      await enforceOwnerOnlyPathPermissionsStrict(path, "file");
+      const content = await readFile(path);
+      if (content.byteLength > 64 * 1024)
+        throw new Error("Oversized OIDC configuration");
+      oidcProviders = fleetOidcProvidersSchema.parse(
+        JSON.parse(content.toString("utf8")),
+      );
+    }
+    const service = createFleetService(store, {
+        oidcProviders,
+        remoteAddress: (c) => getConnInfo(c).remote.address,
+      }),
       url = new URL(issuer);
     const port = Number(url.port || (url.protocol === "https:" ? 443 : 80));
     const server =

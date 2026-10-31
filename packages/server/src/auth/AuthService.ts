@@ -306,6 +306,15 @@ export class AuthService {
     return sessionId;
   }
 
+  /** Read-only live admission check for queued owner-authorized operations. */
+  isSessionActive(sessionId: string): boolean {
+    const session = this.state.sessions[sessionVerifier(sessionId)];
+    return Boolean(
+      session &&
+        Date.now() - new Date(session.createdAt).getTime() <= this.sessionTtlMs,
+    );
+  }
+
   /**
    * Validate a session ID.
    * Returns true if valid, false if expired or not found.

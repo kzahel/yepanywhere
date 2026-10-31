@@ -477,12 +477,36 @@ export class PeerAccessStore {
   publishFleetCredentials<T>(update: (next: PeerAccessState) => T): Promise<T> {
     return this.publish(update, undefined, true);
   }
+  /** One reserved slot for the single serialized fleet client's cleanup.
+   * Recheck the exact family at execution; never erase newer enrollment.
+   */
+  discardFleetCredentials(epoch: number, refreshToken: string): Promise<void> {
+    const current = this.read();
+    if (
+      current.fleet.epoch !== epoch ||
+      current.fleet.enrollment?.credentials?.refreshToken !== refreshToken
+    )
+      return Promise.resolve();
+    return this.publish(
+      (next) => {
+        if (
+          next.fleet.epoch === epoch &&
+          next.fleet.enrollment?.credentials?.refreshToken === refreshToken
+        )
+          next.fleet.enrollment.credentials = null;
+      },
+      undefined,
+      false,
+      true,
+    );
+  }
   private publish<T>(
     update: (next: PeerAccessState) => T,
     expectedRevision?: number,
     credentialPublication = false,
+    fleetDiscard = false,
   ): Promise<T> {
-    if (this.pendingMutations >= 16)
+    if (this.pendingMutations >= (fleetDiscard ? 17 : 16))
       return Promise.reject(
         new CoreApiError(
           "command_capacity",

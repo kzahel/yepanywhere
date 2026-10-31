@@ -17,7 +17,7 @@ import {
   type StoredOutgoingPeer,
 } from "../peer-api/state.js";
 import { accessSchema } from "../core-api/contracts.js";
-import { FleetHttpClient } from "./client.js";
+import { FleetHttpClient, type FleetOidcPending } from "./client.js";
 import {
   enrolledClientSchema,
   fleetPeerBindingSchema,
@@ -28,6 +28,7 @@ import {
 } from "./contracts.js";
 import {
   fleetDigest,
+  fleetThumbprint,
   fleetOrigin,
   generateFleetProfileKeys,
   importFleetKey,
@@ -86,6 +87,16 @@ export class FleetPeerAccess {
     string,
     { token: string; expiresAt: number }
   >();
+  private readonly oidcFlows = new Map<
+    string,
+    {
+      pending: FleetOidcPending;
+      ownerBinding: string;
+      epoch: number;
+      completing: boolean;
+    }
+  >();
+  private oidcStarts = 0;
   constructor(
     readonly manager: PeerAccessManager,
     private readonly options: {
@@ -154,8 +165,9 @@ export class FleetPeerAccess {
       enrollment.keys,
       {
         ...this.options,
-        publish: (credentials) =>
+        publish: (credentials, assertOwner) =>
           this.manager.store.publishFleetCredentials((next) => {
+            assertOwner?.();
             this.assert(epoch);
             if (
               !next.fleet.enrollment ||
@@ -185,6 +197,11 @@ export class FleetPeerAccess {
               );
             next.fleet.enrollment.credentials = credentials;
           }),
+        discard: (credentials) =>
+          this.manager.store.discardFleetCredentials(
+            epoch,
+            credentials.refreshToken,
+          ),
         remove: () =>
           this.manager.store.mutate((next) => {
             if (next.fleet.epoch === epoch && next.fleet.enrollment)
@@ -248,6 +265,122 @@ export class FleetPeerAccess {
     this.assert(epoch);
     return client;
   }
+  oidcProviders(signal?: AbortSignal) {
+    this.state();
+    return this.http!.oidcProviders(signal);
+  }
+  async startOidc(value: unknown, owner: string, signal?: AbortSignal) {
+    const input = z
+      .object({
+        providerId: z.string().min(1).max(64),
+        displayName: z.string().min(1).max(128),
+      })
+      .strict()
+      .parse(value);
+    const { enrollment, epoch } = this.state(),
+      ownerBinding = fleetDigest(`${this.manager.serverId}:${owner}`);
+    for (const [id, flow] of this.oidcFlows)
+      if (flow.pending.expiresAt <= Date.now()) this.oidcFlows.delete(id);
+    if (this.oidcFlows.size + this.oidcStarts >= 8)
+      throw new FleetError(
+        "capacity",
+        "Local OIDC enrollment capacity reached",
+        503,
+      );
+    this.oidcStarts++;
+    try {
+      const pending = await this.http!.startOidc(
+        {
+          ...input,
+          accountId: enrollment.accountId,
+          ownerBinding,
+          enrollmentEpoch: epoch,
+        },
+        signal,
+      );
+      this.assert(epoch);
+      signal?.throwIfAborted();
+      this.oidcFlows.set(pending.flowId, {
+        pending,
+        ownerBinding,
+        epoch,
+        completing: false,
+      });
+      return {
+        flowId: pending.flowId,
+        authorizationUrl: pending.authorizationUrl,
+        expiresAt: pending.expiresAt,
+        profileId: this.manager.serverId,
+        signingFingerprint: await fleetThumbprint(
+          publicFleetKey(enrollment.keys.signing),
+        ),
+      };
+    } finally {
+      this.oidcStarts--;
+    }
+  }
+  private oidcFlow(id: string, owner: string) {
+    const flow = this.oidcFlows.get(z.uuid().parse(id));
+    if (
+      !flow ||
+      flow.ownerBinding !== fleetDigest(`${this.manager.serverId}:${owner}`) ||
+      flow.pending.expiresAt <= Date.now()
+    )
+      throw new FleetError(
+        "unauthorized",
+        "OIDC enrollment belongs to another or expired owner session",
+        401,
+      );
+    this.assert(flow.epoch);
+    return flow;
+  }
+  async oidcStatus(id: string, owner: string, signal?: AbortSignal) {
+    const flow = this.oidcFlow(id, owner),
+      result = await this.http!.oidcStatus(flow.pending, signal);
+    this.oidcFlow(id, owner);
+    return result;
+  }
+  async completeOidc(
+    id: string,
+    owner: string,
+    value: unknown,
+    assertOwner: () => void,
+    signal?: AbortSignal,
+  ) {
+    const input = z
+      .object({ confirmationCode: z.string().max(128).optional() })
+      .strict()
+      .parse(value);
+    const flow = this.oidcFlow(id, owner);
+    if (flow.completing)
+      throw new FleetError(
+        "conflict",
+        "OIDC enrollment is already completing",
+        409,
+      );
+    flow.completing = true;
+    try {
+      const client = await this.http!.completeOidc(
+        flow.pending,
+        flow.ownerBinding,
+        flow.epoch,
+        input.confirmationCode,
+        assertOwner,
+        signal,
+      );
+      this.oidcFlows.delete(id);
+      return client;
+    } catch (error) {
+      if (
+        error instanceof FleetError &&
+        ["invalid_confirmation", "not_ready"].includes(error.code)
+      )
+        flow.completing = false;
+      else this.oidcFlows.delete(id);
+      throw error;
+    }
+  }
+
   request(path: string, method = "GET", body?: unknown, signal?: AbortSignal) {
     this.state();
     return this.http!.request(path, method, body, signal);
@@ -984,6 +1117,7 @@ export class FleetPeerAccess {
     }
   }
   async disconnect() {
+    this.oidcFlows.clear();
     const before = this.manager.store.read().fleet.enrollment,
       oldHttp = this.http;
     let remote: FleetHttpClient | undefined;
@@ -1037,6 +1171,7 @@ export class FleetPeerAccess {
     }
   }
   async close() {
+    this.oidcFlows.clear();
     this.retiring = true;
     this.issuer?.distrust();
     this.tokenCache.clear();

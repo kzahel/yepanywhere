@@ -11,6 +11,10 @@ import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { SUPERUSER, type Principal } from "../../src/auth/principal.js";
 import { createAuthMiddleware } from "../../src/middleware/auth.js";
 import type { Operation } from "../../src/core-api/contracts.js";
+import {
+  AUTHENTICATED_SRP_TRANSPORT,
+  type AuthenticatedSrpTransportContext,
+} from "../../src/middleware/authenticated-transport.js";
 import { createPeerOwnerProof } from "../../src/peer-api/owner-proof.js";
 import { PeerAccessStore } from "../../src/peer-api/state.js";
 
@@ -180,6 +184,7 @@ it("validates actual owner proof under auth-off, rejecting unknown cookies, limi
   const proof = createPeerOwnerProof({
     authService: auth,
     agentServerTokens: agents,
+    remoteAccessService: { isEnabled: () => true, getUsername: () => "owner" },
   });
   let actor: Principal = SUPERUSER;
   const app = new Hono<{ Variables: { yaPrincipal: Principal } }>();
@@ -222,6 +227,31 @@ it("validates actual owner proof under auth-off, rejecting unknown cookies, limi
   };
   expect(await check(owner)).toBe(false);
   actor = SUPERUSER;
+  let active = true;
+  const srp: AuthenticatedSrpTransportContext = {
+    kind: "srp",
+    username: "owner",
+    sessionId: "owned-live-srp-session",
+    transportNonce: "owned-transport-nonce",
+    authenticationMethod: "srp-full",
+    transport: "direct",
+    connectionId: "owned-connection",
+    isActive: () => active,
+    closeConnection: () => {},
+    closeAfterResponse: () => {},
+    deferAfterResponse: () => {},
+  };
+  const checkSrp = async () =>
+    (
+      await (
+        await app.request("/proof", {}, { [AUTHENTICATED_SRP_TRANSPORT]: srp })
+      ).json()
+    ).owner;
+  expect(await checkSrp()).toBe(true);
+  active = false;
+  expect(await checkSrp()).toBe(false);
+  delete srp.isActive;
+  expect(await checkSrp()).toBe(false);
   await auth.invalidateSession(owner);
   expect(await check(owner)).toBe(false);
   await auth.waitForPendingWrites();

@@ -266,8 +266,9 @@ The optional [fleet service](fleet-authentication.md) implements local account
 login, key-bound enrollment and directional proposals. The fleet consumer adds
 owner acceptance, signed/source-encrypted SRP delivery and an additional
 short-lived issuer token at protected admission. Its independent integration
-review is complete; external OIDC follows that unit. A central service never
-receives manual peer secrets or becomes a prerequisite for manual grants.
+review is complete; external OIDC now feeds the same key-bound enrollment,
+with a browser-only confirmation code and live initiating-owner checks. A
+central service never receives manual peer secrets or becomes a prerequisite for manual grants.
 Fleet credentials have an explicit stored origin and advertise fleet support
 in the authenticated SRP metadata before the source sends a request. They
 require both current SRP possession and matching issuer/account/client/profile/

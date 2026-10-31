@@ -10,6 +10,7 @@ import { fleetPageQuery } from "../fleet/contracts.js";
 export function createPeerManagementRoutes(
   manager: PeerAccessManager,
   ownerProof: (context: Context) => Promise<boolean>,
+  ownerBinding?: (context: Context) => string | null,
 ) {
   const routes = new Hono();
   routes.use("*", async (c, next) => {
@@ -76,6 +77,60 @@ export function createPeerManagementRoutes(
     );
   });
   routes.get("/", (c) => c.json(manager.publicState()));
+  const boundOwner = async (c: Context) => {
+    const binding = await ownerBinding?.(c);
+    if (!binding)
+      throw new FleetError(
+        "forbidden",
+        "A stable authenticated owner-session binding is required for OIDC enrollment",
+        403,
+      );
+    return binding;
+  };
+  routes.get("/fleet/oidc/providers", async (c) =>
+    c.json(await manager.fleetAccess.oidcProviders(c.req.raw.signal)),
+  );
+  routes.post("/fleet/oidc/start", async (c) =>
+    c.json(
+      await manager.fleetAccess.startOidc(
+        await c.req.json(),
+        await boundOwner(c),
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.get("/fleet/oidc/:id", async (c) =>
+    c.json(
+      await manager.fleetAccess.oidcStatus(
+        c.req.param("id"),
+        await boundOwner(c),
+        c.req.raw.signal,
+      ),
+    ),
+  );
+  routes.post("/fleet/oidc/:id/complete", async (c) => {
+    const owner = await boundOwner(c),
+      input = await c.req.json();
+    const assertOwner = () => {
+      c.req.raw.signal.throwIfAborted();
+      if (ownerBinding?.(c) !== owner)
+        throw new FleetError(
+          "owner_session_changed",
+          "The initiating owner session is no longer valid",
+          403,
+        );
+    };
+    return c.json(
+      await manager.fleetAccess.completeOidc(
+        c.req.param("id"),
+        owner,
+        input,
+        assertOwner,
+        c.req.raw.signal,
+      ),
+    );
+  });
+
   routes.put("/fleet", async (c) => {
     await manager.fleetAccess.configure(await c.req.json());
     return c.json(manager.publicState().fleet);

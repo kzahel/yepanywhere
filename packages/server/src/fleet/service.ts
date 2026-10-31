@@ -1,5 +1,7 @@
+import { renderFleetConfirmation } from "./confirmation.js";
 import { randomUUID } from "node:crypto";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { FleetOidc } from "./oidc.js";
 import { z } from "zod";
 import { FleetAuth, FleetNonceChallenge } from "./auth.js";
 import {
@@ -82,9 +84,18 @@ export function fleetRelationship(
 /** No main app, scanners, provider registry, background jobs or implicit listen. */
 export function createFleetService(
   store: FleetStore,
-  options: { now?: () => number } = {},
+  options: {
+    now?: () => number;
+    oidcProviders?: unknown;
+    oidcFetch?: typeof fetch;
+    remoteAddress?: (context: Context) => string | undefined;
+  } = {},
 ) {
   const auth = new FleetAuth(store, options.now);
+  const oidc = new FleetOidc(auth, options.oidcProviders, {
+    fetch: options.oidcFetch,
+    remoteAddress: options.remoteAddress,
+  });
   const app = new Hono<{
     Variables: {
       fleetClaims: FleetControlClaims;
@@ -168,6 +179,7 @@ export function createFleetService(
       authentication: "DPoP",
       resources: [
         "login",
+        "oidc",
         "enroll",
         "refresh",
         "clients",
@@ -195,21 +207,60 @@ export function createFleetService(
     );
     return c.json(result);
   });
+  app.get("/fleet/v0/oidc/providers", (c) => c.json({ items: oidc.list() }));
+  app.post("/fleet/v0/oidc/start", async (c) =>
+    c.json(await oidc.start(c, c.get("fleetSignal"))),
+  );
+  app.get("/fleet/v0/oidc/callback/:providerId", async (c) => {
+    const confirmation = await oidc.callback(
+      c.req.param("providerId"),
+      new URL(c.req.url),
+    );
+    c.header("Referrer-Policy", "no-referrer");
+    c.header("X-Frame-Options", "DENY");
+    c.header("Cross-Origin-Opener-Policy", "same-origin");
+    c.header(
+      "Content-Security-Policy",
+      "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+    );
+    return c.html(await renderFleetConfirmation(confirmation));
+  });
   app.use("/fleet/v0/*", async (c, next) => {
     const purpose =
       c.req.path === "/fleet/v0/enroll"
         ? "enroll"
         : c.req.path === "/fleet/v0/refresh"
           ? "refresh"
-          : "control";
+          : c.req.path.startsWith("/fleet/v0/oidc/flows/")
+            ? "oidc"
+            : "control";
     const { claims, token, nextNonce } = await fleetWait(
-      auth.authorize(c.req.raw, purpose),
+      auth.authorize(
+        c.req.raw,
+        purpose,
+        purpose === "oidc" ? oidc.assert : undefined,
+      ),
       c.get("fleetSignal"),
     );
     c.header("DPoP-Nonce", nextNonce);
     c.set("fleetClaims", claims);
     c.set("fleetToken", token);
     await next();
+  });
+  app.get("/fleet/v0/oidc/flows/:id", (c) => {
+    if (c.get("fleetClaims").bindingId !== c.req.param("id"))
+      throw new FleetError("unauthorized", "Wrong OIDC flow", 401);
+    return c.json(oidc.status(c.get("fleetClaims")));
+  });
+  app.post("/fleet/v0/oidc/flows/:id/redeem", async (c) => {
+    if (c.get("fleetClaims").bindingId !== c.req.param("id"))
+      throw new FleetError("unauthorized", "Wrong OIDC flow", 401);
+    return c.json(
+      await oidc.redeem(
+        c.get("fleetClaims"),
+        await fleetJson(c.req.raw, c.get("fleetSignal")),
+      ),
+    );
   });
   app.post("/fleet/v0/enroll", async (c) =>
     c.json(await auth.enroll(c.get("fleetClaims"), c.get("fleetSignal"))),
