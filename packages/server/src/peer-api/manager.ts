@@ -3,7 +3,7 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import type { SqliteDatabase } from "../storage/sqlite.js";
 import type { ApiReceiptStore } from "../core-api/receipt-store.js";
-import { CoreApi, type CoreApiSources } from "../core-api/service.js";
+import type { CoreApi, CoreApiSources } from "../core-api/service.js";
 import { CoreApiError } from "../core-api/errors.js";
 import { accessSchema } from "../core-api/contracts.js";
 import { RelayClientService } from "../services/RelayClientService.js";
