@@ -104,6 +104,11 @@ export class ProviderRuntimeSocketAdapter {
       {
         isActive: () => !socket.destroyed,
         agentApiAllowed: request.agentApiAllowed === true,
+        agentApiPeersAllowed: request.agentApiPeersAllowed === true,
+        agentApiPeerGrantId:
+          typeof request.agentApiPeerGrantId === "string"
+            ? request.agentApiPeerGrantId
+            : undefined,
       },
     );
   }

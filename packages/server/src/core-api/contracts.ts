@@ -154,6 +154,13 @@ export const accessSchema = z.object({
   operations: z.array(z.string()),
 });
 export const launchContextSchema = z.object({
+  peerGrantId: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "Immutable source peer grant generation; disabling and re-enabling peer use never revives an older generation.",
+    ),
   peerAccess: z
     .literal(true)
     .optional()
@@ -181,6 +188,7 @@ export const launchContextSchema = z.object({
 export type ApiLaunchContext = z.infer<typeof launchContextSchema>;
 export const API_LAUNCH_VARIABLE = "yaApiLaunch";
 export const API_SIGNAL_VARIABLE = "yaApiSignal";
+export const API_OWNER_VARIABLE = "yaApiOwnerAuthenticated";
 export const operations = [
   {
     id: "describe",
@@ -308,7 +316,7 @@ export const operationDocumentation: Record<
   describe: {
     summary: "Discover this API",
     description:
-      "Read the receiving profile's persistent public server id, unstable revision and discovery links. Only this server is addressable; an unknown target never executes locally.",
+      "Read the receiving profile's persistent public server id, unstable revision and discovery links. Inspect servers for permitted target routes; an unknown target never executes locally.",
     example: "/v0",
   },
   help: {
@@ -332,13 +340,13 @@ export const operationDocumentation: Record<
   servers: {
     summary: "List addressable servers",
     description:
-      "Returns only the receiving server. Peer directory, remote routing and enrollment are not implemented. A public UUID names a profile; it does not authenticate it.",
+      "Returns self and configured peers currently permitted to this caller. Without independently authenticated owner or separately issued peer-launch authority, only self is listed. A public UUID names a profile; it does not authenticate it or authorize onward routing.",
     example: "/v0/servers",
   },
   server: {
     summary: "Inspect a server",
     description:
-      "Read the receiving server's public identity. Unknown target ids return 404 server_not_found, with no local fallback.",
+      "Read an authorized target's public identity. local=false identifies a configured peer of the access server. Unknown target ids return 404 server_not_found, with no local fallback.",
     example: "/v0/servers/{serverId}",
   },
   access: {
@@ -350,7 +358,7 @@ export const operationDocumentation: Record<
   capabilities: {
     summary: "Discover implemented operations",
     description:
-      "Read server implementation support, independently of caller/resource authorization. peerRouting is false. Provider steering flags do not imply a v0 steering endpoint.",
+      "Read target implementation support, independently of caller/resource authorization. peerRouting indicates whether this caller can use the access server's configured peer adapter; it never implies onward access through a target. Provider steering flags do not imply a v0 steering endpoint.",
     example: "/v0/servers/{serverId}/capabilities",
   },
   projects: {

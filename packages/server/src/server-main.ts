@@ -1,3 +1,7 @@
+import { PeerAccessManager } from "./peer-api/manager.js";
+import { PeerAccessStore } from "./peer-api/state.js";
+import { readServerIdentity } from "./core-api/server-identity.js";
+import { revokeHostedPeerAgentApiAccess } from "./sdk/providers/provider-runtime-host.js";
 import "./startupEnv.js";
 import { execFile } from "node:child_process";
 import * as fs from "node:fs";
@@ -1121,6 +1125,31 @@ async function startServer() {
       ? config.idleTimeoutMs
       : idleReapHoursToMs(savedIdleReapHours);
 
+  const publicServerId = readServerIdentity(discoverySqlite.getDatabase());
+  let peerAccess: PeerAccessManager | undefined;
+  if (config.peerApiEnabled) {
+    peerAccess = new PeerAccessManager(
+      publicServerId,
+      config.dataDir,
+      (error) => console.error("[Peers] Lease retirement failed:", error),
+    );
+    await peerAccess.initialize();
+  } else if (
+    fs.existsSync(path.join(config.dataDir, "peer-access", "state.json"))
+  ) {
+    // Persist disablement before a future opt-in can reattach retained workers.
+    const stored = new PeerAccessStore(publicServerId, config.dataDir);
+    try {
+      await stored.initialize();
+      const retiredGrantId = stored.read().agentAccess.grantId;
+      await stored.setAgentAccess(false);
+      if (retiredGrantId)
+        await revokeHostedPeerAgentApiAccess(publicServerId, retiredGrantId);
+    } finally {
+      await stored.close();
+    }
+  }
+
   // Create the app first (without WebSocket support initially)
   // We'll add WebSocket routes after setting up WebSocket support
   const {
@@ -1140,6 +1169,7 @@ async function startServer() {
     focusedSessionWatchManager,
     safeRestartService,
   } = createApp({
+    peerAccess,
     externalSessionsEnabled: config.externalSessionsEnabled,
     getCatalogFamilies: () => installService.getCatalogFamilies(),
     artifacts: config.artifacts,
@@ -1620,6 +1650,8 @@ async function startServer() {
     });
 
     attachUnifiedUpgradeHandler(server, {
+      peerUpgrade: (request, socket, head) =>
+        peerAccess?.handleUpgrade(request, socket, head) ?? false,
       appUpgrade: (request, socket, head) =>
         artifactServer.handleUpgrade(request, socket, head),
       frontendProxy,

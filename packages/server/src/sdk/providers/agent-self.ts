@@ -173,6 +173,11 @@ export async function startAgentSelfSession(
   const startWithNativeSudo = (resolved: StartSessionOptions) =>
     startMachineControlToolsSession(provider, resolved, start);
   const selfEnabled = eligible(provider, options);
+  const peerEnabled = Boolean(
+    options.agentApi?.management &&
+      options.agentApi.peerAccess &&
+      options.agentApi.peerGrantId,
+  );
   const apiEnabled = Boolean(
     options.agentApi && agentApiEligible(provider, options),
   );
@@ -195,6 +200,8 @@ export async function startAgentSelfSession(
       apiLease = await createAgentApiLaunch({
         serverId: options.agentApi!.serverId,
         management: options.agentApi!.management,
+        peerAccess: peerEnabled,
+        peerGrantId: options.agentApi!.peerGrantId,
         sessionId: () => state.sessionId ?? null,
         read: options.onAgentApiRead,
       });
@@ -223,6 +230,7 @@ export async function startAgentSelfSession(
         ? agentApiBootstrapInstructions(
             process.platform === "win32",
             options.agentApi?.management === true,
+            peerEnabled,
           )
         : undefined,
       globalInstructions:
@@ -232,6 +240,7 @@ export async function startAgentSelfSession(
               agentApiBootstrapInstructions(
                 process.platform === "win32",
                 options.agentApi?.management === true,
+                peerEnabled,
               ),
             ]
               .filter(Boolean)
@@ -264,6 +273,11 @@ export async function startAgentSelfSession(
       if (property === "iterator") return iterator;
       if (property === "revokeAgentApiAccess" && apiLease)
         return apiLease.dispose;
+      if (property === "revokePeerAgentApiAccess" && apiLease && peerEnabled)
+        return (grantId?: string) => {
+          if (!grantId || grantId === options.agentApi?.peerGrantId)
+            return apiLease!.dispose();
+        };
       if (property === "setAgentApiControllerAttached" && apiLease)
         return apiLease.setAttached;
       if (property === "publishAgentSelfSelection")

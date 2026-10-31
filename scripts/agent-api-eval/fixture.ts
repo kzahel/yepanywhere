@@ -1,3 +1,4 @@
+import { createPeerEvalRouter, PEER_SERVER_ID } from "./peer-fixture.js";
 import { openSqliteOrThrow } from "../../packages/server/src/storage/sqlite.js";
 import { migrateDiscoveryDatabase } from "../../packages/server/src/storage/discovery-sqlite.js";
 import { ApiReceiptStore } from "../../packages/server/src/core-api/receipt-store.js";
@@ -25,8 +26,11 @@ import {
 } from "./cases.js";
 
 /** Real private adapter, deterministic source functions, no app/profile/scanners. */
-export async function createFixture(caseId: CaseId) {
+export async function createFixture(caseId: CaseId, peerRelay = false) {
+  if (peerRelay && caseId !== "workflow")
+    throw new Error("Peer relay fixture supports only the workflow case");
   const localSessions = [...sessions];
+  const apiServerId = peerRelay ? PEER_SERVER_ID : SERVER_ID;
   const management = caseId === "create" || caseId === "workflow";
   const database = management ? openSqliteOrThrow(":memory:") : undefined;
   if (database) migrateDiscoveryDatabase(database);
@@ -38,7 +42,7 @@ export async function createFixture(caseId: CaseId) {
   let workerCount = 0;
   const commands = receiptStore
     ? new SessionCommands(
-        SERVER_ID,
+        apiServerId,
         receiptStore,
         {
           async start(project, request) {
@@ -176,10 +180,10 @@ export async function createFixture(caseId: CaseId) {
     },
   );
   const runtime = await createAgentApiRuntime({ serverId: SERVER_ID });
-  const core = new CoreApi(SERVER_ID, {
+  const core = new CoreApi(apiServerId, {
     commands,
     conversation: createConversationRead(conversations),
-    followConversation: createConversationFollow(conversations, SERVER_ID),
+    followConversation: createConversationFollow(conversations, apiServerId),
     projects: async () => ({ items: projects }),
     sessions: async () => ({
       items: localSessions,
@@ -197,11 +201,31 @@ export async function createFixture(caseId: CaseId) {
       },
     ],
   });
-  runtime.attachController(core);
+  let peers: Awaited<ReturnType<typeof createPeerEvalRouter>> | undefined;
+  try {
+    if (peerRelay)
+      peers = await createPeerEvalRouter(
+        core,
+        database!,
+        receiptStore!,
+        projects,
+      );
+    runtime.attachController(peers?.router ?? core);
+  } catch (error) {
+    conversations.close();
+    commands?.close();
+    await commands?.idle();
+    receiptStore?.close();
+    database?.close();
+    await runtime.close();
+    throw error;
+  }
   const lease = runtime.issue({
     principal: SUPERUSER,
     sessionId: () => OWN_SESSION_ID,
     management,
+    peerAccess: peerRelay,
+    peerGrantId: peers?.grantId,
   });
   const trace: Trace[] = [];
   // A test-only transparent front records actual HTTP outcomes and repeated doc
@@ -303,6 +327,7 @@ export async function createFixture(caseId: CaseId) {
     conversations.close();
     commands?.close();
     await commands?.idle();
+    await peers?.close();
     receiptStore?.close();
     database?.close();
     await runtime.close();
@@ -314,6 +339,7 @@ export async function createFixture(caseId: CaseId) {
     ? "http://127.0.0.1"
     : `http://127.0.0.1:${typeof address === "object" && address ? address.port : ""}`;
   return {
+    apiServerId,
     management,
     workerFinished,
     trace,
@@ -329,6 +355,7 @@ export async function createFixture(caseId: CaseId) {
       conversations.close();
       commands?.close();
       await commands?.idle();
+      await peers?.close();
       receiptStore?.close();
       database?.close();
       await runtime.close();

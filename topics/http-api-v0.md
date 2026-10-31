@@ -558,6 +558,16 @@ attestation, preventing duplicate target admission after a source ID change.
 Integrators call both receipt and outbound remapping on canonical changes.
 Source and target have separate transactions; `confirmed` means a matching
 remote receipt was received, not that work completed or a response succeeded.
+Authorized receipt/follow observations update the separately retained
+`destinationSessionId` for an already correlated record, including pending
+creation bindings. Source revocation before a reply is recorded leaves its
+outcome uncertain while accepted native work remains at the destination.
+
+The [opt-in production enrollment contract](peer-access.md) now adds owner-only
+management, distinct expiring SRP credentials, protected direct/relay routing and
+separately granted native peer leases. The opaque HTTP adapter above remains a
+development fixture. Native agents address server UUIDs through their existing
+private HTTP endpoint; they do not receive peer credentials or choose routes.
 
 ## Authentication and grants: defer UI, keep the boundary
 

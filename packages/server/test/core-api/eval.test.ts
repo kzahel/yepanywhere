@@ -276,64 +276,76 @@ it("lets an unobserved worker finish for polling and requires real reset evidenc
   }
 });
 
-it("requires a real same-receipt retry and consumed observation for the complete agent workflow", async () => {
-  const fixture = await createFixture("workflow");
-  const root = `/v0/servers/${SERVER_ID}`;
-  try {
-    const created = JSON.parse(
-      (
-        await read(fixture.environment, root + "/sessions", true, {
-          requestId: "eval-create-1",
-          projectId: PROJECT_ID,
-          provider: "codex",
-          message: "Release review",
-        })
-      ).body,
-    );
-    const creation = JSON.parse(
-      (await read(fixture.environment, root + "/receipts/" + created.id)).body,
-    );
-    expect(creation.sessionId).toBe("eval-worker-1");
-    const path = root + "/sessions/eval-worker-1";
-    await read(fixture.environment, path + "/conversation");
-    const input = {
-      requestId: "eval-message-1",
-      message: "Follow-up artifact",
-    };
-    const sent = JSON.parse(
-      (await read(fixture.environment, path + "/messages", true, input)).body,
-    );
-    await read(fixture.environment, path + "/relationships");
-    await read(fixture.environment, path + "/conversation/follow?waitMs=0");
-    const answer = {
-      ...empty,
-      sessionId: "eval-worker-1",
-      sessionIds: [OWN_SESSION_ID],
-      answer: "followup-c82",
-    };
-    expect(grade("workflow", answer, fixture.trace)).toBe(false);
-    const repeated = JSON.parse(
-      (await read(fixture.environment, path + "/messages", true, input)).body,
-    );
-    expect(repeated.id).toBe(sent.id);
-    expect(grade("workflow", answer, fixture.trace)).toBe(false);
-    await read(
-      fixture.environment,
-      root + "/receipts/" + sent.id + "/follow?waitMs=0",
-    );
-    expect(grade("workflow", answer, fixture.trace)).toBe(true);
-    expect(
-      grade(
-        "workflow",
-        answer,
-        fixture.trace.map((entry) => ({ ...entry, receipt: undefined })),
-      ),
-    ).toBe(false);
-    const view = JSON.parse(
-      (await read(fixture.environment, path + "/conversation")).body,
-    );
-    expect(JSON.stringify(view).match(/followup-c82/g)).toHaveLength(1);
-  } finally {
-    await fixture.close();
-  }
-});
+it.each([false, true])(
+  "requires a real same-receipt retry and consumed observation (peer relay: %s)",
+  async (peerRelay) => {
+    const fixture = await createFixture("workflow", peerRelay);
+    const root = `/v0/servers/${fixture.apiServerId}`;
+    try {
+      const created = JSON.parse(
+        (
+          await read(fixture.environment, root + "/sessions", true, {
+            requestId: "eval-create-1",
+            projectId: PROJECT_ID,
+            provider: "codex",
+            message: "Release review",
+          })
+        ).body,
+      );
+      const creation = JSON.parse(
+        (await read(fixture.environment, root + "/receipts/" + created.id))
+          .body,
+      );
+      expect(creation.sessionId).toBe("eval-worker-1");
+      const path = root + "/sessions/eval-worker-1";
+      await read(fixture.environment, path + "/conversation");
+      const input = {
+        requestId: "eval-message-1",
+        message: "Follow-up artifact",
+      };
+      const sent = JSON.parse(
+        (await read(fixture.environment, path + "/messages", true, input)).body,
+      );
+      await read(fixture.environment, path + "/relationships");
+      await read(fixture.environment, path + "/conversation/follow?waitMs=0");
+      const answer = {
+        ...empty,
+        sessionId: "eval-worker-1",
+        sessionIds: [OWN_SESSION_ID],
+        answer: "followup-c82",
+      };
+      expect(
+        grade("workflow", answer, fixture.trace, false, fixture.apiServerId),
+      ).toBe(false);
+      const repeated = JSON.parse(
+        (await read(fixture.environment, path + "/messages", true, input)).body,
+      );
+      expect(repeated.id).toBe(sent.id);
+      expect(
+        grade("workflow", answer, fixture.trace, false, fixture.apiServerId),
+      ).toBe(false);
+      await read(
+        fixture.environment,
+        root + "/receipts/" + sent.id + "/follow?waitMs=0",
+      );
+      expect(
+        grade("workflow", answer, fixture.trace, false, fixture.apiServerId),
+      ).toBe(true);
+      expect(
+        grade(
+          "workflow",
+          answer,
+          fixture.trace.map((entry) => ({ ...entry, receipt: undefined })),
+          false,
+          fixture.apiServerId,
+        ),
+      ).toBe(false);
+      const view = JSON.parse(
+        (await read(fixture.environment, path + "/conversation")).body,
+      );
+      expect(JSON.stringify(view).match(/followup-c82/g)).toHaveLength(1);
+    } finally {
+      await fixture.close();
+    }
+  },
+);

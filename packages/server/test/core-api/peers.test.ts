@@ -112,15 +112,24 @@ function fixture(id: string) {
   const core = new CoreApi(id, sources),
     directory = new PeerDirectory();
   const receiver = createPeerReceiver(core, directory);
-  const router = new PeerApiRouter(core, outbound, [], (sid) =>
-    receipts.resolveId(sid),
+  const router = new PeerApiRouter(
+    core,
+    outbound,
+    [],
+    (sid) => receipts.resolveId(sid),
+    () => ({ enabled: true }),
   );
   let launch: ApiLaunchContext | undefined;
   const app = new Hono<{
-    Variables: { yaPrincipal: typeof SUPERUSER; yaApiLaunch: ApiLaunchContext };
+    Variables: {
+      yaPrincipal: typeof SUPERUSER;
+      yaApiLaunch: ApiLaunchContext;
+      yaApiOwnerAuthenticated: true;
+    };
   }>();
   app.use("*", async (c, next) => {
     c.set("yaPrincipal", SUPERUSER);
+    c.set("yaApiOwnerAuthenticated", true);
     if (launch) c.set("yaApiLaunch", launch);
     await next();
   });
@@ -172,7 +181,12 @@ function connect(
     fetcher ?? dispatch,
     true,
   );
-  a.router.put({ serverId: b.id, operations: [...operationIds], transport });
+  a.router.put({
+    serverId: b.id,
+    operations: [...operationIds],
+    transport,
+    allowAgentSessions: true,
+  });
   return { grant, token, transport, dispatch };
 }
 const post = (fixture: Fixture, path: string, payload: unknown = body) =>
@@ -369,6 +383,7 @@ it("persists uncertain intent before sending, recovers a lost response with one 
   a.router.put({
     serverId: "B",
     operations: [...operationIds],
+    allowAgentSessions: true,
     transport: new HttpPeerTransport(
       "B",
       "http://127.0.0.1",
@@ -511,6 +526,7 @@ it("checks a receipt's current session project and outgoing revocation before re
   a.router.put({
     serverId: "B",
     operations: [...operationIds],
+    allowAgentSessions: true,
     transport: {
       serverId: "B",
       async request(...args) {
@@ -532,12 +548,12 @@ it("checks a receipt's current session project and outgoing revocation before re
   expect((await pending).status).toBe(403);
   await b.commands.idle();
   expect(b.starts()).toBe(2);
-  // Preserve positive outcome evidence even when the source stops its caller.
+  // Revocation before the reply keeps source outcome uncertain; target work remains.
   expect(
     a.outbound
       .list("canonical-parent", 0, 10)
       .items.find((r) => r.requestId === "source-revoke-001")?.state,
-  ).toBe("confirmed");
+  ).toBe("uncertain");
   expect(
     a.outbound
       .list("canonical-parent", 0, 10)

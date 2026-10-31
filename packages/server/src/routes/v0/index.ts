@@ -7,6 +7,7 @@ import {
   operationMethod,
   API_LAUNCH_VARIABLE,
   API_SIGNAL_VARIABLE,
+  API_OWNER_VARIABLE,
   type ApiLaunchContext,
 } from "../../core-api/contracts.js";
 import { type CoreApi, CoreApiError } from "../../core-api/service.js";
@@ -23,6 +24,7 @@ export function createV0Routes(
       yaPrincipal: ApiPrincipal;
       yaApiLaunch: ApiLaunchContext;
       yaApiSignal: AbortSignal;
+      yaApiOwnerAuthenticated: true;
     };
   }>();
   routes.use("*", async (c, next) => {
@@ -93,6 +95,9 @@ export function createV0Routes(
           query: c.req.query(),
           signal: c.get(API_SIGNAL_VARIABLE) ?? c.req.raw.signal,
           launch: c.get(API_LAUNCH_VARIABLE),
+          ...(c.get(API_OWNER_VARIABLE)
+            ? { ownerAuthenticated: true as const }
+            : {}),
         },
       );
       if (operation.id === "help")

@@ -20,7 +20,10 @@ export class PeerOutboundStore {
     return statement;
   }
   reserve(
-    input: Omit<ApiOutbound, "id" | "state" | "createdAt" | "receipt">,
+    input: Omit<
+      ApiOutbound,
+      "id" | "state" | "createdAt" | "receipt" | "destinationSessionId"
+    >,
     payload: unknown,
   ) {
     const scope = JSON.stringify([
@@ -62,15 +65,17 @@ export class PeerOutboundStore {
         state: "uncertain",
         createdAt: new Date().toISOString(),
         receipt: null,
+        destinationSessionId: null,
       };
       this.statement(
-        "INSERT INTO peer_api_outbound (id, scope_key, payload_hash, source_session_id, record_json) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO peer_api_outbound (id, scope_key, payload_hash, source_session_id, record_json, destination_server_id) VALUES (?, ?, ?, ?, ?, ?)",
       ).run(
         record.id,
         scope,
         hash,
         record.sourceSessionId,
         JSON.stringify(record),
+        record.destinationServerId,
       );
       return record;
     });
@@ -87,11 +92,42 @@ export class PeerOutboundStore {
       );
     const current = outboundSchema.parse(JSON.parse(row.record_json));
     this.statement(
-      "UPDATE peer_api_outbound SET record_json = ? WHERE id = ?",
+      "UPDATE peer_api_outbound SET record_json = ?, remote_receipt_id = ? WHERE id = ?",
     ).run(
-      JSON.stringify({ ...current, state: "confirmed", receipt }),
+      JSON.stringify({
+        ...current,
+        state: "confirmed",
+        receipt,
+        destinationSessionId: receipt.sessionId ?? current.destinationSessionId,
+      }),
+      receipt.id,
       record.id,
     );
+  }
+  /** Only an already correlated receipt can enrich its source-side binding. */
+  observe(serverId: string, receipt: ApiReceipt) {
+    const rows = this.statement(
+      "SELECT record_json FROM peer_api_outbound WHERE destination_server_id = ? AND remote_receipt_id = ? LIMIT 10000",
+    ).all<{ record_json: string }>(serverId, receipt.id);
+    this.database.transaction(() => {
+      for (const row of rows) {
+        const record = outboundSchema.parse(JSON.parse(row.record_json));
+        if (
+          receipt.destinationServerId !== record.destinationServerId ||
+          receipt.creator.serverId !== record.sourceServerId ||
+          receipt.creator.principal.kind !== "peer" ||
+          receipt.creator.sessionId !== record.attestedSessionId ||
+          receipt.requestId !== record.requestId ||
+          receipt.kind !== record.operation
+        )
+          throw new CoreApiError(
+            "peer_identity_mismatch",
+            "Observed peer receipt attribution does not match",
+            502,
+          );
+        this.confirm(record, receipt);
+      }
+    });
   }
   list(sourceSessionId: string, offset: number, limit: number) {
     const rows = this.statement(

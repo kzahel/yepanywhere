@@ -39,9 +39,11 @@ when the serving account itself must be isolated from other host state.
 
 Any restricted principal requires its own credential, server-side
 authorization, and an enforced execution boundary. Limited users are the first
-such layer; § Limited Users states the boundary they claim. Delegated guests
-and peer-issued grants remain proposals, and the [[principals-and-grants]]
-sketch records shared vocabulary for them without selecting a protocol. Hiding
+such layer; § Limited Users states the boundary they claim. Delegated guests and general hosted issuance remain proposals. The default-off
+[peer API](peer-access.md) implements a separate immediate-peer principal and
+target-local project/operation grants over distinct SRP credentials; these do
+not enter the legacy operator API. The [[principals-and-grants]] sketch records
+the broader shared vocabulary. Hiding
 controls, selecting a project working directory, or assigning a
 narrower-sounding permission mode would not establish that boundary.
 

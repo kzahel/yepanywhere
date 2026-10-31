@@ -495,7 +495,9 @@ export interface SupervisorOptions {
     | {
         serverId: string;
         management?: boolean;
-        read: import("../core-api/service.js").CoreApi["read"];
+        peerAccess?: boolean;
+        peerGrantId?: string;
+        read: import("../core-api/service.js").ApiReadPort;
       }
     | undefined;
   /** Callback invoked when a process observes a model's real context window. */
@@ -658,9 +660,13 @@ export class Supervisor {
   private getAgentApiAccess?: SupervisorOptions["getAgentApiAccess"];
   /** Live-process lifecycle bounds this map, including hosted proxy sessions. */
   private agentApiEpoch = 0;
+  private peerApiEpoch = 0;
   private readonly agentApiSessions = new Map<
     string,
-    { revokeAgentApiAccess?: () => void | Promise<void> }
+    {
+      revokeAgentApiAccess?: () => void | Promise<void>;
+      revokePeerAgentApiAccess?: (grantId?: string) => void | Promise<void>;
+    }
   >();
   /** Each live process's operator API token, revoked when it unregisters. */
   private readonly agentServerAccessByProcess = new Map<
@@ -1362,6 +1368,7 @@ export class Supervisor {
     );
     // Start session WITHOUT an initial message - agent will wait
     const agentApiEpoch = this.agentApiEpoch;
+    const peerApiEpoch = this.peerApiEpoch;
     const result = await this.realSdk.startSession({
       machineControl: modelSettings?.machineControl,
       desktopControlOrigin: modelSettings?.desktopControlOrigin,
@@ -1493,7 +1500,7 @@ export class Supervisor {
     const process = new Process(iterator, options);
     processHolder.process = process;
     this.holdAgentServerAccess(process, agentServerAccess);
-    this.holdAgentApiSession(process, result, agentApiEpoch);
+    this.holdAgentApiSession(process, result, agentApiEpoch, peerApiEpoch);
     this.observeProcessEvents(process);
     await this.consumePendingRewind(process, resumeSessionId, truncation);
 
@@ -2297,6 +2304,7 @@ export class Supervisor {
       modelSettings,
     );
     const agentApiEpoch = this.agentApiEpoch;
+    const peerApiEpoch = this.peerApiEpoch;
     const result = await this.realSdk.startSession({
       machineControl: modelSettings?.machineControl,
       desktopControlOrigin: modelSettings?.desktopControlOrigin,
@@ -2429,7 +2437,7 @@ export class Supervisor {
     const process = new Process(iterator, options);
     processHolder.process = process;
     this.holdAgentServerAccess(process, agentServerAccess);
-    this.holdAgentApiSession(process, result, agentApiEpoch);
+    this.holdAgentApiSession(process, result, agentApiEpoch, peerApiEpoch);
     this.observeProcessEvents(process);
     await this.consumePendingRewind(process, resumeSessionId, truncation);
 
@@ -2563,6 +2571,7 @@ export class Supervisor {
     );
     try {
       const agentApiEpoch = this.agentApiEpoch;
+      const peerApiEpoch = this.peerApiEpoch;
       const start = activeProvider.startSession({
         routerLaunch,
         machineControl: modelSettings?.machineControl,
@@ -2739,7 +2748,7 @@ export class Supervisor {
       const process = new Process(iterator, options);
       processHolder.process = process;
       this.holdAgentServerAccess(process, agentServerAccess);
-      this.holdAgentApiSession(process, result, agentApiEpoch);
+      this.holdAgentApiSession(process, result, agentApiEpoch, peerApiEpoch);
       this.instructionSessions.set(process, result);
       this.observeProcessEvents(process);
       activateCallbacks?.();
@@ -2897,6 +2906,7 @@ export class Supervisor {
     );
     try {
       const agentApiEpoch = this.agentApiEpoch;
+      const peerApiEpoch = this.peerApiEpoch;
       const start = activeProvider.startSession({
         routerLaunch,
         machineControl: modelSettings?.machineControl,
@@ -3071,7 +3081,7 @@ export class Supervisor {
       const process = new Process(iterator, options);
       processHolder.process = process;
       this.holdAgentServerAccess(process, agentServerAccess);
-      this.holdAgentApiSession(process, result, agentApiEpoch);
+      this.holdAgentApiSession(process, result, agentApiEpoch, peerApiEpoch);
       this.instructionSessions.set(process, result);
       this.observeProcessEvents(process);
       activateCallbacks?.();
@@ -5905,6 +5915,8 @@ export class Supervisor {
           agentApi: {
             serverId: access.serverId,
             management: access.management,
+            peerAccess: access.peerAccess,
+            peerGrantId: access.peerGrantId,
           },
           onAgentApiRead: access.read,
         }
@@ -5923,13 +5935,39 @@ export class Supervisor {
     ]);
   }
 
+  async revokePeerAgentApiAccess(
+    serverId: string,
+    grantId: string,
+  ): Promise<void> {
+    this.peerApiEpoch++;
+    await Promise.all([
+      import("../sdk/providers/provider-runtime-host.js").then((module) =>
+        module.revokeHostedPeerAgentApiAccess(serverId, grantId),
+      ),
+      ...[...this.agentApiSessions.values()].map((session) =>
+        session.revokePeerAgentApiAccess?.(grantId),
+      ),
+    ]);
+  }
+
   private holdAgentApiSession(
     process: Process,
-    session: { revokeAgentApiAccess?: () => void | Promise<void> },
+    session: {
+      revokeAgentApiAccess?: () => void | Promise<void>;
+      revokePeerAgentApiAccess?: (grantId?: string) => void | Promise<void>;
+    },
     launchEpoch: number,
+    peerEpoch: number,
   ) {
     if (session.revokeAgentApiAccess) {
       this.agentApiSessions.set(process.id, session);
+      if (
+        peerEpoch !== this.peerApiEpoch ||
+        !this.getAgentApiAccess?.()?.peerAccess
+      )
+        void Promise.resolve(session.revokePeerAgentApiAccess?.()).catch(
+          (error) => getLogger().error({ error }, "Peer API revocation failed"),
+        );
       if (launchEpoch !== this.agentApiEpoch || !this.getAgentApiAccess?.())
         void Promise.resolve(session.revokeAgentApiAccess()).catch((error) =>
           getLogger().error({ error }, "Agent API revocation failed"),

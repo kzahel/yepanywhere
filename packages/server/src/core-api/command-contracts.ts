@@ -103,6 +103,7 @@ export const creatorSchema = z.object({
   authentication: z
     .object({
       credentialId: z.string(),
+      generation: z.number().int().positive().optional(),
       sessionAttribution: z.literal("source-attested"),
     })
     .optional()
@@ -158,6 +159,13 @@ export const outboundSchema = z.object({
     ),
   sourceLaunchId: z.string().nullable(),
   destinationServerId: z.string(),
+  destinationSessionId: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe(
+      "Last positively observed canonical session on the destination. Receipt observation fills pending creation bindings without another mutation.",
+    ),
   operation: z.enum(["createSession", "sendMessage"]),
   resource: z.string(),
   requestId: requestIdSchema,

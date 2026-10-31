@@ -1,6 +1,6 @@
 import type { ApiSession } from "../../packages/server/src/core-api/contracts.js";
 
-export const FIXTURE_REVISION = "agent-api-messaging-7";
+export const FIXTURE_REVISION = "agent-api-peers-8";
 export const SERVER_ID = "00000000-0000-4000-8000-000000000001";
 export const OWN_SESSION_ID = "eval-owning-session";
 export const PROJECT_ID = "orchid-project";
@@ -105,6 +105,7 @@ export function grade(
   answer: Answer | null,
   trace: Trace[],
   operationsInContext = false,
+  targetServerId = SERVER_ID,
 ) {
   const read = (path: string) =>
     trace.some(
@@ -113,7 +114,7 @@ export function grade(
         entry.status === 200 &&
         entry.path.split("?")[0] === path,
     );
-  const root = `/v0/servers/${SERVER_ID}`;
+  const root = `/v0/servers/${targetServerId}`;
   if (
     !answer ||
     !Array.isArray(answer.sessionIds) ||

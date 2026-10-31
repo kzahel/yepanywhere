@@ -38,6 +38,7 @@ import {
   initializeProviderRuntimeHost,
   startHostedProviderSession,
   revokeHostedAgentApiAccess,
+  revokeHostedPeerAgentApiAccess,
 } from "../../../src/sdk/providers/provider-runtime-host.js";
 import { isProviderHostDegraded } from "../../../src/sdk/providers/provider-host-status.js";
 import { CoreApi, CoreApiError } from "../../../src/core-api/service.js";
@@ -529,6 +530,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
           "provider-session-options",
           "agent-api-revocation",
           "agent-api-management",
+          "agent-api-peers",
         ],
         controlSocketPath: paths.controlSocketPath,
         tokenFilePath: paths.tokenPath,
@@ -2088,7 +2090,12 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     });
     const options = {
       cwd: runtimeRoot,
-      agentApi: { serverId: "profile-api-host", management: true },
+      agentApi: {
+        serverId: "profile-api-host",
+        management: true,
+        peerAccess: true,
+        peerGrantId: "87b28c33-f5d7-449a-b698-4f3df72f79ae",
+      },
       onAgentApiRead: core.read.bind(core),
     };
     try {
@@ -2253,6 +2260,48 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
         delivery: "consumed",
       });
       expect(inputs).toBe(1);
+      const localOnly = await startHostedProviderSession(
+        "claude",
+        {
+          ...options,
+          agentApi: {
+            serverId: "profile-api-host",
+            management: false,
+            peerAccess: true,
+            peerGrantId: options.agentApi.peerGrantId,
+          },
+        },
+        {},
+      );
+      await localOnly.iterator.next();
+      expect(second.revokePeerAgentApiAccess).toBeTypeOf("function");
+      expect(localOnly.revokePeerAgentApiAccess).toBeUndefined();
+      await revokeHostedPeerAgentApiAccess(
+        "profile-api-host",
+        "a0f91728-4f90-40b5-a14e-cee011990459",
+      );
+      second.queue.push({ text: "/v0/me" });
+      expect(
+        ((await second.iterator.next()).value!.apiResult as { status: number })
+          .status,
+      ).toBe(200);
+      await revokeHostedPeerAgentApiAccess(
+        "profile-api-host",
+        options.agentApi.peerGrantId,
+      );
+      localOnly.queue.push({ text: "/v0/me" });
+      expect(
+        (
+          (await localOnly.iterator.next()).value!.apiResult as {
+            status: number;
+          }
+        ).status,
+      ).toBe(200);
+      second.queue.push({ text: "/v0/me" });
+      expect([0, 401]).toContain(
+        ((await second.iterator.next()).value!.apiResult as { status: number })
+          .status,
+      );
       const other = await startHostedProviderSession(
         "claude",
         { ...options, agentApi: { serverId: "other-profile" } },
@@ -2271,6 +2320,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
           .status,
       );
       await second.abort();
+      await localOnly.abort();
       await other.abort();
     } finally {
       commands.close();

@@ -1,5 +1,5 @@
 import { SUPERUSER } from "../auth/principal.js";
-import type { CoreApi } from "../core-api/service.js";
+import type { ApiReadPort } from "../core-api/service.js";
 import {
   createAgentApiRuntime,
   type AgentApiRuntime,
@@ -9,7 +9,7 @@ import {
 interface SharedRuntime {
   promise: Promise<AgentApiRuntime>;
   users: number;
-  read?: CoreApi["read"];
+  read?: ApiReadPort;
   detach?: () => void;
 }
 // At most 16 live logical profiles; leases/listeners are removed on owner end.
@@ -19,7 +19,9 @@ export async function createAgentApiLaunch(options: {
   serverId: string;
   sessionId: () => string | null;
   management?: boolean;
-  read?: CoreApi["read"];
+  peerAccess?: boolean;
+  peerGrantId?: string;
+  read?: ApiReadPort;
 }) {
   let shared = runtimes.get(options.serverId);
   if (!shared) {
@@ -40,6 +42,8 @@ export async function createAgentApiLaunch(options: {
       principal: SUPERUSER,
       sessionId: options.sessionId,
       management: options.management,
+      peerAccess: options.peerAccess,
+      peerGrantId: options.peerGrantId,
     });
   } catch (error) {
     if (!record.users && runtimes.get(options.serverId) === record) {

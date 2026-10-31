@@ -71,7 +71,7 @@ export function rejectPlaintextBinaryWhenEncryptedRequired(
 
 function validateInboundSequence(
   ws: WSAdapter,
-  connState: ConnectionState,
+  connState: Pick<ConnectionState, "lastInboundSeq">,
   seq: number,
 ): boolean {
   const last = connState.lastInboundSeq;
@@ -95,7 +95,7 @@ function validateInboundSequence(
 
 export function unwrapSequencedClientMessage(
   ws: WSAdapter,
-  connState: ConnectionState,
+  connState: Pick<ConnectionState, "lastInboundSeq">,
   parsed: unknown,
 ): RemoteClientMessage | null {
   if (!isSequencedEncryptedPayload(parsed)) {

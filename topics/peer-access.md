@@ -1,8 +1,11 @@
 # Directional peer enrollment
 
-Status: reviewed contract for staged production implementation, step 2 of
-[plan 168](../docs/tactical/168-peer-access-and-enrollment.md), independent design reviews completed before code. The isolated adapter in [HTTP v0](http-api-v0.md#isolated-two-peer-adapter)
-is implemented. This document does not claim production or Windows qualification.
+Status: opt-in implementation, step 2 of
+[plan 168](../docs/tactical/168-peer-access-and-enrollment.md). Independent design
+and code reviews precede this slice's commit. Normal startup leaves it disabled;
+`YEP_PEER_API_ENABLED=true` enables the management and protected routing surfaces.
+The qualification record in the plan distinguishes tested adapters from the
+remaining packaging and platform matrix.
 
 ## Authority and identity
 
@@ -44,7 +47,7 @@ issued private peer leases carry their own immutable authority. Local v0
 operations retain their existing authentication policy. Agents with full OS
 access still have that OS account's authority; this is not confinement.
 
-Proposed operations:
+Implemented operations:
 
 | Method/path | Result |
 | --- | --- |
@@ -216,6 +219,26 @@ their normal local connection/env bootstrap, discover authorized hosts through
 `servers`, and inspect each target's access/help/schema. They never carry peer
 secrets or need to choose LAN/Tailscale/relay plumbing.
 
+Retirement names the revoked grant generation through the provider host and
+worker RPC. A delayed retirement cannot affect a newer generation. A launch
+without management authority remains local-only even when the peer option is
+enabled. Disabling the feature at startup durably disables stored agent access;
+later re-enablement cannot revive its previous generation.
+
+The source checks current peer and launch authority before persisting a remote
+reply. Revocation before that check leaves the outbound outcome uncertain;
+accepted native work at the target remains. An authorized receipt/follow read
+can enrich an already correlated outbound record with its canonical destination
+session ID. It cannot confirm an unrelated uncertain intent by retry key alone.
+
+One relay transport serializes its pairing handshakes, because the existing
+relay offers one waiting connection per target. Waiters consume the existing
+32-slot profile admission and original connection deadline; cancellation removes
+them before submission. Mutual proof releases the gate, allowing HTTP work and
+following to overlap. This is no retry or failover policy. Independent sources
+can still contend for the same waiting registration and receive an explicit
+unavailable response.
+
 ## Qualification and review
 
 Before implementation, independently review ceremony, credential storage,
@@ -263,3 +286,14 @@ revision sets a 256-KiB JSON reply bound and requires explicit oversize errors.
 Both are acceptance requirements with focused transport cases before
 production enablement. Each reviewer confirmed these closures with no material
 remaining design blocker; implementation and live qualification are still pending.
+
+Native cryptography has a separate 32-job ceiling, including jobs whose channel
+has already retired. Cancellation ends a caller's wait and releases its channel;
+the crypto slot remains occupied until native work actually settles. Initial
+source SRP setup races the original deadline before entering relay pairing.
+No cancelled setup may later send an HTTP request.
+
+Run one YA process per data directory. Concurrent instances use separate
+profiles, as in the local development guide; profile state is not a shared
+multi-controller database. Protected-route qualification owns its processes
+and verifies their exit before restarting a profile.

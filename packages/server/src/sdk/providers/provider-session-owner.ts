@@ -3,7 +3,7 @@ import {
   agentCatalogRequest,
   AGENT_CATALOG_TIMEOUT_MS,
 } from "../../agent-api/controller-protocol.js";
-import { CoreApiError, type CoreApi } from "../../core-api/service.js";
+import { CoreApiError, type ApiReadPort } from "../../core-api/service.js";
 import { operations } from "../../core-api/contracts.js";
 import type {
   PermissionMode,
@@ -96,6 +96,7 @@ export interface ProviderSessionReadyMetadata {
   providerRetention: ProviderRetentionSnapshot;
   capabilities: {
     agentApi?: boolean;
+    peerAgentApi?: boolean;
     publishAgentSelfSelection?: boolean;
     publishAgentSessionViews?: boolean;
     probeLiveness: boolean;
@@ -125,7 +126,7 @@ export interface ProviderSessionReadyMetadata {
 }
 
 export interface ProviderSessionStartHooks {
-  onAgentApiRead: CoreApi["read"];
+  onAgentApiRead: ApiReadPort;
   onToolApproval: CanUseTool;
   onPermissionModeApplied: (mode: PermissionMode) => void;
   onProviderRetentionChange: () => void;
@@ -150,6 +151,7 @@ export type StartOwnedProviderSession = (
 
 export interface ProviderSessionOwnerOptions {
   runtimeId: string;
+  peerGrantId?: string;
   emitSupervisor?: (message: unknown) => void;
   onTerminal?: (reason: string, exitCode: number) => void | Promise<void>;
 }
@@ -182,6 +184,7 @@ function resolvedPid(session: AgentSession): number | undefined {
 
 export class ProviderSessionOwner {
   private agentApiRevoked = false;
+  private peerAgentApiRevoked = false;
   private attachedController: AttachedController | null = null;
   private session: AgentSession | null = null;
   private sequence = 0;
@@ -222,6 +225,13 @@ export class ProviderSessionOwner {
 
   constructor(private readonly options: ProviderSessionOwnerOptions) {}
 
+  /** Set once from the immutable launch recipe, before a session exists. */
+  setIssuedPeerGrantId(grantId: string | undefined) {
+    if (this.session || this.options.peerGrantId)
+      throw new Error("Peer launch grant already bound");
+    this.options.peerGrantId = grantId;
+  }
+
   async start(
     startSession: StartOwnedProviderSession,
     initialBrowserDebugEnvironment?: Record<string, string>,
@@ -251,6 +261,10 @@ export class ProviderSessionOwner {
     this.session = result.session;
     if (this.agentApiRevoked)
       void Promise.resolve(this.session.revokeAgentApiAccess?.()).catch(
+        () => {},
+      );
+    if (this.peerAgentApiRevoked)
+      void Promise.resolve(this.session.revokePeerAgentApiAccess?.()).catch(
         () => {},
       );
     this.sandboxMetadata = result.sandbox;
@@ -284,6 +298,7 @@ export class ProviderSessionOwner {
       providerRetention: this.providerRetention,
       capabilities: {
         agentApi: Boolean(session.revokeAgentApiAccess),
+        peerAgentApi: Boolean(session.revokePeerAgentApiAccess),
         publishAgentSelfSelection: Boolean(session.publishAgentSelfSelection),
         publishAgentSessionViews: Boolean(session.publishAgentSessionViews),
         probeLiveness: Boolean(session.probeLiveness),
@@ -330,6 +345,8 @@ export class ProviderSessionOwner {
       emitAttached?: boolean;
       isActive?: () => boolean;
       agentApiAllowed?: boolean;
+      agentApiPeersAllowed?: boolean;
+      agentApiPeerGrantId?: string;
     } = {},
   ): ProviderSessionAttachedState {
     if (!generation) throw new Error("Missing server generation");
@@ -352,6 +369,15 @@ export class ProviderSessionOwner {
     if (options.agentApiAllowed !== true) {
       this.agentApiRevoked = true;
       void Promise.resolve(this.session?.revokeAgentApiAccess?.()).catch(
+        () => {},
+      );
+    }
+    if (
+      options.agentApiPeersAllowed !== true ||
+      options.agentApiPeerGrantId !== this.options.peerGrantId
+    ) {
+      this.peerAgentApiRevoked = true;
+      void Promise.resolve(this.session?.revokePeerAgentApiAccess?.()).catch(
         () => {},
       );
     }
@@ -391,6 +417,13 @@ export class ProviderSessionOwner {
 
   handleSupervisorMessage(message: unknown): void {
     if (!message || typeof message !== "object" || !("type" in message)) return;
+    if (message.type === "revokePeerAgentApi") {
+      this.peerAgentApiRevoked = true;
+      void Promise.resolve(this.session?.revokePeerAgentApiAccess?.()).catch(
+        () => {},
+      );
+      return;
+    }
     if (message.type === "revokeAgentApi") {
       this.agentApiRevoked = true;
       void Promise.resolve(this.session?.revokeAgentApiAccess?.()).catch(
@@ -946,6 +979,12 @@ export class ProviderSessionOwner {
         return await session.publishAgentSelfSelection?.(
           args[0] as import("../../agent-tools/protocol.js").AgentSelfSelection,
         );
+      case "revokePeerAgentApiAccess": {
+        const grantId = typeof args[0] === "string" ? args[0] : undefined;
+        if (grantId && grantId !== this.options.peerGrantId) return;
+        this.peerAgentApiRevoked = true;
+        return await session.revokePeerAgentApiAccess?.(grantId);
+      }
       case "revokeAgentApiAccess":
         return await session.revokeAgentApiAccess?.();
       case "publishAgentSessionViews":
@@ -1134,9 +1173,9 @@ export class ProviderSessionOwner {
   }
 
   private requestAgentApiRead(
-    operation: Parameters<CoreApi["read"]>[0],
-    input: NonNullable<Parameters<CoreApi["read"]>[2]>,
-  ): ReturnType<CoreApi["read"]> {
+    operation: Parameters<ApiReadPort>[0],
+    input: NonNullable<Parameters<ApiReadPort>[2]>,
+  ): ReturnType<ApiReadPort> {
     const parsed = agentCatalogRequest.safeParse({
       operation,
       input: {
@@ -1193,7 +1232,7 @@ export class ProviderSessionOwner {
             .find((item) => item.id === parsed.data.operation)!
             .response.safeParse(result);
           if (!response.success) reject(new Error("Invalid catalog response"));
-          else resolve(response.data as Awaited<ReturnType<CoreApi["read"]>>);
+          else resolve(response.data as Awaited<ReturnType<ApiReadPort>>);
         }
       };
       this.pendingAgentReads.set(requestId, {

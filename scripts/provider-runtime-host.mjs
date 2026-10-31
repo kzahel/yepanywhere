@@ -496,6 +496,7 @@ export class ProviderRuntimeHost {
             "project-services",
             "agent-api-revocation",
             "agent-api-management",
+            "agent-api-peers",
           ],
         };
       case "registerServer": {
@@ -541,6 +542,7 @@ export class ProviderRuntimeHost {
         return this.turnLedger.status(
           this.requireString(request.submissionId, "submissionId"),
         );
+      case "revokePeerAgentApi":
       case "revokeAgentApi": {
         const generation = this.requireString(request.generation, "generation");
         if (!this.registeredServers.has(generation))
@@ -549,9 +551,22 @@ export class ProviderRuntimeHost {
         for (const entry of this.runtimes.values()) {
           if (entry.launchRecipe.options.agentApi?.serverId !== serverId)
             continue;
-          entry.agentApiRevoked = true;
+          const peerOnly = request.op === "revokePeerAgentApi";
+          if (
+            peerOnly &&
+            (!entry.launchRecipe.options.agentApi?.management ||
+              !entry.launchRecipe.options.agentApi?.peerAccess ||
+              entry.launchRecipe.options.agentApi?.peerGrantId !==
+                request.grantId)
+          )
+            continue;
+          if (peerOnly) entry.peerAgentApiRevoked = true;
+          else entry.agentApiRevoked = true;
           if (entry.child.connected)
-            entry.child.send({ type: "revokeAgentApi" }, () => {});
+            entry.child.send(
+              { type: peerOnly ? "revokePeerAgentApi" : "revokeAgentApi" },
+              () => {},
+            );
         }
         return {};
       }
@@ -1015,6 +1030,8 @@ export class ProviderRuntimeHost {
       };
       const onMessage = (message) => {
         if (message?.type === "ready") {
+          if (entry.peerAgentApiRevoked && child.connected)
+            child.send({ type: "revokePeerAgentApi" }, () => {});
           if (entry.agentApiRevoked && child.connected)
             child.send({ type: "revokeAgentApi" }, () => {});
           finish(() => resolve(message));
@@ -1692,6 +1709,7 @@ async function main() {
           "provider-session-options",
           "agent-api-revocation",
           "agent-api-management",
+          "agent-api-peers",
         ],
         controlSocketPath: paths.controlSocketPath,
         tokenFilePath: paths.tokenPath,

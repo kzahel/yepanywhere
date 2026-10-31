@@ -14,6 +14,10 @@ import { AUTHENTICATED_SRP_TRANSPORT } from "../../src/middleware/authenticated-
 import { WS_INTERNAL_AUTHENTICATED } from "../../src/middleware/internal-auth.js";
 import { createApp } from "../setup/create-app.js";
 import type { AppResult } from "../../src/app.js";
+import { PeerAccessManager } from "../../src/peer-api/manager.js";
+import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
+import { readServerIdentity } from "../../src/core-api/server-identity.js";
+import { randomUUID } from "node:crypto";
 
 it("uses the production authentication/principal boundary and retained catalog for direct and SRP-bound reads", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "ya-v0-app-"));
@@ -157,6 +161,108 @@ it("uses the production authentication/principal boundary and retained catalog f
     ).toBe(403);
   } finally {
     await instance?.disposeSessionReaders();
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
+it("requires actual owner proof for peer administration even on an auth-disabled production app", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "ya-peer-owner-app-"));
+  const database = new DiscoverySqliteService({ dataDir });
+  const manager = new PeerAccessManager(
+    readServerIdentity(database.getDatabase()),
+    dataDir,
+  );
+  let instance: AppResult | undefined;
+  try {
+    await manager.initialize();
+    const auth = new AuthService({ dataDir });
+    await auth.initialize();
+    instance = createApp({
+      sdk: new MockClaudeSDK(),
+      dataDir,
+      discoverySqlite: database,
+      peerAccess: manager,
+      authService: auth,
+      authDisabled: true,
+      projectsDir: join(dataDir, "empty-projects"),
+      externalSessionsEnabled: false,
+    });
+    expect((await instance.app.request("/v0/me")).status).toBe(200);
+    expect((await instance.app.request("/api/peers")).status).toBe(403);
+    const path = "/api/peers/incoming",
+      body = {
+        sourceServerId: randomUUID(),
+        projects: [],
+        operations: ["server"],
+        expiresAt: Date.now() + 60_000,
+      };
+    const headers = {
+      "X-Yep-Anywhere": "true",
+      "Content-Type": "application/json",
+    };
+    expect(
+      (
+        await instance.app.request(path, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        })
+      ).status,
+    ).toBe(403);
+    const ownerHeaders = {
+      ...headers,
+      Cookie: `${SESSION_COOKIE_NAME}=${await auth.createSession("fixture")}`,
+    };
+    const issued = await instance.app.request(path, {
+      method: "POST",
+      headers: ownerHeaders,
+      body: JSON.stringify(body),
+    });
+    expect(issued.status).toBe(201);
+    const invitation = await issued.json();
+    expect(invitation.secret).toBeTruthy();
+    const listed = await instance.app.request("/api/peers", {
+      headers: ownerHeaders,
+    });
+    expect(listed.status).toBe(200);
+    const text = await listed.text();
+    expect(text).not.toContain(invitation.secret);
+    expect(JSON.parse(text).incoming).toMatchObject([
+      { sourceServerId: body.sourceServerId, generation: 1 },
+    ]);
+    expect(
+      (
+        await instance.app.request(path, {
+          method: "POST",
+          headers: ownerHeaders,
+          body: JSON.stringify(body),
+        })
+      ).status,
+    ).toBe(409);
+    const rotation = {
+      projects: [],
+      operations: ["server"],
+      expiresAt: Date.now() + 60_000,
+    };
+    const rotated = await instance.app.request(
+      `${path}/${invitation.credentialId}/rotate`,
+      { method: "POST", headers: ownerHeaders, body: JSON.stringify(rotation) },
+    );
+    expect(rotated.status).toBe(201);
+    expect((await rotated.json()).generation).toBe(2);
+    expect(
+      (
+        await instance.app.request(`${path}/${invitation.credentialId}`, {
+          method: "DELETE",
+          headers: ownerHeaders,
+        })
+      ).status,
+    ).toBe(204);
+    expect(manager.publicState().incoming).toEqual([]);
+  } finally {
+    await instance?.disposeSessionReaders();
+    await manager.close();
+    database.close();
     await rm(dataDir, { recursive: true, force: true });
   }
 });

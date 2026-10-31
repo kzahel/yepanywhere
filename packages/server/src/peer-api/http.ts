@@ -1,9 +1,15 @@
 import { Hono } from "hono";
 import type { ApiPrincipal } from "../core-api/peer-policy.js";
-import { CoreApi, CoreApiError } from "../core-api/service.js";
+import { type CoreApi, CoreApiError } from "../core-api/service.js";
 import { PRINCIPAL_VARIABLE } from "../auth/principal.js";
 import { createV0Routes } from "../routes/v0/index.js";
 import { peerAttestation, type PeerDirectory } from "./directory.js";
+
+export const PEER_SRP_CONTEXT = Symbol("verified-peer-srp-context");
+export interface PeerSrpContext {
+  credentialId: string;
+  generation: number;
+}
 
 /** A revoked or disconnected caller cannot pin an admission slot with a body. */
 async function readPeerBody(request: Request, caller: ApiPrincipal) {
@@ -57,8 +63,15 @@ async function readPeerBody(request: Request, caller: ApiPrincipal) {
 }
 
 /** Isolated v0-only receiving adapter; never mount this authenticator on /api. */
-export function createPeerReceiver(api: CoreApi, directory: PeerDirectory) {
-  const app = new Hono<{ Variables: { yaPrincipal: ApiPrincipal } }>();
+export function createPeerReceiver(
+  api: CoreApi,
+  directory: PeerDirectory,
+  options: { requireSrp?: boolean } = {},
+) {
+  const app = new Hono<{
+    Bindings: { [PEER_SRP_CONTEXT]?: PeerSrpContext };
+    Variables: { yaPrincipal: ApiPrincipal };
+  }>();
   app.use("*", async (c, next) => {
     c.header("Cache-Control", "no-store");
     c.header("X-YA-Server-ID", api.serverId);
@@ -79,6 +92,13 @@ export function createPeerReceiver(api: CoreApi, directory: PeerDirectory) {
       );
     let acquired: ReturnType<PeerDirectory["authenticate"]> | undefined;
     try {
+      const expected = c.env?.[PEER_SRP_CONTEXT];
+      if (options.requireSrp && !expected)
+        throw new CoreApiError(
+          "unauthorized",
+          "An authenticated peer SRP handoff is required",
+          401,
+        );
       const authorization = c.req.header("Authorization") ?? "";
       const encoded = c.req.header("X-YA-Peer-Context");
       if (encoded && encoded.length > 2048)
@@ -95,6 +115,16 @@ export function createPeerReceiver(api: CoreApi, directory: PeerDirectory) {
           : { sessionId: null, launchId: null },
       );
       acquired = directory.authenticate(authorization.slice(7), attestation);
+      if (
+        expected &&
+        (acquired.principal.credentialId !== expected.credentialId ||
+          acquired.principal.credentialGeneration !== expected.generation)
+      )
+        throw new CoreApiError(
+          "unauthorized",
+          "Peer transport and credential generation do not match",
+          401,
+        );
       c.set(PRINCIPAL_VARIABLE, acquired.principal);
       await next();
       acquired.principal.assertActive();

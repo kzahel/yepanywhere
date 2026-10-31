@@ -8,6 +8,7 @@ export interface PeerPrincipal {
   kind: "peer";
   serverId: string;
   credentialId: string;
+  credentialGeneration?: number;
   projects: readonly string[];
   operations: readonly Operation[];
   sourceSessionId: string | null;
@@ -41,6 +42,7 @@ export function peerCreator(caller: PeerPrincipal): ApiCreator {
     principal: { kind: "peer" },
     authentication: {
       credentialId: caller.credentialId,
+      generation: caller.credentialGeneration,
       sessionAttribution: "source-attested",
     },
   };

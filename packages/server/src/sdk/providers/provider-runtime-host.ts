@@ -57,6 +57,7 @@ interface HostResponse<T> {
 
 interface WorkerCapabilities {
   agentApi?: boolean;
+  peerAgentApi?: boolean;
   publishAgentSelfSelection?: boolean;
   publishAgentSessionViews?: boolean;
   probeLiveness: boolean;
@@ -606,6 +607,19 @@ export async function revokeHostedAgentApiAccess(
     await requestHost("revokeAgentApi", { serverId });
 }
 
+export async function revokeHostedPeerAgentApiAccess(
+  serverId: string,
+  grantId: string,
+): Promise<void> {
+  if (!isProviderRuntimeHostAvailable()) return;
+  const status = await getProviderHostStatus();
+  if (
+    Array.isArray(status.features) &&
+    status.features.includes("agent-api-peers")
+  )
+    await requestHost("revokePeerAgentApi", { serverId, grantId });
+}
+
 export function requestHostedProjectService(
   service: Record<string, unknown>,
   authorize?: () => Promise<void>,
@@ -765,8 +779,17 @@ export async function startHostedProviderSession(
       throw new Error(
         "Restart the provider host before enabling agent API discovery for this launch",
       );
+    if (!status.features.includes("agent-api-peers"))
+      options = {
+        ...options,
+        agentApi: {
+          ...options.agentApi,
+          peerAccess: false,
+          peerGrantId: undefined,
+        },
+      };
     if (
-      options.agentApi.management &&
+      options.agentApi!.management &&
       !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.agentApiManagement)
     )
       throw new Error(
@@ -1015,6 +1038,12 @@ class HostedAgentSession {
           token: environment.token,
           generation: environment.generation,
           protocolVersion: WORKER_PROTOCOL_VERSION,
+          agentApiPeerGrantId: this.options.agentApi?.peerGrantId,
+          agentApiPeersAllowed: Boolean(
+            this.options.agentApi?.peerAccess &&
+              this.options.agentApi?.peerGrantId &&
+              this.options.onAgentApiRead,
+          ),
           agentApiAllowed: Boolean(
             this.options.agentApi && this.options.onAgentApiRead,
           ),
@@ -1378,6 +1407,15 @@ class HostedAgentSession {
           "Agent API access is disabled",
           503,
         );
+      if (
+        parsed.data.input.launch &&
+        (!this.options.agentApi.peerAccess ||
+          parsed.data.input.launch.peerGrantId !==
+            this.options.agentApi.peerGrantId)
+      ) {
+        delete parsed.data.input.launch.peerAccess;
+        delete parsed.data.input.launch.peerGrantId;
+      }
       let cancel!: () => void;
       const cancelled = new Promise<never>((_, reject) => {
         cancel = () =>
@@ -1555,6 +1593,12 @@ class HostedAgentSession {
         ? {
             publishAgentSessionViews: (views) =>
               this.rpc<void>("publishAgentSessionViews", [views]),
+          }
+        : {}),
+      ...(capabilities.peerAgentApi
+        ? {
+            revokePeerAgentApiAccess: (grantId?: string) =>
+              this.rpc<void>("revokePeerAgentApiAccess", [grantId]),
           }
         : {}),
       ...(capabilities.agentApi

@@ -12,6 +12,7 @@ for await (const chunk of process.stdin) input += chunk;
 const request = JSON.parse(input) as { options: StartSessionOptions };
 const owner = new ProviderSessionOwner({
   runtimeId: process.env.YEP_PROVIDER_WORKER_RUNTIME_ID!,
+  peerGrantId: request.options.agentApi?.peerGrantId,
   emitSupervisor: (message) => {
     if (process.connected) process.send?.(message, () => {});
   },

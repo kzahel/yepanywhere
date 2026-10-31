@@ -12,10 +12,14 @@ import {
   type ApiLaunchContext,
   type Operation,
 } from "../core-api/contracts.js";
-import { CoreApi, CoreApiError } from "../core-api/service.js";
+import {
+  CoreApi,
+  CoreApiError,
+  type ApiReadPort,
+} from "../core-api/service.js";
 import { createV0Routes } from "../routes/v0/index.js";
 
-export type AgentApiController = Pick<CoreApi, "serverId" | "read">;
+export type AgentApiController = { serverId: string; read: ApiReadPort };
 const MAX_LEASES = 1024;
 const LEASE_MS = 24 * 60 * 60 * 1000;
 const hash = (value: string) =>
@@ -36,6 +40,7 @@ interface Entry {
   sessionId: () => string | null;
   principal: Principal;
   management?: true;
+  peerGrantId?: string;
   expiresAt: number;
 }
 export interface AgentApiLease {
@@ -53,6 +58,8 @@ export interface AgentApiRuntime {
     principal: Principal;
     sessionId: () => string | null;
     management?: boolean;
+    peerAccess?: boolean;
+    peerGrantId?: string;
   }): AgentApiLease;
   /** An old detach cannot disconnect a replacement controller. */
   attachController(controller: AgentApiController): () => void;
@@ -93,15 +100,30 @@ export async function createAgentApiRuntime(options: {
     providers: unavailable,
     managementEnabled: () => true,
   });
-  const reader: Pick<CoreApi, "read"> = {
+  const reader: { read: ApiReadPort } = {
     read: async (operation, caller, input = {}) => {
-      if (input.serverId !== undefined && input.serverId !== options.serverId)
+      const peerLease = Boolean(
+        input.launch?.peerAccess && input.launch.peerGrantId,
+      );
+      if (
+        !peerLease &&
+        input.serverId !== undefined &&
+        input.serverId !== options.serverId
+      )
         throw new CoreApiError(
           "server_not_found",
           "Server is not configured here",
           404,
         );
-      if (independent.has(operation)) return own.read(operation, caller, input);
+      const peerDiscovery =
+        peerLease &&
+        ["servers", "server", "access", "capabilities"].includes(operation);
+      if (
+        independent.has(operation) &&
+        !peerDiscovery &&
+        (!input.serverId || input.serverId === options.serverId)
+      )
+        return own.read(operation, caller, input);
       const current = controller;
       if (!current) return unavailable();
       // Leave connection headroom for own context even if a catalog stalls.
@@ -191,6 +213,9 @@ export async function createAgentApiRuntime(options: {
       id: entry.sessionId(),
       launchId: entry.launchId,
       ...(entry.management ? { management: true as const } : {}),
+      ...(entry.peerGrantId
+        ? { peerAccess: true as const, peerGrantId: entry.peerGrantId }
+        : {}),
     });
     await next();
   });
@@ -259,6 +284,9 @@ export async function createAgentApiRuntime(options: {
         sessionId: input.sessionId,
         principal: input.principal,
         ...(input.management ? { management: true as const } : {}),
+        ...(input.peerAccess && input.management && input.peerGrantId
+          ? { peerGrantId: input.peerGrantId }
+          : {}),
         expiresAt: now() + LEASE_MS,
       };
       entries.set(key, entry);

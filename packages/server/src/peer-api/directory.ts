@@ -15,6 +15,7 @@ export interface IncomingPeerGrant {
   id: string;
   serverId: string;
   tokenHash: string;
+  generation?: number;
   projects: readonly string[];
   operations: readonly Operation[];
   expiresAt: number;
@@ -22,7 +23,7 @@ export interface IncomingPeerGrant {
 export const hashPeerToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
-/** No timers, listeners or discovery. Each admitted request owns its cancellation. */
+/** No idle work. Each admitted request owns its deadline and cancellation. */
 export class PeerDirectory {
   private readonly incoming = new Map<string, IncomingPeerGrant>();
   private readonly active = new Map<string, Set<AbortController>>();
@@ -65,6 +66,18 @@ export class PeerDirectory {
         503,
       );
     const controller = new AbortController();
+    const deadline = setTimeout(
+      () =>
+        controller.abort(
+          new CoreApiError(
+            "controller_unavailable",
+            "Peer request deadline reached",
+            503,
+          ),
+        ),
+      Math.max(0, Math.min(12_000, grant.expiresAt - Date.now())),
+    );
+    deadline.unref?.();
     let active = this.active.get(grant.id);
     if (!active) {
       active = new Set();
@@ -76,6 +89,7 @@ export class PeerDirectory {
       kind: "peer",
       serverId: grant.serverId,
       credentialId: grant.id,
+      credentialGeneration: grant.generation,
       projects: grant.projects,
       operations: grant.operations,
       sourceSessionId: attestation.sessionId,
@@ -83,7 +97,6 @@ export class PeerDirectory {
       signal: controller.signal,
       assertActive: () => {
         if (
-          controller.signal.aborted ||
           this.incoming.get(grant.id) !== grant ||
           grant.expiresAt <= Date.now()
         )
@@ -92,6 +105,14 @@ export class PeerDirectory {
             "Peer credential is not active",
             401,
           );
+        if (controller.signal.aborted)
+          throw controller.signal.reason instanceof CoreApiError
+            ? controller.signal.reason
+            : new CoreApiError(
+                "controller_unavailable",
+                "Peer request was cancelled",
+                503,
+              );
       },
     };
     let released = false;
@@ -100,6 +121,7 @@ export class PeerDirectory {
       release: () => {
         if (released) return;
         released = true;
+        clearTimeout(deadline);
         active!.delete(controller);
         this.activeCount--;
         if (!active!.size) this.active.delete(grant.id);

@@ -1,10 +1,11 @@
-import { CoreApi, CoreApiError } from "../core-api/service.js";
+import { type CoreApi, CoreApiError } from "../core-api/service.js";
 import { pageQuery, type Operation } from "../core-api/contracts.js";
 import type { ApiPrincipal } from "../core-api/peer-policy.js";
 import {
   createSessionRequest,
   sendMessageRequest,
   receiptSchema,
+  type ApiOutbound,
 } from "../core-api/command-contracts.js";
 import type { PeerOutboundStore } from "./outbound-store.js";
 import type { PeerInput, PeerTransport } from "./transport.js";
@@ -13,21 +14,34 @@ export interface OutgoingPeer {
   serverId: string;
   operations: readonly Operation[];
   transport: PeerTransport;
+  allowAgentSessions?: boolean;
+  expiresAt?: number;
 }
 /** One hop only. Native workflow policy and provider ownership stay at each target. */
 export class PeerApiRouter {
   private readonly peers = new Map<string, OutgoingPeer>();
   private readonly active = new Map<OutgoingPeer, Set<AbortController>>();
   private activeCount = 0;
+  private closed = false;
+  private readonly agentControllers = new Set<AbortController>();
+  get serverId() {
+    return this.local.serverId;
+  }
   constructor(
     private readonly local: CoreApi,
     private readonly outbound: PeerOutboundStore,
     peers: readonly OutgoingPeer[] = [],
     private readonly canonicalSessionId: (id: string) => string = (id) => id,
+    private readonly agentAccess: () => {
+      enabled: boolean;
+      grantId?: string;
+    } = () => ({ enabled: false }),
   ) {
     for (const peer of peers) this.put(peer);
   }
   put(peer: OutgoingPeer) {
+    if (this.closed)
+      throw new CoreApiError("peer_unavailable", "Peer owner is closed", 503);
     if (
       peer.serverId === this.local.serverId ||
       peer.transport.serverId !== peer.serverId
@@ -52,15 +66,24 @@ export class PeerApiRouter {
     this.peers.delete(serverId);
   }
   close() {
+    this.closed = true;
     for (const id of this.peers.keys()) this.revoke(id);
   }
+  revokeAgentAccess() {
+    for (const controller of this.agentControllers) controller.abort();
+  }
   private canRoute(caller: ApiPrincipal, input: PeerInput) {
+    if (this.closed || caller.kind !== "superuser") return false;
+    if (!input.launch) return input.ownerAuthenticated === true;
+    const policy = this.agentAccess();
     return (
-      caller.kind === "superuser" &&
-      (!input.launch ||
-        Boolean(
-          input.launch.management && input.launch.peerAccess && input.launch.id,
-        ))
+      policy.enabled &&
+      Boolean(
+        input.launch.management &&
+          input.launch.peerAccess &&
+          input.launch.id &&
+          input.launch.peerGrantId === policy.grantId,
+      )
     );
   }
   async read(
@@ -77,7 +100,12 @@ export class PeerApiRouter {
         const items = [
           { id: this.local.serverId, local: true },
           ...[...this.peers.values()]
-            .filter((p) => p.operations.length)
+            .filter(
+              (p) =>
+                p.operations.length &&
+                (p.expiresAt === undefined || p.expiresAt > Date.now()) &&
+                (!input.launch || p.allowAgentSessions),
+            )
             .map((p) => ({ id: p.serverId, local: false })),
         ];
         const offset = Number(query.cursor ?? 0),
@@ -110,6 +138,8 @@ export class PeerApiRouter {
         "Server is not configured here",
         404,
       );
+    if (this.closed)
+      throw new CoreApiError("peer_unavailable", "Peer owner is closed", 503);
     if (!this.canRoute(caller, input))
       throw new CoreApiError(
         "forbidden",
@@ -122,6 +152,18 @@ export class PeerApiRouter {
         "server_not_found",
         "Server is not configured here",
         404,
+      );
+    if (input.launch && !peer.allowAgentSessions)
+      throw new CoreApiError(
+        "forbidden",
+        "This peer does not grant agent-session access",
+        403,
+      );
+    if (peer.expiresAt !== undefined && peer.expiresAt <= Date.now())
+      throw new CoreApiError(
+        "unauthorized",
+        "Outgoing peer credential expired",
+        401,
       );
     if (!peer.operations.includes(operation))
       throw new CoreApiError(
@@ -143,6 +185,7 @@ export class PeerApiRouter {
       this.active.set(peer, active);
     }
     active.add(controller);
+    if (input.launch) this.agentControllers.add(controller);
     this.activeCount++;
     try {
       let attestation = {
@@ -151,7 +194,7 @@ export class PeerApiRouter {
           : null,
         launchId: input.launch?.launchId ?? null,
       };
-      let record;
+      let record: ApiOutbound | undefined;
       if (operation === "createSession" || operation === "sendMessage") {
         const parsed = (
           operation === "createSession"
@@ -199,6 +242,24 @@ export class PeerApiRouter {
         },
         attestation,
       );
+      if (this.closed)
+        throw new CoreApiError(
+          "peer_unavailable",
+          "Peer owner closed before its result was recorded",
+          503,
+        );
+      if (
+        controller.signal.aborted ||
+        input.signal?.aborted ||
+        this.peers.get(peer.serverId) !== peer ||
+        !this.canRoute(caller, input) ||
+        (peer.expiresAt !== undefined && peer.expiresAt <= Date.now())
+      )
+        throw new CoreApiError(
+          "forbidden",
+          "Outgoing peer access was revoked",
+          403,
+        );
       if (record) {
         const receipt = receiptSchema.parse(result);
         if (
@@ -219,17 +280,21 @@ export class PeerApiRouter {
           );
         this.outbound.confirm(record, receipt);
       }
-      if (controller.signal.aborted || this.peers.get(peer.serverId) !== peer)
-        throw new CoreApiError(
-          "forbidden",
-          "Outgoing peer access was revoked",
-          403,
-        );
+      if (operation === "receipt")
+        this.outbound.observe(peer.serverId, receiptSchema.parse(result));
+      if (operation === "followReceipt" || operation === "relationships") {
+        const response = result as { receipt?: unknown; creation?: unknown };
+        const receipt =
+          operation === "followReceipt" ? response.receipt : response.creation;
+        if (receipt)
+          this.outbound.observe(peer.serverId, receiptSchema.parse(receipt));
+      }
       return operation === "server"
         ? { ...(result as object), local: false }
         : result;
     } finally {
       active.delete(controller);
+      this.agentControllers.delete(controller);
       this.activeCount--;
       if (!active.size) this.active.delete(peer);
     }

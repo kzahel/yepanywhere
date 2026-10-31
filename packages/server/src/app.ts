@@ -1,3 +1,7 @@
+import type { PeerAccessManager } from "./peer-api/manager.js";
+import { createPeerOwnerProof } from "./peer-api/owner-proof.js";
+import { createPeerManagementRoutes } from "./peer-api/routes.js";
+import { API_OWNER_VARIABLE } from "./core-api/contracts.js";
 import { ApiReceiptStore } from "./core-api/receipt-store.js";
 import { SessionCommands } from "./core-api/session-commands.js";
 import { nativeSessionCommandOwner } from "./core-api/native-session-commands.js";
@@ -6,7 +10,12 @@ import {
   createConversationRead,
   createConversationFollow,
 } from "./core-api/conversation.js";
-import { CoreApi, CoreApiError } from "./core-api/service.js";
+import {
+  CoreApi,
+  CoreApiError,
+  type ApiReadPort,
+  type CoreApiSources,
+} from "./core-api/service.js";
 import { readServerIdentity } from "./core-api/server-identity.js";
 import { productionApiSources } from "./core-api/production-sources.js";
 import { createV0Routes } from "./routes/v0/index.js";
@@ -483,6 +492,8 @@ export interface AppOptions {
   maxQueueSize?: number;
   /** AuthService for cookie-based auth (optional) */
   authService?: AuthService;
+  /** Initialized profile-owned peer runtime; absent keeps peer access disabled. */
+  peerAccess?: PeerAccessManager;
   /** Limited-user records; absent disables the second principal class. */
   limitedUsersService?: LimitedUsersService;
   userUsageService?: UserUsageService;
@@ -802,7 +813,7 @@ export function createApp(options: AppOptions): AppResult {
     options.discoverySqlite ??
     new DiscoverySqliteService({ dataDir: effectiveDataDir });
   let publicServerId: string;
-  let agentApiController: CoreApi | undefined;
+  let agentApiController: { read: ApiReadPort } | undefined;
   let apiCommands: SessionCommands | undefined;
   let apiReceipts: ApiReceiptStore | undefined;
   let releaseApiRemaps: (() => void) | undefined;
@@ -1016,6 +1027,7 @@ export function createApp(options: AppOptions): AppResult {
       await next();
     };
     app.use("/v0/*", operatorPrincipal);
+    app.use("/api/peers/*", operatorPrincipal);
   }
 
   // Mount /api routers only after the security and auth middleware above:
@@ -1549,6 +1561,7 @@ export function createApp(options: AppOptions): AppResult {
     // Explicit shutdown and fixture ownership may join the same disposal.
     // Cache the promise before asynchronous cleanup can close shared services.
     sessionReadersDisposal ??= (async () => {
+      await options.peerAccess?.close();
       apiCommands?.close();
       releaseApiRemaps?.();
       apiReceipts?.close();
@@ -2043,7 +2056,7 @@ export function createApp(options: AppOptions): AppResult {
   );
   app.route("/api", createAgentAuthRouterRoutes(agentAuthRouter));
 
-  const readAgentApi: CoreApi["read"] = async (operation, caller, input) => {
+  const readAgentApi: ApiReadPort = async (operation, caller, input) => {
     if (
       !agentApiController ||
       options.serverSettingsService?.getSetting("agentApiEnabled") !== true
@@ -2109,6 +2122,8 @@ export function createApp(options: AppOptions): AppResult {
         ? {
             serverId: publicServerId,
             read: readAgentApi,
+            peerAccess: options.peerAccess?.agentAccess().enabled,
+            peerGrantId: options.peerAccess?.agentAccess().grantId,
             management:
               options.serverSettingsService?.getSetting(
                 "agentApiManagementEnabled",
@@ -3151,10 +3166,11 @@ export function createApp(options: AppOptions): AppResult {
         "Agent API command outcome persistence failed",
       ),
   );
-  releaseApiRemaps = supervisor.observeSessionIdRemaps?.((oldId, newId) =>
-    apiReceipts?.remap(oldId, newId),
-  );
-  agentApiController = new CoreApi(publicServerId, {
+  releaseApiRemaps = supervisor.observeSessionIdRemaps?.((oldId, newId) => {
+    apiReceipts?.remap(oldId, newId);
+    options.peerAccess?.remap(oldId, newId);
+  });
+  const coreSources: CoreApiSources = {
     commands: apiCommands,
     ...productionApiSources({
       scanner,
@@ -3199,7 +3215,44 @@ export function createApp(options: AppOptions): AppResult {
       conversationSubscriptions,
       publicServerId,
     ),
-  });
+  };
+  const localCore = new CoreApi(publicServerId, coreSources);
+  agentApiController = options.peerAccess
+    ? options.peerAccess.bind(
+        localCore,
+        discoverySqlite.getDatabase(),
+        apiReceipts,
+        coreSources.projects,
+      )
+    : localCore;
+  if (options.peerAccess) {
+    if (options.peerAccess.serverId !== publicServerId)
+      throw new Error("Peer runtime profile identity mismatch");
+    options.peerAccess.setRetirementHandler((grantId) =>
+      supervisor.revokePeerAgentApiAccess(publicServerId, grantId),
+    );
+    const ownerProof = options.authService
+      ? createPeerOwnerProof({
+          authService: options.authService,
+          desktopAuthToken: options.desktopAuthToken,
+          desktopBootstrapService: options.desktopBootstrapService,
+          remoteAccessService: options.remoteAccessService,
+          agentServerTokens,
+        })
+      : async () => false;
+    const peerOwner: MiddlewareHandler = async (c, next) => {
+      // A failed optional owner lookup cannot break existing local API access.
+      if (await ownerProof(c).catch(() => false))
+        c.set(API_OWNER_VARIABLE, true);
+      await next();
+    };
+    app.use("/v0/*", peerOwner);
+    app.route(
+      "/api/peers",
+      createPeerManagementRoutes(options.peerAccess, ownerProof),
+    );
+    options.peerAccess.startRoutes();
+  }
   app.route("/v0", createV0Routes(agentApiController));
 
   // Global sessions route (flat list of all sessions for navigation)

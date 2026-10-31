@@ -25,6 +25,9 @@ import { getLogger } from "../logging/logger.js";
 import { MAX_INBOUND_WEBSOCKET_MESSAGE_BYTES } from "../websocketLimits.js";
 
 export interface RelayClientConfig {
+  /** A separate peer registration narrows parsing without changing browser sockets. */
+  maxInboundMessageBytes?: number;
+  strictPeerHandoff?: boolean;
   /** WebSocket URL of the relay server (e.g., wss://relay.yepanywhere.com/ws) */
   relayUrl: string;
   /** Username to register with the relay */
@@ -54,7 +57,7 @@ export interface RelayClientConfig {
     ws: WebSocket,
     firstMessage: Buffer,
     isBinary: boolean,
-  ) => void;
+  ) => unknown;
   /** Called when connection status changes (for UI updates) */
   onStatusChange?: (status: RelayClientStatus) => void;
 }
@@ -133,6 +136,7 @@ export class RelayClientService {
   private connectingWs: WebSocket | null = null;
   private backoff: ExponentialBackoff;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private registrationTimer: ReturnType<typeof setTimeout> | null = null;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private pongTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastPingTime: number | null = null;
@@ -156,6 +160,15 @@ export class RelayClientService {
    * Call this when relay settings are updated.
    */
   start(config: RelayClientConfig): void {
+    if (
+      config.maxInboundMessageBytes !== undefined &&
+      (!Number.isInteger(config.maxInboundMessageBytes) ||
+        config.maxInboundMessageBytes < 1 ||
+        config.maxInboundMessageBytes > MAX_INBOUND_WEBSOCKET_MESSAGE_BYTES)
+    )
+      throw new Error(
+        "Relay message ceiling must be a positive integer within the existing maximum",
+      );
     // Stop any existing connection
     this.stop();
 
@@ -170,15 +183,18 @@ export class RelayClientService {
   stop(): void {
     this.enabled = false;
     this.clearReconnectTimer();
+    this.clearRegistrationTimer();
     this.stopKeepalive();
 
     if (this.connectingWs) {
-      this.connectingWs.close();
+      if (this.config?.strictPeerHandoff) this.connectingWs.terminate();
+      else this.connectingWs.close();
       this.connectingWs = null;
     }
 
     if (this.waitingWs) {
-      this.waitingWs.close();
+      if (this.config?.strictPeerHandoff) this.waitingWs.terminate();
+      else this.waitingWs.close();
       this.waitingWs = null;
     }
 
@@ -224,7 +240,14 @@ export class RelayClientService {
 
     try {
       const ws = new WebSocket(this.config.relayUrl, {
-        maxPayload: MAX_INBOUND_WEBSOCKET_MESSAGE_BYTES,
+        maxPayload: Math.min(
+          this.config.maxInboundMessageBytes ??
+            MAX_INBOUND_WEBSOCKET_MESSAGE_BYTES,
+          MAX_INBOUND_WEBSOCKET_MESSAGE_BYTES,
+        ),
+        ...(this.config.strictPeerHandoff
+          ? { perMessageDeflate: false, handshakeTimeout: 10_000 }
+          : {}),
       });
       this.connectingWs = ws;
 
@@ -284,15 +307,29 @@ export class RelayClientService {
             remoteCompatibilityLevel: this.config.remoteCompatibilityLevel,
             capabilities: this.config.capabilities,
           } satisfies RelayServerRegister);
+    if (this.config.strictPeerHandoff) {
+      this.registrationTimer = setTimeout(() => {
+        if (ws === this.connectingWs) ws.terminate();
+      }, 10_000);
+      this.registrationTimer.unref();
+    }
     ws.send(JSON.stringify(register));
   }
 
   private handleMessage(ws: WebSocket, data: Buffer, isBinary: boolean): void {
     if (ws !== this.connectingWs && ws !== this.waitingWs) return;
+    if (this.config?.strictPeerHandoff && ws === this.waitingWs) {
+      this.handleClaimed(ws, data, isBinary);
+      return;
+    }
 
     // If it's a binary frame, it's the first message from a phone client
     // (after pairing, relay forwards messages with preserved frame types)
     if (isBinary) {
+      if (this.config?.strictPeerHandoff) {
+        ws.close(1008, "Invalid registration response");
+        return;
+      }
       this.handleClaimed(ws, data, true);
       return;
     }
@@ -305,6 +342,10 @@ export class RelayClientService {
     try {
       parsed = JSON.parse(str);
     } catch {
+      if (this.config?.strictPeerHandoff) {
+        ws.close(1008, "Invalid registration response");
+        return;
+      }
       // Not valid JSON - shouldn't happen for relay protocol. Incoming frames
       // can contain credentials, so only log framing metadata.
       getLogger().warn(
@@ -316,6 +357,7 @@ export class RelayClientService {
     // Handle relay protocol responses
     if (isRelayServerRegistered(parsed)) {
       if (ws !== this.connectingWs) return;
+      this.clearRegistrationTimer();
       console.log(
         `[RelayClient] Registered with relay as: ${this.config?.username} (${this.config?.channel ?? DEFAULT_RELAY_CHANNEL})`,
       );
@@ -331,7 +373,13 @@ export class RelayClientService {
 
     if (isRelayServerRejected(parsed)) {
       if (ws !== this.connectingWs) return;
+      this.clearRegistrationTimer();
       this.handleRejection(ws, parsed);
+      return;
+    }
+
+    if (this.config?.strictPeerHandoff) {
+      ws.close(1008, "Invalid registration response");
       return;
     }
 
@@ -344,8 +392,9 @@ export class RelayClientService {
   private handleRejection(ws: WebSocket, msg: RelayServerRejected): void {
     getLogger().warn(`[RelayClient] Registration rejected: ${msg.reason}`);
 
-    // Close the connection
-    ws.close();
+    // A rejected peer registration has no channel owner or close deadline.
+    if (this.config?.strictPeerHandoff) ws.terminate();
+    else ws.close();
 
     if (msg.reason === "username_taken") {
       // Permanent error - don't reconnect
@@ -383,6 +432,7 @@ export class RelayClientService {
 
     // Stop keepalive for this connection (it's being handed off)
     this.stopKeepalive();
+    this.clearRegistrationTimer();
 
     // Release this connection from registration/waiting ownership before handoff.
     if (ws === this.connectingWs) this.connectingWs = null;
@@ -392,8 +442,23 @@ export class RelayClientService {
     // This prevents duplicate message processing
     ws.removeAllListeners();
 
-    // Hand off to the WebSocket relay handler with frame type info
-    this.config.onRelayConnection(ws, firstMessage, isBinary);
+    // Hand off to the WebSocket relay handler with frame type info. A peer
+    // admission refusal uses the existing backoff instead of a claim loop.
+    if (this.config.strictPeerHandoff) {
+      try {
+        if (
+          this.config.onRelayConnection(ws, firstMessage, isBinary) === false
+        ) {
+          this.scheduleReconnect();
+          return;
+        }
+      } catch {
+        ws.on("error", () => {});
+        ws.terminate();
+        this.scheduleReconnect();
+        return;
+      }
+    } else this.config.onRelayConnection(ws, firstMessage, isBinary);
 
     // Immediately open a new waiting connection
     this.connect();
@@ -403,6 +468,7 @@ export class RelayClientService {
     // Only handle close for connections we're managing
     // Claimed connections are handed off and managed elsewhere
     if (ws === this.connectingWs) {
+      this.clearRegistrationTimer();
       console.log("[RelayClient] Connecting socket closed");
       this.connectingWs = null;
       this.scheduleReconnect();
@@ -457,6 +523,10 @@ export class RelayClientService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+  }
+  private clearRegistrationTimer(): void {
+    if (this.registrationTimer) clearTimeout(this.registrationTimer);
+    this.registrationTimer = null;
   }
 
   private updateState(updates: Partial<RelayClientState>): void {

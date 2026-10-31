@@ -128,6 +128,13 @@ Note: By default, all instances share `~/.claude/projects/` (SDK-managed session
 
 ## Provider & Feature Configuration
 
+Directional peer enrollment is independently opt-in with
+`YEP_PEER_API_ENABLED=true`. Its owner-only `/api/peers` API requires actual
+owner proof even when ordinary localhost/UI authentication is open. Agent peer
+use needs its separate opt-in and existing management authority. See
+[peer access](../../topics/peer-access.md) for ceremony, private state,
+direct/relay routes and revocation. No relay URL/name is inferred or changed.
+
 The optional provider host keeps supported agent turns and pending approvals
 alive across web-server reloads on Linux and macOS Node source checkouts. On
 Linux it also preserves project apps and Live preview, including HMR, with

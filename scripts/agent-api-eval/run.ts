@@ -65,6 +65,9 @@ async function main() {
   const cases = option("cases", "identity").split(",") as CaseId[];
   if (cases.some((value) => !Object.hasOwn(CASES, value)))
     throw new Error("Unknown eval case");
+  const peerRelay = process.argv.includes("--peer-relay");
+  if (peerRelay && cases.some((caseId) => caseId !== "workflow"))
+    throw new Error("--peer-relay currently supports only workflow");
   const samples = integer("samples", 1, 3);
   const maxTrials = integer("max-trials", 3, 63);
   if (samples * variants.length * cases.length > maxTrials)
@@ -86,6 +89,7 @@ async function main() {
   };
   const plan = {
     apiRevision: API_REVISION,
+    peerRelay,
     fixtureRevision: FIXTURE_REVISION,
     model,
     effort,
@@ -104,6 +108,7 @@ async function main() {
         "support.ts",
         "cases.ts",
         "fixture.ts",
+        "peer-fixture.ts",
         "instructions.ts",
         "process.ts",
       ].map(async (file) => [
@@ -236,7 +241,7 @@ async function main() {
           let recorded = false;
           try {
             await chmod(root, 0o700);
-            const fixture = await createFixture(caseId);
+            const fixture = await createFixture(caseId, peerRelay);
             closeFixture = fixture.close;
             redactions.push(
               fixture.environment.AGENT_YA_V0_AUTHORIZATION!,
@@ -254,7 +259,7 @@ async function main() {
             const schemaPath = join(cwd, "answer-schema.json");
             const answerPath = join(cwd, "answer.json");
             await writeFile(schemaPath, JSON.stringify(answerSchema));
-            const prompt = `${bootstrap(variant, false, fixture.management)}\n\nTask: ${CASES[caseId]}\nUse null/empty fields when irrelevant. Return only the requested JSON shape. Use only this API for YA facts; do not inspect YA source, personal files, other services or credentials. Never print connection values.${caseId === "detail" ? " The answer field is the provider id only." : ""}`;
+            const prompt = `${bootstrap(variant, false, fixture.management, peerRelay)}\n\nTask: ${peerRelay ? "Discover the other authorized server and perform the entire workflow there. " : ""}${CASES[caseId]}\nUse null/empty fields when irrelevant. Return only the requested JSON shape. Use only this API for YA facts; do not inspect YA source, personal files, other services or credentials. Never print connection values.${caseId === "detail" ? " The answer field is the provider id only." : ""}`;
             const env: NodeJS.ProcessEnv = {
               PATH: process.env.PATH,
               HOME: root,
@@ -386,7 +391,13 @@ async function main() {
               !execution.timedOut &&
               !execution.truncated &&
               shortcuts.length === 0 &&
-              grade(caseId, answer, fixture.trace, variant !== "minimal");
+              grade(
+                caseId,
+                answer,
+                fixture.trace,
+                variant !== "minimal",
+                fixture.apiServerId,
+              );
             const docs = fixture.trace.filter(
               (entry) =>
                 ["/v0/help", "/v0/schema"].includes(
@@ -417,7 +428,7 @@ async function main() {
                   fixture.trace.map((entry) => `${entry.method} ${entry.path}`),
                 ).size,
               bootstrapBytes: bytes(
-                bootstrap(variant, false, fixture.management),
+                bootstrap(variant, false, fixture.management, peerRelay),
               ),
               promptBytes: bytes(prompt),
               fetchedDocumentationBytes: docs.reduce(

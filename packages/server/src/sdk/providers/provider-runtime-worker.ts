@@ -100,6 +100,7 @@ async function main(): Promise<void> {
 
   try {
     const request = await readLaunchRequest();
+    owner.setIssuedPeerGrantId(request.options.agentApi?.peerGrantId);
     const {
       browserDebugEnvironment: initialBrowserDebugEnvironment,
       ...providerOptions

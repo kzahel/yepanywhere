@@ -5,6 +5,10 @@ import { z } from "zod";
 export const agentCatalogRequest = z
   .object({
     operation: z.enum([
+      "servers",
+      "server",
+      "access",
+      "capabilities",
       "projects",
       "providers",
       "sessions",

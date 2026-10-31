@@ -93,6 +93,8 @@ export class CoreApi {
       signal?: AbortSignal;
       /** Established by a trusted launch authenticator, never a request field. */
       launch?: ApiLaunchContext;
+      /** Independent owner proof from the host, never a public request field. */
+      ownerAuthenticated?: true;
     } = {},
   ) {
     assertPeerOperation(caller, operation);
@@ -104,10 +106,34 @@ export class CoreApi {
           ...(input.signal ? [input.signal] : []),
         ]),
       };
+    let releaseCancellation = () => {};
+    const cancelled =
+      caller.kind === "peer"
+        ? new Promise<never>((_resolve, reject) => {
+            const signal = input.signal!;
+            const abort = () =>
+              reject(
+                signal.reason instanceof CoreApiError
+                  ? signal.reason
+                  : new CoreApiError(
+                      "controller_unavailable",
+                      "Peer request was cancelled",
+                      503,
+                    ),
+              );
+            signal.addEventListener("abort", abort, { once: true });
+            releaseCancellation = () =>
+              signal.removeEventListener("abort", abort);
+            if (signal.aborted) abort();
+          })
+        : undefined;
     try {
-      const result = await this.dispatch(operation, caller, input);
+      const pending = this.dispatch(operation, caller, input);
+      const result = await (cancelled
+        ? Promise.race([pending, cancelled])
+        : pending);
       if (operation === "createSession" || operation === "sendMessage")
-        await this.assertReceipt(caller, result as ApiReceipt);
+        await this.assertReceipt(caller, result as ApiReceipt, input.signal);
       return operation === "sendMessage"
         ? { ...(result as ApiReceipt), requestedSessionId: input.sessionId }
         : result;
@@ -136,10 +162,11 @@ export class CoreApi {
                 creator,
                 false,
               );
-        await this.assertReceipt(caller, receipt);
+        await this.assertReceipt(caller, receipt, input.signal);
       }
       throw error;
     } finally {
+      releaseCancellation();
       if (caller.kind === "peer") caller.assertActive();
     }
   }
@@ -303,7 +330,7 @@ export class CoreApi {
           authenticated,
         );
         if (replay) {
-          await this.assertReceipt(caller, replay);
+          await this.assertReceipt(caller, replay, input.signal);
           return replay;
         }
         const [projects, providers] = await Promise.all([
@@ -349,7 +376,7 @@ export class CoreApi {
           authenticated,
         );
         if (replay) {
-          await this.assertReceipt(caller, replay);
+          await this.assertReceipt(caller, replay, input.signal);
           return replay;
         }
         const session = sessionSchema.parse(
@@ -378,6 +405,7 @@ export class CoreApi {
         await this.assertReceipt(
           caller,
           this.sources.commands.store.get(input.receiptId!),
+          input.signal,
         );
         const followed = await this.sources.commands.follow(
           input.receiptId!,
@@ -392,6 +420,7 @@ export class CoreApi {
         await this.assertReceipt(
           caller,
           this.sources.commands.store.get(input.receiptId!),
+          input.signal,
         );
         return followed;
       }
@@ -405,13 +434,14 @@ export class CoreApi {
         await this.assertReceipt(
           caller,
           this.sources.commands?.store.get(input.receiptId ?? ""),
+          input.signal,
         );
         const receipt = await this.sources.commands?.receipt(
           input.receiptId ?? "",
         );
         if (!receipt)
           throw new CoreApiError("receipt_not_found", "Receipt not found", 404);
-        await this.assertReceipt(caller, receipt);
+        await this.assertReceipt(caller, receipt, input.signal);
         return receipt;
       }
       case "relationships": {
@@ -564,7 +594,11 @@ export class CoreApi {
         peerProject(caller, receipt.projectId))
     );
   }
-  private async assertReceipt(caller: ApiPrincipal, receipt?: ApiReceipt) {
+  private async assertReceipt(
+    caller: ApiPrincipal,
+    receipt?: ApiReceipt,
+    signal?: AbortSignal,
+  ) {
     if (
       caller.kind === "peer" &&
       (!receipt || !this.receiptVisible(caller, receipt))
@@ -574,6 +608,7 @@ export class CoreApi {
       await this.read("session", caller, {
         serverId: this.serverId,
         sessionId: receipt.sessionId,
+        signal,
       });
   }
 
@@ -610,3 +645,8 @@ export class CoreApi {
     };
   }
 }
+
+/** Transport-neutral controller port; adapters validate operation result schemas. */
+export type ApiReadPort = (
+  ...args: Parameters<CoreApi["read"]>
+) => Promise<unknown>;

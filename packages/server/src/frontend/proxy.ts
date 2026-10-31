@@ -297,6 +297,11 @@ interface HonoAppLike {
 
 /** Options for the unified upgrade handler */
 export interface UnifiedUpgradeOptions {
+  peerUpgrade?: (
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ) => boolean;
   appUpgrade?: (request: IncomingMessage, socket: Duplex, head: Buffer) => void;
   /** The frontend proxy for Vite (optional, for dev mode) */
   frontendProxy?: FrontendProxy;
@@ -343,6 +348,7 @@ export function attachUnifiedUpgradeHandler(
       );
       return;
     }
+    if (options.peerUpgrade?.(req, socket, head)) return;
     const connId = ++connectionCounter;
     const urlPath = req.url || "/";
     debugLog("Upgrade", `[${connId}] Upgrade request`, { path: urlPath });

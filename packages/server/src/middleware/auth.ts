@@ -61,7 +61,7 @@ function timingSafeEqual(a: string, b: string): boolean {
  * Check if the request carries a valid desktop auth token
  * (via X-Desktop-Token header or desktop_token query param).
  */
-function hasValidDesktopToken(
+export function hasValidDesktopToken(
   c: Parameters<MiddlewareHandler>[0],
   desktopAuthToken: string,
 ): boolean {

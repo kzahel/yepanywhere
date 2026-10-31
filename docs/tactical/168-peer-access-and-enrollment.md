@@ -101,6 +101,44 @@ Both design reviews completed before source edits; neither saw the other's findi
 
 ## 2 — Enroll real peers and qualify protected routes
 
+Complete, 2026-10-31: default-off production wiring, independently validated
+owner management, durable private credentials/policy, sessionless SRP direct
+and separate encrypted-relay ingress, and immutable native peer leases with
+generation-scoped retirement. Normal local leases retain their authority.
+The owning [peer contract](../../topics/peer-access.md) describes limits and
+explicit failures; no UI, scheduler or delegation lifecycle is introduced.
+
+Independent Sol 6.1 high and Daybreak Blue high code reviews found read-only
+lease retirement, delayed retirement affecting fresh generations, late receipt
+observation after revocation, and a setup-crypto cancellation gap. Fixes include
+exact generation matching, authority checks before ledger writes, deadline
+racing and bounded still-running crypto. Both reviewers rechecked the fixes.
+
+Current workspace checks pass: 6,645 server and 7,062 client cases, plus other
+packages; lint, formatting and types pass. Protected fixtures exercise actual
+private profiles, direct SRP, an owned real relay, poisoned handoffs, parallel
+pairing, cancelled crypto, rotation, revocation, lost replies, native private
+HTTP and durable destination bindings. Test work remains isolated from the
+primary YA server and provider host.
+
+Owned runtime probes complete create/message/compact-follow/revoke in both
+directions between Node 22.23.3 and desktop's Bun 1.3.14. A native Windows ARM64
+Node 22.23.3 profile also completes Mac-to-Windows relay and Windows-to-Mac
+direct workflows, separately granted reverse access, retry/consumption,
+provenance and independent revocation through its private loopback API.
+This qualifies these adapters and private credential storage, not packaged
+Windows providers, desktop UI or the complete network matrix. Earlier Windows
+probe failures came from leftover owned test children sharing a profile and
+unrestored test relay startup; the final run has one fresh owner process.
+
+One opt-in Sol 6.1 medium relay workflow initially passed in 46.9 seconds with
+19 requests and four transient errors from parallel pairing against a single
+waiting registration. A bounded pairing gate and six-request regression fix
+that shared-transport path; independent sources can still contend. A subsequent
+trial passes in 35.1 seconds, 15 requests, zero errors, 1,124 bootstrap bytes and
+15,163 fetched help bytes. Reported processed input is 174,725 tokens including
+152,064 cached, not unique context. Model calls remain outside CI.
+
 The [reviewed production contract](../../topics/peer-access.md) now specifies
 manual SRP credentials, independently validated owner management, sessionless
 protected ingress, a separately bounded peer relay registration and native
@@ -131,6 +169,12 @@ Tailscale dependency. Qualify Windows after real multi-device enrollment is
 available, using the common machine-control interface if a testbed is available.
 
 ## 3 — Offer an optional fleet service with real local accounts
+
+The [concrete fleet candidate](../../topics/fleet-authentication.md) is under
+independent design review before source edits. It separates real basic login
+from device-key binding, target-enforced proposals and protected peer access;
+manual enrollment remains independent. Its token/envelope protocol is not
+accepted merely because the manual transport has passed qualification.
 
 Keep this service separate from the YA execution core and optional for manual
 peers. Its first backend is a real administrator-provisioned username/password

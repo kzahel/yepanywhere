@@ -207,9 +207,14 @@ export interface StartSessionOptions {
   /** Operator opt-in, preserved across provider-host process boundaries. */
   agentSelf?: boolean;
   /** Trusted local launch grant; never accepted from session-create JSON. */
-  agentApi?: { serverId: string; management?: boolean };
+  agentApi?: {
+    serverId: string;
+    management?: boolean;
+    peerAccess?: boolean;
+    peerGrantId?: string;
+  };
   /** Controller-owned catalog dispatcher, removed at the worker boundary. */
-  onAgentApiRead?: import("../../core-api/service.js").CoreApi["read"];
+  onAgentApiRead?: import("../../core-api/service.js").ApiReadPort;
   /** Spawn-only connection credential. Never publish into a Bash bridge file. */
   agentApiEnvironment?: Record<string, string>;
   /** Public bootstrap fragment, independently refreshed on Codex resume. */
@@ -338,6 +343,7 @@ export interface StartSessionOptions {
  */
 export interface AgentSession {
   revokeAgentApiAccess?: () => void | Promise<void>;
+  revokePeerAgentApiAccess?: (grantId?: string) => void | Promise<void>;
   setAgentApiControllerAttached?: (attached: boolean) => void;
   hydrateInstructionReadHistory?: (
     messages: SDKMessage[],

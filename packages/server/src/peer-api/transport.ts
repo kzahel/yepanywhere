@@ -16,6 +16,81 @@ export interface PeerTransport {
   ): Promise<unknown>;
 }
 
+export function peerOperationRequest(
+  operation: Operation,
+  input: PeerInput,
+  attestation: PeerAttestation,
+  token: string,
+) {
+  const descriptor = operations.find((op) => op.id === operation)!;
+  if (!descriptor.path.includes(":serverId"))
+    throw new CoreApiError(
+      "peer_unsupported",
+      "Only server-addressed resources can be forwarded",
+      501,
+    );
+  const path = descriptor.path
+    .replace(":serverId", encodeURIComponent(input.serverId ?? ""))
+    .replace(":sessionId", encodeURIComponent(input.sessionId ?? ""))
+    .replace(":receiptId", encodeURIComponent(input.receiptId ?? ""));
+  const url = new URL(`/v0${path}`, "http://peer.internal");
+  for (const [key, value] of Object.entries(input.query ?? {}))
+    if (value !== undefined) url.searchParams.set(key, value);
+  return {
+    method: operationMethod(descriptor),
+    path: `${url.pathname}${url.search}`,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json" as const,
+      "X-YA-Peer-Context": Buffer.from(JSON.stringify(attestation)).toString(
+        "base64url",
+      ),
+    },
+    ...(operationMethod(descriptor) === "POST" ? { body: input.body } : {}),
+  };
+}
+
+export function validatePeerReply(
+  operation: Operation,
+  serverId: string,
+  status: number,
+  headers: Headers,
+  value: unknown,
+) {
+  if (headers.get("X-YA-Server-ID") !== serverId)
+    throw new CoreApiError(
+      "peer_identity_mismatch",
+      "Peer response identity does not match",
+      502,
+    );
+  if (status < 200 || status >= 300) {
+    const error =
+      value && typeof value === "object"
+        ? (value as { error?: unknown }).error
+        : undefined;
+    const restored = CoreApiError.restore({
+      ...(error && typeof error === "object" ? error : {}),
+      status,
+    });
+    if (restored) throw restored;
+    throw new CoreApiError(
+      "peer_unsupported",
+      "Peer does not support this operation",
+      501,
+    );
+  }
+  const parsed = operations
+    .find((op) => op.id === operation)!
+    .response.safeParse(value);
+  if (!parsed.success)
+    throw new CoreApiError(
+      "peer_unsupported",
+      "Peer response does not match the operation contract",
+      501,
+    );
+  return parsed.data;
+}
+
 /** No failover or retry. Plain HTTP is allowed only for explicit loopback fixtures. */
 export class HttpPeerTransport implements PeerTransport {
   private readonly origin: string;

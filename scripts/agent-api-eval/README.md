@@ -24,6 +24,10 @@ pnpm exec tsx --conditions source scripts/agent-api-eval/run.ts --run \
 # Confirmation lane, not another mandatory matrix.
 pnpm exec tsx --conditions source scripts/agent-api-eval/run.ts --run \
   --effort high --variants help --cases pagination
+
+# One real encrypted-relay peer workflow with two isolated profiles.
+pnpm exec tsx --conditions source scripts/agent-api-eval/run.ts --run \
+  --peer-relay --cases workflow --variants help --max-trials 1
 ```
 
 Defaults: `gpt-6.1-sol`, medium effort, one sample, identity only, three variants,
@@ -89,6 +93,13 @@ follow-up answer. Its grader requires the same receipt id on both successful
 submissions and an actual successful consumed receipt read; answer prose alone
 does not pass. Normal tests exercise that complete private-HTTP fixture without
 calling a model.
+
+`--peer-relay` currently supports `workflow` only. It wraps the scripted native
+work in real independent peer managers, private profile storage, protected SRP
+and an owned ephemeral relay. The model receives its source launch connection,
+discovers the other authorized host and uses server-addressed HTTP there. The
+grader requires remote HTTP evidence and the same retry/consumption/provenance
+outcomes. It does not contact a public relay or launch real worker models.
 
 Reports include every completed or timed-out trial, success, exit status,
 HTTP requests/errors/repeats, time to first successful HTTP request, duration,

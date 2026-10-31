@@ -261,6 +261,7 @@ export interface StartSessionOptions {
 
 export interface StartSessionResult {
   revokeAgentApiAccess?: () => void | Promise<void>;
+  revokePeerAgentApiAccess?: (grantId?: string) => void | Promise<void>;
   publishAgentSelfSelection?: (
     selection: import("../agent-tools/protocol.js").AgentSelfSelection,
   ) => void | Promise<void>;
