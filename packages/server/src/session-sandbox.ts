@@ -802,8 +802,13 @@ async function copyBootstrapEntry(
     dereference: false,
     verbatimSymlinks: false,
     mode: fsConstants.COPYFILE_FICLONE,
+    // Plugin caches hold `.in_use/<pid>` markers that live host processes add
+    // and delete; they describe the host, and copying them races their removal.
+    filter: (path) => basename(path) !== HOST_PROCESS_MARKER_DIRECTORY,
   });
 }
+
+const HOST_PROCESS_MARKER_DIRECTORY = ".in_use";
 
 async function bootstrapProviderState(options: {
   provider: ProviderName;

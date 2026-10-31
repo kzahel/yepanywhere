@@ -518,6 +518,9 @@ describe("session sandbox", { timeout: 20_000 }, () => {
         "../../assets/schema.json",
         join(sourceHome, "plugins", "schema.json"),
       );
+      const inUse = join(sourceHome, "plugins", "cache", "lsp", ".in_use");
+      await mkdir(inUse, { recursive: true });
+      await writeFile(join(inUse, "12345"), "host process marker\n");
       vi.stubEnv(
         provider === "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR",
         sourceAlias,
@@ -545,6 +548,12 @@ describe("session sandbox", { timeout: 20_000 }, () => {
           await realpath(expected),
         );
       }
+      expect(existsSync(join(privateHome, "plugins", "cache", "lsp"))).toBe(
+        true,
+      );
+      expect(
+        existsSync(join(privateHome, "plugins", "cache", "lsp", ".in_use")),
+      ).toBe(false);
 
       const script = `
         const assert = require("node:assert/strict");
