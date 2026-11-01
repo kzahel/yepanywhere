@@ -538,6 +538,9 @@ export class FileWatcher {
       provider: this.provider,
       path: fullPath,
       relativePath,
+      ...(this.provider === "codex"
+        ? { nativeStorageScope: this.watchDir }
+        : {}),
       changeType,
       timestamp: new Date().toISOString(),
       ...fingerprint,

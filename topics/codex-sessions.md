@@ -419,3 +419,22 @@ if its discovery shard still contains a stale record.
 This keeps YA faithful to Codex's local transcript model while preserving the
 resource-quiescence requirement from
 [architecture-mandates](architecture-mandates.md).
+
+## Exact native file observations
+
+The file observer takes the thread id from native metadata, rather than the
+last UUID in a rollout filename. A reverted thread can keep that id while its
+physical leaf changes. Its trusted watcher reports the actual native storage
+root; old in-process events retain the configured-root fallback and must still
+prove that the physical file belongs there.
+
+A scoped reader can accept one observed file after validating native family,
+root, project and metadata and excluding provider subagents. It updates the
+existing native file/scan cache without a corpus scan or extending scan
+freshness. Shared scan entries use native-id maps within their source root;
+source updates touch that root's entries, rather than walking other roots or
+session rows. A warm or in-flight older scan cannot overwrite the newer native
+leaf, including when a different cold reader receives a delayed old-file event.
+Exact point evidence before enumeration has no scan timestamp; it cannot certify
+a complete/fresh store listing. The existing rollout-selection policy and history-reference parser stay
+authoritative; public YA identity and lineage keys are unchanged.

@@ -629,7 +629,12 @@ child-list projections are independently accepted with native source/public
 parent separation, empty working-project recovery and standalone Node/Bun
 child-content restart evidence. Native vocabulary reads, optional-question
 metadata joins and pooled maintenance history comparison are independently
-accepted, with Node/Bun native-file and metadata-collision evidence. Fully scoped cold resumes,
+accepted, with Node/Bun native-file and metadata-collision evidence. Claude/Codex
+external file observation is independently accepted with bounded source work,
+public ownership/project events, native thread/leaf separation and cancellation
+before database teardown. Cold/warm/in-flight reader and batch/project-transition
+regressions are qualified, along with standalone Node/Bun append/restart
+observations. Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or

@@ -101,6 +101,22 @@ Runtime work and the provenance defect remain unimplemented.
   and metadata-collision probes also pass on Node 26.7.0 and pinned Bun 1.3.14.
   The production maintenance callback is source-reviewed; the controlled HTTP
   fixture qualifies its handler and bound reader, not native CLI/model startup.
+  The Claude/Codex external file-observation cut is independently accepted after
+  correcting cold-reader source ordering, disposal of active summary batches
+  and working-project changes during external activity. Physical source proof
+  and scoped binding precede ownership/grace/decay joins; native Codex thread ids
+  remain distinct from reverted leaf filenames. Known native files update the
+  existing reader/scan cache without corpus rescans or fabricated freshness.
+  Acquisition is bounded and shutdown cancels late adoption and publication.
+  Corrected focused checks: 110 passed / 2 retained skips across eight files in
+  6.19 s. Warning-free lint, format, typecheck and corrected workspace tests pass
+  (6,749 server / 7,064 client). Owned standalone Node 26.7.0 and pinned Bun
+  1.3.14 actual FileWatcher/HTTP/native-file probes pass public ownership,
+  working-project/native-id collisions, reverted leaf history and profile
+  restart. These do not qualify native CLI/model or provider-host continuity.
+  The earlier full run's unrelated extensionless-image failure remains recorded
+  in [its adjacent gap](../../gaps/files-api-extensionless-image-index-race.md);
+  the failed run was retained and its renderer/test fixture was left unchanged.
   Remaining all-provider observation, released-browser/owned-confirmation
   qualification, native source consumers and other provider shapes are pending;
   phase 3 is not complete.

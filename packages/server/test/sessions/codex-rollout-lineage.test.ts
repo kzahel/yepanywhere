@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as zlib from "node:zlib";
-import type { UrlProjectId } from "@yep-anywhere/shared";
+import {
+  nativeSessionRef,
+  parseNativeSessionId,
+  type UrlProjectId,
+} from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLogger } from "../../src/logging/logger.js";
 import {
@@ -298,52 +302,141 @@ describe("Codex reference-backed rollout lineage", () => {
     expect(appended?.summary.messageCount).toBe(3);
   });
 
-  it("selects and loads the newest physical rollout for a reverted thread", async () => {
-    const rootPrefix = [
-      sessionMeta({ id: ROOT_ID, ordinal: 0 }),
-      userMessage(1, "Retained root prompt"),
-      assistantMessage(2, "Retained root answer"),
-    ];
-    await writeFile(rolloutPath(sessionsDir, ROOT_ID), jsonl(rootPrefix));
+  it.each(["warm", "in-flight", "point-only"] as const)(
+    "keeps an observed reverted rollout across a %s native scan",
+    async (cacheState) => {
+      const rootPrefix = [
+        sessionMeta({ id: ROOT_ID, ordinal: 0 }),
+        userMessage(1, "Retained root prompt"),
+        assistantMessage(2, "Retained root answer"),
+      ];
+      const sourceRoot = await realpath(sessionsDir);
+      const rootFile = rolloutPath(sourceRoot, ROOT_ID);
+      await writeFile(rootFile, jsonl(rootPrefix));
+      const reader = new CodexSessionReader({
+        sessionsDir: sourceRoot,
+        projectPath: PROJECT_PATH,
+      });
+      const joinedReader = new CodexSessionReader({
+        sessionsDir: sourceRoot,
+        projectPath: PROJECT_PATH,
+      });
+      let release = () => {};
+      let started = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      let initial: ReturnType<CodexSessionReader["listSessions"]> | undefined;
+      let joined: ReturnType<CodexSessionReader["listSessions"]> | undefined;
+      if (cacheState === "warm") {
+        expect(await reader.listSessions(PROJECT_ID)).toHaveLength(1);
+      } else if (cacheState === "in-flight") {
+        const controlled = reader as unknown as {
+          readSessionMeta: (...args: unknown[]) => Promise<unknown>;
+        };
+        const readMeta = controlled.readSessionMeta.bind(reader);
+        let pause = true;
+        vi.spyOn(controlled, "readSessionMeta").mockImplementation(
+          async (...args) => {
+            const observed = await readMeta(...args);
+            if (pause && args[0] === rootFile) {
+              pause = false;
+              started();
+              await held;
+            }
+            return observed;
+          },
+        );
+        initial = reader.listSessions(PROJECT_ID);
+        await entered;
+        joined = joinedReader.listSessions(PROJECT_ID);
+      }
+      try {
+        const replacementPath = replacementRolloutPath(
+          sourceRoot,
+          ROOT_ID,
+          REPLACEMENT_ID,
+        );
+        await writeFile(
+          replacementPath,
+          jsonl([
+            sessionMeta({
+              id: ROOT_ID,
+              ordinal: 3,
+              historyBase: prefixPosition(ROOT_ID, rootPrefix),
+            }),
+            userMessage(4, "Replacement prompt"),
+            assistantMessage(5, "Replacement answer"),
+          ]),
+        );
 
-    const replacementPath = replacementRolloutPath(
-      sessionsDir,
-      ROOT_ID,
-      REPLACEMENT_ID,
-    );
-    await writeFile(
-      replacementPath,
-      jsonl([
-        sessionMeta({
+        expect(
+          await reader.observeNativeSessionFile(
+            nativeSessionRef(
+              "codex",
+              sourceRoot,
+              parseNativeSessionId(ROOT_ID),
+            ),
+            replacementPath,
+          ),
+        ).toBe(true);
+        const cold = new CodexSessionReader({
+          sessionsDir: sourceRoot,
+          projectPath: PROJECT_PATH,
+        });
+        try {
+          expect(
+            await cold.observeNativeSessionFile(
+              nativeSessionRef(
+                "codex",
+                sourceRoot,
+                parseNativeSessionId(ROOT_ID),
+              ),
+              rootFile,
+            ),
+          ).toBe(false);
+          expect(await cold.getSessionFilePath(ROOT_ID)).toBe(replacementPath);
+          const retained = await cold.getSession(ROOT_ID, PROJECT_ID);
+          expect(
+            retained?.data.session.entries.map((entry) => entry.ordinal),
+          ).toEqual([3, 1, 2, 4, 5]);
+        } finally {
+          await cold.close();
+        }
+        release();
+        if (initial) expect(await initial).toHaveLength(1);
+        if (joined) {
+          expect(await joined).toHaveLength(1);
+          expect(await joinedReader.getSessionFilePath(ROOT_ID)).toBe(
+            replacementPath,
+          );
+        }
+        const summaries = await reader.listSessions(PROJECT_ID);
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]).toMatchObject({
           id: ROOT_ID,
-          ordinal: 3,
-          historyBase: prefixPosition(ROOT_ID, rootPrefix),
-        }),
-        userMessage(4, "Replacement prompt"),
-        assistantMessage(5, "Replacement answer"),
-      ]),
-    );
+          title: "Retained root prompt",
+          messageCount: 4,
+        });
+        await expect(reader.getSessionFilePath(ROOT_ID)).resolves.toBe(
+          replacementPath,
+        );
 
-    const reader = new CodexSessionReader({
-      sessionsDir,
-      projectPath: PROJECT_PATH,
-    });
-    const summaries = await reader.listSessions(PROJECT_ID);
-    expect(summaries).toHaveLength(1);
-    expect(summaries[0]).toMatchObject({
-      id: ROOT_ID,
-      title: "Retained root prompt",
-      messageCount: 4,
-    });
-    await expect(reader.getSessionFilePath(ROOT_ID)).resolves.toBe(
-      replacementPath,
-    );
-
-    const loaded = await reader.getSession(ROOT_ID, PROJECT_ID);
-    expect(loaded?.data.session.entries.map((entry) => entry.ordinal)).toEqual([
-      3, 1, 2, 4, 5,
-    ]);
-  });
+        const loaded = await reader.getSession(ROOT_ID, PROJECT_ID);
+        expect(
+          loaded?.data.session.entries.map((entry) => entry.ordinal),
+        ).toEqual([3, 1, 2, 4, 5]);
+      } finally {
+        release();
+        await Promise.allSettled([initial, joined]);
+        await reader.close();
+        await joinedReader.close();
+      }
+    },
+  );
 
   it("loads a fork whose inherited lineage includes a reverted rollout", async () => {
     const rootPrefix = [

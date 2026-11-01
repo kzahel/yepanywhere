@@ -205,6 +205,13 @@ export interface ISessionReader {
   /**
    * Get summary metadata for a single session.
    */
+  /** Accept one verified native file observation without rescanning its store. */
+  observeNativeSessionFile?(
+    native: NativeSessionRef,
+    filePath: string,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
+
   getSessionSummary(
     sessionId: string,
     projectId: UrlProjectId,

@@ -4,6 +4,7 @@ import {
   type DirProjectId,
   type UrlProjectId,
   asDirProjectId,
+  type ProviderName,
 } from "@yep-anywhere/shared";
 import {
   decodeProjectId,
@@ -65,8 +66,19 @@ type TrackedSessionSummary =
   | { fidelity: "complete"; summary: SessionSummary }
   | { fidelity: "list"; summary: SessionListSummary };
 
+export interface ObservedPublicSession {
+  sessionId: string;
+  projectId: UrlProjectId;
+  provider: ProviderName;
+}
+
 export interface ExternalSessionTrackerOptions {
   eventBus: EventBus;
+  /** Undefined preserves verified legacy ingress; null refuses ambiguous source. */
+  resolveObservedSession?: (
+    event: FileChangeEvent,
+    signal: AbortSignal,
+  ) => Promise<ObservedPublicSession | null | undefined>;
   supervisor: Supervisor;
   scanner: ProjectScanner;
   /** Names a detected session's project; defaults to the path's name. */
@@ -90,6 +102,8 @@ export interface ExternalSessionTrackerOptions {
 }
 
 export interface ExternalSessionTrackerDiagnostics {
+  nativeSourceBatch?: BatchProcessorDiagnostics;
+  droppedSourceEvents: number;
   sessionSummaryBatch: BatchProcessorDiagnostics;
 }
 
@@ -101,6 +115,10 @@ export interface ExternalSessionTrackerDiagnostics {
  * the decay timeout passes with no activity.
  */
 export class ExternalSessionTracker {
+  private readonly controller = new AbortController();
+  private readonly nativeSourceBatch?: BatchProcessor<void>;
+  private droppedSourceEvents = 0;
+  private readonly resolveObservedSession?: ExternalSessionTrackerOptions["resolveObservedSession"];
   private externalSessions: Map<string, ExternalSessionInfo> = new Map();
   /** Sessions this server itself just wrote, with why and when (ms). */
   private recentOwnWrites: Map<string, { reason: OwnWriteReason; at: number }> =
@@ -149,6 +167,7 @@ export class ExternalSessionTracker {
 
   constructor(options: ExternalSessionTrackerOptions) {
     this.eventBus = options.eventBus;
+    this.resolveObservedSession = options.resolveObservedSession;
     this.supervisor = options.supervisor;
     this.scanner = options.scanner;
     this.projectDisplayName = options.projectDisplayName ?? getProjectName;
@@ -164,7 +183,7 @@ export class ExternalSessionTracker {
       concurrency: 5,
       batchMs: 300,
       onResult: (sessionId, observed) => {
-        if (!observed) return;
+        if (this.controller.signal.aborted || !observed) return;
 
         const summary = observed.summary;
         const isComplete = observed.fidelity === "complete";
@@ -221,7 +240,7 @@ export class ExternalSessionTracker {
                 : {}),
               timestamp: now,
             };
-            this.eventBus.emit(event);
+            this.emit(event);
           } else if (isComplete) {
             // New external session - emit session-created
             const event: SessionCreatedEvent = {
@@ -235,7 +254,7 @@ export class ExternalSessionTracker {
               },
               timestamp: now,
             };
-            this.eventBus.emit(event);
+            this.emit(event);
             this.createdSessions.add(sessionId);
 
             // Cache initial state for future change detection
@@ -289,7 +308,7 @@ export class ExternalSessionTracker {
                 : {}),
               timestamp: now,
             };
-            this.eventBus.emit(event);
+            this.emit(event);
 
             // Update cache
             this.sessionStateCache.set(sessionId, nextState);
@@ -297,6 +316,7 @@ export class ExternalSessionTracker {
         }
       },
       onError: (sessionId, error) => {
+        if (this.controller.signal.aborted) return;
         // Log but don't fail - session may not be readable yet
         console.warn(
           `[ExternalSessionTracker] Failed to read session ${sessionId}:`,
@@ -305,16 +325,44 @@ export class ExternalSessionTracker {
       },
     });
 
+    if (options.resolveObservedSession) {
+      this.nativeSourceBatch = new BatchProcessor<void>({
+        concurrency: 5,
+        batchMs: 0,
+      });
+    }
+
     // Subscribe to bus events
     this.unsubscribe = options.eventBus.subscribe((event: BusEvent) => {
       if (event.type === "file-change") {
-        void this.handleFileChange(event);
+        if (this.nativeSourceBatch) {
+          if (
+            event.fileType !== "session" &&
+            event.fileType !== "agent-session"
+          )
+            return;
+          // At most one bounded batch and one bounded trailing batch. Dropped
+          // observations remain unproven; the catalogue and later writes still
+          // supply history without inventing an ownership transition.
+          if (this.nativeSourceBatch.pendingCount >= 1024) {
+            this.droppedSourceEvents++;
+            return;
+          }
+          this.nativeSourceBatch.enqueue(
+            JSON.stringify([event.provider, event.path]),
+            () => this.handleFileChange(event),
+          );
+        } else void this.handleFileChange(event);
       } else if (event.type === "session-aborted") {
         this.markOwnWrite(event.sessionId, "abort");
       } else if (event.type === "session-forked") {
         this.markOwnWrite(event.sessionId, "fork");
       }
     });
+  }
+
+  private emit(event: BusEvent): void {
+    if (!this.controller.signal.aborted) this.eventBus.emit(event);
   }
 
   /**
@@ -415,6 +463,7 @@ export class ExternalSessionTracker {
       projectId?: UrlProjectId;
     },
   ): boolean {
+    if (this.controller.signal.aborted) return false;
     switch (this.ownWriteReason(sessionId)) {
       case "abort":
         return false;
@@ -437,6 +486,8 @@ export class ExternalSessionTracker {
   getDiagnostics(): ExternalSessionTrackerDiagnostics {
     return {
       sessionSummaryBatch: this.sessionParser.getDiagnostics(),
+      nativeSourceBatch: this.nativeSourceBatch?.getDiagnostics(),
+      droppedSourceEvents: this.droppedSourceEvents,
     };
   }
 
@@ -444,6 +495,8 @@ export class ExternalSessionTracker {
    * Clean up resources.
    */
   dispose(): void {
+    this.controller.abort();
+    this.nativeSourceBatch?.dispose();
     if (this.unsubscribe) {
       this.unsubscribe();
       this.unsubscribe = null;
@@ -465,6 +518,7 @@ export class ExternalSessionTracker {
     projectId: UrlProjectId,
     fidelity: "complete" | "list",
   ): Promise<TrackedSessionSummary | null> {
+    if (this.controller.signal.aborted) return null;
     if (fidelity === "list" && this.getSessionListSummary) {
       const summary = await this.getSessionListSummary(sessionId, projectId);
       return summary ? { fidelity: "list", summary } : null;
@@ -481,7 +535,10 @@ export class ExternalSessionTracker {
     projectId: UrlProjectId,
     fidelity: "complete" | "list",
   ): void {
-    if (!this.getSessionSummary && !this.getSessionListSummary) {
+    if (
+      this.controller.signal.aborted ||
+      (!this.getSessionSummary && !this.getSessionListSummary)
+    ) {
       return;
     }
     this.sessionParser.enqueue(sessionId, () =>
@@ -490,8 +547,48 @@ export class ExternalSessionTracker {
   }
 
   private async handleFileChange(event: FileChangeEvent): Promise<void> {
+    if (this.controller.signal.aborted) return;
     // Only care about session files
     if (event.fileType !== "session" && event.fileType !== "agent-session") {
+      return;
+    }
+
+    let publicSession: ObservedPublicSession | null | undefined;
+    try {
+      publicSession = await this.resolveObservedSession?.(
+        event,
+        this.controller.signal,
+      );
+    } catch {
+      // An unreadable/conflicting native source is not evidence for a public
+      // ownership transition. A later source observation may establish it.
+      return;
+    }
+    if (this.controller.signal.aborted || publicSession === null) return;
+    if (publicSession) {
+      const { sessionId, projectId, provider } = publicSession;
+      const process = this.supervisor.getProcessForSession(sessionId);
+      if (process) {
+        this.removeExternal(sessionId);
+        this.enqueueTrackedSummary(
+          sessionId,
+          projectId,
+          event.provider === "codex" ? "list" : "complete",
+        );
+      } else if (
+        this.attributeUnownedWrite(sessionId, {
+          provider: event.provider,
+          projectId,
+        }) &&
+        event.provider === "codex"
+      ) {
+        await this.ensureCodexSessionCreated(
+          sessionId,
+          event.path,
+          projectId,
+          provider,
+        );
+      }
       return;
     }
 
@@ -641,14 +738,17 @@ export class ExternalSessionTracker {
     sessionId: string,
     filePath: string,
     projectId: UrlProjectId,
+    provider: ProviderName = "codex",
   ): Promise<void> {
-    if (this.createdSessions.has(sessionId)) return;
+    if (this.controller.signal.aborted || this.createdSessions.has(sessionId))
+      return;
 
     const meta = await this.readCodexSessionMeta(filePath);
-    if (!meta) return;
+    if (!meta || this.controller.signal.aborted) return;
 
     try {
       const stats = await stat(filePath);
+      if (this.controller.signal.aborted) return;
       const summary: SessionSummary = {
         id: sessionId,
         projectId,
@@ -661,7 +761,7 @@ export class ExternalSessionTracker {
         ).toISOString(),
         messageCount: 0,
         ownership: this.detectedOwnership(sessionId),
-        provider: "codex",
+        provider,
         model: meta.model,
       };
 
@@ -670,7 +770,7 @@ export class ExternalSessionTracker {
         session: summary,
         timestamp: new Date().toISOString(),
       };
-      this.eventBus.emit(event);
+      this.emit(event);
       this.createdSessions.add(sessionId);
     } catch {
       // Ignore failures until next file change
@@ -763,7 +863,7 @@ export class ExternalSessionTracker {
         session: summary,
         timestamp: new Date().toISOString(),
       };
-      this.eventBus.emit(event);
+      this.emit(event);
       this.createdSessions.add(meta.id);
     } catch {
       // Ignore failures until the next file change.
@@ -778,27 +878,18 @@ export class ExternalSessionTracker {
       projectId?: UrlProjectId;
     },
   ): void {
+    if (this.controller.signal.aborted) return;
     const now = new Date();
     const existing = this.externalSessions.get(sessionId);
 
     if (existing) {
-      // Update last activity and reset timer
       clearTimeout(existing.timeoutId);
       existing.lastActivity = now;
+      existing.projectId = info.projectId;
+      existing.dirProjectId = info.dirProjectId;
+      existing.provider = info.provider;
       existing.timeoutId = this.createDecayTimeout(sessionId);
-      // Codex emits bounded title/recency patches. Other watched providers
-      // retain complete summaries and exact event fields.
-      if (this.getSessionSummary || this.getSessionListSummary) {
-        this.sessionParser.enqueue(sessionId, async () => {
-          const project = await this.resolveProjectForSession(info);
-          if (!project) return null;
-          return this.loadTrackedSummary(
-            sessionId,
-            project.id as UrlProjectId,
-            info.provider === "codex" ? "list" : "complete",
-          );
-        });
-      }
+      this.enqueueDetectedSummary(sessionId, { ...info });
     } else {
       // New external session
       const externalInfo: ExternalSessionInfo = {
@@ -834,10 +925,15 @@ export class ExternalSessionTracker {
       projectId?: UrlProjectId;
     },
   ): void {
-    if (!this.getSessionSummary && !this.getSessionListSummary) return;
+    if (
+      this.controller.signal.aborted ||
+      (!this.getSessionSummary && !this.getSessionListSummary)
+    )
+      return;
     this.sessionParser.enqueue(sessionId, async () => {
+      if (this.controller.signal.aborted) return null;
       const project = await this.resolveProjectForSession(info);
-      if (!project) return null;
+      if (!project || this.controller.signal.aborted) return null;
       return this.loadTrackedSummary(
         sessionId,
         project.id as UrlProjectId,
@@ -883,7 +979,7 @@ export class ExternalSessionTracker {
         ownership,
         timestamp: new Date().toISOString(),
       };
-      this.eventBus.emit(event);
+      this.emit(event);
       return;
     }
 
@@ -909,7 +1005,7 @@ export class ExternalSessionTracker {
     };
 
     // Emit through EventBus so it gets broadcast via SSE
-    this.eventBus.emit(event);
+    this.emit(event);
   }
 
   private async resolveProjectForSession(info: {

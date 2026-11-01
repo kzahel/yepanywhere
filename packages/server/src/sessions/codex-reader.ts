@@ -16,10 +16,11 @@ import {
  */
 
 import { randomUUID } from "node:crypto";
-import { open, readdir, stat } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { open, readdir, realpath, stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
   type CodexSessionEntry,
+  type NativeSessionRef,
   type CodexSessionMetaEntry,
   type CodexTurnContextEntry,
   type EffortLevel,
@@ -188,8 +189,10 @@ interface CodexScanOptions {
 }
 
 interface CodexSharedScanCacheEntry {
-  timestamp: number;
-  sessions: CodexSessionFile[];
+  /** Absent for exact point evidence before any complete enumeration. */
+  timestamp?: number;
+  sessions: Map<string, CodexSessionFile>;
+  activeAfterMs?: number;
   inFlight?: Promise<CodexSessionFile[]>;
 }
 
@@ -198,7 +201,10 @@ interface CodexSharedScanCacheEntry {
  * directory to the unfiltered scan plus the latest settled cutoff and any
  * in-flight scans; see `retainLatestCutoff`.
  */
-const codexSharedScanCache = new Map<string, CodexSharedScanCacheEntry>();
+const codexSharedScanCache = new Map<
+  string,
+  Map<string, CodexSharedScanCacheEntry>
+>();
 
 interface CodexFullSummaryCacheEntry {
   promise: Promise<SessionSummary | null>;
@@ -668,11 +674,7 @@ export class CodexSessionReader implements ISessionReader {
       codexProviderChildProjections.invalidate(key);
     }
     this.providerChildProjectionKeys.clear();
-    for (const cacheKey of codexSharedScanCache.keys()) {
-      if (cacheKey.startsWith(`${this.sessionsDir}::`)) {
-        codexSharedScanCache.delete(cacheKey);
-      }
-    }
+    codexSharedScanCache.delete(this.sessionsDir);
   }
 
   getLastScanMetrics(): CodexSessionReaderScanMetrics | null {
@@ -1415,8 +1417,9 @@ export class CodexSessionReader implements ISessionReader {
     const local = this.sessionFileCache.get(sessionId);
     if (local) return local;
     return codexSharedScanCache
-      .get(this.getSharedScanCacheKey())
-      ?.sessions.find((session) => session.id === sessionId);
+      .get(this.sessionsDir)
+      ?.get(this.getSharedScanCacheKey())
+      ?.sessions.get(sessionId);
   }
 
   /**
@@ -1426,10 +1429,20 @@ export class CodexSessionReader implements ISessionReader {
     options?: CodexScanOptions,
   ): Promise<CodexSessionFile[]> {
     const cacheKey = this.getSharedScanCacheKey(options);
-    const cached = codexSharedScanCache.get(cacheKey);
+    let rootCache = codexSharedScanCache.get(this.sessionsDir);
+    if (!rootCache) {
+      rootCache = new Map();
+      codexSharedScanCache.set(this.sessionsDir, rootCache);
+    }
+    const cached = rootCache.get(cacheKey);
     const now = Date.now();
 
-    if (cached && now - cached.timestamp < CODEX_SCAN_CACHE_TTL_MS) {
+    if (
+      cached &&
+      (cached.inFlight ||
+        (cached.timestamp !== undefined &&
+          now - cached.timestamp < CODEX_SCAN_CACHE_TTL_MS))
+    ) {
       const metrics = createCodexSessionReaderScanMetrics({
         sessionsDir: this.sessionsDir,
         projectPath: this.projectPath,
@@ -1449,9 +1462,9 @@ export class CodexSessionReader implements ISessionReader {
         this.recordScanMetrics(metrics);
         return visibleSessions;
       }
-      this.hydrateSessionFileCache(cached.sessions);
+      this.hydrateSessionFileCache([...cached.sessions.values()]);
       const visibleSessions = this.filterVisibleSessionsForScanMetrics(
-        cached.sessions,
+        [...cached.sessions.values()],
         metrics,
       );
       metrics.durationMs = Date.now() - startedAt;
@@ -1467,19 +1480,30 @@ export class CodexSessionReader implements ISessionReader {
       sharedCacheStatus: "miss",
     });
     const startedAt = Date.now();
-    const inFlight = this.scanSessionsUncached(options, metrics);
-    codexSharedScanCache.set(cacheKey, {
+    const entry: CodexSharedScanCacheEntry = {
       timestamp: now,
-      sessions: [],
-      inFlight,
-    });
+      sessions: new Map(),
+      activeAfterMs: options?.activeAfterMs,
+    };
+    const inFlight = this.scanSessionsUncached(options, metrics).then(
+      (sessions) => {
+        for (const session of sessions) {
+          const current = entry.sessions.get(session.id);
+          if (!current || isNewerCodexSessionFile(session, current))
+            entry.sessions.set(session.id, session);
+        }
+        return [...entry.sessions.values()];
+      },
+    );
+    entry.inFlight = inFlight;
+    rootCache.set(cacheKey, entry);
 
     try {
       const sessions = await inFlight;
-      codexSharedScanCache.set(cacheKey, {
-        timestamp: Date.now(),
-        sessions,
-      });
+      // Keep the same map: an exact observation arriving during the scan must
+      // survive its older result. Observations never extend scan freshness.
+      entry.timestamp = Date.now();
+      entry.inFlight = undefined;
       if (options?.activeAfterMs !== undefined)
         this.retainLatestCutoff(cacheKey);
       this.hydrateSessionFileCache(sessions);
@@ -1493,9 +1517,9 @@ export class CodexSessionReader implements ISessionReader {
     } catch (error) {
       metrics.durationMs = Date.now() - startedAt;
       this.recordScanMetrics(metrics);
-      const entry = codexSharedScanCache.get(cacheKey);
+      const entry = rootCache.get(cacheKey);
       if (entry?.inFlight === inFlight) {
-        codexSharedScanCache.delete(cacheKey);
+        rootCache.delete(cacheKey);
       }
       throw error;
     }
@@ -1508,15 +1532,10 @@ export class CodexSessionReader implements ISessionReader {
    */
   private retainLatestCutoff(cacheKey: string): void {
     const unfiltered = this.getSharedScanCacheKey();
-    const prefix = `${this.sessionsDir}::`;
-    for (const [key, entry] of codexSharedScanCache) {
-      if (
-        key !== cacheKey &&
-        key !== unfiltered &&
-        key.startsWith(prefix) &&
-        !entry.inFlight
-      ) {
-        codexSharedScanCache.delete(key);
+    const rootCache = codexSharedScanCache.get(this.sessionsDir);
+    for (const [key, entry] of rootCache ?? []) {
+      if (key !== cacheKey && key !== unfiltered && !entry.inFlight) {
+        rootCache?.delete(key);
       }
     }
   }
@@ -1526,10 +1545,81 @@ export class CodexSessionReader implements ISessionReader {
   }
 
   private hydrateSessionFileCache(sessions: CodexSessionFile[]): void {
+    if (this.retired) return;
     for (const session of sessions) {
-      this.sessionFileCache.set(session.id, session);
+      const current = this.sessionFileCache.get(session.id);
+      if (!current || isNewerCodexSessionFile(session, current))
+        this.sessionFileCache.set(session.id, session);
       this.cacheRolloutPath(session.filePath);
     }
+  }
+
+  async observeNativeSessionFile(
+    native: NativeSessionRef,
+    filePath: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    if (
+      this.retired ||
+      signal?.aborted ||
+      native.family !== "codex" ||
+      native.storageScope !== this.sessionsDir
+    )
+      return false;
+    const actual = await realpath(filePath).catch(() => null);
+    if (!actual || this.retired || signal?.aborted) return false;
+    const suffix = relative(this.sessionsDir, actual);
+    if (
+      !suffix ||
+      suffix === ".." ||
+      suffix.startsWith(`..${sep}`) ||
+      isAbsolute(suffix)
+    )
+      return false;
+    const session = await this.readSessionMeta(actual);
+    if (
+      this.retired ||
+      signal?.aborted ||
+      !session ||
+      session.id !== native.id ||
+      session.isSubagent ||
+      (this.projectIdentityKey &&
+        getProjectIdentityKey(session.cwd) !== this.projectIdentityKey)
+    )
+      return false;
+    let rootCache = codexSharedScanCache.get(this.sessionsDir);
+    if (!rootCache) {
+      rootCache = new Map();
+      codexSharedScanCache.set(this.sessionsDir, rootCache);
+    }
+    const unfiltered = this.getSharedScanCacheKey();
+    if (!rootCache.has(unfiltered)) {
+      // Exact native point evidence is shared without certifying enumeration.
+      rootCache.set(unfiltered, { sessions: new Map() });
+    }
+    // A cold reader must honor newer native evidence another reader accepted.
+    // Reconcile the existing root caches before admitting the observed path.
+    let incumbent = this.sessionFileCache.get(session.id);
+    for (const entry of codexSharedScanCache.get(this.sessionsDir)?.values() ??
+      []) {
+      const known = entry.sessions.get(session.id);
+      if (known && (!incumbent || isNewerCodexSessionFile(known, incumbent)))
+        incumbent = known;
+    }
+    if (incumbent) this.hydrateSessionFileCache([incumbent]);
+    this.hydrateSessionFileCache([session]);
+    for (const entry of codexSharedScanCache.get(this.sessionsDir)?.values() ??
+      []) {
+      if (
+        entry.activeAfterMs !== undefined &&
+        session.mtime < entry.activeAfterMs
+      )
+        continue;
+      const current = entry.sessions.get(session.id);
+      if (!current || isNewerCodexSessionFile(session, current))
+        entry.sessions.set(session.id, session);
+    }
+    return this.sessionFileCache.get(native.id)?.filePath === actual;
   }
 
   private cacheRolloutPath(filePath: string, overwrite = true): void {

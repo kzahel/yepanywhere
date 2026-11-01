@@ -202,3 +202,20 @@ defensible equilibrium: the false positive's cost is low and bounded.
   `tool_result`) clears it.
 - A forked transcript (two `parentUuid` siblings) resumes to exactly one
   branch — the cross-check for the silent-drop claim, owned by [claude.md](claude.md).
+
+## Native file ingress and YA ownership
+
+For scoped Claude/Codex identities, native file events are translated before
+Supervisor ownership, abort/fork grace and external-decay joins. A filename is
+not a public-session claim. Verified legacy discovery adopts its source before
+ownership events; a conflicting or unbound public claim is not a legacy fallback.
+Events and summary observations use the YA id and effective working project,
+while original transcript projects and physical paths continue to address native
+history. This changes identity joins, not the evidence threshold for external
+ownership or the read-only nature of foreign processes.
+
+Native source work is coalesced and bounded before acquisition. Overflow does
+not manufacture an ownership transition. Observer disposal cancels resolution,
+queued work and publication; a delayed native head cannot adopt a session after
+application/database shutdown. Host OS process observations retain their
+separate documented native-session field meaning and correlation contract.

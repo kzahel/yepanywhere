@@ -117,6 +117,23 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   borrows the app's bound reader/native id/original project and keeps the
   requested public id in its result. It does not allocate a separate reader or
   scan projects to infer a stored session's source.
+- Claude/Codex external file observation resolves the physical native source
+  before Supervisor ownership, own-write grace, decay and summary joins. Existing
+  scoped bindings win over unrelated public native-spelling claims; explicit
+  legacy discovery uses bounded native project/header evidence and adopts before
+  publishing. Codex uses the metadata's thread id, including reverted rollouts
+  with a different leaf filename, and excludes native subagents from admission.
+  Watcher-reported native scope preserves private-store addressing; older
+  in-process events use the configured root and cannot borrow it from outside.
+  File paths/relative paths remain physical facts. Public summary callbacks keep
+  working-project overlays without treating an arbitrary requested project as
+  membership evidence.
+- Native ingress reuses the batch processor with five concurrent source tasks,
+  at most 1,024 pending tasks plus one bounded active batch, and coalescing by
+  physical provider/path. Overflow remains unproven and is counted; native
+  catalogue/history and later writes retain their own observation paths. Closing
+  the observer cancels pending resolution and publication before reader/SQL
+  teardown. No recurring per-session observation loop is added.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

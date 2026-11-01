@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { toUrlProjectId } from "@yep-anywhere/shared";
+import { parseYaSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import { expect, it, vi } from "vitest";
 import {
   getDebugContext,
@@ -12,11 +12,17 @@ import {
 import { boundSessionSource } from "../../src/sessions/provider-resolution.js";
 import type { Process } from "../../src/supervisor/Process.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+import * as claudeSummary from "../../src/sessions/claude-summary.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import { attachProviderChildSessions } from "../../src/sessions/provider-child-sessions.js";
 import { MockClaudeSDK } from "../../src/sdk/mock.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import type { ProcessInfo } from "../../src/supervisor/types.js";
+import {
+  EventBus,
+  type BusEvent,
+  type FileChangeEvent,
+} from "../../src/watcher/EventBus.js";
 import { createApp } from "../setup/create-app.js";
 
 it.each(["claude", "codex"] as const)(
@@ -37,6 +43,7 @@ it.each(["claude", "codex"] as const)(
     const nativeId = "019a0000-eeee-7eee-8eee-eeeeeeeeeeee";
     const childId = "019a0000-ffff-7fff-8fff-ffffffffffff";
     const timestamp = new Date().toISOString();
+    let parentObservationFile: string | undefined;
     let app: ReturnType<typeof createApp> | undefined;
     let storage: DiscoverySqliteService | undefined;
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -172,6 +179,15 @@ it.each(["claude", "codex"] as const)(
               nativeRoot,
               nativeId,
             );
+            insert.run(
+              nativeId,
+              provider,
+              originalId,
+              timestamp,
+              provider,
+              nativeRoot,
+              "unrelated-native-resource",
+            );
           } finally {
             insert.finalize();
           }
@@ -179,8 +195,12 @@ it.each(["claude", "codex"] as const)(
           await metadata.setTitle(nativeId, "WRONG PUBLIC METADATA");
           await metadata.setWorkingProject(sessionId, workingId, originalId);
         }
+        const eventBus = new EventBus();
+        const observed: BusEvent[] = [];
+        eventBus.subscribe((event) => observed.push(event));
         app = createApp({
           sdk: new MockClaudeSDK(),
+          eventBus,
           dataDir,
           projectsDir,
           codexSessionsDir,
@@ -214,6 +234,141 @@ it.each(["claude", "codex"] as const)(
             model: provider === "claude" ? "claude-opus-4-6" : "gpt-6.1-sol",
           }),
         ]);
+        const unrelatedOwned = vi
+          .spyOn(app.supervisor, "getProcessForSession")
+          .mockImplementation((id) =>
+            id === nativeId
+              ? ({ projectId: originalId } as Process)
+              : undefined,
+          );
+        try {
+          const tracker = app.externalTracker!;
+          const fileEvent: FileChangeEvent = {
+            type: "file-change",
+            provider,
+            path: parentObservationFile ?? join(nativeRoot, filename(nativeId)),
+            relativePath: filename(nativeId),
+            nativeStorageScope: nativeRoot,
+            changeType: "modify",
+            fileType: "session",
+            timestamp,
+          };
+          const settleSource = async (count: number) =>
+            vi.waitFor(() => {
+              const state = tracker.getDiagnostics().nativeSourceBatch!;
+              expect(state.counters.tasksSucceeded).toBe(count);
+              expect(state.processing).toBe(false);
+            });
+          eventBus.emit(fileEvent);
+          await settleSource(1);
+          expect(tracker.isExternal(sessionId)).toBe(true);
+          expect(tracker.isExternal(nativeId)).toBe(false);
+          await vi.waitFor(() =>
+            expect(
+              observed.some(
+                (event) =>
+                  (event.type === "session-created" &&
+                    event.session.id === sessionId &&
+                    event.session.projectId === workingId) ||
+                  (event.type === "session-updated" &&
+                    event.sessionId === sessionId &&
+                    event.projectId === workingId),
+              ),
+            ).toBe(true),
+          );
+          // A valid same-N file in the ambient store cannot borrow P's binding
+          // or ownership from the unrelated public resource named N.
+          eventBus.emit({
+            ...fileEvent,
+            path: join(ambientRoot, filename(nativeId)),
+            nativeStorageScope: ambientRoot,
+          });
+          await settleSource(2);
+          expect(tracker.isExternal(nativeId)).toBe(false);
+          expect(
+            observed.some(
+              (event) =>
+                (event.type === "session-created" &&
+                  event.session.id === nativeId) ||
+                ((event.type === "session-updated" ||
+                  event.type === "session-status-changed") &&
+                  event.sessionId === nativeId),
+            ),
+          ).toBe(false);
+          let completed = 2;
+          if (provider === "codex") {
+            eventBus.emit({
+              ...fileEvent,
+              path: join(nativeRoot, filename(childId)),
+              relativePath: filename(childId),
+            });
+            await settleSource(++completed);
+            expect(tracker.isExternal(childId)).toBe(false);
+            expect(
+              metadata.identities.resolveYa(parseYaSessionId(childId)),
+            ).toBeUndefined();
+          }
+          const legacyNativeId = "019a0000-9999-7999-8999-999999999999";
+          await writeFile(
+            join(nativeRoot, filename(legacyNativeId)),
+            rows(
+              legacyNativeId,
+              "new native legacy source",
+              "legacy-model",
+            ).join("\n") + "\n",
+          );
+          eventBus.emit({
+            ...fileEvent,
+            path: join(nativeRoot, filename(legacyNativeId)),
+            relativePath: filename(legacyNativeId),
+          });
+          await settleSource(++completed);
+          expect(
+            metadata.identities.resolveYa(parseYaSessionId(legacyNativeId)),
+          ).toMatchObject({
+            sessionId: legacyNativeId,
+            projectId: originalId,
+            native: { id: legacyNativeId, storageScope: nativeRoot },
+          });
+          expect(tracker.isExternal(legacyNativeId)).toBe(true);
+          if (provider === "codex") {
+            const leafId = "019a0000-1234-7234-8234-123412341234";
+            const leaf = join(
+              nativeRoot,
+              `rollout-2026-11-01T12-00-00-${nativeId}_${leafId}.jsonl`,
+            );
+            await writeFile(
+              leaf,
+              [
+                ...rows(nativeId, "correct native title", "gpt-6.1-sol"),
+                line("event_msg", {
+                  type: "user_message",
+                  message: "native reverted leaf observed",
+                }),
+              ].join("\n") + "\n",
+            );
+            eventBus.emit({
+              ...fileEvent,
+              path: leaf,
+              relativePath: leaf.split("/").at(-1)!,
+            });
+            await settleSource(++completed);
+            expect(
+              metadata.identities.resolveYa(parseYaSessionId(leafId)),
+            ).toBeUndefined();
+            expect(tracker.isExternal(leafId)).toBe(false);
+            const history = await app.app.request(
+              `/api/projects/${workingId}/sessions/${sessionId}`,
+            );
+            expect(history.status).toBe(200);
+            expect(JSON.stringify(await history.json())).toContain(
+              "native reverted leaf observed",
+            );
+            parentObservationFile = leaf;
+          }
+        } finally {
+          unrelatedOwned.mockRestore();
+        }
         if (provider === "claude") {
           const prior = getDebugContext();
           const lookup = vi
@@ -434,8 +589,10 @@ it.each([false, true])(
         insert.finalize();
       }
       await metadata.setTitle(sessionId, "saved title");
+      const eventBus = new EventBus();
       app = createApp({
         sdk: new MockClaudeSDK(),
+        eventBus,
         dataDir,
         projectsDir,
         discoverySqlite: storage,
@@ -465,6 +622,22 @@ it.each([false, true])(
       expect(process.model).toBeUndefined();
       expect(process.providerChildren).toBeUndefined();
       expect(JSON.stringify(process)).not.toContain("wrong ambient");
+      eventBus.emit({
+        type: "file-change",
+        provider: "claude",
+        path: join(ambient, `${sessionId}.jsonl`),
+        relativePath: `${sessionId}.jsonl`,
+        changeType: "modify",
+        fileType: "session",
+        timestamp: new Date().toISOString(),
+      });
+      await vi.waitFor(() =>
+        expect(
+          app!.externalTracker!.getDiagnostics().nativeSourceBatch!.counters
+            .tasksSucceeded,
+        ).toBe(1),
+      );
+      expect(app.externalTracker!.isExternal(sessionId)).toBe(false);
     } finally {
       app?.stopNotifications();
       await app?.disposeSessionReaders();
@@ -474,3 +647,113 @@ it.each([false, true])(
     }
   },
 );
+
+it("cancels a native discovery before it can adopt or publish after app/database shutdown", async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "ya-observer-shutdown-")),
+  );
+  const projectPath = join(root, "project");
+  const nativeRoot = join(root, "native");
+  const dataDir = join(root, "data");
+  const nativeId = "019a0000-7777-7777-8777-777777777777";
+  const nativeFile = join(nativeRoot, `${nativeId}.jsonl`);
+  const eventBus = new EventBus();
+  const events: BusEvent[] = [];
+  eventBus.subscribe((event) => events.push(event));
+  let app: ReturnType<typeof createApp> | undefined;
+  let storage: DiscoverySqliteService | undefined;
+  let release = () => {};
+  let entered = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const head = claudeSummary.readClaudeCatalogHead;
+  const pause = vi
+    .spyOn(claudeSummary, "readClaudeCatalogHead")
+    .mockImplementation(async (...args) => {
+      const value = await head(...args);
+      if (args[0] === nativeFile) {
+        entered();
+        await held;
+      }
+      return value;
+    });
+  const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  try {
+    await Promise.all(
+      [projectPath, nativeRoot].map((path) => mkdir(path, { recursive: true })),
+    );
+    await writeFile(
+      nativeFile,
+      JSON.stringify({
+        type: "user",
+        uuid: "original",
+        sessionId: nativeId,
+        cwd: projectPath,
+        timestamp: new Date().toISOString(),
+        message: { role: "user", content: "native discovery before shutdown" },
+      }) + "\n",
+    );
+    storage = new DiscoverySqliteService({
+      dataDir,
+      probeNetworkFilesystem: () => undefined,
+    });
+    const metadata = new SessionMetadataService({
+      dataDir,
+      database: storage.getDatabase(),
+    });
+    await metadata.initialize();
+    const adoption = vi.spyOn(metadata.identities, "adoptDiscovered");
+    app = createApp({
+      sdk: new MockClaudeSDK(),
+      dataDir,
+      projectsDir: join(root, "empty-claude"),
+      eventBus,
+      discoverySqlite: storage,
+      sessionMetadataService: metadata,
+    });
+    eventBus.emit({
+      type: "file-change",
+      provider: "claude",
+      path: nativeFile,
+      relativePath: `${nativeId}.jsonl`,
+      changeType: "create",
+      fileType: "session",
+      timestamp: new Date().toISOString(),
+    });
+    await started;
+    expect(adoption).not.toHaveBeenCalled();
+    const tracker = app.externalTracker!;
+    app.stopNotifications();
+    await app.disposeSessionReaders();
+    storage.close();
+    storage = undefined;
+    release();
+    await vi.waitFor(() =>
+      expect(tracker.getDiagnostics().nativeSourceBatch!.processing).toBe(
+        false,
+      ),
+    );
+    expect(adoption).not.toHaveBeenCalled();
+    expect(
+      events.filter(
+        (event) =>
+          event.type === "session-created" ||
+          event.type === "session-updated" ||
+          event.type === "session-status-changed",
+      ),
+    ).toEqual([]);
+    expect(tracker.getExternalSessions()).toEqual([]);
+  } finally {
+    release();
+    app?.stopNotifications();
+    await app?.disposeSessionReaders();
+    storage?.close();
+    await rm(root, { recursive: true, force: true });
+    pause.mockRestore();
+    log.mockRestore();
+  }
+});

@@ -4,6 +4,8 @@ import {
   isUrlProjectId,
   parseNativeSessionId,
   nativeSessionFamily,
+  nativeSessionRef,
+  parseYaSessionId,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
 import { getAuthenticatedSrpTransport } from "./middleware/authenticated-transport.js";
@@ -109,7 +111,8 @@ import {
 } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import { compress } from "hono/compress";
-import { join } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { realpath } from "node:fs/promises";
 import type { AuthService } from "./auth/AuthService.js";
 import { createAuthRoutes } from "./auth/routes.js";
 import type { UserUsageService } from "./auth/UserUsageService.js";
@@ -190,6 +193,7 @@ import {
   GROK_SESSIONS_DIR,
   PI_SESSIONS_DIR,
   decodeProjectId,
+  readCwdFromSessionFile,
   getProjectName,
   getProjectIdentityKey,
   grokSessionMediaRoots,
@@ -254,6 +258,8 @@ import {
 } from "./routes/session-list-options.js";
 import { RetainedSessionCollections } from "./services/RetainedSessionCollections.js";
 import { collectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
+import { readClaudeCatalogHead } from "./sessions/claude-summary.js";
+import { readCodexRolloutMetadata } from "./sessions/codex-discovery.js";
 import {
   metadataForNativeCatalogRow,
   projectCatalogIdentities,
@@ -1599,6 +1605,7 @@ export function createApp(options: AppOptions): AppResult {
     // Explicit shutdown and fixture ownership may join the same disposal.
     // Cache the promise before asynchronous cleanup can close shared services.
     sessionReadersDisposal ??= (async () => {
+      externalTracker?.dispose();
       await options.peerAccess?.close();
       apiCommands?.close();
       releaseApiRemaps?.();
@@ -1922,10 +1929,11 @@ export function createApp(options: AppOptions): AppResult {
     projectId: string,
     summaryOptions?: GetSessionSummaryOptions,
   ) => {
+    if (sessionReadersDisposal) return null;
     const project = isUrlProjectId(projectId)
       ? await scanner.getOrCreateProject(projectId)
       : null;
-    if (!project) return null;
+    if (!project || sessionReadersDisposal) return null;
     const resolved = await findSessionSummaryAcrossProviders(
       project,
       sessionId,
@@ -1952,8 +1960,15 @@ export function createApp(options: AppOptions): AppResult {
     );
     const summary = resolved?.summary ?? null;
     if (!summary) return null;
+    const publicProjectId =
+      options.sessionMetadataService?.getMetadata(sessionId)
+        ?.workingProjectId ?? summary.projectId;
     return applyRecapOverlayToSummary(
-      summary,
+      {
+        ...summary,
+        projectId: publicProjectId,
+        projectName: projectDisplayName(decodeProjectId(publicProjectId)),
+      },
       options.sessionMetadataService?.getRecapMessages(sessionId) ?? [],
     );
   };
@@ -1961,10 +1976,11 @@ export function createApp(options: AppOptions): AppResult {
     sessionId: string,
     projectId: string,
   ) => {
+    if (sessionReadersDisposal) return null;
     const project = isUrlProjectId(projectId)
       ? await scanner.getOrCreateProject(projectId)
       : null;
-    if (!project) return null;
+    if (!project || sessionReadersDisposal) return null;
     const resolved = await findSessionListSummaryAcrossProviders(
       project,
       sessionId,
@@ -1988,7 +2004,15 @@ export function createApp(options: AppOptions): AppResult {
       },
       options.sessionMetadataService?.getProvider(sessionId),
     );
-    return resolved?.summary ?? null;
+    if (!resolved) return null;
+    const publicProjectId =
+      options.sessionMetadataService?.getMetadata(sessionId)
+        ?.workingProjectId ?? resolved.summary.projectId;
+    return {
+      ...resolved.summary,
+      projectId: publicProjectId,
+      projectName: projectDisplayName(decodeProjectId(publicProjectId)),
+    };
   };
   const browserDebugService = new BrowserDebugService(
     Date.now,
@@ -2437,6 +2461,106 @@ export function createApp(options: AppOptions): AppResult {
           supervisor,
           scanner,
           projectDisplayName,
+          resolveObservedSession: async (event, signal) => {
+            if (event.provider !== "claude" && event.provider !== "codex")
+              return undefined;
+            if (event.fileType !== "session" || event.changeType === "delete")
+              return null;
+            const file = await realpath(event.path).catch(() => null);
+            if (!file || signal.aborted) return null;
+            const scope =
+              event.provider === "claude"
+                ? dirname(file)
+                : await realpath(
+                    event.nativeStorageScope ?? codexSessionsDir,
+                  ).catch(() => null);
+            if (!scope || signal.aborted) return null;
+            if (event.provider === "codex") {
+              const suffix = relative(scope, file);
+              if (
+                !suffix ||
+                suffix === ".." ||
+                suffix.startsWith(`..${sep}`) ||
+                isAbsolute(suffix)
+              )
+                return null;
+            }
+            const meta =
+              event.provider === "codex"
+                ? await readCodexRolloutMetadata({
+                    sessionsDir: scope,
+                    filePath: file,
+                    discoveryIndex: getCodexDiscoveryIndex(scope),
+                  })
+                : undefined;
+            if (event.provider === "codex" && (!meta || meta.isSubagent))
+              return null;
+            const filename = basename(file);
+            const nativeId =
+              meta?.id ??
+              (filename.endsWith(".jsonl") && !filename.startsWith("agent-")
+                ? filename.slice(0, -6)
+                : undefined);
+            if (!nativeId || !isYaSessionId(nativeId) || signal.aborted)
+              return null;
+            const native = nativeSessionRef(
+              event.provider,
+              scope,
+              parseNativeSessionId(nativeId),
+            );
+            const identities = options.sessionMetadataService?.identities;
+            if (!identities) return undefined;
+            let identity = identities.lookupNative(native);
+            let discoveredProjectId: UrlProjectId | undefined;
+            if (!identity) {
+              if (identities.resolveYa(parseYaSessionId(nativeId))) return null;
+              // Explicit native discovery, using bounded physical source
+              // evidence before a legacy public id can enter ownership joins.
+              const cwd = meta?.cwd ?? (await readCwdFromSessionFile(file));
+              if (!cwd || !isAbsolute(cwd) || signal.aborted) return null;
+              discoveredProjectId = toUrlProjectId(cwd);
+            }
+            const project = await scanner.getOrCreateProject(
+              identity?.projectId ?? discoveredProjectId!,
+            );
+            if (!project || signal.aborted) return null;
+            const reader = readerFactory(
+              { ...project, provider: identity?.provider ?? event.provider },
+              native,
+            );
+            if (
+              reader.observeNativeSessionFile &&
+              !(await reader.observeNativeSessionFile(native, file, signal))
+            )
+              return null;
+            if (signal.aborted) return null;
+            const selectedFile = await reader.getSessionFilePath?.(native.id);
+            if (signal.aborted || !selectedFile) return null;
+            const selectedPath = await realpath(selectedFile).catch(() => null);
+            if (signal.aborted || selectedPath !== file) return null;
+            if (!identity) {
+              const createdAt =
+                meta?.timestamp ??
+                (await readClaudeCatalogHead(file)).createdAt ??
+                event.timestamp;
+              if (signal.aborted) return null;
+              identity = identities.adoptDiscovered({
+                native,
+                provider: event.provider,
+                legacyProvider:
+                  options.sessionMetadataService?.getProvider(nativeId),
+                projectId: project.id,
+                createdAt,
+              });
+            }
+            return {
+              sessionId: identity.sessionId,
+              provider: identity.provider,
+              projectId:
+                options.sessionMetadataService?.getMetadata(identity.sessionId)
+                  ?.workingProjectId ?? identity.projectId,
+            };
+          },
           decayMs: 30000, // 30 seconds
           // Callback to get session summary for new external sessions
           // projectId is now UrlProjectId (base64url) - ExternalSessionTracker converts it

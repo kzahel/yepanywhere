@@ -7,7 +7,11 @@ import { encodeProjectId } from "../../src/projects/paths.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { ExternalSessionTracker } from "../../src/supervisor/ExternalSessionTracker.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
-import { EventBus, type BusEvent } from "../../src/watcher/EventBus.js";
+import {
+  EventBus,
+  type BusEvent,
+  type FileChangeEvent,
+} from "../../src/watcher/EventBus.js";
 
 describe("ExternalSessionTracker", () => {
   it("resolves retained activity counts without foreground project discovery", async () => {
@@ -678,4 +682,214 @@ describe("ExternalSessionTracker", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+});
+
+it("bounds native ingress before acquisition and discards a blocked batch after disposal", async () => {
+  const eventBus = new EventBus();
+  const observed: BusEvent[] = [];
+  eventBus.subscribe((event) => observed.push(event));
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const signals: AbortSignal[] = [];
+  const resolveObservedSession = vi.fn(
+    async (_event: FileChangeEvent, signal: AbortSignal) => {
+      signals.push(signal);
+      await held;
+      return {
+        sessionId: "public-after-resolution",
+        projectId: encodeProjectId("/tmp/project"),
+        provider: "codex" as const,
+      };
+    },
+  );
+  const tracker = new ExternalSessionTracker({
+    eventBus,
+    resolveObservedSession,
+    supervisor: {
+      getProcessForSession: vi.fn(() => undefined),
+    } as unknown as Supervisor,
+    scanner: {} as ProjectScanner,
+  });
+  try {
+    for (let index = 0; index < 2500; index++)
+      eventBus.emit({
+        type: "file-change",
+        provider: "codex",
+        path: `/native/rollout-${index}.jsonl`,
+        relativePath: `rollout-${index}.jsonl`,
+        nativeStorageScope: "/native",
+        changeType: "modify",
+        fileType: "session",
+        timestamp: new Date().toISOString(),
+      });
+    expect(
+      tracker.getDiagnostics().nativeSourceBatch!.pendingTasks,
+    ).toBeLessThanOrEqual(1024);
+    expect(tracker.getDiagnostics().droppedSourceEvents).toBeGreaterThan(0);
+    await vi.waitFor(() =>
+      expect(resolveObservedSession).toHaveBeenCalledTimes(5),
+    );
+    expect(tracker.getDiagnostics().nativeSourceBatch!.inFlightTasks).toBe(5);
+    tracker.dispose();
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    release();
+    await vi.waitFor(() =>
+      expect(tracker.getDiagnostics().nativeSourceBatch!.processing).toBe(
+        false,
+      ),
+    );
+    expect(resolveObservedSession).toHaveBeenCalledTimes(5);
+    expect(tracker.getExternalSessions()).toEqual([]);
+    expect(observed.filter((event) => event.type !== "file-change")).toEqual(
+      [],
+    );
+    expect(tracker.getDiagnostics().nativeSourceBatch!.flushScheduled).toBe(
+      false,
+    );
+  } finally {
+    tracker.dispose();
+    release();
+  }
+});
+
+it.each(["summary", "project"] as const)(
+  "fences unstarted summary work and the %s continuation after disposal",
+  async (stage) => {
+    vi.useFakeTimers();
+    const eventBus = new EventBus();
+    const projectId = encodeProjectId("/tmp/project");
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let holdProjects = false;
+    const projectLookup = vi.fn(async () => {
+      if (holdProjects) await held;
+      return { id: projectId };
+    });
+    const getSessionSummary = vi.fn(async () => {
+      await held;
+      return null;
+    });
+    const tracker = new ExternalSessionTracker({
+      eventBus,
+      getSessionSummary,
+      resolveObservedSession:
+        stage === "summary"
+          ? async (event) => ({
+              sessionId: event.path,
+              projectId,
+              provider: "claude",
+            })
+          : undefined,
+      supervisor: {
+        getProcessForSession: () =>
+          stage === "summary" ? { projectId } : undefined,
+      } as unknown as Supervisor,
+      scanner: {
+        getProjectBySessionDirSuffix: projectLookup,
+      } as unknown as ProjectScanner,
+    });
+    try {
+      for (let index = 0; index < 12; index++)
+        eventBus.emit({
+          type: "file-change",
+          provider: "claude",
+          path: `/native/session-${index}.jsonl`,
+          relativePath: `-tmp-project/session-${index}.jsonl`,
+          fileType: "session",
+          changeType: "modify",
+          timestamp: new Date().toISOString(),
+        });
+      await vi.advanceTimersByTimeAsync(0);
+      holdProjects = stage === "project";
+      await vi.advanceTimersByTimeAsync(300);
+      expect(tracker.getDiagnostics().sessionSummaryBatch.inFlightTasks).toBe(
+        5,
+      );
+      expect(getSessionSummary).toHaveBeenCalledTimes(
+        stage === "summary" ? 5 : 0,
+      );
+      const lookups = projectLookup.mock.calls.length;
+      tracker.dispose();
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(tracker.getDiagnostics().sessionSummaryBatch.processing).toBe(
+        false,
+      );
+      expect(getSessionSummary).toHaveBeenCalledTimes(
+        stage === "summary" ? 5 : 0,
+      );
+      expect(projectLookup).toHaveBeenCalledTimes(lookups);
+      expect(tracker.getDiagnostics().sessionSummaryBatch.flushScheduled).toBe(
+        false,
+      );
+      expect(tracker.getExternalSessions()).toEqual([]);
+    } finally {
+      tracker.dispose();
+      release();
+      vi.useRealTimers();
+    }
+  },
+);
+
+it("uses the newly observed working project for an already-external session and its decay", async () => {
+  vi.useFakeTimers();
+  const eventBus = new EventBus();
+  const events: BusEvent[] = [];
+  eventBus.subscribe((event) => events.push(event));
+  const originalId = encodeProjectId("/tmp/original");
+  const workingId = encodeProjectId("/tmp/working");
+  let projectId = originalId;
+  const sessionId = "public-moved-external";
+  const tracker = new ExternalSessionTracker({
+    eventBus,
+    decayMs: 1000,
+    resolveObservedSession: async () => ({
+      sessionId,
+      projectId,
+      provider: "claude",
+    }),
+    supervisor: {
+      getProcessForSession: () => undefined,
+    } as unknown as Supervisor,
+    scanner: {} as ProjectScanner,
+  });
+  const event: FileChangeEvent = {
+    type: "file-change",
+    provider: "claude",
+    path: "/native/native-parent.jsonl",
+    relativePath: "native-parent.jsonl",
+    fileType: "session",
+    changeType: "modify",
+    timestamp: new Date().toISOString(),
+  };
+  try {
+    eventBus.emit(event);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(
+      (await tracker.getExternalSessionInfoWithUrlId(sessionId))?.projectId,
+    ).toBe(originalId);
+    projectId = workingId;
+    eventBus.emit(event);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(
+      (await tracker.getExternalSessionInfoWithUrlId(sessionId))?.projectId,
+    ).toBe(workingId);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(tracker.isExternal(sessionId)).toBe(false);
+    const decayed = events.filter(
+      (item) =>
+        item.type === "session-status-changed" &&
+        item.ownership.owner === "none",
+    );
+    expect(decayed).toEqual([
+      expect.objectContaining({ sessionId, projectId: workingId }),
+    ]);
+  } finally {
+    tracker.dispose();
+    vi.useRealTimers();
+  }
 });

@@ -107,6 +107,7 @@ describe("FileWatcher", () => {
       );
       expect(events.at(-1)).toMatchObject({
         path: filePath,
+        nativeStorageScope: watchDir,
         changeType: "modify",
         mtimeMs: expect.any(Number),
         size: Buffer.byteLength('{"changed":true}\n'),

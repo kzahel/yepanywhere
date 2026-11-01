@@ -37,6 +37,8 @@ export interface FileChangeEvent {
   provider: WatchProvider;
   path: string;
   relativePath: string;
+  /** Physical native store reported by the emitting watcher, never a YA id. */
+  nativeStorageScope?: string;
   changeType: FileChangeType;
   timestamp: string;
   /** Exact source-file facts when the watcher observed an existing file. */
