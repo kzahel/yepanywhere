@@ -114,3 +114,13 @@ Neither capture assertions nor timeouts changed. The separate live Codex
 resynchronization first on `thread/tokenUsage/updated`, then `turn/started`.
 This repeats the existing diagnostic category; its event-order ownership is
 outside tier selection and remains unaddressed here.
+
+2026-11-01: CI repair's full Node 25 macOS workspace run passed (6,710
+server / 7,064 client), but repeated the existing fault-path diagnostics above
+and emitted two jsdom `Not implemented: navigation (except hash changes)`
+errors. The same navigation diagnostics appear in hosted unit job
+124792013338. Attribution to the initiating link fixture needs a verbose
+client run; suppressing navigation globally would hide unrelated regressions.
+The touched peer/bootstrap tests pass without runtime warnings in focused
+runs. This repair changes only their measured time budgets and a capability
+registry reference, so the independent diagnostic-fixture audit remains open.

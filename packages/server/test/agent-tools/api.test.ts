@@ -70,6 +70,8 @@ function shell(command: string, env: NodeJS.ProcessEnv) {
   });
 }
 
+// Windows CI 41286192672 exceeded 5,000 ms across two real PowerShell/curl
+// launches. Allow 4x that observed lower bound for the bootstrap workflow.
 it("runs the exact injected curl request and keeps legacy self authority separate", async () => {
   const native = createControllableIterator();
   let delivered!: StartSessionOptions;
@@ -176,7 +178,7 @@ it("runs the exact injected curl request and keeps legacy self authority separat
     await session.abort();
     await session.iterator.return?.();
   }
-});
+}, 20_000);
 
 it("keeps a real owner API alive across controller detach/reattach and honors detached revocation", async () => {
   const native = createControllableIterator();

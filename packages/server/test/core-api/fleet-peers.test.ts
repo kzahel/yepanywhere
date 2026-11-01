@@ -45,6 +45,9 @@ const operations: Operation[] = [
 ];
 const fixture = () => fleetFixture(cleanup);
 
+// CI 41287615314 exceeded 5,000 ms for this real multi-handshake workflow;
+// the focused macOS run took 3,622 ms. Allow 4x the observed CI lower
+// bound while retaining real SRP, persistence and revocation assertions.
 it("uses real basic enrollment and protected SRP for native create/message/follow while retaining manual standby access", async () => {
   const f = await fixture(),
     source = await f.make(),
@@ -226,7 +229,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   expect((await nativeRequest(runtime, token, base + "/projects")).status).toBe(
     200,
   );
-});
+}, 20_000);
 
 it("migrates complete v1 manual state atomically without changing IDs or its selected route", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ya-peer-v1-"));

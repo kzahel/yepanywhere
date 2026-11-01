@@ -4,6 +4,7 @@ import {
   DEFAULT_HOST_AWAKE_BATTERY_FLOOR_PERCENT,
   DEFAULT_YA_CLIENT_BASE_URL,
   PUBLIC_SHARE_MANAGEMENT_CAPABILITY,
+  SERVER_CAPABILITIES,
   type HostAwakeStatus,
   type HostIdentity,
   MAX_HOST_IDENTITY_ICON_CODE_UNITS,
@@ -686,7 +687,7 @@ export function RemoteAccessSettings() {
           yaClientInfo={yaClientInfo}
         />
       </HideInSettingsSearch>
-      {serverHasCapability(version, "peer-connections") && (
+      {serverHasCapability(version, SERVER_CAPABILITIES.peerConnections) && (
         <SettingsItem
           label={t("connectionsPairedServers")}
           description={t("connectionsPasswordChangesHint")}

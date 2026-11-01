@@ -59,6 +59,9 @@ const grant = (sourceServerId: string) => ({
 });
 const profile = () => protectedProfile(cleanup);
 
+// CI 41287615314 exceeded 5,000 ms for this real multi-handshake workflow;
+// the focused macOS run took 3,346 ms. Allow 4x the observed CI lower
+// bound while retaining real SRP, persistence and revocation assertions.
 it("enrolls actual private profiles over mutually authenticated direct SRP and retains directional receipt provenance", async () => {
   const a = await profile(),
     b = await profile();
@@ -162,7 +165,7 @@ it("enrolls actual private profiles over mutually authenticated direct SRP and r
   await expect(a.read("projects", { serverId: b.id })).rejects.toMatchObject({
     code: "unauthorized",
   });
-});
+}, 20_000);
 
 it("rejects a misbound authenticated identity before importing or admitting any mutation", async () => {
   const a = await profile(),
