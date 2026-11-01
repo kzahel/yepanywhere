@@ -211,6 +211,20 @@ Runtime work and the provenance defect remain unimplemented.
   probes pass. Final lint, format, typecheck and workspace tests pass (6,761
   server / 7,064 client). No split-id launch or new capability is enabled;
   other native-family/cold-resume/released-client work remains phase 3.
+- Phase 3 Pi source migration is independently accepted: canonical native
+  catalogue scope, public adoption, root-scoped indexed metadata and focused
+  refresh use existing owners. Selected-file fingerprints prevent discovery's
+  five-second TTL or a fixed mtime from hiding appends. Qualified missing proof
+  cannot emit a guessed public native id. Review caught pending publication
+  after reader retirement; public await boundaries now discard partial lists
+  and late point results. Seven deterministic scheduling regressions delegate
+  real parsing/acquisition. Focused checks: 40 passed / seven files in 2.56 s.
+  Actual Node 26.7.0 and pinned Bun 1.3.14 standalone HTTP/WebSocket/fixed-mtime
+  append/restart and direct retirement-race probes pass. Final lint, format,
+  typecheck and full workspace tests pass (6,770 server / 7,064 client).
+  New-session launches remain unchanged until later admission/provider slices;
+  Grok/frozen-Gemini sources, scoped cold resume and released clients remain
+  phase-3 enabling work.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

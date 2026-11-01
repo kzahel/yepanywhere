@@ -56,6 +56,130 @@ describe("PiSessionReader", () => {
     await rm(testDir, { recursive: true, force: true });
   });
 
+  async function seedRetirementSessions() {
+    for (const id of ["first", "second"])
+      await writeFile(
+        join(
+          sessionsDir,
+          "--fixture--",
+          `2026-11-01T00-00-00-000Z_${id}.jsonl`,
+        ),
+        [
+          {
+            type: "session",
+            version: 3,
+            id,
+            cwd: projectPath,
+            timestamp: "2026-11-01T00:00:00Z",
+          },
+          {
+            type: "message",
+            id: "user",
+            parentId: null,
+            message: { role: "user", content: id },
+          },
+          {
+            type: "message",
+            id: "assistant",
+            parentId: "user",
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "answer" }],
+            },
+          },
+        ]
+          .map(jsonLine)
+          .join("\n") + "\n",
+      );
+  }
+
+  it("discards an accumulated list when retirement interrupts the second real parse", async () => {
+    await seedRetirementSessions();
+    const reader = new PiSessionReader({ sessionsDir, projectPath });
+    const hooks = reader as unknown as {
+      parseSession(info: unknown): Promise<unknown>;
+    };
+    const parse = hooks.parseSession.bind(reader);
+    let release = () => {},
+      entered = () => {},
+      count = 0;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paused = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    hooks.parseSession = async (info) => {
+      if (++count === 2) {
+        entered();
+        await gate;
+      }
+      return parse(info);
+    };
+    try {
+      const pending = reader.listSessions(projectId);
+      await paused;
+      reader.close();
+      release();
+      expect(await pending).toEqual([]);
+      expect(await reader.listSessions(projectId)).toEqual([]);
+    } finally {
+      release();
+      reader.close();
+    }
+  });
+
+  it.each([
+    "history",
+    "summary",
+    "conditional",
+    "excerpt",
+    "file",
+    "project",
+  ] as const)(
+    "refuses the pending %s result when a warmed acquisition resolves just before retirement",
+    async (method) => {
+      await seedRetirementSessions();
+      const reader = new PiSessionReader({ sessionsDir, projectPath });
+      try {
+        expect(await reader.getSession("first", projectId)).not.toBeNull();
+        const hooks = reader as unknown as {
+          parseSession(info: unknown): Promise<unknown>;
+          findSessionInfo(id: string): Promise<unknown>;
+        };
+        if (method === "file" || method === "project") {
+          const find = hooks.findSessionInfo.bind(reader);
+          hooks.findSessionInfo = (id) => {
+            const result = find(id);
+            void result.then(() => reader.close());
+            return result;
+          };
+        } else {
+          const parse = hooks.parseSession.bind(reader);
+          hooks.parseSession = (info) => {
+            const result = parse(info);
+            void result.then(() => reader.close());
+            return result;
+          };
+        }
+        const result = await (method === "history"
+          ? reader.getSession("first", projectId)
+          : method === "summary"
+            ? reader.getSessionSummary("first", projectId)
+            : method === "conditional"
+              ? reader.getSessionSummaryIfChanged("first", projectId, 0, 0)
+              : method === "excerpt"
+                ? reader.getLastAgentExcerpt("first")
+                : method === "file"
+                  ? reader.getSessionFilePath("first")
+                  : reader.getSessionProjectPath("first"));
+        expect(result).toBe(method === "excerpt" ? undefined : null);
+      } finally {
+        reader.close();
+      }
+    },
+  );
+
   it("reloads pi JSONL actions in the same canonical shape as the live view", async () => {
     const jsonl = [
       jsonLine({

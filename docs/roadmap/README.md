@@ -638,7 +638,11 @@ observations. OpenCode native-source migration is independently accepted with
 canonical DB/JSON roots, native/public projection, physical project-alias proof,
 root-scoped summary computation and focused DB/WAL refresh. Real Node/Bun
 HTTP/WebSocket/restart checks retain the YA id; launch remapping is still gated.
-Fully scoped cold resumes, remaining provider observation,
+Pi source migration is also independently accepted: native-root adoption,
+indexed metadata and focused fixed-mtime append refresh preserve the YA id;
+terminal reader retirement discards pending results. Node/Bun HTTP/WebSocket,
+restart and retirement-race checks pass. Fully scoped cold resumes,
+remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or
 require queued-compaction work first.

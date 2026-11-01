@@ -214,7 +214,7 @@ async function publicSessionSummaries<T extends SessionListSummary>(
       isClaudeProviderName(source.provider) ||
       source.provider === "codex" ||
       source.provider === "codex-oss" ||
-      (source.provider === "opencode" &&
+      ((source.provider === "opencode" || source.provider === "pi") &&
         source.reader.getNativeSessionRef !== undefined)
     )
   )
@@ -240,6 +240,12 @@ async function publicSessionSummaries<T extends SessionListSummary>(
                 nativeSessionId,
               );
           if (deps.signal?.aborted) return null;
+          if (!native && source.reader.getNativeSessionRef) {
+            // A stale native cache row cannot become a public-id guess after
+            // the source disappears or its qualified reader is retired.
+            excluded.add(offset + index);
+            return null;
+          }
           if (native && source.provider === "opencode") {
             const bound = store.lookupNative(native);
             if (bound && bound.projectId !== summary.projectId) {

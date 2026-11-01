@@ -361,6 +361,29 @@ externally-(TUI-)owned pi session render without spawning pi, exactly as the
 OpenCode DB reader did for unowned OpenCode sessions
 ([`opencode-backend.md`](opencode-backend.md) § *Direct SQLite reader*).
 
+### Scoped YA identity and native refresh
+
+Pi history/discovery uses the canonical native sessions root and native file
+handle; public lists, metadata and focused change events retain the YA id.
+The app's existing scoped reader pool also covers private Pi roots. Original
+transcript membership comes from the native header, while YA's working-project
+overlay remains public metadata. Native catalogue/index keys and JSONL bytes
+are unchanged. Discovery adopts verified native facts once; an existing scoped
+binding wins over the native spelling, including across profile reopen.
+Unqualified legacy readers retain their explicit compatibility path, while a
+qualified cache row without native proof cannot invent a public native-id alias.
+
+Discovery's five-second directory cache does not certify current file contents.
+Selected files are re-statted before parsing; parsed entries are keyed by
+physical device/inode/mtime/ctime/size, so an append with a fixed last-write
+stamp and a replacement invalidate the previous parse. The bounded 64-file LRU
+retains one version per file. Closing a pooled reader is terminal, clears its
+caches and fences pending proof/parse results. Focused viewers share existing
+native directory watches and release them on final unsubscribe; events use
+the public id/current project and physical native path. A closed view creates
+no Pi polling or new process. This does not enable differing-id Pi launches;
+that remains in [plan 171](../docs/tactical/171-durable-session-identity-and-creation.md).
+
 ### Thinking replay parity — fixed 2026-06-24
 
 Observed session `019ef653-92a0-7c29-83fc-7b7df7c89d06` in `/home/graehl/pi`

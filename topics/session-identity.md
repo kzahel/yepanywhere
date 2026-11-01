@@ -167,6 +167,13 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   include both physical source versions; focused changes retain the public id
   and effective project. This is native-source migration; OpenCode launch
   remapping remains until durable admission and provider launch slices qualify.
+- Pi native discovery, indexed metadata and focused history refresh use its
+  recorded canonical sessions root and native file handle. Public observations
+  retain the YA id and working project across profile reopen. Point acquisition
+  refreshes native file versions within the directory-cache TTL; a fixed-mtime
+  append cannot reuse an old parsed transcript. Reader retirement clears caches
+  and refuses late proof/parse publication. Remaining provider sources and
+  differing-id launches are still gated.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

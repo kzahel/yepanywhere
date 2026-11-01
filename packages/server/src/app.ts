@@ -1536,7 +1536,10 @@ export function createApp(options: AppOptions): AppResult {
         : undefined;
       if (!identity) return undefined;
       const native = identity.native;
-      if (!native || !["claude", "codex", "opencode"].includes(native.family))
+      if (
+        !native ||
+        !["claude", "codex", "opencode", "pi"].includes(native.family)
+      )
         return null;
       const project = await scanner.getOrCreateProject(identity.projectId);
       if (!project || signal.aborted) return null;

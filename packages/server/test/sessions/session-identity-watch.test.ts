@@ -5,14 +5,16 @@ import {
   realpath,
   rm,
   writeFile,
+  utimes,
 } from "node:fs/promises";
 import type { FSWatcher } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { toUrlProjectId, type YepMessage } from "@yep-anywhere/shared";
 import { expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
+import { PiSessionReader } from "../../src/sessions/pi-reader.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import { MockClaudeSDK } from "../../src/sdk/mock.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
@@ -20,7 +22,7 @@ import { handleSessionWatchSubscribe } from "../../src/routes/ws-relay-handlers.
 import * as sharedWatches from "../../src/watcher/SharedDirectoryWatcher.js";
 import { createApp } from "../setup/create-app.js";
 
-it.each(["claude", "codex"] as const)(
+it.each(["claude", "codex", "pi"] as const)(
   "watches the bound %s file through the retained wire protocol and releases shared interest",
   async (provider) => {
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -49,23 +51,34 @@ it.each(["claude", "codex"] as const)(
         nativeRoot,
         provider === "claude"
           ? `${nativeId}.jsonl`
-          : `rollout-2026-11-01T00-00-00-${nativeId}.jsonl`,
+          : provider === "pi"
+            ? `project/${nativeId}.jsonl`
+            : `rollout-2026-11-01T00-00-00-${nativeId}.jsonl`,
       );
+      await mkdir(dirname(nativeFile), { recursive: true });
       const user = (text: string, uuid: string) =>
-        provider === "claude"
+        provider === "pi"
           ? {
-              type: "user",
-              uuid,
-              sessionId: nativeId,
-              cwd: projectPath,
+              type: "message",
+              id: uuid,
+              parentId: uuid === "user-2" ? "user-1" : null,
               timestamp: "2026-11-01T00:00:01.000Z",
               message: { role: "user", content: text },
             }
-          : {
-              type: "event_msg",
-              timestamp: "2026-11-01T00:00:01.000Z",
-              payload: { type: "user_message", message: text },
-            };
+          : provider === "claude"
+            ? {
+                type: "user",
+                uuid,
+                sessionId: nativeId,
+                cwd: projectPath,
+                timestamp: "2026-11-01T00:00:01.000Z",
+                message: { role: "user", content: text },
+              }
+            : {
+                type: "event_msg",
+                timestamp: "2026-11-01T00:00:01.000Z",
+                payload: { type: "user_message", message: text },
+              };
       await writeFile(
         nativeFile,
         [
@@ -81,11 +94,25 @@ it.each(["claude", "codex"] as const)(
                 },
               ]
             : []),
+          ...(provider === "pi"
+            ? [
+                {
+                  type: "session",
+                  version: 3,
+                  id: nativeId,
+                  cwd: projectPath,
+                  timestamp: "2026-11-01T00:00:00.000Z",
+                },
+              ]
+            : []),
           user("initial native history", "user-1"),
         ]
           .map((entry) => JSON.stringify(entry))
           .join("\n") + "\n",
       );
+      const fixedPiMtime = new Date("2026-11-01T00:00:00Z");
+      if (provider === "pi")
+        await utimes(nativeFile, fixedPiMtime, fixedPiMtime);
       storage = new DiscoverySqliteService({
         dataDir,
         probeNetworkFilesystem: () => undefined,
@@ -169,6 +196,8 @@ it.each(["claude", "codex"] as const)(
         nativeFile,
         JSON.stringify(user("appended native history", "user-2")) + "\n",
       );
+      if (provider === "pi")
+        await utimes(nativeFile, fixedPiMtime, fixedPiMtime);
       const events = await Promise.all(changes);
       expect(watchSpy).toHaveBeenCalledTimes(1);
       for (const event of events) {
@@ -287,7 +316,9 @@ it.each(["claude", "codex"] as const)(
       const nativeLookup = vi.spyOn(
         provider === "claude"
           ? ClaudeSessionReader.prototype
-          : CodexSessionReader.prototype,
+          : provider === "pi"
+            ? PiSessionReader.prototype
+            : CodexSessionReader.prototype,
         "getSessionFilePath",
       );
       const stop = app.focusedSessionWatchManager.subscribe(

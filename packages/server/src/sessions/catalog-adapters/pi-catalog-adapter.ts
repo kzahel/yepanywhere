@@ -1,4 +1,4 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   PI_SESSIONS_DIR,
@@ -79,6 +79,8 @@ export class PiSessionCatalogAdapter implements NativeSessionCatalogAdapter {
       return { sourceVersion: "absent", rows: [], metrics: {} };
     }
 
+    const nativeStorageScope = await realpath(this.sessionsDir);
+    context.signal.throwIfAborted();
     for (const encoded of cwdEntries) {
       context.signal.throwIfAborted();
       const cwdDir = join(this.sessionsDir, encoded);
@@ -117,8 +119,8 @@ export class PiSessionCatalogAdapter implements NativeSessionCatalogAdapter {
         if (!cwd) continue;
         newestMs = Math.max(newestMs, mtimeMs);
 
-        rows.push(
-          buildCatalogRow({
+        rows.push({
+          ...buildCatalogRow({
             catalogFamily: this.catalogFamily,
             storeKey: this.storeKey,
             sessionId,
@@ -129,7 +131,8 @@ export class PiSessionCatalogAdapter implements NativeSessionCatalogAdapter {
             sourceVersion: fileSourceVersion(mtimeMs, size),
             location: { kind: "file", path: filePath },
           }),
-        );
+          nativeStorageScope,
+        });
       }
     }
 

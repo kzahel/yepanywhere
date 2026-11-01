@@ -108,6 +108,7 @@ interface PiSessionInfo {
   cwd: string;
   mtime: number;
   size: number;
+  sourceVersion: string;
 }
 
 interface PiParsedSession {
@@ -124,7 +125,18 @@ interface PiParsedSession {
   model: string | null;
 }
 
+function piSourceVersion(stats: {
+  dev: number;
+  ino: number;
+  mtimeMs: number;
+  ctimeMs: number;
+  size: number;
+}) {
+  return `${stats.dev}:${stats.ino}:${stats.mtimeMs}:${stats.ctimeMs}:${stats.size}`;
+}
+
 export class PiSessionReader implements ISessionReader {
+  private closed = false;
   private sessionsDir: string;
   private projectPath?: string;
   private projectIdentityKey?: string;
@@ -138,8 +150,10 @@ export class PiSessionReader implements ISessionReader {
    * The previous `${filePath}:${mtime}` keying retained every obsolete
    * version of a growing session for the reader's lifetime.
    */
-  private parseCache: Map<string, { mtime: number; parsed: PiParsedSession }> =
-    new Map();
+  private parseCache: Map<
+    string,
+    { sourceVersion: string; parsed: PiParsedSession }
+  > = new Map();
   private static readonly PARSE_CACHE_MAX_FILES = 64;
 
   constructor(options: PiSessionReaderOptions = {}) {
@@ -162,6 +176,7 @@ export class PiSessionReader implements ISessionReader {
   }
 
   private async scanSessions(): Promise<PiSessionInfo[]> {
+    if (this.closed) return [];
     const now = Date.now();
     if (
       now - this.cacheTimestamp < this.CACHE_TTL_MS &&
@@ -182,6 +197,7 @@ export class PiSessionReader implements ISessionReader {
     const targetCwd = this.projectIdentityKey;
 
     for (const encoded of cwdDirs) {
+      if (this.closed) return [];
       const cwdDir = join(this.sessionsDir, encoded);
       let files: string[];
       try {
@@ -191,6 +207,7 @@ export class PiSessionReader implements ISessionReader {
       }
 
       for (const file of files) {
+        if (this.closed) return [];
         if (!file.endsWith(".jsonl")) continue;
         const id = this.sessionIdFromFilename(file);
         if (!id) continue;
@@ -199,6 +216,7 @@ export class PiSessionReader implements ISessionReader {
         // cwd comes from the session header, the authoritative source — the
         // encoded directory name is lossy and not reliably reversible.
         const cwd = await readCwdFromSessionFile(filePath);
+        if (this.closed) return [];
         if (!cwd) continue;
 
         const normalized = canonicalizeProjectPath(cwd);
@@ -208,12 +226,14 @@ export class PiSessionReader implements ISessionReader {
 
         try {
           const st = await stat(filePath);
+          if (this.closed) return [];
           this.sessionCache.set(id, {
             id,
             filePath,
             cwd,
             mtime: st.mtimeMs,
             size: st.size,
+            sourceVersion: piSourceVersion(st),
           });
         } catch {
           // file vanished between readdir and stat — skip
@@ -228,11 +248,13 @@ export class PiSessionReader implements ISessionReader {
   private async findSessionInfo(
     sessionId: string,
   ): Promise<PiSessionInfo | undefined> {
+    if (this.closed) return undefined;
     const forkPath = await getForkedSessionFile(
       "pi",
       sessionId,
       this.sessionsDir,
     );
+    if (this.closed) return undefined;
     if (
       forkPath &&
       this.sessionIdFromFilename(basename(forkPath)) === sessionId
@@ -248,6 +270,7 @@ export class PiSessionReader implements ISessionReader {
             getProjectIdentityKey(header.cwd) === this.projectIdentityKey)
         ) {
           const stats = await stat(forkPath);
+          if (this.closed) return undefined;
           if (stats.isFile()) {
             const info = {
               id: sessionId,
@@ -255,6 +278,7 @@ export class PiSessionReader implements ISessionReader {
               cwd: header.cwd,
               mtime: stats.mtimeMs,
               size: stats.size,
+              sourceVersion: piSourceVersion(stats),
             };
             this.sessionCache.set(sessionId, info);
             return info;
@@ -265,15 +289,33 @@ export class PiSessionReader implements ISessionReader {
         // The provider may have removed or moved the file; use discovery.
       }
     }
-    return (await this.scanSessions()).find((s) => s.id === sessionId);
+    const info = (await this.scanSessions()).find((s) => s.id === sessionId);
+    return info ? this.refreshSessionInfo(info) : undefined;
   }
 
-  /** Parse a session file into its active-leaf→root message path. Cached by mtime. */
+  private async refreshSessionInfo(
+    info: PiSessionInfo,
+  ): Promise<PiSessionInfo | undefined> {
+    if (this.closed) return undefined;
+    const stats = await stat(info.filePath).catch(() => null);
+    if (this.closed || !stats?.isFile()) return undefined;
+    const current = {
+      ...info,
+      mtime: stats.mtimeMs,
+      size: stats.size,
+      sourceVersion: piSourceVersion(stats),
+    };
+    this.sessionCache.set(info.id, current);
+    return current;
+  }
+
+  /** Parse a session file's active path, caching one exact physical version. */
   private async parseSession(
     info: PiSessionInfo,
   ): Promise<PiParsedSession | null> {
+    if (this.closed) return null;
     const cached = this.parseCache.get(info.filePath);
-    if (cached && cached.mtime === info.mtime) {
+    if (cached && cached.sourceVersion === info.sourceVersion) {
       // Refresh LRU recency by delete-and-reinsert (see lruCollections).
       this.parseCache.delete(info.filePath);
       this.parseCache.set(info.filePath, cached);
@@ -287,6 +329,7 @@ export class PiSessionReader implements ISessionReader {
       return null;
     }
 
+    if (this.closed) return null;
     const nodes: PiRawNode[] = [];
     for (const line of raw.split(/\r?\n/)) {
       if (!line.trim()) continue;
@@ -300,6 +343,12 @@ export class PiSessionReader implements ISessionReader {
 
     const header = nodes.find((n) => n.type === "session");
     const cwd = header?.cwd ?? info.cwd;
+    if (typeof cwd !== "string") return null;
+    if (
+      this.projectIdentityKey &&
+      getProjectIdentityKey(cwd) !== this.projectIdentityKey
+    )
+      return null;
     const createdAt = header?.timestamp;
 
     // Active leaf = last appended node; walk parentId to the root, then reverse
@@ -328,7 +377,10 @@ export class PiSessionReader implements ISessionReader {
 
     const parsed: PiParsedSession = { messageNodes, cwd, createdAt, model };
     this.parseCache.delete(info.filePath);
-    this.parseCache.set(info.filePath, { mtime: info.mtime, parsed });
+    this.parseCache.set(info.filePath, {
+      sourceVersion: info.sourceVersion,
+      parsed,
+    });
     while (this.parseCache.size > PiSessionReader.PARSE_CACHE_MAX_FILES) {
       const oldest = this.parseCache.keys().next().value;
       if (oldest === undefined) break;
@@ -538,13 +590,18 @@ export class PiSessionReader implements ISessionReader {
 
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
     const sessions = await this.scanSessions();
+    if (this.closed) return [];
     const out: SessionSummary[] = [];
     for (const info of sessions) {
-      const parsed = await this.parseSession(info);
+      const current = await this.refreshSessionInfo(info);
+      if (this.closed) return [];
+      if (!current) continue;
+      const parsed = await this.parseSession(current);
+      if (this.closed) return [];
       if (!parsed) continue;
-      out.push(this.summaryFrom(info, parsed, projectId));
+      out.push(this.summaryFrom(current, parsed, projectId));
     }
-    return out;
+    return this.closed ? [] : out;
   }
 
   async getSessionSummary(
@@ -552,9 +609,9 @@ export class PiSessionReader implements ISessionReader {
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
     const info = await this.findSessionInfo(sessionId);
-    if (!info) return null;
+    if (this.closed || !info) return null;
     const parsed = await this.parseSession(info);
-    if (!parsed) return null;
+    if (this.closed || !parsed) return null;
     return this.summaryFrom(info, parsed, projectId);
   }
 
@@ -562,13 +619,13 @@ export class PiSessionReader implements ISessionReader {
     sessionId: string,
     projectId: UrlProjectId,
     cachedMtime: number,
-    _cachedSize: number,
+    cachedSize: number,
   ): Promise<{ summary: SessionSummary; mtime: number; size: number } | null> {
     const info = await this.findSessionInfo(sessionId);
-    if (!info) return null;
-    if (info.mtime <= cachedMtime) return null;
+    if (this.closed || !info) return null;
+    if (info.mtime === cachedMtime && info.size === cachedSize) return null;
     const parsed = await this.parseSession(info);
-    if (!parsed) return null;
+    if (this.closed || !parsed) return null;
     return {
       summary: this.summaryFrom(info, parsed, projectId),
       mtime: info.mtime,
@@ -583,9 +640,9 @@ export class PiSessionReader implements ISessionReader {
     _options?: GetSessionOptions,
   ): Promise<LoadedSession | null> {
     const info = await this.findSessionInfo(sessionId);
-    if (!info) return null;
+    if (this.closed || !info) return null;
     const parsed = await this.parseSession(info);
-    if (!parsed) return null;
+    if (this.closed || !parsed) return null;
 
     const messages = this.buildMessages(parsed);
     const filtered = afterMessageId
@@ -624,23 +681,28 @@ export class PiSessionReader implements ISessionReader {
   }
 
   async getSessionFilePath(sessionId: string): Promise<string | null> {
-    return (await this.findSessionInfo(sessionId))?.filePath ?? null;
+    const info = await this.findSessionInfo(sessionId);
+    return this.closed ? null : (info?.filePath ?? null);
   }
 
   async getNativeSessionRef(
     sessionId: import("@yep-anywhere/shared").NativeSessionId,
   ) {
     const file = await this.findSessionInfo(sessionId);
-    return file
-      ? resolveNativeSessionRef("pi", this.sessionsDir, sessionId)
-      : null;
+    if (!file || this.closed) return null;
+    const native = await resolveNativeSessionRef(
+      "pi",
+      this.sessionsDir,
+      sessionId,
+    ).catch(() => null);
+    return this.closed ? null : native;
   }
 
   async getLastAgentExcerpt(sessionId: string): Promise<string | undefined> {
     const info = await this.findSessionInfo(sessionId);
     if (!info) return undefined;
     const parsed = await this.parseSession(info);
-    return parsed
+    return !this.closed && parsed
       ? extractLastAgentExcerpt(this.buildMessages(parsed))
       : undefined;
   }
@@ -650,15 +712,23 @@ export class PiSessionReader implements ISessionReader {
     _options?: { activeAfterMs?: number },
   ): Promise<{ sessionId: string; filePath: string }[]> {
     const sessions = await this.scanSessions();
-    return sessions.map((s) => ({ sessionId: s.id, filePath: s.filePath }));
+    return this.closed
+      ? []
+      : sessions.map((s) => ({ sessionId: s.id, filePath: s.filePath }));
   }
 
   async getSessionProjectPath(sessionId: string): Promise<string | null> {
     const info = await this.findSessionInfo(sessionId);
-    return info ? canonicalizeProjectPath(info.cwd) : null;
+    return !this.closed && info ? canonicalizeProjectPath(info.cwd) : null;
   }
 
-  getIndexScopeKey(sessionDir: string): string {
-    return `pi::${sessionDir}::${this.projectIdentityKey ?? "*"}`;
+  getIndexScopeKey(_sessionDir: string): string {
+    return `pi::${this.sessionsDir}::${this.projectIdentityKey ?? "*"}`;
+  }
+
+  close(): void {
+    this.closed = true;
+    this.sessionCache.clear();
+    this.parseCache.clear();
   }
 }
