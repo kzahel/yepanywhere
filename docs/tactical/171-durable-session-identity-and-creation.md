@@ -41,6 +41,15 @@ Runtime work and the provenance defect remain unimplemented.
   Both Node 26.7 workspace runs hit the existing Rendez restart line-364
   failure; those red runs remain recorded in its gap. A separate reviewed
   type-only helper-fixture cleanup clears three inherited lint warnings.
+- Phase 4 fatal-startup correction is independently accepted by Sol 6.1 High:
+  wrapped missing-binary classification, admission fencing before error callbacks
+  and established dead-owner refusal preserve lazy first input. Four regressions
+  fail against the prior Process and pass after correction; final focused scope
+  is 98 checks across four files in 1.19 s. Actual pinned SDK missing-executable
+  probes pass on Node 26.7 and Bun 1.3.14 without a model call. Lint has zero
+  warnings; format/typecheck and the complete Node 22 workspace pass (6,808
+  server / 7,064 client; server 132.86 s). Durable launch integration remains
+  the next vertical boundary.
 - Phase 2: implemented and independently accepted by Sol 6.1 High after fixing
   stored-identity missing-transcript fallback and Codex read ownership. Migration
   17, scoped forward/reverse adoption and bound Claude/Codex detail/history are

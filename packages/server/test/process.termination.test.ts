@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getLogger } from "../src/logging/logger.js";
-import { Process, createMockIterator } from "./process.test-support.js";
+import {
+  Process,
+  MessageQueue,
+  createMockIterator,
+  createControllableIterator,
+} from "./process.test-support.js";
 import type {
   ProcessEvent,
   SDKMessage,
@@ -76,6 +81,98 @@ describe("Process", () => {
         }),
         expect.stringContaining("underlying process terminated"),
       );
+    });
+
+    it.each([
+      new Error(
+        "Claude Code native binary not found at the previously installed SDK path",
+      ),
+      new Error("Claude Code executable not found at the configured path"),
+      new Error("spawn native ENOENT"),
+      new Error("Provider initialization failed", {
+        cause: new Error("spawn native ENOENT"),
+      }),
+    ])(
+      "rejects startup and reentrant input for a wrapped fatal error: %s",
+      async (error) => {
+        vi.spyOn(getLogger(), "error").mockImplementation(() => undefined);
+        vi.spyOn(getLogger(), "warn").mockImplementation(() => undefined);
+        const queue = new MessageQueue();
+        const iterator: AsyncIterator<SDKMessage> = {
+          next: async () => {
+            throw error;
+          },
+        };
+        const process = new Process(iterator, {
+          projectPath: "/test",
+          projectId: "proj-1" as UrlProjectId,
+          sessionId: "startup-session",
+          provider: "claude",
+          queue,
+        });
+        let reentrant: ReturnType<Process["queueMessage"]> | undefined;
+        process.subscribe((event) => {
+          if (event.type === "error")
+            reentrant = process.queueMessage({
+              text: "must not enter the dead provider",
+            });
+        });
+        try {
+          await expect(process.waitForProviderSessionId()).rejects.toBe(error);
+          await vi.waitFor(() => expect(process.isTerminated).toBe(true));
+          expect(reentrant).toMatchObject({
+            success: false,
+            error: expect.stringContaining("terminated"),
+          });
+          expect(process.queueMessage({ text: "later input" }).success).toBe(
+            false,
+          );
+          expect(queue.depth).toBe(0);
+        } finally {
+          await process.abort();
+        }
+      },
+    );
+
+    it("admits lazy first input but rejects input once an established owner is dead", async () => {
+      vi.spyOn(getLogger(), "warn").mockImplementation(() => undefined);
+      const controlled = createControllableIterator();
+      const queue = new MessageQueue();
+      const process = new Process(controlled.iterator, {
+        projectPath: "/test",
+        projectId: "proj-1" as UrlProjectId,
+        sessionId: "dead-owner",
+        provider: "claude",
+        queue,
+        isProcessAlive: () => false,
+        abortFn: () => controlled.finish(),
+      });
+      try {
+        expect(
+          process.queueMessage({ text: "first input starts the lazy provider" })
+            .success,
+        ).toBe(true);
+        const queuedBefore = queue.depth;
+        controlled.push({
+          type: "system",
+          subtype: "init",
+          session_id: "dead-owner",
+        });
+        await process.waitForProviderSessionId();
+        expect(
+          process.queueMessage({ text: "must stay recoverable" }),
+        ).toMatchObject({
+          success: false,
+          error: expect.stringContaining("no longer alive"),
+        });
+        expect(
+          process.deferMessage({ text: "cannot defer into the dead owner" })
+            .success,
+        ).toBe(false);
+        expect(queue.depth).toBe(queuedBefore);
+      } finally {
+        await process.abort();
+      }
     });
 
     it("rejects provider session id waiters on explicit termination", async () => {

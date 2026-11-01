@@ -3794,6 +3794,11 @@ export class Process {
     if (this._state.type === "terminated") {
       return `Process terminated: ${this._state.reason}`;
     }
+    // Message-driven providers may report false before their first input
+    // creates the child. Require an established owner before using that signal.
+    if (this.sessionIdResolved && this.isProcessAlive === false) {
+      return "Process terminated: provider process is no longer alive";
+    }
     if (this.transportFailed) {
       // Terminated in all but state while its failure notice publishes; say
       // so, since clients resume a session whose process is terminated.
@@ -5439,13 +5444,14 @@ export class Process {
         `Process error: ${this._sessionId} - ${err.message}`,
       );
 
+      // Listeners run synchronously and may submit input from the error event.
+      // Close admission before publishing it or awaiting the failure notice.
+      const providerTerminated = this.isProcessTerminationError(err);
+      if (providerTerminated) this.transportFailed = true;
       this.clearRetryingProviderRuntimeStatus();
       this.emit({ type: "error", error: err });
 
-      // Detect process termination errors - set flag synchronously BEFORE markTerminated
-      // to prevent race where queueMessage is called before state changes to terminated
-      if (this.isProcessTerminationError(err)) {
-        this.transportFailed = true;
+      if (providerTerminated) {
         const turnWasRunning =
           this._state.type === "in-turn" ||
           this._state.type === "waiting-input";
@@ -5481,17 +5487,26 @@ export class Process {
    * Check if an error indicates the underlying Claude process was terminated.
    */
   private isProcessTerminationError(error: Error): boolean {
-    const message = error.message || "";
-    return (
-      message.includes("ProcessTransport is not ready") ||
-      message.includes("not ready for writing") ||
-      message.includes("process exited") ||
-      message.includes("SIGTERM") ||
-      message.includes("SIGKILL") ||
-      // SDK wraps spawn errors as "Failed to spawn Claude Code process: spawn <cmd> ENOENT"
-      // where <cmd> varies (e.g., "node", "claude"), so check for ENOENT broadly
-      message.includes("ENOENT")
-    );
+    // SDK initialization may wrap a missing executable without preserving
+    // ENOENT in its outer message. Bound cause traversal also handles cycles.
+    let cause: unknown = error;
+    for (let depth = 0; depth < 4 && cause instanceof Error; depth++) {
+      const message = cause.message || "";
+      if (
+        message.includes("ProcessTransport is not ready") ||
+        message.includes("not ready for writing") ||
+        message.includes("process exited") ||
+        message.includes("SIGTERM") ||
+        message.includes("SIGKILL") ||
+        message.includes("Claude Code native binary not found") ||
+        message.includes("Claude Code executable not found") ||
+        // SDK wraps spawn errors; the executable spelling varies.
+        message.includes("ENOENT")
+      )
+        return true;
+      cause = cause.cause;
+    }
+    return false;
   }
 
   /**

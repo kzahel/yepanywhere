@@ -663,8 +663,12 @@ The durable-creation storage foundation is independently accepted: migration
 18 commits exact text, required creator/source, identity, saved settings,
 operation and first attempt atomically; metadata mirrors publish after commit.
 Request/retry replay, generation fences, uncertainty and deletion tombstones
-pass real SQLite/reopen checks on Node 22 and pinned Bun. Runtime creation and
-public capabilities are unchanged; equal-id Claude integration is next.
+pass real SQLite/reopen checks on Node 22 and pinned Bun. Wrapped fatal-startup errors now close input admission before synchronous
+error callbacks, and established dead owners reject new input while lazy first
+input remains valid. Independent review, actual pinned SDK Node/Bun missing-
+executable probes and full Node 22 checks pass. Durable runtime creation and
+public capabilities are unchanged; saved-record reads and equal-id Claude
+integration are next.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

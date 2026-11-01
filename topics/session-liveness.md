@@ -291,3 +291,20 @@ methods; no caller directly arms or clears the timer.
 - Pending or failed idle teardown keeps the same registered process, rejects
   direct/deferred input and replacement, and emits no ownership release. A
   later verified abort retry emits exactly one completion and `owner: "none"`.
+
+## Fatal startup and input admission
+
+Known provider transport/spawn failures, including the Claude SDK's wrapped
+missing-native-binary and missing-executable errors, terminate the Process even
+when no browser has subscribed. Fatal input admission closes before publishing
+the error or awaiting the failure notice: synchronous error listeners cannot
+queue another prompt into that failed owner. Bounded nested error causes count
+as the same transport evidence.
+
+An established provider owner that reports its process dead refuses immediate
+and deferred input, even before its iterator delivers the terminal error.
+Pre-initialization liveness is weaker: message-driven providers may not spawn
+until the first prompt, so an early false signal alone must not reject that
+first input. Reload-detached or unverified ownership retains its existing
+admission refusal. This runtime correction does not itself make creation
+acceptance durable; the creation operation/attempt integration owns that work.
