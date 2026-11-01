@@ -100,8 +100,15 @@ it("serves a durable generation through collection routes while one shared refre
       return [adapter];
     },
   });
+  // Optional PID/title projection does not initialize discovery or read an
+  // unpublished owner, even when an older durable generation exists.
+  expect((await collections.readPublishedRows()).rows).toEqual([]);
+  expect(collections.getVersion()).toBeUndefined();
+  expect(starts).toBe(0);
   const refresh = collections.refresh();
   await started;
+  expect((await collections.readPublishedRows()).rows).toEqual([row]);
+  expect(starts).toBe(1);
   const deps = {
     retainedCollections: collections,
     eventBus: bus,
@@ -755,6 +762,21 @@ it("rebuilds at once after an ordinary read finds its shard unreadable", async (
   const [generation] = await readdir(generations);
   const [shard] = await readdir(join(generations, generation!));
   await writeFile(join(generations, generation!, shard!), "{ torn", "utf-8");
+  const version = collections.getVersion();
+  // Optional process enrichment cannot turn catalogue corruption into native
+  // discovery. Advance the actual 300ms scheduling boundary without wall time.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    await expect(collections.readPublishedRows()).rejects.toThrow(
+      "Invalid session catalog row",
+    );
+    await vi.advanceTimersByTimeAsync(301);
+    expect(adapters).not.toHaveBeenCalled();
+    expect(collections.getVersion()).toBe(version);
+  } finally {
+    vi.useRealTimers();
+  }
+  // A normal consumer still owns lineage reset and native reconstruction.
   expect((await collections.read()).rows).toEqual([]);
 
   await vi.waitFor(() => expect(adapters).toHaveBeenCalled(), {

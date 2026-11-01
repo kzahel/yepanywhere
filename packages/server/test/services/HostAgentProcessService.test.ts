@@ -1,3 +1,5 @@
+import { parseNativeSessionId, parseYaSessionId } from "@yep-anywhere/shared";
+import type { NativeProcessSession } from "../../src/services/providerProcessClassifier.js";
 import type { ProcessInfo } from "../../src/supervisor/types.js";
 import {
   HostAgentProcessService,
@@ -211,13 +213,25 @@ describe("HostAgentProcessService session correlation", () => {
     });
     const readNativeSession = vi.fn(async (_provider: string, pid: number) =>
       pid === 200
-        ? { sessionId: "external-session", projectPath: "/work/project" }
+        ? {
+            nativeSessionId: parseNativeSessionId("external-session"),
+            projectPath: "/work/project",
+          }
         : undefined,
     );
-    const describeSession = vi.fn(async () => ({
-      projectId: "cHJvamVjdA" as ProcessInfo["projectId"],
-      sessionTitle: "Port rendez",
-    }));
+    const describeSession = vi.fn(
+      async (sessions: readonly NativeProcessSession[]) =>
+        new Map(
+          sessions.map((session) => [
+            session,
+            {
+              sessionId: parseYaSessionId("external-session"),
+              projectId: "cHJvamVjdA" as ProcessInfo["projectId"],
+              sessionTitle: "Port rendez",
+            },
+          ]),
+        ),
+    );
     const service = new HostAgentProcessService(
       async () => [snapshot(100, "codex"), snapshot(200, "claude")],
       "linux",
@@ -245,8 +259,13 @@ describe("HostAgentProcessService session correlation", () => {
     // and the title lookup is not repeated on a metrics refresh.
     expect(readNativeSession).toHaveBeenCalledOnce();
     expect(describeSession).toHaveBeenCalledWith(
-      "external-session",
-      "/work/project",
+      [
+        expect.objectContaining({
+          nativeSessionId: "external-session",
+          projectPath: "/work/project",
+        }),
+      ],
+      expect.any(AbortSignal),
     );
     expect(describeSession).toHaveBeenCalledOnce();
   });

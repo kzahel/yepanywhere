@@ -2,7 +2,7 @@ import type { HostAgentProcessesResponse } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import {
   HostAgentProcessService,
-  type SessionDescriber,
+  type NativeSessionDescriber,
 } from "../services/HostAgentProcessService.js";
 import { readNativeProcessSession } from "../services/providerProcessClassifier.js";
 import type { ServerSettingsService } from "../services/ServerSettingsService.js";
@@ -15,7 +15,7 @@ export interface HostAgentProcessesRoutesDeps {
   serverSettingsService: ServerSettingsService;
   service?: HostAgentProcessService;
   /** Titles and links for external processes correlated to a YA session. */
-  describeSession?: SessionDescriber;
+  describeNativeSessions?: NativeSessionDescriber;
 }
 
 export function createHostAgentProcessesRoutes(
@@ -30,7 +30,7 @@ export function createHostAgentProcessesRoutes(
       undefined,
       undefined,
       readNativeProcessSession,
-      deps.describeSession,
+      deps.describeNativeSessions,
     );
   deps.serverSettingsService.onSettingsChanged((settings, previousSettings) => {
     if (

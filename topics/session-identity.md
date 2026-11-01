@@ -151,6 +151,14 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   helpers to infer it again. App read-lifetime cancellation, including the
   production fork-source callback, fences asynchronous native proof before
   further identity queries.
+- External host PID observations retain their documented provider-native
+  `sessionId`. A unique scoped catalogue match resolves public title metadata
+  and original/working project facts. The legacy project/session backlink is
+  omitted when the YA id differs, rather than relabeling the native wire field.
+  Matching is shared per uncached batch in the existing correlation TTL and
+  never chooses a source from cwd. Missing/ambiguous native namespace evidence
+  remains unlinked. App retirement cancels pending catalogue joins before SQL
+  teardown; see [process observability](agents-process-observability.md#native-pid-correlation-and-permanent-ya-ids).
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

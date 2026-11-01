@@ -96,41 +96,6 @@ async function sessionDisplayTitle(
 }
 
 /**
- * Describe a session found in a known project's catalog. Returns undefined
- * when the project is unknown or its catalog lacks the session, so a caller
- * holding an exact native id never links to a session YA cannot open.
- */
-export async function describeCatalogSession(
-  deps: SessionTitleDeps & Pick<ProcessesDeps, "scanner" | "readerFactory">,
-  projectId: UrlProjectId,
-  sessionId: string,
-): Promise<{ projectId: UrlProjectId; sessionTitle?: string } | undefined> {
-  const project = await deps.scanner.getProject(projectId);
-  if (!project) return undefined;
-  const reader = deps.readerFactory(project);
-  const summary =
-    (deps.sessionIndexService
-      ? await deps.sessionIndexService.getSessionSummaryWithCache(
-          project.sessionDir,
-          projectId,
-          sessionId,
-          reader,
-        )
-      : null) ?? (await reader.getSessionSummary(sessionId, projectId));
-  if (!summary) return undefined;
-  const sessionTitle = await sessionDisplayTitle(
-    deps,
-    project.sessionDir,
-    projectId,
-    sessionId,
-    sessionId,
-    reader,
-    summary.title,
-  );
-  return { projectId, ...(sessionTitle ? { sessionTitle } : {}) };
-}
-
-/**
  * Enrich process info with session title, model, and context usage.
  * Uses cache when available. Checks custom title from metadata service first.
  */

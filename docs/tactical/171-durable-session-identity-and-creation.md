@@ -147,6 +147,24 @@ Runtime work and the provenance defect remain unimplemented.
   Both outcomes are retained; this slice does not resolve that instability.
   Host PID correlation and other retained-provider qualification remain next;
   launch behavior and capability advertisement are unchanged.
+- Phase 3 host PID correlation is independently accepted. Native PID/start
+  evidence and the configured canonical namespace select a unique retained
+  catalogue source; public metadata supplies title/working-project facts.
+  The released native-id wire field stays native, and its legacy project link
+  is omitted for unequal YA/native ids. Uncached PID records share one existing
+  TTL batch. Optional reads neither initialize discovery nor recover corrupt
+  shards; normal collection reads retain rebuild ownership. A review finding
+  exposed the indirect corruption callback, now covered by the existing real
+  over-budget catalogue fixture without a wall-clock delay. Retirement fences
+  pending catalogue work before SQL teardown. Focused checks: 34 passed across
+  six files in 6.13 s. Owned actual-OS/PID/HTTP/restart probes pass on Node
+  26.7.0 and pinned Bun 1.3.14; the inert process fixture does not qualify
+  provider/model startup. Frozen final lint, format, typecheck and full tests
+  pass (6,753 server / 7,064 client). An intermediate run that overlapped the
+  final regression/source correction is retained separately and is not final
+  qualification. Other native-family/control and old-client focused-watch
+  browser qualification remain phase-3 enabling work; no launch/capability
+  behavior changes here.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

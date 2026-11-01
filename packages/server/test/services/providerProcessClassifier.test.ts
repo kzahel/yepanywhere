@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -74,6 +74,7 @@ describe("Claude Code's bundled tools and pid records", () => {
     vi.stubEnv("CLAUDE_CONFIG_DIR", configDir);
     try {
       await mkdir(join(configDir, "sessions"));
+      await mkdir(join(configDir, "projects"));
       const startedAt = Date.parse("2026-07-28T11:00:00.400Z");
       await writeFile(
         join(configDir, "sessions", "4321.json"),
@@ -92,8 +93,9 @@ describe("Claude Code's bundled tools and pid records", () => {
           Date.parse("2026-07-28T11:00:00.000Z"),
         ),
       ).resolves.toEqual({
-        sessionId: "6ff01135-8ed7-4168",
+        nativeSessionId: "6ff01135-8ed7-4168",
         projectPath: "/work/p",
+        projectsRoot: await realpath(join(configDir, "projects")),
       });
       // A reused pid started later is not the recorded process.
       await expect(

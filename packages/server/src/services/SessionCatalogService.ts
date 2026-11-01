@@ -534,7 +534,7 @@ export class SessionCatalogService {
     };
   }
 
-  async readRows(): Promise<{
+  async readRows(options?: { recoverUnreadable?: boolean }): Promise<{
     snapshot: SessionCatalogSnapshot;
     rows: ReadonlyArray<Readonly<SessionCatalogRow>>;
   }> {
@@ -570,6 +570,7 @@ export class SessionCatalogService {
       } catch (error) {
         // A shard that vanished under a superseded manifest is a retarget;
         // under the current manifest it is corruption, and ends the lineage.
+        if (options?.recoverUnreadable === false) throw error;
         if (await this.resetUnreadableGeneration(manifest, error)) continue;
         throw error;
       }

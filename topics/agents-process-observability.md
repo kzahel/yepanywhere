@@ -224,11 +224,11 @@ Claude Code provides the first exact record: it writes
 time of each live process. The native classifier reads it for an external
 Claude root and accepts it only when its pid matches and its start time is
 within two seconds of the observed process's, so a reused PID never inherits a
-dead process's session. The record's cwd stays on the server. It locates the
-project, and the observation gains `projectId` and `sessionTitle` only when
-YA's catalog for that known project holds the session, so the client learns
-nothing about directories it does not already list. A recorded session YA does
-not know shows as `Claude session <id prefix>` without a link; other providers
+dead process's session. The record's cwd stays on the server and does not
+select a transcript project. Scoped catalogue evidence supplies the public
+title and, only when the public and native ids agree, a legacy project link
+as described below. A recorded session YA does not know shows as
+`Claude session <id prefix>` without a link; other providers
 stay uncorrelated until they offer an exact record. Correlation and the title
 lookup are reused per process identity for a minute, so metric refreshes do not
 repeat session enrichment.
@@ -277,7 +277,7 @@ interface HostAgentProcessObservation {
   supervision: "ya" | "external";
   supervisorProcessId?: string; // exact YA join only
   sessionId?: string; // external: from the provider's pid record only
-  projectId?: UrlProjectId; // only when YA's catalog holds that session
+  projectId?: UrlProjectId; // verified legacy backlink: YA id equals native id
   sessionTitle?: string; // its YA display title, beyond "Untitled"
   startedAt: string;
   sampledAt: string;
@@ -315,6 +315,36 @@ The implementation audit covered stable releases `v0.7.0` (2026-07-25) and
 Without the new capability, the client hides host metrics and External
 entirely, retains current Agents, and makes no host-process request. Existing
 capability meanings and older capable behavior remain unchanged.
+
+### Native PID correlation and permanent YA ids
+
+An external observation's `sessionId` remains the provider-native id from its
+PID record. It is not changed to a YA id when those ids differ. The optional
+YA title comes from the scoped reverse binding's public metadata. A native
+spelling that is another public metadata key supplies no title to this join.
+The optional `projectId` forms a legacy URL with `sessionId`, so it is emitted
+only when the verified YA id equals that native id. With unequal ids, the row
+keeps its native diagnostic id and optional title without that unsafe backlink.
+No new capability or wire field is needed for these optional omissions.
+
+PID/start-time evidence establishes the native id. Catalogue evidence must
+then establish one matching source within the PID reader's configured,
+canonical native projects namespace. Current cwd cannot select a birth project
+or distinguish duplicate native ids in that namespace. Missing namespace,
+missing scoped catalogue evidence or duplicate matches leave the process
+unlinked. Other providers and unconfigured private namespaces keep their
+existing raw/unavailable correlation behavior; YA does not search unrelated
+configuration homes or infer a source from timing or cwd.
+
+Eligible uncached process records share one retained catalogue read and bounded
+operation-scoped matching pass, within the existing per-PID/start-time
+correlation TTL. Sampling opens no native transcript store and starts no new
+scanner or recurring timer. This optional read neither initializes native
+discovery nor schedules a refresh; normal collection observation owns that
+work. A catalogue not yet published can leave optional
+facts absent until a later correlation refresh. Disabling observation or
+closing the app cancels pending native/catalogue work before identity storage
+teardown; delayed completion cannot adopt or query a retired identity owner.
 
 ## Sampling And Resource Lifetime
 

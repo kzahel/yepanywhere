@@ -4,6 +4,8 @@ import type {
   HostAgentProcessObservation,
   HostAgentProcessesResponse,
   ProviderName,
+  YaSessionId,
+  UrlProjectId,
 } from "@yep-anywhere/shared";
 import type { ProcessInfo } from "../supervisor/types.js";
 import {
@@ -24,15 +26,19 @@ type NativeSessionReader = (
   pid: number,
   startedAtMs: number,
 ) => Promise<NativeProcessSession | undefined>;
-/**
- * Describe a session YA's catalog knows, from its exact native id and the
- * provider-recorded project path; undefined when YA does not know it.
- */
-export type SessionDescriber = (
-  sessionId: string,
-  projectPath: string,
+/** One operation-scoped native/catalogue join for uncached process records. */
+export type NativeSessionDescriber = (
+  sessions: readonly NativeProcessSession[],
+  signal: AbortSignal,
 ) => Promise<
-  Pick<SessionCorrelation, "projectId" | "sessionTitle"> | undefined
+  ReadonlyMap<
+    NativeProcessSession,
+    {
+      sessionId: YaSessionId;
+      projectId: UrlProjectId;
+      sessionTitle?: string;
+    }
+  >
 >;
 const PS_MAX_BUFFER_BYTES = 32 * 1024 * 1024;
 
@@ -282,6 +288,8 @@ export class HostAgentProcessService {
   >();
   private cachedResponse: CachedResponse | null = null;
   private generation = 0;
+  private controller = new AbortController();
+  private closed = false;
   private readonly inFlightByKey = new Map<string, InFlightSample>();
 
   constructor(
@@ -290,7 +298,7 @@ export class HostAgentProcessService {
     private readonly now: () => number = Date.now,
     private readonly readCpuTimes: HostCpuTimeReader = readLinuxCpuTimes,
     private readonly readNativeSession: NativeSessionReader = readNativeProcessSession,
-    private readonly describeSession?: SessionDescriber,
+    private readonly describeNativeSessions?: NativeSessionDescriber,
   ) {}
 
   isSupported(): boolean {
@@ -298,6 +306,8 @@ export class HostAgentProcessService {
   }
 
   clear(): void {
+    this.controller.abort();
+    this.controller = new AbortController();
     this.generation += 1;
     this.previousCpuByIdentity.clear();
     this.sessionByIdentity.clear();
@@ -305,9 +315,21 @@ export class HostAgentProcessService {
     this.inFlightByKey.clear();
   }
 
+  close(): void {
+    this.clear();
+    this.closed = true;
+    this.controller.abort();
+  }
+
   async sample(
     supervisorProcesses: readonly ProcessInfo[],
   ): Promise<HostAgentProcessesResponse> {
+    if (this.closed)
+      return {
+        enabled: false,
+        supported: this.isSupported(),
+        observations: [],
+      };
     if (!this.isSupported()) {
       this.clear();
       return { enabled: true, supported: false, observations: [] };
@@ -561,43 +583,82 @@ export class HostAgentProcessService {
     generation: number,
     sampledAtMs: number,
   ): Promise<void> {
+    if (generation !== this.generation || this.closed) return;
+    const signal = this.controller.signal;
     const current = new Set<string>();
+    const uncached: HostAgentProcessObservation[] = [];
+    for (const observation of observations) {
+      if (observation.supervision !== "external") continue;
+      current.add(observation.observationId);
+      const cached = this.sessionByIdentity.get(observation.observationId);
+      if (!cached || sampledAtMs - cached.at >= SESSION_CORRELATION_TTL_MS)
+        uncached.push(observation);
+    }
+    // One native/catalogue batch, shared through the incumbent per-process TTL
+    // slots. A metric refresh never walks the catalogue once per PID.
+    const batch = this.correlateBatch(uncached, signal);
+    for (const observation of uncached) {
+      this.sessionByIdentity.set(observation.observationId, {
+        at: sampledAtMs,
+        result: batch.then((results) => results.get(observation) ?? {}),
+      });
+    }
     await Promise.all(
       observations.map(async (observation) => {
         if (observation.supervision !== "external") return;
-        current.add(observation.observationId);
-        let cached = this.sessionByIdentity.get(observation.observationId);
-        if (!cached || sampledAtMs - cached.at >= SESSION_CORRELATION_TTL_MS) {
-          cached = { at: sampledAtMs, result: this.correlate(observation) };
-          this.sessionByIdentity.set(observation.observationId, cached);
-        }
-        Object.assign(observation, await cached.result);
+        const result = await this.sessionByIdentity.get(
+          observation.observationId,
+        )?.result;
+        if (!signal.aborted) Object.assign(observation, result);
       }),
     );
-    if (generation !== this.generation) return;
+    if (signal.aborted) return;
     for (const identity of this.sessionByIdentity.keys()) {
       if (!current.has(identity)) this.sessionByIdentity.delete(identity);
     }
   }
 
-  private async correlate(
-    observation: HostAgentProcessObservation,
-  ): Promise<SessionCorrelation> {
-    const native = await this.readNativeSession(
-      observation.provider,
-      observation.pid,
-      Date.parse(observation.startedAt),
+  private async correlateBatch(
+    observations: readonly HostAgentProcessObservation[],
+    signal: AbortSignal,
+  ): Promise<ReadonlyMap<HostAgentProcessObservation, SessionCorrelation>> {
+    const results = new Map<HostAgentProcessObservation, SessionCorrelation>();
+    if (observations.length === 0 || signal.aborted) return results;
+    const records = await Promise.all(
+      observations.map(async (observation) => ({
+        observation,
+        native: await this.readNativeSession(
+          observation.provider,
+          observation.pid,
+          Date.parse(observation.startedAt),
+        ).catch(() => undefined),
+      })),
     );
-    if (!native) return {};
-    try {
-      const described = await this.describeSession?.(
-        native.sessionId,
-        native.projectPath,
-      );
-      return { sessionId: native.sessionId, ...described };
-    } catch {
-      // A failed title lookup still leaves the exact session id.
-      return { sessionId: native.sessionId };
+    if (signal.aborted) return results;
+    const nativeRecords = records.flatMap(({ native }) =>
+      native ? [native] : [],
+    );
+    const described = await this.describeNativeSessions?.(
+      nativeRecords,
+      signal,
+    ).catch(() => undefined);
+    if (signal.aborted) return results;
+    for (const { observation, native } of records) {
+      if (!native) continue;
+      const publicSession = described?.get(native);
+      results.set(observation, {
+        // This released wire field explicitly means provider-native id.
+        sessionId: native.nativeSessionId,
+        ...(publicSession?.sessionTitle
+          ? { sessionTitle: publicSession.sessionTitle }
+          : {}),
+        // Old clients combine projectId + native sessionId to navigate. Do not
+        // publish that pair when the public resource has a different id.
+        ...(publicSession?.sessionId.toString() === native.nativeSessionId
+          ? { projectId: publicSession.projectId }
+          : {}),
+      });
     }
+    return results;
   }
 }

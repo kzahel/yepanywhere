@@ -280,11 +280,10 @@ import { health } from "./routes/health.js";
 import { createInboxRoutes } from "./routes/inbox.js";
 import { createNetworkBindingRoutes } from "./routes/network-binding.js";
 import { createOnboardingRoutes } from "./routes/onboarding.js";
+import { HostAgentProcessService } from "./services/HostAgentProcessService.js";
+import { describeNativeProcessSessions } from "./services/host-process-catalog.js";
 import { createHostAgentProcessesRoutes } from "./routes/host-agent-processes.js";
-import {
-  createProcessesRoutes,
-  describeCatalogSession,
-} from "./routes/processes.js";
+import { createProcessesRoutes } from "./routes/processes.js";
 import {
   createGlobalProjectQueueRoutes,
   createProjectQueueRoutes,
@@ -1547,6 +1546,7 @@ export function createApp(options: AppOptions): AppResult {
   });
   let conversationSubscriptions: ConversationSubscriptions | undefined;
   let retainedCollections: RetainedSessionCollections | undefined;
+  let hostAgentProcessService: HostAgentProcessService | undefined;
   let issueIndexer: IssueIndexer | undefined;
   let issueConfirmer: IssueConfirmer | undefined;
   let issueContent: IssueContentRefresher | undefined;
@@ -1607,6 +1607,7 @@ export function createApp(options: AppOptions): AppResult {
     // Cache the promise before asynchronous cleanup can close shared services.
     sessionReadersDisposal ??= (async () => {
       sessionReadLifetime.abort();
+      hostAgentProcessService?.close();
       externalTracker?.dispose();
       await options.peerAccess?.close();
       apiCommands?.close();
@@ -3150,23 +3151,26 @@ export function createApp(options: AppOptions): AppResult {
     }),
   );
   if (options.serverSettingsService) {
+    hostAgentProcessService = new HostAgentProcessService(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      describeNativeProcessSessions({
+        metadata: options.sessionMetadataService,
+        readRows: () =>
+          retainedCollections?.readPublishedRows() ??
+          Promise.resolve({ rows: [] }),
+      }),
+    );
     app.route(
       "/api/host-agent-processes",
       createHostAgentProcessesRoutes({
         supervisor,
         serverSettingsService: options.serverSettingsService,
         enabled: options.externalSessionsEnabled !== false,
-        describeSession: (sessionId, projectPath) =>
-          describeCatalogSession(
-            {
-              scanner,
-              readerFactory,
-              sessionIndexService: options.sessionIndexService,
-              sessionMetadataService: options.sessionMetadataService,
-            },
-            toUrlProjectId(projectPath),
-            sessionId,
-          ),
+        service: hostAgentProcessService,
       }),
     );
   }

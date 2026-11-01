@@ -9,10 +9,14 @@
  * command text; the caller reduces argv to a `ProviderName` while parsing its
  * one snapshot and keeps only that.
  */
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ProviderName } from "@yep-anywhere/shared";
+import {
+  parseNativeSessionId,
+  type NativeSessionId,
+  type ProviderName,
+} from "@yep-anywhere/shared";
 
 const BUNDLED_TOOL_NAMES = new Set(["ugrep", "rg", "ripgrep"]);
 // ps reports start times to the second; Claude records milliseconds.
@@ -21,7 +25,9 @@ const NATIVE_SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/;
 
 /** A provider's own exact record of which session a process runs. */
 export interface NativeProcessSession {
-  sessionId: string;
+  nativeSessionId: NativeSessionId;
+  /** Server-only: actual configured native project-store namespace. */
+  projectsRoot?: string;
   /** Server-only: the provider's project directory, never sent to clients. */
   projectPath: string;
 }
@@ -59,7 +65,14 @@ export async function readNativeProcessSession(
   ) {
     return undefined;
   }
-  return { sessionId, projectPath: cwd };
+  const projectsRoot = await realpath(join(configDir, "projects")).catch(
+    () => undefined,
+  );
+  return {
+    nativeSessionId: parseNativeSessionId(sessionId),
+    projectPath: cwd,
+    ...(projectsRoot ? { projectsRoot } : {}),
+  };
 }
 
 function basename(value: string): string {

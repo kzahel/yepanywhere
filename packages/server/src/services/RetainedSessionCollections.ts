@@ -94,6 +94,14 @@ export class RetainedSessionCollections {
     return `${token.catalogEpoch}:${token.catalogGeneration}`;
   }
 
+  /** Optional projections cannot initialize discovery or schedule a refresh. */
+  async readPublishedRows() {
+    this.controller.signal.throwIfAborted();
+    return this.initialized
+      ? this.catalog.readRows({ recoverUnreadable: false })
+      : { rows: [] };
+  }
+
   async read() {
     await this.initialize();
     this.controller.signal.throwIfAborted();
