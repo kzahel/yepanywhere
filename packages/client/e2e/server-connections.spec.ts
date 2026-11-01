@@ -134,6 +134,12 @@ test("server connections keeps drafts responsive during populated-list updates a
   await page.setViewportSize({ width: 1000, height: 600 });
   await page.goto(`${baseURL}/settings/server-connections`);
   await expect(page.getByText("studio-mac", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Let agent sessions use connected servers",
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Connect a server", exact: true })
     .click();

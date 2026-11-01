@@ -366,6 +366,10 @@ const stateSchema = legacyStateBase
       });
   });
 export type PeerAccessState = z.infer<typeof stateSchema>;
+/** Revoke issued leases while preserving the configured agent-access option. */
+export function retirePeerAgentAccess(state: PeerAccessState) {
+  if (state.agentAccess.enabled) state.agentAccess.grantId = randomUUID();
+}
 export function outgoingPeerPolicy(peer: StoredOutgoingPeer) {
   const { authentication: _authentication, ...policy } = peer;
   const { authentication: _mode, ...invitation } = policy.invitation;
@@ -558,7 +562,7 @@ export class PeerAccessStore {
           fleet: { epoch: 0, enrollment: null, outbox: [] },
           serverId: this.serverId,
           decoySecret: randomBytes(32).toString("base64url"),
-          agentAccess: { enabled: false, grantId: null },
+          agentAccess: { enabled: true, grantId: randomUUID() },
           incoming: [],
           outgoing: [],
           relay: null,

@@ -234,22 +234,6 @@ export function ServerConnectionsSettings() {
             }
           />
         </SettingsItem>
-        {data.enabled && (
-          <SettingsItem
-            label={t("connectionsAgentAccess")}
-            description={t("connectionsAgentHint")}
-            as="label"
-          >
-            <input
-              type="checkbox"
-              checked={data.agentAccess.enabled}
-              disabled={busy}
-              onChange={(e) =>
-                void act(() => peerConnectionsApi.agentAccess(e.target.checked))
-              }
-            />
-          </SettingsItem>
-        )}
       </SettingsSection>
       {!supportsRefresh && (
         <p className={styles.feedback}>{t("connectionsRefreshUpdate")}</p>

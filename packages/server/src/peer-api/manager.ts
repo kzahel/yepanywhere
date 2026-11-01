@@ -27,6 +27,7 @@ import {
   type StoredOutgoingPeer,
   outgoingPeerPolicy,
   uiPairingOperation,
+  retirePeerAgentAccess,
 } from "./state.js";
 import { PeerDirectory } from "./directory.js";
 import { PeerApiRouter } from "./router.js";
@@ -160,7 +161,7 @@ export class PeerAccessManager {
     await this.store.mutate((next) => {
       admit?.();
       next.enabled = enabled;
-      if (!enabled) next.agentAccess = { enabled: false, grantId: null };
+      if (!enabled) retirePeerAgentAccess(next);
       recordPeerAudit(next, enabled ? "enabled" : "disabled", null);
     });
     await Promise.allSettled(this.pendingRetirements);
@@ -201,7 +202,9 @@ export class PeerAccessManager {
       ? this.store.read().agentAccess.grantId
       : null;
     if (!this.isEnabled() && this.store.read().agentAccess.enabled)
-      await this.store.setAgentAccess(false);
+      await this.store.mutate((next) => {
+        retirePeerAgentAccess(next);
+      });
     if (this.isEnabled()) await this.ensureRuntime();
     this.apply(this.store.read() as PeerAccessState);
     return { retiredGrantId };

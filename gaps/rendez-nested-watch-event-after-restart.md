@@ -69,3 +69,13 @@ touch RendezWatchService, RendezObserver or this watcher fixture. No watcher
 source, assertion, timeout or retries changed. Evidence is retained in ignored
 `tasks/server-connections/tests-commit.log`; the earlier green run is
 `all-tests-final.log`. The latest run remains red, not replaced by a retry.
+
+2026-11-01: the peer-agent default/hidden-control workspace run on macOS /
+Node 22.23.3 again missed the second nested-file delivery at line 364 (1
+observed, 2 expected). 6,709 other server tests and all 7,064 client tests
+passed; 74 server cases remain skipped. The 31 focused peer/core cases pass.
+This change touches no watcher source, fixture, assertion or timeout. Evidence:
+ignored `tasks/peer-agent-defaults/full-test.log` (132.38 s server run). The full
+run remains red; no watcher retry replaces it. Diagnosis stays in this gap
+because the restart/event-registration race is independent of the agent-access
+default and removal of its Settings control.

@@ -4848,7 +4848,7 @@
   "localAccessAgentApiManagementTitle": "Agent session commands",
   "localAccessAgentApiManagementDescription": "Allow native session commands through HTTP v0. New eligible launches with API discovery enabled receive a separate management grant; existing read-only launches stay read-only. Switching off revokes current agent API access. No remote host access is granted.",
   "settingsServerConnectionsTitle": "Server Connections",
-  "settingsServerConnectionsDescription": "Connect your YA servers so agents can discover them and use their APIs.",
+  "settingsServerConnectionsDescription": "Connect your YA servers so agents can discover them and use their APIs. Agent API access is configured in Local Access.",
   "serverConnectionsUnsupported": "Update this server to use Server Connections.",
   "connectionsThisServer": "This server",
   "connectionsEnabled": "Server connections",

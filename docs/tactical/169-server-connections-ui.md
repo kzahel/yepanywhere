@@ -4,6 +4,10 @@ Status: implemented and independently reviewed, 2026-10-31. The plan was
 committed before implementation. Current behavior is owned by
 [peer access](../../topics/peer-access.md#server-connections-settings).
 
+2026-11-01 simplification: the agent-use option now defaults on and is retained
+in the owner API without a visible Settings switch. The original UI milestone
+below predates that decision; current behavior is in the owning peer contract.
+
 ## Intent and existing work
 
 Deliver Settings → Server Connections beside Local Access and Remote Access.

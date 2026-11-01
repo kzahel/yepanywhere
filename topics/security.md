@@ -363,8 +363,9 @@ the client's blast radius even though one host does not authorize another.
 The proposed cross-host delegation service is a different boundary. Pairing a
 server must create a distinct server-to-server principal rather than copy a
 browser password, browser resume secret, or relay registration credential.
-Grants remain explicit, directional, non-transitive, inspectable, revocable,
-and default-off for agent use. The relay remains an encrypted transport rather
+Grants remain explicit, directional, non-transitive, inspectable and revocable.
+After enrollment, use by new eligible agent launches defaults on; the owner API
+retains an opt-out. Local API opt-ins and immutable launch grants still apply. The relay remains an encrypted transport rather
 than a peer registry or plaintext API proxy, and a controller must not receive
 an arbitrary proxy to the worker's authenticated `/api/*` surface.
 

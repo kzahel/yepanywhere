@@ -78,6 +78,13 @@ Maintainer has authorized the exact exception.
 
 ## Known Exceptions
 
+**Agent use of paired servers** defaults on, authorized by the maintainer on
+2026-11-01. Server enrollment and local Agent API access remain explicit opt-ins;
+paired servers are intended for agents without another visible enablement step.
+The separate agent-use option remains configurable through the owner API but is
+hidden in Settings. Source and target grants still apply, and existing launches
+are not upgraded. See [peer access](peer-access.md#manual-owner-ceremony-and-management-api).
+
 **Remote SRP resume persistence** defaults on, authorized by the maintainer on
 2026-10-31 so normal direct/relay logins survive server restarts. Saved opt-outs
 remain authoritative, storage uses the existing private resume-credential file,

@@ -592,7 +592,7 @@ it("lets a qualified native session create, message and follow through owner-pai
     expect(result.outcome, result.issue).toBe("connected");
     return true;
   });
-  await a.manager.setAgentAccess({ enabled: true });
+  expect(a.manager.agentAccess().enabled).toBe(true);
   const runtime = await createAgentApiRuntime({ serverId: a.id });
   cleanup.push(() => runtime.close());
   const detach = runtime.attachController(a.router);
@@ -646,11 +646,31 @@ it("lets a qualified native session create, message and follow through owner-pai
     (await nativeRequest(runtime, token, `/v0/servers/${b.id}/access`)).status,
   ).toBe(403);
   await a.manager.setEnabled(true);
-  await a.manager.setAgentAccess({ enabled: true });
+  expect(a.manager.agentAccess().enabled).toBe(true);
   expect(
     (await nativeRequest(runtime, token, `/v0/servers/${b.id}/access`)).status,
   ).toBe(403);
   expect(await a.read("access", { serverId: b.id })).toBeTruthy();
+  const fresh = runtime.issue({
+    principal: SUPERUSER,
+    sessionId: () => "parent",
+    management: true,
+    peerAccess: true,
+    peerGrantId: a.manager.agentAccess().grantId,
+  });
+  expect(
+    (
+      await nativeRequest(
+        runtime,
+        fresh.environment.AGENT_YA_V0_AUTHORIZATION!,
+        `/v0/servers/${b.id}/access`,
+      )
+    ).status,
+  ).toBe(200);
+  await a.manager.setAgentAccess({ enabled: false });
+  await a.manager.setEnabled(false);
+  await a.manager.setEnabled(true);
+  expect(a.manager.agentAccess().enabled).toBe(false);
 }, 10_000);
 
 it("preserves each server’s narrower outgoing policy independently on renewal", async () => {

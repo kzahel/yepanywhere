@@ -32,8 +32,12 @@ signature/challenge protocol is introduced by this slice.
 
 ## Manual owner ceremony and management API
 
-Peer access and agent use are separately default-off. No enrollment is inferred
-from existing browser logins, remote-access setup or relay registration.
+Server connections remain opt-in. Once enabled, agent use defaults on for new
+eligible launches; there is no separate agent-use switch in Settings. The owner
+API retains its explicit opt-out for configuration and future owner-only use.
+No enrollment is inferred from browser logins, remote-access setup or relay
+registration. Browser-saved SRP sessions remain independent of peer connections;
+this does not implement session federation in the UI.
 
 Owner-only `/api/peers` operations serve the settings UI and manual administration. They independently
 validate an owner cookie, desktop credential or established owner SRP context,
@@ -55,7 +59,7 @@ Implemented operations:
 | --- | --- |
 | `PUT /api/peers/relay` | Configure an explicit peer relay URL/name and its separate private registration identity; leave browser relay configuration untouched |
 | `DELETE /api/peers/relay` | Retire the peer relay route and its channels, retaining independent direct grants |
-| `PUT /api/peers/agent-access` | Separately enable/disable peer access for new eligible native launches; default off, with a fresh durable grant generation after re-enabling |
+| `PUT /api/peers/agent-access` | Configure the hidden agent-use option (default on) for new eligible native launches; re-enabling uses a fresh durable grant generation |
 | `GET /api/peers` | Public local ID and incoming/outgoing records, directions, expiry, operation/project policy and route state; no secrets/verifiers |
 | `POST /api/peers/incoming` | Owner chooses source UUID, exact projects/operations and expiry; return a one-time invitation bundle |
 | `POST /api/peers/incoming/{id}/rotate` | Replace secret/verifier and expiry, invalidating the old credential; return new one-time bundle |
@@ -230,8 +234,9 @@ secrets or need to choose LAN/Tailscale/relay plumbing.
 Retirement names the revoked grant generation through the provider host and
 worker RPC. A delayed retirement cannot affect a newer generation. A launch
 without management authority remains local-only even when the peer option is
-enabled. Disabling the feature at startup durably disables stored agent access;
-later re-enablement cannot revive its previous generation.
+enabled. Disabling the feature at startup retires the durable lease generation while
+preserving the configured agent-use option; later re-enablement cannot revive
+the previous generation.
 
 The source checks current peer and launch authority before persisting a remote
 reply. Revocation before that check leaves the outbound outcome uncertain;
@@ -490,8 +495,11 @@ confirmed. Inspect both ends before renewing a lost one-time invitation.
 Owner management remains available while routing is disabled. Disabling closes
 incoming channels, outgoing owner/native routing and the peer relay, and retires
 peer-enabled native leases. Re-enabling retained credentials does not revive
-old launch grants. Agent use is a separate default-off control; qualified new
-sessions also need Local Access Agent API discovery/session-command settings.
+old launch grants. Disabling server connections preserves the configured
+agent-use option while rotating its lease generation. Agent use defaults on and
+is configurable through the owner API, without a separate Settings control.
+New eligible sessions still need Local Access Agent API discovery/session-command
+settings; existing local-only leases do not acquire peer access.
 No peer is probed merely by opening Settings. Test connection is explicit;
 listings describe configured directions and last observed verification.
 
