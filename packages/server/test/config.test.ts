@@ -89,6 +89,22 @@ describe("loadConfig codex paths", () => {
     vi.stubEnv("YEP_EXTERNAL_SESSIONS", "false");
     expect(loadConfig().externalSessionsEnabled).toBe(false);
   });
+  it("defaults peer connections on only when no environment override is supplied", async () => {
+    const { loadConfig } = await import("../src/config.js");
+    expect(loadConfig().peerApiEnabled).toBe(true);
+    for (const [value, expected] of [
+      ["false", false],
+      ["off", false],
+      ["", false],
+      ["  ", false],
+      ["invalid", false],
+      ["true", true],
+      ["1", true],
+    ] as const) {
+      vi.stubEnv("YEP_PEER_API_ENABLED", value);
+      expect(loadConfig().peerApiEnabled, JSON.stringify(value)).toBe(expected);
+    }
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();

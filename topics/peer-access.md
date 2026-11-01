@@ -1,11 +1,17 @@
 # Directional peer enrollment
 
-Status: opt-in implementation through
+Status: implemented through
 [plan 169](../docs/tactical/169-server-connections-ui.md), building on
-[plan 168](../docs/tactical/168-peer-access-and-enrollment.md). Normal startup
-leaves peer routing disabled, with owner administration available. Settings →
-Server Connections enables it durably. Explicit `YEP_PEER_API_ENABLED=true` or
-`false` overrides and locks that choice.
+[plan 168](../docs/tactical/168-peer-access-and-enrollment.md). Server Connections
+is available by default; no enable step or environment variable is required.
+No devices gain access until explicitly enrolled. `YEP_PEER_API_ENABLED=false`
+is an optional kill switch: it blocks routing and pairing without deleting
+saved devices, and Settings cannot override it. Explicit `true` pins it on.
+The owner API's existing runtime disable/enable operation remains supported;
+an explicitly saved disabled setting is respected when the variable is unset.
+Empty or unrecognized supplied values retain the disabled behavior; they cannot
+override saved disablement by accidentally selecting the new default.
+Settings has no global enable switch. Pairing/removing devices are its controls.
 The qualification record in the plan distinguishes tested adapters from the
 remaining packaging and platform matrix.
 
@@ -32,7 +38,7 @@ signature/challenge protocol is introduced by this slice.
 
 ## Manual owner ceremony and management API
 
-Server connections remain opt-in. Once enabled, agent use defaults on for new
+Device pairing remains an explicit owner action. Agent use defaults on for new
 eligible launches; there is no separate agent-use switch in Settings. The owner
 API retains its explicit opt-out for configuration and future owner-only use.
 No enrollment is inferred from browser logins, remote-access setup or relay
@@ -434,8 +440,8 @@ server**. A bidirectional device appears in both lists. Rows show the friendly
 name, hostname, OS and host icon; routine authentication/verification details
 stay out of the main lists. Sign-in and connection problems remain visible.
 Clicking a device name opens its details: stable UUID, credentials, rename,
-connection test, renewal/reverse setup, audit and recent sessions. The master
-switch and manual refresh live under collapsed **Connection settings**.
+connection test, renewal/reverse setup, audit and recent sessions. Manual refresh
+lives under collapsed **Connection settings**.
 Friendly names are local labels.
 Host reports are authenticated data, not independent machine attestation.
 A saved browser host and a server connection remain separate records.

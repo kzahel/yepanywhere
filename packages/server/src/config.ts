@@ -363,10 +363,10 @@ export function loadConfig(): Config {
     dataDir,
     artifacts: readArtifactConfig(process.env),
     desktopRuntime,
-    peerApiEnabled: parseBooleanOrDefault(
-      process.env.YEP_PEER_API_ENABLED,
-      false,
-    ),
+    peerApiEnabled:
+      process.env.YEP_PEER_API_ENABLED === undefined
+        ? true
+        : parseBooleanOrDefault(process.env.YEP_PEER_API_ENABLED, false),
     externalSessionsEnabled: parseBooleanOrDefault(
       process.env.YEP_EXTERNAL_SESSIONS,
       true,

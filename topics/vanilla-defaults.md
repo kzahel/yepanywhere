@@ -78,6 +78,14 @@ Maintainer has authorized the exact exception.
 
 ## Known Exceptions
 
+**Server Connections availability** defaults on, authorized by the maintainer
+on 2026-11-01. An empty installation needs no separate enable step; each device
+still requires owner-authenticated enrollment and a directional grant. No peer
+is contacted without configuration. Settings offers pairing/removal rather than
+a global enable switch. `YEP_PEER_API_ENABLED=false` remains the optional kill
+switch; explicit owner-API disablement and environment overrides are respected.
+See [peer access](peer-access.md).
+
 **Agent use of paired servers** defaults on, authorized by the maintainer on
 2026-11-01. Server enrollment and local Agent API access remain explicit opt-ins;
 paired servers are intended for agents without another visible enablement step.

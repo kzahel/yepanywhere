@@ -11,7 +11,7 @@ Topic: principals-and-grants
 Status: **shared vocabulary and general grant architecture remain proposals.**
 Local limited users and their project grants are implemented; exact-session
 collaboration, hosted issuance, and a general delegation lifecycle remain
-proposals. The narrow default-off [peer API](peer-access.md) implements immediate
+proposals. The narrow [peer API](peer-access.md) implements immediate
 server identity and directional project/operation grants without those broader
 contracts. This
 document does not select an identity provider, require a hosted service, approve

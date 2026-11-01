@@ -701,3 +701,57 @@ test("removal confirms one direction, preserves the reverse, and refuses a stale
     }),
   ).toBeFocused();
 });
+
+test("an empty installation can connect immediately and an environment kill switch has no UI override", async ({
+  page,
+  baseURL,
+}) => {
+  await support(page);
+  const data = fixture();
+  data.peers = [];
+  data.total = 0;
+  await page.route("**/api/peers/connections**", (route) =>
+    route.fulfill({ json: data }),
+  );
+  await page.setViewportSize({ width: 1000, height: 600 });
+  await page.goto(`${baseURL}/settings/server-connections`);
+  await expect(
+    page.getByText("No devices connected yet.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Connect a server", exact: true }),
+  ).toBeEnabled();
+  await recordUiCapture(page, "server-connections-empty-desktop");
+  await page.getByText("Connection settings", { exact: true }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Connect a server", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Remote Access password", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(`${baseURL}/settings/server-connections`);
+  await expect(
+    page.getByText("No devices connected yet.", { exact: true }),
+  ).toBeVisible();
+  await recordUiCapture(page, "server-connections-empty-phone");
+  data.enabled = false;
+  data.environmentOverride = false;
+  await page.reload();
+  await expect(
+    page.getByText("Server connections are disabled by server configuration.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Connect a server", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Enable connections", exact: true }),
+  ).toHaveCount(0);
+  await page.getByText("Connection settings", { exact: true }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await recordUiCapture(page, "server-connections-kill-switch-phone");
+});

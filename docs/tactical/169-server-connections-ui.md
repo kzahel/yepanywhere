@@ -260,3 +260,26 @@ Sol 6.1 high and GPT-6 Sol high with Daybreak Blue reviewed the final changes
 through YA; no actionable findings remain. Final typecheck, lint, formatting
 and all four browser cases pass (31.8 s including owned builds/teardown).
 The broad workspace result remains red for the watcher above, without retries.
+
+## Availability without an enable step, 2026-11-01
+
+The maintainer removed the extra enable step: Server Connections now defaults
+available, with pairing/removal as its normal controls. Settings no longer
+shows a global enable checkbox or enable button. The optional
+`YEP_PEER_API_ENABLED=false` kill switch blocks routing and pairing while
+retaining saved devices. Explicit owner-API disablement and environment
+precedence remain supported; no migration/backfill is introduced. Owner proof,
+directional enrollment and session launch/target grant checks remain required.
+
+Verification: 14 focused real peer/SRP tests and five browser cases pass,
+including 50-peer sequential typing and the empty-install/kill-switch cases.
+Desktop/phone captures at `.artifacts/ui-testing/2026-11-01-peer-default-on/`
+were inspected individually. Typecheck, lint, formatting and the full workspace
+suite pass (6,712 server, 7,064 client, 962 shared, 139 relay, 45 push tests).
+The final full server run took 131.89 s; the existing watcher gap remains intermittent,
+not fixed by this change. Private logs live in `tasks/peer-default-on/`.
+
+Sol 6.1 high and GPT-6 Sol high with Daybreak Blue reviewed the follow-up
+through YA. Their final rechecks have no remaining findings after preserving
+fail-closed parsing for supplied empty/invalid environment values. Config and
+real peer tests cover the saved-disablement case (57 focused tests pass).

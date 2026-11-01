@@ -4859,7 +4859,7 @@
   "connectionsRemoteGrantRemains": "The other server keeps its incoming grant until it is revoked there.",
   "connectionsManaged": "Managed",
   "connectionsSettings": "Connection settings",
-  "connectionsDisabled": "Server connections are off.",
+  "connectionsDisabled": "Server connections are disabled by server configuration.",
   "connectionsEnable": "Enable connections",
   "connectionsNoAccessibleDevices": "No devices connected yet.",
   "connectionsNoControllingDevices": "No devices have access to this server.",

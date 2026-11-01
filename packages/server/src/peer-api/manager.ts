@@ -139,7 +139,7 @@ export class PeerAccessManager {
     return this.connectionOptions.runtimeControl
       ? (this.connectionOptions.runtimeControl.envOverride ??
           state.enabled ??
-          false)
+          true)
       : true;
   }
   isEnabled() {

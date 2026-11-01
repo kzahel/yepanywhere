@@ -26,8 +26,6 @@ function write<T>(path: string, method: string, body?: unknown) {
 export const peerConnectionsApi = {
   list: (cursor = "0") =>
     fetchJSON<PeerConnectionsResponse>(`${base}?cursor=${cursor}`),
-  enabled: (enabled: boolean) =>
-    write<PeerConnectionsResponse>("/enabled", "PUT", { enabled }),
   agentAccess: (enabled: boolean) => write("/agent-access", "PUT", { enabled }),
   connect: (input: PeerConnectionSetupRequest) =>
     write<PeerConnectionSetupResponse>("/connect", "POST", input),

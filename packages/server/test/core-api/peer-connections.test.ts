@@ -29,6 +29,7 @@ import { SUPERUSER } from "../../src/auth/principal.js";
 
 const cleanup: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
+  vi.unstubAllEnvs();
   for (const close of cleanup.splice(0).reverse()) await close();
 });
 async function ownerProfile(runtimeControl?: { envOverride?: boolean }) {
@@ -115,8 +116,8 @@ async function ownerProfile(runtimeControl?: { envOverride?: boolean }) {
 }
 const guard = () => {};
 it("pairs through real ordinary SRP, verifies both directions and preserves peer access across owner-password changes", async () => {
-  const a = await ownerProfile(),
-    b = await ownerProfile(),
+  const a = await ownerProfile({}),
+    b = await ownerProfile({}),
     controller = new PeerConnections(a.manager);
   const result = await controller.connect(
     {
@@ -404,7 +405,9 @@ it("fences runtime disable and owner logout during pending setup without publish
   const a = await ownerProfile({}),
     b = await ownerProfile(),
     controller = new PeerConnections(a.manager);
-  expect(a.manager.isEnabled()).toBe(false);
+  expect(a.manager.isEnabled()).toBe(true);
+  expect(a.manager.store.read().incoming).toEqual([]);
+  expect(a.manager.store.read().outgoing).toEqual([]);
   let owner = true;
   const started = controller.connect(
     {
@@ -454,6 +457,46 @@ it("fences runtime disable and owner logout during pending setup without publish
   await a.manager.setEnabled(true);
   expect(await a.read("access", { serverId: b.id })).toBeTruthy();
 }, 10_000);
+it("keeps a malformed environment override closed over saved disablement, pairing and grant issuance", async () => {
+  vi.stubEnv("YEP_PEER_API_ENABLED", "invalid");
+  const { loadConfig } = await import("../../src/config.js");
+  const a = await ownerProfile({ envOverride: loadConfig().peerApiEnabled }),
+    b = await ownerProfile({});
+  await a.manager.store.mutate((state) => {
+    state.enabled = false;
+  });
+  const controller = new PeerConnections(a.manager);
+  expect(controller.overview()).toMatchObject({
+    enabled: false,
+    environmentOverride: false,
+    peers: [],
+  });
+  await expect(
+    controller.connect(
+      {
+        route: b.ownerRoute,
+        username: "owner-pair-test",
+        password: "pair-test-password",
+      },
+      guard,
+      AbortSignal.timeout(5000),
+    ),
+  ).rejects.toMatchObject({ code: "forbidden" });
+  await expect(a.manager.setEnabled(true)).rejects.toMatchObject({
+    code: "forbidden",
+  });
+  await expect(
+    a.manager.issue({
+      sourceServerId: b.id,
+      allProjects: true,
+      projects: [],
+      operations: ["access"],
+      expiresAt: Date.now() + 10000,
+    }),
+  ).rejects.toMatchObject({ code: "forbidden" });
+  expect(b.manager.store.read().incoming).toHaveLength(0);
+  expect(a.manager.isEnabled()).toBe(false);
+});
 it("invalid routes do not consume setup capacity and failed reverse reachability preserves the first leg", async () => {
   const a = await ownerProfile(),
     b = await ownerProfile(),

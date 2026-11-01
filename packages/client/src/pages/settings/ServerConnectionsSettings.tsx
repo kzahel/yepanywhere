@@ -28,7 +28,6 @@ import {
 import { useI18n } from "../../i18n";
 import { SettingsSection } from "./SettingsSection";
 import { Modal } from "../../components/ui/Modal";
-import { SettingsItem } from "./SettingsItem";
 import styles from "./ServerConnectionsSettings.module.css";
 
 // These owner dialogs keep keyboard navigation within the current action.
@@ -375,16 +374,6 @@ export function ServerConnectionsSettings() {
       {!data.enabled && (
         <div className={styles.feedback}>
           <span>{t("connectionsDisabled")}</span>
-          {data.environmentOverride !== false && (
-            <button
-              type="button"
-              className="btn"
-              disabled={busy}
-              onClick={() => void act(() => peerConnectionsApi.enabled(true))}
-            >
-              {t("connectionsEnable")}
-            </button>
-          )}
         </div>
       )}
       {!supportsRefresh && (
@@ -693,24 +682,6 @@ export function ServerConnectionsSettings() {
       </div>
       <details className={styles.settings}>
         <summary>{t("connectionsSettings")}</summary>
-        <SettingsItem
-          label={t("connectionsEnabled")}
-          description={
-            data.environmentOverride === null
-              ? t("connectionsEnabledHint")
-              : t("connectionsEnvironmentHint")
-          }
-          as="label"
-        >
-          <input
-            type="checkbox"
-            checked={data.enabled}
-            disabled={busy || data.environmentOverride !== null}
-            onChange={(event) =>
-              void act(() => peerConnectionsApi.enabled(event.target.checked))
-            }
-          />
-        </SettingsItem>
         <p className={styles.muted}>
           {t("settingsServerConnectionsDescription")}
         </p>
