@@ -22,6 +22,21 @@ per-call provenance, and an agent needs no cooperation to be told apart.
 Server-internal launches that do not arrive as an HTTP request, such as helper
 side sessions, project queue work, and routines, remain unmarked.
 
+The [launch-path provenance audit](../gaps/session-creation-source-missing-launch-paths.md)
+records known omissions beyond that boundary: UI-requested Project Queue and
+review sessions, the final fork-after-summary target, native v0 API creation,
+maintenance diagnostic creation, and retained forks after a failed restart
+continuation. The HTTP coverage statement above describes the intended contract;
+these paths do not yet satisfy it.
+
+The [admission ownership recommendation](session-creation-provenance.sketches.md)
+explains the shared cause, required creation context and coordination with the
+durable session identity/startup work. It is a proposal, not current behavior.
+[Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#creation-source-admission-and-coverage)
+now incorporates that recommendation into admission, startup, caller migration
+and qualification. It requires explicit source decisions and preserves legacy
+unknown records; the omissions above remain open until implemented and verified.
+
 The first accepted provenance value remains attached to the YA session across
 provider restarts and later messages. A creation request that waits for a
 worker records it when the session actually starts. Invalid or unknown

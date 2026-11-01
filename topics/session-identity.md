@@ -77,6 +77,11 @@ suitable without claiming that today's receipts retain request bodies.
 
 The [creation proposal](session-creation.sketches.md) owns draft capture,
 attachment acceptance/retention, navigation and background creation. The
+[creation-source admission notes](session-creation-provenance.sketches.md) and
+[plan 171 coverage ledger](../docs/tactical/171-durable-session-identity-and-creation.md#creation-source-admission-and-coverage)
+require an explicit immutable request/internal source decision in the same
+admission boundary, including deferred work and saved/failed sessions. This
+descriptive source is separate from authenticated ownership and grants. The
 [liveness contract](session-liveness.md) owns provider progress and input
 eligibility. A startup failure must remain visible after the original event
 and must not admit more messages into a dead provider queue.

@@ -614,6 +614,12 @@ accepted after corrections; concrete schema/API entry-gate work and runtime
 implementation have not started. This does not displace release delivery or
 require queued-compaction work first.
 
+The [creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md)
+are incorporated into plan 171's admission/caller slices and six-path coverage
+ledger. Original request source must survive deferral/retry and appear on
+saved/failed sessions; the [audited source omissions](../../gaps/session-creation-source-missing-launch-paths.md)
+remain open until each affected path is implemented and verified.
+
 ## Later directions
 
 The [clone and fork settings repair](../tactical/140-clone-session-settings-inheritance.md)

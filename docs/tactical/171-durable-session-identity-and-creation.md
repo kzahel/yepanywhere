@@ -10,6 +10,12 @@ has not started. Acceptance covers the plan's ordering, intermediate contracts
 and enabling gates, not an unspecified schema/wire contract or source work.
 Section 1 and per-slice implementation reviews remain required below.
 
+The maintainer subsequently requested incorporation of the separate
+[creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md).
+The coordination requirements and coverage ledger below extend this plan;
+Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
+Runtime work and the provenance defect remain unimplemented.
+
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High
 effort and bypass permissions verified in session metadata. Initial/revised
 reports and launch evidence are under ignored `tasks/session-identity/`.
@@ -39,9 +45,10 @@ Owning contracts and prior work:
   and [provider-host ownership](../../topics/provider-host-api.md).
 - Existing gaps: [draft acknowledgement can delete newer text](../../gaps/new-session-draft-clear-captures-after-submission.md)
   and [unconfirmed sends](../../gaps/unconfirmed-send-loss-across-reload.md).
-  The creation-source audit (`gaps/session-creation-source-missing-launch-paths.md`)
-  also informs producer coverage; its owning durable contract is
-  [creation provenance](../../topics/session-creation-provenance.md). Preserve
+  The [creation-source audit](../../gaps/session-creation-source-missing-launch-paths.md)
+  and [admission recommendation](../../topics/session-creation-provenance.sketches.md)
+  supply source-specific invariants and producer coverage; their owning current
+  contract is [creation provenance](../../topics/session-creation-provenance.md). Preserve
   distinct closure conditions: this plan does not automatically close general
   existing-session send loss or the full fork/clone source gap.
 - [Architecture comparison](../competitive/t3code-provider-architecture.md)
@@ -146,6 +153,81 @@ authenticated ownership/grants and descriptive provenance are separate fields.
 Do not add an optional context with a default that silently preserves omissions.
 Keep an explicit per-slice ledger of migrated callers and retained low-level
 bypasses; callbacks are outcome notifications, not the durable request owner.
+
+### Creation-source admission and coverage
+
+Carry the [provenance recommendation](../../topics/session-creation-provenance.sketches.md)
+through the same owner/transaction, not a parallel source service. Every fresh
+admission requires a validated source decision. The internal shape distinguishes
+normalized request provenance from an explicit internal creation reason drawn
+from a bounded set, such as an archived summary generator. These are internal
+design categories, not new public `surface` values. Internal helpers can remain
+unmarked in today's public field. Keep authenticated principal/creator facts,
+grants, receipts and lineage separate from descriptive client hints.
+
+Normalize request source once at ingress using existing body/header bounds and
+fallback rules; local agent and incoming peer APIs deliberately choose `api`
+while preserving trusted caller identity separately. Do not persist request
+objects, credentials or transport handles. Require context at runtime for
+untyped callers and persisted input as well as in TypeScript. No no-context
+overload, arbitrary internal reason, default `unknown` or default dispatcher
+source is allowed on migrated fresh admission. Missing context fails before
+provider effects.
+
+The original source is immutable for the logical session: native binding,
+startup success/failure, explicit retry, resume and later messages preserve it.
+A child fork/summary target describes its own creating request, not its parent's
+surface or its internal generator. Existing-session follow-ups do not relabel
+the destination. Persist source with session/intent before effects; an
+`onStarted` wrapper calling the old writer is not completion of this invariant.
+
+Project Queue retains normalized context at original enqueue, before promotion
+allocates the session. Edits, attachment materialization, worker deferral,
+restart and explicit Start/Force start keep that source. `createdFrom.client`
+is navigation context, not a source classification. Legacy/import/discovery is
+an explicit boundary: existing sessions and old queue records without evidence
+remain unknown. Do not infer UI/API source from provider `originator`, a native
+id, parentage or the client that later starts old work. This legacy path must
+not become a convenience default for new admissions.
+
+Use the following ledger in sections 4, 7 and 9. Direct text project/detached
+creation first migrates in section 4; all other bypasses remain named until
+their specific cut satisfies the invariant and evidence.
+
+| Audited path | Required integration and acceptance evidence |
+| --- | --- |
+| Project Queue new-session targets | Capture UI/API context from both New Session and the session composer at enqueue, persist it with the durable item, and pass it through normal/forced promotion, worker deferral and staged attachments. Restart and a later Start/Force start must not change the original source. |
+| Source Control new review sessions | Carry the original review request through both submission-aware and legacy review launch entry points; persist source at logical admission, including worker-deferred creation. Existing-session review follow-ups retain their existing source. |
+| Fork after summary, final navigable target | Preserve the user's request context across the background job; the target gets that source and the archived generator explicitly chooses an internal reason. Prove cross-surface parent/child behavior and failure retention; do not copy the parent's source. |
+| Native v0 and incoming peer creation | Persist public API provenance beside, but independently of, existing trusted creator/peer receipts and ownership. Verify immediate and worker-deferred creation, restart and the same list/detail projections. |
+| Maintenance diagnostic create | Require an explicit API source decision through its existing authorized maintenance path; do not leave this direct Supervisor caller outside the fresh-admission inventory. |
+| Restart fork followed by failed continuation | Persist recoverable original-request source before native fork effects, then attach it to any retained child before continuation can fail. Cover queue refusal, queued cancellation and resume exceptions, not only successful restart. |
+
+Source integration for retained fork/helper targets is a bounded section 7
+cut; it does not authorize a full child-id redesign. Section 1 must settle how
+pre-effect source ownership composes with those retained native fork boundaries.
+If that guarantee cannot be delivered without reopening deferred child identity,
+record the precise remaining path and required scope decision. Do not substitute
+a successful-resume writer or declare the whole provenance gap fixed.
+
+Verify through application/public entry points, real SQLite and collection
+projections, using controlled provider protocols and owned profiles. Include
+missing-context rejection with zero provider effects, storage refusal before
+launch, explicit internal decisions, legacy unknown records, cross-surface
+forks and existing-session resume. Assert source on transcript-less saved/failed
+sessions and after reload/binding/restart, and assert the fields consumed by
+Inbox/Global Sessions filters. No model call or browser is needed solely to
+prove source persistence; avoid mocked writer tests per caller.
+
+Internal context/storage tightening alone does not require a new UI capability.
+Any changed request/queue/status contract still follows the capability/skew gate,
+including persisted old queue schemas and absent fields. Do not broaden
+`session-creation-provenance` or claim complete coverage for a partial migration.
+Remove independent source-writing duties only for callers that have actually
+migrated. Keep the [audit gap](../../gaps/session-creation-source-missing-launch-paths.md)
+open until its listed paths and retention/failure cases are verified, narrowing
+any remainder explicitly. The current provenance topic must describe the actual
+implemented scope; completing ordinary creation alone does not close this gap.
 
 Project Queue allocates the YA session at first promotion, not enqueue. Persist
 the original enqueue context in the queue item. Use a stable promotion operation
@@ -273,7 +355,8 @@ response semantics; do not return a pending session in place of a process.
 This text-first slice includes section 1's session/intent/operation transaction,
 post-commit publication, required creation context, retry/router rules and
 hosted enabling boundary. Migrate ordinary text project/detached callers here;
-list the remaining Project Queue/review/v0/peer bypasses until section 7.
+source must be present even on a saved/failed row before any provider callback.
+List the remaining Project Queue/review/v0/peer bypasses until section 7.
 Attachments explicitly retain legacy two-step behavior until durable claims
 land there; section 4 makes no attachment-acceptance guarantee. Do not advertise
 the complete new web contract prematurely.
@@ -375,15 +458,19 @@ Audit ordinary project/detached creation, durable Project Queue promotion,
 native v0/peer creation and review-session launches against the common owner.
 Carry original provenance and permissions across deferred dispatch; do not infer
 source from the dispatcher or copy a parent's descriptive source. Treat unrelated
-fork/helper source repair as the separate tracked remainder. Split callers or
-attachments into separate reviewed commits when necessary rather than create
-one large ingestion rewrite.
+full fork/clone identity redesign as deferred, but use section 1's provenance
+ledger for targeted fork-summary, retained restart-fork and internal-helper
+source decisions. Keep any uncovered remainder in the provenance gap. Split
+callers or attachments into separate reviewed commits when necessary rather
+than create one large ingestion rewrite.
 
 Completion evidence: lost response/reload, concurrent duplicate keys, changed
 payload, disabled provider after acceptance, full capacity, interrupted staging,
 foreign attachment refusal, crash at side-effect boundaries and pinned settings.
 Reads/replays remain possible at capacity. Qualify legacy/v0 response semantics
-and existing queue behavior. Review, fix/re-review, check and commit each cut.
+and existing queue behavior. Satisfy the source ledger for each migrated caller;
+partial coverage cannot close the full provenance gap. Review, fix/re-review,
+check and commit each cut.
 
 ## 8 — present saved and failed sessions with safe draft acknowledgement
 
