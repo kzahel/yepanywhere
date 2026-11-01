@@ -4855,7 +4855,7 @@
   "connectionsEnabledHint": "Enable dedicated server credentials and routes. Disabling stops access in both directions; saved connections remain.",
   "connectionsEnvironmentHint": "Controlled by YEP_PEER_API_ENABLED in this server’s environment.",
   "connectionsAgentAccess": "Let agent sessions use connected servers",
-  "connectionsAgentHint": "New qualified agent sessions can discover connected servers through the local Agent API. Enable Agent API discovery and session commands in Local Access as needed.",
+  "connectionsAgentHint": "New agent sessions can use connected servers. Turn on Agent API discovery and session commands in Local Access.",
   "connectionsTrustHint": "A trusted server can run agents as your YA operating-system account, including on future projects. Only connect servers you control and trust.",
   "connectionsAdd": "Connect a server",
   "connectionsRefresh": "Refresh",
