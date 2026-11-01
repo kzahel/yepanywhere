@@ -611,7 +611,9 @@ qualification, storage bounds and implementation remain pending.
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review
 after each implementation slice and commits as work proceeds. Plan review is
 accepted after corrections; concrete schema/API entry-gate work and runtime
-implementation have not started. This does not displace release delivery or
+design are now independently accepted by Sol 6.1 High, including bounded attempts,
+durable recovery keys and retained-fork source uncertainty. Typed identity/store
+implementation is next. This does not displace release delivery or
 require queued-compaction work first.
 
 The [creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md)

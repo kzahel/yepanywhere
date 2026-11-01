@@ -5,8 +5,12 @@ Topic: ya-owned-session-ids
 Status: implementation plan independently accepted by Sol 6.1 High on
 2026-11-01 after correction of seven material design findings. The maintainer
 selected the ownership direction and requested reviewed implementation slices,
-commits as work proceeds, and standalone-profile testing. Runtime implementation
-has not started. Acceptance covers the plan's ordering, intermediate contracts
+commits as work proceeds, and standalone-profile testing. Autonomous execution
+was authorized on November 1; phase 1's concrete decisions are recorded in
+[the identity contract](../../topics/session-identity.md#phase-1-implementation-decisions--2026-11-01)
+and were independently accepted by Sol 6.1 High after three concrete design
+corrections. Phase 2 implementation is next.
+Acceptance covers the plan's ordering, intermediate contracts
 and enabling gates, not an unspecified schema/wire contract or source work.
 Section 1 and per-slice implementation reviews remain required below.
 
@@ -15,6 +19,16 @@ The maintainer subsequently requested incorporation of the separate
 The coordination requirements and coverage ledger below extend this plan;
 Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
 Runtime work and the provenance defect remain unimplemented.
+
+## Execution progress
+
+- Phase 1: concrete design accepted, including attempt/evidence budgets,
+  durable retry fencing and the bounded retained-fork source bridge. Existing
+  storage/provider-resolution baseline: 13 checks passed on Node 26.7.0.
+  The desktop-pinned Bun 1.3.14 binary was checksum-verified in the owned local
+  task directory; Bun storage qualification remains a source-slice check.
+- Phase 2: next, with launch behavior unchanged.
+- Phases 3–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High
 effort and bypass permissions verified in session metadata. Initial/revised

@@ -232,12 +232,192 @@ and bound/unbound/router retry decisions.
 
 ## Decisions still needed before runtime changes
 
-Choose the exact durable session/attempt schema, binding scope, retention and
-capacity bounds, idempotency/payload transaction, retry behavior after each
-failure boundary, legacy refresh accommodation, provider-host upgrade boundary,
-and new route/status representation. Review the concrete contract/fallback
-under the existing capability rules before editing it. Direction selection and
-this research do not claim those choices or provider qualification are complete.
+### Phase 1 implementation decisions — 2026-11-01
+
+The maintainer authorized autonomous end-to-end implementation of plan 171 on
+November 1, including reviews and commits. The following selects the concrete
+implementation boundary within that plan; rollout claims still require the
+per-slice evidence. No server baseline, transport protocol or provider target
+version changes are selected.
+
+**Identity storage.** Append migration 17 for `session_identities`: public
+`session_id` primary key, launch `provider`, canonical `project_id`, creation
+time and nullable native family/scope/id columns. The three native columns are
+either all null or all present, with a unique composite index. Preserve metadata
+in its existing table and retain its public keys. Native family is the reader
+namespace (Claude, Codex, Gemini, OpenCode, Pi or Grok), not the launch variant.
+The scope is the canonical provider storage root, resolved by trusted server
+configuration/discovery, including private routed/sandbox roots. It is never
+taken from a client field or inferred from the public id. Launch variant and
+account choice stay explicit launch facts. Two stores with the same native id
+remain distinct; conflicting existing public claims fail rather than merge.
+
+Only native discovery/import may adopt an existing public id with verified
+native facts. New admission always mints a YA UUID before provider effects.
+Typed YA/native ids validate opaque nonempty strings up to 512 characters,
+excluding control characters and path separators; existing `ses_*` and test ids
+remain valid. Constructors live at named ingress/discovery boundaries. Native
+reader/index/cache keys remain native; operation-scoped public adapters resolve
+and project the YA id without rewriting source bytes or physical paths.
+
+**Creation owner and atomicity.** A later append-only migration adds one
+`session_creations` row per accepted operation (owner-scoped retry key, stable
+operation/session ids, normalized request hash, saved payload/context, current
+attempt, phase, timestamps and safe failure/delivery evidence) plus retained
+attempt records. This is the durable payload/control owner, not an event log
+or a second conversation store. Existing v0 receipts remain their documented
+audit/admission projection, linked to this operation when that caller migrates.
+Their payload-free schema and state meanings do not change. Both writes use
+the same profile connection/transaction owner; no cross-connection transaction
+claim or nested `reserve`/metadata-save transaction is allowed.
+
+Admission stages immutable metadata, identity, payload, operation and attempt
+changes, commits synchronously, then publishes metadata mirrors/events. Rollback
+leaves mirrors unchanged. Store an authenticated owner reference separately from
+validated descriptive request/internal source; never persist credentials,
+live request objects or child environment. Freeze normalized submitted options
+and resolved launch facts, retaining committed router references in their
+existing private store. A bounded internal-reason enum covers retained helper
+purposes; explicit legacy adoption handles old unknowns, never a fresh default.
+
+**Bounds and retention.** Retain at most 10,000 creation operations and 512 MiB
+of serialized saved creation payload per profile; a normalized request may be
+at most 256 KiB. Refuse excess before launch with a recoverable draft. Existing
+v0 receipt capacity remains independently authoritative. Reads and identical
+replays work at capacity. No silent receipt expiry or automatic failed-attempt
+deletion. An explicit session deletion may release payload/attachments but
+retains retry identity/hash and a deleted tombstone; replay cannot launch again.
+Keep at most 16 outstanding native admission promises, using incumbent worker
+capacity and bounded shared dispatch, not a timer per attempt.
+
+Each operation retains at most 64 attempts. Serialized attempt/error/evidence
+data is capped at 8 KiB per attempt and 64 MiB per profile; safe error text is
+at most 1 KiB and evidence uses bounded structured fields, never raw stderr.
+Account and refuse before reserving another attempt or calling router/provider
+effects. Existing payload/status and identical replays remain available. No
+automatic attempt eviction is selected; deleted tombstones still consume the
+10,000-operation budget. Capacity refusal cannot mutate the current attempt.
+
+**Attempts and retry.** Persist a dispatching marker before external startup.
+After restart, saved/queued work with proof of no dispatch can be re-admitted
+under current authorization; dispatching without conclusive owner evidence is
+uncertain. Initial-input admission/consumption is separate from native binding.
+Only explicit creation recovery can retry a definitive pre-effect failure;
+uncertain effects reconcile the incumbent native/host evidence and never replay
+automatically. Bound retry resumes that same native conversation. All binding,
+failure, input and cleanup callbacks carry the current attempt/owner generation.
+Cancelled router credentials remain cancelled; a known-failure retry needs a
+fresh attempt reservation pinned to the same account, or refuses safely if the
+router cannot provide it. It never reselects or uses direct login.
+
+**Attachments and Project Queue.** Text-only durable creation lands first.
+Until durable claims exist, attachments retain legacy two-step behavior without
+the new acceptance guarantee. The attachment slice seals immutable objects in
+app-data, then commits claims with payload/operation; draft TTL cannot expire
+claimed objects. Unclaimed sealed objects have bounded cleanup; materialization
+has persisted intent and atomic file steps recoverable after restart. Retain
+claimed bytes until explicit deletion or a documented confirmed-delivery release
+under existing media-preservation policy. Cap claimed bytes at 2 GiB per profile
+and references at 64 per creation, in addition to the configured upload limit;
+capacity refusal preserves staged files and drafts. No project-local write is
+authorized by these decisions. Queue items retain original source at enqueue;
+first promotion admits the session under the item's stable operation key.
+
+Reserve byte/reference capacity durably before sealing, not only after a claim
+succeeds. Reservations, sealed-unclaimed objects and accepted claims count
+together against 2 GiB and 65,536 per-profile reference slots. Unclaimed
+reservations/sealed copies expire after 24 hours and are reclaimed in bounded
+batches of at most 64 through shared maintenance; accepted claims do not expire
+by that rule. Their original draft staging keeps its existing retention policy.
+Crash cleanup verifies no accepted claim before releasing a reservation/object.
+
+**Public web contract.** Introduce `POST /api/session-creations` with a caller
+`requestId`, project/detached selection, exact initial text, existing launch
+options and (once qualified) owned staged attachment references. A request id
+is scoped to the authenticated owner and this logical server/profile; reuse
+with a different normalized submitted request is a conflict. Resolve an existing
+authorized operation before new mutable provider/catalog checks. A 202 response
+returns the permanent YA session/project ids and creation evidence, never a
+pretend process. `GET /api/session-creations/:requestId` recovers that owner's
+operation after response loss; the ordinary session URL/detail reads expose
+additive `creation` status including when no transcript exists. Status describes
+saved, queued, dispatching, bound, failed, uncertain or deleted separately from
+delivery evidence and the unchanged process/liveness enums. Explicit retry is
+`POST /api/session-creations/:requestId/retry` and revalidates launch authority;
+ordinary send/resume/reactivate cannot advance an unbound/uncertain creation.
+
+Retry takes `{ retryId, failedAttemptId }`: the retry id uses the same bounded
+8–128 character key syntax as creation request ids; the failed attempt is the
+expected current attempt token. Its unique key is scoped to owner and creation
+operation. In one transaction, recover an existing retry result first, or
+compare-and-set the definitive failed current attempt to a newly persisted
+attempt and record that recovery key/result before effects. Concurrent identical
+retries return the same resulting attempt; reuse with a different expected token
+is 409 conflict. A new recovery key against a superseded token is 409 stale
+recovery; unknown/bound-consumption evidence is not made retryable by a new key.
+Reads/replays require current resource access; advancing a retry also requires
+current launch authorization. A lost HTTP reply cannot create another attempt.
+
+Gate those new writes/status reads on the provisional named capability
+`session-creation-receipts`, allocating its ledger id only when implementing.
+Use version-implied release support with explicit early source advertisement,
+and advertise only after the complete qualified provider/caller/attachment
+contract is available. Unknown/absent/denied support sends existing routes and
+no new fields or status reads. Older clients/new servers retain existing
+completed/queued/error response shapes; optional status fields need no request
+probe and old process enums remain unchanged. Do not broaden provenance or
+agent-management capabilities. The audited core corpus remains v0.8.1, v0.9.0,
+v0.9.1, v0.9.2, v0.10.2 and v0.11.0, with v0.8.0 baseline and v0.10.0/v0.10.1
+tagged-source checks retained. Recheck publication metadata before final rollout.
+
+**Host upgrade boundary.** Carry public YA identity, native reference and
+attempt identity separately in private host/worker launch/bind/attach records
+and evidence. New split-id hosted launches require explicit host/worker support
+for that shape; a loaded older host preserves its incumbent workers but refuses
+unsupported transitions with update guidance. Do not silently upgrade/restart
+it, claim equal ids or take over a worker with an in-process replacement. Hono
+detachment retains host evidence; full owner loss becomes uncertain. Preserve
+the supported platform/runtime matrix and macOS default-off host behavior.
+
+**Retained native fork/source bridge.** Ordinary creation rows require a YA
+session id before effects. An explicitly tagged `retained-fork` operation may
+temporarily have no resulting session id: it stores its bounded operation key,
+parent YA/native reference, normalized target request source, ownership and
+saved fork intent before native fork I/O. It consumes the same operation,
+payload and attempt budgets in the common creation owner, not a separate queue
+or journal. The archived generator records its own explicit internal reason;
+it never supplies the target's source. No child public-id redesign is selected.
+
+When native fork returns a child id, atomically adopt that existing-style public
+child id, bind it to the operation and persist its original source/ownership
+before resume or another fallible continuation. Worker refusal/cancellation and
+resume exceptions therefore leave the retained child marked correctly. Repeated
+requests recover the same operation. A crash before unique child evidence is
+retained leaves the fork operation uncertain and must not call fork again.
+Only authoritative captured result/owner evidence can reconcile the child;
+parentage, title and provider-origin guesses cannot. A discovered child lacking
+unique operation association remains unknown. That precise lost-native-result
+crash window remains an explicit provenance-gap remainder until qualified
+native correlation can close it; ordinary successes do not claim its closure.
+This exception does not advertise fork support under the new ordinary creation
+capability or relax new ordinary sessions' pre-effect identity requirement.
+
+**Standalone qualification.** Use existing owned server/protocol fixtures with
+configuration scrub followed by explicit HOME/USERPROFILE, XDG, temp, provider
+home/transcript roots and runtime/socket directories. Poisoned-parent tests
+prove that no selected path or inherited agent authority escapes. Run Node/Bun
+storage and hosted/in-process scenarios. Available live provider credentials
+must be an explicit isolated setup, not a production home/database copy. Keep
+localhost:3400 for actual Sol 6.1 High bypass reviews; no restart or migration
+of that live profile is part of testing.
+
+The phase 1 decisions above must receive the requested Sol design review before
+their runtime slices. Record corrections and actual qualification alongside
+the owning contract; selecting the design does not establish implementation or
+passing provider/client/server evidence. Provider-specific native scope and
+legacy observation qualification remain enabling gates before each split-id
+rollout, and the global capability remains withheld until the full contract is
+qualified.
 
 Acceptance evidence must include response loss, crash/restart on either side of
 native launch/binding/input admission, discovery deduplication, existing-link
