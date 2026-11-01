@@ -4,6 +4,15 @@ Topic: issue-session-associations
 
 Implemented: 2026-09-10. Experimental and default off.
 
+
+Association, evidence and session-link keys use the YA session id. Background
+Claude/Codex indexing resolves the stored native source in its original
+transcript project and storage scope; project filtering and session links use
+the effective working project. Native catalogue publication is projected at
+this consumer boundary without changing physical catalogue keys. A stored
+unbound or missing source cannot read an ambient same-string transcript, and
+a bound association requested under another project is unavailable.
+
 ## User contract
 
 Enable **Settings → Issues & PRs** on a server with ready SQLite. The sidebar

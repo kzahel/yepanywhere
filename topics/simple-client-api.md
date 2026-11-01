@@ -63,6 +63,20 @@ media references, and the selection of a bounded conversation window. Its
 existing provider-native history remains authoritative. A new canonical shadow
 transcript or event-sourced database is not a prerequisite.
 
+For a stored session binding, Conversation subscriptions and returned snapshots
+keep the YA id. Native acquisition and Codex reference-backed ancestry use the
+resolved native id and storage scope; a same-id rollout in the ambient store
+cannot replace an ancestor in that scope. Stored catalogue evidence must match
+the binding's original project and an equivalent project path; downstream
+resolution uses that stored original path. Scope-less legacy Codex rows remain
+unresolved until the existing catalogue rebuild publishes verified scope, then
+the same subscription can retry without reopening. Missing scope never grants
+ambient-store authority. Watches use the effective working
+project while observing the original physical transcript. A stored unbound or
+missing native source cannot fall back to a same-string ambient conversation.
+Closing the source cancels catalogue resolution before it can acquire further
+native work. Native catalogue rows and provider transcripts remain unchanged.
+
 Each client owns its saved-server catalog, source-scoped connection demand,
 aggregation, sidebar grouping, selected session, scroll state, and later local
 draft/action state. A screen consumes typed models and a small client API;

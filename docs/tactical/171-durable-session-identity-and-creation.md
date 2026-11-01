@@ -65,6 +65,18 @@ Runtime work and the provenance defect remain unimplemented.
   1.3.14 source-copy probe passed. Lint, format, typecheck and workspace tests
   pass (6,726 server / 7,064 client). Fully scoped cold resume/immediate helpers
   remain an enabling requirement, with unqualified copies refused before I/O.
+  The native read-consumer cut is independently accepted after adding original
+  project/path consistency and scope-less legacy Codex upgrade fences.
+  Instruction restoration, issue indexing and Conversation acquisition retain
+  native sources with public observations; corrected catalogue publication can
+  recover a deferred source without reopening. Actual app/SQLite fixtures cover
+  both families, working-project moves, two viewers/native append, public issue
+  keys, instruction-source capture, reopen and post-shutdown cancellation.
+  Focused checks: 46 passed across five files in 5.20 s; lint, format, typecheck
+  and corrected workspace tests pass (6,738 server / 7,064 client). Standalone
+  Node 26.7.0 and pinned Bun 1.3.14 servers also pass actual HTTP Claude
+  unequal-id Conversation/native append/public issue/restart probes under the
+  Node coordinator. These do not qualify native CLI/model or hosted continuity.
   Remaining all-provider observation, released-browser/owned-confirmation
   qualification, native source consumers and other provider shapes are pending;
   phase 3 is not complete.

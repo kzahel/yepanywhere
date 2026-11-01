@@ -17,7 +17,12 @@ import {
 import type { OpenConversationSource } from "./conversation-subscriptions.js";
 
 export interface ConversationSourceDependencies {
-  resolve(sessionId: string): Promise<Readonly<SessionCatalogRow> | undefined>;
+  resolve(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<
+    (Readonly<SessionCatalogRow> & { nativeSessionId?: string }) | undefined
+  >;
   getProcess(
     sessionId: string,
   ):
@@ -40,7 +45,9 @@ export function createConversationSource(
   deps: ConversationSourceDependencies,
 ): OpenConversationSource {
   return async (sessionId, invalidate, signal) => {
-    let row: Readonly<SessionCatalogRow> | undefined;
+    let row:
+      | (Readonly<SessionCatalogRow> & { nativeSessionId?: string })
+      | undefined;
     let baseline: ConversationInput | undefined;
     let dirty = true;
     let durableRevision = 0;
@@ -173,7 +180,7 @@ export function createConversationSource(
           dirty = true;
         }
         if (!row) {
-          row = await deps.resolve(sessionId);
+          row = await deps.resolve(sessionId, signal);
           readSignal.throwIfAborted();
           signal.throwIfAborted();
           if (!row) {
@@ -209,7 +216,7 @@ export function createConversationSource(
           const result = await (deps.readFile ?? readConversationFile)({
             path: row.location.path,
             provider: row.catalogFamily as "claude" | "codex",
-            sessionId,
+            sessionId: row.nativeSessionId ?? row.sessionId,
             signal: readSignal,
             resolveRolloutPath: deps.resolveRolloutPath
               ? (id) => deps.resolveRolloutPath!(row!, id)
@@ -217,7 +224,7 @@ export function createConversationSource(
           });
           readSignal.throwIfAborted();
           signal.throwIfAborted();
-          baseline = result;
+          baseline = { ...result, sessionId };
           dirty = observedRevision !== durableRevision;
           for (const message of result.messages) {
             const id = getMessageId(message);

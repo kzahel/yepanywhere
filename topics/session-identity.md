@@ -85,6 +85,18 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   adoption. Account inheritance precedes identity publication; post-copy
   metadata failure retains a known-child outcome. Retained fork admission and
   lost-result recovery remain later work in plan 171.
+- Instruction restoration, background issue indexing and Conversation
+  acquisition use the stored native reader/id and original transcript project.
+  Issue associations and Conversation subscriptions/results retain YA ids and
+  effective working-project observations. Codex ancestor acquisition remains
+  within the selected native store. Conflicting original-project catalogue
+  evidence is refused before native acquisition/watch attachment. Legacy Codex
+  rows without scope evidence wait for a scoped catalogue publication and retry
+  through the same observer. Unbound/missing sources do not read an
+  ambient same-string conversation; closing a Conversation cancels pending
+  catalogue resolution before further native work. Process/child-session
+  projections, external ownership joins and remaining helper/launch consumers
+  are still being qualified before differing-id launches.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.
