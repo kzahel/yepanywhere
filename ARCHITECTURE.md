@@ -191,6 +191,13 @@ that request's data until they close. Details and the owner table are in
   statement for startup-time temporary session IDs that later canonicalize,
   including the activity event and client summary-store merge shape needed to
   avoid duplicate sidebar/list rows.
+- [`topics/session-identity.md`](topics/session-identity.md) — selected next
+  creation foundation: persist a YA session before provider startup, retain
+  one public id and failed startup attempts without a native transcript, and
+  store provider-native bindings separately. Includes the dated compatibility
+  audit; implementation is pending. The
+  [creation proposal](topics/session-creation.sketches.md) builds draft,
+  attachment and navigation behavior on this boundary.
 - [`topics/source-transport.md`](topics/source-transport.md) — proposal for a
   source-bound transport facade that makes localhost, plain multiplex
   WebSocket, and secure/relay modes explicit without hiding channel status.

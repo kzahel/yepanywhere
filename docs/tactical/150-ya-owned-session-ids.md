@@ -4,8 +4,10 @@ Topic: optional-sqlite
 
 Status: stage 1 (steps 1–2) implemented 2026-10-11. Stage 2: step 3 passed
 and step 4 implemented and verified 2026-10-11; step 8's goal shipped
-separately (below); steps 5–7 deferred 2026-10-11, see
-[Deferral of steps 5–7](#deferral-of-steps-57).
+separately (below). Steps 5–7 were deferred 2026-10-11. On 2026-11-01 the
+maintainer reopened the new-session identity/lifecycle boundary for reliable
+creation; see [the selected follow-up](#november-1-selected-follow-up).
+The full fork/clone migration remains deferred; no new runtime work is claimed.
 Referenced from the [roadmap](../roadmap/README.md) "Node 22 and built-in
 SQLite" row.
 
@@ -178,6 +180,30 @@ This stage stands alone and can ship before stage 2 starts.
 
 ## YA-owned session ids
 
+### November 1 selected follow-up
+
+The maintainer selected a permanent YA session record/id created before the
+provider call, with retained startup progress/failure even when no native
+session or transcript exists. This is now the foundation for
+[session creation and navigation](../../topics/session-creation.sketches.md).
+[Session identity](../../topics/session-identity.md) owns the selected behavior,
+existing-data rules and November 1 client/server compatibility research.
+
+This supersedes the October deferral only for new-session ownership and native
+binding work needed by that feature. Use steps 5–7 below as historical design
+input, not a fully reapproved implementation plan.
+[Plan 171](171-durable-session-identity-and-creation.md) now defines the proposed
+slices and independent review/commit loop. Its implementation must include
+durable payload/attempt state, transcript-less catalog/detail reads, duplicate
+discovery prevention and old-client refresh behavior. A native-id column alone
+does not complete it. Keep existing public ids stable; do not require a bulk
+provider-history migration or the complete fork/clone redesign.
+
+The October no-downgrade/storage decisions remain. Refresh the release audit
+and settle schema, retention, native binding scope and API/capability choices
+before runtime changes. The [roadmap](../roadmap/README.md) records priority;
+the archived general session-core refactor remains paused.
+
 ### 3 — prove the caller-chosen Claude session id
 
 Before any production change, verify against the pinned Agent SDK:
@@ -239,8 +265,10 @@ history.
 
 ### Deferral of steps 5–7
 
-Deferred by the maintainer on 2026-10-11; do not pick these up as required
-work.
+Historical decision, 2026-10-11. The
+[November 1 follow-up](#november-1-selected-follow-up) supersedes this deferral
+for new-session identity/lifecycle work; the full fork/clone program is still
+not required work. The original rationale follows.
 
 - **Their motivating need is met another way.** Routed clone was the reason
   for minting a child's id before copying. Clone copies stay immediate, and
@@ -256,11 +284,13 @@ work.
 
 What steps 5–7 would still buy: closing the crash window between a copy and
 its pin, deleting the rename code, and recording session facts before launch.
-Revisit only if a feature needs that last property, such as per-session
-profiles ([plan 133](133-provider-profile-directories.md)) or managed remote
-runners. Until then, Claude sessions keep one id from creation (step 4) and
-other providers rename once at startup, as before. The steps below are kept
-as the design to start from.
+The original revisit trigger was a feature needing that last property, such
+as per-session profiles ([plan 133](133-provider-profile-directories.md)) or
+managed remote runners. Reliable
+[session creation](../../topics/session-creation.sketches.md) now meets that
+trigger. Until implementation lands, Claude sessions keep one id from creation
+(step 4) and other providers rename once at startup, as before. The steps below
+are kept as the design to start from.
 
 ### 5 — mint ids first for new Codex sessions
 

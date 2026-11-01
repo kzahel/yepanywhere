@@ -1,0 +1,526 @@
+# Durable session identity and creation
+
+Topic: ya-owned-session-ids
+
+Status: implementation plan independently accepted by Sol 6.1 High on
+2026-11-01 after correction of seven material design findings. The maintainer
+selected the ownership direction and requested reviewed implementation slices,
+commits as work proceeds, and standalone-profile testing. Runtime implementation
+has not started. Acceptance covers the plan's ordering, intermediate contracts
+and enabling gates, not an unspecified schema/wire contract or source work.
+Section 1 and per-slice implementation reviews remain required below.
+
+The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High
+effort and bypass permissions verified in session metadata. Initial/revised
+reports and launch evidence are under ignored `tasks/session-identity/`.
+
+## Outcome and scope
+
+A new YA-created session has a permanent public id and saved request before
+provider startup. A missing executable, failed startup or server restart leaves
+an inspectable session with the last established startup boundary. Native ids
+are provider addresses associated with that session, not replacement public
+ids. A receipt identifies submission evidence; startup attempts identify
+execution attempts. Neither replaces the logical session.
+
+Owning contracts and prior work:
+
+- [Session identity](../../topics/session-identity.md): selected behavior,
+  existing-id preservation, native binding and November 1 compatibility audit.
+- [Creation/navigation](../../topics/session-creation.sketches.md): durable
+  acceptance, attachment ownership, draft safety and later background creation.
+- [Plan 150](150-ya-owned-session-ids.md#november-1-selected-follow-up): SQLite
+  and caller-chosen Claude ids already shipped; the selected new-session
+  follow-up does not resume its entire fork/clone program.
+- [Remap](../../topics/session-id-remap.md),
+  [liveness](../../topics/session-liveness.md),
+  [HTTP v0 receipts](../../topics/http-api-v0.md#creation-and-retry-receipts),
+  [storage](../../topics/optional-sqlite.md#database-ownership-and-migration)
+  and [provider-host ownership](../../topics/provider-host-api.md).
+- Existing gaps: [draft acknowledgement can delete newer text](../../gaps/new-session-draft-clear-captures-after-submission.md)
+  and [unconfirmed sends](../../gaps/unconfirmed-send-loss-across-reload.md).
+  The creation-source audit (`gaps/session-creation-source-missing-launch-paths.md`)
+  also informs producer coverage; its owning durable contract is
+  [creation provenance](../../topics/session-creation-provenance.md). Preserve
+  distinct closure conditions: this plan does not automatically close general
+  existing-session send loss or the full fork/clone source gap.
+- [Architecture comparison](../competitive/t3code-provider-architecture.md)
+  and [core house cleaning](../../topics/core-house-cleaning.md): preserve the
+  existing runtime owner and queues. Live-recipient admission and queued
+  compaction are related consumers, not prerequisites for this plan.
+
+The first milestone is durable identity/startup ownership and safe creation.
+Optional Create in background / Command-Enter follows that milestone under the
+creation proposal. Do not add it during infrastructure slices. No new scheduler,
+conversation store, framework, provider refresh, cross-provider continuation,
+remote placement, bulk id replacement or full fork/clone redesign is selected.
+
+## Implementation rules that keep translation small
+
+- Use branded `YaSessionId` and `NativeSessionId`, following the existing
+  [project-id convention](../../packages/shared/src/projectId.ts). A native
+  reference includes provider and storage/account scope, not just a string.
+  `sessionId` means YA id; provider-facing names say `nativeSessionId` or use
+  the explicit native reference. Existing `ses_*` and other public ids remain
+  valid YA ids; branding is not UUID-only validation.
+- One store/service owns forward lookup, reverse lookup and native binding.
+  Build on the current metadata/identity ownership rather than retain a
+  competing resolver. A request resolves an operation-scoped session reference
+  once and passes the native reference to provider readers/control code.
+  Avoid a mutable global mapping cache, database access per streamed token,
+  scattered SQL, format guessing and repeated translation deep in helpers.
+- Unbound is a first-class state, not permission to pass the YA id as a native
+  fallback. For Claude the two strings may be equal, but conversion is explicit.
+  Legacy adoption is an explicit discovery/import boundary with native evidence,
+  not a catch-all fallback after a failed YA lookup.
+- Bind only to the current startup attempt; use transactional conflict checks
+  and idempotent same-binding replay. A delayed callback from an older attempt
+  cannot bind or update the current attempt. Choose the provider/storage scope
+  before creating the unique index. Preserve routing/account/sandbox facts.
+- Once a native session is established, ordinary runtime replacement resumes
+  that binding. A new startup attempt is not permission to allocate a different
+  native conversation or overwrite its history. Retry without a known binding
+  must distinguish definitive pre-launch failure from uncertain creation; any
+  deliberate native-conversation replacement needs a separate explicit policy.
+- Keep public ids in routes, queues, metadata, grants and client events; keep
+  native ids at provider I/O boundaries. Authorize the YA resource under the
+  existing [principal/grant vocabulary](../../topics/principals-and-grants.md)
+  before resolving native access. The mapping grants no additional authority.
+- Native transcripts remain authoritative history. Saved request/attempt state
+  is authoritative YA control state, not evidence of provider consumption.
+
+## 1 — settle the contract and standalone qualification fixture
+
+Before changing the runtime, record a concrete design in the owning topics:
+session/binding/attempt schema and ownership, provider/storage uniqueness,
+request-key scope, payload/receipt atomicity, safe errors, retention/deletion,
+byte/entry limits, capacity refusal and crash recovery. Select exact new
+creation/status routes or negotiated mode, startup fields and absence fallback.
+Define attempt progression and which boundaries permit explicit retry; never
+automatically replay ambiguous launch/input effects. Include staged attachments
+and committed router pins in the saved intent without copying secrets.
+
+Refresh the [release audit](../../topics/session-identity.md#compatibility-research--2026-11-01)
+if another stable release ships. Present the concrete capability/fallback plan
+under [server capabilities](../../topics/server-capabilities.md#minimum-compatibility-horizons)
+before runtime contract edits. Existing direction approval covers permanent YA
+identity; it does not silently approve a new cutoff, unavailable provider or
+changed legacy endpoint meaning.
+
+Select the reusable isolated server/protocol fixtures below and capture a
+small baseline: current normal creation, response-loss behavior and differing
+native-id refresh. Prefer exercising existing harnesses before adding tooling.
+Any harness addition must be needed by later behavioral checks, not another
+general test framework.
+
+Completion: the implementation decisions and provider rollout boundaries are
+explicit, the fixture owns startup/restart/cleanup, and the design reviewer has
+no unresolved material objections. Commit the reviewed plan/contracts before
+source implementation. Documentation-only checks suffice for a docs-only cut.
+
+### Intermediate identity and admission boundaries
+
+These boundaries constrain the following slices; exact persisted fields and
+limits must be closed at this entry gate before schema/API implementation.
+
+| Phase | Intermediate API and invariant |
+| --- | --- |
+| Binding owner, section 2 | `resolveYa(YaSessionId)` returns the public id, launch provider, authorization/project facts and either an explicit native reference or unbound state. `lookupNative(NativeSessionRef)` resolves native discovery. `adoptDiscovered` requires verified native facts and preserves the existing public id. The first migrated real operation is existing-session detail/history resolution through `session-existing-identity` and its reader adapter. It exposes no new launch behavior. |
+| Reader adapter, sections 2–3 | Native readers/catalogs use explicit native references/facts. Physical index/cache keys keep native addresses; a projection adapter maps returned public entities to YA ids. Existing unmigrated callers retain explicitly named native-entry adapters until migrated; no unchecked YA/native casts, namespace guessing or equal-id fallback. Section 3 finishes retained consumers before differing-id launch. |
+| Attempts, section 4 | Add the persisted current-attempt token and attempt-aware `bindNative`; stale-attempt qualification belongs here, not section 2. Fence binding, status/failure, input admission and cleanup/cancellation, not only the SQL bind. A resolved reference is operation-scoped and must not authorize an effect after its attempt/owner generation becomes stale. |
+| Durable admission, section 4 | `admitSession` commits immutable text/settings/context, public session id, initial attempt and idempotent operation/receipt identity through one synchronous transaction on the owning profile connection. Provider I/O follows commit. It includes the minimal common transaction API before any durable-acceptance claim; section 7 expands callers and attachments, not the atomicity foundation. |
+| Publication | Extend existing metadata/receipt stores with transaction-owned internal write operations rather than nest their current save/reserve transactions. Stage metadata cache changes; update in-memory mirrors and publish events only after commit. Rollback publishes nothing and preserves the prior mirrors. Private runtime/controller callers reach the same admission owner rather than write a second independent journal. |
+
+Distinguish `launchProvider` from native storage family. A native binding key is
+the audited native namespace/storage family, canonical storage-scope key and
+native id. `codex`/`codex-oss` and Claude variants may share a family while
+retaining different launch settings and credentials; they share a binding
+namespace only when they actually address the same store. Gemini CLI/ACP must
+not be collapsed merely because names are similar. Select the actual scope
+normalization per provider before the unique index. Ambiguous discovery or two
+existing public ids claiming one native resource produces a conflict for
+inspection, not a silent merge, reassignment or third public session.
+
+Normalized `CreationContext` is required on migrated admission entry points:
+authenticated ownership/grants and descriptive provenance are separate fields.
+Do not add an optional context with a default that silently preserves omissions.
+Keep an explicit per-slice ledger of migrated callers and retained low-level
+bypasses; callbacks are outcome notifications, not the durable request owner.
+
+Project Queue allocates the YA session at first promotion, not enqueue. Persist
+the original enqueue context in the queue item. Use a stable promotion operation
+key derived from its durable item identity so a crash before `onStarted` resolves
+the same admission/session. Its JSON state and SQLite do not pretend to form one
+transaction: post-commit queue publication may be recovered by that key. Once
+admitted, edits cannot silently replace the frozen request; define an explicit
+new/superseding operation instead. Supervisor worker deferral likewise carries
+the persisted admission/attempt reference, not only a callback.
+
+### Startup and retry boundary table
+
+| Last established boundary | Permitted recovery |
+| --- | --- |
+| Definitive failure before native effects | Authorized explicit recovery may create a new attempt in the same YA session, rechecking admission and preserving committed account/settings. |
+| Launch attempted, native allocation unknown | Reconcile existing provider/host evidence. Remain uncertain if no unique result is provable; no new native start. Orphan discovery uses the scoped reverse lookup/evidence, not content/title guesses. |
+| Native binding established; initial input definitely not admitted | Attach/resume that binding. Only explicit creation recovery may authorize the retained initial input after definitive non-admission evidence; do not allocate another native conversation. |
+| Binding established; initial input outcome uncertain | Reconcile the same binding/input identity and show uncertainty; no automatic resend or new conversation. |
+| Initial input consumed | Never replay it as a creation retry. Ordinary later user turns and normal runtime resume use their existing admission semantics. |
+
+Ordinary send/resume/reactivate and automatic queue paths refuse unbound or
+uncertain startup advancement; only the authorized creation-recovery operation
+can cross that boundary. A caller on an older client does not bypass it. Extend
+`auth/sessionAccess.ts` to authorize transcript-less sessions from persisted YA
+project/creator facts, preserving limited-user reads and peer receipt scope
+without adding launch authority.
+
+Router credential cancellation remains terminal. Same-session recovery targets
+a new attempt-scoped reservation/token pinned to the original committed account;
+it must not revive a cancelled credential, reselect an account or use direct
+login. Settle the representation with the existing router owner before section
+4: today's cancelled allocation keyed to a session refuses reuse. If the router
+cannot safely issue that pinned replacement, refuse recovery and retain the
+session/error rather than fabricate success. Late old-attempt cleanup cannot
+cancel a newer attempt's reservation. The exact policy/API is an entry-gate
+decision, not an assumption that current cancellation already supports retry.
+
+### Provider-host enabling boundary
+
+Sections 4–5 must carry YA id, native reference and attempt/owner generation
+through host claims/targets, worker launch/init/bound messages, attached-state
+snapshots and child environment publication. In particular the current
+`provider-runtime-host.ts` resume-id claim, single-id `ProviderSessionOwner`
+bound message and host equal-id assignments must change together. Public child
+identity remains YA; provider-native resume remains native.
+
+Reuse host receipts/observation to retain native-binding/input evidence while
+Hono is detached, then reconcile it into the YA attempt on reattach. Prove that
+launch/binding/input during detachment cannot cause a second native start after
+reattach. Full owner loss remains a separate uncertain-outcome test. Define an
+explicit private host/worker support negotiation or controlled upgrade boundary
+before enabling split ids: preserve old workers, and refuse unsupported new
+transitions with update guidance rather than restart them or claim that Hono
+reload upgraded their code. This enabling qualification cannot wait for section
+9. Plan 150's historical late-rename exclusion does not override this continuity
+requirement.
+
+## 2 — add typed identity and one native-binding owner
+
+Add the minimal append-only schema and store needed for permanent YA identity
+and scoped native bindings. Preserve existing `session_metadata` and its public
+keys. Adopt existing sessions with their existing public ids at a bounded
+discovery/import boundary; do not scan all transcripts in migration startup.
+Integrate the owner into the section 1 detail/history lookup while retaining current launch
+behavior. New differing-id launches remain disabled until their read/watch
+paths are ready; advertise no new creation capability yet.
+
+Move affected signatures to the branded types. Update
+`routes/session-existing-identity.ts` and provider resolution at their ownership
+boundary instead of layering another infer-and-fallback service beside them.
+Avoid a repository-wide type-only sweep unrelated to a migrated operation.
+
+Completion evidence: real SQLite migration/rollback preservation, equal and
+unequal strings, scoped reverse lookup, duplicate/conflicting adoption and
+idempotent repeats. Include legacy `ses_*` ids. Attempt fencing is introduced
+and qualified in section 4, after its schema exists.
+Use a native reference whose id differs from its YA id in retained fixtures.
+Review, fix/re-review, check and commit this coherent slice.
+
+## 3 — translate history, discovery and watch boundaries
+
+Route history/detail/list, native discovery, export and focused watches through
+the shared binding owner. Preserve working-project versus transcript-project
+identity. Return canonical YA ids to callers and prevent a native scanner from
+creating a second public row for an already bound transcript. Preserve physical
+file paths as file facts; do not fabricate a YA-named path for an old client.
+
+Qualify the existing focused-watch compatibility bridge from the audit. Cover
+both owned-session pending/durable confirmation and non-owned transcript updates.
+Audit other references: child/parent links, attachment ownership, drafts,
+recents, shares, grants, queue targets and API/peer receipts. Keep existing public
+ids; do not eagerly rewrite all ancillary stores merely to change an id format.
+
+Translate every retained native source consumer before differing-id parents
+can be created: fork/clone source reads (including direct copies), restart,
+retitle/summary/helper reads, rewind/compaction, recovered launch settings,
+provider-child discovery, issue/history readers in `app.ts`, external-session
+tracking, process-inventory ownership joins and access-filtered events. Those
+operations receive the native source reference; metadata, lineage, authorization
+and returned events keep the YA source id. Child allocation/remap redesign can
+remain deferred. A split-id parent must still fork/clone through retained paths
+and its child must resume correctly.
+
+Completion evidence: a session with differing ids loads the correct provider
+history, updates after native append, survives refresh/restart and appears once
+in collections. Existing urls still resolve. Test actual provider-reader shapes,
+including Codex and OpenCode, using controlled native data/protocol fixtures.
+Run the old-client focused-watch case before enabling differing-id launches.
+Review, fix/re-review, check and commit.
+
+## 4 — persist startup intent and make failed Claude startup durable
+
+Add the durable saved request and startup-attempt lifecycle to the common new
+session admission boundary. For migrated text-only callers, persist identity,
+launch settings, initial prompt and ownership/provenance before provider effects.
+Write boundaries
+and safe terminal failures independently of a live subscription. Preserve the
+existing runtime/worker queue rather than introduce another process owner.
+
+Use caller-chosen-id Claude as the first vertical provider path. Correct wrapped
+fatal startup handling and dead-owner input rejection. Make YA-only saved/failed
+sessions readable through authorized catalog/detail projections without a
+provider transcript. Legacy endpoints keep their established completed/queued
+response semantics; do not return a pending session in place of a process.
+This text-first slice includes section 1's session/intent/operation transaction,
+post-commit publication, required creation context, retry/router rules and
+hosted enabling boundary. Migrate ordinary text project/detached callers here;
+list the remaining Project Queue/review/v0/peer bypasses until section 7.
+Attachments explicitly retain legacy two-step behavior until durable claims
+land there; section 4 makes no attachment-acceptance guarantee. Do not advertise
+the complete new web contract prematurely.
+
+Completion evidence: missing executable before subscription; refresh after
+failure; restart before dispatch, during startup and after native binding;
+durable prompt/settings; no false active turn or dead queue admission; known
+failure versus uncertain outcome; transcript-less limited-user access; fencing
+of all late-attempt actions. Include equal-id Claude behavior, cancelled-token
+same-account recovery and hosted launch/reattach using controlled faults. No
+additional automatic retry policy.
+Review, fix/re-review, check and commit.
+
+## 5 — enable permanent YA ids for Codex launches
+
+Mint/store the YA session before `thread/start`, bind the returned native thread
+id to the current attempt, and keep provider init/events from renaming it.
+Resolve native references for resume, transcript reads, control and host targets.
+Handle unsolicited native discovery through the same reverse lookup.
+
+Completion evidence: actual differing ids through start, first turn, watch,
+full server restart/resume, native-history discovery and API reads; one public
+session, correct account, no public remap. Inject delayed/stale callbacks and
+crashes around binding and first-input admission. Exercise hosted and in-process
+ownership. Keep provider protocol/target versions unchanged; this is not a Codex
+refresh. Review, fix/re-review, check and commit.
+
+## 6 — migrate the other retained provider identity shapes
+
+Use bounded provider-specific commits/reviews: OpenCode first (native `ses_*`
+and reader-prefix assumptions), then the retained Pi/ACP/Grok and Claude variant
+paths as applicable to the actual enabled provider inventory. Do not claim all
+providers are migrated because two adapters pass. Frozen Gemini is not a refresh
+project: preserve its supported behavior and historical readability; surface any
+blocking migration cost under the existing retention decision.
+
+Before each provider commit, name the ingress/egress translations it replaces
+and the launch/read/resume/watch evidence. If a provider cannot participate,
+record that concrete limitation and obtain a rollout decision rather than
+silently falling back or advertising a complete global contract. Keep incomplete
+paths explicit during development; qualify the whole selected provider set
+before the global capability ships. Fork/clone paths not migrated here retain
+their documented explicit remap behavior.
+
+Completion: every retained new-session provider path in the selected contract
+keeps its YA id through launch and recovery. Exercise the real adapter shape
+with controlled transcripts/protocols, plus bounded live smoke qualification for
+available providers. Each provider cut is reviewed, checked and committed.
+
+### Retained-provider rollout matrix
+
+Each row is an enabling gate, not a claim of passing qualification. Fill the
+per-slice ledger with native scope, reader/source consumers, discovery joins,
+resume/control, owned-input confirmation, old-client observation and host
+evidence before enabling that row. Do not assume the focused-watch manager's
+current Claude/Codex/Gemini support covers the other rows.
+
+| Launch provider | Native/storage shape to audit | Reader/discovery/resume and old-client watch gate |
+| --- | --- | --- |
+| `claude` | SDK caller-chosen id, Claude transcript family | Equal strings still cross typed boundaries; hosted/in-process launch and input evidence, normal/child transcript watches. |
+| `claude-gateway` | Claude SDK/transcript family with gateway launch facts | Preserve configured gateway/credentials and source reads; verify actual chosen-id behavior and host projection rather than assume it. |
+| `claude-ollama` | Claude SDK/transcript family with Ollama launch facts | Preserve retained provider/configuration; qualify native scope and the same read/resume/watch boundaries. |
+| `codex` | App-server thread id, rollout reader | Differing-id launch, native source fork/clone, rollout discovery, owned-input confirmation and focused watch; host claims/bound/reattach. |
+| `codex-oss` | Codex runtime/storage family with distinct launch choice | Qualify alongside Codex or in its own reviewed cut; preserve launch variant even when native discovery reports the family. |
+| `opencode` | Native `ses_*`; JSON, SQLite DB and export-backed history | Prefix-independent reader selection, native resume/control and reverse lookup; qualify/extend focused observation for each available source, including no single transcript path. Current normalization to Claude is insufficient. |
+| `pi` | Retained RPC/native transcript shape | Native read/resume/control/discovery and process ownership joins; qualify a focused/bounded observation path for old clients before split-id launch. No current focused Pi target is assumed. |
+| `grok` | Retained ACP/native transcript shape | Native read/resume/control/discovery and ownership joins; qualify bounded old-client observation. No current focused Grok target is assumed. |
+| `gemini` | Frozen CLI/native history path | Preserve current protocol and historical reads; audit namespace separately from ACP and qualify broad/focused observation or obtain an explicit limitation decision before enabling. |
+| `gemini-acp` | Frozen ACP/native history path | Preserve current mapping without refresh; qualify source/resume/control, storage scope and observation independently of CLI assumptions. |
+
+Preserve the existing hosting/platform availability for every row. Extend the
+current focused observer only where required by a real retained shape; do not
+invent a general watcher framework. An unsupported old-client watch shape is
+a rollout blocker for that row, not something a new global capability repairs.
+
+## 7 — unify accepted creation, retries and attachments across callers
+
+Expose the reviewed durable acceptance/status contract and reuse receipt
+identity/admission machinery without widening agent API authority or changing
+its existing state meanings. Commit the saved payload and operation identity
+together before acknowledgement. Retrieve an authorized existing request before
+mutable admission checks; conflicting request reuse fails, response loss returns
+the original session, and ambiguous effects are not replayed.
+
+Bring staged attachment validation/retention/materialization and the first
+message through this boundary; upload failure must not leave an unintended
+empty running provider. Preserve explicit storage policies and ownership.
+Seal validated immutable staged objects in owned app-data before admission;
+commit their durable claims with the session/operation. Draft TTL cleanup must
+consult these claims and cannot expire an accepted object's source. A crash
+between sealing and commit leaves only an unclaimed object for bounded cleanup.
+Materialization uses recoverable intent/completion and atomic filesystem steps,
+not in-memory move rollback; restart reconciles it without blindly sending.
+Choose bounds, capacity accounting, deletion/release and orphan cleanup at the
+entry gate. SQLite and filesystem steps are an explicit recovery protocol,
+not a claimed cross-store transaction.
+
+Audit ordinary project/detached creation, durable Project Queue promotion,
+native v0/peer creation and review-session launches against the common owner.
+Carry original provenance and permissions across deferred dispatch; do not infer
+source from the dispatcher or copy a parent's descriptive source. Treat unrelated
+fork/helper source repair as the separate tracked remainder. Split callers or
+attachments into separate reviewed commits when necessary rather than create
+one large ingestion rewrite.
+
+Completion evidence: lost response/reload, concurrent duplicate keys, changed
+payload, disabled provider after acceptance, full capacity, interrupted staging,
+foreign attachment refusal, crash at side-effect boundaries and pinned settings.
+Reads/replays remain possible at capacity. Qualify legacy/v0 response semantics
+and existing queue behavior. Review, fix/re-review, check and commit each cut.
+
+## 8 — present saved and failed sessions with safe draft acknowledgement
+
+Add startup/recovery presentation at the normal permanent session URL, including
+saved prompt/copy/restore and safe expandable failure details. Distinguish saved,
+starting, failure and uncertainty from provider liveness and consumed input.
+Use additive fields with explicit absence handling; do not insert new startup
+values into old process-state enums. Keep existing-session input ownership intact.
+
+Capture submitted draft text, slot, source and attachment selection at ingress.
+Only clear that submission after durable acceptance. Preserve newer local,
+sibling-tab and remote edits; late responses cannot navigate another source or
+newer work. Reuse a small submission-lifecycle helper rather than decompose the
+whole form. Keep the editor's acknowledgement independent of status rendering.
+
+Allocate/advertise `session-creation-receipts` from the live ledger only when
+the complete reviewed contract/provider coverage is ready. Before absent/denied/
+unknown support, send no new writes/status requests and use legacy creation.
+Keep provenance, agent-management and collection capability meanings unchanged.
+
+Completion evidence: delayed acceptance with intervening edits, failed/reloaded
+submission recovery, no late navigation, IME-safe existing submission, and real
+sequential typing under expected data/concurrent startup updates within 100 ms.
+Desktop/phone startup/failure/recovery captures use the artifact facility and
+are inspected individually. Review, fix/re-review, check and commit. Optional
+background creation is the next feature slice, not implicit completion here.
+
+## 9 — qualify upgrade, skew, restart and retained legacy paths
+
+Run the refreshed release/client matrix, preservation fixtures and bounded live
+provider matrix. Include old client/new server, new client/old server and both
+current, direct and encrypted relay where the contract crosses them; verify
+existing-session links and defaults after upgrade. Test Node/Bun storage and
+macOS/Linux/Windows paths or state unavailable qualification honestly.
+
+Exercise Hono replacement with hosted workers and full owner loss separately.
+Old workers retain loaded provider code: qualify reattachment or enforce the
+reviewed controlled upgrade boundary; never restart localhost:3400 or its
+workers as a test action. Remove only remap branches with no remaining native
+consumer; retain client compatibility handlers through the required horizon and
+record fixed fallback retirement under the 90-day rule. Do not equate partial
+new-session migration with removal of all fork/clone remaps.
+
+Completion: all intentional behavior has owning contracts, evidence names the
+qualified provider/runtime/platform matrix, reviewer objections are resolved,
+required gates pass and remaining defects have precise tracked remainders.
+Review and commit final qualification/docs/removal cuts separately as needed.
+
+## Standalone YA test profile
+
+Use an owned standalone process on a dynamic loopback port, not the existing
+3400 instance. Reuse
+[`startYaServerProcess` / `restartYaServerProcess` / `disposeYaServerProcess`](../../packages/client/e2e/support/ya-server-process.ts)
+and the [owned provider-host cleanup](../../packages/client/e2e/support/provider-host-runtime.ts)
+when suitable. Prefer a small command-driven integration/probe runner over UI
+automation for API, database and crash boundaries.
+
+The fixture owns a temporary project, data directory, provider transcript roots,
+child HOME/USERPROFILE, provider configuration homes, short runtime/socket paths,
+port files and process identities. `YEP_PROFILE` alone is insufficient because
+providers and host sockets otherwise remain shared. Clear inherited provider-host
+credentials/descriptors and unrelated agent launch authority through the existing
+hermetic environment helpers. Do not copy a production YA database, scan normal
+user transcripts, modify ordinary provider credentials or share the live host.
+
+The process helper's inherited environment is not hermetic by itself. Compose
+the child environment explicitly: apply the configuration scrub inventory from
+`test/setup/config-env-vars.ts` without importing Vitest lifecycle setup, then
+set all owned paths/gates. Override `CLAUDE_CONFIG_DIR`, `CLAUDE_SESSIONS_DIR`,
+`CLAUDE_PROJECTS_DIR`, `CODEX_HOME`, `CODEX_SESSIONS_DIR`, both Gemini/Pi/Grok
+session roots and `GROK_HOME`; isolate HOME/USERPROFILE, XDG config/data/cache/
+runtime roots and TMPDIR/TMP/TEMP. Audit provider-specific roots not read by
+server config. Clear inherited host/worker sockets, tokens, descriptors and
+unrelated `AGENT_*` launch authority; set the owned host runtime and hosting
+mode explicitly. Preserve only explicitly selected test inputs/credentials.
+
+Add a poisoned-parent-environment check proving the selected native roots,
+OpenCode DB/JSON paths, detached-project temp root and host targets remain inside
+the fixture. Reuse the existing safe-home rules with a temporary root outside
+the checkout and
+[`provider-host-system.test.mjs`](../../packages/server/test/scripts/provider-host-system.test.mjs)
+for detached-owner scenarios. Any needed scrub extension is bounded to the
+actual leak; do not introduce a second fixture framework.
+
+Deterministic tests use controlled native protocols/transcripts through real
+adapters. For live smoke checks, use an explicit isolated provider credential
+setup that preserves operator account choice; no bulk home copy or credential
+logging. Missing live authentication is recorded, not worked around by direct
+account fallback. Run provider hosting disabled and explicitly enabled in
+separate owned fixtures, preserving the platform default/availability rules.
+
+Restart the same owned profile to test durability; use a new profile for an
+independent scenario. Await process-tree/host cleanup before removing files and
+report leaked ownership as failure. Use Playwright's separate test browser,
+never the user's installed browser with a temporary profile. UI captures follow
+[UI testing](../../topics/ui-testing.md), including presentation when configured.
+
+## Sol review and commit loop
+
+The requested reviewer is an actual YA session created through the running
+`http://localhost:3400` ordinary API, with provider `codex`, model
+`gpt-6.1-sol`, `thinking: "on:high"`, `mode: "bypassPermissions"`, recaps and
+prompt suggestions off. Model presence/high-effort support was read from that
+instance's `/api/providers` on November 1. Recheck availability at launch; do
+not substitute another model or reasoning level silently.
+
+Use a fresh reviewer session after every implementation slice and for the
+initial design. Supply the exact plan section, base commit, changed paths/diff,
+contracts, test evidence and known limits. Ask for a concrete accept/revise
+verdict, regressions and scope/compatibility concerns. Reviewer instructions are
+read-only except a named report under ignored `tasks/session-identity/reviews/`:
+no source edits, commits, pushes, nested reviewers, provider probes or server
+restarts. Bypass is the requested provider permission mode, not permission to
+expand the review task. Do not let the reviewer run the full suites concurrently.
+
+Record the returned session/process ids immediately. Verify effective model,
+reasoning effort and permission mode from session metadata/provider evidence,
+not just the requested body. If launch acknowledgement is lost, inspect existing
+sessions before another POST; today's ordinary API has no new idempotency promise.
+Wait for a terminal review, fix material findings and re-review the changed
+result. Report a missing/unavailable reviewer rather than self-certify its gate.
+Retire only this work's reviewer when idle; never affect unrelated sessions.
+
+For each source slice: run focused checks, review, reconcile corrections, then
+pass `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test` and applicable
+browser/CSS/console checks. Typecheck and tests run sequentially because they
+share generated output; see [the existing race](../../gaps/parallel-typecheck-test-shared-build.md).
+Avoid repeated passing full runs unless changes or unresolved evidence justify
+them. Retain meaningful race/persistence/adapter tests, not shallow wiring tests;
+record runtime/cost under [the testing guide](../development/testing.md).
+
+Commit coherent accepted slices on the current branch with explicit paths;
+preserve concurrent edits. Use `Topic: ya-owned-session-ids` (already in
+`topics.md`) and one `Contributing-model:` trailer per contributing model,
+including `gpt-6.1-sol` for its review. Follow
+[commit conventions](../development/commits.md) and the attribution guard.
+Do not push or release as part of this plan without an instruction to do so.
+Update this plan/roadmap with actual progress; local detailed evidence stays in
+ignored tasks and durable contracts stay in topics. A commit is a checkpoint,
+not permission to stop an explicitly authorized end-to-end implementation run.

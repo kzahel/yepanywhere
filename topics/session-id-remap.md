@@ -2,6 +2,17 @@
 
 Status: implemented.
 
+This owns the retained provisional-id reconciliation behavior, not the future
+session ownership model. Since plan 150's October 11 change, ordinary new
+Claude sessions accept YA's chosen id; the remap path remains for providers and
+legacy launch paths that assign a different id. On November 1 the maintainer
+selected [permanent YA session identity](session-identity.md), with provider ids
+stored separately and saved/failed sessions surviving without a transcript,
+as the foundation for [session creation](session-creation.sketches.md).
+That migration is pending; preserve this contract until its paths and supported
+older servers no longer need it. Historical Claude incidents below predate the
+caller-chosen-id change.
+
 ## Problem
 
 A newly launched session can briefly render as two sidebar rows for one logical
@@ -51,7 +62,7 @@ temporary UUID and canonical UUID were the same logical session.
 
 ## Current Flow
 
-The startup path is:
+For launch paths that still remap, the startup path is:
 
 1. `ProjectQueueScheduler.dispatchNewSessionItem` calls
    `supervisor.startSession` for new-session queue items without staged

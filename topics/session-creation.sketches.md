@@ -1,9 +1,13 @@
 # Session creation, acknowledgement and navigation — proposal
 
-Status: proposed 2026-11-01. The maintainer accepted this direction for
-documentation; implementation, detailed API/schema choices and release
-qualification remain pending. This does not reprioritize the
-[roadmap](../docs/roadmap/README.md) or resume deferred identity migrations.
+Status: creation/navigation proposal recorded 2026-11-01; the maintainer then
+selected [YA-owned session identity](session-identity.md) as its foundation.
+Persist a session before provider startup and keep its public id and failure
+history even when no provider session/transcript exists. This reopens the
+new-session portion of [plan 150](../docs/tactical/150-ya-owned-session-ids.md#november-1-selected-follow-up),
+not its entire fork/clone program. Implementation, detailed API/schema choices
+and release qualification remain pending. The
+[roadmap](../docs/roadmap/README.md) records scope and priority.
 
 ## Problem and current behavior
 
@@ -83,6 +87,20 @@ neither clear the text as successful nor offer a blind duplicate submission.
 
 ## Proposed acceptance and recovery guarantees
 
+### Own the session before launching the provider
+
+The durable object is a YA session from the first accepted save. Its permanent
+YA id is the URL/API identity; provider-native ids are stored bindings, not
+replacement public ids. Startup attempts, including failures before native
+identity or transcript creation, belong to that same session. An explicitly
+authorized retry after known failure may create another attempt without
+creating another logical session. Uncertain effects must be reconciled first.
+
+[Session identity](session-identity.md) owns this selected direction, the
+existing-data boundary and the dated compatibility audit. It keeps native
+transcripts authoritative for conversation history. This proposal owns the
+creation/draft/attachment/navigation behavior built on that foundation.
+
 ### Persist the request before acknowledging it
 
 Persist the submitted prompt, exact launch settings, project/provider choice,
@@ -118,11 +136,13 @@ could be newly admitted today. Receipt access conveys no new session or
 project authority. Share incumbent launch/admission services rather than
 creating an alternate authorization or process owner.
 
-The receipt can exist before a provider session id. When identity settles,
-record and expose the resulting canonical session and preserve the existing
-explicit remap behavior. The exact startup-view URL is a design choice; it
-must reopen the same attempt after reload. This does not require reviving
-plan 150's deferred conversion of every provider to YA-owned ids.
+The YA session and its acceptance receipt can exist before a provider-native
+id. Record the native binding when established, without renaming the public
+session. The ordinary session URL should reopen its saved startup state after
+reload; detailed route/representation choices remain pending. Preserve the
+existing explicit remap behavior for legacy paths and older servers until
+their replacements are qualified and their compatibility code may retire.
+Do not migrate existing public ids or require the deferred fork/clone redesign.
 
 ### Keep saved, starting and delivered distinct
 
@@ -186,23 +206,33 @@ receipt. Do not broaden `agent-api-management`, whose default-off agent API
 authorization is independent of ordinary web creation. Share implementation
 underneath while preserving those public boundaries.
 
-Before editing the runtime contract, review the latest two stable server
-releases plus every stable release from the preceding 60 days, since creation
-is core functionality. Record the actual releases, routes/fields/semantics,
-support check and absent-support behavior under the
+The [November 1 identity audit](session-identity.md#compatibility-research--2026-11-01)
+inspected the core release corpus and records legacy creation responses,
+filename-derived refresh assumptions, transcript-less reads and upgrade risks.
+It recommends this gate/fallback without claiming passing skew qualification.
+Before editing the runtime contract, refresh that corpus if releases changed
+and settle the actual routes/fields/semantics, support check and absent-support
+behavior under the
 [capability review rules](server-capabilities.md#minimum-compatibility-horizons)
-and [hosted compatibility](remote-hosted-compatibility.md). That release-corpus
-review has not been performed for this proposal. Track fixed fallback
+and [hosted compatibility](remote-hosted-compatibility.md). Track fixed fallback
 retirement under the repository's 90-day rule. Existing advertised capability
 meanings remain unchanged.
 
 ## Suggested implementation order and acceptance evidence
 
+[Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md) expands
+the identity/creation foundation into reviewed implementation slices with an
+owned standalone profile. Optional background creation follows that foundation;
+the numbered outline here describes the broader product sequence.
+
 1. Fix fatal startup classification/state and retain a safe failure snapshot
    for late subscribers. Exercise failure before subscription and after
    refresh/reconnect, including the wrapped missing-executable case.
-2. Define and implement durable payload/receipt ownership through shared
-   admission services. Prove response-loss retry, conflicting request reuse,
+2. Implement [YA-owned session identity and startup lifecycle](session-identity.md)
+   through shared admission services: persist session/payload/receipt ownership
+   before dispatch, bind native ids without public renames, and make saved or
+   failed sessions readable without transcripts. Prove response-loss retry,
+   conflicting request reuse, discovery deduplication, existing-link continuity,
    restart at side-effect boundaries, capacity refusal, router pin continuity
    and ambiguous-outcome handling without duplicate launch or delivery.
 3. Bring attachment creation through the same acceptance boundary. Exercise
@@ -221,6 +251,7 @@ These are proposed slices, not approval to implement or a claim of existing
 coverage. Endpoint/schema shape, receipt/payload retention and bounds,
 provider qualification, startup-view routing and failed-attempt retry
 semantics need concrete decisions before code changes. Cancellation and
-automatic restart policies are separate work. No universal session-id
-migration, new scheduler, cross-account continuation or managed delegation is
-required by this proposal.
+automatic restart policies are separate work. Permanent ids for new YA-created
+sessions are selected; bulk replacement of existing public ids, the full
+fork/clone redesign, a new scheduler, cross-account continuation and managed
+delegation are not required by this proposal.

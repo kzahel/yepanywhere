@@ -111,6 +111,11 @@ YA metadata, REST/WebSocket payloads, or UI copy. If a provider truly requires
 using its own id as a public/session id, document that exception in the
 provider contract and make the mapping explicit in the UI/debug surfaces.
 
+[YA-owned session identity](topics/session-identity.md) records the selected
+pre-launch session/startup ownership follow-up and its compatibility audit;
+read it before changing session identity, native-id translation or creation
+recovery. The current remap behavior remains until that migration is qualified.
+
 ## Vanilla Defaults
 
 YA-novel user-visible behavior, including changes to submitted provider text,

@@ -296,6 +296,14 @@ access and retains the existing supported-release/transport horizons.
 
 ### Creation and retry receipts
 
+The selected [YA-owned session identity](session-identity.md) follow-up and
+[web creation proposal](session-creation.sketches.md) reuse receipt/admission
+concepts below, but are not current v0 guarantees. In particular, today's
+receipt does not retain the prompt/attachments or establish a durable YA
+session before dispatch. Preserve v0 state meanings, authorization and native
+input semantics when extracting shared implementation; the web contract needs
+its own capability rather than broadening `agent-api-management`.
+
 `POST /v0/servers/{serverId}/sessions` accepts strict JSON with `requestId`,
 `projectId`, `provider` and exact initial `message`. Optional model,
 thinking/effort, permission mode and service tier map to incumbent native

@@ -58,6 +58,10 @@
 - OpenAI-compatible helper sessions
 - Prompt suggestions
 - Session liveness and queue intent
+- [YA-owned session identity](session-identity.md) (selected pre-launch session
+  ownership and permanent public ids; startup recovery and compatibility audit)
+- [Session creation and navigation](session-creation.sketches.md) (proposal
+  built on YA-owned identity, including durable acceptance and background creation)
 - Provider process state machine
 - Compact-and-handoff guardrail (targeted provider/model policy)
 - Claude 1M vs 200K context window (resolution, reporting, autocompact)

@@ -8,6 +8,10 @@ that depend on it, especially deferred queue promotion and
 patient queue intent.
 
 Related topic: [heartbeat ownership and timers](heartbeat.md).
+Related topic: [YA-owned session identity](session-identity.md) — selected
+durable session/startup ownership before a provider process or transcript
+exists; implementation pending. [Creation/navigation](session-creation.sketches.md)
+builds on it without treating a saved session as a live provider turn.
 Related topic: [session ownership and shared-transcript writers](session-ownership.md)
 — who is writing the file, a different axis from whether the turn is progressing.
 Related topic: [reload-safe provider runtimes](reload-safe-provider-runtimes.md)

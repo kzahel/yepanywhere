@@ -7,6 +7,19 @@ Topic: backward-compat
 
 ## Decisions
 
+2026-11-01 YA-owned session identity — selected direction, implementation
+pending. New YA-created sessions will retain a permanent public id and durable
+startup state independently of provider identity/transcript creation. Preserve
+existing public ids and links, native transcript authority, legacy creation
+response semantics and current authentication/transport protocols. The
+[identity topic](session-identity.md#compatibility-research--2026-11-01) records
+the release audit, filename-based refresh hazard and recommended capability
+boundary; [creation/navigation](session-creation.sketches.md) builds on it.
+The general new-session work from
+[plan 150](../docs/tactical/150-ya-owned-session-ids.md#november-1-selected-follow-up)
+is reopened, while the full fork/clone redesign remains deferred. This selects
+no database downgrade support, compatibility cutoff or final API/schema shape.
+
 2026-10-11 required SQLite and `session-metadata.json` — session metadata moves
 into `discovery.sqlite` (migration 10), imported once from the JSON file, which
 is then left on disk unread and unwritten. Downgrading is not supported: an

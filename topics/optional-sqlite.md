@@ -246,6 +246,12 @@ enterprise Linux 8 provides, and no library path could satisfy it.
 
 ## Session metadata
 
+The selected [YA-owned session identity](session-identity.md) follow-up will
+build durable pre-launch sessions, native bindings and startup outcomes on this
+storage. It is pending: migration 10 alone does not provide that lifecycle.
+The [creation proposal](session-creation.sketches.md) depends on that boundary;
+future schema changes follow the migration and no-downgrade rules above.
+
 Migration 10 adds `session_metadata`, one row per session keyed by session id,
 holding that session's metadata object as JSON, and `session_metadata_import`,
 a single row recording that the legacy file was handled.

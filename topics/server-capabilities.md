@@ -435,6 +435,11 @@ authorize writes or relax the sessions/Inbox gate. See
 
 ### Other contract owners
 
+- [YA-owned session identity](session-identity.md#compatibility-research--2026-11-01)
+  and [creation/navigation](session-creation.sketches.md): selected pre-launch
+  session ownership, the dated legacy-route/refresh audit, and a proposed exact
+  gate for durable web acceptance/recovery. Internal id translation alone is
+  not a capability; new writes/status semantics are. Implementation is pending.
 - [Public shares](public-share-persistence.md): representation capabilities belong
   to the selected share/revision; global server support cannot prove one
   stored object has chunk integrity data. Live and frozen chunk support are

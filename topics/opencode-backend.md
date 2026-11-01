@@ -16,6 +16,14 @@ against the upgraded `opencode` binary) plus the copilot auth UX; it
 re-prioritizes the "Gaps To Close" list below around the copilot goal. The "Gaps
 To Close" contracts here remain authoritative for the general fleshout detail.
 
+The selected [YA-owned session identity](session-identity.md) follow-up reopens
+the session-id split below for new YA-created sessions. It will keep a permanent
+YA id and a separate native `ses_*` binding; implementation is pending. Existing
+native/public ids stay unchanged. Reader selection, focused watches and resume
+must resolve that binding rather than infer OpenCode solely from the public
+id's prefix. [Session creation](session-creation.sketches.md) depends on this
+ownership boundary.
+
 ## Scope
 
 OpenCode is integrated through `opencode serve` plus HTTP and SSE, not through a
