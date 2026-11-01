@@ -32,11 +32,16 @@ function fixture(): PeerConnectionsResponse {
           {
             credentialId: "00000000-0000-4000-8000-000000000003",
             generation: 1,
-            expiresAt: Date.now() + 86400000,
+            expiresAt: Date.now() + 90 * 86400000 - 3600000,
             active: true,
             selected: true,
             origin: "manual",
             allProjects: true,
+            authentication: {
+              mode: "automatic",
+              status: "ready",
+              lastRefreshedAt: Date.now() - 3600000,
+            },
             route: {
               kind: "relay",
               url: "wss://relay.yepanywhere.com/ws",
@@ -74,7 +79,11 @@ async function support(page: import("@playwright/test").Page) {
       response,
       json: {
         ...body,
-        capabilities: [...(body.capabilities ?? []), "peer-connections"],
+        capabilities: [
+          ...(body.capabilities ?? []),
+          "peer-connections",
+          "peer-authentication-refresh",
+        ],
       },
     });
   });
@@ -170,6 +179,9 @@ test("server connections keeps drafts responsive during populated-list updates a
       (window as unknown as { connectionTyping: number[] }).connectionTyping,
   );
   expect(Math.max(...times), JSON.stringify(times)).toBeLessThanOrEqual(100);
+  await page
+    .getByRole("heading", { name: "Connect a server", exact: true })
+    .scrollIntoViewIfNeeded();
   await recordUiCapture(page, "server-connections-desktop-form");
   await page
     .getByLabel("Remote Access username", { exact: true })
@@ -185,6 +197,7 @@ test("server connections keeps drafts responsive during populated-list updates a
     username: "build-owner",
     label: text,
     bidirectional: false,
+    automaticSignIn: true,
   });
   await page
     .getByRole("button", { name: "Details", exact: true })
@@ -220,6 +233,8 @@ test("server connections keeps drafts responsive during populated-list updates a
   await expect(page.getByRole("article")).toHaveCount(1);
   await page.getByText("This server", { exact: true }).scrollIntoViewIfNeeded();
   await recordUiCapture(page, "server-connections-desktop");
+  await page.getByRole("article").scrollIntoViewIfNeeded();
+  await recordUiCapture(page, "server-connections-desktop-automatic");
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`${baseURL}/settings/server-connections`);
   await expect(page.getByText("studio-mac", { exact: true })).toBeVisible();
@@ -267,4 +282,84 @@ test("an older server hides the category and receives no unsupported peer reques
     }),
   ).toBeVisible();
   expect(requests).toEqual([]);
+});
+
+test("refresh status keeps the saved host visible and an older source cannot create a silent temporary pair", async ({
+  page,
+  baseURL,
+}) => {
+  await support(page);
+  const data = fixture();
+  await page.route("**/api/peers/connections**", (route) =>
+    route.fulfill({ json: data }),
+  );
+  await page.goto(`${baseURL}/settings/server-connections`);
+  await expect(
+    page.getByText("Automatic sign-in", { exact: true }),
+  ).toBeVisible();
+  const direction = data.peers[0]!.outgoing[0]!;
+  direction.authentication = {
+    mode: "automatic",
+    status: "unavailable",
+    nextAttemptAt: Date.now() + 120000,
+  };
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(
+    page.getByText("Sign-in refresh delayed; retrying automatically.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  direction.active = false;
+  direction.expiresAt = Date.now() - 1;
+  direction.authentication = { mode: "automatic", status: "sign-in-required" };
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Sign in again", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Build server", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(`${baseURL}/settings/server-connections`);
+  await expect(
+    page.getByRole("button", { name: "Sign in again", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("article").scrollIntoViewIfNeeded();
+  await recordUiCapture(page, "server-connections-phone-sign-in");
+  await page
+    .getByRole("button", { name: "Sign in again", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Remote Access password", { exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page.getByLabel("Automatic sign-in", { exact: true }),
+  ).toBeChecked();
+  await page.route("**/api/version**", async (route) => {
+    const response = await route.fetch(),
+      body = await response.json();
+    await route.fulfill({
+      response,
+      json: {
+        ...body,
+        capabilities: [
+          ...(body.capabilities ?? []).filter(
+            (c: string) => c !== "peer-authentication-refresh",
+          ),
+          "peer-connections",
+        ],
+        capabilityEncoding: undefined,
+        capabilityBits: undefined,
+      },
+    });
+  });
+  await page.reload();
+  await expect(
+    page.getByText(
+      "Update this server to connect with automatic sign-in. Existing connections remain available.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Connect a server", exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByText("Build server", { exact: true })).toBeVisible();
 });

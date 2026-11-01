@@ -15,6 +15,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  peerAuthenticationRefresh: {
+    name: "peer-authentication-refresh",
+    index: CAPABILITY_ID_ALLOCATIONS.peerAuthenticationRefresh.id,
+    introducedIn: "0.11.1",
+  },
   peerConnections: {
     name: "peer-connections",
     index: CAPABILITY_ID_ALLOCATIONS.peerConnections.id,
@@ -927,6 +932,37 @@ export const SERVER_CAPABILITIES = {
       kind: "permanent",
       reason:
         "Older servers neither store the setting nor accept agent bearer tokens.",
+    },
+  },
+  peerAuthenticationRefresh: {
+    id: CAPABILITY_ID_ALLOCATIONS.peerAuthenticationRefresh.id,
+    name: "peer-authentication-refresh",
+    kind: "permanent",
+    area: "remoteAccess",
+    introducedIn: "0.11.1",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.peerAuthenticationRefresh.id,
+    },
+    description:
+      "Automatic peer sign-in with short-lived access and sliding inactivity expiry.",
+    clientFallback:
+      "Keep existing directions visible; disable new pairing with update guidance. Do not silently create a fixed-expiry connection.",
+    serverContract: {
+      routes: [
+        "GET /api/peers/connections",
+        "POST /api/peers/connections/connect",
+      ],
+      requestFields: ["automaticSignIn"],
+      responseFields: [
+        "peers.outgoing.authentication",
+        "peers.incoming.authentication",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Requires peer-v1 authentication and server-owned refresh scheduling.",
     },
   },
   peerConnections: {

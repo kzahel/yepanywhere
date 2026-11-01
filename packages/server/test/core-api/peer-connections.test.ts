@@ -1,6 +1,6 @@
 import WebSocket from "ws";
 import { SRPClientSession, SRPRoutines, SRPParameters } from "tssrp6a";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { once } from "node:events";
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
@@ -136,6 +136,15 @@ it("pairs through real ordinary SRP, verifies both directions and preserves peer
     incoming: "confirmed",
     ownerSessionCleanup: "confirmed",
   });
+  expect(a.manager.store.read().outgoing[0]!.invitation.authentication).toBe(
+    "refresh-v1",
+  );
+  expect(b.manager.store.read().incoming[0]!.authentication?.protocol).toBe(
+    "refresh-v1",
+  );
+  expect(
+    controller.overview().peers[0]!.outgoing[0]!.authentication?.mode,
+  ).toBe("automatic");
   expect(b.sessions.listSessions()).toHaveLength(0);
   const identity = b.manager.identity();
   expect(await a.read("servers")).toMatchObject({
@@ -323,7 +332,10 @@ it("adds and renews the reverse direction without rotating the working outgoing 
   };
   expect(
     await controller.connect(credentials, guard, AbortSignal.timeout(5000)),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   const outgoing = structuredClone(a.manager.store.read().outgoing[0]);
   expect(
     await controller.connect(
@@ -362,7 +374,10 @@ it("adds and renews the reverse direction without rotating the working outgoing 
       guard,
       AbortSignal.timeout(5000),
     ),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   expect(a.manager.store.read().incoming[0]?.generation).toBe(2);
   expect(a.manager.store.read().outgoing[0]).toMatchObject({
     invitation: {
@@ -379,7 +394,10 @@ it("adds and renews the reverse direction without rotating the working outgoing 
       guard,
       AbortSignal.timeout(5000),
     ),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   expect(a.manager.store.read().outgoing[0]?.invitation.generation).toBe(2);
 }, 15_000);
 it("fences runtime disable and owner logout during pending setup without publishing or re-enabling", async () => {
@@ -416,7 +434,10 @@ it("fences runtime disable and owner logout during pending setup without publish
       guard,
       AbortSignal.timeout(5000),
     ),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   await a.manager.setEnabled(false);
   await expect(a.read("access", { serverId: b.id })).rejects.toBeInstanceOf(
     CoreApiError,
@@ -513,6 +534,7 @@ it("preserves scoped read-only grants during owner renewal", async () => {
     AbortSignal.timeout(5000),
   );
   expect(result.outcome).toBe("connected");
+  expect(b.manager.store.read().incoming[0]?.authentication).toBeUndefined();
   expect(b.manager.store.read().incoming[0]).toMatchObject({
     projects: ["p"],
     operations: ["server", "access", "capabilities", "projects"],
@@ -529,6 +551,28 @@ it("preserves scoped read-only grants during owner renewal", async () => {
       },
     }),
   ).rejects.toMatchObject({ code: "forbidden" });
+  expect(
+    (
+      await controller.connect(
+        {
+          route: b.ownerRoute,
+          username: "owner-pair-test",
+          password: "pair-test-password",
+          expectedServerId: b.id,
+          replace: true,
+          automaticSignIn: true,
+        },
+        guard,
+        AbortSignal.timeout(5000),
+      )
+    ).outcome,
+  ).toBe("connected");
+  expect(b.manager.store.read().incoming[0]).toMatchObject({
+    projects: ["p"],
+    operations: ["server", "access", "capabilities", "projects"],
+    authentication: { protocol: "refresh-v1" },
+  });
+  expect(b.manager.store.read().incoming[0]!.allProjects).toBeUndefined();
 }, 10_000);
 
 it("lets a qualified native session create, message and follow through owner-paired credentials with provenance", async () => {
@@ -544,7 +588,10 @@ it("lets a qualified native session create, message and follow through owner-pai
       guard,
       AbortSignal.timeout(5000),
     ),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   await a.manager.setAgentAccess({ enabled: true });
   const runtime = await createAgentApiRuntime({ serverId: a.id });
   cleanup.push(() => runtime.close());
@@ -617,7 +664,10 @@ it("preserves each server’s narrower outgoing policy independently on renewal"
   };
   expect(
     await controller.connect(input, guard, AbortSignal.timeout(5000)),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   await a.manager.store.mutate((next) => {
     next.outgoing[0]!.operations = [
       "server",
@@ -633,7 +683,10 @@ it("preserves each server’s narrower outgoing policy independently on renewal"
       guard,
       AbortSignal.timeout(5000),
     ),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   expect(a.manager.store.read().outgoing[0]).toMatchObject({
     operations: ["server", "access", "capabilities", "projects"],
     allowAgentSessions: false,
@@ -644,7 +697,10 @@ it("preserves each server’s narrower outgoing policy independently on renewal"
       guard,
       AbortSignal.timeout(5000),
     ),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   expect(b.manager.store.read().outgoing[0]?.operations).toContain(
     "createSession",
   );
@@ -664,7 +720,10 @@ it("preserves each server’s narrower outgoing policy independently on renewal"
       guard,
       AbortSignal.timeout(5000),
     ),
-  ).toMatchObject({ outcome: "connected" });
+  ).toSatisfy((result: { outcome: string; issue?: string }) => {
+    expect(result.outcome, result.issue).toBe("connected");
+    return true;
+  });
   expect(b.manager.store.read().outgoing[0]).toMatchObject({
     operations: ["server", "access", "capabilities", "providers"],
     allowAgentSessions: false,
@@ -702,3 +761,94 @@ it("rejects an old-password proof after credentials change during an ordinary ow
   expect((await closed)[0]).toBe(4001);
   expect(b.sessions.listSessions()).toHaveLength(0);
 }, 5000);
+
+it("refuses unsupported pairing before peer mutation and cleans up its owner login", async () => {
+  const a = await ownerProfile(),
+    b = await ownerProfile();
+  const original = PeerOwnerClient.prototype.request;
+  const probe = vi
+    .spyOn(PeerOwnerClient.prototype, "request")
+    .mockImplementation(async function (this: PeerOwnerClient, ...args) {
+      const response = await original.apply(this, args);
+      if (args[0].includes("/connections/bootstrap")) {
+        const { authentication: _authentication, ...legacy } =
+          response as Record<string, unknown>;
+        return legacy;
+      }
+      return response;
+    });
+  try {
+    await expect(
+      new PeerConnections(a.manager).connect(
+        {
+          route: b.ownerRoute,
+          username: "owner-pair-test",
+          password: "pair-test-password",
+        },
+        guard,
+        AbortSignal.timeout(5000),
+      ),
+    ).rejects.toMatchObject({ status: 501 });
+  } finally {
+    probe.mockRestore();
+  }
+  expect(a.manager.store.read().outgoing).toHaveLength(0);
+  expect(a.manager.store.read().connections ?? []).toHaveLength(0);
+  expect(b.manager.store.read().incoming).toHaveLength(0);
+  expect(b.sessions.listSessions()).toHaveLength(0);
+});
+
+it("retains an explicit fixed choice and preserves a fixed reverse direction when renewing an automatic forward direction", async () => {
+  const a = await ownerProfile(),
+    b = await ownerProfile(),
+    controller = new PeerConnections(a.manager);
+  const input = {
+    route: b.ownerRoute,
+    username: "owner-pair-test",
+    password: "pair-test-password",
+    returnRoute: a.route,
+  };
+  expect(
+    (
+      await controller.connect(
+        { ...input, automaticSignIn: false, bidirectional: true },
+        guard,
+        AbortSignal.timeout(5000),
+      )
+    ).outcome,
+  ).toBe("connected");
+  for (const profile of [a, b]) {
+    const outgoing = profile.manager.store.read().outgoing[0]!;
+    expect(outgoing.invitation.automaticSignIn).toBe(false);
+    expect(profile.manager.authentication.eligible(outgoing)).toBe(false);
+    expect(profile.manager.store.read().incoming[0]!.automaticSignIn).toBe(
+      false,
+    );
+    expect(
+      profile.manager.store.read().incoming[0]!.authentication,
+    ).toBeUndefined();
+  }
+  expect(
+    (
+      await controller.connect(
+        {
+          ...input,
+          expectedServerId: b.id,
+          replace: true,
+          automaticSignIn: true,
+          bidirectional: true,
+        },
+        guard,
+        AbortSignal.timeout(5000),
+      )
+    ).outcome,
+  ).toBe("connected");
+  expect(a.manager.store.read().outgoing[0]!.invitation.authentication).toBe(
+    "refresh-v1",
+  );
+  expect(a.manager.store.read().incoming[0]!.authentication).toBeUndefined();
+  expect(a.manager.store.read().incoming[0]!.automaticSignIn).toBe(false);
+  expect(b.manager.store.read().outgoing[0]!.invitation.automaticSignIn).toBe(
+    false,
+  );
+});

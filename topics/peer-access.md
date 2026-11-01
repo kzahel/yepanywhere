@@ -446,8 +446,11 @@ or revocation. Setup reports unconfirmed cleanup separately; closing a socket
 alone does not prove revocation. No new SRP purpose or cryptographic protocol
 is introduced. Credential changes and connection teardown fence pending proofs.
 
-A new trusted-control credential includes all current and future projects and
-resource operations, with the existing maximum 30-day expiry. This permits YA
+A new trusted-control connection includes all current and future projects and
+resource operations. Automatic sign-in is the normal pairing choice, using the
+90-day inactivity policy below. An explicitly unchecked automatic sign-in choice
+creates a fixed 30-day grant and is recorded on both ends; it never qualifies as
+an inferred legacy default. This permits YA
 OS-account execution; project filters are not a sandbox. Global native session
 command settings and provider permission/sandbox policy remain ceilings.
 Renewal preserves an existing scoped/read-only manual credential's projects and
@@ -463,7 +466,8 @@ only this manual outgoing credential, preserves fleet records/selection and
 leaves the target's incoming grant visible there. Its success message explicitly
 says that remote grant remains; local removal does not claim remote cleanup.
 Accepted native agent work continues after access is revoked. Fresh target
-owner login is required for later remote credential issuance/renewal.
+owner login is required for later pairing-secret or authentication-policy changes;
+routine automatic refresh uses only the existing pair proof.
 
 There is one dedicated peer relay registration per profile. Relay setup creates
 one only when absent, using the explicitly selected relay URL and a new random
@@ -544,10 +548,12 @@ connections refresh around 45 minutes, with two minutes of target-selected
 jitter. Offline attempts back off from one minute to six hours, persisting the
 cooldown, with a bounded in-memory floor if publication is busy. Test connection
 explicitly rechecks a failed refresh or previously unsupported target after an
-upgrade; sign-in-required still needs fresh owner login. Ambiguous recovery is
+upgrade; sign-in-required still needs fresh owner login. A transport endpoint
+or unconfirmed SRP rejection remains temporary; update-required needs an authenticated legacy
+capability response without refresh support. Ambiguous recovery is
 bounded by the last confirmed possible acceptance deadline plus one inactivity
-window and one minute of margin. A caller can cancel its wait without cancelling another caller's
-refresh. Disablement, removal, replacement and close fence publication; removed
+window and one minute of margin. A caller can cancel its wait without cancelling
+another caller's refresh. Disablement, removal, replacement and close fence publication; removed
 connections are never recreated. Normal refresh changes neither policy revision
 nor launch authority and does not replace transports or abort admitted reads.
 Admitted reads keep their original short deadlines even when access slots turn
@@ -558,5 +564,22 @@ pairing operation UUIDs on both ends, generation one, the complete original
 all-project control scope, and a deadline matching the historical 30-day default.
 Each end checks its own evidence against the exact credential and opposite
 server. Missing evidence, changed scope, renewed generations and expired grants
-require owner sign-in. Explicitly time-limited manual grants and fleet policy
-are never silently extended.
+require owner sign-in. A protected migration refusal leaves the original fixed
+grant usable and discards its unaccepted candidate. Explicitly time-limited manual grants and fleet policy
+are never silently extended. New explicit fixed choices carry a durable false
+marker in both target policy and the source invitation, excluding them from the
+historical heuristic. Renewing both directions preserves an existing reverse
+direction's authentication mode; change that direction through its own renewal.
+A new reverse direction uses the chosen initial mode. An incoming last-refresh
+time appears only after a refresh is accepted, not merely after issuance.
+
+
+The optional `peer-authentication-refresh` capability gates new owner pairing
+and status semantics independently of `peer-connections`. Older source builds
+keep their original behavior. A new client on an older source keeps existing
+directions visible but disables new pairing with update guidance; it sends no
+new pairing fields. A new source refuses an unsupported target before changing
+peer policy, cleaning up its temporary owner login through the normal lifecycle.
+Saved host details and history remain visible after sign-in expires, with a
+fresh-login action for the outgoing direction. Browser passwords remain blank
+when opening that action.

@@ -858,6 +858,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "agent-api-management",
     introducedIn: "0.11.1",
   },
+  peerAuthenticationRefresh: {
+    id: 141,
+    direction: "server",
+    name: "peer-authentication-refresh",
+    introducedIn: "0.11.1",
+  },
   peerConnections: {
     id: 140,
     direction: "server",

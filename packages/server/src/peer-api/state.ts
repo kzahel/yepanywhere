@@ -89,6 +89,7 @@ export const incomingPeerRequest = z
   .object({
     sourceServerId: publicUuid,
     authentication: z.literal(PEER_AUTHENTICATION).optional(),
+    automaticSignIn: z.literal(false).optional(),
     allProjects: z.literal(true).optional(),
     projects: z.array(boundedId).max(64),
     operations: ops.describe(
@@ -105,6 +106,7 @@ export const invitationSchema = z
   .object({
     version: z.literal(1),
     authentication: z.literal(PEER_AUTHENTICATION).optional(),
+    automaticSignIn: z.literal(false).optional(),
     sourceServerId: publicUuid,
     targetServerId: publicUuid,
     credentialId: publicUuid,
@@ -139,6 +141,7 @@ const incomingSchema = z
     verifier: hex,
     tokenHash: z.string().regex(/^[a-f0-9]{64}$/),
     authentication: incomingAuthentication.optional(),
+    automaticSignIn: z.literal(false).optional(),
     pairingOrigin: z.literal("server-connections").optional(),
     allProjects: z.literal(true).optional(),
     projects: z.array(boundedId).max(64),
@@ -303,6 +306,7 @@ const stateSchema = legacyStateBase
         (p) =>
           p.sourceServerId === state.serverId ||
           p.username !== `peer-${p.id}` ||
+          (!!p.authentication && p.automaticSignIn === false) ||
           (p.origin === "fleet" &&
             (!validBinding(p.binding) ||
               p.allProjects === true ||
@@ -321,6 +325,8 @@ const stateSchema = legacyStateBase
         (p) =>
           p.invitation.sourceServerId !== state.serverId ||
           p.invitation.targetServerId === state.serverId ||
+          (!!p.invitation.authentication &&
+            p.invitation.automaticSignIn === false) ||
           (p.origin === "fleet" &&
             (!validBinding(p.binding) ||
               p.allProjects === true ||
@@ -408,7 +414,13 @@ export function uiPairingOperation(
   state: Readonly<PeerAccessState>,
   peer: StoredIncomingPeer | StoredOutgoingPeer,
 ): string | undefined {
-  if (peer.origin !== "manual") return;
+  if (
+    peer.origin !== "manual" ||
+    ("sourceServerId" in peer
+      ? peer.automaticSignIn === false
+      : peer.invitation.automaticSignIn === false)
+  )
+    return;
   const incoming = "sourceServerId" in peer;
   const id = incoming ? peer.id : peer.invitation.credentialId,
     generation = incoming ? peer.generation : peer.invitation.generation;
@@ -681,6 +693,12 @@ export class PeerAccessStore {
     });
   }
   private validateGrant(input: z.infer<typeof rotatePeerRequest>) {
+    if (input.authentication && input.automaticSignIn === false)
+      throw new CoreApiError(
+        "invalid_request",
+        "A fixed grant cannot enable automatic authentication",
+        400,
+      );
     if (
       input.expiresAt <= this.now() ||
       input.expiresAt >
@@ -762,6 +780,9 @@ export class PeerAccessStore {
         ...(input.authentication
           ? { authentication: PEER_AUTHENTICATION }
           : {}),
+        ...(input.automaticSignIn === false
+          ? { automaticSignIn: false as const }
+          : {}),
         sourceServerId,
         targetServerId: this.serverId,
         credentialId: id,
@@ -805,10 +826,12 @@ export class PeerAccessStore {
             ? {
                 authentication: {
                   protocol: PEER_AUTHENTICATION,
-                  lastRefreshedAt: this.now(),
                   access: [],
                 },
               }
+            : {}),
+          ...(input.automaticSignIn === false
+            ? { automaticSignIn: false as const }
             : {}),
           ...((pairingOrigin && !previous) || previous?.pairingOrigin
             ? { pairingOrigin: "server-connections" as const }

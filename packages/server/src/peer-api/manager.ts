@@ -778,13 +778,13 @@ export class PeerAccessManager {
     await this.fleetAccess.close();
     if (this.closePromise) return this.closePromise;
     this.closed = true;
-    await this.authentication.close();
     this.router?.close();
     this.runtime?.close();
     this.directory.close();
     this.relay.stop();
     this.budget.close();
     this.closePromise = (async () => {
+      await this.authentication.close();
       await this.store.close();
       await Promise.allSettled(this.pendingRetirements);
       this.outbound?.close();

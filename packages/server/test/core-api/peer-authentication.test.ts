@@ -434,101 +434,118 @@ it("renews a quiet profile after the old 30-day boundary and fences a late accep
   expect(source.read().outgoing).toHaveLength(0);
 });
 
-it("persists cooldown after an attempt timeout, coalesces callers, and stops an expired disconnected pair", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "ya-peer-refresh-"));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
-  let now = Date.now();
-  const source = new PeerAccessStore(randomUUID(), directory, () => now);
-  await source.initialize();
-  cleanup.push(() => source.close());
-  const credentialId = randomUUID(),
-    secret = randomBytes(32).toString("base64url");
-  await source.importOutgoing(
-    {
-      invitation: {
-        version: 1,
-        authentication: PEER_AUTHENTICATION,
-        sourceServerId: source.serverId,
-        targetServerId: randomUUID(),
-        credentialId,
-        generation: 1,
-        username: `peer-${credentialId}`,
-        secret,
-        expiresAt: now + PEER_IDLE_MS,
+it.each([503, 501, 401])(
+  "persists cooldown after attempt failure %s, coalesces callers, and stops an expired disconnected pair",
+  async (failureStatus) => {
+    const directory = await mkdtemp(join(tmpdir(), "ya-peer-refresh-"));
+    cleanup.push(() => rm(directory, { recursive: true, force: true }));
+    let now = Date.now();
+    const source = new PeerAccessStore(randomUUID(), directory, () => now);
+    await source.initialize();
+    cleanup.push(() => source.close());
+    const credentialId = randomUUID(),
+      secret = randomBytes(32).toString("base64url");
+    await source.importOutgoing(
+      {
+        invitation: {
+          version: 1,
+          authentication: PEER_AUTHENTICATION,
+          sourceServerId: source.serverId,
+          targetServerId: randomUUID(),
+          credentialId,
+          generation: 1,
+          username: `peer-${credentialId}`,
+          secret,
+          expiresAt: now + PEER_IDLE_MS,
+        },
+        route: { kind: "direct", url: "ws://127.0.0.1:1/peer/ws" },
+        operations: ["projects"],
+        allowAgentSessions: false,
+        replace: false,
       },
-      route: { kind: "direct", url: "ws://127.0.0.1:1/peer/ws" },
-      operations: ["projects"],
-      allowAgentSessions: false,
-      replace: false,
-    },
-    source.currentRevision(),
-  );
-  const budget = new PeerChannelBudget();
-  cleanup.push(() => budget.close());
-  let dispatches = 0;
-  const deadline = new AbortController();
-  const authentication = new PeerAuthentication(
-    source,
-    () => true,
-    (peer) => {
-      const transport = new SrpPeerTransport(
-        peer.invitation,
-        peer.route,
-        budget,
-      );
-      transport.refresh = async (_body, signal) => {
-        dispatches++;
-        return await import("../../src/peer-api/srp-protocol.js").then(
-          ({ awaitPeerWork }) =>
-            awaitPeerWork(new Promise<never>(() => {}), signal),
+      source.currentRevision(),
+    );
+    const budget = new PeerChannelBudget();
+    cleanup.push(() => budget.close());
+    let dispatches = 0;
+    const deadline = new AbortController();
+    const authentication = new PeerAuthentication(
+      source,
+      () => true,
+      (peer) => {
+        const transport = new SrpPeerTransport(
+          peer.invitation,
+          peer.route,
+          budget,
         );
-      };
-      return transport;
-    },
-    () => now,
-    () => deadline.signal,
-  );
-  cleanup.push(() => authentication.close().then(() => {}));
-  const peer = source.read().outgoing[0]!;
-  const first = authentication.refresh(peer),
-    second = authentication.refresh(peer);
-  expect(second).toBe(first);
-  await vi.waitFor(() => expect(dispatches).toBe(1));
-  deadline.abort();
-  await expect(first).rejects.toMatchObject({ status: 503 });
-  expect(source.read().outgoing[0]!.authentication).toMatchObject({
-    status: "unavailable",
-    failures: 1,
-  });
-  expect(
-    source.read().outgoing[0]!.authentication!.retryAt,
-  ).toBeGreaterThanOrEqual(now + 60_000);
-  await expect(authentication.refresh(peer)).rejects.toMatchObject({
-    status: 503,
-  });
-  expect(dispatches).toBe(1);
-  await authentication.close();
-  now += PEER_IDLE_MS + 1;
-  await source.publishPeerAuthentication((next) => {
-    next.outgoing[0]!.authentication = undefined;
-  });
-  const expired = new PeerAuthentication(
-    source,
-    () => true,
-    () => {
-      throw new Error("Expired pair must not dispatch");
-    },
-    () => now,
-  );
-  cleanup.push(() => expired.close().then(() => {}));
-  await expect(
-    expired.refresh(source.read().outgoing[0]!),
-  ).rejects.toMatchObject({ status: 401 });
-  expect(source.read().outgoing[0]!.authentication).toMatchObject({
-    status: "sign-in-required",
-  });
-  expect(source.read().outgoing[0]!.authentication?.pending).toBeUndefined();
-});
+        transport.refresh = async (_body, signal) => {
+          dispatches++;
+          return await import("../../src/peer-api/srp-protocol.js").then(
+            ({ awaitPeerWork }) =>
+              awaitPeerWork(new Promise<never>(() => {}), signal).catch(
+                (error) => {
+                  if (failureStatus !== 503)
+                    throw new CoreApiError(
+                      failureStatus === 501
+                        ? "peer_unsupported"
+                        : "unauthorized",
+                      "Unconfirmed endpoint rejection",
+                      failureStatus === 501 ? 501 : 401,
+                    );
+                  throw error;
+                },
+              ),
+          );
+        };
+        return transport;
+      },
+      () => now,
+      () => deadline.signal,
+    );
+    cleanup.push(() => authentication.close().then(() => {}));
+    const peer = source.read().outgoing[0]!;
+    const first = authentication.refresh(peer),
+      second = authentication.refresh(peer);
+    expect(second).toBe(first);
+    const settled = Promise.allSettled([first, second]);
+    await vi.waitFor(() => expect(dispatches).toBe(1));
+    deadline.abort();
+    await settled;
+    await expect(first).rejects.toMatchObject({ status: failureStatus });
+    expect(source.read().outgoing[0]!.authentication).toMatchObject({
+      status: "unavailable",
+      failures: 1,
+    });
+    expect(
+      source.read().outgoing[0]!.authentication!.retryAt,
+    ).toBeGreaterThanOrEqual(now + 60_000);
+    await expect(authentication.refresh(peer)).rejects.toMatchObject({
+      status: 503,
+    });
+    expect(dispatches).toBe(1);
+    await authentication.close();
+    now += PEER_IDLE_MS + 1;
+    await source.publishPeerAuthentication((next) => {
+      next.outgoing[0]!.authentication = undefined;
+    });
+    const expired = new PeerAuthentication(
+      source,
+      () => true,
+      () => {
+        throw new Error("Expired pair must not dispatch");
+      },
+      () => now,
+    );
+    cleanup.push(() => expired.close().then(() => {}));
+    await expect(
+      expired.refresh(source.read().outgoing[0]!),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(source.read().outgoing[0]!.authentication).toMatchObject({
+      status: "sign-in-required",
+    });
+    expect(source.read().outgoing[0]!.authentication?.pending).toBeUndefined();
+  },
+);
 
 import { operations as coreOperations } from "../../src/core-api/contracts.js";
 import { localPeerHost } from "../../src/peer-api/connection-contracts.js";
@@ -607,4 +624,111 @@ it("keeps an older target usable and rechecks automatic migration after that tar
   expect(
     b.manager.store.read().incoming[0]!.authentication?.access,
   ).toHaveLength(1);
+});
+
+it("preserves ambiguous migration on local refusal and keeps legacy access only after a protected refusal", async () => {
+  const a = await protectedProfile(cleanup),
+    b = await protectedProfile(cleanup);
+  await a.manager.authentication.close();
+  const operations = coreOperations
+      .filter((op) => op.path.includes(":serverId"))
+      .map((op) => op.id),
+    operationId = randomUUID();
+  const invitation = await b.manager.issue(
+    {
+      sourceServerId: a.id,
+      allProjects: true,
+      projects: [],
+      operations,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60_000,
+      acknowledgeExecutionAuthority: "server-account",
+    },
+    undefined,
+    undefined,
+    undefined,
+    localPeerHost(a.id),
+    operationId,
+  );
+  await a.manager.importOutgoing(
+    {
+      invitation,
+      route: b.route,
+      operations,
+      allowAgentSessions: true,
+      replace: false,
+    },
+    undefined,
+    undefined,
+    localPeerHost(b.id),
+    undefined,
+    operationId,
+  );
+  const sourceAudit = structuredClone(a.manager.store.read().audit),
+    candidate = randomBytes(32).toString("base64url");
+  const pending = {
+    requestId: randomUUID(),
+    sequence: 1,
+    tokenHash: hashPeerToken(candidate),
+    token: candidate,
+    createdAt: Date.now(),
+    migrationOperationId: operationId,
+  };
+  await a.manager.store.publishPeerAuthentication((next) => {
+    next.outgoing[0]!.authentication = { pending };
+  });
+  await a.manager.store.mutate((next) => {
+    next.audit = [];
+  });
+  let dispatches = 0;
+  const blocked = new PeerAuthentication(
+    a.manager.store,
+    () => true,
+    () => {
+      dispatches++;
+      throw new Error("Local refusal must not dispatch");
+    },
+  );
+  cleanup.push(() => blocked.close().then(() => {}));
+  await expect(
+    blocked.refresh(a.manager.store.read().outgoing[0]!),
+  ).rejects.toMatchObject({ status: 403 });
+  expect(dispatches).toBe(0);
+  expect(a.manager.store.read().outgoing[0]!.authentication!.pending).toEqual(
+    pending,
+  );
+  await expect(
+    blocked.token(a.manager.store.read().outgoing[0]!),
+  ).rejects.toMatchObject({ status: 401 });
+  await blocked.close();
+  // Restore the local evidence, then distinguish an actual protected refusal.
+  await a.manager.store.mutate((next) => {
+    next.audit = sourceAudit;
+    next.outgoing[0]!.authentication = { pending };
+  });
+  await b.manager.store.mutate((next) => {
+    next.audit = [];
+  });
+  const budget = new PeerChannelBudget();
+  cleanup.push(() => budget.close());
+  const authentication = new PeerAuthentication(
+    a.manager.store,
+    () => true,
+    (peer) => new SrpPeerTransport(peer.invitation, peer.route, budget),
+  );
+  cleanup.push(() => authentication.close().then(() => {}));
+  await expect(
+    authentication.refresh(a.manager.store.read().outgoing[0]!),
+  ).rejects.toMatchObject({ status: 403 });
+  const peer = a.manager.store.read().outgoing[0]!;
+  expect(peer.authentication?.pending).toBeUndefined();
+  expect(peer.invitation.authentication).toBeUndefined();
+  expect(await authentication.token(peer)).toBe(invitation.secret);
+  expect(
+    await new SrpPeerTransport(peer.invitation, peer.route, budget).request(
+      "projects",
+      { serverId: b.id },
+      { sessionId: null, launchId: null },
+    ),
+  ).toMatchObject({ items: [{ id: "p" }] });
+  expect(b.manager.store.read().incoming[0]!.authentication).toBeUndefined();
 });

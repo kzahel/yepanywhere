@@ -25,7 +25,7 @@ export type PeerRefreshReceipt = z.infer<typeof peerRefreshReceipt>;
 export const incomingAuthentication = z
   .object({
     protocol: z.literal(PEER_AUTHENTICATION),
-    lastRefreshedAt: time,
+    lastRefreshedAt: time.optional(),
     access: z.array(peerRefreshReceipt).max(2),
   })
   .strict();

@@ -765,8 +765,10 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     capabilities.push(SERVER_CAPABILITIES.installedMachineControl.name);
   if (options?.agentSessionViewAvailable)
     capabilities.push(SERVER_CAPABILITIES.agentSessionView.name);
-  if (options?.peerConnectionsAvailable)
+  if (options?.peerConnectionsAvailable) {
     capabilities.push(SERVER_CAPABILITIES.peerConnections.name);
+    capabilities.push(SERVER_CAPABILITIES.peerAuthenticationRefresh.name);
+  }
   if (options?.agentApiAvailable) {
     capabilities.push(SERVER_CAPABILITIES.agentApiBootstrap.name);
     capabilities.push(SERVER_CAPABILITIES.agentApiManagement.name);

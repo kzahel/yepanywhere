@@ -1,3 +1,9 @@
+import {
+  SERVER_CAPABILITIES,
+  serverHasCapability,
+  type PeerConnectionDirection,
+} from "@yep-anywhere/shared";
+import { useVersion } from "../../hooks/useVersion";
 import type {
   PeerConnectionEntry,
   PeerConnectionsResponse,
@@ -43,6 +49,12 @@ function Host({
 }
 export function ServerConnectionsSettings() {
   const { t } = useI18n();
+  const { version } = useVersion();
+  const supportsRefresh = serverHasCapability(
+    version,
+    SERVER_CAPABILITIES.peerAuthenticationRefresh,
+  );
+  const [automatic, setAutomatic] = useState(true);
   const basePath = useRemoteBasePath();
   const [data, setData] = useState<PeerConnectionsResponse>();
   const [cursor, setCursor] = useState("0"),
@@ -101,6 +113,15 @@ export function ServerConnectionsSettings() {
     }
   };
   const openForm = (peer?: PeerConnectionEntry, reverse = false) => {
+    if (!supportsRefresh) {
+      setError(t("connectionsRefreshUpdate"));
+      return;
+    }
+    const directions = peer ? (reverse ? peer.incoming : peer.outgoing) : [];
+    setAutomatic(
+      !directions.length ||
+        directions.some((p) => p.authentication?.mode === "automatic"),
+    );
     setReverseOnly(reverse);
     setRenew(peer);
     setPassword("");
@@ -130,6 +151,7 @@ export function ServerConnectionsSettings() {
       password,
       ...(label.trim() ? { label: label.trim() } : {}),
       bidirectional: both,
+      automaticSignIn: automatic,
       ...(reverseOnly ? { direction: "incoming" as const } : {}),
       ...(returnAddress.trim()
         ? { returnRoute: { kind: "direct", url: returnAddress.trim() } }
@@ -171,6 +193,15 @@ export function ServerConnectionsSettings() {
       if (detailRequest.current === peer.serverId)
         setError(t("connectionsActivityError"));
     }
+  };
+  const authenticationText = (p: PeerConnectionDirection) => {
+    const auth = p.authentication;
+    if (!auth) return null;
+    if (auth.status === "sign-in-required") return t("connectionsSignInAgain");
+    if (auth.status === "update-required")
+      return t("connectionsRefreshUpdatePeer");
+    if (auth.status === "unavailable") return t("connectionsRefreshDelayed");
+    return auth.mode === "automatic" ? t("connectionsAutomatic") : null;
   };
   if (!data)
     return <p role={error ? "alert" : "status"}>{error || t("loading")}</p>;
@@ -220,6 +251,9 @@ export function ServerConnectionsSettings() {
           </SettingsItem>
         )}
       </SettingsSection>
+      {!supportsRefresh && (
+        <p className={styles.feedback}>{t("connectionsRefreshUpdate")}</p>
+      )}
       {error && (
         <p role="alert" className={styles.feedback}>
           {error}
@@ -238,7 +272,9 @@ export function ServerConnectionsSettings() {
           <button
             type="button"
             className="btn btn-primary"
-            disabled={busy || data.environmentOverride === false}
+            disabled={
+              busy || !supportsRefresh || data.environmentOverride === false
+            }
             onClick={() => openForm()}
           >
             {t("connectionsAdd")}
@@ -263,6 +299,20 @@ export function ServerConnectionsSettings() {
             }}
           >
             <h3>{renew ? t("connectionsRenewTitle") : t("connectionsAdd")}</h3>
+            <label className={styles.check}>
+              <input
+                type="checkbox"
+                checked={automatic}
+                onChange={(e) => setAutomatic(e.target.checked)}
+                disabled={busy}
+              />
+              {t("connectionsAutomatic")}
+            </label>
+            <p className={styles.muted}>
+              {automatic
+                ? t("connectionsAutomaticHint")
+                : t("connectionsFixedHint")}
+            </p>
             {renew && (
               <p className={styles.muted}>{t("connectionsRenewHint")}</p>
             )}
@@ -412,6 +462,15 @@ export function ServerConnectionsSettings() {
                     : t("connectionsNone")}
                 </span>
               </div>
+              {(peer.outgoing.length > 0 || peer.incoming.length > 0) && (
+                <p className={styles.muted}>
+                  {authenticationText(
+                    peer.outgoing.find((p) => p.selected) ??
+                      peer.outgoing[0] ??
+                      peer.incoming[0]!,
+                  )}
+                </p>
+              )}
               <p className={styles.muted}>
                 {peer.verifiedAt
                   ? t("connectionsLastVerified", {
@@ -446,6 +505,24 @@ export function ServerConnectionsSettings() {
                 >
                   {t("connectionsTest")}
                 </button>
+                {peer.outgoing.some(
+                  (p) =>
+                    p.selected &&
+                    p.authentication?.status === "sign-in-required",
+                ) && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={
+                      busy ||
+                      !supportsRefresh ||
+                      data.environmentOverride === false
+                    }
+                    onClick={() => openForm(peer)}
+                  >
+                    {t("connectionsSignInAgain")}
+                  </button>
+                )}
               </div>
               {details === peer.serverId && (
                 <div className={styles.detail}>
@@ -493,12 +570,48 @@ export function ServerConnectionsSettings() {
                               ? t("connectionsTrustedControl")
                               : t("connectionsScoped")}{" "}
                           ·{" "}
-                          {t("connectionsExpires", {
-                            date: new Date(
-                              credential.expiresAt,
-                            ).toLocaleString(),
-                          })}
+                          {credential.authentication?.mode === "automatic"
+                            ? t("connectionsAutomatic")
+                            : t("connectionsExpires", {
+                                date: new Date(
+                                  credential.expiresAt,
+                                ).toLocaleString(),
+                              })}
                         </p>
+                        {credential.authentication && (
+                          <>
+                            {credential.authentication.status !== "ready" && (
+                              <p>{authenticationText(credential)}</p>
+                            )}
+                            {credential.authentication.lastRefreshedAt && (
+                              <p className={styles.muted}>
+                                {t("connectionsLastSignIn", {
+                                  date: new Date(
+                                    credential.authentication.lastRefreshedAt,
+                                  ).toLocaleString(),
+                                })}
+                              </p>
+                            )}
+                            {credential.authentication.mode === "automatic" && (
+                              <p className={styles.muted}>
+                                {t("connectionsIdleDeadline", {
+                                  date: new Date(
+                                    credential.expiresAt,
+                                  ).toLocaleString(),
+                                })}
+                              </p>
+                            )}
+                            {credential.authentication.nextAttemptAt && (
+                              <p className={styles.muted}>
+                                {t("connectionsNextSignIn", {
+                                  date: new Date(
+                                    credential.authentication.nextAttemptAt,
+                                  ).toLocaleString(),
+                                })}
+                              </p>
+                            )}
+                          </>
+                        )}
                         {credential.route && (
                           <p className={styles.muted}>
                             {credential.route.kind === "relay"
@@ -538,7 +651,11 @@ export function ServerConnectionsSettings() {
                   <button
                     type="button"
                     className="btn"
-                    disabled={busy || data.environmentOverride === false}
+                    disabled={
+                      busy ||
+                      !supportsRefresh ||
+                      data.environmentOverride === false
+                    }
                     onClick={() => openForm(peer)}
                   >
                     {t("connectionsRenew")}
@@ -546,7 +663,11 @@ export function ServerConnectionsSettings() {
                   <button
                     type="button"
                     className="btn"
-                    disabled={busy || data.environmentOverride === false}
+                    disabled={
+                      busy ||
+                      !supportsRefresh ||
+                      data.environmentOverride === false
+                    }
                     onClick={() => openForm(peer, true)}
                   >
                     {t("connectionsReverse")}

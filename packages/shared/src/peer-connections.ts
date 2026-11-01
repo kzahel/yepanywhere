@@ -10,6 +10,12 @@ export type PeerConnectionRoute =
   | { kind: "direct"; url: string }
   | { kind: "relay"; url: string; username: string };
 export interface PeerConnectionDirection {
+  authentication?: {
+    mode: "automatic" | "fixed";
+    status: "ready" | "unavailable" | "sign-in-required" | "update-required";
+    lastRefreshedAt?: number;
+    nextAttemptAt?: number;
+  };
   credentialId: string;
   generation: number;
   expiresAt: number;
@@ -55,6 +61,7 @@ export interface PeerConnectionsResponse {
   relay: { url: string; username: string; enabled: boolean } | null;
 }
 export interface PeerConnectionSetupRequest {
+  automaticSignIn?: boolean;
   route: PeerConnectionRoute;
   username: string;
   password: string;

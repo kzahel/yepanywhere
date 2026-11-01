@@ -16,6 +16,29 @@ import {
   type StoredOutgoingPeer,
 } from "./state.js";
 
+/** Only an authenticated legacy capability response can require an upgrade. */
+class PeerRefreshUnsupported extends CoreApiError {
+  constructor() {
+    super(
+      "peer_unsupported",
+      "Update the other server to enable automatic sign-in",
+      501,
+    );
+  }
+}
+
+class ProtectedMigrationRefusal extends CoreApiError {
+  constructor(message: string) {
+    super("forbidden", message, 403);
+  }
+}
+
+class PeerSignInRequired extends CoreApiError {
+  constructor() {
+    super("unauthorized", "Sign in again after prolonged inactivity", 401);
+  }
+}
+
 /** Profile-owned authentication: one timer, two jobs, no provider/session scans. */
 export class PeerAuthentication {
   private readonly jobs = new Map<
@@ -159,20 +182,12 @@ export class PeerAuthentication {
               PEER_IDLE_MS +
               60_000
         )
-          throw new CoreApiError(
-            "unauthorized",
-            "Sign in again after prolonged inactivity",
-            401,
-          );
+          throw new PeerSignInRequired();
         if (
           current.invitation.expiresAt <= this.now() &&
           !current.authentication?.pending
         )
-          throw new CoreApiError(
-            "unauthorized",
-            "Sign in again after prolonged inactivity",
-            401,
-          );
+          throw new PeerSignInRequired();
         if (
           !current.invitation.authentication &&
           !current.authentication?.pending
@@ -183,11 +198,7 @@ export class PeerAuthentication {
             { sessionId: null, launchId: null },
           )) as { peerAuthentication?: string };
           if (capabilities.peerAuthentication !== PEER_AUTHENTICATION)
-            throw new CoreApiError(
-              "peer_unsupported",
-              "Update the other server to enable automatic sign-in",
-              501,
-            );
+            throw new PeerRefreshUnsupported();
         }
         if (!this.eligible(current))
           throw new CoreApiError(
@@ -224,9 +235,17 @@ export class PeerAuthentication {
         }
         const pending = current.authentication!.pending!;
         const { token, createdAt: _createdAt, ...request } = pending;
-        const receipt: PeerRefreshReceipt = await this.transport(
-          current,
-        ).refresh(request, signal);
+        const receipt: PeerRefreshReceipt = await this.transport(current)
+          .refresh(request, signal)
+          .catch((error) => {
+            if (
+              !current.invitation.authentication &&
+              error instanceof CoreApiError &&
+              error.status === 403
+            )
+              throw new ProtectedMigrationRefusal(error.message);
+            throw error;
+          });
         if (
           receipt.requestId !== pending.requestId ||
           receipt.sequence !== pending.sequence ||
@@ -284,10 +303,11 @@ export class PeerAuthentication {
         const current = this.current(peer),
           id = peer.invitation.credentialId;
         const status =
-          error instanceof CoreApiError && error.status === 501
+          error instanceof PeerRefreshUnsupported
             ? "update-required"
-            : error instanceof CoreApiError &&
-                [401, 403, 409].includes(error.status)
+            : error instanceof PeerSignInRequired ||
+                (error instanceof CoreApiError &&
+                  [403, 409].includes(error.status))
               ? "sign-in-required"
               : "unavailable";
         const failures = Math.min(
@@ -329,19 +349,54 @@ export class PeerAuthentication {
             failures,
             retryAt,
           };
+          // Only the authenticated refresh response proves non-application.
+          // Local eligibility failures preserve any ambiguous candidate.
+          if (error instanceof ProtectedMigrationRefusal)
+            delete record.authentication.pending;
         });
       } catch {}
       throw error;
     }
   }
   status(peer: StoredOutgoingPeer) {
-    const durable = this.current(peer).authentication?.status,
+    const durable = this.store
+        .read()
+        .outgoing.find(
+          (p) => p.invitation.credentialId === peer.invitation.credentialId,
+        )?.authentication?.status,
       memory = this.cooldowns.get(peer.invitation.credentialId)?.status;
     return [durable, memory].includes("sign-in-required")
       ? "sign-in-required"
       : [durable, memory].includes("update-required")
         ? "update-required"
         : (memory ?? durable);
+  }
+  summary(peer: StoredOutgoingPeer) {
+    const observed = this.status(peer),
+      auth = peer.authentication;
+    if (!auth && !peer.invitation.authentication && !observed) return undefined;
+    const expired = peer.invitation.expiresAt <= this.now();
+    const status =
+      expired && !auth?.pending
+        ? ("sign-in-required" as const)
+        : (observed ??
+          (expired ? ("unavailable" as const) : ("ready" as const)));
+    return {
+      mode: peer.invitation.authentication
+        ? ("automatic" as const)
+        : ("fixed" as const),
+      status,
+      lastRefreshedAt: auth?.lastRefreshedAt,
+      ...(status === "unavailable"
+        ? {
+            nextAttemptAt:
+              Math.max(
+                auth?.retryAt ?? 0,
+                this.cooldowns.get(peer.invitation.credentialId)?.retryAt ?? 0,
+              ) || undefined,
+          }
+        : {}),
+    };
   }
   async retry(
     peer: StoredOutgoingPeer,

@@ -1,7 +1,7 @@
 # Automatic authentication refresh for server connections
 
-Status: implementation authorized, 2026-11-01. Commit the plan first, then
-implement reviewed slices end to end. The user approved automatic refresh while
+Status: implemented, 2026-11-01. Plan and backend committed separately; the final
+Settings/enrollment slice completes the workstream. The user approved automatic refresh while
 servers remain online and expiry after prolonged inactivity, rather than a fixed
 30-day deadline from pairing. This supersedes plan 169's pairing expiry default;
 explicitly time-limited manual grants and fleet policy remain distinct.
@@ -21,12 +21,24 @@ failures remain separate: [Rendez restart observation](../../gaps/rendez-nested-
 [console/tool warnings](../../gaps/runtime-cutover-tooling-warnings.md). Do not
 replace a failing run with retries or increase unrelated budgets.
 
-Progress, 2026-11-01: durable state, direct/relay peer-v1 transport and bounded
-profile refresh service are implemented and independently approved by Sol 6.1
-high and actual Daybreak Blue high. They land together because authentication
-publication, live directory updates and transport admission must agree. The full
-unit suite passes; targeted restart, lost-reply, cooldown and owner-recheck
-regressions pass. New UI pairing defaults/status and final UI review follow.
+Delivered: recoverable authentication state, direct/relay peer-v1 transport,
+bounded profile scheduling, guarded historical migration, capability-gated owner
+enrollment and nonsecret Settings status/recovery. Both implementation slices
+received independent Sol 6.1 high and actual Daybreak Blue high correctness and
+security approval. Both reviewers inspected final phone/desktop captures
+individually. Explicit fixed grants and existing reverse-direction modes are
+preserved; fresh owner login can explicitly change the selected direction.
+
+Validation: full unit gates, isolated real direct/relay/native workflows,
+restart/lost-reply/stale-source-deadline recovery, ordered replay, quiet-profile
+renewal after day 30, cooldown/timeout/late-removal races and owner recheck after
+remote upgrade. Three focused Chromium cases pass, including sequential typing
+within 100 ms over 50 visible/64 total peers during metadata updates. Final
+captures are in `.artifacts/ui-testing/2026-11-01-peer-refresh`; private evidence
+and assistant-only reviews are in ignored `tasks/peer-refresh`. Lint, formatting,
+typecheck, CSS and console checks pass with no new warning debt. Existing console
+baseline and unit skips remain documented separately. Windows acceptance remains
+deferred; this slice's runtime qualification is macOS/Node 22.
 
 ## 1 — Pair policy and recoverable authentication state
 
@@ -110,7 +122,8 @@ sign-in; it must not be revived just from saved metadata. Retain history.
 The optional UI contract must be distinguishable from the original
 peer-connections capability. Review the latest-two/14-day stable corpus
 (v0.11.0, v0.10.2, v0.10.1, v0.10.0 already reviewed for plan 169): absent new
-support keeps the original fixed-expiry UI and sends no new request/field.
+support keeps existing direction views, disables new pairing with update
+guidance, and sends no new pairing request/field.
 Supported new builds show automatic-authentication behavior. No browser protocol
 cutoff or reinterpretation of the old capability is introduced. This originating
 request approves that guarded optional addition.

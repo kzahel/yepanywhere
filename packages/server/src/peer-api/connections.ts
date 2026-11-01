@@ -1,3 +1,7 @@
+import {
+  PEER_AUTHENTICATION,
+  PEER_IDLE_MS,
+} from "./authentication-contracts.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type {
@@ -29,6 +33,7 @@ const setupSchema = z
     password: z.string().min(1).max(4096),
     label: z.string().trim().min(1).max(128).optional(),
     bidirectional: z.boolean().default(false),
+    automaticSignIn: z.boolean().optional(),
     returnRoute: peerRouteSchema.optional(),
     expectedServerId: z.uuid().optional(),
     replace: z.boolean().default(false),
@@ -37,6 +42,7 @@ const setupSchema = z
   .strict();
 export const controlRequestSchema = z
   .object({
+    automaticSignIn: z.boolean().optional(),
     identity: peerHostSchema,
     expectedPolicyRevision: z.number().int().nonnegative(),
     initiatingServerId: z.uuid().optional(),
@@ -50,6 +56,7 @@ export const controlRequestSchema = z
   .strict();
 const bootstrapSchema = z.object({
   version: z.literal(1),
+  authentication: z.literal(PEER_AUTHENTICATION).optional(),
   policyRevision: z.number().int().nonnegative(),
   selectedOrigin: z.enum(["manual", "fleet"]).nullable(),
   identity: peerHostSchema,
@@ -59,7 +66,11 @@ const bootstrapSchema = z.object({
     .object({ url: z.string(), username: z.string(), enabled: z.boolean() })
     .nullable(),
   incoming: z
-    .object({ id: z.uuid(), generation: z.number().int().positive() })
+    .object({
+      id: z.uuid(),
+      generation: z.number().int().positive(),
+      authentication: z.literal(PEER_AUTHENTICATION).optional(),
+    })
     .nullable(),
 });
 const grantSchema = z.object({
@@ -143,6 +154,18 @@ export class PeerConnections {
             credentialId: p.id,
             generation: p.generation,
             expiresAt: p.expiresAt,
+            ...(p.authentication
+              ? {
+                  authentication: {
+                    mode: "automatic" as const,
+                    status:
+                      p.expiresAt > now
+                        ? ("ready" as const)
+                        : ("sign-in-required" as const),
+                    lastRefreshedAt: p.authentication.lastRefreshedAt,
+                  },
+                }
+              : {}),
             active: this.manager.isEnabled() && p.expiresAt > now,
             origin: p.origin,
             allProjects: p.allProjects === true,
@@ -153,9 +176,14 @@ export class PeerConnections {
             credentialId: p.invitation.credentialId,
             generation: p.invitation.generation,
             expiresAt: p.invitation.expiresAt,
+            ...(this.manager.authentication.summary(p)
+              ? { authentication: this.manager.authentication.summary(p) }
+              : {}),
             active:
               this.manager.isEnabled() &&
-              p.invitation.expiresAt > now &&
+              (p.invitation.expiresAt > now ||
+                (!!p.authentication?.pending &&
+                  p.authentication.status !== "sign-in-required")) &&
               s.selected[id] === p.invitation.credentialId,
             selected: s.selected[id] === p.invitation.credentialId,
             origin: p.origin,
@@ -182,6 +210,7 @@ export class PeerConnections {
       );
     return {
       version: 1,
+      authentication: PEER_AUTHENTICATION,
       policyRevision: this.manager.store.currentRevision(),
       selectedOrigin:
         state.outgoing.find(
@@ -200,7 +229,13 @@ export class PeerConnections {
           }
         : null,
       incoming: incoming
-        ? { id: incoming.id, generation: incoming.generation }
+        ? {
+            id: incoming.id,
+            generation: incoming.generation,
+            ...(incoming.authentication
+              ? { authentication: PEER_AUTHENTICATION }
+              : {}),
+          }
         : null,
     };
   }
@@ -291,6 +326,7 @@ export class PeerConnections {
       await this.manager.waitForRelay(signal);
       fence.check();
     }
+    const automatic = input.automaticSignIn ?? !!current?.authentication;
     const invitation = await fence.write((check) =>
       this.manager.issue(
         {
@@ -300,7 +336,14 @@ export class PeerConnections {
             : {}),
           projects: current?.projects ?? [],
           operations: current?.operations ?? controlOperations,
-          expiresAt: Date.now() + 30 * 24 * 60 * 60_000,
+          ...(automatic
+            ? { authentication: PEER_AUTHENTICATION }
+            : input.automaticSignIn === false ||
+                current?.automaticSignIn === false
+              ? { automaticSignIn: false as const }
+              : {}),
+          expiresAt:
+            Date.now() + (automatic ? PEER_IDLE_MS : 30 * 24 * 60 * 60_000),
           acknowledgeExecutionAuthority: "server-account",
         },
         current?.id,
@@ -367,6 +410,12 @@ export class PeerConnections {
           signal,
         ),
       );
+      if (remote.authentication !== PEER_AUTHENTICATION)
+        throw new CoreApiError(
+          "peer_unsupported",
+          "Update the other server to connect with automatic sign-in",
+          501,
+        );
       target = remote.identity.serverId;
       let remoteRevision = remote.policyRevision;
       if (remote.environmentOverride === false)
@@ -402,6 +451,11 @@ export class PeerConnections {
           "The other server has a fleet credential selected for this server; inspect that selection before adding reverse access",
           409,
         );
+      const automatic =
+        input.automaticSignIn ??
+        ((!existing && !remote.incoming) ||
+          !!existing?.invitation.authentication ||
+          !!remote.incoming?.authentication);
       const selected = this.manager.store.read().selected[target];
       if (
         !reverseOnly &&
@@ -451,9 +505,15 @@ export class PeerConnections {
             "POST",
             {
               identity: this.manager.identity(),
+              automaticSignIn: automatic,
               expectedPolicyRevision: remoteRevision,
               operationId,
-              expectedCredential: remote.incoming,
+              expectedCredential: remote.incoming
+                ? {
+                    id: remote.incoming.id,
+                    generation: remote.incoming.generation,
+                  }
+                : null,
               ...(input.route.kind === "relay"
                 ? { relayUrl: normalizeOwnerRoute(input.route).url }
                 : {}),
@@ -517,6 +577,11 @@ export class PeerConnections {
         const reverse = await this.grant(
           {
             identity: remote.identity,
+            automaticSignIn: reverseOnly
+              ? (input.automaticSignIn ?? (!prior || !!prior.authentication))
+              : prior
+                ? !!prior.authentication
+                : (input.automaticSignIn ?? true),
             initiatingServerId: this.manager.serverId,
             expectedPolicyRevision: fence.revision,
             operationId,
