@@ -94,9 +94,20 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   rows without scope evidence wait for a scoped catalogue publication and retry
   through the same observer. Unbound/missing sources do not read an
   ambient same-string conversation; closing a Conversation cancels pending
-  catalogue resolution before further native work. Process/child-session
-  projections, external ownership joins and remaining helper/launch consumers
-  are still being qualified before differing-id launches.
+  catalogue resolution before further native work.
+- Process enrichment reads model/title/context from the stored native source,
+  including after a working-project move, while retaining public metadata and
+  process ids. Unbound or unavailable native history does not discard saved
+  public title/provider facts or trigger ambient source fallback. Summary and
+  recovered-settings callbacks resolve known working projects even when they
+  contain no native transcripts; the stored provider wins over a stale hint.
+- Child listings use the bound native parent/root and return the YA parent id.
+  Child handles themselves remain native handles beneath the existing public
+  parent-scoped `/agents/:child` routes. Metadata/full reads reuse the source
+  selected for native history; collection attachment retains its accepted/cheap
+  lookup and sequential per-provider work. External ownership joins and
+  remaining helper/launch consumers are still being qualified before
+  differing-id launches.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

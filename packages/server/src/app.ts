@@ -1919,7 +1919,9 @@ export function createApp(options: AppOptions): AppResult {
     projectId: string,
     summaryOptions?: GetSessionSummaryOptions,
   ) => {
-    const project = await scanner.getProject(projectId);
+    const project = isUrlProjectId(projectId)
+      ? await scanner.getOrCreateProject(projectId)
+      : null;
     if (!project) return null;
     const resolved = await findSessionSummaryAcrossProviders(
       project,
@@ -1956,7 +1958,9 @@ export function createApp(options: AppOptions): AppResult {
     sessionId: string,
     projectId: string,
   ) => {
-    const project = await scanner.getProject(projectId);
+    const project = isUrlProjectId(projectId)
+      ? await scanner.getOrCreateProject(projectId)
+      : null;
     if (!project) return null;
     const resolved = await findSessionListSummaryAcrossProviders(
       project,
@@ -2306,17 +2310,18 @@ export function createApp(options: AppOptions): AppResult {
       return { native, filePath, projectId: identity.transcriptProjectId };
     },
     recoverSessionLaunchSettings: async (sessionId, projectId, provider) => {
-      const project = await scanner.getProject(projectId);
+      const project = await scanner.getOrCreateProject(projectId);
       if (!project) return undefined;
-      const recoveryProvider = provider ?? project.provider;
-      if (recoveryProvider !== "codex" && recoveryProvider !== "codex-oss") {
-        return undefined;
-      }
       const bound = boundSessionSource(project, sessionId, {
         readerFactory,
         identities: options.sessionMetadataService?.identities,
       });
       if (bound === null) return undefined;
+      const recoveryProvider =
+        bound?.source.provider ?? provider ?? project.provider;
+      if (recoveryProvider !== "codex" && recoveryProvider !== "codex-oss") {
+        return undefined;
+      }
       const reader =
         bound?.source.reader ??
         readerFactory({

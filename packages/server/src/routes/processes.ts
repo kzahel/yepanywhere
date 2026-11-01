@@ -8,6 +8,9 @@ import {
   type ThinkingOption,
   type UrlProjectId,
   getSessionDisplayTitle,
+  isYaSessionId,
+  isUrlProjectId,
+  parseNativeSessionId,
   thinkingOptionToConfig,
 } from "@yep-anywhere/shared";
 import { Hono } from "hono";
@@ -16,8 +19,15 @@ import type { SessionMetadataService } from "../metadata/SessionMetadataService.
 import type { ProjectScanner } from "../projects/scanner.js";
 import { getProvider } from "../sdk/providers/index.js";
 import type { ResumeExemptionResult } from "../sessions/resume-exemption.js";
-import { resolveProviderChildSessions } from "../sessions/provider-child-sessions.js";
-import type { ISessionReader } from "../sessions/types.js";
+import {
+  projectProviderChildren,
+  resolveProviderChildSessions,
+} from "../sessions/provider-child-sessions.js";
+import type {
+  ISessionReader,
+  SessionReaderFactory,
+} from "../sessions/types.js";
+import { boundSessionSource } from "../sessions/provider-resolution.js";
 import { getSessionSandboxSettingsError } from "../session-sandbox.js";
 import {
   SessionConfigurationConflictError,
@@ -31,7 +41,7 @@ import type { ClearloopBadgeResolver } from "../services/ClearloopService.js";
 export interface ProcessesDeps {
   supervisor: Supervisor;
   scanner: ProjectScanner;
-  readerFactory: (project: Project) => ISessionReader;
+  readerFactory: SessionReaderFactory;
   processSessionSourceFactory?: (
     process: ProcessInfo,
     project: Project,
@@ -64,6 +74,7 @@ async function sessionDisplayTitle(
   sessionDir: string,
   projectId: UrlProjectId,
   sessionId: string,
+  nativeSessionId: string,
   reader: ISessionReader,
   summaryTitle: string | null | undefined,
 ): Promise<string | undefined> {
@@ -72,7 +83,7 @@ async function sessionDisplayTitle(
     title = await deps.sessionIndexService.getSessionTitle(
       sessionDir,
       projectId,
-      sessionId,
+      nativeSessionId,
       reader,
     );
   }
@@ -112,6 +123,7 @@ export async function describeCatalogSession(
     project.sessionDir,
     projectId,
     sessionId,
+    sessionId,
     reader,
     summary.title,
   );
@@ -126,98 +138,95 @@ async function enrichProcessInfo(
   process: ProcessInfo,
   deps: ProcessesDeps,
 ): Promise<ProcessInfo> {
+  const enriched = { ...process };
   try {
-    const project = await deps.scanner.getProject(
-      process.projectId as UrlProjectId,
+    const metadata = deps.sessionMetadataService?.getMetadata(
+      process.sessionId,
     );
-    if (!project) return process;
-
-    const sessionSource = deps.processSessionSourceFactory?.(process, project);
-    const reader = sessionSource?.reader ?? deps.readerFactory(project);
-    const sessionDir = sessionSource?.sessionDir ?? project.sessionDir;
-
-    // Process rows need model/contextUsage when available, so ask the summary
-    // index for the full cached row before falling back to a direct reader
-    // parse. This avoids re-scanning large provider transcripts on every
-    // process-list refresh when the file version is unchanged.
+    const identity = isYaSessionId(process.sessionId)
+      ? deps.sessionMetadataService?.identities?.resolveYa(process.sessionId)
+      : undefined;
+    enriched.provider =
+      identity?.provider ?? metadata?.provider ?? process.provider;
+    enriched.requestedModel =
+      process.requestedModel ?? metadata?.requestedModel;
+    const title = getSessionDisplayTitle({
+      customTitle: metadata?.customTitle,
+      title: null,
+    });
+    if (title !== "Untitled") enriched.sessionTitle = title;
+    const clearloop = deps.getClearloopBadge?.(process.sessionId);
+    if (clearloop !== undefined) enriched.clearloop = clearloop;
+    // Public facts remain useful before binding. Unbound never opens a native
+    // reader under a same-string provisional id.
+    if (identity && !identity.native) return enriched;
+    const projectId = identity?.projectId ?? process.projectId;
+    const project =
+      (await deps.scanner.getProject(projectId)) ??
+      (isUrlProjectId(projectId)
+        ? await deps.scanner.getOrCreateProject?.(projectId)
+        : undefined);
+    if (!project) return enriched;
+    const bound = boundSessionSource(
+      project,
+      process.sessionId,
+      {
+        identities: deps.sessionMetadataService?.identities,
+        readerFactory: deps.readerFactory,
+      },
+      identity ? { kind: "stored", identity } : { kind: "legacy" },
+    );
+    if (bound === null) return enriched;
+    const legacy = bound
+      ? undefined
+      : deps.processSessionSourceFactory?.(process, project);
+    const reader =
+      bound?.source.reader ?? legacy?.reader ?? deps.readerFactory(project);
+    const sessionDir =
+      bound?.source.sessionDir ?? legacy?.sessionDir ?? project.sessionDir;
+    const nativeProjectId = bound?.projectId ?? project.id;
+    // Explicit retained legacy process entry after excluding stored identity.
+    const nativeSessionId =
+      bound?.nativeSessionId ?? parseNativeSessionId(process.sessionId);
     const summary =
       (deps.sessionIndexService
         ? await deps.sessionIndexService.getSessionSummaryWithCache(
             sessionDir,
-            process.projectId as UrlProjectId,
-            process.sessionId,
+            nativeProjectId,
+            nativeSessionId,
             reader,
           )
         : null) ??
-      (await reader.getSessionSummary(
-        process.sessionId,
-        process.projectId as UrlProjectId,
-      ));
-
-    // Get provider from persisted metadata if available. This lets the
-    // agents view recover when a stale in-memory process provider disagrees
-    // with the durable session provider.
-    const metadata = deps.sessionMetadataService?.getMetadata(
-      process.sessionId,
-    );
-
-    const enriched = { ...process };
+      (await reader.getSessionSummary(nativeSessionId, nativeProjectId));
     const displayTitle = await sessionDisplayTitle(
       deps,
       sessionDir,
-      process.projectId as UrlProjectId,
+      nativeProjectId,
       process.sessionId,
+      nativeSessionId,
       reader,
       summary?.title,
     );
-    if (displayTitle) {
-      enriched.sessionTitle = displayTitle;
-    }
-
-    const clearloop = deps.getClearloopBadge?.(process.sessionId);
-    if (clearloop !== undefined) {
-      enriched.clearloop = clearloop;
-    }
-
-    // Add model if available
-    if (summary?.model) {
-      enriched.model = summary.model;
-    }
-
-    // Persisted metadata and the owning process carry the canonical provider
-    // route. A transcript summary may only infer a Claude-family variant from
-    // its model name, so letting it override either source can recast Gateway
-    // sessions as Claude Ollama in the Agents view.
-    enriched.provider = metadata?.provider ?? process.provider;
-
-    // Resolve the YA model id used to key per-model settings. Prefer the live
-    // requested alias, then the alias persisted when YA started the session
-    // (survives restart), then map the reported model back through the provider
-    // (sessions YA didn't start). See topics/provider-abstraction.md.
-    enriched.requestedModel =
-      process.requestedModel ??
-      metadata?.requestedModel ??
-      getProvider(enriched.provider)?.yaModelIdForReported?.(enriched.model);
-
-    // Add context usage if available
-    if (summary?.contextUsage) {
-      enriched.contextUsage = summary.contextUsage;
-    }
-
+    if (displayTitle) enriched.sessionTitle = displayTitle;
+    if (summary?.model) enriched.model = summary.model;
+    enriched.requestedModel ??= getProvider(
+      enriched.provider,
+    )?.yaModelIdForReported?.(enriched.model);
+    if (summary?.contextUsage) enriched.contextUsage = summary.contextUsage;
     const providerChildren = await resolveProviderChildSessions(
       reader,
-      process.sessionId,
+      nativeSessionId,
       "accepted-or-cheap",
     );
-    if (providerChildren?.length) {
-      enriched.providerChildren = providerChildren;
-    }
-
-    return enriched;
+    if (providerChildren?.length)
+      enriched.providerChildren = projectProviderChildren(
+        providerChildren,
+        process.sessionId,
+      );
   } catch {
-    // Ignore errors - just return process without enrichment
+    // Retain public metadata even when the native source is unavailable.
   }
-  return process;
+  return enriched;
 }
 
 export function createProcessesRoutes(deps: ProcessesDeps): Hono {

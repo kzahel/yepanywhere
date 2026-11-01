@@ -4,6 +4,7 @@ import type {
 } from "@yep-anywhere/shared";
 import type { Project } from "../supervisor/types.js";
 import {
+  boundSessionSource,
   getSessionSources,
   type ProviderProjectCatalog,
   type ProviderResolutionDeps,
@@ -19,7 +20,7 @@ export async function resolveProviderChildSessions(
         "listProviderChildSessions" | "listAcceptedProviderChildSessions"
       >
     | undefined,
-  sessionId: string,
+  nativeParentSessionId: string,
   mode: ProviderChildLookupMode,
 ): Promise<ProviderChildSessionSummary[] | undefined> {
   if (!reader) {
@@ -29,9 +30,17 @@ export async function resolveProviderChildSessions(
     mode === "accepted-or-cheap" &&
     reader.listAcceptedProviderChildSessions
   ) {
-    return reader.listAcceptedProviderChildSessions(sessionId);
+    return reader.listAcceptedProviderChildSessions(nativeParentSessionId);
   }
-  return reader.listProviderChildSessions?.(sessionId);
+  return reader.listProviderChildSessions?.(nativeParentSessionId);
+}
+
+/** Child handles stay native beneath the canonical public parent /agents URL. */
+export function projectProviderChildren(
+  children: ProviderChildSessionSummary[] | undefined,
+  sessionId: string,
+): ProviderChildSessionSummary[] | undefined {
+  return children?.map((child) => ({ ...child, parentSessionId: sessionId }));
 }
 
 export function readerForProviderChildren(
@@ -74,17 +83,26 @@ export async function attachProviderChildSessions<
   const attached = [...sessions];
   await Promise.all(
     [...sessionsByProvider].map(async ([provider, providerSessions]) => {
-      const reader = readerForProviderChildren(
-        project,
-        deps,
-        provider,
-        catalog,
-      );
+      let legacyReader: ISessionReader | undefined;
       for (const { index, session } of providerSessions) {
-        const children = await resolveProviderChildSessions(
-          reader,
+        const bound = boundSessionSource(project, session.id, deps);
+        if (bound === null) continue;
+        if (!bound && !legacyReader) {
+          legacyReader = readerForProviderChildren(
+            project,
+            deps,
+            provider,
+            catalog,
+          );
+        }
+        const reader = bound?.source.reader ?? legacyReader;
+        const children = projectProviderChildren(
+          await resolveProviderChildSessions(
+            reader,
+            bound?.nativeSessionId ?? session.id,
+            mode,
+          ),
           session.id,
-          mode,
         );
         if (children?.length) {
           attached[index] = { ...session, providerChildren: children };

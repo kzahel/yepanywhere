@@ -27,12 +27,16 @@ their own canonical YA session IDs.
 `ProviderChildSessionSummary` is the shared navigation shape. It carries the
 provider-native child ID, canonical parent ID, launch tool-call ID and provider
 description/type when available. `ISessionReader.listProviderChildSessions`
-is the provider boundary that supplies these summaries.
+is the provider boundary that supplies native summaries. Application process,
+collection and detail projections resolve the bound native parent/root once and
+replace the returned parent id with the canonical YA id. Stored unbound parents
+do not enumerate an ambient same-string native parent; child handles remain
+native beneath the public parent-scoped `/agents/:child` route.
 
 ## Provider persistence
 
 Claude's current SDK stores child JSONL and metadata sidecars below
-`<project session dir>/<parent YA session id>/subagents/`. The metadata sidecar
+`<native project session dir>/<native parent session id>/subagents/`. The metadata sidecar
 is authoritative for `toolUseId`, description, agent type, and spawn depth.
 The older project-level `subagents/` and `agent-*.jsonl` layouts remain readable
 for inline transcript compatibility, but do not provide enough parent scope for

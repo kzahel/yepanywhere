@@ -95,7 +95,7 @@ import { GrokSessionReader } from "../sessions/grok-reader.js";
 import type { PiSessionReader } from "../sessions/pi-reader.js";
 import { extractLastAgentExcerpt } from "../sessions/agent-excerpt.js";
 import {
-  readerForProviderChildren,
+  projectProviderChildren,
   resolveProviderChildSessions,
 } from "../sessions/provider-child-sessions.js";
 import { lastRewindableClaudeRowId } from "../sessions/claude-messages.js";
@@ -2226,6 +2226,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         transcriptProjectId: UrlProjectId;
         workingProject: Project;
         workingProjectId: UrlProjectId;
+        identityLookup: SessionIdentityLookup;
       }
   > => {
     const identity = storedIdentityFor(sessionId);
@@ -2259,6 +2260,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         ? {
             transcriptProject,
             transcriptProjectId: identity.projectId,
+            identityLookup: { kind: "stored", identity },
             workingProject,
             workingProjectId: requestProjectId,
           }
@@ -2307,6 +2309,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     return {
       transcriptProject,
       transcriptProjectId,
+      identityLookup: { kind: "legacy" },
       workingProject,
       workingProjectId: requestProjectId,
     };
@@ -2505,8 +2508,18 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     preferredProvider: ProviderName | undefined,
     afterMessageId?: string,
     options?: GetSessionOptions,
-  ): Promise<{ session: LoadedSession | null; identity?: SessionIdentity }> => {
-    const identity = storedIdentityFor(sessionId);
+    lookup?: SessionIdentityLookup,
+  ): Promise<{
+    session: LoadedSession | null;
+    identity?: SessionIdentity;
+    nativeSource?: { reader: ISessionReader; nativeSessionId: string };
+  }> => {
+    const identity =
+      lookup?.kind === "stored"
+        ? lookup.identity
+        : lookup?.kind === "legacy"
+          ? undefined
+          : storedIdentityFor(sessionId);
     if (identity) {
       const resolved = await resolveExistingSessionIdentity({
         sessionId,
@@ -2518,6 +2531,15 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       });
       return {
         identity,
+        nativeSource: resolved?.native
+          ? {
+              reader: deps.readerFactory(
+                { ...resolved.transcriptProject, provider: resolved.provider },
+                resolved.native,
+              ),
+              nativeSessionId: resolved.native.id,
+            }
+          : undefined,
         session: resolved?.native
           ? await boundSessionReads.read({
               sessionId: identity.sessionId,
@@ -2563,7 +2585,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         summaryHint ? { ...options, summaryHint } : options,
       );
       if (loaded) {
-        return { session: loaded };
+        return {
+          session: loaded,
+          nativeSource: { reader: source.reader, nativeSessionId: sessionId },
+        };
       }
     }
 
@@ -2921,6 +2946,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     // Read minimal session info from disk (just for title/timestamps, no messages)
     const metadataProvider =
+      (routing.identityLookup.kind === "stored"
+        ? routing.identityLookup.identity.provider
+        : undefined) ??
       (metadata?.provider as ProviderName | undefined) ??
       (deps.sessionMetadataService?.getProvider(sessionId) as
         | ProviderName
@@ -2937,6 +2965,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       transcriptProjectId,
       providerResolutionDeps(deps),
       metadataProvider ?? process?.provider,
+      undefined,
+      routing.identityLookup,
     );
     const rawSessionSummary = sessionSummaryResult?.summary ?? null;
     const providerUpdatedAt = getEffectiveProviderUpdatedAt(
@@ -2979,14 +3009,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         )
       : undefined;
 
-    const providerChildren = await resolveProviderChildSessions(
-      readerForProviderChildren(
-        transcriptProject,
-        providerResolutionDeps(deps),
-        metadataProvider ?? process?.provider ?? project.provider,
+    const providerChildren = projectProviderChildren(
+      await resolveProviderChildSessions(
+        sessionSummaryResult?.source.reader,
+        sessionSummaryResult?.nativeSessionId ?? sessionId,
+        "fresh",
       ),
       sessionId,
-      "fresh",
     );
 
     const response = {
@@ -3324,9 +3353,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // Check if we've ever owned this session (for orphan detection)
     // Only mark tools as "aborted" if we owned the session and know it terminated
     const wasEverOwned = deps.supervisor.wasEverOwned(sessionId);
-    const metadataProvider = deps.sessionMetadataService?.getProvider(
-      sessionId,
-    ) as ProviderName | undefined;
+    const metadataProvider =
+      (routing.identityLookup.kind === "stored"
+        ? routing.identityLookup.identity.provider
+        : undefined) ??
+      (deps.sessionMetadataService?.getProvider(sessionId) as
+        | ProviderName
+        | undefined);
     const recapMessages =
       deps.sessionMetadataService?.getRecapMessages?.(sessionId) ?? [];
     const syntheticDoneMessages =
@@ -3345,37 +3378,41 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         ? undefined
         : providerAfterMessageId;
 
-    const { session: loadedSession, identity: resolvedIdentity } =
-      await loadProviderSession(
-        transcriptProject,
-        sessionId,
-        transcriptProjectId,
-        metadataProvider ?? process?.provider,
-        primaryReaderAfterMessageId,
-        {
-          // Only include orphaned tool info if:
-          // 1. We previously owned this session (not external)
-          // 2. No active process (tools aren't potentially in progress)
-          // When we own the session, tools without results might be pending approval
-          includeOrphans: wasEverOwned && !process,
-          ...(process?.state.type === "in-turn" ||
-          process?.state.type === "waiting-input"
-            ? { ownedTurnInProgress: true }
-            : {}),
-          ...(!fullHistory &&
-          ((!afterMessageId && effectiveTailCompactions !== undefined) ||
-            primaryReaderAfterMessageId)
-            ? {
-                tailCompactions:
-                  effectiveTailCompactions ??
-                  DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,
-                ...(!afterMessageId && beforeMessageId
-                  ? { beforeMessageId }
-                  : {}),
-              }
-            : {}),
-        },
-      );
+    const {
+      session: loadedSession,
+      identity: resolvedIdentity,
+      nativeSource,
+    } = await loadProviderSession(
+      transcriptProject,
+      sessionId,
+      transcriptProjectId,
+      metadataProvider ?? process?.provider,
+      primaryReaderAfterMessageId,
+      {
+        // Only include orphaned tool info if:
+        // 1. We previously owned this session (not external)
+        // 2. No active process (tools aren't potentially in progress)
+        // When we own the session, tools without results might be pending approval
+        includeOrphans: wasEverOwned && !process,
+        ...(process?.state.type === "in-turn" ||
+        process?.state.type === "waiting-input"
+          ? { ownedTurnInProgress: true }
+          : {}),
+        ...(!fullHistory &&
+        ((!afterMessageId && effectiveTailCompactions !== undefined) ||
+          primaryReaderAfterMessageId)
+          ? {
+              tailCompactions:
+                effectiveTailCompactions ??
+                DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,
+              ...(!afterMessageId && beforeMessageId
+                ? { beforeMessageId }
+                : {}),
+            }
+          : {}),
+      },
+      routing.identityLookup,
+    );
 
     const readEndMs = performance.now();
 
@@ -3439,14 +3476,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       deps.sessionMetadataService?.getMetadata(sessionId),
     );
     const deferredMessages = sessionQueueSummaries(deps, sessionId, process);
-    const providerChildren = await resolveProviderChildSessions(
-      readerForProviderChildren(
-        transcriptProject,
-        providerResolutionDeps(deps),
-        metadataProvider ?? process?.provider ?? project.provider,
+    const providerChildren = projectProviderChildren(
+      await resolveProviderChildSessions(
+        nativeSource?.reader,
+        nativeSource?.nativeSessionId ?? sessionId,
+        "fresh",
       ),
       sessionId,
-      "fresh",
     );
 
     const metadataMs = performance.now() - metadataStartMs;

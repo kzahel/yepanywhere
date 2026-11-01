@@ -77,6 +77,18 @@ Runtime work and the provenance defect remain unimplemented.
   Node 26.7.0 and pinned Bun 1.3.14 servers also pass actual HTTP Claude
   unequal-id Conversation/native append/public issue/restart probes under the
   Node coordinator. These do not qualify native CLI/model or hosted continuity.
+  The process/child projection cut is independently accepted: process enrichment
+  retains public facts for unbound/unreadable identities and reads bound native
+  models/titles without ambient or public-metadata collisions. Child listings
+  use native parents while returning YA parents and existing native child handles.
+  Metadata/full reads reuse their native source; summary/settings recovery works
+  through empty moved working projects. Actual app/SQLite/native fixtures cover
+  profile reopen, scoped Codex child content and recovered launch context.
+  Focused checks: 46 passed across six files in 5.22 s; warning-free lint,
+  format, typecheck and workspace tests pass (6,742 server / 7,064 client).
+  Standalone Node 26.7.0 and pinned Bun 1.3.14 HTTP probes pass scoped native
+  child/public parent/original-A–working-B reads before and after restart.
+  These do not qualify native CLI/model or hosted continuity.
   Remaining all-provider observation, released-browser/owned-confirmation
   qualification, native source consumers and other provider shapes are pending;
   phase 3 is not complete.

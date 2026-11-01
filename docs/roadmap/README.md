@@ -624,7 +624,10 @@ copy. Child lineage/account settings remain public. The standalone process fixtu
 also independently accepted, with poisoned-parent config/shell checks and
 Node-coordinated Node/Bun creation/history/restart/cleanup. Instruction, issue and
 Conversation reads are independently accepted with native scope and original
-project authority, public observations and catalogue-upgrade recovery. Fully scoped cold resumes,
+project authority, public observations and catalogue-upgrade recovery. Process and
+child-list projections are independently accepted with native source/public
+parent separation, empty working-project recovery and standalone Node/Bun
+child-content restart evidence. Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or
