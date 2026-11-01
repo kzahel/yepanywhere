@@ -658,6 +658,24 @@ per transcript — and names what is left. Removing that remaining parse is what
 the durable catalog is for, and it has no production caller, so a restart still
 costs the routes a first read of every project.
 
+### Gemini native-source membership
+
+Gemini catalogue enumeration supports both the configured native root and an
+individual native `chats` directory. Both enumerate only the selected project's
+header hashes. Source ids come from the JSON header, and canonical native-root
+facts are retained before public projection; old rows lacking that fact are
+rebuilt once. A qualified reader whose native proof disappears during a scan
+omits that candidate; it cannot publish an unqualified native-id alias. A slug
+or filename cannot authorize another project. Point reads,
+summary reads and path proof enforce the same membership, including replacement
+of a previously cached source. Working-project moves preserve the original
+source, public id and launch variant. Focused observation shares the existing
+viewer-owned file watcher and releases it with the last viewer. Native file
+changes also invalidate warm Gemini summary indexes before the validation
+interval. Index-requested root enumeration observes new files immediately;
+point lookup's discovery TTL cannot hide them. See
+[YA-owned session identity](session-identity.md#current-implementation).
+
 ## YA-owned provider cache storage
 
 Gemini's YA-owned hash-to-project map lives at

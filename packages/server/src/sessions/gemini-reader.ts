@@ -11,17 +11,20 @@
  */
 
 import { readFile, readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import {
   type GeminiAssistantMessage,
   type GeminiSessionMessage,
   type GeminiUserMessage,
   type UrlProjectId,
+  type NativeSessionId,
   getGeminiUserMessageText,
   getModelContextWindow,
   parseGeminiSessionFile,
   truncateSessionTitle,
 } from "@yep-anywhere/shared";
+import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
+import { hashProjectPath } from "../projects/gemini-project-map.js";
 import type {
   ContextUsage,
   Message,
@@ -71,6 +74,7 @@ interface GeminiSessionCacheEntry {
  * Handles Gemini's linear conversation structure with user and gemini messages.
  */
 export class GeminiSessionReader implements ISessionReader {
+  private closed = false;
   private sessionsDir: string;
   private projectPath?: string;
   private projectIdentityKey?: string;
@@ -93,80 +97,91 @@ export class GeminiSessionReader implements ISessionReader {
     this.hashToCwd = options.hashToCwd;
   }
 
+  private async belongsToProject(projectHash: string): Promise<boolean> {
+    if (this.closed || typeof projectHash !== "string") return false;
+    if (!this.projectPath) return true;
+    // Native discovery retains unknown projects under this existing coordinate.
+    if (/^gemini:[a-f0-9]{8}$/.test(this.projectPath))
+      return projectHash.startsWith(this.projectPath.slice(7));
+    if (projectHash === hashProjectPath(this.projectPath)) return true;
+    const map = await this.hashToCwd;
+    const cwd = map?.get(projectHash);
+    return (
+      !this.closed &&
+      !!cwd &&
+      getProjectIdentityKey(cwd) === this.projectIdentityKey
+    );
+  }
+
+  private async readStoredSession(entry: GeminiSessionCacheEntry) {
+    if (this.closed) return null;
+    try {
+      const stats = await stat(entry.filePath);
+      if (this.closed) return null;
+      const session = parseGeminiSessionFile(
+        await readFile(entry.filePath, "utf8"),
+      );
+      if (this.closed || !session) return null;
+      if (
+        session.sessionId !== entry.id ||
+        session.projectHash !== entry.projectHash ||
+        !Array.isArray(session.messages) ||
+        !(await this.belongsToProject(session.projectHash))
+      ) {
+        this.sessionFileCache.delete(entry.id);
+        this.cacheTimestamp = 0;
+        return null;
+      }
+      if (this.closed) return null;
+      entry.mtime = stats.mtimeMs;
+      entry.size = stats.size;
+      return { session, stats };
+    } catch {
+      return null;
+    }
+  }
+
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
     const summaries: SessionSummary[] = [];
     const sessions = await this.scanSessions();
-
+    if (this.closed) return [];
     for (const session of sessions) {
-      // Filter by project path if set
-      if (this.projectIdentityKey) {
-        // Resolve hashToCwd if needed
-        let map: Map<string, string> | undefined;
-        if (this.hashToCwd instanceof Promise) {
-          map = await this.hashToCwd;
-        } else {
-          map = this.hashToCwd;
-        }
-
-        const cwd = map?.get(session.projectHash);
-        if (!cwd || getProjectIdentityKey(cwd) !== this.projectIdentityKey) {
-          continue;
-        }
-      }
-
       const summary = await this.getSessionSummary(session.id, projectId);
-      if (summary) {
-        summaries.push(summary);
-      }
+      if (this.closed) return [];
+      if (summary) summaries.push(summary);
     }
-
-    // Sort by updatedAt descending
     summaries.sort(
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
-
-    return summaries;
+    return this.closed ? [] : summaries;
   }
 
   async getSessionSummary(
     sessionId: string,
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
-    const sessionCache = await this.findSessionFile(sessionId);
-    if (!sessionCache) return null;
-
-    try {
-      const content = await readFile(sessionCache.filePath, "utf-8");
-      const session = parseGeminiSessionFile(content);
-
-      if (!session || session.messages.length === 0) return null;
-
-      const stats = await stat(sessionCache.filePath);
-      const { title, fullTitle } = this.extractTitle(session.messages);
-      const messageCount = session.messages.length;
-      const model = this.extractModel(session.messages);
-      const contextUsage = this.extractContextUsage(session.messages, model);
-
-      // Skip sessions with no actual conversation messages
-      if (messageCount === 0) return null;
-
-      return {
-        id: sessionId,
-        projectId,
-        title,
-        fullTitle,
-        createdAt: session.startTime,
-        updatedAt: session.lastUpdated ?? stats.mtime.toISOString(),
-        messageCount,
-        ownership: { owner: "none" },
-        contextUsage,
-        provider: "gemini",
-        model,
-      };
-    } catch {
+    const entry = await this.findSessionFile(sessionId);
+    if (this.closed || !entry) return null;
+    const loaded = await this.readStoredSession(entry);
+    if (this.closed || !loaded || loaded.session.messages.length === 0)
       return null;
-    }
+    const { session, stats } = loaded;
+    const { title, fullTitle } = this.extractTitle(session.messages);
+    const model = this.extractModel(session.messages);
+    return {
+      id: sessionId,
+      projectId,
+      title,
+      fullTitle,
+      createdAt: session.startTime,
+      updatedAt: session.lastUpdated ?? stats.mtime.toISOString(),
+      messageCount: session.messages.length,
+      ownership: { owner: "none" },
+      contextUsage: this.extractContextUsage(session.messages, model),
+      provider: "gemini",
+      model,
+    };
   }
 
   async getSession(
@@ -176,38 +191,22 @@ export class GeminiSessionReader implements ISessionReader {
     _options?: GetSessionOptions,
   ): Promise<LoadedSession | null> {
     const summary = await this.getSessionSummary(sessionId, projectId);
-    if (!summary) return null;
-
-    const sessionCache = await this.findSessionFile(sessionId);
-    if (!sessionCache) return null;
-
-    const content = await readFile(sessionCache.filePath, "utf-8");
-    const sessionFile = parseGeminiSessionFile(content);
-    if (!sessionFile) return null;
-
-    // Filter messages for incremental fetching if needed
-    // For Gemini, messages have 'id' which we map to 'uuid'
-    // This is a bit tricky with raw session return, similar to Claude reader note.
-    // For now, we return the full session or slice the messages array if we can.
+    if (this.closed || !summary) return null;
+    const entry = await this.findSessionFile(sessionId);
+    if (this.closed || !entry) return null;
+    const loaded = await this.readStoredSession(entry);
+    if (this.closed || !loaded) return null;
+    const sessionFile = loaded.session;
     let messages = sessionFile.messages;
     if (afterMessageId) {
       const afterIndex = messages.findIndex((m) => m.id === afterMessageId);
-      if (afterIndex !== -1) {
-        messages = messages.slice(afterIndex + 1);
-      }
+      if (afterIndex !== -1) messages = messages.slice(afterIndex + 1);
     }
-
     return {
       summary,
       transcriptSnapshotUpdatedAt:
-        sessionFile.lastUpdated ?? new Date(sessionCache.mtime).toISOString(),
-      data: {
-        provider: "gemini",
-        session: {
-          ...sessionFile,
-          messages,
-        },
-      },
+        sessionFile.lastUpdated ?? loaded.stats.mtime.toISOString(),
+      data: { provider: "gemini", session: { ...sessionFile, messages } },
     };
   }
 
@@ -217,26 +216,19 @@ export class GeminiSessionReader implements ISessionReader {
     cachedMtime: number,
     cachedSize: number,
   ): Promise<{ summary: SessionSummary; mtime: number; size: number } | null> {
-    const sessionCache = await this.findSessionFile(sessionId);
-    if (!sessionCache) return null;
-
-    try {
-      const stats = await stat(sessionCache.filePath);
-      const mtime = stats.mtimeMs;
-      const size = stats.size;
-
-      // If mtime and size match cached values, return null (no change)
-      if (mtime === cachedMtime && size === cachedSize) {
-        return null;
-      }
-
-      const summary = await this.getSessionSummary(sessionId, projectId);
-      if (!summary) return null;
-
-      return { summary, mtime, size };
-    } catch {
+    const entry = await this.findSessionFile(sessionId);
+    if (this.closed || !entry) return null;
+    const stats = await stat(entry.filePath).catch(() => null);
+    if (
+      this.closed ||
+      !stats ||
+      (stats.mtimeMs === cachedMtime && stats.size === cachedSize)
+    )
       return null;
-    }
+    const summary = await this.getSessionSummary(sessionId, projectId);
+    return !this.closed && summary
+      ? { summary, mtime: stats.mtimeMs, size: stats.size }
+      : null;
   }
 
   /**
@@ -258,12 +250,33 @@ export class GeminiSessionReader implements ISessionReader {
   }
 
   async getSessionFilePath(sessionId: string): Promise<string | null> {
-    const sessionCache = await this.findSessionFile(sessionId);
-    return sessionCache?.filePath ?? null;
+    const entry = await this.findSessionFile(sessionId);
+    if (this.closed || !entry) return null;
+    return (await this.readStoredSession(entry)) && !this.closed
+      ? entry.filePath
+      : null;
   }
 
-  getIndexScopeKey(sessionDir: string): string {
-    return `gemini::${sessionDir}::${this.projectIdentityKey ?? "*"}`;
+  async getNativeSessionRef(sessionId: NativeSessionId) {
+    const entry = await this.findSessionFile(sessionId);
+    if (this.closed || !entry || !(await this.readStoredSession(entry)))
+      return null;
+    if (this.closed) return null;
+    const native = await resolveNativeSessionRef(
+      "gemini",
+      this.sessionsDir,
+      sessionId,
+    ).catch(() => null);
+    return this.closed ? null : native;
+  }
+
+  getIndexScopeKey(_sessionDir: string): string {
+    return `gemini::${JSON.stringify([this.sessionsDir, this.projectIdentityKey ?? "*"])}`;
+  }
+
+  close(): void {
+    this.closed = true;
+    this.sessionFileCache.clear();
   }
 
   /**
@@ -274,9 +287,29 @@ export class GeminiSessionReader implements ISessionReader {
     sessionDir: string,
   ): Promise<{ sessionId: string; filePath: string }[]> {
     const results: { sessionId: string; filePath: string }[] = [];
+    const directory = relative(this.sessionsDir, sessionDir);
+    if (
+      this.closed ||
+      directory === ".." ||
+      directory.startsWith(`..${sep}`) ||
+      isAbsolute(directory)
+    )
+      return [];
+    if (directory === "") {
+      // The index owner requests enumeration after invalidation or validation;
+      // its freshness boundary must not inherit the point-lookup TTL.
+      const sessions = await this.scanSessions(true);
+      return this.closed
+        ? []
+        : sessions.map((entry) => ({
+            sessionId: entry.id,
+            filePath: entry.filePath,
+          }));
+    }
     try {
       const entries = await readdir(sessionDir, { withFileTypes: true });
       for (const entry of entries) {
+        if (this.closed) return [];
         if (
           entry.isFile() &&
           entry.name.startsWith("session-") &&
@@ -286,7 +319,12 @@ export class GeminiSessionReader implements ISessionReader {
           try {
             const content = await readFile(filePath, "utf-8");
             const session = parseGeminiSessionFile(content);
-            if (session) {
+            if (
+              session &&
+              typeof session.sessionId === "string" &&
+              (await this.belongsToProject(session.projectHash))
+            ) {
+              if (this.closed) return [];
               results.push({ sessionId: session.sessionId, filePath });
             }
           } catch {
@@ -297,19 +335,23 @@ export class GeminiSessionReader implements ISessionReader {
     } catch {
       // Directory doesn't exist or unreadable
     }
-    return results;
+    return this.closed ? [] : results;
   }
 
   /**
    * Scan the sessions directory and find all session files.
    */
-  private async scanSessions(): Promise<GeminiSessionCacheEntry[]> {
+  private async scanSessions(
+    force = false,
+  ): Promise<GeminiSessionCacheEntry[]> {
+    if (this.closed) return [];
     // Check cache
-    if (Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS) {
+    if (!force && Date.now() - this.cacheTimestamp < this.CACHE_TTL_MS) {
       return Array.from(this.sessionFileCache.values());
     }
 
     const sessions: GeminiSessionCacheEntry[] = [];
+    this.sessionFileCache.clear();
 
     try {
       await stat(this.sessionsDir);
@@ -323,6 +365,7 @@ export class GeminiSessionReader implements ISessionReader {
     const projectDirs = await this.findProjectDirs();
 
     for (const { dir, dirName } of projectDirs) {
+      if (this.closed) return [];
       const chatsDir = join(dir, "chats");
       try {
         await stat(chatsDir);
@@ -330,6 +373,7 @@ export class GeminiSessionReader implements ISessionReader {
 
         for (const filePath of files) {
           const session = await this.readSessionMeta(filePath, dirName);
+          if (this.closed) return [];
           if (session) {
             sessions.push(session);
             this.sessionFileCache.set(session.id, session);
@@ -340,6 +384,7 @@ export class GeminiSessionReader implements ISessionReader {
       }
     }
 
+    if (this.closed) return [];
     this.cacheTimestamp = Date.now();
     return sessions;
   }
@@ -400,13 +445,17 @@ export class GeminiSessionReader implements ISessionReader {
   private async findSessionFile(
     sessionId: string,
   ): Promise<GeminiSessionCacheEntry | null> {
+    if (this.closed) return null;
     // Check cache first
     const cached = this.sessionFileCache.get(sessionId);
-    if (cached) return cached;
+    if (cached)
+      return (await this.belongsToProject(cached.projectHash)) && !this.closed
+        ? cached
+        : null;
 
     // Scan if cache miss
     await this.scanSessions();
-    return this.sessionFileCache.get(sessionId) ?? null;
+    return this.closed ? null : (this.sessionFileCache.get(sessionId) ?? null);
   }
 
   /**
@@ -421,8 +470,15 @@ export class GeminiSessionReader implements ISessionReader {
       const content = await readFile(filePath, "utf-8");
       const session = parseGeminiSessionFile(content);
 
-      if (!session) return null;
-
+      if (
+        this.closed ||
+        !session ||
+        typeof session.sessionId !== "string" ||
+        !Array.isArray(session.messages) ||
+        !(await this.belongsToProject(session.projectHash))
+      )
+        return null;
+      if (this.closed) return null;
       return {
         id: session.sessionId,
         filePath,

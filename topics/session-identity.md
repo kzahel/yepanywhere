@@ -181,6 +181,17 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   sources follow the actual native session directory rather than reconstructing
   it from public identity. Reader retirement discards pending results. See
   [Grok's source contract](grok.md#native-source-identity-and-observation).
+- Frozen Gemini CLI and ACP history share the existing CLI JSON family, with
+  canonical native-root/session-header proof. Bound reads use the original
+  project and only its known raw/physical path hashes; an ambient project's map
+  cannot select another source. Header hash membership applies to point reads,
+  lists, paths and indexed enumeration. Native directory slugs and filenames
+  do not replace header ids/hashes. A warmed source whose id/hash changes is
+  unavailable under the old binding. Existing `gemini:<hash-prefix>` discovery
+  coordinates retain their bounded historical grouping. Focused events retain
+  the YA id and working project; retired readers discard late results. This
+  qualifies native sources only, preserving the frozen launch/protocol mapping
+  and the open [ACP resume defect](../gaps/gemini-acp-resume-starts-new-session.md).
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

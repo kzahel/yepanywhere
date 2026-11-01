@@ -113,6 +113,7 @@ import { Hono } from "hono";
 import { compress } from "hono/compress";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { realpath } from "node:fs/promises";
+import { hashProjectPath } from "./projects/gemini-project-map.js";
 import type { AuthService } from "./auth/AuthService.js";
 import { createAuthRoutes } from "./auth/routes.js";
 import type { UserUsageService } from "./auth/UserUsageService.js";
@@ -1557,7 +1558,9 @@ export function createApp(options: AppOptions): AppResult {
       const native = identity.native;
       if (
         !native ||
-        !["claude", "codex", "opencode", "pi", "grok"].includes(native.family)
+        !["claude", "codex", "opencode", "pi", "grok", "gemini"].includes(
+          native.family,
+        )
       )
         return null;
       const project = await scanner.getOrCreateProject(identity.projectId);
@@ -1770,6 +1773,24 @@ export function createApp(options: AppOptions): AppResult {
                 databasePath: join(native.storageScope, "opencode.db"),
                 storageDir: join(native.storageScope, "storage"),
                 nativeStorageScope: native.storageScope,
+              }),
+          );
+        case "gemini":
+          return getOrCreateReader(
+            JSON.stringify(["gemini-bound", native.storageScope, project.path]),
+            () =>
+              new GeminiSessionReader({
+                sessionsDir: native.storageScope,
+                projectPath: project.path,
+                hashToCwd: realpath(project.path)
+                  .catch(() => project.path)
+                  .then(
+                    (physical) =>
+                      new Map([
+                        [hashProjectPath(project.path), project.path],
+                        [hashProjectPath(physical), project.path],
+                      ]),
+                  ),
               }),
           );
         case "grok":

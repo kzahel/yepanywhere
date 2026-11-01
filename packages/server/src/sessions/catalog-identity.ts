@@ -61,7 +61,7 @@ export async function projectCatalogIdentities(
     for (const [position, row] of nativeRows.entries()) {
       if (signal?.aborted) return [];
       if (
-        !["claude", "codex", "opencode", "pi", "grok"].includes(
+        !["claude", "codex", "opencode", "pi", "grok", "gemini"].includes(
           row.catalogFamily,
         ) ||
         !row.nativeStorageScope

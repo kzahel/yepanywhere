@@ -14,6 +14,7 @@ import { toUrlProjectId, type YepMessage } from "@yep-anywhere/shared";
 import { expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
+import { hashProjectPath } from "../../src/projects/gemini-project-map.js";
 import { PiSessionReader } from "../../src/sessions/pi-reader.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import { MockClaudeSDK } from "../../src/sdk/mock.js";
@@ -22,7 +23,7 @@ import { handleSessionWatchSubscribe } from "../../src/routes/ws-relay-handlers.
 import * as sharedWatches from "../../src/watcher/SharedDirectoryWatcher.js";
 import { createApp } from "../setup/create-app.js";
 
-it.each(["claude", "codex", "pi"] as const)(
+it.each(["claude", "codex", "pi", "gemini"] as const)(
   "watches the bound %s file through the retained wire protocol and releases shared interest",
   async (provider) => {
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -49,66 +50,85 @@ it.each(["claude", "codex", "pi"] as const)(
       );
       const nativeFile = join(
         nativeRoot,
-        provider === "claude"
-          ? `${nativeId}.jsonl`
-          : provider === "pi"
-            ? `project/${nativeId}.jsonl`
-            : `rollout-2026-11-01T00-00-00-${nativeId}.jsonl`,
+        provider === "gemini"
+          ? `native-slug/chats/session-${nativeId}.json`
+          : provider === "claude"
+            ? `${nativeId}.jsonl`
+            : provider === "pi"
+              ? `project/${nativeId}.jsonl`
+              : `rollout-2026-11-01T00-00-00-${nativeId}.jsonl`,
       );
       await mkdir(dirname(nativeFile), { recursive: true });
       const user = (text: string, uuid: string) =>
-        provider === "pi"
+        provider === "gemini"
           ? {
-              type: "message",
               id: uuid,
-              parentId: uuid === "user-2" ? "user-1" : null,
-              timestamp: "2026-11-01T00:00:01.000Z",
-              message: { role: "user", content: text },
+              type: "user",
+              timestamp: "2026-11-01T00:00:01Z",
+              content: text,
             }
-          : provider === "claude"
+          : provider === "pi"
             ? {
-                type: "user",
-                uuid,
-                sessionId: nativeId,
-                cwd: projectPath,
+                type: "message",
+                id: uuid,
+                parentId: uuid === "user-2" ? "user-1" : null,
                 timestamp: "2026-11-01T00:00:01.000Z",
                 message: { role: "user", content: text },
               }
-            : {
-                type: "event_msg",
-                timestamp: "2026-11-01T00:00:01.000Z",
-                payload: { type: "user_message", message: text },
-              };
+            : provider === "claude"
+              ? {
+                  type: "user",
+                  uuid,
+                  sessionId: nativeId,
+                  cwd: projectPath,
+                  timestamp: "2026-11-01T00:00:01.000Z",
+                  message: { role: "user", content: text },
+                }
+              : {
+                  type: "event_msg",
+                  timestamp: "2026-11-01T00:00:01.000Z",
+                  payload: { type: "user_message", message: text },
+                };
+      const geminiFile = (messages: unknown[]) =>
+        JSON.stringify({
+          sessionId: nativeId,
+          projectHash: hashProjectPath(projectPath),
+          startTime: "2026-11-01T00:00:00Z",
+          lastUpdated: "2026-11-01T00:00:01Z",
+          messages,
+        });
       await writeFile(
         nativeFile,
-        [
-          ...(provider === "codex"
-            ? [
-                {
-                  type: "session_meta",
-                  payload: {
-                    id: nativeId,
-                    cwd: projectPath,
-                    timestamp: "2026-11-01T00:00:00.000Z",
-                  },
-                },
-              ]
-            : []),
-          ...(provider === "pi"
-            ? [
-                {
-                  type: "session",
-                  version: 3,
-                  id: nativeId,
-                  cwd: projectPath,
-                  timestamp: "2026-11-01T00:00:00.000Z",
-                },
-              ]
-            : []),
-          user("initial native history", "user-1"),
-        ]
-          .map((entry) => JSON.stringify(entry))
-          .join("\n") + "\n",
+        provider === "gemini"
+          ? geminiFile([user("initial native history", "user-1")])
+          : [
+              ...(provider === "codex"
+                ? [
+                    {
+                      type: "session_meta",
+                      payload: {
+                        id: nativeId,
+                        cwd: projectPath,
+                        timestamp: "2026-11-01T00:00:00.000Z",
+                      },
+                    },
+                  ]
+                : []),
+              ...(provider === "pi"
+                ? [
+                    {
+                      type: "session",
+                      version: 3,
+                      id: nativeId,
+                      cwd: projectPath,
+                      timestamp: "2026-11-01T00:00:00.000Z",
+                    },
+                  ]
+                : []),
+              user("initial native history", "user-1"),
+            ]
+              .map((entry) => JSON.stringify(entry))
+              .join("\n") + "\n",
       );
       const fixedPiMtime = new Date("2026-11-01T00:00:00Z");
       if (provider === "pi")
@@ -192,10 +212,19 @@ it.each(["claude", "codex", "pi"] as const)(
       );
       const lease = await watching;
       const close = vi.spyOn(lease, "close");
-      await appendFile(
-        nativeFile,
-        JSON.stringify(user("appended native history", "user-2")) + "\n",
-      );
+      if (provider === "gemini")
+        await writeFile(
+          nativeFile,
+          geminiFile([
+            user("initial native history", "user-1"),
+            user("appended native history", "user-2"),
+          ]),
+        );
+      else
+        await appendFile(
+          nativeFile,
+          JSON.stringify(user("appended native history", "user-2")) + "\n",
+        );
       if (provider === "pi")
         await utimes(nativeFile, fixedPiMtime, fixedPiMtime);
       const events = await Promise.all(changes);

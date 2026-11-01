@@ -646,7 +646,14 @@ independently accepted: scoped history/metadata, late replay-file observation,
 proven child reads and media under an empty working-project move pass focused
 and owned Node/Bun restart probes. Canonical native acquisition refuses a
 conflicting directory spelling, including after warmed-summary replacement.
-Final workspace gates pass. Fully scoped cold resumes,
+Final workspace gates pass. Frozen Gemini native-source migration is
+independently accepted: scoped header/hash reads, root enumeration, original
+physical aliases, public observation and retirement races pass focused checks
+and owned Node/Bun HTTP/WebSocket/restart probes. Qualified missing native
+proof is omitted from the catalogue. Warm index edit/create invalidation uses
+the retained observation owner and passes Node/Bun probes. Final workspace
+gates pass; protocol and launch mapping remain frozen.
+Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or

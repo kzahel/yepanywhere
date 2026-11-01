@@ -240,6 +240,28 @@ Runtime work and the provenance defect remain unimplemented.
   Final warning-free lint, format, typecheck and workspace tests pass (6,778
   server / 7,064 client; 127.44 s server run). Launch behavior/capabilities are
   unchanged; frozen Gemini, cold resume and released clients remain phase 3.
+- Phase 3 frozen Gemini native-source migration is independently accepted.
+  Root/header-id/project-hash proof applies across bound history, summaries,
+  indexed catalogue enumeration and focused observation. Original raw/physical
+  project aliases are scoped without consulting another store's project map.
+  Existing unknown-project hash coordinates retain historical grouping. Warm
+  id/hash replacement cannot substitute a source; retirement discards pending
+  results. The real app/SQLite fixture qualifies two roots, unequal ids,
+  physical aliases, working-project moves, indexed metadata, old row-format
+  recovery, adoption and profile reopen. A real enumeration/header-replacement
+  probe exposed scope-less native catalogue publication; qualified missing proof
+  now omits the candidate. Sol caught an index-dispatch prefix regression.
+  Corrected scope keys preserve `gemini::`; index-requested root enumeration
+  also bypasses point-discovery TTL so create events refresh immediately. The
+  real reader/index/EventBus regression proves edit and create before a 60 s
+  validation interval, with both initial failures retained. Corrected focused
+  checks: 83 passed across six files in 3.16 s. Actual Node 26.7.0 and pinned
+  Bun 1.3.14 owned HTTP/WebSocket/rewrite/restart, catalogue-race and warm-index
+  probes pass. Final warning-free lint, format, typecheck and full workspace
+  tests pass (6,791 server / 7,064 client; 132.44 s server run). Frozen protocol,
+  schema and launch mapping are unchanged; the ACP failed-resume gap remains a
+  later enabling boundary. Cold resume/helpers and released clients remain
+  phase 3; durable admission is still pending.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

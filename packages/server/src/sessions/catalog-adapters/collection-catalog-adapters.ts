@@ -42,9 +42,9 @@ import {
  * added or changed. Rows without it predate the untruncated title and the
  * summary's creation time; format 1 rows lack the last human turn and, for a
  * Claude session without a cached summary, its creation time. Both are read
- * once more.
+ * once more. Format 4 also requires native-root facts for Gemini rows.
  */
-const FILE_ROW_FORMAT = 3;
+const FILE_ROW_FORMAT = 4;
 
 export interface CollectionCatalogDeps extends SessionProviderResolutionDeps {
   scanner: ProjectScanner;
@@ -80,7 +80,8 @@ async function readFileRow(
     const sourceVersion = catalogFileVersion(stats);
     if (
       old?.sourceVersion === sourceVersion &&
-      old.rowFormat === FILE_ROW_FORMAT
+      old.rowFormat === FILE_ROW_FORMAT &&
+      (!source.reader.getNativeSessionRef || old.nativeStorageScope)
     )
       return { ...old, projectName: project.name };
     const nativeStorageScope = (
@@ -88,6 +89,8 @@ async function readFileRow(
         parseNativeSessionId(file.sessionId),
       )
     )?.storageScope;
+    // A changed/disappeared source cannot publish an unqualified native alias.
+    if (source.reader.getNativeSessionRef && !nativeStorageScope) return;
     const cached = await deps.sessionIndexService?.getCachedSessionSummary(
       source.sessionDir,
       project.id,

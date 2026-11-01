@@ -216,7 +216,9 @@ async function publicSessionSummaries<T extends SessionListSummary>(
       source.provider === "codex-oss" ||
       ((source.provider === "opencode" ||
         source.provider === "pi" ||
-        source.provider === "grok") &&
+        source.provider === "grok" ||
+        source.provider === "gemini" ||
+        source.provider === "gemini-acp") &&
         source.reader.getNativeSessionRef !== undefined)
     )
   )
