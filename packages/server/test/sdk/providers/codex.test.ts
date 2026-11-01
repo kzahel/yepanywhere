@@ -3441,7 +3441,7 @@ import { appendFileSync } from "node:fs";`,
       const { text } = await testProvider.generateSummary({
         purpose: "session-retitle",
         strategy: "fork",
-        generatorSessionId: "thread-generator",
+        generatorSessionId: parseNativeSessionId("thread-generator"),
         cwd: tempDir,
         model: "gpt-5.6-sol",
         currentTitle: "Old title",
@@ -3483,6 +3483,80 @@ import { appendFileSync } from "node:fs";`,
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it.each([false, true])(
+    "addresses a helper's exact native source and refuses another resumed thread (mismatch=%s)",
+    async (mismatch) => {
+      const root = mkdtempSync(join(tmpdir(), "codex-native-helper-")),
+        home = join(root, "home"),
+        sessions = join(home, "sessions"),
+        working = join(root, "working"),
+        original = join(root, "original"),
+        logPath = join(root, "requests.jsonl");
+      for (const path of [sessions, working, original])
+        mkdirSync(path, { recursive: true });
+      const nativeId = parseNativeSessionId("native-helper-thread"),
+        filePath = join(sessions, "rollout-different-leaf.jsonl");
+      writeFileSync(
+        filePath,
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: nativeId, cwd: original },
+        }) + "\n",
+      );
+      const source = {
+        native: nativeSessionRef("codex", realpathSync(sessions), nativeId),
+        filePath,
+        projectId: toUrlProjectId(original),
+      };
+      const command = createFakeCodexCommand(
+        root,
+        "helper-protocol",
+        buildFakeCodexAppServerForForkSummary(
+          logPath,
+          mismatch ? "different-thread" : undefined,
+        ),
+      );
+      const request = {
+        purpose: "session-retitle" as const,
+        strategy: "fork" as const,
+        generatorSessionId: nativeId,
+        nativeSource: source,
+        cwd: working,
+        model: "gpt-5.6-sol",
+      };
+      try {
+        const otherHome = join(root, "foreign-home");
+        mkdirSync(join(otherHome, "sessions"), { recursive: true });
+        await expect(
+          new CodexProvider({
+            codexPath: command,
+            codexHome: otherHome,
+          }).generateSummary(request),
+        ).rejects.toThrow("scoped resume is not qualified");
+        expect(existsSync(logPath)).toBe(false);
+        const result = new CodexProvider({
+          codexPath: command,
+          codexHome: home,
+        }).generateSummary(request);
+        if (mismatch)
+          await expect(result).rejects.toThrow("different native thread");
+        else expect(await result).toEqual({ text: "Codex fork retitle" });
+        const requests = readFakeCodexRequests(logPath);
+        expect(
+          requests.find((row) => row.method === "thread/resume")?.params,
+        ).toMatchObject({ threadId: nativeId, path: filePath, cwd: working });
+        expect(
+          requests.find((row) => row.method === "initialize")?.nativeHome,
+        ).toBe(home);
+        expect(
+          requests.filter((row) => row.method === "turn/start"),
+        ).toHaveLength(mismatch ? 0 : 1);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("addresses a scoped fork by native id/path and keeps its pinned native home", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "codex-scoped-fork-"));
@@ -5090,7 +5164,10 @@ process.stdin.on("data", (chunk) => {
 `;
 }
 
-function buildFakeCodexAppServerForForkSummary(logPath: string): string {
+function buildFakeCodexAppServerForForkSummary(
+  logPath: string,
+  resumedId?: string,
+): string {
   return `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";
 
@@ -5108,6 +5185,7 @@ function logRequest(message) {
       id: message.id,
       method: message.method,
       params: message.params,
+      nativeHome: process.env.CODEX_HOME,
     }) + "\\n",
   );
 }
@@ -5127,7 +5205,7 @@ function handleMessage(message) {
       break;
     case "thread/resume":
       respond(message.id, {
-        thread: { id: message.params?.threadId ?? "thread-generator" },
+        thread: { id: ${JSON.stringify(resumedId)} ?? message.params?.threadId ?? "thread-generator" },
         model: "gpt-5.4-mini",
         reasoningEffort: "low",
       });
@@ -5385,6 +5463,7 @@ function readFakeCodexRequests(logPath: string): Array<{
   method?: string;
   params?: Record<string, unknown>;
   pid?: number;
+  nativeHome?: string;
   effectiveApprovalPolicy?: string;
   effectiveSandboxPolicy?: Record<string, unknown>;
   agentctlSessionId?: string;

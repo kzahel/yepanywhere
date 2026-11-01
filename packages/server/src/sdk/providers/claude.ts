@@ -1,4 +1,4 @@
-import { parseNativeSessionId } from "@yep-anywhere/shared";
+import { fromUrlProjectId, parseNativeSessionId } from "@yep-anywhere/shared";
 import { assertClaudeCopyRoot } from "../../sessions/fork.js";
 import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
 import { routerModelSupportsThinking } from "@yep-anywhere/shared";
@@ -21,7 +21,15 @@ import {
 import { open as openFile, realpath, type FileHandle } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
-import { delimiter, extname, join, win32 } from "node:path";
+import {
+  basename,
+  delimiter,
+  dirname,
+  extname,
+  join,
+  resolve,
+  win32,
+} from "node:path";
 import { promisify } from "node:util";
 import {
   type SDKMessage as AgentSDKMessage,
@@ -276,6 +284,17 @@ function createSandboxedClaudeSpawn(
     });
     return child;
   };
+}
+
+/** Pinned SDK/native CLI conventional key; keep aligned during Claude refresh. */
+function claudeCwdProjectDirectory(cwd: string): string {
+  const normalized = process.platform === "darwin" ? cwd.normalize("NFC") : cwd;
+  const encoded = normalized.replace(/[^a-zA-Z0-9]/g, "-");
+  if (encoded.length <= 200) return encoded;
+  let hash = 0;
+  for (let index = 0; index < normalized.length; index++)
+    hash = ((hash << 5) - hash + normalized.charCodeAt(index)) | 0;
+  return `${encoded.slice(0, 200)}-${Math.abs(hash).toString(36)}`;
 }
 
 function assertClaudeForkSessionId(sessionId: string): void {
@@ -1797,6 +1816,65 @@ export class ClaudeProvider implements AgentProvider {
   private async generateForkBackedSummary(
     request: Extract<SummaryGenerationRequest, { strategy: "fork" }>,
   ): Promise<SummaryGenerationResult> {
+    assertProviderForkSource(
+      {
+        nativeSessionId: request.generatorSessionId,
+        nativeSource: request.nativeSource,
+      },
+      this.name,
+    );
+    const summaryEnv = this.getEnv(request.model);
+    let nativeCwd = request.nativeSource
+      ? fromUrlProjectId(request.nativeSource.projectId)
+      : request.cwd;
+    if (request.nativeSource) {
+      const scope = request.nativeSource.native.storageScope;
+      if (request.sessionSandbox) {
+        if ((await realpath(request.sessionSandbox.transcriptDir)) !== scope)
+          throw new Error(
+            "Claude summary source does not match the inherited private transcript root",
+          );
+      } else {
+        // A child runs in the physical directory, including when its supplied
+        // cwd is a symlink. Resolve that before interpreting a relative home.
+        const physicalCwd = await realpath(nativeCwd).catch(() => null);
+        if (!physicalCwd)
+          throw new Error(
+            "Claude summary source has no available native project cwd",
+          );
+        nativeCwd = physicalCwd;
+        // Do not change the home spelling: it can select the operator's account.
+        const projects = await realpath(
+          resolve(
+            nativeCwd,
+            summaryEnv.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
+            "projects",
+          ),
+        ).catch(() => null);
+        if (projects !== dirname(scope))
+          throw new Error(
+            "Claude summary source is outside the launch transcript store; scoped resume is not qualified",
+          );
+        const name = basename(scope);
+        if (
+          summaryEnv.CLAUDE_CONFIG_DIR &&
+          /^[A-Za-z0-9_-]{1,64}$/.test(name) &&
+          !/^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(name)
+        ) {
+          summaryEnv.CLAUDE_CODE_PROJECT_DIR_NAME = name;
+        } else {
+          // Clearing an unusable selector is safe only when cwd addresses the
+          // same captured native directory. Never try a competing same-id file.
+          summaryEnv.CLAUDE_CODE_PROJECT_DIR_NAME = undefined;
+          if (claudeCwdProjectDirectory(nativeCwd) !== name)
+            throw new Error(
+              "Claude summary source cannot be addressed by the native project selector or cwd",
+            );
+        }
+      }
+    }
+    if (request.signal?.aborted)
+      throw new DOMException("Summary generation cancelled", "AbortError");
     const userPrompt =
       request.purpose === "session-retitle"
         ? this.createSessionRetitlePrompt(request)
@@ -1836,11 +1914,11 @@ export class ClaudeProvider implements AgentProvider {
         prompt: singlePrompt(),
         options: {
           ...DEFAULT_CLAUDE_PROVIDER_GENERATION_OPTIONS,
-          cwd: request.cwd,
+          cwd: nativeCwd,
           abortController,
           permissionMode: "default",
           pathToClaudeCodeExecutable: resolveLocalClaudeCodeExecutable(),
-          env: this.getEnv(request.model),
+          env: summaryEnv,
           ...this.getSessionToolOptions(request.model, request.sessionSandbox),
           model: normalizeClaudeLaunchModel(request.model),
           resume: request.generatorSessionId,

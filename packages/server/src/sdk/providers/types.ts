@@ -101,7 +101,7 @@ export interface ProviderForkResult {
 }
 
 export function assertProviderForkSource(
-  options: ProviderForkOptions,
+  options: Pick<ProviderForkOptions, "nativeSessionId" | "nativeSource">,
   provider: ProviderName,
 ): void {
   parseNativeSessionId(options.nativeSessionId);
@@ -783,7 +783,10 @@ export function resolveInheritedForkModel(
   return undefined;
 }
 
-export type SummaryGenerationRequest =
+/** Provider requests carry native ids; the supervisor accepts public ingress. */
+export type SummaryGenerationRequest<
+  SessionId extends string = NativeSessionId,
+> =
   | {
       purpose: "recap";
       strategy: "side-session";
@@ -794,7 +797,9 @@ export type SummaryGenerationRequest =
       purpose: "recap";
       strategy: "fork";
       /** Archived helper fork whose full current context should be recapped. */
-      generatorSessionId: string;
+      generatorSessionId: SessionId;
+      /** Exact source selected before provider effects; never a public-id path. */
+      nativeSource?: ProviderForkSource;
       /** Project working directory the session belongs to. */
       cwd: string;
       /** Exact source model inherited by the fork; helper effort is independent. */
@@ -808,7 +813,9 @@ export type SummaryGenerationRequest =
       purpose: "fork-after-summary";
       strategy: "fork";
       /** Archived helper fork whose whole context should be summarized. */
-      generatorSessionId: string;
+      generatorSessionId: SessionId;
+      /** Exact source selected before provider effects; never a public-id path. */
+      nativeSource?: ProviderForkSource;
       /** Project working directory the session belongs to. */
       cwd: string;
       /** Exact source model inherited by the fork; helper effort is independent. */
@@ -828,7 +835,9 @@ export type SummaryGenerationRequest =
       purpose: "session-retitle";
       strategy: "fork";
       /** Archived helper fork whose whole context should be titled. */
-      generatorSessionId: string;
+      generatorSessionId: SessionId;
+      /** Exact source selected before provider effects; never a public-id path. */
+      nativeSource?: ProviderForkSource;
       /** Project working directory the session belongs to. */
       cwd: string;
       /** Exact source model inherited by the fork; helper effort is independent. */

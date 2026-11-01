@@ -1,3 +1,4 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import { HELPER_SIDE_MODEL_CHEAPEST } from "@yep-anywhere/shared";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -45,7 +46,7 @@ describe("Codex summary helpers", () => {
       createCodexForkSummaryPrompt({
         purpose: "recap",
         strategy: "fork",
-        generatorSessionId: "thread-1",
+        generatorSessionId: parseNativeSessionId("thread-1"),
         cwd: "/tmp/project",
         model: "gpt-5.6-sol",
       }),
@@ -54,7 +55,7 @@ describe("Codex summary helpers", () => {
     const retitle = createCodexForkSummaryPrompt({
       purpose: "session-retitle",
       strategy: "fork",
-      generatorSessionId: "thread-1",
+      generatorSessionId: parseNativeSessionId("thread-1"),
       cwd: "/tmp/project",
       model: "gpt-5.6-sol",
       currentTitle: "  Old title  ",
@@ -66,7 +67,7 @@ describe("Codex summary helpers", () => {
     const handoff = createCodexForkSummaryPrompt({
       purpose: "fork-after-summary",
       strategy: "fork",
-      generatorSessionId: "thread-1",
+      generatorSessionId: parseNativeSessionId("thread-1"),
       cwd: "/tmp/project",
       model: "gpt-5.6-sol",
       afterTurnMessageId: "turn-2",
@@ -84,7 +85,7 @@ describe("Codex summary helpers", () => {
       {
         purpose: "session-retitle",
         strategy: "fork",
-        generatorSessionId: "thread-title",
+        generatorSessionId: parseNativeSessionId("thread-title"),
         cwd: "/tmp/project",
         model: "gpt-5.6-sol",
       },
@@ -103,7 +104,7 @@ describe("Codex summary helpers", () => {
     const handoff = createCodexForkSummaryThreadResumeParams({
       purpose: "fork-after-summary",
       strategy: "fork",
-      generatorSessionId: "thread-summary",
+      generatorSessionId: parseNativeSessionId("thread-summary"),
       cwd: "/tmp/project",
       model: "gpt-5.6-sol",
       afterTurnMessageId: "turn-2",

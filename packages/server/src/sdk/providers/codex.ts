@@ -4938,12 +4938,34 @@ export class CodexProvider implements AgentProvider {
   private async generateForkBackedSummary(
     request: Extract<SummaryGenerationRequest, { strategy: "fork" }>,
   ): Promise<SummaryGenerationResult> {
+    assertProviderForkSource(
+      {
+        nativeSessionId: request.generatorSessionId,
+        nativeSource: request.nativeSource,
+      },
+      this.name,
+    );
+    const summaryEnv = this.getCodexEnv();
+    if (request.nativeSource) {
+      const launchRoot =
+        request.sessionSandbox?.transcriptDir ??
+        join(summaryEnv.CODEX_HOME ?? join(homedir(), ".codex"), "sessions");
+      if (
+        (await realpath(launchRoot).catch(() => undefined)) !==
+        request.nativeSource.native.storageScope
+      )
+        throw new Error(
+          "Codex summary source is outside the launch transcript store; scoped resume is not qualified",
+        );
+    }
+    if (request.signal?.aborted)
+      throw new DOMException("Summary generation cancelled", "AbortError");
     const userPrompt = createCodexForkSummaryPrompt(request);
     const codexCommand = await this.resolveCodexCommand();
     const appServer = new CodexAppServerClient(
       codexCommand,
       request.cwd,
-      this.getCodexEnv(),
+      summaryEnv,
       undefined,
       request.sessionSandbox,
     );
@@ -4979,6 +5001,10 @@ export class CodexProvider implements AgentProvider {
       const experimentalApiEnabled = await this.initializeAppServer(appServer);
       appServer.notify("initialized");
 
+      if (request.nativeSource && !experimentalApiEnabled)
+        throw new Error(
+          "Codex summary source requires native rollout path support",
+        );
       const threadResult = await appServer.request<ThreadResumeResponse>(
         "thread/resume",
         createCodexForkSummaryThreadResumeParams(
@@ -4986,6 +5012,11 @@ export class CodexProvider implements AgentProvider {
           experimentalApiEnabled,
         ),
       );
+      if (
+        request.nativeSource &&
+        threadResult.thread.id !== request.generatorSessionId
+      )
+        throw new Error("Codex summary resumed a different native thread");
       const threadId = threadResult.thread.id || request.generatorSessionId;
       const turnResult = await appServer.request<TurnStartResponse>(
         "turn/start",

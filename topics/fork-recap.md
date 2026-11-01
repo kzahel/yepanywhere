@@ -16,6 +16,12 @@ config), [fork-from-turn.md](fork-from-turn.md) (the fork-after-summary
 strategy this reuses), [session-hovercard-recent-activity.md](session-hovercard-recent-activity.md)
 (where an emitted recap surfaces as the session's current agent line).
 
+Forked recap generation shares the supervisor's native helper-source boundary
+with retitle and handoff summaries. The archived generator and overlay keep
+public ids; provider input uses the captured native reference and original
+project. Cancellation during acquisition cannot dispatch another helper query.
+See [session identity](session-identity.md#current-implementation).
+
 ## Recap modes (recap of recaps.md)
 
 The [recap disposition](recaps.md#house-cleaning-disposition) retains this

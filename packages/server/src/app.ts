@@ -2422,6 +2422,11 @@ export function createApp(options: AppOptions): AppResult {
           "Session native fork source does not match the provider",
         );
       const filePath = await source?.reader.getSessionFilePath?.(native.id);
+      if (sessionReadLifetime.signal.aborted)
+        throw new DOMException(
+          "Native source acquisition cancelled",
+          "AbortError",
+        );
       if (!filePath)
         throw new Error("Session native fork transcript is missing");
       return { native, filePath, projectId: identity.transcriptProjectId };

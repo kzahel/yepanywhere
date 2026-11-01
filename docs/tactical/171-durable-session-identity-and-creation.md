@@ -262,6 +262,29 @@ Runtime work and the provenance defect remain unimplemented.
   schema and launch mapping are unchanged; the ACP failed-resume gap remains a
   later enabling boundary. Cold resume/helpers and released clients remain
   phase 3; durable admission is still pending.
+- Phase 3 fork-backed helper sources are independently accepted. Retitle,
+  handoff summary and forked recap resolve the public generator once through
+  the existing native source boundary; provider inputs are native-branded and
+  application metadata/results remain public. Acquisition cancellation cannot
+  dispatch a helper. Codex validates the selected home, supplies the exact
+  rollout path and refuses another returned thread before turn start. Claude
+  retains its configured account home and proves its native selector or
+  conventional physical-cwd directory. Two Sol findings exposed an unsafe cwd
+  fallback and relative-home resolution across a symlink; corrected native
+  fixtures prove refusal before model calls and transcript mutation, plus
+  successful valid aliases, ordinary directories longer than 64 characters,
+  and the physically correct relative home. The initial failures are retained.
+  Corrected six-file checks pass 293 cases with two retained skips in 24.40 s;
+  the final physical-cwd correction passes four boundary checks in 2.41 s.
+  Owned Node 26.7.0 and pinned Bun 1.3.14 execute the actual pinned Claude SDK
+  and CLI against a local fake model, including over-200-character native keys;
+  Bun also qualifies relative-home refusal and correct context. These use no
+  operator credentials or upstream model calls. App/SQLite reopen/collision/
+  cancellation and actual Codex subprocess path/home/mismatch checks pass.
+  Final lint, format, typecheck and full workspace tests pass (6,797 server /
+  7,064 client; 129.82 s server run). General Claude alias-history migration,
+  cold resume/prompt-cache touches, durable helper admission/provenance and
+  released-client qualification remain outside this cut.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

@@ -35,6 +35,12 @@ Related topics: [recaps](recaps.md), [side-session-config](side-session-config.m
   needs a restart, is unsupported, or remains unknown; it must not silently
   reuse YA's generated-retitle preference as authorization.
 
+Fork-backed title generation keeps its public generator id in application
+metadata and responses. Before provider I/O it resolves the actual native id,
+store and original project; a working-project move or same native spelling in
+another store cannot select the helper's context. Unsupported source namespaces
+fail without a substitute query. See [native helper sources](session-identity.md#current-implementation).
+
 ## Reading the full title
 
 The compact session header may ellipsize its title, but the complete title

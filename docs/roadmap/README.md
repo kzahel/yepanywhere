@@ -653,6 +653,12 @@ and owned Node/Bun HTTP/WebSocket/restart probes. Qualified missing native
 proof is omitted from the catalogue. Warm index edit/create invalidation uses
 the retained observation owner and passes Node/Bun probes. Final workspace
 gates pass; protocol and launch mapping remain frozen.
+Fork-backed retitle, handoff-summary and recap sources are also independently
+accepted. Public generator ids resolve once to scoped native inputs; Codex
+refuses another returned thread, and actual pinned Claude SDK/CLI probes verify
+account-home, directory-alias, long-key and physical-cwd selection using only
+owned local fake model endpoints. Unsafe fallbacks and symlink-relative home
+resolution were corrected after review; final workspace gates pass.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

@@ -192,6 +192,22 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   the YA id and working project; retired readers discard late results. This
   qualifies native sources only, preserving the frozen launch/protocol mapping
   and the open [ACP resume defect](../gaps/gemini-acp-resume-starts-new-session.md).
+- Fork-backed retitle, handoff-summary and recap generation resolve the public
+  generator through the same scoped source boundary used for native forks.
+  Provider requests carry a branded native generator id and the captured source;
+  public metadata, results and overlay associations retain the YA id. Abandoned
+  requests and application retirement fence final acquisition before generation.
+  Claude helpers retain the original native project, configured account home
+  and validated native project-directory selector; they do not redirect auth
+  configuration. Selector-free lookup is allowed only when the physical cwd's
+  conventional native directory is the captured scope, including the pinned
+  runtime's long-path key. Relative account homes are proved from the physical
+  original cwd used by the query; symlink spelling cannot approve another store.
+  Unaddressable aliases fail before a model request;
+  sources outside the configured launch store/private sandbox are refused. Codex helpers supply the exact rollout path and refuse unsupported
+  path addressing or a different returned thread before starting a turn. Tailed
+  helpers are unchanged. This does not qualify cold resume, prompt-cache touches,
+  new launch identity or durable helper admission/provenance.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

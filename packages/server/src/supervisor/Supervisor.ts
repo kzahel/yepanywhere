@@ -3849,7 +3849,7 @@ export class Supervisor {
 
   async generateSummary(
     providerName: ProviderName | undefined,
-    request: SummaryGenerationRequest,
+    request: SummaryGenerationRequest<string>,
   ): Promise<SummaryGenerationResult> {
     const provider = this.resolveProvider(
       providerName ? { providerName } : undefined,
@@ -3860,7 +3860,34 @@ export class Supervisor {
     if (typeof provider.generateSummary !== "function") {
       throw new Error(`${provider.name} does not support summary generation`);
     }
-    return provider.generateSummary(request);
+    if (request.strategy === "side-session")
+      return provider.generateSummary(request);
+    if (request.signal?.aborted)
+      throw new DOMException("Summary generation cancelled", "AbortError");
+    const nativeSource = await this.resolveNativeForkSource?.(
+      request.generatorSessionId,
+      request.cwd,
+      provider.name,
+    );
+    if (request.signal?.aborted)
+      throw new DOMException("Summary generation cancelled", "AbortError");
+    // Production resolves actual native source facts. Legacy stand-alone owners
+    // without that callback retain equal-id operation only for unclaimed ids.
+    if (
+      !nativeSource &&
+      isYaSessionId(request.generatorSessionId) &&
+      this.sessionMetadataService?.identities?.resolveYa(
+        request.generatorSessionId,
+      )
+    )
+      throw new Error("Summary generator has no qualified native source");
+    return provider.generateSummary({
+      ...request,
+      generatorSessionId:
+        nativeSource?.native.id ??
+        parseNativeSessionId(request.generatorSessionId),
+      nativeSource,
+    });
   }
 
   private async archiveHelperFork(
@@ -4083,7 +4110,7 @@ export class Supervisor {
         process,
       );
       const text = (
-        await provider.generateSummary({
+        await this.generateSummary(process.provider, {
           purpose: "recap",
           strategy: "fork",
           generatorSessionId: generator.sessionId,
