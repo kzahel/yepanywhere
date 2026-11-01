@@ -589,6 +589,7 @@ export function getProviderHostStatus(): Promise<Record<string, unknown>> {
 const PROVIDER_HOST_FEATURE = {
   agentApiRevocation: "agent-api-revocation",
   agentApiManagement: "agent-api-management",
+  agentApiPeers: "agent-api-peers",
 } as const;
 
 function providerHostHasFeature(
@@ -613,10 +614,7 @@ export async function revokeHostedPeerAgentApiAccess(
 ): Promise<void> {
   if (!isProviderRuntimeHostAvailable()) return;
   const status = await getProviderHostStatus();
-  if (
-    Array.isArray(status.features) &&
-    status.features.includes("agent-api-peers")
-  )
+  if (providerHostHasFeature(status, PROVIDER_HOST_FEATURE.agentApiPeers))
     await requestHost("revokePeerAgentApi", { serverId, grantId });
 }
 
@@ -779,7 +777,7 @@ export async function startHostedProviderSession(
       throw new Error(
         "Restart the provider host before enabling agent API discovery for this launch",
       );
-    if (!status.features.includes("agent-api-peers"))
+    if (!providerHostHasFeature(status, PROVIDER_HOST_FEATURE.agentApiPeers))
       options = {
         ...options,
         agentApi: {
