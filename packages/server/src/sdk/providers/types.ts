@@ -1,4 +1,8 @@
 import type { DesktopControlOrigin } from "../../desktop/machine-control.js";
+import {
+  nativeSessionFamily,
+  parseNativeSessionId,
+} from "@yep-anywhere/shared";
 // Provider abstraction types for multi-provider support
 import type {
   ClaudeSteerBackgroundBashSettings,
@@ -7,6 +11,9 @@ import type {
   EffectiveSessionLaunchSettings,
   ModelCatalogStatus,
   ModelInfo,
+  NativeSessionId,
+  NativeSessionRef,
+  UrlProjectId,
   PermissionMode,
   PromptCacheKeepaliveProviderInfo,
   ProviderSubscriptionUsage,
@@ -63,6 +70,50 @@ export type ProviderForkBoundary =
       turnId: string;
     }
   | { kind: "entry"; provider: "pi"; entryId: string };
+
+/** Operation-scoped native source facts; application lineage keeps its YA id. */
+export interface ProviderForkSource {
+  native: NativeSessionRef;
+  filePath: string;
+  projectId: UrlProjectId;
+}
+
+export interface ProviderForkOptions {
+  nativeSessionId: NativeSessionId;
+  nativeSource?: ProviderForkSource;
+  cwd: string;
+  upToMessageId?: string;
+  boundary?: ProviderForkBoundary;
+  title?: string;
+  sessionSandbox?: SessionSandboxRuntime;
+  launchSettings?: Omit<
+    EffectiveSessionLaunchSettings,
+    "schemaVersion" | "revision"
+  >;
+}
+
+export interface ProviderForkResult {
+  /** Retained native child allocation; Supervisor adopts its existing public spelling. */
+  nativeSessionId: NativeSessionId;
+  filePath?: string;
+  native?: NativeSessionRef;
+  transcriptProjectId?: UrlProjectId;
+}
+
+export function assertProviderForkSource(
+  options: ProviderForkOptions,
+  provider: ProviderName,
+): void {
+  parseNativeSessionId(options.nativeSessionId);
+  const source = options.nativeSource;
+  if (
+    source &&
+    (source.native.id !== options.nativeSessionId ||
+      source.native.family !== nativeSessionFamily(provider))
+  ) {
+    throw new Error("Native fork source does not match the provider address");
+  }
+}
 
 /**
  * Authentication status for a provider.
@@ -676,29 +727,7 @@ export interface AgentProvider {
    * implement this; absence means the capability does not exist and must
    * not be emulated. See topics/session-context-actions.md.
    */
-  forkSession?: (options: {
-    /** Source provider session id. */
-    sessionId: string;
-    /** Project working directory the session belongs to. */
-    cwd: string;
-    /** Slice transcript up to this message UUID (inclusive); omit for full copy. */
-    upToMessageId?: string;
-    /** Typed provider boundary used by server-resolved fork intents. */
-    boundary?: ProviderForkBoundary;
-    /** Title for the forked session. */
-    title?: string;
-    /** Project-private provider state and process confinement inherited by the fork. */
-    sessionSandbox?: SessionSandboxRuntime;
-    /** Resolved YA settings; native forks must not reset these to defaults. */
-    launchSettings?: Omit<
-      EffectiveSessionLaunchSettings,
-      "schemaVersion" | "revision"
-    >;
-  }) => Promise<{
-    sessionId: string;
-    /** Provider-owned durable file; internal hint for immediate discovery. */
-    filePath?: string;
-  }>;
+  forkSession?: (options: ProviderForkOptions) => Promise<ProviderForkResult>;
 }
 
 /**

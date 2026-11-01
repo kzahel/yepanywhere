@@ -26,6 +26,11 @@ export interface SessionIdentity {
   readonly native: NativeSessionRef | null;
 }
 
+/** A request may carry this lookup once; legacy never means a stored unbound row. */
+export type SessionIdentityLookup =
+  | { kind: "stored"; identity: SessionIdentity }
+  | { kind: "legacy" };
+
 export interface DiscoveredSessionIdentity {
   native: NativeSessionRef;
   provider: ProviderName;

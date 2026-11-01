@@ -1,3 +1,4 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -553,16 +554,16 @@ describe("PiSessionReader", () => {
 
     const provider = new PiProvider({ sessionsDir });
     const fork = await provider.forkSession({
-      sessionId: sourceSessionId,
+      nativeSessionId: parseNativeSessionId(sourceSessionId),
       cwd: projectPath,
       upToMessageId: "a2",
       title: "Forked pi session",
     });
 
-    expect(fork.sessionId).not.toBe(sourceSessionId);
+    expect(fork.nativeSessionId).not.toBe(sourceSessionId);
     const files = await readdir(join(sessionsDir, "--fixture--"));
     const forkFile = files.find((file) =>
-      file.endsWith(`_${fork.sessionId}.jsonl`),
+      file.endsWith(`_${fork.nativeSessionId}.jsonl`),
     );
     expect(forkFile).toBeTruthy();
 
@@ -577,7 +578,7 @@ describe("PiSessionReader", () => {
 
     expect(forkEntries[0]).toMatchObject({
       type: "session",
-      id: fork.sessionId,
+      id: fork.nativeSessionId,
       cwd: projectPath,
       parentSession: sourcePath,
     });
@@ -595,9 +596,9 @@ describe("PiSessionReader", () => {
     ]);
 
     const reader = new PiSessionReader({ sessionsDir, projectPath });
-    const loaded = await reader.getSession(fork.sessionId, projectId);
+    const loaded = await reader.getSession(fork.nativeSessionId, projectId);
     expect(loaded?.summary).toMatchObject({
-      id: fork.sessionId,
+      id: fork.nativeSessionId,
       provider: "pi",
       messageCount: 4,
       title: "first",

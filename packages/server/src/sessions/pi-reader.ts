@@ -21,6 +21,7 @@
  * derived from the parsed transcript.
  */
 
+import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { UrlProjectId } from "@yep-anywhere/shared";
@@ -624,6 +625,15 @@ export class PiSessionReader implements ISessionReader {
 
   async getSessionFilePath(sessionId: string): Promise<string | null> {
     return (await this.findSessionInfo(sessionId))?.filePath ?? null;
+  }
+
+  async getNativeSessionRef(
+    sessionId: import("@yep-anywhere/shared").NativeSessionId,
+  ) {
+    const file = await this.findSessionInfo(sessionId);
+    return file
+      ? resolveNativeSessionRef("pi", this.sessionsDir, sessionId)
+      : null;
   }
 
   async getLastAgentExcerpt(sessionId: string): Promise<string | undefined> {

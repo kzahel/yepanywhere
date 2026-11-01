@@ -1,3 +1,4 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
   POST_COMPACT_REPLAY_PREAMBLE,
@@ -5363,7 +5364,7 @@ describe("Supervisor", () => {
         text: request.strategy === "fork" ? "forked summary" : "",
       }));
       const forkSession = vi.fn(async () => ({
-        sessionId: "revived-recap-fork",
+        nativeSessionId: parseNativeSessionId("revived-recap-fork"),
       }));
       // Message-less resume: yields init then idles, so nothing streams and the
       // in-memory recap buffer stays empty (as for a process revived for recap).
@@ -5476,7 +5477,7 @@ describe("Supervisor", () => {
         text: request.strategy === "fork" ? "forked summary" : "",
       }));
       const forkSession = vi.fn(async () => ({
-        sessionId: "since-last-recap-fork",
+        nativeSessionId: parseNativeSessionId("since-last-recap-fork"),
       }));
       const startSession = vi.fn(
         async (options: Parameters<AgentProvider["startSession"]>[0]) => {
@@ -6579,7 +6580,7 @@ describe("Supervisor", () => {
           throw new Error("not started in this test");
         }),
         forkSession: async () => ({
-          sessionId: "sess-fork",
+          nativeSessionId: parseNativeSessionId("sess-fork"),
           filePath: "/tmp/test/sess-fork.jsonl",
         }),
       } as unknown as AgentProvider;

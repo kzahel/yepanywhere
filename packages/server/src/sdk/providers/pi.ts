@@ -1,3 +1,6 @@
+import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
+import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
+import { assertProviderForkSource } from "./types.js";
 /**
  * pi provider — Plan A: subprocess RPC mode (`pi --mode rpc`).
  *
@@ -16,6 +19,7 @@
 
 import { type ChildProcess, exec, execFile, spawn } from "node:child_process";
 import { homedir } from "node:os";
+import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -68,7 +72,8 @@ import type {
   AgentProvider,
   AgentSession,
   AuthStatus,
-  ProviderForkBoundary,
+  ProviderForkOptions,
+  ProviderForkResult,
   StartSessionOptions,
 } from "./types.js";
 
@@ -526,13 +531,8 @@ export class PiProvider implements AgentProvider {
     };
   }
 
-  async forkSession(options: {
-    sessionId: string;
-    cwd: string;
-    upToMessageId?: string;
-    boundary?: ProviderForkBoundary;
-    title?: string;
-  }): Promise<{ sessionId: string; filePath: string }> {
+  async forkSession(options: ProviderForkOptions): Promise<ProviderForkResult> {
+    assertProviderForkSource(options, this.name);
     if (options.boundary && options.boundary.kind !== "entry") {
       throw new Error("Pi fork requires an entry boundary");
     }
@@ -540,9 +540,28 @@ export class PiProvider implements AgentProvider {
       sessionsDir: this.sessionsDir,
       projectPath: options.cwd,
     });
-    const sourcePath = await reader.getSessionFilePath(options.sessionId);
-    if (!sourcePath) {
-      throw new Error(`Pi session ${options.sessionId} was not found`);
+    const sourcePath =
+      options.nativeSource?.filePath ??
+      (await reader.getSessionFilePath(options.nativeSessionId));
+    const sourceNative =
+      options.nativeSource?.native ??
+      (await reader.getNativeSessionRef(options.nativeSessionId));
+    if (!sourcePath || !sourceNative) {
+      throw new Error(`Pi session ${options.nativeSessionId} was not found`);
+    }
+    if (options.nativeSource) {
+      const launchRoot = join(
+        process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent"),
+        "sessions",
+      );
+      if (
+        (await realpath(launchRoot).catch(() => undefined)) !==
+          sourceNative.storageScope ||
+        options.nativeSource.projectId !== toUrlProjectId(options.cwd)
+      )
+        throw new Error(
+          "Pi copy source is outside the launch transcript store or project; scoped resume is not qualified",
+        );
     }
     const fork = await forkPiSessionFile({
       sourcePath,
@@ -552,7 +571,17 @@ export class PiProvider implements AgentProvider {
           ? options.boundary.entryId
           : options.upToMessageId,
     });
-    return fork;
+    const nativeChildId = parseNativeSessionId(fork.sessionId);
+    return {
+      nativeSessionId: nativeChildId,
+      filePath: fork.filePath,
+      native: await resolveNativeSessionRef(
+        "pi",
+        sourceNative.storageScope,
+        nativeChildId,
+      ),
+      transcriptProjectId: toUrlProjectId(options.cwd),
+    };
   }
 
   /**

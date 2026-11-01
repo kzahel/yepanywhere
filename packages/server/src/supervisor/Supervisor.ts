@@ -19,6 +19,9 @@ import {
   type SessionSandboxLevel,
   type SyntheticSessionBoundaryCommand,
   type UrlProjectId,
+  isYaSessionId,
+  parseNativeSessionId,
+  parseYaSessionId,
   readGoalDetails,
   truncateSessionTitle,
 } from "@yep-anywhere/shared";
@@ -63,6 +66,7 @@ import { SessionViewRegistry } from "../services/SessionViewRegistry.js";
 import type {
   AgentProvider,
   ProviderForkBoundary,
+  ProviderForkSource,
   SummaryGenerationRequest,
   SummaryGenerationResult,
 } from "../sdk/providers/types.js";
@@ -516,6 +520,12 @@ export interface SupervisorOptions {
   onSessionSummary?: OnSessionSummaryCallback;
   /** Best-effort transcript recovery for sessions without a launch snapshot. */
   recoverSessionLaunchSettings?: RecoverSessionLaunchSettingsCallback;
+  /** Resolve native I/O once; settings, routing and lineage keep the public id. */
+  resolveNativeForkSource?: (
+    sessionId: string,
+    projectPath: string,
+    provider: ProviderName,
+  ) => Promise<ProviderForkSource>;
   /** Callback to read the current provider-scoped prompt-cache keepalive setting. */
   getPromptCacheKeepaliveSettings?: (
     provider: ProviderName,
@@ -691,6 +701,7 @@ export class Supervisor {
   }
   private onSessionSummary?: OnSessionSummaryCallback;
   private recoverSessionLaunchSettings?: RecoverSessionLaunchSettingsCallback;
+  private resolveNativeForkSource?: SupervisorOptions["resolveNativeForkSource"];
   private backgroundTasksStopped = false;
   private backgroundStop: Promise<void> | undefined;
   private staleCheckTimer: ReturnType<typeof setInterval>;
@@ -782,6 +793,7 @@ export class Supervisor {
     this.onContextWindowObserved = options.onContextWindowObserved;
     this.onSessionSummary = options.onSessionSummary;
     this.recoverSessionLaunchSettings = options.recoverSessionLaunchSettings;
+    this.resolveNativeForkSource = options.resolveNativeForkSource;
     this.getPromptCacheKeepaliveSettings =
       options.getPromptCacheKeepaliveSettings;
     this.postCompactAction = options.postCompactAction;
@@ -3561,6 +3573,23 @@ export class Supervisor {
     if (typeof provider.forkSession !== "function") {
       throw new Error(`${provider.name} does not support transcript fork`);
     }
+    const nativeSource = await this.resolveNativeForkSource?.(
+      options.sessionId,
+      options.projectPath,
+      provider.name,
+    );
+    if (
+      !nativeSource &&
+      isYaSessionId(options.sessionId) &&
+      this.sessionMetadataService?.identities?.resolveYa(options.sessionId)
+    ) {
+      throw new Error(
+        "Stored session source cannot be forked without native resolution",
+      );
+    }
+    // Retained standalone/legacy provider entry, only after excluding stored YA identity.
+    const nativeSessionId =
+      nativeSource?.native.id ?? parseNativeSessionId(options.sessionId);
     let launchSettings =
       options.launchSettings ??
       (await this.resolveForkLaunchSettings(
@@ -3609,7 +3638,8 @@ export class Supervisor {
         : undefined;
     this.assertRouterBindingInheritable(options.sessionId);
     const fork = await provider.forkSession({
-      sessionId: options.sessionId,
+      nativeSessionId,
+      ...(nativeSource ? { nativeSource } : {}),
       cwd: options.projectPath,
       upToMessageId: options.upToMessageId ?? pendingCut,
       boundary: options.boundary,
@@ -3617,19 +3647,62 @@ export class Supervisor {
       sessionSandbox,
       launchSettings,
     });
-    registerForkedSessionFile(provider.name, fork.sessionId, fork.filePath);
-    await this.inheritRouterBinding(options.sessionId, fork.sessionId, () =>
-      discardForkedTranscript(fork.sessionId, fork.filePath),
+    if (fork.nativeSessionId === nativeSessionId)
+      throw new Error("Provider fork reused its source native id");
+    if (fork.native && fork.native.id !== fork.nativeSessionId)
+      throw new Error("Provider fork returned inconsistent native identity");
+    const identities = this.sessionMetadataService?.identities;
+    const childId =
+      (fork.native
+        ? identities?.lookupNative(fork.native)?.sessionId
+        : undefined) ?? parseYaSessionId(fork.nativeSessionId);
+    registerForkedSessionFile(
+      provider.name,
+      fork.nativeSessionId,
+      fork.filePath,
     );
+    await this.inheritRouterBinding(options.sessionId, childId, () =>
+      discardForkedTranscript(fork.nativeSessionId, fork.filePath),
+    );
+    // Pin inheritance may discard the copy. Publish its identity only after
+    // that succeeds; later persistence failures retain a known native result.
+    try {
+      if (fork.native && identities) {
+        const adopted = identities.adoptDiscovered({
+          native: fork.native,
+          provider: provider.name,
+          projectId:
+            fork.transcriptProjectId ?? encodeProjectId(options.projectPath),
+          createdAt: new Date().toISOString(),
+        });
+        if (adopted.sessionId !== childId)
+          throw new Error(
+            "Fork child identity changed during account inheritance",
+          );
+      }
+      const workingProjectId = encodeProjectId(options.projectPath);
+      if (
+        fork.transcriptProjectId &&
+        fork.transcriptProjectId !== workingProjectId
+      ) {
+        await this.sessionMetadataService?.setWorkingProject(
+          childId,
+          workingProjectId,
+          fork.transcriptProjectId,
+        );
+      }
+    } catch (error) {
+      throw new ForkSettingsPersistenceError(childId, error);
+    }
     // The new transcript is written by us. Announce it so file-activity
     // watchers do not read our own write as another program owning the
     // session (the amber external-writer warning).
-    this.emitSessionForked(fork.sessionId, options.sessionId, {
+    this.emitSessionForked(childId, options.sessionId, {
       projectPath: options.projectPath,
     });
-    await this.recordForkLaunchSettings(fork.sessionId, launchSettings);
+    await this.recordForkLaunchSettings(childId, launchSettings);
     return {
-      sessionId: fork.sessionId,
+      sessionId: childId,
       sandboxStateKey: sessionSandbox?.stateKey,
       sessionSandbox,
       launchSettings,

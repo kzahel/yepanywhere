@@ -4,8 +4,23 @@
 
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { open } from "node:fs/promises";
-import { join } from "node:path";
+import { open, realpath } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { homedir } from "node:os";
+
+/** Until scoped cold launch is qualified, copies must remain CLI-discoverable. */
+export async function assertClaudeCopyRoot(
+  storageScope: string,
+  configDir = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
+): Promise<void> {
+  const projects = await realpath(join(configDir, "projects")).catch(
+    () => undefined,
+  );
+  if (!projects || dirname(storageScope) !== projects)
+    throw new Error(
+      "Claude copy source is outside the launch transcript store; scoped resume is not qualified",
+    );
+}
 
 /** A session id names one file in the directory, never a path. */
 const CLONE_SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;

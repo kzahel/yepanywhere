@@ -4,12 +4,14 @@ import {
   fromUrlProjectId,
   parseNativeSessionId,
   type NativeSessionId,
+  type NativeSessionRef,
   type ProviderName,
   type UrlProjectId,
 } from "@yep-anywhere/shared";
 import {
   resolveNativeSessionRef,
   type SessionIdentityStore,
+  type SessionIdentityLookup,
   type DiscoveredSessionIdentity,
 } from "./SessionIdentityStore.js";
 import type {
@@ -76,12 +78,14 @@ export interface SessionSource {
 export interface ResolvedSessionSummary {
   source: SessionSource;
   nativeSessionId: NativeSessionId;
+  native?: NativeSessionRef;
   summary: SessionSummary;
 }
 
 export interface ResolvedSessionListSummary {
   source: SessionSource;
   nativeSessionId: NativeSessionId;
+  native?: NativeSessionRef;
   summary: SessionListSummary;
 }
 
@@ -90,20 +94,30 @@ export function boundSessionSource(
   project: Project,
   sessionId: string,
   deps: ProviderResolutionDeps,
+  lookup?: SessionIdentityLookup,
 ):
   | {
       source: SessionSource;
       nativeSessionId: NativeSessionId;
       projectId: UrlProjectId;
+      native: NativeSessionRef;
     }
   | null
   | undefined {
-  const identity = isYaSessionId(sessionId)
-    ? deps.identities?.resolveYa(sessionId)
-    : undefined;
+  const identity =
+    lookup?.kind === "stored"
+      ? lookup.identity
+      : lookup?.kind === "legacy"
+        ? undefined
+        : isYaSessionId(sessionId)
+          ? deps.identities?.resolveYa(sessionId)
+          : undefined;
+  if (identity && identity.sessionId !== sessionId)
+    throw new Error("Resolved identity does not match the public session");
   if (!identity) return undefined;
   if (!identity.native) return null;
   return {
+    native: identity.native,
     nativeSessionId: identity.native.id,
     projectId: identity.projectId,
     source: {
@@ -719,8 +733,9 @@ export async function findSessionListSummaryAcrossProviders(
   projectId: UrlProjectId,
   deps: ProviderResolutionDeps,
   preferredProvider?: ProviderName | string,
+  lookup?: SessionIdentityLookup,
 ): Promise<ResolvedSessionListSummary | null> {
-  const bound = boundSessionSource(project, sessionId, deps);
+  const bound = boundSessionSource(project, sessionId, deps, lookup);
   if (bound === null) return null;
   // An absent stored identity retains the explicit legacy native lookup.
   const nativeSessionId =
@@ -753,6 +768,7 @@ export async function findSessionListSummaryAcrossProviders(
         return {
           source,
           nativeSessionId,
+          ...(bound ? { native: bound.native } : {}),
           summary: projectSummary(toSessionListSummary(cachedSummary)),
         };
       }
@@ -763,7 +779,12 @@ export async function findSessionListSummaryAcrossProviders(
         cachedSummary ? toSessionListSummary(cachedSummary) : undefined,
       );
       if (summary) {
-        return { source, nativeSessionId, summary: projectSummary(summary) };
+        return {
+          source,
+          nativeSessionId,
+          ...(bound ? { native: bound.native } : {}),
+          summary: projectSummary(summary),
+        };
       }
       continue;
     }
@@ -780,6 +801,7 @@ export async function findSessionListSummaryAcrossProviders(
       return {
         source,
         nativeSessionId,
+        ...(bound ? { native: bound.native } : {}),
         summary: projectSummary(toSessionListSummary(completeSummary)),
       };
     }
@@ -795,8 +817,9 @@ export async function findSessionSummaryAcrossProviders(
   deps: ProviderResolutionDeps,
   preferredProvider?: ProviderName | string,
   options?: GetSessionSummaryOptions,
+  lookup?: SessionIdentityLookup,
 ): Promise<ResolvedSessionSummary | null> {
-  const bound = boundSessionSource(project, sessionId, deps);
+  const bound = boundSessionSource(project, sessionId, deps, lookup);
   if (bound === null) return null;
   // An absent stored identity retains the explicit legacy native lookup.
   const nativeSessionId =
@@ -821,6 +844,7 @@ export async function findSessionSummaryAcrossProviders(
         return {
           source,
           nativeSessionId,
+          ...(bound ? { native: bound.native } : {}),
           summary: projectSummary(cachedSummary),
         };
       }
@@ -847,7 +871,12 @@ export async function findSessionSummaryAcrossProviders(
               nativeProjectId,
             );
     if (summary) {
-      return { source, nativeSessionId, summary: projectSummary(summary) };
+      return {
+        source,
+        nativeSessionId,
+        ...(bound ? { native: bound.native } : {}),
+        summary: projectSummary(summary),
+      };
     }
   }
 

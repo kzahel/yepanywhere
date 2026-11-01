@@ -1,3 +1,4 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import { spawn } from "node:child_process";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
@@ -1212,7 +1213,7 @@ describe("session sandbox", { timeout: 20_000 }, () => {
     );
 
     const fork = await new ClaudeProvider().forkSession({
-      sessionId: sourceSessionId,
+      nativeSessionId: parseNativeSessionId(sourceSessionId),
       cwd: projectPath,
       title: "Private fork",
       sessionSandbox: runtime,
@@ -1220,12 +1221,12 @@ describe("session sandbox", { timeout: 20_000 }, () => {
 
     const files = await readdir(runtime.transcriptDir);
     expect(files).toContain(`${sourceSessionId}.jsonl`);
-    expect(files).toContain(`${fork.sessionId}.jsonl`);
+    expect(files).toContain(`${fork.nativeSessionId}.jsonl`);
     const forked = await readFile(
-      join(runtime.transcriptDir, `${fork.sessionId}.jsonl`),
+      join(runtime.transcriptDir, `${fork.nativeSessionId}.jsonl`),
       "utf8",
     );
-    expect(forked).toContain(`"sessionId":"${fork.sessionId}"`);
+    expect(forked).toContain(`"sessionId":"${fork.nativeSessionId}"`);
     expect(forked).toContain('"customTitle":"Private fork"');
   });
 

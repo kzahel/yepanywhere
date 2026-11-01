@@ -1,3 +1,4 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -90,7 +91,9 @@ describe("fork launch settings", () => {
         };
       },
     );
-    const forkSession = vi.fn(async () => ({ sessionId: "child" }));
+    const forkSession = vi.fn(async () => ({
+      nativeSessionId: parseNativeSessionId("child"),
+    }));
     const supervisor = new Supervisor({
       provider: {
         name: providerName,
@@ -206,7 +209,7 @@ describe("fork launch settings", () => {
     };
     const forkSession = vi.fn(async () => {
       order.push("fork");
-      return { sessionId: "child" };
+      return { nativeSessionId: parseNativeSessionId("child") };
     });
     const supervisor = new Supervisor({
       provider: { name: "claude", forkSession } as unknown as AgentProvider,
@@ -251,7 +254,7 @@ describe("fork launch settings", () => {
       provider: {
         name: "codex",
         forkSession: vi.fn(async () => ({
-          sessionId: "child",
+          nativeSessionId: parseNativeSessionId("child"),
           filePath: rollout,
         })),
       } as unknown as AgentProvider,
@@ -322,7 +325,9 @@ describe("fork launch settings", () => {
   it("recovers a legacy source without activating or migrating it", async () => {
     const provider = {
       name: "codex",
-      forkSession: vi.fn(async () => ({ sessionId: "child" })),
+      forkSession: vi.fn(async () => ({
+        nativeSessionId: parseNativeSessionId("child"),
+      })),
     } as unknown as AgentProvider;
     const recover = vi.fn(async () => ({
       permissionMode: "bypassPermissions" as const,

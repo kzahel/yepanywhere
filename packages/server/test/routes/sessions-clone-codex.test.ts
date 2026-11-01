@@ -46,7 +46,7 @@ describe("Codex clone route", () => {
         payload: { type: "user_message", message: "Prime the cache" },
       })}\n`,
     );
-    return { sessionId, filePath };
+    return { nativeSessionId: sessionId, filePath };
   });
 
   beforeEach(async () => {

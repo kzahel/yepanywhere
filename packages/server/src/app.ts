@@ -1,6 +1,7 @@
 import { localPeerHost } from "./peer-api/connection-contracts.js";
 import {
   isYaSessionId,
+  parseNativeSessionId,
   nativeSessionFamily,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
@@ -252,6 +253,7 @@ import {
 import { RetainedSessionCollections } from "./services/RetainedSessionCollections.js";
 import { collectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
 import { projectCatalogIdentities } from "./sessions/catalog-identity.js";
+import { resolveExistingSessionIdentity } from "./routes/session-existing-identity.js";
 import {
   providerCatalogFamily,
   type ProviderCatalogFamily,
@@ -1702,6 +1704,15 @@ export function createApp(options: AppOptions): AppResult {
               });
             },
           );
+        case "pi":
+          return getOrCreateReader(
+            `pi-bound::${native.storageScope}::${project.path}`,
+            () =>
+              new PiSessionReader({
+                sessionsDir: native.storageScope,
+                projectPath: project.path,
+              }),
+          );
         default:
           throw new Error(
             "Native identity reader is not qualified for this provider",
@@ -2240,6 +2251,57 @@ export function createApp(options: AppOptions): AppResult {
           )
       : undefined,
     onSessionSummary: getSessionSummary,
+    resolveNativeForkSource: async (sessionId, projectPath, provider) => {
+      const deps = {
+        identities: options.sessionMetadataService?.identities,
+        readerFactory,
+        codexScanner,
+        codexSessionsDir,
+        codexReaderFactory,
+        geminiSessionsDir,
+        geminiReaderFactory,
+        geminiHashToCwd: geminiScanner.getHashToCwd(),
+        grokSessionsDir,
+        grokReaderFactory,
+        piSessionsDir,
+        piReaderFactory,
+      };
+      const identity = await resolveExistingSessionIdentity({
+        sessionId,
+        requestProjectId: toUrlProjectId(projectPath),
+        preferredProvider: provider,
+        metadata: options.sessionMetadataService?.getMetadata(sessionId),
+        scanner,
+        providerDeps: deps,
+      });
+      if (!identity)
+        throw new Error("Session has no readable native fork source");
+      const source = identity.native
+        ? {
+            reader: readerFactory(
+              { ...identity.transcriptProject, provider: identity.provider },
+              identity.native,
+            ),
+          }
+        : getSessionSourceForProvider(
+            identity.transcriptProject,
+            deps,
+            identity.provider,
+          );
+      const native =
+        identity.native ??
+        (await source?.reader.getNativeSessionRef?.(
+          parseNativeSessionId(sessionId),
+        ));
+      if (!native || native.family !== nativeSessionFamily(provider))
+        throw new Error(
+          "Session native fork source does not match the provider",
+        );
+      const filePath = await source?.reader.getSessionFilePath?.(native.id);
+      if (!filePath)
+        throw new Error("Session native fork transcript is missing");
+      return { native, filePath, projectId: identity.transcriptProjectId };
+    },
     recoverSessionLaunchSettings: async (sessionId, projectId, provider) => {
       const project = await scanner.getProject(projectId);
       if (!project) return undefined;

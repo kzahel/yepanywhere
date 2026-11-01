@@ -1,3 +1,8 @@
+import {
+  parseNativeSessionId,
+  nativeSessionRef,
+  toUrlProjectId,
+} from "@yep-anywhere/shared";
 /**
  * Unit tests for CodexProvider.
  *
@@ -13,6 +18,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -3478,6 +3484,105 @@ import { appendFileSync } from "node:fs";`,
     }
   });
 
+  it("addresses a scoped fork by native id/path and keeps its pinned native home", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "codex-scoped-fork-"));
+    const sourceHome = join(tempDir, "source-home");
+    const sessionsDir = join(sourceHome, "sessions");
+    mkdirSync(sessionsDir, { recursive: true });
+    const logPath = join(tempDir, "requests.jsonl");
+    const nativeId = parseNativeSessionId(
+      "019a0000-7777-7777-8777-777777777777",
+    );
+    const childId = parseNativeSessionId(
+      "019a0000-8888-7888-8888-888888888888",
+    );
+    const sourceFile = join(sessionsDir, nativeId + ".jsonl");
+    writeFileSync(
+      sourceFile,
+      JSON.stringify({
+        type: "session_meta",
+        payload: {
+          id: nativeId,
+          cwd: tempDir,
+          timestamp: "2026-11-01T00:00:00.000Z",
+        },
+      }) + "\n",
+    );
+    const codexPath = createFakeCodexCommand(
+      tempDir,
+      "scoped-fork",
+      buildFakeCodexAppServerForFork(
+        logPath,
+        childId,
+        join(sessionsDir, childId + ".jsonl"),
+      ),
+    );
+    try {
+      const provider = new CodexProvider({ codexPath, codexHome: sourceHome });
+      const ambientHome = join(tempDir, "other-native-home");
+      mkdirSync(join(ambientHome, "sessions"), { recursive: true });
+      await expect(
+        new CodexProvider({ codexPath, codexHome: ambientHome }).forkSession({
+          nativeSessionId: nativeId,
+          cwd: tempDir,
+          nativeSource: {
+            native: {
+              family: "codex",
+              storageScope: sessionsDir,
+              id: nativeId,
+            },
+            filePath: sourceFile,
+            projectId: toUrlProjectId(tempDir),
+          },
+        }),
+      ).rejects.toThrow("scoped resume is not qualified");
+      expect(existsSync(logPath)).toBe(false);
+      const result = await provider.forkSession({
+        nativeSessionId: nativeId,
+        nativeSource: {
+          native: nativeSessionRef(
+            "codex",
+            realpathSync(sessionsDir),
+            nativeId,
+          ),
+          filePath: sourceFile,
+          projectId: toUrlProjectId(tempDir),
+        },
+        cwd: tempDir,
+        boundary: { kind: "turn", provider: "codex", turnId: "turn-2" },
+      });
+      const requests = readFileSync(logPath, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      expect(
+        requests.find((request) => request.method === "initialize").nativeHome,
+      ).toBe(sourceHome);
+      expect(
+        requests.find((request) => request.method === "thread/fork").params,
+      ).toMatchObject({
+        threadId: nativeId,
+        path: sourceFile,
+        lastTurnId: "turn-2",
+      });
+      expect(
+        requests.some(
+          (request) =>
+            request.method === "thread/start" ||
+            request.method === "turn/start",
+        ),
+      ).toBe(false);
+      expect(result).toMatchObject({
+        nativeSessionId: childId,
+        native: { id: childId, family: "codex" },
+        transcriptProjectId: toUrlProjectId(tempDir),
+      });
+      expect(result.native?.storageScope).toBe(realpathSync(sessionsDir));
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("forks a Codex thread through the turn holding a message anchor", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "codex-provider-fork-"));
     const logPath = join(tempDir, "fake-codex-requests.jsonl");
@@ -3490,7 +3595,7 @@ import { appendFileSync } from "node:fs";`,
     try {
       const testProvider = new CodexProvider({ codexPath });
       const fork = await testProvider.forkSession({
-        sessionId: "source-thread",
+        nativeSessionId: parseNativeSessionId("source-thread"),
         cwd: tempDir,
         upToMessageId: "assistant-2-turn-2",
         title: "Forked from second turn",
@@ -3504,7 +3609,7 @@ import { appendFileSync } from "node:fs";`,
       });
 
       expect(fork).toEqual({
-        sessionId: "fork-thread",
+        nativeSessionId: "fork-thread",
         filePath: join(tempDir, "fork.jsonl"),
       });
 
@@ -3549,7 +3654,7 @@ import { appendFileSync } from "node:fs";`,
     try {
       const testProvider = new CodexProvider({ codexPath });
       await testProvider.forkSession({
-        sessionId: "source-thread",
+        nativeSessionId: parseNativeSessionId("source-thread"),
         cwd: tempDir,
         upToMessageId: "assistant-3-turn-3",
       });
@@ -3576,7 +3681,7 @@ import { appendFileSync } from "node:fs";`,
     try {
       const testProvider = new CodexProvider({ codexPath });
       const fork = await testProvider.forkSession({
-        sessionId: "source-thread",
+        nativeSessionId: parseNativeSessionId("source-thread"),
         launchSettings: {
           permissionMode: "plan",
           requestedModel: "gpt-5.4-codex",
@@ -3593,7 +3698,7 @@ import { appendFileSync } from "node:fs";`,
       });
 
       expect(fork).toEqual({
-        sessionId: "fork-thread",
+        nativeSessionId: "fork-thread",
         filePath: join(tempDir, "fork.jsonl"),
       });
       const requests = readFakeCodexRequests(logPath);
@@ -4876,7 +4981,11 @@ process.stdin.on("data", (chunk) => {
 `;
 }
 
-function buildFakeCodexAppServerForFork(logPath: string): string {
+function buildFakeCodexAppServerForFork(
+  logPath: string,
+  childId = "fork-thread",
+  childPath = join(dirname(logPath), "fork.jsonl"),
+): string {
   return `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";
 
@@ -4893,6 +5002,7 @@ function logRequest(message) {
     JSON.stringify({
       id: message.id,
       method: message.method,
+      ...(message.method === "initialize" ? { nativeHome: process.env.CODEX_HOME } : {}),
       params: message.params,
     }) + "\\n",
   );
@@ -4947,7 +5057,7 @@ function handleMessage(message) {
       break;
     case "thread/fork":
       respond(message.id, {
-        thread: { id: "fork-thread", path: ${JSON.stringify(join(dirname(logPath), "fork.jsonl"))}, turns: [] },
+        thread: { id: ${JSON.stringify(childId)}, path: ${JSON.stringify(childPath)}, turns: [] },
         model: "gpt-5.4-mini",
         modelProvider: "openai",
         serviceTier: null,
@@ -6555,7 +6665,7 @@ describe("CodexProvider Event Normalization", () => {
         policy: { approvalPolicy: string; sandbox: string },
       ) => Record<string, unknown>;
       createThreadForkParams: (
-        options: { sessionId: string; cwd: string },
+        options: { nativeSessionId: string; cwd: string },
         policy: { approvalPolicy: string; sandbox: string },
       ) => Record<string, unknown>;
     };
@@ -6581,7 +6691,7 @@ describe("CodexProvider Event Normalization", () => {
     ).toMatchObject({ config: { model_reasoning_summary: "detailed" } });
     expect(
       provider.createThreadForkParams(
-        { sessionId: "thread-1", cwd: "/tmp" },
+        { nativeSessionId: "thread-1", cwd: "/tmp" },
         policy,
       ),
     ).toMatchObject({ config: { model_reasoning_summary: "detailed" } });
@@ -6600,7 +6710,7 @@ describe("CodexProvider Event Normalization", () => {
         policy: { approvalPolicy: string; sandbox: string },
       ) => Record<string, unknown>;
       createThreadForkParams: (
-        options: { sessionId: string; cwd: string },
+        options: { nativeSessionId: string; cwd: string },
         policy: { approvalPolicy: string; sandbox: string },
       ) => Record<string, unknown>;
     };
@@ -6622,7 +6732,7 @@ describe("CodexProvider Event Normalization", () => {
     ).toMatchObject({ config: { agents: { max_depth: 4 } } });
     expect(
       provider.createThreadForkParams(
-        { sessionId: "thread-1", cwd: "/tmp" },
+        { nativeSessionId: "thread-1", cwd: "/tmp" },
         policy,
       ),
     ).toMatchObject({ config: { agents: { max_depth: 4 } } });
@@ -6645,7 +6755,7 @@ describe("CodexProvider Event Normalization", () => {
         policy: { approvalPolicy: string; sandbox: string },
       ) => Record<string, unknown>;
       createThreadForkParams: (
-        options: { sessionId: string; cwd: string },
+        options: { nativeSessionId: string; cwd: string },
         policy: { approvalPolicy: string; sandbox: string },
       ) => Record<string, unknown>;
     };
@@ -6671,7 +6781,7 @@ describe("CodexProvider Event Normalization", () => {
       policy,
     );
     const fork = provider.createThreadForkParams(
-      { sessionId: "thread-1", cwd: "/tmp" },
+      { nativeSessionId: "thread-1", cwd: "/tmp" },
       policy,
     );
 
@@ -6699,7 +6809,7 @@ describe("CodexProvider Event Normalization", () => {
           policy: { approvalPolicy: string; sandbox: string },
         ) => Record<string, unknown>;
         createThreadForkParams: (
-          options: { sessionId: string; cwd: string },
+          options: { nativeSessionId: string; cwd: string },
           policy: { approvalPolicy: string; sandbox: string },
         ) => Record<string, unknown>;
       };
@@ -6716,7 +6826,7 @@ describe("CodexProvider Event Normalization", () => {
         policy,
       );
       const fork = provider.createThreadForkParams(
-        { sessionId: "thread-1", cwd: "/tmp" },
+        { nativeSessionId: "thread-1", cwd: "/tmp" },
         policy,
       );
 

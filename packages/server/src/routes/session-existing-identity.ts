@@ -5,7 +5,7 @@ import {
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
-import type { SessionIdentity } from "../sessions/SessionIdentityStore.js";
+import type { SessionIdentityLookup } from "../sessions/SessionIdentityStore.js";
 import { encodeProjectId } from "../projects/paths.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import {
@@ -32,7 +32,7 @@ export async function resolveExistingSessionIdentity(options: {
   preferredProvider?: ProviderName;
   requestFallbackProvider?: ProviderName;
   metadata?: SessionMetadata;
-  identity?: SessionIdentity;
+  identityLookup?: SessionIdentityLookup;
   scanner: Pick<ProjectScanner, "getOrCreateProject">;
   providerDeps: ProviderResolutionDeps;
 }): Promise<ExistingSessionIdentity | null> {
@@ -48,10 +48,13 @@ export async function resolveExistingSessionIdentity(options: {
   const providerPreference = preferredProvider ?? metadata?.provider;
 
   const storedIdentity =
-    options.identity ??
-    (isYaSessionId(sessionId)
-      ? providerDeps.identities?.resolveYa(sessionId)
-      : undefined);
+    options.identityLookup?.kind === "stored"
+      ? options.identityLookup.identity
+      : options.identityLookup?.kind === "legacy"
+        ? undefined
+        : isYaSessionId(sessionId)
+          ? providerDeps.identities?.resolveYa(sessionId)
+          : undefined;
   if (storedIdentity) {
     const identity = storedIdentity;
     if (identity.sessionId !== sessionId || !identity.native) return null;
@@ -142,6 +145,7 @@ export async function resolveExistingSessionIdentity(options: {
       candidateProjectId,
       providerDeps,
       providerPreference,
+      { kind: "legacy" },
     );
     if (!resolved) continue;
     return finish(

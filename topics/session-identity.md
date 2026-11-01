@@ -63,6 +63,28 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   a delayed result cannot acquire reader work after application shutdown.
   Other native-family observation and released-client/browser qualification
   remain enabling work before differing-id launches.
+- Retained fork/clone source resolution uses an operation-scoped stored/legacy
+  lookup and passes the native id, actual file and original transcript project
+  across the provider boundary. Provider fork inputs/results explicitly name
+  `nativeSessionId`; Supervisor results, router pins, settings and lineage keep
+  public ids. Claude SDK copies use the recorded native store, including anchored
+  sandbox stores. Codex forks supply the native rollout path. Pi forks retain
+  their actual native root and have a scoped cold reader. Before native copy,
+  the adapters reject a source outside the current launch-discoverable store:
+  Claude requires a direct project directory in its configured projects root;
+  Codex requires its configured home/sessions or inherited sandbox root; Pi
+  requires its CLI agent sessions root and current project. Direct Claude clone
+  applies the same guard. Exact-source reading alone does not qualify scoped
+  cold resume. These exclusions stay until native addresses reach cold resume
+  and immediate helpers with independent qualification; supported conventional
+  and anchored sandbox stores retain their existing copy behavior. The Claude
+  store loader preserves the pinned native SDK's malformed/torn-row tolerance
+  without changing source bytes; absent requested anchors still fail.
+  This does not qualify new split-id launches or all-provider observation.
+  Child native ids retain their existing public spelling by explicit discovery
+  adoption. Account inheritance precedes identity publication; post-copy
+  metadata failure retains a known-child outcome. Retained fork admission and
+  lost-result recovery remain later work in plan 171.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

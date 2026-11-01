@@ -30,6 +30,8 @@ import {
   isUrlProjectId,
   isYaSessionId,
   parseNativeSessionId,
+  parseYaSessionId,
+  nativeSessionRef,
   type NativeSessionId,
   truncateSessionTitle,
   readQueuedYaCommand,
@@ -46,7 +48,7 @@ import {
   type ClearloopService,
 } from "../services/ClearloopService.js";
 import { turnIndexOf } from "../sessions/turn-index.js";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { hostname } from "node:os";
 import { performance } from "node:perf_hooks";
@@ -87,7 +89,7 @@ import { describeQueuedYaCommandProblem } from "../services/ProjectQueueService.
 import type { ServerSettingsService } from "../services/ServerSettingsService.js";
 import type { SessionQueuePersistenceService } from "../services/SessionQueuePersistenceService.js";
 import { CodexSessionReader } from "../sessions/codex-reader.js";
-import { cloneClaudeSession } from "../sessions/fork.js";
+import { assertClaudeCopyRoot, cloneClaudeSession } from "../sessions/fork.js";
 import type { GeminiSessionReader } from "../sessions/gemini-reader.js";
 import { GrokSessionReader } from "../sessions/grok-reader.js";
 import type { PiSessionReader } from "../sessions/pi-reader.js";
@@ -213,7 +215,10 @@ import type { UserUsageService } from "../auth/UserUsageService.js";
 import type { EventBus } from "../watcher/index.js";
 import { resolveExistingSessionIdentity } from "./session-existing-identity.js";
 import { BoundSessionReads } from "../sessions/bound-session-reader.js";
-import type { SessionIdentity } from "../sessions/SessionIdentityStore.js";
+import type {
+  SessionIdentity,
+  SessionIdentityLookup,
+} from "../sessions/SessionIdentityStore.js";
 import type { SessionReaderFactory } from "../sessions/types.js";
 
 const SESSION_DETAIL_SLOW_LOG_MS = 250;
@@ -2506,7 +2511,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       const resolved = await resolveExistingSessionIdentity({
         sessionId,
         requestProjectId: projectId,
-        identity,
+        identityLookup: { kind: "stored", identity },
         metadata: deps.sessionMetadataService?.getMetadata(sessionId),
         scanner: deps.scanner,
         providerDeps: providerResolutionDeps(deps),
@@ -9046,26 +9051,59 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       // A copy of a router-pinned session must be able to keep its account.
       deps.supervisor.assertRouterBindingInheritable(sessionId);
       // Get session directory from project
-      const sessionDir = project.sessionDir;
+      let sessionDir = project.sessionDir;
+      const sourceIdentity = storedIdentityFor(sessionId);
+      const sourceLookup: SessionIdentityLookup = sourceIdentity
+        ? { kind: "stored", identity: sourceIdentity }
+        : { kind: "legacy" };
+      if (sourceIdentity && !sourceIdentity.native)
+        return c.json(
+          { error: "Session has no native transcript to clone" },
+          409,
+        );
       if (!sessionDir) {
         return c.json({ error: "Session directory not found" }, 500);
       }
 
-      // Resolve bounded source/title metadata without treating it as a
-      // complete transcript summary.
-      const originalResolution = await findSessionListSummaryAcrossProviders(
-        project,
+      // One operation-scoped identity snapshot owns every native source read.
+      const originalMetadata =
+        deps.sessionMetadataService?.getMetadata?.(sessionId);
+      const sourceProject = await resolveExistingSessionIdentity({
         sessionId,
-        projectId,
+        requestProjectId: projectId,
+        identityLookup: sourceLookup,
+        preferredProvider: body.provider,
+        metadata: originalMetadata,
+        scanner: deps.scanner,
+        providerDeps: providerResolutionDeps(deps),
+      });
+      // Keep the explicit legacy provider-probe boundary when there is no YA row.
+      const transcriptProject = sourceProject?.transcriptProject ?? project;
+      const transcriptProjectId =
+        sourceProject?.transcriptProjectId ?? projectId;
+      const originalResolution = await findSessionListSummaryAcrossProviders(
+        transcriptProject,
+        sessionId,
+        transcriptProjectId,
         providerResolutionDeps(deps),
         body.provider,
+        sourceLookup,
       );
+      if (sourceIdentity && !originalResolution)
+        return c.json({ error: "Session native transcript not found" }, 404);
+      const originalNative =
+        originalResolution?.native ??
+        (await originalResolution?.source.reader.getNativeSessionRef?.(
+          originalResolution.nativeSessionId,
+        ));
+      const sourceNativeId =
+        originalResolution?.nativeSessionId ?? parseNativeSessionId(sessionId);
+      if (originalNative?.family === "claude")
+        sessionDir = originalNative.storageScope;
       const originalSession = originalResolution?.summary ?? null;
       let cloneProvider: ProviderName =
         originalResolution?.source.provider ?? project.provider;
 
-      const originalMetadata =
-        deps.sessionMetadataService?.getMetadata?.(sessionId);
       const originalTitle =
         originalMetadata?.customTitle ?? originalSession?.title;
       const cloneTitle =
@@ -9146,9 +9184,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             projectPath: sandboxProjectPath,
           });
         try {
+          if (
+            originalNative &&
+            (await realpath(`/proc/self/fd/${transcriptDirectory.fd}`)) !==
+              originalNative.storageScope
+          )
+            throw new Error(
+              "Private clone source does not match its native binding",
+            );
           result = await cloneClaudeSession(
             `/proc/self/fd/${transcriptDirectory.fd}`,
-            sessionId,
+            sourceNativeId,
           );
         } finally {
           await transcriptDirectory.close();
@@ -9167,14 +9213,77 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           },
         );
       } else {
-        result = await cloneClaudeSession(sessionDir, sessionId);
+        if (originalNative) await assertClaudeCopyRoot(sessionDir);
+        result = await cloneClaudeSession(sessionDir, sourceNativeId);
       }
       // The Codex path forks through the Supervisor, which already did this.
       if (!shouldCloneFromCodex) {
-        const copyId = result.newSessionId;
-        await deps.supervisor.inheritRouterBinding(sessionId, copyId, () =>
-          rm(join(sessionDir, `${copyId}.jsonl`), { force: true }),
+        const nativeCopyId = parseNativeSessionId(result.newSessionId);
+        const birthProjectId = originalSession?.projectId ?? projectId;
+        const identities = deps.sessionMetadataService?.identities;
+        const nativeCopy = nativeSessionRef(
+          "claude",
+          originalNative?.storageScope ?? (await realpath(sessionDir)),
+          nativeCopyId,
         );
+        const copyId =
+          identities?.lookupNative(nativeCopy)?.sessionId ??
+          parseYaSessionId(nativeCopyId);
+        result = { ...result, newSessionId: copyId };
+        await deps.supervisor.inheritRouterBinding(
+          sessionId,
+          copyId,
+          async () => {
+            if (
+              originalMetadata?.sandboxLevel === "project-write" &&
+              originalMetadata.sandboxStateKey
+            ) {
+              const directory =
+                await deps.supervisor.openClaudeSandboxTranscriptDirectory({
+                  stateKey: originalMetadata.sandboxStateKey,
+                  projectPath:
+                    originalMetadata.sandboxProjectPath ?? project.path,
+                });
+              try {
+                await rm(
+                  join(
+                    `/proc/self/fd/${directory.fd}`,
+                    nativeCopyId + ".jsonl",
+                  ),
+                  { force: true },
+                );
+              } finally {
+                await directory.close();
+              }
+            } else {
+              await rm(join(sessionDir, nativeCopyId + ".jsonl"), {
+                force: true,
+              });
+            }
+          },
+        );
+        try {
+          const child = identities?.adoptDiscovered({
+            native: nativeCopy,
+            provider: cloneProvider,
+            projectId: birthProjectId,
+            createdAt: new Date().toISOString(),
+          });
+          if (child && child.sessionId !== copyId)
+            throw new Error(
+              "Clone child identity changed during account inheritance",
+            );
+          const workingProjectId =
+            originalMetadata?.workingProjectId ?? projectId;
+          if (birthProjectId !== workingProjectId)
+            await deps.sessionMetadataService?.setWorkingProject(
+              copyId,
+              workingProjectId,
+              birthProjectId,
+            );
+        } catch (error) {
+          throw new ForkSettingsPersistenceError(copyId, error);
+        }
       }
       if (cloneSettings) {
         await deps.supervisor.recordForkLaunchSettings(

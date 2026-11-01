@@ -1,3 +1,6 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
+import { assertClaudeCopyRoot } from "../../sessions/fork.js";
+import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
 import { routerModelSupportsThinking } from "@yep-anywhere/shared";
 import { claudeRouterEnvironment } from "./router-transport.js";
 import { startAgentSelfSession } from "./agent-self.js";
@@ -15,7 +18,7 @@ import {
   readFileSync,
   statSync,
 } from "node:fs";
-import { open as openFile, type FileHandle } from "node:fs/promises";
+import { open as openFile, realpath, type FileHandle } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { delimiter, extname, join, win32 } from "node:path";
@@ -96,13 +99,15 @@ import type {
   ProviderSessionOptions,
   ProviderSessionOptionsUpdateResult,
   ProviderName,
-  ProviderForkBoundary,
+  ProviderForkOptions,
+  ProviderForkResult,
   ProviderLoginLaunch,
   StartSessionOptions,
   SummaryGenerationRequest,
   SummaryGenerationResult,
 } from "./types.js";
 import {
+  assertProviderForkSource,
   PROVIDER_SESSION_OPTION_KEYS,
   agentServerEnvironmentFor,
   agentApiEnvironmentFor,
@@ -279,8 +284,9 @@ function assertClaudeForkSessionId(sessionId: string): void {
   }
 }
 
-function createClaudeForkStore(directory: FileHandle): SessionStore {
-  const directoryPath = `/proc/self/fd/${directory.fd}`;
+function createClaudeForkStore(directory: FileHandle | string): SessionStore {
+  const directoryPath =
+    typeof directory === "string" ? directory : `/proc/self/fd/${directory.fd}`;
   return {
     async load(key): Promise<SessionStoreEntry[] | null> {
       if (key.subpath) {
@@ -306,10 +312,16 @@ function createClaudeForkStore(directory: FileHandle): SessionStore {
       }
       try {
         const content = await file.readFile("utf8");
-        return content
-          .split("\n")
-          .filter((line) => line.trim().length > 0)
-          .map((line) => JSON.parse(line) as SessionStoreEntry);
+        const entries: SessionStoreEntry[] = [];
+        for (const line of content.split("\n")) {
+          if (!line.trim()) continue;
+          try {
+            entries.push(JSON.parse(line) as SessionStoreEntry);
+          } catch {
+            /* Match the native SDK's malformed/torn-row tolerance. */
+          }
+        }
+        return entries;
       } finally {
         await file.close();
       }
@@ -2033,14 +2045,8 @@ export class ClaudeProvider implements AgentProvider {
    * sliced at `upToMessageId`. The kept prefix is byte-identical to the
    * source, so provider prompt-cache warmth carries over on resume.
    */
-  async forkSession(options: {
-    sessionId: string;
-    cwd: string;
-    upToMessageId?: string;
-    boundary?: ProviderForkBoundary;
-    title?: string;
-    sessionSandbox?: SessionSandboxRuntime;
-  }): Promise<{ sessionId: string }> {
+  async forkSession(options: ProviderForkOptions): Promise<ProviderForkResult> {
+    assertProviderForkSource(options, this.name);
     if (options.boundary && options.boundary.kind !== "message") {
       throw new Error("Claude fork requires a message boundary");
     }
@@ -2049,23 +2055,75 @@ export class ClaudeProvider implements AgentProvider {
         ? options.boundary.messageId
         : options.upToMessageId;
     if (!options.sessionSandbox) {
-      return sdkForkSession(options.sessionId, {
+      if (options.nativeSource)
+        await assertClaudeCopyRoot(
+          options.nativeSource.native.storageScope,
+          this.getEnv().CLAUDE_CONFIG_DIR,
+        );
+      const result = await sdkForkSession(options.nativeSessionId, {
         dir: options.cwd,
         upToMessageId,
         title: options.title,
+        ...(options.nativeSource
+          ? {
+              sessionStore: createClaudeForkStore(
+                options.nativeSource.native.storageScope,
+              ),
+            }
+          : {}),
       });
+      const nativeChildId = parseNativeSessionId(result.sessionId);
+      return options.nativeSource
+        ? {
+            nativeSessionId: nativeChildId,
+            filePath: join(
+              options.nativeSource.native.storageScope,
+              nativeChildId + ".jsonl",
+            ),
+            native: await resolveNativeSessionRef(
+              this.name,
+              options.nativeSource.native.storageScope,
+              nativeChildId,
+            ),
+            transcriptProjectId: options.nativeSource.projectId,
+          }
+        : { nativeSessionId: nativeChildId };
     }
-    const transcriptDirectory =
-      await options.sessionSandbox.openTranscriptDirectory();
+    const directory = await options.sessionSandbox.openTranscriptDirectory();
     try {
-      return await sdkForkSession(options.sessionId, {
+      if (
+        options.nativeSource &&
+        (await realpath(options.sessionSandbox.transcriptDir)) !==
+          options.nativeSource.native.storageScope
+      ) {
+        throw new Error(
+          "Claude fork source does not match the inherited private transcript root",
+        );
+      }
+      const result = await sdkForkSession(options.nativeSessionId, {
         dir: options.cwd,
         upToMessageId,
         title: options.title,
-        sessionStore: createClaudeForkStore(transcriptDirectory),
+        sessionStore: createClaudeForkStore(directory),
       });
+      const nativeChildId = parseNativeSessionId(result.sessionId);
+      return {
+        nativeSessionId: nativeChildId,
+        filePath: join(
+          options.sessionSandbox.transcriptDir,
+          nativeChildId + ".jsonl",
+        ),
+        native: await resolveNativeSessionRef(
+          this.name,
+          options.sessionSandbox.transcriptDir,
+          nativeChildId,
+        ),
+        ...(options.nativeSource
+          ? { transcriptProjectId: options.nativeSource.projectId }
+          : {}),
+      };
     } finally {
-      await transcriptDirectory.close();
+      await directory.close();
     }
   }
 

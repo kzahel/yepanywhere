@@ -1,3 +1,4 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import {
   existsSync,
   mkdirSync,
@@ -236,10 +237,10 @@ describe("real provider /btw fork smoke", () => {
           );
         } else {
           const fork = await provider.forkSession({
-            sessionId: parent.sessionId,
+            nativeSessionId: parseNativeSessionId(parent.sessionId),
             cwd: projectDir,
           });
-          clone = { newSessionId: fork.sessionId };
+          clone = { newSessionId: fork.nativeSessionId };
         }
         const storageForkMs = Date.now() - forkStartedAt;
         expect(storageForkMs).toBeLessThan(MAX_STORAGE_FORK_MS);

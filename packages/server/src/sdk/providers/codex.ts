@@ -1,3 +1,6 @@
+import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
+import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
+import { assertProviderForkSource } from "./types.js";
 import {
   MCP_APP_EXTENSION_ID,
   MCP_APP_EXTENSION_SETTINGS,
@@ -21,7 +24,7 @@ import { startAgentSelfSession } from "./agent-self.js";
  */
 
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -213,7 +216,8 @@ import type {
   AgentProvider,
   AgentSession,
   AuthStatus,
-  ProviderForkBoundary,
+  ProviderForkOptions,
+  ProviderForkResult,
   ProviderLoginLaunch,
   StartSessionOptions,
   SummaryGenerationRequest,
@@ -2826,36 +2830,28 @@ export class CodexProvider implements AgentProvider {
     };
   }
 
-  async forkSession(options: {
-    sessionId: string;
-    cwd: string;
-    upToMessageId?: string;
-    boundary?: ProviderForkBoundary;
-    title?: string;
-    sessionSandbox?: SessionSandboxRuntime;
-    launchSettings?: Omit<
-      EffectiveSessionLaunchSettings,
-      "schemaVersion" | "revision"
-    >;
-  }): Promise<{ sessionId: string; filePath?: string }> {
+  async forkSession(options: ProviderForkOptions): Promise<ProviderForkResult> {
     return this.installationCoordinator.withReadLease(
       CODEX_INSTALLATION_FAMILY,
       () => this.forkSessionWithLease(options),
     );
   }
 
-  private async forkSessionWithLease(options: {
-    sessionId: string;
-    cwd: string;
-    upToMessageId?: string;
-    boundary?: ProviderForkBoundary;
-    title?: string;
-    sessionSandbox?: SessionSandboxRuntime;
-    launchSettings?: Omit<
-      EffectiveSessionLaunchSettings,
-      "schemaVersion" | "revision"
-    >;
-  }): Promise<{ sessionId: string; filePath?: string }> {
+  private async forkSessionWithLease(
+    options: ProviderForkOptions,
+  ): Promise<ProviderForkResult> {
+    assertProviderForkSource(options, this.name);
+    const forkEnv = this.getCodexEnv();
+    const sourceRoot = options.nativeSource?.native.storageScope;
+    if (sourceRoot) {
+      const launchRoot =
+        options.sessionSandbox?.transcriptDir ??
+        join(forkEnv.CODEX_HOME ?? join(homedir(), ".codex"), "sessions");
+      if ((await realpath(launchRoot).catch(() => undefined)) !== sourceRoot)
+        throw new Error(
+          "Codex copy source is outside the launch transcript store; scoped resume is not qualified",
+        );
+    }
     if (options.boundary && options.boundary.kind !== "turn") {
       throw new Error("Codex fork requires a turn boundary");
     }
@@ -2869,7 +2865,7 @@ export class CodexProvider implements AgentProvider {
     const appServer = new CodexAppServerClient(
       codexCommand,
       options.cwd,
-      this.getCodexEnv(),
+      forkEnv,
       undefined,
       options.sessionSandbox,
     );
@@ -2888,7 +2884,7 @@ export class CodexProvider implements AgentProvider {
           : options.upToMessageId
             ? await this.resolveCodexForkLastTurnId(
                 appServer,
-                options.sessionId,
+                options.nativeSessionId,
                 options.upToMessageId,
               )
             : undefined;
@@ -2910,15 +2906,31 @@ export class CodexProvider implements AgentProvider {
 
       log.info(
         {
-          sourceSessionId: options.sessionId,
-          forkSessionId,
+          sourceNativeSessionId: options.nativeSessionId,
+          nativeForkSessionId: forkSessionId,
           lastTurnId: lastTurnId ?? null,
           upToMessageId: options.upToMessageId ?? null,
         },
         "Forked Codex app-server thread",
       );
       return {
-        sessionId: forkSessionId,
+        nativeSessionId: parseNativeSessionId(forkSessionId),
+        ...(options.nativeSource || options.sessionSandbox
+          ? {
+              native: await resolveNativeSessionRef(
+                this.name,
+                options.sessionSandbox?.transcriptDir ??
+                  join(
+                    forkEnv.CODEX_HOME ?? join(homedir(), ".codex"),
+                    "sessions",
+                  ),
+                parseNativeSessionId(forkSessionId),
+              ),
+              transcriptProjectId: toUrlProjectId(
+                fork.thread.cwd ?? options.cwd,
+              ),
+            }
+          : {}),
         ...(fork.thread.path ? { filePath: fork.thread.path } : {}),
       };
     } finally {
@@ -4304,7 +4316,8 @@ export class CodexProvider implements AgentProvider {
 
   private createThreadForkParams(
     options: {
-      sessionId: string;
+      nativeSessionId: ProviderForkOptions["nativeSessionId"];
+      nativeSource?: ProviderForkOptions["nativeSource"];
       cwd: string;
       lastTurnId?: string;
       sessionSandbox?: SessionSandboxRuntime;
@@ -4324,7 +4337,8 @@ export class CodexProvider implements AgentProvider {
     const params: CodexThreadForkParamsForRequest = {
       ...(model ? { model } : {}),
       ...(settings ? { serviceTier: settings.serviceTier } : {}),
-      threadId: options.sessionId,
+      threadId: options.nativeSessionId,
+      ...(options.nativeSource ? { path: options.nativeSource.filePath } : {}),
       ...(options.lastTurnId ? { lastTurnId: options.lastTurnId } : {}),
       cwd: options.cwd,
       ...this.buildThreadPermissionParams(policy),
@@ -4353,13 +4367,13 @@ export class CodexProvider implements AgentProvider {
   /** Maps a legacy message-id fork anchor to the last completed turn to keep. */
   private async resolveCodexForkLastTurnId(
     appServer: CodexAppServerClient,
-    sessionId: string,
+    nativeSessionId: ProviderForkOptions["nativeSessionId"],
     upToMessageId: string,
   ): Promise<string | undefined> {
     const response = await appServer.request<ThreadReadResponse>(
       "thread/read",
       {
-        threadId: sessionId,
+        threadId: nativeSessionId,
         includeTurns: true,
       } satisfies ThreadReadParams,
     );

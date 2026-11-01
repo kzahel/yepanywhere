@@ -53,6 +53,18 @@ Runtime work and the provenance defect remain unimplemented.
   unbound/missing-source isolation and late-resolution cancellation pass eight
   focused checks in 2.63 s. Lint, format, typecheck and workspace tests pass
   (6,723 server / 7,064 client); pinned Bun observes the scoped native append.
+  The retained fork/clone source cut is also independently accepted after
+  restoring torn-JSONL tolerance and refusing copy destinations that current
+  cold launch cannot address. Provider inputs/results name native ids; public
+  lineage/settings/account pins remain public. Actual SDK/profile fixtures cover
+  unequal parent ids, original/working projects, copy/read/reopen, bounded and
+  missing anchors, retained metadata failures and pre-copy scope refusal. Pi
+  child cold reads retain their recorded root; controlled Codex protocol checks
+  preserve native path/id/turn and configured launch namespace. Corrected focused
+  checks: 153 passed / 2 retained skips across four files in 22.96 s; pinned Bun
+  1.3.14 source-copy probe passed. Lint, format, typecheck and workspace tests
+  pass (6,726 server / 7,064 client). Fully scoped cold resume/immediate helpers
+  remain an enabling requirement, with unqualified copies refused before I/O.
   Remaining all-provider observation, released-browser/owned-confirmation
   qualification, native source consumers and other provider shapes are pending;
   phase 3 is not complete.

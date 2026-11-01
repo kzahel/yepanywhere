@@ -1,3 +1,4 @@
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -137,8 +138,8 @@ describe("fork discovery before immediate navigation", () => {
           const filePath = await writeSession(sessionId);
           // Claude has no discovery hint: its reader probes the filename directly.
           return providerName === "claude"
-            ? { sessionId }
-            : { sessionId, filePath };
+            ? { nativeSessionId: parseNativeSessionId(sessionId) }
+            : { nativeSessionId: parseNativeSessionId(sessionId), filePath };
         },
       );
       const metadata = createTestSessionMetadataService(join(dir, "metadata"));
