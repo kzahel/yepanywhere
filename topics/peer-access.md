@@ -428,8 +428,15 @@ password and signs in. Desktop owner credentials and established owner SRP
 connections also work; open loopback and legacy agent tokens do not authorize
 pairing.
 
-The page identifies this profile and each peer by stable UUID, reported hostname,
-OS, architecture and its existing host icon. Friendly names are local labels.
+The main page identifies this profile by hostname and icon, then shows two
+compact lists: **Devices you can access** and **Devices with access to this
+server**. A bidirectional device appears in both lists. Rows show the friendly
+name, hostname, OS and host icon; routine authentication/verification details
+stay out of the main lists. Sign-in and connection problems remain visible.
+Clicking a device name opens its details: stable UUID, credentials, rename,
+connection test, renewal/reverse setup, audit and recent sessions. The master
+switch and manual refresh live under collapsed **Connection settings**.
+Friendly names are local labels.
 Host reports are authenticated data, not independent machine attestation.
 A saved browser host and a server connection remain separate records.
 
@@ -465,11 +472,18 @@ credential is selected, setup asks the owner to resolve selection first rather
 than falsely reporting the new manual grant as the active route.
 
 The two directions are independent. Initial setup can request both; later
-Add / renew peer → this server preserves the working outgoing credential.
-Revoke incoming control is locally enforced immediately. Stop local use deletes
+**Set up access from this device** preserves the working outgoing credential.
+Each manually paired direction has an × with a confirmation explaining which
+access changes and which reverse connection remains. Incoming removal is
+locally enforced immediately; outgoing removal deletes
 only this manual outgoing credential, preserves fleet records/selection and
 leaves the target's incoming grant visible there. Its success message explicitly
 says that remote grant remains; local removal does not claim remote cleanup.
+A confirmation binds the exact credential ID and generation observed when it
+opened. A concurrent rotation fails visibly rather than removing the new
+credential; cancellation sends no mutation. A failed removal keeps its dialog
+open. Fleet-managed directions show **Managed**, with manual credential removal
+available in details and an explicit warning that fleet access remains.
 Accepted native agent work continues after access is revoked. Fresh target
 owner login is required for later pairing-secret or authentication-policy changes;
 routine automatic refresh uses only the existing pair proof.

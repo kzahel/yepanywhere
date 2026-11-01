@@ -79,3 +79,10 @@ ignored `tasks/peer-agent-defaults/full-test.log` (132.38 s server run). The ful
 run remains red; no watcher retry replaces it. Diagnosis stays in this gap
 because the restart/event-registration race is independent of the agent-access
 default and removal of its Settings control.
+
+The 2026-11-01 compact Server Connections UI workspace run on macOS /
+Node 22.23.3 missed the first nested-file delivery at line 353 (0 observed,
+1 expected). 6,709 server tests and all 7,064 client tests passed; the server
+run took 129.77 s. Evidence: ignored `tasks/peer-list-ui/full-tests.log`.
+Watcher source, fixture and budgets are unchanged; this red result is retained
+without an isolated retry.

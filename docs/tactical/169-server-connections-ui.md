@@ -233,3 +233,30 @@ makes no new Windows acceptance claim. Rich audit pagination, in-flow bulk
 revocation alongside human password changes, fleet/read-only UI and mesh remain
 follow-ups. Remote Access currently explains password independence and links to
 explicit incoming revocation; local Stop use explicitly leaves the remote grant.
+
+## Compact device lists, 2026-11-01
+
+The approved follow-up replaces the diagnostic-looking peer cards with two
+lists: Devices you can access / Devices with access to this server. Each manual
+direction has an × and an exact-credential confirmation. Outgoing removal
+explicitly leaves the other server's grant; reverse access remains independent.
+Fleet-managed directions stay marked Managed, with manual removal in details
+and qualified confirmation/success copy. Unselected saved routes are identified.
+Clicking a name opens rename, test, renewal, credentials, activity and audit;
+the master switch and refresh live under collapsed Connection settings.
+Dialogs keep keyboard focus inside, restore focus on close and show their own
+settled failures. No pairing protocol or owner/agent access policy changed.
+
+Browser coverage retains 50-peer sequential typing with concurrent metadata
+updates and the 100 ms gate, then exercises cancellation, independent removal,
+stale-generation rejection, manual/fleet overlap, dialog feedback and keyboard
+navigation. Desktop/phone captures are archived and inspected individually at
+`.artifacts/ui-testing/2026-11-01-peer-device-lists/`. Review evidence and logs
+live in ignored `tasks/peer-list-ui/`. The full workspace run has 6,709 server
+passes and 7,064 client passes with the existing nested watcher failure at line
+353; see its [gap](../../gaps/rendez-nested-watch-event-after-restart.md).
+
+Sol 6.1 high and GPT-6 Sol high with Daybreak Blue reviewed the final changes
+through YA; no actionable findings remain. Final typecheck, lint, formatting
+and all four browser cases pass (31.8 s including owned builds/teardown).
+The broad workspace result remains red for the watcher above, without retries.

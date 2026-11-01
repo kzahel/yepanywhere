@@ -4,7 +4,7 @@ import type { PeerConnectionsResponse } from "@yep-anywhere/shared";
 const ownId = "00000000-0000-4000-8000-000000000001",
   peerId = "00000000-0000-4000-8000-000000000002";
 function fixture(): PeerConnectionsResponse {
-  return {
+  const result: PeerConnectionsResponse = {
     identity: {
       serverId: ownId,
       hostname: "studio-mac",
@@ -27,7 +27,16 @@ function fixture(): PeerConnectionsResponse {
         },
         label: "Build server",
         verifiedAt: "2026-10-31T12:00:00Z",
-        incoming: [],
+        incoming: [
+          {
+            credentialId: "00000000-0000-4000-8000-000000000004",
+            generation: 1,
+            expiresAt: Date.now() + 90 * 86400000,
+            active: true,
+            origin: "manual",
+            allProjects: true,
+          },
+        ],
         outgoing: [
           {
             credentialId: "00000000-0000-4000-8000-000000000003",
@@ -70,6 +79,38 @@ function fixture(): PeerConnectionsResponse {
     total: 1,
     relay: null,
   };
+  const build = result.peers[0]!;
+  result.peers.push(
+    {
+      ...build,
+      serverId: "00000000-0000-4000-8000-000000000005",
+      identity: {
+        ...build.identity!,
+        serverId: "00000000-0000-4000-8000-000000000005",
+        hostname: "windows-workstation",
+        os: "win32",
+        icon: "🖥️",
+      },
+      label: "Windows workstation",
+      incoming: [],
+      outgoing: structuredClone(build.outgoing),
+    },
+    {
+      ...build,
+      serverId: "00000000-0000-4000-8000-000000000006",
+      identity: {
+        ...build.identity!,
+        serverId: "00000000-0000-4000-8000-000000000006",
+        hostname: "travel-laptop",
+        icon: "💻",
+      },
+      label: "Travel laptop",
+      outgoing: [],
+      incoming: structuredClone(build.incoming),
+    },
+  );
+  result.total = 3;
+  return result;
 }
 async function support(page: import("@playwright/test").Page) {
   await page.route("**/api/version**", async (route) => {
@@ -95,12 +136,13 @@ test("server connections keeps drafts responsive during populated-list updates a
   await support(page);
   const data = fixture();
   // Fifty visible rows is the maximum supported page; 64 total peers.
-  for (let n = 3; n <= 51; n++)
+  for (let n = 7; n <= 53; n++)
     data.peers.push({
       ...data.peers[0]!,
       serverId: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
       identity: { ...data.peers[0]!.identity!, hostname: `worker-${n}` },
       label: `Worker ${n}`,
+      incoming: [],
     });
   data.total = 64;
   let release = () => {},
@@ -123,6 +165,12 @@ test("server connections keeps drafts responsive during populated-list updates a
     }
     if (url.pathname.endsWith("/activity"))
       return route.fulfill({ json: { incoming: [], outgoing: [] } });
+    if (route.request().method() === "PATCH")
+      return route.fulfill({
+        status: 503,
+        json: { error: "Could not save this name." },
+      });
+    if (url.pathname.endsWith("/test")) return route.fulfill({ json: {} });
     if (hold) {
       hold = false;
       await new Promise<void>((resolve) => {
@@ -147,6 +195,7 @@ test("server connections keeps drafts responsive during populated-list updates a
     .getByLabel("Friendly name (optional)", { exact: true })
     .first();
   hold = true;
+  await page.getByText("Connection settings", { exact: true }).click();
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await label.focus();
   await label.evaluate((element) => {
@@ -206,12 +255,26 @@ test("server connections keeps drafts responsive during populated-list updates a
     automaticSignIn: true,
   });
   await page
-    .getByRole("button", { name: "Details", exact: true })
+    .getByRole("button", { name: "View Build server details", exact: true })
     .first()
     .click();
   await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Save name", exact: true })
+    .click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "Could not save this name.",
+  );
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Test connection", exact: true })
+    .click();
+  await expect(page.getByRole("dialog").getByRole("status")).toContainText(
+    "The peer authenticated successfully.",
+  );
+  await page
     .getByRole("button", {
-      name: "Add / renew peer → this server",
+      name: "Set up access from this device",
       exact: true,
     })
     .click();
@@ -223,7 +286,7 @@ test("server connections keeps drafts responsive during populated-list updates a
     .pressSequentially("test-owner-password");
   await page
     .getByRole("button", {
-      name: "Add / renew peer → this server",
+      name: "Set up access from this device",
       exact: true,
     })
     .first()
@@ -232,15 +295,27 @@ test("server connections keeps drafts responsive during populated-list updates a
     direction: "incoming",
     expectedServerId: peerId,
   });
-  // A concise one-peer fixture is the actual list at both required sizes.
-  data.peers = data.peers.slice(0, 1);
-  data.total = 1;
+  // Bidirectional peers appear once in each independent list.
+  data.peers = data.peers.slice(0, 3);
+  data.total = 3;
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.getByRole("article")).toHaveCount(1);
-  await page.getByText("This server", { exact: true }).scrollIntoViewIfNeeded();
+  await expect(
+    page
+      .getByRole("region", { name: "Devices you can access", exact: true })
+      .getByRole("listitem"),
+  ).toHaveCount(2);
+  await page.reload();
+  await expect(page.getByText("studio-mac", { exact: true })).toBeVisible();
   await recordUiCapture(page, "server-connections-desktop");
-  await page.getByRole("article").scrollIntoViewIfNeeded();
-  await recordUiCapture(page, "server-connections-desktop-automatic");
+  await page
+    .getByRole("button", { name: "View Build server details", exact: true })
+    .first()
+    .click();
+  await recordUiCapture(page, "server-connections-desktop-details");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`${baseURL}/settings/server-connections`);
   await expect(page.getByText("studio-mac", { exact: true })).toBeVisible();
@@ -301,8 +376,18 @@ test("refresh status keeps the saved host visible and an older source cannot cre
   );
   await page.goto(`${baseURL}/settings/server-connections`);
   await expect(
-    page.getByText("Automatic sign-in", { exact: true }),
+    page
+      .getByRole("region", { name: "Devices you can access", exact: true })
+      .getByText("Build server", { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Automatic sign-in", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByText("Connection settings", { exact: true }).click();
+  data.peers[1]!.outgoing = data.peers[1]!.outgoing.map((c) => ({
+    ...c,
+    authentication: { ...c.authentication!, status: "ready" },
+  }));
   const direction = data.peers[0]!.outgoing[0]!;
   direction.authentication = {
     mode: "automatic",
@@ -322,13 +407,17 @@ test("refresh status keeps the saved host visible and an older source cannot cre
   await expect(
     page.getByRole("button", { name: "Sign in again", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Build server", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Build server", { exact: true }).first(),
+  ).toBeVisible();
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`${baseURL}/settings/server-connections`);
   await expect(
     page.getByRole("button", { name: "Sign in again", exact: true }),
   ).toBeVisible();
-  await page.getByRole("article").scrollIntoViewIfNeeded();
+  await page
+    .getByRole("region", { name: "Devices you can access", exact: true })
+    .scrollIntoViewIfNeeded();
   await recordUiCapture(page, "server-connections-phone-sign-in");
   await page
     .getByRole("button", { name: "Sign in again", exact: true })
@@ -367,5 +456,248 @@ test("refresh status keeps the saved host visible and an older source cannot cre
   await expect(
     page.getByRole("button", { name: "Connect a server", exact: true }),
   ).toBeDisabled();
-  await expect(page.getByText("Build server", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Build server", { exact: true }).first(),
+  ).toBeVisible();
+});
+
+test("removal confirms one direction, preserves the reverse, and refuses a stale credential", async ({
+  page,
+  baseURL,
+}) => {
+  await support(page);
+  const data = fixture();
+  const build = data.peers[0]!;
+  // A manually paired route cannot claim to revoke access also supplied by a fleet.
+  data.peers[1]!.outgoing.push({
+    ...data.peers[1]!.outgoing[0]!,
+    credentialId: "fleet-credential",
+    origin: "fleet",
+    selected: false,
+    active: false,
+    expiresAt: Date.now() - 1,
+    authentication: { mode: "automatic", status: "sign-in-required" },
+  });
+  const deletes: string[] = [];
+  await page.route("**/api/peers/connections**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === "DELETE") {
+      deletes.push(path);
+      const [serverId, direction, credentialId, generation] = path
+        .slice("/api/peers/connections/".length)
+        .split("/");
+      const key = direction as "incoming" | "outgoing";
+      const peer = data.peers.find((p) => p.serverId === serverId)!;
+      const match = peer[key].find(
+        (c) =>
+          c.credentialId === credentialId &&
+          c.generation === Number(generation),
+      );
+      if (!match)
+        return route.fulfill({
+          status: 409,
+          json: { error: "Connection changed. Refresh and try again." },
+        });
+      peer[key] = peer[key].filter((c) => c !== match);
+      if (key === "outgoing" && match.selected)
+        peer.outgoing.forEach((c) => {
+          c.selected = false;
+          c.active = false;
+        });
+      return route.fulfill({ json: {} });
+    }
+    if (path.endsWith("/activity"))
+      return route.fulfill({
+        status: 503,
+        json: { error: "Activity unavailable" },
+      });
+    return route.fulfill({ json: data });
+  });
+  await page.setViewportSize({ width: 1000, height: 600 });
+  await page.goto(`${baseURL}/settings/server-connections`);
+  const outgoing = page.getByRole("region", {
+    name: "Devices you can access",
+    exact: true,
+  });
+  const incoming = page.getByRole("region", {
+    name: "Devices with access to this server",
+    exact: true,
+  });
+  await expect(
+    outgoing.getByRole("button", {
+      name: "Remove Windows workstation",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(outgoing.getByText("Managed", { exact: true })).toBeVisible();
+  await incoming
+    .getByRole("button", {
+      name: "Revoke access for Build server",
+      exact: true,
+    })
+    .click();
+  let dialog = page.getByRole("dialog", {
+    name: "Remove access?",
+    exact: true,
+  });
+  await expect(
+    dialog.getByText("Your access to Build server stays in place.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Close", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Remove access", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Close", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(
+    incoming.getByRole("button", {
+      name: "Revoke access for Build server",
+      exact: true,
+    }),
+  ).toBeFocused();
+  await incoming
+    .getByRole("button", {
+      name: "Revoke access for Build server",
+      exact: true,
+    })
+    .click();
+  await recordUiCapture(page, "server-connections-desktop-confirm");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await incoming
+    .getByRole("button", {
+      name: "Revoke access for Build server",
+      exact: true,
+    })
+    .click();
+  await expect(dialog).toBeVisible();
+  await recordUiCapture(page, "server-connections-phone-confirm");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(deletes).toEqual([]);
+  await incoming
+    .getByRole("button", {
+      name: "Revoke access for Build server",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Remove access", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(incoming.getByText("Build server", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    outgoing.getByText("Build server", { exact: true }),
+  ).toBeVisible();
+  expect(deletes).toEqual([
+    `/api/peers/connections/${peerId}/incoming/00000000-0000-4000-8000-000000000004/1`,
+  ]);
+
+  await outgoing
+    .getByRole("button", { name: "Remove Build server", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", {
+    name: "Remove connection?",
+    exact: true,
+  });
+  await expect(
+    dialog.getByText(/the other server keeps its grant/),
+  ).toBeVisible();
+  // Rotation on another owner connection must not remove a newer credential.
+  build.outgoing[0]!.generation = 2;
+  await dialog
+    .getByRole("button", { name: "Remove connection", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toContainText("Connection changed");
+  await expect(
+    outgoing.getByText("Build server", { exact: true }),
+  ).toBeVisible();
+  expect(deletes.at(-1)).toBe(
+    `/api/peers/connections/${peerId}/outgoing/00000000-0000-4000-8000-000000000003/1`,
+  );
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  // Restore a reverse leg to establish that outgoing removal leaves it intact.
+  build.incoming = fixture().peers[0]!.incoming;
+  await page.getByText("Connection settings", { exact: true }).click();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(
+    incoming.getByText("Build server", { exact: true }),
+  ).toBeVisible();
+  await outgoing
+    .getByRole("button", { name: "Remove Build server", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Remove connection", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(outgoing.getByText("Build server", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    incoming.getByText("Build server", { exact: true }),
+  ).toBeVisible();
+  expect(deletes.at(-1)).toBe(
+    `/api/peers/connections/${peerId}/outgoing/00000000-0000-4000-8000-000000000003/2`,
+  );
+  await expect(
+    page.getByRole("button", { name: "Connect a server", exact: true }),
+  ).toBeFocused();
+  await outgoing
+    .getByRole("button", {
+      name: "View Windows workstation details",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText(
+    "Could not load recent session activity.",
+  );
+  await expect(
+    page.getByRole("dialog").getByText("Loading…", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Stop local use", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("Fleet-managed access is separate and will remain.", {
+        exact: true,
+      }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Remove connection", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText(
+    "Manual connection removed. Fleet-managed access remains.",
+  );
+  await expect(
+    outgoing.getByText("Windows workstation", { exact: true }),
+  ).toBeVisible();
+  expect(data.peers[1]!.outgoing.map((c) => c.origin)).toEqual(["fleet"]);
+  await expect(
+    outgoing.getByText("No connection selected.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    outgoing.getByRole("button", { name: "Sign in again", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    outgoing.getByRole("button", {
+      name: "View Windows workstation details",
+      exact: true,
+    }),
+  ).toBeFocused();
 });

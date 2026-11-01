@@ -1,5 +1,6 @@
 .root {
   min-width: 0;
+  max-width: 760px;
 }
 .host {
   display: flex;
@@ -74,30 +75,8 @@
   height: 18px;
   flex: 0 0 auto;
 }
-.peers {
-  display: grid;
-  gap: 12px;
-  margin-block: 16px;
-}
-.peer {
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 14px;
-  min-width: 0;
-}
-.peer .host {
-  margin-top: 0;
-}
-.directions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  font-size: 13px;
-  line-height: 1.5;
-}
 .detail {
-  border-top: 1px solid var(--border-color);
-  padding-top: 14px;
+  padding: 20px;
   display: grid;
   gap: 12px;
 }
@@ -149,4 +128,204 @@
   display: grid;
   gap: 6px;
   font-size: 14px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.header h2 {
+  font-size: 24px;
+  line-height: 1.3;
+  margin: 0 0 7px;
+}
+.localIdentity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+.localIdentity > :first-child {
+  font-size: 20px;
+}
+.header > button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+.listSection {
+  margin-bottom: 28px;
+}
+.listSection > h2 {
+  font-size: 16px;
+  line-height: 1.4;
+  margin-bottom: 11px;
+}
+.deviceList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+.deviceRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  min-height: 72px;
+  box-sizing: border-box;
+}
+.deviceRow + .deviceRow {
+  border-top: 1px solid var(--border-color);
+}
+.deviceContent {
+  min-width: 0;
+  flex: 1;
+}
+.deviceName {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.deviceName .host {
+  margin: 0;
+}
+.deviceName strong {
+  font-size: 15px;
+  font-weight: 550;
+}
+.deviceName:hover strong {
+  text-decoration: underline;
+}
+.signIn {
+  margin: 5px 0 0 40px;
+  min-height: 44px;
+}
+.problem {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 5px 0 0 40px;
+  overflow-wrap: anywhere;
+}
+.remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 27px;
+  line-height: 1;
+  cursor: pointer;
+}
+.deviceName:focus-visible,
+.remove:focus-visible {
+  outline: 2px solid var(--link-color);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.remove:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.remove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.managed {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.settings {
+  margin-top: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.settings > summary {
+  cursor: pointer;
+  padding-block: 8px;
+}
+.settings > p {
+  margin-block: 12px;
+}
+.confirmation {
+  padding: 20px;
+  line-height: 1.5;
+}
+.confirmation > p {
+  margin: 0 0 14px;
+}
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+.confirmActions button {
+  min-height: 44px;
+}
+.destructive {
+  background: #b42318;
+  color: #fff;
+  border: 1px solid #b42318;
+  border-radius: 4px;
+}
+.destructive:hover:not(:disabled) {
+  background: #912018;
+}
+:global(.modal):has(.confirmation) {
+  width: min(440px, calc(100dvw - 32px));
+  max-width: calc(100dvw - 32px);
+}
+:global(.modal):has(.detail) {
+  width: min(680px, calc(100dvw - 32px));
+  max-width: calc(100dvw - 32px);
+}
+:global(.modal):has(.confirmation) :global(.modal-header),
+:global(.modal):has(.detail) :global(.modal-header) {
+  padding: 15px 20px;
+}
+@media (width <= 480px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .deviceName strong {
+    font-size: 14px;
+  }
+  .deviceName .host {
+    gap: 9px;
+  }
+  .deviceName .icon {
+    font-size: 25px;
+  }
+  .deviceName .muted {
+    font-size: 12px;
+  }
+  .deviceRow {
+    padding-inline: 10px;
+  }
+  .detail button {
+    min-height: 44px;
+  }
 }
