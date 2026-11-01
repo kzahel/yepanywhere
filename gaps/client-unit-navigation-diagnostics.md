@@ -16,3 +16,10 @@ then prevent/replace only its irrelevant document navigation or move its real
 navigation assertion to a browser boundary, preserving the intended behavior.
 
 Found 2026-10-30 while implementing the isolated local HTTP v0 API.
+
+2026-11-01: plan 171's phase-2 workspace run repeats the same two asynchronous
+navigation diagnostics (7,064 client tests pass). The slice changes server
+identity/storage and native detail reads, and its 79 focused checks are clean.
+The diagnostic still cannot be attributed from its timer-only stack; no global
+link behavior or jsdom suppression was introduced. Evidence: ignored
+`tasks/session-identity/phase-2-test.log`.

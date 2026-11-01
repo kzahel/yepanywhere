@@ -1,8 +1,9 @@
 # YA-owned session identity and startup lifecycle
 
-Status: direction selected by the maintainer on 2026-11-01; not implemented
-beyond the existing SQLite metadata and caller-chosen Claude id work.
-Schema, runtime/API changes and release qualification remain pending.
+Status: implementation in progress under plan 171. Typed identity storage and
+bound Claude/Codex detail reads are implemented; launch behavior is unchanged.
+Discovery/watch/source migration, durable admission and release qualification
+remain pending.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 defines the implementation slices, isolated-profile qualification and requested
@@ -30,6 +31,20 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   it does not supply the general indexed provider/native-id relationship or
   durable startup-attempt state described here. See
   [session metadata](optional-sqlite.md#session-metadata).
+- Migration 17 adds profile-owned public identities with optional scoped native
+  bindings. Existing metadata/public keys remain intact; migration performs no
+  transcript scan. Explicit discovery adoption preserves existing public ids,
+  reuses a scoped binding and refuses conflicting or unbound public claims.
+- A stored binding is authoritative for detail/history reads. Claude and Codex
+  read the original transcript project at the bound native root/id; only the
+  application summary is projected to the public id/launch variant. An unbound
+  row or missing bound transcript does not probe another provider or redirect
+  to a same-string native session. Existing process-history fallback remains.
+  This is a read foundation, not transcript-less startup status yet.
+- Bound readers share the bounded app reader pool. Codex indexed hints and
+  cursors remain native-scoped; compact-tail reads accept validated appended
+  prefixes, concurrent equivalent reads coalesce, and retirement releases parsed
+  entries without allowing an in-flight read to re-admit them afterward.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

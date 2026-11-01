@@ -13,7 +13,14 @@ import type {
   UnifiedSession,
   UrlProjectId,
 } from "@yep-anywhere/shared";
-import type { Message, SessionSummary } from "../supervisor/types.js";
+import type { Message, SessionSummary, Project } from "../supervisor/types.js";
+import type { NativeSessionRef } from "@yep-anywhere/shared";
+
+/** Native scope is explicit when resolving an already bound YA identity. */
+export type SessionReaderFactory = (
+  project: Project,
+  native?: NativeSessionRef,
+) => ISessionReader;
 
 /**
  * Bounded session facts for collection routes that only need identity, title,

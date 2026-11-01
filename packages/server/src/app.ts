@@ -1,4 +1,8 @@
 import { localPeerHost } from "./peer-api/connection-contracts.js";
+import {
+  nativeSessionFamily,
+  type NativeSessionRef,
+} from "@yep-anywhere/shared";
 import { getAuthenticatedSrpTransport } from "./middleware/authenticated-transport.js";
 import type { PeerAccessManager } from "./peer-api/manager.js";
 import { createPeerOwnerBinding } from "./peer-api/owner-proof.js";
@@ -624,7 +628,10 @@ export interface AppResult {
   /** Project scanner for debug API access */
   scanner: ProjectScanner;
   /** Session reader factory for debug API access */
-  readerFactory: (project: Project) => ISessionReader;
+  readerFactory: (
+    project: Project,
+    native?: NativeSessionRef,
+  ) => ISessionReader;
   /** Close cached session readers and their owned parser workers. */
   disposeSessionReaders: () => Promise<void>;
   /** Stop push generation and supervisor automation before provider shutdown. */
@@ -1635,7 +1642,50 @@ export function createApp(options: AppOptions): AppResult {
    * Create a session reader appropriate for the project's provider.
    * Routes call this with the project to get the right reader.
    */
-  const readerFactory = (project: Project): ISessionReader => {
+  const readerFactory = (
+    project: Project,
+    native?: NativeSessionRef,
+  ): ISessionReader => {
+    if (native) {
+      if (nativeSessionFamily(project.provider) !== native.family) {
+        throw new Error("Native reader family does not match the YA session");
+      }
+      switch (native.family) {
+        case "claude": {
+          const mis = options.modelInfoService;
+          return getOrCreateReader(
+            `claude-bound::${native.storageScope}`,
+            () =>
+              new ClaudeSessionReader({
+                sessionDir: native.storageScope,
+                summaryParserWorkerMode: options.claudeSummaryParserWorkerMode,
+                getContextWindow: mis
+                  ? (model, provider) => mis.getContextWindow(model, provider)
+                  : undefined,
+              }),
+          );
+        }
+        case "codex":
+          return getOrCreateReader(
+            `codex-extra::${native.storageScope}::${project.path}`,
+            () => {
+              const discoveryIndex = getCodexDiscoveryIndex(
+                native.storageScope,
+              );
+              return new CodexSessionReader({
+                sessionsDir: native.storageScope,
+                projectPath: project.path,
+                summaryParserWorkerMode: options.codexSummaryParserWorkerMode,
+                ...(discoveryIndex ? { discoveryIndex } : {}),
+              });
+            },
+          );
+        default:
+          throw new Error(
+            "Native identity reader is not qualified for this provider",
+          );
+      }
+    }
     const mergedKey =
       project.mergedSessionDirs && project.mergedSessionDirs.length > 0
         ? `::merged=${project.mergedSessionDirs.join(",")}`

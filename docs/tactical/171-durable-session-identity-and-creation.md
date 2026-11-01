@@ -9,7 +9,8 @@ commits as work proceeds, and standalone-profile testing. Autonomous execution
 was authorized on November 1; phase 1's concrete decisions are recorded in
 [the identity contract](../../topics/session-identity.md#phase-1-implementation-decisions--2026-11-01)
 and were independently accepted by Sol 6.1 High after three concrete design
-corrections. Phase 2 implementation is next.
+corrections. Phase 2 is implemented and independently accepted; phase 3
+read/discovery/watch/source migration is next.
 Acceptance covers the plan's ordering, intermediate contracts
 and enabling gates, not an unspecified schema/wire contract or source work.
 Section 1 and per-slice implementation reviews remain required below.
@@ -27,7 +28,15 @@ Runtime work and the provenance defect remain unimplemented.
   storage/provider-resolution baseline: 13 checks passed on Node 26.7.0.
   The desktop-pinned Bun 1.3.14 binary was checksum-verified in the owned local
   task directory; Bun storage qualification remains a source-slice check.
-- Phase 2: next, with launch behavior unchanged.
+- Phase 2: implemented and independently accepted by Sol 6.1 High after fixing
+  stored-identity missing-transcript fallback and Codex read ownership. Migration
+  17, scoped forward/reverse adoption and bound Claude/Codex detail/history are
+  qualified with unequal ids, collisions and profile reopen. Focused checks:
+  79 passed / 2 retained skips across five files in 2.59 s; pinned Bun 1.3.14
+  migration/adoption/reopen probe passed. Lint, format, typecheck and full workspace
+  tests passed (6,720 server / 7,064 client). Launch behavior is unchanged.
+  Whole-suite expected fault-path logs and unowned client navigation diagnostics
+  remain covered by the existing diagnostic gaps; focused checks are clean.
 - Phases 3–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

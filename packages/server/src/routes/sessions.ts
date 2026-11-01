@@ -28,6 +28,7 @@ import {
   getModelContextWindow,
   isThinkingOption,
   isUrlProjectId,
+  isYaSessionId,
   truncateSessionTitle,
   readQueuedYaCommand,
   withKnownGoal,
@@ -208,6 +209,9 @@ import {
 import type { UserUsageService } from "../auth/UserUsageService.js";
 import type { EventBus } from "../watcher/index.js";
 import { resolveExistingSessionIdentity } from "./session-existing-identity.js";
+import { BoundSessionReads } from "../sessions/bound-session-reader.js";
+import type { SessionIdentity } from "../sessions/SessionIdentityStore.js";
+import type { SessionReaderFactory } from "../sessions/types.js";
 
 const SESSION_DETAIL_SLOW_LOG_MS = 250;
 const DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS = 2;
@@ -292,7 +296,7 @@ export interface SessionsDeps {
   ) => void;
   supervisor: Supervisor;
   scanner: ProjectScanner;
-  readerFactory: (project: Project) => ISessionReader;
+  readerFactory: SessionReaderFactory;
   externalTracker?: ExternalSessionTracker;
   notificationService?: NotificationService;
   sessionIndexService?: ISessionIndexService;
@@ -2036,6 +2040,14 @@ function extractContextUsageFromSDKMessages(
 
 export function createSessionsRoutes(deps: SessionsDeps): Hono {
   const routes = new Hono();
+  const boundSessionReads = new BoundSessionReads({
+    readerFactory: deps.readerFactory,
+    sessionIndexService: deps.sessionIndexService,
+  });
+  const storedIdentityFor = (sessionId: string) =>
+    isYaSessionId(sessionId)
+      ? deps.sessionMetadataService?.identities?.resolveYa(sessionId)
+      : undefined;
   // Historical executor labels are read-only. Never turn a retired remote
   // session into a local writer through resume, clone, fork or another action.
   routes.use("/projects/:projectId/sessions/:sessionId/*", async (c, next) => {
@@ -2190,6 +2202,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         workingProjectId: UrlProjectId;
       }
   > => {
+    const identity = storedIdentityFor(sessionId);
     const workingProjectId =
       deps.sessionMetadataService?.getMetadata(sessionId)?.workingProjectId;
     const activeProcess = deps.supervisor.getProcessForSession(sessionId);
@@ -2199,7 +2212,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       activeProcessProjectId:
         typeof activeProcess?.projectId === "string"
           ? activeProcess.projectId
-          : undefined,
+          : identity?.projectId,
     });
     if (redirectProjectId) {
       return { redirectProjectId };
@@ -2209,6 +2222,21 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       await deps.scanner.getOrCreateProject(requestProjectId);
     if (!workingProject) {
       return { error: "Project not found", status: 404 };
+    }
+
+    if (identity) {
+      const transcriptProject =
+        identity.projectId === requestProjectId
+          ? workingProject
+          : await deps.scanner.getOrCreateProject(identity.projectId);
+      return transcriptProject
+        ? {
+            transcriptProject,
+            transcriptProjectId: identity.projectId,
+            workingProject,
+            workingProjectId: requestProjectId,
+          }
+        : { error: "Project not found", status: 404 };
     }
 
     const metadata = deps.sessionMetadataService?.getMetadata(sessionId);
@@ -2451,7 +2479,35 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     preferredProvider: ProviderName | undefined,
     afterMessageId?: string,
     options?: GetSessionOptions,
-  ): Promise<LoadedSession | null> => {
+  ): Promise<{ session: LoadedSession | null; identity?: SessionIdentity }> => {
+    const identity = storedIdentityFor(sessionId);
+    if (identity) {
+      const resolved = await resolveExistingSessionIdentity({
+        sessionId,
+        requestProjectId: projectId,
+        identity,
+        metadata: deps.sessionMetadataService?.getMetadata(sessionId),
+        scanner: deps.scanner,
+        providerDeps: providerResolutionDeps(deps),
+      });
+      return {
+        identity,
+        session: resolved?.native
+          ? await boundSessionReads.read({
+              sessionId: identity.sessionId,
+              provider: resolved.provider,
+              native: resolved.native,
+              transcriptProject: resolved.transcriptProject,
+              projectId,
+              afterMessageId,
+              options,
+            })
+          : null,
+      };
+    }
+
+    // Explicit retained legacy reader boundary. No managed/unbound identity
+    // reaches this path or substitutes its public id for a native address.
     for (const source of getSessionSources(
       project,
       providerResolutionDeps(deps),
@@ -2481,11 +2537,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         summaryHint ? { ...options, summaryHint } : options,
       );
       if (loaded) {
-        return loaded;
+        return { session: loaded };
       }
     }
 
-    return null;
+    return { session: null };
   };
 
   /**
@@ -3236,36 +3292,37 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         ? undefined
         : providerAfterMessageId;
 
-    const loadedSession = await loadProviderSession(
-      transcriptProject,
-      sessionId,
-      transcriptProjectId,
-      metadataProvider ?? process?.provider,
-      primaryReaderAfterMessageId,
-      {
-        // Only include orphaned tool info if:
-        // 1. We previously owned this session (not external)
-        // 2. No active process (tools aren't potentially in progress)
-        // When we own the session, tools without results might be pending approval
-        includeOrphans: wasEverOwned && !process,
-        ...(process?.state.type === "in-turn" ||
-        process?.state.type === "waiting-input"
-          ? { ownedTurnInProgress: true }
-          : {}),
-        ...(!fullHistory &&
-        ((!afterMessageId && effectiveTailCompactions !== undefined) ||
-          primaryReaderAfterMessageId)
-          ? {
-              tailCompactions:
-                effectiveTailCompactions ??
-                DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,
-              ...(!afterMessageId && beforeMessageId
-                ? { beforeMessageId }
-                : {}),
-            }
-          : {}),
-      },
-    );
+    const { session: loadedSession, identity: resolvedIdentity } =
+      await loadProviderSession(
+        transcriptProject,
+        sessionId,
+        transcriptProjectId,
+        metadataProvider ?? process?.provider,
+        primaryReaderAfterMessageId,
+        {
+          // Only include orphaned tool info if:
+          // 1. We previously owned this session (not external)
+          // 2. No active process (tools aren't potentially in progress)
+          // When we own the session, tools without results might be pending approval
+          includeOrphans: wasEverOwned && !process,
+          ...(process?.state.type === "in-turn" ||
+          process?.state.type === "waiting-input"
+            ? { ownedTurnInProgress: true }
+            : {}),
+          ...(!fullHistory &&
+          ((!afterMessageId && effectiveTailCompactions !== undefined) ||
+            primaryReaderAfterMessageId)
+            ? {
+                tailCompactions:
+                  effectiveTailCompactions ??
+                  DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,
+                ...(!afterMessageId && beforeMessageId
+                  ? { beforeMessageId }
+                  : {}),
+              }
+            : {}),
+        },
+      );
 
     const readEndMs = performance.now();
 
@@ -3476,10 +3533,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           ...(deferredMessages.length > 0 ? { deferredMessages } : {}),
         });
       }
-      const canonicalProjectId = await getGrokNativeProjectId(
-        sessionId,
-        projectId as UrlProjectId,
-      );
+      const canonicalProjectId = resolvedIdentity
+        ? null
+        : await getGrokNativeProjectId(sessionId, projectId as UrlProjectId);
       if (canonicalProjectId) {
         return c.redirect(
           buildGrokNativeRedirectPath(

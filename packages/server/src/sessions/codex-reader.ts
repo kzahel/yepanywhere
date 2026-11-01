@@ -612,6 +612,7 @@ export class CodexSessionReader implements ISessionReader {
   private entryCache: Map<string, CodexEntryCache> = new Map();
   private entryReadOwners: Map<string, CodexEntryReadOwner> = new Map();
   private entryCacheRevision = 0;
+  private retired = false;
   private readonly entryCacheBudget: CodexEntryCacheBudget;
   private agentMappingCache: Map<string, CodexAgentMappingCache> = new Map();
   private rolloutPathById: Map<string, string> = new Map();
@@ -642,6 +643,12 @@ export class CodexSessionReader implements ISessionReader {
   }
 
   async close(): Promise<void> {
+    this.retired = true;
+    this.entryCacheRevision += 1;
+    for (const cached of this.entryCache.values()) {
+      this.entryCacheBudget.release(cached);
+    }
+    this.entryCache.clear();
     const client = this.summaryParserClient;
     this.summaryParserClient = undefined;
     await client?.close();
@@ -1721,12 +1728,12 @@ export class CodexSessionReader implements ISessionReader {
     options?: CodexReadEntriesOptions,
   ): Promise<CodexEntrySnapshot> {
     const purpose = options?.purpose ?? "detail";
-    const shouldWriteCache = options?.cache ?? true;
     const startByte = options?.startByte ?? 0;
     const startedAt = Date.now();
     const memoryBefore = process.memoryUsage();
 
     for (;;) {
+      const shouldWriteCache = !this.retired && (options?.cache ?? true);
       const stats = await stat(filePath);
       const cached = this.entryCache.get(sessionId);
 
@@ -1827,7 +1834,10 @@ export class CodexSessionReader implements ISessionReader {
       }
       cached.uncached = true;
     };
-    if (!this.entryCacheBudget.admit(cached, cached.sourceBytes, release)) {
+    if (
+      this.retired ||
+      !this.entryCacheBudget.admit(cached, cached.sourceBytes, release)
+    ) {
       release();
     }
   }

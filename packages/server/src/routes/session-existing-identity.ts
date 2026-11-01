@@ -1,5 +1,10 @@
-import type { ProviderName, UrlProjectId } from "@yep-anywhere/shared";
+import type {
+  ProviderName,
+  UrlProjectId,
+  NativeSessionRef,
+} from "@yep-anywhere/shared";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
+import type { SessionIdentity } from "../sessions/SessionIdentityStore.js";
 import { encodeProjectId } from "../projects/paths.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import {
@@ -15,7 +20,9 @@ export interface ExistingSessionIdentity {
   transcriptProjectId: UrlProjectId;
   workingProject: Project;
   workingProjectId: UrlProjectId;
-  source: "native" | "metadata" | "request";
+  source: "native" | "metadata" | "request" | "identity";
+  /** Present only after explicit YA-to-native resolution, never guessed. */
+  native?: NativeSessionRef;
 }
 
 export async function resolveExistingSessionIdentity(options: {
@@ -24,6 +31,7 @@ export async function resolveExistingSessionIdentity(options: {
   preferredProvider?: ProviderName;
   requestFallbackProvider?: ProviderName;
   metadata?: SessionMetadata;
+  identity?: SessionIdentity;
   scanner: Pick<ProjectScanner, "getOrCreateProject">;
   providerDeps: ProviderResolutionDeps;
 }): Promise<ExistingSessionIdentity | null> {
@@ -37,6 +45,31 @@ export async function resolveExistingSessionIdentity(options: {
     providerDeps,
   } = options;
   const providerPreference = preferredProvider ?? metadata?.provider;
+
+  if (options.identity) {
+    const identity = options.identity;
+    if (identity.sessionId !== sessionId || !identity.native) return null;
+    const transcriptProject = await scanner.getOrCreateProject(
+      identity.projectId,
+    );
+    if (!transcriptProject) return null;
+    const workingProjectId = metadata?.workingProjectId ?? identity.projectId;
+    const workingProject =
+      workingProjectId === identity.projectId
+        ? transcriptProject
+        : await scanner.getOrCreateProject(workingProjectId);
+    return workingProject
+      ? {
+          provider: identity.provider,
+          transcriptProject,
+          transcriptProjectId: identity.projectId,
+          workingProject,
+          workingProjectId,
+          source: "identity",
+          native: identity.native,
+        }
+      : null;
+  }
 
   const finish = async (
     transcriptProject: Project,

@@ -1,4 +1,5 @@
 import { AGENT_API_RECEIPTS_SCHEMA } from "./migrations/014-agent-api-receipts.js";
+import { SESSION_IDENTITIES_SCHEMA } from "./migrations/017-session-identities.js";
 import { PEER_OUTBOUND_SCHEMA } from "./migrations/015-peer-outbound.js";
 import { PEER_RECEIPT_OBSERVATION_SCHEMA } from "./migrations/016-peer-receipt-observation.js";
 import { PUBLIC_SERVER_IDENTITY_SCHEMA } from "./migrations/013-public-server-identity.js";
@@ -52,6 +53,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 14, sql: AGENT_API_RECEIPTS_SCHEMA },
   { version: 15, sql: PEER_OUTBOUND_SCHEMA },
   { version: 16, sql: PEER_RECEIPT_OBSERVATION_SCHEMA },
+  { version: 17, sql: SESSION_IDENTITIES_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

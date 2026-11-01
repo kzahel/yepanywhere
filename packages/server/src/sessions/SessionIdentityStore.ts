@@ -1,0 +1,178 @@
+import { realpath } from "node:fs/promises";
+import { isAbsolute } from "node:path";
+import {
+  ALL_PROVIDERS,
+  NATIVE_SESSION_FAMILIES,
+  assertUrlProjectId,
+  nativeSessionFamily,
+  nativeSessionRef,
+  parseNativeSessionId,
+  parseYaSessionId,
+  type NativeSessionRef,
+  type NativeSessionId,
+  type ProviderName,
+  type UrlProjectId,
+  type YaSessionId,
+} from "@yep-anywhere/shared";
+import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
+
+export interface SessionIdentity {
+  readonly sessionId: YaSessionId;
+  /** Launch variant, not the native reader/storage family. */
+  readonly provider: ProviderName;
+  /** Original transcript project; working-project overlays remain metadata. */
+  readonly projectId: UrlProjectId;
+  readonly createdAt: string;
+  readonly native: NativeSessionRef | null;
+}
+
+interface IdentityRow {
+  session_id: string;
+  provider: string;
+  project_id: string;
+  created_at: string;
+  native_family: string | null;
+  native_scope: string | null;
+  native_id: string | null;
+}
+
+export class SessionIdentityConflict extends Error {
+  constructor() {
+    super("Session identity conflicts with an existing native binding");
+    this.name = "SessionIdentityConflict";
+  }
+}
+
+/** Resolve filesystem aliases once at trusted provider/discovery ingress. */
+export async function resolveNativeSessionRef(
+  provider: ProviderName,
+  storageRoot: string,
+  id: NativeSessionId,
+): Promise<NativeSessionRef> {
+  return nativeSessionRef(
+    nativeSessionFamily(provider),
+    await realpath(storageRoot),
+    id,
+  );
+}
+
+function validateNative(native: NativeSessionRef): NativeSessionRef {
+  if (!isAbsolute(native.storageScope)) {
+    throw new Error("Native session storage scope must be absolute");
+  }
+  return nativeSessionRef(native.family, native.storageScope, native.id);
+}
+
+function decode(row: IdentityRow | undefined): SessionIdentity | undefined {
+  if (!row) return;
+  const provider = ALL_PROVIDERS.find((name) => name === row.provider);
+  if (!provider) throw new Error("Invalid stored session provider");
+  assertUrlProjectId(row.project_id);
+  let native: NativeSessionRef | null = null;
+  if (row.native_family !== null) {
+    const family = NATIVE_SESSION_FAMILIES.find(
+      (name) => name === row.native_family,
+    );
+    if (!family || row.native_scope === null || row.native_id === null) {
+      throw new Error("Invalid stored native session binding");
+    }
+    native = validateNative(
+      nativeSessionRef(
+        family,
+        row.native_scope,
+        parseNativeSessionId(row.native_id),
+      ),
+    );
+    if (nativeSessionFamily(provider) !== family) {
+      throw new Error("Stored session provider does not match native family");
+    }
+  }
+  return {
+    sessionId: parseYaSessionId(row.session_id),
+    provider,
+    projectId: row.project_id,
+    createdAt: row.created_at,
+    native,
+  };
+}
+
+/** Profile-owned indexed identity lookup, with no per-session cache or timers. */
+export class SessionIdentityStore {
+  // Exactly three fixed statements, released with this owner or the database.
+  private readonly byPublicId: SqliteStatement;
+  private readonly byNativeRef: SqliteStatement;
+  private readonly insert: SqliteStatement;
+
+  constructor(private readonly database: SqliteDatabase) {
+    this.byPublicId = database.prepare(
+      "SELECT * FROM session_identities WHERE session_id = ?",
+    );
+    this.byNativeRef = database.prepare(
+      "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id = ?",
+    );
+    this.insert = database.prepare(
+      "INSERT INTO session_identities (session_id, provider, project_id, created_at, native_family, native_scope, native_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    );
+  }
+
+  resolveYa(sessionId: YaSessionId): SessionIdentity | undefined {
+    return decode(this.byPublicId.get<IdentityRow>(sessionId));
+  }
+
+  lookupNative(native: NativeSessionRef): SessionIdentity | undefined {
+    validateNative(native);
+    return decode(
+      this.byNativeRef.get<IdentityRow>(
+        native.family,
+        native.storageScope,
+        native.id,
+      ),
+    );
+  }
+
+  /**
+   * Explicit native discovery/import boundary. An already bound resource keeps
+   * its YA identity, while a legacy resource keeps its existing native/public id.
+   * This cannot bind an unbound managed session; attempts own that later step.
+   */
+  adoptDiscovered(input: {
+    native: NativeSessionRef;
+    provider: ProviderName;
+    projectId: UrlProjectId;
+    createdAt: string;
+  }): SessionIdentity {
+    validateNative(input.native);
+    if (nativeSessionFamily(input.provider) !== input.native.family) {
+      throw new SessionIdentityConflict();
+    }
+    assertUrlProjectId(input.projectId);
+    return this.database.transaction(() => {
+      const bound = this.lookupNative(input.native);
+      if (bound) {
+        if (bound.projectId !== input.projectId) {
+          throw new SessionIdentityConflict();
+        }
+        return bound;
+      }
+      // Conversion is specific to legacy native discovery, never an I/O fallback.
+      const sessionId = parseYaSessionId(input.native.id);
+      if (this.resolveYa(sessionId)) throw new SessionIdentityConflict();
+      this.insert.run(
+        sessionId,
+        input.provider,
+        input.projectId,
+        input.createdAt,
+        input.native.family,
+        input.native.storageScope,
+        input.native.id,
+      );
+      return this.resolveYa(sessionId)!;
+    });
+  }
+
+  close(): void {
+    this.byPublicId.finalize();
+    this.byNativeRef.finalize();
+    this.insert.finalize();
+  }
+}

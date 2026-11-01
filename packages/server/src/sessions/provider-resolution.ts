@@ -24,6 +24,7 @@ import type { SummaryParserWorkerMode } from "./summary-parser-worker-protocol.j
 import {
   type GetSessionSummaryOptions,
   type ISessionReader,
+  type SessionReaderFactory,
   type SessionListSummary,
   toSessionListSummary,
 } from "./types.js";
@@ -38,7 +39,7 @@ export interface ProviderProjectCatalog {
 }
 
 export interface ProviderResolutionDeps {
-  readerFactory: (project: Project) => ISessionReader;
+  readerFactory: SessionReaderFactory;
   sessionIndexService?: ISessionIndexService;
   codexScanner?: Pick<CodexSessionScanner, "getSessionProjectPath">;
   codexSessionsDir?: string;

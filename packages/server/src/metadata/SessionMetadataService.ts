@@ -32,6 +32,7 @@ import {
   sanitizeSessionTitle,
 } from "@yep-anywhere/shared";
 import { createCoalescingSaver } from "../lib/coalescingSaver.js";
+import { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
 
 export type { EffectiveSessionLaunchSettings } from "@yep-anywhere/shared";
@@ -230,6 +231,14 @@ export function goalCommandOf(
 }
 
 export class SessionMetadataService {
+  private identityStore?: SessionIdentityStore;
+
+  /** One indexed identity owner per metadata/profile connection. */
+  get identities(): SessionIdentityStore {
+    this.identityStore ??= new SessionIdentityStore(this.database);
+    return this.identityStore;
+  }
+
   private state: SessionMetadataState;
   private dataDir: string;
   private legacyFilePath: string;

@@ -10,11 +10,10 @@ import type { GeminiSessionReader } from "../sessions/gemini-reader.js";
 import type { GrokSessionReader } from "../sessions/grok-reader.js";
 import type { PiSessionReader } from "../sessions/pi-reader.js";
 import type { ProviderResolutionDeps } from "../sessions/provider-resolution.js";
-import type { ISessionReader } from "../sessions/types.js";
-import type { Project } from "../supervisor/types.js";
+import type { SessionReaderFactory } from "../sessions/types.js";
 
 export interface SessionProviderResolutionDeps {
-  readerFactory: (project: Project) => ISessionReader;
+  readerFactory: SessionReaderFactory;
   sessionIndexService?: ISessionIndexService;
   codexScanner?: Pick<CodexSessionScanner, "getSessionProjectPath">;
   codexSessionsDir?: string;

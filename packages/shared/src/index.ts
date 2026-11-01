@@ -1700,3 +1700,16 @@ export type {
   PeerConnectionSetupRequest,
   PeerConnectionSetupResponse,
 } from "./peer-connections.js";
+
+export {
+  NATIVE_SESSION_FAMILIES,
+  isYaSessionId,
+  parseYaSessionId,
+  parseNativeSessionId,
+  nativeSessionFamily,
+  nativeSessionRef,
+  type YaSessionId,
+  type NativeSessionId,
+  type NativeSessionFamily,
+  type NativeSessionRef,
+} from "./session-identity.js";

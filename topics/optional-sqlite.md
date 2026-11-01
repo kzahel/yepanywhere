@@ -246,9 +246,13 @@ enterprise Linux 8 provides, and no library path could satisfy it.
 
 ## Session metadata
 
-The selected [YA-owned session identity](session-identity.md) follow-up will
-build durable pre-launch sessions, native bindings and startup outcomes on this
-storage. It is pending: migration 10 alone does not provide that lifecycle.
+The [YA-owned session identity](session-identity.md) foundation adds migration
+17: public identity/provider/original project/creation time and an optional
+all-or-none native family/storage scope/id binding, unique within that scope.
+Metadata keys and native transcripts are unchanged. The identity owner shares
+the profile connection and uses three fixed prepared statements; discovery
+adoption cannot claim an unbound managed id. Startup requests/attempts remain
+pending: these identity rows alone do not provide durable creation.
 The [creation proposal](session-creation.sketches.md) depends on that boundary;
 future schema changes follow the migration and no-downgrade rules above.
 
