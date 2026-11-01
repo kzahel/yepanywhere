@@ -377,7 +377,13 @@ scan own their paths, so a completed snapshot cannot overwrite newer state.
 Focused session targets in the same directory share one native watch while
 retaining per-target polling and trailing validation. Removing the final target
 closes that native watch, and an asynchronous file-resolution result arriving
-after the final unsubscribe must not recreate it.
+after the final unsubscribe must not recreate it. Stored Claude/Codex
+identities resolve the exact native root/id before legacy watch discovery;
+unbound or missing bound sources do not probe same-string ambient files.
+Subscription/event ids and effective project remain public YA facts, while
+event paths name the real native file. Final unsubscribe also aborts pending
+stored-source resolution before it can acquire reader work; shutdown closes
+the same interest owner. Other native-family observation is still pending.
 
 Cache publication follows the same ordering rule as watcher reconciliation.
 One mutable discovery or summary index scope has one process-local cold-load

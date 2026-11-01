@@ -55,6 +55,14 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   that string may also be another session's unrelated public metadata key.
   Other provider adoption and the remaining source/watch consumers are still
   being migrated before differing-id launches are enabled.
+- Focused Claude/Codex watches resolve the stored native root/id while retaining
+  the subscription's YA id and effective project in change events. Provider hints
+  cannot override that binding, and event paths remain physical native paths.
+  Unbound/missing bound sources never watch a same-string ambient transcript.
+  The final viewer cancels pending source resolution as well as watches/retries;
+  a delayed result cannot acquire reader work after application shutdown.
+  Other native-family observation and released-client/browser qualification
+  remain enabling work before differing-id launches.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

@@ -1,5 +1,6 @@
 import { localPeerHost } from "./peer-api/connection-contracts.js";
 import {
+  isYaSessionId,
   nativeSessionFamily,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
@@ -1512,6 +1513,23 @@ export function createApp(options: AppOptions): AppResult {
     scanner,
     codexScanner,
     geminiScanner,
+    resolveStoredSessionFile: async ({ sessionId }, signal) => {
+      const identity = isYaSessionId(sessionId)
+        ? options.sessionMetadataService?.identities?.resolveYa(sessionId)
+        : undefined;
+      if (!identity) return undefined;
+      const native = identity.native;
+      if (!native || (native.family !== "claude" && native.family !== "codex"))
+        return null;
+      const project = await scanner.getOrCreateProject(identity.projectId);
+      if (!project || signal.aborted) return null;
+      const reader = readerFactory(
+        { ...project, provider: identity.provider },
+        native,
+      );
+      const filePath = await reader.getSessionFilePath?.(native.id);
+      return filePath ? { filePath, provider: native.family } : null;
+    },
   });
   let conversationSubscriptions: ConversationSubscriptions | undefined;
   let retainedCollections: RetainedSessionCollections | undefined;

@@ -47,8 +47,15 @@ Runtime work and the provenance defect remain unimplemented.
   temporary home. Native catalogue row format 3 retains actual source scopes;
   no physical source/index keys are renamed. Lint, format, typecheck and full
   workspace tests pass (6,721 server / 7,064 client); pinned Bun 1.3.14 also
-  passes batch-conflict rollback and reopen. Remaining watches, native source
-  consumers and other provider shapes are pending; phase 3 is not complete.
+  passes batch-conflict rollback and reopen.
+  The subsequent focused Claude/Codex watch slice is independently accepted:
+  native append/public wire events/detail refresh, shared-viewer teardown,
+  unbound/missing-source isolation and late-resolution cancellation pass eight
+  focused checks in 2.63 s. Lint, format, typecheck and workspace tests pass
+  (6,723 server / 7,064 client); pinned Bun observes the scoped native append.
+  Remaining all-provider observation, released-browser/owned-confirmation
+  qualification, native source consumers and other provider shapes are pending;
+  phase 3 is not complete.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

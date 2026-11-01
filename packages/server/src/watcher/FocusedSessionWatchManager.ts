@@ -24,6 +24,7 @@ interface GeminiSessionInfo {
 }
 
 interface SessionWatchTarget {
+  controller: AbortController;
   key: string;
   sessionId: string;
   projectId: UrlProjectId;
@@ -69,6 +70,11 @@ export interface FocusedSessionWatchEvent {
 }
 
 export interface FocusedSessionWatchManagerOptions {
+  /** Undefined retains legacy discovery; null is a stored but unreadable source. */
+  resolveStoredSessionFile?: (
+    request: FocusedSessionWatchRequest,
+    signal: AbortSignal,
+  ) => Promise<ResolvedSessionFile | null | undefined>;
   scanner: {
     getProject(projectId: string): Promise<Project | null>;
     getOrCreateProject(projectId: string): Promise<Project | null>;
@@ -83,7 +89,7 @@ export interface FocusedSessionWatchManagerOptions {
   debounceMs?: number;
 }
 
-interface ResolvedSessionFile {
+export interface ResolvedSessionFile {
   filePath: string;
   provider: WatchProvider;
 }
@@ -100,6 +106,7 @@ export class FocusedSessionWatchManager {
   private readonly scanner: FocusedSessionWatchManagerOptions["scanner"];
   private readonly codexScanner: FocusedSessionWatchManagerOptions["codexScanner"];
   private readonly geminiScanner: FocusedSessionWatchManagerOptions["geminiScanner"];
+  private readonly resolveStoredSessionFile: FocusedSessionWatchManagerOptions["resolveStoredSessionFile"];
   private readonly pollMs: number;
   private readonly debounceMs: number;
   private readonly targets = new Map<string, SessionWatchTarget>();
@@ -111,6 +118,7 @@ export class FocusedSessionWatchManager {
     this.scanner = options.scanner;
     this.codexScanner = options.codexScanner;
     this.geminiScanner = options.geminiScanner;
+    this.resolveStoredSessionFile = options.resolveStoredSessionFile;
     this.pollMs = Math.max(250, options.pollMs ?? 1500);
     this.debounceMs = Math.max(50, options.debounceMs ?? 200);
   }
@@ -159,6 +167,7 @@ export class FocusedSessionWatchManager {
     request: FocusedSessionWatchRequest,
   ): SessionWatchTarget {
     return {
+      controller: new AbortController(),
       key: this.getKey(request),
       sessionId: request.sessionId,
       projectId: request.projectId,
@@ -463,6 +472,15 @@ export class FocusedSessionWatchManager {
   private async resolveSessionFile(
     target: SessionWatchTarget,
   ): Promise<ResolvedSessionFile | null> {
+    const stored = await this.resolveStoredSessionFile?.(
+      {
+        sessionId: target.sessionId,
+        projectId: target.projectId,
+        providerHint: target.providerHint,
+      },
+      target.controller.signal,
+    );
+    if (stored !== undefined) return stored;
     const project =
       (await this.scanner.getProject(target.projectId)) ??
       (await this.scanner.getOrCreateProject(target.projectId));
@@ -570,6 +588,7 @@ export class FocusedSessionWatchManager {
   }
 
   private teardownTarget(target: SessionWatchTarget): void {
+    target.controller.abort();
     this.teardownRuntime(target);
     this.clearResolveRetry(target);
   }

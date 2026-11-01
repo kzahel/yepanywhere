@@ -616,8 +616,10 @@ durable recovery keys and retained-fork source uncertainty. Typed identities,
 scoped binding storage and bound Claude/Codex detail/history are implemented and
 independently accepted. Claude/Codex discovery/collection projection and scoped
 summary sources are also accepted, including native/public-key collisions and
-project-membership checks. Watches and retained native source consumers are
-next; durable admission, split-id launches and release qualification remain gated. This does not displace release delivery or
+project-membership checks. Focused Claude/Codex watches also translate stored
+native sources and cancel abandoned resolution. Remaining provider observation,
+released-client qualification and native source consumers are next; durable
+admission, split-id launches and release qualification remain gated. This does not displace release delivery or
 require queued-compaction work first.
 
 The [creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md)
