@@ -276,6 +276,8 @@ it("lets an unobserved worker finish for polling and requires real reset evidenc
   }
 });
 
+// CI 41288604016 exhausted 5,000 ms for the real relay workflow; focused
+// macOS took 3,069 ms. Allow 4x the CI lower bound for its SRP requests.
 it.each([false, true])(
   "requires a real same-receipt retry and consumed observation (peer relay: %s)",
   async (peerRelay) => {
@@ -348,4 +350,5 @@ it.each([false, true])(
       await fixture.close();
     }
   },
+  20_000,
 );

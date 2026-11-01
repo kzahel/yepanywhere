@@ -194,6 +194,8 @@ it("rejects a misbound authenticated identity before importing or admitting any 
   ).rejects.toMatchObject({ code: "invalid_request" });
 });
 
+// CI 41287615314 took 4,794 ms for poisoned-route recovery and parallel
+// real SRP calls, near the default 5,000 ms. Allow 4x that measured time.
 it("uses an owned real relay and replenishes poisoned claimed routes without sharing browser registration", async () => {
   const relay = await createRelayServer({
     inMemoryDb: true,
@@ -261,7 +263,7 @@ it("uses an owned real relay and replenishes poisoned claimed routes without sha
   await expect(a.read("projects", { serverId: b.id })).rejects.toMatchObject({
     code: "peer_unavailable",
   });
-});
+}, 20_000);
 
 it("discovers and creates through private native HTTP, fences old grants across re-enable and preserves self context during controller loss", async () => {
   const a = await profile(),

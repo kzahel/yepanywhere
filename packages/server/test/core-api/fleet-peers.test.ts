@@ -283,6 +283,9 @@ it("migrates complete v1 manual state atomically without changing IDs or its sel
   await resumed.close();
 });
 
+// CI 41288604016 exhausted 5,000 ms during real delivery recovery and
+// repeated SRP rejection checks; focused macOS took 3,402 ms. Allow 4x
+// the observed CI lower bound without replacing the crypto or fault paths.
 it("recovers lost opaque delivery replies and rejects peer token/credential downgrade and widened scope", async () => {
   const f = await fixture(),
     source = await f.make(),
@@ -452,7 +455,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   await expect(
     source.read("projects", { serverId: target.id }),
   ).rejects.toMatchObject({ code: "unauthorized" });
-});
+}, 20_000);
 
 it("refuses observation after fleet token expiry while retaining native work already admitted", async () => {
   const f = await fixture(),
