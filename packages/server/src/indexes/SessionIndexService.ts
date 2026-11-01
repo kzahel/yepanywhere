@@ -2186,6 +2186,11 @@ export class SessionIndexService implements ISessionIndexService {
     sessionId: string,
     reader: ISessionReader,
   ): Promise<SessionSummary | null> {
+    // A native SQLite WAL can change while its main file's stat is unchanged.
+    // Read its bounded metadata through the same source-scoped in-flight owner,
+    // rather than certifying a shared row from one file's mtime/size.
+    const shared = await reader.getSharedStoreSummary?.(sessionId, projectId);
+    if (shared !== undefined) return shared;
     const scopeKey = this.getScopeKey(sessionDir, reader);
     const observedDirtyRevision = this.getDirtyRevision(scopeKey);
     const index = await this.loadIndex(sessionDir, projectId, reader);

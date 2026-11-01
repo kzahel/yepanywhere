@@ -159,6 +159,14 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   never chooses a source from cwd. Missing/ambiguous native namespace evidence
   remains unlinked. App retirement cancels pending catalogue joins before SQL
   teardown; see [process observability](agents-process-observability.md#native-pid-correlation-and-permanent-ya-ids).
+- OpenCode discovery/history/children also use explicit native data-directory
+  addresses. Its native DB/JSON source and actual directory are proved before
+  adoption; public projections preserve bindings even when a Git worktree
+  groups a bound subdirectory. Bound CLI reads cannot escape into another
+  configured data root, including through cached list results. DB/WAL reads
+  include both physical source versions; focused changes retain the public id
+  and effective project. This is native-source migration; OpenCode launch
+  remapping remains until durable admission and provider launch slices qualify.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

@@ -288,7 +288,7 @@ it("projects discovery once across native collections and scoped summary lookups
       expect(row?.storeKey).toBe(globalRoot);
       expect(row?.location).toEqual({ kind: "file", path: file });
       expect(
-        projectCatalogIdentities(rows, metadata).find(
+        (await projectCatalogIdentities(rows, metadata)).find(
           (r) => r.sessionId === publicId,
         )?.nativeSessionId,
       ).toBe(nativeId);
@@ -369,7 +369,7 @@ it("projects discovery once across native collections and scoped summary lookups
       }
       // This shared projection also supplies the authorization catalogue.
       expect(
-        projectCatalogIdentities(rows, metadata).find(
+        (await projectCatalogIdentities(rows, metadata)).find(
           (row) => row.sessionId === publicId,
         ),
       ).toMatchObject({

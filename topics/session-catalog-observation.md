@@ -380,13 +380,19 @@ scan own their paths, so a completed snapshot cannot overwrite newer state.
 Focused session targets in the same directory share one native watch while
 retaining per-target polling and trailing validation. Removing the final target
 closes that native watch, and an asynchronous file-resolution result arriving
-after the final unsubscribe must not recreate it. Stored Claude/Codex
+after the final unsubscribe must not recreate it. Stored Claude/Codex/OpenCode
 identities resolve the exact native root/id before legacy watch discovery;
 unbound or missing bound sources do not probe same-string ambient files.
 Subscription/event ids and effective project remain public YA facts, while
 event paths name the real native file. Final unsubscribe also aborts pending
 stored-source resolution before it can acquire reader work; shutdown closes
-the same interest owner. Other native-family observation is still pending.
+the same interest owner. OpenCode DB targets include the same-directory WAL;
+constant-size source snapshots include device/inode/mtime/ctime/size and WAL
+presence. Watch events are possible-history-change evidence, never session
+liveness or install-wide catalogue rebuild requests. One target watches at most
+three additional files in the same directory, and all companions share the
+existing reference-counted directory watch. Other native-family observation
+remains pending.
 
 Cache publication follows the same ordering rule as watcher reconciliation.
 One mutable discovery or summary index scope has one process-local cold-load

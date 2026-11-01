@@ -1,11 +1,15 @@
 import type * as fs from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { isClaudeProviderName, type UrlProjectId } from "@yep-anywhere/shared";
+import {
+  isClaudeProviderName,
+  type NativeSessionFamily,
+  type UrlProjectId,
+} from "@yep-anywhere/shared";
 import type { Project } from "../supervisor/types.js";
 import { watchSharedDirectory } from "./SharedDirectoryWatcher.js";
 
-type WatchProvider = "claude" | "codex" | "gemini";
+type WatchProvider = NativeSessionFamily;
 type ChangeSource = "fs-watch" | "poll";
 
 interface ChangeCheckRequest {
@@ -32,6 +36,8 @@ interface SessionWatchTarget {
   subscribers: Map<number, (event: FocusedSessionWatchEvent) => void>;
   filePath: string | null;
   fileName: string | null;
+  additionalFilePaths: readonly string[];
+  knownVersion: string | null;
   provider: WatchProvider | null;
   knownMtimeMs: number | null;
   knownSize: number | null;
@@ -91,6 +97,8 @@ export interface FocusedSessionWatchManagerOptions {
 
 export interface ResolvedSessionFile {
   filePath: string;
+  /** Fixed same-directory companions, e.g. the native SQLite WAL. */
+  additionalFilePaths?: readonly string[];
   provider: WatchProvider;
 }
 
@@ -175,6 +183,8 @@ export class FocusedSessionWatchManager {
       subscribers: new Map(),
       filePath: null,
       fileName: null,
+      additionalFilePaths: [],
+      knownVersion: null,
       provider: null,
       knownMtimeMs: null,
       knownSize: null,
@@ -245,14 +255,17 @@ export class FocusedSessionWatchManager {
     target.fileName = basename(resolved.filePath);
     target.provider = resolved.provider;
 
-    try {
-      const stats = await stat(resolved.filePath);
-      target.knownMtimeMs = stats.mtimeMs;
-      target.knownSize = stats.size;
-    } catch {
-      target.knownMtimeMs = null;
-      target.knownSize = null;
-    }
+    target.additionalFilePaths = (resolved.additionalFilePaths ?? [])
+      .filter(
+        (path) =>
+          dirname(path) === dirname(resolved.filePath) &&
+          path !== resolved.filePath,
+      )
+      .slice(0, 3);
+    const snapshot = await this.sourceSnapshot(target);
+    target.knownVersion = snapshot?.version ?? null;
+    target.knownMtimeMs = snapshot?.mtimeMs ?? null;
+    target.knownSize = snapshot?.size ?? null;
     if (!this.isTargetActive(target)) return;
 
     this.attachDirectoryWatch(target, dirname(resolved.filePath));
@@ -266,6 +279,27 @@ export class FocusedSessionWatchManager {
         `[FocusedSessionWatch] Watching session=${target.sessionId} project=${target.projectId} file=${resolved.filePath}`,
       );
     }
+  }
+
+  private async sourceSnapshot(target: SessionWatchTarget) {
+    if (!target.filePath || target.controller.signal.aborted) return null;
+    const files = await Promise.all(
+      [target.filePath, ...target.additionalFilePaths].map((path) =>
+        stat(path).catch(() => null),
+      ),
+    );
+    if (!files[0] || target.controller.signal.aborted) return null;
+    return {
+      version: files
+        .map((file) =>
+          file
+            ? `${file.dev}:${file.ino}:${file.mtimeMs}:${file.ctimeMs}:${file.size}`
+            : "missing",
+        )
+        .join("|"),
+      mtimeMs: Math.max(...files.map((file) => file?.mtimeMs ?? 0)),
+      size: files.reduce((sum, file) => sum + (file?.size ?? 0), 0),
+    };
   }
 
   private isTargetActive(target: SessionWatchTarget): boolean {
@@ -311,7 +345,14 @@ export class FocusedSessionWatchManager {
     if (!directoryWatch) return;
     const sourceObservedAtMs = Date.now();
     for (const target of directoryWatch.targets) {
-      if (changedName && changedName !== target.fileName) continue;
+      if (
+        changedName &&
+        changedName !== target.fileName &&
+        !target.additionalFilePaths.some(
+          (path) => basename(path) === changedName,
+        )
+      )
+        continue;
       this.requestCheck(target, "fs-watch", sourceObservedAtMs);
       this.scheduleDebouncedCheck(target, "fs-watch", sourceObservedAtMs);
     }
@@ -397,27 +438,23 @@ export class FocusedSessionWatchManager {
         return;
       }
 
-      let nextMtimeMs: number;
-      let nextSize: number;
-      try {
-        const stats = await stat(filePath);
-        nextMtimeMs = stats.mtimeMs;
-        nextSize = stats.size;
-      } catch {
+      const snapshot = await this.sourceSnapshot(target);
+      if (!this.isTargetActive(target)) return;
+      if (!snapshot) {
+        target.knownVersion = "missing";
         target.knownMtimeMs = null;
         target.knownSize = null;
         await this.ensureWatching(target);
         return;
       }
-
-      const hadBaseline =
-        target.knownMtimeMs !== null && target.knownSize !== null;
       const changed =
-        hadBaseline &&
-        (target.knownMtimeMs !== nextMtimeMs || target.knownSize !== nextSize);
-
-      target.knownMtimeMs = nextMtimeMs;
-      target.knownSize = nextSize;
+        target.knownVersion !== null &&
+        target.knownVersion !== snapshot.version;
+      target.knownVersion = snapshot.version;
+      target.knownMtimeMs = snapshot.mtimeMs;
+      target.knownSize = snapshot.size;
+      const nextMtimeMs = snapshot.mtimeMs;
+      const nextSize = snapshot.size;
 
       if (!changed) {
         return;

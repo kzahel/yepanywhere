@@ -1183,6 +1183,12 @@ function normalizeRow(
       "row nativeStorageScope",
       4_096,
     );
+  if (row.nativeDirectoryProjectId !== undefined)
+    requireBoundedString(
+      row.nativeDirectoryProjectId,
+      "row nativeDirectoryProjectId",
+      32_768,
+    );
   requireBoundedString(row.projectId, "row projectId", 32_768);
   requireBoundedString(row.projectPath, "row projectPath", 32_768);
   requireBoundedString(
@@ -1244,6 +1250,9 @@ function cloneRow(row: SessionCatalogRow): SessionCatalogRow {
     sessionId: row.sessionId,
     ...(row.nativeStorageScope !== undefined
       ? { nativeStorageScope: row.nativeStorageScope }
+      : {}),
+    ...(row.nativeDirectoryProjectId !== undefined
+      ? { nativeDirectoryProjectId: row.nativeDirectoryProjectId }
       : {}),
     projectId: row.projectId,
     projectPath: row.projectPath,

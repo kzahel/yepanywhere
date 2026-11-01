@@ -47,6 +47,7 @@ import { buildProviderProjectCatalog } from "./provider-catalog.js";
 import { getActiveSessionIndexOptions } from "./session-list-options.js";
 
 export interface InboxDeps {
+  signal?: AbortSignal;
   retainedCollections?: RetainedSessionCollections;
   scanner: ProjectScanner;
   readerFactory: (project: Project) => ISessionReader;

@@ -213,10 +213,13 @@ async function publicSessionSummaries<T extends SessionListSummary>(
     !(
       isClaudeProviderName(source.provider) ||
       source.provider === "codex" ||
-      source.provider === "codex-oss"
+      source.provider === "codex-oss" ||
+      (source.provider === "opencode" &&
+        source.reader.getNativeSessionRef !== undefined)
     )
   )
     return sessions;
+  const excluded = new Set<number>();
   const candidates: DiscoveredSessionIdentity[] = [];
   const positions: number[] = [];
   for (
@@ -236,6 +239,14 @@ async function publicSessionSummaries<T extends SessionListSummary>(
                 source.sessionDir,
                 nativeSessionId,
               );
+          if (deps.signal?.aborted) return null;
+          if (native && source.provider === "opencode") {
+            const bound = store.lookupNative(native);
+            if (bound && bound.projectId !== summary.projectId) {
+              excluded.add(offset + index);
+              return null;
+            }
+          }
           return native
             ? {
                 position: offset + index,
@@ -256,6 +267,7 @@ async function publicSessionSummaries<T extends SessionListSummary>(
       positions.push(entry.position);
     }
   }
+  if (deps.signal?.aborted) return [];
   const result = [...sessions];
   for (const [index, identity] of store
     .adoptDiscoveredBatch(candidates)
@@ -267,7 +279,7 @@ async function publicSessionSummaries<T extends SessionListSummary>(
       provider: identity.provider,
     };
   }
-  return result;
+  return result.filter((_, index) => !excluded.has(index));
 }
 
 export interface NativeSessionProject {

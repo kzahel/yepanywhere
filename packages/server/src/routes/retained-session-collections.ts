@@ -22,6 +22,7 @@ export async function readRetainedSessionItems(
   service: RetainedSessionCollections,
   deps: Pick<
     GlobalSessionsDeps,
+    | "signal"
     | "sessionMetadataService"
     | "supervisor"
     | "externalTracker"
@@ -31,9 +32,10 @@ export async function readRetainedSessionItems(
   >,
 ) {
   const { rows: nativeRows, catalog } = await service.read();
-  const rows = projectCatalogIdentities(
+  const rows = await projectCatalogIdentities(
     nativeRows,
     deps.sessionMetadataService,
+    deps.signal,
   );
   // Named now, not from the row: a stored `projectName` is only as current as
   // the file's last read, and renaming a project rereads nothing.

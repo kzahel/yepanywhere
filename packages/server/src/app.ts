@@ -989,14 +989,18 @@ export function createApp(options: AppOptions): AppResult {
         await retainedCollections.refresh();
         ({ rows } = await retainedCollections.read());
       }
-      return projectCatalogIdentities(rows, options.sessionMetadataService).map(
-        (row) => ({
-          sessionId: row.sessionId,
-          projectId: row.projectId,
-          provider: row.provider ?? row.catalogFamily,
-          updatedAt: row.updatedAt,
-        }),
-      );
+      return (
+        await projectCatalogIdentities(
+          rows,
+          options.sessionMetadataService,
+          sessionReadLifetime.signal,
+        )
+      ).map((row) => ({
+        sessionId: row.sessionId,
+        projectId: row.projectId,
+        provider: row.provider ?? row.catalogFamily,
+        updatedAt: row.updatedAt,
+      }));
     },
     getSessionMetadata: (sessionId) =>
       options.sessionMetadataService?.getMetadata(sessionId),
@@ -1532,7 +1536,7 @@ export function createApp(options: AppOptions): AppResult {
         : undefined;
       if (!identity) return undefined;
       const native = identity.native;
-      if (!native || (native.family !== "claude" && native.family !== "codex"))
+      if (!native || !["claude", "codex", "opencode"].includes(native.family))
         return null;
       const project = await scanner.getOrCreateProject(identity.projectId);
       if (!project || signal.aborted) return null;
@@ -1541,7 +1545,15 @@ export function createApp(options: AppOptions): AppResult {
         native,
       );
       const filePath = await reader.getSessionFilePath?.(native.id);
-      return filePath ? { filePath, provider: native.family } : null;
+      return filePath
+        ? {
+            filePath,
+            provider: native.family,
+            ...(native.family === "opencode" && filePath.endsWith("opencode.db")
+              ? { additionalFilePaths: [`${filePath}-wal`] }
+              : {}),
+          }
+        : null;
     },
   });
   let conversationSubscriptions: ConversationSubscriptions | undefined;
@@ -1718,6 +1730,17 @@ export function createApp(options: AppOptions): AppResult {
                 ...(discoveryIndex ? { discoveryIndex } : {}),
               });
             },
+          );
+        case "opencode":
+          return getOrCreateReader(
+            `opencode-bound::${native.storageScope}::${project.path}`,
+            () =>
+              new OpenCodeSessionReader({
+                projectPath: project.path,
+                databasePath: join(native.storageScope, "opencode.db"),
+                storageDir: join(native.storageScope, "storage"),
+                nativeStorageScope: native.storageScope,
+              }),
           );
         case "pi":
           return getOrCreateReader(
@@ -3271,9 +3294,12 @@ export function createApp(options: AppOptions): AppResult {
         // can retry it once actual native scope evidence has been rebuilt.
         if (!row || (row.catalogFamily === "codex" && !row.nativeStorageScope))
           return undefined;
-        return projectCatalogIdentities(
-          [row],
-          options.sessionMetadataService,
+        return (
+          await projectCatalogIdentities(
+            [row],
+            options.sessionMetadataService,
+            signal ?? sessionReadLifetime.signal,
+          )
         )[0];
       },
       getProcess: (sessionId) => supervisor.getProcessForSession(sessionId),
@@ -3360,9 +3386,10 @@ export function createApp(options: AppOptions): AppResult {
       settings: issueSettings,
       confirm: () => confirmer.schedule(),
       candidates: async function* () {
-        yield* projectCatalogIdentities(
+        yield* await projectCatalogIdentities(
           (await catalog.read()).rows,
           options.sessionMetadataService,
+          sessionReadLifetime.signal,
         );
       },
       projectForSession: (id) =>
@@ -3460,6 +3487,7 @@ export function createApp(options: AppOptions): AppResult {
           projectCatalogIdentities(
             (await catalog.read()).rows,
             options.sessionMetadataService,
+            sessionReadLifetime.signal,
           ),
         statuses,
         content,
@@ -3516,6 +3544,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/inbox",
     createInboxRoutes({
+      signal: sessionReadLifetime.signal,
       retainedCollections,
       scanner,
       readerFactory,
@@ -3681,6 +3710,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/sessions",
     createGlobalSessionsRoutes({
+      signal: sessionReadLifetime.signal,
       retainedCollections,
       scanner,
       readerFactory,
@@ -3908,6 +3938,7 @@ export function createApp(options: AppOptions): AppResult {
     app.route(
       "/api/recents",
       createRecentsRoutes({
+        signal: sessionReadLifetime.signal,
         recentsService: options.recentsService,
         retainedCollections,
         projectDisplayName,

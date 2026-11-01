@@ -1,5 +1,5 @@
-import { readFile, readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, readdir, realpath, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type {
   NativeSessionCatalogAdapter,
   SessionCatalogAdapterScan,
@@ -8,7 +8,12 @@ import type {
 } from "../catalog-types.js";
 import { OpenCodeDbReader } from "../opencode-db-reader.js";
 import { OPENCODE_DB_PATH, OPENCODE_STORAGE_DIR } from "../opencode-reader.js";
-import { buildCatalogRow, fileSourceVersion, isWithinScanMode } from "./row.js";
+import {
+  catalogProjectIdentity,
+  buildCatalogRow,
+  fileSourceVersion,
+  isWithinScanMode,
+} from "./row.js";
 
 /**
  * OpenCode hides project membership behind an opaque project id, so a
@@ -70,6 +75,21 @@ export class OpenCodeSessionCatalogAdapter
     let skippedByMode = 0;
     let newestMs = 0;
 
+    const dbScope = await realpath(dirname(this.databasePath)).catch(
+      () => undefined,
+    );
+    const jsonScope = await realpath(dirname(this.storageDir)).catch(
+      () => undefined,
+    );
+    const directories = new Map<string, Promise<string>>();
+    const physicalDirectory = (path: string) => {
+      let value = directories.get(path);
+      if (!value) {
+        value = realpath(path).catch(() => path);
+        directories.set(path, value);
+      }
+      return value;
+    };
     const dbReader = new OpenCodeDbReader(this.databasePath);
     let childIds: Set<string>;
     let dbRows: Awaited<ReturnType<OpenCodeDbReader["listAllSessionRows"]>>;
@@ -90,9 +110,8 @@ export class OpenCodeSessionCatalogAdapter
         continue;
       }
       newestMs = Math.max(newestMs, updatedAtMs);
-      rows.set(
-        row.id,
-        buildCatalogRow({
+      rows.set(row.id, {
+        ...buildCatalogRow({
           catalogFamily: this.catalogFamily,
           storeKey: this.storeKey,
           sessionId: row.id,
@@ -110,7 +129,11 @@ export class OpenCodeSessionCatalogAdapter
             recordId: row.id,
           },
         }),
-      );
+        ...(dbScope ? { nativeStorageScope: dbScope } : {}),
+        nativeDirectoryProjectId: catalogProjectIdentity(
+          await physicalDirectory(row.directory),
+        ).projectId,
+      });
     }
 
     const worktrees = await this.readProjectWorktrees(context);
@@ -162,9 +185,8 @@ export class OpenCodeSessionCatalogAdapter
         }
         newestMs = Math.max(newestMs, updatedAtMs);
 
-        rows.set(
-          sessionId,
-          buildCatalogRow({
+        rows.set(sessionId, {
+          ...buildCatalogRow({
             catalogFamily: this.catalogFamily,
             storeKey: this.storeKey,
             sessionId,
@@ -176,7 +198,8 @@ export class OpenCodeSessionCatalogAdapter
             sourceVersion: fileSourceVersion(mtimeMs, size),
             location: { kind: "file", path },
           }),
-        );
+          ...(jsonScope ? { nativeStorageScope: jsonScope } : {}),
+        });
       }
     }
 

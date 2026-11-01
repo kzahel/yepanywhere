@@ -27,6 +27,8 @@ export interface SessionCatalogRow {
   sessionId: string;
   /** Actual reader root when a merged catalogue includes private transcripts. */
   nativeStorageScope?: string;
+  /** OpenCode actual session directory, distinct from legacy worktree grouping. */
+  nativeDirectoryProjectId?: UrlProjectId;
   projectId: UrlProjectId;
   /** Canonical host path for explicit detail resolution. */
   projectPath: string;

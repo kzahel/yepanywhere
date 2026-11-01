@@ -227,6 +227,33 @@ describe("OpenCodeSessionReader", () => {
     ]);
   });
 
+  it("does not reuse ambient CLI list results for a bound private native root", async () => {
+    const { OpenCodeSessionReader } = await import(
+      "../../src/sessions/opencode-reader.js"
+    );
+    const options = {
+      storageDir: join(testDir, "missing-storage"),
+      databasePath,
+      opencodePath: "/fake/opencode",
+      projectPath,
+    };
+    const ambient = new OpenCodeSessionReader(options);
+    const bound = new OpenCodeSessionReader({
+      ...options,
+      nativeStorageScope: join(testDir, "private-native-root"),
+    });
+    try {
+      expect(await ambient.listSessionFiles("unused")).toHaveLength(1);
+      spawnMock.mockClear();
+      expect(await bound.listSessionFiles("unused")).toEqual([]);
+      expect(await bound.getSession("ses_cli", projectId)).toBeNull();
+      expect(spawnMock).not.toHaveBeenCalled();
+    } finally {
+      ambient.close();
+      bound.close();
+    }
+  });
+
   it("probes CLI-session freshness from one cached session list, never export", async () => {
     const { OpenCodeSessionReader } = await import(
       "../../src/sessions/opencode-reader.js"

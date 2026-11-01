@@ -9,8 +9,10 @@ import {
   unlink,
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
+  type NativeSessionId,
+  type NativeSessionRef,
   type OpenCodeMessage,
   type OpenCodeSessionEntry,
   type OpenCodeStoredPart,
@@ -25,6 +27,7 @@ import type {
   Message,
   SessionSummary,
 } from "../supervisor/types.js";
+import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
 import { normalizeSession } from "./normalization.js";
 import {
   OpenCodeDbReader,
@@ -82,6 +85,8 @@ export interface OpenCodeSessionReaderOptions {
   opencodePath?: string;
   /** Project path (used to look up the OpenCode project ID) */
   projectPath: string;
+  /** Bound readers may export only from this exact configured native store. */
+  nativeStorageScope?: string;
 }
 
 /**
@@ -216,6 +221,7 @@ export class OpenCodeSessionReader implements ISessionReader {
   private openCodeProjectIdCache: string | null | undefined = undefined;
   private dbReader: OpenCodeDbReader;
   private closed = false;
+  private readonly nativeStorageScope?: string;
   private readonly projectScope: Promise<OpenCodeProjectScope>;
 
   constructor(options: OpenCodeSessionReaderOptions) {
@@ -223,6 +229,7 @@ export class OpenCodeSessionReader implements ISessionReader {
     this.databasePath = options.databasePath ?? OPENCODE_DB_PATH;
     this.opencodePath = options.opencodePath ?? "opencode";
     this.projectPath = options.projectPath;
+    this.nativeStorageScope = options.nativeStorageScope;
     this.projectScope = realpath(this.projectPath)
       .catch(() => this.projectPath)
       .then((canonicalDirectory) => ({
@@ -296,6 +303,22 @@ export class OpenCodeSessionReader implements ISessionReader {
     );
 
     return summaries;
+  }
+
+  async getSharedStoreSummary(
+    sessionId: string,
+    projectId: UrlProjectId,
+  ): Promise<SessionSummary | null | undefined> {
+    if (this.closed) return null;
+    const row = await this.dbReader.getSessionRow(
+      sessionId,
+      await this.projectScope,
+    );
+    if (this.closed) return null;
+    if (row)
+      return row.messageCount ? this.buildDbSummary(row, projectId) : null;
+    // A known foreign row cannot borrow a file-cache entry or export either.
+    return (await this.mayUseFallback(sessionId)) ? undefined : null;
   }
 
   async getSessionSummary(
@@ -460,8 +483,55 @@ export class OpenCodeSessionReader implements ISessionReader {
     return { summary, mtime, size };
   }
 
-  async getSessionFilePath(_sessionId: string): Promise<string | null> {
-    return this.closed ? null : this.databasePath;
+  async getSessionFilePath(sessionId: string): Promise<string | null> {
+    if (this.closed) return null;
+    if (await this.dbReader.getSessionRow(sessionId, await this.projectScope))
+      return this.closed ? null : this.databasePath;
+    if (!(await this.mayUseFallback(sessionId))) return null;
+    const stored = await this.readFileSessionJson(sessionId);
+    const project = await this.getOpenCodeProjectId();
+    return !this.closed && stored?.id === sessionId && project
+      ? join(this.storageDir, "session", project, `${sessionId}.json`)
+      : null;
+  }
+
+  async getNativeSessionRef(
+    sessionId: NativeSessionId,
+  ): Promise<NativeSessionRef | null> {
+    if (this.closed) return null;
+    let root: string;
+    if (await this.dbReader.getSessionRow(sessionId, await this.projectScope)) {
+      root = dirname(this.databasePath);
+    } else {
+      if (!(await this.mayUseFallback(sessionId))) return null;
+      const stored = await this.readFileSessionJson(sessionId);
+      if (stored?.id === sessionId) root = dirname(this.storageDir);
+      else {
+        const exported = await this.loadCliExport(sessionId);
+        const id = this.stringField(exported?.info?.id);
+        if (
+          !exported ||
+          id !== sessionId ||
+          !this.exportBelongsToProject(exported)
+        )
+          return null;
+        root = dirname(OPENCODE_DB_PATH);
+      }
+    }
+    if (this.closed) return null;
+    const native = await resolveNativeSessionRef(
+      "opencode",
+      root,
+      sessionId,
+    ).catch(() => null);
+    return this.closed ? null : native;
+  }
+
+  private async mayUseCli(): Promise<boolean> {
+    if (this.closed) return false;
+    if (!this.nativeStorageScope) return true;
+    const root = await realpath(dirname(OPENCODE_DB_PATH)).catch(() => null);
+    return !this.closed && root === this.nativeStorageScope;
   }
 
   async listSessionFiles(
@@ -562,7 +632,12 @@ export class OpenCodeSessionReader implements ISessionReader {
   }
 
   getIndexScopeKey(_sessionDir: string): string {
-    return `opencode::${this.projectPath}`;
+    return JSON.stringify([
+      "opencode",
+      this.databasePath,
+      this.storageDir,
+      getProjectIdentityKey(this.projectPath),
+    ]);
   }
 
   private async collectProviderChildIds(
@@ -1023,7 +1098,7 @@ export class OpenCodeSessionReader implements ISessionReader {
   }
 
   private async loadCliSessionList(): Promise<OpenCodeCliListSession[]> {
-    if (this.closed) return [];
+    if (!(await this.mayUseCli())) return [];
     const cached = cliSessionListCache.get(this.opencodePath);
     if (cached && Date.now() - cached.atMs < OPENCODE_CLI_LIST_CACHE_TTL_MS) {
       return cached.promise;
@@ -1071,7 +1146,7 @@ export class OpenCodeSessionReader implements ISessionReader {
   }
 
   private async runOpenCodeCli(args: string[]): Promise<string | null> {
-    if (this.closed) return null;
+    if (!(await this.mayUseCli())) return null;
     // Capture stdout into a real file fd, not a pipe. `opencode` is a Bun
     // binary that drops buffered piped stdout on process.exit() once it
     // exceeds the kernel pipe buffer, so large `export` JSON was truncated
@@ -1422,7 +1497,7 @@ export class OpenCodeSessionReader implements ISessionReader {
   async listProviderChildSessions(
     parentSessionId: string,
   ): Promise<ProviderChildSessionSummary[]> {
-    if (this.closed) return [];
+    if (this.closed || !(await this.mayUseFallback(parentSessionId))) return [];
     const byId = new Map<string, ProviderChildSessionSummary>();
     const dbScope = await this.dbReader.resolveProjectScope(
       await this.projectScope,
@@ -1447,7 +1522,12 @@ export class OpenCodeSessionReader implements ISessionReader {
   async getAgentMappings(
     parentSessionId?: string,
   ): Promise<{ toolUseId: string; agentId: string }[]> {
-    if (this.closed || !parentSessionId) return [];
+    if (
+      this.closed ||
+      !parentSessionId ||
+      !(await this.mayUseFallback(parentSessionId))
+    )
+      return [];
     const byToolUseId = new Map<string, string>();
     for (const mapping of await this.dbReader.listTaskChildMappings(
       parentSessionId,

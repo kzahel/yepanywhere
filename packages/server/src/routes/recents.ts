@@ -26,6 +26,7 @@ import type { ISessionReader } from "../sessions/types.js";
 import type { Project } from "../supervisor/types.js";
 
 export interface RecentsDeps {
+  signal?: AbortSignal;
   recentsService: RecentsService;
   retainedCollections?: RetainedSessionCollections;
   projectDisplayName?: (path: string) => string;
@@ -65,9 +66,10 @@ export function createRecentsRoutes(deps: RecentsDeps) {
     if (c.req.query("summaryMode") === "retained" && deps.retainedCollections) {
       const { rows, catalog } = await deps.retainedCollections.read();
       const bySession = new Map<string, SessionCatalogRow[]>();
-      for (const row of projectCatalogIdentities(
+      for (const row of await projectCatalogIdentities(
         rows,
         deps.sessionMetadataService,
+        deps.signal,
       )) {
         const candidates = bySession.get(row.sessionId) ?? [];
         candidates.push(row);

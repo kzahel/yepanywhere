@@ -634,8 +634,11 @@ external file observation is independently accepted with bounded source work,
 public ownership/project events, native thread/leaf separation and cancellation
 before database teardown. Cold/warm/in-flight reader and batch/project-transition
 regressions are qualified, along with standalone Node/Bun append/restart
-observations. Fully scoped cold resumes,
-remaining provider observation,
+observations. OpenCode native-source migration is independently accepted with
+canonical DB/JSON roots, native/public projection, physical project-alias proof,
+root-scoped summary computation and focused DB/WAL refresh. Real Node/Bun
+HTTP/WebSocket/restart checks retain the YA id; launch remapping is still gated.
+Fully scoped cold resumes, remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or
 require queued-compaction work first.

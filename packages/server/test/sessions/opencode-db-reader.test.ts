@@ -212,7 +212,10 @@ describe.skipIf(!loadSqliteDriver())(
       await rm(testDir, { recursive: true, force: true });
     });
 
-    async function makeReader(directory = projectPath) {
+    async function makeReader(
+      directory = projectPath,
+      nativeStorageScope?: string,
+    ) {
       const { OpenCodeSessionReader } = await import(
         "../../src/sessions/opencode-reader.js"
       );
@@ -221,6 +224,7 @@ describe.skipIf(!loadSqliteDriver())(
         databasePath,
         opencodePath: "/fake/opencode",
         projectPath: directory,
+        nativeStorageScope,
       });
       readers.add(reader);
       return reader;
@@ -554,6 +558,32 @@ describe.skipIf(!loadSqliteDriver())(
       release();
       expect(await pending).toBeNull();
       expect(spawnMock).not.toHaveBeenCalled();
+    });
+
+    it("proves the actual DB-only native scope and refuses ambient CLI fallback for bound roots", async () => {
+      buildDb(databasePath, {
+        worktree: projectPath,
+        sessionId: "ses_bound",
+        title: "bound source",
+        model: {},
+        messages: richMessages,
+      });
+      const scope = await realpath(testDir);
+      const reader = await makeReader(projectPath, scope);
+      const { parseNativeSessionId } = await import("@yep-anywhere/shared");
+      expect(
+        await reader.getNativeSessionRef(parseNativeSessionId("ses_bound")),
+      ).toEqual({ family: "opencode", storageScope: scope, id: "ses_bound" });
+      expect(await reader.getSessionFilePath("ses_bound")).toBe(databasePath);
+      expect(
+        await reader.getNativeSessionRef(parseNativeSessionId("ses_missing")),
+      ).toBeNull();
+      expect(await reader.getSession("ses_missing", projectId)).toBeNull();
+      expect(spawnMock).not.toHaveBeenCalled();
+      reader.close();
+      expect(
+        await reader.getNativeSessionRef(parseNativeSessionId("ses_bound")),
+      ).toBeNull();
     });
 
     it("keeps global-project session directories separate in history, lists and native catalogue rows", async () => {

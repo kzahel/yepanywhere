@@ -65,6 +65,7 @@ import {
 import type { ClearloopBadgeResolver } from "../services/ClearloopService.js";
 
 export interface GlobalSessionsDeps {
+  signal?: AbortSignal;
   retainedCollections?: RetainedSessionCollections;
   scanner: ProjectScanner;
   readerFactory: (project: Project) => ISessionReader;

@@ -202,9 +202,6 @@ export interface ISessionReader {
    */
   getLastAgentExcerpt?(sessionId: string): Promise<string | undefined>;
 
-  /**
-   * Get summary metadata for a single session.
-   */
   /** Accept one verified native file observation without rescanning its store. */
   observeNativeSessionFile?(
     native: NativeSessionRef,
@@ -212,6 +209,17 @@ export interface ISessionReader {
     signal?: AbortSignal,
   ): Promise<boolean>;
 
+  /**
+   * Compact shared-store metadata has no reliable single-file freshness key.
+   * undefined delegates to ordinary file caching; null is a terminal absence.
+   * The index still owns/coalesces the request; this must not parse history.
+   */
+  getSharedStoreSummary?(
+    sessionId: string,
+    projectId: UrlProjectId,
+  ): Promise<SessionSummary | null | undefined>;
+
+  /** Get summary metadata for a single session. */
   getSessionSummary(
     sessionId: string,
     projectId: UrlProjectId,

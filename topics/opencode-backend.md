@@ -296,6 +296,42 @@ does not enable different public/native launch ids, change OpenCode's native
 schema or refresh a provider target. Native `opencode.db` remains authoritative
 history and is never written, checkpointed or migrated by YA.
 
+**Scoped YA identity reads.** An OpenCode native address consists of its native
+id and canonical backend data directory. DB addresses use the parent of
+`opencode.db`, including DB-only installations without `storage/`; legacy JSON
+addresses use the parent of `storage/`. These can differ when XDG changes the
+DB location. History and child reads for a stored YA identity use only that
+address and original project, then return the public YA id. A provider-looking
+id in a URL cannot become an alias for another public session. Missing bound
+history does not borrow a different root. CLI fallback for a bound address is
+permitted only when that address is the configured CLI data root; a cached CLI
+list cannot bypass this restriction.
+
+Native catalogue rows retain physical source keys, native ids and actual data
+roots. Public projections reuse scoped reverse bindings. The session's native
+directory proves an explicitly bound subdirectory even when legacy catalogue
+grouping uses the enclosing Git worktree. Project-local lists omit that bound
+resource from the old umbrella; the ordinary working-project overlay supplies
+its current location. Legacy unbound sessions keep their existing public id
+and worktree grouping through explicit adoption.
+
+The summary-index namespace includes the actual DB and JSON roots as well as
+the project. Simultaneous requests for the same native id in different stores
+cannot share a summary computation. Compact DB metadata bypasses single-file
+cache certification through the existing source-scoped in-flight index owner;
+WAL-only commits therefore update metadata even while the main file's stat is
+unchanged. Legacy JSON retains ordinary file caching. Native directory proof
+accepts the stored original project's physical alias without changing its
+public spelling. The asynchronous public projection shares per-project proof
+within the operation and observes app cancellation before further SQL work.
+
+A focused DB view observes the native DB and WAL in their shared directory.
+A committed WAL change refreshes public detail without requiring a DB-file
+mtime change. This possible source change is not evidence that every session
+in the DB is active or externally owned. Native JSON views use their actual
+session metadata file; retained export-only history remains readable without
+inventing a file. New differing-id OpenCode launches remain gated by plan 171.
+
 **Native directory membership.** A session's `directory` is distinct from its
 native project id. In particular, OpenCode puts unrelated non-Git directories
 under the shared `global` project with worktree `/`. DB history, summary,

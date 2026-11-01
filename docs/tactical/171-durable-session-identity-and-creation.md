@@ -195,6 +195,22 @@ Runtime work and the provenance defect remain unimplemented.
   checks pass. Final warning-free lint, format, typecheck and workspace tests
   pass (6,758 server / 7,064 client). This does not yet enable scoped native
   binding or different-id launches; other native families remain pending.
+- Phase 3 OpenCode binding/read/watch migration is independently accepted.
+  Canonical DB/JSON data-directory sources, nested-project/physical-alias proof,
+  public catalogue/working-project projection, constrained CLI fallback and
+  focused DB/WAL refresh share existing owners. Review caught two source-joining
+  defects: summary index keys now distinguish native roots, and asynchronous
+  catalogue proof preserves valid original project spellings. Compact shared-DB
+  metadata bypasses main-file timestamp certification through the existing
+  in-flight index owner, so WAL-only updates remain fresh. Cancellation fences
+  filesystem proof before SQL teardown. The initial full run exposed an Inbox
+  regression from guessing a root for an unqualified reader; its exact focused
+  reproduction now passes and OpenCode adoption requires reader-provided proof.
+  Corrected focused checks: 180 passed across 13 files in 4.41 s. Owned Node
+  26.7.0 and pinned Bun 1.3.14 actual HTTP/WebSocket/WAL/100-refresh/restart
+  probes pass. Final lint, format, typecheck and workspace tests pass (6,761
+  server / 7,064 client). No split-id launch or new capability is enabled;
+  other native-family/cold-resume/released-client work remains phase 3.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

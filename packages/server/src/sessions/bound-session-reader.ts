@@ -68,13 +68,48 @@ export class BoundSessionReads {
       ? { ...input.options, summaryHint }
       : input.options;
     const filePath = await reader.getSessionFilePath?.(input.native.id);
-    const observed = filePath ? await stat(filePath).catch(() => null) : null;
-    if (!observed || !filePath) return null;
-    const sourceVersion = (value: {
-      size: number;
-      mtimeMs: number;
-      ctimeMs: number;
-    }) => `${value.size}:${value.mtimeMs}:${value.ctimeMs}`;
+    const projectResult = (loaded: LoadedSession | null) =>
+      loaded
+        ? {
+            ...loaded,
+            summary: {
+              ...loaded.summary,
+              id: input.sessionId,
+              provider: input.provider,
+            },
+          }
+        : null;
+    if (!filePath)
+      return input.native.family === "opencode"
+        ? projectResult(
+            await reader.getSession(
+              input.native.id,
+              input.projectId,
+              input.afterMessageId,
+              options,
+            ),
+          )
+        : null;
+    const readVersion = async () => {
+      const paths =
+        input.native.family === "opencode" && filePath.endsWith("opencode.db")
+          ? [filePath, `${filePath}-wal`]
+          : [filePath];
+      const files = await Promise.all(
+        paths.map((path) => stat(path).catch(() => null)),
+      );
+      return files[0]
+        ? files
+            .map((value) =>
+              value
+                ? `${value.dev}:${value.ino}:${value.size}:${value.mtimeMs}:${value.ctimeMs}`
+                : "missing",
+            )
+            .join("|")
+        : null;
+    };
+    const observed = await readVersion();
+    if (!observed) return null;
     const result = await this.reads.run({
       key: JSON.stringify([
         input.native.family,
@@ -85,7 +120,7 @@ export class BoundSessionReads {
         input.afterMessageId,
         options,
       ]),
-      sourceVersion: sourceVersion(observed),
+      sourceVersion: observed,
       compute: () =>
         reader.getSession(
           input.native.id,
@@ -94,20 +129,10 @@ export class BoundSessionReads {
           options,
         ),
       isCurrent: async (version) => {
-        const current = await stat(filePath).catch(() => null);
-        return current !== null && sourceVersion(current) === version;
+        return (await readVersion()) === version;
       },
     });
     const loaded = result.status === "stale" ? null : result.value;
-    return loaded
-      ? {
-          ...loaded,
-          summary: {
-            ...loaded.summary,
-            id: input.sessionId,
-            provider: input.provider,
-          },
-        }
-      : null;
+    return projectResult(loaded);
   }
 }
