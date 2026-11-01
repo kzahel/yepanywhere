@@ -153,6 +153,16 @@ its own SELECT, exactly as a cast would be; SQLite supplies no column types.
 BLOB columns come back as `Uint8Array` on both runtimes, never Node `Buffer`.
 A caller that cannot degrade without storage uses `openSqliteOrThrow`, which
 fails with a runtime-requirement message instead of returning undefined.
+For foreign provider history, `open(path, { readOnly: true })` and the matching
+`openSqliteOrThrow` option use an engine-enforced read-only file open. Missing
+files fail instead of creating a database. This is common functionality on the
+supported [Node floor](https://nodejs.org/download/release/v22.16.0/docs/api/sqlite.html#new-databasesyncpath-options)
+and [Bun](https://bun.sh/docs/runtime/sqlite); the adapter translates the option's
+backend spelling and preserves normal opens by default. Native provider readers
+must still reuse/finalize statements and close their handles; they do not gain
+write, checkpoint or migration authority over a provider database. No backend-only
+statement or result API is exposed.
+
 Transaction callbacks must be synchronous; nested transactions and thenable
 results are rejected. Callers must not begin or commit transactions manually
 within a callback.

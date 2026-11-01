@@ -1,5 +1,9 @@
 import { statSync } from "node:fs";
-import { createRequire } from "node:module";
+import {
+  loadSqliteDriver,
+  type SqliteDatabase,
+  type SqliteStatement,
+} from "../storage/sqlite.js";
 import type {
   OpenCodeMessage,
   OpenCodeSessionEntry,
@@ -21,60 +25,21 @@ import type {
  * absence/lock/old-schema returns null so callers fall through to the export and
  * file-tree readers.
  *
- * Mechanism: Node's built-in `node:sqlite` (Node >= 22.5), loaded via a guarded
- * dynamic import so older runtimes (the package targets node >= 20) degrade to
- * the fallbacks rather than crashing — and so the published package keeps its
- * zero-native-dependency property (no `better-sqlite3` build per install).
+ * Mechanism: the common Node/Bun SQLite adapter opens the native file read-only.
+ * SQL statements are reused per handle and released on replacement or close.
+ * No transcript-store write, checkpoint, or fallback file creation is allowed.
  */
 
-/** Minimal structural view of the `node:sqlite` API we use (read-only). */
-interface SqliteStatement {
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
-}
-interface SqliteDatabase {
-  prepare(sql: string): SqliteStatement;
-  close(): void;
-}
-type SqliteCtor = new (
-  path: string,
-  options?: { readOnly?: boolean },
-) => SqliteDatabase;
-
-const nodeRequire = createRequire(import.meta.url);
-let sqliteCtor: SqliteCtor | null | undefined;
-
-/**
- * Resolve the `node:sqlite` `DatabaseSync` constructor once, or null when the
- * runtime lacks it (Node < 22.5). Loaded via `createRequire` rather than a
- * static/dynamic `import` for two reasons: it degrades to null on old runtimes
- * (the package targets node >= 20) instead of crashing at module load, and it
- * sidesteps vite/vitest's module runner, which tries (and fails) to transform
- * this builtin since it postdates vite's bundled builtin list. The module is
- * built into Node, so this adds no dependency; the one-time experimental-API
- * warning it prints is left intact (suppressing it reliably needs a global
- * `emitWarning` override that would risk swallowing unrelated warnings).
- */
-function loadSqliteCtor(): SqliteCtor | null {
-  if (sqliteCtor === undefined) {
-    try {
-      sqliteCtor =
-        (nodeRequire("node:sqlite") as { DatabaseSync?: SqliteCtor })
-          .DatabaseSync ?? null;
-    } catch {
-      sqliteCtor = null;
-    }
-  }
-  return sqliteCtor;
+interface ReadQueries {
+  prepare(sql: string): Pick<SqliteStatement, "get" | "all">;
 }
 
 /**
  * Global opt-out for the direct opencode.db reader (default **on**). Set
  * `OPENCODE_DB_READER=0` (or `false`/`off`/`no`) to disable it: the reader then
- * never opens the DB and never imports `node:sqlite`, and the OpenCode session
+ * never opens the DB or loads a SQLite driver, and the OpenCode session
  * paths fall back to the CLI export / legacy file tree exactly as before. This
- * keeps the whole sqlite dependency conditional and switchable — CI, or any
- * environment that prefers not to exercise the builtin, simply leaves it off.
+ * retains the direct-reader opt-out independently of YA's required own database.
  * Checked at the single `ensureDb` choke point, so one guard covers every query.
  */
 function openCodeDbReaderEnabled(): boolean {
@@ -120,8 +85,21 @@ export class OpenCodeDbReader {
   private db: SqliteDatabase | null | undefined = undefined;
   /** inode+mtime of the db file at open, to reopen if the file is replaced. */
   private dbStamp: string | undefined;
-  /** worktree -> project.id (or null when this worktree has no DB project). */
-  private projectIdCache = new Map<string, string | null>();
+  private closed = false;
+  /** Positive project ids only, valid until this native handle is replaced. */
+  private projectIdCache = new Map<string, string>();
+  // The reader has a fixed set of SQL strings, never SQL keyed by a session.
+  private readonly statements = new Map<string, SqliteStatement>();
+  private readonly queries: ReadQueries = {
+    prepare: (sql) => {
+      const existing = this.statements.get(sql);
+      if (existing) return existing;
+      if (!this.db) throw new Error("OpenCode database reader is closed");
+      const statement = this.db.prepare(sql);
+      this.statements.set(sql, statement);
+      return statement;
+    },
+  };
   /** Cached `session.parent_id` presence; reset when the handle reopens. */
   private sessionParentIdColumn: boolean | undefined;
 
@@ -133,6 +111,7 @@ export class OpenCodeDbReader {
    * stale handle. Returns null when the file is absent or sqlite is unavailable.
    */
   private ensureDb(): SqliteDatabase | null {
+    if (this.closed) return null;
     // Global opt-out (default on). When off, never touch the file or
     // node:sqlite — every query returns null and callers fall back.
     if (!openCodeDbReaderEnabled()) return null;
@@ -140,7 +119,7 @@ export class OpenCodeDbReader {
     let stamp: string;
     try {
       const st = statSync(this.databasePath);
-      stamp = `${st.ino}:${st.mtimeMs}:${st.size}`;
+      stamp = `${st.dev}:${st.ino}:${st.mtimeMs}:${st.ctimeMs}:${st.size}`;
     } catch {
       // File absent/unreadable: drop any cached handle and report unavailable.
       this.closeHandle();
@@ -150,13 +129,13 @@ export class OpenCodeDbReader {
     if (this.db && this.dbStamp === stamp) return this.db;
     if (this.db && this.dbStamp !== stamp) this.closeHandle();
 
-    const Ctor = loadSqliteCtor();
-    if (!Ctor) {
+    const driver = loadSqliteDriver();
+    if (!driver) {
       this.db = null;
       return null;
     }
     try {
-      this.db = new Ctor(this.databasePath, { readOnly: true });
+      this.db = driver.open(this.databasePath, { readOnly: true });
       this.dbStamp = stamp;
       return this.db;
     } catch {
@@ -167,6 +146,9 @@ export class OpenCodeDbReader {
   }
 
   private closeHandle(): void {
+    for (const statement of this.statements.values()) statement.finalize();
+    this.statements.clear();
+    this.projectIdCache.clear();
     if (this.db) {
       try {
         this.db.close();
@@ -181,19 +163,17 @@ export class OpenCodeDbReader {
 
   /** project.id for a worktree path, cached. Null when no DB / no such project. */
   async getProjectId(worktree: string): Promise<string | null> {
-    const cached = this.projectIdCache.get(worktree);
-    if (cached !== undefined) return cached;
-
-    const resolved = await this.run((db) => {
+    return this.run((db) => {
+      const cached = this.projectIdCache.get(worktree);
+      if (cached !== undefined) return cached;
       const row = db
         .prepare("SELECT id FROM project WHERE worktree = ?")
         .get(worktree) as DbRow | undefined;
       const id = row?.id;
-      return typeof id === "string" ? id : null;
+      if (typeof id !== "string") return null;
+      this.projectIdCache.set(worktree, id);
+      return id;
     });
-    const value = resolved ?? null;
-    this.projectIdCache.set(worktree, value);
-    return value;
   }
 
   /**
@@ -392,7 +372,7 @@ export class OpenCodeDbReader {
     );
   }
 
-  private sessionTableHasParentId(db: SqliteDatabase): boolean {
+  private sessionTableHasParentId(db: ReadQueries): boolean {
     if (this.sessionParentIdColumn !== undefined) {
       return this.sessionParentIdColumn;
     }
@@ -516,11 +496,11 @@ export class OpenCodeDbReader {
   }
 
   /** Run a query callback against the handle, mapping any failure to null. */
-  private async run<T>(fn: (db: SqliteDatabase) => T): Promise<T | null> {
+  private async run<T>(fn: (db: ReadQueries) => T): Promise<T | null> {
     const db = this.ensureDb();
     if (!db) return null;
     try {
-      return fn(db);
+      return fn(this.queries);
     } catch {
       // A locked/old-schema/corrupt read must fall through, never throw.
       return null;
@@ -528,6 +508,7 @@ export class OpenCodeDbReader {
   }
 
   close(): void {
+    this.closed = true;
     this.closeHandle();
   }
 }

@@ -56,13 +56,11 @@ export class OpenCodeSessionCatalogAdapter
   readonly storeKey: string;
   private readonly storageDir: string;
   private readonly databasePath: string;
-  private readonly dbReader: OpenCodeDbReader;
 
   constructor(options: OpenCodeCatalogAdapterOptions = {}) {
     this.storageDir = options.storageDir ?? OPENCODE_STORAGE_DIR;
     this.databasePath = options.databasePath ?? OPENCODE_DB_PATH;
     this.storeKey = this.storageDir;
-    this.dbReader = new OpenCodeDbReader(this.databasePath);
   }
 
   async scan(
@@ -72,8 +70,16 @@ export class OpenCodeSessionCatalogAdapter
     let skippedByMode = 0;
     let newestMs = 0;
 
-    const childIds = new Set(await this.dbReader.listChildSessionIds());
-    const dbRows = await this.dbReader.listAllSessionRows();
+    const dbReader = new OpenCodeDbReader(this.databasePath);
+    let childIds: Set<string>;
+    let dbRows: Awaited<ReturnType<OpenCodeDbReader["listAllSessionRows"]>>;
+    try {
+      childIds = new Set(await dbReader.listChildSessionIds());
+      dbRows = await dbReader.listAllSessionRows();
+    } finally {
+      // Catalogue adapters are finite publications, not native handle owners.
+      dbReader.close();
+    }
     for (const row of dbRows) {
       context.signal.throwIfAborted();
       const updatedAtMs = row.timeUpdated ?? row.timeCreated;

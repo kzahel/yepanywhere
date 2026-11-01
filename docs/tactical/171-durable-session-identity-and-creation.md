@@ -165,6 +165,22 @@ Runtime work and the provenance defect remain unimplemented.
   qualification. Other native-family/control and old-client focused-watch
   browser qualification remain phase-3 enabling work; no launch/capability
   behavior changes here.
+- Phase 3 OpenCode SQLite prerequisite is independently accepted. The native
+  reader now uses the common Node/Bun adapter with engine-enforced read-only
+  file opens; normal YA/relay/push opens are unchanged. Fixed SQL statements
+  and handle-dependent caches are released on replacement/retirement, misses
+  do not hide later native creation, and finite catalogue scans release their
+  native handles before walking JSON history. Pending lookup retirement cannot
+  reopen native storage or launch a new CLI fallback. Existing export/file-tree
+  fallbacks and native schema/target versions remain unchanged. Focused checks:
+  26 server checks in 0.661 s plus seven shared checks in 0.094 s. Actual
+  read-only/no-create/write-denial/WAL/lifetime probes and owned standalone YA
+  DB-only history/100-refresh/restart probes pass on Node 26.7.0, Node 22.23.3
+  and pinned Bun 1.3.14. Node 22's existing experimental SQLite notice remains
+  deliberately unsuppressed. Final lint, format, typecheck and full workspace
+  tests pass (6,755 server / 7,064 client). Native scope/public adoption,
+  bound OpenCode history and focused DB/WAL observation remain next; this
+  prerequisite does not qualify live model startup or another platform.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

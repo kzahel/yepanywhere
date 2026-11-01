@@ -2,7 +2,11 @@ import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { mkdir, rm } from "node:fs/promises";
-import { createRequire } from "node:module";
+import {
+  loadSqliteDriver,
+  openSqliteOrThrow,
+} from "../../src/storage/sqlite.js";
+import type { OpenCodeSessionReader } from "../../src/sessions/opencode-reader.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { UrlProjectId } from "@yep-anywhere/shared";
@@ -11,22 +15,6 @@ import { normalizeSession } from "../../src/sessions/normalization.js";
 
 const projectId = "test-project" as UrlProjectId;
 const PROJECT_HASH = "8e8fabade65fcb7be147f1c1f44eeb5f36a09680";
-
-// node:sqlite postdates vite's builtin list, so vitest's module runner can't
-// transform an `import` of it; require it natively (the reader does the same).
-// The supported Node floor includes SQLite. If an alternate runtime lacks
-// this particular builtin, preserve the reader's guarded fallback and skip
-// this suite instead of throwing at import time.
-const nodeRequire = createRequire(import.meta.url);
-type DatabaseSyncCtor = typeof import("node:sqlite").DatabaseSync;
-let DatabaseSync: DatabaseSyncCtor | undefined;
-try {
-  ({ DatabaseSync } = nodeRequire(
-    "node:sqlite",
-  ) as typeof import("node:sqlite"));
-} catch {
-  DatabaseSync = undefined;
-}
 
 interface MessageSpec {
   id: string;
@@ -58,7 +46,7 @@ function buildDb(
     }[];
   },
 ): void {
-  const db = new (DatabaseSync as DatabaseSyncCtor)(dbPath);
+  const db = openSqliteOrThrow(dbPath);
   db.exec(
     "CREATE TABLE project (id TEXT PRIMARY KEY, worktree TEXT NOT NULL, time_created INTEGER, time_updated INTEGER)",
   );
@@ -163,13 +151,14 @@ const richMessages: MessageSpec[] = [
   },
 ];
 
-describe.skipIf(!DatabaseSync)(
+describe.skipIf(!loadSqliteDriver())(
   "OpenCodeSessionReader (direct SQLite db reader)",
   () => {
     let testDir: string;
     let projectPath: string;
     let databasePath: string;
     let spawnMock: ReturnType<typeof vi.fn>;
+    const readers = new Set<OpenCodeSessionReader>();
 
     beforeEach(async () => {
       testDir = join(tmpdir(), `opencode-db-test-${randomUUID()}`);
@@ -196,6 +185,8 @@ describe.skipIf(!DatabaseSync)(
     });
 
     afterEach(async () => {
+      for (const reader of readers) reader.close();
+      readers.clear();
       vi.restoreAllMocks();
       vi.resetModules();
       await rm(testDir, { recursive: true, force: true });
@@ -205,12 +196,14 @@ describe.skipIf(!DatabaseSync)(
       const { OpenCodeSessionReader } = await import(
         "../../src/sessions/opencode-reader.js"
       );
-      return new OpenCodeSessionReader({
+      const reader = new OpenCodeSessionReader({
         storageDir: join(testDir, "missing-storage"),
         databasePath,
         opencodePath: "/fake/opencode",
         projectPath,
       });
+      readers.add(reader);
+      return reader;
     }
 
     it("omits the unfinished assistant tail only while an owned turn streams it", async () => {
@@ -488,6 +481,58 @@ describe.skipIf(!DatabaseSync)(
       // getSessionRow's message-count query hits a missing table -> reader returns
       // null and the call falls through (export yields nothing here).
       await expect(reader.getSession("ses_db", projectId)).resolves.toBeNull();
+    });
+
+    it("reuses native statements through refreshes and notices a formerly absent database", async () => {
+      const reader = await makeReader();
+      expect(await reader.getSessionSummary("ses_db", projectId)).toBeNull();
+      buildDb(databasePath, {
+        worktree: projectPath,
+        sessionId: "ses_db",
+        title: "native statement lifetime",
+        model: { id: "claude-opus-4.8", providerID: "github-copilot" },
+        messages: richMessages,
+      });
+      for (let index = 0; index < 100; index++) {
+        expect(
+          (await reader.getSessionSummary("ses_db", projectId))?.title,
+        ).toBe("native statement lifetime");
+        expect(
+          (await reader.getSession("ses_db", projectId))?.data.provider,
+        ).toBe("opencode");
+      }
+      // The portable statement ceiling catches prepare-per-query retention
+      // even on Node, where native statement reclamation would hide it.
+      reader.close();
+      expect(await reader.getSessionSummary("ses_db", projectId)).toBeNull();
+    });
+
+    it("does not reopen native storage or launch a fallback after retirement during proof", async () => {
+      const { OpenCodeDbReader } = await import(
+        "../../src/sessions/opencode-db-reader.js"
+      );
+      const reader = await makeReader();
+      let entered = () => {};
+      let release = () => {};
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      vi.spyOn(OpenCodeDbReader.prototype, "getProjectId").mockImplementation(
+        async () => {
+          entered();
+          await held;
+          return PROJECT_HASH;
+        },
+      );
+      const pending = reader.getSession("ses_db", projectId);
+      await started;
+      reader.close();
+      release();
+      expect(await pending).toBeNull();
+      expect(spawnMock).not.toHaveBeenCalled();
     });
 
     it("does not read the DB when OPENCODE_DB_READER is disabled", async () => {

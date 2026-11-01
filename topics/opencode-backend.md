@@ -274,18 +274,27 @@ source in `OpenCodeSessionReader` (`getSession`, `getSessionSummary`,
 below is the as-built contract; a few choices deviate from the original draft
 and are flagged inline.
 
-**Mechanism chosen: `node:sqlite`, not `better-sqlite3`** (the draft's primary).
-The published `yepanywhere` package copies `packages/server` dependencies
-verbatim (`scripts/build-bundle.ts`) and advertises zero external deps, so
-`better-sqlite3` would force a native build on every install plus the host's
-GLIBCXX friction. The DB reader is an *optimization with a working fallback*, so
-a dependency-free builtin fits better. It is loaded via `createRequire("node:sqlite")`
-(not a static/dynamic `import`): that degrades to null on Node < 22.5 (the main server now requires the
-[Node 22/Bun floor](server-runtime.md)) instead of crashing at module load, and sidesteps vitest's module runner,
-which can't transform this newer-than-vite builtin. On old runtimes the reader
-returns null and the export/file-tree fallbacks run exactly as before. One-time
-`ExperimentalWarning` on first use is left intact (reliable suppression needs a
-global `emitWarning` override that risks swallowing other warnings).
+**Runtime-portable read-only mechanism.** The reader uses
+[YA's shared SQLite adapter](optional-sqlite.md#runtime-portable-sqlite), selecting
+Node's built-in SQLite or Desktop's pinned Bun SQLite. No external SQLite
+package or native installer is added. A read-only file open requires an existing
+database and cannot create a missing native store. Missing/locked/old-schema
+sources retain the documented fallbacks. Normal database opens for YA, relay
+and push-broker storage retain their existing behavior.
+
+Each native reader owns one lazy read-only handle and one statement per fixed
+SQL string. Handle replacement releases those statements and cached positive
+project ids. Missing projects are not permanently cached, so a later native
+creation/WAL commit becomes visible to the same reader. Reader retirement is
+terminal: it cannot reopen its database or launch a new CLI fallback after a
+pending lookup settles. An already-started legacy CLI export retains its
+existing bounded completion path. Finite catalogue scans close their native
+handle after reading compact rows; retained catalogue rows do not retain it.
+
+This storage prerequisite for [plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
+does not enable different public/native launch ids, change OpenCode's native
+schema or refresh a provider target. Native `opencode.db` remains authoritative
+history and is never written, checkpointed or migrated by YA.
 
 **Fallback order: DB → file tree → export** (draft said DB → export → file tree).
 Putting the subprocess *last* keeps even pre-1.16 file-storage installs from
@@ -303,11 +312,11 @@ omitted from those top-level lists and exposed through
 [provider-child-sessions.md](provider-child-sessions.md).
 
 **Global opt-out: `OPENCODE_DB_READER` (default on).** Set it to `0`/`false`/
-`off`/`no` and the reader never opens the DB and never imports `node:sqlite` —
+`off`/`no` and the direct reader never opens the DB or loads a SQLite driver —
 every OpenCode session path falls back to CLI export / file tree, exactly as
 before the reader existed. The check sits at the single `ensureDb` choke point,
-so the whole sqlite dependency is conditional and switchable per environment.
-This keeps the builtin off any path that does not want it.
+so native OpenCode database reads remain independently switchable. YA's own
+required SQLite storage is unaffected.
 
 **Detail route had to be taught the `ses_*` shape, not just metadata.** The
 reader is necessary but not sufficient: the session-detail route

@@ -44,7 +44,8 @@ export interface SqliteDatabase {
 }
 
 export interface SqliteDriver {
-  open(path: string): SqliteDatabase;
+  /** Read-only file opens require an existing database; missing files fail. */
+  open(path: string, options?: { readOnly?: boolean }): SqliteDatabase;
 }
 
 /**
@@ -176,20 +177,32 @@ export function loadSqliteDriver(): SqliteDriver | undefined {
       const { Database } = requireBuiltin("bun:sqlite") as {
         Database: new (
           path: string,
-          options: { create: boolean; strict: boolean },
+          options: { create: boolean; strict: boolean; readonly?: boolean },
         ) => NativeDatabase;
       };
       if (typeof Database !== "function") return undefined;
       return {
-        open: (path) =>
-          wrapDatabase(new Database(path, { create: true, strict: true })),
+        open: (path, options) =>
+          wrapDatabase(
+            new Database(path, {
+              create: options?.readOnly !== true,
+              strict: true,
+              ...(options?.readOnly ? { readonly: true } : {}),
+            }),
+          ),
       };
     }
     const { DatabaseSync } = requireBuiltin("node:sqlite") as {
-      DatabaseSync: new (path: string) => NativeDatabase;
+      DatabaseSync: new (
+        path: string,
+        options?: { readOnly?: boolean },
+      ) => NativeDatabase;
     };
     if (typeof DatabaseSync !== "function") return undefined;
-    return { open: (path) => wrapDatabase(new DatabaseSync(path)) };
+    return {
+      open: (path, options) =>
+        wrapDatabase(new DatabaseSync(path, options ?? {})),
+    };
   } catch {
     return undefined;
   }
@@ -199,12 +212,15 @@ export function loadSqliteDriver(): SqliteDriver | undefined {
  * Open storage for a caller that cannot degrade, unlike the server's optional
  * discovery store: relay and push broker exist to persist their registries.
  */
-export function openSqliteOrThrow(path: string): SqliteDatabase {
+export function openSqliteOrThrow(
+  path: string,
+  options?: { readOnly?: boolean },
+): SqliteDatabase {
   const driver = loadSqliteDriver();
   if (!driver) {
     throw new Error(
       `This runtime has no built-in SQLite (node:sqlite or bun:sqlite). Node ${SERVER_NODE_RANGE} or Bun ${SERVER_BUN_RANGE} provides it.`,
     );
   }
-  return driver.open(path);
+  return driver.open(path, options);
 }
