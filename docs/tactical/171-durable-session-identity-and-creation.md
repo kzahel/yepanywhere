@@ -89,6 +89,18 @@ Runtime work and the provenance defect remain unimplemented.
   Standalone Node 26.7.0 and pinned Bun 1.3.14 HTTP probes pass scoped native
   child/public parent/original-A–working-B reads before and after restart.
   These do not qualify native CLI/model or hosted continuity.
+  The native catalogue/helper consumer cut is independently accepted. Optional
+  Codex question enrichment resolves public archive facts through scoped reverse
+  binding. Vocabulary reads use actual native roots; old scope-less rows defer
+  without checkpoints or blocking other learning. Maintenance comparison borrows
+  the app's scoped reader and retains the public response id. Existing actual
+  app/SQLite fixtures now include private-versus-ambient vocabulary and an owned
+  maintenance HTTP comparison. Focused checks: 41 passed across five files in
+  5.56 s; warning-free lint, format, typecheck and workspace tests pass
+  (6,742 server / 7,064 client). Private-home actual app/SQLite/native vocabulary
+  and metadata-collision probes also pass on Node 26.7.0 and pinned Bun 1.3.14.
+  The production maintenance callback is source-reviewed; the controlled HTTP
+  fixture qualifies its handler and bound reader, not native CLI/model startup.
   Remaining all-provider observation, released-browser/owned-confirmation
   qualification, native source consumers and other provider shapes are pending;
   phase 3 is not complete.

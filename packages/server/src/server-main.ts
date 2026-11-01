@@ -16,6 +16,9 @@ import {
   SPEECH_RELAY_CHANNEL,
   idleReapHoursToMs,
   isClaudeProviderName,
+  isYaSessionId,
+  parseNativeSessionId,
+  toUrlProjectId,
   parseSpeechVoiceBackends,
   unionSpeechVoiceBackends,
 } from "@yep-anywhere/shared";
@@ -136,7 +139,7 @@ import { SpeechBackendInstallService } from "./services/voice/speechBackendInsta
 import { claudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { codexEntryCacheBudget } from "./sessions/codex-entry-cache-budget.js";
 import { providerCatalogFamily } from "./sessions/provider-catalog-family.js";
-import { ClaudeSessionReader } from "./sessions/reader.js";
+import { boundSessionSource } from "./sessions/provider-resolution.js";
 import { AttachmentStagingService } from "./uploads/AttachmentStagingService.js";
 import { UploadManager } from "./uploads/manager.js";
 import {
@@ -1152,6 +1155,7 @@ async function startServer() {
     app,
     supervisor,
     scanner,
+    readerFactory,
     disposeSessionReaders,
     stopNotifications,
     glossaryIndexService,
@@ -1349,15 +1353,32 @@ async function startServer() {
   setDebugContext({
     supervisor,
     claudeSessionsDir: config.claudeSessionsDir,
-    getSessionReader: async (projectPath: string) => {
-      // Find the project by scanning - projectPath is the absolute path
-      const projects = await scanner.listProjects();
-      const project = projects.find((p) => p.path === projectPath);
-      if (!isClaudeProviderName(project?.provider)) return null;
-      return new ClaudeSessionReader({
-        sessionDir: project.sessionDir,
-        summaryParserWorkerMode: config.claudeSummaryParserWorkerMode,
-      });
+    getSessionSource: async (projectPath, sessionId) => {
+      const identity = isYaSessionId(sessionId)
+        ? sessionMetadataService.identities.resolveYa(sessionId)
+        : undefined;
+      if (identity && !identity.native) return null;
+      const project = await scanner.getOrCreateProject(
+        identity?.projectId ?? toUrlProjectId(projectPath),
+      );
+      if (
+        !project ||
+        !isClaudeProviderName(identity?.provider ?? project.provider)
+      )
+        return null;
+      const bound = boundSessionSource(
+        project,
+        sessionId,
+        { readerFactory },
+        identity ? { kind: "stored", identity } : { kind: "legacy" },
+      );
+      if (bound === null) return null;
+      return {
+        reader: bound?.source.reader ?? readerFactory(project),
+        nativeSessionId:
+          bound?.nativeSessionId ?? parseNativeSessionId(sessionId),
+        projectId: bound?.projectId ?? project.id,
+      };
     },
   });
 

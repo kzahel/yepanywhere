@@ -75,6 +75,9 @@ more.
 
 The base generation publishes before the optional Codex question pass. That
 pass skips archived sessions and obeys the existing bounded preview contract.
+Archive metadata comes from the scoped native binding's public session. A raw
+native spelling that also names an unrelated public resource cannot supply
+that resource's archive state to the row.
 A subsequent generation adds observed questions; clients preserve existing
 detail when compact fields are omitted. File identity includes device, inode,
 size, modification time, and change time. An append or replacement during a

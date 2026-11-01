@@ -27,7 +27,11 @@ import {
 import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
 import { collectionCatalogAdapters } from "../../src/sessions/catalog-adapters/collection-catalog-adapters.js";
 import { readRetainedSessionItems } from "../../src/routes/retained-session-collections.js";
-import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js";
+import { vocabularySessions } from "../../src/services/voice/vocabulary-sessions.js";
+import {
+  metadataForNativeCatalogRow,
+  projectCatalogIdentities,
+} from "../../src/sessions/catalog-identity.js";
 import { createApp } from "../setup/create-app.js";
 
 it("projects discovery once across native collections and scoped summary lookups, including a merged private root and reopen", async () => {
@@ -278,7 +282,7 @@ it("projects discovery once across native collections and scoped summary lookups
           ),
       });
       await collections.refresh();
-      const { rows } = await collections.read();
+      const { rows, catalog } = await collections.read();
       const row = rows.find((r) => r.sessionId === nativeId);
       expect(row?.nativeStorageScope).toBe(native.storageScope);
       expect(row?.storeKey).toBe(globalRoot);
@@ -288,6 +292,81 @@ it("projects discovery once across native collections and scoped summary lookups
           (r) => r.sessionId === publicId,
         )?.nativeSessionId,
       ).toBe(nativeId);
+      if (!row) throw new Error("expected scoped native catalogue row");
+      await metadata.setArchived(nativeId, true);
+      await metadata.setArchived(publicId, false);
+      expect(
+        metadataForNativeCatalogRow(row, metadata)?.isArchived ?? false,
+      ).toBe(false);
+      await metadata.setArchived(publicId, true);
+      expect(metadataForNativeCatalogRow(row, metadata)?.isArchived).toBe(true);
+      expect(
+        metadataForNativeCatalogRow(
+          { ...row, nativeStorageScope: globalRoot },
+          metadata,
+        ),
+      ).toBeUndefined();
+      await metadata.setArchived(publicId, false);
+      // The vocabulary consumer keeps native checkpoint keys but must read
+      // this actual private root, not an ambient reader with the same N.
+      const wrongFile = join(globalRoot, `rollout-${nativeId}.jsonl`);
+      await writeFile(
+        wrongFile,
+        [
+          JSON.stringify({
+            type: "session_meta",
+            timestamp,
+            payload: { id: nativeId, cwd: projectPath, timestamp },
+          }),
+          JSON.stringify({
+            type: "event_msg",
+            timestamp,
+            payload: {
+              type: "user_message",
+              message: "WRONG AMBIENT VOCABULARY",
+            },
+          }),
+        ].join("\n") + "\n",
+      );
+      try {
+        const vocabularyDeps = {
+          ...resolution,
+          codexReaderFactory: () =>
+            app!.readerFactory({
+              ...project,
+              provider: "codex",
+              sessionDir: globalRoot,
+            }) as import("../../src/sessions/codex-reader.js").CodexSessionReader,
+        };
+        const nativeCatalog = {
+          read: async () => ({ rows: [row], catalog }),
+          invalidate: vi.fn(),
+        };
+        const collect = async (sourceRow: typeof row) => {
+          const sessions = vocabularySessions(
+            {
+              ...nativeCatalog,
+              read: async () => ({ rows: [sourceRow], catalog }),
+            },
+            app!.scanner,
+            vocabularyDeps,
+            0,
+          );
+          const first = await sessions[Symbol.asyncIterator]().next();
+          if (first.done) return undefined;
+          const batches = [];
+          for await (const batch of first.value.messages()) batches.push(batch);
+          return JSON.stringify(batches);
+        };
+        const learned = await collect(row);
+        expect(learned).toContain("private native source");
+        expect(learned).not.toContain("WRONG AMBIENT VOCABULARY");
+        await expect(
+          collect({ ...row, nativeStorageScope: undefined }),
+        ).resolves.toBeUndefined();
+      } finally {
+        await rm(wrongFile);
+      }
       // This shared projection also supplies the authorization catalogue.
       expect(
         projectCatalogIdentities(rows, metadata).find(

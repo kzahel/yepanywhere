@@ -761,7 +761,11 @@ learn unsubmitted browser drafts, tool arguments/results, reasoning blocks,
 explicit metadata messages, or compact summaries. Untimestamped records are
 excluded because they cannot be assigned to the requested history window.
 The catalog supplies source identity and recency; UI order and live partial
-message IDs are never learning inputs.
+message IDs are never learning inputs. Native scope and original project select
+history readers, including when a YA id differs from its native id. Native
+catalogue/checkpoint keys stay intact. Old Claude/Codex rows without source scope
+wait for a fresh scoped publication and leave their checkpoints untouched;
+they do not read an ambient same-string transcript or block other learning.
 
 Speech settings offer a numeric hours field and slider, a
 green Scan + Learn and red Stop + Clear actions, progress, and a separate

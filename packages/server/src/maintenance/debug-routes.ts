@@ -12,7 +12,8 @@
 import type * as http from "node:http";
 import type { SDKMessage } from "../sdk/types.js";
 import { normalizeSession } from "../sessions/normalization.js";
-import type { ClaudeSessionReader } from "../sessions/reader.js";
+import type { ISessionReader } from "../sessions/types.js";
+import type { UrlProjectId } from "@yep-anywhere/shared";
 import type { Process } from "../supervisor/Process.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type { Message } from "../supervisor/types.js";
@@ -23,10 +24,15 @@ import type { Message } from "../supervisor/types.js";
  */
 export interface DebugContext {
   supervisor: Supervisor;
-  /** Get a session reader for a given project path */
-  getSessionReader: (
+  /** Borrow the app's scoped native reader for this public session. */
+  getSessionSource: (
     projectPath: string,
-  ) => Promise<ClaudeSessionReader | null>;
+    sessionId: string,
+  ) => Promise<{
+    reader: ISessionReader;
+    nativeSessionId: string;
+    projectId: UrlProjectId;
+  } | null>;
   /** Claude sessions directory (for finding JSONL files) */
   claudeSessionsDir: string;
 }
@@ -37,7 +43,7 @@ let debugContext: DebugContext | null = null;
 /**
  * Set the debug context (called from main app initialization).
  */
-export function setDebugContext(ctx: DebugContext): void {
+export function setDebugContext(ctx: DebugContext | null): void {
   debugContext = ctx;
 }
 
@@ -386,8 +392,8 @@ async function handleCompare(
   );
 
   // Get JSONL messages (on-disk)
-  const reader = await ctx.getSessionReader(process.projectPath);
-  if (!reader) {
+  const source = await ctx.getSessionSource(process.projectPath, sessionId);
+  if (!source) {
     sendJson(res, 500, {
       error: "Could not create session reader",
       projectPath: process.projectPath,
@@ -395,9 +401,9 @@ async function handleCompare(
     return;
   }
 
-  const loadedSession = await reader.getSession(
-    sessionId,
-    process.projectId,
+  const loadedSession = await source.reader.getSession(
+    source.nativeSessionId,
+    source.projectId,
     undefined,
     { includeOrphans: false },
   );

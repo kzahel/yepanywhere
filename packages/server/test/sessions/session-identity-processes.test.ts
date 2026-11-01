@@ -1,8 +1,16 @@
+import { createServer } from "node:http";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { expect, it, vi } from "vitest";
+import {
+  getDebugContext,
+  handleDebugRequest,
+  setDebugContext,
+} from "../../src/maintenance/debug-routes.js";
+import { boundSessionSource } from "../../src/sessions/provider-resolution.js";
+import type { Process } from "../../src/supervisor/Process.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import { attachProviderChildSessions } from "../../src/sessions/provider-child-sessions.js";
@@ -206,6 +214,78 @@ it.each(["claude", "codex"] as const)(
             model: provider === "claude" ? "claude-opus-4-6" : "gpt-6.1-sol",
           }),
         ]);
+        if (provider === "claude") {
+          const prior = getDebugContext();
+          const lookup = vi
+            .spyOn(app.supervisor, "getProcessForSession")
+            .mockReturnValue({
+              projectPath: workingPath,
+              projectId: workingId,
+              getMessageHistory: () => [
+                {
+                  type: "user",
+                  uuid: "user",
+                  message: { role: "user", content: "correct native title" },
+                },
+              ],
+            } as unknown as Process);
+          setDebugContext({
+            supervisor: app.supervisor,
+            claudeSessionsDir: projectsDir,
+            getSessionSource: async () => {
+              const project = await app!.scanner.getOrCreateProject(originalId);
+              if (!project) return null;
+              const source = boundSessionSource(project, sessionId, {
+                readerFactory: app!.readerFactory,
+                identities: metadata.identities,
+              });
+              return source
+                ? {
+                    reader: source.source.reader,
+                    nativeSessionId: source.nativeSessionId,
+                    projectId: source.projectId,
+                  }
+                : null;
+            },
+          });
+          const server = createServer((req, res) => {
+            void handleDebugRequest(
+              req,
+              res,
+              new URL(req.url!, "http://127.0.0.1"),
+            ).catch(() => {
+              res.writeHead(500);
+              res.end();
+            });
+          });
+          try {
+            await new Promise<void>((resolve) =>
+              server.listen(0, "127.0.0.1", resolve),
+            );
+            const address = server.address();
+            if (!address || typeof address === "string")
+              throw new Error("expected test listener");
+            const response = await fetch(
+              `http://127.0.0.1:${address.port}/debug/sessions/${sessionId}/compare`,
+            );
+            expect(response.status).toBe(200);
+            expect(await response.json()).toMatchObject({
+              sessionId,
+              jsonl: { count: 2 },
+              comparison: {
+                matching: 1,
+                inSseOnly: [],
+                inJsonlOnly: ["assistant"],
+              },
+            });
+          } finally {
+            setDebugContext(prior);
+            lookup.mockRestore();
+            await new Promise<void>((resolve, reject) =>
+              server.close((error) => (error ? reject(error) : resolve())),
+            );
+          }
+        }
         if (provider === "codex") {
           const nativeReader = new CodexSessionReader({
             sessionsDir: nativeRoot,

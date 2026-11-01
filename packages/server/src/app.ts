@@ -254,7 +254,10 @@ import {
 } from "./routes/session-list-options.js";
 import { RetainedSessionCollections } from "./services/RetainedSessionCollections.js";
 import { collectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
-import { projectCatalogIdentities } from "./sessions/catalog-identity.js";
+import {
+  metadataForNativeCatalogRow,
+  projectCatalogIdentities,
+} from "./sessions/catalog-identity.js";
 import { resolveExistingSessionIdentity } from "./routes/session-existing-identity.js";
 import {
   providerCatalogFamily,
@@ -3043,7 +3046,7 @@ export function createApp(options: AppOptions): AppResult {
     eventBus: options.eventBus,
     shouldReadQuestions: (row) =>
       !(
-        options.sessionMetadataService?.getMetadata(row.sessionId)
+        metadataForNativeCatalogRow(row, options.sessionMetadataService)
           ?.isArchived ??
         isSessionAutoArchived(
           row,

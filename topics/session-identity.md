@@ -108,6 +108,15 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   lookup and sequential per-provider work. External ownership joins and
   remaining helper/launch consumers are still being qualified before
   differing-id launches.
+- Optional catalogue question enrichment resolves archive metadata through the
+  scoped reverse binding. A native spelling already claimed by another public
+  resource supplies no metadata to that row. Speech vocabulary history uses the
+  raw catalogue's native root/id and original project while retaining native
+  checkpoint keys; scope-less old Claude/Codex rows wait for the next scoped
+  publication without blocking other learning. Maintenance history comparison
+  borrows the app's bound reader/native id/original project and keeps the
+  requested public id in its result. It does not allocate a separate reader or
+  scan projects to infer a stored session's source.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.
