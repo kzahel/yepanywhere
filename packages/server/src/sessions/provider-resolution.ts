@@ -1,8 +1,11 @@
+import { realpath } from "node:fs/promises";
+import { basename } from "node:path";
 import {
   isClaudeProviderName,
   isYaSessionId,
   fromUrlProjectId,
   parseNativeSessionId,
+  nativeSessionFamily,
   type NativeSessionId,
   type NativeSessionRef,
   type ProviderName,
@@ -50,6 +53,7 @@ export interface ProviderProjectCatalog {
 }
 
 export interface ProviderResolutionDeps {
+  signal?: AbortSignal;
   identities?: SessionIdentityStore;
   getRecordedProvider?: (sessionId: string) => ProviderName | undefined;
   readerFactory: SessionReaderFactory;
@@ -75,18 +79,77 @@ export interface SessionSource {
   kind: "primary" | "codex" | "gemini" | "opencode" | "grok" | "pi";
 }
 
-export interface ResolvedSessionSummary {
+export interface ResolvedSessionSource {
   source: SessionSource;
   nativeSessionId: NativeSessionId;
   native?: NativeSessionRef;
+}
+
+export interface ResolvedSessionSummary extends ResolvedSessionSource {
   summary: SessionSummary;
 }
 
-export interface ResolvedSessionListSummary {
-  source: SessionSource;
-  nativeSessionId: NativeSessionId;
-  native?: NativeSessionRef;
+export interface ResolvedSessionListSummary extends ResolvedSessionSource {
   summary: SessionListSummary;
+}
+
+/** Legacy reads cannot create an alias for another stored public resource. */
+export async function resolveLegacySessionSource(
+  source: SessionSource,
+  sessionId: string,
+  project: Project,
+  deps: ProviderResolutionDeps,
+  options?: { allowMissingNativeProof: boolean },
+): Promise<ResolvedSessionSource | null> {
+  if (deps.signal?.aborted) return null;
+  const nativeSessionId = parseNativeSessionId(sessionId);
+  // Unmigrated reader shapes retain their existing legacy boundary. Qualified
+  // native readers expose their actual scope, including merged private roots.
+  const native = deps.identities
+    ? await source.reader.getNativeSessionRef?.(nativeSessionId)
+    : undefined;
+  if (deps.signal?.aborted) return null;
+  if (
+    deps.identities &&
+    source.reader.getNativeSessionRef &&
+    !native &&
+    !options?.allowMissingNativeProof
+  )
+    return null;
+  if (native) {
+    if (
+      native.id !== nativeSessionId ||
+      native.family !== nativeSessionFamily(source.provider)
+    )
+      return null;
+    if (native.family === "claude" && source.reader.getSessionFilePath) {
+      const file = await source.reader.getSessionFilePath(nativeSessionId);
+      const physical = file ? await realpath(file).catch(() => null) : null;
+      if (
+        deps.signal?.aborted ||
+        !physical ||
+        basename(physical) !== `${nativeSessionId}.jsonl`
+      )
+        return null;
+    }
+    const owner = deps.identities?.lookupNative(native);
+    if (
+      owner &&
+      (owner.sessionId !== sessionId || owner.projectId !== project.id)
+    )
+      return null;
+  }
+  const selected = native
+    ? {
+        ...source,
+        reader: deps.readerFactory(
+          { ...project, provider: source.provider },
+          native,
+        ),
+        sessionDir: native.storageScope,
+      }
+    : source;
+  return { source: selected, nativeSessionId, ...(native ? { native } : {}) };
 }
 
 /** A public lookup either resolves its exact stored source or stays legacy. */
@@ -104,6 +167,7 @@ export function boundSessionSource(
     }
   | null
   | undefined {
+  if (deps.signal?.aborted) return null;
   const identity =
     lookup?.kind === "stored"
       ? lookup.identity
@@ -745,9 +809,19 @@ export async function findSessionListSummaryAcrossProviders(
     bound
       ? { ...summary, id: sessionId, provider: bound.source.provider }
       : summary;
-  for (const source of bound
+  for (const candidate of bound
     ? [bound.source]
     : getSessionSources(project, deps, preferredProvider)) {
+    const legacy = bound
+      ? undefined
+      : await resolveLegacySessionSource(
+          candidate,
+          sessionId,
+          { ...project, id: nativeProjectId },
+          deps,
+        );
+    if (legacy === null) continue;
+    const source = legacy?.source ?? candidate;
     if (source.reader.getSessionListSummary) {
       const cachedSummary = deps.sessionIndexService
         ? await deps.sessionIndexService.getCachedSessionSummary(
@@ -768,7 +842,9 @@ export async function findSessionListSummaryAcrossProviders(
         return {
           source,
           nativeSessionId,
-          ...(bound ? { native: bound.native } : {}),
+          ...((bound?.native ?? legacy?.native)
+            ? { native: bound?.native ?? legacy?.native }
+            : {}),
           summary: projectSummary(toSessionListSummary(cachedSummary)),
         };
       }
@@ -782,7 +858,9 @@ export async function findSessionListSummaryAcrossProviders(
         return {
           source,
           nativeSessionId,
-          ...(bound ? { native: bound.native } : {}),
+          ...((bound?.native ?? legacy?.native)
+            ? { native: bound?.native ?? legacy?.native }
+            : {}),
           summary: projectSummary(summary),
         };
       }
@@ -801,7 +879,9 @@ export async function findSessionListSummaryAcrossProviders(
       return {
         source,
         nativeSessionId,
-        ...(bound ? { native: bound.native } : {}),
+        ...((bound?.native ?? legacy?.native)
+          ? { native: bound?.native ?? legacy?.native }
+          : {}),
         summary: projectSummary(toSessionListSummary(completeSummary)),
       };
     }
@@ -829,9 +909,19 @@ export async function findSessionSummaryAcrossProviders(
     bound
       ? { ...summary, id: sessionId, provider: bound.source.provider }
       : summary;
-  for (const source of bound
+  for (const candidate of bound
     ? [bound.source]
     : getSessionSources(project, deps, preferredProvider)) {
+    const legacy = bound
+      ? undefined
+      : await resolveLegacySessionSource(
+          candidate,
+          sessionId,
+          { ...project, id: nativeProjectId },
+          deps,
+        );
+    if (legacy === null) continue;
+    const source = legacy?.source ?? candidate;
     if (deps.sessionIndexService && options?.readMode === "head") {
       const cachedSummary =
         await deps.sessionIndexService.getCachedSessionSummary(
@@ -844,7 +934,9 @@ export async function findSessionSummaryAcrossProviders(
         return {
           source,
           nativeSessionId,
-          ...(bound ? { native: bound.native } : {}),
+          ...((bound?.native ?? legacy?.native)
+            ? { native: bound?.native ?? legacy?.native }
+            : {}),
           summary: projectSummary(cachedSummary),
         };
       }
@@ -874,7 +966,9 @@ export async function findSessionSummaryAcrossProviders(
       return {
         source,
         nativeSessionId,
-        ...(bound ? { native: bound.native } : {}),
+        ...((bound?.native ?? legacy?.native)
+          ? { native: bound?.native ?? legacy?.native }
+          : {}),
         summary: projectSummary(summary),
       };
     }

@@ -133,6 +133,20 @@ Runtime work and the provenance defect remain unimplemented.
   [its existing gap](../../gaps/rendez-nested-watch-event-after-restart.md).
   Hosting remains a separate owned scenario; native Linux/Windows execution,
   durable-creation and live model qualification are not claimed.
+- Phase 3 legacy-alias guard is independently accepted after three review
+  fixes: proof selects a scope-constrained pooled reader, unknown-parent child
+  fallback requires native evidence, and the production fork-source callback
+  carries app cancellation. Missing public native spellings cannot read or
+  control another scoped public binding; existing ids retain their spelling.
+  Real App/SQLite merged-root, orphaned-child and held-fork teardown regressions
+  pass. Focused checks: 36 passed across six files in 5.38 s. Owned Node 26.7.0
+  and pinned Bun 1.3.14 HTTP/append/restart probes pass. Lint, format and
+  typecheck pass. The final workspace run passed 6,752 server / 7,064 client;
+  an unchanged-tree preceding run failed the separately tracked
+  [Rendez restart watcher](../../gaps/rendez-nested-watch-event-after-restart.md).
+  Both outcomes are retained; this slice does not resolve that instability.
+  Host PID correlation and other retained-provider qualification remain next;
+  launch behavior and capability advertisement are unchanged.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

@@ -16,6 +16,7 @@ import type {
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 
 export interface SessionProviderResolutionDeps {
+  signal?: AbortSignal;
   sessionMetadataService?: Pick<
     SessionMetadataService,
     "identities" | "getProvider"
@@ -52,6 +53,7 @@ export function providerResolutionDeps(
   deps: SessionProviderResolutionDeps,
 ): ProviderResolutionDeps {
   return {
+    signal: deps.signal,
     identities: deps.sessionMetadataService?.identities,
     getRecordedProvider: (sessionId) =>
       deps.sessionMetadataService?.getProvider?.(sessionId),

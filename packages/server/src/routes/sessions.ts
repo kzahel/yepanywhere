@@ -136,6 +136,7 @@ import {
 } from "../sessions/persisted-augments.js";
 import {
   boundSessionSource,
+  resolveLegacySessionSource,
   findSessionListSummaryAcrossProviders,
   findSessionSummaryAcrossProviders,
   getSessionSources,
@@ -298,6 +299,7 @@ function isQueueFullResponse(
 }
 
 export interface SessionsDeps {
+  signal?: AbortSignal;
   onIssueWindow?: (
     source: { sessionId: string; projectId: string },
     messages: readonly Message[],
@@ -441,11 +443,33 @@ async function resolveSessionReader({
     metadataProvider,
   );
 
-  return {
-    reader: resolved?.source.reader ?? deps.readerFactory(project),
-    nativeSessionId:
-      resolved?.nativeSessionId ?? parseNativeSessionId(sessionId),
-  };
+  if (resolved)
+    return {
+      reader: resolved.source.reader,
+      nativeSessionId: resolved.nativeSessionId,
+    };
+  const fallback = await resolveLegacySessionSource(
+    {
+      provider: project.provider,
+      reader: deps.readerFactory(project),
+      sessionDir: project.sessionDir,
+      kind: "primary",
+    },
+    sessionId,
+    { ...project, id: projectId },
+    providerResolutionDeps(deps),
+    {
+      allowMissingNativeProof: Boolean(
+        deps.sessionMetadataService?.getMetadata(sessionId),
+      ),
+    },
+  );
+  return fallback
+    ? {
+        reader: fallback.source.reader,
+        nativeSessionId: fallback.nativeSessionId,
+      }
+    : null;
 }
 
 interface StartSessionBody {
@@ -2514,6 +2538,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     identity?: SessionIdentity;
     nativeSource?: { reader: ISessionReader; nativeSessionId: string };
   }> => {
+    if (deps.signal?.aborted) return { session: null };
     const identity =
       lookup?.kind === "stored"
         ? lookup.identity
@@ -2556,11 +2581,19 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     // Explicit retained legacy reader boundary. No managed/unbound identity
     // reaches this path or substitutes its public id for a native address.
-    for (const source of getSessionSources(
+    for (const candidate of getSessionSources(
       project,
       providerResolutionDeps(deps),
       preferredProvider,
     )) {
+      const legacy = await resolveLegacySessionSource(
+        candidate,
+        sessionId,
+        { ...project, id: projectId },
+        providerResolutionDeps(deps),
+      );
+      if (!legacy) continue;
+      const source = legacy.source;
       const summaryHint =
         options?.tailCompactions !== undefined &&
         source.provider === "codex" &&
@@ -2568,7 +2601,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           ? await deps.sessionIndexService.getCachedSessionSummary(
               source.sessionDir,
               projectId,
-              sessionId,
+              legacy.nativeSessionId,
               source.reader,
               // A live Codex rollout grows between index passes, so requiring
               // an exactly-current index meant every mid-turn open of a long
@@ -2579,7 +2612,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             )
           : null;
       const loaded = await source.reader.getSession(
-        sessionId,
+        legacy.nativeSessionId,
         projectId,
         afterMessageId,
         summaryHint ? { ...options, summaryHint } : options,
@@ -2587,7 +2620,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       if (loaded) {
         return {
           session: loaded,
-          nativeSource: { reader: source.reader, nativeSessionId: sessionId },
+          nativeSource: {
+            reader: source.reader,
+            nativeSessionId: legacy.nativeSessionId,
+          },
         };
       }
     }

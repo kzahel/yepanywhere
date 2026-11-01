@@ -96,3 +96,21 @@ E2E process/environment composition and its own tests, not the Rendez watcher,
 fixture or eight-second wait. Evidence: ignored
 `tasks/session-identity/standalone-test.log` (129.77 s server run). This failed
 run remains recorded; no watcher retry or budget change replaces it.
+
+2026-11-01: the reviewed legacy session-alias guard workspace run on macOS /
+Node 26.7.0 missed the second nested-file delivery at line 364 (1 observed,
+2 expected). 6,751 other server tests and all 7,064 client tests passed;
+server duration was 135.85 s. The six focused identity files passed 36 cases
+in 5.38 s, including merged-root, orphaned-child and shutdown interleavings.
+This slice touches no Rendez watcher source, fixture, assertion or budget.
+Evidence: ignored `tasks/session-identity/phase-3-alias-reviewed-test.log`.
+The preceding version's whole workspace run passed before the review fixes;
+that does not qualify the corrected tree or explain this recurrence. The
+failed run remains red. An isolated diagnostic and unchanged-tree full repeat
+are recorded separately; neither closes this gap or erases this failure.
+
+The isolated diagnostic passed 4 runnable cases / 1 retained skip in 6.14 s
+(`phase-3-alias-rendez-diagnostic.log`). An unchanged-source full repeat passed
+6,752 server / 7,064 client tests (139.08 s server run), recorded separately in
+`phase-3-alias-repeat-test.log`. This disagreement is additional intermittent
+evidence; no Rendez code, fixture, assertion, retry setting or budget changed.

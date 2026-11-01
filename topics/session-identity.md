@@ -134,6 +134,23 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   catalogue/history and later writes retain their own observation paths. Closing
   the observer cancels pending resolution and publication before reader/SQL
   teardown. No recurring per-session observation loop is added.
+- Missing public-id lookups do not turn a provider address into another URL
+  alias for an existing YA resource. Qualified legacy readers resolve their
+  actual native scope before history/index/control access and reject an address
+  already bound to a different public id or original project. Detail, metadata,
+  agent, helper and resume fallback paths share this guard; they do not redirect
+  or substitute the other YA resource before authorization. Valid legacy ids
+  remain unchanged. A verified native reference selects a pooled reader
+  constrained to that root before history/index/child access; an empty first
+  file cannot authorize falling through to another merged root. A missing
+  parent transcript supplies no native proof for an otherwise unknown child
+  URL. Explicit metadata-only recovery and unmigrated reader boundaries retain
+  their legacy behavior. Physical Claude filename case is checked rather than
+  treating case-folded provider addresses as public aliases. The operation
+  carries its verified native reference onward instead of asking downstream
+  helpers to infer it again. App read-lifetime cancellation, including the
+  production fork-source callback, fences asynchronous native proof before
+  further identity queries.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

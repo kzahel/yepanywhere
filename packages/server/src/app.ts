@@ -1507,6 +1507,7 @@ export function createApp(options: AppOptions): AppResult {
       : null;
   /** Least recently used first; bounded by `maxReaderCacheSize`. */
   const readerCache = createLruMap<string, ISessionReader>();
+  const sessionReadLifetime = new AbortController();
   const projectFileCompletion = new ProjectFileCompletion(effectiveDataDir, {
     eventBus: options.eventBus,
   });
@@ -1605,6 +1606,7 @@ export function createApp(options: AppOptions): AppResult {
     // Explicit shutdown and fixture ownership may join the same disposal.
     // Cache the promise before asynchronous cleanup can close shared services.
     sessionReadersDisposal ??= (async () => {
+      sessionReadLifetime.abort();
       externalTracker?.dispose();
       await options.peerAccess?.close();
       apiCommands?.close();
@@ -1939,6 +1941,7 @@ export function createApp(options: AppOptions): AppResult {
       sessionId,
       project.id,
       {
+        signal: sessionReadLifetime.signal,
         identities: options.sessionMetadataService?.identities,
         getRecordedProvider: (id) =>
           options.sessionMetadataService?.getProvider(id),
@@ -1986,6 +1989,7 @@ export function createApp(options: AppOptions): AppResult {
       sessionId,
       project.id,
       {
+        signal: sessionReadLifetime.signal,
         identities: options.sessionMetadataService?.identities,
         getRecordedProvider: (id) =>
           options.sessionMetadataService?.getProvider(id),
@@ -2098,6 +2102,7 @@ export function createApp(options: AppOptions): AppResult {
       })
     : undefined;
   const sessionProviderResolutionDeps = () => ({
+    signal: sessionReadLifetime.signal,
     identities: options.sessionMetadataService?.identities,
     readerFactory,
     codexSessionsDir,
@@ -2287,6 +2292,7 @@ export function createApp(options: AppOptions): AppResult {
     onSessionSummary: getSessionSummary,
     resolveNativeForkSource: async (sessionId, projectPath, provider) => {
       const deps = {
+        signal: sessionReadLifetime.signal,
         identities: options.sessionMetadataService?.identities,
         readerFactory,
         codexScanner,
@@ -3017,6 +3023,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api",
     createSessionsRoutes({
+      signal: sessionReadLifetime.signal,
       onIssueWindow: (source, messages) =>
         issueIndexer?.observe(source, messages),
       supervisor,

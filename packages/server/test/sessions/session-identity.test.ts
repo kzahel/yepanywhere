@@ -1,4 +1,11 @@
-import { appendFile, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdtemp,
+  mkdir,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -13,7 +20,11 @@ import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import { codexEntryCacheBudget } from "../../src/sessions/codex-entry-cache-budget.js";
+import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
+import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { resolveLegacySessionSource } from "../../src/sessions/provider-resolution.js";
+import type { ISessionReader } from "../../src/sessions/types.js";
 import { BoundSessionReads } from "../../src/sessions/bound-session-reader.js";
 import {
   SessionIdentityConflict,
@@ -605,4 +616,253 @@ describe("scoped durable session identity", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+});
+
+it("cancels legacy native proof before querying a closed identity owner", async () => {
+  const { database, store } = fixture();
+  managedRow(
+    database,
+    "permanent-proof-owner",
+    "native-proof-address",
+    "/fixture/native-proof",
+  );
+  const native = nativeSessionRef(
+    "claude",
+    "/fixture/native-proof",
+    parseNativeSessionId("native-proof-address"),
+  );
+  const controller = new AbortController();
+  let entered = () => {};
+  let release = () => {};
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const reader = {
+    getNativeSessionRef: async () => {
+      entered();
+      await held;
+      return native;
+    },
+  } as unknown as ISessionReader;
+  const pending = resolveLegacySessionSource(
+    {
+      provider: "claude",
+      kind: "primary",
+      sessionDir: native.storageScope,
+      reader,
+    },
+    native.id,
+    { id: projectId } as import("../../src/supervisor/types.js").Project,
+    {
+      identities: store,
+      readerFactory: () => reader,
+      signal: controller.signal,
+    },
+  );
+  await started;
+  controller.abort();
+  database.close();
+  databases.delete(database);
+  release();
+  await expect(pending).resolves.toBeNull();
+});
+
+it("pins legacy proof to one root and refuses orphaned native aliases", async () => {
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "ya-legacy-roots-")),
+  );
+  const path = join(root, "project");
+  const id = toUrlProjectId(path);
+  const projects = join(root, "claude");
+  const first = join(projects, path.replace(/[/\\:]/g, "-"));
+  const second = join(root, "private");
+  const nativeId = "native-duplicate-address";
+  const childDir = join(second, nativeId, "subagents");
+  let storage: DiscoverySqliteService | undefined;
+  let app: ReturnType<typeof createApp> | undefined;
+  const message = (text: string) =>
+    JSON.stringify({
+      type: "user",
+      uuid: "u1",
+      parentUuid: null,
+      sessionId: nativeId,
+      cwd: path,
+      timestamp: createdAt,
+      message: { role: "user", content: text },
+    }) + "\n";
+  try {
+    await Promise.all(
+      [path, first, childDir].map((dir) => mkdir(dir, { recursive: true })),
+    );
+    await writeFile(join(first, nativeId + ".jsonl"), "");
+    await writeFile(
+      join(second, nativeId + ".jsonl"),
+      message("private owner history"),
+    );
+    await writeFile(
+      join(childDir, "agent-secret.jsonl"),
+      message("private owner child"),
+    );
+    await writeFile(
+      join(childDir, "agent-secret.meta.json"),
+      JSON.stringify({ toolUseId: "private-owner-tool" }),
+    );
+    storage = new DiscoverySqliteService({
+      dataDir: join(root, "data"),
+      probeNetworkFilesystem: () => undefined,
+    });
+    const metadata = new SessionMetadataService({
+      dataDir: join(root, "data"),
+      database: storage.getDatabase(),
+    });
+    await metadata.initialize();
+    managedRow(
+      storage.getDatabase(),
+      "permanent-private-owner",
+      nativeId,
+      second,
+      id,
+    );
+    app = createApp({
+      sdk: new MockClaudeSDK(),
+      dataDir: join(root, "data"),
+      projectsDir: projects,
+      sessionMetadataService: metadata,
+      discoverySqlite: storage,
+    });
+    const project = await app.scanner.getOrCreateProject(id);
+    expect(project).not.toBeNull();
+    project!.mergedSessionDirs = [second];
+    const request = (session: string, suffix: string) =>
+      app!.app.request(`/api/projects/${id}/sessions/${session}${suffix}`);
+    // Empty first file proves first-root existence, not second-root history.
+    const empty = await request(nativeId, "/metadata");
+    expect(empty.status).toBe(404);
+    await writeFile(
+      join(first, nativeId + ".jsonl"),
+      message("legitimate legacy history"),
+    );
+    const legacy = await request(nativeId, "/metadata");
+    expect(legacy.status, await legacy.clone().text()).toBe(200);
+    expect(await legacy.text()).not.toContain("private owner history");
+    for (const suffix of ["/agents", "/agents/secret"]) {
+      const child = await request(nativeId, suffix);
+      expect(child.status).toBe(200);
+      expect(await child.text()).not.toMatch(
+        /private owner child|private-owner-tool/,
+      );
+    }
+    // Both parent files disappear; the private native child remains readable
+    // through its existing YA owner but must not create a native-parent URL.
+    await rm(join(first, nativeId + ".jsonl"));
+    await rm(join(second, nativeId + ".jsonl"));
+    for (const suffix of ["/agents", "/agents/secret"]) {
+      expect((await request(nativeId, suffix)).status).toBe(404);
+    }
+    const ownedChild = await request(
+      "permanent-private-owner",
+      "/agents/secret",
+    );
+    expect(ownedChild.status).toBe(200);
+    expect(await ownedChild.text()).toContain("private owner child");
+  } finally {
+    app?.stopNotifications();
+    await app?.disposeSessionReaders();
+    storage?.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("cancels the production legacy fork-source proof before database teardown", async () => {
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  const root = await realpath(await mkdtemp(join(tmpdir(), "ya-fork-proof-")));
+  const path = join(root, "project");
+  const projects = join(root, "claude");
+  const source = join(projects, path.replace(/[/\\:]/g, "-"));
+  const nativeId = parseNativeSessionId("native-fork-proof");
+  let app: ReturnType<typeof createApp> | undefined;
+  let storage: DiscoverySqliteService | undefined;
+  let release = () => {};
+  let entered = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  try {
+    await Promise.all(
+      [path, source].map((dir) => mkdir(dir, { recursive: true })),
+    );
+    await writeFile(
+      join(source, nativeId + ".jsonl"),
+      JSON.stringify({
+        type: "user",
+        uuid: "u1",
+        parentUuid: null,
+        sessionId: nativeId,
+        cwd: path,
+        timestamp: createdAt,
+        message: { role: "user", content: "legacy fork proof" },
+      }) + "\n",
+    );
+    storage = new DiscoverySqliteService({
+      dataDir: join(root, "data"),
+      probeNetworkFilesystem: () => undefined,
+    });
+    const metadata = new SessionMetadataService({
+      dataDir: join(root, "data"),
+      database: storage.getDatabase(),
+    });
+    await metadata.initialize();
+    const provider = new ClaudeProvider();
+    const fork = vi.spyOn(provider, "forkSession");
+    const original = ClaudeSessionReader.prototype.getNativeSessionRef;
+    let blocked = false;
+    vi.spyOn(
+      ClaudeSessionReader.prototype,
+      "getNativeSessionRef",
+    ).mockImplementation(async function (id) {
+      if (id === nativeId && !blocked) {
+        blocked = true;
+        entered();
+        await held;
+      }
+      return original.call(this, id);
+    });
+    app = createApp({
+      sdk: new MockClaudeSDK(),
+      provider,
+      dataDir: join(root, "data"),
+      projectsDir: projects,
+      sessionMetadataService: metadata,
+      discoverySqlite: storage,
+    });
+    const pending = app.supervisor.forkSession({
+      sessionId: nativeId,
+      projectPath: path,
+      providerName: "claude",
+    });
+    const settled = expect(pending).rejects.toThrow(
+      "Session has no readable native fork source",
+    );
+    await started;
+    app.stopNotifications();
+    await app.disposeSessionReaders();
+    storage.close();
+    storage = undefined;
+    release();
+    await settled;
+    expect(fork).not.toHaveBeenCalled();
+  } finally {
+    release();
+    app?.stopNotifications();
+    await app?.disposeSessionReaders();
+    storage?.close();
+    await rm(root, { recursive: true, force: true });
+  }
 });

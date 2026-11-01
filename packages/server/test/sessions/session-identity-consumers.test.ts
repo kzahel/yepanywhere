@@ -173,6 +173,64 @@ it.each(["claude", "codex"] as const)(
         });
         await app.scanner.getOrCreateProject(projectId);
         await app.scanner.getOrCreateProject(workingId);
+        // N is only a provider address for P. With no public resource N,
+        // neither history nor control routes may expose it as another alias.
+        for (const suffix of [
+          "",
+          "/metadata",
+          "/agents",
+          "/agents/unknown-native-child",
+        ]) {
+          const alias = await app.app.request(
+            `/api/projects/${projectId}/sessions/${nativeId}${suffix}`,
+          );
+          expect(alias.status, suffix).toBe(404);
+        }
+        for (const [suffix, body] of [
+          ["/bang-commands", { command: "echo must-not-run" }],
+          [
+            "/resume",
+            { message: "must not resume native alias", provider: providerName },
+          ],
+        ] as const) {
+          const alias = await app.app.request(
+            `/api/projects/${projectId}/sessions/${nativeId}${suffix}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Yep-Anywhere": "true",
+              },
+              body: JSON.stringify(body),
+            },
+          );
+          expect(alias.status, suffix).toBe(404);
+        }
+        for (const aliasId of [
+          nativeId.toUpperCase(),
+          "unknown-native-address",
+        ]) {
+          const historyAlias = await app.app.request(
+            `/api/projects/${projectId}/sessions/${aliasId}`,
+          );
+          expect(historyAlias.status, aliasId).toBe(404);
+          const missing = await app.app.request(
+            `/api/projects/${projectId}/sessions/${aliasId}/resume`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Yep-Anywhere": "true",
+              },
+              body: JSON.stringify({
+                message: "do not resolve a provider-side alias",
+                provider: providerName,
+              }),
+            },
+          );
+          expect(missing.status, aliasId).toBe(404);
+        }
+        expect(start).not.toHaveBeenCalled();
         const first: string[] = [];
         const second: string[] = [];
         const query = {
