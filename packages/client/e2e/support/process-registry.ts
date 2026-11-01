@@ -7,7 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { getE2ERunDirectory } from "./run-directory.js";
 import { captureLeaderStartTime } from "./process-lifecycle.js";
 
@@ -24,10 +24,9 @@ export async function registerProcess(
   filename?: string,
 ): Promise<string | undefined> {
   const root = getE2ERunDirectory();
-  if (!root) return undefined;
-  const directory = join(root, "processes");
-  mkdirSync(directory, { recursive: true });
-  const file = filename ?? join(directory, `${randomUUID()}.json`);
+  if (!root && !filename) return undefined;
+  const file = filename ?? join(root!, "processes", `${randomUUID()}.json`);
+  mkdirSync(dirname(file), { recursive: true });
   const temporary = `${file}.tmp`;
   // Retain the launch location even if native identity capture fails. Such a
   // record cannot authorize coordinator signaling, but preserves diagnostics

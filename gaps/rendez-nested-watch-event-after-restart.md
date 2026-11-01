@@ -86,3 +86,13 @@ Node 22.23.3 missed the first nested-file delivery at line 353 (0 observed,
 run took 129.77 s. Evidence: ignored `tasks/peer-list-ui/full-tests.log`.
 Watcher source, fixture and budgets are unchanged; this red result is retained
 without an isolated retry.
+
+
+2026-11-01: the standalone identity-fixture workspace run on macOS /
+Node 26.7.0 missed the second top-level prepared-image delivery at line 231
+(1 observed, 2 expected). 6,728 other server tests and all 7,064 client tests
+passed; the new standalone process checks passed. This slice changes only
+E2E process/environment composition and its own tests, not the Rendez watcher,
+fixture or eight-second wait. Evidence: ignored
+`tasks/session-identity/standalone-test.log` (129.77 s server run). This failed
+run remains recorded; no watcher retry or budget change replaces it.

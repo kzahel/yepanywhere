@@ -68,6 +68,19 @@ Runtime work and the provenance defect remain unimplemented.
   Remaining all-provider observation, released-browser/owned-confirmation
   qualification, native source consumers and other provider shapes are pending;
   phase 3 is not complete.
+- Standalone fixture: the existing E2E process helper now has opt-in private
+  environment composition and a selected server executable, retaining its
+  process registry/host cleanup. The poisoned-parent actual-config/native-path
+  probe and ordinary creation/history/restart/cleanup pass under Node and the
+  pinned Bun server with a Node coordinator. Sol independently accepted the
+  fixture after correcting shell-bridge inheritance and case-insensitive Windows
+  name handling. Focused checks: 8 passed / two files in 4.86 s on Node;
+  3 passed / one file in 2.24 s with pinned Bun 1.3.14. Lint, format, typecheck
+  and the corrected workspace run pass (6,729 server / 7,064 client).
+  The earlier workspace run's known Rendez restart failure remains recorded in
+  [its existing gap](../../gaps/rendez-nested-watch-event-after-restart.md).
+  Hosting remains a separate owned scenario; native Linux/Windows execution,
+  durable-creation and live model qualification are not claimed.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

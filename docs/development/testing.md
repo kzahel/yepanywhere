@@ -231,3 +231,40 @@ For Chromebook testing and debugging (screenshots, input, diagnostics), use the 
 ```
 
 Requires SSH access to `chromeroot`. See `~/code/chromeos-testbed/CLAUDE.md` for details.
+
+
+## Standalone YA process profiles
+
+For identity/startup/protocol qualification, reuse the E2E process helper's
+`startYaServerProcess({ standalone: {}, ... })`, restart and disposal functions.
+The opt-in standalone mode composes the lifecycle-free configuration scrub
+inventory with private home, XDG, Windows app-data, temporary, native provider,
+data and scratch roots. Only explicit fixture inputs supply credentials;
+inherited provider/agent/host authority and shell-startup bridges are removed.
+Filtering and protected-root collisions compare names case-insensitively so a
+plain environment object cannot bypass Windows semantics. Owned roots and host mode
+win over input overrides. Provider hosting defaults off for this mode; select
+`standalone: { providerHostEnabled: true }` for separately owned host scenarios.
+This fixture switch does not change product hosting defaults or availability.
+
+`serverExecutable` selects an absolute Node or Bun executable and survives
+restart. Keep the coordinator under Node on macOS so the existing process
+identity/cleanup implementation can reclaim a Bun server. Do not weaken the
+production process-identity support matrix to run a fixture. Standalone process
+records live in the owned profile even outside a Playwright invocation; the
+existing registry and host recovery remain the only lifecycle owners.
+
+The retained `test/scripts/standalone-session-profile.test.ts` check spawns a
+real config/native-path probe under poisoned parent settings and exercises
+ordinary mock creation, native history, same-profile restart and cleanup.
+Its ignored-stdin Bash probe also proves an owned outer startup file cannot
+restore foreign credentials or a session id. The checks cost about five seconds
+on the Node development runtime; native Linux/Windows execution remains part of
+final platform qualification. Run it through
+`node scripts/run-with-safe-home.js --temporary-home pnpm --filter
+@yep-anywhere/server exec vitest run test/scripts/standalone-session-profile.test.ts`.
+Set `YA_STANDALONE_TEST_RUNTIME` to an absolute alternate-runtime executable
+for the same checks; the coordinator still runs on Node. No real model calls,
+primary provider history or localhost:3400 lifecycle changes are involved.
+These are fixture/legacy-baseline checks, not durable-creation acceptance or
+hosted-worker continuity qualification.

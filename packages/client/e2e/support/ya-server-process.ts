@@ -9,10 +9,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { hostname, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { InstallService } from "../../../server/src/services/InstallService.js";
+import { standaloneYaEnvironment } from "./standalone-environment.js";
 import { stopProviderHostRuntime } from "./provider-host-runtime.js";
 import { getE2EProfileDirectory, getE2ERunDirectory } from "./run-directory.js";
 
@@ -53,6 +54,10 @@ export interface YaServerProfilePaths {
 
 export interface StartYaServerProcessOptions {
   label: string;
+  /** Own all provider/config/tmp roots; host mode is explicit and defaults off. */
+  standalone?: { providerHostEnabled?: boolean };
+  /** Select Node or Bun for the server; the coordinator retains native cleanup. */
+  serverExecutable?: string;
   /** Serve this invocation's immutable bundle from the private YA listener. */
   serveBuiltClient?: boolean;
   tempPrefix?: string;
@@ -65,6 +70,7 @@ export interface StartYaServerProcessOptions {
 }
 
 export interface YaServerProcess {
+  serverExecutable: string;
   baseUrl: string;
   claudeSessionsDir: string;
   codexSessionsDir: string;
@@ -230,6 +236,13 @@ function monitorStartup(child: ChildProcess, label: string): () => void {
 export async function startYaServerProcess(
   options: StartYaServerProcessOptions,
 ): Promise<YaServerProcess> {
+  if (process.platform === "darwin" && process.versions.bun)
+    throw new Error(
+      "Use a Node fixture coordinator on macOS; select Bun with serverExecutable",
+    );
+  const serverExecutable = options.serverExecutable ?? process.execPath;
+  if (!isAbsolute(serverExecutable))
+    throw new Error("Fixture serverExecutable must be absolute");
   const frontendEnv: NodeJS.ProcessEnv = {};
   if (options.serveBuiltClient) {
     const runDirectory = getE2ERunDirectory();
@@ -241,7 +254,9 @@ export async function startYaServerProcess(
     frontendEnv.CLIENT_DIST_PATH = clientDist;
   }
   const deadline = options.startupDeadline ?? Date.now() + 30_000;
-  const parent = getE2EProfileDirectory() ?? tmpdir();
+  const parent = options.standalone
+    ? tmpdir()
+    : (getE2EProfileDirectory() ?? tmpdir());
   mkdirSync(parent, { recursive: true });
   const tempDir =
     options.profilePaths?.tempDir ??
@@ -264,102 +279,140 @@ export async function startYaServerProcess(
   // macOS's limit regardless of the profile label or retry worker index.
   const runtimeDir = mkdtempSync(
     join(
-      getE2ERunDirectory() ??
+      (options.standalone ? undefined : getE2ERunDirectory()) ??
         (process.platform === "darwin" ? "/tmp" : tmpdir()),
       "h-",
     ),
   );
 
-  mkdirSync(claudeSessionsDir, { recursive: true });
-  mkdirSync(codexSessionsDir, { recursive: true });
-  mkdirSync(geminiSessionsDir, { recursive: true });
-  writeServerSettings(dataDir);
-  if (options.mockClaudeSession) {
-    writeMockClaudeSession(claudeSessionsDir, options.mockClaudeSession);
-    // A retained-session fixture must enroll its store as well as write history.
-    const install = new InstallService({ dataDir });
-    await install.initialize();
-    await install.recordSuccessfulProviders(["claude"]);
-  }
-  await options.setupProfile?.({
-    claudeSessionsDir,
-    codexSessionsDir,
-    dataDir,
-    geminiSessionsDir,
-    profileDir,
-    tempDir,
-  });
-
-  const inheritedEnv = { ...process.env };
-  for (const name of [
-    "YEP_PROVIDER_RUNTIME_SOCKET",
-    "YEP_PROVIDER_RUNTIME_TOKEN",
-    "YEP_PROVIDER_RUNTIME_TOKEN_FILE",
-    "YEP_PROVIDER_RUNTIME_DESCRIPTOR",
-    "YEP_PROVIDER_RUNTIME_DIR",
-    "YEP_PROVIDER_RUNTIME_RECEIPTS",
-    "YEP_SERVER_GENERATION",
-  ])
-    delete inheritedEnv[name];
-  const childEnv: NodeJS.ProcessEnv = {
-    ...inheritedEnv,
-    // Provider installation gates are per OS-user home, not YEP_DATA_DIR.
-    // A private fixture must not contend with the developer's live providers.
-    HOME: profileDir,
-    USERPROFILE: profileDir,
-    // Ordinary fixtures exercise the production shell. Development-session
-    // reload flags otherwise enable source watchers and obstruct phone controls.
-    NO_BACKEND_RELOAD: "false",
-    NO_FRONTEND_RELOAD: "false",
-    PORT: "0",
-    PORT_FILE: portFile,
-    MAINTENANCE_PORT: "0",
-    SERVE_FRONTEND: "false",
-    LOG_LEVEL: "warn",
-    LOG_FILE_LEVEL: "warn",
-    LOG_TO_FILE: "false",
-    AUTH_DISABLED: "true",
-    HTTPS_SELF_SIGNED: "",
-    NODE_ENV: "production",
-    OPEN_BROWSER: "false",
-    CLAUDE_SESSIONS_DIR: claudeSessionsDir,
-    CODEX_SESSIONS_DIR: codexSessionsDir,
-    GEMINI_SESSIONS_DIR: geminiSessionsDir,
-    YEP_DATA_DIR: dataDir,
-    // Each server owns its runtime inventory as well as its persisted profile.
-    YEP_PROVIDER_HOST_RUNTIME_DIR: runtimeDir,
-    ...options.env,
-    ...frontendEnv,
+  const discardUnlaunched = () => {
+    rmSync(runtimeDir, { recursive: true, force: true });
+    if (!options.profilePaths)
+      rmSync(tempDir, { recursive: true, force: true });
   };
-  if (childEnv.FORCE_COLOR) {
-    delete childEnv.NO_COLOR;
+  let childEnv: NodeJS.ProcessEnv;
+  try {
+    mkdirSync(claudeSessionsDir, { recursive: true });
+    mkdirSync(codexSessionsDir, { recursive: true });
+    mkdirSync(geminiSessionsDir, { recursive: true });
+    writeServerSettings(dataDir);
+    if (options.mockClaudeSession) {
+      writeMockClaudeSession(claudeSessionsDir, options.mockClaudeSession);
+      // A retained-session fixture must enroll its store as well as write history.
+      const install = new InstallService({ dataDir });
+      await install.initialize();
+      await install.recordSuccessfulProviders(["claude"]);
+    }
+    await options.setupProfile?.({
+      claudeSessionsDir,
+      codexSessionsDir,
+      dataDir,
+      geminiSessionsDir,
+      profileDir,
+      tempDir,
+    });
+
+    const inheritedEnv = { ...process.env };
+    for (const name of [
+      "YEP_PROVIDER_RUNTIME_SOCKET",
+      "YEP_PROVIDER_RUNTIME_TOKEN",
+      "YEP_PROVIDER_RUNTIME_TOKEN_FILE",
+      "YEP_PROVIDER_RUNTIME_DESCRIPTOR",
+      "YEP_PROVIDER_RUNTIME_DIR",
+      "YEP_PROVIDER_RUNTIME_RECEIPTS",
+      "YEP_SERVER_GENERATION",
+    ])
+      delete inheritedEnv[name];
+    childEnv = {
+      ...inheritedEnv,
+      // Provider installation gates are per OS-user home, not YEP_DATA_DIR.
+      // A private fixture must not contend with the developer's live providers.
+      HOME: profileDir,
+      USERPROFILE: profileDir,
+      // Ordinary fixtures exercise the production shell. Development-session
+      // reload flags otherwise enable source watchers and obstruct phone controls.
+      NO_BACKEND_RELOAD: "false",
+      NO_FRONTEND_RELOAD: "false",
+      PORT: "0",
+      PORT_FILE: portFile,
+      MAINTENANCE_PORT: "0",
+      SERVE_FRONTEND: "false",
+      LOG_LEVEL: "warn",
+      LOG_FILE_LEVEL: "warn",
+      LOG_TO_FILE: "false",
+      AUTH_DISABLED: "true",
+      HTTPS_SELF_SIGNED: "",
+      NODE_ENV: "production",
+      OPEN_BROWSER: "false",
+      CLAUDE_SESSIONS_DIR: claudeSessionsDir,
+      CODEX_SESSIONS_DIR: codexSessionsDir,
+      GEMINI_SESSIONS_DIR: geminiSessionsDir,
+      YEP_DATA_DIR: dataDir,
+      // Each server owns its runtime inventory as well as its persisted profile.
+      YEP_PROVIDER_HOST_RUNTIME_DIR: runtimeDir,
+      ...options.env,
+      ...frontendEnv,
+    };
+    if (options.standalone) {
+      childEnv = {
+        ...standaloneYaEnvironment(
+          {
+            claudeSessionsDir,
+            codexSessionsDir,
+            geminiSessionsDir,
+            dataDir,
+            profileDir,
+            tempDir,
+          },
+          runtimeDir,
+          options.standalone.providerHostEnabled ?? false,
+          options.env,
+        ),
+        NO_BACKEND_RELOAD: "false",
+        NO_FRONTEND_RELOAD: "false",
+        ...frontendEnv,
+      };
+    }
+    if (childEnv.FORCE_COLOR) {
+      delete childEnv.NO_COLOR;
+    }
+  } catch (error) {
+    discardUnlaunched();
+    throw error;
   }
 
-  const child = spawn(
-    process.execPath,
-    [
-      "--import",
-      tsxLoader,
-      "--import",
-      fixtureRuntimePreload,
-      "--conditions",
-      "source",
-      "src/index.ts",
-    ],
-    {
-      cwd: serverRoot,
-      env: childEnv,
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: process.platform !== "win32",
-      windowsHide: true,
-    },
-  );
+  let child: ChildProcess;
+  try {
+    child = spawn(
+      serverExecutable,
+      [
+        "--import",
+        tsxLoader,
+        "--import",
+        fixtureRuntimePreload,
+        "--conditions",
+        "source",
+        "src/index.ts",
+      ],
+      {
+        cwd: serverRoot,
+        env: childEnv,
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: process.platform !== "win32",
+        windowsHide: true,
+      },
+    );
+  } catch (error) {
+    discardUnlaunched();
+    throw error;
+  }
   const assertRunning = monitorStartup(child, options.label);
   const output = { stderr: [] as string[], stdout: [] as string[] };
   captureOutput(child.stdout, output.stdout);
   captureOutput(child.stderr, output.stderr);
 
   const pending: YaServerProcess = {
+    serverExecutable,
     baseUrl: "",
     claudeSessionsDir,
     codexSessionsDir,
@@ -379,11 +432,14 @@ export async function startYaServerProcess(
   try {
     if (child.pid) {
       writeFileSync(join(tempDir, "pid"), String(child.pid));
-      pending.registryFile = await registerProcess({
-        pid: child.pid,
-        label: options.label,
-        runtimeDir: childEnv.YEP_PROVIDER_HOST_RUNTIME_DIR,
-      });
+      pending.registryFile = await registerProcess(
+        {
+          pid: child.pid,
+          label: options.label,
+          runtimeDir: childEnv.YEP_PROVIDER_HOST_RUNTIME_DIR,
+        },
+        options.standalone ? join(tempDir, "process.json") : undefined,
+      );
     }
     const port = await waitForPortFile(
       portFile,
@@ -428,25 +484,30 @@ export async function restartYaServerProcess(
     PORT: String(server.port),
     PORT_FILE: server.portFile,
   };
-  const child = spawn(
-    process.execPath,
-    [
-      "--import",
-      tsxLoader,
-      "--import",
-      fixtureRuntimePreload,
-      "--conditions",
-      "source",
-      "src/index.ts",
-    ],
-    {
-      cwd: serverRoot,
-      env: childEnv,
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: process.platform !== "win32",
-      windowsHide: true,
-    },
-  );
+  let child: ChildProcess;
+  try {
+    child = spawn(
+      server.serverExecutable ?? process.execPath,
+      [
+        "--import",
+        tsxLoader,
+        "--import",
+        fixtureRuntimePreload,
+        "--conditions",
+        "source",
+        "src/index.ts",
+      ],
+      {
+        cwd: serverRoot,
+        env: childEnv,
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: process.platform !== "win32",
+        windowsHide: true,
+      },
+    );
+  } catch (error) {
+    throw await failedStart(server, error);
+  }
   const deadline = Date.now() + 30_000;
   const assertRunning = monitorStartup(child, `${server.label} restart`);
   const output = { stderr: [] as string[], stdout: [] as string[] };

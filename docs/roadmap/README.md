@@ -620,7 +620,9 @@ project-membership checks. Focused Claude/Codex watches also translate stored
 native sources and cancel abandoned resolution. Retained fork/clone source
 translation is independently accepted, including native/public separation,
 torn-record tolerance and refusal of unqualified cold-launch namespaces before
-copy. Child lineage/account settings remain public. Fully scoped cold resumes,
+copy. Child lineage/account settings remain public. The standalone process fixture is
+also independently accepted, with poisoned-parent config/shell checks and
+Node-coordinated Node/Bun creation/history/restart/cleanup. Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or
