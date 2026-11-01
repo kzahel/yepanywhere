@@ -373,6 +373,76 @@ describe("SettingsSearchResults", () => {
   ];
   const components = { toy: ToyPane, other: () => null };
 
+  it("yields between cold pane mounts, retains controls and cancels acquisition on exit", () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    const request = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        const id = ++nextFrame;
+        frames.set(id, callback);
+        return id;
+      });
+    const cancel = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation((id) => {
+        frames.delete(id);
+      });
+    try {
+      const { container, rerender, unmount } = render(
+        <SettingsSearchResults
+          categories={[
+            ...categories,
+            { id: "last", label: "Last", description: "Last pane" },
+          ]}
+          components={{ ...components, last: ToyPane }}
+          query="streaming"
+          matchValues={false}
+          onJumpToItem={vi.fn()}
+          onOpenCategory={vi.fn()}
+        />,
+      );
+      const control = screen.getByLabelText("Streaming") as HTMLInputElement;
+      fireEvent.click(control);
+      expect(container.querySelectorAll("[data-settings-pane]")).toHaveLength(
+        1,
+      );
+      expect(container.querySelector("[aria-busy=true]")).toBeTruthy();
+      act(() => {
+        const [id, callback] = frames.entries().next().value!;
+        frames.delete(id);
+        callback(16);
+      });
+      expect(container.querySelectorAll("[data-settings-pane]")).toHaveLength(
+        2,
+      );
+      expect(screen.getByLabelText("Streaming")).toBe(control);
+      expect(control.checked).toBe(true);
+      // A later, still-unacquired category may contain a match. Do not claim
+      // no results while the corpus is incomplete, even after a query edit.
+      rerender(
+        <SettingsSearchResults
+          categories={[
+            ...categories,
+            { id: "last", label: "Last", description: "Last pane" },
+          ]}
+          components={{ ...components, last: ToyPane }}
+          query="missing"
+          matchValues={false}
+          onJumpToItem={vi.fn()}
+          onOpenCategory={vi.fn()}
+        />,
+      );
+      expect(screen.queryByText("settingsSearchNoResults")).toBeNull();
+      expect(frames.size).toBe(1);
+      unmount();
+      expect(frames.size).toBe(0);
+    } finally {
+      request.mockRestore();
+      cancel.mockRestore();
+    }
+  });
+
   it("lists matching categories and keeps matched rows operable", () => {
     const onJumpToItem = vi.fn();
     render(
@@ -409,7 +479,7 @@ describe("SettingsSearchResults", () => {
     expect(screen.getByText("Second pane")).toBeTruthy();
   });
 
-  it("reports no results when nothing matches", () => {
+  it("reports no results when nothing matches", async () => {
     render(
       <SettingsSearchResults
         categories={categories}
@@ -420,7 +490,7 @@ describe("SettingsSearchResults", () => {
         onOpenCategory={vi.fn()}
       />,
     );
-    expect(screen.getByText("settingsSearchNoResults")).toBeTruthy();
+    expect(await screen.findByText("settingsSearchNoResults")).toBeTruthy();
   });
 
   it("recounts rows loaded asynchronously by a pane", async () => {
@@ -470,7 +540,9 @@ describe("SettingsSearchResults", () => {
     expect(
       (screen.getByLabelText("Streaming") as HTMLInputElement).checked,
     ).toBe(true);
-    expect(screen.getByRole("status").textContent).toBe("Other: loading");
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "Other: loading",
+    );
 
     rerender(<SettingsSearchResults {...props} query="missing" />);
     expect(screen.queryByText("settingsSearchNoResults")).toBeNull();

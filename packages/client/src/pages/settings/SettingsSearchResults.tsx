@@ -1,4 +1,12 @@
-import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  startTransition,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useI18n } from "../../i18n";
 import { SettingsCategoryItem } from "./SettingsCategoryItem";
 import { SettingsPane } from "./SettingsPane";
@@ -56,7 +64,9 @@ export interface SettingsSearchResultsProps {
  * place — grouped under a clickable category heading. Panes and sections
  * with no match are hidden by the settings-search CSS rules.
  */
-export function SettingsSearchResults({
+// Urgent query edits must not revisit the pane tree while the deferred query
+// is unchanged, including panes still waiting for their lazy module.
+export const SettingsSearchResults = memo(function SettingsSearchResults({
   categories,
   components,
   query,
@@ -68,6 +78,19 @@ export function SettingsSearchResults({
   const containerRef = useRef<HTMLDivElement>(null);
   const [matchCount, setMatchCount] = useState<number | null>(null);
   const [hasIncompletePanes, setHasIncompletePanes] = useState(true);
+  const [mountedCategoryCount, setMountedCategoryCount] = useState(1);
+
+  // Cold search used to acquire every lazy pane at once: their module/style
+  // arrivals and mount effects formed a single burst during the next keys.
+  // Admit one category per frame and let urgent input preempt its render.
+  useEffect(() => {
+    if (mountedCategoryCount >= categories.length) return;
+    const frame = requestAnimationFrame(() => {
+      startTransition(() => setMountedCategoryCount((count) => count + 1));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [mountedCategoryCount, categories.length]);
+  const acquiringPanes = mountedCategoryCount < categories.length;
 
   const categoryMatches = categories.filter((category) =>
     settingsTextMatches(query, [category.label, category.description]),
@@ -98,13 +121,16 @@ export function SettingsSearchResults({
       subtree: true,
     });
     return () => observer.disconnect();
-  }, [query, matchValues]);
+  }, [query, matchValues, mountedCategoryCount]);
 
   const hasResults =
     categoryMatches.length > 0 || matchCount === null || matchCount > 0;
 
   return (
-    <div className="settings-search-results" aria-busy={hasIncompletePanes}>
+    <div
+      className="settings-search-results"
+      aria-busy={acquiringPanes || hasIncompletePanes}
+    >
       {categoryMatches.length > 0 && (
         <div className="settings-search-category-matches">
           <h3 className="settings-search-heading">
@@ -124,7 +150,7 @@ export function SettingsSearchResults({
         </div>
       )}
       <div ref={containerRef}>
-        {categories.map((category) => {
+        {categories.slice(0, mountedCategoryCount).map((category) => {
           const Component = components[category.id];
           if (!Component) return null;
           return (
@@ -141,7 +167,7 @@ export function SettingsSearchResults({
           );
         })}
       </div>
-      {!hasResults && !hasIncompletePanes && (
+      {!hasResults && !acquiringPanes && !hasIncompletePanes && (
         <p className="settings-search-no-results">
           {t("settingsSearchNoResults", { query })}
         </p>
@@ -153,7 +179,7 @@ export function SettingsSearchResults({
       </span>
     </div>
   );
-}
+});
 
 interface SettingsSearchPaneProps {
   category: SettingsCategory;

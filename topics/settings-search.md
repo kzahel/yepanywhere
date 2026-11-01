@@ -124,21 +124,28 @@ rows render with `settings-search-match`; a fully-matched section adds
 non-row content is either row-owned (`after` prop), wrapped in
 `HideInSettingsSearch`, or hidden by default in search mode.
 
-**Bounds.** Entering search defers the first pane mount until the deferred query is
-non-empty; falling back to the urgent first character would put the entire
-initial corpus mount on the input acknowledgement path. Search mounts every
-category pane once (the same
-read-effects as visiting each pane once, as a burst); the mount persists
-while the query is non-empty. Per-keystroke work is one deferred context
-update fanned to row-level consumers doing substring checks — pane bodies
-are memo-isolated and do not re-render per keystroke. A contained mutation
-observer recounts results when an asynchronous pane loads dynamic rows. This
-surface is typing-rate, not streaming-rate; no further coalescing is required.
-Navigation callbacks in the scope must retain their identity during urgent
-query edits. Otherwise a changed callback invalidates every consumer even
-while the deferred query is unchanged. The typing regression holds a real row
-consumer's deferred render and verifies that urgent input updates preserve the
-already-visible, operable control until that render completes.
+**Bounds.** Every sequentially typed key must appear within 100 ms while the
+full eligible settings corpus is being acquired or updated, including during
+settings replies. Entering search defers the first pane mount until the
+deferred query is non-empty; falling back to the urgent first character would
+put the initial corpus mount on the input acknowledgement path. Search
+acquires one category pane per animation frame in an interruptible update,
+rather than loading the whole corpus in one burst. Already acquired panes and
+their control state persist while the query is non-empty. Clearing search or
+leaving Settings cancels any pending acquisition frame. Results remain busy
+and cannot report no matches until every eligible pane has been acquired and
+its lazy content has finished loading.
+
+Per-keystroke work is one deferred context update fanned to row-level
+consumers doing substring checks — pane bodies are memo-isolated and do not
+re-render per keystroke. A contained mutation observer recounts results when
+an asynchronous pane loads dynamic rows. The results boundary and its category
+arrays are memoized so urgent query edits do not revisit the unchanged deferred
+pane tree. Navigation callbacks in the scope must retain their identity during
+urgent query edits. Otherwise a changed callback invalidates every consumer
+even while the deferred query is unchanged. The typing regression holds a real
+row consumer's deferred render and verifies that urgent input updates preserve
+the already-visible, operable control until that render completes.
 
 ## Known limitations / candidate refinements
 
