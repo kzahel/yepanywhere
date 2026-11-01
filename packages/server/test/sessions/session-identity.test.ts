@@ -105,7 +105,7 @@ describe("scoped durable session identity", () => {
     try {
       expect(version.get()).toMatchObject({ user_version: 16 });
       migrateDiscoveryDatabase(database);
-      expect(version.get()).toMatchObject({ user_version: 17 });
+      expect(version.get()).toMatchObject({ user_version: 18 });
       expect(metadata.get("ses_existing")).toEqual({
         metadata: '{"customTitle":"keep","provider":"opencode"}',
       });

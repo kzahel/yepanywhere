@@ -659,6 +659,12 @@ refuses another returned thread, and actual pinned Claude SDK/CLI probes verify
 account-home, directory-alias, long-key and physical-cwd selection using only
 owned local fake model endpoints. Unsafe fallbacks and symlink-relative home
 resolution were corrected after review; final workspace gates pass.
+The durable-creation storage foundation is independently accepted: migration
+18 commits exact text, required creator/source, identity, saved settings,
+operation and first attempt atomically; metadata mirrors publish after commit.
+Request/retry replay, generation fences, uncertainty and deletion tombstones
+pass real SQLite/reopen checks on Node 22 and pinned Bun. Runtime creation and
+public capabilities are unchanged; equal-id Claude integration is next.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

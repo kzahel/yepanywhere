@@ -114,3 +114,18 @@ The isolated diagnostic passed 4 runnable cases / 1 retained skip in 6.14 s
 6,752 server / 7,064 client tests (139.08 s server run), recorded separately in
 `phase-3-alias-repeat-test.log`. This disagreement is additional intermittent
 evidence; no Rendez code, fixture, assertion, retry setting or budget changed.
+
+2026-11-02: the durable-creation storage foundation workspace run on macOS /
+Node 26.7.0 missed the second nested delivery at line 364 (1 observed, 2
+expected). 6,802 server tests and all 7,064 client tests passed; server duration
+129.99 s. The storage slice changes no Rendez watcher, fixture, assertion or
+budget. Evidence: ignored
+`tasks/session-identity/phase-4-admission-test.log`. This failed run is retained;
+no isolated watcher retry replaces it. The exact restart/event-registration
+failure matches the previous observations above and remains unresolved.
+
+The post-type-cleanup run repeated that same line-364 failure: 6,802 other
+server tests and all 7,064 client tests passed in 130.43 s. The three helper
+fixture annotation changes do not affect Rendez. Evidence: ignored
+`tasks/session-identity/phase-4-admission-revised-test.log`. Both failed runs
+remain recorded; source, assertions, retries and budgets are unchanged.

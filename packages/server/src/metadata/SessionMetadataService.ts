@@ -239,6 +239,39 @@ export class SessionMetadataService {
     return this.identityStore;
   }
 
+  /**
+   * Internal admission transaction: only a new identity may publish metadata.
+   * Domain writes and metadata use this exact connection; mirrors change only
+   * after COMMIT. The callback must contain synchronous SQLite operations only.
+   */
+  commitNewSession<T>(
+    database: SqliteDatabase,
+    sessionId: string,
+    metadata: SessionMetadata,
+    write: () => T,
+  ): T {
+    if (database !== this.database)
+      throw new Error("Creation requires the profile connection");
+    if (this.state.sessions[sessionId] || this.sessionIdAliases.has(sessionId))
+      throw new Error("Creation cannot replace existing session metadata");
+    const text = JSON.stringify(metadata);
+    const snapshot: SessionMetadata = JSON.parse(text);
+    const result = this.database.transaction(() => {
+      const value = write();
+      if (
+        value !== null &&
+        (typeof value === "object" || typeof value === "function") &&
+        "then" in value
+      )
+        throw new Error("Creation transaction requires synchronous writes");
+      this.statements.upsert.run(sessionId, text);
+      return value;
+    });
+    this.state.sessions[sessionId] = snapshot;
+    this.persisted.set(sessionId, text);
+    return result;
+  }
+
   private state: SessionMetadataState;
   private dataDir: string;
   private legacyFilePath: string;

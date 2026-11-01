@@ -112,10 +112,11 @@ function decode(row: IdentityRow | undefined): SessionIdentity | undefined {
 
 /** Profile-owned indexed identity lookup, with no per-session cache or timers. */
 export class SessionIdentityStore {
-  // Exactly three fixed statements, released with this owner or the database.
+  // Four fixed statements, released with this owner or the database.
   private readonly byPublicId: SqliteStatement;
   private readonly byNativeRef: SqliteStatement;
   private readonly insert: SqliteStatement;
+  private readonly bind: SqliteStatement;
 
   constructor(private readonly database: SqliteDatabase) {
     this.byPublicId = database.prepare(
@@ -123,6 +124,9 @@ export class SessionIdentityStore {
     );
     this.byNativeRef = database.prepare(
       "SELECT * FROM session_identities WHERE native_family = ? AND native_scope = ? AND native_id = ?",
+    );
+    this.bind = database.prepare(
+      "UPDATE session_identities SET native_family = ?, native_scope = ?, native_id = ? WHERE session_id = ? AND native_id IS NULL",
     );
     this.insert = database.prepare(
       "INSERT INTO session_identities (session_id, provider, project_id, created_at, native_family, native_scope, native_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -194,9 +198,49 @@ export class SessionIdentityStore {
     return this.resolveYa(sessionId)!;
   }
 
+  /** Only the synchronous creation transaction may allocate managed identities. */
+  allocateWithinTransaction(input: Omit<SessionIdentity, "native">): void {
+    parseYaSessionId(input.sessionId);
+    assertUrlProjectId(input.projectId);
+    if (!ALL_PROVIDERS.includes(input.provider))
+      throw new Error("Invalid session provider");
+    this.insert.run(
+      input.sessionId,
+      input.provider,
+      input.projectId,
+      input.createdAt,
+      null,
+      null,
+      null,
+    );
+  }
+
+  /** Caller owns the current-attempt fence and the same profile transaction. */
+  bindWithinTransaction(
+    sessionId: YaSessionId,
+    native: NativeSessionRef,
+  ): void {
+    validateNative(native);
+    const identity = this.resolveYa(sessionId);
+    if (!identity || nativeSessionFamily(identity.provider) !== native.family)
+      throw new SessionIdentityConflict();
+    if (identity.native) {
+      if (
+        identity.native.family !== native.family ||
+        identity.native.storageScope !== native.storageScope ||
+        identity.native.id !== native.id
+      )
+        throw new SessionIdentityConflict();
+      return;
+    }
+    if (this.lookupNative(native)) throw new SessionIdentityConflict();
+    this.bind.run(native.family, native.storageScope, native.id, sessionId);
+  }
+
   close(): void {
     this.byPublicId.finalize();
     this.byNativeRef.finalize();
     this.insert.finalize();
+    this.bind.finalize();
   }
 }

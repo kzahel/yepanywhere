@@ -28,6 +28,19 @@ Runtime work and the provenance defect remain unimplemented.
   storage/provider-resolution baseline: 13 checks passed on Node 26.7.0.
   The desktop-pinned Bun 1.3.14 binary was checksum-verified in the owned local
   task directory; Bun storage qualification remains a source-slice check.
+- Phase 4 storage foundation is implemented and independently accepted by
+  Sol 6.1 High: migration 18 and the common
+  atomic identity/metadata/payload/attempt boundary, with fenced binding and
+  idempotent explicit pre-effect retry. This precedes the first equal-id Claude
+  vertical path; focused real-SQLite/reopen checks pass on Node 22 and pinned
+  Bun. Remaining phase 3 cold-resume/browser gates still block
+  differing-id launches. Public creation behavior and capability are unchanged.
+  Final focused storage/identity/native-helper checks: 18 passed across three
+  files in 2.47 s. Lint has zero warnings; format/typecheck pass. The complete
+  Node 22.23.3 workspace passes (6,803 server / 7,064 client; server 134.65 s).
+  Both Node 26.7 workspace runs hit the existing Rendez restart line-364
+  failure; those red runs remain recorded in its gap. A separate reviewed
+  type-only helper-fixture cleanup clears three inherited lint warnings.
 - Phase 2: implemented and independently accepted by Sol 6.1 High after fixing
   stored-identity missing-transcript fallback and Codex read ownership. Migration
   17, scoped forward/reverse adoption and bound Claude/Codex detail/history are

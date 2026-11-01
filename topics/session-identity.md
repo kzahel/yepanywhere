@@ -603,3 +603,23 @@ preservation, known failure versus uncertainty, router-pin continuity,
 attachments, and old/new clients and servers. Cover hosted and in-process
 ownership and genuinely different provider identity shapes. Reuse bounded
 observation and existing dispatch; no per-attempt pollers or new general runtime.
+
+### Implemented creation storage foundation — 2026-11-01
+
+Migration 18 adds a profile-owned creation store beneath the planned admission
+path. It saves an unbound YA identity, exact initial text, explicit normalized
+source/creator, launch-settings snapshot, operation and first attempt in one
+synchronous transaction on the metadata connection. Metadata mirrors publish
+only after commit. Failed writes leave both the rows and mirrors unchanged.
+Owner-scoped identical request replays return the saved identity; changed reuse
+conflicts. Explicit pre-effect retry retains that identity and records the retry
+key/result atomically with its new attempt. Dispatch generations fence later
+binding and delivery transitions; unknown effects remain uncertain and cannot
+be retried. Explicit deletion releases saved payload while retaining a deleted
+operation, request hash, native identity and historical retry results.
+
+This is an internal storage boundary, with the bounds selected above. It does
+not yet route ordinary creation, expose saved sessions in collections/detail,
+or advertise `session-creation-receipts`. Native namespace quarantine, provider
+startup integration, current-authority dispatch, and all caller/attachment/client
+qualification remain required before those guarantees become public behavior.
