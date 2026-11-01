@@ -225,6 +225,21 @@ Runtime work and the provenance defect remain unimplemented.
   New-session launches remain unchanged until later admission/provider slices;
   Grok/frozen-Gemini sources, scoped cold resume and released clients remain
   phase-3 enabling work.
+- Phase 3 Grok native-source migration is independently accepted.
+  Canonical root/summary-handle evidence, original-project bound readers,
+  indexed metadata and focused companion observation retain public identity.
+  Late replay-file creation, proven child cache misses and media below the
+  actual native directory work across an empty working-project move. Initial
+  app fixtures exposed child and media 404s; both reproductions now pass.
+  Pending real reads and partial lists are discarded on retirement. Sol found
+  canonical-id substitution through a directory-name fallback; all acquisition
+  now requires the canonical handle. Cold/warm replacement and post-invalidation
+  regressions preserve the positive different-directory case. Focused checks:
+  53 passed across five files in 2.58 s. Actual Node 26.7.0 and pinned Bun
+  1.3.14 HTTP/WebSocket/late-replay/restart and canonical-collision probes pass.
+  Final warning-free lint, format, typecheck and workspace tests pass (6,778
+  server / 7,064 client; 127.44 s server run). Launch behavior/capabilities are
+  unchanged; frozen Gemini, cold resume and released clients remain phase 3.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

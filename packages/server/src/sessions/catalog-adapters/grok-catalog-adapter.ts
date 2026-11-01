@@ -1,6 +1,9 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { GROK_SESSIONS_DIR } from "../../projects/paths.js";
+import {
+  GROK_SESSIONS_DIR,
+  getProjectIdentityKey,
+} from "../../projects/paths.js";
 import type {
   NativeSessionCatalogAdapter,
   SessionCatalogAdapterScan,
@@ -69,6 +72,8 @@ export class GrokSessionCatalogAdapter implements NativeSessionCatalogAdapter {
       return { sourceVersion: "absent", rows: [], metrics: {} };
     }
 
+    const nativeStorageScope = await realpath(this.sessionsDir);
+    context.signal.throwIfAborted();
     for (const encoded of cwdEntries) {
       context.signal.throwIfAborted();
       if (encoded === "session_search.sqlite") continue;
@@ -115,6 +120,9 @@ export class GrokSessionCatalogAdapter implements NativeSessionCatalogAdapter {
           continue;
         }
 
+        const cwd = asString(summary.info?.cwd) ?? decodedCwd;
+        if (getProjectIdentityKey(cwd) !== getProjectIdentityKey(decodedCwd))
+          continue;
         const updatedAtMs =
           parseTimestampMs(summary.updated_at) ??
           parseTimestampMs(summary.last_active_at) ??
@@ -126,14 +134,14 @@ export class GrokSessionCatalogAdapter implements NativeSessionCatalogAdapter {
         newestMs = Math.max(newestMs, mtimeMs);
 
         await addGrokChildSessionIds(join(cwdDir, uuid), childIds);
-        rows.push(
-          buildCatalogRow({
+        rows.push({
+          ...buildCatalogRow({
             catalogFamily: this.catalogFamily,
             storeKey: this.storeKey,
             // The directory name is the locatable id on disk; summary.json's
             // own id is the ACP-visible one and wins when both exist.
             sessionId: asString(summary.info?.id) ?? uuid,
-            projectPath: asString(summary.info?.cwd) ?? decodedCwd,
+            projectPath: cwd,
             updatedAtMs,
             createdAtMs: parseTimestampMs(summary.created_at),
             title:
@@ -146,7 +154,8 @@ export class GrokSessionCatalogAdapter implements NativeSessionCatalogAdapter {
             sourceVersion: fileSourceVersion(mtimeMs, size),
             location: { kind: "file", path: summaryPath },
           }),
-        );
+          nativeStorageScope,
+        });
       }
     }
 

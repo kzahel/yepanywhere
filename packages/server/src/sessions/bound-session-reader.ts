@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 import { stat } from "node:fs/promises";
 import type {
   NativeSessionRef,
@@ -94,7 +95,14 @@ export class BoundSessionReads {
       const paths =
         input.native.family === "opencode" && filePath.endsWith("opencode.db")
           ? [filePath, `${filePath}-wal`]
-          : [filePath];
+          : input.native.family === "grok"
+            ? [
+                filePath,
+                ...["chat_history.jsonl", "events.jsonl", "updates.jsonl"].map(
+                  (name) => join(dirname(filePath), name),
+                ),
+              ]
+            : [filePath];
       const files = await Promise.all(
         paths.map((path) => stat(path).catch(() => null)),
       );

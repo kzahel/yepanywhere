@@ -9,26 +9,21 @@
  *     - updates.jsonl
  *     - ...
  *
- * YA is deliberately agnostic about the exact string used as a session ID in
- * URLs and internal references. Per guidance: for Grok we use whatever
- * identifier is most easily locatable directly in Grok Build's own records.
- *
- * The most locatable identifier is the subdirectory name under
- * ~/.grok/sessions/<encoded-cwd>/. This is the value that appears on disk
- * and is also present as `info.id` inside summary.json (and is the sessionId
- * returned by the ACP `newSession` / `resumeSession` calls).
- *
- * We therefore treat the directory basename (and `summary.info.id` when
- * present) as the canonical durable ID for Grok sessions. No synthetic
- * YA-level UUID is layered on top.
+ * This reader exposes provider-native ids: summary.info.id (the ACP handle)
+ * wins, with the directory basename used only when older summaries omit it.
+ * Scoped application bindings and projection own public YA ids. A directory
+ * spelling cannot substitute a different canonical resource for a native id.
  */
 
 import { readFile, readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import type {
+  NativeSessionId,
   ProviderChildSessionSummary,
   UrlProjectId,
 } from "@yep-anywhere/shared";
+import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
 import { attachToolResultMediaCandidates } from "../media/inlineImageData.js";
 import { splitGrokUserMessageTexts } from "../sdk/providers/grok-interject-text.js";
 import { grokEventUuid } from "../sdk/providers/grok-message-identity.js";
@@ -79,10 +74,8 @@ interface GrokSessionInfo {
   /**
    * The canonical durable ID for this Grok session.
    *
-   * This is the identifier most easily locatable in Grok's own records:
-   * the basename of the session directory under ~/.grok/sessions/<encoded-cwd>/.
-   * It matches `summary.json:info.id` and the sessionId returned by the
-   * ACP protocol from `grok agent stdio`.
+   * summary.json:info.id is the ACP handle. The directory basename is the
+   * fallback only for older summaries without that field.
    */
   id: string;
 
@@ -96,7 +89,20 @@ interface GrokSessionInfo {
   size: number;
 }
 
+interface GrokStoredSummary {
+  info?: { id?: string; cwd?: string };
+  created_at?: string;
+  updated_at?: string;
+  last_active_at?: string;
+  generated_title?: string;
+  session_summary?: string;
+  num_messages?: number;
+  num_chat_messages?: number;
+  current_model_id?: string;
+}
+
 export class GrokSessionReader implements ISessionReader {
+  private closed = false;
   private sessionsDir: string;
   private projectPath?: string;
   private projectIdentityKey?: string;
@@ -116,6 +122,7 @@ export class GrokSessionReader implements ISessionReader {
   }
 
   private async scanSessions(): Promise<GrokSessionInfo[]> {
+    if (this.closed) return [];
     const now = Date.now();
     if (
       now - this.cacheTimestamp < this.CACHE_TTL_MS &&
@@ -136,6 +143,7 @@ export class GrokSessionReader implements ISessionReader {
     const targetCwd = this.projectIdentityKey;
 
     for (const encoded of cwdDirs) {
+      if (this.closed) return [];
       if (encoded === "session_search.sqlite") continue;
 
       let decodedCwd: string;
@@ -159,6 +167,7 @@ export class GrokSessionReader implements ISessionReader {
       }
 
       for (const uuid of uuids) {
+        if (this.closed) return [];
         const sessionDir = join(cwdDir, uuid);
         const summaryPath = join(sessionDir, "summary.json");
 
@@ -167,15 +176,23 @@ export class GrokSessionReader implements ISessionReader {
           const raw = await readFile(summaryPath, "utf-8");
           const summary = JSON.parse(raw);
 
-          // Prefer the on-disk directory name as the primary locatable ID.
-          // Fall back to (or cross-check against) the ID inside summary.json.
-          const nativeId = summary.info?.id ?? uuid;
-
+          // Preserve the ACP identity even when its directory spelling differs.
+          if (this.closed) return [];
+          const nativeId =
+            typeof summary.info?.id === "string" && summary.info.id
+              ? summary.info.id
+              : uuid;
+          const cwd =
+            typeof summary.info?.cwd === "string"
+              ? summary.info.cwd
+              : decodedCwd;
+          if (getProjectIdentityKey(cwd) !== getProjectIdentityKey(normalized))
+            continue;
           const info: GrokSessionInfo = {
             id: nativeId,
             dirBasename: uuid,
             dirPath: sessionDir,
-            cwd: summary.info?.cwd ?? decodedCwd,
+            cwd,
             summaryPath,
             mtime: st.mtimeMs,
             size: st.size,
@@ -191,110 +208,111 @@ export class GrokSessionReader implements ISessionReader {
     return Array.from(this.sessionCache.values());
   }
 
+  private async readStoredSummary(
+    info: GrokSessionInfo,
+  ): Promise<GrokStoredSummary | null> {
+    if (this.closed) return null;
+    try {
+      const stats = await stat(info.summaryPath);
+      if (this.closed) return null;
+      const summary = JSON.parse(
+        await readFile(info.summaryPath, "utf8"),
+      ) as GrokStoredSummary;
+      if (this.closed) return null;
+      const id =
+        typeof summary.info?.id === "string" && summary.info.id
+          ? summary.info.id
+          : info.dirBasename;
+      const cwd =
+        typeof summary.info?.cwd === "string" ? summary.info.cwd : info.cwd;
+      if (
+        id !== info.id ||
+        getProjectIdentityKey(cwd) !== getProjectIdentityKey(info.cwd)
+      ) {
+        this.sessionCache.delete(info.id);
+        this.cacheTimestamp = 0;
+        return null;
+      }
+      info.mtime = stats.mtimeMs;
+      info.size = stats.size;
+      return summary;
+    } catch {
+      return null;
+    }
+  }
+
+  private summaryFrom(
+    info: GrokSessionInfo,
+    data: GrokStoredSummary,
+    projectId: UrlProjectId,
+  ): SessionSummary {
+    return {
+      id: info.id,
+      projectId,
+      ownership: { owner: "none" },
+      createdAt: data.created_at ?? new Date(info.mtime).toISOString(),
+      updatedAt:
+        data.updated_at ??
+        data.last_active_at ??
+        new Date(info.mtime).toISOString(),
+      title: data.generated_title ?? data.session_summary ?? null,
+      fullTitle: data.session_summary ?? data.generated_title ?? null,
+      messageCount: data.num_messages ?? data.num_chat_messages ?? 0,
+      provider: "grok",
+      model: data.current_model_id ?? "grok-build",
+    };
+  }
+
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
     const sessions = await this.scanSessions();
+    if (this.closed) return [];
     const childIds = await this.collectProviderChildIds(sessions);
+    if (this.closed) return [];
     const out: SessionSummary[] = [];
-
-    for (const s of sessions) {
-      if (childIds.has(s.id) || childIds.has(s.dirBasename)) {
-        continue;
-      }
-      try {
-        const raw = await readFile(s.summaryPath, "utf-8");
-        const data = JSON.parse(raw);
-        const summaryId = data.info?.id ?? s.id;
-        if (childIds.has(summaryId)) {
-          continue;
-        }
-
-        const summary: SessionSummary = {
-          id: summaryId,
-          projectId,
-          ownership: { owner: "none" as const },
-          createdAt: data.created_at ?? new Date(s.mtime).toISOString(),
-          updatedAt:
-            data.updated_at ??
-            data.last_active_at ??
-            new Date(s.mtime).toISOString(),
-          title: data.generated_title ?? data.session_summary ?? null,
-          fullTitle: data.session_summary ?? data.generated_title ?? null,
-          messageCount: data.num_messages ?? data.num_chat_messages ?? 0,
-          provider: "grok",
-          model: data.current_model_id ?? "grok-build",
-        };
-        out.push(summary);
-      } catch {
-        // skip bad summary
-      }
+    for (const info of sessions) {
+      if (childIds.has(info.id) || childIds.has(info.dirBasename)) continue;
+      const data = await this.readStoredSummary(info);
+      if (this.closed) return [];
+      if (data) out.push(this.summaryFrom(info, data, projectId));
     }
-
-    return out;
+    return this.closed ? [] : out;
   }
 
   async getSessionSummary(
     sessionId: string,
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
-    const sessions = await this.scanSessions();
-    // Look up by the canonical ID first (the one from info.id / ACP protocol).
-    // Fall back to the raw directory basename on disk — this is the identifier
-    // that is most easily locatable directly in Grok Build's own records.
-    let info = sessions.find((s) => s.id === sessionId);
-    if (!info) {
-      info = sessions.find((s) => s.dirBasename === sessionId);
-    }
-    if (!info) return null;
-
-    try {
-      const raw = await readFile(info.summaryPath, "utf-8");
-      const data = JSON.parse(raw);
-
-      return {
-        id: data.info?.id ?? sessionId,
-        projectId,
-        ownership: { owner: "none" as const },
-        createdAt: data.created_at ?? new Date(info.mtime).toISOString(),
-        updatedAt:
-          data.updated_at ??
-          data.last_active_at ??
-          new Date(info.mtime).toISOString(),
-        title: data.generated_title ?? data.session_summary ?? null,
-        fullTitle: data.session_summary ?? data.generated_title ?? null,
-        messageCount: data.num_messages ?? data.num_chat_messages ?? 0,
-        provider: "grok",
-        model: data.current_model_id ?? "grok-build",
-      };
-    } catch {
-      return null;
-    }
+    const info = this.findSessionInfo(await this.scanSessions(), sessionId);
+    if (this.closed || !info) return null;
+    const data = await this.readStoredSummary(info);
+    return !this.closed && data
+      ? this.summaryFrom(info, data, projectId)
+      : null;
   }
 
   async getSessionSummaryIfChanged(
     sessionId: string,
-    _projectId: UrlProjectId,
+    projectId: UrlProjectId,
     cachedMtime: number,
-    _cachedSize: number,
+    cachedSize: number,
   ): Promise<{ summary: SessionSummary; mtime: number; size: number } | null> {
-    const sessions = await this.scanSessions();
-    let info = sessions.find((s) => s.id === sessionId);
-    if (!info) {
-      info = sessions.find((s) => s.dirBasename === sessionId);
-    }
-    if (!info) return null;
-
-    if (info.mtime <= cachedMtime) {
+    const info = this.findSessionInfo(await this.scanSessions(), sessionId);
+    if (this.closed || !info) return null;
+    const stats = await stat(info.summaryPath).catch(() => null);
+    if (
+      this.closed ||
+      !stats ||
+      (stats.mtimeMs === cachedMtime && stats.size === cachedSize)
+    )
       return null;
-    }
-
-    const summary = await this.getSessionSummary(sessionId, "" as UrlProjectId);
-    if (!summary) return null;
-
-    return {
-      summary,
-      mtime: info.mtime,
-      size: info.size,
-    };
+    const data = await this.readStoredSummary(info);
+    return !this.closed && data
+      ? {
+          summary: this.summaryFrom(info, data, projectId),
+          mtime: info.mtime,
+          size: info.size,
+        }
+      : null;
   }
 
   async getSession(
@@ -305,12 +323,13 @@ export class GrokSessionReader implements ISessionReader {
   ): Promise<LoadedSession | null> {
     const sessions = await this.scanSessions();
     const info = this.findSessionInfo(sessions, sessionId);
-    if (!info) return null;
+    if (this.closed || !info) return null;
 
     const summary = await this.getSessionSummary(sessionId, projectId);
-    if (!summary) return null;
+    if (this.closed || !summary) return null;
 
     const transcriptSnapshot = await this.loadUpdatesSnapshot(info);
+    if (this.closed) return null;
     const { messages } = transcriptSnapshot;
     const filteredMessages = afterMessageId
       ? this.messagesAfter(messages, afterMessageId)
@@ -333,10 +352,7 @@ export class GrokSessionReader implements ISessionReader {
     sessions: GrokSessionInfo[],
     sessionId: string,
   ): GrokSessionInfo | undefined {
-    return (
-      sessions.find((s) => s.id === sessionId) ??
-      sessions.find((s) => s.dirBasename === sessionId)
-    );
+    return sessions.find((session) => session.id === sessionId);
   }
 
   private async loadUpdatesSnapshot(
@@ -346,7 +362,11 @@ export class GrokSessionReader implements ISessionReader {
     let raw: string;
     try {
       const stats = await stat(updatesPath);
+      if (this.closed)
+        return { messages: [], updatedAt: new Date(info.mtime).toISOString() };
       raw = await readFile(updatesPath, "utf-8");
+      if (this.closed)
+        return { messages: [], updatedAt: stats.mtime.toISOString() };
       return {
         messages: this.parseUpdatesMessages(raw),
         updatedAt: stats.mtime.toISOString(),
@@ -744,18 +764,64 @@ export class GrokSessionReader implements ISessionReader {
     agentType?: string;
     description?: string;
   } | null> {
-    const sessions = await this.scanSessions();
-    const child = this.findSessionInfo(sessions, agentId);
-    if (!child) {
+    // This value is also a filesystem component for a newly discovered child.
+    try {
+      parseNativeSessionId(agentId);
+    } catch {
       return null;
     }
-    const meta = parentSessionId
-      ? await this.readSubagentMeta(
-          this.findSessionInfo(sessions, parentSessionId)?.dirPath,
-          agentId,
-        )
+    if (agentId === "." || agentId === "..") return null;
+    const sessions = await this.scanSessions();
+    if (this.closed) return null;
+    const parent = parentSessionId
+      ? this.findSessionInfo(sessions, parentSessionId)
+      : undefined;
+    if (parentSessionId && (!parent || !(await this.readStoredSummary(parent))))
+      return null;
+    if (this.closed) return null;
+    const meta = parent
+      ? await this.readSubagentMeta(parent.dirPath, agentId)
       : await this.findSubagentMeta(sessions, agentId);
-    const messages = (await this.loadUpdatesMessages(child)).map((message) => ({
+    if (this.closed || (parentSessionId && !meta)) return null;
+    if (
+      parent &&
+      meta?.parent_session_id &&
+      meta.parent_session_id !== parent.id &&
+      meta.parent_session_id !== parent.dirBasename
+    )
+      return null;
+    let child = this.findSessionInfo(sessions, agentId);
+    if (!child && parent && meta) {
+      // Native metadata proves this exact child. Probe its conventional sibling
+      // directly; do not re-enumerate the project on every cache miss.
+      const dirPath = join(dirname(parent.dirPath), agentId);
+      const candidate: GrokSessionInfo = {
+        id: agentId,
+        dirBasename: agentId,
+        dirPath,
+        cwd: parent.cwd,
+        summaryPath: join(dirPath, "summary.json"),
+        mtime: 0,
+        size: 0,
+      };
+      if (await this.readStoredSummary(candidate)) {
+        if (this.closed) return null;
+        this.sessionCache.set(candidate.id, candidate);
+        child = candidate;
+      }
+    }
+    if (this.closed || !child || !(await this.readStoredSummary(child)))
+      return null;
+    if (this.closed) return null;
+    if (
+      meta?.child_session_id &&
+      meta.child_session_id !== child.id &&
+      meta.child_session_id !== child.dirBasename
+    )
+      return null;
+    const loaded = await this.loadUpdatesMessages(child);
+    if (this.closed) return null;
+    const messages = loaded.map((message) => ({
       ...message,
       isSubagent: true,
     }));
@@ -772,22 +838,36 @@ export class GrokSessionReader implements ISessionReader {
   ): Promise<ProviderChildSessionSummary[]> {
     const sessions = await this.scanSessions();
     const parent = this.findSessionInfo(sessions, parentSessionId);
-    if (!parent) {
+    if (this.closed || !parent || !(await this.readStoredSummary(parent)))
       return [];
-    }
     const metas = await this.readParentSubagentMetas(parent.dirPath);
+    if (this.closed) return [];
     return sortProviderChildSessions(
       metas.map((meta) => toGrokProviderChildSummary(parentSessionId, meta)),
     );
   }
 
   async getSessionFilePath(sessionId: string): Promise<string | null> {
-    const sessions = await this.scanSessions();
-    let info = sessions.find((s) => s.id === sessionId);
-    if (!info) {
-      info = sessions.find((s) => s.dirBasename === sessionId);
-    }
-    return info ? info.summaryPath : null;
+    const info = this.findSessionInfo(await this.scanSessions(), sessionId);
+    if (this.closed || !info) return null;
+    return (await this.readStoredSummary(info)) && !this.closed
+      ? info.summaryPath
+      : null;
+  }
+
+  async getNativeSessionRef(sessionId: NativeSessionId) {
+    const info = (await this.scanSessions()).find(
+      (info) => info.id === sessionId,
+    );
+    if (this.closed || !info || !(await this.readStoredSummary(info)))
+      return null;
+    if (this.closed) return null;
+    const native = await resolveNativeSessionRef(
+      "grok",
+      this.sessionsDir,
+      sessionId,
+    ).catch(() => null);
+    return this.closed ? null : native;
   }
 
   async listSessionFiles(
@@ -795,7 +875,9 @@ export class GrokSessionReader implements ISessionReader {
     _options?: { activeAfterMs?: number },
   ): Promise<{ sessionId: string; filePath: string }[]> {
     const sessions = await this.scanSessions();
+    if (this.closed) return [];
     const childIds = await this.collectProviderChildIds(sessions);
+    if (this.closed) return [];
     return sessions
       .filter(
         (session) =>
@@ -808,16 +890,24 @@ export class GrokSessionReader implements ISessionReader {
   }
 
   async getSessionProjectPath(sessionId: string): Promise<string | null> {
-    const sessions = await this.scanSessions();
-    let info = sessions.find((s) => s.id === sessionId);
-    if (!info) {
-      info = sessions.find((s) => s.dirBasename === sessionId);
-    }
-    return info ? canonicalizeProjectPath(info.cwd) : null;
+    const info = this.findSessionInfo(await this.scanSessions(), sessionId);
+    if (this.closed || !info) return null;
+    return (await this.readStoredSummary(info)) && !this.closed
+      ? canonicalizeProjectPath(info.cwd)
+      : null;
   }
 
-  getIndexScopeKey(sessionDir: string): string {
-    return `grok::${sessionDir}::${this.projectIdentityKey ?? "*"}`;
+  getIndexScopeKey(_sessionDir: string): string {
+    return JSON.stringify([
+      "grok",
+      this.sessionsDir,
+      this.projectIdentityKey ?? "*",
+    ]);
+  }
+
+  close(): void {
+    this.closed = true;
+    this.sessionCache.clear();
   }
 
   private async collectProviderChildIds(
@@ -825,6 +915,7 @@ export class GrokSessionReader implements ISessionReader {
   ): Promise<Set<string>> {
     const ids = new Set<string>();
     for (const session of sessions) {
+      if (this.closed) return new Set();
       for (const meta of await this.readParentSubagentMetas(session.dirPath)) {
         if (meta.subagent_id) ids.add(meta.subagent_id);
         if (meta.child_session_id) ids.add(meta.child_session_id);
@@ -838,6 +929,7 @@ export class GrokSessionReader implements ISessionReader {
     agentId: string,
   ): Promise<GrokSubagentMeta | undefined> {
     for (const session of sessions) {
+      if (this.closed) return undefined;
       const meta = await this.readSubagentMeta(session.dirPath, agentId);
       if (meta) {
         return meta;
@@ -850,17 +942,17 @@ export class GrokSessionReader implements ISessionReader {
     parentDir: string | undefined,
     agentId: string,
   ): Promise<GrokSubagentMeta | undefined> {
-    if (!parentDir) {
-      return undefined;
-    }
-    return readGrokSubagentMetaFile(
+    if (this.closed || !parentDir) return undefined;
+    const meta = await readGrokSubagentMetaFile(
       join(parentDir, "subagents", agentId, "meta.json"),
     );
+    return this.closed ? undefined : meta;
   }
 
   private async readParentSubagentMetas(
     parentDir: string,
   ): Promise<GrokSubagentMeta[]> {
+    if (this.closed) return [];
     const subagentsDir = join(parentDir, "subagents");
     let names: string[];
     try {
@@ -870,6 +962,7 @@ export class GrokSessionReader implements ISessionReader {
     }
     const metas: GrokSubagentMeta[] = [];
     for (const name of names) {
+      if (this.closed) return [];
       const meta = await readGrokSubagentMetaFile(
         join(subagentsDir, name, "meta.json"),
       );
@@ -877,7 +970,7 @@ export class GrokSessionReader implements ISessionReader {
         metas.push(meta);
       }
     }
-    return metas;
+    return this.closed ? [] : metas;
   }
 }
 

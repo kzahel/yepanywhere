@@ -174,6 +174,13 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   append cannot reuse an old parsed transcript. Reader retirement clears caches
   and refuses late proof/parse publication. Remaining provider sources and
   differing-id launches are still gated.
+- Grok native catalogue/summary/history and focused observation use the bound
+  sessions root, canonical summary handle and original project. Late creation of
+  the replay log refreshes the public session, including after a working-project
+  move. Child metadata proves parentage before reading a native child. Media
+  sources follow the actual native session directory rather than reconstructing
+  it from public identity. Reader retirement discards pending results. See
+  [Grok's source contract](grok.md#native-source-identity-and-observation).
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

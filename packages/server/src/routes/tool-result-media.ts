@@ -23,7 +23,9 @@ export function createToolResultMediaRoutes(
         return c.json({ error: "Invalid project ID format" }, 400);
       }
 
-      const project = await deps.scanner.getProject(projectId);
+      const project =
+        (await deps.scanner.getProject(projectId)) ??
+        (await deps.scanner.getOrCreateProject?.(projectId));
       if (!project) {
         return c.json({ error: "Media not found" }, 404);
       }

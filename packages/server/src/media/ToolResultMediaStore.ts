@@ -93,7 +93,7 @@ export interface ToolResultMediaStoreOptions {
   resolveSourcePath?: (absolutePath: string) => Promise<string | null>;
   providerSourceRoots?: (
     context: ToolResultMediaProviderSourceContext,
-  ) => readonly string[];
+  ) => readonly string[] | Promise<readonly string[]>;
   storagePolicy?: ProjectStoragePolicy;
   shouldPreserveLiveMedia?: () => boolean;
   transientMediaMaxBytes?: number;
@@ -113,9 +113,7 @@ export class ToolResultMediaStore {
   private readonly resolveSourcePath:
     | ((absolutePath: string) => Promise<string | null>)
     | undefined;
-  private readonly providerSourceRoots:
-    | ((context: ToolResultMediaProviderSourceContext) => readonly string[])
-    | undefined;
+  private readonly providerSourceRoots: ToolResultMediaStoreOptions["providerSourceRoots"];
   private readonly storagePolicy: ProjectStoragePolicy | undefined;
   private readonly shouldPreserveLiveMediaValue: () => boolean;
   private readonly transientMediaMaxBytes: number;
@@ -352,7 +350,7 @@ export class ToolResultMediaStore {
     const resolvedSource = await realpath(absolutePath).catch(() => null);
     if (!resolvedSource) return null;
 
-    const providerRoots = this.providerSourceRoots?.(context) ?? [];
+    const providerRoots = (await this.providerSourceRoots?.(context)) ?? [];
     for (const root of providerRoots) {
       const resolvedRoot = await realpath(root).catch(() => null);
       if (resolvedRoot && isWithin(resolvedSource, resolvedRoot)) {

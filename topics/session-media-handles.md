@@ -76,6 +76,14 @@ A path-only result is available while its permitted source path exists. When
 the source disappears and preservation was not enabled, the media ref becomes
 unavailable with an explicit reason. YA does not snapshot it silently.
 
+For a bound Grok session, native image/video permission resolves the recorded
+root, original project and actual native directory. A YA id or moved working
+project is never substituted into a native path. Media handles are fetchable
+under the effective working project even when that existing directory contains
+no provider transcripts. This does not widen session grants or foreign-root
+file permission; [Grok's source contract](grok.md#native-source-identity-and-observation)
+owns the native address.
+
 ## Session-detail projection boundary
 
 Provider normalization may carry extracted inline bytes as private ingest

@@ -196,7 +196,6 @@ import {
   readCwdFromSessionFile,
   getProjectName,
   getProjectIdentityKey,
-  grokSessionMediaRoots,
   type ProjectDisplayNameResolver,
 } from "./projects/paths.js";
 import { ProjectScanner } from "./projects/scanner.js";
@@ -1495,10 +1494,30 @@ export function createApp(options: AppOptions): AppResult {
         await localResourcePathPolicy.resolveAllowedFilePath(absolutePath);
       return resolved.ok ? resolved.file.resolvedPath : null;
     },
-    providerSourceRoots: ({ provider, projectPath, sessionId }) =>
-      provider === "grok"
-        ? grokSessionMediaRoots(grokSessionsDir, projectPath, sessionId)
-        : [],
+    providerSourceRoots: async ({ provider, projectPath, sessionId }) => {
+      if (provider !== "grok" || sessionReadLifetime.signal.aborted) return [];
+      const identity = await resolveExistingSessionIdentity({
+        sessionId,
+        requestProjectId: toUrlProjectId(projectPath),
+        preferredProvider: provider,
+        metadata: options.sessionMetadataService?.getMetadata(sessionId),
+        scanner,
+        providerDeps: sessionProviderResolutionDeps(),
+      });
+      if (
+        identity?.native?.family !== "grok" ||
+        sessionReadLifetime.signal.aborted
+      )
+        return [];
+      const reader = readerFactory(
+        { ...identity.transcriptProject, provider: identity.provider },
+        identity.native,
+      );
+      const file = await reader.getSessionFilePath?.(identity.native.id);
+      return file && !sessionReadLifetime.signal.aborted
+        ? [join(dirname(file), "images"), join(dirname(file), "videos")]
+        : [];
+    },
   });
   const bangCommandService =
     options.sessionMetadataService && options.dataDir
@@ -1538,7 +1557,7 @@ export function createApp(options: AppOptions): AppResult {
       const native = identity.native;
       if (
         !native ||
-        !["claude", "codex", "opencode", "pi"].includes(native.family)
+        !["claude", "codex", "opencode", "pi", "grok"].includes(native.family)
       )
         return null;
       const project = await scanner.getOrCreateProject(identity.projectId);
@@ -1554,7 +1573,15 @@ export function createApp(options: AppOptions): AppResult {
             provider: native.family,
             ...(native.family === "opencode" && filePath.endsWith("opencode.db")
               ? { additionalFilePaths: [`${filePath}-wal`] }
-              : {}),
+              : native.family === "grok"
+                ? {
+                    additionalFilePaths: [
+                      "chat_history.jsonl",
+                      "events.jsonl",
+                      "updates.jsonl",
+                    ].map((name) => join(dirname(filePath), name)),
+                  }
+                : {}),
           }
         : null;
     },
@@ -1743,6 +1770,15 @@ export function createApp(options: AppOptions): AppResult {
                 databasePath: join(native.storageScope, "opencode.db"),
                 storageDir: join(native.storageScope, "storage"),
                 nativeStorageScope: native.storageScope,
+              }),
+          );
+        case "grok":
+          return getOrCreateReader(
+            JSON.stringify(["grok-bound", native.storageScope, project.path]),
+            () =>
+              new GrokSessionReader({
+                sessionsDir: native.storageScope,
+                projectPath: project.path,
               }),
           );
         case "pi":

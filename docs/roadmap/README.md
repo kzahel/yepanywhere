@@ -641,7 +641,12 @@ HTTP/WebSocket/restart checks retain the YA id; launch remapping is still gated.
 Pi source migration is also independently accepted: native-root adoption,
 indexed metadata and focused fixed-mtime append refresh preserve the YA id;
 terminal reader retirement discards pending results. Node/Bun HTTP/WebSocket,
-restart and retirement-race checks pass. Fully scoped cold resumes,
+restart and retirement-race checks pass. Grok native-source migration is
+independently accepted: scoped history/metadata, late replay-file observation,
+proven child reads and media under an empty working-project move pass focused
+and owned Node/Bun restart probes. Canonical native acquisition refuses a
+conflicting directory spelling, including after warmed-summary replacement.
+Final workspace gates pass. Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or

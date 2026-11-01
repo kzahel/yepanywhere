@@ -126,6 +126,36 @@ paths key the same rendered message on it — see
 rule that keeps the two sides grouping chunks alike, and for the user-turn
 pairing Grok's self-minted row identity forces.
 
+## Native source identity and observation
+
+Historical reads use the canonical native id from `summary.json:info.id` and
+its actual canonical sessions root. An older summary without that field uses
+its directory name. A different directory spelling cannot act as an alias or
+substitute another canonical resource for a stored native binding. The header cwd must belong to its encoded
+project directory. YA bindings retain their public id and original native
+project even after the working project changes; native roots with the same id
+remain distinct. Index entries also include the selected root/project.
+
+A missing `updates.jsonl` is a readable empty history, not permission to read
+another root. Focused client observation watches the summary and fixed native
+companions (`chat_history.jsonl`, `events.jsonl`, `updates.jsonl`) through the
+existing shared watcher. Creating the replay log after the first read triggers
+a public-id/working-project refresh without rewriting physical event paths.
+The last viewer releases observation. Retired readers discard pending results,
+including partial collections, and never repopulate their caches.
+
+Parent-scoped child reads require the parent's native subagent metadata and
+matching parent/child handles. A proven child created after discovery was
+cached may be read by one exact sibling lookup; an arbitrary same-project
+session is not a child. Child handles retain the existing nested route shape.
+
+Image/video source permission follows the bound native session's actual
+`images/` and `videos/` directories. It does not reconstruct a path from the YA
+id, working directory or ambient Grok root. A returned handle remains fetchable
+from an existing empty working project. Session authorization and ordinary
+file allow-list checks still apply; a foreign native root gains no permission.
+See [session media handles](session-media-handles.md).
+
 ## Tool vocabulary
 
 Grok attaches a versioned `_meta["x.ai/tool"]` object to ordinary

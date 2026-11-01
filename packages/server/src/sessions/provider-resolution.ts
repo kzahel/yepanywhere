@@ -214,7 +214,9 @@ async function publicSessionSummaries<T extends SessionListSummary>(
       isClaudeProviderName(source.provider) ||
       source.provider === "codex" ||
       source.provider === "codex-oss" ||
-      ((source.provider === "opencode" || source.provider === "pi") &&
+      ((source.provider === "opencode" ||
+        source.provider === "pi" ||
+        source.provider === "grok") &&
         source.reader.getNativeSessionRef !== undefined)
     )
   )

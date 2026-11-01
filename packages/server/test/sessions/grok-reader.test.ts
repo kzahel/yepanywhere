@@ -1,13 +1,19 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { toUrlProjectId } from "@yep-anywhere/shared";
+import {
+  nativeSessionRef,
+  parseNativeSessionId,
+  parseYaSessionId,
+  toUrlProjectId,
+} from "@yep-anywhere/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   TOOL_RESULT_MEDIA_CANDIDATES,
   type ToolResultMediaCandidateCarrier,
 } from "../../src/media/inlineImageData.js";
 import { GrokSessionReader } from "../../src/sessions/grok-reader.js";
+import { BoundSessionReads } from "../../src/sessions/bound-session-reader.js";
 
 const tempRoots: string[] = [];
 
@@ -687,4 +693,182 @@ describe("GrokSessionReader provider children", () => {
     expect(agent?.description).toBe("Search the repo");
     expect(agent?.messages.length).toBeGreaterThan(0);
   });
+});
+
+describe("GrokSessionReader retirement", () => {
+  function fixture() {
+    const root = mkdtempSync(join(tmpdir(), "grok-reader-retirement-"));
+    tempRoots.push(root);
+    const sessionsDir = join(root, "sessions");
+    const projectPath = join(root, "project");
+    for (const id of ["first", "second"]) {
+      const directory = join(sessionsDir, encodeURIComponent(projectPath), id);
+      mkdirSync(directory, { recursive: true });
+      writeFileSync(
+        join(directory, "summary.json"),
+        JSON.stringify({ info: { id, cwd: projectPath }, generated_title: id }),
+      );
+      writeFileSync(
+        join(directory, "updates.jsonl"),
+        JSON.stringify({
+          params: {
+            update: {
+              sessionUpdate: "user_message_chunk",
+              content: { type: "text", text: id },
+            },
+          },
+        }) + "\n",
+      );
+    }
+    return {
+      reader: new GrokSessionReader({ sessionsDir, projectPath }),
+      projectId: toUrlProjectId(projectPath),
+    };
+  }
+
+  it.each(["history", "summary", "file", "project"] as const)(
+    "discards a real pending %s read after retirement",
+    async (method) => {
+      const { reader, projectId } = fixture();
+      expect(await reader.getSession("first", projectId)).not.toBeNull();
+      const hooks = reader as unknown as {
+        readStoredSummary(info: unknown): Promise<unknown>;
+        loadUpdatesSnapshot(info: unknown): Promise<unknown>;
+      };
+      if (method === "history") {
+        const read = hooks.loadUpdatesSnapshot.bind(reader);
+        hooks.loadUpdatesSnapshot = (info) => {
+          const pending = read(info);
+          void pending.then(() => reader.close());
+          return pending;
+        };
+      } else {
+        const read = hooks.readStoredSummary.bind(reader);
+        hooks.readStoredSummary = (info) => {
+          const pending = read(info);
+          void pending.then(() => reader.close());
+          return pending;
+        };
+      }
+      try {
+        const result = await (method === "history"
+          ? reader.getSession("first", projectId)
+          : method === "summary"
+            ? reader.getSessionSummary("first", projectId)
+            : method === "file"
+              ? reader.getSessionFilePath("first")
+              : reader.getSessionProjectPath("first"));
+        expect(result).toBeNull();
+        expect(await reader.listSessions(projectId)).toEqual([]);
+      } finally {
+        reader.close();
+      }
+    },
+  );
+
+  it("discards a partial list when the next real summary read retires the reader", async () => {
+    const { reader, projectId } = fixture();
+    const hooks = reader as unknown as {
+      readStoredSummary(info: unknown): Promise<unknown>;
+    };
+    const read = hooks.readStoredSummary.bind(reader);
+    let count = 0;
+    hooks.readStoredSummary = async (info) => {
+      const result = await read(info);
+      if (++count === 2) reader.close();
+      return result;
+    };
+    try {
+      expect(await reader.listSessions(projectId)).toEqual([]);
+      expect(count).toBe(2);
+    } finally {
+      reader.close();
+    }
+  });
+});
+
+describe("Grok canonical native acquisition", () => {
+  it.each([false, true])(
+    "refuses a foreign canonical id under the requested directory (warmed=%s)",
+    async (warmed) => {
+      const root = mkdtempSync(join(tmpdir(), "grok-native-collision-"));
+      tempRoots.push(root);
+      const sessionsDir = join(root, "sessions"),
+        projectPath = join(root, "project"),
+        directory = join(
+          sessionsDir,
+          encodeURIComponent(projectPath),
+          "native-N",
+        );
+      mkdirSync(directory, { recursive: true });
+      const summaryPath = join(directory, "summary.json");
+      const writeSummary = (id: string) =>
+        writeFileSync(
+          summaryPath,
+          JSON.stringify({
+            info: { id, cwd: projectPath },
+            generated_title: id,
+          }),
+        );
+      writeSummary(warmed ? "native-N" : "native-M");
+      writeFileSync(
+        join(directory, "updates.jsonl"),
+        JSON.stringify({
+          params: {
+            update: {
+              sessionUpdate: "user_message_chunk",
+              content: { type: "text", text: "foreign native history" },
+            },
+          },
+        }) + "\n",
+      );
+      const reader = new GrokSessionReader({ sessionsDir, projectPath }),
+        projectId = toUrlProjectId(projectPath);
+      const bound = new BoundSessionReads({ readerFactory: () => reader });
+      const input = {
+        sessionId: parseYaSessionId("public-P"),
+        provider: "grok" as const,
+        native: nativeSessionRef(
+          "grok",
+          sessionsDir,
+          parseNativeSessionId("native-N"),
+        ),
+        transcriptProject: {
+          id: projectId,
+          path: projectPath,
+          name: "fixture",
+          sessionDir: sessionsDir,
+          provider: "grok" as const,
+        },
+        projectId,
+      };
+      try {
+        if (warmed) {
+          expect(await bound.read(input)).not.toBeNull();
+          writeSummary("native-M");
+        }
+        // Repeating forces the post-invalidation scan as well as the warmed path.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          expect(await bound.read(input)).toBeNull();
+          expect(
+            await reader.getSessionSummary("native-N", projectId),
+          ).toBeNull();
+          expect(await reader.getSessionFilePath("native-N")).toBeNull();
+          expect(await reader.getSessionProjectPath("native-N")).toBeNull();
+          expect(
+            await reader.getNativeSessionRef(parseNativeSessionId("native-N")),
+          ).toBeNull();
+          expect(await reader.listProviderChildSessions("native-N")).toEqual(
+            [],
+          );
+          expect(await reader.getAgentSession("child", "native-N")).toBeNull();
+        }
+        expect(
+          (await reader.getSession("native-M", projectId))?.summary.id,
+        ).toBe("native-M");
+      } finally {
+        reader.close();
+      }
+    },
+  );
 });
