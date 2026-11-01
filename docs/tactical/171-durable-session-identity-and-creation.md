@@ -181,6 +181,20 @@ Runtime work and the provenance defect remain unimplemented.
   tests pass (6,755 server / 7,064 client). Native scope/public adoption,
   bound OpenCode history and focused DB/WAL observation remain next; this
   prerequisite does not qualify live model startup or another platform.
+- Phase 3 OpenCode directory membership fixes the previously recorded non-Git
+  transcript defect. Shared `global` rows are scoped by their actual directory,
+  including physical path aliases; known foreign rows cannot escape through
+  export fallback. Child/list/history reads share that boundary. Existing Git
+  worktree and legacy `/` links retain their behavior; catalogue grouping uses
+  per-session directories only for `global`. Old schemas retain worktree reads.
+  Sol independently accepted after two alias-proof corrections. The real
+  SQLite/symlink regression verifies 13 sessions reuse one physical lookup
+  and a subsequent operation observes symlink retargeting. Focused checks:
+  36 passed across three files in 0.817 s. Actual Node 26.7.0 and pinned Bun
+  1.3.14 directory-SQL/child/retarget probes and owned YA HTTP/WAL/restart
+  checks pass. Final warning-free lint, format, typecheck and workspace tests
+  pass (6,758 server / 7,064 client). This does not yet enable scoped native
+  binding or different-id launches; other native families remain pending.
 - Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High

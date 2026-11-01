@@ -4,6 +4,7 @@ import {
   open,
   readFile,
   readdir,
+  realpath,
   stat,
   unlink,
 } from "node:fs/promises";
@@ -18,7 +19,7 @@ import {
   getModelContextWindow,
   truncateSessionTitle,
 } from "@yep-anywhere/shared";
-import { encodeProjectId } from "../projects/paths.js";
+import { getProjectIdentityKey, encodeProjectId } from "../projects/paths.js";
 import type {
   ContextUsage,
   Message,
@@ -29,6 +30,7 @@ import {
   OpenCodeDbReader,
   type OpenCodeDbChildSessionRow,
   type OpenCodeDbSessionRow,
+  type OpenCodeProjectScope,
 } from "./opencode-db-reader.js";
 import type {
   GetSessionOptions,
@@ -214,12 +216,19 @@ export class OpenCodeSessionReader implements ISessionReader {
   private openCodeProjectIdCache: string | null | undefined = undefined;
   private dbReader: OpenCodeDbReader;
   private closed = false;
+  private readonly projectScope: Promise<OpenCodeProjectScope>;
 
   constructor(options: OpenCodeSessionReaderOptions) {
     this.storageDir = options.storageDir ?? OPENCODE_STORAGE_DIR;
     this.databasePath = options.databasePath ?? OPENCODE_DB_PATH;
     this.opencodePath = options.opencodePath ?? "opencode";
     this.projectPath = options.projectPath;
+    this.projectScope = realpath(this.projectPath)
+      .catch(() => this.projectPath)
+      .then((canonicalDirectory) => ({
+        directory: this.projectPath,
+        canonicalDirectory,
+      }));
     this.dbReader = new OpenCodeDbReader(this.databasePath);
   }
 
@@ -252,11 +261,14 @@ export class OpenCodeSessionReader implements ISessionReader {
     // OpenCode 1.16+: the DB is authoritative and the CLI `session list` reads
     // the same store, so when the DB has this project we enumerate from it and
     // skip the subprocess. The CLI stays a legacy fallback for pre-1.16 / no-DB.
-    const dbProjectId = await this.dbReader.getProjectId(this.projectPath);
+    const dbScope = await this.dbReader.resolveProjectScope(
+      await this.projectScope,
+    );
+    const hasDbProject = await this.dbReader.hasProject(dbScope);
     if (this.closed) return [];
 
-    if (dbProjectId) {
-      for (const summary of await this.listDbSessions(projectId)) {
+    if (hasDbProject) {
+      for (const summary of await this.listDbSessions(projectId, dbScope)) {
         summaries.push(summary);
         seen.add(summary.id);
       }
@@ -269,7 +281,7 @@ export class OpenCodeSessionReader implements ISessionReader {
       seen.add(summary.id);
     }
 
-    if (!dbProjectId && !this.closed) {
+    if (!hasDbProject && !this.closed) {
       for (const summary of await this.listCliSessions(projectId)) {
         if (seen.has(summary.id)) continue;
         summaries.push(summary);
@@ -293,6 +305,7 @@ export class OpenCodeSessionReader implements ISessionReader {
     if (this.closed) return null;
     const database = await this.getDbSessionSummary(sessionId, projectId);
     if (database || this.closed) return database;
+    if (!(await this.mayUseFallback(sessionId))) return null;
     const file = await this.getFileSessionSummary(sessionId, projectId);
     if (file || this.closed) return file;
     return this.getCliSessionSummary(sessionId, projectId);
@@ -326,6 +339,7 @@ export class OpenCodeSessionReader implements ISessionReader {
       afterMessageId,
     );
     if (fromDb || this.closed) return fromDb;
+    if (!(await this.mayUseFallback(sessionId))) return null;
 
     const fileSummary = await this.getFileSessionSummary(sessionId, projectId);
     if (this.closed) return null;
@@ -365,6 +379,26 @@ export class OpenCodeSessionReader implements ISessionReader {
     };
   }
 
+  private async mayUseFallback(sessionId: string): Promise<boolean> {
+    if (this.closed) return false;
+    const projects = await this.dbReader.getSessionProjects(sessionId);
+    if (!projects) return !this.closed;
+    const scope = await this.projectScope;
+    const expected = getProjectIdentityKey(
+      scope.canonicalDirectory ?? scope.directory,
+    );
+    const paths = [projects.directory, projects.worktree];
+    if (paths.some((path) => getProjectIdentityKey(path) === expected))
+      return !this.closed;
+    const physical = await Promise.all(
+      paths.map((path) => realpath(path).catch(() => path)),
+    );
+    return (
+      !this.closed &&
+      physical.some((path) => getProjectIdentityKey(path) === expected)
+    );
+  }
+
   async getSessionSummaryIfChanged(
     sessionId: string,
     projectId: UrlProjectId,
@@ -389,6 +423,7 @@ export class OpenCodeSessionReader implements ISessionReader {
     if (dbChanged) {
       return dbChanged;
     }
+    if (!(await this.mayUseFallback(sessionId))) return null;
 
     const fileChanged = await this.getFileSessionSummaryIfChanged(
       sessionId,
@@ -448,11 +483,14 @@ export class OpenCodeSessionReader implements ISessionReader {
     // using the db path as the index anchor (the index then stats nothing
     // per-session; change detection runs through getSessionSummaryIfChanged,
     // which compares the row's time_updated + message count).
-    const dbProjectId = await this.dbReader.getProjectId(this.projectPath);
-    const childIds = await this.collectProviderChildIds();
-    if (dbProjectId) {
+    const dbScope = await this.dbReader.resolveProjectScope(
+      await this.projectScope,
+    );
+    const hasDbProject = await this.dbReader.hasProject(dbScope);
+    const childIds = await this.collectProviderChildIds(dbScope);
+    if (hasDbProject) {
       for (const { id, timeUpdated } of await this.dbReader.listSessionRows(
-        dbProjectId,
+        dbScope,
       )) {
         if (seen.has(id) || childIds.has(id)) continue;
         if (
@@ -497,7 +535,7 @@ export class OpenCodeSessionReader implements ISessionReader {
     // CLI `session list` reads the same store, so enumerating it would just
     // re-spawn the subprocess for rows the DB already returned. Run it only when
     // the DB has no project for this worktree (pre-1.16 / no DB).
-    if (!dbProjectId) {
+    if (!hasDbProject) {
       const cliSessions = await this.loadCliSessionList();
       for (const session of cliSessions) {
         if (!this.cliListSessionBelongsToProject(session)) continue;
@@ -527,8 +565,10 @@ export class OpenCodeSessionReader implements ISessionReader {
     return `opencode::${this.projectPath}`;
   }
 
-  private async collectProviderChildIds(): Promise<Set<string>> {
-    const ids = new Set(await this.dbReader.listChildSessionIds());
+  private async collectProviderChildIds(
+    scope?: OpenCodeProjectScope,
+  ): Promise<Set<string>> {
+    const ids = new Set(await this.dbReader.listChildSessionIds(scope));
     const openCodeProjectId = await this.getOpenCodeProjectId();
     if (!openCodeProjectId) return ids;
     const sessionDir = join(this.storageDir, "session", openCodeProjectId);
@@ -812,10 +852,10 @@ export class OpenCodeSessionReader implements ISessionReader {
     projectId: UrlProjectId,
     afterMessageId?: string,
   ): Promise<LoadedSession | null> {
-    const projectIdHash = await this.dbReader.getProjectId(this.projectPath);
-    if (!projectIdHash) return null;
-
-    const row = await this.dbReader.getSessionRow(sessionId, projectIdHash);
+    const row = await this.dbReader.getSessionRow(
+      sessionId,
+      await this.projectScope,
+    );
     // Skip empty sessions (0 messages) so an unstarted session falls through to
     // the same null the file path returns, rather than rendering blank.
     if (!row || row.messageCount === 0) return null;
@@ -840,10 +880,12 @@ export class OpenCodeSessionReader implements ISessionReader {
   private async getDbSessionSummary(
     sessionId: string,
     projectId: UrlProjectId,
+    scope?: OpenCodeProjectScope,
   ): Promise<SessionSummary | null> {
-    const projectIdHash = await this.dbReader.getProjectId(this.projectPath);
-    if (!projectIdHash) return null;
-    const row = await this.dbReader.getSessionRow(sessionId, projectIdHash);
+    const row = await this.dbReader.getSessionRow(
+      sessionId,
+      scope ?? (await this.projectScope),
+    );
     if (!row || row.messageCount === 0) return null;
     return this.buildDbSummary(row, projectId);
   }
@@ -871,10 +913,10 @@ export class OpenCodeSessionReader implements ISessionReader {
     | "unchanged"
     | null
   > {
-    const projectIdHash = await this.dbReader.getProjectId(this.projectPath);
-    if (!projectIdHash) return null;
-
-    const meta = await this.dbReader.getSessionMeta(sessionId, projectIdHash);
+    const meta = await this.dbReader.getSessionMeta(
+      sessionId,
+      await this.projectScope,
+    );
     if (!meta) return null;
     // An empty DB session summarizes to nothing; treat it as unchanged
     // rather than "not in the DB" so it never triggers the CLI fallback.
@@ -935,18 +977,17 @@ export class OpenCodeSessionReader implements ISessionReader {
 
   private async listDbSessions(
     projectId: UrlProjectId,
+    scope: OpenCodeProjectScope,
   ): Promise<SessionSummary[]> {
-    const projectIdHash = await this.dbReader.getProjectId(this.projectPath);
-    if (!projectIdHash) return [];
+    const hasDbProject = await this.dbReader.hasProject(scope);
+    if (!hasDbProject) return [];
 
-    const rows = await this.dbReader.listSessionRows(projectIdHash);
-    const childIds = new Set(
-      await this.dbReader.listChildSessionIds(projectIdHash),
-    );
+    const rows = await this.dbReader.listSessionRows(scope);
+    const childIds = new Set(await this.dbReader.listChildSessionIds(scope));
     const summaries: SessionSummary[] = [];
     for (const { id } of rows) {
       if (childIds.has(id)) continue;
-      const summary = await this.getDbSessionSummary(id, projectId);
+      const summary = await this.getDbSessionSummary(id, projectId, scope);
       if (summary) summaries.push(summary);
     }
     return summaries;
@@ -1383,10 +1424,13 @@ export class OpenCodeSessionReader implements ISessionReader {
   ): Promise<ProviderChildSessionSummary[]> {
     if (this.closed) return [];
     const byId = new Map<string, ProviderChildSessionSummary>();
-    const projectIdHash = await this.dbReader.getProjectId(this.projectPath);
-    if (projectIdHash) {
+    const dbScope = await this.dbReader.resolveProjectScope(
+      await this.projectScope,
+    );
+    const hasDbProject = await this.dbReader.hasProject(dbScope);
+    if (hasDbProject) {
       for (const row of await this.dbReader.listChildSessionRows(
-        projectIdHash,
+        dbScope,
         parentSessionId,
       )) {
         byId.set(row.id, childSummaryFromDbRow(parentSessionId, row));

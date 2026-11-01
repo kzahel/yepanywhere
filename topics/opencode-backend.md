@@ -296,6 +296,19 @@ does not enable different public/native launch ids, change OpenCode's native
 schema or refresh a provider target. Native `opencode.db` remains authoritative
 history and is never written, checkpointed or migrated by YA.
 
+**Native directory membership.** A session's `directory` is distinct from its
+native project id. In particular, OpenCode puts unrelated non-Git directories
+under the shared `global` project with worktree `/`. DB history, summary,
+freshness, child and list reads match the selected directory (including its
+physical symlink spelling); they do not treat `global` as proof of membership.
+A known row from another directory cannot fall through to a CLI export and
+bypass this check. Legacy native-project worktree links remain readable,
+including the old `/` umbrella. Git catalogue grouping stays under its native
+worktree; `global` catalogue rows use each session's own directory. Schemas
+without `session.directory` retain their original worktree behavior. These
+rules do not alter authorization: project grants still apply to the requested
+YA project before transcript acquisition.
+
 **Fallback order: DB → file tree → export** (draft said DB → export → file tree).
 Putting the subprocess *last* keeps even pre-1.16 file-storage installs from
 spawning `opencode export` when a local read suffices; the DB still covers all

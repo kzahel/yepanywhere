@@ -1,4 +1,6 @@
 import { statSync } from "node:fs";
+import { realpath } from "node:fs/promises";
+import { getProjectIdentityKey, isAbsolutePath } from "../projects/paths.js";
 import {
   loadSqliteDriver,
   type SqliteDatabase,
@@ -47,6 +49,14 @@ function openCodeDbReaderEnabled(): boolean {
   return v !== "0" && v !== "false" && v !== "off" && v !== "no";
 }
 
+/** Native directory membership, distinct from OpenCode's shared project ids. */
+export interface OpenCodeProjectScope {
+  readonly directory: string;
+  readonly canonicalDirectory?: string;
+  /** Operation-scoped native spellings; never retained across enumerations. */
+  readonly directorySpellings?: ReadonlySet<string>;
+}
+
 /** Session-level metadata read straight from the `session` table row. */
 export interface OpenCodeDbSessionRow {
   id: string;
@@ -63,6 +73,7 @@ export interface OpenCodeDbSessionRow {
 export interface OpenCodeDbCatalogRow {
   id: string;
   worktree: string;
+  directory: string;
   title: string | null;
   timeCreated: number | null;
   timeUpdated: number | null;
@@ -100,8 +111,7 @@ export class OpenCodeDbReader {
       return statement;
     },
   };
-  /** Cached `session.parent_id` presence; reset when the handle reopens. */
-  private sessionParentIdColumn: boolean | undefined;
+  private sessionColumns: Set<string> | undefined;
 
   constructor(private databasePath: string) {}
 
@@ -158,7 +168,7 @@ export class OpenCodeDbReader {
     }
     this.db = undefined;
     this.dbStamp = undefined;
-    this.sessionParentIdColumn = undefined;
+    this.sessionColumns = undefined;
   }
 
   /** project.id for a worktree path, cached. Null when no DB / no such project. */
@@ -176,6 +186,100 @@ export class OpenCodeDbReader {
     });
   }
 
+  async hasProject(scope: OpenCodeProjectScope): Promise<boolean> {
+    if (await this.getProjectId(scope.directory)) return true;
+    if (
+      scope.canonicalDirectory &&
+      scope.canonicalDirectory !== scope.directory &&
+      (await this.getProjectId(scope.canonicalDirectory))
+    )
+      return true;
+    const aliases = JSON.stringify([...(await this.directoryAliases(scope))]);
+    return Boolean(
+      await this.run((db) =>
+        db
+          .prepare(
+            `SELECT 1 AS found FROM session s JOIN project p ON p.id = s.project_id WHERE (${this.directoryExpression(db)} IN (SELECT value FROM json_each(?)) OR p.worktree IN (SELECT value FROM json_each(?))) LIMIT 1`,
+          )
+          .get(aliases, aliases),
+      ),
+    );
+  }
+
+  /**
+   * Resolve unique native directory spellings, rather than realpath per session.
+   * This compact metadata query reads no messages/parts and bounds filesystem
+   * concurrency. Keep the proof request-local: aliases may be retargeted while
+   * an unchanged native database remains open.
+   */
+  async resolveProjectScope(
+    scope: OpenCodeProjectScope,
+  ): Promise<OpenCodeProjectScope> {
+    return { ...scope, directorySpellings: await this.directoryAliases(scope) };
+  }
+
+  private async directoryAliases(
+    scope: OpenCodeProjectScope,
+  ): Promise<ReadonlySet<string>> {
+    if (scope.directorySpellings !== undefined) return scope.directorySpellings;
+    const paths =
+      (await this.run((db) =>
+        db
+          .prepare(
+            this.sessionTableHasColumn(db, "directory")
+              ? "SELECT directory AS path FROM session WHERE directory IS NOT NULL AND directory != '' GROUP BY directory UNION SELECT worktree AS path FROM project"
+              : "SELECT DISTINCT worktree AS path FROM project",
+          )
+          .all<DbRow>(),
+      )) ?? [];
+    const matches = new Set([
+      scope.directory,
+      scope.canonicalDirectory ?? scope.directory,
+    ]);
+    for (let offset = 0; offset < paths.length && !this.closed; offset += 5) {
+      const batch = paths.slice(offset, offset + 5);
+      const results = await Promise.all(
+        batch.map(async (row) =>
+          typeof row.path === "string" &&
+          (await this.belongsToDirectory(row.path, scope))
+            ? row.path
+            : null,
+        ),
+      );
+      for (const path of results) if (path) matches.add(path);
+    }
+    return matches;
+  }
+
+  private directoryExpression(db: ReadQueries): string {
+    return this.sessionTableHasColumn(db, "directory")
+      ? "COALESCE(NULLIF(s.directory, ''), p.worktree)"
+      : "p.worktree";
+  }
+
+  private async belongsToDirectory(
+    directory: unknown,
+    scope: OpenCodeProjectScope,
+  ): Promise<boolean> {
+    if (typeof directory !== "string" || !isAbsolutePath(directory))
+      return false;
+    if (scope.directorySpellings)
+      return !this.closed && scope.directorySpellings.has(directory);
+    if (
+      getProjectIdentityKey(directory) ===
+      getProjectIdentityKey(scope.canonicalDirectory ?? scope.directory)
+    )
+      return !this.closed;
+    const physical = await realpath(directory).catch(() => directory);
+    const expected =
+      scope.canonicalDirectory ??
+      (await realpath(scope.directory).catch(() => scope.directory));
+    return (
+      !this.closed &&
+      getProjectIdentityKey(physical) === getProjectIdentityKey(expected)
+    );
+  }
+
   /**
    * Session row scoped to its project (mirrors the export path's
    * project-belonging check). Null when the session isn't in this project, the
@@ -183,14 +287,14 @@ export class OpenCodeDbReader {
    */
   async getSessionRow(
     sessionId: string,
-    projectId: string,
+    scope: OpenCodeProjectScope,
   ): Promise<OpenCodeDbSessionRow | null> {
-    return this.run((db) => {
+    const result = await this.run((db) => {
       const row = db
         .prepare(
-          "SELECT id, title, model, time_created, time_updated FROM session WHERE id = ? AND project_id = ?",
+          `SELECT s.id, s.title, s.model, s.time_created, s.time_updated, ${this.directoryExpression(db)} AS directory, p.worktree AS worktree FROM session s JOIN project p ON p.id = s.project_id WHERE s.id = ?`,
         )
-        .get(sessionId, projectId) as DbRow | undefined;
+        .get(sessionId) as DbRow | undefined;
       if (!row || typeof row.id !== "string") return null;
 
       const count = db
@@ -198,22 +302,48 @@ export class OpenCodeDbReader {
         .get(sessionId) as DbRow | undefined;
 
       return {
-        id: row.id,
-        title: typeof row.title === "string" ? row.title : null,
-        model: parseModel(row.model),
-        timeCreated: numberOrNull(row.time_created),
-        timeUpdated: numberOrNull(row.time_updated),
-        messageCount: numberOrNull(count?.c) ?? 0,
+        directory: row.directory,
+        worktree: row.worktree,
+        row: {
+          id: row.id,
+          title: typeof row.title === "string" ? row.title : null,
+          model: parseModel(row.model),
+          timeCreated: numberOrNull(row.time_created),
+          timeUpdated: numberOrNull(row.time_updated),
+          messageCount: numberOrNull(count?.c) ?? 0,
+        },
       };
+    });
+    return result &&
+      ((await this.belongsToDirectory(result.directory, scope)) ||
+        (await this.belongsToDirectory(result.worktree, scope)))
+      ? result.row
+      : null;
+  }
+
+  /** Native directory and legacy umbrella used to fence fallback acquisition. */
+  async getSessionProjects(
+    sessionId: string,
+  ): Promise<{ directory: string; worktree: string } | null> {
+    return this.run((db) => {
+      const row = db
+        .prepare(
+          `SELECT ${this.directoryExpression(db)} AS directory, p.worktree AS worktree FROM session s JOIN project p ON p.id = s.project_id WHERE s.id = ?`,
+        )
+        .get<DbRow>(sessionId);
+      return typeof row?.directory === "string" &&
+        typeof row.worktree === "string"
+        ? { directory: row.directory, worktree: row.worktree }
+        : null;
     });
   }
 
   /** Lightweight freshness probe: latest `time_updated` + message count. */
   async getSessionMeta(
     sessionId: string,
-    projectId: string,
+    scope: OpenCodeProjectScope,
   ): Promise<{ timeUpdated: number; messageCount: number } | null> {
-    const row = await this.getSessionRow(sessionId, projectId);
+    const row = await this.getSessionRow(sessionId, scope);
     if (!row) return null;
     return {
       timeUpdated: row.timeUpdated ?? 0,
@@ -223,15 +353,16 @@ export class OpenCodeDbReader {
 
   /** All sessions for a project (id + updated time), for enumeration. */
   async listSessionRows(
-    projectId: string,
+    scope: OpenCodeProjectScope,
   ): Promise<{ id: string; timeUpdated: number }[]> {
+    const aliases = JSON.stringify([...(await this.directoryAliases(scope))]);
     return (
       (await this.run((db) => {
         const rows = db
           .prepare(
-            "SELECT id, time_updated FROM session WHERE project_id = ? ORDER BY time_updated DESC",
+            `SELECT s.id, s.time_updated FROM session s JOIN project p ON p.id = s.project_id WHERE (${this.directoryExpression(db)} IN (SELECT value FROM json_each(?)) OR p.worktree IN (SELECT value FROM json_each(?))) ORDER BY s.time_updated DESC`,
           )
-          .all(projectId) as DbRow[];
+          .all(aliases, aliases) as DbRow[];
         const out: { id: string; timeUpdated: number }[] = [];
         for (const row of rows) {
           if (typeof row.id === "string") {
@@ -257,18 +388,23 @@ export class OpenCodeDbReader {
       (await this.run((db) => {
         const rows = db
           .prepare(
-            "SELECT s.id AS id, s.title AS title, s.time_created AS time_created, s.time_updated AS time_updated, p.worktree AS worktree FROM session s JOIN project p ON p.id = s.project_id",
+            `SELECT s.id AS id, s.title AS title, s.time_created AS time_created, s.time_updated AS time_updated, ${this.directoryExpression(db)} AS directory, CASE WHEN p.id = 'global' THEN ${this.directoryExpression(db)} ELSE p.worktree END AS worktree FROM session s JOIN project p ON p.id = s.project_id`,
           )
           .all() as DbRow[];
         const out: OpenCodeDbCatalogRow[] = [];
         for (const row of rows) {
           if (typeof row.id !== "string") continue;
-          if (typeof row.worktree !== "string" || row.worktree.length === 0) {
+          if (
+            typeof row.directory !== "string" ||
+            !isAbsolutePath(row.directory)
+          ) {
             continue;
           }
           out.push({
             id: row.id,
-            worktree: row.worktree,
+            worktree:
+              typeof row.worktree === "string" ? row.worktree : row.directory,
+            directory: row.directory,
             title: typeof row.title === "string" ? row.title : null,
             timeCreated: numberOrNull(row.time_created),
             timeUpdated: numberOrNull(row.time_updated),
@@ -284,17 +420,18 @@ export class OpenCodeDbReader {
    * `parent_id` or the parent has no children. Does not read message/part rows.
    */
   async listChildSessionRows(
-    projectId: string,
+    scope: OpenCodeProjectScope,
     parentSessionId: string,
   ): Promise<OpenCodeDbChildSessionRow[]> {
+    const aliases = JSON.stringify([...(await this.directoryAliases(scope))]);
     return (
       (await this.run((db) => {
         if (!this.sessionTableHasParentId(db)) return [];
         const rows = db
           .prepare(
-            "SELECT id, parent_id, title, agent, time_updated FROM session WHERE project_id = ? AND parent_id = ?",
+            `SELECT s.id, s.parent_id, s.title, s.agent, s.time_updated FROM session s JOIN project p ON p.id = s.project_id WHERE (${this.directoryExpression(db)} IN (SELECT value FROM json_each(?)) OR p.worktree IN (SELECT value FROM json_each(?))) AND s.parent_id = ?`,
           )
-          .all(projectId, parentSessionId) as DbRow[];
+          .all(aliases, aliases, parentSessionId) as DbRow[];
         return parseChildSessionRows(rows);
       })) ?? []
     );
@@ -304,17 +441,20 @@ export class OpenCodeDbReader {
    * Every child session id in the store. Used to keep `parent_id` rows out of
    * top-level catalogs. Empty when `parent_id` is absent.
    */
-  async listChildSessionIds(projectId?: string): Promise<string[]> {
+  async listChildSessionIds(scope?: OpenCodeProjectScope): Promise<string[]> {
+    const aliases = scope
+      ? JSON.stringify([...(await this.directoryAliases(scope))])
+      : undefined;
     return (
       (await this.run((db) => {
         if (!this.sessionTableHasParentId(db)) return [];
         const rows = (
-          projectId
+          scope
             ? db
                 .prepare(
-                  "SELECT id FROM session WHERE project_id = ? AND parent_id IS NOT NULL AND parent_id != ''",
+                  `SELECT s.id FROM session s JOIN project p ON p.id = s.project_id WHERE (${this.directoryExpression(db)} IN (SELECT value FROM json_each(?)) OR p.worktree IN (SELECT value FROM json_each(?))) AND s.parent_id IS NOT NULL AND s.parent_id != ''`,
                 )
-                .all(projectId)
+                .all(aliases!, aliases!)
             : db
                 .prepare(
                   "SELECT id FROM session WHERE parent_id IS NOT NULL AND parent_id != ''",
@@ -372,17 +512,24 @@ export class OpenCodeDbReader {
     );
   }
 
+  private sessionTableHasColumn(db: ReadQueries, column: string): boolean {
+    if (!this.sessionColumns) {
+      try {
+        this.sessionColumns = new Set(
+          db
+            .prepare("PRAGMA table_info(session)")
+            .all<DbRow>()
+            .flatMap((row) => (typeof row.name === "string" ? [row.name] : [])),
+        );
+      } catch {
+        this.sessionColumns = new Set();
+      }
+    }
+    return this.sessionColumns.has(column);
+  }
+
   private sessionTableHasParentId(db: ReadQueries): boolean {
-    if (this.sessionParentIdColumn !== undefined) {
-      return this.sessionParentIdColumn;
-    }
-    try {
-      const cols = db.prepare("PRAGMA table_info(session)").all() as DbRow[];
-      this.sessionParentIdColumn = cols.some((col) => col.name === "parent_id");
-    } catch {
-      this.sessionParentIdColumn = false;
-    }
-    return this.sessionParentIdColumn;
+    return this.sessionTableHasColumn(db, "parent_id");
   }
 
   /** First user message's first text part — the title fallback. */
