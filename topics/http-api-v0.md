@@ -21,7 +21,7 @@ receipts and provenance are specified below. Other planned resources remain
 absent.
 Existing `/api/*` and the separate own-session listener retain their contracts.
 
-- `/v0` returns public server id, revision `2026-10-30.7`, unstable status and
+- `/v0` returns public server id, revision `2026-11-01.1`, unstable status and
   discovery links. The documentation slice adds Markdown
   help at `/v0/help`, links help/me/schema from discovery, and generates field
   descriptions, operation semantics and example requests alongside OpenAPI.
@@ -62,6 +62,40 @@ Existing `/api/*` and the separate own-session listener retain their contracts.
   reject earlier with its existing JSON/text errors. Private exception text is
   not returned. Source cancellation is passed as an AbortSignal; this does not
   cancel refresh work independently owned by the shared retained catalog.
+
+### Server names and host details
+
+Revision `2026-11-01.1` adds optional `label`, `hostname`, `os`, `architecture`
+and `icon` to server descriptions in `/v0/servers`, `/v0/servers/:serverId` and
+`/v0/me.server`. The persistent `id` remains the only routing identity. Names
+can collide or change; display facts do not authenticate a host or guarantee
+its installed providers, capabilities or project access.
+
+Local descriptions use a cheap injected metadata source, without starting
+catalog/provider discovery. The application reports its current OS hostname,
+platform, architecture and configured host icon. Peer collection entries use
+last-recorded authenticated host facts and the access server's friendly alias.
+Listing starts no peer probes and does not claim those hosts are online. Only
+peers already addressable to this caller/launch are included, with existing
+expiry, selection and agent-use filtering before pagination. Incoming-only,
+unselected or otherwise unauthorized peer records are not an extra directory.
+
+An individual peer description uses the existing protected request to that
+selected target. Current reported fields override saved host facts; absent
+fields from older peers use any saved facts, and unknown fields remain absent.
+Its `label` is always the access server's saved alias, independent of target
+reports. The reported target id must match the authenticated target id. Display
+projections whitelist bounded strings and never include credentials, setup
+routes, login names or private connection records.
+
+The new fields are optional and do not change existing routes or grants.
+Capability replies report the receiving build's revision as descriptive text;
+compatible peer replies are checked against their operation schema rather than
+requiring identical dated API revisions. An old build can omit these display
+fields without losing addressability from this updated access server. Older
+access-server builds that enforce exact capability revision matching still need
+to be updated when talking to a newer peer build. No hosted-client capability
+or browser connection change is needed for this API-only addition.
 
 The public id is a fresh UUID stored in singleton `public_server_identity` in
 the profile's existing SQLite database (migration 13). Transactional insertion

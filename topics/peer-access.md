@@ -502,3 +502,13 @@ these projections. Changing human Remote Access credentials keeps independent
 peer credentials; Remote Access links to the incoming-control revocation view.
 Read-only UI, richer scopes, route discovery, full mesh and fleet/OIDC settings
 remain separate follow-ups.
+
+
+### Agent-visible server details
+
+The existing server-addressed API now exposes the same nonsecret recorded host
+facts to agents: optional label, hostname, OS, architecture and icon. See the
+[server description contract](http-api-v0.md#server-names-and-host-details).
+Peer lists use saved facts without network probes; detail requests contact only
+the selected peer. Friendly labels remain local to the access server. This
+adds no onward routing, incoming-peer directory or administrative authority.

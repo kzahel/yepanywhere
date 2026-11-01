@@ -1,3 +1,4 @@
+import { localPeerHost } from "./peer-api/connection-contracts.js";
 import { getAuthenticatedSrpTransport } from "./middleware/authenticated-transport.js";
 import type { PeerAccessManager } from "./peer-api/manager.js";
 import { createPeerOwnerBinding } from "./peer-api/owner-proof.js";
@@ -3173,6 +3174,11 @@ export function createApp(options: AppOptions): AppResult {
     options.peerAccess?.remap(oldId, newId);
   });
   const coreSources: CoreApiSources = {
+    serverMetadata: () =>
+      localPeerHost(
+        publicServerId,
+        options.serverSettingsService?.getSetting("hostIdentity")?.icon,
+      ),
     commands: apiCommands,
     ...productionApiSources({
       scanner,

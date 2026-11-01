@@ -27,6 +27,8 @@ import {
   operationIds,
   readOperationIds,
   sessionSchema,
+  serverMetadataSchema,
+  type ApiServerMetadata,
   pageQuery,
   type ApiProject,
   type ApiProvider,
@@ -38,6 +40,8 @@ import {
 } from "./contracts.js";
 
 export interface CoreApiSources {
+  /** Cheap local display facts; does not discover providers or probe peers. */
+  serverMetadata?(): ApiServerMetadata;
   commands?: SessionCommands;
   managementEnabled?: () => boolean;
   projects(
@@ -214,7 +218,11 @@ export class CoreApi {
       (caller.kind === "peer"
         ? peerProject(caller, projectId)
         : levelFor(caller.grants, projectId) !== "none");
-    const server = { id: this.serverId, local: true as const };
+    const server = () => ({
+      ...serverMetadataSchema.parse(this.sources.serverMetadata?.() ?? {}),
+      id: this.serverId,
+      local: true as const,
+    });
     switch (operation) {
       case "describe":
         return {
@@ -237,7 +245,7 @@ export class CoreApi {
         return {
           principal: describePrincipal(caller),
           session: input.launch ?? null,
-          server,
+          server: server(),
           observedAt: new Date().toISOString(),
           links: {
             help: "/v0/help",
@@ -249,9 +257,9 @@ export class CoreApi {
           },
         };
       case "servers":
-        return { items: [server], nextCursor: null };
+        return { items: [server()], nextCursor: null };
       case "server":
-        return server;
+        return server();
       case "access":
         return {
           principal: describePrincipal(caller),

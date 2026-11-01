@@ -137,6 +137,33 @@ it("pairs through real ordinary SRP, verifies both directions and preserves peer
     ownerSessionCleanup: "confirmed",
   });
   expect(b.sessions.listSessions()).toHaveLength(0);
+  const identity = b.manager.identity();
+  expect(await a.read("servers")).toMatchObject({
+    items: expect.arrayContaining([
+      expect.objectContaining({
+        id: b.id,
+        local: false,
+        hostname: identity.hostname,
+        os: identity.os,
+        architecture: identity.architecture,
+      }),
+    ]),
+  });
+  b.sources.serverMetadata = () => ({
+    ...identity,
+    hostname: "updated-after-pairing",
+  });
+  expect(await a.read("server", { serverId: b.id })).toMatchObject({
+    id: b.id,
+    local: false,
+    hostname: "updated-after-pairing",
+  });
+  expect(await a.read("servers")).toMatchObject({
+    items: expect.arrayContaining([
+      expect.objectContaining({ id: b.id, hostname: identity.hostname }),
+    ]),
+  });
+
   b.addProject("created-after-pairing");
   expect(await a.read("projects", { serverId: b.id })).toMatchObject({
     items: expect.arrayContaining([

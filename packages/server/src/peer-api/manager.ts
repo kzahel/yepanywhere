@@ -189,6 +189,15 @@ export class PeerAccessManager {
       [],
       (id) => receipts.resolveId(id),
       () => this.agentAccess(),
+      (serverId) => {
+        const metadata = this.store
+          .read()
+          .connections?.find((p) => p.serverId === serverId);
+        return {
+          ...metadata?.identity,
+          ...(metadata?.label ? { label: metadata.label } : {}),
+        };
+      },
     );
     this.receiver = createPeerReceiver(core, this.directory, {
       requireSrp: true,

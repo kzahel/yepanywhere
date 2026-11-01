@@ -1,5 +1,12 @@
 import { type CoreApi, CoreApiError } from "../core-api/service.js";
-import { pageQuery, type Operation } from "../core-api/contracts.js";
+import {
+  pageQuery,
+  serverSchema,
+  serverMetadataSchema,
+  type ApiServer,
+  type ApiServerMetadata,
+  type Operation,
+} from "../core-api/contracts.js";
 import type { ApiPrincipal } from "../core-api/peer-policy.js";
 import {
   createSessionRequest,
@@ -36,6 +43,9 @@ export class PeerApiRouter {
       enabled: boolean;
       grantId?: string;
     } = () => ({ enabled: false }),
+    private readonly serverMetadata: (
+      serverId: string,
+    ) => ApiServerMetadata = () => ({}),
   ) {
     for (const peer of peers) this.put(peer);
   }
@@ -98,7 +108,7 @@ export class PeerApiRouter {
       if (operation === "servers" && this.canRoute(caller, input)) {
         const query = pageQuery.parse(input.query ?? {});
         const items = [
-          { id: this.local.serverId, local: true },
+          ...(result as { items: ApiServer[] }).items,
           ...[...this.peers.values()]
             .filter(
               (p) =>
@@ -106,7 +116,11 @@ export class PeerApiRouter {
                 (p.expiresAt === undefined || p.expiresAt > Date.now()) &&
                 (!input.launch || p.allowAgentSessions),
             )
-            .map((p) => ({ id: p.serverId, local: false })),
+            .map((p) => ({
+              ...serverMetadataSchema.parse(this.serverMetadata(p.serverId)),
+              id: p.serverId,
+              local: false,
+            })),
         ];
         const offset = Number(query.cursor ?? 0),
           limit = Number(query.limit ?? 50);
@@ -289,9 +303,29 @@ export class PeerApiRouter {
         if (receipt)
           this.outbound.observe(peer.serverId, receiptSchema.parse(receipt));
       }
-      return operation === "server"
-        ? { ...(result as object), local: false }
-        : result;
+      if (operation === "server") {
+        const reported = serverSchema.parse(result);
+        if (reported.id !== peer.serverId)
+          throw new CoreApiError(
+            "peer_identity_mismatch",
+            "Reported server id does not match the authenticated target",
+            502,
+          );
+        const saved = serverMetadataSchema.parse(
+          this.serverMetadata(peer.serverId),
+        );
+        const description = {
+          ...saved,
+          ...reported,
+          id: peer.serverId,
+          local: false,
+        };
+        // Labels belong to the access server, independently of the target's facts.
+        if (saved.label) description.label = saved.label;
+        else delete description.label;
+        return description;
+      }
+      return result;
     } finally {
       active.delete(controller);
       this.agentControllers.delete(controller);

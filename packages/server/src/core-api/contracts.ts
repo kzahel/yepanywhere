@@ -13,7 +13,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-10-31.1";
+export const API_REVISION = "2026-11-01.1";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -56,18 +56,61 @@ export const principalSchema = z.object({
     .optional()
     .describe("Authenticated immediate peer, when present."),
 });
-export const serverSchema = z.object({
-  id: z
+/** Nonsecret display facts. Unknown fields are stripped at every source seam. */
+export const serverMetadataSchema = z.object({
+  label: z
     .string()
+    .min(1)
+    .max(128)
+    .optional()
     .describe(
-      "Persistent public profile UUID; independent of relay username and relay installId.",
+      "Friendly alias saved on this access server; never a routing id or authentication proof.",
     ),
-  local: z
-    .boolean()
+  hostname: z
+    .string()
+    .min(1)
+    .max(253)
+    .optional()
     .describe(
-      "Whether this is the access server, rather than a configured peer.",
+      "Reported hostname. Peer listings use last recorded facts; absent means unknown.",
     ),
+  os: z
+    .string()
+    .min(1)
+    .max(64)
+    .optional()
+    .describe(
+      "Reported OS platform, for example darwin, linux or win32. Informational, not a capability guarantee.",
+    ),
+  architecture: z
+    .string()
+    .min(1)
+    .max(32)
+    .optional()
+    .describe("Reported machine architecture, for example arm64 or x64."),
+  icon: z
+    .string()
+    .min(1)
+    .max(32)
+    .optional()
+    .describe("Reported host icon for display."),
 });
+export type ApiServerMetadata = z.infer<typeof serverMetadataSchema>;
+export const serverSchema = z
+  .object({
+    id: z
+      .string()
+      .describe(
+        "Persistent public profile UUID; independent of relay username and relay installId.",
+      ),
+    local: z
+      .boolean()
+      .describe(
+        "Whether this is the access server, rather than a configured peer.",
+      ),
+  })
+  .extend(serverMetadataSchema.shape);
+export type ApiServer = z.infer<typeof serverSchema>;
 export const projectSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -143,7 +186,13 @@ export const errorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });
 export const capabilitiesSchema = z.object({
-  revision: z.literal(API_REVISION),
+  revision: z
+    .string()
+    .min(1)
+    .max(64)
+    .describe(
+      "The receiving server’s API build revision. Compatible peers may report an older revision; validate the operation response rather than assuming identical builds.",
+    ),
   stability: z.literal("unstable"),
   operations: z.array(z.string()),
   peerRouting: z.boolean(),
@@ -340,13 +389,13 @@ export const operationDocumentation: Record<
   servers: {
     summary: "List addressable servers",
     description:
-      "Returns self and configured peers currently permitted to this caller. Without independently authenticated owner or separately issued peer-launch authority, only self is listed. A public UUID names a profile; it does not authenticate it or authorize onward routing.",
+      "Returns self and configured peers currently permitted to this caller. Optional label, hostname, os, architecture and icon help select a target; peer display facts are last recorded, not liveness. Listing does not contact peers. Without independently authenticated owner or separately issued peer-launch authority, only self is listed. A public UUID names a profile; it does not authenticate it or authorize onward routing.",
     example: "/v0/servers",
   },
   server: {
     summary: "Inspect a server",
     description:
-      "Read an authorized target's public identity. local=false identifies a configured peer of the access server. Unknown target ids return 404 server_not_found, with no local fallback.",
+      "Read an authorized target's public identity and reported host details. This contacts the selected peer; saved facts fill missing fields from older peers, and any label is the access server's alias. Names and icons do not prove identity or capabilities. local=false identifies a configured peer of the access server. Unknown target ids return 404 server_not_found, with no local fallback.",
     example: "/v0/servers/{serverId}",
   },
   access: {
