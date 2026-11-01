@@ -14,6 +14,7 @@ export const PEER_SRP_CONTEXT = Symbol("verified-peer-srp-context");
 export interface PeerSrpContext {
   credentialId: string;
   generation: number;
+  protocol?: "peer-v0" | "peer-v1";
 }
 
 /** A revoked or disconnected caller cannot pin an admission slot with a body. */
@@ -73,6 +74,10 @@ export function createPeerReceiver(
   directory: PeerDirectory,
   options: {
     requireSrp?: boolean;
+    authentication?: (
+      request: Request,
+      context: PeerSrpContext,
+    ) => Promise<unknown>;
     fleetAuthority?: (
       grant: IncomingPeerGrant,
       token: string,
@@ -91,6 +96,38 @@ export function createPeerReceiver(
   });
   // Public identity is not a grant or a cryptographic proof. HTTPS/SRP binds its route.
   app.get("/peer/id", (c) => c.json({ serverId: api.serverId }));
+  for (const path of ["/peer/v1/auth/identity", "/peer/v1/auth/refresh"]) {
+    app.all(path, async (c) => {
+      try {
+        const context = c.env?.[PEER_SRP_CONTEXT];
+        if (
+          c.req.header("Origin") ||
+          !context ||
+          context.protocol !== "peer-v1" ||
+          !options.authentication
+        )
+          throw new CoreApiError(
+            "unauthorized",
+            "Verified peer-v1 context required",
+            401,
+          );
+        return c.json(await options.authentication(c.req.raw, context));
+      } catch (error) {
+        const failure =
+          error instanceof CoreApiError
+            ? error
+            : new CoreApiError(
+                "invalid_request",
+                "Invalid authentication request",
+                400,
+              );
+        return c.json(
+          { error: { code: failure.code, message: failure.message } },
+          failure.status,
+        );
+      }
+    });
+  }
   app.use("/v0/*", async (c, next) => {
     if (c.req.header("Origin"))
       return c.json(

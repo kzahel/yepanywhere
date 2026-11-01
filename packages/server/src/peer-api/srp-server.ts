@@ -1,3 +1,7 @@
+import {
+  PEER_IDENTITY_PATH,
+  PEER_REFRESH_PATH,
+} from "./authentication-contracts.js";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -27,6 +31,7 @@ import {
   PEER_HANDSHAKE_MS,
   PEER_CHANNEL_MS,
   PEER_PROTOCOL,
+  PEER_REFRESH_PROTOCOL,
   peerHello,
   peerProof,
   peerWireRequest,
@@ -138,6 +143,7 @@ class PeerChannel {
   private srp?: SrpServerSession;
   private peer?: StoredIncomingPeer;
   private key?: Uint8Array;
+  private protocol: "peer-v0" | "peer-v1" = PEER_PROTOCOL;
   private readonly sequence = { lastInboundSeq: null as number | null };
   private readonly handshake: ReturnType<typeof setTimeout>;
   private readonly whole: ReturnType<typeof setTimeout>;
@@ -251,7 +257,12 @@ class PeerChannel {
       throw new Error("Peer handshake rate exceeded");
     const started = performance.now(),
       candidate = this.options.lookup(message.identity);
-    if (candidate && candidate.expiresAt > Date.now()) {
+    this.protocol = message.peerProtocol;
+    if (
+      candidate &&
+      candidate.expiresAt > Date.now() &&
+      (!candidate.authentication || this.protocol === PEER_REFRESH_PROTOCOL)
+    ) {
       this.peer = candidate;
       const remaining = candidate.expiresAt - Date.now();
       if (remaining < PEER_CHANNEL_MS) {
@@ -295,7 +306,13 @@ class PeerChannel {
     const transportNonce = randomBytes(24).toString("base64");
     const info = {
       type: "srp_verify_server_info",
-      protocol: PEER_PROTOCOL,
+      protocol: this.protocol,
+      ...(this.protocol === PEER_REFRESH_PROTOCOL
+        ? { sourceServerId: peer.sourceServerId }
+        : {}),
+      ...(peer.authentication
+        ? { authentication: peer.authentication.protocol }
+        : {}),
       serverId: this.options.serverId,
       credentialId: peer.id,
       generation: peer.generation,
@@ -321,7 +338,11 @@ class PeerChannel {
     if (
       target.origin !== "http://peer.internal" ||
       `${target.pathname}${target.search}` !== message.path ||
-      !/^\/v0(?:\/|$)/.test(target.pathname) ||
+      (!/^\/v0(?:\/|$)/.test(target.pathname) &&
+        !(
+          this.protocol === PEER_REFRESH_PROTOCOL &&
+          [PEER_IDENTITY_PATH, PEER_REFRESH_PATH].includes(target.pathname)
+        )) ||
       message.path.includes("\\") ||
       message.path.includes("#")
     )
@@ -345,6 +366,7 @@ class PeerChannel {
       const response = await this.options.handle(request, {
         credentialId: peer.id,
         generation: peer.generation,
+        protocol: this.protocol,
       });
       const bytes = await readPeerReply(
         response.body,

@@ -1,4 +1,14 @@
 import {
+  PEER_AUTHENTICATION,
+  PEER_ACCESS_MS,
+  PEER_IDLE_MS,
+  PEER_REFRESH_MS,
+  incomingAuthentication,
+  outgoingAuthentication,
+  peerRefreshRequest,
+  type PeerRefreshReceipt,
+} from "./authentication-contracts.js";
+import {
   peerConnectionMetadataSchema,
   peerAuditSchema,
   recordPeerAudit,
@@ -11,7 +21,7 @@ import {
   profileKeysSchema,
   type FleetPeerBinding,
 } from "../fleet/contracts.js";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, randomInt } from "node:crypto";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -78,6 +88,7 @@ export type PeerRoute = z.infer<typeof peerRouteSchema>;
 export const incomingPeerRequest = z
   .object({
     sourceServerId: publicUuid,
+    authentication: z.literal(PEER_AUTHENTICATION).optional(),
     allProjects: z.literal(true).optional(),
     projects: z.array(boundedId).max(64),
     operations: ops.describe(
@@ -93,6 +104,7 @@ export const rotatePeerRequest = incomingPeerRequest
 export const invitationSchema = z
   .object({
     version: z.literal(1),
+    authentication: z.literal(PEER_AUTHENTICATION).optional(),
     sourceServerId: publicUuid,
     targetServerId: publicUuid,
     credentialId: publicUuid,
@@ -126,6 +138,8 @@ const incomingSchema = z
     salt: hex,
     verifier: hex,
     tokenHash: z.string().regex(/^[a-f0-9]{64}$/),
+    authentication: incomingAuthentication.optional(),
+    pairingOrigin: z.literal("server-connections").optional(),
     allProjects: z.literal(true).optional(),
     projects: z.array(boundedId).max(64),
     operations: ops,
@@ -135,7 +149,11 @@ const incomingSchema = z
 
 const outgoingSchema = outgoingPeerRequest
   .omit({ replace: true })
-  .extend({ allProjects: z.literal(true).optional() })
+  .extend({
+    allProjects: z.literal(true).optional(),
+    authentication: outgoingAuthentication.optional(),
+    pairingOrigin: z.literal("server-connections").optional(),
+  })
   .strict();
 
 export const peerRelayRequest = z
@@ -234,7 +252,7 @@ export const fleetOutboxSchema = z
   .strict();
 const stateSchema = legacyStateBase
   .extend({
-    version: z.literal(2),
+    version: z.literal(3),
     enabled: z.boolean().optional(),
     connections: z.array(peerConnectionMetadataSchema).max(128).optional(),
     audit: z.array(peerAuditSchema).max(512).optional(),
@@ -288,6 +306,7 @@ const stateSchema = legacyStateBase
           (p.origin === "fleet" &&
             (!validBinding(p.binding) ||
               p.allProjects === true ||
+              !!p.authentication ||
               p.binding.source.profileId !== p.sourceServerId ||
               p.binding.target.profileId !== state.serverId ||
               p.expiresAt > p.binding.policy.expiresAt ||
@@ -305,6 +324,8 @@ const stateSchema = legacyStateBase
           (p.origin === "fleet" &&
             (!validBinding(p.binding) ||
               p.allProjects === true ||
+              !!p.authentication ||
+              !!p.invitation.authentication ||
               p.binding.source.profileId !== state.serverId ||
               p.binding.target.profileId !== p.invitation.targetServerId ||
               p.invitation.expiresAt > p.binding.policy.expiresAt)),
@@ -339,12 +360,37 @@ const stateSchema = legacyStateBase
       });
   });
 export type PeerAccessState = z.infer<typeof stateSchema>;
+export function outgoingPeerPolicy(peer: StoredOutgoingPeer) {
+  const { authentication: _authentication, ...policy } = peer;
+  const { authentication: _mode, ...invitation } = policy.invitation;
+  return {
+    ...policy,
+    invitation: {
+      ...invitation,
+      ...(peer.invitation.authentication ? { expiresAt: 0 } : {}),
+    },
+  };
+}
 function peerPolicySnapshot(state: Readonly<PeerAccessState>) {
   const enrollment = state.fleet.enrollment;
-  return enrollment
-    ? {
-        ...state,
-        fleet: {
+  return {
+    ...state,
+    incoming: state.incoming.map((p) => {
+      const { authentication: _authentication, ...policy } = p;
+      return {
+        ...policy,
+        ...(p.authentication || uiPairingOperation(state, p)
+          ? { expiresAt: 0 }
+          : {}),
+      };
+    }),
+    outgoing: state.outgoing.map((p) => {
+      const policy = outgoingPeerPolicy(p);
+      if (uiPairingOperation(state, p)) policy.invitation.expiresAt = 0;
+      return policy;
+    }),
+    fleet: enrollment
+      ? {
           ...state.fleet,
           enrollment: {
             ...enrollment,
@@ -352,9 +398,47 @@ function peerPolicySnapshot(state: Readonly<PeerAccessState>) {
               ? { client: enrollment.credentials.client }
               : null,
           },
-        },
-      }
-    : state;
+        }
+      : state.fleet,
+  };
+}
+
+/** Only the exact historical UI default is eligible without fresh owner login. */
+export function uiPairingOperation(
+  state: Readonly<PeerAccessState>,
+  peer: StoredIncomingPeer | StoredOutgoingPeer,
+): string | undefined {
+  if (peer.origin !== "manual") return;
+  const incoming = "sourceServerId" in peer;
+  const id = incoming ? peer.id : peer.invitation.credentialId,
+    generation = incoming ? peer.generation : peer.invitation.generation;
+  if (
+    generation !== 1 ||
+    !peer.allProjects ||
+    resourceOperations.some((op) => !peer.operations.includes(op))
+  )
+    return;
+  const expiry = incoming ? peer.expiresAt : peer.invitation.expiresAt;
+  return state.audit?.find(
+    (e) =>
+      e.action === (incoming ? "incoming-issued" : "outgoing-imported") &&
+      e.serverId ===
+        (incoming ? peer.sourceServerId : peer.invitation.targetServerId) &&
+      e.credentialId === id &&
+      e.generation === generation &&
+      e.operationId &&
+      Math.abs(expiry - Date.parse(e.at) - MAX_CREDENTIAL_MS) < 60_000,
+  )?.operationId;
+}
+export function uiPairing(
+  state: Readonly<PeerAccessState>,
+  peer: StoredIncomingPeer | StoredOutgoingPeer,
+) {
+  return (
+    peer.origin === "manual" &&
+    (peer.pairingOrigin === "server-connections" ||
+      !!uiPairingOperation(state, peer))
+  );
 }
 
 export function peerGrantOperations(operations: readonly Operation[]) {
@@ -425,7 +509,7 @@ export class PeerAccessStore {
           legacy
             ? {
                 ...legacy,
-                version: 2,
+                version: 3,
                 incoming: legacy.incoming.map((p) => ({
                   ...p,
                   origin: "manual",
@@ -442,11 +526,13 @@ export class PeerAccessStore {
                 ),
                 fleet: { epoch: 0, enrollment: null, outbox: [] },
               }
-            : loaded,
+            : loaded.version === 2
+              ? { ...loaded, version: 3 }
+              : loaded,
         );
         if (saved.serverId !== this.serverId)
           throw new Error("Peer state belongs to another logical server");
-        if (legacy)
+        if (legacy || loaded.version === 2)
           await writeFileAtomically(this.path, JSON.stringify(saved), {
             mode: 0o600,
             durable: true,
@@ -455,7 +541,7 @@ export class PeerAccessStore {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         this.state = {
-          version: 2,
+          version: 3,
           selected: {},
           fleet: { epoch: 0, enrollment: null, outbox: [] },
           serverId: this.serverId,
@@ -494,6 +580,11 @@ export class PeerAccessStore {
     expectedRevision?: number,
   ): Promise<T> {
     return this.publish(update, expectedRevision);
+  }
+  publishPeerAuthentication<T>(
+    update: (next: PeerAccessState) => T,
+  ): Promise<T> {
+    return this.publish(update, undefined, true);
   }
   publishFleetCredentials<T>(update: (next: PeerAccessState) => T): Promise<T> {
     return this.publish(update, undefined, true);
@@ -592,11 +683,12 @@ export class PeerAccessStore {
   private validateGrant(input: z.infer<typeof rotatePeerRequest>) {
     if (
       input.expiresAt <= this.now() ||
-      input.expiresAt > this.now() + MAX_CREDENTIAL_MS
+      input.expiresAt >
+        this.now() + (input.authentication ? PEER_IDLE_MS : MAX_CREDENTIAL_MS)
     )
       throw new CoreApiError(
         "invalid_request",
-        "Peer credential expiry must be in the next 30 days",
+        "Peer expiry is outside its authentication policy window",
         400,
       );
     const operations = peerGrantOperations(input.operations);
@@ -619,6 +711,7 @@ export class PeerAccessStore {
     identity?: PeerHost,
     operationId?: string,
     initiatingServerId?: string,
+    pairingOrigin = false,
   ): Promise<PeerInvitation> {
     if (this.activeIssuance >= 4)
       throw new CoreApiError(
@@ -666,6 +759,9 @@ export class PeerAccessStore {
       const verifier = await generateVerifier(username, secret);
       const invitation: PeerInvitation = {
         version: 1,
+        ...(input.authentication
+          ? { authentication: PEER_AUTHENTICATION }
+          : {}),
         sourceServerId,
         targetServerId: this.serverId,
         credentialId: id,
@@ -705,6 +801,18 @@ export class PeerAccessStore {
           username,
           ...verifier,
           tokenHash: hashPeerToken(secret),
+          ...(input.authentication
+            ? {
+                authentication: {
+                  protocol: PEER_AUTHENTICATION,
+                  lastRefreshedAt: this.now(),
+                  access: [],
+                },
+              }
+            : {}),
+          ...((pairingOrigin && !previous) || previous?.pairingOrigin
+            ? { pairingOrigin: "server-connections" as const }
+            : {}),
           ...(input.allProjects ? { allProjects: true as const } : {}),
           projects: [...new Set(input.projects)],
           operations,
@@ -802,6 +910,9 @@ export class PeerAccessStore {
         {
           ...record,
           origin: "manual",
+          ...((!existing && operationId && identity) || existing?.pairingOrigin
+            ? { pairingOrigin: "server-connections" as const }
+            : {}),
           ...(verifiedAllProjects ? { allProjects: true as const } : {}),
         },
       ];
@@ -819,6 +930,75 @@ export class PeerAccessStore {
         (p) => p.invitation.targetServerId !== targetId,
       );
       delete next.selected[targetId];
+    });
+  }
+  refreshAuthentication(
+    value: unknown,
+    proof: { credentialId: string; generation: number; tokenHash: string },
+    admit: () => void,
+  ): Promise<PeerRefreshReceipt> {
+    const input = peerRefreshRequest.parse(value);
+    return this.publishPeerAuthentication((next) => {
+      admit();
+      const peer = next.incoming.find(
+        (p) =>
+          p.id === proof.credentialId &&
+          p.generation === proof.generation &&
+          p.tokenHash === proof.tokenHash &&
+          p.origin === "manual",
+      );
+      if (!peer || peer.expiresAt <= this.now())
+        throw new CoreApiError(
+          "unauthorized",
+          "Server authentication expired or changed; sign in again",
+          401,
+        );
+      if (
+        !peer.authentication &&
+        (!input.migrationOperationId ||
+          uiPairingOperation(next, peer) !== input.migrationOperationId)
+      )
+        throw new CoreApiError(
+          "forbidden",
+          "This time-limited grant does not allow automatic refresh",
+          403,
+        );
+      const previous = peer.authentication?.access.find(
+        (r) => r.requestId === input.requestId,
+      );
+      if (previous) {
+        if (
+          previous.tokenHash !== input.tokenHash ||
+          previous.sequence !== input.sequence ||
+          previous.migrationOperationId !== input.migrationOperationId
+        )
+          throw new CoreApiError(
+            "request_id_conflict",
+            "Refresh request id already names a different credential",
+            409,
+          );
+        return previous;
+      }
+      if (input.sequence <= (peer.authentication?.access.at(-1)?.sequence ?? 0))
+        throw new CoreApiError(
+          "request_id_conflict",
+          "Stale refresh sequence",
+          409,
+        );
+      const now = this.now();
+      const receipt = {
+        ...input,
+        expiresAt: now + PEER_ACCESS_MS,
+        idleExpiresAt: now + PEER_IDLE_MS,
+        refreshAt: now + PEER_REFRESH_MS + randomInt(-120_000, 120_001),
+      };
+      peer.expiresAt = receipt.idleExpiresAt;
+      peer.authentication = {
+        protocol: PEER_AUTHENTICATION,
+        lastRefreshedAt: now,
+        access: [...(peer.authentication?.access ?? []).slice(-1), receipt],
+      };
+      return receipt;
     });
   }
   setAgentAccess(enabled: boolean, admit?: () => void) {

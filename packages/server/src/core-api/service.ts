@@ -40,6 +40,7 @@ import {
 } from "./contracts.js";
 
 export interface CoreApiSources {
+  peerAuthentication?: () => boolean;
   /** Cheap local display facts; does not discover providers or probe peers. */
   serverMetadata?(): ApiServerMetadata;
   commands?: SessionCommands;
@@ -300,6 +301,9 @@ export class CoreApi {
           stability: "unstable",
           operations: operationIds,
           peerRouting: false,
+          ...(this.sources.peerAuthentication?.()
+            ? { peerAuthentication: "refresh-v1" as const }
+            : {}),
         };
       case "providers":
         return this.page(

@@ -3174,6 +3174,7 @@ export function createApp(options: AppOptions): AppResult {
     options.peerAccess?.remap(oldId, newId);
   });
   const coreSources: CoreApiSources = {
+    peerAuthentication: () => !!options.peerAccess,
     serverMetadata: () =>
       localPeerHost(
         publicServerId,

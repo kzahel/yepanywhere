@@ -512,3 +512,51 @@ facts to agents: optional label, hostname, OS, architecture and icon. See the
 Peer lists use saved facts without network probes; detail requests contact only
 the selected peer. Friendly labels remain local to the access server. This
 adds no onward routing, incoming-peer directory or administrative authority.
+
+### Automatic peer authentication
+
+Refreshable manual pairings use a distinct `peer-v1` SRP protocol. The retained
+per-pair secret proves transport/refresh identity; it is not an ordinary v0 API
+bearer. Ordinary requests require a one-hour random access credential bound to
+the verified source, target, pair and permission generation. Targets persist
+only access hashes. Legacy fixed-expiry and fleet credentials keep `peer-v0`.
+Browser owner login and its saved sessions are unchanged.
+
+Only verified peer-v1 channels can reach `GET /peer/v1/auth/identity` or
+`POST /peer/v1/auth/refresh`; neither grants owner administration. Identity
+preflight returns the existing pair's scope and operations. Refresh requires
+the exact durable pairing proof and can change authentication only. Successful
+new refresh extends inactivity by 90 days. Reads, failed attempts, heartbeats
+and replay of an existing refresh do not extend it. Target inactivity expiry,
+revocation, replacement or disablement denies new authentication.
+
+The source durably saves a proposed access secret, request UUID and increasing
+sequence before dispatch. The target atomically saves its hash and receipt.
+An exact retained retry returns the original deadlines; conflicting candidates
+and sequences older than retained receipts fail. Two access slots/receipts are
+retained. An unresolved candidate must be recovered before another is generated;
+recovery of an expired access receipt commits that sequence then refreshes again.
+A lost reply and stale source deadline do not block bounded peer-v1 recovery.
+
+One profile owns the scheduler, with one unreferenced timer, at most two refresh
+jobs and a 30-second attempt deadline under the existing SRP budgets. Quiet
+connections refresh around 45 minutes, with two minutes of target-selected
+jitter. Offline attempts back off from one minute to six hours, persisting the
+cooldown, with a bounded in-memory floor if publication is busy. Test connection
+explicitly rechecks a failed refresh or previously unsupported target after an
+upgrade; sign-in-required still needs fresh owner login. Ambiguous recovery is
+bounded by the last confirmed possible acceptance deadline plus one inactivity
+window and one minute of margin. A caller can cancel its wait without cancelling another caller's
+refresh. Disablement, removal, replacement and close fence publication; removed
+connections are never recreated. Normal refresh changes neither policy revision
+nor launch authority and does not replace transports or abort admitted reads.
+Admitted reads keep their original short deadlines even when access slots turn
+over. Authentication expiry never deletes connection identity or audit history.
+
+Old UI defaults qualify for automatic migration only with matching retained
+pairing operation UUIDs on both ends, generation one, the complete original
+all-project control scope, and a deadline matching the historical 30-day default.
+Each end checks its own evidence against the exact credential and opposite
+server. Missing evidence, changed scope, renewed generations and expired grants
+require owner sign-in. Explicitly time-limited manual grants and fleet policy
+are never silently extended.

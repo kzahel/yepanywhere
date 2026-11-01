@@ -9,6 +9,7 @@ export const PEER_HANDSHAKE_BYTES = 8 * 1024;
 export const PEER_HANDSHAKE_MS = 10_000;
 export const PEER_CHANNEL_MS = 12_000;
 export const PEER_PROTOCOL = "peer-v0";
+export const PEER_REFRESH_PROTOCOL = "peer-v1";
 const hex = z
   .string()
   .regex(/^[0-9a-f]+$/i)
@@ -18,7 +19,7 @@ export const peerHello = z
   .object({
     type: z.literal("srp_hello"),
     identity: z.string().regex(/^peer-[0-9a-f-]{36}$/),
-    peerProtocol: z.literal(PEER_PROTOCOL),
+    peerProtocol: z.enum([PEER_PROTOCOL, PEER_REFRESH_PROTOCOL]),
   })
   .strict();
 export const peerChallenge = z
@@ -38,8 +39,10 @@ export const peerVerify = z
 export const peerServerInfo = z
   .object({
     type: z.literal("srp_verify_server_info"),
-    protocol: z.literal(PEER_PROTOCOL),
+    protocol: z.enum([PEER_PROTOCOL, PEER_REFRESH_PROTOCOL]),
+    authentication: z.literal("refresh-v1").optional(),
     serverId: z.string().uuid(),
+    sourceServerId: z.uuid().optional(),
     credentialId: z.string().uuid(),
     generation: z.number().int().positive(),
     fleet: z.literal(1).optional(),

@@ -21,6 +21,13 @@ failures remain separate: [Rendez restart observation](../../gaps/rendez-nested-
 [console/tool warnings](../../gaps/runtime-cutover-tooling-warnings.md). Do not
 replace a failing run with retries or increase unrelated budgets.
 
+Progress, 2026-11-01: durable state, direct/relay peer-v1 transport and bounded
+profile refresh service are implemented and independently approved by Sol 6.1
+high and actual Daybreak Blue high. They land together because authentication
+publication, live directory updates and transport admission must agree. The full
+unit suite passes; targeted restart, lost-reply, cooldown and owner-recheck
+regressions pass. New UI pairing defaults/status and final UI review follow.
+
 ## 1 — Pair policy and recoverable authentication state
 
 Keep stable source/target/pair UUIDs, permission policy, explicit selection and

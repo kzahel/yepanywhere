@@ -267,7 +267,7 @@ it("migrates complete v1 manual state atomically without changing IDs or its sel
   const migrated = new PeerAccessStore(saved.serverId, directory);
   await migrated.initialize();
   expect(migrated.read()).toMatchObject({
-    version: 2,
+    version: 3,
     agentAccess: saved.agentAccess,
     selected: { [targetId]: id },
     outgoing: [{ ...outgoing, origin: "manual" }],

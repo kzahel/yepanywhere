@@ -856,3 +856,10 @@ each meaningful slice: launch a reviewer, observe new prose and activity, send
 a follow-up, reconnect without duplicate input, and inspect creator facts.
 Retain YA-launched Sol 6.1 high reviews between implementation phases. Native
 Windows/enrollment stays at the later multi-device acceptance boundary.
+
+The optional `capabilities.peerAuthentication: "refresh-v1"` identifies a
+receiving profile with the separate protected peer authentication protocol.
+Absence means automatic peer sign-in cannot be assumed. It adds no agent-facing
+refresh/owner-grant routes to v0. Legacy fixed-expiry peer routing remains usable
+until its existing deadline when an older target lacks this capability. See
+[automatic peer authentication](peer-access.md#automatic-peer-authentication).

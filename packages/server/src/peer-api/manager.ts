@@ -1,3 +1,9 @@
+import { PeerAuthentication } from "./authentication.js";
+import {
+  PEER_IDENTITY_PATH,
+  PEER_REFRESH_PATH,
+} from "./authentication-contracts.js";
+import { hashPeerToken } from "./directory.js";
 import {
   localPeerHost,
   recordPeerAudit,
@@ -19,6 +25,8 @@ import {
   outgoingPeerRequest,
   type PeerAccessState,
   type StoredOutgoingPeer,
+  outgoingPeerPolicy,
+  uiPairingOperation,
 } from "./state.js";
 import { PeerDirectory } from "./directory.js";
 import { PeerApiRouter } from "./router.js";
@@ -33,6 +41,7 @@ import { FleetPeerAccess } from "../fleet/peers.js";
 export class PeerAccessManager {
   readonly store: PeerAccessStore;
   readonly fleetAccess: FleetPeerAccess;
+  readonly authentication: PeerAuthentication;
   private readonly budget = new PeerChannelBudget();
   private readonly directory = new PeerDirectory();
   private readonly relay = new RelayClientService();
@@ -64,6 +73,28 @@ export class PeerAccessManager {
       peer.route,
       this.budget,
       peer.origin === "fleet" ? this.fleet?.transport(peer) : undefined,
+      this.authentication.eligible(peer)
+        ? {
+            invitation: () =>
+              this.store
+                .read()
+                .outgoing.find(
+                  (p) =>
+                    p.invitation.credentialId === peer.invitation.credentialId,
+                )?.invitation ?? peer.invitation,
+            token: (signal) =>
+              this.authentication.token(
+                this.store
+                  .read()
+                  .outgoing.find(
+                    (p) =>
+                      p.invitation.credentialId ===
+                      peer.invitation.credentialId,
+                  ) ?? peer,
+                signal,
+              ),
+          }
+        : undefined,
     );
   }
 
@@ -78,10 +109,17 @@ export class PeerAccessManager {
       fetch?: typeof fetch;
       runtimeControl?: { envOverride?: boolean };
       identity?: () => PeerHost;
+      now?: () => number;
     } = {},
   ) {
     this.connectionOptions = fleetOptions;
-    this.store = new PeerAccessStore(serverId, dataDir);
+    this.store = new PeerAccessStore(serverId, dataDir, fleetOptions.now);
+    this.authentication = new PeerAuthentication(
+      this.store,
+      () => !this.closed && !this.faulted && this.isEnabled(),
+      (peer) => new SrpPeerTransport(peer.invitation, peer.route, this.budget),
+      fleetOptions.now,
+    );
     this.fleetAccess = new FleetPeerAccess(this, fleetOptions);
     this.store.observe(
       (next, previous) => this.apply(next, previous),
@@ -201,6 +239,61 @@ export class PeerAccessManager {
     );
     this.receiver = createPeerReceiver(core, this.directory, {
       requireSrp: true,
+      authentication: async (request, context) => {
+        const assert = () => {
+          request.signal.throwIfAborted();
+          const peer = this.store
+            .read()
+            .incoming.find(
+              (p) =>
+                p.id === context.credentialId &&
+                p.generation === context.generation &&
+                p.origin === "manual",
+            );
+          if (
+            !this.isEnabled() ||
+            this.closed ||
+            this.faulted ||
+            !peer ||
+            peer.expiresAt <= Date.now() ||
+            !request.headers.get("Authorization")?.startsWith("Bearer ") ||
+            hashPeerToken(
+              (request.headers.get("Authorization") ?? "").slice(7),
+            ) !== peer.tokenHash
+          )
+            throw new CoreApiError(
+              "unauthorized",
+              "Server pairing is no longer active",
+              401,
+            );
+          return peer;
+        };
+        const peer = assert(),
+          path = new URL(request.url).pathname;
+        if (path === PEER_IDENTITY_PATH && request.method === "GET")
+          return {
+            principal: { kind: "peer", serverId: peer.sourceServerId },
+            scope: peer.allProjects ? "all-projects" : "project-grants",
+            operations: peer.operations,
+          };
+        if (path !== PEER_REFRESH_PATH || request.method !== "POST")
+          throw new CoreApiError(
+            "invalid_request",
+            "Unsupported authentication method",
+            400,
+          );
+        return this.store.refreshAuthentication(
+          await request.json(),
+          {
+            credentialId: peer.id,
+            generation: peer.generation,
+            tokenHash: peer.tokenHash,
+          },
+          () => {
+            assert();
+          },
+        );
+      },
       fleetAuthority: (grant, token, signal) => {
         if (!this.fleet?.authority)
           throw new CoreApiError(
@@ -282,6 +375,7 @@ export class PeerAccessManager {
   }
   private apply(next: PeerAccessState, previous?: PeerAccessState) {
     if (this.closed || this.faulted) return;
+    this.authentication.changed();
     if (previous && previous.agentAccess.grantId !== next.agentAccess.grantId) {
       this.router?.revokeAgentAccess();
       if (previous.agentAccess.grantId && this.onPeerAccessRevoked) {
@@ -305,9 +399,24 @@ export class PeerAccessManager {
     }
     if (previous && !this.enabledIn(previous) && this.enabledIn(next))
       previous = undefined;
+    const incomingPolicy = (
+      p: PeerAccessState["incoming"][number],
+      state: PeerAccessState,
+    ) => {
+      const { authentication: _authentication, ...policy } = p;
+      return JSON.stringify({
+        ...policy,
+        ...(p.authentication || uiPairingOperation(state, p)
+          ? { expiresAt: 0 }
+          : {}),
+      });
+    };
     for (const old of previous?.incoming ?? []) {
       const current = next.incoming.find((p) => p.id === old.id);
-      if (!current || current.generation !== old.generation) {
+      if (
+        !current ||
+        incomingPolicy(current, next) !== incomingPolicy(old, previous!)
+      ) {
         this.directory.revoke(old.id);
         this.runtime?.revoke(old.id);
       }
@@ -315,15 +424,24 @@ export class PeerAccessManager {
     for (const peer of next.incoming) {
       if (
         previous?.incoming.some(
-          (p) => p.id === peer.id && p.generation === peer.generation,
+          (p) =>
+            p.id === peer.id &&
+            incomingPolicy(p, previous!) === incomingPolicy(peer, next),
         )
-      )
+      ) {
+        this.directory.updateAuthentication(
+          peer.id,
+          peer.expiresAt,
+          peer.authentication?.access,
+        );
         continue;
+      }
       this.directory.put({
         id: peer.id,
         serverId: peer.sourceServerId,
         generation: peer.generation,
         tokenHash: peer.tokenHash,
+        ...(peer.authentication ? { access: peer.authentication.access } : {}),
         ...(peer.allProjects ? { allProjects: true as const } : {}),
         projects: peer.projects,
         operations: peer.operations,
@@ -358,7 +476,12 @@ export class PeerAccessManager {
       )
         this.router.revoke(old.invitation.targetServerId);
     for (const peer of after) {
-      if (before.some((old) => JSON.stringify(old) === JSON.stringify(peer)))
+      const policy = (p: StoredOutgoingPeer, state: PeerAccessState) => {
+        const value = outgoingPeerPolicy(p);
+        if (uiPairingOperation(state, p)) value.invitation.expiresAt = 0;
+        return JSON.stringify(value);
+      };
+      if (before.some((old) => policy(old, previous!) === policy(peer, next)))
         continue;
       if (peer.origin === "fleet" && !this.fleet) {
         this.router.revoke(peer.invitation.targetServerId);
@@ -368,7 +491,9 @@ export class PeerAccessManager {
         serverId: peer.invitation.targetServerId,
         operations: peer.operations,
         allowAgentSessions: peer.allowAgentSessions,
-        expiresAt: peer.invitation.expiresAt,
+        ...(this.authentication.eligible(peer)
+          ? {}
+          : { expiresAt: peer.invitation.expiresAt }),
         transport: this.protectedTransport(peer),
       });
     }
@@ -376,6 +501,7 @@ export class PeerAccessManager {
 
   private failClosed() {
     this.faulted = true;
+    void this.authentication.close();
     this.router?.close();
     this.directory.close();
     this.runtime?.close();
@@ -510,6 +636,7 @@ export class PeerAccessManager {
         identity,
         operationId,
         initiatingServerId,
+        !!operationId && !!identity,
       );
     }
     if (!this.projects)
@@ -540,6 +667,7 @@ export class PeerAccessManager {
       identity,
       operationId,
       initiatingServerId,
+      !!operationId && !!identity,
     );
   }
   async importOutgoing(
@@ -585,11 +713,13 @@ export class PeerAccessManager {
         input.route,
         this.budget,
       );
-      const result = await transport.request(
-        "access",
-        { serverId: invitation.targetServerId, signal },
-        { sessionId: null, launchId: null },
-      );
+      const result = invitation.authentication
+        ? await transport.identity(signal)
+        : await transport.request(
+            "access",
+            { serverId: invitation.targetServerId, signal },
+            { sessionId: null, launchId: null },
+          );
       const access = accessSchema.parse(result);
       if (
         access.principal.kind !== "peer" ||
@@ -648,6 +778,7 @@ export class PeerAccessManager {
     await this.fleetAccess.close();
     if (this.closePromise) return this.closePromise;
     this.closed = true;
+    await this.authentication.close();
     this.router?.close();
     this.runtime?.close();
     this.directory.close();

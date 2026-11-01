@@ -676,6 +676,12 @@ export class PeerConnections {
         404,
       );
     guard();
+    if (
+      ["update-required", "unavailable"].includes(
+        this.manager.authentication.status(peer) ?? "",
+      )
+    )
+      await this.manager.authentication.retry(peer, guard, signal);
     await this.manager
       .protectedTransport(peer)
       .request(

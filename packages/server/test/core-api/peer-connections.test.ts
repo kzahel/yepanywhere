@@ -341,7 +341,15 @@ it("adds and renews the reverse direction without rotating the working outgoing 
     outgoing: "unchanged",
     incoming: "confirmed",
   });
-  expect(a.manager.store.read().outgoing[0]).toEqual(outgoing);
+  expect(a.manager.store.read().outgoing[0]).toMatchObject({
+    invitation: {
+      credentialId: outgoing!.invitation.credentialId,
+      generation: outgoing!.invitation.generation,
+    },
+    operations: outgoing!.operations,
+    route: outgoing!.route,
+    allowAgentSessions: outgoing!.allowAgentSessions,
+  });
   expect(
     await controller.connect(
       {
@@ -356,7 +364,15 @@ it("adds and renews the reverse direction without rotating the working outgoing 
     ),
   ).toMatchObject({ outcome: "connected" });
   expect(a.manager.store.read().incoming[0]?.generation).toBe(2);
-  expect(a.manager.store.read().outgoing[0]).toEqual(outgoing);
+  expect(a.manager.store.read().outgoing[0]).toMatchObject({
+    invitation: {
+      credentialId: outgoing!.invitation.credentialId,
+      generation: outgoing!.invitation.generation,
+    },
+    operations: outgoing!.operations,
+    route: outgoing!.route,
+    allowAgentSessions: outgoing!.allowAgentSessions,
+  });
   expect(
     await controller.connect(
       { ...credentials, expectedServerId: b.id, replace: true },

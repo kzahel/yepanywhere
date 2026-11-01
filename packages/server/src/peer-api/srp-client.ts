@@ -1,3 +1,10 @@
+import {
+  PEER_AUTHENTICATION,
+  PEER_IDENTITY_PATH,
+  PEER_REFRESH_PATH,
+  peerRefreshReceipt,
+  type PeerRefreshReceipt,
+} from "./authentication-contracts.js";
 import { randomUUID } from "node:crypto";
 import WebSocket from "ws";
 import {
@@ -37,6 +44,7 @@ import {
   PEER_HANDSHAKE_BYTES,
   PEER_CHANNEL_MS,
   PEER_PROTOCOL,
+  PEER_REFRESH_PROTOCOL,
   peerChallenge,
   peerVerify,
   peerServerInfo,
@@ -106,23 +114,59 @@ export class SrpPeerTransport implements PeerTransport {
       token(signal: AbortSignal): Promise<{ token: string; expiresAt: number }>;
       assertActive(): void;
     },
+    private readonly authentication?: {
+      invitation(): PeerInvitation;
+      token(signal?: AbortSignal): Promise<string>;
+    },
   ) {
     this.invitation = invitationSchema.parse(invitation);
     this.route = peerRouteSchema.parse(route);
     this.serverId = this.invitation.targetServerId;
   }
-  async request(
+  request(
     operation: Operation,
     input: PeerInput,
     attestation: PeerAttestation,
   ): Promise<unknown> {
+    return this.exchange(operation, input, attestation);
+  }
+  identity(signal?: AbortSignal): Promise<unknown> {
+    return this.exchange(
+      "access",
+      { serverId: this.serverId, signal },
+      { sessionId: null, launchId: null },
+      { path: PEER_IDENTITY_PATH },
+    );
+  }
+  refresh(body: unknown, signal: AbortSignal): Promise<PeerRefreshReceipt> {
+    return this.exchange(
+      "access",
+      { serverId: this.serverId, signal },
+      { sessionId: null, launchId: null },
+      { path: PEER_REFRESH_PATH, body },
+    ) as Promise<PeerRefreshReceipt>;
+  }
+  private async exchange(
+    operation: Operation,
+    input: PeerInput,
+    attestation: PeerAttestation,
+    privateRequest?: { path: string; body?: unknown },
+  ): Promise<unknown> {
+    const bearer = privateRequest
+      ? undefined
+      : await this.authentication?.token(input.signal);
+    const invitation = this.authentication?.invitation() ?? this.invitation;
+    const protocol =
+      privateRequest || invitation.authentication
+        ? PEER_REFRESH_PROTOCOL
+        : PEER_PROTOCOL;
     if (input.serverId !== this.serverId)
       throw new CoreApiError(
         "peer_identity_mismatch",
         "Peer request target does not match its connection",
         502,
       );
-    if (this.invitation.expiresAt <= Date.now())
+    if (protocol === PEER_PROTOCOL && invitation.expiresAt <= Date.now())
       throw new CoreApiError("unauthorized", "Peer invitation expired", 401);
     const admission = this.budget.acquire();
     const fleetExpiry = new AbortController();
@@ -168,8 +212,8 @@ export class SrpPeerTransport implements PeerTransport {
       const step1 = await awaitPeerWork(
         this.budget.crypto(() =>
           new SRPClientSession(routines).step1(
-            this.invitation.username,
-            this.invitation.secret,
+            invitation.username,
+            invitation.secret,
           ),
         ),
         signal,
@@ -183,9 +227,15 @@ export class SrpPeerTransport implements PeerTransport {
           operation,
           input,
           attestation,
-          this.invitation.secret,
+          bearer ?? invitation.secret,
         ),
       };
+      if (privateRequest)
+        Object.assign(request, {
+          method: privateRequest.body === undefined ? "GET" : "POST",
+          path: privateRequest.path,
+          body: privateRequest.body,
+        });
       if (fleetToken)
         Object.assign(request.headers, {
           "X-YA-Fleet-Grant": fleetToken.token,
@@ -230,8 +280,8 @@ export class SrpPeerTransport implements PeerTransport {
           ws.send(
             JSON.stringify({
               type: "srp_hello",
-              identity: this.invitation.username,
-              peerProtocol: PEER_PROTOCOL,
+              identity: invitation.username,
+              peerProtocol: protocol,
             }),
           );
         ws.on("open", () => {
@@ -334,13 +384,17 @@ export class SrpPeerTransport implements PeerTransport {
                   502,
                 );
               assertFleetActive();
-              const result = validatePeerReply(
-                operation,
-                this.serverId,
-                sequenced.msg.status,
-                new Headers(sequenced.msg.headers),
-                sequenced.msg.body,
-              );
+              const result =
+                privateRequest?.path === PEER_REFRESH_PATH &&
+                sequenced.msg.status === 200
+                  ? peerRefreshReceipt.parse(sequenced.msg.body)
+                  : validatePeerReply(
+                      operation,
+                      this.serverId,
+                      sequenced.msg.status,
+                      new Headers(sequenced.msg.headers),
+                      sequenced.msg.body,
+                    );
               finish(undefined, result);
               return;
             }
@@ -421,9 +475,15 @@ export class SrpPeerTransport implements PeerTransport {
             const info = peerServerInfo.parse(JSON.parse(decoded));
             if (
               info.serverId !== this.serverId ||
-              info.credentialId !== this.invitation.credentialId ||
-              info.generation !== this.invitation.generation ||
-              info.expiresAt !== this.invitation.expiresAt ||
+              info.credentialId !== invitation.credentialId ||
+              info.generation !== invitation.generation ||
+              info.protocol !== protocol ||
+              (protocol === PEER_REFRESH_PROTOCOL &&
+                info.sourceServerId !== invitation.sourceServerId) ||
+              (protocol === PEER_PROTOCOL &&
+                info.expiresAt !== invitation.expiresAt) ||
+              (invitation.authentication &&
+                info.authentication !== PEER_AUTHENTICATION) ||
               info.expiresAt <= Date.now() ||
               (this.fleet ? info.fleet !== 1 : info.fleet !== undefined) ||
               info.transportNonce !== verified.transportNonce

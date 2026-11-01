@@ -196,6 +196,7 @@ export const capabilitiesSchema = z.object({
   stability: z.literal("unstable"),
   operations: z.array(z.string()),
   peerRouting: z.boolean(),
+  peerAuthentication: z.literal("refresh-v1").optional(),
 });
 export const accessSchema = z.object({
   principal: principalSchema,

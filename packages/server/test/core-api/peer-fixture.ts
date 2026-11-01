@@ -94,6 +94,7 @@ export async function protectedProfile(
   }));
   const projectItems = [{ id: "p", name: "Project", path: "/fixture/project" }];
   const sources: CoreApiSources = {
+    peerAuthentication: () => true,
     conversation: createConversationRead(subscriptions),
     followConversation: createConversationFollow(subscriptions, id),
     commands,

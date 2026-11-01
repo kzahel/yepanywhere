@@ -22,6 +22,7 @@ export interface IncomingPeerGrant {
   operations: readonly Operation[];
   expiresAt: number;
   fleet?: FleetPeerBinding;
+  access?: readonly { tokenHash: string; expiresAt: number }[];
 }
 export interface PeerRequestAuthority {
   grant: IncomingPeerGrant;
@@ -52,13 +53,28 @@ export class PeerDirectory {
       operations: [...grant.operations],
     });
   }
+  updateAuthentication(
+    id: string,
+    expiresAt: number,
+    access: IncomingPeerGrant["access"],
+  ) {
+    const grant = this.incoming.get(id);
+    if (grant) {
+      grant.expiresAt = expiresAt;
+      grant.access = access;
+    }
+  }
   revoke(id: string) {
     this.incoming.delete(id);
     for (const controller of this.active.get(id) ?? []) controller.abort();
   }
   lookup(token: string) {
     const hash = hashPeerToken(token);
-    return [...this.incoming.values()].find((g) => g.tokenHash === hash);
+    return [...this.incoming.values()].find((g) =>
+      g.access
+        ? g.access.some((t) => t.tokenHash === hash && t.expiresAt > Date.now())
+        : g.tokenHash === hash,
+    );
   }
   authenticate(
     token: string,
@@ -66,7 +82,11 @@ export class PeerDirectory {
     authority?: PeerRequestAuthority,
   ) {
     const hash = hashPeerToken(token);
-    const grant = [...this.incoming.values()].find((g) => g.tokenHash === hash);
+    const grant = [...this.incoming.values()].find((g) =>
+      g.access
+        ? g.access.some((t) => t.tokenHash === hash && t.expiresAt > Date.now())
+        : g.tokenHash === hash,
+    );
     if (
       !grant ||
       !Number.isFinite(grant.expiresAt) ||
@@ -84,6 +104,8 @@ export class PeerDirectory {
         401,
       );
     const expiresAt = Math.min(
+      grant.access?.find((t) => t.tokenHash === hash)?.expiresAt ??
+        grant.expiresAt,
       grant.expiresAt,
       authority?.expiresAt ?? grant.expiresAt,
     );
