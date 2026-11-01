@@ -250,6 +250,7 @@ import {
 } from "./routes/session-list-options.js";
 import { RetainedSessionCollections } from "./services/RetainedSessionCollections.js";
 import { collectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
+import { projectCatalogIdentities } from "./sessions/catalog-identity.js";
 import {
   providerCatalogFamily,
   type ProviderCatalogFamily,
@@ -403,6 +404,7 @@ import { MergedSessionReader } from "./sessions/merged-reader.js";
 import { OpenCodeSessionReader } from "./sessions/opencode-reader.js";
 import { PiSessionReader } from "./sessions/pi-reader.js";
 import {
+  boundSessionSource,
   findSessionListSummaryAcrossProviders,
   findSessionSummaryAcrossProviders,
   getSessionSourceForProvider,
@@ -974,12 +976,14 @@ export function createApp(options: AppOptions): AppResult {
         await retainedCollections.refresh();
         ({ rows } = await retainedCollections.read());
       }
-      return rows.map((row) => ({
-        sessionId: row.sessionId,
-        projectId: row.projectId,
-        provider: row.provider ?? row.catalogFamily,
-        updatedAt: row.updatedAt,
-      }));
+      return projectCatalogIdentities(rows, options.sessionMetadataService).map(
+        (row) => ({
+          sessionId: row.sessionId,
+          projectId: row.projectId,
+          provider: row.provider ?? row.catalogFamily,
+          updatedAt: row.updatedAt,
+        }),
+      );
     },
     getSessionMetadata: (sessionId) =>
       options.sessionMetadataService?.getMetadata(sessionId),
@@ -1891,6 +1895,9 @@ export function createApp(options: AppOptions): AppResult {
       sessionId,
       project.id,
       {
+        identities: options.sessionMetadataService?.identities,
+        getRecordedProvider: (id) =>
+          options.sessionMetadataService?.getProvider(id),
         readerFactory,
         codexSessionsDir,
         codexReaderFactory,
@@ -1925,6 +1932,9 @@ export function createApp(options: AppOptions): AppResult {
       sessionId,
       project.id,
       {
+        identities: options.sessionMetadataService?.identities,
+        getRecordedProvider: (id) =>
+          options.sessionMetadataService?.getProvider(id),
         readerFactory,
         codexSessionsDir,
         codexReaderFactory,
@@ -2219,12 +2229,21 @@ export function createApp(options: AppOptions): AppResult {
       if (recoveryProvider !== "codex" && recoveryProvider !== "codex-oss") {
         return undefined;
       }
-      const reader = readerFactory({
-        ...project,
-        provider: recoveryProvider,
-        sessionDir: codexSessionsDir,
+      const bound = boundSessionSource(project, sessionId, {
+        readerFactory,
+        identities: options.sessionMetadataService?.identities,
       });
-      return reader.getRecoveredLaunchSettings?.(sessionId);
+      if (bound === null) return undefined;
+      const reader =
+        bound?.source.reader ??
+        readerFactory({
+          ...project,
+          provider: recoveryProvider,
+          sessionDir: codexSessionsDir,
+        });
+      return reader.getRecoveredLaunchSettings?.(
+        bound?.nativeSessionId ?? sessionId,
+      );
     },
     getPromptCacheKeepaliveSettings: (providerName) => {
       const capability =
@@ -2763,7 +2782,8 @@ export function createApp(options: AppOptions): AppResult {
           if (process) {
             return process.projectId === project.id;
           }
-          return (await getSessionListSummary(sessionId, project.id)) !== null;
+          const summary = await getSessionListSummary(sessionId, project.id);
+          return summary?.projectId === project.id;
         },
       }),
     );

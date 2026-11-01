@@ -251,7 +251,9 @@ The [YA-owned session identity](session-identity.md) foundation adds migration
 all-or-none native family/storage scope/id binding, unique within that scope.
 Metadata keys and native transcripts are unchanged. The identity owner shares
 the profile connection and uses three fixed prepared statements; discovery
-adoption cannot claim an unbound managed id. Startup requests/attempts remain
+adoption cannot claim an unbound managed id. A discovery publication adopts
+its rows in one transaction with atomic conflict rollback, rather than opening
+a write transaction for each row. Startup requests/attempts remain
 pending: these identity rows alone do not provide durable creation.
 The [creation proposal](session-creation.sketches.md) depends on that boundary;
 future schema changes follow the migration and no-downgrade rules above.

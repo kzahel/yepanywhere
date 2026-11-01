@@ -218,6 +218,16 @@ export class MergedSessionReader implements ISessionReader {
     return null;
   }
 
+  async getNativeSessionRef(
+    sessionId: import("@yep-anywhere/shared").NativeSessionId,
+  ) {
+    for (const reader of this.readers) {
+      const native = await reader.getNativeSessionRef?.(sessionId);
+      if (native) return native;
+    }
+    return null;
+  }
+
   async listSessionFiles(
     sessionDir: string,
     options?: { activeAfterMs?: number },

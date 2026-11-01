@@ -26,6 +26,15 @@ export interface SessionIdentity {
   readonly native: NativeSessionRef | null;
 }
 
+export interface DiscoveredSessionIdentity {
+  native: NativeSessionRef;
+  provider: ProviderName;
+  projectId: UrlProjectId;
+  createdAt: string;
+  /** Native-string metadata is meaningful only after legacy adoption is verified. */
+  legacyProvider?: ProviderName;
+}
+
 interface IdentityRow {
   session_id: string;
   provider: string;
@@ -135,39 +144,49 @@ export class SessionIdentityStore {
    * its YA identity, while a legacy resource keeps its existing native/public id.
    * This cannot bind an unbound managed session; attempts own that later step.
    */
-  adoptDiscovered(input: {
-    native: NativeSessionRef;
-    provider: ProviderName;
-    projectId: UrlProjectId;
-    createdAt: string;
-  }): SessionIdentity {
+  adoptDiscovered(input: DiscoveredSessionIdentity): SessionIdentity {
+    return this.adoptDiscoveredBatch([input])[0]!;
+  }
+
+  /** One discovery publication takes one transaction, never a lock per row. */
+  adoptDiscoveredBatch(
+    inputs: readonly DiscoveredSessionIdentity[],
+  ): SessionIdentity[] {
+    if (inputs.length === 0) return [];
+    return this.database.transaction(() =>
+      inputs.map((input) => this.adopt(input)),
+    );
+  }
+
+  private adopt(input: DiscoveredSessionIdentity): SessionIdentity {
     validateNative(input.native);
     if (nativeSessionFamily(input.provider) !== input.native.family) {
       throw new SessionIdentityConflict();
     }
     assertUrlProjectId(input.projectId);
-    return this.database.transaction(() => {
-      const bound = this.lookupNative(input.native);
-      if (bound) {
-        if (bound.projectId !== input.projectId) {
-          throw new SessionIdentityConflict();
-        }
-        return bound;
+    const bound = this.lookupNative(input.native);
+    if (bound) {
+      if (bound.projectId !== input.projectId) {
+        throw new SessionIdentityConflict();
       }
-      // Conversion is specific to legacy native discovery, never an I/O fallback.
-      const sessionId = parseYaSessionId(input.native.id);
-      if (this.resolveYa(sessionId)) throw new SessionIdentityConflict();
-      this.insert.run(
-        sessionId,
-        input.provider,
-        input.projectId,
-        input.createdAt,
-        input.native.family,
-        input.native.storageScope,
-        input.native.id,
-      );
-      return this.resolveYa(sessionId)!;
-    });
+      return bound;
+    }
+    // Conversion is specific to legacy native discovery, never an I/O fallback.
+    const sessionId = parseYaSessionId(input.native.id);
+    if (this.resolveYa(sessionId)) throw new SessionIdentityConflict();
+    const provider = input.legacyProvider ?? input.provider;
+    if (nativeSessionFamily(provider) !== input.native.family)
+      throw new SessionIdentityConflict();
+    this.insert.run(
+      sessionId,
+      provider,
+      input.projectId,
+      input.createdAt,
+      input.native.family,
+      input.native.storageScope,
+      input.native.id,
+    );
+    return this.resolveYa(sessionId)!;
   }
 
   close(): void {

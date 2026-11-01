@@ -604,9 +604,9 @@ on 2026-11-01: persist a session before provider launch, keep its public id,
 and retain saved/failed startup state without requiring a native transcript.
 This reopens the new-session portion of plan 150 as the foundation for the
 [creation/navigation proposal](../../topics/session-creation.sketches.md), not
-the archived general core or full fork/clone program. Documentation and the
-core release-corpus audit are recorded; schema/API choices, legacy refresh
-qualification, storage bounds and implementation remain pending.
+the archived general core or full fork/clone program. Concrete schema/API choices, storage bounds and the core release-corpus audit
+are recorded; provider/startup implementation and legacy refresh qualification
+remain in progress.
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review
 after each implementation slice and commits as work proceeds. Plan review is
@@ -614,7 +614,9 @@ accepted after corrections; concrete schema/API entry-gate work and runtime
 design are now independently accepted by Sol 6.1 High, including bounded attempts,
 durable recovery keys and retained-fork source uncertainty. Typed identities,
 scoped binding storage and bound Claude/Codex detail/history are implemented and
-independently accepted. Discovery/watch and retained native source consumers are
+independently accepted. Claude/Codex discovery/collection projection and scoped
+summary sources are also accepted, including native/public-key collisions and
+project-membership checks. Watches and retained native source consumers are
 next; durable admission, split-id launches and release qualification remain gated. This does not displace release delivery or
 require queued-compaction work first.
 

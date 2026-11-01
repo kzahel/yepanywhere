@@ -1,5 +1,6 @@
 import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 import type { ProjectScanner } from "../../projects/scanner.js";
 import type { Project } from "../../supervisor/types.js";
 import { getCodexRolloutActivityTimeMs } from "../../utils/codexRolloutFiles.js";
@@ -43,7 +44,7 @@ import {
  * Claude session without a cached summary, its creation time. Both are read
  * once more.
  */
-const FILE_ROW_FORMAT = 2;
+const FILE_ROW_FORMAT = 3;
 
 export interface CollectionCatalogDeps extends SessionProviderResolutionDeps {
   scanner: ProjectScanner;
@@ -82,6 +83,11 @@ async function readFileRow(
       old.rowFormat === FILE_ROW_FORMAT
     )
       return { ...old, projectName: project.name };
+    const nativeStorageScope = (
+      await source.reader.getNativeSessionRef?.(
+        parseNativeSessionId(file.sessionId),
+      )
+    )?.storageScope;
     const cached = await deps.sessionIndexService?.getCachedSessionSummary(
       source.sessionDir,
       project.id,
@@ -138,6 +144,7 @@ async function readFileRow(
         catalogFamily: family,
         storeKey: source.sessionDir,
         sessionId: file.sessionId,
+        ...(nativeStorageScope ? { nativeStorageScope } : {}),
         ...catalogProjectIdentity(project.path),
         projectId: project.id,
         projectName: project.name,
@@ -152,6 +159,7 @@ async function readFileRow(
       catalogFamily: family,
       storeKey: source.sessionDir,
       sessionId: file.sessionId,
+      ...(nativeStorageScope ? { nativeStorageScope } : {}),
       ...catalogProjectIdentity(project.path),
       projectId: project.id,
       projectName: project.name,

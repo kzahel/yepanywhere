@@ -29,6 +29,8 @@ import {
   isThinkingOption,
   isUrlProjectId,
   isYaSessionId,
+  parseNativeSessionId,
+  type NativeSessionId,
   truncateSessionTitle,
   readQueuedYaCommand,
   withKnownGoal,
@@ -131,6 +133,7 @@ import {
   augmentPersistedSessionMessages,
 } from "../sessions/persisted-augments.js";
 import {
+  boundSessionSource,
   findSessionListSummaryAcrossProviders,
   findSessionSummaryAcrossProviders,
   getSessionSources,
@@ -407,7 +410,21 @@ async function resolveSessionReader({
   project: Project;
   sessionId: string;
   projectId: UrlProjectId;
-}): Promise<ISessionReader> {
+}): Promise<{
+  reader: ISessionReader;
+  nativeSessionId: NativeSessionId;
+} | null> {
+  const bound = boundSessionSource(
+    project,
+    sessionId,
+    providerResolutionDeps(deps),
+  );
+  if (bound === null) return null;
+  if (bound)
+    return {
+      reader: bound.source.reader,
+      nativeSessionId: bound.nativeSessionId,
+    };
   const metadataProvider = deps.sessionMetadataService?.getProvider(
     sessionId,
   ) as ProviderName | undefined;
@@ -419,7 +436,11 @@ async function resolveSessionReader({
     metadataProvider,
   );
 
-  return resolved?.source.reader ?? deps.readerFactory(project);
+  return {
+    reader: resolved?.source.reader ?? deps.readerFactory(project),
+    nativeSessionId:
+      resolved?.nativeSessionId ?? parseNativeSessionId(sessionId),
+  };
 }
 
 interface StartSessionBody {
@@ -2571,16 +2592,26 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     if (resolved) {
       const loaded = await resolved.source.reader.getSession(
-        sessionId,
+        resolved.nativeSessionId,
         projectId,
         undefined,
         { includeOrphans: false },
       );
       if (loaded) {
-        return normalizeSession(loaded, {
-          rewindRecords:
-            deps.sessionMetadataService?.getRewindRecords?.(sessionId),
-        });
+        return normalizeSession(
+          {
+            ...loaded,
+            summary: {
+              ...loaded.summary,
+              id: sessionId,
+              provider: resolved.source.provider,
+            },
+          },
+          {
+            rewindRecords:
+              deps.sessionMetadataService?.getRewindRecords?.(sessionId),
+          },
+        );
       }
     }
 
@@ -2623,7 +2654,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       providerName,
     );
     const loaded = await resolved?.source.reader.getSession(
-      sessionId,
+      resolved.nativeSessionId,
       projectId,
       undefined,
       { includeOrphans: false },
@@ -2742,13 +2773,16 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: routing.error }, routing.status);
     }
 
-    const reader = await resolveSessionReader({
+    const source = await resolveSessionReader({
       deps,
       project: routing.transcriptProject,
       sessionId: c.req.param("sessionId"),
       projectId: routing.transcriptProjectId,
     });
-    const mappings = await reader.getAgentMappings(c.req.param("sessionId"));
+    if (!source) return c.json({ error: "Session not found" }, 404);
+    const mappings = await source.reader.getAgentMappings(
+      source.nativeSessionId,
+    );
 
     return c.json({ mappings });
   });
@@ -2785,15 +2819,16 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         return c.json({ error: routing.error }, routing.status);
       }
 
-      const reader = await resolveSessionReader({
+      const source = await resolveSessionReader({
         deps,
         project: routing.transcriptProject,
         sessionId: c.req.param("sessionId"),
         projectId: routing.transcriptProjectId,
       });
-      const agentSession = await reader.getAgentSession(
+      if (!source) return c.json({ error: "Session not found" }, 404);
+      const agentSession = await source.reader.getAgentSession(
         agentId,
-        c.req.param("sessionId"),
+        source.nativeSessionId,
       );
 
       if (!agentSession) {
@@ -3157,10 +3192,23 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       // Claude uses the fast reverse-scan when there is no durable overlay to
       // compare; every other provider goes through the cross-provider load +
       // normalize, then a shared extractor on the uniform message form.
-      const reader = deps.readerFactory(transcriptProject);
-      lastAgentText ??= reader.getLastAgentExcerpt
-        ? await reader.getLastAgentExcerpt(sessionId)
-        : undefined;
+      const bound = boundSessionSource(
+        transcriptProject,
+        sessionId,
+        providerResolutionDeps(deps),
+      );
+      const reader =
+        bound === undefined
+          ? deps.readerFactory(transcriptProject)
+          : bound?.source.reader;
+      const nativeSessionId =
+        bound === undefined
+          ? parseNativeSessionId(sessionId)
+          : bound?.nativeSessionId;
+      lastAgentText ??=
+        reader?.getLastAgentExcerpt && nativeSessionId
+          ? await reader.getLastAgentExcerpt(nativeSessionId)
+          : undefined;
       if (lastAgentText === undefined) {
         const normalized = await loadRestartSourceSession(
           transcriptProject,
@@ -4753,8 +4801,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       let blocker: ClaudeResumeApiErrorBlocker | null = null;
       try {
         blocker = await getClaudeResumeBlockerFromReader(
-          deps.readerFactory(identity.transcriptProject),
-          sessionId,
+          deps.readerFactory(
+            { ...identity.transcriptProject, provider: identity.provider },
+            identity.native,
+          ),
+          identity.native?.id ?? sessionId,
           identity.transcriptProjectId,
         );
       } catch (error) {
@@ -5380,7 +5431,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       projectId: params.projectId,
     });
     const sourceTranscriptPath =
-      (await sourceReader.getSessionFilePath?.(params.sessionId)) ?? undefined;
+      (sourceReader
+        ? await sourceReader.reader.getSessionFilePath?.(
+            sourceReader.nativeSessionId,
+          )
+        : undefined) ?? undefined;
     return buildRestartHandoff({
       handoffTitle: params.handoffTitle,
       sourceSession: params.sourceSession,

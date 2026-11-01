@@ -444,6 +444,15 @@ owns grouping, sharding, and persistence. Three rules keep families joinable:
   row stores change — the whole title, the summary's creation time — bumping
   that format makes each persisted row from an older build read once more on
   the next reconciliation, while `sourceVersion` stays the file's identity.
+- **Native addresses stay native inside the catalogue.** File row format 3
+  records `nativeStorageScope` when the reader supplies explicit native evidence,
+  including the actual private root behind a merged reader. It does not change
+  the adapter/store/native-id key or physical file location. Public collection
+  and access projections use the profile identity owner to adopt Claude/Codex
+  rows in one transaction and return an already bound YA id/launch variant.
+  Old rows without that evidence are reread at the new format; they are not
+  adopted by guessing a merged root. Other native families retain their existing
+  projection until their scoped reader/adoption migration is qualified.
 - **Recency may use a narrower provider/platform activity clock.** Plain Codex
   rollouts on Windows use the later of file modification and change time,
   because Windows can defer the last-write timestamp until Codex closes its

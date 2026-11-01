@@ -169,6 +169,18 @@ describe("scoped durable session identity", () => {
     ).toThrow(SessionIdentityConflict);
     expect(store.resolveYa(parseYaSessionId("same-native"))?.native).toBeNull();
     expect(store.lookupNative(ref("/fixture/c"))).toBeUndefined();
+    const beforeConflict = nativeSessionRef(
+      "claude",
+      "/fixture/c",
+      parseNativeSessionId("before-conflict"),
+    );
+    expect(() =>
+      store.adoptDiscoveredBatch([
+        { native: beforeConflict, provider: "claude", projectId, createdAt },
+        { native: ref("/fixture/c"), provider: "claude", projectId, createdAt },
+      ]),
+    ).toThrow(SessionIdentityConflict);
+    expect(store.lookupNative(beforeConflict)).toBeUndefined();
   });
 
   it("rejects partial bindings and preserves surrounding writes on transaction failure", () => {

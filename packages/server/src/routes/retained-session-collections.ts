@@ -1,4 +1,5 @@
 import { truncateSessionTitle } from "@yep-anywhere/shared";
+import { projectCatalogIdentities } from "../sessions/catalog-identity.js";
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
 import { getProjectName } from "../projects/paths.js";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
@@ -29,7 +30,11 @@ export async function readRetainedSessionItems(
     | "projectDisplayName"
   >,
 ) {
-  const { rows, catalog } = await service.read();
+  const { rows: nativeRows, catalog } = await service.read();
+  const rows = projectCatalogIdentities(
+    nativeRows,
+    deps.sessionMetadataService,
+  );
   // Named now, not from the row: a stored `projectName` is only as current as
   // the file's last read, and renaming a project rereads nothing.
   const projectDisplayName = deps.projectDisplayName ?? getProjectName;

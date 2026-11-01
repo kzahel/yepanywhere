@@ -4,20 +4,27 @@ import {
   type ProviderName,
 } from "@yep-anywhere/shared";
 import type { ISessionIndexService } from "../indexes/types.js";
-import type { CodexSessionReader } from "../sessions/codex-reader.js";
 import type { CodexSessionScanner } from "../projects/codex-scanner.js";
 import type { GeminiSessionReader } from "../sessions/gemini-reader.js";
 import type { GrokSessionReader } from "../sessions/grok-reader.js";
 import type { PiSessionReader } from "../sessions/pi-reader.js";
 import type { ProviderResolutionDeps } from "../sessions/provider-resolution.js";
-import type { SessionReaderFactory } from "../sessions/types.js";
+import type {
+  ISessionReader,
+  SessionReaderFactory,
+} from "../sessions/types.js";
+import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 
 export interface SessionProviderResolutionDeps {
+  sessionMetadataService?: Pick<
+    SessionMetadataService,
+    "identities" | "getProvider"
+  >;
   readerFactory: SessionReaderFactory;
   sessionIndexService?: ISessionIndexService;
   codexScanner?: Pick<CodexSessionScanner, "getSessionProjectPath">;
   codexSessionsDir?: string;
-  codexReaderFactory?: (projectPath: string) => CodexSessionReader;
+  codexReaderFactory?: (projectPath: string) => ISessionReader;
   geminiScanner?: {
     getHashToCwd(): Promise<Map<string, string>>;
   };
@@ -45,6 +52,9 @@ export function providerResolutionDeps(
   deps: SessionProviderResolutionDeps,
 ): ProviderResolutionDeps {
   return {
+    identities: deps.sessionMetadataService?.identities,
+    getRecordedProvider: (sessionId) =>
+      deps.sessionMetadataService?.getProvider?.(sessionId),
     readerFactory: deps.readerFactory,
     sessionIndexService: deps.sessionIndexService,
     codexScanner: deps.codexScanner,

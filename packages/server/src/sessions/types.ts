@@ -311,6 +311,11 @@ export interface ISessionReader {
    */
   getSessionFilePath?(sessionId: string): Promise<string | null>;
 
+  /** Native discovery evidence, including the actual root behind merged readers. */
+  getNativeSessionRef?(
+    sessionId: import("@yep-anywhere/shared").NativeSessionId,
+  ): Promise<NativeSessionRef | null>;
+
   /** Resolve the provider-native project path recorded by this session. */
   getSessionProjectPath?(sessionId: string): Promise<string | null>;
 

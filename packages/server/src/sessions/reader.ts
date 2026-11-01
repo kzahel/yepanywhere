@@ -4,7 +4,8 @@ import {
 } from "./issue-text-reader.js";
 import { randomUUID } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
 import {
   type AgentStatus,
   type ClaudeProviderName,
@@ -318,6 +319,15 @@ export class ClaudeSessionReader implements ISessionReader {
       }
     }
     return null;
+  }
+
+  async getNativeSessionRef(
+    sessionId: import("@yep-anywhere/shared").NativeSessionId,
+  ) {
+    const file = await this.getSessionFilePath(sessionId);
+    return file
+      ? resolveNativeSessionRef("claude", dirname(file), sessionId)
+      : null;
   }
 
   async getSession(

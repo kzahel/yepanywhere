@@ -33,6 +33,7 @@ import {
 } from "@yep-anywhere/shared";
 import type { SessionDiscoveryIndex } from "../indexes/SessionDiscoveryIndex.js";
 import { getForkedSessionFile } from "./fork-discovery.js";
+import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
 import type { SourceVersionedSingleFlightStats } from "../lib/sourceVersionedSingleFlight.js";
 import { getLogger } from "../logging/logger.js";
 import {
@@ -1656,6 +1657,15 @@ export class CodexSessionReader implements ISessionReader {
   async getSessionFilePath(sessionId: string): Promise<string | null> {
     const sessionFile = await this.findSessionFile(sessionId);
     return sessionFile?.filePath ?? null;
+  }
+
+  async getNativeSessionRef(
+    sessionId: import("@yep-anywhere/shared").NativeSessionId,
+  ) {
+    const file = await this.findSessionFile(sessionId);
+    return file
+      ? resolveNativeSessionRef("codex", this.sessionsDir, sessionId)
+      : null;
   }
 
   async getSessionProjectPath(sessionId: string): Promise<string | null> {

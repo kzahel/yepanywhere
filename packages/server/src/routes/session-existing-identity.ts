@@ -1,7 +1,8 @@
-import type {
-  ProviderName,
-  UrlProjectId,
-  NativeSessionRef,
+import {
+  isYaSessionId,
+  type ProviderName,
+  type UrlProjectId,
+  type NativeSessionRef,
 } from "@yep-anywhere/shared";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
 import type { SessionIdentity } from "../sessions/SessionIdentityStore.js";
@@ -46,8 +47,13 @@ export async function resolveExistingSessionIdentity(options: {
   } = options;
   const providerPreference = preferredProvider ?? metadata?.provider;
 
-  if (options.identity) {
-    const identity = options.identity;
+  const storedIdentity =
+    options.identity ??
+    (isYaSessionId(sessionId)
+      ? providerDeps.identities?.resolveYa(sessionId)
+      : undefined);
+  if (storedIdentity) {
+    const identity = storedIdentity;
     if (identity.sessionId !== sessionId || !identity.native) return null;
     const transcriptProject = await scanner.getOrCreateProject(
       identity.projectId,

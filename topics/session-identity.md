@@ -45,6 +45,16 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   cursors remain native-scoped; compact-tail reads accept validated appended
   prefixes, concurrent equivalent reads coalesce, and retirement releases parsed
   entries without allowing an in-flight read to re-admit them afterward.
+- Claude/Codex discovery adopts native evidence in a publication transaction.
+  Full, lightweight and retained collections project an existing binding back to
+  its public id and launch variant. The native catalogue/index keys and physical
+  file locations remain native. Merged readers report the actual native root;
+  a private transcript is not adopted under its merged reader's ambient root.
+  Summary references carry the resolved native id for subsequent source reads.
+  Scoped reverse binding wins before consulting metadata under a native string:
+  that string may also be another session's unrelated public metadata key.
+  Other provider adoption and the remaining source/watch consumers are still
+  being migrated before differing-id launches are enabled.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

@@ -37,7 +37,19 @@ Runtime work and the provenance defect remain unimplemented.
   tests passed (6,720 server / 7,064 client). Launch behavior is unchanged.
   Whole-suite expected fault-path logs and unowned client navigation diagnostics
   remain covered by the existing diagnostic gaps; focused checks are clean.
-- Phases 3–9: pending; no global creation capability is advertised.
+- Phase 3: first discovery/source slice implemented and independently accepted
+  after correcting project-membership checks and native/public metadata-key
+  collisions. Claude/Codex full/lightweight/retained lists share batch adoption;
+  summary refs and migrated helper reads retain native addresses. The real
+  profile/app/merged-root fixture includes append/reopen, an unrelated public id
+  equal to a bound native id, and correct/wrong/moved-project bang routes.
+  Corrected focused checks: 46 passed across six files in 2.90 s under a private
+  temporary home. Native catalogue row format 3 retains actual source scopes;
+  no physical source/index keys are renamed. Lint, format, typecheck and full
+  workspace tests pass (6,721 server / 7,064 client); pinned Bun 1.3.14 also
+  passes batch-conflict rollback and reopen. Remaining watches, native source
+  consumers and other provider shapes are pending; phase 3 is not complete.
+- Phases 4–9: pending; no global creation capability is advertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High
 effort and bypass permissions verified in session metadata. Initial/revised

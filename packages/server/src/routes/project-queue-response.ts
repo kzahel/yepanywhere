@@ -137,6 +137,8 @@ function buildProviderResolutionDeps(
 ): ProviderResolutionDeps {
   const resolutionDeps: ProviderResolutionDeps = {
     readerFactory: deps.readerFactory,
+    identities: deps.sessionMetadataService?.identities,
+    getRecordedProvider: (id) => deps.sessionMetadataService?.getProvider?.(id),
   };
   if (deps.sessionIndexService) {
     resolutionDeps.sessionIndexService = deps.sessionIndexService;
