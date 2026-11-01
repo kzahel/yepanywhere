@@ -963,6 +963,14 @@ export function createApp(options: AppOptions): AppResult {
     return grants && withPathGrantProjects(grants, knownProjectsForGrants());
   };
   const sessionAccessResolver = new SessionAccessResolver({
+    getSavedSession: (sessionId) => {
+      if (!isYaSessionId(sessionId)) return undefined;
+      const identity =
+        options.sessionMetadataService?.identities?.resolveYa(sessionId);
+      return identity && !identity.native
+        ? { projectId: identity.projectId, provider: identity.provider }
+        : undefined;
+    },
     getLiveSession: (sessionId) => {
       const process = supervisor?.getProcessForSession(sessionId);
       if (!process) return undefined;

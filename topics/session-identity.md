@@ -623,3 +623,26 @@ not yet route ordinary creation, expose saved sessions in collections/detail,
 or advertise `session-creation-receipts`. Native namespace quarantine, provider
 startup integration, current-authority dispatch, and all caller/attachment/client
 qualification remain required before those guarantees become public behavior.
+
+### Saved-record reads before native startup
+
+The ordinary session detail and metadata endpoints can project an admitted
+unbound creation from YA storage without opening a native transcript or creating
+a provider project directory. They retain the YA id, effective working project,
+exact initial prompt, original source and saved launch settings. Additive
+`session.creation` fields expose the current attempt id, state, delivery and
+bounded failure code; operation/request keys, owner generations and private
+payload/context records are not public. There are zero transcript messages and
+no native snapshot watermark, active process, pending approval or provider
+command-discovery claim.
+
+Persisted YA project/creator facts authorize these reads under the existing
+limited-user rules, including the creator's retained access after grant changes.
+A saved timestamp does not establish provider activity or freshness for joining.
+An unbound identity cannot advance through ordinary resume; explicit creation
+recovery owns that future transition. Deleted operation payloads and unbound
+identities without a creation record are not synthesized as readable sessions.
+
+This source slice covers detail/metadata and access facts. Public creation,
+collection/project-card discovery, the remaining callers and capability
+advertisement remain gated by the rest of plan 171.

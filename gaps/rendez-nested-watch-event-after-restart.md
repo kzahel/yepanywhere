@@ -129,3 +129,11 @@ server tests and all 7,064 client tests passed in 130.43 s. The three helper
 fixture annotation changes do not affect Rendez. Evidence: ignored
 `tasks/session-identity/phase-4-admission-revised-test.log`. Both failed runs
 remain recorded; source, assertions, retries and budgets are unchanged.
+
+2026-11-02: final Saved/Failed session-read workspace verification on macOS /
+Node 22.23.3 again missed the second nested-file delivery at line 364 (1
+observed, 2 expected). 6,809 other server tests and all 7,064 client tests
+passed; server duration 134.48 s. The 231 focused identity/admission/auth and
+retained Supervisor regressions pass. No Rendez source, fixture, assertion,
+retry or budget changed. Evidence: ignored
+`tasks/session-identity/phase-4-saved-reads-test.log`. This full run remains red.

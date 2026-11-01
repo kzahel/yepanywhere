@@ -52,6 +52,7 @@ export interface CreationAttemptFence {
 export interface CreationAttempt extends CreationAttemptFence {
   readonly state: CreationState;
   readonly delivery: CreationDelivery;
+  readonly updatedAt: string;
   readonly failure?: "startup-unavailable" | "launch-refused" | "cancelled";
 }
 export interface SavedSessionCreation {
@@ -101,6 +102,7 @@ interface AttemptRow {
   delivery: CreationDelivery;
   detail_json: string;
   detail_bytes: number;
+  updated_at: string;
 }
 interface RetryRow {
   failed_attempt: string;
@@ -265,6 +267,7 @@ export class SessionCreationStore {
     private readonly database: SqliteDatabase,
     private readonly metadata: SessionMetadataService,
   ) {
+    metadata.assertProfileConnection(database);
     this.statements = {
       byId: database.prepare("SELECT * FROM session_creations WHERE id = ?"),
       byKey: database.prepare(
@@ -317,6 +320,7 @@ export class SessionCreationStore {
       generation: row.generation,
       state: row.state,
       delivery: row.delivery,
+      updatedAt: row.updated_at,
       ...detail,
     };
   }

@@ -32,6 +32,7 @@ import {
   sanitizeSessionTitle,
 } from "@yep-anywhere/shared";
 import { createCoalescingSaver } from "../lib/coalescingSaver.js";
+import { SessionCreationStore } from "../sessions/SessionCreationStore.js";
 import { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
 
@@ -232,6 +233,19 @@ export function goalCommandOf(
 
 export class SessionMetadataService {
   private identityStore?: SessionIdentityStore;
+  private creationStore?: SessionCreationStore;
+
+  /** One durable creation owner on the same profile connection as metadata. */
+  get creations(): SessionCreationStore {
+    this.creationStore ??= new SessionCreationStore(this.database, this);
+    return this.creationStore;
+  }
+
+  /** Internal transaction participants cannot silently select another profile. */
+  assertProfileConnection(database: SqliteDatabase): void {
+    if (database !== this.database)
+      throw new Error("Creation requires the profile connection");
+  }
 
   /** One indexed identity owner per metadata/profile connection. */
   get identities(): SessionIdentityStore {
@@ -250,8 +264,7 @@ export class SessionMetadataService {
     metadata: SessionMetadata,
     write: () => T,
   ): T {
-    if (database !== this.database)
-      throw new Error("Creation requires the profile connection");
+    this.assertProfileConnection(database);
     if (this.state.sessions[sessionId] || this.sessionIdAliases.has(sessionId))
       throw new Error("Creation cannot replace existing session metadata");
     const text = JSON.stringify(metadata);

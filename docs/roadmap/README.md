@@ -667,8 +667,12 @@ pass real SQLite/reopen checks on Node 22 and pinned Bun. Wrapped fatal-startup 
 error callbacks, and established dead owners reject new input while lazy first
 input remains valid. Independent review, actual pinned SDK Node/Bun missing-
 executable probes and full Node 22 checks pass. Durable runtime creation and
-public capabilities are unchanged; saved-record reads and equal-id Claude
-integration are next.
+public capabilities are unchanged. Saved/failed records are now readable through
+ordinary detail/metadata under existing project/creator access, without a native
+transcript or project directory. Their exact source/prompt survive reopen;
+saved facts do not borrow native-alias activity, and ordinary unbound resume
+refuses. Review, standalone Node/Bun HTTP probes and full Node 26 checks pass.
+Collection visibility and equal-id Claude integration are next.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

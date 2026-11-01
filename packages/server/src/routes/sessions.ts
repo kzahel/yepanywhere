@@ -1,3 +1,4 @@
+import { savedCreationView } from "../sessions/session-creation-view.js";
 import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
 import {
@@ -2951,6 +2952,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     if ("error" in routing) {
       return c.json({ error: routing.error }, routing.status);
     }
+    if (
+      routing.identityLookup.kind === "stored" &&
+      !routing.identityLookup.identity.native
+    ) {
+      const saved = savedCreationView(
+        deps.sessionMetadataService,
+        routing.identityLookup.identity,
+        routing.workingProjectId,
+      );
+      if (saved) return c.json(saved);
+    }
     const project = routing.workingProject;
     const transcriptProject = routing.transcriptProject;
     const transcriptProjectId = routing.transcriptProjectId;
@@ -3373,6 +3385,22 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     }
     if ("error" in routing) {
       return c.json({ error: routing.error }, routing.status);
+    }
+    if (
+      routing.identityLookup.kind === "stored" &&
+      !routing.identityLookup.identity.native
+    ) {
+      const saved = savedCreationView(
+        deps.sessionMetadataService,
+        routing.identityLookup.identity,
+        routing.workingProjectId,
+      );
+      if (saved)
+        return c.json({
+          ...saved,
+          messages: [],
+          transcriptSnapshotUpdatedAt: "",
+        });
     }
     const project = routing.workingProject;
     const effectiveProjectId = routing.workingProjectId;

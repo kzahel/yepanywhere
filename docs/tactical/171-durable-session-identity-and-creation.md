@@ -50,6 +50,26 @@ Runtime work and the provenance defect remain unimplemented.
   warnings; format/typecheck and the complete Node 22 workspace pass (6,808
   server / 7,064 client; server 132.86 s). Durable launch integration remains
   the next vertical boundary.
+- Phase 3 released-browser non-owned refresh qualification now passes using
+  integrity-verified published npm 0.8.0 and 0.11.0 client assets, actual isolated
+  YA HTTP/WebSocket listeners, unequal UUID ids and native Claude/Codex append
+  followed by refresh/reload at the unchanged YA URL. All four combinations pass
+  on Node; latest Codex also passes with the pinned Bun server. Only test assets
+  are intercepted; API/WebSocket traffic reaches the real owned listener.
+  Chromium's loopback network permission is granted only to that fixture origin.
+  Owned-process browser cases and cold-resume consumers remain unqualified.
+- Phase 4 saved-record detail/metadata and access-fact reads are independently
+  accepted by Sol 6.1 High after preserving optional identity access in retained
+  metadata facades. Exact prompt/source after profile reopen, creator ownership,
+  safe status projection, no native project-directory creation and ordinary
+  unbound-resume refusal pass real-app/SQLite/auth checks and actual standalone
+  Node/Bun HTTP probes. Saved facts override cached native aliases without
+  borrowing their activity. Final focused checks: 231 across six files in
+  7.32 s. Lint has zero warnings; format/typecheck and the complete Node 26
+  workspace pass (6,810 server / 7,064 client; server 127.92 s). The Node 22
+  full run hit the existing Rendez restart failure and remains recorded in its
+  gap. Collection discovery and the actual durable launcher remain later
+  boundaries.
 - Phase 2: implemented and independently accepted by Sol 6.1 High after fixing
   stored-identity missing-transcript fallback and Codex read ownership. Migration
   17, scoped forward/reverse adoption and bound Claude/Codex detail/history are

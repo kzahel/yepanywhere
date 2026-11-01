@@ -3223,6 +3223,14 @@ export class Supervisor {
     requestedModelSettings?: ModelSettings,
     launchOptions?: SessionLaunchOptions,
   ): Promise<Process | QueuedResponse | QueueFullResponse> {
+    const identity = isYaSessionId(sessionId)
+      ? this.sessionMetadataService?.identities?.resolveYa(sessionId)
+      : undefined;
+    if (identity && !identity.native) {
+      throw new SessionMessageRejectedError(
+        "Session startup has no native conversation; use creation recovery",
+      );
+    }
     const { projectPath, modelSettings } = this.withSettledSandbox(
       sessionId,
       requestedProjectPath,
