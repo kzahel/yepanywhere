@@ -111,13 +111,13 @@ nativeTest.each(["alias", "conventional", "relative-home"] as const)(
     );
     const otherBytes = seed(working, "FOREIGN_WORKING_NATIVE_HISTORY");
     await writeFile(otherPath, otherBytes);
-    const bodies: any[] = [];
+    const bodies: unknown[] = [];
     const requests: string[] = [];
     const server = createServer(async (req, res) => {
       requests.push(req.url ?? "");
       let raw = "";
       for await (const chunk of req) raw += chunk;
-      let body: any;
+      let body: unknown;
       try {
         body = JSON.parse(raw);
       } catch {}
@@ -130,7 +130,7 @@ nativeTest.each(["alias", "conventional", "relative-home"] as const)(
         bodies.push(body);
         res.setHeader("content-type", "text/event-stream");
         res.setHeader("cache-control", "no-cache");
-        const event = (type: string, data: any) =>
+        const event = (type: string, data: Record<string, unknown>) =>
           res.write(
             `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`,
           );
