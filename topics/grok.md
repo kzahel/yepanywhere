@@ -45,9 +45,10 @@ the discovered default.
 
 **`AGENTCTL_SESSION_ID` is published to Grok tool shells.** YA installs
 the same `BASH_ENV` session-id bridge Claude and Codex use. Resume
-seeds the id in the spawned `grok` environment before startup. A new
-session writes it as soon as `session/new` returns the native id, before
-the first user-turn tool shells. Agents must not search
+seeds the public id in the spawned `grok` environment before startup when
+supplied. Native attachment preserves that public id, including later tool
+shells. A legacy new session without a public bootstrap still publishes its
+returned native handle before the first user-turn tool shells. Agents must not search
 `~/.grok/sessions/` to recover a YA-launched session id.
 
 **Continuation is `session/load` + `_meta.noReplay`.** Grok advertises
@@ -155,6 +156,15 @@ id, working directory or ambient Grok root. A returned handle remains fetchable
 from an existing empty working project. Session authorization and ordinary
 file allow-list checks still apply; a foreign native root gains no permission.
 See [session media handles](session-media-handles.md).
+
+Scoped cold continuation validates the actual local `GROK_HOME/sessions`
+namespace and original physical project before CLI effects or bridge allocation.
+Native load/control uses the native handle; YA events and tool environment keep
+the public identity. Relative native-home overrides and changed working-project
+overlays refuse this scoped launch, while historical reads remain available.
+Load rejection sends no prompt and never allocates a replacement conversation.
+See [retained ACP ownership](provider-abstraction.md#retained-acp-continuation-and-teardown)
+for pending-request cancellation and verified child teardown.
 
 ## Tool vocabulary
 

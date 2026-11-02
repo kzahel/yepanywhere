@@ -26,6 +26,27 @@ The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
 
+- Phase 3 retained ACP cold continuation is independently accepted by Sol
+  6.1 High. Grok and frozen Gemini validate their actual launch store and
+  original physical project before CLI/bridge effects; native RPC keeps N and
+  public observations keep P. Grok tool shells retain P after attachment.
+  Failed/unsupported Gemini resume now refuses without a replacement allocation
+  or prompt, resolving its recorded gap without changing protocol or registry
+  mapping. Shared ACP teardown retains the real child, settles in-flight calls
+  on transport closure and cancels idle input waits. Actual ENOENT/EPIPE tests
+  exposed pinned-SDK pending-call hangs; the corrected tests pass without
+  timeout increases. Standalone Gemini's owned native/reader roots now agree.
+  Real app/SQLite/OS protocol/native-history/reopen checks pass: 84 cases /
+  seven files / 4.53 s. All nine standalone restart probes pass for Grok,
+  Gemini's legacy alias and Gemini ACP on Node 22, Node 26 and Bun. These use
+  controlled native peers; installed-CLI/model, other-OS, hosted cold-worker and
+  released-client observation qualification are separate. Initial fixture and
+  transport failures remain recorded. Final lint has zero warnings,
+  format/typecheck pass, console budgets are unchanged, and the complete
+  workspace passes 6,880 server / 7,064 client cases (server 133.43 s).
+  The separate Rendez instability remains open. New provider creation and
+  remaining host/variant gates stay pending.
+
 - Phase 3 Pi cold continuation is independently accepted by Sol 6.1 High
   after correcting child-home and empty-directory namespace handling. It passes
   the proved absolute native file, validates scope/header/original physical

@@ -125,8 +125,12 @@ The maintainer selected this direction on **2026-10-27**:
   feature work, CLI/SDK refresh or protocol expansion is required for the core
   refactor. Both `gemini` and `gemini-acp` currently select the same ACP
   adapter. The older stream-JSON adapter is deprecated. Freeze does not certify
-  current compatibility or excuse the known
-  [resume-to-new-session fallback](../gaps/gemini-acp-resume-starts-new-session.md).
+  current compatibility. Failed or unsupported ACP resume now fails explicitly
+  without issuing `session/new` or sending input to a fresh conversation; a
+  controlled failed-resume peer verifies this ownership boundary. Scoped cold
+  continuation validates the actual native home/store and original physical
+  project before CLI effects. This adds no protocol support or target refresh;
+  see [retained ACP ownership](provider-abstraction.md#retained-acp-continuation-and-teardown).
 - **Retention is conditional.** If either Gemini implementation forces extra
   core branches, lifecycle machinery, compatibility shims or qualification
   work, reconsider removing Gemini execution entirely. Do not finish or

@@ -66,6 +66,32 @@ returned native id independently. The shared `resolveNativeSessionSource` callba
 acquisition; the fork boundary additionally requires a physical file; this adds no catalogue, registry or conversation store.
 See [session identity](session-identity.md) for current enabling limits.
 
+### Retained ACP continuation and teardown
+
+Grok and frozen Gemini ACP opt into scoped native continuation. Their actual
+launch namespace and original physical project must match the proved source
+before CLI discovery, helper execution or bridge allocation. A reader-only
+directory override cannot select another launch store. Grok uses
+`GROK_HOME/sessions`; Gemini uses `GEMINI_CLI_HOME/.gemini/tmp`, with the existing
+native home defaults when those overrides are empty or absent. Scoped overrides
+must be absolute. A changed working-project overlay refuses continuation;
+historical reads remain available at that overlay.
+
+The existing ACP methods remain unchanged: Grok loads with `_meta.noReplay`,
+and Gemini uses its retained resume method. A rejected or unsupported resume
+fails explicitly; neither adapter creates a replacement conversation. The
+provider's JSON-RPC error message survives even when the SDK rejects with a
+plain object. Grok's native RPC id is separate from YA's tool-environment id,
+including shells started after native attachment.
+
+The shared client retains its actual child handle after requesting termination.
+Logical connection closure cancels pending requests and idle input waits; it
+does not certify OS process death. Abort/iterator cleanup waits for actual child
+closure, and liveness follows the child's exit evidence. Closing before startup
+prevents a late connect. A completed request removes its pending close handler,
+so successful calls do not accumulate per-conversation listeners. These are
+ownership/teardown guarantees for the pinned SDK, not an ACP protocol refresh.
+
 ### Provider-wide session and process discovery
 
 Accepted 2026-08-05; the successful-use eligibility boundary and gated watcher

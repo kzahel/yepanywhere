@@ -39,7 +39,7 @@ it("confines actual config/native/host resolution despite poisoned parent enviro
       dataDir: join(home, "ya"),
       claudeSessionsDir: join(home, "claude", "projects"),
       codexSessionsDir: join(home, "codex", "sessions"),
-      geminiSessionsDir: join(home, "gemini", "tmp"),
+      geminiSessionsDir: join(home, ".gemini", "tmp"),
     };
     const outerStartup = join(root, "outer-startup.sh");
     writeFileSync(
@@ -59,6 +59,7 @@ it("confines actual config/native/host resolution despite poisoned parent enviro
       "TMP",
       "TEMP",
       "PI_CODING_AGENT_DIR",
+      "GEMINI_CLI_HOME",
       "GROK_HOME",
       "YEP_PROVIDER_RUNTIME_SOCKET",
       "YEP_PROVIDER_RUNTIME_TOKEN",
@@ -102,6 +103,7 @@ it("confines actual config/native/host resolution despite poisoned parent enviro
         Yep_Provider_Runtime_Socket: "/mixed-case-forbidden-socket",
         Home: "/mixed-case-forbidden-home",
         xdg_data_home: "/mixed-case-forbidden-data",
+        Gemini_Cli_Home: "/mixed-case-forbidden-gemini-home",
         BASH_ENV: outerStartup,
         AGENTCTL_SESSION_ID: "foreign-selected-session",
       },
@@ -127,6 +129,7 @@ it("confines actual config/native/host resolution despite poisoned parent enviro
           "HOME",
           "XDG_DATA_HOME",
           "CLAUDE_CONFIG_DIR",
+          "GEMINI_CLI_HOME",
           "AUTH_DISABLED",
         ].includes(name.toUpperCase())
       )

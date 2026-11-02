@@ -259,8 +259,10 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   unavailable under the old binding. Existing `gemini:<hash-prefix>` discovery
   coordinates retain their bounded historical grouping. Focused events retain
   the YA id and working project; retired readers discard late results. This
-  qualifies native sources only, preserving the frozen launch/protocol mapping
-  and the open [ACP resume defect](../gaps/gemini-acp-resume-starts-new-session.md).
+  preserves the frozen launch/protocol mapping. Scoped ACP continuation now
+  validates the launch store/original project, keeps public Process identity and
+  refuses failed resume without creating a replacement; see
+  [retained ACP ownership](provider-abstraction.md#retained-acp-continuation-and-teardown).
 - Fork-backed retitle, handoff-summary and recap generation resolve the public
   generator through the same scoped source boundary used for native forks.
   Provider requests carry a branded native generator id and the captured source;

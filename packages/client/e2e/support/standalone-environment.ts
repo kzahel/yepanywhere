@@ -63,6 +63,7 @@ export function standaloneYaEnvironment(
     CODEX_HOME: join(home, "codex"),
     CODEX_SESSIONS_DIR: paths.codexSessionsDir,
     GEMINI_SESSIONS_DIR: paths.geminiSessionsDir,
+    GEMINI_CLI_HOME: home,
     PI_CODING_AGENT_DIR: join(home, "pi"),
     PI_SESSIONS_DIR: directory(home, "pi", "sessions"),
     GROK_HOME: join(home, "grok"),

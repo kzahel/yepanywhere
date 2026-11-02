@@ -616,11 +616,19 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
     });
 
     // Mock the ACP client module used by grok-acp (relative import)
-    vi.doMock("../../../src/sdk/providers/acp/client.js", async () => {
-      return {
-        ACPClient: acpClientMock,
-      };
-    });
+    vi.doMock(
+      "../../../src/sdk/providers/acp/client.js",
+      async (importOriginal) => {
+        const actual =
+          await importOriginal<
+            typeof import("../../../src/sdk/providers/acp/client.js")
+          >();
+        return {
+          ...actual,
+          ACPClient: acpClientMock,
+        };
+      },
+    );
 
     // Also mock child_process exec used by findGrokPath whichCommand fallback
     vi.doMock("node:child_process", async (importOriginal) => {

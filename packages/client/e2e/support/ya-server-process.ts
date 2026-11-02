@@ -272,7 +272,7 @@ export async function startYaServerProcess(
     join(profileDir, "codex", "sessions");
   const geminiSessionsDir =
     options.profilePaths?.geminiSessionsDir ??
-    join(profileDir, "gemini", "tmp");
+    join(profileDir, options.standalone ? ".gemini" : "gemini", "tmp");
   const dataDir =
     options.profilePaths?.dataDir ?? join(profileDir, "yep-anywhere");
   // A short run-owned sibling path keeps per-provider Unix sockets below

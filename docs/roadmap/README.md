@@ -756,6 +756,15 @@ Startup failure and idle teardown retain/verify actual process evidence; final
 static and complete workspace checks pass. No installed Pi CLI/model or other-OS
 runtime smoke is claimed. New Pi creation and durable user-turn mapping remain
 gated separately.
+Retained Grok/Gemini ACP cold continuation is independently accepted with
+pre-effect native scope/project checks, native RPC/public identity separation,
+Grok tool-shell identity and real child/pending-call teardown. Failed Gemini
+resume now refuses without a fresh allocation; its recorded gap is resolved
+without protocol or registry changes. Real app/store/OS peer/reopen and all
+nine standalone provider/alias × Node 22/26/Bun restart probes pass. Standalone
+Gemini native/reader roots now agree. Final static and complete workspace checks
+pass; native CLI/model, other-OS and hosted cold-worker evidence are separate.
+The Rendez instability and remaining creation/host/variant gates stay open.
 Remaining provider/host cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable
