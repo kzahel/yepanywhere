@@ -54,6 +54,7 @@ export interface SavedCreationRequest {
   projectId: UrlProjectId;
   projectPath: string;
   message: string;
+  intent?: "prepare";
   settings: EffectiveSessionLaunchSettingsValue;
   /** Absent only on storage-foundation/legacy records with no runtime launch. */
   launch?: CreationLaunchSnapshot;
@@ -82,6 +83,7 @@ interface ProjectionRow {
   updated_at: string;
   native_bound: number;
   deleted: number;
+  input_expected: number;
   attempt_id: string;
   state: CreationState;
   delivery: CreationDelivery;
@@ -130,6 +132,7 @@ interface OperationRow {
   owner_key: string;
   request_key: string;
   initial_input_id: string | null;
+  input_expected: number;
   request_hash: string;
   session_id: string;
   payload_json: string | null;
@@ -240,6 +243,14 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
   )
     throw new Error("Invalid creation submission hash");
   if (
+    request?.intent !== undefined &&
+    (request.intent !== "prepare" ||
+      request.message !== "" ||
+      request.attachments !== undefined ||
+      request.input?.nativeReceiptId)
+  )
+    throw new Error("Invalid empty session intent");
+  if (
     !request ||
     !ALL_PROVIDERS.includes(request.provider) ||
     typeof request.message !== "string" ||
@@ -297,6 +308,7 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
     projectId: request.projectId,
     projectPath: request.projectPath,
     message: request.message,
+    ...(request.intent === "prepare" ? { intent: "prepare" as const } : {}),
     ...(request.launch !== undefined
       ? { launch: snapshotCreationLaunch(request.launch) }
       : {}),
@@ -371,7 +383,7 @@ export class SessionCreationStore {
         "UPDATE session_creation_capacity SET generation = generation + 1 WHERE id = 1",
       ),
       projections: database.prepare(
-        "SELECT c.id AS creation_id, a.generation, i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt",
+        "SELECT c.id AS creation_id, a.generation, i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, c.input_expected, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt",
       ),
       byId: database.prepare("SELECT * FROM session_creations WHERE id = ?"),
       publicByKey: database.prepare(
@@ -399,7 +411,7 @@ export class SessionCreationStore {
         "UPDATE session_creation_capacity SET operations = operations + ?, payload_bytes = payload_bytes + ?, attempt_bytes = attempt_bytes + ?, attachment_bytes = attachment_bytes + ? WHERE id = 1",
       ),
       insert: database.prepare(
-        "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at, initial_input_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+        "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at, initial_input_id, input_expected) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
       ),
       insertAttempt: database.prepare(
         "INSERT INTO session_creation_attempts (id, creation_id, state, delivery, detail_json, detail_bytes, updated_at) VALUES (?, ?, 'saved', 'not-admitted', ?, ?, ?)",
@@ -461,6 +473,7 @@ export class SessionCreationStore {
         if (
           row.deleted ||
           row.delivery === "consumed" ||
+          (row.input_expected === 0 && row.state === "bound") ||
           !["dispatching", "bound"].includes(row.state)
         )
           continue;
@@ -497,6 +510,9 @@ export class SessionCreationStore {
           attemptId: row.attempt_id,
           updatedAt: row.updated_at,
           delivery: row.delivery,
+          ...(row.input_expected === 0
+            ? { initialInputExpected: false as const }
+            : {}),
           ...(detail.failure ? { failure: detail.failure } : {}),
         },
       };
@@ -515,6 +531,9 @@ export class SessionCreationStore {
       attemptId: attempt.attemptId,
       updatedAt: attempt.updatedAt,
       delivery: attempt.delivery,
+      ...(row.input_expected === 0
+        ? { initialInputExpected: false as const }
+        : {}),
       ...(attempt.failure ? { failure: attempt.failure } : {}),
     };
   }
@@ -651,7 +670,7 @@ export class SessionCreationStore {
     const sessionId = parseYaSessionId(randomUUID()),
       id = randomUUID(),
       attempt = randomUUID(),
-      initialInputId = randomUUID(),
+      initialInputId = request.input?.nativeReceiptId ?? randomUUID(),
       now = new Date().toISOString();
     const detail = JSON.stringify({ controllerPid: process.pid });
     const detailBytes = Buffer.byteLength(detail);
@@ -701,6 +720,7 @@ export class SessionCreationStore {
             attempt,
             now,
             initialInputId,
+            request.intent === "prepare" ? 0 : 1,
           );
           this.statements.insertAttempt.run(
             attempt,

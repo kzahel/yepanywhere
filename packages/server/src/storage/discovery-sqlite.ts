@@ -1,3 +1,4 @@
+import { CREATION_INPUT_EXPECTATION_SCHEMA } from "./migrations/023-creation-input-expectation.js";
 import { CREATION_ATTACHMENT_CAPACITY_SCHEMA } from "./migrations/022-creation-attachment-capacity.js";
 import { SESSION_CREATION_INPUT_SCHEMA } from "./migrations/021-session-creation-input.js";
 import { NATIVE_SESSION_ALLOCATIONS_SCHEMA } from "./migrations/020-native-session-allocations.js";
@@ -64,6 +65,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 20, sql: NATIVE_SESSION_ALLOCATIONS_SCHEMA },
   { version: 21, sql: SESSION_CREATION_INPUT_SCHEMA },
   { version: 22, sql: CREATION_ATTACHMENT_CAPACITY_SCHEMA },
+  { version: 23, sql: CREATION_INPUT_EXPECTATION_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

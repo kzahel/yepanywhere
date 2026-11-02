@@ -8,6 +8,8 @@ export interface SessionCreationStatus {
     | "failed"
     | "uncertain"
     | "deleted";
+  /** False only for an explicitly prepared empty session; no initial turn was submitted. */
+  initialInputExpected?: false;
   attemptId: string;
   updatedAt: string;
   delivery: "not-admitted" | "uncertain" | "consumed";
@@ -22,4 +24,18 @@ export interface TextSessionCreationReceipt {
   provider: string;
   creation: SessionCreationStatus;
   serverTimestamp: number;
+}
+
+/** Preparing an empty session permits its first turn on the incumbent owner. */
+export function isSessionCreationPending(
+  creation: SessionCreationStatus | undefined,
+): boolean {
+  return Boolean(
+    creation &&
+      creation.delivery !== "consumed" &&
+      !(
+        creation.initialInputExpected === false &&
+        ["dispatching", "bound"].includes(creation.state)
+      ),
+  );
 }

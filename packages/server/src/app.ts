@@ -3762,6 +3762,7 @@ export function createApp(options: AppOptions): AppResult {
     apiReceipts,
     nativeSessionCommandOwner({
       supervisor,
+      creations: options.sessionMetadataService?.creations,
       globalInstructions: () =>
         buildEffectiveAgentContext({
           globalInstructions:
@@ -4080,20 +4081,27 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/projects",
     createReviewCommentsRoutes({
+      signal: sessionReadLifetime.signal,
       scanner,
       service: reviewCommentService,
       launcher: createSupervisorReviewLauncher(
         supervisor,
         async (projectPath, submissionId, acceptance) => {
-          await reviewCommentService.acceptSubmission(projectPath, {
-            submissionId,
-            ...acceptance,
-            responseTurnLimit:
-              options.serverSettingsService?.getSetting(
-                "sourceReviewResponseTurns",
-              ) ?? 8,
-          });
+          const saved = await reviewCommentService.acceptSubmission(
+            projectPath,
+            {
+              submissionId,
+              ...acceptance,
+              responseTurnLimit:
+                options.serverSettingsService?.getSetting(
+                  "sourceReviewResponseTurns",
+                ) ?? 8,
+            },
+          );
+          if (!saved)
+            throw new Error("Review submission association is unavailable");
         },
+        options.sessionMetadataService?.creations,
       ),
       isSubmissionsEnabled: sourceReviewSubmissionsEnabled,
       getResponseTurnLimit: () =>

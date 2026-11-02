@@ -27,36 +27,15 @@ describe("createSupervisorReviewLauncher.startReviewSession", () => {
         thinking: { type: "adaptive", display: "summarized" },
         effort: "high",
       },
+      expect.objectContaining({
+        creation: expect.objectContaining({
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "request", provenance: { surface: "api" } },
+          },
+        }),
+      }),
     );
-  });
-
-  it("deduplicates a keyed launch and carries the key into the input queue", async () => {
-    const startSession = vi.fn(async () => ({ sessionId: "new-session" }));
-    const supervisor = { startSession } as unknown as Supervisor;
-    const launcher = createSupervisorReviewLauncher(supervisor);
-
-    const first = await launcher.startReviewSession(
-      "/repo",
-      "turn",
-      undefined,
-      "019fbf42-1c00-76d0-9ec1-9ab2c56146b7",
-    );
-    const retry = await launcher.startReviewSession(
-      "/repo",
-      "turn",
-      undefined,
-      "019fbf42-1c00-76d0-9ec1-9ab2c56146b7",
-    );
-
-    expect(retry).toEqual(first);
-    expect(startSession).toHaveBeenCalledOnce();
-    expect(startSession.mock.calls[0]?.[1]).toMatchObject({
-      uuid: "019fbf42-1c00-76d0-9ec1-9ab2c56146b7",
-      tempId: "source-review-019fbf42-1c00-76d0-9ec1-9ab2c56146b7",
-      metadata: {
-        sourceReviewSubmissionId: "019fbf42-1c00-76d0-9ec1-9ab2c56146b7",
-      },
-    });
   });
 
   it("records queue acceptance before returning a keyed queued launch", async () => {

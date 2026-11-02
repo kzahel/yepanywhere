@@ -1,3 +1,4 @@
+import { createSupervisorReviewLauncher } from "../../src/review/reviewSessionLauncher.js";
 import { CreationAttachments } from "../../src/sessions/creation-attachments.js";
 import { AttachmentStagingService } from "../../src/uploads/AttachmentStagingService.js";
 import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
@@ -36,7 +37,7 @@ afterEach(async () => {
     );
   warnings.mockClear();
 });
-async function fixture(providerName: "claude" | "codex") {
+async function fixture(providerName: "claude" | "codex" | "grok") {
   const root = await realpath(
       await mkdtemp(join(tmpdir(), "ya-queue-creation-")),
     ),
@@ -101,14 +102,21 @@ async function fixture(providerName: "claude" | "codex") {
       storageScope: scope,
     }),
     startSession: async (options) => {
-      const publicId = options.publicSessionId!,
+      const publicId = options.publicSessionId ?? options.newSessionId!,
         nativeId = providerName === "claude" ? publicId : randomUUID();
       const disk = createTestSessionMetadataService(data);
       await disk.initialize();
-      expect(
-        disk.creations.getForSession(parseYaSessionId(publicId))?.request
-          ?.message,
-      ).toBe("QUEUE_INPUT");
+      if (options.publicSessionId) {
+        expect(
+          disk.creations.getForSession(parseYaSessionId(publicId))?.request
+            ?.message,
+        ).toBe(
+          disk.creations.getForSession(parseYaSessionId(publicId))?.request
+            ?.intent === "prepare"
+            ? ""
+            : "QUEUE_INPUT",
+        );
+      }
       if (
         starts.length === 0 &&
         disk.creations.getForSession(parseYaSessionId(publicId))?.request?.input
@@ -630,4 +638,249 @@ it("reclaims expired unclaimed preparation while retaining an accepted claim acr
       "utf8",
     ),
   ).toBe("owned");
+});
+
+it.each(["claude", "codex"] as const)(
+  "prepares one %s public resource without an initial turn and admits the first turn only to its incumbent",
+  async (name) => {
+    const f = await fixture(name);
+    const created = await f.supervisor.createSession(
+      f.project,
+      undefined,
+      { providerName: name },
+      {
+        creation: {
+          requestId: "owned-prepare-session",
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "request", provenance: { surface: "api" } },
+          },
+          authorize: async () => {},
+        },
+      },
+    );
+    if (!("id" in created)) throw Error("Missing owned prepared process");
+    expect(f.starts).toHaveLength(1);
+    expect(f.starts[0]!.inputId).toBe("");
+    const saved = f.metadata.creations.get(
+      { kind: "superuser" },
+      "owned-prepare-session",
+    )!;
+    expect(saved.request?.intent).toBe("prepare");
+    expect(saved.attempt).toMatchObject({
+      state: "bound",
+      delivery: "not-admitted",
+    });
+    expect(
+      f.metadata.creations.statusForSession(saved.sessionId)
+        ?.initialInputExpected,
+    ).toBe(false);
+    expect(
+      f.metadata.creations
+        .listProjections()
+        .find((row) => row.sessionId === saved.sessionId)?.creation
+        .initialInputExpected,
+    ).toBe(false);
+    const inputId = randomUUID();
+    await f.supervisor.resumeSession(saved.sessionId, f.project, {
+      text: "first prepared turn",
+      uuid: inputId,
+    });
+    expect(f.starts).toHaveLength(1);
+    expect(f.starts[0]!.inputId).toBe(inputId);
+    await created.abort();
+    expect(
+      f.metadata.creations.getForSession(saved.sessionId)?.attempt.state,
+    ).toBe("bound");
+  },
+);
+
+it("recovers a keyed review from persisted admission without its former launch-result cache", async () => {
+  const f = await fixture("codex");
+  const accepted: Array<{
+    deliveryStatus: "queued" | "delivered";
+    targetSessionId?: string;
+  }> = [];
+  const observe = async (
+    _project: string,
+    _submission: string,
+    value: (typeof accepted)[number],
+  ) => {
+    if (accepted.length === 0) expect(f.starts).toHaveLength(0);
+    accepted.push(value);
+  };
+  const context = {
+    context: {
+      owner: { kind: "superuser" as const },
+      source: {
+        kind: "request" as const,
+        provenance: { surface: "web" as const },
+      },
+    },
+    authorize: async () => {},
+  };
+  const launcher = createSupervisorReviewLauncher(
+    f.supervisor,
+    observe,
+    f.metadata.creations,
+  );
+  const submissionId = randomUUID();
+  const first = await launcher.startReviewSession(
+    f.project,
+    "QUEUE_INPUT",
+    { provider: "codex" },
+    submissionId,
+    context,
+  );
+  expect(first.status).toBe("started");
+  if (first.status !== "started") throw Error("Missing owned review");
+  expect(accepted.slice(0, 2)).toEqual([
+    { deliveryStatus: "queued", targetSessionId: first.sessionId },
+    { deliveryStatus: "delivered", targetSessionId: first.sessionId },
+  ]);
+  const reopened = createTestSessionMetadataService(f.data);
+  await reopened.initialize();
+  const recovered = await createSupervisorReviewLauncher(
+    f.supervisor,
+    observe,
+    reopened.creations,
+  ).startReviewSession(
+    f.project,
+    "QUEUE_INPUT",
+    { provider: "codex" },
+    submissionId,
+    context,
+  );
+  expect(recovered).toEqual(first);
+  expect(f.starts).toHaveLength(1);
+  expect(reopened.getMetadata(first.sessionId)?.creationProvenance).toEqual({
+    surface: "web",
+  });
+  await expect(
+    createSupervisorReviewLauncher(
+      f.supervisor,
+      observe,
+      reopened.creations,
+    ).startReviewSession(
+      f.project,
+      "changed review",
+      { provider: "codex" },
+      submissionId,
+      context,
+    ),
+  ).rejects.toThrow("conflicts with saved input");
+  expect(f.starts).toHaveLength(1);
+});
+
+it.each(["claude", "codex"] as const)(
+  "retains failed empty %s preparation settings and source without starting a provider",
+  async (name) => {
+    const f = await fixture(name);
+    f.available = false;
+    let publicId: string | undefined;
+    await expect(
+      f.supervisor.createSession(
+        f.project,
+        "bypassPermissions",
+        { providerName: name, model: "saved-model" },
+        {
+          creation: {
+            requestId: "owned-failed-preparation",
+            context: {
+              owner: { kind: "superuser" },
+              source: { kind: "request", provenance: { surface: "api" } },
+            },
+            authorize: async () => {},
+            onAccepted: (saved) => {
+              publicId = saved.sessionId;
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow("unavailable");
+    const saved = f.metadata.creations.get(
+      { kind: "superuser" },
+      "owned-failed-preparation",
+    )!;
+    expect(saved.sessionId).toBe(publicId);
+    expect(saved.request).toMatchObject({
+      intent: "prepare",
+      message: "",
+      settings: {
+        permissionMode: "bypassPermissions",
+        requestedModel: "saved-model",
+      },
+    });
+    expect(saved.attempt).toMatchObject({
+      state: "failed",
+      delivery: "not-admitted",
+    });
+    expect(
+      f.metadata.creations.statusForSession(saved.sessionId)
+        ?.initialInputExpected,
+    ).toBe(false);
+    expect(f.metadata.getMetadata(saved.sessionId)?.creationProvenance).toEqual(
+      { surface: "api" },
+    );
+    expect(f.starts).toHaveLength(0);
+  },
+);
+
+it("preserves the named legacy review provider path and its keyed deduplication until qualification", async () => {
+  const f = await fixture("grok");
+  const launcher = createSupervisorReviewLauncher(
+    f.supervisor,
+    undefined,
+    f.metadata.creations,
+  );
+  const submissionId = randomUUID();
+  const context = {
+    context: {
+      owner: { kind: "superuser" as const },
+      source: {
+        kind: "request" as const,
+        provenance: { surface: "web" as const },
+      },
+    },
+    authorize: async () => {},
+  };
+  const first = await launcher.startReviewSession(
+    f.project,
+    "QUEUE_INPUT",
+    { provider: "grok" },
+    submissionId,
+    context,
+  );
+  expect(first.status).toBe("started");
+  expect(
+    await launcher.startReviewSession(
+      f.project,
+      "QUEUE_INPUT",
+      { provider: "grok" },
+      submissionId,
+      context,
+    ),
+  ).toEqual(first);
+  expect(f.starts).toHaveLength(1);
+  expect(f.metadata.creations.listProjections()).toHaveLength(0);
+  if (first.status !== "started") throw Error("Missing legacy target");
+  expect(f.metadata.getMetadata(first.sessionId)?.creationProvenance).toEqual({
+    surface: "web",
+  });
+});
+
+it("propagates an unkeyed review startup failure rather than inventing queue acceptance", async () => {
+  const f = await fixture("codex");
+  f.available = false;
+  await expect(
+    createSupervisorReviewLauncher(
+      f.supervisor,
+      undefined,
+      f.metadata.creations,
+    ).startReviewSession(f.project, "QUEUE_INPUT", { provider: "codex" }),
+  ).rejects.toThrow("unavailable");
+  expect(f.starts).toHaveLength(0);
+  expect(f.metadata.creations.listProjections()).toMatchObject([
+    { creation: { state: "failed", delivery: "not-admitted" } },
+  ]);
 });

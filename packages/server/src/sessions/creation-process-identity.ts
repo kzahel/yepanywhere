@@ -63,6 +63,10 @@ export function creationProcessIdentity(
         const current = store.assertCurrent(fence);
         if (
           current.attempt.delivery !== "consumed" &&
+          !(
+            current.request?.intent === "prepare" &&
+            current.attempt.state === "bound"
+          ) &&
           ["dispatching", "bound"].includes(current.attempt.state)
         ) {
           store.markUncertain(fence);

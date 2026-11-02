@@ -53,6 +53,9 @@ export function savedCreationView(
         attemptId: attempt.attemptId,
         updatedAt: attempt.updatedAt,
         delivery: attempt.delivery,
+        ...(request.intent === "prepare"
+          ? { initialInputExpected: false as const }
+          : {}),
         ...(attempt.failure ? { failure: attempt.failure } : {}),
       },
     },

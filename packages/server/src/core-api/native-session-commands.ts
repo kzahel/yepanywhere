@@ -1,3 +1,4 @@
+import type { SessionCreationStore } from "../sessions/SessionCreationStore.js";
 import {
   thinkingOptionToConfig,
   type UrlProjectId,
@@ -14,6 +15,7 @@ export function nativeSessionCommandOwner(deps: {
     "startSession" | "getAllProcesses" | "getProcessForSession"
   >;
   globalInstructions: () => string | undefined;
+  creations?: SessionCreationStore;
 }): SessionCommandOwner {
   type Watch = {
     pending: Map<string, { consumed: () => void; ended: () => void }>;
@@ -135,6 +137,18 @@ export function nativeSessionCommandOwner(deps: {
       }
     },
     async recover(receipt, consumed, ended) {
+      const saved =
+        receipt.kind === "createSession"
+          ? deps.creations?.get({ kind: "superuser" }, receipt.id)
+          : undefined;
+      if (
+        saved &&
+        !saved.deleted &&
+        saved.request?.input?.nativeReceiptId === receipt.id &&
+        saved.initialInputId === receipt.id &&
+        saved.attempt.delivery === "consumed"
+      )
+        return { sessionId: saved.sessionId, consumed: true };
       const bound = receipt.sessionId
         ? deps.supervisor.getProcessForSession(receipt.sessionId)
         : undefined;
@@ -163,6 +177,8 @@ export function nativeSessionCommandOwner(deps: {
       settled,
       failed,
       consumed = () => {},
+      admitted = () => {},
+      authorize = async () => {},
     ) {
       const thinking = request.thinking
         ? thinkingOptionToConfig(request.thinking)
@@ -197,6 +213,16 @@ export function nativeSessionCommandOwner(deps: {
         {
           projectId: project.id as UrlProjectId,
           creationProvenance: { surface: "api" },
+          creation: {
+            requestId: receipt.id,
+            nativeReceiptId: receipt.id,
+            context: {
+              owner: { kind: "superuser" },
+              source: { kind: "request", provenance: { surface: "api" } },
+            },
+            authorize,
+            onAccepted: (saved) => admitted(saved.sessionId),
+          },
           requireProviderSessionId: true,
           onStarted: (id, process) => {
             settled(id);

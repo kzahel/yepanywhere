@@ -689,6 +689,15 @@ async function handleCreate(
       { text: body.message },
       "default",
       body.model ? { model: body.model } : undefined,
+      {
+        creation: {
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "request", provenance: { surface: "api" } },
+          },
+          authorize: async () => {},
+        },
+      },
     );
 
     // Check if queued

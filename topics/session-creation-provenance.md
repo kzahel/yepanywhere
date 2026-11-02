@@ -116,3 +116,16 @@ records `api`. An older client shows `api` sessions only without a Created
 filter, since none of its options match them. A UI bundle too old to send
 `X-Yep-Client-Version`, or a relay client that announced no version, is
 recorded as `api`. Sessions created before this change are not backfilled.
+
+## Remaining ingress consolidation
+
+Qualified owner new-session launches from native/peer API, Source Review,
+maintenance create and text handoff/successor requests enter the
+[common admission owner](session-identity.md#retained-caller-consolidation).
+Review origin comes from the review request's normalized UI/API headers;
+maintenance and native API remain API source. Empty preparation endpoints save
+source before startup as well. Trusted API receipt creator, peer authentication
+and grants remain independent facts. Existing-session follow-ups do not rewrite
+source. Fork/clone and remaining provider/restricted shapes stay in the
+[plan ledger](../docs/tactical/171-durable-session-identity-and-creation.md#consolidation-progress-ledger)
+until their separate ingress migration is qualified.

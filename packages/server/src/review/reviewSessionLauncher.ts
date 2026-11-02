@@ -1,3 +1,11 @@
+import { HttpError } from "../middleware/error-handler.js";
+import { textCreationSubmissionHash } from "../sessions/session-creation-acceptance.js";
+import { createHash } from "node:crypto";
+import type { SessionLaunchOptions } from "../supervisor/Supervisor.js";
+import type {
+  SessionCreationStore,
+  SavedSessionCreation,
+} from "../sessions/SessionCreationStore.js";
 /**
  * The narrow session-launch seam the review submit endpoint needs (topic:
  * source-review-to-session). Segregated from the full Supervisor so the route
@@ -10,7 +18,7 @@ import type { Supervisor } from "../supervisor/Supervisor.js";
 
 export type ReviewLaunchResult =
   | { status: "started"; sessionId: string }
-  | { status: "queued" }
+  | { status: "queued"; sessionId?: string }
   | { status: "queue-full"; maxQueueSize?: number };
 
 /** Outcome of delivering a follow-up turn (possibly resuming a reaped session). */
@@ -26,6 +34,7 @@ export interface ReviewSessionLauncher {
     text: string,
     options?: ReviewNewSessionOptions,
     submissionId?: string,
+    creation?: NonNullable<SessionLaunchOptions["creation"]>,
   ): Promise<ReviewLaunchResult>;
   /**
    * Deliver `text` as a follow-up turn to `sessionId`. When the session has a
@@ -53,29 +62,20 @@ export function createSupervisorReviewLauncher(
     submissionId: string,
     acceptance: ReviewDeliveryAcceptance,
   ) => void | Promise<void>,
+  creations?: SessionCreationStore,
 ): ReviewSessionLauncher {
-  const starts = new Map<string, Promise<ReviewLaunchResult>>();
+  // Retained until the remaining providers/input shapes join admission.
+  const legacyStarts = new Map<string, Promise<ReviewLaunchResult>>();
   const followUps = new Map<string, Promise<ReviewFollowUpResult>>();
   return {
-    async startReviewSession(projectPath, text, options, submissionId) {
-      if (submissionId) {
-        const key = `${projectPath}\0${submissionId}`;
-        const existing = starts.get(key);
-        if (existing) return existing;
-        const pending = start(projectPath, text, options, submissionId);
-        starts.set(key, pending);
-        let result: ReviewLaunchResult;
-        try {
-          result = await pending;
-        } catch (error) {
-          starts.delete(key);
-          throw error;
-        }
-        if (result.status === "queue-full") starts.delete(key);
-        trimOldest(starts);
-        return result;
-      }
-      return start(projectPath, text, options);
+    async startReviewSession(
+      projectPath,
+      text,
+      options,
+      submissionId,
+      creation,
+    ) {
+      return start(projectPath, text, options, submissionId, creation);
     },
 
     async deliverFollowUp(projectPath, sessionId, text, submissionId) {
@@ -105,6 +105,7 @@ export function createSupervisorReviewLauncher(
     text: string,
     options?: ReviewNewSessionOptions,
     submissionId?: string,
+    suppliedCreation?: NonNullable<SessionLaunchOptions["creation"]>,
   ): Promise<ReviewLaunchResult> {
     // projectId derives from projectPath inside startSession.
     const modelSettings = options
@@ -115,38 +116,123 @@ export function createSupervisorReviewLauncher(
           effort: options.effort,
         }
       : undefined;
-    const result = submissionId
-      ? await supervisor.startSession(
+    const creation = suppliedCreation ?? {
+      context: {
+        owner: { kind: "superuser" as const },
+        source: {
+          kind: "request" as const,
+          provenance: { surface: "api" as const },
+        },
+      },
+      authorize: async () => {},
+    };
+    const requestId =
+      creation.requestId ??
+      (submissionId
+        ? `review-${createHash("sha256").update(projectPath).update("\0").update(submissionId).digest("hex")}`
+        : undefined);
+    const submissionHash = textCreationSubmissionHash(
+      { text, options },
+      projectPath,
+    );
+    let accepted: SavedSessionCreation | undefined;
+    const associate = async (saved: SavedSessionCreation) => {
+      accepted = saved;
+      await creation.onAccepted?.(saved);
+      if (submissionId)
+        await onDeliveryAccepted?.(projectPath, submissionId, {
+          deliveryStatus: "queued",
+          targetSessionId: saved.sessionId,
+        });
+    };
+    const prior = requestId
+      ? creations?.get(creation.context.owner, requestId)
+      : undefined;
+    if (prior) {
+      if (prior.deleted)
+        throw new HttpError(410, "Review creation was deleted");
+      if (prior.request?.submissionHash !== submissionHash)
+        throw new HttpError(409, "Review creation conflicts with saved input");
+      await creation.authorize(prior);
+      await associate(prior);
+      return prior.attempt.delivery === "consumed"
+        ? { status: "started", sessionId: prior.sessionId }
+        : { status: "queued", sessionId: prior.sessionId };
+    }
+    const durable =
+      supervisor.supportsDurableSessionCreation?.(
+        reviewMessage(text, submissionId),
+        modelSettings,
+        { owner: creation.context.owner },
+      ) !== false;
+    const launch = async (): Promise<ReviewLaunchResult> => {
+      let result: Awaited<ReturnType<Supervisor["startSession"]>>;
+      try {
+        result = await supervisor.startSession(
           projectPath,
           reviewMessage(text, submissionId),
           undefined,
           modelSettings,
           {
+            creation: durable
+              ? {
+                  ...creation,
+                  requestId,
+                  submissionHash,
+                  onAccepted: associate,
+                }
+              : undefined,
+            creationProvenance:
+              creation.context.source.kind === "request"
+                ? creation.context.source.provenance
+                : undefined,
             onStarted: (sessionId) =>
-              onDeliveryAccepted?.(projectPath, submissionId, {
-                deliveryStatus: "delivered",
-                targetSessionId: sessionId,
-              }),
+              submissionId
+                ? onDeliveryAccepted?.(projectPath, submissionId, {
+                    deliveryStatus: "delivered",
+                    targetSessionId: sessionId,
+                  })
+                : undefined,
           },
-        )
-      : await supervisor.startSession(
-          projectPath,
-          reviewMessage(text),
-          undefined,
-          modelSettings,
         );
-    if ("error" in result) {
-      return { status: "queue-full", maxQueueSize: result.maxQueueSize };
-    }
-    if ("queued" in result) {
-      if (submissionId) {
-        await onDeliveryAccepted?.(projectPath, submissionId, {
-          deliveryStatus: "queued",
-        });
+      } catch (error) {
+        if (accepted && submissionId)
+          return { status: "queued", sessionId: accepted.sessionId };
+        throw error;
       }
-      return { status: "queued" };
+      if ("error" in result) {
+        return { status: "queue-full", maxQueueSize: result.maxQueueSize };
+      }
+      if ("queued" in result) {
+        if (submissionId) {
+          await onDeliveryAccepted?.(projectPath, submissionId, {
+            deliveryStatus: "queued",
+          });
+        }
+        return {
+          status: "queued",
+          ...(accepted ? { sessionId: accepted.sessionId } : {}),
+        };
+      }
+      return { status: "started", sessionId: result.sessionId };
+    };
+    if (!durable && submissionId) {
+      const key = `${projectPath}\0${submissionId}`;
+      const previous = legacyStarts.get(key);
+      if (previous) return previous;
+      const pending = launch();
+      legacyStarts.set(key, pending);
+      try {
+        const result = await pending;
+        if (result.status === "queue-full") legacyStarts.delete(key);
+        trimOldest(legacyStarts);
+        return result;
+      } catch (error) {
+        legacyStarts.delete(key);
+        throw error;
+      }
     }
-    return { status: "started", sessionId: result.sessionId };
+    return launch();
   }
 
   async function followUp(

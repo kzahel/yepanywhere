@@ -4601,6 +4601,17 @@ describe("Sessions metadata route", () => {
         effort: "high",
         providerName: "codex",
       }),
+      expect.objectContaining({
+        creation: expect.objectContaining({
+          context: {
+            owner: { kind: "superuser" },
+            source: {
+              kind: "request",
+              provenance: { surface: "desktop", clientCommit: "abc123" },
+            },
+          },
+        }),
+      }),
     );
     const handoffText = startSession.mock.calls[0]?.[1].text;
     expect(handoffText).toContain("please continue the bugfix");
@@ -6965,6 +6976,14 @@ describe("Sessions metadata route", () => {
         effort: undefined,
         providerName: "codex",
       }),
+      expect.objectContaining({
+        creation: expect.objectContaining({
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "request", provenance: { surface: "api" } },
+          },
+        }),
+      }),
     );
     expect(startSession.mock.calls[0]?.[1].text).toContain("- Model: sonnet");
     expect(setProvider).toHaveBeenCalledWith("sess-new", "codex");
@@ -6999,6 +7018,14 @@ describe("Sessions metadata route", () => {
         providerName: "codex",
         compactAtContextPercent: 50,
         compactAtContextWindow: undefined,
+      }),
+      expect.objectContaining({
+        creation: expect.objectContaining({
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "request", provenance: { surface: "api" } },
+          },
+        }),
       }),
     );
     expect(getContextWindow).not.toHaveBeenCalledWith("sonnet", "codex");

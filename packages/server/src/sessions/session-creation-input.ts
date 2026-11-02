@@ -9,6 +9,8 @@ import {
 export interface CreationInputSnapshot {
   schemaVersion: 1;
   automaticSource?: "project-queue";
+  /** Server receipt identity only, never taken from composer metadata. */
+  nativeReceiptId?: string;
   tempId?: string;
   mode?: PermissionMode;
   metadata?: UserMessageMetadata;
@@ -42,6 +44,14 @@ export function snapshotCreationInput(
     if (input.automaticSource !== "project-queue")
       throw new Error("Invalid saved automatic input source");
     result.automaticSource = input.automaticSource;
+  }
+  if (input.nativeReceiptId !== undefined) {
+    if (
+      typeof input.nativeReceiptId !== "string" ||
+      !/^[A-Za-z0-9_-]{8,128}$/.test(input.nativeReceiptId)
+    )
+      throw new Error("Invalid saved native receipt identity");
+    result.nativeReceiptId = input.nativeReceiptId;
   }
   if (input.mode !== undefined) {
     if (!ALL_PERMISSION_MODES.includes(input.mode))

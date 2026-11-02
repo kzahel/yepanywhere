@@ -442,6 +442,8 @@ export interface SessionLaunchOptions {
     requestId?: string;
     submissionHash?: string;
     attachments?: CreationAttachmentSource;
+    intent?: "prepare";
+    nativeReceiptId?: string;
     onAccepted?: (saved: SavedSessionCreation) => void | Promise<void>;
     authorize(saved: SavedSessionCreation): Promise<void>;
   };
@@ -1099,6 +1101,7 @@ export class Supervisor {
     fence: CreationAttemptFence,
     authorize: (saved: SavedSessionCreation) => Promise<void>,
     onStarted?: SessionStartedCallback,
+    onFailed?: SessionLaunchOptions["onFailed"],
   ): Promise<Process | QueuedResponse | QueueFullResponse> {
     const key = `${fence.attemptId}:${fence.generation}`;
     const previous = this.savedStarts.get(key);
@@ -1107,6 +1110,7 @@ export class Supervisor {
       fence,
       authorize,
       onStarted,
+      onFailed,
     ).finally(() => this.savedStarts.delete(key));
     this.savedStarts.set(key, start);
     return start;
@@ -1117,6 +1121,7 @@ export class Supervisor {
     fence: CreationAttemptFence,
     authorize: (saved: SavedSessionCreation) => Promise<void>,
     onStarted?: SessionStartedCallback,
+    onFailed?: SessionLaunchOptions["onFailed"],
   ): Promise<Process | QueuedResponse | QueueFullResponse> {
     const store = this.sessionMetadataService?.creations;
     if (!store) throw new Error("Durable session storage is unavailable");
@@ -1142,6 +1147,7 @@ export class Supervisor {
         creationFence: fence,
         authorizeCreation: authorize,
         onStarted,
+        onFailed,
       });
       if (isQueueFullError(result)) {
         store.failBeforeEffects(fence, "launch-refused");
@@ -1219,7 +1225,8 @@ export class Supervisor {
       return;
     if (
       saved.attempt.state === "bound" &&
-      saved.attempt.delivery === "consumed"
+      (saved.attempt.delivery === "consumed" ||
+        saved.request.intent === "prepare")
     )
       return;
     const namespace = store!.getDispatchNamespace(saved.attempt);
@@ -1262,7 +1269,8 @@ export class Supervisor {
       throw new Error("Saved creation has no dispatched host owner");
     if (
       saved.attempt.state === "bound" &&
-      saved.attempt.delivery === "consumed"
+      (saved.attempt.delivery === "consumed" ||
+        saved.request.intent === "prepare")
     ) {
       const runtime = (await listHostedProviderRuntimes()).find(
         (value) => value.sessionId === sessionId && value.state !== "closing",
@@ -1404,21 +1412,28 @@ export class Supervisor {
       return await this.startProviderSession(
         request.projectPath,
         request.projectId,
-        {
-          text: request.message,
-          attachments,
-          uuid: saved.initialInputId,
-          automaticSource: request.input?.automaticSource,
-          tempId: request.input?.tempId,
-          mode: request.input?.mode,
-          metadata: request.input?.metadata,
-        },
+        request.intent === "prepare"
+          ? undefined
+          : {
+              text: request.message,
+              attachments,
+              uuid: saved.initialInputId,
+              automaticSource: request.input?.automaticSource,
+              tempId: request.input?.tempId,
+              mode: request.input?.mode,
+              metadata: {
+                ...request.input?.metadata,
+                ...(request.input?.nativeReceiptId
+                  ? { apiSubmissionId: request.input.nativeReceiptId }
+                  : {}),
+              },
+            },
         undefined,
         request.settings.permissionMode,
         modelSettings,
         provider,
-        true,
-        true,
+        false,
+        request.intent !== "prepare",
         {
           identity: managedIdentity,
           authorize: currentAuthority,
@@ -1485,26 +1500,34 @@ export class Supervisor {
   supportsDurableSessionCreation(
     message: UserMessage,
     modelSettings: ModelSettings | undefined,
-    owner: CreationContext["owner"] = { kind: "superuser" },
-    stagedAttachments = false,
+    options: {
+      owner?: CreationContext["owner"];
+      stagedAttachments?: boolean;
+      nativeReceiptId?: string;
+      intent?: "prepare";
+    } = {},
   ): boolean {
     const provider = this.resolveProvider(modelSettings);
     return Boolean(
       provider &&
         getSessionTextCreationCapability(provider.name) &&
         provider.getNewSessionNamespace &&
-        (!stagedAttachments || ["claude", "codex"].includes(provider.name)) &&
-        owner.kind === "superuser" &&
+        (!options.stagedAttachments ||
+          ["claude", "codex"].includes(provider.name)) &&
+        (options.owner?.kind ?? "superuser") === "superuser" &&
         !message.images?.length &&
         !message.documents?.length &&
         !message.attachments?.length &&
-        !parseSlashCommandSubmission(message.text) &&
+        (!parseSlashCommandSubmission(message.text) ||
+          Boolean(options.nativeReceiptId)) &&
         (message.automaticSource === undefined ||
           message.automaticSource === "project-queue") &&
         !message.recapResumeHandled &&
         message.priority === undefined &&
         !message.tempIds?.length &&
-        !message.metadata?.apiSubmissionId &&
+        (!message.metadata?.apiSubmissionId ||
+          (options.nativeReceiptId === message.metadata.apiSubmissionId &&
+            message.uuid === options.nativeReceiptId)) &&
         !message.metadata?.apiSubmissionIds?.length &&
         !message.metadata?.hidden &&
         !modelSettings?.machineControl &&
@@ -1530,12 +1553,12 @@ export class Supervisor {
       launchOptions?.creation &&
       provider &&
       this.sessionMetadataService?.creations &&
-      this.supportsDurableSessionCreation(
-        message,
-        modelSettings,
-        launchOptions.creation.context.owner,
-        Boolean(launchOptions.creation.attachments),
-      )
+      this.supportsDurableSessionCreation(message, modelSettings, {
+        owner: launchOptions.creation.context.owner,
+        stagedAttachments: Boolean(launchOptions.creation.attachments),
+        nativeReceiptId: launchOptions.creation.nativeReceiptId,
+        intent: launchOptions.creation.intent,
+      })
     ) {
       const store = this.sessionMetadataService.creations;
       if (
@@ -1551,6 +1574,9 @@ export class Supervisor {
         projectPath,
         provider: provider.name,
         message: message.text,
+        ...(creation.intent === "prepare"
+          ? { intent: "prepare" as const }
+          : {}),
         settings: {
           permissionMode: permissionMode ?? this.defaultPermissionMode,
           requestedModel:
@@ -1570,6 +1596,7 @@ export class Supervisor {
               ? "project-queue"
               : undefined,
           tempId: message.tempId,
+          nativeReceiptId: creation.nativeReceiptId,
           mode: message.mode,
           metadata: message.metadata,
         }),
@@ -1613,6 +1640,7 @@ export class Supervisor {
           saved.attempt,
           launchOptions.creation.authorize,
           launchOptions.onStarted,
+          launchOptions.onFailed,
         );
       } catch (error) {
         // Preemption/authority can fail before the dispatcher owns this item.
@@ -1752,6 +1780,25 @@ export class Supervisor {
     const projectId = launchOptions?.projectId ?? encodeProjectId(projectPath);
     const provider = this.resolveProvider(modelSettings);
 
+    if (
+      launchOptions?.creation &&
+      this.supportsDurableSessionCreation({ text: "" }, modelSettings, {
+        owner: launchOptions.creation.context.owner,
+        intent: "prepare",
+      })
+    ) {
+      return this.startSession(
+        projectPath,
+        { text: "" },
+        permissionMode,
+        modelSettings,
+        {
+          ...launchOptions,
+          creation: { ...launchOptions.creation, intent: "prepare" },
+        },
+      );
+    }
+
     // Check if at capacity
     if (this.isAtCapacity()) {
       // Try to preempt an idle worker
@@ -1856,7 +1903,8 @@ export class Supervisor {
       (!stored.native ||
         (startup &&
           (startup.attempt.state !== "bound" ||
-            startup.attempt.delivery !== "consumed")))
+            (startup.attempt.delivery !== "consumed" &&
+              startup.request?.intent !== "prepare"))))
     )
       throw new SessionMessageRejectedError(
         "Session startup has not completed; use creation recovery",
@@ -2281,9 +2329,13 @@ export class Supervisor {
     message: UserMessage,
   ): Promise<void> {
     try {
-      const result = await this.queueProcessMessage(process, message, {
-        allowSteer: false,
-      });
+      // Native command receipts carry exact provider text; YA command
+      // emulation belongs to interactive callers, including for the first turn.
+      const result = message.metadata?.apiSubmissionId
+        ? process.queueMessage(message, { allowSteer: false })
+        : await this.queueProcessMessage(process, message, {
+            allowSteer: false,
+          });
       if (!result.success) {
         throw new SessionMessageRejectedError(
           result.error ?? "Failed to queue initial message",
@@ -3539,7 +3591,8 @@ export class Supervisor {
       );
       if (
         current.attempt.state !== "bound" ||
-        current.attempt.delivery !== "consumed"
+        (current.attempt.delivery !== "consumed" &&
+          current.request?.intent !== "prepare")
       )
         throw new SessionMessageRejectedError(
           "Session startup has not completed; use creation recovery",
@@ -4071,11 +4124,19 @@ export class Supervisor {
           identity.sessionId,
         )
       : undefined;
+    const preparedIncumbent =
+      startup?.initialInputExpected === false &&
+      ["dispatching", "bound"].includes(startup.state) &&
+      !this.getProcessForSession(sessionId)?.isTerminated &&
+      Boolean(this.getProcessForSession(sessionId));
     if (
       identity &&
+      !preparedIncumbent &&
       (!identity.native ||
         (startup &&
-          (startup.state !== "bound" || startup.delivery !== "consumed")))
+          (startup.state !== "bound" ||
+            (startup.delivery !== "consumed" &&
+              startup.initialInputExpected !== false))))
     ) {
       throw new SessionMessageRejectedError(
         "Session startup has not completed; use creation recovery",
@@ -7607,7 +7668,8 @@ export class Supervisor {
         request.resolve({ status: "cancelled", reason });
         try {
           const failureCallback =
-            error instanceof RetryableSessionLaunchError
+            error instanceof RetryableSessionLaunchError &&
+            !request.creationFence
               ? request.onRetryableFailure
               : request.onFailed;
           await failureCallback?.(reason);

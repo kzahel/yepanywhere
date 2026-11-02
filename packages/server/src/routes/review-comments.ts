@@ -1,3 +1,5 @@
+import { principalFor } from "../auth/limitedLaunchPolicy.js";
+import { creationProvenanceForHeaders } from "../sessions/creation-provenance.js";
 /**
  * Source-review draft-comment CRUD (topic: source-review-to-session).
  *
@@ -37,6 +39,7 @@ import { repositoryRelativePath } from "../review/repositoryPath.js";
 import { resolveProjectPath } from "./projectParam.js";
 
 export interface ReviewCommentsDeps {
+  signal?: AbortSignal;
   scanner: ProjectScanner;
   /** Injectable for tests (stub clock/id); a fresh service by default. */
   service?: ReviewCommentService;
@@ -266,12 +269,28 @@ export function createReviewCommentsRoutes(deps: ReviewCommentsDeps): Hono {
 
     let sessionId: string;
     if (target === "new") {
+      const principal = principalFor(c);
+      if (principal.kind === "limited")
+        return c.json({ error: "Review launch requires owner authority" }, 403);
       const result = await deps.launcher
         .startReviewSession(
           projectPath,
           turn,
           newSession,
           request?.submissionId,
+          {
+            context: {
+              owner: { kind: "superuser" },
+              source: {
+                kind: "request",
+                provenance: creationProvenanceForHeaders(c.req.raw.headers),
+              },
+            },
+            authorize: async () => {
+              if (deps.signal?.aborted)
+                throw new Error("Review creation owner is shutting down");
+            },
+          },
         )
         .catch(async (error: unknown) => {
           if (request) {
@@ -292,6 +311,7 @@ export function createReviewCommentsRoutes(deps: ReviewCommentsDeps): Hono {
         if (request) {
           const accepted = await service.acceptSubmission(projectPath, {
             submissionId: request.submissionId,
+            targetSessionId: result.sessionId,
             deliveryStatus: "queued",
             responseTurnLimit: deps.getResponseTurnLimit?.() ?? 8,
           });

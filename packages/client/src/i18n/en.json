@@ -4968,6 +4968,8 @@
   "sessionCreationLabel": "Session startup",
   "sessionCreationStarting": "Your request is saved. Starting the session…",
   "sessionCreationQueued": "Your request is saved and waiting for an available worker.",
+  "sessionPreparationFailed": "The session could not start. Its settings are saved.",
+  "sessionPreparationUncertain": "Startup was interrupted. Session settings are saved. Check the session before trying again.",
   "sessionCreationFailed": "The session could not start. Your prompt is saved.",
   "sessionCreationUncertain": "Startup was interrupted. Your prompt is saved, but delivery is unconfirmed. Check the session before submitting it again.",
   "sessionCreationSavedPrompt": "Saved prompt",

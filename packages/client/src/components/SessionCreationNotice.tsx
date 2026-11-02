@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import type { SessionCreationStatus } from "@yep-anywhere/shared";
+import {
+  isSessionCreationPending,
+  type SessionCreationStatus,
+} from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
 import styles from "./SessionCreationNotice.module.css";
 
@@ -19,7 +22,7 @@ export function SessionCreationNotice({
   const active =
     !!creation &&
     ["saved", "queued", "dispatching", "bound"].includes(creation.state) &&
-    creation.delivery !== "consumed";
+    isSessionCreationPending(creation);
   useEffect(() => {
     if (!active) return;
     let stopped = false;
@@ -43,16 +46,20 @@ export function SessionCreationNotice({
   }, [active]);
   if (
     !creation ||
-    creation.delivery === "consumed" ||
+    !isSessionCreationPending(creation) ||
     creation.state === "deleted"
   )
     return null;
   const state = creation.state;
   const label =
     state === "failed"
-      ? "sessionCreationFailed"
+      ? creation.initialInputExpected === false
+        ? "sessionPreparationFailed"
+        : "sessionCreationFailed"
       : state === "uncertain"
-        ? "sessionCreationUncertain"
+        ? creation.initialInputExpected === false
+          ? "sessionPreparationUncertain"
+          : "sessionCreationUncertain"
         : state === "queued"
           ? "sessionCreationQueued"
           : "sessionCreationStarting";

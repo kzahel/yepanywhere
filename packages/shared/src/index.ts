@@ -1718,3 +1718,5 @@ export {
   type NativeSessionFamily,
   type NativeSessionRef,
 } from "./session-identity.js";
+
+export { isSessionCreationPending } from "./session-creation.js";

@@ -1,3 +1,7 @@
+import {
+  PeerDirectory,
+  fixturePeerGrant,
+} from "../../src/peer-api/directory.js";
 import { Hono } from "hono";
 import { createV0Routes } from "../../src/routes/v0/index.js";
 import { request } from "node:http";
@@ -436,6 +440,57 @@ it("rechecks current enablement after async catalog lookup and before reservatio
     expect(launched).toBe(0);
     expect(f.commands.replayCreate(body)).toBeUndefined();
   } finally {
+    f.close();
+  }
+});
+
+it("rechecks a queued peer creation's actual grant before native dispatch without replacing its trusted creator", async () => {
+  let authority: (() => Promise<void>) | undefined;
+  const f = fixture({
+    start: async (
+      _project,
+      _request,
+      _receipt,
+      _settled,
+      _failed,
+      _consumed,
+      _admitted,
+      authorize,
+    ) => {
+      authority = authorize;
+      return { queueId: "owned-queued-command" };
+    },
+  });
+  const grant = fixturePeerGrant(
+    "source-peer",
+    "owned-peer-token-at-least-thirty-two-characters",
+    ["p"],
+    ["createSession"],
+  );
+  const directory = new PeerDirectory([grant]);
+  const lease = directory.authenticate(
+    "owned-peer-token-at-least-thirty-two-characters",
+    { sessionId: "source-session", launchId: "source-launch" },
+  );
+  f.enable();
+  try {
+    const created = await f.core.read("createSession", lease.principal, {
+      body,
+    });
+    await f.commands.idle();
+    expect(authority).toBeTypeOf("function");
+    await authority!();
+    directory.revoke(grant.id);
+    await expect(authority!()).rejects.toThrow("Peer credential is not active");
+    expect(f.store.get((created as { id: string }).id)?.creator).toMatchObject({
+      principal: { kind: "peer" },
+      serverId: "source-peer",
+      sessionId: "source-session",
+      authentication: { credentialId: grant.id },
+    });
+  } finally {
+    lease.release();
+    directory.close();
     f.close();
   }
 });

@@ -127,8 +127,12 @@ export interface ProjectQueueSupervisor extends ProjectWorkSupervisor {
   supportsDurableSessionCreation?(
     message: UserMessage,
     settings: ModelSettings,
-    owner?: CreationContext["owner"],
-    stagedAttachments?: boolean,
+    options?: {
+      owner?: CreationContext["owner"];
+      stagedAttachments?: boolean;
+      nativeReceiptId?: string;
+      intent?: "prepare";
+    },
   ): boolean;
   startSavedSession?(
     fence: SavedSessionCreation["attempt"],
@@ -1218,8 +1222,10 @@ export class ProjectQueueScheduler {
         this.supervisor.supportsDurableSessionCreation?.(
           this.toUserMessage(item),
           modelSettings,
-          { kind: "superuser" },
-          Boolean(item.message.stagedAttachments),
+          {
+            owner: { kind: "superuser" },
+            stagedAttachments: Boolean(item.message.stagedAttachments),
+          },
         ))
     ) {
       return this.dispatchDurableNewSession(

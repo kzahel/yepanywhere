@@ -612,6 +612,52 @@ over more provider-prefix guessing, repeated deep translations, ad-hoc SQL or a
 second mapping cache. [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 owns migration order and slice acceptance evidence.
 
+## Retained caller consolidation
+
+Qualified ordinary owner launch shapes use the same admission owner from native
+v0/peer API creation, Source Review new-session submission, maintenance create
+and text successor/handoff routes. This is an internal server migration; their
+existing URLs, authenticated principals and response/receipt enums remain.
+Descriptive source is captured at the requesting surface, independently of
+trusted creator, grants and input receipts. Existing-session messages/resume
+remain separate and never allocate a new logical session merely to translate
+an id.
+
+A native API receipt owns its already server-generated input UUID. Common
+admission reserves that exact UUID as the saved initial input, while allocating
+a separate public YA session id. Native ids bind at the adapter boundary. The
+native API receipt retains its creator/authentication scope and existing delivery
+meaning; creation's stronger native-input proof remains its separate evidence.
+Native first-input text bypasses YA slash-command emulation, matching the
+native API's exact-text contract. The public association is persisted before provider startup, and queued dispatch
+rechecks the incumbent command enablement and authenticated project/operation
+authority. Cold recovery can recover saved confirmed creation proof; it never
+replays uncertain input. Peer identity/grants are not inferred from provenance.
+
+Keyed Source Review stores its public association at acceptance before native
+effects, and resolves retries through the canonical creation operation instead
+of a process-local cache of successful starts. The existing cache remains only
+for retained unqualified providers until their next migration cut. A changed input under the same
+key refuses. The review manifest stays immutable; existing submission state
+records delivery/association, and existing-session follow-ups keep their own
+receipt semantics. A keyed saved failure remains linked to that original resource. Legacy unkeyed
+review failures still propagate as errors and leave comments pending; they are
+not reported as a queued delivery without an associated operation.
+
+The older create-only endpoints are compatibility adapters for qualified owner
+providers. They admit an explicit empty preparation intent before native startup
+and return their existing process/deferred/error shape. No initial turn is sent.
+An additive `creation.initialInputExpected: false` distinguishes that resource
+from an unconfirmed submitted prompt; its first turn may enter its live incumbent
+while a lazy provider still owes native init. Without such an incumbent, an
+unbound or uncertain preparation refuses new allocation. Once bound, ordinary
+scoped continuation retains its native identity. Collections project the flag
+from a compact column without reading saved prompts. Old servers omit it; no new
+request is sent to learn it. Published older clients ignore the additive field.
+The text/attachment capability meanings and global receipts advertisement remain
+unchanged. Remaining providers, restricted/sandbox launches and forks/clones are
+tracked in the consolidation ledger until their migration closes.
+
 ## Compatibility research — 2026-11-01
 
 This is a source/release audit, not passing client/server skew qualification.

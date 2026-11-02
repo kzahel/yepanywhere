@@ -4653,6 +4653,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
       {
         projectId: project.id,
+        creation: creationForRequest(c, body.creationProvenance),
         onStarted: (_sessionId, process) =>
           recordNewSessionLaunch(process, {
             creationProvenance: requestCreationProvenance(
@@ -4977,6 +4978,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         helperSideModel: helperSettings.helperSideModel,
       },
       {
+        creation: creationForRequest(c, body.creationProvenance),
         onStarted: (_sessionId, process) =>
           recordNewSessionLaunch(process, {
             creationProvenance: requestCreationProvenance(
@@ -6333,6 +6335,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             : [body.model, model],
         }),
       },
+      { creation: creationForRequest(c, body.creationProvenance) },
     );
 
     if (isQueueFullResponse(result)) {
@@ -6583,6 +6586,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         },
         {
           projectId: project.id,
+          creation: creationForRequest(c, body.creationProvenance),
           onStarted: (_sessionId, process) =>
             recordNewSessionLaunch(process, {
               creationProvenance: requestCreationProvenance(

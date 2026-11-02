@@ -80,7 +80,9 @@ these remaining migrations are already implemented.
 | Ordinary owner text, Claude/Codex/OpenCode/Pi | Implemented | Qualified text uses saved dispatch | Existing native/browser/recovery qualification above |
 | Project Queue ordinary owner text | Implemented in current slice | Qualified promotion no longer owns deferred native startup/retry; same eligibility and dispatcher as direct creation | Six real SQLite/owner integration cases; local/hosted native-process and failed-row browser checks pass |
 | Owner Claude/Codex staged attachments | Implemented in current slice | Capable ordinary form and Queue bypass their empty-provider/materialize/send implementation; older-server and other retained shapes remain named consumers | 43-case storage/staging/owner qualification; three local/hosted native/browser cases; single review corrected and full checks pass |
-| API/peer, reviews, maintenance, new fork/clone resources | Partial source repair only | Separate creation entry points remain | Later caller slices |
+| Qualified owner native API/peer, keyed review, maintenance and text successors | Implemented in current slice | Qualified review starts recover from the canonical store; unqualified providers retain their named legacy cache; native input UUID comes from its trusted receipt; caller adapters use saved dispatch | 143 focused integration cases; four local/hosted native/browser cases, real Claude CLI and three Bun cases pass |
+| Qualified owner create-only routes | Implemented as empty preparation adapters | No separate qualified empty-provider creation engine; no invented initial turn | Local/hosted native/browser first-turn/restart checks pass |
+| New fork/clone resources and remaining restricted/provider shapes | Pending | Remaining creation engines/bypasses must retire | Next consolidation cut |
 | Remaining provider/input shapes and final bypass audit | Pending | Retained compatibility/exception inventory required | Final consolidation closure |
 
 Queue admission uses a deterministic operation key from the durable queue item,
@@ -144,6 +146,31 @@ intermittent watcher gap. Earlier full-run failures in a schema-version
 expectation and an unnecessary text-only authorization check were corrected and
 focused-verified. Source/evidence and the sole review are retained under ignored
 `tasks/session-identity/attachments-*` / `reviews/attachment-consolidation.md`.
+
+The retained-caller slice admits qualified native/peer creation, keyed Source
+Review, maintenance, text successors and empty preparation through that same
+owner. Preparation records settings without inventing a first prompt; its live
+incumbent accepts the first turn and bound cold history keeps the public id.
+Migration 23 makes this distinction available in compact collection projections.
+Native API receipt identity remains trusted input identity, while its established
+SDK-queue receipt meaning stays separate from native creation proof. Exact native
+API slash text bypasses YA command emulation. Peer authority is checked again at
+dispatch; serialized provenance is descriptive, never authority.
+
+The sole Sol review found a retained-provider Source Review fallback regression
+and an unkeyed failure reported as queued. Qualified keyed starts now use the
+canonical store; the named unqualified-provider cache remains until migration.
+Unkeyed failures propagate and keep comments pending. Corrections pass 143
+focused cases in 1.85 seconds. Four owned local/hosted browser/native cases pass
+in 31.5 seconds, three Bun cases in 11.1 seconds, and the real pinned Claude CLI
+preparation case in 10.3 seconds (11.6 seconds including setup), using an owned
+local model endpoint rather than an external account. Desktop/phone captures
+were inspected. Root static checks and the full workspace suite pass: 6,916
+server cases (143.55 seconds) and 7,067 client cases. The reviewer was retired
+with verified stop; there was no second review. Ignored `callers-*` evidence and
+`reviews/caller-consolidation.md` record the checks and corrections. Other
+provider/restricted shapes and new forks/clones still require migration and
+retirement of their named legacy engines; this is not consolidation closure.
 
 ## Active milestone — Claude and Codex creation, November 2
 

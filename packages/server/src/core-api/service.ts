@@ -371,7 +371,22 @@ export class CoreApi {
           );
         input.signal?.throwIfAborted();
         assertPeerOperation(caller, operation);
-        return commands.create(project, body.data, input.launch, authenticated);
+        return commands.create(
+          project,
+          body.data,
+          input.launch,
+          authenticated,
+          async () => {
+            this.commandAccess(caller, input.launch);
+            assertPeerOperation(caller, operation);
+            if (!visible(project.id))
+              throw new CoreApiError(
+                "forbidden",
+                "Project creation authority is no longer active",
+                403,
+              );
+          },
+        );
       }
       case "sendMessage": {
         const commands = this.commandAccess(caller, input.launch);

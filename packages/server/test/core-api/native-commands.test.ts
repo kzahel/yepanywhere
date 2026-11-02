@@ -1,3 +1,4 @@
+import { getLogger } from "../../src/logging/logger.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +7,7 @@ import {
   Process,
   createControllableIterator,
 } from "../process.test-support.js";
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { openSqliteOrThrow } from "../../src/storage/sqlite.js";
 import { migrateDiscoveryDatabase } from "../../src/storage/discovery-sqlite.js";
 import { ApiReceiptStore } from "../../src/core-api/receipt-store.js";
@@ -24,6 +25,15 @@ import type {
 } from "../../src/sdk/providers/types.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
 
+const warnings = vi.spyOn(getLogger(), "warn").mockImplementation(() => {});
+afterEach(() => {
+  for (const [fields, message] of warnings.mock.calls) {
+    expect(message).toMatch(/^Process terminated:/);
+    expect(fields).toMatchObject({ reason: "provider stream completed" });
+  }
+  warnings.mockClear();
+});
+
 it.each(["superuser", "peer"] as const)(
   "uses native admission and queued input with API provenance independent of %s creator",
   async (principal) => {
@@ -37,6 +47,7 @@ it.each(["superuser", "peer"] as const)(
     let starts = 0,
       steers = 0;
     const consumed: string[] = [];
+    const deliveredText: string[] = [];
     const provenanceCountsAtStart: number[] = [];
     let releaseFirst!: () => void;
     const firstTurn = new Promise<void>((resolve) => (releaseFirst = resolve));
@@ -51,6 +62,15 @@ it.each(["superuser", "peer"] as const)(
     const nativeId = "00000000-0000-4000-8000-000000000042";
     const provider = {
       name: "codex",
+      getAuthStatus: async () => ({
+        installed: true,
+        authenticated: true,
+        enabled: true,
+      }),
+      getNewSessionNamespace: async () => ({
+        family: "codex" as const,
+        storageScope: root,
+      }),
       async startSession(request: StartSessionOptions) {
         starts++;
         provenanceCountsAtStart.push(
@@ -69,7 +89,15 @@ it.each(["superuser", "peer"] as const)(
             session_id: nativeId,
           };
           for await (const message of incoming) {
+            request.onNativeInputConsumed?.(nativeId, message.uuid!);
             consumed.push(message.uuid!);
+            deliveredText.push(
+              typeof message.message.content === "string"
+                ? message.message.content
+                : message.message.content
+                    .map((block) => (block.type === "text" ? block.text : ""))
+                    .join(""),
+            );
             if (consumed.length === 2) nextConsumed();
             if (consumed.length === 1) {
               firstConsumed();
@@ -104,13 +132,23 @@ it.each(["superuser", "peer"] as const)(
     });
     const nativeOwner = nativeSessionCommandOwner({
       supervisor,
+      creations: metadata.creations,
       globalInstructions: () => "Fixture guidance",
     });
     let failed!: () => void;
     const failure = new Promise<void>((resolve) => (failed = resolve));
     const owner: typeof nativeOwner = {
       ...nativeOwner,
-      start: (project, request, receipt, settled, onFailed, onConsumed) =>
+      start: (
+        project,
+        request,
+        receipt,
+        settled,
+        onFailed,
+        onConsumed,
+        admitted,
+        authorize,
+      ) =>
         nativeOwner.start(
           project,
           request,
@@ -121,6 +159,8 @@ it.each(["superuser", "peer"] as const)(
             failed();
           },
           onConsumed,
+          admitted,
+          authorize,
         ),
     };
     const remapped: string[] = [];
@@ -139,9 +179,9 @@ it.each(["superuser", "peer"] as const)(
     };
     try {
       const project = {
-        id: encodeProjectId(process.cwd()),
+        id: encodeProjectId(root),
         name: "Fixture",
-        path: process.cwd(),
+        path: root,
       };
       const request = createSessionRequest.parse({
         requestId: "native-review-1",
@@ -150,7 +190,7 @@ it.each(["superuser", "peer"] as const)(
         model: "fixture-model",
         thinking: "on:high",
         permissionMode: "bypassPermissions",
-        message: "Review",
+        message: "/clear",
       });
       const creator =
         principal === "peer"
@@ -169,19 +209,30 @@ it.each(["superuser", "peer"] as const)(
       const receipt = commands.create(project, request, launch, creator);
       await commands.idle();
       await firstInput;
+      const publicId = store.get(receipt.id)!.sessionId!;
+      expect(publicId).not.toBe(nativeId);
+      expect(deliveredText).toEqual(["/clear"]);
+      expect(
+        metadata.creations.get({ kind: "superuser" }, receipt.id),
+      ).toMatchObject({
+        sessionId: publicId,
+        initialInputId: receipt.id,
+        request: { input: { nativeReceiptId: receipt.id } },
+        attempt: { delivery: "consumed" },
+      });
       expect(store.get(receipt.id)).toMatchObject({
         state: "accepted",
-        sessionId: nativeId,
+        sessionId: publicId,
         delivery: "consumed",
         completion: "unknown",
         creator: { sessionId: "parent" },
       });
-      expect(metadata.getMetadata(nativeId)?.creationProvenance).toEqual({
+      expect(metadata.getMetadata(publicId)?.creationProvenance).toEqual({
         surface: "api",
       });
       const reopened = new SessionMetadataService({ database, dataDir: root });
       await reopened.initialize();
-      expect(reopened.getMetadata(nativeId)?.creationProvenance).toEqual({
+      expect(reopened.getMetadata(publicId)?.creationProvenance).toEqual({
         surface: "api",
       });
       expect(store.get(receipt.id)?.creator.principal.kind).toBe(principal);
@@ -191,12 +242,12 @@ it.each(["superuser", "peer"] as const)(
         permissionMode: "bypassPermissions",
         globalInstructions: "Fixture guidance",
       });
-      const nativeProcess = supervisor.getProcessForSession(nativeId)!;
-      expect(remapped).toContain("first:" + nativeId);
-      expect(remapped).toContain("second:" + nativeId);
+      const nativeProcess = supervisor.getProcessForSession(publicId)!;
+      expect(remapped).toEqual([]);
+      expect(remapped).toEqual([]);
       expect(nativeProcess.hasAcceptedApiInput(receipt.id)).toBe(true);
       const session = {
-        id: nativeId,
+        id: publicId,
         projectId: project.id,
         provider: "codex",
         title: null,
@@ -233,7 +284,7 @@ it.each(["superuser", "peer"] as const)(
       store.update(receipt.id, { state: "uncertain", sessionId: null });
       expect(await commands.receipt(receipt.id)).toMatchObject({
         state: "accepted",
-        sessionId: nativeId,
+        sessionId: publicId,
         delivery: "consumed",
       });
       const queued = commands.create(

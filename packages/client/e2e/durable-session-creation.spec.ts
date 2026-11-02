@@ -715,3 +715,57 @@ test("router refusal preserves saved intent and never falls back to available di
     await owned.close();
   }
 });
+
+test("legacy Claude preparation sends no phantom prompt and accepts the first turn under its saved YA id", async ({
+  browser,
+}) => {
+  const owned = await fixture(false);
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const prepared = await owned.request(
+      `/projects/${owned.projectId}/sessions/create`,
+      {
+        provider: "claude",
+        model: "sonnet",
+        mode: "bypassPermissions",
+        thinking: "off",
+        routerAccountId: "owned-account",
+        routerPoolId: poolId,
+        recapMode: "off",
+        promptSuggestionMode: "off",
+      },
+    );
+    expect(prepared.processId).toBeTruthy();
+    const path = `/projects/${owned.projectId}/sessions/${prepared.sessionId}`;
+    expect(
+      (await owned.request(path)).session.creation.initialInputExpected,
+    ).toBe(false);
+    expect(owned.modelRequests).toHaveLength(0);
+    const page = await context.newPage();
+    await page.goto(owned.origin + path);
+    const composer = page.locator("textarea[data-composer-input]").first();
+    await expect(composer).toBeEditable();
+    let input = "";
+    for (const c of "OWNED_CLAUDE_PREPARED_TURN") {
+      await composer.pressSequentially(c);
+      input += c;
+      await expect(composer).toHaveValue(input, { timeout: 100 });
+    }
+    await composer.press("Enter");
+    await expect.poll(() => owned.modelRequests.length).toBe(1);
+    owned.releaseReply();
+    await expect
+      .poll(async () => JSON.stringify((await owned.request(path)).messages))
+      .toContain(reply);
+    await context.close();
+    await owned.restart();
+    const restored = await owned.request(path);
+    expect(restored.session.id).toBe(prepared.sessionId);
+    expect(restored.session.routerBinding.accountId).toBe("owned-account");
+    expect(JSON.stringify(restored.messages)).toContain(reply);
+    expect(owned.modelRequests).toHaveLength(1);
+  } finally {
+    await context.close();
+    await owned.close();
+  }
+});

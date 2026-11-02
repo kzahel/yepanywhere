@@ -388,8 +388,12 @@ reserves the included pending entries, writes and fsyncs the frozen
 `request.json`, and only then asks the session launcher to enqueue or deliver a
 turn carrying that same key. Acceptance archives the reserved entries even
 when a queued new session has no session id yet. Mutable server state later
-associates the submission with the canonical YA session id, including provider
-session-id remapping.
+associates the submission with the canonical YA session id. Qualified owner
+new-session launches now use [common durable admission](session-identity.md#retained-caller-consolidation):
+the public association is known and saved before provider startup, and native
+allocation cannot replace it. Their retry identity survives launcher restart;
+qualified starts no longer use the old in-memory successful-start cache. That
+cache remains only for retained unqualified providers until their migration.
 
 Retrying the same submission id returns the same accepted result and cannot
 send a second turn. The launcher/input queue must enforce that invariant across

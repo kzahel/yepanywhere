@@ -689,9 +689,13 @@ association, unfinished pasted-file acknowledgement, definitive refusal recovery
 and default-provider attachment eligibility. Focused storage/native/browser and
 static checks pass. The latest full run passes 6,908 server/7,067 client cases;
 an earlier Queue run exposed the still-tracked intermittent Rendez watcher gap.
-Remaining work is API/peer, review, maintenance, new fork/clone resources and
-other retained provider/input shapes, followed by the final bypass/deletion
-audit. Compatibility routes may remain thin adapters into the same owner.
+Qualified owner native API/peer, keyed review, maintenance/text successors and
+legacy create-only endpoints now also enter the common owner, with trusted input
+UUIDs and explicit empty preparation. Qualified review starts no longer use the process-local successful-start
+cache; unqualified providers retain that named compatibility consumer. Focused integration, owned local/hosted native/browser, Bun and real Claude CLI
+preparation qualification pass; the full workspace suite passes. Remaining work is
+new fork/clone resources and other retained provider/restricted/input shapes,
+followed by the final bypass/deletion audit. Compatibility routes may remain thin adapters into the same owner.
 [The ledger](../tactical/171-durable-session-identity-and-creation.md#consolidation-progress-ledger)
 separates completed scope from the remaining legacy implementation retirement.
 

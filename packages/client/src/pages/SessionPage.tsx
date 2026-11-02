@@ -1,3 +1,4 @@
+import { isSessionCreationPending } from "@yep-anywhere/shared";
 import { SessionCreationNotice } from "../components/SessionCreationNotice";
 import { RoutedSessionContext } from "../contexts/RoutedSessionContext";
 import {
@@ -7200,13 +7201,9 @@ function SessionPageContent({
                   primaryActionKind={
                     mainComposerForAside ? "send" : primaryComposerAction
                   }
-                  disabled={
-                    !!session?.creation &&
-                    session.creation.delivery !== "consumed"
-                  }
+                  disabled={isSessionCreationPending(session?.creation)}
                   placeholder={
-                    session?.creation &&
-                    session.creation.delivery !== "consumed"
+                    isSessionCreationPending(session?.creation)
                       ? t("sessionCreationBlocked")
                       : mainComposerForAside
                         ? "/btw follow-up"
