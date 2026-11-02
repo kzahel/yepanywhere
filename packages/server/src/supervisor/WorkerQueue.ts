@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { UrlProjectId } from "@yep-anywhere/shared";
+import type {
+  SessionCreationProvenance,
+  UrlProjectId,
+} from "@yep-anywhere/shared";
 import { getLogger } from "../logging/logger.js";
 import type { PermissionMode, UserMessage } from "../sdk/types.js";
 import type { EventBus } from "../watcher/EventBus.js";
@@ -49,6 +52,7 @@ export interface QueuedRequest {
   retryProviderStartupFailure?: boolean;
   /** Wait for the provider's canonical id before accepting this launch. */
   requireProviderSessionId?: boolean;
+  creationProvenance?: SessionCreationProvenance;
   creationFence?: CreationAttemptFence;
   authorizeCreation?: (saved: SavedSessionCreation) => Promise<void>;
   /** Resolver to call when request is processed or cancelled */
@@ -126,6 +130,7 @@ export class WorkerQueue {
     onRetryableFailure?: (reason: string) => void | Promise<void>;
     retryProviderStartupFailure?: boolean;
     requireProviderSessionId?: boolean;
+    creationProvenance?: SessionCreationProvenance;
     creationFence?: CreationAttemptFence;
     authorizeCreation?: (saved: SavedSessionCreation) => Promise<void>;
   }): EnqueueResult {
@@ -156,6 +161,9 @@ export class WorkerQueue {
       onRetryableFailure: params.onRetryableFailure,
       retryProviderStartupFailure: params.retryProviderStartupFailure,
       requireProviderSessionId: params.requireProviderSessionId,
+      creationProvenance: params.creationProvenance
+        ? { ...params.creationProvenance }
+        : undefined,
       creationFence: params.creationFence,
       authorizeCreation: params.authorizeCreation,
       queuedAt: new Date(),

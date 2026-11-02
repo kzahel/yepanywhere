@@ -1166,6 +1166,7 @@ export class ProjectQueueScheduler {
         permissionMode,
         modelSettings,
         {
+          creationProvenance: item.creationProvenance,
           onStarted: async (sessionId) => {
             if (!deferred) return;
             await this.completeDeferredNewSessionDispatch(item, sessionId);
@@ -1198,7 +1199,10 @@ export class ProjectQueueScheduler {
       item.projectPath,
       permissionMode,
       modelSettings,
-      { retryProviderStartupFailure: true },
+      {
+        retryProviderStartupFailure: true,
+        creationProvenance: item.creationProvenance,
+      },
     );
     if (isQueueFullResult(created)) {
       return created;

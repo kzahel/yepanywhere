@@ -1,3 +1,4 @@
+import { parseCreationProvenance } from "../sessions/creation-provenance.js";
 import {
   type AgentAuthRouter,
   RouterUnavailable,
@@ -36,6 +37,7 @@ import {
   type ProviderRuntimeStatus,
   type RecapMode,
   type SessionLivenessProbeStatus,
+  type SessionCreationProvenance,
   type SessionLivenessSnapshot,
   type SessionSandboxLevel,
   type SyntheticSessionBoundaryCommand,
@@ -425,6 +427,8 @@ export class RetryableSessionLaunchError extends Error {
 }
 
 export interface SessionLaunchOptions {
+  /** Queue ingress source, saved before native effects; absent for retained callers/legacy queue rows. */
+  creationProvenance?: SessionCreationProvenance;
   /** Trusted request admission; retained callers migrate explicitly. */
   creation?: {
     context: CreationContext;
@@ -1531,6 +1535,7 @@ export class Supervisor {
           retryProviderStartupFailure:
             launchOptions?.retryProviderStartupFailure,
           requireProviderSessionId: launchOptions?.requireProviderSessionId,
+          creationProvenance: launchOptions?.creationProvenance,
         });
         if (isQueueFullError(result)) {
           return result;
@@ -1556,6 +1561,8 @@ export class Supervisor {
         provider,
         launchOptions?.retryProviderStartupFailure,
         launchOptions?.requireProviderSessionId,
+        undefined,
+        launchOptions?.creationProvenance,
       );
     } else if (this.realSdk) {
       // Use real SDK if available
@@ -1566,6 +1573,7 @@ export class Supervisor {
         undefined,
         permissionMode,
         modelSettings,
+        launchOptions?.creationProvenance,
       );
     } else {
       // Fall back to legacy mock SDK
@@ -1576,6 +1584,7 @@ export class Supervisor {
         undefined,
         permissionMode,
         modelSettings,
+        launchOptions?.creationProvenance,
       );
     }
     await this.notifyImmediateStart(launchOptions, process, projectId);
@@ -1643,6 +1652,7 @@ export class Supervisor {
           retryProviderStartupFailure:
             launchOptions?.retryProviderStartupFailure,
           requireProviderSessionId: launchOptions?.requireProviderSessionId,
+          creationProvenance: launchOptions?.creationProvenance,
         });
         if (isQueueFullError(result)) {
           return result;
@@ -1667,6 +1677,7 @@ export class Supervisor {
         undefined,
         launchOptions?.retryProviderStartupFailure,
         launchOptions?.requireProviderSessionId,
+        launchOptions?.creationProvenance,
       );
     } else if (this.realSdk) {
       // Use real SDK if available
@@ -1675,6 +1686,8 @@ export class Supervisor {
         projectId,
         permissionMode,
         modelSettings,
+        undefined,
+        launchOptions?.creationProvenance,
       );
     } else {
       // Fall back to legacy mock SDK - not supported for create-only
@@ -1833,6 +1846,7 @@ export class Supervisor {
     permissionMode?: PermissionMode,
     modelSettings?: ModelSettings,
     resumeSessionId?: string,
+    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     if (
       modelSettings?.routerAccountId ||
@@ -1854,6 +1868,8 @@ export class Supervisor {
       { supportsNativePromptSuggestions: true },
     );
     const tempSessionId = resumeSessionId ?? randomUUID();
+    if (!resumeSessionId)
+      await this.persistNewSessionSource(tempSessionId, creationProvenance);
     const sessionSandbox = await prepareSessionSandbox(
       this.newSessionSandboxOptions(
         "claude",
@@ -2771,6 +2787,7 @@ export class Supervisor {
     resumeSessionId?: string,
     permissionMode?: PermissionMode,
     modelSettings?: ModelSettings,
+    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     if (
       modelSettings?.routerAccountId ||
@@ -2782,6 +2799,8 @@ export class Supervisor {
     }
 
     const tempSessionId = resumeSessionId ?? randomUUID();
+    if (!resumeSessionId)
+      await this.persistNewSessionSource(tempSessionId, creationProvenance);
 
     // realSdk is guaranteed to exist here (checked in startSession)
     if (!this.realSdk) {
@@ -2992,6 +3011,7 @@ export class Supervisor {
     resumeSessionId?: string,
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
+    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     const activeProvider = provider ?? this.provider;
     if (!activeProvider) {
@@ -3024,6 +3044,8 @@ export class Supervisor {
       modelSettings,
     );
     const tempSessionId = resumeSessionId ?? randomUUID();
+    if (!resumeSessionId)
+      await this.persistNewSessionSource(tempSessionId, creationProvenance);
     const sessionSandboxOptions = this.newSessionSandboxOptions(
       activeProvider.name,
       projectPath,
@@ -3408,6 +3430,22 @@ export class Supervisor {
     return { source, identity, sessionId, retainedRuntimeOnly: false as const };
   }
 
+  /** Queue origin is descriptive metadata, never an authorization grant. */
+  private async persistNewSessionSource(
+    sessionId: string,
+    provenance?: SessionCreationProvenance,
+  ): Promise<void> {
+    if (provenance === undefined) return;
+    const normalized = parseCreationProvenance(provenance);
+    if (!normalized) throw new Error("Invalid creation provenance");
+    if (!this.sessionMetadataService)
+      throw new Error("Creation provenance storage unavailable");
+    await this.sessionMetadataService.recordCreationProvenance(
+      sessionId,
+      normalized,
+    );
+  }
+
   /**
    * Start a session using the provider interface with full features.
    */
@@ -3422,6 +3460,7 @@ export class Supervisor {
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
     managedLaunch?: ManagedProviderLaunch,
+    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     const activeProvider = provider ?? this.provider;
     if (!activeProvider) {
@@ -3476,6 +3515,8 @@ export class Supervisor {
     );
     const tempSessionId =
       managedIdentity?.sessionId ?? resumeSessionId ?? randomUUID();
+    if (!resumeSessionId)
+      await this.persistNewSessionSource(tempSessionId, creationProvenance);
     const sessionSandboxOptions = this.newSessionSandboxOptions(
       activeProvider.name,
       projectPath,
@@ -3817,6 +3858,7 @@ export class Supervisor {
     resumeSessionId?: string,
     permissionMode?: PermissionMode,
     modelSettings?: ModelSettings,
+    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     if (
       modelSettings?.routerAccountId ||
@@ -3836,12 +3878,14 @@ export class Supervisor {
     if (!this.sdk) {
       throw new Error("sdk is not available");
     }
+    const sessionId = resumeSessionId ?? randomUUID();
+    if (!resumeSessionId)
+      await this.persistNewSessionSource(sessionId, creationProvenance);
+
     const iterator = this.sdk.startSession({
       cwd: projectPath,
       resume: resumeSessionId,
     });
-
-    const sessionId = resumeSessionId ?? randomUUID();
 
     // Use provided mode or fall back to default
     const effectiveMode = permissionMode ?? this.defaultPermissionMode;
@@ -7384,6 +7428,7 @@ export class Supervisor {
             request.modelSettings,
             request.retryProviderStartupFailure,
             request.requireProviderSessionId,
+            request.creationProvenance,
           );
           process = result;
         } else {
@@ -7472,6 +7517,7 @@ export class Supervisor {
     modelSettings?: ModelSettings,
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
+    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     const resolved = resumeSessionId
       ? await this.activationCoordinator.resolveColdLaunchSettings(
@@ -7501,6 +7547,7 @@ export class Supervisor {
         retryProviderStartupFailure,
         requireProviderSessionId,
         managed,
+        creationProvenance,
       );
     }
 
@@ -7513,6 +7560,7 @@ export class Supervisor {
         resumeSessionId,
         resolved.permissionMode,
         resolved.modelSettings,
+        creationProvenance,
       );
     }
 
@@ -7524,6 +7572,7 @@ export class Supervisor {
       resumeSessionId,
       resolved.permissionMode,
       resolved.modelSettings,
+      creationProvenance,
     );
   }
 

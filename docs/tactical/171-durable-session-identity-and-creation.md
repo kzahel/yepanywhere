@@ -179,6 +179,41 @@ must not be represented as closed by successful routed model inference.
   Claude check above. No attachment/Project Queue migration, provider expansion,
   protocol defaults or primary-server changes were made.
 
+## Project Queue provenance repair — selected follow-up
+
+The maintainer authorized the Queue origin repair after the live browser smoke,
+with one actual Sol 6.1 High review before committing. This bounded slice stores
+normalized enqueue headers on durable queue items and writes the source through
+the existing metadata owner before provider/SDK effects. It includes forced and
+worker-deferred starts, staged attachments, restart/edit/retry preservation,
+legacy unknown records and unchanged existing-session source. It adds no client
+request, capability, native protocol or scheduling/default change.
+
+This deliberately repairs provenance on existing launch paths without claiming
+the broader Queue identity/promotion-key migration below is complete. The five
+other audited source omissions stay open. Scope and checks are recorded in the
+[owning contract](../../topics/session-creation-provenance.md#project-queue-origin)
+and the narrowed [gap](../../gaps/session-creation-source-missing-launch-paths.md).
+Focused real queue/Hono/Supervisor/SQLite checks pass six cases, including a
+separate database connection observing source before provider start, native-id
+remap and failed persistence with zero provider effects. Owned Node 22.23.3 and
+Bun 1.3.14 HTTP checks also pass web/API enqueue, restart, desktop forced
+promotion and correct cold detail/Global Sessions/Inbox source after native-id
+remap. These are controlled pinned Codex protocol checks, not paid live-provider
+qualification. Earlier empty-queue pause and premature retained-catalog probe
+failures remain in the local logs; the final cold collection assertions pass.
+
+The sole actual localhost:3400 Sol 6.1 High/bypassPermissions review ACCEPTs the
+bounded repair with no material findings; its owned process was retired with
+verified stop. The report is retained under ignored
+`tasks/session-identity/reviews/queue-provenance.md`. Root typecheck, lint (zero
+warnings), format and exact new-file checks pass. Full tests report all 7,067
+client tests passing and 6,893 server tests passing with one unrelated
+RendezWatchService prepared-upload/restart failure; its isolated rerun instead
+missed the second nested delivery. Both red results remain recorded in the
+[existing watcher gap](../../gaps/rendez-nested-watch-event-after-restart.md).
+No passing aggregate/root result is claimed.
+
 ## Execution progress
 
 - Recovery milestone slice: four owned-profile fault cases pass: lost HTTP

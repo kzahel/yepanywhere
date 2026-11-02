@@ -166,6 +166,18 @@ explicit tests. Existing router credentials alone never
 authorize a newly paired integration. Linux/Windows native execution and
 physical-phone qualification remain separate release evidence.
 
+### Project Queue provenance repair — November 2
+
+Project Queue now saves the original enqueue source, retains it through
+restart/edit/retry/promotion and passes it into Supervisor's pre-effect metadata
+write for ordinary, worker-deferred and staged-attachment new-session launches.
+The [provenance contract](session-creation-provenance.md#project-queue-origin)
+owns its behavior and compatibility limits. Existing-session turns preserve
+the destination source; old source-less queue items remain unknown.
+This is a bounded provenance repair through the existing metadata owner, not
+Queue's later migration to common durable identity/receipts and promotion keys.
+Other audited creation-source omissions remain open.
+
 ### Managed dispatch boundary
 
 The stored-request dispatcher reads committed text/settings and the

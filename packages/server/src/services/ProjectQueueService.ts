@@ -1,3 +1,4 @@
+import { parseCreationProvenance } from "../sessions/creation-provenance.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -21,6 +22,7 @@ import {
   type QueuedYaCommand,
   type QueuedYaCommandProblem,
   type ShowThinking,
+  type SessionCreationProvenance,
   type StagedAttachmentRef,
   type ThinkingOption,
   type UpdateProjectQueueItemRequest,
@@ -648,6 +650,7 @@ function normalizeProjectQueueItem(
       createdAt,
       updatedAt,
       createdFrom: normalizeCreatedFrom(raw.createdFrom),
+      creationProvenance: parseCreationProvenance(raw.creationProvenance),
       createdByUser: optionalString(raw.createdByUser, "createdByUser"),
       status,
       lastError,
@@ -676,6 +679,9 @@ function summarizeItem(item: ProjectQueueItem): ProjectQueueItemSummary {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     createdFrom: item.createdFrom,
+    ...(item.creationProvenance
+      ? { creationProvenance: { ...item.creationProvenance } }
+      : {}),
     ...(item.createdByUser ? { createdByUser: item.createdByUser } : {}),
     status: item.status,
     attachmentCount,
@@ -708,6 +714,9 @@ function cloneItem(item: ProjectQueueItem): ProjectQueueItem {
         : {}),
     },
     ...(item.createdFrom ? { createdFrom: { ...item.createdFrom } } : {}),
+    ...(item.creationProvenance
+      ? { creationProvenance: { ...item.creationProvenance } }
+      : {}),
   };
 }
 
@@ -873,12 +882,21 @@ export class ProjectQueueService {
     projectId: UrlProjectId;
     projectPath: string;
     request: CreateProjectQueueItemRequest;
+    /** Normalized at request ingress, independently of creator authority. */
+    creationProvenance: SessionCreationProvenance;
     /** The limited user queuing it; absent for the superuser. */
     createdByUser?: string;
     launchPolicy?: ProjectQueueLaunchPolicy;
   }): Promise<ProjectQueueItemSummary> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      const creationProvenance = parseCreationProvenance(
+        params.creationProvenance,
+      );
+      if (!creationProvenance)
+        throw new ProjectQueueValidationError(
+          "Creation provenance is required",
+        );
       const now = new Date().toISOString();
       const itemId = randomUUID();
       const target = normalizeTarget(params.request.target);
@@ -905,6 +923,7 @@ export class ProjectQueueService {
         createdAt: now,
         updatedAt: now,
         createdFrom,
+        creationProvenance,
         ...(params.createdByUser
           ? { createdByUser: params.createdByUser }
           : {}),

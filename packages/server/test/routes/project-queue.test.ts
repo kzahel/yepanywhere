@@ -210,6 +210,7 @@ describe("Project Queue Routes", () => {
   it("lists project queue items globally", async () => {
     const otherProjectId = toUrlProjectId("/tmp/project-queue-route-other");
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -218,6 +219,7 @@ describe("Project Queue Routes", () => {
       },
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId: otherProjectId,
       projectPath: "/tmp/project-queue-route-other",
       request: {
@@ -245,6 +247,7 @@ describe("Project Queue Routes", () => {
 
   it("includes project status and forwards promote-now requests", async () => {
     const item = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -328,6 +331,7 @@ describe("Project Queue Routes", () => {
 
   it("looks up titles only for the blocker sessions the queue names", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -374,6 +378,7 @@ describe("Project Queue Routes", () => {
 
   it("enriches existing-session targets with cached session titles", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -427,6 +432,7 @@ describe("Project Queue Routes", () => {
 
   it("uses typed list projections for direct existing-session target titles", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -457,6 +463,7 @@ describe("Project Queue Routes", () => {
 
   it("prefers custom titles for existing-session targets", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -626,6 +633,7 @@ describe("Project Queue Routes", () => {
     });
 
     const superuserItem = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -715,6 +723,7 @@ describe("Project Queue Routes", () => {
   it("shows a limited user only their granted projects' queue", async () => {
     const otherProjectId = toUrlProjectId("/tmp/project-queue-route-other");
     const grantedItem = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
@@ -723,6 +732,7 @@ describe("Project Queue Routes", () => {
       },
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId: otherProjectId,
       projectPath: "/tmp/project-queue-route-other",
       request: {
@@ -825,6 +835,7 @@ describe("Project Queue Routes", () => {
 
   it("pauses and resumes project queue dispatch globally", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {

@@ -20,14 +20,15 @@ session as that UI (`web` when only the version is present), keeping the
 version. A request with neither is `api`. A UI action therefore needs no
 per-call provenance, and an agent needs no cooperation to be told apart.
 Server-internal launches that do not arrive as an HTTP request, such as helper
-side sessions, project queue work, and routines, remain unmarked.
+side sessions and routines, remain unmarked. Project Queue retains the original
+enqueue request source as described below.
 
 The [launch-path provenance audit](../gaps/session-creation-source-missing-launch-paths.md)
-records known omissions beyond that boundary: UI-requested Project Queue and
-review sessions, the final fork-after-summary target, native v0 API creation,
+records remaining omissions beyond that boundary: UI-requested review
+sessions, the final fork-after-summary target, native v0 API creation,
 maintenance diagnostic creation, and retained forks after a failed restart
 continuation. The HTTP coverage statement above describes the intended contract;
-these paths do not yet satisfy it.
+the remaining paths do not yet satisfy it.
 
 The [admission ownership recommendation](session-creation-provenance.sketches.md)
 explains the shared cause, required creation context and coordination with the
@@ -37,11 +38,40 @@ now incorporates that recommendation into admission, startup, caller migration
 and qualification. It requires explicit source decisions and preserves legacy
 unknown records; the omissions above remain open until implemented and verified.
 
-Qualified ordinary Claude text admission, including routed launches, persists
+Qualified ordinary Claude/Codex text admission, including routed launches, persists
 source with the saved logical session before provider startup or worker deferral.
 The narrow [text acceptance contract](session-identity.md#qualified-claude-text-acceptance--november-2)
 returns that identity even when startup fails. This does not close the six-path
 audit or migrate attachment/other-provider creation.
+
+## Project Queue origin
+
+New queue items capture the enqueue request's normalized web/desktop/API source
+from the existing client headers and persist it with the accepted work. Both
+New Session and the session composer's queue action already send these headers;
+no new client request field or frontend capability is required. Queue summaries
+may return the optional `creationProvenance`; older clients can ignore it.
+New internal `createItem` callers must provide a source, including at runtime.
+
+Edits, retries, reorder, restart and Start/Force start preserve that original
+source. `createdFrom.client` remains navigation context. The person pressing
+Start later does not become the source; creator identity and authorization
+continue to use their existing fields and checks. Existing-session queue turns
+never relabel the destination session.
+
+For new-session targets, Supervisor commits the saved queue source through the
+existing SQLite metadata owner before provider/SDK start, including worker
+deferral and create-only startup for staged attachments. Metadata persistence
+failure starts no provider. The existing native-id remap moves this metadata;
+it is not a post-start callback obligation. The original queue intent remains
+the durable owner when startup fails. This repairs source recording across the
+existing launch shapes; it does not migrate Queue into durable text receipts,
+change scheduling/retry semantics or enable differing-id creation for providers.
+
+Old queue items with no source evidence remain unmarked, including after a UI
+edits or forces them. Existing unmarked sessions are not guessed or backfilled.
+Supported older servers retain their prior behavior; the current client sends
+no additional write or assumes source preservation on those servers.
 
 The first accepted provenance value remains attached to the YA session across
 provider restarts and later messages. Legacy creation requests waiting for a worker still use their existing start

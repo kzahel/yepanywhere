@@ -9,7 +9,10 @@ import type { StagedAttachmentRef, UploadedFile } from "./upload.js";
 import type { UrlProjectId } from "./projectId.js";
 import type { QueuedYaCommand } from "./queued-ya-commands.js";
 import type { UserMessageMetadata } from "./user-message-metadata.js";
-import type { SessionQueuedMessageSummary } from "./app-types.js";
+import type {
+  SessionCreationProvenance,
+  SessionQueuedMessageSummary,
+} from "./app-types.js";
 
 export const DEFAULT_PROJECT_QUEUE_QUIET_SECONDS = 30;
 export const MAX_PROJECT_QUEUE_QUIET_SECONDS = 5 * 60;
@@ -251,6 +254,8 @@ export interface ProjectQueueItem {
   createdAt: string;
   updatedAt: string;
   createdFrom?: ProjectQueueCreatedFrom;
+  /** Original enqueue source; absent only on legacy persisted items. */
+  creationProvenance?: SessionCreationProvenance;
   /**
    * The limited user who queued this item, whose launch policy and
    * attribution apply when it runs; absent means the superuser.
@@ -272,6 +277,8 @@ export interface ProjectQueueItemSummary {
   createdAt: string;
   updatedAt: string;
   createdFrom?: ProjectQueueCreatedFrom;
+  /** Original enqueue source; absent only on legacy persisted items. */
+  creationProvenance?: SessionCreationProvenance;
   /** The limited user who queued this item; absent means the superuser. */
   createdByUser?: string;
   status: ProjectQueueItemStatus;

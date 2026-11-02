@@ -1,3 +1,4 @@
+import { creationProvenanceForHeaders } from "../sessions/creation-provenance.js";
 import {
   type CreateProjectQueueItemRequest,
   type ProjectQueueItemSummary,
@@ -220,6 +221,7 @@ export function createProjectQueueRoutes(deps: ProjectQueueRoutesDeps): Hono {
         projectId: resolved.project.id,
         projectPath: resolved.project.path,
         request: body,
+        creationProvenance: creationProvenanceForHeaders(c.req.raw.headers),
         ...(actor
           ? {
               createdByUser: actor.username,

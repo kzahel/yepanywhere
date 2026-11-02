@@ -38,6 +38,7 @@ const test = base.extend<{ queueServer: YaServerProcess }>({
           "Verify durable queued-session feedback",
         ]) {
           const item = await queue.createItem({
+            creationProvenance: { surface: "web" },
             projectId,
             projectPath: mockProjectPath,
             request: {

@@ -642,8 +642,13 @@ and continuation after explicit sign-in and a grant restricted to the owned test
 integration; that integration is verified revoked after qualification. The live
 browser workflow also passes offline completion, reconnect catch-up, reload and
 UI continuation with exactly-once native inputs and recorded web provenance.
-Attachments and additional caller migration, including Project Queue provenance,
-remain later implementation work.
+The bounded Project Queue provenance repair is implemented and ACCEPTed by its
+sole Sol 6.1 High review: enqueue source survives restart/retry and is saved
+before native launch, including worker deferral/staged attachments. Six real
+integration cases and Node/Bun cold detail/Global Sessions/Inbox checks pass.
+Static checks pass; full tests retain the separately tracked rendez watcher
+failure. Broader Queue identity/receipt migration, attachments in ordinary
+creation and the five remaining provenance caller omissions stay open.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

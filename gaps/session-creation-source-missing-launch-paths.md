@@ -1,4 +1,4 @@
-# Several YA session launch paths omit creation-source metadata
+# Remaining YA session launch paths omit creation-source metadata
 
 Inbox's **Started via → YA UI** filter excludes sessions actually requested
 through YA when their launch bypasses the creation-provenance writer in
@@ -16,9 +16,20 @@ its launch, consistent with the queue path below. No original enqueue request
 was retained in this investigation, so those events alone do not establish
 which queue UI control was used.
 
+## Project Queue repair — November 2
+
+The Queue omission below is repaired for new enqueues: normalized original
+request source is saved with the queue item and committed before native launch,
+including worker deferral and staged attachments. Restart, edits, retry and
+Start/Force start preserve it; existing-session turns do not relabel their
+session, and old queue items stay unknown. See the
+[implemented Queue contract](../topics/session-creation-provenance.md#project-queue-origin).
+The five other audited paths remain unresolved, so this gap remains open. The
+original unmarked session cannot be safely backfilled without its enqueue source.
+
 ## Affected paths audited on 2026-11-01
 
-The additional findings are from the current checkout's production call paths,
+The additional findings below are the original dated audit of production call paths,
 not live launches or provider tests. No session data was changed.
 
 | Launch path | Missing handoff and user-visible result |
@@ -66,15 +77,16 @@ incorporates this audit and the
 [admission recommendation](../topics/session-creation-provenance.sketches.md).
 It assigns the invariant to shared admission, carries context through deferred
 work and tracks targeted fork/helper/maintenance coverage separately from the
-full child-id redesign. No implementation or closure is claimed by that plan.
+full child-id redesign. The Queue source repair is implemented as recorded
+above; the remaining caller omissions are not closed.
 
 The [creation admission recommendation](../topics/session-creation-provenance.sketches.md)
 develops this fix shape and maps it onto the concurrent durable session
 identity/startup plan. This entry remains the audit and closure record.
 
-Capture normalized request provenance at admission and carry it to durable
-new-session creation, including deferred/background work. Project Queue needs
-to persist the original enqueue source across edits, retries and restart;
+For the remaining paths, capture normalized request provenance at admission and carry it to durable
+new-session creation, including deferred/background work. Project Queue now
+persists the original enqueue source across edits, retries and restart;
 `createdFrom.client` is not a web/desktop/API classification. An explicit
 Start/Force start must not relabel work queued earlier by another surface.
 Keep legacy items with no evidence unknown. Native API creates need the API
@@ -96,12 +108,10 @@ and Inbox/Global Sessions after reload. Older-server queue/request compatibility
 needs review before adding fields; this audit does not select a new capability
 or API contract.
 
-Recorded rather than fixed because the requested work is an audit and gap
-capture. Repairs span request admission, durable queue storage and several
-independent launch owners. The current topic explicitly excludes Project Queue
-work while also claiming every creating HTTP request records provenance; the
-implementation and the intended user-facing source semantics need reconciling
-when this gap is fixed.
+The original request was an audit and gap capture. The later Queue repair
+closes that omission only. Remaining repairs span independent review, fork,
+native API and maintenance launch owners; closing Queue does not establish
+complete source coverage or justify guessing old records.
 
 Found 2026-11-01 while investigating a YA-created session missing from the
 Inbox's YA UI filter and auditing the remaining session-creation paths.

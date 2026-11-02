@@ -59,6 +59,7 @@ describe("ProjectQueueService", () => {
   it("persists queued items across service re-instantiation", async () => {
     const service = await createService();
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -91,6 +92,7 @@ describe("ProjectQueueService", () => {
   it("preserves a project sandbox network-firewall opt-out", async () => {
     const service = await createService();
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -121,6 +123,7 @@ describe("ProjectQueueService", () => {
 
     await expect(
       service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: "/tmp/project-queue",
         request: {
@@ -140,6 +143,7 @@ describe("ProjectQueueService", () => {
   it("persists manual dispatch pause across service re-instantiation", async () => {
     const service = await createService();
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -168,6 +172,7 @@ describe("ProjectQueueService", () => {
   it("clears dispatch pause when the last item is deleted", async () => {
     const service = await createService();
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -185,6 +190,7 @@ describe("ProjectQueueService", () => {
   it("resumes dispatch after successful queued-item mutations", async () => {
     const service = await createService();
     const first = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -193,6 +199,7 @@ describe("ProjectQueueService", () => {
       },
     });
     const second = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -232,6 +239,7 @@ describe("ProjectQueueService", () => {
     });
     const service = await createService(eventBus);
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -270,6 +278,7 @@ describe("ProjectQueueService", () => {
     const service = await createService(undefined, stagingService);
 
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -312,6 +321,7 @@ describe("ProjectQueueService", () => {
     );
     const service = await createService(undefined, stagingService);
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -404,6 +414,7 @@ describe("ProjectQueueService", () => {
       stagingService.setDraftProtection((_owner, id) => protectedIds.has(id));
       const service = await createService(undefined, stagingService);
       const created = await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: "/tmp/project-queue",
         request: {
@@ -512,6 +523,7 @@ describe("ProjectQueueService", () => {
       };
       await expect(
         service.createItem({
+          creationProvenance: { surface: "api" },
           projectId,
           projectPath: testDir,
           createdByUser: "alice",
@@ -521,6 +533,7 @@ describe("ProjectQueueService", () => {
       expect(service.listProject(projectId).items).toEqual([]);
 
       const created = await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: testDir,
         createdByUser: "alice",
@@ -566,6 +579,7 @@ describe("ProjectQueueService", () => {
     await fs.mkdir(service.getFilePath());
     await expect(
       service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: "/tmp/project-queue",
         request: {
@@ -597,6 +611,7 @@ describe("ProjectQueueService", () => {
     );
     const service = await createService(undefined, stagingService);
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -668,6 +683,7 @@ describe("ProjectQueueService", () => {
 
     await expect(
       service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: "/tmp/project-queue",
         request: {
@@ -679,6 +695,7 @@ describe("ProjectQueueService", () => {
 
     await expect(
       service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: "/tmp/project-queue",
         request: {
@@ -743,6 +760,7 @@ describe("ProjectQueueService", () => {
 
     async function queueClearloop(service: ProjectQueueService) {
       return service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: "/tmp/project-queue",
         request: {
@@ -758,6 +776,7 @@ describe("ProjectQueueService", () => {
     it("derives the command from the text, not the tag's argument", async () => {
       const service = await createService();
       const created = await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: "/tmp/project-queue",
         request: {
@@ -823,6 +842,7 @@ describe("ProjectQueueService", () => {
       ] as const) {
         await expect(
           service.createItem({
+            creationProvenance: { surface: "api" },
             projectId,
             projectPath: "/tmp/project-queue",
             request: {
@@ -849,6 +869,7 @@ describe("ProjectQueueService", () => {
       const service = await createService();
       await expect(
         service.createItem({
+          creationProvenance: { surface: "api" },
           projectId,
           projectPath: "/tmp/project-queue",
           request: {
@@ -923,6 +944,7 @@ describe("ProjectQueueService", () => {
     await Promise.all(
       Array.from({ length: 5 }, (_, index) =>
         service.createItem({
+          creationProvenance: { surface: "api" },
           projectId,
           projectPath: "/tmp/project-queue",
           request: {
@@ -955,6 +977,7 @@ describe("ProjectQueueService", () => {
     const service = await createService(eventBus);
     const otherProjectId = toUrlProjectId("/tmp/project-queue-other");
     const first = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -963,6 +986,7 @@ describe("ProjectQueueService", () => {
       },
     });
     const other = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId: otherProjectId,
       projectPath: "/tmp/project-queue-other",
       request: {
@@ -971,6 +995,7 @@ describe("ProjectQueueService", () => {
       },
     });
     const second = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -979,6 +1004,7 @@ describe("ProjectQueueService", () => {
       },
     });
     const third = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -1013,6 +1039,7 @@ describe("ProjectQueueService", () => {
   it("guards dispatching items from user-facing mutations", async () => {
     const service = await createService();
     const created = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -1050,6 +1077,7 @@ describe("ProjectQueueService", () => {
   it("returns transient startup failures to the head and pauses the third", async () => {
     const service = await createService();
     const first = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {
@@ -1058,6 +1086,7 @@ describe("ProjectQueueService", () => {
       },
     });
     const retrying = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: "/tmp/project-queue",
       request: {

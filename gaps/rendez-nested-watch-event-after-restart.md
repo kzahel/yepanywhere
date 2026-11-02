@@ -216,3 +216,13 @@ missed the second nested-file delivery at line 364 (1 observed, 2 expected):
 `tasks/session-identity/phase-3-variants-cold-autostart-full-test.log`. This is a
 separate red result of the corrected fixture, not an unchanged-source retry or
 passing replacement. Watcher source, assertion and timeout remain unchanged.
+
+The 2026-11-02 Project Queue provenance slice reproduced this unrelated macOS /
+Node 22.23.3 watcher failure: full workspace `queue-provenance-full-test.log`
+missed the second prepared-upload delivery after restart (6,893 other server
+tests and all 7,067 client tests passed). The isolated
+`queue-provenance-watch-isolated.log` instead missed the second nested delivery
+at line 364 (1 observed, 2 expected; three cases passed, one Linux-only case
+skipped). Both logs remain under ignored `tasks/session-identity/`. No watcher
+code, budgets, assertion or retries were changed; neither result is represented
+as a green full run or attributed to the provenance repair.

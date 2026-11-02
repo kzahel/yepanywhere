@@ -15,9 +15,11 @@ metadata write.
 The November 2 implementation focus is the [Claude/Codex text milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2).
 It now retains required source at ordinary Claude/Codex text admission;
 [the identity contract](session-identity.md#qualified-claude-text-acceptance--november-2)
-owns the implemented scope and capability gates. The six audited caller bypasses
-below remain an explicit later rollout; this narrower milestone cannot close the
-complete provenance gap.
+owns the implemented scope and capability gates. The subsequent
+[Queue provenance repair](session-creation-provenance.md#project-queue-origin)
+covers source on existing queue launch paths; five other audited omissions remain
+an explicit later rollout. Queue durable identity/receipt migration remains
+separate, so the complete provenance gap is still open.
 
 ## Background and evidence
 

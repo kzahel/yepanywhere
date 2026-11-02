@@ -262,6 +262,7 @@ describe("ProjectQueueScheduler", () => {
       if (event.type === "project-queue-changed") events.push(event.reason);
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: testDir,
       request: {
@@ -304,6 +305,7 @@ describe("ProjectQueueScheduler", () => {
       }),
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: testDir,
       request: {
@@ -342,6 +344,7 @@ describe("ProjectQueueScheduler", () => {
       getReadinessCommand: () => command,
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: testDir,
       request: {
@@ -383,6 +386,7 @@ describe("ProjectQueueScheduler", () => {
       getReadinessCommand: () => command,
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: testDir,
       request: {
@@ -418,6 +422,7 @@ describe("ProjectQueueScheduler", () => {
 
   it("promotes an existing-session item when the project is idle", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -447,6 +452,7 @@ describe("ProjectQueueScheduler", () => {
       },
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -533,6 +539,7 @@ describe("ProjectQueueScheduler", () => {
       },
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -566,6 +573,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -593,6 +601,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -617,6 +626,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -647,6 +657,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -681,6 +692,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -706,6 +718,7 @@ describe("ProjectQueueScheduler", () => {
   it("keeps a deferred new-session item until worker launch settles", async () => {
     supervisor.queueNextStart = true;
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -751,6 +764,7 @@ describe("ProjectQueueScheduler", () => {
       }),
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -806,6 +820,7 @@ describe("ProjectQueueScheduler", () => {
     it("resumes the user's own fresh session", async () => {
       await schedulerWith(grantsFor("new-session"), ownSandboxedSession);
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         createdByUser: "alice",
@@ -821,6 +836,7 @@ describe("ProjectQueueScheduler", () => {
     it("fails a turn to the user's own session once it has gone cold", async () => {
       await schedulerWith(grantsFor("new-session"), ownSandboxedSession, false);
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         createdByUser: "alice",
@@ -847,6 +863,7 @@ describe("ProjectQueueScheduler", () => {
     it("launches sandboxed, inside the lock, and attributed to that user", async () => {
       await schedulerWith(grantsFor("new-session"));
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         createdByUser: "alice",
@@ -876,6 +893,7 @@ describe("ProjectQueueScheduler", () => {
     it("fails once the user no longer holds the project's new-session grant", async () => {
       await schedulerWith(grantsFor("join"));
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         createdByUser: "alice",
@@ -896,6 +914,7 @@ describe("ProjectQueueScheduler", () => {
         provider: "codex",
       });
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         createdByUser: "alice",
@@ -917,6 +936,7 @@ describe("ProjectQueueScheduler", () => {
         provider: "codex",
       });
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         createdByUser: "alice",
@@ -933,6 +953,7 @@ describe("ProjectQueueScheduler", () => {
     it("launches a new session with the firewall on", async () => {
       await schedulerWith(grantsFor("new-session"));
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         createdByUser: "alice",
@@ -952,6 +973,7 @@ describe("ProjectQueueScheduler", () => {
 
   it("defaults queued project sandboxes to the network firewall", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -973,6 +995,7 @@ describe("ProjectQueueScheduler", () => {
 
   it("preserves a queued project sandbox network opt-out", async () => {
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -996,6 +1019,7 @@ describe("ProjectQueueScheduler", () => {
   it("requeues a deferred new session after transient provider startup failure", async () => {
     supervisor.queueNextStart = true;
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1039,6 +1063,7 @@ describe("ProjectQueueScheduler", () => {
       new Error("Codex app-server socket timed out"),
     );
     const item = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1120,6 +1145,7 @@ describe("ProjectQueueScheduler", () => {
     );
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath,
       request: {
@@ -1188,6 +1214,7 @@ describe("ProjectQueueScheduler", () => {
     supervisor.processes = [process];
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1238,6 +1265,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId: destinationProjectId,
       projectPath: "/tmp/relocated-project",
       request: {
@@ -1271,6 +1299,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1317,6 +1346,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     const item = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1343,6 +1373,7 @@ describe("ProjectQueueScheduler", () => {
     const process = createProcess(projectId, { state: { type: "in-turn" } });
     supervisor.processes = [process];
     const item = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1394,6 +1425,7 @@ describe("ProjectQueueScheduler", () => {
       idleGraceMs: 10_000,
     });
     const item = await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1458,6 +1490,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1495,6 +1528,7 @@ describe("ProjectQueueScheduler", () => {
     supervisor.processes = [process];
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1514,6 +1548,7 @@ describe("ProjectQueueScheduler", () => {
     supervisor.processes = [process];
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1534,6 +1569,7 @@ describe("ProjectQueueScheduler", () => {
     supervisor.processes = [process];
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1570,6 +1606,7 @@ describe("ProjectQueueScheduler", () => {
     });
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1596,6 +1633,7 @@ describe("ProjectQueueScheduler", () => {
   it("does not promote while dispatch is paused and resumes on request", async () => {
     await scheduler.dispose();
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1625,6 +1663,7 @@ describe("ProjectQueueScheduler", () => {
     supervisor.resumeError = new Error("provider unavailable");
 
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1633,6 +1672,7 @@ describe("ProjectQueueScheduler", () => {
       },
     });
     await service.createItem({
+      creationProvenance: { surface: "api" },
       projectId,
       projectPath: PROJECT_PATH,
       request: {
@@ -1659,6 +1699,7 @@ describe("ProjectQueueScheduler", () => {
   describe("work that yields to the queue", () => {
     async function queueItem(sessionId = "session-2"): Promise<void> {
       await service.createItem({
+        creationProvenance: { surface: "api" },
         projectId,
         projectPath: PROJECT_PATH,
         request: {
