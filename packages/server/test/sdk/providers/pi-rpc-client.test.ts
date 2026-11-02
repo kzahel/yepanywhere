@@ -1,4 +1,5 @@
 import { EventEmitter, once } from "node:events";
+import { spawn } from "node:child_process";
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -64,6 +65,37 @@ function fakeProc(): {
 }
 
 describe("PiRpcClient", () => {
+  it("rejects a real asynchronous spawn failure without an unhandled error", async () => {
+    const proc = spawn(process.execPath + "-missing-pi-fixture", []);
+    const client = new PiRpcClient(proc);
+    await expect(client.request({ type: "get_state" })).rejects.toThrow(
+      /ENOENT/,
+    );
+    expect(proc.pid).toBeUndefined();
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "rejects an actual broken pipe and terminates its owned peer",
+    async () => {
+      const proc = spawn(process.execPath, [
+        "-e",
+        "require('node:fs').closeSync(0);console.log('READY');setInterval(()=>{},1000)",
+      ]);
+      try {
+        await once(proc.stdout!, "data");
+        const client = new PiRpcClient(proc);
+        const exited = once(proc, "exit");
+        await expect(client.request({ type: "get_state" })).rejects.toThrow(
+          /EPIPE|closed|writable/,
+        );
+        await exited;
+        expect(proc.exitCode !== null || proc.signalCode !== null).toBe(true);
+      } finally {
+        proc.kill("SIGKILL");
+      }
+    },
+  );
+
   it("correlates a response to its request by id", async () => {
     const { proc, written } = fakeProc();
     const client = new PiRpcClient(proc as never);

@@ -137,6 +137,17 @@ export class PiRpcClient {
       this.onLine(line),
     );
     proc.once("exit", () => this.handleExit());
+    // Spawn errors and asynchronous pipe failures must reject the same pending
+    // commands as exit. Keep an error listener on the pipe until it closes;
+    // write callbacks and the stream can report the same EPIPE.
+    const transportError = (error: Error) => {
+      this.handleExit(error);
+      if (proc.pid && proc.exitCode === null && proc.signalCode === null) {
+        proc.kill("SIGTERM");
+      }
+    };
+    proc.once("error", transportError);
+    proc.stdin?.on("error", transportError);
   }
 
   private onLine(line: string): void {
@@ -183,11 +194,12 @@ export class PiRpcClient {
     }
   }
 
-  private handleExit(): void {
+  private handleExit(error = new Error("pi RPC process exited")): void {
+    if (this.closed) return;
     this.closed = true;
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
-      pending.reject(new Error("pi RPC process exited"));
+      pending.reject(error);
     }
     this.pending.clear();
     this.detach();
@@ -251,6 +263,8 @@ export class PiRpcClient {
     if (!stdin?.writable) {
       throw new Error("pi RPC stdin is not writable");
     }
-    stdin.write(`${JSON.stringify(obj)}\n`);
+    stdin.write(`${JSON.stringify(obj)}\n`, (error) => {
+      if (error) this.handleExit(error);
+    });
   }
 }

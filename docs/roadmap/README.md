@@ -747,6 +747,15 @@ unrelated port from receiving input, and failed startup retains its real child
 until exit. Real app/store/protocol/reopen and standalone Node 22/26/Bun probes
 pass; no installed OpenCode CLI/model smoke is claimed. Differing-id new
 OpenCode launches remain gated with the other provider rollout.
+Pi scoped cold continuation is independently accepted after correcting native
+home and empty-directory handling. Exact file/header/project and launch scope
+are checked before effects; returned native attachment is verified before input.
+Changed child home or working project refuses explicitly. Public identity stays
+YA across real app/store/OS RPC/reopen and standalone Node 22/26/Bun probes.
+Startup failure and idle teardown retain/verify actual process evidence; final
+static and complete workspace checks pass. No installed Pi CLI/model or other-OS
+runtime smoke is claimed. New Pi creation and durable user-turn mapping remain
+gated separately.
 Remaining provider/host cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

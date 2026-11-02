@@ -26,6 +26,26 @@ The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
 
+- Phase 3 Pi cold continuation is independently accepted by Sol 6.1 High
+  after correcting child-home and empty-directory namespace handling. It passes
+  the proved absolute native file, validates scope/header/original physical
+  project before CLI effects, and verifies returned native id/file before input.
+  A changed child home or working-project overlay refuses explicitly. Public
+  identity remains YA; the saved original input is never replayed. Startup
+  errors retain real child evidence, asynchronous spawn/pipe errors reject RPC,
+  and idle abort or iterator return releases its wait and child. Real app,
+  SQLite, competing native history, OS RPC failure and database-reopen checks
+  pass: 55 cases / five files / 2.92 s. Owned standalone native-file continuation,
+  history and profile-restart probes pass on Node 22, Node 26 and Bun, with an
+  additional final-correction Node 26 pass. The Pi CLI is absent; these use a
+  controlled OS RPC peer, without an external model or Linux/Windows runtime
+  claim. Relevant path/cwd behavior was inspected in upstream 1.1.0 and the
+  current pinned 1.4.0 source; no version/protocol refresh is made. Final lint
+  has zero warnings, format/typecheck pass, and the corrected full workspace
+  passes 6,876 server / 7,064 client cases (server 133.63 s). New Pi creation,
+  its separate durable user-turn-id gap and remaining provider/host gates stay
+  open.
+
 - Phase 3 OpenCode cold continuation and fileless source acquisition are
   independently accepted by Sol 6.1 High after pinning the protected native
   listener's hostname explicitly. One source callback supplies proved native

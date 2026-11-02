@@ -384,6 +384,30 @@ the public id/current project and physical native path. A closed view creates
 no Pi polling or new process. This does not enable differing-id Pi launches;
 that remains in [plan 171](../docs/tactical/171-durable-session-identity-and-creation.md).
 
+Scoped cold continuation passes the proved absolute native file to `--session`,
+while YA Process, API and event identity stay public. Before CLI discovery or
+launch, its canonical path must be inside the actual launch environment's
+`PI_CODING_AGENT_DIR/sessions` (default `~/.pi/agent/sessions`) and match the
+stored native scope. A configured `PI_CODING_AGENT_SESSION_DIR` must also contain
+that file. A YA reader-only `PI_SESSIONS_DIR` override cannot certify a different
+native launch namespace. The bounded session header must name the selected
+native id and physical working project; a missing, invalid or conflicting file
+refuses rather than letting Pi allocate a replacement.
+
+An empty agent-directory override uses Pi's home default. Tilde expansion uses
+the native process home; scoped continuation refuses a changed `HOME` or
+`USERPROFILE` in its child-environment overrides before CLI effects. Explicit
+agent-directory selection remains supported without changing that home.
+
+Pi 1.1.0's CLI restores cwd from the opened header. Scoped continuation therefore
+refuses a changed working-project overlay before launch; callers must select the
+original physical project. After `get_state`, both returned native id and actual
+file must match before any queued input or settings command is sent. A startup
+failure retains its real child handle until exit; spawn/pipe errors reject
+pending RPC requests. Process exit or abort releases an idle input wait, including
+abort before the first iterator pull. This qualifies continuation only, not new
+Pi creation ownership or its separate durable user-turn-id gap.
+
 ### Thinking replay parity — fixed 2026-06-24
 
 Observed session `019ef653-92a0-7c29-83fc-7b7df7c89d06` in `/home/graehl/pi`
