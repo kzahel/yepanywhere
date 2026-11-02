@@ -392,8 +392,9 @@ associates the submission with the canonical YA session id. Qualified owner
 new-session launches now use [common durable admission](session-identity.md#retained-caller-consolidation):
 the public association is known and saved before provider startup, and native
 allocation cannot replace it. Their retry identity survives launcher restart;
-qualified starts no longer use the old in-memory successful-start cache. That
-cache remains only for retained unqualified providers until their migration.
+qualified starts no longer use the old in-memory successful-start cache. All
+registry providers use canonical admission for these ordinary owner launches;
+the superseded successful-start cache is removed.
 
 Retrying the same submission id returns the same accepted result and cannot
 send a second turn. The launcher/input queue must enforce that invariant across

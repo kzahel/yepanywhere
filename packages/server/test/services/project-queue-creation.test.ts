@@ -84,6 +84,7 @@ async function fixture(providerName: "claude" | "codex" | "grok") {
     fail = false;
   const provider: AgentProvider = {
     name: providerName,
+    acceptsChosenSessionId: providerName === "claude",
     displayName: "Owned native",
     supportsPermissionMode: true,
     supportsThinkingToggle: false,
@@ -826,7 +827,7 @@ it.each(["claude", "codex"] as const)(
   },
 );
 
-it("preserves the named legacy review provider path and its keyed deduplication until qualification", async () => {
+it("recovers allocated-provider review starts from canonical admission without a process cache", async () => {
   const f = await fixture("grok");
   const launcher = createSupervisorReviewLauncher(
     f.supervisor,
@@ -862,8 +863,8 @@ it("preserves the named legacy review provider path and its keyed deduplication 
     ),
   ).toEqual(first);
   expect(f.starts).toHaveLength(1);
-  expect(f.metadata.creations.listProjections()).toHaveLength(0);
-  if (first.status !== "started") throw Error("Missing legacy target");
+  expect(f.metadata.creations.listProjections()).toHaveLength(1);
+  if (first.status !== "started") throw Error("Missing saved target");
   expect(f.metadata.getMetadata(first.sessionId)?.creationProvenance).toEqual({
     surface: "web",
   });

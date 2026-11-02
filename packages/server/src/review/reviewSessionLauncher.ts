@@ -64,8 +64,6 @@ export function createSupervisorReviewLauncher(
   ) => void | Promise<void>,
   creations?: SessionCreationStore,
 ): ReviewSessionLauncher {
-  // Retained until the remaining providers/input shapes join admission.
-  const legacyStarts = new Map<string, Promise<ReviewLaunchResult>>();
   const followUps = new Map<string, Promise<ReviewFollowUpResult>>();
   return {
     async startReviewSession(
@@ -159,12 +157,6 @@ export function createSupervisorReviewLauncher(
         ? { status: "started", sessionId: prior.sessionId }
         : { status: "queued", sessionId: prior.sessionId };
     }
-    const durable =
-      supervisor.supportsDurableSessionCreation?.(
-        reviewMessage(text, submissionId),
-        modelSettings,
-        { owner: creation.context.owner },
-      ) !== false;
     const launch = async (): Promise<ReviewLaunchResult> => {
       let result: Awaited<ReturnType<Supervisor["startSession"]>>;
       try {
@@ -174,14 +166,12 @@ export function createSupervisorReviewLauncher(
           undefined,
           modelSettings,
           {
-            creation: durable
-              ? {
-                  ...creation,
-                  requestId,
-                  submissionHash,
-                  onAccepted: associate,
-                }
-              : undefined,
+            creation: {
+              ...creation,
+              requestId,
+              submissionHash,
+              onAccepted: associate,
+            },
             creationProvenance:
               creation.context.source.kind === "request"
                 ? creation.context.source.provenance
@@ -216,22 +206,6 @@ export function createSupervisorReviewLauncher(
       }
       return { status: "started", sessionId: result.sessionId };
     };
-    if (!durable && submissionId) {
-      const key = `${projectPath}\0${submissionId}`;
-      const previous = legacyStarts.get(key);
-      if (previous) return previous;
-      const pending = launch();
-      legacyStarts.set(key, pending);
-      try {
-        const result = await pending;
-        if (result.status === "queue-full") legacyStarts.delete(key);
-        trimOldest(legacyStarts);
-        return result;
-      } catch (error) {
-        legacyStarts.delete(key);
-        throw error;
-      }
-    }
     return launch();
   }
 

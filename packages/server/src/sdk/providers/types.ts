@@ -674,6 +674,9 @@ export interface AgentProvider {
    */
   startSession(options: StartSessionOptions): Promise<AgentSession>;
 
+  /** Native allocation accepts YA's chosen spelling; otherwise it returns N. */
+  readonly acceptsChosenSessionId?: boolean;
+
   /** Actual new-session store, resolved before native allocation (no effects). */
   getNewSessionNamespace?(
     cwd: string,

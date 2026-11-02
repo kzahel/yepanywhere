@@ -95,6 +95,7 @@ describe("a session start that waits for a worker", () => {
     > = [];
     const provider: AgentProvider = {
       name: "claude",
+      acceptsChosenSessionId: true,
       displayName: "Claude",
       supportsPermissionMode: true,
       supportsThinkingToggle: true,

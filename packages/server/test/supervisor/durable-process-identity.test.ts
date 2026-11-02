@@ -232,6 +232,7 @@ async function supervisorFixture(
   const queue = new MessageQueue();
   const provider: AgentProvider = {
     name: "claude",
+    acceptsChosenSessionId: true,
     displayName: "Claude",
     supportsPermissionMode: true,
     supportsThinkingToggle: true,
@@ -713,6 +714,7 @@ async function retainedHostFixture(maxWorkers = 0) {
   const queues: MessageQueue[] = [];
   const provider: AgentProvider = {
     name: "claude",
+    acceptsChosenSessionId: true,
     runtimeOwner: "host",
     displayName: "retained fixture",
     supportsPermissionMode: true,
@@ -920,6 +922,7 @@ it.each([
     const abort = vi.fn(source.finish);
     const provider = {
       name: "claude",
+      acceptsChosenSessionId: true,
       displayName: "controlled native continuation",
       supportsNativeResumeSource: true,
       supportsPermissionMode: true,

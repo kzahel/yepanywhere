@@ -1,3 +1,4 @@
+import { nativeStorageScope } from "./native-storage-scope.js";
 /**
  * CodexOSS Provider - Local models via Codex CLI with --oss flag.
  *
@@ -14,7 +15,7 @@
 import { type ChildProcess, exec, spawn } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 import {
@@ -205,6 +206,7 @@ type CodexItem =
  */
 export class CodexOSSProvider implements AgentProvider {
   readonly supportsNativeResumeSource = true;
+  readonly initializesOnFirstMessage = true;
   readonly name = "codex-oss" as const;
   readonly displayName = "CodexOSS";
   readonly supportsPermissionMode = false;
@@ -684,6 +686,25 @@ export class CodexOSSProvider implements AgentProvider {
   /**
    * Start a new CodexOSS session.
    */
+  async getNewSessionNamespace(cwd: string) {
+    return {
+      family: "codex" as const,
+      storageScope: await nativeStorageScope(
+        resolve(
+          await realpath(cwd),
+          join(
+            process.env.CODEX_HOME ||
+              join(
+                process.platform === "win32" ? userInfo().homedir : homedir(),
+                ".codex",
+              ),
+            "sessions",
+          ),
+        ),
+      ),
+    };
+  }
+
   async startSession(options: StartSessionOptions): Promise<AgentSession> {
     const source = options.nativeResumeSource;
     if (source) {
@@ -894,14 +915,15 @@ export class CodexOSSProvider implements AgentProvider {
       }
       isFirstNewMessage = false;
 
-      // Emit user message with UUID from queue to enable deduplication
-      // The UUID was set by Process.queueMessage() and passed through MessageQueue
-      yield {
+      // A first exec turn has no native identity until thread.started. Never
+      // expose a fabricated pending id to the identity owner.
+      const userMessage = {
         type: "user",
         uuid: message.uuid,
-        session_id: currentSessionId || `pending-${Date.now()}`,
         message: { role: "user", content: userPrompt },
-      } as SDKMessage;
+      };
+      if (currentSessionId)
+        yield { ...userMessage, session_id: currentSessionId } as SDKMessage;
 
       if (signal.aborted) break;
 
@@ -1046,7 +1068,22 @@ export class CodexOSSProvider implements AgentProvider {
                   cwd: options.cwd,
                 } as SDKMessage;
               }
+              if (isFirstTurn)
+                yield {
+                  ...userMessage,
+                  session_id: currentSessionId,
+                } as SDKMessage;
               continue;
+            }
+
+            // Exec owns one immutable prompt per child. Its native turn-start
+            // event proves acceptance; our earlier user echo does not.
+            if (
+              event.type === "turn.started" &&
+              currentSessionId &&
+              message.uuid
+            ) {
+              options.onNativeInputConsumed?.(currentSessionId, message.uuid);
             }
 
             // Handle item events specially to accumulate streaming tokens

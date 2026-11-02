@@ -611,6 +611,7 @@ const PROVIDER_HOST_FEATURE = {
   codexCreation: "session-creation-codex-v1",
   opencodeCreation: "session-creation-opencode-v1",
   piCreation: "session-creation-pi-v1",
+  adaptersCreation: "session-creation-adapters-v1",
   nativeBinding: BOUND_RUNTIME_FEATURE,
   agentApiRevocation: "agent-api-revocation",
   agentApiManagement: "agent-api-management",
@@ -633,6 +634,11 @@ export async function assertHostedCreationSupport(
   if (
     !status ||
     !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.creationOwner) ||
+    (!["claude", "codex", "opencode", "pi"].includes(providerName) &&
+      !providerHostHasFeature(
+        status,
+        PROVIDER_HOST_FEATURE.adaptersCreation,
+      )) ||
     (providerName === "codex" &&
       !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.codexCreation)) ||
     (providerName === "opencode" &&

@@ -35,7 +35,6 @@ import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
   DEFAULT_PROMPT_CACHE_KEEPALIVE_INACTIVITY_MINUTES,
-  getSessionTextCreationCapability,
   type CacheMissBillingSettings,
   type ClaudeSteerBackgroundBashSettings,
   type DurableSyntheticDoneMessage,
@@ -1184,10 +1183,11 @@ export class Supervisor {
       attemptId: fence.attemptId,
       generation: fence.generation,
       nativeNamespace: namespace,
-      nativeSessionId:
-        saved.request?.provider === "claude"
-          ? parseNativeSessionId(saved.sessionId)
-          : undefined,
+      nativeSessionId: this.resolveProvider({
+        providerName: saved.request!.provider,
+      })?.acceptsChosenSessionId
+        ? parseNativeSessionId(saved.sessionId)
+        : undefined,
       initialInputId: saved.initialInputId,
     });
     return {
@@ -1220,7 +1220,8 @@ export class Supervisor {
       saved.deleted ||
       saved.request?.launch?.runtimeOwner !== "host" ||
       saved.context.owner.kind !== "superuser" ||
-      !getSessionTextCreationCapability(saved.request.provider)
+      !this.resolveProvider({ providerName: saved.request.provider })
+        ?.getNewSessionNamespace
     )
       return;
     if (
@@ -1260,7 +1261,8 @@ export class Supervisor {
     if (saved?.request?.launch?.runtimeOwner !== "host") return undefined;
     if (
       saved.context.owner.kind !== "superuser" ||
-      !getSessionTextCreationCapability(saved.request.provider) ||
+      !this.resolveProvider({ providerName: saved.request.provider })
+        ?.getNewSessionNamespace ||
       !isProviderRuntimeHostAvailable()
     )
       throw new Error("Saved creation host owner is unavailable");
@@ -1338,7 +1340,8 @@ export class Supervisor {
       // This first vertical is deliberately private until all retained shapes
       // and the hosted contract are qualified. Never downgrade these choices.
       if (
-        !getSessionTextCreationCapability(request.provider) ||
+        !this.resolveProvider({ providerName: request.provider })
+          ?.getNewSessionNamespace ||
         saved.context.owner.kind === "limited" ||
         launch.machineControl ||
         launch.sandboxLevel === "project-write"
@@ -1397,10 +1400,10 @@ export class Supervisor {
         bindNative(id) {
           // Claude's first vertical explicitly requests this native spelling.
           if (
-            request.provider === "claude" &&
+            provider.acceptsChosenSessionId &&
             id !== parseNativeSessionId(saved.sessionId)
           )
-            throw new Error("Claude did not honor its chosen native id");
+            throw new Error("Provider did not honor its chosen native id");
           identity.bindNative(id);
         },
       };
@@ -1509,11 +1512,7 @@ export class Supervisor {
   ): boolean {
     const provider = this.resolveProvider(modelSettings);
     return Boolean(
-      provider &&
-        getSessionTextCreationCapability(provider.name) &&
-        provider.getNewSessionNamespace &&
-        (!options.stagedAttachments ||
-          ["claude", "codex"].includes(provider.name)) &&
+      provider?.getNewSessionNamespace &&
         (options.owner?.kind ?? "superuser") === "superuser" &&
         !message.images?.length &&
         !message.documents?.length &&
@@ -1561,11 +1560,6 @@ export class Supervisor {
       })
     ) {
       const store = this.sessionMetadataService.creations;
-      if (
-        launchOptions.creation.attachments &&
-        !["claude", "codex"].includes(provider.name)
-      )
-        throw new Error("Provider attachment creation is not qualified");
       const requestId = launchOptions.creation.requestId ?? randomUUID();
       const creation = launchOptions.creation;
       const request = {
@@ -3790,7 +3784,8 @@ export class Supervisor {
         cwd: projectPath,
         resumeSessionId: resume?.source?.native.id ?? resumeSessionId,
         newSessionId:
-          resumeSessionId || (managedLaunch && activeProvider.name !== "claude")
+          resumeSessionId ||
+          (managedLaunch && !activeProvider.acceptsChosenSessionId)
             ? undefined
             : tempSessionId,
         ...instructions,

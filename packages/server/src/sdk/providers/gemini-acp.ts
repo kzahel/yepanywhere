@@ -1,3 +1,4 @@
+import { nativeStorageScope } from "./native-storage-scope.js";
 /**
  * Gemini ACP Provider implementation using Agent Client Protocol.
  *
@@ -12,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type {
   RequestPermissionRequest,
@@ -230,6 +231,18 @@ export class GeminiACPProvider implements AgentProvider {
   /**
    * Start a new Gemini ACP session.
    */
+  async getNewSessionNamespace(cwd: string) {
+    return {
+      family: "gemini" as const,
+      storageScope: await nativeStorageScope(
+        resolve(
+          await realpath(cwd),
+          join(process.env.GEMINI_CLI_HOME || homedir(), ".gemini", "tmp"),
+        ),
+      ),
+    };
+  }
+
   async startSession(options: StartSessionOptions): Promise<AgentSession> {
     const source = options.nativeResumeSource;
     if (source) {
@@ -469,6 +482,9 @@ export class GeminiACPProvider implements AgentProvider {
         )) {
           yield msg;
         }
+        await promptPromise;
+        if (!signal.aborted)
+          options.onNativeInputConsumed?.(sessionId, userUuid);
         this.log.debug(
           { durationMs: Date.now() - promptStart },
           "Gemini prompt complete",

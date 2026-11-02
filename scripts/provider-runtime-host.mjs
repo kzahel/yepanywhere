@@ -54,6 +54,7 @@ const CREATION_OWNER_FEATURE = "session-creation-owner-v1";
 const CODEX_CREATION_FEATURE = "session-creation-codex-v1";
 const OPENCODE_CREATION_FEATURE = "session-creation-opencode-v1";
 const PI_CREATION_FEATURE = "session-creation-pi-v1";
+const ADAPTERS_CREATION_FEATURE = "session-creation-adapters-v1";
 const MAX_CONTROL_REQUEST_BYTES = 1024 * 1024;
 const COOPERATIVE_STOP_MS = 5_000;
 const TERM_GRACE_MS = 1_500;
@@ -519,6 +520,7 @@ export class ProviderRuntimeHost {
             CODEX_CREATION_FEATURE,
             OPENCODE_CREATION_FEATURE,
             PI_CREATION_FEATURE,
+            ADAPTERS_CREATION_FEATURE,
             BOUND_RUNTIME_FEATURE,
             "runtime-control",
             "session-turn",
@@ -935,13 +937,15 @@ export class ProviderRuntimeHost {
     )
       throw new Error("Native continuation does not match its launch source");
     const nativeCreationFeature =
-      creation?.nativeNamespace.family === "codex"
-        ? CODEX_CREATION_FEATURE
-        : creation?.nativeNamespace.family === "opencode"
-          ? OPENCODE_CREATION_FEATURE
-          : creation?.nativeNamespace.family === "pi"
-            ? PI_CREATION_FEATURE
-            : undefined;
+      creation && !["claude", "codex", "opencode", "pi"].includes(providerName)
+        ? ADAPTERS_CREATION_FEATURE
+        : creation?.nativeNamespace.family === "codex"
+          ? CODEX_CREATION_FEATURE
+          : creation?.nativeNamespace.family === "opencode"
+            ? OPENCODE_CREATION_FEATURE
+            : creation?.nativeNamespace.family === "pi"
+              ? PI_CREATION_FEATURE
+              : undefined;
     if (
       nativeCreationFeature &&
       !requiredWorkerFeatures.includes(nativeCreationFeature)
@@ -1965,6 +1969,7 @@ async function main() {
           CODEX_CREATION_FEATURE,
           OPENCODE_CREATION_FEATURE,
           PI_CREATION_FEATURE,
+          ADAPTERS_CREATION_FEATURE,
           BOUND_RUNTIME_FEATURE,
           "runtime-control",
           "session-turn",

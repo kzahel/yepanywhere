@@ -80,9 +80,10 @@ these remaining migrations are already implemented.
 | Ordinary owner text, Claude/Codex/OpenCode/Pi | Implemented | Qualified text uses saved dispatch | Existing native/browser/recovery qualification above |
 | Project Queue ordinary owner text | Implemented in current slice | Qualified promotion no longer owns deferred native startup/retry; same eligibility and dispatcher as direct creation | Six real SQLite/owner integration cases; local/hosted native-process and failed-row browser checks pass |
 | Owner Claude/Codex staged attachments | Implemented in current slice | Capable ordinary form and Queue bypass their empty-provider/materialize/send implementation; older-server and other retained shapes remain named consumers | 43-case storage/staging/owner qualification; three local/hosted native/browser cases; single review corrected and full checks pass |
-| Qualified owner native API/peer, keyed review, maintenance and text successors | Implemented in current slice | Qualified review starts recover from the canonical store; unqualified providers retain their named legacy cache; native input UUID comes from its trusted receipt; caller adapters use saved dispatch | 143 focused integration cases; four local/hosted native/browser cases, real Claude CLI and three Bun cases pass |
+| Qualified owner native API/peer, keyed review, maintenance and text successors | Implemented in current slice | Review starts recover from the canonical store; its successful-start cache is removed; native input UUID comes from its trusted receipt; caller adapters use saved dispatch | 143 focused integration cases; four local/hosted native/browser cases, real Claude CLI and three Bun cases pass |
 | Qualified owner create-only routes | Implemented as empty preparation adapters | No separate qualified empty-provider creation engine; no invented initial turn | Local/hosted native/browser first-turn/restart checks pass |
-| New fork/clone resources and remaining restricted/provider shapes | Pending | Remaining creation engines/bypasses must retire | Next consolidation cut |
+| Retained provider adapters | Implemented in current slice | Grok, frozen Gemini ACP, Codex OSS and Claude wrappers use adapter namespaces; review successful-start fallback cache removed | Six real stdio/SQLite cold-continuation and lost-proof cases pass; 69 focused cases pass; sole Sol review accepts with a ledger correction |
+| New fork/clone resources and remaining restricted/input shapes | Pending | Remaining creation engines/bypasses must retire | Next consolidation cut |
 | Remaining provider/input shapes and final bypass audit | Pending | Retained compatibility/exception inventory required | Final consolidation closure |
 
 Queue admission uses a deterministic operation key from the durable queue item,
@@ -171,6 +172,23 @@ with verified stop; there was no second review. Ignored `callers-*` evidence and
 `reviews/caller-consolidation.md` record the checks and corrections. Other
 provider/restricted shapes and new forks/clones still require migration and
 retirement of their named legacy engines; this is not consolidation closure.
+
+Retained provider admission is independently accepted by the sole Sol 6.1 High
+review, with its stale-ledger note corrected and verified retirement recorded.
+Six controlled native-stdio/SQLite cases cover Grok, frozen Gemini ACP and Codex
+OSS: native proof delayed independently of the user echo, loss of that proof
+without allocation replay, and exact-N cold continuation through profile reopen.
+They pass in 3.50 seconds; broader focused host/Queue qualification passes 69
+cases in 12.94 seconds. Ten older fixtures needed the explicit chosen-id property;
+corrected native/HTTP fixtures plus the six cases pass 45 cases in 3.57 seconds.
+The existing six-case real Claude CLI/browser file also passes in 44.7 seconds,
+including routed creation, preparation, refusal and recovery. Root lint, format,
+typecheck and full tests pass: 6,922 server cases in 140.70 seconds and 7,067
+client cases. An earlier full run also reproduced the tracked Rendez watcher
+failure; this passing sample does not close its intermittent gap. No second
+review. Evidence is retained under ignored `providers-*` / `provider-admission-*`
+and `reviews/provider-admission.md`. New hosted coverage for every added adapter,
+external model-account smokes and Linux/Windows remain unclaimed.
 
 ## Active milestone — Claude and Codex creation, November 2
 

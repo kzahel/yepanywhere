@@ -1125,6 +1125,7 @@ export class ClaudeProvider implements AgentProvider {
   readonly name: ProviderName = "claude";
   readonly displayName: string = "Claude";
   readonly supportsNativeResumeSource = true;
+  readonly acceptsChosenSessionId = true;
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle: boolean = true;
   readonly supportsSlashCommands = true;

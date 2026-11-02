@@ -118,6 +118,7 @@ async function main(): Promise<void> {
           "session-creation-codex-v1",
           "session-creation-opencode-v1",
           "session-creation-pi-v1",
+          "session-creation-adapters-v1",
           BOUND_RUNTIME_FEATURE,
         ],
       });

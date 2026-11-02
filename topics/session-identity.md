@@ -636,8 +636,7 @@ replays uncertain input. Peer identity/grants are not inferred from provenance.
 
 Keyed Source Review stores its public association at acceptance before native
 effects, and resolves retries through the canonical creation operation instead
-of a process-local cache of successful starts. The existing cache remains only
-for retained unqualified providers until their next migration cut. A changed input under the same
+of a process-local cache of successful starts. The superseded successful-start cache is removed. A changed input under the same
 key refuses. The review manifest stays immutable; existing submission state
 records delivery/association, and existing-session follow-ups keep their own
 receipt semantics. A keyed saved failure remains linked to that original resource. Legacy unkeyed
@@ -655,8 +654,30 @@ scoped continuation retains its native identity. Collections project the flag
 from a compact column without reading saved prompts. Old servers omit it; no new
 request is sent to learn it. Published older clients ignore the additive field.
 The text/attachment capability meanings and global receipts advertisement remain
-unchanged. Remaining providers, restricted/sandbox launches and forks/clones are
+unchanged. Restricted/sandbox launches and forks/clones are
 tracked in the consolidation ledger until their migration closes.
+
+### Retained native provider admission
+
+All registry providers expose their actual new-session namespace before native
+allocation. Internal admission eligibility uses that adapter contract rather
+than the public text-capability ledger. Claude, Gateway and Ollama explicitly
+accept a chosen native spelling; allocated providers return N which binds to P.
+Native input acceptance is separate: ACP confirms only after successful
+`session/prompt`; Codex OSS confirms the immutable exec input on native
+`turn.started`. Their earlier YA user echo is never confirmation. The first
+Codex OSS echo waits for `thread.started` so no invented pending native id can
+bind. Lost acceptance proof preserves uncertainty and refuses fresh allocation
+on continuation; confirmed cold continuation addresses only the bound N/store.
+
+The frozen Gemini ACP protocol, target versions and model defaults are retained.
+This is internal identity migration, not an upstream refresh. The private host
+requires `session-creation-adapters-v1` from the running host and new worker for
+these additional adapters; an old host refuses before launch instead of
+silently falling back. Existing workers retain their original loaded contract.
+Public text bits 142–145, staged bit 146 and the unadvertised broad receipts
+contract keep their meanings. Additional internal adapter coverage does not
+change requests sent to older servers or broaden those client capabilities.
 
 ## Compatibility research — 2026-11-01
 
