@@ -217,6 +217,37 @@ attachment-shaped `~/` or absolute paths as the share `path` instead of
 dropping them as outside-project. The share still does not grant
 `/etc/passwd` or other app-data files just because they were mentioned.
 
+## Durable initial attachments
+
+For the qualified owner Claude/Codex creation workflow, immutable input bundles
+live in app-data `uploads/creation-inputs/`, outside draft staging and its TTL.
+The common [creation owner](session-identity.md#selected-ownership-boundary)
+commits their path-free metadata/digest claim with the accepted prompt and YA id.
+Clients submit staged references, never arbitrary server file paths. Validation
+uses the authenticated staging account and canonical metadata. Several batches
+from that account are allowed; another account's ids confer no access.
+
+Provider startup follows materialization under that saved YA id using the normal
+location policy. Queue completion or draft cleanup cannot expire accepted bytes.
+Pre-effect failure retains the claim for explicit retry; partial copies publish
+atomically and equal-sized changed files refuse delivery. Profile claims are
+limited to 2 GiB and 64 files per creation; refusal preserves the source draft.
+Deletion releases the logical claim. Unclaimed bundles/partial directories older
+than seven days are reclaimed on the first attachment creation after process
+startup, with no per-session cleanup loop. Final transcript attachment retention
+remains governed below. This is not an immediate deletion or periodic retention
+promise.
+
+The exact optional capability `session-creation-staged-attachments` (146), plus
+the selected provider's text-creation bit, gates this request. Supported released
+servers in the existing creation compatibility audit lack it, so newer clients
+retain create/materialize/send there. No new staged field or acceptance claim
+is sent on that fallback. An explicit `creation-not-accepted` refusal allows a
+corrected submission without clearing its files or text; ambiguous failures keep
+the original recovery identity. Newer unfinished file pastes also survive
+acceptance of an earlier selection. Other retained launch shapes still use their existing
+flow pending the consolidation ledger.
+
 ## Retention And Cleanup
 
 Attachment retention and cleanup remain incomplete. Central storage makes a

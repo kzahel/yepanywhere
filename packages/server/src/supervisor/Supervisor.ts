@@ -1,3 +1,7 @@
+import type {
+  CreationAttachments,
+  CreationAttachmentSource,
+} from "../sessions/creation-attachments.js";
 import { parseCreationProvenance } from "../sessions/creation-provenance.js";
 import {
   type AgentAuthRouter,
@@ -10,6 +14,8 @@ import {
 } from "../sessions/creation-process-identity.js";
 import {
   StaleCreationAttempt,
+  SessionCreationConflict,
+  SessionCreationCapacityError,
   type CreationContext,
   type CreationAttemptFence,
   type SavedSessionCreation,
@@ -435,6 +441,7 @@ export interface SessionLaunchOptions {
     context: CreationContext;
     requestId?: string;
     submissionHash?: string;
+    attachments?: CreationAttachmentSource;
     onAccepted?: (saved: SavedSessionCreation) => void | Promise<void>;
     authorize(saved: SavedSessionCreation): Promise<void>;
   };
@@ -594,6 +601,7 @@ export interface SupervisorOptions {
   agentAuthRouter?: AgentAuthRouter;
   /** Metadata service used to hide/archive server-owned helper forks. */
   sessionMetadataService?: SessionMetadataService;
+  creationAttachments?: CreationAttachments;
   /** Read-state service updated when a synthetic done boundary commits. */
   notificationService?: NotificationService;
   /** Durable store for long-lived patient queued messages. */
@@ -796,6 +804,7 @@ export class Supervisor {
   >();
   private interruptTimeoutMs: number;
   private agentAuthRouter?: AgentAuthRouter;
+  private creationAttachments?: CreationAttachments;
   private sessionMetadataService?: SessionMetadataService;
   private notificationService?: NotificationService;
   private sessionQueuePersistenceService?: SessionQueuePersistenceService;
@@ -861,6 +870,7 @@ export class Supervisor {
     this.interruptTimeoutMs =
       options.interruptTimeoutMs ?? DEFAULT_INTERRUPT_TIMEOUT_MS;
     this.sessionMetadataService = options.sessionMetadataService;
+    this.creationAttachments = options.creationAttachments;
     this.agentAuthRouter = options.agentAuthRouter;
     this.notificationService = options.notificationService;
     this.sessionQueuePersistenceService =
@@ -1079,8 +1089,31 @@ export class Supervisor {
     });
   }
 
+  private readonly savedStarts = new Map<
+    string,
+    Promise<Process | QueuedResponse | QueueFullResponse>
+  >();
+
+  /** Coalesce concurrent ingress retries while this controller owns preflight. */
+  startSavedSession(
+    fence: CreationAttemptFence,
+    authorize: (saved: SavedSessionCreation) => Promise<void>,
+    onStarted?: SessionStartedCallback,
+  ): Promise<Process | QueuedResponse | QueueFullResponse> {
+    const key = `${fence.attemptId}:${fence.generation}`;
+    const previous = this.savedStarts.get(key);
+    if (previous) return previous;
+    const start = this.startSavedSessionOnce(
+      fence,
+      authorize,
+      onStarted,
+    ).finally(() => this.savedStarts.delete(key));
+    this.savedStarts.set(key, start);
+    return start;
+  }
+
   /** Dispatch already committed intent. The caller must supply current authority. */
-  async startSavedSession(
+  private async startSavedSessionOnce(
     fence: CreationAttemptFence,
     authorize: (saved: SavedSessionCreation) => Promise<void>,
     onStarted?: SessionStartedCallback,
@@ -1339,6 +1372,16 @@ export class Supervisor {
         request.projectPath,
       );
       await authorize(store.assertCurrent(fence));
+      const attachments = request.attachments
+        ? await this.creationAttachments?.materialize(
+            request.attachments,
+            request.projectPath,
+            saved.sessionId,
+          )
+        : undefined;
+      if (request.attachments && !attachments)
+        throw new Error("Creation attachment storage is unavailable");
+      if (request.attachments) await authorize(store.assertCurrent(fence));
       currentFence = store.beginDispatch(fence, namespace);
       const identity = creationProcessIdentity(store, currentFence, namespace);
       const managedIdentity: ManagedProcessIdentity = {
@@ -1363,6 +1406,7 @@ export class Supervisor {
         request.projectId,
         {
           text: request.message,
+          attachments,
           uuid: saved.initialInputId,
           automaticSource: request.input?.automaticSource,
           tempId: request.input?.tempId,
@@ -1412,17 +1456,44 @@ export class Supervisor {
     }
   }
 
+  private readonly creationAdmissions = new Map<
+    string,
+    { fingerprint: string; promise: Promise<SavedSessionCreation> }
+  >();
+
+  private admitPreparedCreation(
+    key: string,
+    fingerprint: string,
+    prepare: () => Promise<SavedSessionCreation>,
+  ): Promise<SavedSessionCreation> {
+    const previous = this.creationAdmissions.get(key);
+    if (previous) {
+      if (previous.fingerprint !== fingerprint)
+        throw new SessionCreationConflict();
+      return previous.promise;
+    }
+    if (this.creationAdmissions.size >= 16)
+      throw new SessionCreationCapacityError();
+    const promise = prepare().finally(() =>
+      this.creationAdmissions.delete(key),
+    );
+    this.creationAdmissions.set(key, { fingerprint, promise });
+    return promise;
+  }
+
   /** The same eligibility decision is used by ingress adapters and admission. */
   supportsDurableSessionCreation(
     message: UserMessage,
     modelSettings: ModelSettings | undefined,
     owner: CreationContext["owner"] = { kind: "superuser" },
+    stagedAttachments = false,
   ): boolean {
     const provider = this.resolveProvider(modelSettings);
     return Boolean(
       provider &&
         getSessionTextCreationCapability(provider.name) &&
         provider.getNewSessionNamespace &&
+        (!stagedAttachments || ["claude", "codex"].includes(provider.name)) &&
         owner.kind === "superuser" &&
         !message.images?.length &&
         !message.documents?.length &&
@@ -1453,8 +1524,8 @@ export class Supervisor {
     const projectId = launchOptions?.projectId ?? encodeProjectId(projectPath);
     const provider = this.resolveProvider(modelSettings);
 
-    // Roll out the first qualified text shape explicitly. Attachments and
-    // other launch shapes retain their existing flow until their own cuts.
+    // Qualified text and staged initial files share admission. Remaining
+    // launch shapes retain their named consumers until the caller cut.
     if (
       launchOptions?.creation &&
       provider &&
@@ -1463,42 +1534,71 @@ export class Supervisor {
         message,
         modelSettings,
         launchOptions.creation.context.owner,
+        Boolean(launchOptions.creation.attachments),
       )
     ) {
       const store = this.sessionMetadataService.creations;
-      const saved = store.admit({
-        requestId: launchOptions.creation.requestId ?? randomUUID(),
-        context: launchOptions.creation.context,
-        request: {
-          submissionHash: launchOptions.creation.submissionHash,
-          projectId,
-          projectPath,
-          provider: provider.name,
-          message: message.text,
-          settings: {
-            permissionMode: permissionMode ?? this.defaultPermissionMode,
-            requestedModel:
-              modelSettings?.requestedModel ?? modelSettings?.model ?? null,
-            serviceTier: modelSettings?.serviceTier ?? null,
-            thinking: modelSettings?.thinking ?? null,
-            effort: modelSettings?.effort ?? null,
-          },
-          launch: snapshotCreationLaunch({
-            ...modelSettings,
-            runtimeOwner: provider.runtimeOwner ?? "local",
-          }),
-          input: snapshotCreationInput({
-            schemaVersion: 1,
-            automaticSource:
-              message.automaticSource === "project-queue"
-                ? "project-queue"
-                : undefined,
-            tempId: message.tempId,
-            mode: message.mode,
-            metadata: message.metadata,
-          }),
+      if (
+        launchOptions.creation.attachments &&
+        !["claude", "codex"].includes(provider.name)
+      )
+        throw new Error("Provider attachment creation is not qualified");
+      const requestId = launchOptions.creation.requestId ?? randomUUID();
+      const creation = launchOptions.creation;
+      const request = {
+        submissionHash: launchOptions.creation.submissionHash,
+        projectId,
+        projectPath,
+        provider: provider.name,
+        message: message.text,
+        settings: {
+          permissionMode: permissionMode ?? this.defaultPermissionMode,
+          requestedModel:
+            modelSettings?.requestedModel ?? modelSettings?.model ?? null,
+          serviceTier: modelSettings?.serviceTier ?? null,
+          thinking: modelSettings?.thinking ?? null,
+          effort: modelSettings?.effort ?? null,
         },
-      });
+        launch: snapshotCreationLaunch({
+          ...modelSettings,
+          runtimeOwner: provider.runtimeOwner ?? "local",
+        }),
+        input: snapshotCreationInput({
+          schemaVersion: 1,
+          automaticSource:
+            message.automaticSource === "project-queue"
+              ? "project-queue"
+              : undefined,
+          tempId: message.tempId,
+          mode: message.mode,
+          metadata: message.metadata,
+        }),
+      };
+      const saved = await this.admitPreparedCreation(
+        JSON.stringify([creation.context.owner, requestId]),
+        creation.submissionHash ??
+          JSON.stringify({
+            request,
+            attachments: creation.attachments,
+            context: creation.context,
+          }),
+        async () => {
+          const attachments = creation.attachments
+            ? await this.creationAttachments?.seal(
+                creation.context.owner,
+                requestId,
+                creation.attachments,
+              )
+            : undefined;
+          if (creation.attachments && !attachments)
+            throw new Error("Creation attachment storage is unavailable");
+          return store.admit({
+            requestId,
+            context: creation.context,
+            request: { ...request, attachments },
+          });
+        },
+      );
       try {
         await launchOptions.creation.onAccepted?.(saved);
         if (this.isAtCreationCapacity() && this.pendingCreationStarts < 16) {

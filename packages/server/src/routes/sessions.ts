@@ -11,7 +11,10 @@ import {
   textCreationReceipt,
   textCreationSubmissionHash,
 } from "../sessions/session-creation-acceptance.js";
-import type { SavedSessionCreation } from "../sessions/SessionCreationStore.js";
+import {
+  SessionCreationConflict,
+  type SavedSessionCreation,
+} from "../sessions/SessionCreationStore.js";
 import { readLimitedJsonObject } from "./limited-json-body.js";
 import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
@@ -34,6 +37,7 @@ import {
   type ThinkingOption,
   type TranscriptDisplayObject,
   type UploadedFile,
+  type StagedAttachmentRef,
   type UserQuestionAnswers,
   type UserMessageMetadata,
   type UrlProjectId,
@@ -491,6 +495,7 @@ async function resolveSessionReader({
 
 interface StartSessionBody {
   requestId?: string;
+  stagedAttachments?: StagedAttachmentRef[];
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
@@ -540,7 +545,9 @@ function hasSessionMessageContent(body: StartSessionBody): boolean {
   return (
     typeof body.message === "string" &&
     (body.message.length > 0 ||
-      (Array.isArray(body.attachments) && body.attachments.length > 0))
+      (Array.isArray(body.attachments) && body.attachments.length > 0) ||
+      (Array.isArray(body.stagedAttachments) &&
+        body.stagedAttachments.length > 0))
   );
 }
 
@@ -2085,7 +2092,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     body: StartSessionBody,
     projectId: string,
   ) => {
-    if (!c.req.path.endsWith("/session-creations")) return undefined;
+    if (!c.req.path.endsWith("/session-creations"))
+      return body.stagedAttachments !== undefined
+        ? c.json(
+            { error: "Staged creation attachments require session-creations" },
+            400,
+          )
+        : undefined;
     const context = creationForRequest(c, body.creationProvenance);
     if (context.context.owner.kind !== "superuser")
       return c.json(
@@ -2115,7 +2128,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     if (
       !getSessionTextCreationCapability(body.provider) ||
       typeof body.message !== "string" ||
-      !body.message.trim() ||
+      (!body.message.trim() && !body.stagedAttachments?.length) ||
+      (body.stagedAttachments !== undefined &&
+        (!Array.isArray(body.stagedAttachments) ||
+          !body.stagedAttachments.length ||
+          body.stagedAttachments.length > 64 ||
+          !["claude", "codex"].includes(body.provider ?? ""))) ||
       body.images !== undefined ||
       body.documents !== undefined ||
       body.attachments !== undefined ||
@@ -2127,6 +2145,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json(
         {
           error: "This request is outside the supported durable text workflow",
+          reason: "creation-not-accepted",
         },
         400,
       );
@@ -2154,11 +2173,40 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       creation: {
         ...context,
         requestId: body.requestId,
+        attachments: body.stagedAttachments
+          ? { owner: { type: "draft" as const }, refs: body.stagedAttachments }
+          : undefined,
         submissionHash,
         onAccepted(saved: SavedSessionCreation) {
           accepted = true;
           resolve(saved);
         },
+      },
+      refused(error: unknown): Response {
+        const saved = store.get(context.context.owner, body.requestId!);
+        if (saved) {
+          if (saved.deleted)
+            return c.json({ error: "Session creation was deleted" }, 410);
+          if (saved.request?.submissionHash !== submissionHash)
+            return c.json(
+              { error: "Creation request conflicts with saved input" },
+              409,
+            );
+          return c.json(textCreationReceipt(saved), 202);
+        }
+        if (error instanceof SessionCreationConflict)
+          return c.json(
+            { error: "Creation request conflicts with preparing input" },
+            409,
+          );
+        return c.json(
+          {
+            error:
+              "Session creation was not accepted; your draft is preserved. Check the attachments or available capacity before retrying.",
+            reason: "creation-not-accepted",
+          },
+          400,
+        );
       },
       failed(error: unknown) {
         if (!accepted) reject(error);
@@ -4450,7 +4498,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     if (acceptance) {
       void operation.then(acceptance.finished, acceptance.failed);
-      const saved = await acceptance.promise;
+      const saved = await acceptance.promise.catch(acceptance.refused);
+      if (saved instanceof Response) return saved;
       void deps.userUsageService?.recordSession(actingUsername(c));
       void deps.userUsageService?.recordTurn(
         actingUsername(c),
@@ -4798,7 +4847,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     if (acceptance) {
       void operation.then(acceptance.finished, acceptance.failed);
-      const saved = await acceptance.promise;
+      const saved = await acceptance.promise.catch(acceptance.refused);
+      if (saved instanceof Response) return saved;
       void deps.userUsageService?.recordSession(actingUsername(c));
       void deps.userUsageService?.recordTurn(
         actingUsername(c),

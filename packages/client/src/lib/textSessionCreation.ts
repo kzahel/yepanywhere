@@ -1,5 +1,6 @@
 import type {
   TextSessionCreationReceipt,
+  StagedAttachmentRef,
   UserMessageMetadata,
 } from "@yep-anywhere/shared";
 import { generateUUID } from "./uuid";
@@ -19,6 +20,8 @@ interface PendingCreation {
   payload: string;
   clientTimestamp: number;
   draftText?: string;
+  draftAttachments?: string;
+  draftFileIds?: string[];
   receipt?: TextSessionCreationReceipt;
 }
 export function settleTextCreation(key: string, requestId: string): void {
@@ -56,8 +59,17 @@ export async function acceptTextCreation(
   clientTimestamp: number,
   metadata?: UserMessageMetadata,
   draftText?: string,
+  stagedAttachments?: StagedAttachmentRef[],
+  draftAttachments?: string,
+  draftFileIds?: string[],
 ): Promise<TextSessionCreationReceipt> {
-  const payload = JSON.stringify({ projectId, message, options, metadata });
+  const payload = JSON.stringify({
+    projectId,
+    message,
+    options,
+    metadata,
+    stagedAttachments,
+  });
   const previous = pendingTextCreation(key);
   if (previous && previous.payload !== payload)
     throw new Error(
@@ -68,6 +80,8 @@ export async function acceptTextCreation(
     payload,
     clientTimestamp,
     ...(draftText !== undefined ? { draftText } : {}),
+    ...(draftAttachments !== undefined ? { draftAttachments } : {}),
+    ...(draftFileIds !== undefined ? { draftFileIds } : {}),
   };
   // Failure to retain the recovery identity refuses the request before sending.
   localStorage.setItem(key, JSON.stringify(pending));
@@ -90,11 +104,17 @@ export async function acceptTextCreation(
           message,
           clientTimestamp: pending.clientTimestamp,
           messageMetadata: metadata,
+          stagedAttachments,
         }),
       },
     );
     return rememberReceipt(key, pending, receipt);
   } catch (error) {
+    const refusal = error as { status?: number; reason?: string } | null;
+    if (refusal?.status === 400 && refusal.reason === "creation-not-accepted") {
+      settleTextCreation(key, pending.requestId);
+      throw error;
+    }
     // A failed HTTP reply does not establish whether the server saved input.
     try {
       const receipt = await getTextCreation(transport, pending.requestId);

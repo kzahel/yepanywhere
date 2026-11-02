@@ -15,6 +15,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  stagedSessionCreation: {
+    name: "session-creation-staged-attachments",
+    index: CAPABILITY_ID_ALLOCATIONS.stagedSessionCreation.id,
+    introducedIn: "0.11.1",
+  },
   piTextCreation: {
     name: "session-creation-pi-text",
     index: CAPABILITY_ID_ALLOCATIONS.piTextCreation.id,
@@ -312,6 +317,41 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  stagedSessionCreation: {
+    id: CAPABILITY_ID_ALLOCATIONS.stagedSessionCreation.id,
+    name: "session-creation-staged-attachments",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.11.1",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.stagedSessionCreation.id,
+    },
+    description:
+      "Owner Claude/Codex unsandboxed creation retains staged attachment bytes with accepted input before native effects.",
+    clientFallback:
+      "Without this exact bit, use established create/materialize/send; never send staged references to an unsupported endpoint.",
+    serverContract: {
+      routes: [
+        "POST /api/projects/:projectId/session-creations",
+        "POST /api/session-creations",
+        "GET /api/session-creations/:requestId",
+      ],
+      requestFields: ["requestId", "provider", "message", "stagedAttachments"],
+      responseFields: [
+        "requestId",
+        "sessionId",
+        "projectId",
+        "provider",
+        "creation",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Attachment acceptance is separate from the provider text contracts and broad creation receipts.",
+    },
+  },
   piTextCreation: {
     id: CAPABILITY_ID_ALLOCATIONS.piTextCreation.id,
     name: "session-creation-pi-text",

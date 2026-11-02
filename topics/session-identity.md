@@ -798,12 +798,37 @@ Cancelled router credentials remain cancelled; a known-failure retry needs a
 fresh attempt reservation pinned to the same account, or refuses safely if the
 router cannot provide it. It never reselects or uses direct login.
 
-**Attachments and Project Queue.** Text-only durable creation lands first.
-Until durable claims exist, attachments retain legacy two-step behavior without
-the new acceptance guarantee. The attachment slice seals immutable objects in
+**Attachments and Project Queue.** Ordinary superuser unsandboxed Claude/Codex
+creation accepts account-owned staged references (including attachment-only
+input and several draft batches). The exact optional capability
+`session-creation-staged-attachments` (146) is required in addition to that
+provider's text capability. Without it, clients use existing
+create/materialize/send and send no new staged field. The audited stable corpus
+below has no bit 146; existing text/provenance/global-receipts meanings do not
+expand. Other provider/limited/sandbox/command shapes retain their named legacy
+consumer until the remaining caller migration.
+
+The attachment slice seals immutable objects in
 app-data, then commits claims with payload/operation; draft TTL cannot expire
-claimed objects. Unclaimed sealed objects have bounded cleanup; materialization
-has persisted intent and atomic file steps recoverable after restart. Retain
+claimed objects. Unclaimed sealed objects and partial preparation directories older than seven
+days are reclaimed on the first attachment creation of a process, using an
+indexed operation claim lookup; no per-session timer is created. Materialization
+uses the saved public id and normal storage policy before the dispatch marker,
+verifies SHA-256/size, and publishes each completed copy by atomic rename.
+Existing files with changed bytes are refused, including equal-sized changes.
+Preparation never deletes draft/Queue originals. Acceptance returns only after
+immutable bytes and the transactional operation claim are saved; a failed
+admission preserves the source and leaves at most an unclaimed bundle. A safe
+pre-effect retry reads the admitted bundle even after draft/Queue deletion.
+Unknown native effects remain uncertain and never replay automatically.
+Concurrent identical preparation requests share one bounded in-flight admission;
+conflicting payloads refuse. A definitive pre-admission refusal carries HTTP 400
+and `reason: "creation-not-accepted"`, after checking for a committed result.
+Clients retire that rejected recovery key while preserving text/files, allowing
+corrected input. Generic failures or a recovery GET 404 alone never establish
+non-acceptance. Draft acknowledgement checks the captured live file selection,
+including unfinished uploads, in addition to persisted text/attachment state;
+a newer paste stays on the form and continues uploading. Retain
 claimed bytes until explicit deletion or a documented confirmed-delivery release
 under existing media-preservation policy. Cap claimed bytes at 2 GiB per profile
 and references at 64 per creation, in addition to the configured upload limit;

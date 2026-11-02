@@ -511,6 +511,7 @@ export const RESUME_PROTOCOL_VERSION = 3;
 export const REMOTE_COMPATIBILITY_LEVEL = 10;
 
 const BASE_CAPABILITIES: string[] = [
+  SERVER_CAPABILITIES.stagedSessionCreation.name,
   SERVER_CAPABILITIES.claudeTextCreation.name,
   SERVER_CAPABILITIES.codexTextCreation.name,
   SERVER_CAPABILITIES.opencodeTextCreation.name,

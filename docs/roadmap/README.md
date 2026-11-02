@@ -679,15 +679,19 @@ their rollout gates.
 
 The selected [consolidation endpoint](../tactical/171-durable-session-identity-and-creation.md#completion-target--one-creation-contract-retired-legacy-implementations)
 is one stable session-creation contract with the superseded implementations
-removed during caller migration. Remaining work starts with Project Queue on
-Claude/Codex, then attachments/ordinary callers and the remaining retained
-callers/provider shapes. Compatibility routes can remain thin adapters to the
-same admission owner; additional provider qualification alone does not finish
-this refactor. Project Queue ordinary owner text now enters that common owner
-with stable promotion identity, saved-session recovery and safe explicit retry.
-Its sole review's association-write crash gap is repaired and focused-verified;
-static/native/browser checks pass. The final full run retains the tracked
-Rendez nested-watch failure; the earlier full run passed. Attachments and remaining callers/input shapes remain planned migrations.
+removed during caller migration. Project Queue ordinary owner text and staged
+Claude/Codex attachments now use that common admission/dispatch owner. Stable promotion identity, saved-session
+recovery and safe explicit retry are qualified. Accepted files survive staging
+cleanup and Queue completion, with transactional capacity and digest checks;
+exact capability 146 preserves the older-server create/materialize/send flow.
+Both sole reviews' material findings are corrected, including interrupted Queue
+association, unfinished pasted-file acknowledgement, definitive refusal recovery
+and default-provider attachment eligibility. Focused storage/native/browser and
+static checks pass. The latest full run passes 6,908 server/7,067 client cases;
+an earlier Queue run exposed the still-tracked intermittent Rendez watcher gap.
+Remaining work is API/peer, review, maintenance, new fork/clone resources and
+other retained provider/input shapes, followed by the final bypass/deletion
+audit. Compatibility routes may remain thin adapters into the same owner.
 [The ledger](../tactical/171-durable-session-identity-and-creation.md#consolidation-progress-ledger)
 separates completed scope from the remaining legacy implementation retirement.
 

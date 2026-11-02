@@ -870,6 +870,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "peer-connections",
     introducedIn: "0.11.1",
   },
+  stagedSessionCreation: {
+    id: 146,
+    direction: "server",
+    name: "session-creation-staged-attachments",
+    introducedIn: "0.11.1",
+  },
   piTextCreation: {
     id: 145,
     direction: "server",

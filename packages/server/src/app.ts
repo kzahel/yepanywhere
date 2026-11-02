@@ -1,3 +1,4 @@
+import { CreationAttachments } from "./sessions/creation-attachments.js";
 import { localPeerHost } from "./peer-api/connection-contracts.js";
 import {
   isYaSessionId,
@@ -2339,6 +2340,17 @@ export function createApp(options: AppOptions): AppResult {
     return agentApiController.read(operation, caller, input);
   };
   supervisor = new Supervisor({
+    creationAttachments: options.sessionMetadataService
+      ? new CreationAttachments(
+          join(
+            dirname(attachmentStagingService.getStagingRoot()),
+            "creation-inputs",
+          ),
+          attachmentStagingService,
+          projectStoragePolicy,
+          options.sessionMetadataService.creations,
+        )
+      : undefined,
     agentAuthRouter,
     projectDisplayName,
     getLimitedUserInstructions: (username) =>

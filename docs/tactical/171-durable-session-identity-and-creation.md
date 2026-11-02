@@ -79,7 +79,7 @@ these remaining migrations are already implemented.
 | --- | --- | --- | --- |
 | Ordinary owner text, Claude/Codex/OpenCode/Pi | Implemented | Qualified text uses saved dispatch | Existing native/browser/recovery qualification above |
 | Project Queue ordinary owner text | Implemented in current slice | Qualified promotion no longer owns deferred native startup/retry; same eligibility and dispatcher as direct creation | Six real SQLite/owner integration cases; local/hosted native-process and failed-row browser checks pass |
-| Attachments and ordinary legacy create/start | Pending | Two-step create/upload/send still retained | Next consolidation slice |
+| Owner Claude/Codex staged attachments | Implemented in current slice | Capable ordinary form and Queue bypass their empty-provider/materialize/send implementation; older-server and other retained shapes remain named consumers | 43-case storage/staging/owner qualification; three local/hosted native/browser cases; single review corrected and full checks pass |
 | API/peer, reviews, maintenance, new fork/clone resources | Partial source repair only | Separate creation entry points remain | Later caller slices |
 | Remaining provider/input shapes and final bypass audit | Pending | Retained compatibility/exception inventory required | Final consolidation closure |
 
@@ -109,6 +109,41 @@ watcher failure while all six Queue cases pass. No watcher source/time budget
 changed; no green final aggregate is claimed. Corrected Queue integration
 passes 84 cases; existing contract, lifecycle, browser and static evidence remain
 separate from that adjacent watcher gap.
+
+The attachment slice seals canonical account-owned inputs outside draft/Queue
+staging, commits their path-free digest claim with the prompt and materializes
+under the saved YA id before dispatch. SQLite migration 22 accounts the 2 GiB
+profile claim budget; at most 64 files belong to one operation. Explicit safe
+retry survives deletion of staging originals, changed final bytes refuse, and
+expired unclaimed preparation is reclaimed without deleting accepted claims.
+The provider text capabilities retain their meanings; optional bit 146 gates
+ordinary owner Claude/Codex staged creation, including attachment-only input.
+Other retained shapes and older-server clients remain named compatibility
+consumers until the next cut.
+
+The sole Sol 6.1 High review found three material gaps: newer unfinished pasted
+files could clear at acknowledgement, definitive refusals could strand the
+recovery key, and omitted-provider Queue attachments bypassed admission. Focused
+corrections capture the complete live selection (also for reload recovery),
+coalesce bounded preparation before SQLite, distinguish an explicit
+`creation-not-accepted` response from ambiguous failure/GET 404, and delegate
+attachment eligibility to the effective-provider owner. Regression cases cover
+an unchanged-text unfinished PNG paste, two real pre-admission refusals followed
+by corrected creation, and default-provider safe retry. No repeat review; the
+reviewer was retired with verified stop.
+
+Final four-file focused qualification passes 43 cases in 2.55 seconds. The
+three-case local/hosted native browser run passes in 22.8 seconds with one worker
+and no retries; final desktop/phone captures were inspected through artifact
+capture. Owned standalone Bun also passes local/native and definitive-refusal
+browser qualification (two cases, 8.0 seconds), exercising migration/claim SQL
+on its SQLite adapter. Root lint/format/typecheck and console/CSS ownership checks pass. The
+full workspace run passes 6,908 server and 7,067 client cases (server 147.26 s).
+It includes the tracked Rendez case; passing this run does not close that
+intermittent watcher gap. Earlier full-run failures in a schema-version
+expectation and an unnecessary text-only authorization check were corrected and
+focused-verified. Source/evidence and the sole review are retained under ignored
+`tasks/session-identity/attachments-*` / `reviews/attachment-consolidation.md`.
 
 ## Active milestone — Claude and Codex creation, November 2
 

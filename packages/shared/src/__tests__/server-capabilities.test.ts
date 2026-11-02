@@ -33,6 +33,42 @@ import {
 } from "../index.js";
 
 describe("server capability advertisements", () => {
+  it("keeps attachment acceptance independent of text support across the creation release corpus", () => {
+    const name = CAPABILITY_ID_ALLOCATIONS.stagedSessionCreation.name;
+    for (const current of [
+      "0.8.0",
+      "0.8.1",
+      "0.9.0",
+      "0.9.1",
+      "0.9.2",
+      "0.10.0",
+      "0.10.1",
+      "0.10.2",
+      "0.11.0",
+      "99.0.0",
+    ]) {
+      const text = [
+        CAPABILITY_ID_ALLOCATIONS.claudeTextCreation.name,
+        CAPABILITY_ID_ALLOCATIONS.codexTextCreation.name,
+      ];
+      expect(
+        serverHasCapability(
+          { current, ...encodeVersionedServerCapabilities(text, current) },
+          name,
+        ),
+      ).toBe(false);
+      expect(
+        serverHasCapability(
+          {
+            current,
+            ...encodeVersionedServerCapabilities([...text, name], current),
+          },
+          name,
+        ),
+      ).toBe(true);
+    }
+  });
+
   it("requires the Pi-specific text creation bit across supported releases", () => {
     const name = getSessionTextCreationCapability("pi")!.name;
     expect(name).toBe(CAPABILITY_ID_ALLOCATIONS.piTextCreation.name);

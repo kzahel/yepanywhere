@@ -1,4 +1,8 @@
 import {
+  snapshotCreationAttachments,
+  type CreationAttachmentSnapshot,
+} from "./creation-attachments.js";
+import {
   snapshotCreationLaunch,
   type CreationLaunchSnapshot,
 } from "./session-creation-launch.js";
@@ -54,6 +58,7 @@ export interface SavedCreationRequest {
   /** Absent only on storage-foundation/legacy records with no runtime launch. */
   launch?: CreationLaunchSnapshot;
   input?: CreationInputSnapshot;
+  attachments?: CreationAttachmentSnapshot;
 }
 export type CreationState = SessionCreationStatus["state"];
 export type CreationDelivery = SessionCreationStatus["delivery"];
@@ -298,6 +303,9 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
     ...(request.input !== undefined
       ? { input: snapshotCreationInput(request.input) }
       : {}),
+    ...(request.attachments !== undefined
+      ? { attachments: snapshotCreationAttachments(request.attachments) }
+      : {}),
     settings: {
       requestedModel: s.requestedModel,
       permissionMode: s.permissionMode,
@@ -330,6 +338,7 @@ export class SessionCreationStore {
     | "byId"
     | "byKey"
     | "publicByKey"
+    | "attachmentGroup"
     | "bySession"
     | "attempt"
     | "retry"
@@ -368,6 +377,9 @@ export class SessionCreationStore {
       publicByKey: database.prepare(
         "SELECT session_id FROM session_creations WHERE owner_key = ? AND request_key = ?",
       ),
+      attachmentGroup: database.prepare(
+        "SELECT json_extract(payload_json, '$.attachments.groupId') AS group_id FROM session_creations WHERE owner_key = ? AND request_key = ? AND deleted = 0",
+      ),
       byKey: database.prepare(
         "SELECT * FROM session_creations WHERE owner_key = ? AND request_key = ?",
       ),
@@ -384,7 +396,7 @@ export class SessionCreationStore {
         "SELECT * FROM session_creation_capacity WHERE id = 1",
       ),
       reserve: database.prepare(
-        "UPDATE session_creation_capacity SET operations = operations + ?, payload_bytes = payload_bytes + ?, attempt_bytes = attempt_bytes + ? WHERE id = 1",
+        "UPDATE session_creation_capacity SET operations = operations + ?, payload_bytes = payload_bytes + ?, attempt_bytes = attempt_bytes + ?, attachment_bytes = attachment_bytes + ? WHERE id = 1",
       ),
       insert: database.prepare(
         "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at, initial_input_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
@@ -539,8 +551,20 @@ export class SessionCreationStore {
       createdAt: row.created_at,
     };
   }
-  /** Caller authorizes current resource access before exposing this private row. */
-  /** Compact association recovery; does not read saved prompts or launch payloads. */
+  /** Indexed retention claim; does not read saved prompts or launch payloads. */
+  getAttachmentGroupId(
+    owner: CreationOwner,
+    requestId: string,
+  ): string | undefined {
+    return (
+      this.statements.attachmentGroup.get<{ group_id: string | null }>(
+        ownerKey(owner),
+        key(requestId),
+      )?.group_id ?? undefined
+    );
+  }
+
+  /** Compact association recovery without reading saved payloads. */
   getPublicSessionId(
     owner: CreationOwner,
     requestId: string,
@@ -551,6 +575,7 @@ export class SessionCreationStore {
     );
     return row ? parseYaSessionId(row.session_id) : undefined;
   }
+  /** Caller authorizes current resource access before exposing this private row. */
   get(
     owner: CreationOwner,
     requestId: string,
@@ -567,19 +592,35 @@ export class SessionCreationStore {
     );
     return row ? this.read(row) : undefined;
   }
-  private reserve(operations: number, payload: number, attempts: number): void {
+  assertAttachmentCapacity(bytes: number): void {
+    const usage = this.statements.capacity.get<{ attachment_bytes: number }>()!;
+    if (
+      !Number.isSafeInteger(bytes) ||
+      bytes < 0 ||
+      usage.attachment_bytes + bytes > 2 * 1024 ** 3
+    )
+      throw new SessionCreationCapacityError();
+  }
+  private reserve(
+    operations: number,
+    payload: number,
+    attempts: number,
+    attachments = 0,
+  ): void {
     const usage = this.statements.capacity.get<{
       operations: number;
       payload_bytes: number;
       attempt_bytes: number;
+      attachment_bytes: number;
     }>()!;
     if (
       usage.operations + operations > MAX_OPERATIONS ||
       usage.payload_bytes + payload > MAX_PAYLOAD ||
-      usage.attempt_bytes + attempts > MAX_ATTEMPT_BYTES
+      usage.attempt_bytes + attempts > MAX_ATTEMPT_BYTES ||
+      usage.attachment_bytes + attachments > 2 * 1024 ** 3
     )
       throw new SessionCreationCapacityError();
-    this.statements.reserve.run(operations, payload, attempts);
+    this.statements.reserve.run(operations, payload, attempts, attachments);
   }
   /** No provider effects. The exact initial text and normalized facts commit together. */
   admit(input: {
@@ -636,7 +677,12 @@ export class SessionCreationStore {
         () => {
           if (this.statements.byKey.get(ownerKey(context.owner), requestId))
             throw new SessionCreationConflict();
-          this.reserve(1, bytes, detailBytes);
+          this.reserve(
+            1,
+            bytes,
+            detailBytes,
+            request.attachments?.files.reduce((sum, f) => sum + f.size, 0) ?? 0,
+          );
           this.metadata.identities.allocateWithinTransaction({
             sessionId,
             provider: request.provider,
@@ -989,7 +1035,17 @@ export class SessionCreationStore {
         fence.generation + 1,
       );
       this.statements.removePayload.run(current.id);
-      this.reserve(0, -row.payload_bytes, 0);
+      this.reserve(
+        0,
+        -row.payload_bytes,
+        0,
+        -(
+          current.request?.attachments?.files.reduce(
+            (sum, f) => sum + f.size,
+            0,
+          ) ?? 0
+        ),
+      );
     });
   }
   close(): void {

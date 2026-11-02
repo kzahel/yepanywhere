@@ -649,3 +649,77 @@ it("recovers lost controllers without input replay and accepts only scoped curre
   store.confirmOwnedInput(first, native, unbound.initialInputId!);
   expect(store.generation).toBe(generation);
 });
+
+it("accounts attachment claims transactionally, rejects profile overflow and releases only the deleted operation", async () => {
+  const { database, store } = await fixture();
+  const attachments = {
+    groupId: "a".repeat(64),
+    files: [
+      {
+        id: "owned-file",
+        name: "owned-file.txt",
+        originalName: "file.txt",
+        mimeType: "text/plain",
+        size: 2 * 1024 ** 3,
+        sha256: "b".repeat(64),
+      },
+    ],
+  };
+  const saved = store.admit({
+    requestId: "owned-attachments-quota",
+    context,
+    request: { ...request, attachments },
+  });
+  expect(store.getAttachmentGroupId(context.owner, saved.requestId)).toBe(
+    attachments.groupId,
+  );
+  expect(
+    store.admit({
+      requestId: saved.requestId,
+      context,
+      request: { ...request, attachments },
+    }).sessionId,
+  ).toBe(saved.sessionId);
+  expect(() =>
+    store.admit({
+      requestId: "owned-attachments-overflow",
+      context,
+      request: {
+        ...request,
+        attachments: {
+          ...attachments,
+          files: [{ ...attachments.files[0]!, size: 1 }],
+        },
+      },
+    }),
+  ).toThrow(SessionCreationCapacityError);
+  expect(
+    rows(
+      database,
+      "SELECT operations, attachment_bytes FROM session_creation_capacity",
+    ),
+  ).toEqual([{ operations: 1, attachment_bytes: 2 * 1024 ** 3 }]);
+  store.delete(saved.attempt);
+  expect(
+    store.getAttachmentGroupId(context.owner, saved.requestId),
+  ).toBeUndefined();
+  expect(
+    rows(database, "SELECT attachment_bytes FROM session_creation_capacity"),
+  ).toEqual([{ attachment_bytes: 0 }]);
+  database.exec(
+    "CREATE TRIGGER refuse_attachment_claim BEFORE INSERT ON session_creation_attempts BEGIN SELECT RAISE(ABORT, 'owned refusal'); END",
+  );
+  expect(() =>
+    store.admit({
+      requestId: "owned-attachments-rollback",
+      context,
+      request: { ...request, attachments },
+    }),
+  ).toThrow("owned refusal");
+  expect(
+    rows(
+      database,
+      "SELECT operations, attachment_bytes FROM session_creation_capacity",
+    ),
+  ).toEqual([{ operations: 1, attachment_bytes: 0 }]);
+});

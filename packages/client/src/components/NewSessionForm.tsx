@@ -2950,17 +2950,33 @@ export function NewSessionForm({
 
       const textCreationCapability =
         getSessionTextCreationCapability(selectedProvider);
+      const stagedCreationRefs = submissionFiles.every(isPendingStagedFile)
+        ? submissionFiles
+            .filter(isPendingStagedFile)
+            .map(toPersistedStagedAttachmentRef)
+        : [];
+      const durableAttachments =
+        submissionFiles.length > 0 &&
+        stagedCreationRefs.length === submissionFiles.length &&
+        ["claude", "codex"].includes(selectedProvider ?? "") &&
+        serverHasCapability(
+          versionInfo,
+          SERVER_CAPABILITIES.stagedSessionCreation.name,
+        );
       const durableText =
         !launch &&
         principalResolved &&
         !launchLock.limited &&
         textCreationCapability !== undefined &&
         serverHasCapability(versionInfo, textCreationCapability.name) &&
-        submissionFiles.length === 0 &&
-        trimmedMessage.length > 0 &&
+        (submissionFiles.length === 0 || durableAttachments) &&
+        (trimmedMessage.length > 0 || durableAttachments) &&
         !command &&
         effectiveSandboxLevel === "none" &&
         !machineControlSelected;
+      const capturedAttachmentState = JSON.stringify(
+        draftControls.getAttachmentState(),
+      );
       const capturedSubmission = durableText
         ? draftControls.captureSubmission?.()
         : undefined;
@@ -3105,6 +3121,9 @@ export function NewSessionForm({
             clientTimestamp,
             messageMetadata,
             capturedSubmission?.text,
+            durableAttachments ? stagedCreationRefs : undefined,
+            capturedAttachmentState,
+            submissionFiles.map((file) => file.id),
           );
           if (
             !creationViewOwner.current.active ||
@@ -3112,11 +3131,26 @@ export function NewSessionForm({
             creationViewOwner.current.accountKey !== principal.username
           )
             return true;
-          const cleared = capturedSubmission?.confirm() ?? false;
+          const unchangedFiles =
+            pendingFilesRef.current.length === submissionFiles.length &&
+            pendingFilesRef.current.every(
+              (file, index) => file.id === submissionFiles[index]?.id,
+            );
+          const cleared = unchangedFiles
+            ? (capturedSubmission?.confirm() ?? false)
+            : false;
+          if (cleared)
+            setPendingFiles([], {
+              persistDraft: false,
+              revokeRemovedPreviewUrls: true,
+            });
           if (
             cleared ||
+            !unchangedFiles ||
             (capturedSubmission &&
-              draftControls.getDraft() !== capturedSubmission.text)
+              (draftControls.getDraft() !== capturedSubmission.text ||
+                JSON.stringify(draftControls.getAttachmentState()) !==
+                  capturedAttachmentState))
           )
             settleTextCreation(
               `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
@@ -5480,13 +5514,21 @@ export function NewSessionForm({
                   return;
                 const cleared =
                   pending.draftText !== undefined &&
-                  draftControls.getDraft() === pending.draftText
+                  pendingFilesRef.current.map((file) => file.id).join("\0") ===
+                    (pending.draftFileIds ?? []).join("\0") &&
+                  draftControls.getDraft() === pending.draftText &&
+                  JSON.stringify(draftControls.getAttachmentState()) ===
+                    (pending.draftAttachments ?? "null")
                     ? draftControls.captureSubmission?.().confirm()
                     : false;
                 if (
                   cleared ||
+                  pendingFilesRef.current.map((file) => file.id).join("\0") !==
+                    (pending.draftFileIds ?? []).join("\0") ||
                   (pending.draftText !== undefined &&
-                    draftControls.getDraft() !== pending.draftText)
+                    (draftControls.getDraft() !== pending.draftText ||
+                      JSON.stringify(draftControls.getAttachmentState()) !==
+                        (pending.draftAttachments ?? "null")))
                 )
                   settleTextCreation(key, receipt.requestId);
                 navigate(

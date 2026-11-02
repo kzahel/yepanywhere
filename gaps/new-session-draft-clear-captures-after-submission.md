@@ -70,3 +70,11 @@ The release-qualification slice adds actual sibling-tab and independent-browser
 server-sync acknowledgement checks for ordinary text, plus signed acting-account
 and two-host relay retirement. Those narrow cases pass; Queue/attachment callers
 above remain excluded and keep this gap open.
+
+The attachment-consolidation slice extends captured acknowledgement to qualified
+ordinary owner Claude/Codex staged creation. Both same-view acknowledgement and
+reload recovery compare the captured attachment state as well as text, so a
+newer attachment-only edit is not cleared. Owned local/hosted browser checks
+hold acceptance through sequential typing and retain the newer draft. Queue
+enqueue, unsupported launch shapes and older-server fallback still keep this
+gap open.
