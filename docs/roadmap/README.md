@@ -637,9 +637,10 @@ controller provenance now preserves live owners, with focused duplicate-startup
 and exactly-once promotion evidence on Node/Bun. The bounded slice is complete:
 18 combined browser cases, focused post-review recovery and the full 6,888-case
 server suite pass; static checks and corrected client browser files pass.
-Live Claude remains blocked by
-missing account grants for the owned router client. Attachments and additional
-caller migration remain later implementation work.
+Live Claude now also passes creation, native acknowledgement, standalone restart
+and continuation after explicit sign-in and a grant restricted to the owned test
+integration; that integration is verified revoked after qualification. Attachments
+and additional caller migration remain later implementation work.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

@@ -124,10 +124,19 @@ must not be represented as closed by successful routed model inference.
   switch preserve the newer/account-owned draft. Encrypted relay tests pass
   phone-width reply interruption/read-only recovery and host-A/host-B retirement.
   Router refusal with direct bait credentials causes zero model requests.
-- Live Claude is ACCESS-BLOCKED: the independently paired router client has no
-  account grants; direct portable credentials are absent. Controlled pinned
-  SDK/CLI/AAR checks remain distinct. Physical-device and Linux/Windows execution
-  are not claimed. The routed-Codex discovery/account gap remains open.
+- The initially blocked live Claude check now passes after the owner signed
+  into a dedicated router account with the official CLI. Only the newly owned
+  standalone integration received that account grant. Pinned SDK 0.3.312 with
+  Claude Code 2.1.312 and live routed inference pass saved acceptance/native
+  confirmation, standalone restart/history and continuation under the same
+  public session/account pin,
+  using two short model turns. The integration is verified revoked afterward;
+  the account remains enrolled and ready. Retained local evidence is
+  `tasks/session-identity/release-qualification-claude-live-authorized.log` and
+  `release-qualification-claude-authorized-cleanup.json`. Earlier access-blocked
+  logs remain accurate historical evidence. Controlled SDK/CLI/AAR checks remain
+  distinct. Physical-device and Linux/Windows execution are not claimed. The
+  routed-Codex discovery/account gap remains open.
 - The single actual localhost:3400 Sol 6.1 High/bypassPermissions review found
   a competing-startup defect: recovery ran before the new server discovered an
   occupied port and could invalidate the incumbent queue. Private controller-PID
@@ -154,9 +163,9 @@ must not be represented as closed by successful routed model inference.
   A concurrent Node/Bun Playwright output collision was corrected with separate
   output directories; Bun's different occupied-port wording is accepted without
   weakening the incumbent-state/promotion assertions.
-- This bounded slice is complete with the explicit live-Claude access gate
-  above. No attachment/Project Queue migration, provider expansion, protocol
-  defaults or primary-server changes were made.
+- This bounded slice is complete, including the subsequently authorized live
+  Claude check above. No attachment/Project Queue migration, provider expansion,
+  protocol defaults or primary-server changes were made.
 
 ## Execution progress
 

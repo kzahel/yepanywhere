@@ -145,11 +145,16 @@ Router preparation refusal with available direct bait credentials retains saved
 intent and causes no
 model request or direct fallback, including after reload.
 
-Live Claude remains access-blocked: an independently paired router client receives
-no account grants, and no portable direct Claude credentials are available. The
-controlled pinned Claude SDK/CLI/AAR checks do not substitute for that live model
-check. Existing router credentials and account grants are not evidence that a
-newly paired test client is authorized. Linux/Windows native execution and
+The live Claude access gate is now qualified after explicit owner sign-in through
+the official CLI into a dedicated router profile. A new standalone YA integration
+received a grant for only that account. The pinned Claude Agent SDK 0.3.312,
+its Claude Code 2.1.312 executable and live routed model pass saved acceptance,
+native input confirmation, retained answer after standalone restart and
+continuation under the same public session and exact account pin. Two short model turns establish this narrow workflow;
+controlled browser/SDK/AAR checks remain separate evidence for failure cases.
+The test integration was disconnected and verified revoked; the enrolled account
+remains ready for future explicit tests. Existing router credentials alone never
+authorize a newly paired integration. Linux/Windows native execution and
 physical-phone qualification remain separate release evidence.
 
 ### Managed dispatch boundary
