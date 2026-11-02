@@ -268,10 +268,12 @@ export class ProviderSessionOwner {
   }
 
   private publishCreationEvidence(): void {
-    this.emitSupervisor({
+    const message = {
       type: "creationEvidence",
       creation: this.creationEvidence(),
-    });
+    };
+    this.emitSupervisor(message);
+    this.emitController(message);
   }
 
   private bindCreationNativeId(id: string): void {

@@ -194,6 +194,7 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
   if (existing) return existing;
   const proxy = new Proxy(rawProvider, {
     get(target, property) {
+      if (property === "runtimeOwner") return "host";
       if (
         property === "getAvailableModels" &&
         target.name === "claude-gateway"
@@ -267,6 +268,7 @@ function runtimeProvider(rawProvider: AgentProvider): AgentProvider {
   if (!isProviderRuntimeHostAvailable())
     return new Proxy(rawProvider, {
       get(target, property) {
+        if (property === "runtimeOwner") return "local";
         if (property === "startSession")
           return async (
             options: Parameters<AgentProvider["startSession"]>[0],

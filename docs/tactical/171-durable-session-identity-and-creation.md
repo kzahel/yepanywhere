@@ -12,7 +12,8 @@ and were independently accepted by Sol 6.1 High after three concrete design
 corrections. Phase 2 and phase 3's read/discovery/watch/source foundation are
 implemented and independently accepted. Qualified ordinary Claude text callers and the default SDK bridge are
 implemented. Cold-resume/owned-browser gates and phase 4's remaining input
-shapes, routed/sandboxed and hosted rollout remain pending.
+shapes and routed/sandboxed rollout remain pending; qualified hosted Claude text
+now carries fenced worker evidence across Hono replacement.
 Acceptance covers the plan's ordering, intermediate contracts
 and enabling gates, not an unspecified schema/wire contract or source work.
 Section 1 and per-slice implementation reviews remain required below.
@@ -24,6 +25,29 @@ Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
 The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
+
+- Phase 4 hosted transport and saved-attempt reconciliation are independently
+  accepted by Sol 6.1 High after correcting compiled asset delivery, deferred
+  owner selection and destructive configuration/compact bypasses. The private
+  managed feature negotiates before launch, pins host versus local ownership
+  and requires exact protocol-2 claims before ownership changes. Worker proof
+  reconciles only the current SQLite attempt; startup marks unconfirmed owners
+  uncertain before admission. Reattachment restores observation without
+  replaying the original input. Native commands use the same admission guard.
+  Qualified hosted Claude text survives Hono replacement with both confirmed
+  and delayed input evidence; full owner loss keeps the exact saved prompt and
+  refuses automatic native relaunch. Actual pinned SDK/CLI standalone probes
+  pass on Node 22 and Node 26. A clean compiled-server startup also passes with
+  the copied decoder assets and no TypeScript loader/source fallback.
+  Corrected focused checks pass 98 cases / nine files / 11.15 s, followed by
+  36 command-boundary cases / four files / 10.34 s. The assembled test now
+  waits for HTTP readiness after worker reattachment (one case / 9.16 s): the
+  first full run exposed that host ownership precedes HTTP listen, with all
+  other 6,859 server and 7,064 client cases passing. The corrected complete
+  Node 26 workspace passes (6,860 server / 7,064 client; server 142.58 s);
+  lint has zero warnings and format/typecheck pass. No global receipts capability,
+  unsupported provider rollout or automatic replacement is enabled. Cold
+  resume, broader input shapes and remaining callers stay gated.
 
 - Phase 4 worker ownership and protocol-2 attachment are independently accepted
   by Sol 6.1 High after correcting an inner-bridge/AgentSelf bootstrap gap.

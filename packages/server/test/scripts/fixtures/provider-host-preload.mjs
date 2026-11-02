@@ -1,7 +1,7 @@
 // Test-only adapter seam. The real Hono, host, production worker,
 // ProviderSessionOwner, socket adapter and proxy all execute unchanged.
 // Loaded explicitly with Node --import, never from production code.
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -35,7 +35,8 @@ if (
     { id: "test-model", name: "Test model" },
   ];
   provider.startSession = async (options) => {
-    const id = options.resumeSessionId ?? randomUUID();
+    const id = options.resumeSessionId ?? options.newSessionId ?? randomUUID();
+    const nativeCwd = realpathSync(options.cwd);
     const queue = new MessageQueue();
     const input = queue[Symbol.asyncIterator]();
     const child = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], {
@@ -47,7 +48,7 @@ if (
     const transcriptDir = join(
       process.env.CLAUDE_CONFIG_DIR,
       "projects",
-      options.cwd.replace(/[^a-zA-Z0-9]/g, "-"),
+      nativeCwd.replace(/[^a-zA-Z0-9]/g, "-"),
     );
     mkdirSync(transcriptDir, { recursive: true });
     const emit = (message) => {
@@ -58,7 +59,7 @@ if (
       };
       appendFileSync(
         join(transcriptDir, `${id}.jsonl`),
-        `${JSON.stringify({ ...full, sessionId: id, cwd: options.cwd, timestamp: new Date().toISOString() })}\n`,
+        `${JSON.stringify({ ...full, sessionId: id, cwd: nativeCwd, timestamp: new Date().toISOString() })}\n`,
       );
       record({ type: "event", id, message: full });
       return full;
@@ -80,6 +81,10 @@ if (
       });
       for await (const message of input) {
         const text = JSON.stringify(message.message.content);
+        if (text.includes("defer-confirmation")) {
+          record({ type: "input-pulled-unconfirmed", id });
+          await waitForBarrier("confirm-initial");
+        }
         yield emit({ ...message, type: "user" });
         record({ type: "turn-started", id, text });
         if (text.includes("hold")) {

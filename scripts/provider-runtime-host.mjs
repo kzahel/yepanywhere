@@ -36,9 +36,15 @@ import {
 } from "./provider-runtime-turns.mjs";
 import { ProviderProjectServices } from "./provider-project-services.mjs";
 import { getProviderImageSizing } from "../packages/server/src/services/image-preparation.mjs";
+import {
+  parseCreationRuntimeIdentity,
+  parseCreationRuntimeEvidence,
+  sameCreationRuntimeIdentity,
+} from "../packages/server/src/sdk/providers/creation-runtime-record.mjs";
 
 const HOST_PROTOCOL_VERSION = PROVIDER_HOST_PROTOCOL_VERSION;
 const WORKER_READY_TIMEOUT_MS = 30_000;
+const CREATION_OWNER_FEATURE = "session-creation-owner-v1";
 const MAX_CONTROL_REQUEST_BYTES = 1024 * 1024;
 const COOPERATIVE_STOP_MS = 5_000;
 const TERM_GRACE_MS = 1_500;
@@ -217,6 +223,15 @@ function publicRuntimeEntry(entry) {
     detachedAt: entry.detachedAt,
     reattach: entry.reattach,
     worker: entry.workerMetadata,
+    ...(entry.creation
+      ? {
+          creation: entry.creation,
+          workerProtocolVersion: 2,
+          worker: entry.workerMetadata
+            ? { ...entry.workerMetadata, creation: entry.creation }
+            : undefined,
+        }
+      : {}),
     imagePreparationProfile: getProviderImageSizing(
       entry.providerName,
       entry.launchRecipe.options.launchModel ??
@@ -485,6 +500,7 @@ export class ProviderRuntimeHost {
           retainedProcessGroupCount: this.retainedProcessGroups.size,
           shuttingDown: this.shuttingDown !== null,
           features: [
+            CREATION_OWNER_FEATURE,
             "runtime-control",
             "session-turn",
             "session-turn-await",
@@ -851,7 +867,7 @@ export class ProviderRuntimeHost {
       request.providerName,
       "providerName",
     );
-    const requiredWorkerFeatures =
+    let requiredWorkerFeatures =
       request.requiredWorkerFeatures === undefined
         ? []
         : request.requiredWorkerFeatures;
@@ -866,22 +882,44 @@ export class ProviderRuntimeHost {
     ) {
       throw new Error("Invalid required provider worker features");
     }
+    const creation =
+      request.creation === undefined
+        ? undefined
+        : parseCreationRuntimeIdentity(request.creation);
+    if (creation && !requiredWorkerFeatures.includes(CREATION_OWNER_FEATURE)) {
+      if (requiredWorkerFeatures.length === 8)
+        throw new Error("Too many required provider worker features");
+      requiredWorkerFeatures = [
+        ...requiredWorkerFeatures,
+        CREATION_OWNER_FEATURE,
+      ];
+    }
     const projectPath = this.requireString(request.projectPath, "projectPath");
+    if (creation && request.sessionId !== creation.sessionId)
+      throw new Error("Managed provider launch must claim its YA identity");
     const sessionId =
       typeof request.sessionId === "string" && request.sessionId
         ? request.sessionId
         : undefined;
-    const providerSessionId =
-      typeof request.providerSessionId === "string" && request.providerSessionId
+    const providerSessionId = creation
+      ? undefined
+      : typeof request.providerSessionId === "string" &&
+          request.providerSessionId
         ? request.providerSessionId
         : sessionId;
-    const yaSessionId =
-      typeof request.yaSessionId === "string" && request.yaSessionId
+    const yaSessionId = creation
+      ? creation.sessionId
+      : typeof request.yaSessionId === "string" && request.yaSessionId
         ? request.yaSessionId
         : sessionId;
     if (sessionId) {
       const existing = this.runtimeForSession(sessionId);
       if (existing) {
+        if (creation || existing.creation)
+          throw controlError(
+            "ownership-unknown",
+            "Managed creation already has a runtime; claim its exact attempt",
+          );
         if (this.isRuntimeClaimable(existing)) {
           throw new Error(
             `Provider session ${sessionId} already has a runtime`,
@@ -930,6 +968,7 @@ export class ProviderRuntimeHost {
     };
     const launchInput = JSON.stringify({
       providerName,
+      ...(creation ? { creation } : {}),
       options: workerOptions,
       runtimeConfig: request.runtimeConfig ?? {},
     });
@@ -959,6 +998,9 @@ export class ProviderRuntimeHost {
     const entry = {
       runtimeId,
       sessionId,
+      creation: creation
+        ? { identity: creation, initialInputConsumed: false }
+        : undefined,
       harness: agentHarness(providerName),
       providerSessionId,
       yaSessionId,
@@ -1128,7 +1170,10 @@ export class ProviderRuntimeHost {
       if (requiredWorkerFeatures.length === 0) releaseLaunchInput();
       const readyMessage = await ready;
       entry.workerMetadata = readyMessage.metadata;
+      if (creation)
+        this.recordCreationEvidence(entry, readyMessage.metadata?.creation);
       if (
+        !creation &&
         typeof readyMessage.metadata?.sessionId === "string" &&
         readyMessage.metadata.sessionId
       ) {
@@ -1179,6 +1224,10 @@ export class ProviderRuntimeHost {
   }
 
   async handleWorkerMessage(entry, message) {
+    if (message?.type === "creationEvidence") {
+      this.recordCreationEvidence(entry, message.creation);
+      return;
+    }
     if (this.turnLedger.handleWorkerMessage(entry, message)) {
       if (message.type === "sessionTurnAccepted") {
         this.clearAttachDeadline(entry);
@@ -1203,6 +1252,10 @@ export class ProviderRuntimeHost {
       return;
     }
     if (message?.type === "bound" && typeof message.sessionId === "string") {
+      if (entry.creation)
+        throw new Error(
+          "Managed worker cannot publish an unfenced native binding",
+        );
       await this.bind({
         runtimeId: entry.runtimeId,
         sessionId: message.sessionId,
@@ -1219,6 +1272,9 @@ export class ProviderRuntimeHost {
       this.release({
         runtimeId: entry.runtimeId,
         generation: message.generation,
+        ...(entry.creation
+          ? { creation: entry.creation.identity, workerProtocolVersion: 2 }
+          : {}),
       });
       return;
     }
@@ -1242,6 +1298,43 @@ export class ProviderRuntimeHost {
     } catch (error) {
       if (isProcessGroupAlive(processGroupId)) throw error;
     }
+  }
+
+  recordCreationEvidence(entry, value) {
+    if (!entry.creation) throw new Error("Unexpected creation owner evidence");
+    const next = parseCreationRuntimeEvidence(value);
+    if (
+      !sameCreationRuntimeIdentity(entry.creation.identity, next.identity) ||
+      (entry.creation.nativeSessionId &&
+        next.nativeSessionId &&
+        entry.creation.nativeSessionId !== next.nativeSessionId)
+    )
+      throw new Error("Provider creation evidence conflicts with its attempt");
+    entry.creation = {
+      identity: entry.creation.identity,
+      nativeSessionId: next.nativeSessionId ?? entry.creation.nativeSessionId,
+      initialInputConsumed:
+        entry.creation.initialInputConsumed || next.initialInputConsumed,
+    };
+    if (entry.creation.nativeSessionId)
+      entry.providerSessionId = entry.creation.nativeSessionId;
+  }
+
+  assertManagedController(entry, request) {
+    if (
+      entry.creation &&
+      (request.workerProtocolVersion !== 2 ||
+        !sameCreationRuntimeIdentity(entry.creation.identity, request.creation))
+    )
+      throw controlError(
+        "ownership-unknown",
+        "Managed provider worker requires its exact creation identity and protocol 2",
+      );
+    if (!entry.creation && request.creation !== undefined)
+      throw controlError(
+        "ownership-unknown",
+        "Legacy provider worker has no creation identity",
+      );
   }
 
   notifyRuntimeTargets(entry) {
@@ -1271,6 +1364,8 @@ export class ProviderRuntimeHost {
         ? request.yaSessionId
         : sessionId;
     const entry = this.runtimes.get(runtimeId);
+    if (entry?.creation)
+      throw new Error("Managed native binding requires worker evidence");
     if (!entry || !this.isRuntimeClaimable(entry)) {
       throw new Error(`Unknown or dead provider runtime ${runtimeId}`);
     }
@@ -1331,7 +1426,13 @@ export class ProviderRuntimeHost {
       throw new Error(`Server generation ${generation} is not registered`);
     }
     const entry = this.runtimeForSession(sessionId);
+    if (entry) this.assertManagedController(entry, request);
     if (!entry || !this.isRuntimeClaimable(entry)) return null;
+    if (entry.creation && !entry.workerMetadata)
+      throw controlError(
+        "ownership-unknown",
+        "Managed provider worker is not ready to attach",
+      );
     const currentGeneration = entry.attachedServerGeneration;
     if (
       currentGeneration &&
@@ -1356,6 +1457,7 @@ export class ProviderRuntimeHost {
     const runtimeId = this.requireString(request.runtimeId, "runtimeId");
     const generation = this.requireString(request.generation, "generation");
     const entry = this.runtimes.get(runtimeId);
+    if (entry) this.assertManagedController(entry, request);
     if (
       !entry ||
       !this.isRuntimeAlive(entry) ||
@@ -1413,6 +1515,7 @@ export class ProviderRuntimeHost {
     const runtimeId = this.requireString(request.runtimeId, "runtimeId");
     const generation = this.requireString(request.generation, "generation");
     const entry = this.runtimes.get(runtimeId);
+    if (entry) this.assertManagedController(entry, request);
     if (!entry || entry.attachedServerGeneration !== generation) return {};
     if (entry.state === "closing") return {};
     this.markViewerDetached(entry);
@@ -1564,6 +1667,7 @@ export class ProviderRuntimeHost {
     this.shuttingDown = (async () => {
       const recentRuntimeCandidates = [...this.runtimes.values()]
         .filter((entry) => {
+          if (entry.creation) return false;
           try {
             return entry.providerSessionId && this.isRuntimeClaimable(entry);
           } catch {
@@ -1759,6 +1863,7 @@ async function main() {
         descriptorId,
         hostProtocolVersion: HOST_PROTOCOL_VERSION,
         features: [
+          CREATION_OWNER_FEATURE,
           "runtime-control",
           "session-turn",
           "session-turn-await",

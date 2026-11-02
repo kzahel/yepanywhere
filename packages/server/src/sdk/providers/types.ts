@@ -248,6 +248,14 @@ export function inactiveProviderSessionOptionsResult(
  * Options for starting a new agent session.
  */
 export interface StartSessionOptions {
+  /** Current controller only; functions never cross the private worker channel. */
+  creationRuntime?: {
+    identity: import("./creation-runtime-identity.js").CreationRuntimeIdentity;
+    authorize(): Promise<void>;
+    observe(
+      evidence: import("./creation-runtime-identity.js").CreationRuntimeEvidence,
+    ): void;
+  };
   /** Trusted YA identity for child authority/AgentSelf; never a native handle. */
   publicSessionId?: YaSessionId;
   /** Private runtime transport only; never retained or returned to browsers. */
@@ -558,6 +566,8 @@ export interface AgentSession {
  * All providers (Claude, Codex, Gemini, local) implement this interface.
  */
 export interface AgentProvider {
+  /** Registry-selected owner; independent/raw adapters default to local. */
+  readonly runtimeOwner?: "local" | "host";
   /** Provider identifier */
   readonly name: ProviderName;
   /** Human-readable display name */

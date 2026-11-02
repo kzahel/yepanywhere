@@ -26,11 +26,14 @@ export type CreationLaunchSnapshot = Pick<
   | "claudeAutoCompactPercentOverride"
   | "sandboxLevel"
   | "sandboxNetworkFirewall"
-> & { schemaVersion: 1 };
+> & { schemaVersion: 1; runtimeOwner?: "local" | "host" };
 
 /** Rebuild an allowlist rather than serializing runtime/provider option objects. */
 export function snapshotCreationLaunch(
-  input: ModelSettings & { schemaVersion?: number },
+  input: ModelSettings & {
+    schemaVersion?: number;
+    runtimeOwner?: "local" | "host";
+  },
 ): CreationLaunchSnapshot {
   if (
     !input ||
@@ -50,6 +53,11 @@ export function snapshotCreationLaunch(
   )
     throw new Error("New session creation cannot contain resume options");
   const result: CreationLaunchSnapshot = { schemaVersion: 1 };
+  if (input.runtimeOwner !== undefined) {
+    if (input.runtimeOwner !== "local" && input.runtimeOwner !== "host")
+      throw new Error("Invalid saved runtime owner");
+    result.runtimeOwner = input.runtimeOwner;
+  }
   for (const key of [
     "model",
     "clientName",

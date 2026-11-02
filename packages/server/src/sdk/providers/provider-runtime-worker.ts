@@ -104,7 +104,11 @@ async function main(): Promise<void> {
     // Sent before reading launch input or preparing any provider resources.
     // Managed creation support is advertised only after its owner is qualified.
     if (typeof process.send === "function" && process.connected) {
-      process.send({ type: "launchHello", protocolVersion: 1, features: [] });
+      process.send({
+        type: "launchHello",
+        protocolVersion: 1,
+        features: ["session-creation-owner-v1"],
+      });
     }
     const request = await readLaunchRequest();
     if (request.creation !== undefined)

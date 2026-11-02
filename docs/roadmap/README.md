@@ -718,6 +718,14 @@ tool verifies public bridge/self/API identity before any controller publication.
 Owned Node 22/26 worker and Node/Bun owner qualification pass, as do final
 workspace gates. The managed feature remains unadvertised until host transport,
 saved-attempt reconciliation and Hono replacement are qualified.
+Hosted transport and saved-attempt reconciliation are independently accepted:
+exact protocol-2 claims pin ownership, current-attempt worker proof survives
+Hono replacement, and full owner loss retains uncertainty without prompt
+replay. Owned Node 22/26 pinned SDK/CLI and clean compiled-startup probes pass.
+Deferred local fallback, destructive configuration/compact replacement and
+uncertain native-command ingress refuse before effects. The private managed
+feature is enabled only for qualified hosted Claude text; the global receipts
+capability and broader rollout remain gated.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

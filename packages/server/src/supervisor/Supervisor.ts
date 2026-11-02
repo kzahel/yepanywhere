@@ -10,7 +10,15 @@ import {
   type CreationAttemptFence,
   type SavedSessionCreation,
 } from "../sessions/SessionCreationStore.js";
-import { isProviderRuntimeHostAvailable } from "../sdk/providers/provider-runtime-host.js";
+import {
+  isProviderRuntimeHostAvailable,
+  assertHostedCreationSupport,
+  listHostedProviderRuntimes,
+} from "../sdk/providers/provider-runtime-host.js";
+import {
+  parseCreationRuntimeIdentity,
+  sameCreationRuntimeIdentity,
+} from "../sdk/providers/creation-runtime-identity.js";
 import { snapshotCreationLaunch } from "../sessions/session-creation-launch.js";
 import { snapshotCreationInput } from "../sessions/session-creation-input.js";
 import { readdir, rm } from "node:fs/promises";
@@ -31,6 +39,7 @@ import {
   type UrlProjectId,
   isYaSessionId,
   parseNativeSessionId,
+  nativeSessionRef,
   parseYaSessionId,
   readGoalDetails,
   truncateSessionTitle,
@@ -639,6 +648,12 @@ export class ForkSettingsPersistenceError extends Error {
   }
 }
 
+interface ManagedProviderLaunch {
+  identity: ManagedProcessIdentity;
+  authorize(): Promise<void>;
+  runtime?: import("../sdk/providers/types.js").StartSessionOptions["creationRuntime"];
+}
+
 export class Supervisor {
   private readonly instructionOptions: Pick<
     SupervisorOptions,
@@ -1102,6 +1117,127 @@ export class Supervisor {
     return process;
   }
 
+  private hostedCreationRuntime(
+    saved: SavedSessionCreation,
+    fence: CreationAttemptFence,
+    namespace: import("../sessions/SessionIdentityStore.js").NativeSessionNamespace,
+    authorize: () => Promise<void>,
+  ): NonNullable<
+    import("../sdk/providers/types.js").StartSessionOptions["creationRuntime"]
+  > {
+    const store = this.sessionMetadataService!.creations;
+    const identity = parseCreationRuntimeIdentity({
+      version: 1,
+      sessionId: saved.sessionId,
+      creationId: fence.creationId,
+      attemptId: fence.attemptId,
+      generation: fence.generation,
+      nativeNamespace: namespace,
+      nativeSessionId: parseNativeSessionId(saved.sessionId),
+      initialInputId: saved.initialInputId,
+    });
+    return {
+      identity,
+      authorize,
+      observe(evidence) {
+        const current = store.assertCurrent(fence);
+        if (!sameCreationRuntimeIdentity(identity, evidence.identity))
+          throw new Error("Hosted creation proof does not match saved attempt");
+        if (!evidence.nativeSessionId) return;
+        const native = nativeSessionRef(
+          namespace.family,
+          namespace.storageScope,
+          evidence.nativeSessionId,
+        );
+        if (evidence.initialInputConsumed)
+          store.confirmOwnedInput(fence, native, identity.initialInputId);
+        else if (["dispatching", "bound"].includes(current.attempt.state))
+          store.bindNative(fence, native);
+      },
+    };
+  }
+
+  private async reconcileHostedCreation(sessionId: string): Promise<void> {
+    if (!isYaSessionId(sessionId) || !isProviderRuntimeHostAvailable()) return;
+    const store = this.sessionMetadataService?.creations;
+    const saved = store?.getForSession(sessionId);
+    if (
+      !saved ||
+      saved.deleted ||
+      saved.request?.launch?.runtimeOwner !== "host" ||
+      saved.context.owner.kind !== "superuser" ||
+      saved.request.provider !== "claude"
+    )
+      return;
+    if (
+      saved.attempt.state === "bound" &&
+      saved.attempt.delivery === "consumed"
+    )
+      return;
+    const namespace = store!.getDispatchNamespace(saved.attempt);
+    if (!namespace) return;
+    const runtime = (await listHostedProviderRuntimes()).find(
+      (value) =>
+        value.sessionId === sessionId &&
+        value.state !== "closing" &&
+        value.creation,
+    );
+    if (!runtime?.creation) return;
+    const contract = this.hostedCreationRuntime(
+      saved,
+      saved.attempt,
+      namespace,
+      async () => {
+        store!.assertCurrent(saved.attempt);
+      },
+    );
+    contract.observe(runtime.creation);
+  }
+
+  private hostedSavedLaunch(
+    sessionId: string,
+  ): ManagedProviderLaunch | undefined {
+    if (!isYaSessionId(sessionId)) return undefined;
+    const store = this.sessionMetadataService?.creations;
+    const saved = store?.getForSession(sessionId);
+    if (saved?.deleted)
+      throw new SessionMessageRejectedError("Session creation was deleted");
+    if (saved?.request?.launch?.runtimeOwner !== "host") return undefined;
+    if (
+      saved.context.owner.kind !== "superuser" ||
+      saved.request.provider !== "claude" ||
+      !isProviderRuntimeHostAvailable()
+    )
+      throw new Error("Saved creation host owner is unavailable");
+    const namespace = store!.getDispatchNamespace(saved.attempt);
+    if (!namespace)
+      throw new Error("Saved creation has no dispatched host owner");
+    const authorize = async () => {
+      store!.assertCurrent(saved.attempt);
+      if (!isProviderRuntimeHostAvailable())
+        throw new Error("Saved creation host owner is unavailable");
+    };
+    return {
+      identity: creationProcessIdentity(store!, saved.attempt, namespace),
+      authorize,
+      runtime: this.hostedCreationRuntime(
+        saved,
+        saved.attempt,
+        namespace,
+        authorize,
+      ),
+    };
+  }
+
+  private isSavedHostedSession(sessionId: string): boolean {
+    if (!isYaSessionId(sessionId)) return false;
+    const saved =
+      this.sessionMetadataService?.creations?.getForSession(sessionId);
+    if (saved?.deleted)
+      throw new SessionMessageRejectedError("Session creation was deleted");
+    return saved?.request?.launch?.runtimeOwner === "host";
+  }
+
   private async dispatchSavedSession(
     fence: CreationAttemptFence,
     authorize: (saved: SavedSessionCreation) => Promise<void>,
@@ -1123,13 +1259,13 @@ export class Supervisor {
         launch.routerAccountId ||
         launch.routerPoolId ||
         launch.machineControl ||
-        launch.sandboxLevel === "project-write" ||
-        isProviderRuntimeHostAvailable()
+        launch.sandboxLevel === "project-write"
       ) {
         throw new Error(
           "This creation requires a dispatcher not yet qualified",
         );
       }
+      const hosted = launch.runtimeOwner === "host";
       await authorize(saved);
       store.assertCurrent(fence);
       const modelSettings: ModelSettings = {
@@ -1143,6 +1279,11 @@ export class Supervisor {
       const provider = this.resolveProvider(modelSettings);
       if (!provider?.getNewSessionNamespace)
         throw new Error("Provider has no durable namespace contract");
+      if ((provider.runtimeOwner ?? "local") !== (hosted ? "host" : "local"))
+        throw new Error(
+          "Saved creation cannot switch its selected runtime owner",
+        );
+      if (hosted) await assertHostedCreationSupport();
       const auth = await provider.getAuthStatus();
       store.assertCurrent(fence);
       if (!auth.installed || !auth.authenticated || auth.enabled === false) {
@@ -1164,6 +1305,11 @@ export class Supervisor {
           identity.bindNative(id);
         },
       };
+      const currentAuthority = async () => {
+        await authorize(store.assertCurrent(currentFence));
+        if (hosted && !isProviderRuntimeHostAvailable())
+          throw new Error("Saved creation runtime owner is unavailable");
+      };
       return await this.startProviderSession(
         request.projectPath,
         request.projectId,
@@ -1182,7 +1328,15 @@ export class Supervisor {
         true,
         {
           identity: managedIdentity,
-          authorize: () => authorize(store.assertCurrent(currentFence)),
+          authorize: currentAuthority,
+          runtime: hosted
+            ? this.hostedCreationRuntime(
+                saved,
+                currentFence,
+                namespace,
+                currentAuthority,
+              )
+            : undefined,
         },
       );
     } catch (error) {
@@ -1242,7 +1396,6 @@ export class Supervisor {
       !modelSettings?.routerPoolId &&
       !modelSettings?.machineControl &&
       modelSettings?.sandboxLevel !== "project-write" &&
-      !isProviderRuntimeHostAvailable() &&
       this.sessionMetadataService?.creations
     ) {
       const store = this.sessionMetadataService.creations;
@@ -1262,7 +1415,10 @@ export class Supervisor {
             thinking: modelSettings?.thinking ?? null,
             effort: modelSettings?.effort ?? null,
           },
-          launch: snapshotCreationLaunch(modelSettings ?? {}),
+          launch: snapshotCreationLaunch({
+            ...modelSettings,
+            runtimeOwner: provider.runtimeOwner ?? "local",
+          }),
           input: snapshotCreationInput({
             schemaVersion: 1,
             tempId: message.tempId,
@@ -1500,6 +1656,24 @@ export class Supervisor {
     requestedModelSettings?: ModelSettings,
     options?: SessionReactivationOptions,
   ): Promise<Process> {
+    await this.reconcileHostedCreation(resumeSessionId);
+    const stored = isYaSessionId(resumeSessionId)
+      ? this.sessionMetadataService?.identities?.resolveYa(resumeSessionId)
+      : undefined;
+    const startup = stored
+      ? this.sessionMetadataService?.creations?.getForSession(stored.sessionId)
+      : undefined;
+    if (
+      stored &&
+      startup?.request?.launch?.runtimeOwner !== "host" &&
+      (!stored.native ||
+        (startup &&
+          (startup.attempt.state !== "bound" ||
+            startup.attempt.delivery !== "consumed")))
+    )
+      throw new SessionMessageRejectedError(
+        "Session startup has not completed; use creation recovery",
+      );
     const { projectPath, modelSettings } = this.withSettledSandbox(
       resumeSessionId,
       requestedProjectPath,
@@ -1551,6 +1725,20 @@ export class Supervisor {
       launchCold: async (resolved) => {
         const provider = this.resolveProvider(resolved.modelSettings);
         if (provider) {
+          const managed = this.hostedSavedLaunch(resumeSessionId);
+          if (managed)
+            return this.startProviderSession(
+              projectPath,
+              projectId,
+              undefined,
+              resumeSessionId,
+              resolved.permissionMode,
+              resolved.modelSettings,
+              provider,
+              false,
+              false,
+              managed,
+            );
           return this.createProviderSession(
             projectPath,
             projectId,
@@ -3065,25 +3253,26 @@ export class Supervisor {
   private async startProviderSession(
     projectPath: string,
     projectId: UrlProjectId,
-    message: UserMessage,
+    message: UserMessage | undefined,
     resumeSessionId?: string,
     permissionMode?: PermissionMode,
     modelSettings?: ModelSettings,
     provider?: AgentProvider,
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
-    managedLaunch?: {
-      identity: ManagedProcessIdentity;
-      authorize(): Promise<void>;
-    },
+    managedLaunch?: ManagedProviderLaunch,
   ): Promise<Process> {
     const managedIdentity = managedLaunch?.identity;
     const activeProvider = provider ?? this.provider;
     if (!activeProvider) {
       throw new Error("provider is not available");
     }
+    if (managedLaunch?.runtime && activeProvider.runtimeOwner !== "host")
+      throw new Error(
+        "Saved creation cannot replace its hosted owner with a local provider",
+      );
     if (
-      message.metadata?.turnEffort &&
+      message?.metadata?.turnEffort &&
       !["codex", "claude", "claude-gateway", "claude-ollama"].includes(
         activeProvider.name,
       )
@@ -3190,8 +3379,10 @@ export class Supervisor {
         Boolean(sessionSandbox) || Boolean(modelSettings?.executor),
       );
       await managedLaunch?.authorize();
-      managedIdentity?.assertInputAdmission();
+      if (message) managedIdentity?.assertInputAdmission();
       const start = activeProvider.startSession({
+        creationRuntime: managedLaunch?.runtime,
+        publicSessionId: managedIdentity?.sessionId,
         routerLaunch,
         machineControl: modelSettings?.machineControl,
         desktopControlOrigin: modelSettings?.desktopControlOrigin,
@@ -3371,7 +3562,7 @@ export class Supervisor {
 
       const queueBeforeProviderSettlement =
         !resumeSessionId && requireProviderSessionId;
-      if (queueBeforeProviderSettlement) {
+      if (queueBeforeProviderSettlement && message) {
         await this.queueInitialProcessMessage(process, message);
       }
 
@@ -3384,7 +3575,7 @@ export class Supervisor {
         await this.persistProcessSandboxOrAbort(process);
       }
 
-      if (!queueBeforeProviderSettlement) {
+      if (!queueBeforeProviderSettlement && message) {
         await this.queueInitialProcessMessage(process, message);
       }
 
@@ -3509,6 +3700,15 @@ export class Supervisor {
     requestedModelSettings?: ModelSettings,
     launchOptions?: SessionLaunchOptions,
   ): Promise<Process | QueuedResponse | QueueFullResponse> {
+    if (
+      requestedModelSettings?.resumeMode &&
+      requestedModelSettings.resumeMode !== "full" &&
+      this.isSavedHostedSession(sessionId)
+    )
+      throw new SessionMessageRejectedError(
+        "Saved hosted creation requires retained-owner resume",
+      );
+    await this.reconcileHostedCreation(sessionId);
     const identity = isYaSessionId(sessionId)
       ? this.sessionMetadataService?.identities?.resolveYa(sessionId)
       : undefined;
@@ -3613,6 +3813,10 @@ export class Supervisor {
                 );
               }
             } else {
+              if (this.isSavedHostedSession(sessionId))
+                throw new SessionMessageRejectedError(
+                  "Saved hosted session cannot replace its provider owner for configuration",
+                );
               // Effort changed or no dynamic support: restart process
               const log = getLogger();
               log.info(
@@ -3757,6 +3961,11 @@ export class Supervisor {
 
       // Use provider if available (preferred)
       if (provider) {
+        const managed = this.hostedSavedLaunch(sessionId);
+        if (managed && resumeMode !== "full")
+          throw new Error(
+            "Saved hosted creation requires retained-owner resume",
+          );
         if (resumeMode === "compact-first") {
           process = await this.startCompactFirstProviderResume(
             projectPath,
@@ -3776,6 +3985,9 @@ export class Supervisor {
             resolved.permissionMode,
             resolved.modelSettings,
             provider,
+            false,
+            false,
+            managed,
           );
         }
       } else if (this.realSdk) {
@@ -4706,6 +4918,10 @@ export class Supervisor {
     permissionMode: PermissionMode,
     settings: ModelSettings,
   ): Promise<Process | null> {
+    if (this.isSavedHostedSession(process.sessionId))
+      throw new SessionMessageRejectedError(
+        "Saved hosted session cannot replace its provider owner for configuration",
+      );
     const effectiveProvider = this.resolveProvider(settings);
     if (!effectiveProvider) return null;
     this.assertSessionSandboxSettings(settings);
@@ -7059,6 +7275,11 @@ export class Supervisor {
         )
       : { permissionMode, modelSettings };
     const provider = this.resolveProvider(resolved.modelSettings);
+    const managed = resumeSessionId
+      ? this.hostedSavedLaunch(resumeSessionId)
+      : undefined;
+    if (managed && provider?.runtimeOwner !== "host")
+      throw new Error("Saved creation cannot replace its hosted owner");
 
     // Use provider if available (preferred)
     if (provider) {
@@ -7072,6 +7293,7 @@ export class Supervisor {
         provider,
         retryProviderStartupFailure,
         requireProviderSessionId,
+        managed,
       );
     }
 

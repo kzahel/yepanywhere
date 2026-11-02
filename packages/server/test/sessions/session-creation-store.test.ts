@@ -519,3 +519,106 @@ it("preserves old creation replay without inventing an input identity during the
     rows(database, "SELECT request_hash, payload_json FROM session_creations"),
   ).toEqual([{ request_hash: hash, payload_json: payload }]);
 });
+
+it("recovers lost controllers without input replay and accepts only scoped current input proof", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ya-owned-recovery-"));
+  roots.push(root);
+  const { store, metadata } = await fixture();
+  const admit = (requestId: string) =>
+    store.admit({ requestId, context, request });
+  const unbound = admit("owner-unbound");
+  const bound = admit("owner-bound");
+  const confirmed = admit("owner-confirmed");
+  const queued = admit("owner-queued");
+  const saved = admit("owner-saved");
+  const one = { family: "claude" as const, storageScope: join(root, "one") };
+  const two = { family: "claude" as const, storageScope: join(root, "two") };
+  const three = {
+    family: "claude" as const,
+    storageScope: join(root, "three"),
+  };
+  const first = store.beginDispatch(unbound.attempt, one);
+  const second = store.beginDispatch(bound.attempt, two);
+  const third = store.beginDispatch(confirmed.attempt, three);
+  const boundNative = nativeSessionRef(
+    "claude",
+    two.storageScope,
+    parseNativeSessionId("native-bound"),
+  );
+  store.bindNative(second, boundNative);
+  store.confirmOwnedInput(
+    third,
+    nativeSessionRef(
+      "claude",
+      three.storageScope,
+      parseNativeSessionId("native-confirmed"),
+    ),
+    confirmed.initialInputId!,
+  );
+  store.markQueued(queued.attempt);
+  store.recoverOwnerLoss();
+  expect(store.getForSession(unbound.sessionId)?.attempt).toMatchObject({
+    state: "uncertain",
+    delivery: "uncertain",
+  });
+  expect(store.getForSession(bound.sessionId)?.attempt).toMatchObject({
+    state: "uncertain",
+    delivery: "uncertain",
+  });
+  expect(store.getForSession(confirmed.sessionId)?.attempt).toMatchObject({
+    state: "bound",
+    delivery: "consumed",
+  });
+  expect(store.getForSession(queued.sessionId)?.attempt.state).toBe("queued");
+  expect(store.getForSession(saved.sessionId)?.attempt.state).toBe("saved");
+  expect(store.getDispatchNamespace(first)).toEqual(one);
+  const native = nativeSessionRef(
+    "claude",
+    one.storageScope,
+    parseNativeSessionId("native-recovered"),
+  );
+  expect(() => store.confirmOwnedInput(first, native, "wrong-input")).toThrow(
+    SessionCreationConflict,
+  );
+  expect(() =>
+    store.confirmOwnedInput(
+      { ...first, generation: first.generation + 1 },
+      native,
+      unbound.initialInputId!,
+    ),
+  ).toThrow(StaleCreationAttempt);
+  expect(() =>
+    store.confirmOwnedInput(
+      first,
+      { ...native, storageScope: two.storageScope },
+      unbound.initialInputId!,
+    ),
+  ).toThrow(SessionCreationConflict);
+  expect(metadata.identities.resolveYa(unbound.sessionId)?.native).toBeNull();
+  // Binding proves the native owner, not delivery; it cannot reopen input.
+  store.bindNative(first, native);
+  expect(store.getForSession(unbound.sessionId)?.attempt.state).toBe(
+    "uncertain",
+  );
+  expect(() =>
+    store.confirmOwnedInput(
+      first,
+      { ...native, id: parseNativeSessionId("another-native") },
+      unbound.initialInputId!,
+    ),
+  ).toThrow(SessionIdentityConflict);
+  store.confirmOwnedInput(first, native, unbound.initialInputId!);
+  store.confirmOwnedInput(second, boundNative, bound.initialInputId!);
+  expect(store.getForSession(unbound.sessionId)?.attempt).toMatchObject({
+    state: "bound",
+    delivery: "consumed",
+  });
+  expect(store.getForSession(bound.sessionId)?.attempt).toMatchObject({
+    state: "bound",
+    delivery: "consumed",
+  });
+  expect(store.getDispatchNamespace(first)).toEqual(one);
+  const generation = store.generation;
+  store.confirmOwnedInput(first, native, unbound.initialInputId!);
+  expect(store.generation).toBe(generation);
+});

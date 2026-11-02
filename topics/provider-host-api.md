@@ -115,17 +115,19 @@ The host permits one registered Hono controller generation per worker. It
 fences stale/concurrent controllers and keeps a canonical provider-session-id
 to worker mapping until verified cleanup.
 
-Each worker opens a separate private Unix socket using worker protocol version
-1. Hono attaches with the same private token and its registered generation.
+Legacy workers use private Unix-socket protocol 1. Managed creation workers
+require protocol 2 and their exact immutable creation record before attachment
+or replay. Hono uses the same private token and registered controller generation.
 New workers also emit a pre-start IPC `launchHello` (launch protocol 1,
 supported feature names) before reading launch JSON. A host launch with
 `requiredWorkerFeatures` withholds all stdin until that hello accepts every
 requirement. The list is limited to eight names of at most 128 characters;
 missing hello uses the existing startup deadline, and premature ready is
-rejected. Legacy launches still receive stdin immediately. This negotiation
-does not advertise managed creation support: the distinct
+rejected. Legacy launches still receive stdin immediately. The negotiated
 [`session-creation-owner-v1` contract](session-identity.md#hosted-creation-contract--implementation-refinement)
-requires separately qualified owner evidence and attach fencing. Unsupported
+adds scoped owner evidence, fenced host claims and protocol-2 attachment.
+Managed launches require it; absence preserves incumbent workers and refuses
+the new transition. Unsupported
 new launches never upgrade or restart incumbent workers. A request timeout or
 cleanup failure is not evidence that native effects were absent.
 

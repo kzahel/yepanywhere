@@ -53,6 +53,16 @@ copyFileSync(
   join(serverTargetDir, "sdk/providers/pi-yep-anywhere-extension.mjs"),
 );
 
+for (const name of [
+  "creation-runtime-record.mjs",
+  "creation-runtime-record.d.mts",
+]) {
+  copyFileSync(
+    join(serverSourceDir, "sdk/providers", name),
+    join(serverTargetDir, "sdk/providers", name),
+  );
+}
+
 copyFileSync(
   join(serverSourceDir, "highlighting/highlight-worker.mjs"),
   join(serverTargetDir, "highlighting/highlight-worker.mjs"),

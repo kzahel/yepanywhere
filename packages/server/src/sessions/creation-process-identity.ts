@@ -1,4 +1,4 @@
-import { nativeSessionRef } from "@yep-anywhere/shared";
+import { nativeSessionRef, type NativeSessionId } from "@yep-anywhere/shared";
 import type { ManagedProcessIdentity } from "../supervisor/Process.js";
 import type { NativeSessionNamespace } from "./SessionIdentityStore.js";
 import {
@@ -18,6 +18,7 @@ export function creationProcessIdentity(
     throw new Error("Saved creation lacks dispatchable launch/input identity");
   }
   let consumed = saved.attempt.delivery === "consumed";
+  let boundNativeId: NativeSessionId | undefined;
   return {
     sessionId: saved.sessionId,
     bindNative(id) {
@@ -25,6 +26,7 @@ export function creationProcessIdentity(
         fence,
         nativeSessionRef(namespace.family, namespace.storageScope, id),
       );
+      boundNativeId = id;
     },
     assertInputAdmission() {
       const current = store.assertCurrent(fence);
@@ -34,7 +36,18 @@ export function creationProcessIdentity(
     },
     observeProviderInput(uuid) {
       if (consumed || uuid !== saved.initialInputId) return;
-      store.markDelivery(fence, "consumed");
+      if (!boundNativeId)
+        throw new Error("Provider input confirmation lacks native binding");
+      if (store.assertCurrent(fence).attempt.delivery !== "consumed")
+        store.confirmOwnedInput(
+          fence,
+          nativeSessionRef(
+            namespace.family,
+            namespace.storageScope,
+            boundNativeId,
+          ),
+          uuid,
+        );
       consumed = true;
     },
     ownerExited() {

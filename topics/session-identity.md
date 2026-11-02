@@ -23,8 +23,9 @@ Its first qualified path is superuser-owned local unsandboxed, non-router Claude
 are explicitly refused before effects until their later rollout slices.
 The existing project/detached creation routes use it for superuser text requests
 resolved through the Claude AgentProvider adapter, without attachments, slash
-commands, runtime-only input authority, router, sandbox, machine control or
-provider hosting. Other shapes retain their existing path during rollout.
+commands, runtime-only input authority, router, sandbox or machine control.
+Hosting additionally requires the negotiated private owner contract described
+below. Other shapes retain their existing path during rollout.
 The legacy Claude SDK bridge now resolves the same configured adapter when
 provider is omitted; explicit overrides and unnamed independent SDKs retain
 their existing behavior. Completed/queued/error response shapes and advertised
@@ -860,6 +861,29 @@ effects remain uncertain and cannot launch a replacement. Existing teardown
 verification remains authoritative. Admission after Hono detach is constrained
 by the surviving worker's exact launch; new authority is checked in Hono for
 each later accepted action.
+
+The registry marks the selected provider owner as local or hosted; independent
+adapters remain local. Admission freezes that choice as optional version-1
+launch `runtimeOwner` (absence on older records preserves local selection).
+Promotion and retry refuse an owner switch. An unavailable/older selected host
+fails before dispatch, preserving the saved row without a direct fallback.
+
+Host claim, attach confirmation and release include the exact creation record
+and managed worker protocol. Missing/stale records fail before host ownership
+changes; public publication never enters the legacy native bind operation.
+The headless host and TS worker/proxy use one bounded plain-ESM private decoder.
+Host inventory retains monotonic native/input evidence; managed workers are
+excluded from legacy orderly-restart launch recipes.
+
+Before new admission at Hono startup, one bounded transaction marks previously
+unconfirmed dispatched attempts uncertain. It reads compact control rows, not
+saved prompts or provider history. Reattachment reconstructs its expected
+namespace from the saved allocation/binding and compares the full worker fence.
+It can restore observation/approvals while input is unconfirmed, without
+queueing a message. Binding alone preserves uncertainty and input refusal;
+only confirmation of the exact initial UUID atomically restores bound/consumed.
+Full owner loss keeps uncertainty and the original prompt. Saved/queued records
+remain saved/queued; this recovery performs no automatic native launch.
 
 Implementation is split into a non-enabling startup-negotiation cut, then
 owner evidence and protocol-2 attach, then saved-dispatch integration and owned

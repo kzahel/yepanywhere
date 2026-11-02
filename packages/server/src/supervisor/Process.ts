@@ -2586,6 +2586,10 @@ export class Process {
       persistOutput?: (message: DurableLocalCommandMessage) => Promise<void>;
     },
   ): Promise<ProviderCommandResult> {
+    if (this.managedIdentity) {
+      const inputError = this.inputRejectionError();
+      if (inputError) return { handled: true, error: inputError };
+    }
     if (!this.runProviderCommandFn) {
       return { handled: false };
     }

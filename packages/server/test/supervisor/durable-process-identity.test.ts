@@ -1,3 +1,4 @@
+import * as providerHost from "../../src/sdk/providers/provider-runtime-host.js";
 import {
   mkdtemp,
   mkdir,
@@ -73,7 +74,10 @@ async function storageFixture() {
   return { root, database, metadata, store, saved, namespace };
 }
 
-async function fixture(initializedSessionId?: string) {
+async function fixture(
+  initializedSessionId?: string,
+  runProviderCommandFn?: import("../../src/supervisor/Process.js").ProcessConstructorOptions["runProviderCommandFn"],
+) {
   const { root, metadata, store, saved, namespace } = await storageFixture();
   const fence = store.beginDispatch(saved.attempt, namespace);
   const source = createControllableIterator();
@@ -88,6 +92,7 @@ async function fixture(initializedSessionId?: string) {
     provider: "claude",
     initialState: "idle",
     abortFn: source.finish,
+    runProviderCommandFn,
   });
   cleanup.push(async () => {
     await process.abort();
@@ -661,4 +666,217 @@ it("uses the canonical existing native directory leaf for allocation, reader pro
   expect(f.metadata.identities.lookupNative(native!)?.sessionId).toBe(
     f.saved.sessionId,
   );
+});
+
+async function retainedHostFixture(maxWorkers = 0) {
+  const f = await storageFixture();
+  const available = vi
+    .spyOn(providerHost, "isProviderRuntimeHostAvailable")
+    .mockReturnValue(true);
+  cleanup.push(async () => {
+    available.mockRestore();
+  });
+  const saved = f.store.admit({
+    requestId: "retained-host",
+    context: f.saved.context,
+    request: {
+      ...f.saved.request!,
+      launch: { schemaVersion: 1, runtimeOwner: "host" },
+    },
+  });
+  const fence = f.store.beginDispatch(saved.attempt, f.namespace);
+  f.store.bindNative(fence, {
+    ...f.namespace,
+    id: parseNativeSessionId(saved.sessionId),
+  });
+  f.store.confirmOwnedInput(
+    fence,
+    { ...f.namespace, id: parseNativeSessionId(saved.sessionId) },
+    saved.initialInputId!,
+  );
+  let ownerAlive = true,
+    allocations = 0,
+    attaches = 0,
+    commands = 0;
+  const queues: MessageQueue[] = [];
+  const provider: AgentProvider = {
+    name: "claude",
+    runtimeOwner: "host",
+    displayName: "retained fixture",
+    supportsPermissionMode: true,
+    supportsThinkingToggle: true,
+    supportsSlashCommands: true,
+    supportsSteering: false,
+    isInstalled: async () => true,
+    isAuthenticated: async () => true,
+    getAuthStatus: async () => ({
+      installed: true,
+      authenticated: true,
+      enabled: true,
+    }),
+    getAvailableModels: async () => [],
+    getNewSessionNamespace: async () => f.namespace,
+    startSession: async (options) => {
+      if (options.creationRuntime) {
+        attaches++;
+        await options.creationRuntime.authorize();
+        if (!ownerAlive) throw new Error("Saved creation owner is unavailable");
+        options.creationRuntime.observe({
+          identity: options.creationRuntime.identity,
+          nativeSessionId: parseNativeSessionId(saved.sessionId),
+          initialInputConsumed: true,
+        });
+      } else allocations++;
+      const source = createControllableIterator(),
+        queue = new MessageQueue();
+      queues.push(queue);
+      const id = options.resumeSessionId ?? options.newSessionId!;
+      return {
+        iterator: source.iterator,
+        queue,
+        sessionId: id,
+        initializedSessionId: id,
+        initialTurnState: options.creationRuntime ? "idle" : "in-turn",
+        abort: source.finish,
+        runProviderCommand: async () => {
+          commands++;
+          return { handled: true, error: "unexpected compact dispatch" };
+        },
+      };
+    },
+  };
+  const supervisor = new Supervisor({
+    provider,
+    sessionMetadataService: f.metadata,
+    maxWorkers,
+  });
+  cleanup.push(async () => {
+    for (const process of supervisor.getAllProcesses())
+      await supervisor.abortProcess(process.id);
+    await supervisor.stopBackgroundTasks();
+  });
+  return {
+    ...f,
+    saved,
+    fence,
+    supervisor,
+    queues,
+    loseOwner: () => {
+      ownerAlive = false;
+    },
+    get allocations() {
+      return allocations;
+    },
+    get attaches() {
+      return attaches;
+    },
+    get commands() {
+      return commands;
+    },
+  };
+}
+
+it.each(["survives", "lost"])(
+  "preserves hosted ownership through deferred resume promotion (%s)",
+  async (outcome) => {
+    const f = await retainedHostFixture(1);
+    const blocker = await f.supervisor.startSession(f.root, {
+      text: "busy blocker",
+    });
+    expect(blocker).toBeInstanceOf(Process);
+    const queued = await f.supervisor.resumeSession(f.saved.sessionId, f.root, {
+      text: "accepted retained turn",
+    });
+    expect(queued).toMatchObject({ queued: true });
+    if (outcome === "lost") f.loseOwner();
+    await f.supervisor.abortProcess((blocker as Process).id);
+    await waitFor(() => expect(f.attaches).toBe(1));
+    if (outcome === "survives") {
+      await waitFor(() =>
+        expect(
+          f.supervisor.getProcessForSession(f.saved.sessionId),
+        ).toBeDefined(),
+      );
+      expect(
+        f.supervisor
+          .getProcessForSession(f.saved.sessionId)
+          ?.getMessageHistory()
+          .filter((row) => row.type === "user"),
+      ).toHaveLength(1);
+    } else {
+      await waitFor(() => expect(f.supervisor.getQueueInfo()).toHaveLength(0));
+      expect(
+        f.supervisor.getProcessForSession(f.saved.sessionId),
+      ).toBeUndefined();
+    }
+    expect(f.allocations).toBe(1); // Only the unrelated capacity blocker allocated.
+  },
+);
+
+it("refuses hosted replacement and compact-first before disturbing the incumbent", async () => {
+  const f = await retainedHostFixture();
+  const process = await f.supervisor.reactivateSession(
+    f.root,
+    f.saved.sessionId,
+  );
+  expect(process.state.type).toBe("idle");
+  await expect(
+    f.supervisor.resumeSession(
+      f.saved.sessionId,
+      f.root,
+      { text: "must not enter" },
+      undefined,
+      { effort: "high" },
+    ),
+  ).rejects.toThrow("cannot replace its provider owner");
+  await expect(
+    f.supervisor.reconfigureProcess(process.id, {
+      thinking: { type: "enabled", budgetTokens: 1024 },
+    }),
+  ).rejects.toThrow("cannot replace its provider owner");
+  await expect(
+    f.supervisor.resumeSession(
+      f.saved.sessionId,
+      f.root,
+      { text: "must not compact" },
+      undefined,
+      { resumeMode: "compact-first" },
+    ),
+  ).rejects.toThrow("requires retained-owner resume");
+  expect(f.supervisor.getProcessForSession(f.saved.sessionId)).toBe(process);
+  expect(process.isTerminated).toBe(false);
+  expect(process.queueDepth).toBe(0);
+  expect(f.attaches).toBe(1);
+  expect(f.allocations).toBe(0);
+  expect(f.commands).toBe(0);
+});
+
+it("refuses out-of-band native commands while startup is uncertain and reopens only after input proof", async () => {
+  const nativeCommand = vi.fn(async () => ({ handled: true }));
+  const f = await fixture(undefined, nativeCommand);
+  f.source.push({
+    type: "system",
+    subtype: "init",
+    session_id: f.saved.sessionId,
+  });
+  await f.process.waitForProviderSessionId();
+  f.store.markUncertain(f.fence);
+  expect(await f.process.runProviderCommand("compact")).toMatchObject({
+    handled: true,
+    error: expect.any(String),
+  });
+  expect(nativeCommand).not.toHaveBeenCalled();
+  f.source.push({
+    type: "assistant",
+    session_id: f.saved.sessionId,
+    user_message_uuid: f.saved.initialInputId!,
+    message: { content: "confirmed" },
+  });
+  await waitFor(() =>
+    expect(f.store.assertCurrent(f.fence).attempt.delivery).toBe("consumed"),
+  );
+  expect(await f.process.runProviderCommand("status")).toMatchObject({
+    handled: true,
+  });
+  expect(nativeCommand).toHaveBeenCalledOnce();
 });

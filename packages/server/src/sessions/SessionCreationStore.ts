@@ -65,6 +65,8 @@ export interface SessionCreationProjection {
   creation: SessionCreationStatus;
 }
 interface ProjectionRow {
+  creation_id: string;
+  generation: number;
   session_id: string;
   project_id: string;
   provider: ProviderName;
@@ -329,7 +331,7 @@ export class SessionCreationStore {
         "UPDATE session_creation_capacity SET generation = generation + 1 WHERE id = 1",
       ),
       projections: database.prepare(
-        "SELECT i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt",
+        "SELECT c.id AS creation_id, a.generation, i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt",
       ),
       byId: database.prepare("SELECT * FROM session_creations WHERE id = ?"),
       byKey: database.prepare(
@@ -373,6 +375,29 @@ export class SessionCreationStore {
   /** One fixed-size scalar read; no per-session scan or timer. */
   get generation(): number {
     return this.statements.capacity.get<{ generation: number }>()!.generation;
+  }
+
+  /** Once per Hono startup: compact control rows only, never saved prompts. */
+  recoverOwnerLoss(): void {
+    this.database.transaction(() => {
+      for (const row of this.statements.projections.all<ProjectionRow>()) {
+        if (
+          row.deleted ||
+          row.delivery === "consumed" ||
+          !["dispatching", "bound"].includes(row.state)
+        )
+          continue;
+        this.update(
+          {
+            creationId: row.creation_id,
+            attemptId: row.attempt_id,
+            generation: row.generation,
+          },
+          "uncertain",
+          "uncertain",
+        );
+      }
+    });
   }
 
   /** At most 10,000 compact rows; never fetch/parse saved request payloads. */
@@ -681,32 +706,105 @@ export class SessionCreationStore {
   ): CreationAttempt {
     return this.database.transaction(() => {
       const current = this.assertCurrent(fence);
-      if (!["dispatching", "bound"].includes(current.attempt.state))
-        throw new SessionCreationConflict();
-      const claim = this.statements.nativeClaim.get<{
-        attempt_id: string;
-        generation: number;
-        native_family: string;
-        native_scope: string;
-      }>(fence.creationId);
       if (
-        claim &&
-        (claim.attempt_id !== fence.attemptId ||
-          claim.generation !== fence.generation ||
-          claim.native_family !== native.family ||
-          claim.native_scope !== native.storageScope)
+        !["dispatching", "bound", "uncertain"].includes(current.attempt.state)
       )
         throw new SessionCreationConflict();
-      if (!claim && current.attempt.state !== "bound")
-        throw new SessionCreationConflict();
-      this.metadata.identities.bindWithinTransaction(current.sessionId, native);
-      this.statements.releaseNativeClaim.run(
-        fence.creationId,
-        fence.attemptId,
-        fence.generation,
+      this.applyNativeBinding(fence, current, native);
+      return this.update(
+        fence,
+        current.attempt.state === "uncertain" ? "uncertain" : "bound",
+        current.attempt.delivery,
       );
-      return this.update(fence, "bound", current.attempt.delivery);
     });
+  }
+
+  getDispatchNamespace(
+    fence: CreationAttemptFence,
+  ): NativeSessionNamespace | undefined {
+    const current = this.assertCurrent(fence);
+    const claim = this.statements.nativeClaim.get<{
+      attempt_id: string;
+      generation: number;
+      native_family: NativeSessionNamespace["family"];
+      native_scope: string;
+    }>(fence.creationId);
+    if (claim) {
+      if (
+        claim.attempt_id !== fence.attemptId ||
+        claim.generation !== fence.generation
+      )
+        throw new SessionCreationConflict();
+      return validateNativeSessionNamespace({
+        family: claim.native_family,
+        storageScope: claim.native_scope,
+      });
+    }
+    const native = this.metadata.identities.resolveYa(
+      current.sessionId,
+    )?.native;
+    return native
+      ? { family: native.family, storageScope: native.storageScope }
+      : undefined;
+  }
+
+  /** Positive owner proof only; no absence test or permission to replay input. */
+  confirmOwnedInput(
+    fence: CreationAttemptFence,
+    native: NativeSessionRef,
+    initialInputId: string,
+  ): CreationAttempt {
+    return this.database.transaction(() => {
+      const current = this.assertCurrent(fence);
+      if (
+        current.initialInputId !== initialInputId ||
+        !["dispatching", "bound", "uncertain"].includes(current.attempt.state)
+      )
+        throw new SessionCreationConflict();
+      this.applyNativeBinding(fence, current, native);
+      if (
+        current.attempt.state === "bound" &&
+        current.attempt.delivery === "consumed"
+      )
+        return current.attempt;
+      return this.update(fence, "bound", "consumed");
+    });
+  }
+
+  private applyNativeBinding(
+    fence: CreationAttemptFence,
+    current: SavedSessionCreation,
+    native: NativeSessionRef,
+  ): void {
+    const claim = this.statements.nativeClaim.get<{
+      attempt_id: string;
+      generation: number;
+      native_family: string;
+      native_scope: string;
+    }>(fence.creationId);
+    if (
+      claim &&
+      (claim.attempt_id !== fence.attemptId ||
+        claim.generation !== fence.generation ||
+        claim.native_family !== native.family ||
+        claim.native_scope !== native.storageScope)
+    )
+      throw new SessionCreationConflict();
+    if (
+      !claim &&
+      current.attempt.state !== "bound" &&
+      !(
+        current.attempt.state === "uncertain" &&
+        this.metadata.identities.resolveYa(current.sessionId)?.native
+      )
+    )
+      throw new SessionCreationConflict();
+    this.metadata.identities.bindWithinTransaction(current.sessionId, native);
+    this.statements.releaseNativeClaim.run(
+      fence.creationId,
+      fence.attemptId,
+      fence.generation,
+    );
   }
   markDelivery(
     fence: CreationAttemptFence,

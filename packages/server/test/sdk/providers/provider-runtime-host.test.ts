@@ -579,6 +579,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
         descriptorVersion: 1,
         hostProtocolVersion: 3,
         features: [
+          "session-creation-owner-v1",
           "runtime-control",
           "session-turn",
           "session-turn-await",

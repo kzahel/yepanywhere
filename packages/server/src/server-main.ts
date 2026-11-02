@@ -817,6 +817,9 @@ async function startServer() {
   await notificationService.initialize();
   markStartup("notificationService initialized");
   await sessionMetadataService.initialize();
+  // Before any new admission: only surviving owner proof can confirm input
+  // accepted under the previous controller. No prompt payloads are loaded here.
+  sessionMetadataService.creations.recoverOwnerLoss();
   markStartup("sessionMetadataService initialized");
   const migratedCatalogFamilies = installService.needsCatalogMetadataMigration()
     ? await installService.completeCatalogMetadataMigration(

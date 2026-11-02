@@ -99,6 +99,7 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           .split("\n")
           .map(JSON.parse);
       let worker;
+      let pendingWorker;
       try {
         await waitFor(() => api("/version"));
         const project = await api("/projects", { path: projectPath });
@@ -126,6 +127,66 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
         const before = await inventory();
         worker = before.runtimes?.[0] ?? before[0];
         expect(worker.pid).toBeGreaterThan(1);
+        expect(worker.workerProtocolVersion).toBe(2);
+        expect(worker.creation).toMatchObject({
+          identity: { sessionId: session.sessionId },
+          nativeSessionId: session.sessionId,
+          initialInputConsumed: true,
+        });
+        // An older or stale controller must fail before changing host ownership.
+        const claim = {
+          op: "claim",
+          generation: worker.attachedServerGeneration,
+          sessionId: session.sessionId,
+        };
+        await expect(requestProviderHost(connection, claim)).rejects.toThrow(
+          "exact creation identity",
+        );
+        await expect(
+          requestProviderHost(connection, {
+            ...claim,
+            workerProtocolVersion: 2,
+            creation: {
+              ...worker.creation.identity,
+              attemptId: "stale-attempt",
+            },
+          }),
+        ).rejects.toThrow("exact creation identity");
+        await expect(
+          requestProviderHost(connection, {
+            op: "bind",
+            runtimeId: worker.runtimeId,
+            sessionId: session.sessionId,
+          }),
+        ).rejects.toThrow("worker evidence");
+        const afterRefusal = await inventory();
+        expect((afterRefusal.runtimes ?? afterRefusal)[0]).toMatchObject({
+          runtimeId: worker.runtimeId,
+          pid: worker.pid,
+          state: "attached",
+          attachedServerGeneration: worker.attachedServerGeneration,
+          providerSessionId: session.sessionId,
+        });
+        const pendingSession = await api(
+          `/projects/${project.project.id}/sessions`,
+          {
+            message: "defer-confirmation",
+            provider: "claude",
+            mode: "bypassPermissions",
+          },
+        );
+        await waitFor(async () =>
+          (await barriers()).some(
+            (row) =>
+              row.type === "input-pulled-unconfirmed" &&
+              row.id === pendingSession.sessionId,
+          ),
+        );
+        const pendingInventory = await inventory();
+        pendingWorker = (pendingInventory.runtimes ?? pendingInventory).find(
+          (row) => row.sessionId === pendingSession.sessionId,
+        );
+        expect(pendingWorker.creation.initialInputConsumed).toBe(false);
         await api(
           `/sessions/${session.sessionId}/mode`,
           { mode: "default" },
@@ -143,10 +204,32 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
         await waitFor(async () => {
           const list = await inventory();
           const current = list.runtimes?.[0] ?? list[0];
+          const pending = (list.runtimes ?? list).find(
+            (row) => row.sessionId === pendingSession.sessionId,
+          );
           return (
             current?.attachedServerGeneration &&
-            current.attachedServerGeneration !== oldGeneration
+            current.attachedServerGeneration !== oldGeneration &&
+            pending?.attachedServerGeneration &&
+            pending.attachedServerGeneration !== oldGeneration
           );
+        });
+        // Reattachment happens during startup, before Hono binds its HTTP
+        // listener. Host ownership alone is not an HTTP readiness barrier.
+        await waitFor(() => api("/version"));
+        const pendingStatus = await api(
+          `/projects/${project.project.id}/sessions/${pendingSession.sessionId}`,
+        );
+        expect(pendingStatus.session.creation).toMatchObject({
+          state: "uncertain",
+          delivery: "uncertain",
+        });
+        await writeFile(join(directory, "confirm-initial"), "confirm");
+        await waitFor(async () => {
+          const status = await api(
+            `/projects/${project.project.id}/sessions/${pendingSession.sessionId}`,
+          );
+          return status.session.creation?.delivery === "consumed";
         });
         await waitFor(async () => {
           const value = await api(`/sessions/${session.sessionId}/process`);
@@ -161,20 +244,38 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           response: "approve",
         });
         await waitFor(async () =>
-          (await barriers()).find((e) => e.type === "turn-complete"),
+          (await barriers()).find(
+            (e) => e.type === "turn-complete" && e.id === session.sessionId,
+          ),
         );
         await api(`/sessions/${session.sessionId}/messages`, {
           message: "second turn",
         });
         await waitFor(
           async () =>
-            (await barriers()).filter((e) => e.type === "turn-complete")
-              .length === 2,
+            (await barriers()).filter(
+              (e) => e.type === "turn-complete" && e.id === session.sessionId,
+            ).length === 2,
         );
         const facts = await barriers();
-        expect(facts.filter((e) => e.type === "provider-started")).toHaveLength(
-          1,
-        );
+        expect(
+          facts.filter(
+            (e) => e.type === "provider-started" && e.id === session.sessionId,
+          ),
+        ).toHaveLength(1);
+        expect(
+          facts.filter(
+            (e) =>
+              e.type === "provider-started" &&
+              e.id === pendingSession.sessionId,
+          ),
+        ).toHaveLength(1);
+        expect(
+          facts.filter(
+            (e) =>
+              e.type === "turn-started" && e.id === pendingSession.sessionId,
+          ),
+        ).toHaveLength(1);
         expect(facts.find((e) => e.type === "approval-resolved").pid).toBe(
           worker.pid,
         );
@@ -199,6 +300,8 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
         await waitFor(
           () =>
             (!worker || !processGroupAlive(worker.processGroupId)) &&
+            (!pendingWorker ||
+              !processGroupAlive(pendingWorker.processGroupId)) &&
             !existsSync(join(directory, "host/control.sock")),
           5000,
         );
