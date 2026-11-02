@@ -25,8 +25,9 @@ The existing project/detached creation routes use it for superuser text requests
 resolved through the Claude AgentProvider adapter, without attachments, slash
 commands, runtime-only input authority, router, sandbox, machine control or
 provider hosting. Other shapes retain their existing path during rollout.
-The compatibility-only RealClaudeSDK default when provider is omitted remains
-outside this first cut. Completed/queued/error response shapes and advertised
+The legacy Claude SDK bridge now resolves the same configured adapter when
+provider is omitted; explicit overrides and unnamed independent SDKs retain
+their existing behavior. Completed/queued/error response shapes and advertised
 capabilities are unchanged; no creation-receipts API is exposed yet.
 
 Before provider availability checks, the qualified route commits the exact

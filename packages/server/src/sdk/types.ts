@@ -7,6 +7,7 @@ import type {
   ClaudeSteerBackgroundBashSettings,
   CodexAsyncUserInputQuestion,
   PermissionMode,
+  ProviderName,
   ProviderWorkItem,
   SlashCommand,
   SessionLivenessProbeStatus,
@@ -383,5 +384,7 @@ export interface ProviderCommandResult {
 }
 
 export interface RealClaudeSDKInterface {
+  /** Canonical adapter for the legacy bridge; absent on independent SDKs. */
+  readonly providerName?: ProviderName;
   startSession(options: StartSessionOptions): Promise<StartSessionResult>;
 }

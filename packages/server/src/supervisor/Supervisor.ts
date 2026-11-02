@@ -787,7 +787,12 @@ export class Supervisor {
   constructor(options: SupervisorOptions) {
     this.instructionOptions = options;
     this.providerDiscoveryEnabled = options.provider !== null;
-    this.provider = options.provider ?? null;
+    this.provider =
+      options.provider !== undefined
+        ? options.provider
+        : options.realSdk?.providerName
+          ? getProvider(options.realSdk.providerName)
+          : null;
     this.sdk = options.sdk ?? null;
     this.realSdk = options.realSdk ?? null;
     this.idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
@@ -3194,6 +3199,7 @@ export class Supervisor {
         resumeSessionId,
         newSessionId: resumeSessionId ? undefined : tempSessionId,
         ...instructions,
+        clientName: modelSettings?.clientName,
         resumeSessionAt: truncation.resumeSessionAt,
         resumeDropsTurn: truncation.resumeDropsTurn,
         permissionMode: effectiveMode,

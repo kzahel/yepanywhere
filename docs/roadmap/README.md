@@ -701,7 +701,10 @@ metadata. Existing response/queue behavior stays compatible; actual owned Node/B
 HTTP/SDK/CLI/profile-restart qualification passes using a local fake model.
 Deferred starts retain copied values without the full HTTP request. Final
 lint/format/typecheck and the complete Node 26 workspace pass.
-Remaining default-wrapper, input shapes and router/sandbox/hosted integration
+Default-wrapper consolidation is independently accepted so omitted-provider Claude
+requests reach the same owner; an owned Node HTTP/SDK/CLI/profile-restart
+probes pass on Node and Bun. Focused and final lint/format/typecheck/full
+workspace checks pass. Remaining input shapes and router/sandbox/hosted integration
 remain pending.
 Fully scoped cold resumes,
 remaining provider observation,

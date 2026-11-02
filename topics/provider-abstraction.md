@@ -33,6 +33,24 @@ migrate them when they next hit a trigger below.
   settings, but "default" is subscription-dependent and resolvable only at
   runtime).
 
+### Legacy SDK delegation
+
+The compatibility Claude SDK bridge declares its canonical `providerName`.
+When no provider override is supplied, Supervisor resolves that name through
+the configured AgentProvider registry. Omitted-provider Claude requests thus
+use the same launch/creation owner as explicit Claude requests, including
+saved startup intent and caller-chosen identity. This changes no provider,
+endpoint, account or model selection; existing configured adapter settings
+remain authoritative. Provider-visible `clientName` is passed through on
+both provider creation paths.
+
+An explicit provider override wins, including `null` disabling registry
+discovery. An independent SDK with no canonical name keeps its established
+SDK path. The declaration is an internal bridge contract, not a browser
+capability or a new provider-specific lifecycle framework. See
+[session identity](session-identity.md#managed-dispatch-boundary) for rollout
+limits; routing, sandbox, hosting and remaining input shapes stay gated there.
+
 ### Provider-wide session and process discovery
 
 Accepted 2026-08-05; the successful-use eligibility boundary and gated watcher

@@ -14,6 +14,7 @@ import type {
  * @deprecated Use ClaudeProvider from ./providers/claude.js instead
  */
 export class RealClaudeSDK implements RealClaudeSDKInterface {
+  readonly providerName = "claude";
   private provider = new ClaudeProvider();
 
   /**

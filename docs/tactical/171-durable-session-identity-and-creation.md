@@ -24,6 +24,20 @@ The common caller rollout and the provenance defect remain unimplemented.
 
 ## Execution progress
 
+- Phase 4 default-wrapper consolidation is independently accepted by Sol 6.1 High:
+  the thin Claude SDK
+  bridge declares its canonical provider, allowing omitted-provider requests
+  to use the configured AgentProvider and the same durable text path. Explicit
+  provider overrides (including disabled discovery) and unnamed independent
+  SDKs keep precedence. The start path also preserves provider-visible client
+  identity. An owned Node profile passes default project/detached missing-CLI
+  saved failures, profile reopen, and real pinned SDK/CLI healthy HTTP launch
+  plus native-history restart against a local fake model. The same owned Bun
+  qualification passes. Focused checks pass 183 cases / five files / 3.83 s;
+  lint has zero warnings, format/typecheck and the complete Node 26 workspace
+  pass (6,841 server / 7,064 client; server 129.40 s).
+  Other phase 4 rollout gates remain open.
+
 - Phase 4 ordinary request integration is independently accepted by Sol 6.1 High:
   qualified superuser
   project/detached Claude AgentProvider text starts now admit durable intent
