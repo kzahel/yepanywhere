@@ -3,8 +3,9 @@
 Status: recommended solution shape, recorded 2026-11-01 at the maintainer's
 request for coordination with session creation/lifecycle work, and incorporated
 into [plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#creation-source-admission-and-coverage)
-at the maintainer's subsequent request. No runtime, schema or wire change is
-implemented by this note; exact contracts remain at the plan's design gate.
+at the maintainer's subsequent request. This sketch retains the broader caller
+rollout direction; the implemented ordinary Claude/Codex text contract is linked
+below, and uncovered callers remain follow-ups.
 
 The recommendation is to require an explicit creation context and persist its
 source with the logical YA session before provider side effects. A caller
@@ -12,7 +13,9 @@ should not be able to create a session successfully while forgetting a second
 metadata write.
 
 The November 2 implementation focus is the [Claude/Codex text milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2).
-It retains required source at ordinary admission. The six audited caller bypasses
+It now retains required source at ordinary Claude/Codex text admission;
+[the identity contract](session-identity.md#qualified-claude-text-acceptance--november-2)
+owns the implemented scope and capability gates. The six audited caller bypasses
 below remain an explicit later rollout; this narrower milestone cannot close the
 complete provenance gap.
 

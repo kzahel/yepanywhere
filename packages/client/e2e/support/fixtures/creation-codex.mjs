@@ -156,3 +156,9 @@ process.stdin.on("data", (chunk) => {
         process.exit(1);
       });
 });
+// Match the native stdio owner's lifetime, including abrupt Hono loss while an
+// artificial ACK barrier is held. Pending fixture timers must not orphan it.
+process.stdin.on("end", () => {
+  appendFileSync(log, `${JSON.stringify({ fixtureExit: process.pid })}\n`);
+  process.exit(0);
+});

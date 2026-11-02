@@ -59,3 +59,9 @@ sibling storage event is delayed. Recovery retains the accepted operation until
 the owning form settles its draft. Legacy attachment, Queue
 and other creation paths above remain open; this narrow migration does not close
 the gap.
+
+The narrow path also has a permanent routed-Claude browser check with 200 saved
+sessions: acceptance released midway through sequential typing with concurrent
+metadata updates, event-to-rendered-frame acknowledgement within 100 ms,
+preserved newer draft and explicit navigation/
+return. This qualifies ordinary text only and leaves the broader gap open.

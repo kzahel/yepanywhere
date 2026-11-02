@@ -2,21 +2,14 @@
 
 Topic: ya-owned-session-ids
 
-Status: implementation plan independently accepted by Sol 6.1 High on
-2026-11-01 after correction of seven material design findings. The maintainer
-selected the ownership direction and requested reviewed implementation slices,
-commits as work proceeds, and standalone-profile testing. Autonomous execution
-was authorized on November 1; phase 1's concrete decisions are recorded in
-[the identity contract](../../topics/session-identity.md#phase-1-implementation-decisions--2026-11-01)
-and were independently accepted by Sol 6.1 High after three concrete design
-corrections. Phase 2 and phase 3's read/discovery/watch/source foundation are
-implemented and independently accepted. Qualified ordinary Claude text callers and the default SDK bridge are
-implemented. Broader cold-resume/owned-browser gates and phase 4's remaining input
-shapes and routed/sandboxed rollout remain pending; qualified hosted Claude text
-now carries fenced worker evidence across Hono replacement.
-Acceptance covers the plan's ordering, intermediate contracts
-and enabling gates, not an unspecified schema/wire contract or source work.
-Section 1 and per-slice implementation reviews remain required below.
+Status: the November 2 ordinary Claude/Codex text milestone is implemented in
+three larger slices, with one Sol 6.1 High review per slice and focused corrections.
+Claude, Codex and recovery qualification have passing end-to-end evidence. All
+three sole reviews completed; material findings were corrected and verified with
+focused checks, without repeat-review cycles. Broader provider,
+attachment, caller and release qualification below remains a separate backlog.
+The original November 1 plan/schema/identity and read/discovery/watch foundations
+were independently accepted; their historical review records remain below.
 
 The maintainer subsequently requested incorporation of the separate
 [creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md).
@@ -88,6 +81,28 @@ refresh, global host restart, or bulk identity rewrite is part of this milestone
 
 ## Execution progress
 
+- Recovery milestone slice: four owned-profile fault cases pass: lost HTTP
+  acceptance reply with read-only recovery and one submission; abrupt Hono loss
+  under an independently owned host with the same worker PID and later native
+  ACK; local and hosted owner loss before ACK retaining prompt/uncertainty,
+  refusing resume and resolving identical admission without replay. These cases
+  take 26.2 seconds together. macOS auto-bootstrap follows launcher IPC lifetime;
+  the surviving-worker case therefore uses the documented independent host owner.
+  The local owner-loss case also passes with Bun 1.3.14 (1.7 seconds).
+  A routed Claude browser case with 200 persisted saved sessions proves every
+  sequential key is acknowledged within 100 ms from event timestamp through
+  a rendered frame, while title updates and acceptance arrive mid-typing; the
+  newer draft survives explicit navigation and return. The ten focused E2E cases pass together in 1.3 minutes. Root
+  typecheck, lint, formatting and exact-file E2E lint pass. The final one-per-slice
+  Sol review found two typing-qualification gaps: acceptance was outside the
+  measured interval and the timer ended before paint. Acceptance now arrives
+  midway through sequential keys; event timestamps include dispatch delay and
+  the second animation frame observes the preceding rendering/paint. The exact
+  corrected case passes. A controlled-fixture stdin-close exit now prevents
+  orphaned barrier timers after local Hono loss; owned leaked fixture groups
+  were reaped with identity checks. No repeated review was requested. The current
+  runtime's full run passed 6,888 server and 7,067 client tests. This slice adds qualification, with no runtime changes.
+
 - Codex milestone slice: the same text API/UI now binds Codex's independently
   allocated native thread id while preserving YA identity through discovery,
   history, browser reload and continuation. Successful native `turn/start` ACK
@@ -100,8 +115,8 @@ refresh, global host restart, or bulk identity rewrite is part of this milestone
   thread and retained answer after standalone server restart. This installed CLI
   reports 0.160.0; the protocol target/reference remains 0.166.0. The sole Sol review
   found an empty-CODEX_HOME namespace mismatch, now corrected to native semantics
-  with a focused regression. No repeated review was requested. Recovery fault
-  qualification remains the final milestone slice. Root typecheck, lint and
+  with a focused regression. No repeated review was requested. The recovery
+  slice above completes the narrowed fault qualification. Root typecheck, lint and
   formatting pass. The corrected full run passes 6,888 server and 7,067 client
   tests (149.57 seconds for the server workspace); the initial run failed only
   an outdated expected host-feature array, corrected and focused-verified.
@@ -109,14 +124,14 @@ refresh, global host restart, or bulk identity rewrite is part of this milestone
 - Claude milestone slice: the narrow text acceptance API, routed/account-pinned
   dispatch, saved startup/failure UI and captured draft acknowledgement are
   implemented. Three owned-profile browser cases cover real Claude CLI against
-  a controlled model endpoint: delayed acceptance with sequential typing,
+  a controlled model endpoint: routed startup with browser reload,
   disappeared executable plus page/server restart, and form retirement before
   acceptance followed by recovery without a second submission. Focused server
   checks pass (164 tests); draft checks pass (93 tests). One actual Sol 6.1 High
   review identified delayed sibling storage and retired-form recovery defects;
   both were corrected and the exact interleavings verified without re-review.
-  This is controlled native evidence, not a live Anthropic model smoke. Codex
-  creation and the remaining recovery slice are still pending. Required root
+  This is controlled native evidence, not a live Anthropic model smoke. The
+  Codex and recovery slices above extend this checkpoint. Required root
   typecheck, lint and formatting pass; the final full run passes 6,886 server
   and 7,067 client tests (140.34 seconds for the server workspace).
 

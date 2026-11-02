@@ -13,6 +13,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { resolveClaudeSdkNativeExecutable } from "../../server/src/sdk/providers/claude.js";
+import { DiscoverySqliteService } from "../../server/src/storage/discovery-sqlite.js";
+import { SessionMetadataService } from "../../server/src/metadata/SessionMetadataService.js";
 import { InstallService } from "../../server/src/services/InstallService.js";
 import { toUrlProjectId } from "../../shared/src/index.js";
 import { createTestViteServer } from "./support/vite-server.js";
@@ -36,7 +38,7 @@ test.skip(
 );
 test.afterAll(() => presentUiCaptures());
 
-async function fixture(missingExecutable: boolean) {
+async function fixture(missingExecutable: boolean, savedSessions = 0) {
   let server: Awaited<ReturnType<typeof startYaServerProcess>> | undefined;
   let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
   let router: ReturnType<typeof createServer> | undefined;
@@ -142,6 +144,48 @@ async function fixture(missingExecutable: boolean) {
         const project = join(paths.profileDir, "project");
         await mkdir(project);
         projectId = toUrlProjectId(await realpath(project));
+        if (savedSessions) {
+          const storage = new DiscoverySqliteService({
+            dataDir: paths.dataDir,
+            probeNetworkFilesystem: () => undefined,
+          });
+          const metadata = new SessionMetadataService({
+            dataDir: paths.dataDir,
+            database: storage.getDatabase(),
+          });
+          try {
+            await metadata.initialize();
+            for (let index = 0; index < savedSessions; index++) {
+              const saved = metadata.creations.admit({
+                requestId: `owned-seed-${index}`,
+                context: {
+                  owner: { kind: "superuser" },
+                  source: { kind: "request", provenance: { surface: "web" } },
+                },
+                request: {
+                  projectId: toUrlProjectId(await realpath(project)),
+                  projectPath: await realpath(project),
+                  provider: "claude",
+                  message: `Owned saved session ${index}`,
+                  settings: {
+                    permissionMode: "default",
+                    requestedModel: "sonnet",
+                    thinking: null,
+                    effort: null,
+                    serviceTier: null,
+                  },
+                  launch: { schemaVersion: 1 },
+                },
+              });
+              metadata.creations.failBeforeEffects(
+                saved.attempt,
+                "startup-unavailable",
+              );
+            }
+          } finally {
+            storage.close();
+          }
+        }
         if (missingExecutable) {
           ownedCli = join(paths.profileDir, "owned-claude-cli");
           await symlink(nativeCli!, ownedCli);
@@ -484,6 +528,125 @@ test("retiring the form before acceptance preserves recovery and never creates t
     expect(owned.modelRequests).toHaveLength(1);
   } finally {
     releaseAcceptance?.();
+    await context.close();
+    await owned.close();
+  }
+});
+
+test("typing during delayed acceptance stays responsive with 200 saved sessions and preserves the newer draft", async ({
+  browser,
+}) => {
+  const owned = await fixture(false, 200);
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage();
+  let release!: () => void, saved!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const admitted = new Promise<void>((resolve) => {
+    saved = resolve;
+  });
+  let receipt!: { sessionId: string; projectId: string };
+  try {
+    const formUrl = `${owned.origin}/new-session?projectId=${owned.projectId}&provider=claude&model=sonnet`;
+    await page.goto(formUrl);
+    const composer = page.locator("textarea.new-session-form-textarea");
+    await composer.pressSequentially(prompt);
+    await page.route("**/api/projects/*/session-creations", async (route) => {
+      const response = await route.fetch();
+      receipt = await response.json();
+      saved();
+      await barrier;
+      await route.fulfill({ response });
+    });
+    await page
+      .getByRole("button", { name: "Start session", exact: true })
+      .click();
+    await admitted;
+    await expect.poll(() => owned.modelRequests.length).toBe(1);
+    await expect(composer).toBeEnabled();
+    // Include input dispatch delay using the browser event timestamp. The
+    // second animation frame follows the first frame's rendering/paint.
+    await composer.evaluate((element) => {
+      const input = element as HTMLTextAreaElement & {
+        acks: { latency: number; value: string; eventAt: number }[];
+      };
+      input.acks = [];
+      input.addEventListener("keydown", (event) => {
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            input.acks.push({
+              eventAt: event.timeStamp,
+              latency: performance.now() - event.timeStamp,
+              value: input.value,
+            }),
+          ),
+        );
+      });
+    });
+    let typed = prompt;
+    let acceptedAt = 0;
+    for (const [index, character] of [..." newer draft"].entries()) {
+      // First establish newer work, then deliver acceptance while keys continue.
+      if (index === 3) release();
+      await Promise.all([
+        composer.pressSequentially(character),
+        owned.request(
+          `/sessions/${receipt.sessionId}/metadata`,
+          { title: `Owned concurrent title ${typed.length}` },
+          "PUT",
+        ),
+      ]);
+      typed += character;
+      await expect(composer).toHaveValue(typed);
+      if (index === 4) {
+        await expect(
+          page.getByRole("button", { name: "Open saved session", exact: true }),
+        ).toBeVisible();
+        acceptedAt = await composer.evaluate(() => performance.now());
+      }
+      await expect
+        .poll(() =>
+          composer.evaluate(
+            (element) =>
+              (
+                element as HTMLTextAreaElement & { acks: { value: string }[] }
+              ).acks.at(-1)?.value,
+          ),
+        )
+        .toBe(typed);
+    }
+    const acks = await composer.evaluate(
+      (element) =>
+        (
+          element as HTMLTextAreaElement & {
+            acks: { latency: number; value: string; eventAt: number }[];
+          }
+        ).acks,
+    );
+    expect(acks).toHaveLength(" newer draft".length);
+    expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThanOrEqual(
+      100,
+    );
+    expect(acks[0]!.eventAt).toBeLessThan(acceptedAt);
+    expect(acceptedAt).toBeLessThan(acks.at(-1)!.eventAt);
+    release();
+    await expect(
+      page.getByRole("button", { name: "Open saved session", exact: true }),
+    ).toBeVisible();
+    await expect(composer).toHaveValue(typed);
+    expect(page.url()).toBe(formUrl);
+    await page
+      .getByRole("button", { name: "Open saved session", exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/sessions/${receipt.sessionId}$`));
+    owned.releaseReply();
+    await expect(page.getByText(reply, { exact: true }).first()).toBeVisible();
+    await page.goto(formUrl);
+    await expect(composer).toHaveValue(typed);
+    expect(owned.modelRequests).toHaveLength(1);
+  } finally {
+    release?.();
     await context.close();
     await owned.close();
   }

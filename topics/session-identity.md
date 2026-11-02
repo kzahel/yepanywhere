@@ -1,13 +1,13 @@
 # YA-owned session identity and startup lifecycle
 
-Status: implementation in progress under plan 171. Scoped identities, retained
-provider history/watch adapters, creation-control storage and saved-session reads
-and collections are implemented. The first ordinary Claude text path now uses
-the stored-request dispatcher and permanent-identity Process boundary;
-qualified hosted Claude text and local Claude/Codex cold continuations are
-implemented. Remaining caller/provider shapes, broader cold-resume/owned-browser
-gates and release qualification remain pending. Published 0.8.0/0.11.0 Claude
-and Codex owned-session observation is qualified as described below.
+Status: the November 2 Claude/Codex ordinary text milestone is implemented:
+YA saves intent/source before launch, retains its public id, binds the native
+address and exposes startup/failure/uncertainty with prompt recovery. Narrow
+provider capabilities select the new workflow; other inputs retain their
+existing flow. Scoped history/watch/discovery and local/host continuation
+foundations are implemented. Remaining caller/provider shapes, attachments,
+automated retry and broader release/OS qualification remain separate follow-ups.
+Published 0.8.0/0.11.0 Claude/Codex observation is qualified as described below.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 defines the implementation slices, isolated-profile qualification and requested
@@ -78,6 +78,32 @@ the worker's pre-launch hello; the older Claude owner feature alone is insuffici
 Empty `CODEX_HOME` follows the pinned native default, including auth/config reads.
 Other input shapes and servers without the narrow capability keep their existing
 flow; the broader receipts capability remains unadvertised.
+
+### Recovery and verification boundary — November 2
+
+Owned-profile fault checks establish that a lost HTTP acceptance reply recovers
+through a read with one POST/native input. An independently owned host retains
+the same worker across abrupt Hono loss and can later prove initial-input
+consumption. Loss of the local or hosted owner before native ACK retains the
+saved prompt and uncertainty; resume refuses and identical admission resolves
+the original session without replay. On macOS the automatic source-server host
+belongs to its launcher; its loss is full owner loss, not worker survival.
+
+A routed Claude browser check with 200 saved sessions holds acceptance during
+native startup, releases acceptance during sequential typing and applies live
+title updates. Every key is acknowledged within 100 ms from its event timestamp
+through a rendered frame; the newer draft survives explicit navigation/return.
+The sibling-tab physical-storage check and retired-form recovery regression
+cover their separate acknowledgement interleavings. These checks do not close
+the legacy Queue/attachment or general unconfirmed-follow-up gaps.
+
+Controlled tests use the actual pinned Claude SDK/CLI against owned model/AAR
+endpoints, and the Codex adapter against a pinned-protocol OS child with real
+native history. A separate installed Codex 0.160.0/live model smoke proves
+split IDs, native ACK and retained history after standalone restart. It does
+not qualify the pinned 0.166.0 executable. Node 22/macOS and local Bun owner-loss
+are exercised; macOS Bun hosting, Windows/Linux release qualification and live
+Anthropic credentials are not claimed.
 
 ### Managed dispatch boundary
 

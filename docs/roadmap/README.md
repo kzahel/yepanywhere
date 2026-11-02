@@ -621,7 +621,11 @@ after leaving the form. Its one Sol review found two draft/recovery defects;
 their exact interleavings now pass after correction. Codex now uses the same
 workflow with explicit native-ID binding and native acknowledgement; controlled
 local/host browser checks and a standalone live installed-provider smoke pass.
-Recovery fault qualification remains pending; no all-provider completion claim.
+Recovery fault qualification now passes lost-reply, surviving-worker and
+local/host owner-loss cases, with ten focused E2E cases passing together and a
+local Bun owner-loss check. Each slice received one Sol review, with material
+findings corrected and focused-verified. The narrowed milestone is complete; other-provider,
+attachment/caller and cross-platform release qualification remain follow-ups.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

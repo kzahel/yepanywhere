@@ -5,8 +5,10 @@ selected [YA-owned session identity](session-identity.md) as its foundation.
 Persist a session before provider startup and keep its public id and failure
 history even when no provider session/transcript exists. This reopens the
 new-session portion of [plan 150](../docs/tactical/150-ya-owned-session-ids.md#november-1-selected-follow-up),
-not its entire fork/clone program. Implementation, detailed API/schema choices
-and release qualification remain pending. The
+not its entire fork/clone program. The November 2 ordinary Claude/Codex text
+workflow is implemented; broader proposal and release qualification remain
+pending. Exact API/capability and evidence boundaries live in
+[the identity contract](session-identity.md#qualified-claude-text-acceptance--november-2). The
 [roadmap](../docs/roadmap/README.md) records scope and priority.
 
 ## Active implementation scope — November 2
@@ -16,7 +18,7 @@ creation, including routed/account-pinned Claude, saved before provider startup,
 a stable session URL, visible startup/failure/uncertainty and prompt access after
 refresh. Safe acknowledgement preserves newer drafts. Claude accepts a chosen id;
 Codex's native thread id is an explicit binding. [Plan 171's active milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2)
-owns the three larger implementation slices and focused/browser qualification.
+records the three larger implementation slices and focused/browser qualification.
 
 Attachments, automated retry, other-provider/caller rollout and the optional
 background action/shortcut remain later work. The broader proposal below is
@@ -24,9 +26,10 @@ retained as direction; it is not a prerequisite to deliver this first milestone.
 Use a narrowly gated text-creation contract without claiming the complete
 `session-creation-receipts` guarantee. Existing-server fallback remains required.
 
-## Problem and current behavior
+## Problem and retained legacy behavior
 
-New Session couples request submission, provider startup and navigation.
+Before this milestone, New Session coupled request submission, provider startup
+and navigation. The retained legacy paths below still have that coupling.
 `NewSessionForm.handleStartSession` waits for the start response, clears the
 draft and opens the returned session. Attachments use a longer sequence:
 create a message-less provider session, materialize/upload files, then queue
