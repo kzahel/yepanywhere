@@ -795,3 +795,66 @@ provider-specific binding/consumption evidence. A stored machine-control flag or
 source hint cannot recreate desktop credential provenance. Raw provider options
 and child environments are not restored from the database. Runtime dispatch and
 public creation capability remain gated by the rest of plan 171.
+
+### Hosted creation contract — implementation refinement
+
+The private host protocol remains version 3. Managed creation support is
+negotiated separately as `session-creation-owner-v1`; absence refuses this
+new launch shape before dispatch. Existing protocol-1 workers and their
+controllers retain their original contract and lifetime. No host restart,
+worker replacement, direct fallback or provider reselection is implicit.
+
+A managed launch carries a version-1 `creation` record: YA `sessionId`,
+`creationId`, `attemptId`, positive integer `generation`, original scoped
+native namespace, chosen `nativeSessionId`, and independent `initialInputId`.
+It carries no principal, credentials, grants or saved prompt. The authenticated
+Hono owner validates this record against the current SQLite attempt and current
+authorization; the worker holds only that launch's immutable copy. The host
+claims the YA id before startup and retains the distinct native id and worker
+identity. Native ids cannot be derived from agentctl's public-id publication.
+
+Before receiving managed provider launch input, a new worker sends an IPC
+`launchHello` with `protocolVersion: 1` and its supported launch features.
+The host withholds stdin until that hello positively accepts the managed
+feature. An old worker blocks reading stdin and therefore cannot accidentally
+start a provider with an ignored new field. The existing bounded startup
+deadline and verified worker-group cleanup handle missing/invalid hello.
+The worker must never report ready before the input release. A Hono request
+timeout is not proof of pre-effect refusal: it leaves the attempt uncertain
+unless a completed host response proves both withheld input and verified reap.
+Legacy launches still receive their original stdin immediately; an old host
+ignores the new hello and continues its legacy behavior. Feature support is
+not advertised until its complete owner/attach behavior is qualified.
+
+Managed workers require socket protocol 2, while legacy workers continue
+requiring protocol 1. Protocol-2 attach includes the exact immutable creation
+record and is rejected before controller attachment or replay if it differs.
+A protocol-1 controller cannot attach to a managed worker. A current controller
+must validate the record and reconcile its saved fence before attaching; the
+mapping itself grants no authority. No managed worker may enter legacy recent
+runtime recovery that would resend its initial input.
+
+The worker observes native identity and matching initial-input confirmation
+before buffering or acknowledging provider output, independently of Hono's
+lifetime. Only provider evidence qualifies: a native user UUID echo or the
+already qualified main-thread Claude response stamp, never a queue pull.
+Repeated identical binding/proof is idempotent; conflicting native identity
+closes admission and fails the owner. Ready/attached state and host inventory
+retain bounded evidence for the one creation attempt, including whether the
+initial input was confirmed. Public-id publication and child authority always
+use the YA id. Native events stay native until the Hono Process boundary.
+
+Reattachment never queues the saved initial input again. Positive surviving
+owner evidence can reconcile an uncertain attempt only when the complete fence,
+native namespace/id and input UUID match. Missing/dead owners or unknown input
+effects remain uncertain and cannot launch a replacement. Existing teardown
+verification remains authoritative. Admission after Hono detach is constrained
+by the surviving worker's exact launch; new authority is checked in Hono for
+each later accepted action.
+
+Implementation is split into a non-enabling startup-negotiation cut, then
+owner evidence and protocol-2 attach, then saved-dispatch integration and owned
+host/Hono replacement qualification. Mixed host/worker generations, forged or
+stale attach, wrong native id, detached input consumption and owner loss are
+required negative/positive checks. A feature must not imply support on Bun,
+compiled Desktop or another platform outside the existing host matrix.
