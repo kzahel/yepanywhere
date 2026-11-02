@@ -639,8 +639,11 @@ and exactly-once promotion evidence on Node/Bun. The bounded slice is complete:
 server suite pass; static checks and corrected client browser files pass.
 Live Claude now also passes creation, native acknowledgement, standalone restart
 and continuation after explicit sign-in and a grant restricted to the owned test
-integration; that integration is verified revoked after qualification. Attachments
-and additional caller migration remain later implementation work.
+integration; that integration is verified revoked after qualification. The live
+browser workflow also passes offline completion, reconnect catch-up, reload and
+UI continuation with exactly-once native inputs and recorded web provenance.
+Attachments and additional caller migration, including Project Queue provenance,
+remain later implementation work.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

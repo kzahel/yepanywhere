@@ -137,6 +137,18 @@ must not be represented as closed by successful routed model inference.
   logs remain accurate historical evidence. Controlled SDK/CLI/AAR checks remain
   distinct. Physical-device and Linux/Windows execution are not claimed. The
   routed-Codex discovery/account gap remains open.
+- The subsequent live Claude browser smoke passes in 15.9 seconds: actual form
+  submission, offline browser while the provider completes, automatic catch-up
+  on reconnect, reload and composer continuation. Native transcript evidence
+  shows each input once, one creation POST, the same public session/account
+  and persisted `web` provenance. Desktop/phone captures were inspected. The
+  passing source-mode run preloads the session route/transcript modules online;
+  earlier harness runs failed because the account lacked a selectable pool or
+  because disconnect preceded lazy module loading. These logs are retained,
+  without claiming offline cold-asset support. The owned integration is verified
+  revoked, its temporary pool removed and its standalone profile disposed.
+  Evidence: `tasks/session-identity/live-claude-browser-ready.log`, with the
+  one-off harness and captures retained locally; no paid live test enters CI.
 - The single actual localhost:3400 Sol 6.1 High/bypassPermissions review found
   a competing-startup defect: recovery ran before the new server discovered an
   occupied port and could invalidate the incumbent queue. Private controller-PID

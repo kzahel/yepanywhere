@@ -152,8 +152,17 @@ its Claude Code 2.1.312 executable and live routed model pass saved acceptance,
 native input confirmation, retained answer after standalone restart and
 continuation under the same public session and exact account pin. Two short model turns establish this narrow workflow;
 controlled browser/SDK/AAR checks remain separate evidence for failure cases.
-The test integration was disconnected and verified revoked; the enrolled account
-remains ready for future explicit tests. Existing router credentials alone never
+A subsequent actual-browser smoke also passes form submission, server-side live
+completion while the browser is offline, automatic catch-up on reconnect, reload
+and a second turn submitted through the composer. The public id and selected
+account remain unchanged; the native transcript contains each of the two inputs
+exactly once, and persisted creation provenance is `web`. The passing run took
+15.9 seconds with source-mode session modules preloaded while online. Desktop
+and phone-width captures were inspected; this does not qualify cold asset
+loading while offline or physical-device lifecycle.
+The test integration was disconnected and verified revoked, and its temporary
+single-account pool removed; the enrolled account remains ready for future
+explicit tests. Existing router credentials alone never
 authorize a newly paired integration. Linux/Windows native execution and
 physical-phone qualification remain separate release evidence.
 
