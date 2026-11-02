@@ -36,12 +36,12 @@ import { createPeerReceiver, PEER_SRP_CONTEXT } from "./http.js";
 import { PeerChannelBudget, PEER_WIRE_BYTES } from "./srp-protocol.js";
 import { PeerSrpRuntime } from "./srp-server.js";
 import { SrpPeerTransport } from "./srp-client.js";
-import { FleetPeerAccess } from "../fleet/peers.js";
+import { DelegatedPeerAccess } from "../identity-service/peers.js";
 
 /** Composition around the pure API: no provider registry, scanner or HTTP listener. */
 export class PeerAccessManager {
   readonly store: PeerAccessStore;
-  readonly fleetAccess: FleetPeerAccess;
+  readonly delegatedAccess: DelegatedPeerAccess;
   readonly authentication: PeerAuthentication;
   private readonly budget = new PeerChannelBudget();
   private readonly directory = new PeerDirectory();
@@ -57,23 +57,27 @@ export class PeerAccessManager {
   private faulted = false;
   private preflights = 0;
   private policyChanges = 0;
-  private fleet?: {
+  private identityService?: {
     authority: NonNullable<
       Parameters<typeof createPeerReceiver>[2]
-    >["fleetAuthority"];
+    >["identityServiceAuthority"];
     transport(
       peer: Extract<StoredOutgoingPeer, { origin: "fleet" }>,
     ): NonNullable<ConstructorParameters<typeof SrpPeerTransport>[3]>;
   };
-  setFleet(fleet: NonNullable<PeerAccessManager["fleet"]>) {
-    this.fleet = fleet;
+  setIdentityService(
+    identityService: NonNullable<PeerAccessManager["identityService"]>,
+  ) {
+    this.identityService = identityService;
   }
   protectedTransport(peer: StoredOutgoingPeer) {
     return new SrpPeerTransport(
       peer.invitation,
       peer.route,
       this.budget,
-      peer.origin === "fleet" ? this.fleet?.transport(peer) : undefined,
+      peer.origin === "fleet"
+        ? this.identityService?.transport(peer)
+        : undefined,
       this.authentication.eligible(peer)
         ? {
             invitation: () =>
@@ -105,7 +109,7 @@ export class PeerAccessManager {
     readonly serverId: string,
     dataDir: string,
     private readonly onError: (error: unknown) => void = () => {},
-    fleetOptions: {
+    identityServiceOptions: {
       allowInsecureLoopback?: boolean;
       fetch?: typeof fetch;
       runtimeControl?: { envOverride?: boolean };
@@ -113,15 +117,22 @@ export class PeerAccessManager {
       now?: () => number;
     } = {},
   ) {
-    this.connectionOptions = fleetOptions;
-    this.store = new PeerAccessStore(serverId, dataDir, fleetOptions.now);
+    this.connectionOptions = identityServiceOptions;
+    this.store = new PeerAccessStore(
+      serverId,
+      dataDir,
+      identityServiceOptions.now,
+    );
     this.authentication = new PeerAuthentication(
       this.store,
       () => !this.closed && !this.faulted && this.isEnabled(),
       (peer) => new SrpPeerTransport(peer.invitation, peer.route, this.budget),
-      fleetOptions.now,
+      identityServiceOptions.now,
     );
-    this.fleetAccess = new FleetPeerAccess(this, fleetOptions);
+    this.delegatedAccess = new DelegatedPeerAccess(
+      this,
+      identityServiceOptions,
+    );
     this.store.observe(
       (next, previous) => this.apply(next, previous),
       () => this.failClosed(),
@@ -197,7 +208,7 @@ export class PeerAccessManager {
   }
   async initialize() {
     await this.store.initialize();
-    await this.fleetAccess.initialize();
+    await this.delegatedAccess.initialize();
     const retiredGrantId = !this.isEnabled()
       ? this.store.read().agentAccess.grantId
       : null;
@@ -297,14 +308,14 @@ export class PeerAccessManager {
           },
         );
       },
-      fleetAuthority: (grant, token, signal) => {
-        if (!this.fleet?.authority)
+      identityServiceAuthority: (grant, token, signal) => {
+        if (!this.identityService?.authority)
           throw new CoreApiError(
             "unauthorized",
             "Fleet authority is not configured",
             401,
           );
-        return this.fleet.authority(grant, token, signal);
+        return this.identityService.authority(grant, token, signal);
       },
     });
     this.applyOutgoing(this.store.read() as PeerAccessState);
@@ -449,7 +460,7 @@ export class PeerAccessManager {
         projects: peer.projects,
         operations: peer.operations,
         expiresAt: peer.expiresAt,
-        ...(peer.origin === "fleet" ? { fleet: peer.binding } : {}),
+        ...(peer.origin === "fleet" ? { identityBinding: peer.binding } : {}),
       });
     }
     this.applyOutgoing(next, previous);
@@ -486,7 +497,7 @@ export class PeerAccessManager {
       };
       if (before.some((old) => policy(old, previous!) === policy(peer, next)))
         continue;
-      if (peer.origin === "fleet" && !this.fleet) {
+      if (peer.origin === "fleet" && !this.identityService) {
         this.router.revoke(peer.invitation.targetServerId);
         continue;
       }
@@ -778,7 +789,7 @@ export class PeerAccessManager {
     }
   }
   async close() {
-    await this.fleetAccess.close();
+    await this.delegatedAccess.close();
     if (this.closePromise) return this.closePromise;
     this.closed = true;
     this.router?.close();

@@ -16,11 +16,11 @@ import {
   type PeerHost,
 } from "./connection-contracts.js";
 import {
-  fleetPeerBindingSchema,
-  fleetCredentialsSchema,
+  identityServicePeerBindingSchema,
+  identityServiceCredentialsSchema,
   profileKeysSchema,
-  type FleetPeerBinding,
-} from "../fleet/contracts.js";
+  type IdentityServicePeerBinding,
+} from "../identity-service/contracts.js";
 import { randomBytes, randomUUID, randomInt } from "node:crypto";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -225,7 +225,10 @@ const legacyStateSchema = legacyStateBase.superRefine((state, context) => {
 const storedIncomingSchema = z.discriminatedUnion("origin", [
   incomingSchema.extend({ origin: z.literal("manual") }).strict(),
   incomingSchema
-    .extend({ origin: z.literal("fleet"), binding: fleetPeerBindingSchema })
+    .extend({
+      origin: z.literal("fleet"),
+      binding: identityServicePeerBindingSchema,
+    })
     .strict(),
 ]);
 export type StoredIncomingPeer = z.infer<typeof storedIncomingSchema>;
@@ -234,19 +237,19 @@ const storedOutgoingSchema = z.discriminatedUnion("origin", [
   outgoingSchema
     .extend({
       origin: z.literal("fleet"),
-      binding: fleetPeerBindingSchema,
+      binding: identityServicePeerBindingSchema,
       envelopeId: publicUuid,
       envelopeDigest: z.string().regex(/^[a-f0-9]{64}$/),
     })
     .strict(),
 ]);
 export type StoredOutgoingPeer = z.infer<typeof storedOutgoingSchema>;
-export const fleetOutboxSchema = z
+export const identityServiceOutboxSchema = z
   .object({
     envelopeId: publicUuid,
     credentialId: publicUuid,
     credentialGeneration: generation,
-    binding: fleetPeerBindingSchema,
+    binding: identityServicePeerBindingSchema,
     ciphertext: z
       .string()
       .min(1)
@@ -270,18 +273,18 @@ const stateSchema = legacyStateBase
             issuer: z.string().url().max(2048),
             accountId: publicUuid,
             keys: profileKeysSchema,
-            credentials: fleetCredentialsSchema.nullable(),
+            credentials: identityServiceCredentialsSchema.nullable(),
           })
           .strict()
           .nullable(),
-        outbox: z.array(fleetOutboxSchema).max(64),
+        outbox: z.array(identityServiceOutboxSchema).max(64),
       })
       .strict(),
   })
   .superRefine((state, context) => {
     const unique = (values: string[]) => new Set(values).size === values.length;
     const enrollment = state.fleet.enrollment;
-    const validBinding = (binding: FleetPeerBinding) =>
+    const validBinding = (binding: IdentityServicePeerBinding) =>
       Boolean(
         enrollment &&
           binding.issuer === enrollment.issuer &&
@@ -602,13 +605,18 @@ export class PeerAccessStore {
   ): Promise<T> {
     return this.publish(update, undefined, true);
   }
-  publishFleetCredentials<T>(update: (next: PeerAccessState) => T): Promise<T> {
+  publishIdentityServiceCredentials<T>(
+    update: (next: PeerAccessState) => T,
+  ): Promise<T> {
     return this.publish(update, undefined, true);
   }
   /** One reserved slot for the single serialized fleet client's cleanup.
    * Recheck the exact family at execution; never erase newer enrollment.
    */
-  discardFleetCredentials(epoch: number, refreshToken: string): Promise<void> {
+  discardIdentityServiceCredentials(
+    epoch: number,
+    refreshToken: string,
+  ): Promise<void> {
     const current = this.read();
     if (
       current.fleet.epoch !== epoch ||
@@ -632,9 +640,9 @@ export class PeerAccessStore {
     update: (next: PeerAccessState) => T,
     expectedRevision?: number,
     credentialPublication = false,
-    fleetDiscard = false,
+    identityServiceDiscard = false,
   ): Promise<T> {
-    if (this.pendingMutations >= (fleetDiscard ? 17 : 16))
+    if (this.pendingMutations >= (identityServiceDiscard ? 17 : 16))
       return Promise.reject(
         new CoreApiError(
           "command_capacity",

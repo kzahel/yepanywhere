@@ -1,12 +1,16 @@
-import { FleetError } from "./errors.js";
+import { IdentityServiceError } from "./errors.js";
 
 /** Native work retains its slot until settlement even when a caller leaves. */
-export class FleetWorkBudget {
+export class IdentityServiceWorkBudget {
   private count = 0;
   constructor(private readonly maximum: number) {}
   async run<T>(work: () => Promise<T>): Promise<T> {
     if (this.count >= this.maximum)
-      throw new FleetError("capacity", "Fleet work capacity reached", 503);
+      throw new IdentityServiceError(
+        "capacity",
+        "Fleet work capacity reached",
+        503,
+      );
     this.count++;
     try {
       return await work();
@@ -16,7 +20,7 @@ export class FleetWorkBudget {
   }
 }
 
-export async function fleetWait<T>(
+export async function identityServiceWait<T>(
   work: Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
@@ -24,7 +28,9 @@ export async function fleetWait<T>(
   let abort!: () => void;
   const cancelled = new Promise<never>((_resolve, reject) => {
     abort = () =>
-      reject(new FleetError("cancelled", "Fleet request cancelled", 503));
+      reject(
+        new IdentityServiceError("cancelled", "Fleet request cancelled", 503),
+      );
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) abort();
   });
@@ -40,7 +46,7 @@ interface Bucket {
   at: number;
 }
 /** At most 1,024 active keys, reclaimed after ten idle minutes; no sweep. */
-export class FleetLimiter {
+export class IdentityServiceLimiter {
   private readonly keys = new Map<string, Bucket>();
   private readonly global: Bucket;
   constructor(
@@ -59,7 +65,11 @@ export class FleetLimiter {
     );
     bucket.at = now;
     if (bucket.tokens < 1)
-      throw new FleetError("rate_limited", "Fleet request rate exceeded", 429);
+      throw new IdentityServiceError(
+        "rate_limited",
+        "Fleet request rate exceeded",
+        429,
+      );
     bucket.tokens--;
   }
   admit(key: string) {
@@ -71,7 +81,7 @@ export class FleetLimiter {
         for (const [id, entry] of this.keys)
           if (now - entry.at >= 600_000) this.keys.delete(id);
       if (this.keys.size >= 1024)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "rate_limited",
           "Fleet limiter identity capacity reached",
           429,
@@ -83,23 +93,26 @@ export class FleetLimiter {
   }
 }
 
-export async function fleetJson(
+export async function identityServiceJson(
   request: Request,
   signal: AbortSignal,
   maximum = 64 * 1024,
 ): Promise<unknown> {
   const reader = request.body?.getReader();
   if (!reader)
-    throw new FleetError("invalid_request", "A JSON request body is required");
+    throw new IdentityServiceError(
+      "invalid_request",
+      "A JSON request body is required",
+    );
   const chunks: Uint8Array[] = [];
   let bytes = 0;
   try {
     for (;;) {
-      const { value, done } = await fleetWait(reader.read(), signal);
+      const { value, done } = await identityServiceWait(reader.read(), signal);
       if (done) break;
       bytes += value.byteLength;
       if (bytes > maximum)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "invalid_request",
           "Fleet request body exceeds its byte limit",
         );
@@ -108,7 +121,10 @@ export async function fleetJson(
     try {
       return JSON.parse(Buffer.concat(chunks).toString("utf8"));
     } catch {
-      throw new FleetError("invalid_request", "Invalid JSON request body");
+      throw new IdentityServiceError(
+        "invalid_request",
+        "Invalid JSON request body",
+      );
     }
   } finally {
     void reader.cancel().catch(() => {});

@@ -110,7 +110,7 @@ export class SrpPeerTransport implements PeerTransport {
     invitation: PeerInvitation,
     route: PeerRoute,
     private readonly budget: PeerChannelBudget,
-    private readonly fleet?: {
+    private readonly identityService?: {
       token(signal: AbortSignal): Promise<{ token: string; expiresAt: number }>;
       assertActive(): void;
     },
@@ -169,10 +169,10 @@ export class SrpPeerTransport implements PeerTransport {
     if (protocol === PEER_PROTOCOL && invitation.expiresAt <= Date.now())
       throw new CoreApiError("unauthorized", "Peer invitation expired", 401);
     const admission = this.budget.acquire();
-    const fleetExpiry = new AbortController();
-    let fleetDeadline: ReturnType<typeof setTimeout> | undefined;
+    const identityServiceExpiry = new AbortController();
+    let identityServiceDeadline: ReturnType<typeof setTimeout> | undefined;
     const signal = AbortSignal.any([
-      fleetExpiry.signal,
+      identityServiceExpiry.signal,
       admission.controller.signal,
       AbortSignal.timeout(PEER_CHANNEL_MS),
       ...(input.signal ? [input.signal] : []),
@@ -180,34 +180,37 @@ export class SrpPeerTransport implements PeerTransport {
     let releaseHandshake = () => {};
     try {
       signal.throwIfAborted();
-      this.fleet?.assertActive();
-      const fleetToken = this.fleet
-        ? await awaitPeerWork(this.fleet.token(signal), signal)
+      this.identityService?.assertActive();
+      const identityServiceToken = this.identityService
+        ? await awaitPeerWork(this.identityService.token(signal), signal)
         : undefined;
-      const assertFleetActive = () => {
-        this.fleet?.assertActive();
-        if (fleetToken && fleetToken.expiresAt <= Date.now())
+      const assertIdentityServiceActive = () => {
+        this.identityService?.assertActive();
+        if (
+          identityServiceToken &&
+          identityServiceToken.expiresAt <= Date.now()
+        )
           throw new CoreApiError(
             "unauthorized",
             "Fleet authority expired before submission or observation",
             401,
           );
       };
-      if (fleetToken) {
+      if (identityServiceToken) {
         if (
-          fleetToken.expiresAt <= Date.now() ||
-          fleetToken.token.length > 32 * 1024
+          identityServiceToken.expiresAt <= Date.now() ||
+          identityServiceToken.token.length > 32 * 1024
         )
           throw new CoreApiError(
             "unauthorized",
             "Fleet authority has expired",
             401,
           );
-        fleetDeadline = setTimeout(
-          () => fleetExpiry.abort(),
-          fleetToken.expiresAt - Date.now(),
+        identityServiceDeadline = setTimeout(
+          () => identityServiceExpiry.abort(),
+          identityServiceToken.expiresAt - Date.now(),
         );
-        fleetDeadline.unref?.();
+        identityServiceDeadline.unref?.();
       }
       const step1 = await awaitPeerWork(
         this.budget.crypto(() =>
@@ -236,9 +239,9 @@ export class SrpPeerTransport implements PeerTransport {
           path: privateRequest.path,
           body: privateRequest.body,
         });
-      if (fleetToken)
+      if (identityServiceToken)
         Object.assign(request.headers, {
-          "X-YA-Fleet-Grant": fleetToken.token,
+          "X-YA-Fleet-Grant": identityServiceToken.token,
         });
       if (!peerWireRequest.safeParse(request).success)
         throw new CoreApiError(
@@ -383,7 +386,7 @@ export class SrpPeerTransport implements PeerTransport {
                   "Peer reply exceeds 256 KiB; narrow limit or maxMessages",
                   502,
                 );
-              assertFleetActive();
+              assertIdentityServiceActive();
               const result =
                 privateRequest?.path === PEER_REFRESH_PATH &&
                 sequenced.msg.status === 200
@@ -485,7 +488,9 @@ export class SrpPeerTransport implements PeerTransport {
               (invitation.authentication &&
                 info.authentication !== PEER_AUTHENTICATION) ||
               info.expiresAt <= Date.now() ||
-              (this.fleet ? info.fleet !== 1 : info.fleet !== undefined) ||
+              (this.identityService
+                ? info.fleet !== 1
+                : info.fleet !== undefined) ||
               info.transportNonce !== verified.transportNonce
             )
               throw new CoreApiError(
@@ -494,7 +499,7 @@ export class SrpPeerTransport implements PeerTransport {
                 502,
               );
             key = deriveTransportKey(base, info.transportNonce);
-            assertFleetActive();
+            assertIdentityServiceActive();
             releaseHandshake();
             const frame = encryptToBinaryEnvelope(
               JSON.stringify({ seq: 0, msg: request }),
@@ -535,7 +540,7 @@ export class SrpPeerTransport implements PeerTransport {
         503,
       );
     } finally {
-      if (fleetDeadline) clearTimeout(fleetDeadline);
+      if (identityServiceDeadline) clearTimeout(identityServiceDeadline);
       releaseHandshake();
       admission.release();
     }

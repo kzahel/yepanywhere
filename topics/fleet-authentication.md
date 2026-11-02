@@ -8,6 +8,11 @@ reviewed the design and code, then rechecked all material fixes. Manual
 and the API remains unstable; live vendor qualification and enrollment/grant UI
 are follow-ups.
 
+The terminology-only rename in [plan 172](../docs/tactical/172-identity-service-naming.md)
+is authorized. Service internals now live in `packages/server/src/identity-service/`;
+wire/storage names remain unchanged. The owner administration and UI wording
+are updated in subsequent reviewed slices.
+
 ## Scope and first-key trust
 
 A separate constructible Hono service and standalone entry point introduces
@@ -523,3 +528,25 @@ remaining packages, lint, formatting and types. The 94 core API cases retain
 basic/manual coexistence and the OIDC path. An isolated desktop Bun 1.3.14 probe
 also completes actual owned-issuer OIDC/PKCE/JWKS, browser confirmation, DPoP and
 durable restart; it does not qualify live vendor configuration or packaged UI.
+
+## Retained compatibility names
+
+The Identity Service naming cleanup preserves these bytes and their meaning;
+they are compatibility names rather than UI/product terminology. No migration,
+new identity, key rotation or new authority follows from the rename.
+
+| Retained name | Reason |
+| --- | --- |
+| Credential `origin: "fleet"` | Shared serialized discriminator and private peer-state union |
+| Peer-state/public-summary `fleet` key | Existing state schema, enrollment epoch, outbox and owner response representation |
+| Standalone `/fleet/v0` routes | Authenticated service protocol and OIDC callbacks |
+| `/fleet/v0` token audiences and discovery URLs | Exact issuer/audience and DPoP URI bindings |
+| `X-YA-Fleet-Grant` | Peer wire header and its strict framing schema |
+| Peer `info.fleet` marker | Existing peer protocol feature/version proof |
+| Existing JWT type/purpose/version and state-marker literals | Signed/encrypted envelopes, profile continuity and fail-closed parsing |
+| `fleet_unavailable`, `fleet_state_unavailable` | Existing structured API error codes |
+
+Human-readable diagnostics/CLI labels and owner `/api/peers/fleet` routes remain
+phase-2 work; UI labels and current documentation links remain phase-3 work.
+Generic "fleet" in performance scenarios, historical evidence and unrelated
+device-file events is outside this subsystem's rename.

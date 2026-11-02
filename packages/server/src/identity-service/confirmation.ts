@@ -1,7 +1,7 @@
 import { html } from "hono/html";
 
 /** No external assets or scripts; display values are HTML-escaped. */
-export function renderFleetConfirmation(input: {
+export function renderIdentityServiceConfirmation(input: {
   confirmationCode: string;
   displayName: string;
   profileId: string;

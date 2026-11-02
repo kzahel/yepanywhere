@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Operation } from "../core-api/contracts.js";
 import type { PeerPrincipal } from "../core-api/peer-policy.js";
 import { CoreApiError } from "../core-api/errors.js";
-import type { FleetPeerBinding } from "../fleet/contracts.js";
+import type { IdentityServicePeerBinding } from "../identity-service/contracts.js";
 
 export const peerAttestation = z
   .object({
@@ -21,7 +21,7 @@ export interface IncomingPeerGrant {
   projects: readonly string[];
   operations: readonly Operation[];
   expiresAt: number;
-  fleet?: FleetPeerBinding;
+  identityBinding?: IdentityServicePeerBinding;
   access?: readonly { tokenHash: string; expiresAt: number }[];
 }
 export interface PeerRequestAuthority {
@@ -97,7 +97,7 @@ export class PeerDirectory {
         "Peer credential is not active",
         401,
       );
-    if (grant.fleet && (!authority || authority.grant !== grant))
+    if (grant.identityBinding && (!authority || authority.grant !== grant))
       throw new CoreApiError(
         "unauthorized",
         "Fleet peer authority is required for this credential",
@@ -143,7 +143,7 @@ export class PeerDirectory {
       serverId: grant.serverId,
       credentialId: grant.id,
       credentialGeneration: grant.generation,
-      ...(!grant.fleet && grant.allProjects
+      ...(!grant.identityBinding && grant.allProjects
         ? { allProjects: true as const }
         : {}),
       projects: authority

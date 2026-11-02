@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { fleetFixture } from "./fleet-fixture.js";
+import { identityServiceFixture } from "./identity-service-fixture.js";
 import { oidcFixture } from "./oidc-fixture.js";
 import { PeerAccessStore } from "../../src/peer-api/state.js";
-import { FleetHttpClient } from "../../src/fleet/client.js";
+import { IdentityServiceClient } from "../../src/identity-service/client.js";
 import { createAgentApiRuntime } from "../../src/agent-api/runtime.js";
 import { SUPERUSER } from "../../src/auth/principal.js";
 import { nativeRequest } from "./peer-fixture.js";
@@ -31,7 +31,7 @@ const operations: Operation[] = [
 ];
 async function fixture(options?: Parameters<typeof oidcFixture>[0]) {
   const upstream = await oidcFixture(options);
-  const fleet = await fleetFixture(cleanup, {
+  const fleet = await identityServiceFixture(cleanup, {
     external: { issuer: upstream.issuer, subject: upstream.subject },
     oidcProviders: [upstream.provider],
     oidcFetch: upstream.fetcher,
@@ -282,7 +282,7 @@ it("invalidates an outstanding OIDC flow when its enrolled client is revoked", a
     providerId: "owned",
     displayName: "pending reauthentication",
   });
-  await target.manager.fleetAccess.request(
+  await target.manager.delegatedAccess.request(
     `/clients/${sourceClient.id}`,
     "DELETE",
   );
@@ -373,7 +373,7 @@ it("consumes a flow once across independent valid key-bound DPoP lanes", async (
     source = await f.make();
   const keys = source.manager.store.read().fleet.enrollment!.keys;
   const make = () =>
-    new FleetHttpClient(f.issuer, source.id, keys, {
+    new IdentityServiceClient(f.issuer, source.id, keys, {
       allowInsecureLoopback: true,
       fetch: async (input, init) =>
         f.service.app.fetch(new Request(input, init)),
@@ -444,8 +444,8 @@ it("rechecks the live initiating owner before enrollment, queued publication and
     });
     if (boundary === "queued-write" || boundary === "published-write") {
       const store = source.manager.store,
-        publish = store.publishFleetCredentials.bind(store);
-      vi.spyOn(store, "publishFleetCredentials").mockImplementation(
+        publish = store.publishIdentityServiceCredentials.bind(store);
+      vi.spyOn(store, "publishIdentityServiceCredentials").mockImplementation(
         async (update) => {
           if (boundary === "published-write") {
             const result = await publish(update);
@@ -520,7 +520,7 @@ it("supports configured ES256 ID tokens and client_secret_post without changing 
 it("bounds upstream discovery replies and recovers a failed configuration fetch", async () => {
   const upstream = await oidcFixture();
   let oversized = true;
-  const f = await fleetFixture(cleanup, {
+  const f = await identityServiceFixture(cleanup, {
     external: { issuer: upstream.issuer, subject: upstream.subject },
     oidcProviders: [upstream.provider],
     oidcFetch: async (input, init) =>
@@ -624,12 +624,12 @@ it("conditionally discards a published family even when the normal persistence q
   });
   const { code } = await browser(f, flow.authorizationUrl),
     store = source.manager.store;
-  const publish = store.publishFleetCredentials.bind(store),
-    discard = store.discardFleetCredentials.bind(store);
+  const publish = store.publishIdentityServiceCredentials.bind(store),
+    discard = store.discardIdentityServiceCredentials.bind(store);
   let writes: Promise<unknown>[] = [],
     logout: Promise<void> | undefined,
     full: Promise<unknown> | undefined;
-  vi.spyOn(store, "publishFleetCredentials").mockImplementation(
+  vi.spyOn(store, "publishIdentityServiceCredentials").mockImplementation(
     async (update) => {
       const result = await publish(update);
       writes = Array.from({ length: 16 }, () => store.mutate(() => {}));
@@ -637,7 +637,7 @@ it("conditionally discards a published family even when the normal persistence q
       return result;
     },
   );
-  vi.spyOn(store, "discardFleetCredentials").mockImplementation(
+  vi.spyOn(store, "discardIdentityServiceCredentials").mockImplementation(
     (epoch, token) => {
       // This rejected admission establishes that the normal queue is actually full.
       full = expect(store.mutate(() => {})).rejects.toMatchObject({

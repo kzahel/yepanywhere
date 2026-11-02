@@ -6,10 +6,10 @@ import { parseArgs } from "node:util";
 import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { enforceOwnerOnlyPathPermissionsStrict } from "../utils/filePermissions.js";
-import { fleetOidcProvidersSchema } from "./oidc.js";
-import { fleetOrigin } from "./crypto.js";
-import { createFleetService } from "./service.js";
-import { FleetStore } from "./store.js";
+import { oidcProvidersSchema } from "./oidc.js";
+import { identityServiceOrigin } from "./crypto.js";
+import { createIdentityService } from "./service.js";
+import { IdentityServiceStore } from "./store.js";
 
 export async function passwordFromStdin(
   input: AsyncIterable<Uint8Array> = process.stdin,
@@ -31,7 +31,7 @@ export async function passwordFromStdin(
 }
 
 /** Offline administration and serving intentionally share exclusive ownership. */
-export async function fleetMain(args = process.argv.slice(2)) {
+export async function identityServiceMain(args = process.argv.slice(2)) {
   const { positionals, values } = parseArgs({
     args,
     allowPositionals: true,
@@ -48,8 +48,8 @@ export async function fleetMain(args = process.argv.slice(2)) {
     throw new Error(
       "Usage: fleet --directory PRIVATE_DIR --issuer HTTPS_ORIGIN serve|local-account USERNAME|oidc-account ISSUER SUBJECT NAME",
     );
-  const issuer = fleetOrigin(values.issuer, values["fixture-http"]);
-  const store = new FleetStore(
+  const issuer = identityServiceOrigin(values.issuer, values["fixture-http"]);
+  const store = new IdentityServiceStore(
     resolve(values.directory),
     issuer,
     values["fixture-http"],
@@ -103,11 +103,11 @@ export async function fleetMain(args = process.argv.slice(2)) {
       const content = await readFile(path);
       if (content.byteLength > 64 * 1024)
         throw new Error("Oversized OIDC configuration");
-      oidcProviders = fleetOidcProvidersSchema.parse(
+      oidcProviders = oidcProvidersSchema.parse(
         JSON.parse(content.toString("utf8")),
       );
     }
-    const service = createFleetService(store, {
+    const service = createIdentityService(store, {
         oidcProviders,
         remoteAddress: (c) => getConnInfo(c).remote.address,
       }),
@@ -143,7 +143,7 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  void fleetMain().catch(() => {
+  void identityServiceMain().catch(() => {
     process.stderr.write(
       "Fleet command failed; check ownership, private configuration and account input\n",
     );

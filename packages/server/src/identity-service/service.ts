@@ -1,41 +1,48 @@
-import { renderFleetConfirmation } from "./confirmation.js";
+import { renderIdentityServiceConfirmation } from "./confirmation.js";
 import { randomUUID } from "node:crypto";
 import { Hono, type Context } from "hono";
-import { FleetOidc } from "./oidc.js";
+import { OidcLogin } from "./oidc.js";
 import { z } from "zod";
-import { FleetAuth, FleetNonceChallenge } from "./auth.js";
+import { IdentityServiceAuth, IdentityServiceNonceChallenge } from "./auth.js";
 import {
-  fleetPage,
+  identityServicePage,
   narrowerPolicy,
-  fleetPolicySchema,
+  accessPolicySchema,
   uuid,
-  type FleetControlClaims,
-  type FleetRelationship,
+  type IdentityServiceControlClaims,
+  type AccessRelationship,
 } from "./contracts.js";
-import { fleetDigest, fleetPeerAudience, signFleetJwt } from "./crypto.js";
-import { FleetError } from "./errors.js";
-import { fleetJson, fleetWait } from "./limits.js";
-import { type FleetStore, retireFleetClient } from "./store.js";
+import {
+  identityServiceDigest,
+  identityServicePeerAudience,
+  signIdentityServiceJwt,
+} from "./crypto.js";
+import { IdentityServiceError } from "./errors.js";
+import { identityServiceJson, identityServiceWait } from "./limits.js";
+import {
+  type IdentityServiceStore,
+  retireIdentityServiceClient,
+} from "./store.js";
 
 const proposalSchema = z
-  .object({ targetClientId: uuid, policy: fleetPolicySchema })
+  .object({ targetClientId: uuid, policy: accessPolicySchema })
   .strict();
 const publicationSchema = z
   .object({
     envelopeId: uuid,
     credentialId: uuid,
     credentialGeneration: z.number().int().positive(),
-    policy: fleetPolicySchema,
+    policy: accessPolicySchema,
     ciphertext: z
       .string()
       .min(1)
       .max(32 * 1024),
   })
   .strict();
-export function fleetRelationship(
-  store: FleetStore,
-  auth: FleetAuth,
-  claims: FleetControlClaims,
+export function accessRelationship(
+  store: IdentityServiceStore,
+  auth: IdentityServiceAuth,
+  claims: IdentityServiceControlClaims,
   id: string,
   side: "source" | "target" | "either",
 ) {
@@ -73,7 +80,7 @@ export function fleetRelationship(
         client.id,
       ))
   )
-    throw new FleetError(
+    throw new IdentityServiceError(
       "not_found",
       "Directional proposal is not accessible",
       404,
@@ -82,8 +89,8 @@ export function fleetRelationship(
 }
 
 /** No main app, scanners, provider registry, background jobs or implicit listen. */
-export function createFleetService(
-  store: FleetStore,
+export function createIdentityService(
+  store: IdentityServiceStore,
   options: {
     now?: () => number;
     oidcProviders?: unknown;
@@ -91,16 +98,16 @@ export function createFleetService(
     remoteAddress?: (context: Context) => string | undefined;
   } = {},
 ) {
-  const auth = new FleetAuth(store, options.now);
-  const oidc = new FleetOidc(auth, options.oidcProviders, {
+  const auth = new IdentityServiceAuth(store, options.now);
+  const oidc = new OidcLogin(auth, options.oidcProviders, {
     fetch: options.oidcFetch,
     remoteAddress: options.remoteAddress,
   });
   const app = new Hono<{
     Variables: {
-      fleetClaims: FleetControlClaims;
-      fleetToken: string;
-      fleetSignal: AbortSignal;
+      identityServiceClaims: IdentityServiceControlClaims;
+      identityServiceToken: string;
+      identityServiceSignal: AbortSignal;
     };
   }>();
   app.use("*", async (c, next) => {
@@ -129,12 +136,12 @@ export function createFleetService(
       c.req.raw.signal,
       AbortSignal.timeout(10_000),
     ]);
-    c.set("fleetSignal", signal);
-    await fleetWait(next(), signal);
+    c.set("identityServiceSignal", signal);
+    await identityServiceWait(next(), signal);
     if (c.res.status !== 204) {
-      const reply = await fleetWait(c.res.arrayBuffer(), signal);
+      const reply = await identityServiceWait(c.res.arrayBuffer(), signal);
       if (reply.byteLength > 256 * 1024)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "reply_too_large",
           "Fleet reply exceeds 256 KiB; request a smaller page",
           503,
@@ -148,11 +155,11 @@ export function createFleetService(
     c.header("X-Content-Type-Options", "nosniff");
   });
   app.onError((error, c) => {
-    if (error instanceof FleetNonceChallenge) {
+    if (error instanceof IdentityServiceNonceChallenge) {
       c.header("DPoP-Nonce", error.nonce);
       c.header("WWW-Authenticate", 'DPoP error="use_dpop_nonce"');
     }
-    if (error instanceof FleetError) {
+    if (error instanceof IdentityServiceError) {
       if (error.status === 429) c.header("Retry-After", "10");
       return c.json(
         { error: error.code, message: error.message },
@@ -200,16 +207,18 @@ export function createFleetService(
         introduction: z.unknown(),
       })
       .strict()
-      .parse(await fleetJson(c.req.raw, c.get("fleetSignal")));
-    const result = await fleetWait(
+      .parse(
+        await identityServiceJson(c.req.raw, c.get("identityServiceSignal")),
+      );
+    const result = await identityServiceWait(
       auth.login(input.username, input.password, input.introduction),
-      c.get("fleetSignal"),
+      c.get("identityServiceSignal"),
     );
     return c.json(result);
   });
   app.get("/fleet/v0/oidc/providers", (c) => c.json({ items: oidc.list() }));
   app.post("/fleet/v0/oidc/start", async (c) =>
-    c.json(await oidc.start(c, c.get("fleetSignal"))),
+    c.json(await oidc.start(c, c.get("identityServiceSignal"))),
   );
   app.get("/fleet/v0/oidc/callback/:providerId", async (c) => {
     const confirmation = await oidc.callback(
@@ -223,7 +232,7 @@ export function createFleetService(
       "Content-Security-Policy",
       "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
     );
-    return c.html(await renderFleetConfirmation(confirmation));
+    return c.html(await renderIdentityServiceConfirmation(confirmation));
   });
   app.use("/fleet/v0/*", async (c, next) => {
     const purpose =
@@ -234,49 +243,54 @@ export function createFleetService(
           : c.req.path.startsWith("/fleet/v0/oidc/flows/")
             ? "oidc"
             : "control";
-    const { claims, token, nextNonce } = await fleetWait(
+    const { claims, token, nextNonce } = await identityServiceWait(
       auth.authorize(
         c.req.raw,
         purpose,
         purpose === "oidc" ? oidc.assert : undefined,
       ),
-      c.get("fleetSignal"),
+      c.get("identityServiceSignal"),
     );
     c.header("DPoP-Nonce", nextNonce);
-    c.set("fleetClaims", claims);
-    c.set("fleetToken", token);
+    c.set("identityServiceClaims", claims);
+    c.set("identityServiceToken", token);
     await next();
   });
   app.get("/fleet/v0/oidc/flows/:id", (c) => {
-    if (c.get("fleetClaims").bindingId !== c.req.param("id"))
-      throw new FleetError("unauthorized", "Wrong OIDC flow", 401);
-    return c.json(oidc.status(c.get("fleetClaims")));
+    if (c.get("identityServiceClaims").bindingId !== c.req.param("id"))
+      throw new IdentityServiceError("unauthorized", "Wrong OIDC flow", 401);
+    return c.json(oidc.status(c.get("identityServiceClaims")));
   });
   app.post("/fleet/v0/oidc/flows/:id/redeem", async (c) => {
-    if (c.get("fleetClaims").bindingId !== c.req.param("id"))
-      throw new FleetError("unauthorized", "Wrong OIDC flow", 401);
+    if (c.get("identityServiceClaims").bindingId !== c.req.param("id"))
+      throw new IdentityServiceError("unauthorized", "Wrong OIDC flow", 401);
     return c.json(
       await oidc.redeem(
-        c.get("fleetClaims"),
-        await fleetJson(c.req.raw, c.get("fleetSignal")),
+        c.get("identityServiceClaims"),
+        await identityServiceJson(c.req.raw, c.get("identityServiceSignal")),
       ),
     );
   });
   app.post("/fleet/v0/enroll", async (c) =>
-    c.json(await auth.enroll(c.get("fleetClaims"), c.get("fleetSignal"))),
+    c.json(
+      await auth.enroll(
+        c.get("identityServiceClaims"),
+        c.get("identityServiceSignal"),
+      ),
+    ),
   );
   app.post("/fleet/v0/refresh", async (c) =>
     c.json(
       await auth.refresh(
-        c.get("fleetClaims"),
-        c.get("fleetToken"),
-        c.get("fleetSignal"),
+        c.get("identityServiceClaims"),
+        c.get("identityServiceToken"),
+        c.get("identityServiceSignal"),
       ),
     ),
   );
   app.get("/fleet/v0/me", (c) => {
     const { account, client, session } = auth.assert(
-      c.get("fleetClaims"),
+      c.get("identityServiceClaims"),
       "control",
     );
     return c.json({
@@ -286,10 +300,10 @@ export function createFleetService(
     });
   });
   app.get("/fleet/v0/clients", (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     auth.assert(claims, "control");
     return c.json(
-      fleetPage(
+      identityServicePage(
         store
           .read()
           .clients.filter(
@@ -300,7 +314,7 @@ export function createFleetService(
     );
   });
   app.get("/fleet/v0/clients/:id", async (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     auth.assert(claims, "control");
     const client = store
       .read()
@@ -310,10 +324,11 @@ export function createFleetService(
           entry.accountId === claims.sub &&
           !entry.revoked,
       );
-    if (!client) throw new FleetError("not_found", "Client not found", 404);
+    if (!client)
+      throw new IdentityServiceError("not_found", "Client not found", 404);
     const now = Math.floor(auth.now() / 1000);
     const attestation = await auth.crypto.run(() =>
-      signFleetJwt(
+      signIdentityServiceJwt(
         store.read().signingKey,
         {
           iss: store.issuer,
@@ -338,7 +353,7 @@ export function createFleetService(
             !current.revoked,
         )
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "not_found",
         "Client introduction was revoked during signing",
         404,
@@ -346,23 +361,24 @@ export function createFleetService(
     return c.json({ client, attestation });
   });
   app.delete("/fleet/v0/clients/:id", async (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     await store.mutate((state) => {
       auth.assert(claims, "control");
       const client = state.clients.find(
         (entry) =>
           entry.id === c.req.param("id") && entry.accountId === claims.sub,
       );
-      if (!client) throw new FleetError("not_found", "Client not found", 404);
-      retireFleetClient(state, client.id);
-    }, c.get("fleetSignal"));
+      if (!client)
+        throw new IdentityServiceError("not_found", "Client not found", 404);
+      retireIdentityServiceClient(state, client.id);
+    }, c.get("identityServiceSignal"));
     return c.body(null, 204);
   });
   app.get("/fleet/v0/relationships", (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     auth.assert(claims, "control");
     return c.json(
-      fleetPage(
+      identityServicePage(
         store
           .read()
           .relationships.filter(
@@ -375,9 +391,9 @@ export function createFleetService(
     );
   });
   app.post("/fleet/v0/relationships", async (c) => {
-    const claims = c.get("fleetClaims"),
+    const claims = c.get("identityServiceClaims"),
       input = proposalSchema.parse(
-        await fleetJson(c.req.raw, c.get("fleetSignal")),
+        await identityServiceJson(c.req.raw, c.get("identityServiceSignal")),
       );
     const relationship = await store.mutate((state) => {
       auth.assert(claims, "control");
@@ -399,7 +415,7 @@ export function createFleetService(
         input.policy.expiresAt <= auth.now() ||
         input.policy.expiresAt > auth.now() + 30 * 86_400_000
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "invalid_request",
           "Proposal requires another active account client and expiry within 30 days",
         );
@@ -411,12 +427,12 @@ export function createFleetService(
             r.targetClientId === input.targetClientId,
         )
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "conflict",
           "A current directional proposal already exists",
           409,
         );
-      const record: FleetRelationship = {
+      const record: AccessRelationship = {
         id: randomUUID(),
         accountId: claims.sub,
         sourceClientId: claims.client_id,
@@ -428,24 +444,24 @@ export function createFleetService(
       };
       state.relationships.push(record);
       return record;
-    }, c.get("fleetSignal"));
+    }, c.get("identityServiceSignal"));
     return c.json(relationship, 201);
   });
   app.get("/fleet/v0/relationships/:id", (c) =>
     c.json(
-      fleetRelationship(
+      accessRelationship(
         store,
         auth,
-        c.get("fleetClaims"),
+        c.get("identityServiceClaims"),
         c.req.param("id"),
         "either",
       ),
     ),
   );
   app.delete("/fleet/v0/relationships/:id", async (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     await store.mutate((state) => {
-      const r = fleetRelationship(
+      const r = accessRelationship(
         store,
         auth,
         claims,
@@ -454,16 +470,16 @@ export function createFleetService(
       );
       state.relationships.find((item) => item.id === r.id)!.revoked = true;
       state.mailbox = state.mailbox.filter((m) => m.relationshipId !== r.id);
-    }, c.get("fleetSignal"));
+    }, c.get("identityServiceSignal"));
     return c.body(null, 204);
   });
   app.put("/fleet/v0/relationships/:id/envelope", async (c) => {
-    const claims = c.get("fleetClaims"),
+    const claims = c.get("identityServiceClaims"),
       input = publicationSchema.parse(
-        await fleetJson(c.req.raw, c.get("fleetSignal")),
+        await identityServiceJson(c.req.raw, c.get("identityServiceSignal")),
       );
     await store.mutate((state) => {
-      const r = fleetRelationship(
+      const r = accessRelationship(
           store,
           auth,
           claims,
@@ -477,11 +493,11 @@ export function createFleetService(
         Buffer.byteLength(input.ciphertext) > 32 * 1024 ||
         input.ciphertext.split(".").length !== 5
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "invalid_request",
           "Envelope must fit the accepted proposal and encoded byte bound",
         );
-      const digest = fleetDigest(input.ciphertext);
+      const digest = identityServiceDigest(input.ciphertext);
       if (r.accepted) {
         if (
           r.accepted.envelopeId === input.envelopeId &&
@@ -491,7 +507,7 @@ export function createFleetService(
           JSON.stringify(r.accepted.policy) === JSON.stringify(input.policy)
         )
           return;
-        throw new FleetError(
+        throw new IdentityServiceError(
           "conflict",
           "An envelope is already published; reissue through a new relationship",
           409,
@@ -502,7 +518,7 @@ export function createFleetService(
           (other) => other.accepted?.envelopeId === input.envelopeId,
         )
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "conflict",
           "Envelope identity is already in use",
           409,
@@ -525,14 +541,14 @@ export function createFleetService(
         expiresAt: input.policy.expiresAt,
         ciphertext: input.ciphertext,
       });
-    }, c.get("fleetSignal"));
+    }, c.get("identityServiceSignal"));
     return c.body(null, 204);
   });
   app.get("/fleet/v0/mailbox", (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     auth.assert(claims, "control");
     return c.json(
-      fleetPage(
+      identityServicePage(
         store
           .read()
           .mailbox.filter(
@@ -545,7 +561,7 @@ export function createFleetService(
     );
   });
   app.get("/fleet/v0/mailbox/:id", (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     auth.assert(claims, "control");
     const item = store
       .read()
@@ -555,12 +571,13 @@ export function createFleetService(
           m.sourceClientId === claims.client_id &&
           m.expiresAt > auth.now(),
       );
-    if (!item) throw new FleetError("not_found", "Envelope not found", 404);
-    fleetRelationship(store, auth, claims, item.relationshipId, "source");
+    if (!item)
+      throw new IdentityServiceError("not_found", "Envelope not found", 404);
+    accessRelationship(store, auth, claims, item.relationshipId, "source");
     return c.json(item);
   });
   app.post("/fleet/v0/mailbox/:id/ack", async (c) => {
-    const claims = c.get("fleetClaims");
+    const claims = c.get("identityServiceClaims");
     await store.mutate((state) => {
       auth.assert(claims, "control");
       const r = state.relationships.find(
@@ -569,16 +586,16 @@ export function createFleetService(
           entry.accepted?.envelopeId === c.req.param("id"),
       );
       if (!r?.accepted)
-        throw new FleetError("not_found", "Envelope not found", 404);
-      fleetRelationship(store, auth, claims, r.id, "source");
+        throw new IdentityServiceError("not_found", "Envelope not found", 404);
+      accessRelationship(store, auth, claims, r.id, "source");
       r.accepted.acknowledged = true;
       state.mailbox = state.mailbox.filter((m) => m.id !== c.req.param("id"));
-    }, c.get("fleetSignal"));
+    }, c.get("identityServiceSignal"));
     return c.body(null, 204);
   });
   app.post("/fleet/v0/relationships/:id/token", async (c) => {
-    const claims = c.get("fleetClaims"),
-      r = fleetRelationship(store, auth, claims, c.req.param("id"), "source"),
+    const claims = c.get("identityServiceClaims"),
+      r = accessRelationship(store, auth, claims, c.req.param("id"), "source"),
       accepted = r.accepted;
     const { client: source, session } = auth.assert(claims, "control");
     const target = store
@@ -587,7 +604,7 @@ export function createFleetService(
         (client) => client.id === r.targetClientId && !client.revoked,
       );
     if (!accepted || !source || !target || !session)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "not_accepted",
         "The target has not published a peer credential",
         409,
@@ -602,11 +619,11 @@ export function createFleetService(
         ) / 1000,
       );
     const token = await auth.crypto.run(() =>
-      signFleetJwt(
+      signIdentityServiceJwt(
         store.read().signingKey,
         {
           iss: store.issuer,
-          aud: fleetPeerAudience(target.profileId),
+          aud: identityServicePeerAudience(target.profileId),
           sub: source.id,
           iat: issued,
           exp: expiresAt,
@@ -630,7 +647,7 @@ export function createFleetService(
         "ya-peer-grant+jwt",
       ),
     );
-    fleetRelationship(store, auth, claims, r.id, "source");
+    accessRelationship(store, auth, claims, r.id, "source");
     return c.json({ token, expiresAt: expiresAt * 1000 });
   });
   return { app, auth, close: () => store.close() };

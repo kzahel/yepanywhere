@@ -78,7 +78,7 @@ export function createPeerReceiver(
       request: Request,
       context: PeerSrpContext,
     ) => Promise<unknown>;
-    fleetAuthority?: (
+    identityServiceAuthority?: (
       grant: IncomingPeerGrant,
       token: string,
       signal: AbortSignal,
@@ -165,15 +165,19 @@ export function createPeerReceiver(
       );
       const grant = directory.lookup(authorization.slice(7));
       let authority: PeerRequestAuthority | undefined;
-      if (grant?.fleet) {
+      if (grant?.identityBinding) {
         const token = c.req.header("X-YA-Fleet-Grant");
-        if (!token || token.length > 32 * 1024 || !options.fleetAuthority)
+        if (
+          !token ||
+          token.length > 32 * 1024 ||
+          !options.identityServiceAuthority
+        )
           throw new CoreApiError(
             "unauthorized",
             "A fleet grant token is required",
             401,
           );
-        authority = await options.fleetAuthority(
+        authority = await options.identityServiceAuthority(
           grant,
           token,
           c.req.raw.signal,

@@ -1,6 +1,6 @@
-import { FleetStore } from "../../packages/server/src/fleet/store.js";
-import { createFleetService } from "../../packages/server/src/fleet/service.js";
-import { relationshipSchema } from "../../packages/server/src/fleet/contracts.js";
+import { IdentityServiceStore } from "../../packages/server/src/identity-service/store.js";
+import { createIdentityService } from "../../packages/server/src/identity-service/service.js";
+import { relationshipSchema } from "../../packages/server/src/identity-service/contracts.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -34,14 +34,14 @@ export async function createPeerEvalRouter(
   const sourceDb = openSqliteOrThrow(":memory:");
   migrateDiscoveryDatabase(sourceDb);
   const sourceReceipts = new ReceiptStore(sourceDb);
-  let fleetStore: FleetStore | undefined,
-    fleetService: ReturnType<typeof createFleetService> | undefined;
-  const fleetOptions = fleet
+  let identityServiceStore: IdentityServiceStore | undefined,
+    identityService: ReturnType<typeof createIdentityService> | undefined;
+  const identityServiceOptions = fleet
     ? {
         allowInsecureLoopback: true,
         fetch: (async (input, init) => {
-          if (!fleetService) throw new Error("Fleet fixture not ready");
-          return fleetService.app.fetch(new Request(input, init));
+          if (!identityService) throw new Error("Fleet fixture not ready");
+          return identityService.app.fetch(new Request(input, init));
         }) as typeof fetch,
       }
     : {};
@@ -49,20 +49,20 @@ export async function createPeerEvalRouter(
       SERVER_ID,
       join(root, "source"),
       undefined,
-      fleetOptions,
+      identityServiceOptions,
     ),
     b = new PeerAccessManager(
       PEER_SERVER_ID,
       join(root, "target"),
       undefined,
-      fleetOptions,
+      identityServiceOptions,
     );
   let relay: Awaited<ReturnType<typeof createRelayServer>> | undefined;
   const close = async () => {
     await a.close();
     await b.close();
     await relay?.close();
-    await fleetStore?.close();
+    await identityServiceStore?.close();
     sourceReceipts.close();
     sourceDb.close();
     await rm(root, { recursive: true, force: true });
@@ -115,16 +115,20 @@ export async function createPeerEvalRouter(
     await a.setAgentAccess({ enabled: true });
     if (fleet) {
       const issuer = "http://127.0.0.1:45679";
-      fleetStore = new FleetStore(join(root, "fleet"), issuer, true);
-      await fleetStore.initialize();
-      const accountId = await fleetStore.provisionLocal(
+      identityServiceStore = new IdentityServiceStore(
+        join(root, "fleet"),
+        issuer,
+        true,
+      );
+      await identityServiceStore.initialize();
+      const accountId = await identityServiceStore.provisionLocal(
         "eval-owner",
         "temporary fixture-only password",
       );
-      fleetService = createFleetService(fleetStore);
+      identityService = createIdentityService(identityServiceStore);
       for (const profile of [a, b]) {
-        await profile.fleetAccess.configure({ issuer, accountId });
-        await profile.fleetAccess.login({
+        await profile.delegatedAccess.configure({ issuer, accountId });
+        await profile.delegatedAccess.login({
           username: "eval-owner",
           password: "temporary fixture-only password",
           displayName: "Owned eval profile",
@@ -137,12 +141,12 @@ export async function createPeerEvalRouter(
         expiresAt: Date.now() + 10 * 60_000,
       };
       const proposal = relationshipSchema.parse(
-        await a.fleetAccess.propose({
+        await a.delegatedAccess.propose({
           targetClientId: targetClient.id,
           policy,
         }),
       );
-      const delivered = await b.fleetAccess.accept({
+      const delivered = await b.delegatedAccess.accept({
         relationshipId: proposal.id,
         policy,
         route: { kind: "relay", url, username },
@@ -150,11 +154,11 @@ export async function createPeerEvalRouter(
       });
       if (!("envelopeId" in delivered) || !delivered.envelopeId)
         throw new Error("Fleet eval invitation was not published");
-      const adopted = await a.fleetAccess.adopt({
+      const adopted = await a.delegatedAccess.adopt({
         envelopeId: delivered.envelopeId,
         allowAgentSessions: true,
       });
-      await a.fleetAccess.select(PEER_SERVER_ID, adopted.credentialId);
+      await a.delegatedAccess.select(PEER_SERVER_ID, adopted.credentialId);
     } else {
       const invitation = await b.issue({
         sourceServerId: SERVER_ID,

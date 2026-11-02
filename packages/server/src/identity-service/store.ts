@@ -6,39 +6,39 @@ import { openSqliteOrThrow, type SqliteDatabase } from "../storage/sqlite.js";
 import { enforceOwnerOnlyPathPermissionsStrict } from "../utils/filePermissions.js";
 import { writeFileAtomically } from "../utils/writeFileAtomically.js";
 import {
-  FLEET_STATE_BYTES,
-  fleetStateSchema,
-  type FleetState,
+  IDENTITY_SERVICE_STATE_BYTES,
+  identityServiceStateSchema,
+  type IdentityServiceState,
 } from "./contracts.js";
 import {
-  fleetOrigin,
-  generateFleetPrivateKey,
-  verifyFleetKeyMaterial,
-  publicFleetKey,
-  fleetThumbprint,
-  fleetDigest,
+  identityServiceOrigin,
+  generateIdentityServicePrivateKey,
+  verifyIdentityServiceKeyMaterial,
+  publicIdentityServiceKey,
+  identityServiceThumbprint,
+  identityServiceDigest,
 } from "./crypto.js";
-import { FleetError } from "./errors.js";
+import { IdentityServiceError } from "./errors.js";
 
-export function fleetUsername(value: string) {
+export function identityServiceUsername(value: string) {
   const username = value.trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(username))
-    throw new FleetError(
+    throw new IdentityServiceError(
       "invalid_username",
       "Use a local username of 2–64 ASCII letters, numbers, dots, underscores or hyphens",
     );
   return username;
 }
-export function fleetPassword(value: string) {
+export function identityServicePassword(value: string) {
   if ([...value].length < 12 || Buffer.byteLength(value) > 72)
-    throw new FleetError(
+    throw new IdentityServiceError(
       "invalid_password",
       "Passwords require at least 12 characters and at most 72 UTF-8 bytes",
     );
   return value;
 }
-function validateState(value: unknown, issuer: string): FleetState {
-  const state = fleetStateSchema.parse(value);
+function validateState(value: unknown, issuer: string): IdentityServiceState {
+  const state = identityServiceStateSchema.parse(value);
   if (state.issuer !== issuer)
     throw new Error("Issuer does not match this directory");
   const unique = (ids: string[]) => new Set(ids).size === ids.length;
@@ -91,7 +91,7 @@ function validateState(value: unknown, issuer: string): FleetState {
             r.sourceClientId === m.sourceClientId &&
             r.targetClientId === m.targetClientId &&
             r.accepted?.envelopeId === m.id &&
-            r.accepted.digest === fleetDigest(m.ciphertext),
+            r.accepted.digest === identityServiceDigest(m.ciphertext),
         ),
     )
   )
@@ -99,9 +99,13 @@ function validateState(value: unknown, issuer: string): FleetState {
   return state;
 }
 
-export function retireFleetClient(state: FleetState, id: string) {
+export function retireIdentityServiceClient(
+  state: IdentityServiceState,
+  id: string,
+) {
   const client = state.clients.find((c) => c.id === id);
-  if (!client) throw new FleetError("not_found", "Client not found", 404);
+  if (!client)
+    throw new IdentityServiceError("not_found", "Client not found", 404);
   if (!client.revoked)
     state.accounts.find((a) => a.id === client.accountId)!
       .enrollmentGeneration++;
@@ -117,7 +121,9 @@ export function retireFleetClient(state: FleetState, id: string) {
   );
   state.mailbox = state.mailbox.filter((m) => !retired.has(m.relationshipId));
 }
-export function pruneRetiredFleetClients(state: FleetState) {
+export function pruneRetiredIdentityServiceClients(
+  state: IdentityServiceState,
+) {
   state.clients = state.clients.filter((c) => !c.revoked);
   const retained = new Set(state.clients.map((c) => c.id));
   state.sessions = state.sessions.filter((s) => retained.has(s.clientId));
@@ -131,10 +137,10 @@ export function pruneRetiredFleetClients(state: FleetState) {
 }
 
 /** Exclusive process ownership and serialized durable publication, without timers. */
-export class FleetStore {
+export class IdentityServiceStore {
   readonly path: string;
   private ownership?: SqliteDatabase;
-  private state?: FleetState;
+  private state?: IdentityServiceState;
   private tail: Promise<unknown> = Promise.resolve();
   private queued = 0;
   private closed = false;
@@ -144,7 +150,7 @@ export class FleetStore {
     readonly issuer: string,
     readonly allowInsecureLoopback = false,
   ) {
-    this.issuer = fleetOrigin(issuer, allowInsecureLoopback);
+    this.issuer = identityServiceOrigin(issuer, allowInsecureLoopback);
     this.path = join(directory, "state.json");
   }
   async initialize() {
@@ -170,7 +176,7 @@ export class FleetStore {
       }
       let saved: unknown;
       try {
-        if ((await stat(this.path)).size > FLEET_STATE_BYTES)
+        if ((await stat(this.path)).size > IDENTITY_SERVICE_STATE_BYTES)
           throw new Error("Oversized fleet state");
         await enforceOwnerOnlyPathPermissionsStrict(this.path, "file");
         saved = JSON.parse(await readFile(this.path, "utf8"));
@@ -183,7 +189,7 @@ export class FleetStore {
           version: 1,
           issuer: this.issuer,
           serviceId: randomUUID(),
-          signingKey: await generateFleetPrivateKey(),
+          signingKey: await generateIdentityServicePrivateKey(),
           previousSigningKeys: [],
           accounts: [],
           clients: [],
@@ -204,21 +210,21 @@ export class FleetStore {
           mode: 0o600,
           durable: true,
         });
-      await verifyFleetKeyMaterial(this.state.signingKey);
+      await verifyIdentityServiceKeyMaterial(this.state.signingKey);
     } catch {
       this.failed = true;
       this.ownership?.close();
       this.ownership = undefined;
-      throw new FleetError(
+      throw new IdentityServiceError(
         "fleet_state_unavailable",
         "Fleet directory is already owned or cannot be loaded safely",
         503,
       );
     }
   }
-  read(): Readonly<FleetState> {
+  read(): Readonly<IdentityServiceState> {
     if (!this.state || this.failed || this.closed)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "fleet_state_unavailable",
         "Fleet directory is unavailable",
         503,
@@ -226,13 +232,17 @@ export class FleetStore {
     return this.state;
   }
   mutate<T>(
-    update: (state: FleetState) => T,
+    update: (state: IdentityServiceState) => T,
     signal?: AbortSignal,
   ): Promise<T> {
     this.read();
     if (this.queued >= 16)
       return Promise.reject(
-        new FleetError("capacity", "Fleet publication queue is full", 503),
+        new IdentityServiceError(
+          "capacity",
+          "Fleet publication queue is full",
+          503,
+        ),
       );
     this.queued++;
     const work = this.tail.then(async () => {
@@ -241,8 +251,8 @@ export class FleetStore {
       const result = update(next);
       const valid = validateState(next, this.issuer),
         content = JSON.stringify(valid);
-      if (Buffer.byteLength(content) > FLEET_STATE_BYTES)
-        throw new FleetError(
+      if (Buffer.byteLength(content) > IDENTITY_SERVICE_STATE_BYTES)
+        throw new IdentityServiceError(
           "capacity",
           "Fleet directory exceeds its byte limit",
           503,
@@ -255,7 +265,7 @@ export class FleetStore {
         this.state = valid;
       } catch {
         this.failed = true;
-        throw new FleetError(
+        throw new IdentityServiceError(
           "fleet_state_unavailable",
           "Fleet publication is uncertain; admission is closed",
           503,
@@ -274,8 +284,8 @@ export class FleetStore {
     passwordValue: string,
     displayName = usernameValue,
   ) {
-    const username = fleetUsername(usernameValue),
-      password = fleetPassword(passwordValue);
+    const username = identityServiceUsername(usernameValue),
+      password = identityServicePassword(passwordValue);
     const passwordHash = await bcrypt.hash(password, 10);
     return this.mutate((state) => {
       const existing = state.accounts.find(
@@ -306,7 +316,7 @@ export class FleetStore {
             a.kind === "oidc" && a.issuer === issuer && a.subject === subject,
         )
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "conflict",
           "External account already provisioned",
           409,
@@ -325,24 +335,26 @@ export class FleetStore {
     });
   }
   revokeClient(id: string) {
-    return this.mutate((state) => retireFleetClient(state, id));
+    return this.mutate((state) => retireIdentityServiceClient(state, id));
   }
   async rotateSigningKey() {
-    const signingKey = await generateFleetPrivateKey();
+    const signingKey = await generateIdentityServicePrivateKey();
     await this.mutate((state) => {
       if (state.previousSigningKeys.length >= 3)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "capacity",
           "Explicitly retire an old public signing key before rotating again",
           409,
         );
-      state.previousSigningKeys.push(publicFleetKey(state.signingKey));
+      state.previousSigningKeys.push(
+        publicIdentityServiceKey(state.signingKey),
+      );
       state.signingKey = signingKey;
     });
   }
   async forgetSigningKey(kid: string) {
     const previous = this.read().previousSigningKeys;
-    const ids = await Promise.all(previous.map(fleetThumbprint));
+    const ids = await Promise.all(previous.map(identityServiceThumbprint));
     await this.mutate((state) => {
       state.previousSigningKeys = state.previousSigningKeys.filter(
         (key) =>

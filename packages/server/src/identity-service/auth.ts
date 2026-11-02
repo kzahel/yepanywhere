@@ -7,25 +7,25 @@ import {
   controlClaimsSchema,
   type ClientIntroduction,
   type EnrolledClient,
-  type FleetAccount,
-  type FleetControlClaims,
-  type FleetPurpose,
-  type FleetSession,
+  type IdentityAccount,
+  type IdentityServiceControlClaims,
+  type IdentityServicePurpose,
+  type IdentityServiceSession,
 } from "./contracts.js";
 import {
   controlPayload,
-  fleetControlAudience,
-  fleetDigest,
-  fleetThumbprint,
-  publicFleetKey,
-  signFleetJwt,
+  identityServiceControlAudience,
+  identityServiceDigest,
+  identityServiceThumbprint,
+  publicIdentityServiceKey,
+  signIdentityServiceJwt,
 } from "./crypto.js";
-import { FleetError } from "./errors.js";
-import { FleetLimiter, FleetWorkBudget } from "./limits.js";
+import { IdentityServiceError } from "./errors.js";
+import { IdentityServiceLimiter, IdentityServiceWorkBudget } from "./limits.js";
 import {
-  type FleetStore,
-  fleetUsername,
-  pruneRetiredFleetClients,
+  type IdentityServiceStore,
+  identityServiceUsername,
+  pruneRetiredIdentityServiceClients,
 } from "./store.js";
 
 interface PendingLogin {
@@ -41,14 +41,14 @@ interface PendingLogin {
   familyDeadline?: number;
   clientIdAtLogin: string | null;
 }
-export interface FleetCredentials {
+export interface IdentityServiceCredentials {
   client: EnrolledClient;
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
   familyExpiresAt: number;
 }
-export class FleetNonceChallenge extends FleetError {
+export class IdentityServiceNonceChallenge extends IdentityServiceError {
   constructor(readonly nonce: string) {
     super("use_dpop_nonce", "A fresh DPoP nonce is required", 401);
   }
@@ -59,24 +59,24 @@ const DUMMY_HASH =
   "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
 /** Passwords establish pending authority; only a key proof publishes membership. */
-export class FleetAuth {
-  readonly crypto = new FleetWorkBudget(8);
-  private readonly bcrypt = new FleetWorkBudget(4);
+export class IdentityServiceAuth {
+  readonly crypto = new IdentityServiceWorkBudget(8);
+  private readonly bcrypt = new IdentityServiceWorkBudget(4);
   private readonly logins = new Map<string, PendingLogin>();
   private readonly nonces = new Map<
     string,
     { key: string; token: string; expiresAt: number }
   >();
-  private readonly loginRate = new FleetLimiter(64, 8, 6, 3);
-  private readonly nonceRate = new FleetLimiter(256, 32, 60, 8);
+  private readonly loginRate = new IdentityServiceLimiter(64, 8, 6, 3);
+  private readonly nonceRate = new IdentityServiceLimiter(256, 32, 60, 8);
   constructor(
-    readonly store: FleetStore,
+    readonly store: IdentityServiceStore,
     readonly now = Date.now,
   ) {}
   async jwks() {
     const state = this.store.read();
     const keys = [
-      publicFleetKey(state.signingKey),
+      publicIdentityServiceKey(state.signingKey),
       ...state.previousSigningKeys,
     ];
     return {
@@ -85,16 +85,16 @@ export class FleetAuth {
           ...key,
           alg: "ES256",
           use: "sig",
-          kid: await fleetThumbprint(key),
+          kid: await identityServiceThumbprint(key),
         })),
       ),
     };
   }
   async login(usernameValue: string, password: string, value: unknown) {
-    const username = fleetUsername(usernameValue);
+    const username = identityServiceUsername(usernameValue);
     this.loginRate.admit(username);
     if (Buffer.byteLength(password) > 72 || [...password].length < 12)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Invalid local account credentials",
         401,
@@ -119,7 +119,7 @@ export class FleetAuth {
             a.id === account.id && a.authGeneration === account.authGeneration,
         )
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Invalid local account credentials",
         401,
@@ -139,7 +139,7 @@ export class FleetAuth {
     );
   }
   async pending(
-    account: FleetAccount,
+    account: IdentityAccount,
     introduction: ClientIntroduction,
     familyMs: number,
     clientIdAtLogin = this.store
@@ -163,7 +163,7 @@ export class FleetAuth {
     );
   }
   private async preparePending(
-    account: FleetAccount,
+    account: IdentityAccount,
     introduction: ClientIntroduction,
     familyMs: number,
     clientIdAtLogin: string | null,
@@ -172,7 +172,7 @@ export class FleetAuth {
     for (const [id, item] of this.logins)
       if (item.expiresAt <= this.now()) this.logins.delete(id);
     if (this.logins.size >= 128)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "capacity",
         "Pending enrollment capacity reached",
         503,
@@ -185,8 +185,10 @@ export class FleetAuth {
       authGeneration: account.authGeneration,
       enrollmentGeneration: account.enrollmentGeneration,
       introduction,
-      signingJkt: await fleetThumbprint(introduction.signingKey),
-      encryptionJkt: await fleetThumbprint(introduction.encryptionKey),
+      signingJkt: await identityServiceThumbprint(introduction.signingKey),
+      encryptionJkt: await identityServiceThumbprint(
+        introduction.encryptionKey,
+      ),
       expiresAt: this.now() + 90_000,
       familyMs,
     };
@@ -196,19 +198,19 @@ export class FleetAuth {
       jose.importJWK(introduction.encryptionKey, "ECDH-ES"),
     ]);
     if (item.signingJkt === item.encryptionJkt)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "invalid_key",
         "Use separate signing and encryption keys",
       );
     if (this.logins.size >= 128)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "capacity",
         "Pending enrollment capacity reached",
         503,
       );
     this.logins.set(item.id, item);
     try {
-      const token = await signFleetJwt(
+      const token = await signIdentityServiceJwt(
         this.store.read().signingKey,
         controlPayload(
           {
@@ -232,15 +234,19 @@ export class FleetAuth {
       throw error;
     }
   }
-  assert(claims: FleetControlClaims, purpose: FleetPurpose, token?: string) {
+  assert(
+    claims: IdentityServiceControlClaims,
+    purpose: IdentityServicePurpose,
+    token?: string,
+  ) {
     if (
       claims.purpose !== purpose ||
       claims.iss !== this.store.issuer ||
-      claims.aud !== fleetControlAudience(this.store.issuer) ||
+      claims.aud !== identityServiceControlAudience(this.store.issuer) ||
       claims.exp * 1000 <= this.now() ||
       claims.iat * 1000 > this.now() + 5000
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Fleet token purpose or lifetime is invalid",
         401,
@@ -268,7 +274,7 @@ export class FleetAuth {
         )?.id ?? null) !== pending.clientIdAtLogin ||
         pending.expiresAt <= this.now()
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Enrollment is no longer current",
           401,
@@ -296,9 +302,9 @@ export class FleetAuth {
       !session ||
       !client ||
       (purpose === "refresh" &&
-        (!token || fleetDigest(token) !== session.refreshHash))
+        (!token || identityServiceDigest(token) !== session.refreshHash))
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Fleet session is no longer current",
         401,
@@ -307,11 +313,11 @@ export class FleetAuth {
   }
   async authorize(
     request: Request,
-    purpose: FleetPurpose,
-    pendingAuthority?: (claims: FleetControlClaims) => void,
+    purpose: IdentityServicePurpose,
+    pendingAuthority?: (claims: IdentityServiceControlClaims) => void,
   ) {
     this.store.read();
-    let claims: FleetControlClaims;
+    let claims: IdentityServiceControlClaims;
     try {
       claims = controlClaimsSchema.parse(
         await this.crypto.run(() =>
@@ -321,7 +327,7 @@ export class FleetAuth {
               jwks_uri: `${this.store.issuer}/fleet/v0/jwks`,
             },
             request,
-            fleetControlAudience(this.store.issuer),
+            identityServiceControlAudience(this.store.issuer),
             {
               requireDPoP: true,
               signingAlgorithms: ["ES256"],
@@ -335,8 +341,8 @@ export class FleetAuth {
       );
     } catch (error) {
       this.store.read();
-      if (error instanceof FleetError) throw error;
-      throw new FleetError(
+      if (error instanceof IdentityServiceError) throw error;
+      throw new IdentityServiceError(
         "unauthorized",
         "Invalid fleet token or key proof",
         401,
@@ -352,14 +358,18 @@ export class FleetAuth {
       proof.iat * 1000 < this.now() - 60_000 ||
       proof.iat * 1000 > this.now() + 5000
     )
-      throw new FleetError("unauthorized", "DPoP proof is stale", 401);
+      throw new IdentityServiceError(
+        "unauthorized",
+        "DPoP proof is stale",
+        401,
+      );
     for (const [id, nonce] of this.nonces)
       if (nonce.expiresAt <= this.now()) this.nonces.delete(id);
     const nonce =
       typeof proof.nonce === "string"
         ? this.nonces.get(proof.nonce)
         : undefined;
-    const identity = fleetDigest(token ?? "");
+    const identity = identityServiceDigest(token ?? "");
     if (!nonce || nonce.key !== claims.cnf.jkt || nonce.token !== identity) {
       this.nonceRate.admit(claims.cnf.jkt);
       if (
@@ -367,14 +377,18 @@ export class FleetAuth {
         [...this.nonces.values()].filter((n) => n.token === identity).length >=
           8
       )
-        throw new FleetError("capacity", "DPoP nonce capacity reached", 503);
+        throw new IdentityServiceError(
+          "capacity",
+          "DPoP nonce capacity reached",
+          503,
+        );
       const value = randomBytes(32).toString("base64url");
       this.nonces.set(value, {
         key: claims.cnf.jkt,
         token: identity,
         expiresAt: this.now() + 60_000,
       });
-      throw new FleetNonceChallenge(value);
+      throw new IdentityServiceNonceChallenge(value);
     }
     this.nonces.delete(proof.nonce as string);
     // Supply the next single-use nonce on an authenticated reply. A serial
@@ -390,8 +404,8 @@ export class FleetAuth {
   }
   private async credentials(
     client: EnrolledClient,
-    account: FleetAccount,
-    session: FleetSession,
+    account: IdentityAccount,
+    session: IdentityServiceSession,
   ) {
     const payload = {
       iss: this.store.issuer,
@@ -405,7 +419,7 @@ export class FleetAuth {
     const expiresAt = Math.min(this.now() + 300_000, session.expiresAt);
     const [accessToken, refreshToken] = await this.crypto.run(() =>
       Promise.all([
-        signFleetJwt(
+        signIdentityServiceJwt(
           this.store.read().signingKey,
           controlPayload(
             {
@@ -417,7 +431,7 @@ export class FleetAuth {
           ),
           "at+jwt",
         ),
-        signFleetJwt(
+        signIdentityServiceJwt(
           this.store.read().signingKey,
           controlPayload(
             {
@@ -440,12 +454,12 @@ export class FleetAuth {
     };
   }
   async enroll(
-    claims: FleetControlClaims,
+    claims: IdentityServiceControlClaims,
     signal: AbortSignal,
-  ): Promise<FleetCredentials> {
+  ): Promise<IdentityServiceCredentials> {
     const { account, pending } = this.assert(claims, "enroll");
     if (!pending)
-      throw new FleetError("unauthorized", "Missing enrollment", 401);
+      throw new IdentityServiceError("unauthorized", "Missing enrollment", 401);
     const existing = this.store
       .read()
       .clients.find(
@@ -460,7 +474,7 @@ export class FleetAuth {
         existing.signingJkt !== pending.signingJkt ||
         existing.encryptionJkt !== pending.encryptionJkt)
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "conflict",
         "Profile is already pinned to another or revoked client; explicitly recover it",
         409,
@@ -475,7 +489,7 @@ export class FleetAuth {
       signingJkt: pending.signingJkt,
       encryptionJkt: pending.encryptionJkt,
     };
-    const session: FleetSession = {
+    const session: IdentityServiceSession = {
       id: randomUUID(),
       accountId: account.id,
       clientId: client.id,
@@ -488,12 +502,12 @@ export class FleetAuth {
       refreshHash: "0".repeat(64),
     };
     const credentials = await this.credentials(client, account, session);
-    session.refreshHash = fleetDigest(credentials.refreshToken);
+    session.refreshHash = identityServiceDigest(credentials.refreshToken);
     await this.store.mutate((state) => {
       this.assert(claims, "enroll");
-      pruneRetiredFleetClients(state);
+      pruneRetiredIdentityServiceClients(state);
       if (!existing && state.clients.length >= 256)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "capacity",
           "Active fleet client capacity reached",
           503,
@@ -507,7 +521,7 @@ export class FleetAuth {
             !c.revoked,
         )
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "conflict",
           "Concurrent enrollment changed this profile",
           409,
@@ -524,18 +538,18 @@ export class FleetAuth {
     return credentials;
   }
   async refresh(
-    claims: FleetControlClaims,
+    claims: IdentityServiceControlClaims,
     token: string,
     signal: AbortSignal,
   ) {
     const { account, session, client } = this.assert(claims, "refresh", token);
     if (!session || !client)
-      throw new FleetError("unauthorized", "Missing session", 401);
+      throw new IdentityServiceError("unauthorized", "Missing session", 401);
     const credentials = await this.credentials(client, account, session);
     await this.store.mutate((state) => {
       this.assert(claims, "refresh", token);
       const current = state.sessions.find((s) => s.id === session.id)!;
-      current.refreshHash = fleetDigest(credentials.refreshToken);
+      current.refreshHash = identityServiceDigest(credentials.refreshToken);
     }, signal);
     return credentials;
   }

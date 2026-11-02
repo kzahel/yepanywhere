@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { operations } from "../core-api/contracts.js";
 
-export const FLEET_VERSION = 1;
-export const FLEET_STATE_BYTES = 8 * 1024 * 1024;
-export const FLEET_JWT_BYTES = 32 * 1024;
-export const FLEET_ENVELOPE_BYTES = 32 * 1024;
+export const IDENTITY_SERVICE_VERSION = 1;
+export const IDENTITY_SERVICE_STATE_BYTES = 8 * 1024 * 1024;
+export const IDENTITY_SERVICE_JWT_BYTES = 32 * 1024;
+export const IDENTITY_SERVICE_ENVELOPE_BYTES = 32 * 1024;
 export const uuid = z.uuid();
 export const milliseconds = z
   .number()
@@ -39,7 +39,7 @@ export type ClientIntroduction = z.infer<typeof clientIntroductionSchema>;
 const resourceOperations = operations
   .filter((op) => op.path.includes(":serverId"))
   .map((op) => op.id);
-export const fleetPolicySchema = z
+export const accessPolicySchema = z
   .object({
     projects: z.array(z.string().min(1).max(4096)).max(64),
     operations: z.array(z.enum(resourceOperations)).min(1).max(32),
@@ -50,8 +50,8 @@ export const fleetPolicySchema = z
     (policy) => Buffer.byteLength(JSON.stringify(policy)) <= 12 * 1024,
     "A fleet policy must fit within 12 KiB encoded JSON",
   );
-export type FleetPolicy = z.infer<typeof fleetPolicySchema>;
-export function narrowerPolicy(policy: FleetPolicy, ceiling: FleetPolicy) {
+export type AccessPolicy = z.infer<typeof accessPolicySchema>;
+export function narrowerPolicy(policy: AccessPolicy, ceiling: AccessPolicy) {
   return (
     policy.expiresAt <= ceiling.expiresAt &&
     policy.projects.every((p) => ceiling.projects.includes(p)) &&
@@ -80,7 +80,7 @@ export const accountSchema = z.discriminatedUnion("kind", [
     })
     .strict(),
 ]);
-export type FleetAccount = z.infer<typeof accountSchema>;
+export type IdentityAccount = z.infer<typeof accountSchema>;
 export const enrolledClientSchema = clientIntroductionSchema
   .extend({
     id: uuid,
@@ -93,7 +93,7 @@ export const enrolledClientSchema = clientIntroductionSchema
   })
   .strict();
 export type EnrolledClient = z.infer<typeof enrolledClientSchema>;
-export const fleetCredentialsSchema = z
+export const identityServiceCredentialsSchema = z
   .object({
     client: enrolledClientSchema,
     accessToken: z.string().max(32768),
@@ -102,7 +102,7 @@ export const fleetCredentialsSchema = z
     familyExpiresAt: milliseconds,
   })
   .strict();
-export const fleetPeerBindingSchema = z
+export const identityServicePeerBindingSchema = z
   .object({
     issuer: z.string().url().max(2048),
     accountId: uuid,
@@ -110,7 +110,7 @@ export const fleetPeerBindingSchema = z
     relationshipGeneration: z.number().int().positive(),
     source: enrolledClientSchema,
     target: enrolledClientSchema,
-    policy: fleetPolicySchema,
+    policy: accessPolicySchema,
   })
   .strict()
   .refine(
@@ -123,8 +123,10 @@ export const fleetPeerBindingSchema = z
       !binding.target.revoked,
     "Invalid directional client bindings",
   );
-export type FleetPeerBinding = z.infer<typeof fleetPeerBindingSchema>;
-export const fleetSessionSchema = z
+export type IdentityServicePeerBinding = z.infer<
+  typeof identityServicePeerBindingSchema
+>;
+export const identityServiceSessionSchema = z
   .object({
     id: uuid,
     accountId: uuid,
@@ -135,13 +137,15 @@ export const fleetSessionSchema = z
     refreshHash: z.string().regex(/^[0-9a-f]{64}$/),
   })
   .strict();
-export type FleetSession = z.infer<typeof fleetSessionSchema>;
+export type IdentityServiceSession = z.infer<
+  typeof identityServiceSessionSchema
+>;
 export const acceptedEnvelopeSchema = z
   .object({
     envelopeId: uuid,
     credentialId: uuid,
     credentialGeneration: z.number().int().positive(),
-    policy: fleetPolicySchema,
+    policy: accessPolicySchema,
     digest: z.string().regex(/^[0-9a-f]{64}$/),
     acknowledged: z.boolean(),
   })
@@ -153,12 +157,12 @@ export const relationshipSchema = z
     sourceClientId: uuid,
     targetClientId: uuid,
     generation: z.number().int().positive(),
-    policy: fleetPolicySchema,
+    policy: accessPolicySchema,
     revoked: z.boolean(),
     accepted: acceptedEnvelopeSchema.nullable(),
   })
   .strict();
-export type FleetRelationship = z.infer<typeof relationshipSchema>;
+export type AccessRelationship = z.infer<typeof relationshipSchema>;
 export const mailboxItemSchema = z
   .object({
     id: uuid,
@@ -167,28 +171,33 @@ export const mailboxItemSchema = z
     sourceClientId: uuid,
     targetClientId: uuid,
     expiresAt: milliseconds,
-    ciphertext: z.string().max(FLEET_ENVELOPE_BYTES),
+    ciphertext: z.string().max(IDENTITY_SERVICE_ENVELOPE_BYTES),
   })
   .strict();
 export type MailboxItem = z.infer<typeof mailboxItemSchema>;
-export const fleetStateSchema = z
+export const identityServiceStateSchema = z
   .object({
-    version: z.literal(FLEET_VERSION),
+    version: z.literal(IDENTITY_SERVICE_VERSION),
     issuer: z.string().url().max(2048),
     serviceId: uuid,
     signingKey: privateKeySchema,
     previousSigningKeys: z.array(publicKeySchema).max(3),
     accounts: z.array(accountSchema).max(64),
     clients: z.array(enrolledClientSchema).max(256),
-    sessions: z.array(fleetSessionSchema).max(256),
+    sessions: z.array(identityServiceSessionSchema).max(256),
     relationships: z.array(relationshipSchema).max(1024),
     mailbox: z.array(mailboxItemSchema).max(128),
   })
   .strict();
-export type FleetState = z.infer<typeof fleetStateSchema>;
+export type IdentityServiceState = z.infer<typeof identityServiceStateSchema>;
 
-export const fleetPurposes = ["enroll", "oidc", "control", "refresh"] as const;
-export type FleetPurpose = (typeof fleetPurposes)[number];
+export const identityServicePurposes = [
+  "enroll",
+  "oidc",
+  "control",
+  "refresh",
+] as const;
+export type IdentityServicePurpose = (typeof identityServicePurposes)[number];
 export const controlClaimsSchema = z
   .object({
     iss: z.string(),
@@ -199,13 +208,13 @@ export const controlClaimsSchema = z
     exp: z.number().int(),
     jti: uuid,
     cnf: z.object({ jkt: coordinate }).strict(),
-    purpose: z.enum(fleetPurposes),
+    purpose: z.enum(identityServicePurposes),
     profileId: uuid,
     bindingId: uuid,
     authGeneration: z.number().int().positive().optional(),
   })
   .strict();
-export type FleetControlClaims = z.infer<typeof controlClaimsSchema>;
+export type IdentityServiceControlClaims = z.infer<typeof controlClaimsSchema>;
 export const peerGrantClaimsSchema = z
   .object({
     iss: z.string(),
@@ -228,20 +237,20 @@ export const peerGrantClaimsSchema = z
         relationshipGeneration: z.number().int().positive(),
         credentialId: uuid,
         credentialGeneration: z.number().int().positive(),
-        policy: fleetPolicySchema,
+        policy: accessPolicySchema,
       })
       .strict(),
   })
   .strict();
-export type FleetPeerClaims = z.infer<typeof peerGrantClaimsSchema>;
-export const fleetPageQuery = z
+export type IdentityServicePeerClaims = z.infer<typeof peerGrantClaimsSchema>;
+export const identityServicePageQuery = z
   .object({
     cursor: z.coerce.number().int().min(0).max(100000).default(0),
     limit: z.coerce.number().int().min(1).max(50).default(20),
   })
   .strict();
-export function fleetPage<T>(items: readonly T[], query: unknown) {
-  const { cursor, limit } = fleetPageQuery.parse(query);
+export function identityServicePage<T>(items: readonly T[], query: unknown) {
+  const { cursor, limit } = identityServicePageQuery.parse(query);
   return {
     items: items.slice(cursor, cursor + limit),
     nextCursor: cursor + limit < items.length ? String(cursor + limit) : null,

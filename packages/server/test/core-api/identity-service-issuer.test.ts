@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { expect, it } from "vitest";
-import { FleetIssuer } from "../../src/fleet/issuer.js";
+import { IdentityIssuerVerifier } from "../../src/identity-service/issuer.js";
 import {
-  fleetPeerAudience,
-  fleetThumbprint,
-  generateFleetPrivateKey,
-  publicFleetKey,
-  signFleetJwt,
-} from "../../src/fleet/crypto.js";
+  identityServicePeerAudience,
+  identityServiceThumbprint,
+  generateIdentityServicePrivateKey,
+  publicIdentityServiceKey,
+  signIdentityServiceJwt,
+} from "../../src/identity-service/crypto.js";
 
 it("coalesces configured JWKS, throttles unknown keys and refuses stale trust or private/oversized keysets", async () => {
-  const first = await generateFleetPrivateKey(),
-    second = await generateFleetPrivateKey();
+  const first = await generateIdentityServicePrivateKey(),
+    second = await generateIdentityServicePrivateKey();
   const issuer = "http://127.0.0.1:45678",
     targetId = randomUUID();
   let now = Date.now(),
@@ -19,13 +19,13 @@ it("coalesces configured JWKS, throttles unknown keys and refuses stale trust or
     offline = false;
   const keys = await Promise.all(
     [first, second].map(async (key) => ({
-      ...publicFleetKey(key),
+      ...publicIdentityServiceKey(key),
       alg: "ES256",
-      kid: await fleetThumbprint(publicFleetKey(key)),
+      kid: await identityServiceThumbprint(publicIdentityServiceKey(key)),
     })),
   );
   let published = [keys[0]!];
-  const verifier = new FleetIssuer(issuer, {
+  const verifier = new IdentityIssuerVerifier(issuer, {
     allowInsecureLoopback: true,
     now: () => now,
     fetch: async () => {
@@ -35,11 +35,11 @@ it("coalesces configured JWKS, throttles unknown keys and refuses stale trust or
     },
   });
   const token = (key = first) =>
-    signFleetJwt(
+    signIdentityServiceJwt(
       key,
       {
         iss: issuer,
-        aud: fleetPeerAudience(targetId),
+        aud: identityServicePeerAudience(targetId),
         sub: randomUUID(),
         iat: Math.floor(now / 1000),
         exp: Math.floor(now / 1000) + 60,
@@ -94,7 +94,7 @@ it("coalesces configured JWKS, throttles unknown keys and refuses stale trust or
     JSON.stringify({ keys: [{ ...keys[0], d: first.d }] }),
     " ".repeat(65_537),
   ]) {
-    const invalid = new FleetIssuer(issuer, {
+    const invalid = new IdentityIssuerVerifier(issuer, {
       allowInsecureLoopback: true,
       now: () => now,
       fetch: async () => new Response(response),

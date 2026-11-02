@@ -1,18 +1,22 @@
 import * as oauth from "oauth4webapi";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
-import type { FleetCredentials } from "./auth.js";
+import type { IdentityServiceCredentials } from "./auth.js";
 import {
   clientIntroductionSchema,
-  fleetCredentialsSchema,
+  identityServiceCredentialsSchema,
   type ProfileKeys,
 } from "./contracts.js";
-import { fleetOrigin, importFleetKey, publicFleetKey } from "./crypto.js";
-import { FleetError } from "./errors.js";
-import { fleetWait } from "./limits.js";
+import {
+  identityServiceOrigin,
+  importIdentityServiceKey,
+  publicIdentityServiceKey,
+} from "./crypto.js";
+import { IdentityServiceError } from "./errors.js";
+import { identityServiceWait } from "./limits.js";
 
-export { fleetCredentialsSchema } from "./contracts.js";
-export const fleetOidcPendingSchema = z
+export { identityServiceCredentialsSchema } from "./contracts.js";
+export const oidcPendingSchema = z
   .object({
     flowId: z.uuid(),
     authorizationUrl: z.string().url().max(8192),
@@ -20,15 +24,15 @@ export const fleetOidcPendingSchema = z
     expiresAt: z.number().int().positive(),
   })
   .strict();
-export type FleetOidcPending = z.infer<typeof fleetOidcPendingSchema>;
+export type IdentityServiceOidcPending = z.infer<typeof oidcPendingSchema>;
 
 /** One bounded serial HTTP lane; only an explicit pre-admission nonce is retried. */
-export class FleetHttpClient {
+export class IdentityServiceClient {
   private handle?: Promise<oauth.DPoPHandle>;
   private handleSkew = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private waiting = 0;
-  private credentials?: FleetCredentials;
+  private credentials?: IdentityServiceCredentials;
   private epoch = 0;
   private lifecycle = new AbortController();
   private disconnecting?: Promise<void>;
@@ -42,16 +46,16 @@ export class FleetHttpClient {
       fetch?: typeof fetch;
       now?: () => number;
       publish?: (
-        credentials: FleetCredentials,
+        credentials: IdentityServiceCredentials,
         assertOwner?: () => void,
       ) => Promise<void>;
       remove?: () => Promise<void>;
-      discard?: (credentials: FleetCredentials) => Promise<void>;
+      discard?: (credentials: IdentityServiceCredentials) => Promise<void>;
     } = {},
   ) {
-    this.issuer = fleetOrigin(issuer, options.allowInsecureLoopback);
+    this.issuer = identityServiceOrigin(issuer, options.allowInsecureLoopback);
     if (options.publish && !options.remove)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "invalid_configuration",
         "Credential persistence requires durable removal on disconnect",
       );
@@ -67,8 +71,8 @@ export class FleetHttpClient {
       this.handleSkew = skew;
     }
     this.handle ??= Promise.all([
-      importFleetKey(this.keys.signing),
-      importFleetKey(publicFleetKey(this.keys.signing)),
+      importIdentityServiceKey(this.keys.signing),
+      importIdentityServiceKey(publicIdentityServiceKey(this.keys.signing)),
     ]).then(([privateKey, publicKey]) =>
       oauth.DPoP(
         {
@@ -84,22 +88,26 @@ export class FleetHttpClient {
   private serialize<T>(signal: AbortSignal, work: () => Promise<T>) {
     if (this.closed)
       return Promise.reject(
-        new FleetError("unauthorized", "Fleet client is closed", 401),
+        new IdentityServiceError("unauthorized", "Fleet client is closed", 401),
       );
     if (this.disconnecting)
       return Promise.reject(
-        new FleetError("unauthorized", "Fleet client is disconnecting", 401),
+        new IdentityServiceError(
+          "unauthorized",
+          "Fleet client is disconnecting",
+          401,
+        ),
       );
     if (this.waiting >= 9)
       return Promise.reject(
-        new FleetError("capacity", "Fleet client queue is full", 503),
+        new IdentityServiceError("capacity", "Fleet client queue is full", 503),
       );
     const epoch = this.epoch;
     this.waiting++;
     const pending = this.tail.then(() => {
       signal.throwIfAborted();
       if (epoch !== this.epoch)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Fleet client was disconnected",
           401,
@@ -112,7 +120,7 @@ export class FleetHttpClient {
         this.waiting--;
       })
       .catch(() => {});
-    return fleetWait(pending, signal);
+    return identityServiceWait(pending, signal);
   }
   private signal(caller?: AbortSignal) {
     return AbortSignal.any([
@@ -126,18 +134,21 @@ export class FleetHttpClient {
     const chunks: Uint8Array[] = [];
     let bytes = 0;
     if (!reader)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "bad_response",
         "Fleet service returned an empty reply",
         502,
       );
     try {
       for (;;) {
-        const { value, done } = await fleetWait(reader.read(), signal);
+        const { value, done } = await identityServiceWait(
+          reader.read(),
+          signal,
+        );
         if (done) break;
         bytes += value.byteLength;
         if (bytes > 256 * 1024)
-          throw new FleetError(
+          throw new IdentityServiceError(
             "bad_response",
             "Fleet reply exceeds its byte bound",
             502,
@@ -152,7 +163,7 @@ export class FleetHttpClient {
     try {
       result = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     } catch {
-      throw new FleetError(
+      throw new IdentityServiceError(
         "bad_response",
         "Fleet service returned invalid JSON",
         502,
@@ -162,7 +173,7 @@ export class FleetHttpClient {
       const error = z
         .object({ error: z.string(), message: z.string() })
         .safeParse(result);
-      throw new FleetError(
+      throw new IdentityServiceError(
         error.success ? error.data.error : "fleet_unavailable",
         error.success ? error.data.message : "Fleet request failed",
         response.status >= 400 && response.status < 600
@@ -186,7 +197,10 @@ export class FleetHttpClient {
       path.includes("..") ||
       path.includes("#")
     )
-      throw new FleetError("invalid_request", "Use a fleet resource path");
+      throw new IdentityServiceError(
+        "invalid_request",
+        "Use a fleet resource path",
+      );
     const url = new URL(`${this.issuer}/fleet/v0${path}`),
       handle = await this.dpop();
     const send = () => {
@@ -226,14 +240,14 @@ export class FleetHttpClient {
     return this.json(response, signal);
   }
   private async publish(
-    credentials: FleetCredentials,
+    credentials: IdentityServiceCredentials,
     epoch: number,
     assertOwner?: () => void,
   ) {
     try {
       assertOwner?.();
       if (epoch !== this.epoch)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Fleet client was disconnected",
           401,
@@ -241,7 +255,7 @@ export class FleetHttpClient {
       await this.options.publish?.(credentials, assertOwner);
       assertOwner?.();
       if (epoch !== this.epoch)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Fleet client was disconnected",
           401,
@@ -256,16 +270,16 @@ export class FleetHttpClient {
     }
   }
 
-  restore(credentials: FleetCredentials) {
-    const valid = fleetCredentialsSchema.parse(credentials);
+  restore(credentials: IdentityServiceCredentials) {
+    const valid = identityServiceCredentialsSchema.parse(credentials);
     if (
       valid.client.profileId !== this.profileId ||
       JSON.stringify(valid.client.signingKey) !==
-        JSON.stringify(publicFleetKey(this.keys.signing)) ||
+        JSON.stringify(publicIdentityServiceKey(this.keys.signing)) ||
       JSON.stringify(valid.client.encryptionKey) !==
-        JSON.stringify(publicFleetKey(this.keys.encryption))
+        JSON.stringify(publicIdentityServiceKey(this.keys.encryption))
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "invalid_key",
         "Fleet credentials do not match this profile",
       );
@@ -283,8 +297,8 @@ export class FleetHttpClient {
       const introduction = clientIntroductionSchema.parse({
         profileId: this.profileId,
         displayName,
-        signingKey: publicFleetKey(this.keys.signing),
-        encryptionKey: publicFleetKey(this.keys.encryption),
+        signingKey: publicIdentityServiceKey(this.keys.signing),
+        encryptionKey: publicIdentityServiceKey(this.keys.encryption),
       });
       const response = await (this.options.fetch ?? fetch)(
         `${this.issuer}/fleet/v0/login`,
@@ -300,7 +314,7 @@ export class FleetHttpClient {
         .object({ token: z.string().max(32768), expiresAt: z.number() })
         .strict()
         .parse(await this.json(response, signal));
-      const credentials = fleetCredentialsSchema.parse(
+      const credentials = identityServiceCredentialsSchema.parse(
         await this.protected(
           pending.token,
           "/enroll",
@@ -318,7 +332,7 @@ export class FleetHttpClient {
     const signal = this.signal(caller),
       epoch = this.epoch;
     return this.serialize(signal, async () => {
-      const credentials = fleetCredentialsSchema.parse(
+      const credentials = identityServiceCredentialsSchema.parse(
         await this.protected(token, "/enroll", "POST", undefined, signal),
       );
       signal.throwIfAborted();
@@ -341,8 +355,8 @@ export class FleetHttpClient {
       const introduction = {
         profileId: this.profileId,
         displayName: input.displayName,
-        signingKey: publicFleetKey(this.keys.signing),
-        encryptionKey: publicFleetKey(this.keys.encryption),
+        signingKey: publicIdentityServiceKey(this.keys.signing),
+        encryptionKey: publicIdentityServiceKey(this.keys.encryption),
       };
       const { displayName: _, ...binding } = input;
       const response = await (this.options.fetch ?? fetch)(
@@ -355,7 +369,7 @@ export class FleetHttpClient {
           redirect: "error",
         },
       );
-      return fleetOidcPendingSchema.parse(await this.json(response, signal));
+      return oidcPendingSchema.parse(await this.json(response, signal));
     });
   }
   oidcProviders(caller?: AbortSignal) {
@@ -370,7 +384,7 @@ export class FleetHttpClient {
       ),
     );
   }
-  oidcStatus(flow: FleetOidcPending, caller?: AbortSignal) {
+  oidcStatus(flow: IdentityServiceOidcPending, caller?: AbortSignal) {
     const signal = this.signal(caller);
     return this.serialize(signal, () =>
       this.protected(
@@ -383,7 +397,7 @@ export class FleetHttpClient {
     );
   }
   completeOidc(
-    flow: FleetOidcPending,
+    flow: IdentityServiceOidcPending,
     ownerBinding: string,
     enrollmentEpoch: number,
     confirmationCode: string | undefined,
@@ -395,7 +409,7 @@ export class FleetHttpClient {
     return this.serialize(signal, async () => {
       assertOwner();
       if (this.options.publish && !this.options.discard)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "invalid_configuration",
           "OIDC publication requires conditional local credential discard",
         );
@@ -419,7 +433,7 @@ export class FleetHttpClient {
           signal.throwIfAborted();
           submitted = true;
         };
-        const credentials = fleetCredentialsSchema.parse(
+        const credentials = identityServiceCredentialsSchema.parse(
           await this.protected(
             pending.token,
             "/enroll",
@@ -436,10 +450,10 @@ export class FleetHttpClient {
       } catch (error) {
         if (
           submitted &&
-          error instanceof FleetError &&
+          error instanceof IdentityServiceError &&
           error.code === "owner_session_changed"
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "owner_session_changed_remote_unconfirmed",
             "Owner authorization changed; local adoption was refused and remote enrollment may have committed",
             403,
@@ -452,12 +466,16 @@ export class FleetHttpClient {
   private async ready(signal: AbortSignal) {
     const credentials = this.credentials;
     if (!credentials || credentials.familyExpiresAt <= this.now())
-      throw new FleetError("login_required", "Fleet login is required", 401);
+      throw new IdentityServiceError(
+        "login_required",
+        "Fleet login is required",
+        401,
+      );
     if (credentials.expiresAt > this.now() + 15_000) return credentials;
     const epoch = this.epoch;
     // Retire the consumed capability even if publication or the response fails.
     this.credentials = undefined;
-    const refreshed = fleetCredentialsSchema.parse(
+    const refreshed = identityServiceCredentialsSchema.parse(
       await this.protected(
         credentials.refreshToken,
         "/refresh",

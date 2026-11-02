@@ -8,10 +8,10 @@ import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { SUPERUSER, type Principal } from "../../src/auth/principal.js";
 import { createPeerOwnerBinding } from "../../src/peer-api/owner-proof.js";
 import { createPeerManagementRoutes } from "../../src/peer-api/routes.js";
-import { createFleetService } from "../../src/fleet/service.js";
-import { FleetStore } from "../../src/fleet/store.js";
+import { createIdentityService } from "../../src/identity-service/service.js";
+import { IdentityServiceStore } from "../../src/identity-service/store.js";
 import { protectedProfile } from "./peer-fixture.js";
-export async function fleetFixture(
+export async function identityServiceFixture(
   cleanup: (() => void | Promise<void>)[],
   options: {
     external?: { issuer: string; subject: string };
@@ -22,7 +22,7 @@ export async function fleetFixture(
   const directory = await mkdtemp(join(tmpdir(), "ya-fleet-integration-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const issuer = "http://127.0.0.1:45679",
-    store = new FleetStore(directory, issuer, true);
+    store = new IdentityServiceStore(directory, issuer, true);
   await store.initialize();
   cleanup.push(() => store.close());
   const accountId = options.external
@@ -32,7 +32,7 @@ export async function fleetFixture(
         "Owned OIDC account",
       )
     : await store.provisionLocal("owner", "temporary fleet password");
-  const service = createFleetService(store, {
+  const service = createIdentityService(store, {
     oidcProviders: options.oidcProviders,
     oidcFetch: options.oidcFetch,
     remoteAddress: () => "127.0.0.1",

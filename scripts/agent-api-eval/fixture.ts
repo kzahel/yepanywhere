@@ -29,7 +29,7 @@ import {
 export async function createFixture(
   caseId: CaseId,
   peerRelay = false,
-  peerFleet = false,
+  peerIdentityService = false,
 ) {
   if (peerRelay && caseId !== "workflow")
     throw new Error("Peer relay fixture supports only the workflow case");
@@ -213,7 +213,7 @@ export async function createFixture(
         database!,
         receiptStore!,
         projects,
-        peerFleet,
+        peerIdentityService,
       );
     runtime.attachController(peers?.router ?? core);
   } catch (error) {

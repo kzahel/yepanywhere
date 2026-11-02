@@ -1,4 +1,4 @@
-import { fleetFixture } from "./fleet-fixture.js";
+import { identityServiceFixture } from "./identity-service-fixture.js";
 import { SRPClientSession } from "tssrp6a";
 import { createRelayServer } from "../../../relay/src/server.js";
 import { randomUUID } from "node:crypto";
@@ -9,18 +9,18 @@ import { afterEach, expect, it, vi } from "vitest";
 import { SUPERUSER } from "../../src/auth/principal.js";
 import { PeerAccessStore } from "../../src/peer-api/state.js";
 import { createAgentApiRuntime } from "../../src/agent-api/runtime.js";
-import type { FleetRelationship } from "../../src/fleet/contracts.js";
+import type { AccessRelationship } from "../../src/identity-service/contracts.js";
 import type { Operation } from "../../src/core-api/contracts.js";
 import { nativeRequest } from "./peer-fixture.js";
 import { SrpPeerTransport } from "../../src/peer-api/srp-client.js";
 import { PeerChannelBudget } from "../../src/peer-api/srp-protocol.js";
 import {
-  signFleetJwt,
-  importFleetKey,
-  publicFleetKey,
-  generateFleetPrivateKey,
-  fleetDigest,
-} from "../../src/fleet/crypto.js";
+  signIdentityServiceJwt,
+  importIdentityServiceKey,
+  publicIdentityServiceKey,
+  generateIdentityServicePrivateKey,
+  identityServiceDigest,
+} from "../../src/identity-service/crypto.js";
 import * as jose from "jose";
 import WebSocket from "ws";
 
@@ -43,7 +43,7 @@ const operations: Operation[] = [
   "followReceipt",
   "relationships",
 ];
-const fixture = () => fleetFixture(cleanup);
+const fixture = () => identityServiceFixture(cleanup);
 
 // CI 41287615314 exceeded 5,000 ms for this real multi-handshake workflow;
 // the focused macOS run took 3,622 ms. Allow 4x the observed CI lower
@@ -92,7 +92,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   const r = (await source.json("/fleet/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
-  })) as FleetRelationship;
+  })) as AccessRelationship;
   const issued = await target.json("/fleet/accept", "POST", {
     relationshipId: r.id,
     policy,
@@ -175,7 +175,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   expect(target.starts()).toBe(1);
   expect(target.sends()).toBe(1);
   if (fleet.origin !== "fleet") throw new Error("Expected fleet credential");
-  const cachedAuthority = await source.manager.fleetAccess
+  const cachedAuthority = await source.manager.delegatedAccess
     .transport(fleet)
     .token(new AbortController().signal);
   f.offline();
@@ -298,7 +298,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   const r = (await source.json("/fleet/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
-  })) as FleetRelationship;
+  })) as AccessRelationship;
   const body = {
     relationshipId: r.id,
     policy,
@@ -317,10 +317,10 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   const receiverKeys = source.manager.store.read().fleet.enrollment!.keys;
   const decrypted = await jose.compactDecrypt(
     ciphertext,
-    await importFleetKey(receiverKeys.encryption, "ECDH-ES"),
+    await importIdentityServiceKey(receiverKeys.encryption, "ECDH-ES"),
   );
-  const forgedSignature = await signFleetJwt(
-    await generateFleetPrivateKey(),
+  const forgedSignature = await signIdentityServiceJwt(
+    await generateIdentityServicePrivateKey(),
     jose.decodeJwt(new TextDecoder().decode(decrypted.plaintext)),
     "ya-peer-invitation+jwt",
   );
@@ -334,11 +334,15 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
       kid: source.client.encryptionJkt,
     })
     .encrypt(
-      await importFleetKey(publicFleetKey(receiverKeys.encryption), "ECDH-ES"),
+      await importIdentityServiceKey(
+        publicIdentityServiceKey(receiverKeys.encryption),
+        "ECDH-ES",
+      ),
     );
   await f.store.mutate((state) => {
     state.mailbox[0]!.ciphertext = forgedEnvelope;
-    state.relationships[0]!.accepted!.digest = fleetDigest(forgedEnvelope);
+    state.relationships[0]!.accepted!.digest =
+      identityServiceDigest(forgedEnvelope);
   });
   const blockedPreflight = vi.spyOn(SRPClientSession.prototype, "step1");
   try {
@@ -356,7 +360,8 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   expect(source.manager.store.read().outgoing).toEqual([]);
   await f.store.mutate((state) => {
     state.mailbox[0]!.ciphertext = ciphertext;
-    state.relationships[0]!.accepted!.digest = fleetDigest(ciphertext);
+    state.relationships[0]!.accepted!.digest =
+      identityServiceDigest(ciphertext);
   });
   let enteredPreflight!: () => void, releasePreflight!: () => void;
   const startedPreflight = new Promise<void>((resolve) => {
@@ -402,7 +407,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   ).toMatchObject({ imported: true, acknowledged: true });
   expect(source.manager.store.read().outgoing).toHaveLength(1);
   const peer = source.manager.store.read().outgoing[0]!;
-  const issued = (await source.manager.fleetAccess.request(
+  const issued = (await source.manager.delegatedAccess.request(
     `/relationships/${r.id}/token`,
     "POST",
   )) as { token: string; expiresAt: number };
@@ -435,7 +440,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
     { ya: { ...ya, credentialGeneration: 2 } },
     { ya: { ...ya, policy: { ...policy, projects: ["secret"] } } },
   ]) {
-    const invalid = await signFleetJwt(
+    const invalid = await signIdentityServiceJwt(
       f.store.read().signingKey,
       { ...claims, ...altered },
       "ya-peer-grant+jwt",
@@ -469,7 +474,7 @@ it("refuses observation after fleet token expiry while retaining native work alr
   const r = (await source.json("/fleet/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
-  })) as FleetRelationship;
+  })) as AccessRelationship;
   const delivered = await target.json("/fleet/accept", "POST", {
     relationshipId: r.id,
     policy,
@@ -480,12 +485,12 @@ it("refuses observation after fleet token expiry while retaining native work alr
     envelopeId: delivered.envelopeId,
   });
   const peer = source.manager.store.read().outgoing[0]!;
-  const issued = (await source.manager.fleetAccess.request(
+  const issued = (await source.manager.delegatedAccess.request(
     `/relationships/${r.id}/token`,
     "POST",
   )) as { token: string };
   const expiresAt = (Math.floor(Date.now() / 1000) + 2) * 1000;
-  const short = await signFleetJwt(
+  const short = await signIdentityServiceJwt(
     f.store.read().signingKey,
     { ...jose.decodeJwt(issued.token), exp: expiresAt / 1000 },
     "ya-peer-grant+jwt",
@@ -541,7 +546,7 @@ it("renews fleet account tokens during adoption without invalidating the peer-po
     const r = (await source.json("/fleet/relationships", "POST", {
       targetClientId: target.client.id,
       policy,
-    })) as FleetRelationship;
+    })) as AccessRelationship;
     const delivered = await target.json("/fleet/accept", "POST", {
       relationshipId: r.id,
       policy,
@@ -581,7 +586,7 @@ it("does not confirm an expired source reply even before its expiry timer runs",
     const r = (await source.json("/fleet/relationships", "POST", {
       targetClientId: target.client.id,
       policy,
-    })) as FleetRelationship;
+    })) as AccessRelationship;
     const delivered = await target.json("/fleet/accept", "POST", {
       relationshipId: r.id,
       policy,
@@ -596,7 +601,7 @@ it("does not confirm an expired source reply even before its expiry timer runs",
       .read()
       .outgoing.find((p) => p.origin === "fleet")!;
     if (peer.origin !== "fleet") throw new Error("Expected fleet credential");
-    const authority = await source.manager.fleetAccess
+    const authority = await source.manager.delegatedAccess
       .transport(peer)
       .token(new AbortController().signal);
     await source.json(`/outgoing/${target.id}/select`, "POST", {
@@ -666,7 +671,7 @@ it("admits manual standby at 64 mixed credentials, retains the 64-target bound a
   const r = (await source.json("/fleet/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
-  })) as FleetRelationship;
+  })) as AccessRelationship;
   const delivered = await target.json("/fleet/accept", "POST", {
     relationshipId: r.id,
     policy,

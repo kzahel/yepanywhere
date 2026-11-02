@@ -6,9 +6,13 @@ import {
   type EnrolledClient,
   type PublicKey,
 } from "./contracts.js";
-import { fleetOrigin, importFleetKey, verifyFleetPeerJwt } from "./crypto.js";
-import { FleetError } from "./errors.js";
-import { FleetWorkBudget, fleetWait } from "./limits.js";
+import {
+  identityServiceOrigin,
+  importIdentityServiceKey,
+  verifyIdentityServicePeerJwt,
+} from "./crypto.js";
+import { IdentityServiceError } from "./errors.js";
+import { IdentityServiceWorkBudget, identityServiceWait } from "./limits.js";
 
 const signingKey = publicKeySchema
   .extend({
@@ -31,7 +35,7 @@ const introduction = z
   .strict();
 
 /** Configured issuer only. No token-supplied URL or background renewal. */
-export class FleetIssuer {
+export class IdentityIssuerVerifier {
   readonly issuer: string;
   private keys?: { loadedAt: number; values: z.infer<typeof keySet>["keys"] };
   private fetching?: Promise<void>;
@@ -39,7 +43,7 @@ export class FleetIssuer {
   private lastUnknownFetch = Number.NEGATIVE_INFINITY;
   private epoch = 0;
   private retired = false;
-  private readonly crypto = new FleetWorkBudget(8);
+  private readonly crypto = new IdentityServiceWorkBudget(8);
   constructor(
     issuer: string,
     private readonly options: {
@@ -48,7 +52,7 @@ export class FleetIssuer {
       now?: () => number;
     } = {},
   ) {
-    this.issuer = fleetOrigin(issuer, options.allowInsecureLoopback);
+    this.issuer = identityServiceOrigin(issuer, options.allowInsecureLoopback);
   }
   private now() {
     return this.options.now?.() ?? Date.now();
@@ -62,7 +66,7 @@ export class FleetIssuer {
         controller.signal,
         AbortSignal.timeout(5000),
       ]);
-      const response = await fleetWait(
+      const response = await identityServiceWait(
         (this.options.fetch ?? fetch)(`${this.issuer}/fleet/v0/jwks`, {
           signal,
           redirect: "error",
@@ -71,7 +75,7 @@ export class FleetIssuer {
       );
       if (!response.ok) {
         void response.body?.cancel().catch(() => {});
-        throw new FleetError(
+        throw new IdentityServiceError(
           "issuer_unavailable",
           "Configured issuer JWKS is unavailable",
           503,
@@ -83,7 +87,10 @@ export class FleetIssuer {
       try {
         if (!reader) throw new Error("Missing JWKS body");
         for (;;) {
-          const { done, value } = await fleetWait(reader.read(), signal);
+          const { done, value } = await identityServiceWait(
+            reader.read(),
+            signal,
+          );
           if (done) break;
           bytes += value.byteLength;
           if (bytes > 64 * 1024) throw new Error("Oversized JWKS");
@@ -97,15 +104,19 @@ export class FleetIssuer {
         )
           throw new Error("Duplicate signing key identity");
         if (epoch !== this.epoch || signal.aborted)
-          throw new FleetError("unauthorized", "Issuer trust was retired", 401);
+          throw new IdentityServiceError(
+            "unauthorized",
+            "Issuer trust was retired",
+            401,
+          );
         this.keys = { loadedAt: this.now(), values: parsed.keys };
       } finally {
         void reader?.cancel().catch(() => {});
         reader?.releaseLock();
       }
     } catch (error) {
-      if (error instanceof FleetError) throw error;
-      throw new FleetError(
+      if (error instanceof IdentityServiceError) throw error;
+      throw new IdentityServiceError(
         "issuer_unavailable",
         "Configured issuer JWKS could not be fetched or validated",
         503,
@@ -114,16 +125,24 @@ export class FleetIssuer {
   }
   private async key(token: string, signal?: AbortSignal): Promise<PublicKey> {
     if (this.retired)
-      throw new FleetError("unauthorized", "Issuer trust was retired", 401);
+      throw new IdentityServiceError(
+        "unauthorized",
+        "Issuer trust was retired",
+        401,
+      );
     if (Buffer.byteLength(token) > 32 * 1024)
-      throw new FleetError("unauthorized", "Oversized fleet JWT", 401);
+      throw new IdentityServiceError(
+        "unauthorized",
+        "Oversized fleet JWT",
+        401,
+      );
     const header = jose.decodeProtectedHeader(token);
     if (
       header.alg !== "ES256" ||
       typeof header.kid !== "string" ||
       header.kid.length > 128
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Unsupported issuer signing key",
         401,
@@ -133,7 +152,7 @@ export class FleetIssuer {
     if (!fresh || !known) {
       if (!this.fetching) {
         if (!known && this.now() - this.lastUnknownFetch < 60_000)
-          throw new FleetError(
+          throw new IdentityServiceError(
             "unauthorized",
             "Unknown issuer signing key",
             401,
@@ -147,11 +166,11 @@ export class FleetIssuer {
           })
           .catch(() => {});
       }
-      await fleetWait(this.fetching, signal);
+      await identityServiceWait(this.fetching, signal);
     }
     const key = this.keys?.values.find((value) => value.kid === header.kid);
     if (!key || !this.keys || this.keys.loadedAt + 600_000 <= this.now())
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Issuer signing key is unavailable",
         401,
@@ -171,9 +190,9 @@ export class FleetIssuer {
     try {
       const epoch = this.epoch,
         key = await this.key(token, signal);
-      const claims = await fleetWait(
+      const claims = await identityServiceWait(
         this.crypto.run(() =>
-          verifyFleetPeerJwt(
+          verifyIdentityServicePeerJwt(
             token,
             key,
             this.issuer,
@@ -184,15 +203,15 @@ export class FleetIssuer {
         signal,
       );
       if (epoch !== this.epoch || claims.exp * 1000 <= this.now())
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Fleet peer authority expired or was retired",
           401,
         );
       return claims;
     } catch (error) {
-      if (error instanceof FleetError) throw error;
-      throw new FleetError(
+      if (error instanceof IdentityServiceError) throw error;
+      throw new IdentityServiceError(
         "unauthorized",
         "Invalid issuer signature, lifetime or identity bindings",
         401,
@@ -209,11 +228,11 @@ export class FleetIssuer {
       const epoch = this.epoch,
         key = await this.key(token, signal);
       const claims = introduction.parse(
-        await fleetWait(
+        await identityServiceWait(
           this.crypto.run(async () => {
             const { payload } = await jose.jwtVerify(
               token,
-              await importFleetKey(key),
+              await importIdentityServiceKey(key),
               {
                 issuer: this.issuer,
                 audience: "urn:yep-anywhere:client-introduction",
@@ -238,15 +257,15 @@ export class FleetIssuer {
         claims.iat * 1000 > this.now() + 5000 ||
         claims.exp - claims.iat > 290
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Client introduction does not match accepted issuer/account bindings",
           401,
         );
       return claims.client;
     } catch (error) {
-      if (error instanceof FleetError) throw error;
-      throw new FleetError(
+      if (error instanceof IdentityServiceError) throw error;
+      throw new IdentityServiceError(
         "unauthorized",
         "Invalid issuer signature, lifetime or identity bindings",
         401,

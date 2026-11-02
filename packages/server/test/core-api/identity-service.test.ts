@@ -3,20 +3,20 @@ import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import * as fleetCrypto from "../../src/fleet/crypto.js";
+import * as identityServiceCrypto from "../../src/identity-service/crypto.js";
 import * as atomicFiles from "../../src/utils/writeFileAtomically.js";
 import * as jose from "jose";
-import { FleetHttpClient } from "../../src/fleet/client.js";
+import { IdentityServiceClient } from "../../src/identity-service/client.js";
 import {
-  generateFleetProfileKeys,
-  publicFleetKey,
-  verifyFleetPeerJwt,
-} from "../../src/fleet/crypto.js";
-import { createFleetService } from "../../src/fleet/service.js";
-import { FleetStore } from "../../src/fleet/store.js";
-import type { FleetCredentials } from "../../src/fleet/auth.js";
-import type { FleetRelationship } from "../../src/fleet/contracts.js";
-import { passwordFromStdin } from "../../src/fleet/main.js";
+  generateIdentityServiceProfileKeys,
+  publicIdentityServiceKey,
+  verifyIdentityServicePeerJwt,
+} from "../../src/identity-service/crypto.js";
+import { createIdentityService } from "../../src/identity-service/service.js";
+import { IdentityServiceStore } from "../../src/identity-service/store.js";
+import type { IdentityServiceCredentials } from "../../src/identity-service/auth.js";
+import type { AccessRelationship } from "../../src/identity-service/contracts.js";
+import { passwordFromStdin } from "../../src/identity-service/main.js";
 
 const clean: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -26,14 +26,14 @@ async function fixture(secondAccount = false) {
   const directory = await mkdtemp(join(tmpdir(), "ya-fleet-"));
   clean.push(() => rm(directory, { recursive: true, force: true }));
   const issuer = "http://127.0.0.1:45678";
-  const store = new FleetStore(directory, issuer, true);
+  const store = new IdentityServiceStore(directory, issuer, true);
   await store.initialize();
   clean.push(() => store.close());
   const accountId = await store.provisionLocal("alice", "a long test password");
   if (secondAccount)
     await store.provisionLocal("bob", "a separate long password");
   let now = Date.now();
-  const service = createFleetService(store, { now: () => now });
+  const service = createIdentityService(store, { now: () => now });
   const requests: Request[] = [];
   const fetcher: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
@@ -41,9 +41,9 @@ async function fixture(secondAccount = false) {
     return service.app.fetch(request);
   };
   const client = async () => {
-    const keys = await generateFleetProfileKeys();
-    let saved!: FleetCredentials;
-    const http = new FleetHttpClient(issuer, randomUUID(), keys, {
+    const keys = await generateIdentityServiceProfileKeys();
+    let saved!: IdentityServiceCredentials;
+    const http = new IdentityServiceClient(issuer, randomUUID(), keys, {
       allowInsecureLoopback: true,
       fetch: fetcher,
       now: () => now,
@@ -90,7 +90,7 @@ it("enrolls two key-bound clients, delivers opaque directional proposals and bou
   const relationship = (await source.http.request("/relationships", "POST", {
     targetClientId: target.credentials().client.id,
     policy,
-  })) as FleetRelationship;
+  })) as AccessRelationship;
   await expect(
     source.http.request(`/relationships/${relationship.id}/token`, "POST"),
   ).rejects.toMatchObject({ code: "not_accepted" });
@@ -135,9 +135,9 @@ it("enrolls two key-bound clients, delivers opaque directional proposals and bou
     `/relationships/${relationship.id}/token`,
     "POST",
   )) as { token: string };
-  const peer = await verifyFleetPeerJwt(
+  const peer = await verifyIdentityServicePeerJwt(
     issued.token,
-    publicFleetKey(f.store.read().signingKey),
+    publicIdentityServiceKey(f.store.read().signingKey),
     f.issuer,
     target.http.profileId,
     Date.now(),
@@ -180,7 +180,7 @@ it("consumes nonces and refresh once, fences old families and refuses key replac
   f.advance(286_000);
   await source.http.request("/me");
   expect(source.credentials().refreshToken).not.toBe(before);
-  const obsolete = new FleetHttpClient(
+  const obsolete = new IdentityServiceClient(
     f.issuer,
     source.http.profileId,
     source.keys,
@@ -198,10 +198,10 @@ it("consumes nonces and refresh once, fences old families and refuses key replac
   await source.http.basicLogin("alice", "a long test password", "renamed");
   expect(source.credentials().client.id).toBe(oldFamily.client.id);
   expect(f.store.read().sessions).toHaveLength(1);
-  const impostor = new FleetHttpClient(
+  const impostor = new IdentityServiceClient(
     f.issuer,
     source.http.profileId,
-    await generateFleetProfileKeys(),
+    await generateIdentityServiceProfileKeys(),
     {
       allowInsecureLoopback: true,
       fetch: async (input, init) =>
@@ -222,12 +222,12 @@ it("exclusively owns a durable identity, survives restart and never regenerates 
   const f = await fixture(),
     source = await f.client(),
     serviceId = f.store.read().serviceId;
-  const competing = new FleetStore(f.directory, f.issuer, true);
+  const competing = new IdentityServiceStore(f.directory, f.issuer, true);
   await expect(competing.initialize()).rejects.toMatchObject({
     code: "fleet_state_unavailable",
   });
   await f.store.close();
-  const resumed = new FleetStore(f.directory, f.issuer, true);
+  const resumed = new IdentityServiceStore(f.directory, f.issuer, true);
   await resumed.initialize();
   expect(resumed.read().serviceId).toBe(serviceId);
   expect(resumed.read().clients[0]?.id).toBe(source.credentials().client.id);
@@ -235,23 +235,23 @@ it("exclusively owns a durable identity, survives restart and never regenerates 
   const saved = await readFile(resumed.path, "utf8");
   await writeFile(resumed.path, "{corrupt", { mode: 0o600 });
   await expect(
-    new FleetStore(f.directory, f.issuer, true).initialize(),
+    new IdentityServiceStore(f.directory, f.issuer, true).initialize(),
   ).rejects.toMatchObject({ code: "fleet_state_unavailable" });
   expect(await readFile(resumed.path, "utf8")).toBe("{corrupt");
   await writeFile(resumed.path, saved, { mode: 0o600 });
   await rm(resumed.path);
   await expect(
-    new FleetStore(f.directory, f.issuer, true).initialize(),
+    new IdentityServiceStore(f.directory, f.issuer, true).initialize(),
   ).rejects.toMatchObject({ code: "fleet_state_unavailable" });
 });
 
 it("requires reauthentication after a lost refresh response and never extends the absolute family", async () => {
   const f = await fixture(),
-    keys = await generateFleetProfileKeys(),
+    keys = await generateIdentityServiceProfileKeys(),
     profileId = randomUUID();
-  let saved!: FleetCredentials,
+  let saved!: IdentityServiceCredentials,
     drop = false;
-  const http = new FleetHttpClient(f.issuer, profileId, keys, {
+  const http = new IdentityServiceClient(f.issuer, profileId, keys, {
     allowInsecureLoopback: true,
     now: () => clock,
     publish: async (credentials) => {
@@ -321,24 +321,24 @@ it("replaces expired proposals and permits a fresh pinned identity only after ex
     "/relationships",
     "POST",
     proposal,
-  )) as FleetRelationship;
+  )) as AccessRelationship;
   f.advance(21_000);
   proposal.policy.expiresAt += 60_000;
   const second = (await source.http.request(
     "/relationships",
     "POST",
     proposal,
-  )) as FleetRelationship;
+  )) as AccessRelationship;
   expect(second.id).not.toBe(first.id);
   expect(f.store.read().relationships).toHaveLength(1);
   await source.http.request(
     `/clients/${target.credentials().client.id}`,
     "DELETE",
   );
-  const recovered = new FleetHttpClient(
+  const recovered = new IdentityServiceClient(
     f.issuer,
     target.http.profileId,
-    await generateFleetProfileKeys(),
+    await generateIdentityServiceProfileKeys(),
     {
       allowInsecureLoopback: true,
       now: () => Date.now() + 21_000,
@@ -393,9 +393,9 @@ it("refuses oversized policies before publication and fences a revoked introduct
     hold = new Promise<void>((resolve) => {
       release = resolve;
     });
-  const original = fleetCrypto.signFleetJwt;
+  const original = identityServiceCrypto.signIdentityServiceJwt;
   const spy = vi
-    .spyOn(fleetCrypto, "signFleetJwt")
+    .spyOn(identityServiceCrypto, "signIdentityServiceJwt")
     .mockImplementation(async (...args) => {
       if (args[2] === "ya-client-introduction+jwt") {
         entered();
@@ -429,8 +429,8 @@ it("fences pre-revocation bootstrap authority, reclaims retired capacity, and pr
     {
       profileId: target.http.profileId,
       displayName: "pending",
-      signingKey: publicFleetKey(target.keys.signing),
-      encryptionKey: publicFleetKey(target.keys.encryption),
+      signingKey: publicIdentityServiceKey(target.keys.signing),
+      encryptionKey: publicIdentityServiceKey(target.keys.encryption),
     },
     30 * 86_400_000,
   );
@@ -484,10 +484,10 @@ it("fences pre-revocation bootstrap authority, reclaims retired capacity, and pr
     "DELETE",
   );
   await f.store.provisionLocal("unicode", decoded);
-  const http = new FleetHttpClient(
+  const http = new IdentityServiceClient(
     f.issuer + "/",
     randomUUID(),
-    await generateFleetProfileKeys(),
+    await generateIdentityServiceProfileKeys(),
     {
       allowInsecureLoopback: true,
       fetch: async (input, init) =>
@@ -499,7 +499,7 @@ it("fences pre-revocation bootstrap authority, reclaims retired capacity, and pr
 
 it("clears durable credentials after an already-running publication crosses disconnect", async () => {
   const f = await fixture(),
-    keys = await generateFleetProfileKeys();
+    keys = await generateIdentityServiceProfileKeys();
   let entered!: () => void, release!: () => void;
   const started = new Promise<void>((resolve) => {
       entered = resolve;
@@ -508,7 +508,7 @@ it("clears durable credentials after an already-running publication crosses disc
       release = resolve;
     });
   const path = join(f.directory, "owned-client.json");
-  const http = new FleetHttpClient(f.issuer, randomUUID(), keys, {
+  const http = new IdentityServiceClient(f.issuer, randomUUID(), keys, {
     allowInsecureLoopback: true,
     fetch: async (input, init) => f.service.app.fetch(new Request(input, init)),
     publish: async (credentials) => {
@@ -541,10 +541,10 @@ it("clears durable credentials after an already-running publication crosses disc
 it("isolates accounts and rejects otherwise signed wrong issuer, audience, purpose and key claims", async () => {
   const f = await fixture(true),
     source = await f.client();
-  const bob = new FleetHttpClient(
+  const bob = new IdentityServiceClient(
     f.issuer,
     randomUUID(),
-    await generateFleetProfileKeys(),
+    await generateIdentityServiceProfileKeys(),
     {
       allowInsecureLoopback: true,
       fetch: async (input, init) =>
@@ -580,12 +580,12 @@ it("isolates accounts and rejects otherwise signed wrong issuer, audience, purpo
     { purpose: "refresh" },
     { cnf: { jkt: bobClient.signingJkt } },
   ]) {
-    const invalid = await fleetCrypto.signFleetJwt(
+    const invalid = await identityServiceCrypto.signIdentityServiceJwt(
       f.store.read().signingKey,
       { ...claims, ...changed },
       "at+jwt",
     );
-    const http = new FleetHttpClient(
+    const http = new IdentityServiceClient(
       f.issuer,
       source.http.profileId,
       source.keys,
@@ -602,12 +602,12 @@ it("isolates accounts and rejects otherwise signed wrong issuer, audience, purpo
 
 it("rejects concurrent reuse of one DPoP nonce before dispatch", async () => {
   const f = await fixture(),
-    keys = await generateFleetProfileKeys();
+    keys = await generateIdentityServiceProfileKeys();
   const seen = new Map<string, number[]>();
-  let saved!: FleetCredentials,
+  let saved!: IdentityServiceCredentials,
     clock = Date.now();
   let activeService = f.service;
-  const http = new FleetHttpClient(f.issuer, randomUUID(), keys, {
+  const http = new IdentityServiceClient(f.issuer, randomUUID(), keys, {
     allowInsecureLoopback: true,
     now: () => clock,
     publish: async (c) => {
@@ -642,7 +642,7 @@ it("rejects concurrent reuse of one DPoP nonce before dispatch", async () => {
   f.advance(286_000);
   clock += 286_000;
   // A fresh service invalidates its nonce ledger; persisted sessions still work.
-  activeService = createFleetService(f.store, { now: () => clock });
+  activeService = createIdentityService(f.store, { now: () => clock });
   await http.request("/me");
   expect(seen.get("/fleet/v0/refresh")).toEqual([200, 401]);
   expect(saved.refreshToken).not.toBe(old);
@@ -651,27 +651,27 @@ it("rejects concurrent reuse of one DPoP nonce before dispatch", async () => {
 
 it("fences bootstrap and refresh commits even when both callers have distinct valid nonces", async () => {
   const f = await fixture(),
-    keys = await generateFleetProfileKeys(),
+    keys = await generateIdentityServiceProfileKeys(),
     profileId = randomUUID();
   let clock = Date.now(),
-    saved!: FleetCredentials;
+    saved!: IdentityServiceCredentials;
   const options = {
     allowInsecureLoopback: true,
     now: () => clock,
     fetch: async (input: string | URL | Request, init?: RequestInit) =>
       f.service.app.fetch(new Request(input, init)),
-    publish: async (c: FleetCredentials) => {
+    publish: async (c: IdentityServiceCredentials) => {
       saved = c;
     },
     remove: async () => {},
   };
-  const a = new FleetHttpClient(f.issuer, profileId, keys, options),
-    b = new FleetHttpClient(f.issuer, profileId, keys, options);
+  const a = new IdentityServiceClient(f.issuer, profileId, keys, options),
+    b = new IdentityServiceClient(f.issuer, profileId, keys, options);
   const pending = await f.service.auth.login("alice", "a long test password", {
     profileId,
     displayName: "independent proofs",
-    signingKey: publicFleetKey(keys.signing),
-    encryptionKey: publicFleetKey(keys.encryption),
+    signingKey: publicIdentityServiceKey(keys.signing),
+    encryptionKey: publicIdentityServiceKey(keys.encryption),
   });
   let entered = 0,
     both!: () => void,
@@ -682,9 +682,9 @@ it("fences bootstrap and refresh commits even when both callers have distinct va
     hold = new Promise<void>((resolve) => {
       release = resolve;
     });
-  const original = fleetCrypto.signFleetJwt;
+  const original = identityServiceCrypto.signIdentityServiceJwt;
   const spy = vi
-    .spyOn(fleetCrypto, "signFleetJwt")
+    .spyOn(identityServiceCrypto, "signIdentityServiceJwt")
     .mockImplementation(async (...args) => {
       if (args[1].purpose === "control") {
         entered++;
@@ -762,7 +762,7 @@ it("closes admission after uncertain publication and recovers only from the dura
     spy.mockRestore();
   }
   await f.store.close();
-  const recovered = new FleetStore(f.directory, f.issuer, true);
+  const recovered = new IdentityServiceStore(f.directory, f.issuer, true);
   await recovered.initialize();
   try {
     expect(recovered.read().relationships).toHaveLength(1);
@@ -780,8 +780,8 @@ it("does not publish a session when its existing client is revoked during enroll
     {
       profileId: target.http.profileId,
       displayName: "reenroll",
-      signingKey: publicFleetKey(target.keys.signing),
-      encryptionKey: publicFleetKey(target.keys.encryption),
+      signingKey: publicIdentityServiceKey(target.keys.signing),
+      encryptionKey: publicIdentityServiceKey(target.keys.encryption),
     },
     30 * 86_400_000,
   );
@@ -792,9 +792,9 @@ it("does not publish a session when its existing client is revoked during enroll
     hold = new Promise<void>((resolve) => {
       release = resolve;
     });
-  const original = fleetCrypto.signFleetJwt;
+  const original = identityServiceCrypto.signIdentityServiceJwt;
   const spy = vi
-    .spyOn(fleetCrypto, "signFleetJwt")
+    .spyOn(identityServiceCrypto, "signIdentityServiceJwt")
     .mockImplementation(async (...args) => {
       if (
         args[1].purpose === "control" &&

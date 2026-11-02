@@ -5,19 +5,23 @@ import { z } from "zod";
 import {
   clientIntroductionSchema,
   type ClientIntroduction,
-  type FleetControlClaims,
+  type IdentityServiceControlClaims,
 } from "./contracts.js";
 import {
   controlPayload,
-  fleetThumbprint,
-  signFleetJwt,
-  fleetDigest,
+  identityServiceThumbprint,
+  signIdentityServiceJwt,
+  identityServiceDigest,
 } from "./crypto.js";
-import { FleetError } from "./errors.js";
-import { FleetLimiter, fleetJson, fleetWait } from "./limits.js";
-import type { FleetAuth } from "./auth.js";
+import { IdentityServiceError } from "./errors.js";
+import {
+  IdentityServiceLimiter,
+  identityServiceJson,
+  identityServiceWait,
+} from "./limits.js";
+import type { IdentityServiceAuth } from "./auth.js";
 
-export const fleetOidcProvidersSchema = z
+export const oidcProvidersSchema = z
   .array(
     z
       .object({
@@ -39,10 +43,8 @@ export const fleetOidcProvidersSchema = z
       new Set(providers.map((p) => p.id)).size === providers.length,
     "Duplicate provider identity",
   );
-export type FleetOidcProvider = z.infer<
-  typeof fleetOidcProvidersSchema
->[number];
-export const fleetOidcStartSchema = z
+export type OidcProviderConfig = z.infer<typeof oidcProvidersSchema>[number];
+export const oidcStartSchema = z
   .object({
     providerId: z.string().max(64),
     accountId: z.uuid(),
@@ -53,7 +55,7 @@ export const fleetOidcStartSchema = z
   .strict();
 interface Flow {
   id: string;
-  provider: FleetOidcProvider;
+  provider: OidcProviderConfig;
   accountId: string;
   authGeneration: number;
   enrollmentGeneration: number;
@@ -74,8 +76,8 @@ interface Flow {
 }
 
 /** Auth-code/PKCE is upstream; this adapter only selects provisioned accounts. */
-export class FleetOidc {
-  private readonly providers: FleetOidcProvider[];
+export class OidcLogin {
+  private readonly providers: OidcProviderConfig[];
   /** Fixed configured-provider key space, at most four entries. */
   private readonly configurations = new Map<
     string,
@@ -83,16 +85,16 @@ export class FleetOidc {
   >();
   /** At most 64 five-minute flows; pruned on admission or consumed once. */
   private readonly flows = new Map<string, Flow>();
-  private readonly starts = new FleetLimiter(64, 8, 8, 4);
+  private readonly starts = new IdentityServiceLimiter(64, 8, 8, 4);
   constructor(
-    readonly auth: FleetAuth,
+    readonly auth: IdentityServiceAuth,
     values: unknown = [],
     private readonly options: {
       fetch?: typeof fetch;
       remoteAddress?: (context: Context) => string | undefined;
     } = {},
   ) {
-    this.providers = fleetOidcProvidersSchema.parse(values);
+    this.providers = oidcProvidersSchema.parse(values);
     for (const provider of this.providers) {
       const url = new URL(provider.issuer);
       if (
@@ -107,7 +109,7 @@ export class FleetOidc {
             ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
           ))
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "invalid_configuration",
           "OIDC requires an exact configured HTTPS issuer",
         );
@@ -120,10 +122,10 @@ export class FleetOidc {
       issuer,
     }));
   }
-  private callbackUrl(provider: FleetOidcProvider) {
+  private callbackUrl(provider: OidcProviderConfig) {
     return `${this.auth.store.issuer}/fleet/v0/oidc/callback/${provider.id}`;
   }
-  private configuration(provider: FleetOidcProvider) {
+  private configuration(provider: OidcProviderConfig) {
     let pending = this.configurations.get(provider.id);
     if (!pending) {
       pending = oidc.discovery(
@@ -147,7 +149,7 @@ export class FleetOidc {
               ...(init.signal ? [init.signal] : []),
               AbortSignal.timeout(5000),
             ]);
-            const response = await fleetWait(
+            const response = await identityServiceWait(
               (this.options.fetch ?? fetch)(url, {
                 ...init,
                 body:
@@ -165,14 +167,14 @@ export class FleetOidc {
             try {
               if (reader)
                 for (;;) {
-                  const { value, done } = await fleetWait(
+                  const { value, done } = await identityServiceWait(
                     reader.read(),
                     signal,
                   );
                   if (done) break;
                   bytes += value.byteLength;
                   if (bytes > 64 * 1024)
-                    throw new FleetError(
+                    throw new IdentityServiceError(
                       "issuer_unavailable",
                       "OIDC reply exceeds its byte limit",
                       503,
@@ -215,14 +217,14 @@ export class FleetOidc {
       flow.redeemed ||
       flow.expiresAt <= this.auth.now()
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "OIDC enrollment is no longer current",
         401,
       );
     return account;
   }
-  assert = (claims: FleetControlClaims) => {
+  assert = (claims: IdentityServiceControlClaims) => {
     const flow = this.flows.get(claims.bindingId);
     if (
       !flow ||
@@ -236,7 +238,7 @@ export class FleetOidc {
       claims.iat * 1000 > this.auth.now() + 5000 ||
       claims.authGeneration !== undefined
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "OIDC redemption proof has the wrong flow/profile/key binding",
         401,
@@ -245,8 +247,8 @@ export class FleetOidc {
   };
   async start(c: Context, signal: AbortSignal) {
     this.starts.admit(this.options.remoteAddress?.(c) ?? "unknown");
-    const input = fleetOidcStartSchema.parse(
-      await fleetJson(c.req.raw, signal),
+    const input = oidcStartSchema.parse(
+      await identityServiceJson(c.req.raw, signal),
     );
     const provider = this.providers.find((p) => p.id === input.providerId);
     const account = this.auth.store
@@ -258,7 +260,7 @@ export class FleetOidc {
           a.issuer === provider?.issuer,
       );
     if (!provider || !account)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "invalid_request",
         "This provider/account is not configured",
       );
@@ -266,7 +268,7 @@ export class FleetOidc {
       if (flow.expiresAt <= this.auth.now() || flow.redeemed)
         this.flows.delete(id);
     if (this.flows.size >= 64)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "capacity",
         "OIDC pending flow capacity reached",
         503,
@@ -278,7 +280,9 @@ export class FleetOidc {
       authGeneration: account.authGeneration,
       enrollmentGeneration: account.enrollmentGeneration,
       introduction: input.introduction,
-      signingJkt: await fleetThumbprint(input.introduction.signingKey),
+      signingJkt: await identityServiceThumbprint(
+        input.introduction.signingKey,
+      ),
       ownerBinding: input.ownerBinding,
       enrollmentEpoch: input.enrollmentEpoch,
       expiresAt: this.auth.now() + 300_000,
@@ -291,7 +295,7 @@ export class FleetOidc {
       incorrectConfirmations: 0,
     };
     if (this.flows.size >= 64)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "capacity",
         "OIDC pending flow capacity reached",
         503,
@@ -309,7 +313,7 @@ export class FleetOidc {
         response_mode: "query",
       }).href;
       const token = await this.auth.crypto.run(() =>
-        signFleetJwt(
+        signIdentityServiceJwt(
           this.auth.store.read().signingKey,
           controlPayload(
             {
@@ -345,14 +349,17 @@ export class FleetOidc {
       (url.searchParams.get("state")?.length ?? 0) > 256 ||
       url.href.length > 8192
     )
-      throw new FleetError("invalid_request", "Invalid OIDC callback");
+      throw new IdentityServiceError(
+        "invalid_request",
+        "Invalid OIDC callback",
+      );
     const flow = [...this.flows.values()].find(
       (f) =>
         f.provider.id === providerId &&
         f.state === url.searchParams.get("state"),
     );
     if (!flow || flow.callbackUsed)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "OIDC callback is absent or already consumed",
         401,
@@ -380,7 +387,7 @@ export class FleetOidc {
         claims.iss !== account.issuer ||
         claims.sub !== account.subject
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "OIDC identity is not the configured provisioned account",
           401,
@@ -388,7 +395,7 @@ export class FleetOidc {
       flow.status = "ready";
       flow.familyDeadline = this.auth.now() + 3_600_000;
       const confirmationCode = randomBytes(24).toString("base64url");
-      flow.confirmationHash = fleetDigest(confirmationCode);
+      flow.confirmationHash = identityServiceDigest(confirmationCode);
       return {
         confirmationCode,
         displayName: flow.introduction.displayName,
@@ -397,22 +404,23 @@ export class FleetOidc {
       };
     } catch (error) {
       flow.status = "failed";
-      if (error instanceof FleetError && error.status === 503) throw error;
-      throw new FleetError(
+      if (error instanceof IdentityServiceError && error.status === 503)
+        throw error;
+      throw new IdentityServiceError(
         "unauthorized",
         "OIDC login did not establish the configured account",
         401,
       );
     }
   }
-  status(claims: FleetControlClaims) {
+  status(claims: IdentityServiceControlClaims) {
     this.assert(claims);
     return {
       flowId: claims.bindingId,
       status: this.flows.get(claims.bindingId)!.status,
     };
   }
-  async redeem(claims: FleetControlClaims, value: unknown) {
+  async redeem(claims: IdentityServiceControlClaims, value: unknown) {
     this.assert(claims);
     const input = z
         .object({
@@ -428,14 +436,14 @@ export class FleetOidc {
       input.enrollmentEpoch !== flow.enrollmentEpoch ||
       flow.status === "failed"
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "OIDC flow is not ready for its initiating owner/profile",
         401,
       );
     const account = this.active(flow);
     if (flow.status !== "ready" || !flow.confirmationHash)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "not_ready",
         "Complete upstream login before confirming enrollment",
         409,
@@ -444,13 +452,13 @@ export class FleetOidc {
       typeof input.confirmationCode === "string" &&
       /^[A-Za-z0-9_-]{32}$/.test(input.confirmationCode) &&
       timingSafeEqual(
-        Buffer.from(fleetDigest(input.confirmationCode), "hex"),
+        Buffer.from(identityServiceDigest(input.confirmationCode), "hex"),
         Buffer.from(flow.confirmationHash, "hex"),
       );
     if (!valid) {
       flow.incorrectConfirmations++;
       if (flow.incorrectConfirmations >= 5) flow.redeemed = true;
-      throw new FleetError(
+      throw new IdentityServiceError(
         "invalid_confirmation",
         "The browser confirmation code is missing or incorrect",
         403,

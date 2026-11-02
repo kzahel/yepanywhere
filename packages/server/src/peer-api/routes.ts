@@ -3,11 +3,11 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { CoreApiError } from "../core-api/errors.js";
 import type { PeerAccessManager } from "./manager.js";
-import { FleetError } from "../fleet/errors.js";
+import { IdentityServiceError } from "../identity-service/errors.js";
 import { PeerConnections } from "./connections.js";
 import { peerHostSchema, recordPeerAudit } from "./connection-contracts.js";
 import { outgoingPeerRequest } from "./state.js";
-import { fleetPageQuery } from "../fleet/contracts.js";
+import { identityServicePageQuery } from "../identity-service/contracts.js";
 
 /** Mount after normal host/CSRF/auth and acting-principal resolution. */
 export function createPeerManagementRoutes(
@@ -52,7 +52,10 @@ export function createPeerManagementRoutes(
     // The settings transport expects a human-readable error string. Preserve
     // the older manual/fleet API's structured error contract outside this pane.
     if (c.req.path.includes("/connections")) {
-      if (error instanceof CoreApiError || error instanceof FleetError)
+      if (
+        error instanceof CoreApiError ||
+        error instanceof IdentityServiceError
+      )
         return c.json({ error: error.message, code: error.code }, error.status);
       if (error instanceof z.ZodError || error instanceof SyntaxError)
         return c.json(
@@ -71,7 +74,7 @@ export function createPeerManagementRoutes(
         503,
       );
     }
-    if (error instanceof FleetError)
+    if (error instanceof IdentityServiceError)
       return c.json(
         { error: { code: error.code, message: error.message } },
         error.status,
@@ -340,7 +343,7 @@ export function createPeerManagementRoutes(
   const boundOwner = async (c: Context) => {
     const binding = await ownerBinding?.(c);
     if (!binding)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "forbidden",
         "A stable authenticated owner-session binding is required for OIDC enrollment",
         403,
@@ -348,11 +351,11 @@ export function createPeerManagementRoutes(
     return binding;
   };
   routes.get("/fleet/oidc/providers", async (c) =>
-    c.json(await manager.fleetAccess.oidcProviders(c.req.raw.signal)),
+    c.json(await manager.delegatedAccess.oidcProviders(c.req.raw.signal)),
   );
   routes.post("/fleet/oidc/start", async (c) =>
     c.json(
-      await manager.fleetAccess.startOidc(
+      await manager.delegatedAccess.startOidc(
         await c.req.json(),
         await boundOwner(c),
         c.req.raw.signal,
@@ -361,7 +364,7 @@ export function createPeerManagementRoutes(
   );
   routes.get("/fleet/oidc/:id", async (c) =>
     c.json(
-      await manager.fleetAccess.oidcStatus(
+      await manager.delegatedAccess.oidcStatus(
         c.req.param("id"),
         await boundOwner(c),
         c.req.raw.signal,
@@ -374,14 +377,14 @@ export function createPeerManagementRoutes(
     const assertOwner = () => {
       c.req.raw.signal.throwIfAborted();
       if (ownerBinding?.(c) !== owner)
-        throw new FleetError(
+        throw new IdentityServiceError(
           "owner_session_changed",
           "The initiating owner session is no longer valid",
           403,
         );
     };
     return c.json(
-      await manager.fleetAccess.completeOidc(
+      await manager.delegatedAccess.completeOidc(
         c.req.param("id"),
         owner,
         input,
@@ -392,24 +395,24 @@ export function createPeerManagementRoutes(
   });
 
   routes.put("/fleet", async (c) => {
-    await manager.fleetAccess.configure(await c.req.json());
+    await manager.delegatedAccess.configure(await c.req.json());
     return c.json(manager.publicState().fleet);
   });
   routes.post("/fleet/login", async (c) =>
     c.json(
-      await manager.fleetAccess.login(await c.req.json(), c.req.raw.signal),
+      await manager.delegatedAccess.login(await c.req.json(), c.req.raw.signal),
     ),
   );
   routes.delete("/fleet", async (c) =>
-    c.json(await manager.fleetAccess.disconnect()),
+    c.json(await manager.delegatedAccess.disconnect()),
   );
   const page = (query: unknown) => {
-    const parsed = fleetPageQuery.parse(query);
+    const parsed = identityServicePageQuery.parse(query);
     return `cursor=${parsed.cursor}&limit=${parsed.limit}`;
   };
   routes.get("/fleet/clients", async (c) =>
     c.json(
-      await manager.fleetAccess.request(
+      await manager.delegatedAccess.request(
         `/clients?${page(c.req.query())}`,
         "GET",
         undefined,
@@ -419,7 +422,7 @@ export function createPeerManagementRoutes(
   );
   routes.get("/fleet/clients/:id", async (c) =>
     c.json(
-      await manager.fleetAccess.introduce(
+      await manager.delegatedAccess.introduce(
         z.uuid().parse(c.req.param("id")),
         c.req.raw.signal,
       ),
@@ -427,7 +430,7 @@ export function createPeerManagementRoutes(
   );
   routes.get("/fleet/relationships", async (c) =>
     c.json(
-      await manager.fleetAccess.request(
+      await manager.delegatedAccess.request(
         `/relationships?${page(c.req.query())}`,
         "GET",
         undefined,
@@ -437,7 +440,7 @@ export function createPeerManagementRoutes(
   );
   routes.get("/fleet/relationships/:id", async (c) =>
     c.json(
-      await manager.fleetAccess.request(
+      await manager.delegatedAccess.request(
         `/relationships/${z.uuid().parse(c.req.param("id"))}`,
         "GET",
         undefined,
@@ -447,13 +450,16 @@ export function createPeerManagementRoutes(
   );
   routes.post("/fleet/relationships", async (c) =>
     c.json(
-      await manager.fleetAccess.propose(await c.req.json(), c.req.raw.signal),
+      await manager.delegatedAccess.propose(
+        await c.req.json(),
+        c.req.raw.signal,
+      ),
       201,
     ),
   );
   routes.delete("/fleet/relationships/:id", async (c) =>
     c.json(
-      await manager.fleetAccess.revokeRelationship(
+      await manager.delegatedAccess.revokeRelationship(
         z.uuid().parse(c.req.param("id")),
         c.req.raw.signal,
       ),
@@ -461,13 +467,16 @@ export function createPeerManagementRoutes(
   );
   routes.post("/fleet/accept", async (c) =>
     c.json(
-      await manager.fleetAccess.accept(await c.req.json(), c.req.raw.signal),
+      await manager.delegatedAccess.accept(
+        await c.req.json(),
+        c.req.raw.signal,
+      ),
       201,
     ),
   );
   routes.post("/fleet/deliver/:id", async (c) =>
     c.json(
-      await manager.fleetAccess.deliver(
+      await manager.delegatedAccess.deliver(
         z.uuid().parse(c.req.param("id")),
         c.req.raw.signal,
       ),
@@ -475,7 +484,7 @@ export function createPeerManagementRoutes(
   );
   routes.get("/fleet/mailbox", async (c) =>
     c.json(
-      await manager.fleetAccess.request(
+      await manager.delegatedAccess.request(
         `/mailbox?${page(c.req.query())}`,
         "GET",
         undefined,
@@ -485,7 +494,7 @@ export function createPeerManagementRoutes(
   );
   routes.post("/fleet/adopt", async (c) =>
     c.json(
-      await manager.fleetAccess.adopt(await c.req.json(), c.req.raw.signal),
+      await manager.delegatedAccess.adopt(await c.req.json(), c.req.raw.signal),
     ),
   );
   routes.post("/outgoing/:id/select", async (c) => {
@@ -493,11 +502,11 @@ export function createPeerManagementRoutes(
       .object({ credentialId: z.uuid() })
       .strict()
       .parse(await c.req.json());
-    await manager.fleetAccess.select(c.req.param("id"), input.credentialId);
+    await manager.delegatedAccess.select(c.req.param("id"), input.credentialId);
     return c.body(null, 204);
   });
   routes.delete("/outgoing/:id/credentials/:credentialId", async (c) => {
-    await manager.fleetAccess.removeOutgoing(
+    await manager.delegatedAccess.removeOutgoing(
       c.req.param("id"),
       c.req.param("credentialId"),
     );

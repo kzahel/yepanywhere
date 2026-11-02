@@ -17,28 +17,31 @@ import {
   type StoredOutgoingPeer,
 } from "../peer-api/state.js";
 import { accessSchema } from "../core-api/contracts.js";
-import { FleetHttpClient, type FleetOidcPending } from "./client.js";
+import {
+  IdentityServiceClient,
+  type IdentityServiceOidcPending,
+} from "./client.js";
 import {
   enrolledClientSchema,
-  fleetPeerBindingSchema,
-  fleetPolicySchema,
+  identityServicePeerBindingSchema,
+  accessPolicySchema,
   mailboxItemSchema,
   relationshipSchema,
-  type FleetPeerBinding,
+  type IdentityServicePeerBinding,
 } from "./contracts.js";
 import {
-  fleetDigest,
-  fleetThumbprint,
-  fleetOrigin,
-  generateFleetProfileKeys,
-  importFleetKey,
-  publicFleetKey,
-  signFleetJwt,
-  verifyFleetKeyMaterial,
+  identityServiceDigest,
+  identityServiceThumbprint,
+  identityServiceOrigin,
+  generateIdentityServiceProfileKeys,
+  importIdentityServiceKey,
+  publicIdentityServiceKey,
+  signIdentityServiceJwt,
+  verifyIdentityServiceKeyMaterial,
 } from "./crypto.js";
-import { FleetError } from "./errors.js";
-import { FleetIssuer } from "./issuer.js";
-import { FleetWorkBudget, fleetWait } from "./limits.js";
+import { IdentityServiceError } from "./errors.js";
+import { IdentityIssuerVerifier } from "./issuer.js";
+import { IdentityServiceWorkBudget, identityServiceWait } from "./limits.js";
 import { narrowerPolicy } from "./contracts.js";
 
 const signedInvitation = z
@@ -50,7 +53,7 @@ const signedInvitation = z
     exp: z.number().int(),
     jti: z.uuid(),
     version: z.literal(1),
-    binding: fleetPeerBindingSchema,
+    binding: identityServicePeerBindingSchema,
     invitation: invitationSchema,
     route: peerRouteSchema,
   })
@@ -58,7 +61,7 @@ const signedInvitation = z
 const acceptance = z
   .object({
     relationshipId: z.uuid(),
-    policy: fleetPolicySchema,
+    policy: accessPolicySchema,
     route: peerRouteSchema,
     acknowledgeExecutionAuthority: z.literal("server-account").optional(),
   })
@@ -68,21 +71,21 @@ const same = (a: unknown, b: unknown) =>
 const unavailable = (error: unknown): never => {
   if (error instanceof CoreApiError) throw error;
   throw new CoreApiError(
-    error instanceof FleetError && error.status === 401
+    error instanceof IdentityServiceError && error.status === 401
       ? "unauthorized"
       : "peer_unavailable",
     "Fleet authority is unavailable or no longer current",
-    error instanceof FleetError && error.status === 401 ? 401 : 503,
+    error instanceof IdentityServiceError && error.status === 401 ? 401 : 503,
   );
 };
 
 /** Owner-only enrollment orchestration. Agent workflows remain the existing v0. */
-export class FleetPeerAccess {
-  private http?: FleetHttpClient;
-  private issuer?: FleetIssuer;
+export class DelegatedPeerAccess {
+  private http?: IdentityServiceClient;
+  private issuer?: IdentityIssuerVerifier;
   private retiring = false;
-  private readonly crypto = new FleetWorkBudget(8);
-  private readonly preflight = new FleetWorkBudget(4);
+  private readonly crypto = new IdentityServiceWorkBudget(8);
+  private readonly preflight = new IdentityServiceWorkBudget(4);
   private readonly tokenCache = new Map<
     string,
     { token: string; expiresAt: number }
@@ -90,7 +93,7 @@ export class FleetPeerAccess {
   private readonly oidcFlows = new Map<
     string,
     {
-      pending: FleetOidcPending;
+      pending: IdentityServiceOidcPending;
       ownerBinding: string;
       epoch: number;
       completing: boolean;
@@ -104,14 +107,14 @@ export class FleetPeerAccess {
       fetch?: typeof fetch;
     } = {},
   ) {
-    manager.setFleet({
+    manager.setIdentityService({
       authority: (grant, token, signal) => this.authority(grant, token, signal),
       transport: (peer) => this.transport(peer),
     });
   }
   private state() {
     if (this.retiring)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Fleet access is being retired",
         401,
@@ -119,7 +122,7 @@ export class FleetPeerAccess {
     const state = this.manager.store.read(),
       enrollment = state.fleet.enrollment;
     if (!enrollment)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "login_required",
         "Configure fleet enrollment first",
         401,
@@ -128,26 +131,30 @@ export class FleetPeerAccess {
   }
   private assert(epoch: number) {
     if (this.state().epoch !== epoch)
-      throw new FleetError("unauthorized", "Fleet enrollment changed", 401);
+      throw new IdentityServiceError(
+        "unauthorized",
+        "Fleet enrollment changed",
+        401,
+      );
   }
   async initialize() {
     const enrollment = this.manager.store.read().fleet.enrollment;
     if (!enrollment) return;
     await this.crypto.run(async () => {
-      await verifyFleetKeyMaterial(enrollment.keys.signing);
+      await verifyIdentityServiceKeyMaterial(enrollment.keys.signing);
       const encrypted = await new jose.CompactEncrypt(
         new TextEncoder().encode("key check"),
       )
         .setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
         .encrypt(
-          await importFleetKey(
-            publicFleetKey(enrollment.keys.encryption),
+          await importIdentityServiceKey(
+            publicIdentityServiceKey(enrollment.keys.encryption),
             "ECDH-ES",
           ),
         );
       await jose.compactDecrypt(
         encrypted,
-        await importFleetKey(enrollment.keys.encryption, "ECDH-ES"),
+        await importIdentityServiceKey(enrollment.keys.encryption, "ECDH-ES"),
         {
           keyManagementAlgorithms: ["ECDH-ES"],
           contentEncryptionAlgorithms: ["A256GCM"],
@@ -158,15 +165,15 @@ export class FleetPeerAccess {
   }
   private connect() {
     const { enrollment, epoch } = this.state();
-    this.issuer = new FleetIssuer(enrollment.issuer, this.options);
-    this.http = new FleetHttpClient(
+    this.issuer = new IdentityIssuerVerifier(enrollment.issuer, this.options);
+    this.http = new IdentityServiceClient(
       enrollment.issuer,
       this.manager.serverId,
       enrollment.keys,
       {
         ...this.options,
         publish: (credentials, assertOwner) =>
-          this.manager.store.publishFleetCredentials((next) => {
+          this.manager.store.publishIdentityServiceCredentials((next) => {
             assertOwner?.();
             this.assert(epoch);
             if (
@@ -176,21 +183,21 @@ export class FleetPeerAccess {
               credentials.client.profileId !== this.manager.serverId ||
               !same(
                 credentials.client.signingKey,
-                publicFleetKey(next.fleet.enrollment.keys.signing),
+                publicIdentityServiceKey(next.fleet.enrollment.keys.signing),
               ) ||
               !same(
                 credentials.client.encryptionKey,
-                publicFleetKey(next.fleet.enrollment.keys.encryption),
+                publicIdentityServiceKey(next.fleet.enrollment.keys.encryption),
               )
             )
-              throw new FleetError(
+              throw new IdentityServiceError(
                 "unauthorized",
                 "Enrollment response changed the configured account/profile keys",
                 401,
               );
             const previous = next.fleet.enrollment.credentials?.client;
             if (previous && previous.id !== credentials.client.id)
-              throw new FleetError(
+              throw new IdentityServiceError(
                 "conflict",
                 "Enrolled client identity changed; disconnect and explicitly enroll again",
                 409,
@@ -198,7 +205,7 @@ export class FleetPeerAccess {
             next.fleet.enrollment.credentials = credentials;
           }),
         discard: (credentials) =>
-          this.manager.store.discardFleetCredentials(
+          this.manager.store.discardIdentityServiceCredentials(
             epoch,
             credentials.refreshToken,
           ),
@@ -216,7 +223,7 @@ export class FleetPeerAccess {
       .object({ issuer: z.string().max(2048), accountId: z.uuid() })
       .strict()
       .parse(value);
-    const issuer = fleetOrigin(
+    const issuer = identityServiceOrigin(
         input.issuer,
         this.options.allowInsecureLoopback,
       ),
@@ -227,14 +234,14 @@ export class FleetPeerAccess {
         current.fleet.enrollment.accountId === input.accountId
       )
         return;
-      throw new FleetError(
+      throw new IdentityServiceError(
         "conflict",
         "Disconnect existing enrollment before changing issuer/account",
         409,
       );
     }
     const revision = this.manager.store.currentRevision();
-    const keys = await this.crypto.run(generateFleetProfileKeys);
+    const keys = await this.crypto.run(generateIdentityServiceProfileKeys);
     await this.manager.store.mutate((next) => {
       next.fleet.epoch++;
       next.fleet.enrollment = {
@@ -278,11 +285,11 @@ export class FleetPeerAccess {
       .strict()
       .parse(value);
     const { enrollment, epoch } = this.state(),
-      ownerBinding = fleetDigest(`${this.manager.serverId}:${owner}`);
+      ownerBinding = identityServiceDigest(`${this.manager.serverId}:${owner}`);
     for (const [id, flow] of this.oidcFlows)
       if (flow.pending.expiresAt <= Date.now()) this.oidcFlows.delete(id);
     if (this.oidcFlows.size + this.oidcStarts >= 8)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "capacity",
         "Local OIDC enrollment capacity reached",
         503,
@@ -311,8 +318,8 @@ export class FleetPeerAccess {
         authorizationUrl: pending.authorizationUrl,
         expiresAt: pending.expiresAt,
         profileId: this.manager.serverId,
-        signingFingerprint: await fleetThumbprint(
-          publicFleetKey(enrollment.keys.signing),
+        signingFingerprint: await identityServiceThumbprint(
+          publicIdentityServiceKey(enrollment.keys.signing),
         ),
       };
     } finally {
@@ -323,10 +330,11 @@ export class FleetPeerAccess {
     const flow = this.oidcFlows.get(z.uuid().parse(id));
     if (
       !flow ||
-      flow.ownerBinding !== fleetDigest(`${this.manager.serverId}:${owner}`) ||
+      flow.ownerBinding !==
+        identityServiceDigest(`${this.manager.serverId}:${owner}`) ||
       flow.pending.expiresAt <= Date.now()
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "OIDC enrollment belongs to another or expired owner session",
         401,
@@ -353,7 +361,7 @@ export class FleetPeerAccess {
       .parse(value);
     const flow = this.oidcFlow(id, owner);
     if (flow.completing)
-      throw new FleetError(
+      throw new IdentityServiceError(
         "conflict",
         "OIDC enrollment is already completing",
         409,
@@ -372,7 +380,7 @@ export class FleetPeerAccess {
       return client;
     } catch (error) {
       if (
-        error instanceof FleetError &&
+        error instanceof IdentityServiceError &&
         ["invalid_confirmation", "not_ready"].includes(error.code)
       )
         flow.completing = false;
@@ -409,7 +417,7 @@ export class FleetPeerAccess {
     );
     this.assert(epoch);
     if (!same(client, result.client))
-      throw new FleetError(
+      throw new IdentityServiceError(
         "unauthorized",
         "Directory metadata does not match its signed introduction",
         401,
@@ -418,7 +426,7 @@ export class FleetPeerAccess {
   }
   async propose(value: unknown, signal?: AbortSignal) {
     const input = z
-      .object({ targetClientId: z.uuid(), policy: fleetPolicySchema })
+      .object({ targetClientId: z.uuid(), policy: accessPolicySchema })
       .strict()
       .parse(value);
     input.policy.operations = peerGrantOperations(input.policy.operations);
@@ -430,13 +438,13 @@ export class FleetPeerAccess {
         ...(caller ? [caller] : []),
         AbortSignal.timeout(10_000),
       ]);
-    return fleetWait(
+    return identityServiceWait(
       this.preflight.run(async () => {
         const { enrollment, epoch } = this.state(),
           revision = this.manager.store.currentRevision();
         const own = enrollment.credentials?.client;
         if (!own)
-          throw new FleetError(
+          throw new IdentityServiceError(
             "login_required",
             "Enroll this profile first",
             401,
@@ -454,7 +462,7 @@ export class FleetPeerAccess {
           r.targetClientId !== own.id ||
           r.revoked
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "unauthorized",
             "Proposal does not target this enrolled client",
             401,
@@ -468,7 +476,7 @@ export class FleetPeerAccess {
           policy.expiresAt <= Date.now() ||
           policy.expiresAt > Date.now() + 30 * 86_400_000
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "invalid_request",
             "Acceptance must fit the proposal and next 30 days",
           );
@@ -478,7 +486,7 @@ export class FleetPeerAccess {
           ) &&
           input.acknowledgeExecutionAuthority !== "server-account"
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "invalid_request",
             "Acknowledge server-account execution authority",
           );
@@ -486,7 +494,7 @@ export class FleetPeerAccess {
         const source = await this.introduce(r.sourceClientId, signal),
           target = await this.introduce(own.id, signal);
         if (!same(target, own) || source.profileId === this.manager.serverId)
-          throw new FleetError(
+          throw new IdentityServiceError(
             "unauthorized",
             "Proposal profile bindings changed",
             401,
@@ -503,14 +511,14 @@ export class FleetPeerAccess {
             existing.binding.relationshipId !== r.id ||
             !same(existing.binding.policy, policy)
           )
-            throw new FleetError(
+            throw new IdentityServiceError(
               "conflict",
               "Revoke the previous fleet credential before reissuing it",
               409,
             );
           return this.deliver(existing.id, signal);
         }
-        const binding: FleetPeerBinding = {
+        const binding: IdentityServicePeerBinding = {
           issuer: enrollment.issuer,
           accountId: enrollment.accountId,
           source,
@@ -523,7 +531,7 @@ export class FleetPeerAccess {
           this.manager.store.read().incoming.length >= 64 ||
           this.manager.store.read().fleet.outbox.length >= 64
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "capacity",
             "Incoming fleet credential/outbox capacity reached",
             503,
@@ -546,7 +554,7 @@ export class FleetPeerAccess {
           expiresAt: policy.expiresAt,
         });
         const ciphertext = await this.crypto.run(async () => {
-          const signed = await signFleetJwt(
+          const signed = await signIdentityServiceJwt(
             enrollment.keys.signing,
             {
               iss: enrollment.issuer,
@@ -569,12 +577,14 @@ export class FleetPeerAccess {
               typ: "ya-peer-envelope+jwe",
               kid: source.encryptionJkt,
             })
-            .encrypt(await importFleetKey(source.encryptionKey, "ECDH-ES"));
+            .encrypt(
+              await importIdentityServiceKey(source.encryptionKey, "ECDH-ES"),
+            );
         });
         signal.throwIfAborted();
         this.assert(epoch);
         if (Buffer.byteLength(ciphertext) > 32 * 1024)
-          throw new FleetError(
+          throw new IdentityServiceError(
             "invalid_request",
             "Encoded invitation exceeds 32 KiB; narrow its policy",
           );
@@ -595,7 +605,7 @@ export class FleetPeerAccess {
           this.assert(epoch);
           signal.throwIfAborted();
           if (next.incoming.length >= 64 || next.fleet.outbox.length >= 64)
-            throw new FleetError(
+            throw new IdentityServiceError(
               "capacity",
               "Incoming fleet credential/outbox capacity reached",
               503,
@@ -642,7 +652,7 @@ export class FleetPeerAccess {
             p.generation === item.credentialGeneration,
         )
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "conflict",
         "Credential was revoked during delivery",
         409,
@@ -661,13 +671,13 @@ export class FleetPeerAccess {
       ...(caller ? [caller] : []),
       AbortSignal.timeout(10_000),
     ]);
-    return fleetWait(
+    return identityServiceWait(
       this.preflight.run(async () => {
         const { enrollment, epoch } = this.state(),
           revision = this.manager.store.currentRevision(),
           own = enrollment.credentials?.client;
         if (!own)
-          throw new FleetError(
+          throw new IdentityServiceError(
             "login_required",
             "Enroll this profile first",
             401,
@@ -694,7 +704,7 @@ export class FleetPeerAccess {
             current.accepted.credentialGeneration !==
               imported.invitation.generation
           )
-            throw new FleetError(
+            throw new IdentityServiceError(
               "conflict",
               "Imported envelope no longer matches its current issuer manifest",
               409,
@@ -714,7 +724,7 @@ export class FleetPeerAccess {
           ),
         );
         if (Buffer.byteLength(item.ciphertext) > 32 * 1024)
-          throw new FleetError(
+          throw new IdentityServiceError(
             "unauthorized",
             "Encoded invitation exceeds its byte limit",
             401,
@@ -733,9 +743,9 @@ export class FleetPeerAccess {
           r.accountId !== enrollment.accountId ||
           !r.accepted ||
           r.accepted.envelopeId !== item.id ||
-          r.accepted.digest !== fleetDigest(item.ciphertext)
+          r.accepted.digest !== identityServiceDigest(item.ciphertext)
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "unauthorized",
             "Envelope does not match the active accepted proposal",
             401,
@@ -745,7 +755,10 @@ export class FleetPeerAccess {
           .run(async () => {
             const decrypted = await jose.compactDecrypt(
               item.ciphertext,
-              await importFleetKey(enrollment.keys.encryption, "ECDH-ES"),
+              await importIdentityServiceKey(
+                enrollment.keys.encryption,
+                "ECDH-ES",
+              ),
               {
                 keyManagementAlgorithms: ["ECDH-ES"],
                 contentEncryptionAlgorithms: ["A256GCM"],
@@ -755,7 +768,7 @@ export class FleetPeerAccess {
               decrypted.protectedHeader.typ !== "ya-peer-envelope+jwe" ||
               decrypted.protectedHeader.kid !== own.encryptionJkt
             )
-              throw new FleetError(
+              throw new IdentityServiceError(
                 "unauthorized",
                 "Envelope encryption key binding is invalid",
                 401,
@@ -764,7 +777,7 @@ export class FleetPeerAccess {
               new TextDecoder("utf8", { fatal: true }).decode(
                 decrypted.plaintext,
               ),
-              await importFleetKey(target.signingKey),
+              await importIdentityServiceKey(target.signingKey),
               {
                 algorithms: ["ES256"],
                 typ: "ya-peer-invitation+jwt",
@@ -775,8 +788,8 @@ export class FleetPeerAccess {
             return signedInvitation.parse(verified.payload);
           })
           .catch((error) => {
-            if (error instanceof FleetError) throw error;
-            throw new FleetError(
+            if (error instanceof IdentityServiceError) throw error;
+            throw new IdentityServiceError(
               "unauthorized",
               "Invitation decryption or target signature validation failed",
               401,
@@ -802,7 +815,7 @@ export class FleetPeerAccess {
           payload.exp * 1000 <= Date.now() ||
           payload.iat * 1000 > Date.now() + 5000
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "unauthorized",
             "Signed invitation does not match pinned clients, credentials and policy",
             401,
@@ -813,7 +826,7 @@ export class FleetPeerAccess {
           invitation,
           route,
           envelopeId: item.id,
-          envelopeDigest: fleetDigest(item.ciphertext),
+          envelopeDigest: identityServiceDigest(item.ciphertext),
           operations: binding.policy.operations,
           allowAgentSessions: input.allowAgentSessions,
         };
@@ -830,7 +843,7 @@ export class FleetPeerAccess {
           access.principal.kind !== "peer" ||
           access.principal.serverId !== this.manager.serverId
         )
-          throw new FleetError(
+          throw new IdentityServiceError(
             "unauthorized",
             "Protected peer preflight did not identify this source",
             401,
@@ -847,7 +860,7 @@ export class FleetPeerAccess {
                 p.invitation.targetServerId === target.profileId,
             )
           )
-            throw new FleetError(
+            throw new IdentityServiceError(
               "conflict",
               "Revoke previous outgoing fleet access before importing a different envelope",
               409,
@@ -860,7 +873,7 @@ export class FleetPeerAccess {
               new Set(next.outgoing.map((p) => p.invitation.targetServerId))
                 .size >= 64)
           )
-            throw new FleetError(
+            throw new IdentityServiceError(
               "capacity",
               "Outgoing fleet credential/topology capacity reached",
               503,
@@ -900,7 +913,7 @@ export class FleetPeerAccess {
             p.invitation.credentialId === credentialId,
         )
     )
-      throw new FleetError(
+      throw new IdentityServiceError(
         "conflict",
         "Imported credential was removed during acknowledgement",
         409,
@@ -961,7 +974,7 @@ export class FleetPeerAccess {
             claims.ya.targetClientId !== peer.binding.target.id ||
             result.expiresAt !== claims.exp * 1000
           )
-            throw new FleetError(
+            throw new IdentityServiceError(
               "unauthorized",
               "Issuer token changed peer credential bindings",
               401,
@@ -971,7 +984,7 @@ export class FleetPeerAccess {
             this.tokenCache.size >= 64 &&
             !this.tokenCache.has(peer.binding.relationshipId)
           )
-            throw new FleetError(
+            throw new IdentityServiceError(
               "capacity",
               "Fleet peer token capacity reached",
               503,
@@ -991,13 +1004,13 @@ export class FleetPeerAccess {
   ): Promise<PeerRequestAuthority> {
     try {
       const { enrollment, epoch } = this.state(),
-        binding = grant.fleet;
+        binding = grant.identityBinding;
       if (
         !binding ||
         binding.issuer !== enrollment.issuer ||
         binding.accountId !== enrollment.accountId
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Issuer/account is not trusted for this peer",
           401,
@@ -1029,7 +1042,7 @@ export class FleetPeerAccess {
             ya.policy.expiresAt,
           )
       )
-        throw new FleetError(
+        throw new IdentityServiceError(
           "unauthorized",
           "Fleet token does not match the target's current acceptance",
           401,
@@ -1044,7 +1057,7 @@ export class FleetPeerAccess {
           try {
             this.assert(epoch);
             if (claims.exp * 1000 <= Date.now())
-              throw new FleetError(
+              throw new IdentityServiceError(
                 "unauthorized",
                 "Fleet authority expired",
                 401,
@@ -1069,7 +1082,11 @@ export class FleetPeerAccess {
             p.invitation.credentialId === credentialId,
         )
       )
-        throw new FleetError("not_found", "Outgoing credential not found", 404);
+        throw new IdentityServiceError(
+          "not_found",
+          "Outgoing credential not found",
+          404,
+        );
       next.selected[targetId] = credentialId;
     });
   }
@@ -1120,9 +1137,9 @@ export class FleetPeerAccess {
     this.oidcFlows.clear();
     const before = this.manager.store.read().fleet.enrollment,
       oldHttp = this.http;
-    let remote: FleetHttpClient | undefined;
+    let remote: IdentityServiceClient | undefined;
     if (before?.credentials) {
-      remote = new FleetHttpClient(
+      remote = new IdentityServiceClient(
         before.issuer,
         this.manager.serverId,
         before.keys,

@@ -1,6 +1,6 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-export class FleetError extends Error {
+export class IdentityServiceError extends Error {
   constructor(
     readonly code: string,
     message: string,
