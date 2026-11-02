@@ -117,6 +117,18 @@ to worker mapping until verified cleanup.
 
 Each worker opens a separate private Unix socket using worker protocol version
 1. Hono attaches with the same private token and its registered generation.
+New workers also emit a pre-start IPC `launchHello` (launch protocol 1,
+supported feature names) before reading launch JSON. A host launch with
+`requiredWorkerFeatures` withholds all stdin until that hello accepts every
+requirement. The list is limited to eight names of at most 128 characters;
+missing hello uses the existing startup deadline, and premature ready is
+rejected. Legacy launches still receive stdin immediately. This negotiation
+does not advertise managed creation support: the distinct
+[`session-creation-owner-v1` contract](session-identity.md#hosted-creation-contract--implementation-refinement)
+requires separately qualified owner evidence and attach fencing. Unsupported
+new launches never upgrade or restart incumbent workers. A request timeout or
+cleanup failure is not evidence that native effects were absent.
+
 The stream carries queue pushes, queue-depth/removal state, sequenced
 `SDKMessage` events and acknowledgements, provider controls/RPC, permission
 state, approvals, completion, and failure. Acknowledgement advances only after

@@ -24,6 +24,17 @@ The common caller rollout and the provenance defect remain unimplemented.
 
 ## Execution progress
 
+- The phase 4 host design refinement and non-enabling startup negotiation are
+  independently accepted by Sol 6.1 High. Required worker features withhold
+  stdin until a supporting pre-start hello; premature readiness is rejected,
+  legacy launches remain immediate, and pipe failure cannot terminate the host.
+  No managed feature or caller is enabled. Real IPC regression cases and the
+  assembled host/Hono replacement pass (45 checks / two files / 11.59 s).
+  Owned production-refusal and old-worker deadline/reap probes pass on Node 26
+  and Node 22. Lint has zero warnings, format/typecheck and the complete
+  Node 26 workspace pass (6,846 server / 7,064 client; server 132.08 s).
+  Worker evidence, protocol-2 attach and managed hosted dispatch remain gated.
+
 - Phase 4 default-wrapper consolidation is independently accepted by Sol 6.1 High:
   the thin Claude SDK
   bridge declares its canonical provider, allowing omitted-provider requests

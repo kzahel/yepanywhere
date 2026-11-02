@@ -704,8 +704,12 @@ lint/format/typecheck and the complete Node 26 workspace pass.
 Default-wrapper consolidation is independently accepted so omitted-provider Claude
 requests reach the same owner; an owned Node HTTP/SDK/CLI/profile-restart
 probes pass on Node and Bun. Focused and final lint/format/typecheck/full
-workspace checks pass. Remaining input shapes and router/sandbox/hosted integration
-remain pending.
+workspace checks pass. The hosted creation contract and non-enabling startup
+handshake are also independently accepted: unsupported workers receive no
+launch input, old workers retain their behavior, and owned Node 22/26
+deadline/verified-cleanup probes pass. Focused assembled-host and complete
+workspace checks pass. Managed worker evidence and attach fencing remain
+gated, alongside remaining input shapes and router/sandbox integration.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

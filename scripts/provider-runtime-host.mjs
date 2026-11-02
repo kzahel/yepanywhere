@@ -851,6 +851,21 @@ export class ProviderRuntimeHost {
       request.providerName,
       "providerName",
     );
+    const requiredWorkerFeatures =
+      request.requiredWorkerFeatures === undefined
+        ? []
+        : request.requiredWorkerFeatures;
+    if (
+      !Array.isArray(requiredWorkerFeatures) ||
+      requiredWorkerFeatures.length > 8 ||
+      requiredWorkerFeatures.some(
+        (feature) =>
+          typeof feature !== "string" ||
+          !/^[a-z][a-z0-9-]{0,127}$/.test(feature),
+      )
+    ) {
+      throw new Error("Invalid required provider worker features");
+    }
     const projectPath = this.requireString(request.projectPath, "projectPath");
     const sessionId =
       typeof request.sessionId === "string" && request.sessionId
@@ -913,6 +928,11 @@ export class ProviderRuntimeHost {
         ...staticAgentEnvironment,
       }),
     };
+    const launchInput = JSON.stringify({
+      providerName,
+      options: workerOptions,
+      runtimeConfig: request.runtimeConfig ?? {},
+    });
 
     const child = spawn(
       process.execPath,
@@ -1021,15 +1041,57 @@ export class ProviderRuntimeHost {
       throw error;
     }
 
+    let launchInputReleased = false;
+    const releaseLaunchInput = () => {
+      launchInputReleased = true;
+      child.stdin.end(launchInput);
+    };
     const ready = new Promise((resolve, reject) => {
+      let settled = false;
       const finish = (fn) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timeout);
         child.off("message", onMessage);
         child.off("exit", onExit);
         fn();
       };
       const onMessage = (message) => {
+        if (message?.type === "launchHello" && !launchInputReleased) {
+          if (
+            message.protocolVersion !== 1 ||
+            !Array.isArray(message.features) ||
+            message.features.length > 8 ||
+            message.features.some(
+              (feature) =>
+                typeof feature !== "string" ||
+                !/^[a-z][a-z0-9-]{0,127}$/.test(feature),
+            ) ||
+            !requiredWorkerFeatures.every((feature) =>
+              message.features.includes(feature),
+            )
+          ) {
+            finish(() =>
+              reject(
+                new Error("Provider worker lacks required launch support"),
+              ),
+            );
+            return;
+          }
+          try {
+            releaseLaunchInput();
+          } catch (error) {
+            finish(() => reject(error));
+            return;
+          }
+        }
         if (message?.type === "ready") {
+          if (!launchInputReleased) {
+            finish(() =>
+              reject(new Error("Provider worker became ready before launch")),
+            );
+            return;
+          }
           if (entry.peerAgentApiRevoked && child.connected)
             child.send({ type: "revokePeerAgentApi" }, () => {});
           if (entry.agentApiRevoked && child.connected)
@@ -1055,17 +1117,15 @@ export class ProviderRuntimeHost {
       );
       child.on("message", onMessage);
       child.once("exit", onExit);
+      // A worker can exit between hello and stdin delivery. Keep a handler on
+      // that pipe after settlement too, so a late EPIPE cannot kill the host.
+      child.stdin.on("error", (error) => finish(() => reject(error)));
     });
 
-    child.stdin.end(
-      JSON.stringify({
-        providerName,
-        options: workerOptions,
-        runtimeConfig: request.runtimeConfig ?? {},
-      }),
-    );
-
     try {
+      // Older workers ignore unknown launch JSON. Keep all launch input withheld
+      // until positive pre-start support; legacy starts retain immediate stdin.
+      if (requiredWorkerFeatures.length === 0) releaseLaunchInput();
       const readyMessage = await ready;
       entry.workerMetadata = readyMessage.metadata;
       if (

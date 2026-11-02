@@ -452,6 +452,65 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     vi.stubEnv("YEP_PROVIDER_HOST_ENABLED", "true");
   });
 
+  it.each(["supported", "unsupported", "early-ready", "old", "legacy"])(
+    "fences launch input before worker effects (%s)",
+    async (mode) => {
+      const runtimeRoot = await mkdtemp(join(runtimeTmpDir, "ya-hello-"));
+      temporaryPaths.push(runtimeRoot);
+      vi.stubEnv("YA_LAUNCH_PROBE_ROOT", runtimeRoot);
+      vi.stubEnv("YA_LAUNCH_PROBE_MODE", mode);
+      const host = new ProviderRuntimeHost({
+        runtimeDir: runtimeRoot,
+        controlSocketPath: join(runtimeRoot, "host.sock"),
+        token: "test",
+        workerPath: join(
+          dirname(fixtureWorker),
+          "negotiating-provider-runtime-worker.mjs",
+        ),
+      });
+      await host.start();
+      const outcome = host
+        .launch({
+          auxiliaryOwned: true,
+          providerName: "claude",
+          projectPath: runtimeRoot,
+          requiredWorkerFeatures: mode === "legacy" ? [] : ["test-launch"],
+        })
+        .then(
+          (runtime: { pid: number }) => ({ runtime, error: undefined }),
+          (error: Error) => ({ runtime: undefined, error }),
+        );
+      let pid: number | undefined;
+      try {
+        await waitUntil(() => existsSync(join(runtimeRoot, "started")));
+        if (mode === "old") {
+          expect(existsSync(join(runtimeRoot, "effects"))).toBe(false);
+          const entry = [...host.runtimes.values()][0];
+          pid = entry.pid;
+          await host.terminateRuntime(
+            entry.runtimeId,
+            "cancel withheld launch",
+          );
+        }
+        const result = await outcome;
+        if (mode === "supported" || mode === "legacy") {
+          expect(result.error).toBeUndefined();
+          expect(existsSync(join(runtimeRoot, "effects"))).toBe(true);
+          pid = result.runtime!.pid;
+        } else {
+          expect(result.error?.message).toMatch(
+            /required launch support|ready before launch|exited before ready/,
+          );
+          expect(existsSync(join(runtimeRoot, "effects"))).toBe(false);
+          expect(host.runtimes.size).toBe(0);
+        }
+      } finally {
+        await host.shutdown("launch handshake test complete");
+      }
+      if (pid) expect(processGroupAlive(pid)).toBe(false);
+    },
+  );
+
   it("does not bootstrap or report degradation when explicitly disabled", async () => {
     const runtimeRoot = await mkdtemp(
       join(runtimeTmpDir, "disabled-provider-host-"),

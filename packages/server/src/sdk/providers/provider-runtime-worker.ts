@@ -99,6 +99,11 @@ async function main(): Promise<void> {
   });
 
   try {
+    // Sent before reading launch input or preparing any provider resources.
+    // Managed creation support is advertised only after its owner is qualified.
+    if (typeof process.send === "function" && process.connected) {
+      process.send({ type: "launchHello", protocolVersion: 1, features: [] });
+    }
     const request = await readLaunchRequest();
     owner.setIssuedPeerGrantId(request.options.agentApi?.peerGrantId);
     const {
