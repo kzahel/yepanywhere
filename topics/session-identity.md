@@ -79,6 +79,17 @@ Empty `CODEX_HOME` follows the pinned native default, including auth/config read
 Other input shapes and servers without the narrow capability keep their existing
 flow; the broader receipts capability remains unadvertised.
 
+### OpenCode text acceptance — November 2
+
+The optional `session-creation-opencode-text` capability (global id 144)
+selects ordinary owner text acceptance for OpenCode. The
+[OpenCode contract](opencode-backend.md#durable-ordinary-text-creation) owns its
+native scope, observable-store requirement, authenticated HTTP proof and host
+feature gate. Public UUID and native `ses_*` remain separate throughout the
+same saved-intent, recovery, history and continuation lifecycle. DB/WAL and JSON
+stores qualify for new launches; export-only sources remain read/resume-only.
+The global receipts capability and other provider/input shapes remain gated.
+
 ### Recovery and verification boundary — November 2
 
 Owned-profile fault checks establish that a lost HTTP acceptance reply recovers
@@ -478,7 +489,8 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   complete durable launch ownership or recovery by itself.
 - Other providers can still replace a provisional id with their native id.
   The implemented [remap contract](session-id-remap.md) reconciles that change.
-  OpenCode currently exposes its native `ses_*` id; see
+  Legacy OpenCode creation exposes its native `ses_*` id; qualified ordinary
+  text creation keeps the YA UUID. See
   [its provider contract](opencode-backend.md).
 - `initialPrompt` is useful recovery metadata. It is not proof that all launch
   settings and attachments were saved before dispatch, or that a provider

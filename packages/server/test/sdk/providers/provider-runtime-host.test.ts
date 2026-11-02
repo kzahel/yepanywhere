@@ -51,6 +51,7 @@ import {
   closeProviderRuntimeHostRegistration,
   ensureProviderRuntimeHost,
   initializeProviderRuntimeHost,
+  assertHostedCreationSupport,
   startHostedProviderSession,
   getProviderHostInventory,
   revokeHostedAgentApiAccess,
@@ -597,6 +598,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
         features: [
           "session-creation-owner-v1",
           "session-creation-codex-v1",
+          "session-creation-opencode-v1",
           "session-native-binding-v1",
           "runtime-control",
           "session-turn",
@@ -2065,6 +2067,9 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     process.env.YEP_SERVER_GENERATION = "old-api";
     try {
       expect(await initializeProviderRuntimeHost()).toBe(true);
+      await expect(assertHostedCreationSupport("opencode")).rejects.toThrow(
+        "update the host",
+      );
       for (const provider of ["pi", "gemini", "codex"] as const) {
         const session = await startHostedProviderSession(
           provider,

@@ -1,3 +1,4 @@
+import { nativeStorageScope } from "./native-storage-scope.js";
 /**
  * OpenCode Provider implementation using `opencode serve`.
  *
@@ -17,7 +18,7 @@ import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type {
@@ -446,6 +447,19 @@ export class OpenCodeProvider implements AgentProvider {
     }
   }
 
+  async getNewSessionNamespace(cwd: string) {
+    return {
+      family: "opencode" as const,
+      storageScope: await nativeStorageScope(
+        resolve(
+          await realpath(cwd),
+          process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+          "opencode",
+        ),
+      ),
+    };
+  }
+
   /**
    * Start a new OpenCode session.
    *
@@ -466,7 +480,7 @@ export class OpenCodeProvider implements AgentProvider {
           this.name,
         );
         const launchRoot = join(
-          process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"),
+          process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
           "opencode",
         );
         if (
@@ -578,6 +592,20 @@ export class OpenCodeProvider implements AgentProvider {
 
     log.info({ port, cwd: options.cwd }, "OpenCode server ready");
 
+    if (options.publicSessionId && !options.resumeSessionId) {
+      const namespace = await this.getNewSessionNamespace(options.cwd);
+      if (
+        !existsSync(join(namespace.storageScope, "opencode.db")) &&
+        !existsSync(join(namespace.storageScope, "storage", "session"))
+      ) {
+        serverProcess.kill("SIGTERM");
+        return this.errorSession(
+          "Durable OpenCode creation requires an observable DB or JSON store",
+          serverProcess,
+        );
+      }
+    }
+
     // Resolve the opencode session ID synchronously (relative to Supervisor startup)
     let opencodeSessionId: string;
     if (options.resumeSessionId) {
@@ -606,7 +634,9 @@ export class OpenCodeProvider implements AgentProvider {
         }
 
         const sessionData = (await sessionResponse.json()) as { id: string };
-        opencodeSessionId = sessionData.id;
+        opencodeSessionId = parseNativeSessionId(sessionData.id);
+        if (!opencodeSessionId.startsWith("ses_"))
+          throw new Error("OpenCode returned an invalid native session handle");
         log.info({ opencodeSessionId, port }, "OpenCode session created");
       } catch (error) {
         serverProcess.kill("SIGTERM");
@@ -901,7 +931,7 @@ export class OpenCodeProvider implements AgentProvider {
     runtime: OpenCodeRuntimeState,
   ): AsyncIterableIterator<SDKMessage> {
     const log = getLogger();
-    // opencode session ID is the YA session ID for opencode sessions
+    // Native HTTP address; Process keeps the separately allocated public YA id.
     const sessionId = runtime.opencodeSessionId;
 
     // Handle abort
@@ -951,6 +981,10 @@ export class OpenCodeProvider implements AgentProvider {
           options.onToolApproval,
           options.effort,
           imageParts,
+          () => {
+            if (message.uuid)
+              options.onNativeInputConsumed?.(sessionId, message.uuid);
+          },
         );
       }
     } finally {
@@ -975,6 +1009,7 @@ export class OpenCodeProvider implements AgentProvider {
     onToolApproval: CanUseTool | undefined,
     effort: EffortLevel | undefined,
     imageParts: OpenCodeFilePartInput[] = [],
+    onNativeInputConsumed?: () => void,
   ): AsyncIterableIterator<SDKMessage> {
     const log = getLogger();
     let modelSelection: OpenCodeModelSelection | undefined;
@@ -1183,6 +1218,10 @@ export class OpenCodeProvider implements AgentProvider {
             `Failed to send message: ${response.status} ${errorText}`,
           );
         }
+        // The authenticated native message POST waits for the turn response.
+        // Its successful response confirms this exact submitted input, unlike
+        // the user echo yielded before the POST or a pulled SDK queue item.
+        onNativeInputConsumed?.();
         const responsePayload = (await response
           .json()
           .catch(() => null)) as OpenCodeMessageResponse | null;

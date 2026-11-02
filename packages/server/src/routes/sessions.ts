@@ -1,3 +1,4 @@
+import { getSessionTextCreationCapability } from "@yep-anywhere/shared";
 import {
   creationProvenanceForHeaders,
   parseCreationProvenance,
@@ -2112,7 +2113,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json(textCreationReceipt(existing), 202);
     }
     if (
-      (body.provider !== "claude" && body.provider !== "codex") ||
+      !getSessionTextCreationCapability(body.provider) ||
       typeof body.message !== "string" ||
       !body.message.trim() ||
       body.images !== undefined ||

@@ -653,6 +653,16 @@ metadata writer. Its sole Sol review found a swallowed test assertion; the
 corrected focused cases and full runtime/static checks pass. Four other source
 omissions remain. The maintainer
 authorized bounded OpenCode and subsequent Pi identity/qualification slices.
+OpenCode ordinary text creation is implemented behind optional capability
+144, with separate native allocation/input proof and host feature negotiation;
+controlled local/hosted lifecycle and published-client observation pass.
+Its sole Sol review identified empty-XDG scope mismatch, corrected across
+creation/read/resume with focused real-native regression coverage. Full tests
+and static checks pass. The actual 1.18.18 free-model probe returned an upstream
+error, so no successful live-model turn is claimed.
+[Its provider contract](../../topics/opencode-backend.md#durable-ordinary-text-creation)
+requires observable DB/JSON storage for new durable launches; export-only history
+remains readable. Pi and other provider/input shapes retain their rollout gates.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

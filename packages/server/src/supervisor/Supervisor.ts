@@ -29,6 +29,7 @@ import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
   DEFAULT_PROMPT_CACHE_KEEPALIVE_INACTIVITY_MINUTES,
+  getSessionTextCreationCapability,
   type CacheMissBillingSettings,
   type ClaudeSteerBackgroundBashSettings,
   type DurableSyntheticDoneMessage,
@@ -1180,7 +1181,7 @@ export class Supervisor {
       saved.deleted ||
       saved.request?.launch?.runtimeOwner !== "host" ||
       saved.context.owner.kind !== "superuser" ||
-      !["claude", "codex"].includes(saved.request.provider)
+      !getSessionTextCreationCapability(saved.request.provider)
     )
       return;
     if (
@@ -1219,7 +1220,7 @@ export class Supervisor {
     if (saved?.request?.launch?.runtimeOwner !== "host") return undefined;
     if (
       saved.context.owner.kind !== "superuser" ||
-      !["claude", "codex"].includes(saved.request.provider) ||
+      !getSessionTextCreationCapability(saved.request.provider) ||
       !isProviderRuntimeHostAvailable()
     )
       throw new Error("Saved creation host owner is unavailable");
@@ -1296,7 +1297,7 @@ export class Supervisor {
       // This first vertical is deliberately private until all retained shapes
       // and the hosted contract are qualified. Never downgrade these choices.
       if (
-        !["claude", "codex"].includes(request.provider) ||
+        !getSessionTextCreationCapability(request.provider) ||
         saved.context.owner.kind === "limited" ||
         launch.machineControl ||
         launch.sandboxLevel === "project-write"
@@ -1426,7 +1427,7 @@ export class Supervisor {
     if (
       launchOptions?.creation &&
       provider &&
-      ["claude", "codex"].includes(provider.name) &&
+      getSessionTextCreationCapability(provider.name) &&
       provider.getNewSessionNamespace &&
       launchOptions.creation.context.owner.kind === "superuser" &&
       !message.images?.length &&
@@ -3612,7 +3613,7 @@ export class Supervisor {
         cwd: projectPath,
         resumeSessionId: resume?.source?.native.id ?? resumeSessionId,
         newSessionId:
-          resumeSessionId || (managedLaunch && activeProvider.name === "codex")
+          resumeSessionId || (managedLaunch && activeProvider.name !== "claude")
             ? undefined
             : tempSessionId,
         ...instructions,

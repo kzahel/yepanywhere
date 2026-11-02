@@ -29,13 +29,15 @@ async function freePort() {
 }
 
 // The real adapter owns an OS process and HTTP exchange; no external CLI/model.
-it.skipIf(process.platform === "win32")(
-  "cold-resumes OpenCode's DB, JSON and fileless export sources without replacing YA identity",
-  async () => {
+it.skipIf(process.platform === "win32").each([false, true])(
+  "cold-resumes OpenCode DB, JSON and export (empty XDG: %s)",
+  async (emptyXdg) => {
     const root = await realpath(
       await mkdtemp(join(tmpdir(), "ya-opencode-resume-")),
     );
-    const xdg = join(root, "native-data"),
+    const xdg = emptyXdg
+        ? join(root, ".local", "share")
+        : join(root, "native-data"),
       scope = join(xdg, "opencode"),
       project = join(root, "project"),
       bin = join(root, "bin"),
@@ -43,7 +45,8 @@ it.skipIf(process.platform === "win32")(
     await Promise.all(
       [scope, project, bin].map((p) => mkdir(p, { recursive: true })),
     );
-    vi.stubEnv("XDG_DATA_HOME", xdg);
+    vi.stubEnv("HOME", root);
+    vi.stubEnv("XDG_DATA_HOME", emptyXdg ? "" : xdg);
     vi.stubEnv("PATH", bin + ":" + process.env.PATH);
     vi.resetModules();
     const { createApp } = await import("../setup/create-app.js");
@@ -51,6 +54,10 @@ it.skipIf(process.platform === "win32")(
     const { OpenCodeProvider } = await import(
       "../../src/sdk/providers/opencode.js"
     );
+    expect(
+      (await new OpenCodeProvider().getNewSessionNamespace(project))
+        .storageScope,
+    ).toBe(scope);
     let app: ReturnType<typeof createApp> | undefined;
     let storage: DiscoverySqliteService | undefined;
     const cli = join(bin, "opencode");

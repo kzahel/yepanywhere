@@ -233,6 +233,42 @@ are retained under ignored `tasks/session-identity/reviews/native-api-provenance
 The owned reviewer was retired with verified stop. OpenCode, then Pi, are the
 following bounded provider slices.
 
+## OpenCode ordinary text creation — current slice
+
+The OpenCode-specific optional capability (global id 144) extends ordinary owner
+text acceptance while preserving all other entry points. Native `ses_*` is
+allocated by OpenCode and bound in its canonical data root. Only successful
+native synchronous message HTTP completion proves the exact initial input;
+queue/user echo and SSE are insufficient. New durable launches require an
+observable DB/WAL or JSON store, while export-only sources remain read/resume.
+Host and worker negotiate their separate OpenCode feature before effects.
+The [provider contract](../../topics/opencode-backend.md#durable-ordinary-text-creation)
+owns the observable behavior. Controlled browser tests cover local and hosted
+creation, streaming before confirmation, reload/cold continuation and no duplicate
+public identity; process-fault/refusal checks preserve saved input without replay.
+Actual published clients 0.8.0 and 0.11.0 observe split identity and durable history.
+Desktop/phone captures were inspected: both turns and composer remain usable.
+The pinned OpenCode 1.18.18 executable started, allocated/bound native identity,
+but the isolated unauthenticated free model produced no answer within 70 seconds.
+A direct native availability probe returned upstream UnknownError (exit 1), so
+no live-model creation/continuation pass is claimed. Its installed binary and
+profiles are confined to ignored task artifacts; no user provider/config changed.
+Focused native/provider/host checks pass 71 cases in 17.39 seconds. The five-case
+browser suite passed four; the fileless failure assertion incorrectly required
+`failed` when native-child exit conservatively produced `uncertain`. The corrected
+assertion accepts both non-delivery states and passes in 3.9 seconds while
+retaining zero native allocations/messages. Root lint/format/typecheck pass; full workspace passes 6,895 server and 7,067
+client cases (server 146.68 seconds). The sole Sol 6.1 High review returned
+REVISE for empty `XDG_DATA_HOME` resolving differently from native OpenCode.
+Creation, resume and reader normalization now use the native default for empty
+values; real DB/JSON/export resume coverage runs explicit and empty-XDG layouts.
+The original review/correction is retained under ignored
+`tasks/session-identity/reviews/opencode-creation.md`; no second review.
+The owned reviewer was retired with verified stop. Corrected focused coverage
+passes 26 cases/three files in 5.50 seconds, including both real native scope
+variants; final parameterized resume checks pass two cases in 6.37 seconds.
+Pi is the next bounded slice.
+
 ## Execution progress
 
 - Recovery milestone slice: four owned-profile fault cases pass: lost HTTP

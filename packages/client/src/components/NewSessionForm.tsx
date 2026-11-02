@@ -1,3 +1,4 @@
+import { getSessionTextCreationCapability } from "@yep-anywhere/shared";
 import {
   acceptTextCreation,
   getTextCreation,
@@ -2947,17 +2948,14 @@ export function NewSessionForm({
       const actionAtMs = Date.now();
       const clientTimestamp = getServerClockTimestamp(actionAtMs);
 
+      const textCreationCapability =
+        getSessionTextCreationCapability(selectedProvider);
       const durableText =
         !launch &&
         principalResolved &&
         !launchLock.limited &&
-        (selectedProvider === "claude" || selectedProvider === "codex") &&
-        serverHasCapability(
-          versionInfo,
-          selectedProvider === "codex"
-            ? SERVER_CAPABILITIES.codexTextCreation.name
-            : SERVER_CAPABILITIES.claudeTextCreation.name,
-        ) &&
+        textCreationCapability !== undefined &&
+        serverHasCapability(versionInfo, textCreationCapability.name) &&
         submissionFiles.length === 0 &&
         trimmedMessage.length > 0 &&
         !command &&

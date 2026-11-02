@@ -29,9 +29,40 @@ import {
   hasServerCapabilityAdvertisement,
   negotiateServerCapabilityEncoding,
   serverHasCapability,
+  getSessionTextCreationCapability,
 } from "../index.js";
 
 describe("server capability advertisements", () => {
+  it("requires the OpenCode-specific text creation bit across supported releases", () => {
+    const name = getSessionTextCreationCapability("opencode")!.name;
+    expect(name).toBe(CAPABILITY_ID_ALLOCATIONS.opencodeTextCreation.name);
+    expect(getSessionTextCreationCapability("pi")).toBeUndefined();
+    for (const current of ["0.8.0", "0.9.0", "0.10.0", "0.11.0", "99.0.0"]) {
+      expect(serverHasCapability({ current }, name)).toBe(false);
+      expect(
+        serverHasCapability(
+          {
+            current,
+            ...encodeVersionedServerCapabilities(
+              [
+                CAPABILITY_ID_ALLOCATIONS.codexTextCreation.name,
+                CAPABILITY_ID_ALLOCATIONS.claudeTextCreation.name,
+              ],
+              current,
+            ),
+          },
+          name,
+        ),
+      ).toBe(false);
+      expect(
+        serverHasCapability(
+          { current, ...encodeVersionedServerCapabilities([name], current) },
+          name,
+        ),
+      ).toBe(true);
+    }
+  });
+
   it("requires separate explicit router recovery support, including on an older router-capable server", () => {
     const base = CAPABILITY_ID_ALLOCATIONS.agentAuthRouter.name;
     const recovery = CAPABILITY_ID_ALLOCATIONS.agentAuthRouterRecovery.name;

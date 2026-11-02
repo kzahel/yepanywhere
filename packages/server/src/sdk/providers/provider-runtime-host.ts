@@ -609,6 +609,7 @@ export function getProviderHostStatus(): Promise<Record<string, unknown>> {
 const PROVIDER_HOST_FEATURE = {
   creationOwner: "session-creation-owner-v1",
   codexCreation: "session-creation-codex-v1",
+  opencodeCreation: "session-creation-opencode-v1",
   nativeBinding: BOUND_RUNTIME_FEATURE,
   agentApiRevocation: "agent-api-revocation",
   agentApiManagement: "agent-api-management",
@@ -632,7 +633,9 @@ export async function assertHostedCreationSupport(
     !status ||
     !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.creationOwner) ||
     (providerName === "codex" &&
-      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.codexCreation))
+      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.codexCreation)) ||
+    (providerName === "opencode" &&
+      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.opencodeCreation))
   )
     throw new Error(
       "This provider host cannot own saved creation; update the host before starting this session",

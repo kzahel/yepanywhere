@@ -273,3 +273,8 @@ automatic restart policies are separate work. Permanent ids for new YA-created
 sessions are selected; bulk replacement of existing public ids, the full
 fork/clone redesign, a new scheduler, cross-account continuation and managed
 delegation are not required by this proposal.
+
+OpenCode ordinary owner text creation now joins the narrow saved-intent flow
+behind its own optional bit; see the [native proof and storage boundary](opencode-backend.md#durable-ordinary-text-creation).
+This does not expand the sketches' global receipts, attachment or background
+Queue migration scope. Pi remains the next independent provider qualification.

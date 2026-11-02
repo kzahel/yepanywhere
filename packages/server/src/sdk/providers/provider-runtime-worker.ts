@@ -116,6 +116,7 @@ async function main(): Promise<void> {
         features: [
           "session-creation-owner-v1",
           "session-creation-codex-v1",
+          "session-creation-opencode-v1",
           BOUND_RUNTIME_FEATURE,
         ],
       });

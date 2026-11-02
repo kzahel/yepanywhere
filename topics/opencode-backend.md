@@ -17,8 +17,8 @@ re-prioritizes the "Gaps To Close" list below around the copilot goal. The "Gaps
 To Close" contracts here remain authoritative for the general fleshout detail.
 
 The selected [YA-owned session identity](session-identity.md) follow-up reopens
-the session-id split below for new YA-created sessions. It will keep a permanent
-YA id and a separate native `ses_*` binding; implementation is pending. Existing
+the session-id split below for new YA-created sessions. Ordinary owner text creation now keeps a permanent
+YA id and a separate native `ses_*` binding under its narrow capability. Existing
 native/public ids stay unchanged. Reader selection, focused watches and resume
 must resolve that binding rather than infer OpenCode solely from the public
 id's prefix. [Session creation](session-creation.sketches.md) depends on this
@@ -32,7 +32,8 @@ actual physical paths; a proved CLI-export source may have no per-session file.
 Cold continuation never fabricates a path or falls back to `POST /session` when a
 provided handle is invalid. Native HTTP control uses the native handle, while
 Process, events and public collections keep the original YA id across restart.
-This does not enable durable differing-id new OpenCode launches yet.
+New ordinary text launches use the durable acceptance contract below; other
+launch shapes retain their existing flow.
 
 Scoped owners choose an unused loopback port unless an explicit internal
 `basePort` is supplied, and use a fresh spawn-only HTTP Basic credential. The
@@ -44,6 +45,40 @@ Older endpoints without enforcement fail explicitly for this scoped path;
 legacy unqualified launches keep their existing transport during rollout.
 Startup failure retains the actual child handle for cleanup, and liveness
 requires actual exit evidence rather than the fact that SIGTERM was sent.
+
+## Durable ordinary text creation
+
+The optional `session-creation-opencode-text` capability selects the same
+owner-only saved-intent API and draft recovery workflow as
+[Claude/Codex text acceptance](session-identity.md#qualified-claude-text-acceptance--november-2).
+YA saves the prompt/source/settings and public UUID before native effects.
+OpenCode allocates `ses_*` through authenticated `POST /session`; YA binds it
+under the canonical `XDG_DATA_HOME/opencode` data root (or the native default).
+Only native operations use that handle. URLs, events, metadata and collections
+retain the public UUID through streaming, reload and cold continuation.
+
+New durable launches require an observable native SQLite DB/WAL or legacy JSON
+store after native server readiness. An export-only/fileless store refuses
+before native session creation while retaining the saved prompt. Existing
+export-backed history and proved cold continuation remain supported.
+Attachments, slash commands, sandbox/executor, limited users and other unsupported
+creation shapes retain their established entry points. Older servers without
+the exact optional bit use the legacy flow; another provider's bit is insufficient.
+The broad proposed receipts capability remains unadvertised.
+
+The adapter's user echo and SSE output do not prove input consumption. Only a
+successful authenticated synchronous native message POST confirms the exact
+initial-input UUID associated with that request. OpenCode's
+[message endpoint](https://opencode.ai/docs/server/#messages) waits for the turn
+response. A rejected, aborted or unknown response leaves input unconfirmed;
+loss of its owner retains uncertainty and never replays the saved text.
+This conservative boundary can keep follow-up disabled while an initial turn
+is still streaming. Controlled adapter/native DB, HTTP/SSE and hosted lifecycle
+checks pass on Node 22/macOS, as does actual published 0.8.0/0.11.0 observation.
+The isolated real OpenCode 1.18.18 free-model probe returned an upstream error;
+no successful live-model or Linux/Windows qualification is claimed. Hosting additionally negotiates `session-creation-opencode-v1`
+from both host and worker before launch; an old host/worker fails without
+falling back to a new local owner or disturbing incumbents.
 
 ## Scope
 

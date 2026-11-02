@@ -52,7 +52,7 @@ export const OPENCODE_STORAGE_DIR = join(
 );
 
 const OPENCODE_DATA_DIR =
-  process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
+  process.env.XDG_DATA_HOME || join(homedir(), ".local", "share");
 export const OPENCODE_DB_PATH = join(
   OPENCODE_DATA_DIR,
   "opencode",

@@ -15,6 +15,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  opencodeTextCreation: {
+    name: "session-creation-opencode-text",
+    index: CAPABILITY_ID_ALLOCATIONS.opencodeTextCreation.id,
+    introducedIn: "0.11.1",
+  },
   codexTextCreation: {
     name: "session-creation-codex-text",
     index: CAPABILITY_ID_ALLOCATIONS.codexTextCreation.id,
@@ -302,6 +307,42 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  opencodeTextCreation: {
+    id: CAPABILITY_ID_ALLOCATIONS.opencodeTextCreation.id,
+    name: "session-creation-opencode-text",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.11.1",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.opencodeTextCreation.id,
+    },
+    description:
+      "Owner-only OpenCode text creation saves intent before startup, binds its native ses_* handle without public remap and confirms input only from a successful native message POST.",
+    clientFallback:
+      "Use existing process-start endpoints for older servers and unsupported input shapes.",
+    serverContract: {
+      routes: [
+        "POST /api/projects/:projectId/session-creations",
+        "POST /api/session-creations",
+        "GET /api/session-creations/:requestId",
+      ],
+      requestFields: ["requestId", "provider", "message"],
+      responseFields: [
+        "requestId",
+        "sessionId",
+        "projectId",
+        "provider",
+        "creation",
+        "serverTimestamp",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Durable ordinary text acceptance is separate from the deferred all-provider/attachment receipts contract.",
+    },
+  },
   codexTextCreation: {
     id: CAPABILITY_ID_ALLOCATIONS.codexTextCreation.id,
     name: "session-creation-codex-text",
@@ -4958,4 +4999,14 @@ function parseCapabilityVersion(version: string | null | undefined): {
     ],
     prerelease: match[4] ?? null,
   };
+}
+
+/** Keep the provider-specific acceptance gates explicit at every entry point. */
+export function getSessionTextCreationCapability(
+  provider: string | null | undefined,
+) {
+  if (provider === "claude") return SERVER_CAPABILITIES.claudeTextCreation;
+  if (provider === "codex") return SERVER_CAPABILITIES.codexTextCreation;
+  if (provider === "opencode") return SERVER_CAPABILITIES.opencodeTextCreation;
+  return undefined;
 }
