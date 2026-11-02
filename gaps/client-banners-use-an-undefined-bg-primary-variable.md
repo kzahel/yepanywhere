@@ -18,6 +18,15 @@ theme block beside `--bg-surface` and friends, or sweep the seven call sites
 onto the variable each one actually wanted. Both need a look at the rendered
 result in every theme, so this did not belong inside an unrelated change.
 
+The visible failure is worst where a fallback assumes a dark theme: a
+`color-mix(… var(--bg-primary, #1a1a1a) …)` box turns opaque grey in the light
+theme and hides the muted text inside it. On 2026-11-02 the Monitor-event log
+body (`.task-notification-event`) and the system-message detail
+(`RenderItemComponent.module.css` `.systemDetail`) were moved onto
+`--bg-code`, the variable those log blocks actually wanted. The remaining use
+has grown to roughly 70 sites across `index.css`, `renderers.css` and CSS
+Modules (`rg 'var\(--bg-primary'`), so the line numbers above are stale.
+
 Found 2026-09-10 while styling the network-filesystem storage banner, which
 copied the neighboring banner's colors before the variable turned out to be
 undefined.

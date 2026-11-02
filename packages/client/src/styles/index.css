@@ -6929,6 +6929,7 @@ a.sidebar-nav-item {
 }
 
 .task-notification-summary {
+  flex: 1 1 12em;
   min-width: 0;
 }
 
@@ -6942,7 +6943,7 @@ a.sidebar-nav-item {
 .task-notification-event {
   margin: 0;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--bg-primary, #1a1a1a) 60%, transparent);
+  background: var(--bg-code);
   border-radius: 4px;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.82em;

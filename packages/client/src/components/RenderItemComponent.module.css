@@ -279,7 +279,7 @@
   margin: 0;
   padding: 8px 10px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--bg-primary, #1a1a1a) 55%, transparent);
+  background: var(--bg-code);
   color: var(--text-muted);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 0.82em;
