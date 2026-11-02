@@ -3,6 +3,13 @@ import {
   RouterUnavailable,
 } from "../services/AgentAuthRouter.js";
 import { randomUUID } from "node:crypto";
+import { creationProcessIdentity } from "../sessions/creation-process-identity.js";
+import {
+  StaleCreationAttempt,
+  type CreationAttemptFence,
+  type SavedSessionCreation,
+} from "../sessions/SessionCreationStore.js";
+import { isProviderRuntimeHostAvailable } from "../sdk/providers/provider-runtime-host.js";
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -117,6 +124,7 @@ import {
   NATIVE_RECAP_FALLBACK_GRACE_MS,
   Process,
   type ProcessConstructorOptions,
+  type ManagedProcessIdentity,
   type RecapRequestResult,
 } from "./Process.js";
 import {
@@ -662,6 +670,7 @@ export class Supervisor {
   private maxWorkers: number;
   private idlePreemptThresholdMs: number;
   private workerQueue: WorkerQueue;
+  private pendingCreationStarts = 0;
   private onProcessInventoryChanged?: () => void;
   private onSessionExecutor?: OnSessionExecutorCallback;
   private onSuccessfulProviderSession?: OnSuccessfulProviderSessionCallback;
@@ -1028,6 +1037,149 @@ export class Supervisor {
         return inactivityMinutes * 60_000;
       },
     });
+  }
+
+  /** Dispatch already committed intent. The caller must supply current authority. */
+  async startSavedSession(
+    fence: CreationAttemptFence,
+    authorize: (saved: SavedSessionCreation) => Promise<void>,
+  ): Promise<Process | QueuedResponse | QueueFullResponse> {
+    const store = this.sessionMetadataService?.creations;
+    if (!store) throw new Error("Durable session storage is unavailable");
+    const saved = store.assertCurrent(fence);
+    if (!["saved", "queued"].includes(saved.attempt.state)) {
+      throw new Error("Creation is not waiting for dispatch");
+    }
+    const queued = this.workerQueue.findByCreationAttempt(fence.attemptId);
+    if (queued) {
+      return {
+        queued: true,
+        queueId: queued.id,
+        position: this.workerQueue.getPosition(queued.id)!,
+      };
+    }
+    if (this.isAtCreationCapacity()) {
+      if (saved.attempt.state === "saved") store.markQueued(fence);
+      const result = this.workerQueue.enqueue({
+        type: "new-session",
+        projectPath: saved.request!.projectPath,
+        projectId: saved.request!.projectId,
+        message: { text: "" },
+        creationFence: fence,
+        authorizeCreation: authorize,
+      });
+      if (isQueueFullError(result)) {
+        store.failBeforeEffects(fence, "launch-refused");
+        return result;
+      }
+      return {
+        queued: true,
+        queueId: result.queueId,
+        position: result.position,
+      };
+    }
+    return this.dispatchSavedSession(fence, authorize);
+  }
+
+  private async dispatchSavedSession(
+    fence: CreationAttemptFence,
+    authorize: (saved: SavedSessionCreation) => Promise<void>,
+  ): Promise<Process> {
+    const store = this.sessionMetadataService!.creations;
+    let currentFence = fence;
+    this.pendingCreationStarts++;
+    try {
+      const saved = store.assertCurrent(fence);
+      const request = saved.request;
+      if (!request?.launch || !saved.initialInputId)
+        throw new Error("Saved creation lacks launch/input identity");
+      const launch = request.launch;
+      // This first vertical is deliberately private until all retained shapes
+      // and the hosted contract are qualified. Never downgrade these choices.
+      if (
+        request.provider !== "claude" ||
+        saved.context.owner.kind === "limited" ||
+        launch.routerAccountId ||
+        launch.routerPoolId ||
+        launch.machineControl ||
+        launch.sandboxLevel === "project-write" ||
+        isProviderRuntimeHostAvailable()
+      ) {
+        throw new Error(
+          "This creation requires a dispatcher not yet qualified",
+        );
+      }
+      await authorize(saved);
+      store.assertCurrent(fence);
+      const modelSettings: ModelSettings = {
+        ...launch,
+        providerName: request.provider,
+        requestedModel: request.settings.requestedModel ?? undefined,
+        serviceTier: request.settings.serviceTier ?? undefined,
+        thinking: request.settings.thinking ?? undefined,
+        effort: request.settings.effort ?? undefined,
+      };
+      const provider = this.resolveProvider(modelSettings);
+      if (!provider?.getNewSessionNamespace)
+        throw new Error("Provider has no durable namespace contract");
+      const auth = await provider.getAuthStatus();
+      store.assertCurrent(fence);
+      if (!auth.installed || !auth.authenticated || auth.enabled === false) {
+        store.failBeforeEffects(fence, "startup-unavailable");
+        throw new Error("Provider startup is unavailable");
+      }
+      const namespace = await provider.getNewSessionNamespace(
+        request.projectPath,
+      );
+      await authorize(store.assertCurrent(fence));
+      currentFence = store.beginDispatch(fence, namespace);
+      const identity = creationProcessIdentity(store, currentFence, namespace);
+      const managedIdentity: ManagedProcessIdentity = {
+        ...identity,
+        bindNative(id) {
+          // Claude's first vertical explicitly requests this native spelling.
+          if (id !== parseNativeSessionId(saved.sessionId))
+            throw new Error("Claude did not honor its chosen native id");
+          identity.bindNative(id);
+        },
+      };
+      return await this.startProviderSession(
+        request.projectPath,
+        request.projectId,
+        { text: request.message, uuid: saved.initialInputId },
+        undefined,
+        request.settings.permissionMode,
+        modelSettings,
+        provider,
+        true,
+        true,
+        {
+          identity: managedIdentity,
+          authorize: () => authorize(store.assertCurrent(currentFence)),
+        },
+      );
+    } catch (error) {
+      try {
+        const current = store.assertCurrent(currentFence);
+        if (["saved", "queued"].includes(current.attempt.state))
+          store.failBeforeEffects(currentFence, "launch-refused");
+        else if (
+          ["dispatching", "bound"].includes(current.attempt.state) &&
+          current.attempt.delivery !== "consumed"
+        )
+          store.markUncertain(currentFence);
+      } catch (recordError) {
+        if (!(recordError instanceof StaleCreationAttempt)) throw recordError;
+      }
+      throw error;
+    } finally {
+      this.pendingCreationStarts--;
+      // Reuse the incumbent queue after an admission slot settles. A microtask
+      // avoids recursive draining when many saved requests fail preflight.
+      queueMicrotask(() => {
+        void this.processQueue();
+      });
+    }
   }
 
   async startSession(
@@ -2815,7 +2967,12 @@ export class Supervisor {
     provider?: AgentProvider,
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
+    managedLaunch?: {
+      identity: ManagedProcessIdentity;
+      authorize(): Promise<void>;
+    },
   ): Promise<Process> {
+    const managedIdentity = managedLaunch?.identity;
     const activeProvider = provider ?? this.provider;
     if (!activeProvider) {
       throw new Error("provider is not available");
@@ -2854,7 +3011,8 @@ export class Supervisor {
       activeProvider,
       modelSettings,
     );
-    const tempSessionId = resumeSessionId ?? randomUUID();
+    const tempSessionId =
+      managedIdentity?.sessionId ?? resumeSessionId ?? randomUUID();
     const sessionSandboxOptions = this.newSessionSandboxOptions(
       activeProvider.name,
       projectPath,
@@ -2916,9 +3074,18 @@ export class Supervisor {
       modelSettings?.routerPolicy,
       modelSettings,
     );
+    let startedProviderAbort: (() => void | Promise<void>) | undefined;
     try {
       const agentApiEpoch = this.agentApiEpoch;
       const peerApiEpoch = this.peerApiEpoch;
+      const instructions = await this.instructionLaunchOptions(
+        activeProvider.name,
+        resumeSessionId,
+        projectId,
+        Boolean(sessionSandbox) || Boolean(modelSettings?.executor),
+      );
+      await managedLaunch?.authorize();
+      managedIdentity?.assertInputAdmission();
       const start = activeProvider.startSession({
         routerLaunch,
         machineControl: modelSettings?.machineControl,
@@ -2926,12 +3093,7 @@ export class Supervisor {
         cwd: projectPath,
         resumeSessionId,
         newSessionId: resumeSessionId ? undefined : tempSessionId,
-        ...(await this.instructionLaunchOptions(
-          activeProvider.name,
-          resumeSessionId,
-          projectId,
-          Boolean(sessionSandbox) || Boolean(modelSettings?.executor),
-        )),
+        ...instructions,
         resumeSessionAt: truncation.resumeSessionAt,
         resumeDropsTurn: truncation.resumeDropsTurn,
         permissionMode: effectiveMode,
@@ -2985,6 +3147,7 @@ export class Supervisor {
         start,
         retryProviderStartupFailure || requireProviderSessionId,
       );
+      startedProviderAbort = result.abort;
 
       const {
         iterator,
@@ -3012,6 +3175,7 @@ export class Supervisor {
         projectPath,
         projectId,
         sessionId: tempSessionId,
+        managedIdentity,
         idleTimeoutMs: this.idleTimeoutMs,
         projectDisplayName: this.projectDisplayName,
         initialState: result.initialTurnState ?? "idle",
@@ -3137,6 +3301,22 @@ export class Supervisor {
 
       return process;
     } catch (error) {
+      if (managedIdentity) {
+        if (processHolder.process) {
+          const process = processHolder.process;
+          const needsOwnership =
+            !process.isTerminated || process.hasUnverifiedProviderOwnership;
+          const stopped = process.terminateAndWait(
+            "managed startup boundary failed",
+          );
+          if (needsOwnership && !this.processes.has(process.id)) {
+            // Failed startup can precede ordinary registration. Keep its real
+            // owner visible until teardown verifies; never invent a process.
+            this.registerProcess(process, false);
+          }
+          await stopped;
+        } else await startedProviderAbort?.();
+      }
       if (routerLaunch && !resumeSessionId) {
         // The connector retains pending cancellation durably if AAR is offline.
         await this.agentAuthRouter?.cancel(tempSessionId).catch(() => {});
@@ -6607,6 +6787,14 @@ export class Supervisor {
     return this.processes.size >= this.maxWorkers;
   }
 
+  private isAtCreationCapacity(): boolean {
+    return (
+      this.pendingCreationStarts >= 16 ||
+      (this.maxWorkers > 0 &&
+        this.processes.size + this.pendingCreationStarts >= this.maxWorkers)
+    );
+  }
+
   /**
    * Find a preemptable worker (idle longer than threshold).
    * Returns the worker that has been idle longest.
@@ -6643,14 +6831,21 @@ export class Supervisor {
    * Process the queue - called when a worker becomes available.
    */
   private async processQueue(): Promise<void> {
-    while (!this.workerQueue.isEmpty && !this.isAtCapacity()) {
+    while (!this.workerQueue.isEmpty && !this.isAtCreationCapacity()) {
       const request = this.workerQueue.dequeue();
       if (!request) break;
 
       try {
         let process: Process;
 
-        if (request.type === "new-session") {
+        if (request.creationFence) {
+          if (!request.authorizeCreation)
+            throw new Error("Queued creation lacks current authority");
+          process = await this.dispatchSavedSession(
+            request.creationFence,
+            request.authorizeCreation,
+          );
+        } else if (request.type === "new-session") {
           const result = await this.startSessionInternal(
             request.projectPath,
             request.projectId,
@@ -6804,6 +6999,18 @@ export class Supervisor {
    * @returns true if cancelled, false if not found
    */
   cancelQueuedRequest(queueId: string): boolean {
+    const fence = this.workerQueue.findById(queueId)?.creationFence;
+    if (fence) {
+      const store = this.sessionMetadataService!.creations;
+      try {
+        const saved = store.assertCurrent(fence);
+        if (["saved", "queued"].includes(saved.attempt.state)) {
+          store.failBeforeEffects(fence, "cancelled");
+        }
+      } catch (error) {
+        if (!(error instanceof StaleCreationAttempt)) throw error;
+      }
+    }
     return this.workerQueue.cancel(queueId);
   }
 

@@ -1220,6 +1220,32 @@ export class ClaudeProvider implements AgentProvider {
     return this.isClaudeCliInstalled();
   }
 
+  async getNewSessionNamespace(cwd: string) {
+    // The CLI resolves cwd before selecting its conventional project key.
+    const physicalCwd = await realpath(cwd);
+    const project = claudeCwdProjectDirectory(physicalCwd);
+    let root = resolve(
+      physicalCwd,
+      process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
+      "projects",
+      project,
+    );
+    const missing: string[] = [];
+    for (;;) {
+      try {
+        root = join(await realpath(root), ...missing.reverse());
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        const parent = dirname(root);
+        if (parent === root) throw error;
+        missing.push(basename(root));
+        root = parent;
+      }
+    }
+    return { family: "claude" as const, storageScope: root };
+  }
+
   /**
    * Check if Claude is authenticated.
    * Returns true if ANTHROPIC_API_KEY is set or OAuth credentials exist.

@@ -642,6 +642,11 @@ export interface AgentProvider {
    */
   startSession(options: StartSessionOptions): Promise<AgentSession>;
 
+  /** Actual new-session store, resolved before native allocation (no effects). */
+  getNewSessionNamespace?(
+    cwd: string,
+  ): Promise<Pick<NativeSessionRef, "family" | "storageScope">>;
+
   /**
    * Get available models for this provider. Implementations may cache;
    * `forceRefresh` discards that cache and reads the provider again.

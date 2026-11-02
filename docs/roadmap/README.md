@@ -688,7 +688,14 @@ focused, owned Node/Bun probes and complete Node 26 workspace checks pass.
 The additional launch-choice snapshot and independent first-input UUID are also
 independently accepted, with real SQLite/replay/reopen and Node 22/Bun checks.
 Static gates pass; its two full runs hit the separately tracked Rendez restart
-failure, which remains open. Actual managed dispatch and input evidence are next.
+failure, which remains open. A private saved-request Claude dispatcher and
+permanent-identity Process boundary are independently accepted, including actual
+pinned SDK/CLI input evidence against an owned local fake model on Node 22,
+Node 26 and Bun. Verified teardown retains failed owners, normal completion
+closes input, and native scopes include symlinked directory leaves. Final
+lint/format/typecheck and the complete Node 26 workspace pass; the initial red
+Rendez run remains recorded without claiming a watcher fix. Ordinary
+caller rollout, router/sandbox/hosted integration remain pending.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

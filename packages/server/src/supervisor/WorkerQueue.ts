@@ -5,6 +5,10 @@ import type { PermissionMode, UserMessage } from "../sdk/types.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import type { Process } from "./Process.js";
 import type { ModelSettings } from "./Supervisor.js";
+import type {
+  CreationAttemptFence,
+  SavedSessionCreation,
+} from "../sessions/SessionCreationStore.js";
 
 /**
  * One-shot hook once a launch, immediate or queued, has its canonical YA id.
@@ -45,6 +49,8 @@ export interface QueuedRequest {
   retryProviderStartupFailure?: boolean;
   /** Wait for the provider's canonical id before accepting this launch. */
   requireProviderSessionId?: boolean;
+  creationFence?: CreationAttemptFence;
+  authorizeCreation?: (saved: SavedSessionCreation) => Promise<void>;
   /** Resolver to call when request is processed or cancelled */
   resolve: (result: QueuedRequestResult) => void;
 }
@@ -120,6 +126,8 @@ export class WorkerQueue {
     onRetryableFailure?: (reason: string) => void | Promise<void>;
     retryProviderStartupFailure?: boolean;
     requireProviderSessionId?: boolean;
+    creationFence?: CreationAttemptFence;
+    authorizeCreation?: (saved: SavedSessionCreation) => Promise<void>;
   }): EnqueueResult {
     // Check queue size limit
     if (this.maxQueueSize > 0 && this.queue.length >= this.maxQueueSize) {
@@ -148,6 +156,8 @@ export class WorkerQueue {
       onRetryableFailure: params.onRetryableFailure,
       retryProviderStartupFailure: params.retryProviderStartupFailure,
       requireProviderSessionId: params.requireProviderSessionId,
+      creationFence: params.creationFence,
+      authorizeCreation: params.authorizeCreation,
       queuedAt: new Date(),
       resolve: resolvePromise,
     };
@@ -213,6 +223,18 @@ export class WorkerQueue {
    */
   findBySessionId(sessionId: string): QueuedRequest | undefined {
     return this.queue.find((r) => r.sessionId === sessionId);
+  }
+
+  findById(queueId: string): Readonly<QueuedRequest> | undefined {
+    return this.queue.find((request) => request.id === queueId);
+  }
+
+  findByCreationAttempt(
+    attemptId: string,
+  ): Readonly<QueuedRequest> | undefined {
+    return this.queue.find(
+      (request) => request.creationFence?.attemptId === attemptId,
+    );
   }
 
   /**

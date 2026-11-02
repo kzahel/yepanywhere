@@ -24,6 +24,8 @@ import type {
   ThinkingConfig,
   UserQuestionAnswers,
   UrlProjectId,
+  NativeSessionId,
+  YaSessionId,
 } from "@yep-anywhere/shared";
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
@@ -35,6 +37,7 @@ import {
   isClaudeProviderName,
   isLocalCommandEchoTurn,
   normalizeRecapAfterSeconds,
+  parseNativeSessionId,
   stripPatientQueuePrefix,
 } from "@yep-anywhere/shared";
 import { DEFAULT_IDLE_TIMEOUT_MS } from "../defaults.js";
@@ -914,7 +917,22 @@ export interface DeferredDeliveryOptions {
   turnTimestamps?: "off" | "before" | "after";
 }
 
+/** Synchronous control-plane boundary; unconfirmed deltas do no store work. */
+export interface ManagedProcessIdentity {
+  readonly sessionId: YaSessionId;
+  /** Persist/validate native evidence before making it observable. */
+  bindNative(id: NativeSessionId): void;
+  /** Recheck the durable attempt before accepting another user turn. */
+  assertInputAdmission(): void;
+  /** Provider-confirmed input ids, rather than local queue pulls. */
+  observeProviderInput(uuid: string): void;
+  /** Close unconfirmed startup ownership when its provider iterator ends. */
+  ownerExited?(): void;
+}
+
 export interface ProcessConstructorOptions extends ProcessOptions {
+  /** Opt-in permanent YA identity. Retained callers keep their remap contract. */
+  managedIdentity?: ManagedProcessIdentity;
   /** Provider message queue, undefined for mock SDK */
   queue?: AgentMessageQueue;
   /** Abort function from real SDK */
@@ -1211,6 +1229,8 @@ export class Process {
   /** Resolvers waiting for the real session ID */
   private sessionIdResolvers: Array<(id: string) => void> = [];
   private sessionIdResolved = false;
+  private readonly managedIdentity: ManagedProcessIdentity | undefined;
+  private nativeSessionId: NativeSessionId | undefined;
   private readonly providerSessionIdSettlement: Promise<string>;
   private resolveProviderSessionIdSettlement: ((id: string) => void) | null =
     null;
@@ -1310,6 +1330,13 @@ export class Process {
     this.sdkIterator = coalesceStreamingSnapshots(sdkIterator);
     this.id = randomUUID();
     this._sessionId = options.sessionId;
+    this.managedIdentity = options.managedIdentity;
+    if (
+      this.managedIdentity &&
+      this.managedIdentity.sessionId !== options.sessionId
+    ) {
+      throw new Error("Managed process identity differs from its YA session");
+    }
     this.projectPath = options.projectPath;
     this.projectId = options.projectId;
     this.projectDisplayName = options.projectDisplayName ?? getProjectName;
@@ -1406,7 +1433,11 @@ export class Process {
     });
     void this.providerSessionIdSettlement.catch(() => undefined);
     if (options.initializedSessionId) {
-      this._sessionId = options.initializedSessionId;
+      if (this.managedIdentity) {
+        this.bindManagedNativeId(options.initializedSessionId);
+      } else {
+        this._sessionId = options.initializedSessionId;
+      }
       this.sessionIdResolved = true;
       this.resolveProviderSessionId(options.initializedSessionId);
     }
@@ -3785,6 +3816,14 @@ export class Process {
   }
 
   private inputRejectionError(): string | null {
+    if (this.managedIdentity && this.iteratorDone) {
+      return "Process provider stream has ended";
+    }
+    try {
+      this.managedIdentity?.assertInputAdmission();
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
     if (this.viewerLifecycle.isDetachingForServerReload) {
       return "Process is detaching for server reload";
     }
@@ -5033,6 +5072,10 @@ export class Process {
    * orphaned processes that continue running after Yep stops tracking them.
    */
   terminate(reason: string): void {
+    if (this.managedIdentity) {
+      void this.terminateAndWait(reason).catch(() => undefined);
+      return;
+    }
     if (!this.viewerLifecycle.hasUnverifiedProviderOwnership) {
       // Kill the underlying CLI process first (if available), so it doesn't
       // continue running as an orphan after we unregister from the Supervisor.
@@ -5080,6 +5123,10 @@ export class Process {
   }
 
   async abort(): Promise<ProcessAbortResult> {
+    if (this.managedIdentity) {
+      this.transportFailed = true;
+      this.viewerLifecycle.beginTeardownVerification();
+    }
     const activeAbort = this.abortInFlight;
     if (activeAbort) return activeAbort;
 
@@ -5087,6 +5134,14 @@ export class Process {
     this.abortInFlight = attempt;
     try {
       return await attempt;
+    } catch (error) {
+      if (this.managedIdentity && !this.isTerminated) {
+        this.retainLifecycleTeardownFailure(
+          "managed provider abort teardown failed",
+          error,
+        );
+      }
+      throw error;
     } finally {
       if (this.abortInFlight === attempt) {
         this.abortInFlight = null;
@@ -5205,6 +5260,17 @@ export class Process {
     this.listeners.clear();
   }
 
+  private bindManagedNativeId(value: string): void {
+    const nativeId = parseNativeSessionId(value);
+    if (this.nativeSessionId && this.nativeSessionId !== nativeId) {
+      throw new Error("Provider changed an established native session id");
+    }
+    // A repeated init still crosses the attempt fence; it must not revive a
+    // deleted/retried session. No control-store call occurs on token deltas.
+    this.managedIdentity!.bindNative(nativeId);
+    this.nativeSessionId = nativeId;
+  }
+
   private async processMessages(): Promise<void> {
     try {
       while (!this.iteratorDone) {
@@ -5220,14 +5286,77 @@ export class Process {
               ),
             );
           }
-          // Don't transition to idle if we're waiting for input
-          if (this._state.type !== "waiting-input") {
+          if (this.managedIdentity) {
+            // Do not publish idle/promote deferred turns into an ended stream.
+            // Fire-and-observe: verification may await this loop's finally.
+            void this.terminateAndWait("provider stream completed").catch(
+              () => undefined,
+            );
+          } else if (this._state.type !== "waiting-input") {
             this.transitionToIdle({ applyPendingEffort: false });
           }
           break;
         }
 
         let message = this.withTimestamp(result.value);
+        if (
+          this.managedIdentity &&
+          isClaudeSdkApiErrorMessage(this.provider, message)
+        ) {
+          // Fatal native frames still publish their useful failure text. Close
+          // both admissions before status/message listeners or materialization.
+          this.transportFailed = true;
+          this.viewerLifecycle.beginTeardownVerification();
+        }
+        if (this.managedIdentity) {
+          if (
+            message.session_id &&
+            (!this.nativeSessionId ||
+              (message.type === "system" && message.subtype === "init"))
+          ) {
+            this.bindManagedNativeId(message.session_id);
+          }
+          if (message.session_id) {
+            if (message.session_id !== this.nativeSessionId) {
+              throw new Error(
+                "Provider output does not match its native binding",
+              );
+            }
+            message = { ...message, session_id: this._sessionId };
+          }
+          if (message.type === "user" && message.uuid) {
+            if (!this.nativeSessionId) {
+              throw new Error("Provider input arrived before native binding");
+            }
+            this.managedIdentity.observeProviderInput(message.uuid);
+          }
+          // The pinned Claude SDK normally emits response-to-input stamps,
+          // without re-yielding user rows. A delivery-failure result can echo a
+          // failed send, so only actual reply frames/success qualify here.
+          if (
+            this.nativeSessionId &&
+            isClaudeProviderName(this.provider) &&
+            !message.parent_tool_use_id &&
+            (message.type === "assistant" ||
+              message.type === "stream_event" ||
+              (message.type === "result" && message.subtype === "success"))
+          ) {
+            if (typeof message.user_message_uuid === "string") {
+              this.managedIdentity.observeProviderInput(
+                message.user_message_uuid,
+              );
+            }
+            if (
+              Array.isArray(message.user_message_uuids) &&
+              message.user_message_uuids.length <= 64
+            ) {
+              for (const id of message.user_message_uuids) {
+                if (typeof id === "string")
+                  this.managedIdentity.observeProviderInput(id);
+              }
+            }
+          }
+        }
         if (this.toolResultMediaMaterializer) {
           message =
             await this.toolResultMediaMaterializer.materializeMessage(message);
@@ -5293,9 +5422,11 @@ export class Process {
         ) {
           const log = getLogger();
           const oldSessionId = this._sessionId;
-          this._sessionId = message.session_id;
+          if (!this.managedIdentity) this._sessionId = message.session_id;
           this.sessionIdResolved = true;
-          this.resolveProviderSessionId(this._sessionId);
+          this.resolveProviderSessionId(
+            this.nativeSessionId ?? this._sessionId,
+          );
 
           log.info(
             {
@@ -5353,13 +5484,20 @@ export class Process {
         }
 
         if (isClaudeSdkApiErrorMessage(this.provider, message)) {
-          this.requestProviderAbortWithoutWaiting(
-            "Claude SDK API error; restart required",
-          );
+          if (!this.managedIdentity) {
+            this.requestProviderAbortWithoutWaiting(
+              "Claude SDK API error; restart required",
+            );
+          }
           this.markTerminated(
             "Claude SDK API error; restart required",
             new Error(describeClaudeSdkApiError(message)),
           );
+          if (this.managedIdentity) {
+            void this.terminateAndWait(
+              "Claude SDK API error; restart required",
+            ).catch(() => undefined);
+          }
           return;
         }
 
@@ -5446,8 +5584,13 @@ export class Process {
 
       // Listeners run synchronously and may submit input from the error event.
       // Close admission before publishing it or awaiting the failure notice.
-      const providerTerminated = this.isProcessTerminationError(err);
+      const providerTerminated =
+        Boolean(this.managedIdentity) || this.isProcessTerminationError(err);
       if (providerTerminated) this.transportFailed = true;
+      if (this.managedIdentity) {
+        // Close replacement ownership before synchronous error listeners run.
+        this.viewerLifecycle.beginTeardownVerification();
+      }
       this.clearRetryingProviderRuntimeStatus();
       this.emit({ type: "error", error: err });
 
@@ -5462,6 +5605,13 @@ export class Process {
         this.markTerminated("underlying process terminated", err, {
           failureNotice,
         });
+        if (this.managedIdentity) {
+          // terminateAndWait retains/logs failed verification. Do not await here:
+          // no-liveness adapters verify this same iterator's exit promise.
+          void this.terminateAndWait("managed provider stream failed").catch(
+            () => undefined,
+          );
+        }
         return;
       }
 
@@ -5473,9 +5623,20 @@ export class Process {
         }
       }
     } finally {
-      // Resolve exit promise on both normal completion and non-terminating errors
-      // so abort() doesn't hang waiting for it. (markTerminated already resolves
-      // it for termination errors, and guards against double-resolve.)
+      try {
+        this.managedIdentity?.ownerExited?.();
+      } catch (error) {
+        getLogger().error(
+          {
+            event: "creation_owner_exit_record_failed",
+            sessionId: this._sessionId,
+            error,
+          },
+          "Could not record creation owner exit",
+        );
+      }
+      // Resolve on every iterator exit so teardown can verify this loop without
+      // circular waiting. markTerminated may already have resolved it.
       if (this._exitResolve) {
         this._exitResolve();
         this._exitResolve = null;

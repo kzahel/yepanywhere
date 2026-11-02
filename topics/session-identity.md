@@ -3,12 +3,44 @@
 Status: implementation in progress under plan 171. Scoped identities, retained
 provider history/watch adapters, creation-control storage and saved-session reads
 and collections are implemented. Ordinary launch behavior remains unchanged.
-Managed dispatch, cold-resume/owned-browser gates, caller rollout and release
-qualification remain pending.
+A private stored-request Claude dispatcher and permanent-identity Process
+boundary are implemented; ordinary caller rollout, hosted dispatch,
+cold-resume/owned-browser gates and release qualification remain pending.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 defines the implementation slices, isolated-profile qualification and requested
 Sol 6.1 High review/commit loop. It is a plan, not implementation evidence.
+
+### Managed dispatch boundary
+
+The private stored-request dispatcher reads committed text/settings and the
+independent initial-input UUID, requires a caller-supplied current authority
+check, and records dispatch before invoking the provider. Worker deferral keeps
+the existing worker queue and re-reads the saved request at promotion; cancellation
+records a safe failure before acknowledgement. It does not reconstruct live
+desktop credentials or silently downgrade router, sandbox or hosted choices.
+Its first qualified path is superuser-owned local unsandboxed, non-router Claude; other choices
+are explicitly refused before effects until their later rollout slices.
+The public creation endpoints and advertised capabilities remain unchanged.
+
+A managed Process keeps its YA id in live output, replay and ownership events.
+The first session-scoped native event records binding before publication; the
+pinned Claude CLI can emit title telemetry before `init`. Provider-id settlement
+still reports the native id. A later conflicting native id fails the owner
+instead of remapping the public resource. Late binding and input admission
+cross the current-attempt fence, without per-token control-store queries.
+Managed stream failure and normal iterator completion close ordinary/deferred
+input before callbacks. The actual owner remains tracked while provider teardown
+is pending or unverified; only verified shutdown releases replacement ownership.
+The namespace resolves the complete native directory, including an existing
+symlinked leaf, so discovery, quarantine and reverse lookup use the same scope.
+
+An optimistic user echo or SDK queue pull does not establish consumed initial
+input. Matching native user echoes, or the pinned Claude main-thread reply's
+input-UUID stamps, supply that evidence. Error-result send echoes and subagent
+stamps do not. Unconfirmed owner exit retains uncertainty and never automatically
+resends the prompt. Retained Processes that do not opt into this boundary keep
+their existing launch/remap behavior while callers migrate.
 
 ## Selected ownership boundary
 

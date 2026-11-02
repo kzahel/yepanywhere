@@ -9,8 +9,9 @@ commits as work proceeds, and standalone-profile testing. Autonomous execution
 was authorized on November 1; phase 1's concrete decisions are recorded in
 [the identity contract](../../topics/session-identity.md#phase-1-implementation-decisions--2026-11-01)
 and were independently accepted by Sol 6.1 High after three concrete design
-corrections. Phase 2 is implemented and independently accepted; phase 3
-read/discovery/watch/source migration is next.
+corrections. Phase 2 and phase 3's read/discovery/watch/source foundation are
+implemented and independently accepted. Cold-resume/owned-browser gates and
+phase 4's ordinary caller, routed/sandboxed and hosted rollout remain pending.
 Acceptance covers the plan's ordering, intermediate contracts
 and enabling gates, not an unspecified schema/wire contract or source work.
 Section 1 and per-slice implementation reviews remain required below.
@@ -19,9 +20,29 @@ The maintainer subsequently requested incorporation of the separate
 [creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md).
 The coordination requirements and coverage ledger below extend this plan;
 Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
-Runtime work and the provenance defect remain unimplemented.
+The common caller rollout and the provenance defect remain unimplemented.
 
 ## Execution progress
+
+- Phase 4 managed runtime boundary is independently accepted by Sol 6.1 High:
+  a private Supervisor
+  dispatcher reads stored choices/input identity, checks current authority and
+  provider availability, claims the actual native namespace before effects,
+  and uses the existing worker queue for deferral. Managed Process binds before
+  publication while keeping its YA id and recognizes native input confirmation
+  independently of local queue pulls. Unconfirmed exit retains uncertainty;
+  queued cancellation persists before returning. Actual pinned Claude SDK/CLI
+  qualification uses an owned local fake model and caught/corrected pre-init
+  title telemetry and response stamps without user re-echo. Ordinary routes,
+  router/sandbox/hosted integration and all later rollout gates remain pending.
+  Review corrected premature ownership release, ended-stream input admission,
+  native-directory leaf aliases and the native API-error/explicit-stop paths.
+  The final focused scope passes 225 checks / eight files / 4.84 s; real
+  SDK/CLI probes pass on Node 22.23.3, Node 26.7.0 and Bun 1.3.14. Lint has zero
+  warnings; format/typecheck and the final complete Node 26 workspace pass
+  (6,836 server / 7,064 client; server 128.51 s). The initial pre-correction
+  full run hit the separately recorded Rendez nested-restart failure; its red
+  evidence remains preserved and this successful run does not close that gap.
 
 - Phase 1: concrete design accepted, including attempt/evidence budgets,
   durable retry fencing and the bounded retained-fork source bridge. Existing

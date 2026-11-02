@@ -156,3 +156,18 @@ client checks passed, server duration 134.60 s. Evidence: ignored
 `tasks/session-identity/phase-4-launch-intent-node22-test.log`. Both full runs
 remain red. No watcher implementation, fixture, assertion, timeout or retry
 setting changed; storage/snapshot qualification does not resolve this gap.
+
+The first managed-dispatch Node 26.7.0 full run again missed the second nested
+delivery at line 364: 6,829 other server and all 7,064 client checks passed;
+server duration 131.03 s. Evidence: ignored
+`tasks/session-identity/phase-4-managed-test.log`. This pre-review-correction run
+remains red; it changed no Rendez implementation, fixture, assertion, timeout
+or retry. Managed ownership and namespace corrections require a fresh full run.
+
+The subsequent final-source Node 26.7.0 workspace run after the reviewed managed
+ownership/API-error/stop corrections passed (6,836 server / 7,064 client;
+128.51 s server duration), recorded in ignored
+`tasks/session-identity/phase-4-managed-final-test.log`. The intervening source
+changes justify that fresh qualification; the watcher itself remains unchanged.
+This pass qualifies that source snapshot and does not close the intermittent
+restart defect or replace the preceding red evidence.

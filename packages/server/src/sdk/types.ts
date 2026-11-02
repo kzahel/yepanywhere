@@ -55,6 +55,9 @@ export interface SDKMessage {
   uuid?: string;
   subtype?: string;
   session_id?: string;
+  /** Pinned Claude native reply-to-input evidence, absent on older producers. */
+  user_message_uuid?: string;
+  user_message_uuids?: string[];
   timestamp?: string;
   message?: {
     content: string | ContentBlock[];
