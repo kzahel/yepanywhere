@@ -1,5 +1,10 @@
 # Chrome extension changelog
 
+## Unreleased
+
+- Load local HTML artifacts and neighboring images through the isolated managed
+  viewer over the encrypted relay, without additional extension permissions.
+
 ## [0.1.4] - 2026-10-24
 
 - Refresh the bundled client for Yep Anywhere 0.11.0, including cached ticket

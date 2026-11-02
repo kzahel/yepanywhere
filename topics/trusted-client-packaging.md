@@ -265,8 +265,15 @@ cannot inject into or debug its pages, and its storage belongs to it alone.
   bounds. The default is a browser tab.
 - **Settings.** Settings → Browser extension appears only on the extension
   origin and stores its values in `chrome.storage.local`, not on any host.
-- **Known unavailable.** Push notifications, streamed downloads, HTML
-  artifact previews and direct (LAN) hosts. The update path is the store
+- **HTML artifacts.** The bundled client uses the isolated managed HTTPS viewer
+  when the server advertises `artifact-relay-preview`, preserving explicit
+  custom artifact origins and static fallback. Relative images, styles and
+  scripts use the existing encrypted source connection and bounded preview
+  leases; no additional host permission is required. The content host admits
+  the exact store extension origin. Both the host policy and client update
+  must be released; the currently published 0.1.4 client predates this path.
+- **Known unavailable.** Push notifications, streamed downloads and direct
+  (LAN) hosts. The update path is the store
   item; until a signed-update policy exists the store account is the trust
   root.
 - **Publication.** The extension has its own three-part store version in

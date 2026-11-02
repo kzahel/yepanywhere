@@ -399,6 +399,16 @@ Custom hosted origins retain their configured delivery. The bundled Android
 shell can supply the fixed first-party viewer locally when it explicitly
 advertises packaged viewer version 1; its boundary is described below.
 
+The Chrome extension with store ID `dgeameddpnggdeenoekpiaacfghdodch` uses the
+same managed HTTPS viewer and server capability gate. The content host admits
+only that exact extension origin alongside the first-party web parents. Local
+assets still arrive through authenticated, source-bound preview leases; the
+artifact gets neither extension APIs nor YA credentials. This path requires
+no additional extension host permissions and works with third-party cookies
+blocked on qualified Chrome. An unavailable viewer retains the existing static
+fallback. The content-host policy and updated extension build must both be
+released before installed clients can use this path.
+
 The new API admits read-only, process-local preview leases independently of
 public/local artifact grants. Admission binds the acting principal, optional
 session, canonical HTML entry and its directory. Every file read requires

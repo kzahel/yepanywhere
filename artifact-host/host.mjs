@@ -2,6 +2,7 @@ export const VERSION = "1";
 export const DEFAULT_PARENTS = [
   "https://yepanywhere.com",
   "https://latest.yepanywhere.com",
+  "chrome-extension://dgeameddpnggdeenoekpiaacfghdodch",
 ];
 const PERMISSIONS =
   "camera=(), microphone=(), geolocation=(), clipboard-read=(), clipboard-write=(), payment=(), usb=(), serial=(), display-capture=()";

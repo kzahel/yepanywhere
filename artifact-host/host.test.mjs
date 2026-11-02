@@ -4,6 +4,7 @@ import { MANAGED_ARTIFACT_MAX_FILE_BYTES } from "../packages/shared/dist/artifac
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { serve } from "./host.mjs";
+import { loadShellAssets } from "./assets.mjs";
 const origin =
   "https://artifact-0123456789abcdef0123456789abcdef.yepanywhere.com";
 const assets = {
@@ -61,6 +62,37 @@ test("worker scope and HEAD stay bounded independently of artifact contents", as
   );
   assert.equal(head.status, 200);
   assert.equal(await head.text(), "");
+});
+
+test("the store extension is admitted by bootstrap and worker policies without admitting other extensions", async () => {
+  const { id } = JSON.parse(
+    await readFile(
+      new URL(
+        "../docs/distribution/chrome-extension/identity.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const parent = `chrome-extension://${id}`;
+  const url = new URL(origin + bootstrap);
+  url.searchParams.set("parent", parent);
+  const response = serve(new Request(url), assets);
+  assert.equal(response.status, 200);
+  assert.ok(response.headers.get("content-security-policy").includes(parent));
+  assert.ok((await response.text()).includes(`content="${parent}"`));
+  const shell = await loadShellAssets();
+  const policy = runInNewContext(`${shell["worker.js"]}\nPOLICY`, {
+    self: { addEventListener() {} },
+  });
+  assert.ok(policy.includes(parent));
+  assert.ok(!policy.includes("chrome-extension: "));
+  assert.ok(!policy.includes("chrome-extension://*"));
+  url.searchParams.set(
+    "parent",
+    "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  );
+  assert.equal(serve(new Request(url), assets).status, 400);
 });
 
 test("the standalone worker's file bound matches the server and parent", async () => {

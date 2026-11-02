@@ -20,8 +20,12 @@ non-dot file granted under the entry directory and exfiltrate it through
 WebRTC STUN/TURN, their own frame navigation or DNS side channels. Source bytes remain inert
 on the authenticated YA API origin.
 
-The hosted assets allow only `https://yepanywhere.com` and
-`https://latest.yepanywhere.com` to embed or connect the bootstrap. The APK
+The hosted assets allow only `https://yepanywhere.com`,
+`https://latest.yepanywhere.com` and the exact store extension origin
+`chrome-extension://dgeameddpnggdeenoekpiaacfghdodch` to embed or connect the
+bootstrap. The extension uses the same source-bound preview leases and needs
+no additional host permission. Release this host policy together with an
+updated extension client; published extension 0.1.4 predates this path. The APK
 generates a separate copy allowing only its appassets parent. The client and bootstrap both validate exact source,
 origin, protocol and viewer identity. Content receives an entry name and theme
 and widget state, never a server credential, grant API path or general fetch

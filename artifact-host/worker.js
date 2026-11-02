@@ -14,6 +14,7 @@ const POLICY = [
       self.__YA_ARTIFACT_PARENTS__ ?? [
         "https://yepanywhere.com",
         "https://latest.yepanywhere.com",
+        "chrome-extension://dgeameddpnggdeenoekpiaacfghdodch",
       ]
     ).join(" "),
   "frame-src 'none'",

@@ -868,7 +868,13 @@ toolbar guidance ([site access contract](../../topics/trusted-client-packaging.m
 Website 1.13.0 adds a public Chrome extension guide at
 `/docs/chrome-extension`, with the store install link, related-session workflows,
 setup and current limits, linked from the homepage, download page, catalogs,
-docs and footer. This experiment does not displace release delivery.
+docs and footer. On 2026-11-02, isolated Chrome qualification established that
+the extension can reuse the managed HTTPS artifact viewer with third-party
+cookies blocked and no additional host permissions. The client and exact-origin
+content-host policies now support this path; content-host deployment and an
+extension release remain required for installed users. The synthetic 39-image
+guide, native resource loading, navigation/reload, worker restarts, teardown and
+sequential typing passed. This work does not displace release delivery.
 
 These remain candidates behind publishing and continuous delivery, not a
 ranked or approved implementation queue. Recheck current code and owning

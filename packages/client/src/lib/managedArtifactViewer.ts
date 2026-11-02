@@ -9,6 +9,7 @@ export const ARTIFACT_PREVIEW_PROTOCOL = "yep-artifact-preview/1";
 export const MANAGED_ARTIFACT_PARENTS = new Set([
   "https://yepanywhere.com",
   "https://latest.yepanywhere.com",
+  "chrome-extension://dgeameddpnggdeenoekpiaacfghdodch",
 ]);
 export interface ArtifactPreviewLease {
   id: string;
