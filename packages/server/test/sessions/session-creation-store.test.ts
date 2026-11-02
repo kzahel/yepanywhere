@@ -96,11 +96,36 @@ it("commits exact text, immutable source and creator beside an unbound identity,
     instructionUsername: "do-not-trust-this-actor",
     env: { AUTH_TOKEN: "DO_NOT_PERSIST_ENV" },
   };
+  const input = {
+    schemaVersion: 1 as const,
+    tempId: "optimistic-original",
+    mode: "default" as const,
+    metadata: {
+      origin: "coordination" as const,
+      sourceSessionId: "source-public-session",
+      turnEffort: "fast" as const,
+      serverReceivedAt: "2026-11-01T00:00:00.000Z",
+      composition: {
+        submittedAt: "2026-11-01T00:00:00.000Z",
+        token: "DO_NOT_PERSIST_COMPOSITION",
+      },
+      speech: {
+        clientTurnId: "speech-turn",
+        transcriptionIds: ["transcription-one"],
+        env: "DO_NOT_PERSIST_SPEECH",
+      },
+      sentByUser: "DO_NOT_PERSIST_ACTOR",
+      apiSubmissionId: "DO_NOT_PERSIST_RECEIPT",
+      hidden: true,
+      environment: "DO_NOT_PERSIST_METADATA",
+    },
+    credentials: "DO_NOT_PERSIST_INPUT",
+  };
   expect(first.store.generation).toBe(1);
   const admitted = first.store.admit({
     requestId: "request_0001",
     context,
-    request: { ...request, launch },
+    request: { ...request, launch, input },
   });
   expect(first.store.generation).toBe(2);
   const frozenRequest = structuredClone(admitted.request!);
@@ -121,6 +146,13 @@ it("commits exact text, immutable source and creator beside an unbound identity,
   expect(persisted).not.toContain("DO_NOT_PERSIST");
   expect(admitted.request?.launch).not.toHaveProperty("desktopControlOrigin");
   expect(admitted.request?.launch).not.toHaveProperty("instructionUsername");
+  expect(admitted.request?.input?.metadata).not.toHaveProperty("sentByUser");
+  expect(admitted.request?.input?.metadata).not.toHaveProperty(
+    "apiSubmissionId",
+  );
+  expect(admitted.request?.input?.metadata).not.toHaveProperty("hidden");
+  input.metadata.speech.transcriptionIds[0] = "caller mutation";
+  input.metadata.composition.submittedAt = "2026-11-02T00:00:00.000Z";
   launch.permissions.allow[0] = "caller mutation";
   expect(
     first.store.get(context.owner, "request_0001")?.request?.launch?.permissions
@@ -166,6 +198,29 @@ it("commits exact text, immutable source and creator beside an unbound identity,
   expect(second.store.get(context.owner, "request_0001")?.initialInputId).toBe(
     admitted.initialInputId,
   );
+  expect(
+    second.store.get(context.owner, "request_0001")?.request?.input,
+  ).toMatchObject({
+    schemaVersion: 1,
+    tempId: "optimistic-original",
+    mode: "default",
+    metadata: {
+      sourceSessionId: "source-public-session",
+      turnEffort: "fast",
+      speech: { transcriptionIds: ["transcription-one"] },
+      composition: { submittedAt: "2026-11-01T00:00:00.000Z" },
+    },
+  });
+  expect(() =>
+    second.store.admit({
+      requestId: "request_0001",
+      context,
+      request: {
+        ...frozenRequest,
+        input: { ...frozenRequest.input!, tempId: "different-client-input" },
+      },
+    }),
+  ).toThrow(SessionCreationConflict);
   expect(
     second.store.get(context.owner, "request_0001")?.request?.launch
       ?.globalInstructions,

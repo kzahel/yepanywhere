@@ -2,9 +2,9 @@
 
 Status: implementation in progress under plan 171. Scoped identities, retained
 provider history/watch adapters, creation-control storage and saved-session reads
-and collections are implemented. Ordinary launch behavior remains unchanged.
-A private stored-request Claude dispatcher and permanent-identity Process
-boundary are implemented; ordinary caller rollout, hosted dispatch,
+and collections are implemented. The first ordinary Claude text path now uses
+the stored-request dispatcher and permanent-identity Process boundary;
+remaining caller/provider shapes, hosted dispatch,
 cold-resume/owned-browser gates and release qualification remain pending.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
@@ -13,7 +13,7 @@ Sol 6.1 High review/commit loop. It is a plan, not implementation evidence.
 
 ### Managed dispatch boundary
 
-The private stored-request dispatcher reads committed text/settings and the
+The stored-request dispatcher reads committed text/settings and the
 independent initial-input UUID, requires a caller-supplied current authority
 check, and records dispatch before invoking the provider. Worker deferral keeps
 the existing worker queue and re-reads the saved request at promotion; cancellation
@@ -21,7 +21,30 @@ records a safe failure before acknowledgement. It does not reconstruct live
 desktop credentials or silently downgrade router, sandbox or hosted choices.
 Its first qualified path is superuser-owned local unsandboxed, non-router Claude; other choices
 are explicitly refused before effects until their later rollout slices.
-The public creation endpoints and advertised capabilities remain unchanged.
+The existing project/detached creation routes use it for superuser text requests
+resolved through the Claude AgentProvider adapter, without attachments, slash
+commands, runtime-only input authority, router, sandbox, machine control or
+provider hosting. Other shapes retain their existing path during rollout.
+The compatibility-only RealClaudeSDK default when provider is omitted remains
+outside this first cut. Completed/queued/error response shapes and advertised
+capabilities are unchanged; no creation-receipts API is exposed yet.
+
+Before provider availability checks, the qualified route commits the exact
+prompt, trusted creator and request source. Failure leaves a readable failed
+session even when no process/native transcript exists. Deferral retains the
+initial client temp id, per-turn mode, descriptive origin, one-turn effort,
+composition/speech and receive-time metadata through an allowlisted versioned
+input snapshot under the existing payload budget. Actor, receipt, hidden-turn
+authority and arbitrary nested fields are excluded. Missing snapshots on older
+records remain absent; their original replay hashes do not change.
+Queued promotion re-reads stored input and keeps the existing post-start
+association callback; idle-worker preemption still verifies the prior owner.
+Deferred starts retain copied launch values, without the originating HTTP
+context, credentials or unrelated JSON fields.
+Accepted superuser work survives its originating HTTP request/cookie; it has
+no mutable project grant. Owner shutdown refuses subsequent native dispatch.
+Limited-user policy/sandbox dispatch remains a later cut, with its existing
+route enforcement intact in the meantime.
 
 A managed Process keeps its YA id in live output, replay and ownership events.
 The first session-scoped native event records binding before publication; the

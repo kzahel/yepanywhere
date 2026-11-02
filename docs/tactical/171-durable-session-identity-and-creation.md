@@ -24,6 +24,26 @@ The common caller rollout and the provenance defect remain unimplemented.
 
 ## Execution progress
 
+- Phase 4 ordinary request integration is independently accepted by Sol 6.1 High:
+  qualified superuser
+  project/detached Claude AgentProvider text starts now admit durable intent
+  before availability checks. Versioned input choices retain temp-id/mode,
+  origin/effort and composition/speech/timing across worker deferral; actor,
+  receipt/hidden authority and arbitrary fields are excluded. Existing response
+  shapes, post-start associations and idle preemption are preserved. Real
+  SQLite/reopen and HTTP tests cover failures before native launch, exact
+  metadata, source-at-admission, queued promotion and private-field exclusion.
+  An actual owned Node standalone profile passes project/detached failure,
+  saved-state restart, then real pinned Claude SDK/CLI healthy HTTP launch and
+  native-history restart using a local fake model only. The same owned Bun
+  qualification passes. Focused checks pass 187 cases / six files / 3.87 s;
+  lint has zero warnings, format/typecheck and the complete Node 26 workspace
+  pass (6,841 server / 7,064 client; server 129.09 s). Deferred callbacks retain
+  copied launch values instead of raw HTTP contexts/bodies.
+  Legacy RealClaudeSDK default omission,
+  slash/attachment/runtime-authority inputs, limited/routed/sandboxed/hosted
+  paths and later phase gates remain pending; no receipt capability ships.
+
 - Phase 4 managed runtime boundary is independently accepted by Sol 6.1 High:
   a private Supervisor
   dispatcher reads stored choices/input identity, checks current authority and

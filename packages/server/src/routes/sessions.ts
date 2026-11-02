@@ -163,6 +163,7 @@ import type {
   QueueFullResponse,
   ResumeMode,
   SessionReactivationOverrides,
+  SessionLaunchOptions,
   Supervisor,
 } from "../supervisor/Supervisor.js";
 import {
@@ -212,6 +213,7 @@ import { inheritSuccessorLaunchSettings } from "../supervisor/sessionLaunchInher
 import { buildThinkingOptions } from "./session-thinking-options.js";
 import {
   actingUsername,
+  principalFor,
   applyLimitedLaunchPolicy,
   applyLimitedResumePolicy,
   type LimitedLaunchBody,
@@ -2094,6 +2096,39 @@ function extractContextUsageFromSDKMessages(
 
 export function createSessionsRoutes(deps: SessionsDeps): Hono {
   const routes = new Hono();
+  const creationForRequest = (
+    c: Context,
+    declared: unknown,
+  ): NonNullable<SessionLaunchOptions["creation"]> => {
+    const principal = principalFor(c);
+    const context = {
+      owner:
+        principal.kind === "limited"
+          ? { kind: "limited" as const, username: principal.username }
+          : { kind: "superuser" as const },
+      source: {
+        kind: "request" as const,
+        provenance: requestCreationProvenance(c, declared),
+      },
+    };
+    return {
+      context,
+      async authorize(saved) {
+        // Accepted owner work survives its HTTP request/cookie. Superuser has
+        // no mutable project grant; limited grants require the later sandbox cut.
+        if (deps.signal?.aborted)
+          throw new Error("Session owner is shutting down");
+        if (
+          context.owner.kind !== "superuser" ||
+          saved.context.owner.kind !== "superuser"
+        ) {
+          throw new Error(
+            "This creation requires current limited-user launch policy",
+          );
+        }
+      },
+    };
+  };
   const boundSessionReads = new BoundSessionReads({
     readerFactory: deps.readerFactory,
     sessionIndexService: deps.sessionIndexService,
@@ -2539,6 +2574,15 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
     );
   };
+
+  // Deferred starts retain only these copied launch values, never the request
+  // context or its complete JSON body (including unrelated oversized fields).
+  const newSessionLaunchCallback =
+    (
+      launch: Parameters<typeof recordNewSessionLaunch>[1],
+    ): NonNullable<SessionLaunchOptions["onStarted"]> =>
+    (_sessionId, process) =>
+      recordNewSessionLaunch(process, launch);
 
   const loadProviderSession = async (
     project: Project,
@@ -4317,26 +4361,26 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
       {
         projectId: project.id,
-        onStarted: (_sessionId, process) =>
-          recordNewSessionLaunch(process, {
-            creationProvenance: requestCreationProvenance(
-              c,
-              body.creationProvenance,
-            ),
-            createdByUser:
-              limitedLaunch.kind === "applied"
-                ? limitedLaunch.username
-                : undefined,
-            provider: body.provider,
-            executor,
-            initialPrompt: body.message,
-            requestedModel: body.model,
-            recapAfterSeconds: helperSettings.recapAfterSeconds,
-            sandbox: {
-              level: sandboxSelection.sandboxLevel,
-              networkFirewall: sandboxSelection.sandboxNetworkFirewall,
-            },
-          }),
+        creation: creationForRequest(c, body.creationProvenance),
+        onStarted: newSessionLaunchCallback({
+          creationProvenance: requestCreationProvenance(
+            c,
+            body.creationProvenance,
+          ),
+          createdByUser:
+            limitedLaunch.kind === "applied"
+              ? limitedLaunch.username
+              : undefined,
+          provider: body.provider,
+          executor,
+          initialPrompt: body.message,
+          requestedModel: body.model,
+          recapAfterSeconds: helperSettings.recapAfterSeconds,
+          sandbox: {
+            level: sandboxSelection.sandboxLevel,
+            networkFirewall: sandboxSelection.sandboxNetworkFirewall,
+          },
+        }),
       },
     );
 
@@ -4642,23 +4686,23 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         helperSideModel: helperSettings.helperSideModel,
       },
       {
-        onStarted: (_sessionId, process) =>
-          recordNewSessionLaunch(process, {
-            creationProvenance: requestCreationProvenance(
-              c,
-              body.creationProvenance,
-            ),
-            createdByUser: actingUsername(c),
-            provider: body.provider,
-            executor,
-            initialPrompt: body.message,
-            requestedModel: body.model,
-            recapAfterSeconds: helperSettings.recapAfterSeconds,
-            sandbox: {
-              level: sandboxSelection.sandboxLevel,
-              networkFirewall: sandboxSelection.sandboxNetworkFirewall,
-            },
-          }),
+        creation: creationForRequest(c, body.creationProvenance),
+        onStarted: newSessionLaunchCallback({
+          creationProvenance: requestCreationProvenance(
+            c,
+            body.creationProvenance,
+          ),
+          createdByUser: actingUsername(c),
+          provider: body.provider,
+          executor,
+          initialPrompt: body.message,
+          requestedModel: body.model,
+          recapAfterSeconds: helperSettings.recapAfterSeconds,
+          sandbox: {
+            level: sandboxSelection.sandboxLevel,
+            networkFirewall: sandboxSelection.sandboxNetworkFirewall,
+          },
+        }),
       },
     );
 

@@ -2,6 +2,10 @@ import {
   snapshotCreationLaunch,
   type CreationLaunchSnapshot,
 } from "./session-creation-launch.js";
+import {
+  snapshotCreationInput,
+  type CreationInputSnapshot,
+} from "./session-creation-input.js";
 import { createHash, randomUUID } from "node:crypto";
 import { isAbsolute } from "node:path";
 import {
@@ -46,6 +50,7 @@ export interface SavedCreationRequest {
   settings: EffectiveSessionLaunchSettingsValue;
   /** Absent only on storage-foundation/legacy records with no runtime launch. */
   launch?: CreationLaunchSnapshot;
+  input?: CreationInputSnapshot;
 }
 export type CreationState = SessionCreationStatus["state"];
 export type CreationDelivery = SessionCreationStatus["delivery"];
@@ -268,6 +273,9 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
     message: request.message,
     ...(request.launch !== undefined
       ? { launch: snapshotCreationLaunch(request.launch) }
+      : {}),
+    ...(request.input !== undefined
+      ? { input: snapshotCreationInput(request.input) }
       : {}),
     settings: {
       requestedModel: s.requestedModel,

@@ -695,7 +695,14 @@ Node 26 and Bun. Verified teardown retains failed owners, normal completion
 closes input, and native scopes include symlinked directory leaves. Final
 lint/format/typecheck and the complete Node 26 workspace pass; the initial red
 Rendez run remains recorded without claiming a watcher fix. Ordinary
-caller rollout, router/sandbox/hosted integration remain pending.
+caller rollout is independently accepted for qualified project/detached superuser
+Claude text requests, including saved startup failure and versioned first-input
+metadata. Existing response/queue behavior stays compatible; actual owned Node/Bun
+HTTP/SDK/CLI/profile-restart qualification passes using a local fake model.
+Deferred starts retain copied values without the full HTTP request. Final
+lint/format/typecheck and the complete Node 26 workspace pass.
+Remaining default-wrapper, input shapes and router/sandbox/hosted integration
+remain pending.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

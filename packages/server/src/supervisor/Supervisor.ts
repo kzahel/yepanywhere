@@ -6,10 +6,13 @@ import { randomUUID } from "node:crypto";
 import { creationProcessIdentity } from "../sessions/creation-process-identity.js";
 import {
   StaleCreationAttempt,
+  type CreationContext,
   type CreationAttemptFence,
   type SavedSessionCreation,
 } from "../sessions/SessionCreationStore.js";
 import { isProviderRuntimeHostAvailable } from "../sdk/providers/provider-runtime-host.js";
+import { snapshotCreationLaunch } from "../sessions/session-creation-launch.js";
+import { snapshotCreationInput } from "../sessions/session-creation-input.js";
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -409,6 +412,11 @@ export class RetryableSessionLaunchError extends Error {
 }
 
 export interface SessionLaunchOptions {
+  /** Trusted request admission; retained callers migrate explicitly. */
+  creation?: {
+    context: CreationContext;
+    authorize(saved: SavedSessionCreation): Promise<void>;
+  };
   /** Canonical YA project id when it differs from the provider cwd. */
   projectId?: UrlProjectId;
   /**
@@ -1043,6 +1051,7 @@ export class Supervisor {
   async startSavedSession(
     fence: CreationAttemptFence,
     authorize: (saved: SavedSessionCreation) => Promise<void>,
+    onStarted?: SessionStartedCallback,
   ): Promise<Process | QueuedResponse | QueueFullResponse> {
     const store = this.sessionMetadataService?.creations;
     if (!store) throw new Error("Durable session storage is unavailable");
@@ -1067,6 +1076,7 @@ export class Supervisor {
         message: { text: "" },
         creationFence: fence,
         authorizeCreation: authorize,
+        onStarted,
       });
       if (isQueueFullError(result)) {
         store.failBeforeEffects(fence, "launch-refused");
@@ -1078,7 +1088,13 @@ export class Supervisor {
         position: result.position,
       };
     }
-    return this.dispatchSavedSession(fence, authorize);
+    const process = await this.dispatchSavedSession(fence, authorize);
+    await this.notifyImmediateStart(
+      { onStarted },
+      process,
+      saved.request!.projectId,
+    );
+    return process;
   }
 
   private async dispatchSavedSession(
@@ -1146,7 +1162,13 @@ export class Supervisor {
       return await this.startProviderSession(
         request.projectPath,
         request.projectId,
-        { text: request.message, uuid: saved.initialInputId },
+        {
+          text: request.message,
+          uuid: saved.initialInputId,
+          tempId: request.input?.tempId,
+          mode: request.input?.mode,
+          metadata: request.input?.metadata,
+        },
         undefined,
         request.settings.permissionMode,
         modelSettings,
@@ -1192,6 +1214,84 @@ export class Supervisor {
     this.assertSessionSandboxSettings(modelSettings);
     const projectId = launchOptions?.projectId ?? encodeProjectId(projectPath);
     const provider = this.resolveProvider(modelSettings);
+
+    // Roll out the first qualified text shape explicitly. Attachments and
+    // other launch shapes retain their existing flow until their own cuts.
+    if (
+      launchOptions?.creation &&
+      provider?.name === "claude" &&
+      provider.getNewSessionNamespace &&
+      launchOptions.creation.context.owner.kind === "superuser" &&
+      !message.images?.length &&
+      !message.documents?.length &&
+      !message.attachments?.length &&
+      !parseSlashCommandSubmission(message.text) &&
+      message.automaticSource === undefined &&
+      !message.recapResumeHandled &&
+      message.priority === undefined &&
+      !message.tempIds?.length &&
+      !message.metadata?.apiSubmissionId &&
+      !message.metadata?.apiSubmissionIds?.length &&
+      !message.metadata?.hidden &&
+      !modelSettings?.routerAccountId &&
+      !modelSettings?.routerPoolId &&
+      !modelSettings?.machineControl &&
+      modelSettings?.sandboxLevel !== "project-write" &&
+      !isProviderRuntimeHostAvailable() &&
+      this.sessionMetadataService?.creations
+    ) {
+      const store = this.sessionMetadataService.creations;
+      const saved = store.admit({
+        requestId: randomUUID(),
+        context: launchOptions.creation.context,
+        request: {
+          projectId,
+          projectPath,
+          provider: provider.name,
+          message: message.text,
+          settings: {
+            permissionMode: permissionMode ?? this.defaultPermissionMode,
+            requestedModel:
+              modelSettings?.requestedModel ?? modelSettings?.model ?? null,
+            serviceTier: modelSettings?.serviceTier ?? null,
+            thinking: modelSettings?.thinking ?? null,
+            effort: modelSettings?.effort ?? null,
+          },
+          launch: snapshotCreationLaunch(modelSettings ?? {}),
+          input: snapshotCreationInput({
+            schemaVersion: 1,
+            tempId: message.tempId,
+            mode: message.mode,
+            metadata: message.metadata,
+          }),
+        },
+      });
+      try {
+        if (this.isAtCreationCapacity() && this.pendingCreationStarts < 16) {
+          const preemptable = this.findPreemptableWorker();
+          if (preemptable) {
+            await launchOptions.creation.authorize(saved);
+            store.assertCurrent(saved.attempt);
+            await this.preemptWorker(preemptable);
+          }
+        }
+        return await this.startSavedSession(
+          saved.attempt,
+          launchOptions.creation.authorize,
+          launchOptions.onStarted,
+        );
+      } catch (error) {
+        // Preemption/authority can fail before the dispatcher owns this item.
+        try {
+          const current = store.assertCurrent(saved.attempt);
+          if (["saved", "queued"].includes(current.attempt.state))
+            store.failBeforeEffects(saved.attempt, "launch-refused");
+        } catch (failure) {
+          if (!(failure instanceof StaleCreationAttempt)) throw failure;
+        }
+        throw error;
+      }
+    }
 
     // Check if at capacity
     if (this.isAtCapacity()) {
