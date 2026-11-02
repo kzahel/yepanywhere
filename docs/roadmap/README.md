@@ -733,6 +733,13 @@ qualified. Owned pinned SDK/CLI two-turn/profile-restart probes pass on Node 22,
 Node 26 and Bun, including competing same-id native history. Legacy hosted
 incumbents retain claim-only attachment; unsupported fresh hosted workers and
 restart-only configuration replacement refuse before destructive effects.
+Published 0.8.0/0.11.0 owned Claude/Codex observation now passes standalone
+browser qualification: existing API and released-composer submission retain one
+pending/confirmed/durable user turn, one public URL/collection identity and no
+native-id browser requests. Real pinned Claude SDK/CLI and controlled Codex
+app-server fixtures are used without external model calls. Sequential typing
+acknowledges each character within 20 ms in these fixtures. Other provider/skew
+and future draft-volume gates remain.
 Remaining provider/host cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

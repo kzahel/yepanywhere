@@ -26,6 +26,23 @@ The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
 
+- Phase 3 owned released-client observation passes on published 0.8.0 and
+  0.11.0 for Claude and Codex. Four existing-API probes and four actual released
+  composer probes exercise differing public/native ids, one pending input,
+  confirmed output and one durable user turn after page reload. URLs, all public
+  requests and collection identities stay YA. Each profile owns its server,
+  browser and native/protocol fixture; browser network is restricted to that
+  server. Claude uses the pinned actual SDK/CLI with a local fake model; Codex
+  uses the real adapter and controlled OS app-server/native rollout path, without
+  external model calls. Composer probes acknowledge every sequential character
+  within 20 ms (Claude 10/20 ms, Codex 16/16 ms for 0.11.0/0.8.0). Initial Codex
+  fixture failures are retained: response/event ordering and a missing seed
+  receipt were corrected to the existing native provenance contract; normalized
+  API evidence showed one user turn rather than a product duplication defect.
+  Sol 6.1 High independently accepts this evidence. No runtime/client/capability
+  change is made by this qualification. Remaining provider/host cold paths and later phases stay
+  gated; this does not claim phase 8's future draft/concurrent-volume checks.
+
 - Phase 3 local Claude/Codex cold continuation is independently accepted by
   Sol 6.1 High after correcting retained legacy-host interception and failed
   bridge cleanup. One provider-owned native-source boundary supplies native

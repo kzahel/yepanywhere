@@ -6,7 +6,8 @@ and collections are implemented. The first ordinary Claude text path now uses
 the stored-request dispatcher and permanent-identity Process boundary;
 qualified hosted Claude text and local Claude/Codex cold continuations are
 implemented. Remaining caller/provider shapes, broader cold-resume/owned-browser
-gates and release qualification remain pending.
+gates and release qualification remain pending. Published 0.8.0/0.11.0 Claude
+and Codex owned-session observation is qualified as described below.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 defines the implementation slices, isolated-profile qualification and requested
@@ -122,6 +123,15 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   a delayed result cannot acquire reader work after application shutdown.
   Other native-family observation and released-client/browser qualification
   remain enabling work before differing-id launches.
+- Published clients 0.8.0 and 0.11.0 are qualified for owned Claude/Codex
+  sessions with differing YA/native ids. Both existing API submission and actual
+  released-composer submission preserve one visible user turn through held
+  native work, confirmed output and durable page reload. Requests, URLs and
+  collection rows keep the YA id. Qualification uses pinned Claude SDK/CLI and
+  the real Codex adapter with a controlled app-server process, isolated profiles
+  and immutable released assets; it makes no live external Codex/model claim.
+  This extends the existing non-owned focused-watch qualification. It does not
+  qualify other provider launches, new receipt APIs or future draft handling.
 - Retained fork/clone source resolution uses an operation-scoped stored/legacy
   lookup and passes the native id, actual file and original transcript project
   across the provider boundary. Provider fork inputs/results explicitly name
@@ -427,7 +437,7 @@ promises the complete selected durable session lifecycle.
 | --- | --- |
 | Public ids | Existing session-id fields carry strings; preserving their shape allows server-side native translation without a capability solely for the database implementation. Audit consumers rather than assuming every string is already opaque in practice. |
 | Creation responses | A pending YA session cannot replace the legacy process/session result unconditionally. Preserve established success/queue/error behavior; select early durable acceptance through a new route or negotiated mode. A valid id before startup must not imply a ready process. |
-| File events | All reviewed clients' broad file handlers compare the id extracted from `relativePath` with the viewed session id (`hooks/useSession.ts`, `lib/sessionFile.ts`). A native filename differing from the YA id can suppress that refresh path. All nine also have `useSessionWatchStream` for non-owned sessions; its focused change handler fetches without filename-id comparison. This is an existing compatibility bridge to qualify: resolve the requested YA id to the native watch target server-side, while keeping the subscription's YA identity. Owned-session pending/durable confirmation paths still need coverage. An additive canonical-id field alone does not fix old clients; do not falsify physical file paths to conceal the mismatch. |
+| File events | All reviewed clients' broad file handlers compare the id extracted from `relativePath` with the viewed session id (`hooks/useSession.ts`, `lib/sessionFile.ts`). A native filename differing from the YA id can suppress that refresh path. All nine also have `useSessionWatchStream` for non-owned sessions; its focused change handler fetches without filename-id comparison. This is an existing compatibility bridge to qualify: resolve the requested YA id to the native watch target server-side, while keeping the subscription's YA identity. Owned Claude/Codex pending/durable paths are now qualified on published 0.8.0 and 0.11.0, including released-composer submission and reload; other provider/skew gates remain. An additive canonical-id field alone does not fix old clients; do not falsify physical file paths to conceal the mismatch. |
 | Lists and detail | Catalogs/readers currently derive substantial state from provider discovery. YA-only saved/failed rows need a joined projection and transcript-less detail response; a metadata row alone is insufficient. Preserve existing row/detail fields and define absence of new startup fields. Old clients may show only a generic failure and do not gain recovery UI automatically. |
 | Provider selection | Readers/resume paths must resolve the binding before provider-specific id/path parsing. OpenCode currently uses native `ses_*` identity, including read fallback selection; a new UUID must not turn it into an empty Claude session. |
 | References and access | Keep old ids stable. Preserve drafts, recents, grants, shares, attachment ownership, queue records, API receipts, peer relationships and parent/child links. Native-id resolution must not bypass existing principal/project/session authorization. |
