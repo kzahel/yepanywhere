@@ -1,3 +1,8 @@
+import {
+  mergeCreationProjectCards,
+  type CreationNativeInventoryItem,
+} from "./creation-session-collections.js";
+import { mergeCreationSessionSummaries } from "../sessions/session-creation-view.js";
 import { homedir } from "node:os";
 import {
   isUrlProjectId,
@@ -78,6 +83,10 @@ function normalizeAddedProjectPath(typed: string): string {
 }
 
 export interface ProjectsDeps {
+  signal?: AbortSignal;
+  readNativeSessionInventory?: () => Promise<
+    readonly CreationNativeInventoryItem[]
+  >;
   scanner: ProjectScanner;
   readerFactory: (project: Project) => ISessionReader;
   supervisor?: Supervisor;
@@ -497,7 +506,7 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     const captionByProjectId = await captionsForProjects(rawProjects);
 
     // Enrich projects with active counts (all keyed by UrlProjectId now)
-    const projects = rawProjects.map((project) => {
+    const nativeProjects = rawProjects.map((project) => {
       const counts = getActivityCountsForProject(activityCounts, project.id);
       return {
         ...project,
@@ -512,6 +521,18 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
         ),
       };
     });
+
+    const projects = mergeCreationProjectCards(
+      nativeProjects,
+      deps.sessionMetadataService,
+      {
+        signal: deps.signal,
+        nativeInventory: await deps.readNativeSessionInventory?.(),
+        projectMetadata: deps.projectMetadataService,
+        runtimeCounts: (projectId) =>
+          getActivityCountsForProject(activityCounts, projectId),
+      },
+    );
 
     // Sort by lastActivity descending (most recent first), nulls last
     projects.sort((a, b) => {
@@ -582,17 +603,27 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
       ? getProjectQueueCountForProject(deps.projectQueueService, project.id)
       : 0;
 
-    return c.json({
-      project: {
-        ...project,
-        codeName: codeNameByProjectId.get(project.id),
-        caption: await captionForProject(project),
-        activeOwnedCount: counts.activeOwnedCount,
-        activeExternalCount: counts.activeExternalCount,
-        projectQueueBlockingCount: counts.projectQueueBlockingCount,
-        projectQueueCount,
+    const cards = mergeCreationProjectCards(
+      [
+        {
+          ...project,
+          codeName: codeNameByProjectId.get(project.id),
+          caption: await captionForProject(project),
+          activeOwnedCount: counts.activeOwnedCount,
+          activeExternalCount: counts.activeExternalCount,
+          projectQueueBlockingCount: counts.projectQueueBlockingCount,
+          projectQueueCount,
+        },
+      ],
+      deps.sessionMetadataService,
+      {
+        signal: deps.signal,
+        nativeInventory: await deps.readNativeSessionInventory?.(),
+        projectMetadata: deps.projectMetadataService,
+        runtimeCounts: (id) => getActivityCountsForProject(activityCounts, id),
       },
-    });
+    );
+    return c.json({ project: cards[0] });
   });
 
   // POST /api/projects - Add a project by path
@@ -1044,7 +1075,16 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
     const resolvedProjectId = project.id;
     sessions = addMissingOwnedSessions(sessions, resolvedProjectId);
 
-    const enriched = enrichSessions(sessions).filter((session) =>
+    const enriched = mergeCreationSessionSummaries(
+      enrichSessions(sessions),
+      deps.sessionMetadataService,
+      project.id,
+      deps.signal,
+      includeArchived
+        ? undefined
+        : getActiveSessionIndexOptions(deps.sessionAutoArchiveDays)
+            ?.activeAfterMs,
+    ).filter((session) =>
       projectIdsShareIdentity(session.projectId, resolvedProjectId),
     );
     const withChildren = await attachProviderChildSessions(

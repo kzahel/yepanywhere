@@ -1,3 +1,4 @@
+import type { SessionCreationStatus } from "./session-creation.js";
 /**
  * App-specific types that extend SDK types with runtime/computed fields.
  *
@@ -684,6 +685,8 @@ export interface AppSessionSummary {
   forkedFromSessionId?: string;
   /** Client-declared creation provenance; absent for older or external sessions. */
   creationProvenance?: SessionCreationProvenance;
+  /** Durable YA startup evidence; absent on legacy/external sessions. */
+  creation?: SessionCreationStatus;
   /** Public, immutable account pin. Never contains transport credentials. */
   routerBinding?: {
     poolId?: string;

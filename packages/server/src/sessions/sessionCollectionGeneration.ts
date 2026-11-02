@@ -55,8 +55,13 @@ export function busEventChangesSessionCollection(event: BusEvent): boolean {
 export class SessionCollectionGeneration {
   private generation = 1;
   private readonly unsubscribe: (() => void) | null;
+  private observedControlVersion: number | undefined;
+  private controlVersionObserved = false;
 
-  constructor(eventBus?: EventBus) {
+  constructor(
+    eventBus?: EventBus,
+    private readonly controlVersion?: () => number | undefined,
+  ) {
     this.unsubscribe =
       eventBus?.subscribe((event) => {
         if (busEventChangesSessionCollection(event)) {
@@ -66,6 +71,14 @@ export class SessionCollectionGeneration {
   }
 
   get current(): number {
+    const next = this.controlVersion?.();
+    if (!this.controlVersionObserved) {
+      this.controlVersionObserved = true;
+      this.observedControlVersion = next;
+    } else if (next !== this.observedControlVersion) {
+      this.observedControlVersion = next;
+      this.generation += 1;
+    }
     return this.generation;
   }
 
@@ -76,11 +89,11 @@ export class SessionCollectionGeneration {
    * value means the server restarted and rewound its counter, so the client's
    * token refers to a generation this process never produced.
    */
-  matches(known: number | undefined): boolean {
+  matches(known: number | undefined, captured = this.current): boolean {
     if (known === undefined || !Number.isInteger(known) || known <= 0) {
       return false;
     }
-    return known === this.generation;
+    return known === captured;
   }
 
   /** Advance the revision directly, for inputs that reach no bus event. */

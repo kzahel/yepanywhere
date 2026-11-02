@@ -1,3 +1,9 @@
+import {
+  creationCollectionRows,
+  creationSessionSummary,
+} from "../sessions/session-creation-view.js";
+import { fromUrlProjectId } from "@yep-anywhere/shared";
+import { getProjectName } from "../projects/paths.js";
 /**
  * Inbox route - aggregates sessions across all projects into prioritized tiers.
  *
@@ -44,7 +50,10 @@ import type {
 import type { EventBus } from "../watcher/index.js";
 import type { ProjectDisplayNameResolver } from "../projects/paths.js";
 import { buildProviderProjectCatalog } from "./provider-catalog.js";
-import { getActiveSessionIndexOptions } from "./session-list-options.js";
+import {
+  getActiveSessionIndexOptions,
+  isSessionAutoArchived,
+} from "./session-list-options.js";
 
 export interface InboxDeps {
   signal?: AbortSignal;
@@ -73,6 +82,7 @@ export interface InboxDeps {
 }
 
 export interface InboxItem {
+  creation?: import("@yep-anywhere/shared").SessionCreationStatus;
   creationProvenance?: import("@yep-anywhere/shared").SessionCreationProvenance;
   nonHumanUserTurn?: import("@yep-anywhere/shared").NonHumanUserTurn | null;
   asyncQuestions?: SessionListSummary["asyncQuestions"];
@@ -109,6 +119,7 @@ const INBOX_RETENTION_BYTES = 8 * 1024 * 1024;
 
 /** One session, walked and enriched, before any tier decision is made. */
 interface EnrichedInboxSession {
+  creation?: InboxItem["creation"];
   creationProvenance?: InboxItem["creationProvenance"];
   session: SessionListSummary;
   projectName: string;
@@ -145,7 +156,13 @@ function getActiveProjectQueueSessionIds(
 export function createInboxRoutes(deps: InboxDeps): Hono {
   const routes = new Hono();
 
-  const collectionGeneration = new SessionCollectionGeneration(deps.eventBus);
+  const collectionGeneration = new SessionCollectionGeneration(
+    deps.eventBus,
+    () =>
+      deps.signal?.aborted
+        ? undefined
+        : deps.sessionMetadataService?.creations?.generation,
+  );
   /**
    * One walk per (project filter, generation), however many tabs ask for it.
    *
@@ -261,7 +278,45 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
       }
     }
 
-    return allSessions;
+    const control = creationCollectionRows(
+        deps.sessionMetadataService,
+        deps.signal,
+      ),
+      byId = new Map(control.map((row) => [String(row.sessionId), row]));
+    const visible = allSessions.filter((item) => {
+      const row = byId.get(item.session.id);
+      if (row?.deleted || (row && !row.nativeBound)) return false;
+      if (row) item.creation = row.creation;
+      return true;
+    });
+    const seen = new Set(visible.map((item) => item.session.id));
+    if (deps.sessionMetadataService)
+      for (const row of control) {
+        if (seen.has(row.sessionId)) continue;
+        const summary = creationSessionSummary(
+          row,
+          deps.sessionMetadataService,
+        );
+        if (
+          !summary ||
+          (filterProjectId && summary.projectId !== filterProjectId) ||
+          (summary.isArchived ??
+            isSessionAutoArchived(summary, listOptions?.activeAfterMs))
+        )
+          continue;
+        visible.push({
+          session: summary,
+          projectName: (deps.projectDisplayName ?? getProjectName)(
+            fromUrlProjectId(summary.projectId),
+          ),
+          creation: row.creation,
+          creationProvenance: summary.creationProvenance,
+          customTitle: summary.customTitle,
+          isStarred: summary.isStarred,
+          hasUnread: false,
+        });
+      }
+    return visible;
   }
 
   async function readInbox(
@@ -320,6 +375,7 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
             hasUnread: item.hasUnread,
             customTitle: item.customTitle,
             creationProvenance: item.creationProvenance,
+            creation: item.creation,
             isStarred: item.isStarred,
           }))
       : await readInbox(filterProjectId);
@@ -359,6 +415,7 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
       updatedAt: item.session.updatedAt,
       customTitle: item.customTitle,
       creationProvenance: item.creationProvenance,
+      creation: item.creation,
       isStarred: item.isStarred,
       pendingInputType: item.pendingInputType,
       activity: item.activity,

@@ -3226,9 +3226,19 @@ export class Supervisor {
     const identity = isYaSessionId(sessionId)
       ? this.sessionMetadataService?.identities?.resolveYa(sessionId)
       : undefined;
-    if (identity && !identity.native) {
+    const startup = identity
+      ? this.sessionMetadataService?.creations?.statusForSession(
+          identity.sessionId,
+        )
+      : undefined;
+    if (
+      identity &&
+      (!identity.native ||
+        (startup &&
+          (startup.state !== "bound" || startup.delivery !== "consumed")))
+    ) {
       throw new SessionMessageRejectedError(
-        "Session startup has no native conversation; use creation recovery",
+        "Session startup has not completed; use creation recovery",
       );
     }
     const { projectPath, modelSettings } = this.withSettledSandbox(

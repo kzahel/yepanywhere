@@ -619,9 +619,9 @@ be retried. Explicit deletion releases saved payload while retaining a deleted
 operation, request hash, native identity and historical retry results.
 
 This is an internal storage boundary, with the bounds selected above. It does
-not yet route ordinary creation, expose saved sessions in collections/detail,
-or advertise `session-creation-receipts`. Native namespace quarantine, provider
-startup integration, current-authority dispatch, and all caller/attachment/client
+not yet route ordinary creation or advertise `session-creation-receipts`.
+Native namespace quarantine, provider startup integration, current-authority
+dispatch, and all caller/attachment/client
 qualification remain required before those guarantees become public behavior.
 
 ### Saved-record reads before native startup
@@ -643,6 +643,32 @@ An unbound identity cannot advance through ordinary resume; explicit creation
 recovery owns that future transition. Deleted operation payloads and unbound
 identities without a creation record are not synthesized as readable sessions.
 
-This source slice covers detail/metadata and access facts. Public creation,
-collection/project-card discovery, the remaining callers and capability
+Global sessions, project session lists, inbox and public project cards also
+include nondeleted control records without manufacturing native catalogue rows,
+transcript paths or activity evidence. Native rows win once available; their
+additive creation status remains visible. A known native binding with no readable
+transcript continues to expose the saved prompt and status. Ordinary send/resume
+cannot advance it while delivery remains unconsumed or uncertain. Existing
+archive, query and access rules apply; saved records do not imply unread content,
+pending approval or a live provider. Project-list native/runtime enrichment runs
+before the control merge, so notification state cannot turn a control timestamp
+into unread provider content. Deletion removes the control projection.
+
+For projects containing creation records, card counts are the identity union of
+control records and one already-published compact native catalogue snapshot.
+Both the native baseline and overlap come from that snapshot; aggregate scanner
+counts cannot prove whether a bound session is already represented. Counts may
+follow catalogue publication while discovery warms, and no card request starts
+or refreshes native discovery. Binding before a transcript exists neither drops
+its count nor doubles it when the transcript publishes. Global hidden-project
+policy also applies to saved-only cards; explicit project restoration retains
+its existing behavior.
+
+Migration 19 adds one profile-wide control revision, advanced in the same
+transaction as creation mutations. Replayed admission/retry and rolled-back
+writes do not advance it. Collection conditionals and cached stats observe this
+revision alongside native/runtime publications. Collections read compact current
+attempt projections rather than decoding retained request payloads.
+
+Public creation, actual durable launching, the remaining callers and capability
 advertisement remain gated by the rest of plan 171.

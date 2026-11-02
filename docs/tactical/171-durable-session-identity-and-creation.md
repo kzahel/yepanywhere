@@ -70,6 +70,22 @@ Runtime work and the provenance defect remain unimplemented.
   full run hit the existing Rendez restart failure and remains recorded in its
   gap. Collection discovery and the actual durable launcher remain later
   boundaries.
+- Phase 4 collection slice is independently accepted by Sol 6.1 High:
+  global/project/inbox collections and public project cards include Saved/Failed control rows;
+  native-bound records with no transcript remain readable. Migration 19's atomic
+  revision invalidates collection conditionals and cached stats without payload
+  decoding or native catalogue rows. Ordinary unconsumed/uncertain resume refuses.
+  Three review corrections preserve global hiding/restoration, count the union
+  of a published native inventory and controls, and merge controls after native
+  notification enrichment. Final focused checks pass 152 cases across 13 files
+  in 6.06 s, including real notifications and mixed bound/no-transcript counts.
+  Corrected standalone Node/Bun HTTP collection/restart probes and pinned Bun
+  18→19/revision/reopen probes pass. Lint has zero warnings; format/typecheck
+  pass. The first workspace invocation hid the browser cache under its temporary
+  home and failed browser fixtures; its log is retained, with an explicit cache
+  path supplied for the final run. That corrected complete Node 26 workspace
+  passes (6,814 server / 7,064 client; server 127.96 s). Public creation, actual
+  durable launching and capability remain unchanged.
 - Phase 2: implemented and independently accepted by Sol 6.1 High after fixing
   stored-identity missing-transcript fallback and Codex read ownership. Migration
   17, scoped forward/reverse adoption and bound Claude/Codex detail/history are

@@ -1,8 +1,12 @@
-import { mkdtemp, mkdir, rm, access } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, access, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
-import { toUrlProjectId } from "@yep-anywhere/shared";
+import {
+  toUrlProjectId,
+  nativeSessionRef,
+  parseNativeSessionId,
+} from "@yep-anywhere/shared";
 import { AuthService } from "../../src/auth/AuthService.js";
 import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
 import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
@@ -174,6 +178,49 @@ it("reads saved/failed sessions through authorized APIs without a native project
         expect(redirect.status).toBe(307);
         expect(redirect.headers.get("Location")).toContain(workingId);
       }
+      if (restart) {
+        const current = metadata.creations.getForSession(
+          saved.body.session.id,
+        )!;
+        const retry = metadata.creations.retry(
+          current.context.owner,
+          requestId,
+          "retry_bound_missing",
+          current.attempt.attemptId,
+        );
+        const dispatch = metadata.creations.beginDispatch(retry);
+        const scope = join(root, "selected-native-scope");
+        await mkdir(scope);
+        metadata.creations.bindNative(
+          dispatch,
+          nativeSessionRef(
+            "claude",
+            await realpath(scope),
+            parseNativeSessionId("99999999-9999-4999-8999-999999999999"),
+          ),
+        );
+        const bound = await read(alice);
+        expect(bound.response.status).toBe(200);
+        expect(bound.body).toMatchObject({
+          session: {
+            id: sessionId,
+            creation: { state: "bound", delivery: "not-admitted" },
+          },
+          messages: [],
+        });
+        expect((await read(alice, "/metadata")).response.status).toBe(200);
+        await expect(
+          instance.supervisor.resumeSession(sessionId, working, {
+            text: "must not bypass first-input recovery",
+          }),
+        ).rejects.toThrow("creation recovery");
+        metadata.creations.markUncertain(dispatch);
+        expect((await read(alice)).body.session.creation.state).toBe(
+          "uncertain",
+        );
+        metadata.creations.delete(dispatch);
+        expect((await read(alice)).response.status).toBe(404);
+      }
       await expect(
         instance.supervisor.resumeSession(sessionId, working, {
           text: "must not allocate a native conversation",
@@ -208,7 +255,7 @@ it("keeps saved project facts authoritative over a previously cached native alia
     getLiveSession: () => undefined,
     getSessionMetadata: () => ({ createdByUser: "alice" }),
     readCatalogRows: catalog,
-    getSavedSession: () => saved,
+    getCreationSession: () => saved,
   });
   expect((await resolver.resolve("same-spelling"))?.projectId).toBe(
     "foreign-native-project",

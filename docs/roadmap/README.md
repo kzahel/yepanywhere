@@ -672,7 +672,13 @@ ordinary detail/metadata under existing project/creator access, without a native
 transcript or project directory. Their exact source/prompt survive reopen;
 saved facts do not borrow native-alias activity, and ordinary unbound resume
 refuses. Review, standalone Node/Bun HTTP probes and full Node 26 checks pass.
-Collection visibility and equal-id Claude integration are next.
+Collection visibility is independently accepted: Saved/Failed rows appear in both list
+implementations, inbox and project cards, and bound records remain readable
+before their native transcript exists. An atomic control revision participates
+in conditionals and stats invalidation. Hidden projects remain hidden, startup
+updates imply no unread provider content, and mixed bound/native counts use
+identity union. Focused, standalone Node/Bun and complete Node 26 checks pass;
+equal-id Claude integration is next.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

@@ -7,6 +7,7 @@ import {
   assertUrlProjectId,
   parseYaSessionId,
   type NativeSessionRef,
+  type SessionCreationStatus,
   type ProviderName,
   type SessionCreationProvenance,
   type UrlProjectId,
@@ -35,15 +36,31 @@ export interface SavedCreationRequest {
   message: string;
   settings: EffectiveSessionLaunchSettingsValue;
 }
-export type CreationState =
-  | "saved"
-  | "queued"
-  | "dispatching"
-  | "bound"
-  | "failed"
-  | "uncertain"
-  | "deleted";
-export type CreationDelivery = "not-admitted" | "uncertain" | "consumed";
+export type CreationState = SessionCreationStatus["state"];
+export type CreationDelivery = SessionCreationStatus["delivery"];
+export interface SessionCreationProjection {
+  sessionId: YaSessionId;
+  projectId: UrlProjectId;
+  provider: ProviderName;
+  createdAt: string;
+  updatedAt: string;
+  nativeBound: boolean;
+  deleted: boolean;
+  creation: SessionCreationStatus;
+}
+interface ProjectionRow {
+  session_id: string;
+  project_id: string;
+  provider: ProviderName;
+  created_at: string;
+  updated_at: string;
+  native_bound: number;
+  deleted: number;
+  attempt_id: string;
+  state: CreationState;
+  delivery: CreationDelivery;
+  detail_json: string;
+}
 export interface CreationAttemptFence {
   readonly creationId: string;
   readonly attemptId: string;
@@ -248,6 +265,8 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
 /** Profile-owned synchronous control state. Fixed statements, no timers or caches. */
 export class SessionCreationStore {
   private readonly statements: Record<
+    | "advanceGeneration"
+    | "projections"
     | "byId"
     | "byKey"
     | "bySession"
@@ -269,6 +288,12 @@ export class SessionCreationStore {
   ) {
     metadata.assertProfileConnection(database);
     this.statements = {
+      advanceGeneration: database.prepare(
+        "UPDATE session_creation_capacity SET generation = generation + 1 WHERE id = 1",
+      ),
+      projections: database.prepare(
+        "SELECT i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt",
+      ),
       byId: database.prepare("SELECT * FROM session_creations WHERE id = ?"),
       byKey: database.prepare(
         "SELECT * FROM session_creations WHERE owner_key = ? AND request_key = ?",
@@ -308,6 +333,53 @@ export class SessionCreationStore {
       ),
     };
   }
+  /** One fixed-size scalar read; no per-session scan or timer. */
+  get generation(): number {
+    return this.statements.capacity.get<{ generation: number }>()!.generation;
+  }
+
+  /** At most 10,000 compact rows; never fetch/parse saved request payloads. */
+  listProjections(): SessionCreationProjection[] {
+    return this.statements.projections.all<ProjectionRow>().map((row) => {
+      assertUrlProjectId(row.project_id);
+      const detail: Pick<SessionCreationStatus, "failure"> = JSON.parse(
+        row.detail_json,
+      );
+      return {
+        sessionId: parseYaSessionId(row.session_id),
+        projectId: row.project_id,
+        provider: row.provider,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        nativeBound: row.native_bound === 1,
+        deleted: row.deleted === 1,
+        creation: {
+          state: row.state,
+          attemptId: row.attempt_id,
+          updatedAt: row.updated_at,
+          delivery: row.delivery,
+          ...(detail.failure ? { failure: detail.failure } : {}),
+        },
+      };
+    });
+  }
+
+  /** Point status avoids decoding the immutable request/context payload. */
+  statusForSession(sessionId: YaSessionId): SessionCreationStatus | undefined {
+    const row = this.statements.bySession.get<OperationRow>(
+      parseYaSessionId(sessionId),
+    );
+    if (!row) return;
+    const attempt = this.readAttempt(row.current_attempt);
+    return {
+      state: attempt.state,
+      attemptId: attempt.attemptId,
+      updatedAt: attempt.updatedAt,
+      delivery: attempt.delivery,
+      ...(attempt.failure ? { failure: attempt.failure } : {}),
+    };
+  }
+
   private readAttempt(id: string): CreationAttempt {
     const row = this.statements.attempt.get<AttemptRow>(id);
     if (!row) throw new Error("Missing saved creation attempt");
@@ -321,7 +393,7 @@ export class SessionCreationStore {
       state: row.state,
       delivery: row.delivery,
       updatedAt: row.updated_at,
-      ...detail,
+      ...(detail.failure ? { failure: detail.failure } : {}),
     };
   }
   private read(row: OperationRow): SavedSessionCreation {
@@ -442,6 +514,7 @@ export class SessionCreationStore {
             now,
           );
           this.statements.insertAttempt.run(attempt, id, now);
+          this.statements.advanceGeneration.run();
         },
       );
     } catch (error) {
@@ -497,6 +570,7 @@ export class SessionCreationStore {
       new Date().toISOString(),
       fence.attemptId,
     );
+    this.statements.advanceGeneration.run();
     return this.readAttempt(fence.attemptId);
   }
   markQueued(fence: CreationAttemptFence): CreationAttempt {
@@ -623,6 +697,7 @@ export class SessionCreationStore {
         failedAttemptId,
         attempt,
       );
+      this.statements.advanceGeneration.run();
       return this.readAttempt(attempt);
     });
   }

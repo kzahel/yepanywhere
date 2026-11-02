@@ -96,6 +96,7 @@ import {
   DEFAULT_CLEARLOOP_INACTIVITY_SECONDS,
   clampClearloopInactivitySeconds,
   toUrlProjectId,
+  fromUrlProjectId,
 } from "@yep-anywhere/shared";
 import {
   DEFAULT_PROJECT_QUEUE_QUIET_SECONDS,
@@ -963,12 +964,17 @@ export function createApp(options: AppOptions): AppResult {
     return grants && withPathGrantProjects(grants, knownProjectsForGrants());
   };
   const sessionAccessResolver = new SessionAccessResolver({
-    getSavedSession: (sessionId) => {
-      if (!isYaSessionId(sessionId)) return undefined;
-      const identity =
-        options.sessionMetadataService?.identities?.resolveYa(sessionId);
-      return identity && !identity.native
-        ? { projectId: identity.projectId, provider: identity.provider }
+    getCreationSession: (sessionId) => {
+      if (sessionReadLifetime.signal.aborted || !isYaSessionId(sessionId))
+        return undefined;
+      const metadata = options.sessionMetadataService;
+      const identity = metadata?.identities?.resolveYa(sessionId);
+      return identity && metadata?.creations?.statusForSession(sessionId)
+        ? {
+            projectId: identity.projectId,
+            provider: identity.provider,
+            nativeBound: identity.native !== null,
+          }
         : undefined;
     },
     getLiveSession: (sessionId) => {
@@ -984,7 +990,10 @@ export function createApp(options: AppOptions): AppResult {
       };
     },
     // The one retained catalog All Sessions and Inbox read, built below.
-    getCatalogVersion: () => retainedCollections?.getVersion(),
+    getCatalogVersion: () =>
+      sessionReadLifetime.signal.aborted
+        ? undefined
+        : `${retainedCollections?.getVersion() ?? ""}/${options.sessionMetadataService?.creations?.generation ?? 0}`,
     readCatalogRows: async () => {
       if (!retainedCollections) {
         throw new Error("Session catalog read before the app was built");
@@ -1265,6 +1274,15 @@ export function createApp(options: AppOptions): AppResult {
       options.projectMetadataService?.getAllProjects() ?? {},
     ))
       known.set(id, metadata.path);
+    if (!sessionReadLifetime.signal.aborted)
+      for (const row of options.sessionMetadataService?.creations?.listProjections() ??
+        []) {
+        if (row.deleted) continue;
+        const id =
+          options.sessionMetadataService?.getMetadata(row.sessionId)
+            ?.workingProjectId ?? row.projectId;
+        known.set(id, fromUrlProjectId(id));
+      }
     return [...known].map(([id, path]) => ({ id, path }));
   };
   const glossaryIndexService = new GlossaryIndexService();
@@ -3020,6 +3038,27 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/projects",
     createProjectsRoutes({
+      readNativeSessionInventory: async () => {
+        if (
+          sessionReadLifetime.signal.aborted ||
+          !options.sessionMetadataService?.creations?.listProjections().length
+        )
+          return [];
+        const published = await retainedCollections?.readPublishedRows();
+        const rows = await projectCatalogIdentities(
+          published?.rows ?? [],
+          options.sessionMetadataService,
+          sessionReadLifetime.signal,
+        );
+        return rows.map((row) => ({
+          id: row.sessionId,
+          projectId:
+            options.sessionMetadataService?.getMetadata(row.sessionId)
+              ?.workingProjectId ?? row.projectId,
+          provider: row.provider ?? row.catalogFamily,
+        }));
+      },
+      signal: sessionReadLifetime.signal,
       scanner,
       projectAppStore,
       readerFactory,

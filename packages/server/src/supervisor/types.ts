@@ -86,6 +86,7 @@ export interface SessionSandboxPolicy {
 
 // Session metadata (light, for lists)
 export interface SessionSummary {
+  creation?: AppSessionSummary["creation"];
   id: string;
   projectId: UrlProjectId;
   /** Human-readable project basename for display; projectId remains canonical. */

@@ -1,4 +1,7 @@
-import { savedCreationView } from "../sessions/session-creation-view.js";
+import {
+  savedCreationView,
+  creationStatusForSession,
+} from "../sessions/session-creation-view.js";
 import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
 import {
@@ -2255,6 +2258,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       }
   > => {
     const identity = storedIdentityFor(sessionId);
+    if (
+      deps.signal?.aborted ||
+      (identity &&
+        creationStatusForSession(
+          deps.sessionMetadataService,
+          identity.sessionId,
+          deps.signal,
+        )?.state === "deleted")
+    ) {
+      return { error: "Session not found", status: 404 };
+    }
     const workingProjectId =
       deps.sessionMetadataService?.getMetadata(sessionId)?.workingProjectId;
     const activeProcess = deps.supervisor.getProcessForSession(sessionId);
@@ -2960,6 +2974,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         deps.sessionMetadataService,
         routing.identityLookup.identity,
         routing.workingProjectId,
+        deps.signal,
       );
       if (saved) return c.json(saved);
     }
@@ -3031,6 +3046,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       : null;
 
     if (!sessionSummary && !process) {
+      if (routing.identityLookup.kind === "stored") {
+        const saved = savedCreationView(
+          deps.sessionMetadataService,
+          routing.identityLookup.identity,
+          routing.workingProjectId,
+          deps.signal,
+          true,
+        );
+        if (saved) return c.json(saved);
+      }
+
       const canonicalProjectId = await getGrokNativeProjectId(
         sessionId,
         projectId as UrlProjectId,
@@ -3108,6 +3134,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         forkedFromSessionId:
           metadata?.forkedFromSessionId ?? sessionSummary?.forkedFromSessionId,
         creationProvenance: metadata?.creationProvenance,
+        creation: creationStatusForSession(
+          deps.sessionMetadataService,
+          sessionId,
+          deps.signal,
+        ),
         routerBinding: metadata?.routerBinding,
         initialPrompt:
           metadata?.initialPrompt ?? sessionSummary?.fullTitle ?? undefined,
@@ -3394,6 +3425,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         deps.sessionMetadataService,
         routing.identityLookup.identity,
         routing.workingProjectId,
+        deps.signal,
       );
       if (saved)
         return c.json({
@@ -3652,6 +3684,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             parentSessionKind: metadata?.parentSessionKind,
             forkedFromSessionId: metadata?.forkedFromSessionId,
             creationProvenance: metadata?.creationProvenance,
+            creation: creationStatusForSession(
+              deps.sessionMetadataService,
+              sessionId,
+              deps.signal,
+            ),
             routerBinding: metadata?.routerBinding,
             initialPrompt: metadata?.initialPrompt,
             wakeTurnsEnabled: metadata?.wakeTurnsEnabled,
@@ -3685,6 +3722,21 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             : {}),
           ...(deferredMessages.length > 0 ? { deferredMessages } : {}),
         });
+      }
+      if (routing.identityLookup.kind === "stored") {
+        const saved = savedCreationView(
+          deps.sessionMetadataService,
+          routing.identityLookup.identity,
+          routing.workingProjectId,
+          deps.signal,
+          true,
+        );
+        if (saved)
+          return c.json({
+            ...saved,
+            messages: [],
+            transcriptSnapshotUpdatedAt: "",
+          });
       }
       const canonicalProjectId = resolvedIdentity
         ? null
@@ -4078,6 +4130,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         forkedFromSessionId:
           metadata?.forkedFromSessionId ?? session.forkedFromSessionId,
         creationProvenance: metadata?.creationProvenance,
+        creation: creationStatusForSession(
+          deps.sessionMetadataService,
+          sessionId,
+          deps.signal,
+        ),
         routerBinding: metadata?.routerBinding,
         initialPrompt: metadata?.initialPrompt ?? session.fullTitle,
         wakeTurnsEnabled: metadata?.wakeTurnsEnabled,

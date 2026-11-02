@@ -80,11 +80,13 @@ it("commits exact text, immutable source and creator beside an unbound identity,
   roots.push(root);
   const path = join(root, "db.sqlite"),
     first = await fixture(path);
+  expect(first.store.generation).toBe(1);
   const admitted = first.store.admit({
     requestId: "request_0001",
     context,
     request,
   });
+  expect(first.store.generation).toBe(2);
   expect(admitted.request?.message).toBe(request.message);
   expect(first.metadata.identities.resolveYa(admitted.sessionId)).toMatchObject(
     {
@@ -112,10 +114,12 @@ it("commits exact text, immutable source and creator beside an unbound identity,
   first.store.close();
   first.database.close();
   const second = await fixture(path);
+  const reopenedGeneration = second.store.generation;
   expect(
     second.store.admit({ requestId: "request_0001", context, request })
       .sessionId,
   ).toBe(admitted.sessionId);
+  expect(second.store.generation).toBe(reopenedGeneration);
   expect(
     second.metadata.getMetadata(admitted.sessionId)?.creationProvenance
       ?.surface,
@@ -156,7 +160,9 @@ it("rolls every row, counter and metadata mirror back when the final metadata wr
     expect(rows(database, `SELECT * FROM ${table}`)).toEqual([]);
   expect(
     rows(database, "SELECT * FROM session_creation_capacity"),
-  ).toMatchObject([{ operations: 0, payload_bytes: 0, attempt_bytes: 0 }]);
+  ).toMatchObject([
+    { operations: 0, payload_bytes: 0, attempt_bytes: 0, generation: 1 },
+  ]);
   expect(rows(database, "SELECT * FROM session_metadata")).toHaveLength(1);
   expect(metadata.getMetadata("existing")?.customTitle).toBe(
     "keep unrelated metadata",
@@ -228,15 +234,18 @@ it("replays retries before mutable checks, retains historical results, and refus
   const { store, database } = await fixture();
   const a = store.admit({ requestId: "request_0001", context, request });
   store.failBeforeEffects(a.attempt, "startup-unavailable");
+  const failedGeneration = store.generation;
   const retry = store.retry(
     context.owner,
     a.requestId,
     "retry_00001",
     a.attempt.attemptId,
   );
+  expect(store.generation).toBe(failedGeneration + 1);
   expect(
     store.retry(context.owner, a.requestId, "retry_00001", a.attempt.attemptId),
   ).toEqual(retry);
+  expect(store.generation).toBe(failedGeneration + 1);
   expect(() =>
     store.retry(context.owner, a.requestId, "retry_00001", retry.attemptId),
   ).toThrow(SessionCreationConflict);
@@ -290,4 +299,19 @@ it("upgrades the actual identity schema without adopting or modifying existing n
     { session_id: "legacy", metadata: '{"customTitle":"keep"}' },
   ]);
   expect(rows(database, "SELECT * FROM session_creations")).toEqual([]);
+});
+
+it("upgrades an existing admission database without changing its capacity counters", () => {
+  const database = openSqliteOrThrow(":memory:");
+  databases.push(database);
+  migrateDiscoveryDatabase(database, discoveryMigrationPrefix(18));
+  database.exec(
+    "UPDATE session_creation_capacity SET operations = 4, payload_bytes = 123, attempt_bytes = 456 WHERE id = 1",
+  );
+  migrateDiscoveryDatabase(database);
+  expect(
+    rows(database, "SELECT * FROM session_creation_capacity"),
+  ).toMatchObject([
+    { operations: 4, payload_bytes: 123, attempt_bytes: 456, generation: 1 },
+  ]);
 });
