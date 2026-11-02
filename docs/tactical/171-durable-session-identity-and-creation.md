@@ -24,6 +24,68 @@ The coordination requirements and coverage ledger below extend this plan;
 Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
 The common caller rollout is partial; the provenance defect remains open.
 
+## Active milestone — Claude and Codex creation, November 2
+
+The maintainer narrowed execution after the implementation audit: deliver a
+complete text-creation workflow for Claude and Codex before broadening provider
+or caller coverage. This section supersedes the remaining nine-phase ordering
+and repeated review instructions below for this milestone. Completed foundations
+remain; the historical progress and broader backlog are retained as reference.
+
+The user outcome is one permanent YA session, saved prompt/settings/source before
+provider effects, usable startup/failure/uncertainty presentation, and preserved
+history after refresh. Claude accepts YA's chosen native id; Codex returns a
+native thread id which must bind without changing the YA URL. Include the routed,
+account-pinned Claude path that motivated the work. Native history stays with the
+provider, while YA owns accepted intent and startup evidence.
+
+Implement three larger slices, each with focused tests and one Sol review:
+
+1. **Claude creation end to end.** Complete ordinary text admission through API,
+   Supervisor/provider and the browser. Save before startup, expose the stable
+   session promptly, show honest startup/failure/uncertainty, and retain/copy the
+   prompt after refresh. Cover selected router/account ownership and the existing
+   supported local/hosted runtime choices. Integrate only the unfinished host
+   work needed by these scenarios. Capture submitted draft identity before async
+   work; acknowledgement must preserve newer local/sibling/device edits.
+2. **Codex through the same workflow.** Reuse the application lifecycle/UI,
+   explicitly bind the returned native thread id, and keep public identity through
+   streaming, discovery, history, refresh and continuation. Keep the pinned
+   app-server protocol/target. Native first-input confirmation must be real
+   provider evidence; YA's fabricated user echo is insufficient.
+3. **Recovery qualification.** Add focused fault scenarios and fix their findings:
+   missing executable before subscription, lost acceptance response, restart
+   during startup, Hono replacement with surviving worker, full owner loss and
+   uncertain first-input delivery. Prove no duplicate logical session or initial
+   prompt, unchanged routing, and safe draft acknowledgement while typing.
+
+Tests accompany each implementation slice. Reuse real SQLite/application tests,
+owned standalone profiles and existing browser/native protocol fixtures. Retain
+browser E2E where actual form submission, navigation, reload, typing or transport
+is the boundary. Report controlled native/model endpoint tests separately from
+small actual installed-provider smokes; record unavailable live evidence without
+claiming it passed. Run focused checks during edits and required broad/static
+checks at slice completion, avoiding repeated passing runs without new cause.
+
+One actual localhost:3400 Sol 6.1 High / bypassPermissions review covers each
+complete slice. Fix its material findings and verify with focused checks; do not
+start another review cycle for each correction or adapter. Commit coherent slices
+on the current branch. This replaces the earlier mandatory re-review loop.
+
+The first milestone excludes attachments, optional background creation/shortcuts,
+automated retry, broad other-provider new creation and migration of Queue, review,
+fork, native/peer and maintenance callers. Preserve their existing behavior and
+keep the provenance/unconfirmed-send gaps open for uncovered paths. The safety
+invariants still apply: acknowledged input is durably saved, public identity is
+stable, uncertain effects never trigger automatic replay, newer drafts survive,
+and authentication/router account selection remains authoritative.
+
+Client rollout must use an exact narrow capability/negotiated contract for the
+qualified text providers, with the existing flow when absent or ineligible.
+Do not weaken or advertise the broader `session-creation-receipts` promise before
+its attachment/all-caller guarantees exist. No compatibility cutoff, provider
+refresh, global host restart, or bulk identity rewrite is part of this milestone.
+
 ## Execution progress
 
 - Phase 3 provider-variant continuation is independently accepted by Sol
@@ -1200,8 +1262,8 @@ Record the returned session/process ids immediately. Verify effective model,
 reasoning effort and permission mode from session metadata/provider evidence,
 not just the requested body. If launch acknowledgement is lost, inspect existing
 sessions before another POST; today's ordinary API has no new idempotency promise.
-Wait for a terminal review, fix material findings and re-review the changed
-result. Report a missing/unavailable reviewer rather than self-certify its gate.
+For the active milestone, wait for one terminal review, fix material findings
+and verify corrections with focused checks; do not launch another review cycle. Report a missing/unavailable reviewer rather than self-certify its gate.
 Retire only this work's reviewer when idle; never affect unrelated sessions.
 
 For each source slice: run focused checks, review, reconcile corrections, then

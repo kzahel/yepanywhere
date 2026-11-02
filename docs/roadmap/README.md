@@ -607,6 +607,15 @@ This reopens the new-session portion of plan 150 as the foundation for the
 the archived general core or full fork/clone program. Concrete schema/API choices, storage bounds and the core release-corpus audit
 are recorded; provider/startup implementation and legacy refresh qualification
 remain in progress.
+Active scope, narrowed November 2: complete text-session creation for Claude and
+Codex as three larger slices: Claude end to end (including routed/account-pinned
+launch), Codex through the same stable-ID lifecycle/UI, then recovery
+qualification. One Sol 6.1 High review per slice; focused checks during
+implementation. Saved startup/failure/uncertainty and safe draft acknowledgement
+are the user milestone. Broader providers, attachments, automated retry, optional
+background creation and the remaining provenance callers follow separately.
+The historical progress below is foundation evidence, not completion of that UI.
+
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review
 after each implementation slice and commits as work proceeds. Plan review is

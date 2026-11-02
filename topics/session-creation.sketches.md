@@ -9,6 +9,21 @@ not its entire fork/clone program. Implementation, detailed API/schema choices
 and release qualification remain pending. The
 [roadmap](../docs/roadmap/README.md) records scope and priority.
 
+## Active implementation scope — November 2
+
+The maintainer selected a narrow first milestone: ordinary Claude and Codex text
+creation, including routed/account-pinned Claude, saved before provider startup,
+a stable session URL, visible startup/failure/uncertainty and prompt access after
+refresh. Safe acknowledgement preserves newer drafts. Claude accepts a chosen id;
+Codex's native thread id is an explicit binding. [Plan 171's active milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2)
+owns the three larger implementation slices and focused/browser qualification.
+
+Attachments, automated retry, other-provider/caller rollout and the optional
+background action/shortcut remain later work. The broader proposal below is
+retained as direction; it is not a prerequisite to deliver this first milestone.
+Use a narrowly gated text-creation contract without claiming the complete
+`session-creation-receipts` guarantee. Existing-server fallback remains required.
+
 ## Problem and current behavior
 
 New Session couples request submission, provider startup and navigation.

@@ -11,6 +11,11 @@ source with the logical YA session before provider side effects. A caller
 should not be able to create a session successfully while forgetting a second
 metadata write.
 
+The November 2 implementation focus is the [Claude/Codex text milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2).
+It retains required source at ordinary admission. The six audited caller bypasses
+below remain an explicit later rollout; this narrower milestone cannot close the
+complete provenance gap.
+
 ## Background and evidence
 
 [Session creation provenance](session-creation-provenance.md) owns today's
