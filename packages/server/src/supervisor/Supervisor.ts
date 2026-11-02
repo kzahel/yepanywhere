@@ -435,7 +435,7 @@ export interface SessionLaunchOptions {
     context: CreationContext;
     requestId?: string;
     submissionHash?: string;
-    onAccepted?: (saved: SavedSessionCreation) => void;
+    onAccepted?: (saved: SavedSessionCreation) => void | Promise<void>;
     authorize(saved: SavedSessionCreation): Promise<void>;
   };
   /** Canonical YA project id when it differs from the provider cwd. */
@@ -1364,6 +1364,7 @@ export class Supervisor {
         {
           text: request.message,
           uuid: saved.initialInputId,
+          automaticSource: request.input?.automaticSource,
           tempId: request.input?.tempId,
           mode: request.input?.mode,
           metadata: request.input?.metadata,
@@ -1411,6 +1412,36 @@ export class Supervisor {
     }
   }
 
+  /** The same eligibility decision is used by ingress adapters and admission. */
+  supportsDurableSessionCreation(
+    message: UserMessage,
+    modelSettings: ModelSettings | undefined,
+    owner: CreationContext["owner"] = { kind: "superuser" },
+  ): boolean {
+    const provider = this.resolveProvider(modelSettings);
+    return Boolean(
+      provider &&
+        getSessionTextCreationCapability(provider.name) &&
+        provider.getNewSessionNamespace &&
+        owner.kind === "superuser" &&
+        !message.images?.length &&
+        !message.documents?.length &&
+        !message.attachments?.length &&
+        !parseSlashCommandSubmission(message.text) &&
+        (message.automaticSource === undefined ||
+          message.automaticSource === "project-queue") &&
+        !message.recapResumeHandled &&
+        message.priority === undefined &&
+        !message.tempIds?.length &&
+        !message.metadata?.apiSubmissionId &&
+        !message.metadata?.apiSubmissionIds?.length &&
+        !message.metadata?.hidden &&
+        !modelSettings?.machineControl &&
+        modelSettings?.sandboxLevel !== "project-write" &&
+        this.sessionMetadataService?.creations,
+    );
+  }
+
   async startSession(
     projectPath: string,
     message: UserMessage,
@@ -1427,23 +1458,12 @@ export class Supervisor {
     if (
       launchOptions?.creation &&
       provider &&
-      getSessionTextCreationCapability(provider.name) &&
-      provider.getNewSessionNamespace &&
-      launchOptions.creation.context.owner.kind === "superuser" &&
-      !message.images?.length &&
-      !message.documents?.length &&
-      !message.attachments?.length &&
-      !parseSlashCommandSubmission(message.text) &&
-      message.automaticSource === undefined &&
-      !message.recapResumeHandled &&
-      message.priority === undefined &&
-      !message.tempIds?.length &&
-      !message.metadata?.apiSubmissionId &&
-      !message.metadata?.apiSubmissionIds?.length &&
-      !message.metadata?.hidden &&
-      !modelSettings?.machineControl &&
-      modelSettings?.sandboxLevel !== "project-write" &&
-      this.sessionMetadataService?.creations
+      this.sessionMetadataService?.creations &&
+      this.supportsDurableSessionCreation(
+        message,
+        modelSettings,
+        launchOptions.creation.context.owner,
+      )
     ) {
       const store = this.sessionMetadataService.creations;
       const saved = store.admit({
@@ -1469,14 +1489,18 @@ export class Supervisor {
           }),
           input: snapshotCreationInput({
             schemaVersion: 1,
+            automaticSource:
+              message.automaticSource === "project-queue"
+                ? "project-queue"
+                : undefined,
             tempId: message.tempId,
             mode: message.mode,
             metadata: message.metadata,
           }),
         },
       });
-      launchOptions.creation.onAccepted?.(saved);
       try {
+        await launchOptions.creation.onAccepted?.(saved);
         if (this.isAtCreationCapacity() && this.pendingCreationStarts < 16) {
           const preemptable = this.findPreemptableWorker();
           if (preemptable) {

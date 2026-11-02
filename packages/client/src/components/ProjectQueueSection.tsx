@@ -707,7 +707,8 @@ export function ProjectQueueSection({
                   const isEditing = editingItemId === item.id;
                   const isHighlighted = highlightedItemId === item.id;
                   const canEdit =
-                    item.status === "queued" || item.status === "failed";
+                    !item.creationSessionId &&
+                    (item.status === "queued" || item.status === "failed");
                   const projectStatus =
                     projectStatusesByProject[item.projectId];
                   const readiness = readinessLabel(
@@ -770,6 +771,13 @@ export function ProjectQueueSection({
                                 to={`${basePath}/projects/${item.projectId}/sessions/${item.target.sessionId}`}
                               >
                                 {targetLabel(item, t)}
+                              </Link>
+                            ) : item.creationSessionId ? (
+                              <Link
+                                className={styles.savedSessionLink}
+                                to={`${basePath}/projects/${item.projectId}/sessions/${item.creationSessionId}`}
+                              >
+                                {t("sessionCreationOpenSaved")}
                               </Link>
                             ) : (
                               targetLabel(item, t)

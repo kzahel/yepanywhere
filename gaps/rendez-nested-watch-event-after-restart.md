@@ -226,3 +226,16 @@ at line 364 (1 observed, 2 expected; three cases passed, one Linux-only case
 skipped). Both logs remain under ignored `tasks/session-identity/`. No watcher
 code, budgets, assertion or retries were changed; neither result is represented
 as a green full run or attributed to the provenance repair.
+
+
+2026-11-02: common Project Queue creation migration's first full Node 22/macOS
+run passed 6,901 server/7,067 client cases. After the review-driven Queue association
+repair, the full run passed 6,901 server/7,067 client cases but failed this unchanged
+watcher case at line 364 (second delivery after restart; observed 1, expected 2).
+A focused watcher+Queue run reproduced the same watcher failure; all six new
+Queue cases passed, with 9 combined passing/1 skipped. The 84-case Queue integration
+suite passes. No Rendez watcher/test source or timeout changed in this slice;
+the native watcher readiness/event-registration diagnosis above remains open.
+Logs are retained under ignored tasks/session-identity/queue-creation-reviewed-full-test.log
+and queue-creation-final-focused.log. No green aggregate is claimed for those
+runs, and no unrelated watcher repair is bundled into creation admission.

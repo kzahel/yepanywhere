@@ -216,9 +216,11 @@ write for ordinary, worker-deferred and staged-attachment new-session launches.
 The [provenance contract](session-creation-provenance.md#project-queue-origin)
 owns its behavior and compatibility limits. Existing-session turns preserve
 the destination source; old source-less queue items remain unknown.
-This is a bounded provenance repair through the existing metadata owner, not
-Queue's later migration to common durable identity/receipts and promotion keys.
-Other audited creation-source omissions remain open.
+The subsequent ordinary text Queue migration now uses the same durable
+creation owner and a stable item admission key; its [contract](project-queue.md#durable-new-session-admission)
+records handoff, recovery and explicit safe-retry boundaries. Attachments and
+other unqualified caller shapes remain migration work. Other audited source
+omissions remain open.
 
 ### Managed dispatch boundary
 

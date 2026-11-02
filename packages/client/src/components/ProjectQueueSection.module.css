@@ -339,6 +339,13 @@
   text-decoration: none;
 }
 
+/* A saved-session recovery action remains a practical touch target. */
+.savedSessionLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+}
+
 .itemTarget a:hover {
   color: var(--text-primary);
   text-decoration: underline;

@@ -73,6 +73,43 @@ background UX and automatic retry policy remain separate feature decisions.
 This section selects the consolidation target and sequence; it does not claim
 these remaining migrations are already implemented.
 
+## Consolidation progress ledger
+
+| Surface | Common contract | Legacy implementation retirement | Evidence/status |
+| --- | --- | --- | --- |
+| Ordinary owner text, Claude/Codex/OpenCode/Pi | Implemented | Qualified text uses saved dispatch | Existing native/browser/recovery qualification above |
+| Project Queue ordinary owner text | Implemented in current slice | Qualified promotion no longer owns deferred native startup/retry; same eligibility and dispatcher as direct creation | Six real SQLite/owner integration cases; local/hosted native-process and failed-row browser checks pass |
+| Attachments and ordinary legacy create/start | Pending | Two-step create/upload/send still retained | Next consolidation slice |
+| API/peer, reviews, maintenance, new fork/clone resources | Partial source repair only | Separate creation entry points remain | Later caller slices |
+| Remaining provider/input shapes and final bypass audit | Pending | Retained compatibility/exception inventory required | Final consolidation closure |
+
+Queue admission uses a deterministic operation key from the durable queue item,
+commits its public association before native effects and delegates worker
+deferral to the common owner. Confirmed replay recovers the same result; unsafe
+native uncertainty never auto-replays. Explicit retry reuses the saved public id
+only after proved non-dispatch. The queue's source-less legacy rows preserve
+unknown rather than inventing provenance. Accepted item text/settings are frozen;
+failed rows link to the saved session. New optional summary fields preserve
+older-server/client absence behavior without a broad capability claim.
+The three-case owned native/browser run passes in 16.8 seconds. Desktop/phone
+captures were inspected; the saved-session recovery link has a 36 px minimum
+height and no row overflow. Its focused recapture/check passes in 10.9 seconds.
+The single Sol 6.1 High review found that a crash before the JSON association write
+could leave admitted input editable/retargetable. Queue now reconciles the
+compact deterministic store key before edits and dispatch selection; the new
+cold-reopen/edit/retarget/retry regression passes. Corrected focused integration
+passes 84 cases/four files in 23.33 seconds. The reviewer was retired with verified
+stop and the original finding/correction retained under ignored
+`tasks/session-identity/reviews/queue-creation.md`; no second review. Root static
+checks pass. The first full run passes 6,901 server/7,067 client cases. The final
+post-review full run passes 6,901 server/7,067 client but fails the already tracked
+[Rendez nested watcher](../../gaps/rendez-nested-watch-event-after-restart.md)
+second-delivery-after-restart case. Focused watcher+Queue reproduces that same
+watcher failure while all six Queue cases pass. No watcher source/time budget
+changed; no green final aggregate is claimed. Corrected Queue integration
+passes 84 cases; existing contract, lifecycle, browser and static evidence remain
+separate from that adjacent watcher gap.
+
 ## Active milestone — Claude and Codex creation, November 2
 
 The maintainer narrowed execution after the implementation audit: deliver a

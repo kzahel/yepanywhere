@@ -40,6 +40,7 @@ export type CreationContext = {
   owner: CreationOwner;
   source:
     | { kind: "request"; provenance: SessionCreationProvenance }
+    | { kind: "unknown"; reason: "legacy-project-queue" }
     | { kind: "internal"; reason: "recap" | "retitle" | "fork-summary" };
 };
 export interface SavedCreationRequest {
@@ -182,6 +183,14 @@ function contextSnapshot(context: CreationContext): CreationContext {
     context.owner.kind === "limited"
       ? { kind: "limited", username: context.owner.username }
       : { kind: "superuser" };
+  if (
+    context.source?.kind === "unknown" &&
+    context.source.reason === "legacy-project-queue"
+  )
+    return {
+      owner,
+      source: { kind: "unknown", reason: "legacy-project-queue" },
+    };
   if (context.source?.kind === "internal") {
     if (!["recap", "retitle", "fork-summary"].includes(context.source.reason))
       throw new Error("Invalid internal creation reason");
@@ -320,6 +329,7 @@ export class SessionCreationStore {
     | "projections"
     | "byId"
     | "byKey"
+    | "publicByKey"
     | "bySession"
     | "attempt"
     | "retry"
@@ -355,6 +365,9 @@ export class SessionCreationStore {
         "SELECT c.id AS creation_id, a.generation, i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt",
       ),
       byId: database.prepare("SELECT * FROM session_creations WHERE id = ?"),
+      publicByKey: database.prepare(
+        "SELECT session_id FROM session_creations WHERE owner_key = ? AND request_key = ?",
+      ),
       byKey: database.prepare(
         "SELECT * FROM session_creations WHERE owner_key = ? AND request_key = ?",
       ),
@@ -527,6 +540,17 @@ export class SessionCreationStore {
     };
   }
   /** Caller authorizes current resource access before exposing this private row. */
+  /** Compact association recovery; does not read saved prompts or launch payloads. */
+  getPublicSessionId(
+    owner: CreationOwner,
+    requestId: string,
+  ): YaSessionId | undefined {
+    const row = this.statements.publicByKey.get<{ session_id: string }>(
+      ownerKey(owner),
+      key(requestId),
+    );
+    return row ? parseYaSessionId(row.session_id) : undefined;
+  }
   get(
     owner: CreationOwner,
     requestId: string,

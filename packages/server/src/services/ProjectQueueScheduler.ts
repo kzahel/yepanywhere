@@ -1,3 +1,8 @@
+import type {
+  SessionCreationStore,
+  SavedSessionCreation,
+  CreationContext,
+} from "../sessions/SessionCreationStore.js";
 import {
   DEFAULT_PROJECT_QUEUE_QUIET_SECONDS,
   type LimitedUserGrants,
@@ -30,6 +35,7 @@ import {
 import type { AttachmentStagingService } from "../uploads/AttachmentStagingService.js";
 import {
   type ProjectQueueService,
+  projectQueueCreationRequestId,
   queueItemAttachmentStore,
   queuedYaCommandToRun,
 } from "./ProjectQueueService.js";
@@ -91,7 +97,8 @@ export type ProjectQueueDispatchResult =
  */
 type ProjectQueueDispatchOutcome =
   | ProjectQueueDispatchResult
-  | { yaCommand: true };
+  | { yaCommand: true }
+  | { admitted: true; sessionId: string };
 
 /**
  * Runs a queued YA-emulated command against its target session at dispatch.
@@ -116,6 +123,15 @@ export interface ProjectQueueSupervisor extends ProjectWorkSupervisor {
     permissionMode?: PermissionMode,
     modelSettings?: ModelSettings,
     launchOptions?: SessionLaunchOptions,
+  ): Promise<ProjectQueueDispatchResult>;
+  supportsDurableSessionCreation?(
+    message: UserMessage,
+    settings: ModelSettings,
+  ): boolean;
+  startSavedSession?(
+    fence: SavedSessionCreation["attempt"],
+    authorize: (saved: SavedSessionCreation) => Promise<void>,
+    onStarted?: SessionLaunchOptions["onStarted"],
   ): Promise<ProjectQueueDispatchResult>;
   createSession(
     projectPath: string,
@@ -177,6 +193,7 @@ export interface ProjectQueueSessionLaunchMetadata {
 
 export interface ProjectQueueSchedulerOptions {
   projectQueueService: ProjectQueueService;
+  creations?: SessionCreationStore;
   supervisor: ProjectQueueSupervisor;
   eventBus: EventBus;
   attachmentStagingService?: AttachmentStagingService;
@@ -242,6 +259,12 @@ function isYaCommandResult(
   return "yaCommand" in result && result.yaCommand === true;
 }
 
+function isAdmittedResult(
+  result: ProjectQueueDispatchOutcome,
+): result is { admitted: true; sessionId: string } {
+  return "admitted" in result;
+}
+
 function isRecoveredPatientQueueItem(
   item: PersistedSessionQueuedMessage,
 ): boolean {
@@ -274,6 +297,7 @@ export class ProjectQueueScheduler {
 
   constructor(private readonly options: ProjectQueueSchedulerOptions) {
     this.projectQueueService = options.projectQueueService;
+    this.projectQueueService.attachCreationStore(options.creations);
     this.supervisor = options.supervisor;
     this.eventBus = options.eventBus;
     this.externalTracker = options.externalTracker;
@@ -931,7 +955,15 @@ export class ProjectQueueScheduler {
       };
     } catch (error) {
       const message = errorMessage(error);
-      const retryable = error instanceof RetryableSessionLaunchError;
+      const durable =
+        item &&
+        !item.createdByUser &&
+        this.options.creations?.get(
+          { kind: "superuser" },
+          projectQueueCreationRequestId(item.id),
+        );
+      const retryable =
+        error instanceof RetryableSessionLaunchError && !durable;
       let retryScheduled = false;
       if (item && retryable) {
         const updated =
@@ -1008,6 +1040,13 @@ export class ProjectQueueScheduler {
     queuedItem: ProjectQueueItem,
     options: PromoteNowOptions,
   ): Promise<ProjectQueueDispatchOutcome> {
+    if (
+      queuedItem.creationSessionId &&
+      queuedItem.target.type !== "new-session"
+    )
+      throw new Error(
+        "An admitted Queue creation cannot be retargeted to another session",
+      );
     const grants = this.enqueuerGrants(queuedItem);
     const item = grants
       ? this.withinEnqueuerLaunchPolicy(queuedItem, grants)
@@ -1037,7 +1076,11 @@ export class ProjectQueueScheduler {
       throw new Error(`Worker queue is full (${result.maxQueueSize})`);
     }
 
-    if (!isQueuedResult(result) && !isYaCommandResult(result)) {
+    if (
+      !isQueuedResult(result) &&
+      !isYaCommandResult(result) &&
+      !isAdmittedResult(result)
+    ) {
       await this.options.onSessionStarted?.({ item, process: result });
     }
     return result;
@@ -1157,7 +1200,33 @@ export class ProjectQueueScheduler {
     item: ProjectQueueItem,
     permissionMode: PermissionMode | undefined,
     modelSettings: ModelSettings,
-  ): Promise<ProjectQueueDispatchResult> {
+  ): Promise<ProjectQueueDispatchOutcome> {
+    const creationKey = projectQueueCreationRequestId(item.id);
+    const saved = !item.createdByUser
+      ? this.options.creations?.get({ kind: "superuser" }, creationKey)
+      : undefined;
+    if (item.creationSessionId && !saved)
+      throw new Error(
+        "The admitted Queue session is unavailable; refusing a replacement launch",
+      );
+    if (
+      saved ||
+      (!item.createdByUser &&
+        this.options.creations &&
+        !item.message.stagedAttachments &&
+        this.supervisor.supportsDurableSessionCreation?.(
+          this.toUserMessage(item),
+          modelSettings,
+        ))
+    ) {
+      return this.dispatchDurableNewSession(
+        item,
+        permissionMode,
+        modelSettings,
+        creationKey,
+        saved,
+      );
+    }
     if (!item.message.stagedAttachments) {
       let deferred = false;
       const result = await this.supervisor.startSession(
@@ -1225,6 +1294,94 @@ export class ProjectQueueScheduler {
       modelSettings,
       { requireProviderSessionId: true },
     );
+  }
+
+  private async dispatchDurableNewSession(
+    item: ProjectQueueItem,
+    permissionMode: PermissionMode | undefined,
+    modelSettings: ModelSettings,
+    requestId: string,
+    previous?: SavedSessionCreation,
+  ): Promise<ProjectQueueDispatchOutcome> {
+    let saved = previous;
+    const authorize = async (current: SavedSessionCreation) => {
+      if (
+        current.deleted ||
+        current.context.owner.kind !== "superuser" ||
+        current.request?.projectId !== item.projectId
+      )
+        throw new Error("Queue creation no longer has its admitted authority");
+    };
+    const associate = async (current: SavedSessionCreation) => {
+      saved = current;
+      await authorize(current);
+      await this.projectQueueService.recordSessionCreation(
+        item.projectId,
+        item.id,
+        current.sessionId,
+      );
+    };
+    const onStarted: NonNullable<SessionLaunchOptions["onStarted"]> = async (
+      sessionId,
+    ) => {
+      const process = this.supervisor
+        .getAllProcesses()
+        .find((p) => p.sessionId === sessionId);
+      if (process) await this.options.onSessionStarted?.({ item, process });
+    };
+    let result: ProjectQueueDispatchResult;
+    if (saved) {
+      await associate(saved);
+      const state = saved.attempt;
+      if (state.delivery === "consumed")
+        return { admitted: true, sessionId: saved.sessionId };
+      if (
+        state.state === "failed" &&
+        state.delivery === "not-admitted" &&
+        item.creationRetryId
+      ) {
+        const fence = this.options.creations!.retry(
+          saved.context.owner,
+          requestId,
+          item.creationRetryId,
+          state.attemptId,
+        );
+        if (!this.supervisor.startSavedSession)
+          throw new Error("Durable creation dispatcher is unavailable");
+        result = await this.supervisor.startSavedSession(
+          fence,
+          authorize,
+          onStarted,
+        );
+      } else if (state.state === "failed" || state.state === "uncertain") {
+        throw new Error(
+          `Saved session ${saved.sessionId} requires recovery; input will not be replayed`,
+        );
+      } else {
+        // The original admission already owns dispatch. Recover its result only.
+        return { admitted: true, sessionId: saved.sessionId };
+      }
+    } else {
+      const context: CreationContext = {
+        owner: { kind: "superuser" },
+        source: item.creationProvenance
+          ? { kind: "request", provenance: item.creationProvenance }
+          : { kind: "unknown", reason: "legacy-project-queue" },
+      };
+      result = await this.supervisor.startSession(
+        item.projectPath,
+        this.toUserMessage(item),
+        permissionMode,
+        modelSettings,
+        {
+          creation: { requestId, context, authorize, onAccepted: associate },
+          onStarted,
+        },
+      );
+    }
+    if (isQueueFullResult(result)) return result;
+    if (!saved) throw new Error("Queue creation was not durably admitted");
+    return { admitted: true, sessionId: saved.sessionId };
   }
 
   private async completeDeferredNewSessionDispatch(

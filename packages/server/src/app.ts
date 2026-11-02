@@ -2752,11 +2752,15 @@ export function createApp(options: AppOptions): AppResult {
         })
       : undefined;
 
+  options.projectQueueService?.attachCreationStore(
+    options.sessionMetadataService?.creations,
+  );
   let projectQueueScheduler: ProjectQueueScheduler | undefined;
   if (options.eventBus && options.projectQueueService) {
     projectQueueScheduler = new ProjectQueueScheduler({
       eventBus: options.eventBus,
       projectQueueService: options.projectQueueService,
+      creations: options.sessionMetadataService?.creations,
       supervisor,
       attachmentStagingService,
       sessionQueuePersistenceService: options.sessionQueuePersistenceService,

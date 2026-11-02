@@ -1,3 +1,4 @@
+import type { SessionCreationStore } from "../sessions/SessionCreationStore.js";
 import { parseCreationProvenance } from "../sessions/creation-provenance.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -651,6 +652,11 @@ function normalizeProjectQueueItem(
       updatedAt,
       createdFrom: normalizeCreatedFrom(raw.createdFrom),
       creationProvenance: parseCreationProvenance(raw.creationProvenance),
+      creationSessionId: optionalString(
+        raw.creationSessionId,
+        "creationSessionId",
+      ),
+      creationRetryId: optionalString(raw.creationRetryId, "creationRetryId"),
       createdByUser: optionalString(raw.createdByUser, "createdByUser"),
       status,
       lastError,
@@ -685,6 +691,9 @@ function summarizeItem(item: ProjectQueueItem): ProjectQueueItemSummary {
     ...(item.createdByUser ? { createdByUser: item.createdByUser } : {}),
     status: item.status,
     attachmentCount,
+    ...(item.creationSessionId
+      ? { creationSessionId: item.creationSessionId }
+      : {}),
     lastError: item.lastError,
     lastAttemptAt: item.lastAttemptAt,
   };
@@ -720,6 +729,10 @@ function cloneItem(item: ProjectQueueItem): ProjectQueueItem {
   };
 }
 
+export function projectQueueCreationRequestId(itemId: string): string {
+  return `project-queue-${itemId}`;
+}
+
 export class ProjectQueueService {
   private dataDir: string;
   private filePath: string;
@@ -729,6 +742,9 @@ export class ProjectQueueService {
     dispatchState: RUNNING_DISPATCH_STATE,
   };
   private initialized = false;
+  private creationStore?: SessionCreationStore;
+  private creationGeneration = -1;
+
   private mutationQueue: Promise<void> = Promise.resolve();
   private attachmentStagingService?: AttachmentStagingService;
 
@@ -794,10 +810,38 @@ export class ProjectQueueService {
       };
     }
     this.initialized = true;
+    this.creationGeneration = -1;
+    this.reconcileCreationAssociations();
+  }
+
+  attachCreationStore(store: SessionCreationStore | undefined): void {
+    this.creationStore = store;
+    this.creationGeneration = -1;
+    this.reconcileCreationAssociations();
+  }
+
+  /** Queue backlog only, compact indexed reads when the durable control generation changes. */
+  private reconcileCreationAssociations(): void {
+    const store = this.creationStore;
+    if (!store) return;
+    const generation = store.generation;
+    if (generation === this.creationGeneration) return;
+    for (const item of this.state.items) {
+      if (item.creationSessionId) continue;
+      const sessionId = store.getPublicSessionId(
+        item.createdByUser
+          ? { kind: "limited", username: item.createdByUser }
+          : { kind: "superuser" },
+        projectQueueCreationRequestId(item.id),
+      );
+      if (sessionId) item.creationSessionId = sessionId;
+    }
+    this.creationGeneration = generation;
   }
 
   listProject(projectId: UrlProjectId): ProjectQueueResponse {
     this.ensureInitialized();
+    this.reconcileCreationAssociations();
     return {
       projectId,
       items: this.state.items
@@ -809,6 +853,7 @@ export class ProjectQueueService {
 
   listAll(): ProjectQueueItemSummary[] {
     this.ensureInitialized();
+    this.reconcileCreationAssociations();
     return this.state.items.map(summarizeItem);
   }
 
@@ -958,6 +1003,7 @@ export class ProjectQueueService {
     const { launchPolicy, editor } = options;
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return null;
       const existing = this.state.items[index]!;
@@ -966,6 +1012,10 @@ export class ProjectQueueService {
           "Cannot update an item while it is dispatching",
         );
       }
+      if (existing.creationSessionId)
+        throw new ProjectQueueValidationError(
+          "This item has an admitted session; open it or queue changed input as a new item",
+        );
       const normalizedTarget =
         request.target !== undefined
           ? normalizeTarget(request.target)
@@ -1028,6 +1078,7 @@ export class ProjectQueueService {
   async deleteItem(projectId: UrlProjectId, itemId: string): Promise<boolean> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return false;
       if (this.state.items[index]?.status === "dispatching") {
@@ -1051,6 +1102,7 @@ export class ProjectQueueService {
   ): Promise<ProjectQueueItemSummary | null> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return null;
       const existing = this.state.items[index]!;
@@ -1063,6 +1115,7 @@ export class ProjectQueueService {
         ...existing,
         status: "queued",
         lastError: undefined,
+        creationRetryId: randomUUID(),
         startupFailureCount: undefined,
         updatedAt: new Date().toISOString(),
       };
@@ -1080,6 +1133,7 @@ export class ProjectQueueService {
   ): Promise<ProjectQueueItemSummary | null> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return null;
       const existing = this.state.items[index]!;
@@ -1139,6 +1193,28 @@ export class ProjectQueueService {
     });
   }
 
+  /** Persist association before native effects; the deterministic admission key repairs crash gaps. */
+  async recordSessionCreation(
+    projectId: UrlProjectId,
+    itemId: string,
+    sessionId: string,
+  ): Promise<void> {
+    await this.withMutation(async () => {
+      const index = this.findProjectItemIndex(projectId, itemId);
+      const item = this.state.items[index];
+      if (
+        item?.status !== "dispatching" ||
+        (item.creationSessionId && item.creationSessionId !== sessionId)
+      )
+        throw new ProjectQueueValidationError(
+          "Queue creation association is no longer current",
+        );
+      this.state.items[index] = { ...item, creationSessionId: sessionId };
+      await this.save();
+      this.emitChange(projectId, "updated", itemId);
+    });
+  }
+
   async claimNextDispatchableItem(
     projectId: UrlProjectId,
   ): Promise<ProjectQueueItem | null> {
@@ -1152,6 +1228,7 @@ export class ProjectQueueService {
     return this.withMutation(async () => {
       this.ensureInitialized();
       if (this.isDispatchPaused()) return null;
+      this.reconcileCreationAssociations();
       const index = itemId
         ? this.findProjectItemIndex(projectId, itemId)
         : this.state.items.findIndex((item) => item.projectId === projectId);
@@ -1179,6 +1256,7 @@ export class ProjectQueueService {
   ): Promise<ProjectQueueItemSummary | null> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return null;
       const existing = this.state.items[index]!;
@@ -1203,6 +1281,7 @@ export class ProjectQueueService {
   ): Promise<ProjectQueueItemSummary | null> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return null;
       const existing = this.state.items[index]!;
@@ -1253,6 +1332,7 @@ export class ProjectQueueService {
   ): Promise<boolean> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return false;
       const [completed] = this.state.items.splice(index, 1);
@@ -1271,6 +1351,7 @@ export class ProjectQueueService {
   ): Promise<ProjectQueueItemSummary | null> {
     return this.withMutation(async () => {
       this.ensureInitialized();
+      this.reconcileCreationAssociations();
       const index = this.findProjectItemIndex(projectId, itemId);
       if (index === -1) return null;
       const existing = this.state.items[index]!;

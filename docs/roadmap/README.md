@@ -683,7 +683,13 @@ removed during caller migration. Remaining work starts with Project Queue on
 Claude/Codex, then attachments/ordinary callers and the remaining retained
 callers/provider shapes. Compatibility routes can remain thin adapters to the
 same admission owner; additional provider qualification alone does not finish
-this refactor. These remaining migrations are planned, not implemented.
+this refactor. Project Queue ordinary owner text now enters that common owner
+with stable promotion identity, saved-session recovery and safe explicit retry.
+Its sole review's association-write crash gap is repaired and focused-verified;
+static/native/browser checks pass. The final full run retains the tracked
+Rendez nested-watch failure; the earlier full run passed. Attachments and remaining callers/input shapes remain planned migrations.
+[The ledger](../tactical/171-durable-session-identity-and-creation.md#consolidation-progress-ledger)
+separates completed scope from the remaining legacy implementation retirement.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

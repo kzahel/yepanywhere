@@ -8,6 +8,7 @@ import {
 
 export interface CreationInputSnapshot {
   schemaVersion: 1;
+  automaticSource?: "project-queue";
   tempId?: string;
   mode?: PermissionMode;
   metadata?: UserMessageMetadata;
@@ -37,6 +38,11 @@ export function snapshotCreationInput(
     schemaVersion: 1,
     ...(tempId !== undefined ? { tempId } : {}),
   };
+  if (input.automaticSource !== undefined) {
+    if (input.automaticSource !== "project-queue")
+      throw new Error("Invalid saved automatic input source");
+    result.automaticSource = input.automaticSource;
+  }
   if (input.mode !== undefined) {
     if (!ALL_PERMISSION_MODES.includes(input.mode))
       throw new Error("Invalid saved input mode");

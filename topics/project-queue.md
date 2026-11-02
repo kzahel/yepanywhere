@@ -97,6 +97,42 @@ messages before Project Queue starts. Project Queue is not a competing second
 queue on the same session; it is a project-level backlog that injects only
 after all lower-level work in the project is done.
 
+## Durable new-session admission
+
+Superuser ordinary text items supported by the common creation owner now use
+[durable session admission](session-identity.md). The queue item id supplies a
+stable operation key across promotion and restart. Admission saves the permanent
+YA id, exact initial input, launch choices and original source before native
+startup; Queue persists the item-to-session association before dispatch. Reads,
+edits and dispatch claims recover an interrupted association from the compact
+durable operation key, so the JSON write gap cannot allow a changed/retargeted
+request to replace admitted input. Once
+accepted, the common owner/worker queue owns startup, including worker deferral.
+Project Queue completes its item and returns the saved YA session id rather than
+owning another deferred-start/retry lifecycle. Provider-native ids never replace it.
+
+Repeated promotion recovers the existing admission. Confirmed delivery completes
+an interrupted Queue handoff without starting another provider. Unknown native
+effects retain the saved session and refuse initial-input replay. An explicit
+Retry can create another attempt under the same public id only after a proved
+`failed`/`not-admitted` outcome. Qualified durable creation does not use Queue's
+legacy automatic native-startup retries. Queue state and SQLite are separate
+stores; a deterministic admission key recovers an interrupted association write,
+without claiming a cross-store transaction.
+
+A failed item exposes `creationSessionId` and an Open saved session link.
+Accepted input is immutable: remove the item and enqueue changed input as new
+work, rather than silently rewriting the saved request. Original source-less
+legacy items retain unknown provenance through an explicit legacy-Queue context;
+creator authority is independent of that descriptive source. Missing saved
+admission for an already associated item refuses a replacement launch.
+
+Attachments, limited-user/sandbox launches and other unqualified input/provider
+shapes retain their existing implementation until the remaining consolidation
+slices. Existing-session items keep their existing delivery policy. The optional
+summary association is additive; older servers omit it and older clients ignore
+it. This does not advertise the broader all-caller creation receipts capability.
+
 ## Quiet Window
 
 Project Queue's quiet window is a user-interaction patience setting, not a
