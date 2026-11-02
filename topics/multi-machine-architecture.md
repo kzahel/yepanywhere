@@ -186,7 +186,7 @@ UI, all-provider coverage, active-turn reload survival or autonomous workers.
 
 Manual directional peer enrollment has a [reviewed implementation contract](peer-access.md)
 under [plan 168](../docs/tactical/168-peer-access-and-enrollment.md). It keeps
-manual SRP credentials independent of the optional fleet service; production
+manual SRP credentials independent of the optional Identity Service; production
 transport and enrollment qualification remain pending.
 
 ## External approaches and inspirations

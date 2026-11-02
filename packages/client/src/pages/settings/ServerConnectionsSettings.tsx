@@ -30,6 +30,9 @@ import { SettingsSection } from "./SettingsSection";
 import { Modal } from "../../components/ui/Modal";
 import styles from "./ServerConnectionsSettings.module.css";
 
+// Retain the existing wire discriminator for account-managed credentials.
+const IDENTITY_SERVICE_CREDENTIAL_ORIGIN = "fleet";
+
 // These owner dialogs keep keyboard navigation within the current action.
 function ConnectionDialog({
   title,
@@ -331,7 +334,9 @@ export function ServerConnectionsSettings() {
           ? t("connectionsRevoked")
           : t("connectionsStopped");
       setNotice(
-        peer[direction].some((p) => p.origin === "fleet")
+        peer[direction].some(
+          (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
+        )
           ? t("connectionsManualRemoved")
           : result,
       );
@@ -559,7 +564,7 @@ export function ServerConnectionsSettings() {
                       (p) => p.origin === "manual",
                     );
                     const managed = peer[direction].some(
-                      (p) => p.origin === "fleet",
+                      (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
                     );
                     const needsSignIn =
                       credential.authentication?.status ===
@@ -755,8 +760,8 @@ export function ServerConnectionsSettings() {
                       : t("connectionsIncoming")}
                   </strong>
                   <p className={styles.muted}>
-                    {credential.origin === "fleet"
-                      ? t("connectionsFleet")
+                    {credential.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN
+                      ? t("connectionsAccountCredential")
                       : credential.allProjects
                         ? t("connectionsTrustedControl")
                         : t("connectionsScoped")}{" "}
@@ -937,7 +942,7 @@ export function ServerConnectionsSettings() {
           <div className={styles.confirmation}>
             <p>
               {removing.peer[removing.direction].some(
-                (p) => p.origin === "fleet",
+                (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
               )
                 ? t("connectionsRemoveManualConfirm", {
                     name: nameOf(removing.peer),
@@ -953,7 +958,9 @@ export function ServerConnectionsSettings() {
                     })}
             </p>
             {removing.direction === "outgoing" &&
-              removing.peer.outgoing.some((p) => p.origin === "fleet") && (
+              removing.peer.outgoing.some(
+                (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
+              ) && (
                 <p className={styles.muted}>
                   {t("connectionsRemoteGrantRemains")}
                 </p>
@@ -975,8 +982,12 @@ export function ServerConnectionsSettings() {
                 </p>
               )}
             {removing.peer[removing.direction].some(
-              (p) => p.origin === "fleet",
-            ) && <p className={styles.muted}>{t("connectionsKeepFleet")}</p>}
+              (p) => p.origin === IDENTITY_SERVICE_CREDENTIAL_ORIGIN,
+            ) && (
+              <p className={styles.muted}>
+                {t("connectionsKeepAccountAccess")}
+              </p>
+            )}
             {removalError && (
               <p role="alert" className={styles.feedback}>
                 {removalError}

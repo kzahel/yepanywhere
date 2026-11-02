@@ -4,7 +4,7 @@ Status: implemented, 2026-11-01. Plan and backend committed separately; the fina
 Settings/enrollment slice completes the workstream. The user approved automatic refresh while
 servers remain online and expiry after prolonged inactivity, rather than a fixed
 30-day deadline from pairing. This supersedes plan 169's pairing expiry default;
-explicitly time-limited manual grants and fleet policy remain distinct.
+explicitly time-limited manual grants and identity-service policy remain distinct.
 
 ## Existing boundaries
 
@@ -76,7 +76,7 @@ late refresh must never recreate a removed/replaced pair.
 Add a peer protocol version/capability for refreshable authentication. Include
 mode and current target deadline in authenticated server metadata, bound to
 profile/pair UUID, credential generation and transport nonce. Keep legacy
-fixed-expiry/fleet peers on their existing protocol. Refuse unsupported new
+fixed-expiry/identity-service peers on their existing protocol. Refuse unsupported new
 pairing before mutation; never silently substitute a 30-day connection.
 
 Provide a private HTTP refresh resource over the same SRP/NaCl peer transport.
@@ -116,7 +116,7 @@ retained pairing provenance, a still-valid existing credential and unchanged
 permissions. Mark new UI enrollment explicitly so future migration does not
 infer intent. If provenance is missing/ambiguous, leave fixed policy unchanged
 and offer an owner-authenticated upgrade. Preserve manually chosen deadlines,
-scoped policies and fleet ceilings. Already-expired authentication requires owner
+scoped policies and identity-service ceilings. Already-expired authentication requires owner
 sign-in; it must not be revived just from saved metadata. Retain history.
 
 The optional UI contract must be distinguishable from the original
@@ -134,7 +134,7 @@ Use clock-injected pure state/HTTP tests for deadlines and races, actual SRP and
 owned relay integration for transport, and meaningful profile restart tests for
 pending publication. Include source/target crash boundaries, exact retry replay,
 conflicting replay, concurrent callers, source/target removal/replacement,
-manual/fleet isolation, inactivity and automatic renewal across the former
+manual/identity-service isolation, inactivity and automatic renewal across the former
 30-day boundary. Check native create/message/follow and provenance after refresh.
 
 Run independent Sol 6.1 high and actual Daybreak Blue high design/code reviews

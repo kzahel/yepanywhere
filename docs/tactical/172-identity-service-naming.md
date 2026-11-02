@@ -1,9 +1,9 @@
 # Rename fleet terminology to Identity Service
 
-Status: implementation authorized, 2026-11-02. The maintainer requested all
-three phases end to end, committing reviewed slices and using Sol 6.1 high
-with bypass permissions through YA localhost:3400. Preserve concurrent
-provider/session-identity changes; this rename does not implement that work.
+Status: implemented, 2026-11-02. All three maintainer-authorized phases are
+complete and independently reviewed by Sol 6.1 high/bypass through YA
+localhost:3400. Concurrent provider/session-identity changes remain outside this
+rename. The progress/evidence record below states the whole-tree format limit.
 
 ## Purpose and existing work
 
@@ -12,7 +12,7 @@ delegated-access component. Use **Account**, **Devices** and **Server
 Connections** in the UI. “Fleet” began as descriptive planning shorthand and
 became a component prefix; it does not clearly communicate the component's job.
 
-Build on the implemented [fleet authentication contract](../../topics/fleet-authentication.md)
+Build on the implemented [Identity Service contract](../../topics/identity-service.md)
 and [plan 168](168-peer-access-and-enrollment.md), not another authentication
 implementation. [Peer access](../../topics/peer-access.md) continues to own
 manual/server connections. [Principals and grants](../../topics/principals-and-grants.md)
@@ -201,3 +201,29 @@ access before exercising outage/revocation. Typecheck and all 48 focused cases
 pass (18.64 s); CLI usage smoke and scoped lint/format pass. Sol's recheck closed
 all three initial fixture/route findings. Whole-tree format at this point also
 reports concurrent provider-runtime edits; those files remain outside this task.
+
+Phase 3 is implemented: current code/docs use Identity Service, the owner
+contract is `topics/identity-service.md`, and UI details/confirmations describe
+account-managed credentials and access through your account. Current incoming
+links and eval examples are updated; history, generic unrelated fleet uses and
+compatibility literals remain. The local UI constant names the retained origin
+without changing its bytes. No enrollment UI or new authority was introduced.
+
+Final verification: full workspace tests pass (6,884 server, 7,064 client,
+963 shared, 139 relay and 45 push; 148.42 s server duration), as do typecheck,
+server production build, built standalone entry-point smoke, root lint and
+scoped lint/format. All five Server Connections browser cases pass (35.4 s),
+including populated/concurrent sequential typing under 100 ms; an additional
+focused removal pass (30.6 s including owned builds) captures the changed
+account-access confirmation at both required sizes. Captures in
+`.artifacts/ui-testing/2026-11-02-identity-service/` were inspected individually.
+The final Sol review closed its two documentation findings with no remaining
+actionable issues. Local links and retained protocol-example counts pass.
+
+Whole-tree `format:check` reports only concurrent provider/session-creation
+edits outside this task; the exact files and reason no unrelated formatter
+commit was made are recorded in
+[existing tooling debt](../../gaps/runtime-cutover-tooling-warnings.md#identity-service-rename-verification--2026-11-02).
+The rename's scoped formatter is clean, the console warning budget stays 108,
+and no global suppression or primary restart was used. Concurrent changes
+remain outside the naming commits.

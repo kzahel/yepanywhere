@@ -127,7 +127,7 @@ implementations rather than inventing authentication or cryptography. Existing
 local-password and limited-user services are relevant starting points, not an
 automatic migration of their current principal or permission semantics.
 
-The same separation applies to an optional hosted or self-hosted fleet
+The same separation applies to an optional hosted or self-hosted identity-service
 enrollment service: it may use basic local accounts while managing access to
 several YA servers. Local account storage does not imply single-machine scope.
 Each target still explicitly enrolls and trusts an issuer within its local

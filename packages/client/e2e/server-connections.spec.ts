@@ -653,6 +653,7 @@ test("removal confirms one direction, preserves the reverse, and refuses a stale
   await expect(
     page.getByRole("button", { name: "Connect a server", exact: true }),
   ).toBeFocused();
+  await page.setViewportSize({ width: 1000, height: 600 });
   await outgoing
     .getByRole("button", {
       name: "View Windows workstation details",
@@ -672,17 +673,41 @@ test("removal confirms one direction, preserves the reverse, and refuses a stale
   await expect(
     page
       .getByRole("dialog")
-      .getByText("Fleet-managed access is separate and will remain.", {
+      .getByText("Access through your account is separate and will remain.", {
         exact: true,
       }),
   ).toBeVisible();
+  await recordUiCapture(page, "server-connections-account-access-desktop");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await outgoing
+    .getByRole("button", {
+      name: "View Windows workstation details",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Stop local use", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("Access through your account is separate and will remain.", {
+        exact: true,
+      }),
+  ).toBeVisible();
+  await recordUiCapture(page, "server-connections-account-access-phone");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Remove connection", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("status")).toContainText(
-    "Manual connection removed. Fleet-managed access remains.",
+    "Manual connection removed. Access through your account remains.",
   );
   await expect(
     outgoing.getByText("Windows workstation", { exact: true }),

@@ -27,7 +27,7 @@ must not be hidden by retries or arbitrary deadline changes.
 
 Trusted control means the ability to execute as the YA OS account. Do not
 present project filters as confinement of unrestricted agents. The first UI
-has no scope editor, read-only invitation flow, fleet/OIDC setup or mesh policy.
+has no scope editor, read-only invitation flow, identity-service/OIDC setup or mesh policy.
 Keep those as follow-ups. Native agents keep their existing discovery and v0
 workflow; no checkout, scheduler or custom delegation lifecycle is added.
 
@@ -49,7 +49,7 @@ and start no all-peer scans or recurring per-peer loops.
 
 The MVP trusted-control grant must include newly discovered projects, rather
 than silently freezing an all-projects selection at enrollment. Keep existing
-explicit project/operation credentials and fleet ceilings unchanged. A broad
+explicit project/operation credentials and identity-service ceilings unchanged. A broad
 control grant does not authorize another server's legacy owner API by accident.
 
 Provide owner-authorized runtime enable/disable and inspectable disabled state.
@@ -188,7 +188,7 @@ ordinary server-side owner SRP, direct/relay enrollment, independently renewable
 control directions, runtime enablement, current/future-project trusted grants,
 nonsecret audit and recent session attribution. SRP disk resume defaults on for
 fresh/unset profiles and preserves saved opt-outs. The existing owner password,
-peer credentials and optional fleet identity remain distinct authenticators.
+peer credentials and optional identity-service identity remain distinct authenticators.
 
 Both requested reviewers ran through the existing YA API: actual `gpt-6.1-sol`
 with high reasoning and `gpt-6-sol` with high reasoning and Daybreak Blue.
@@ -230,7 +230,7 @@ artifact facility, inspected individually and reviewed. Local evidence is under
 
 Windows qualification remains deferred as requested; this POSIX/Chromium run
 makes no new Windows acceptance claim. Rich audit pagination, in-flow bulk
-revocation alongside human password changes, fleet/read-only UI and mesh remain
+revocation alongside human password changes, identity-service/read-only UI and mesh remain
 follow-ups. Remote Access currently explains password independence and links to
 explicit incoming revocation; local Stop use explicitly leaves the remote grant.
 
@@ -240,7 +240,7 @@ The approved follow-up replaces the diagnostic-looking peer cards with two
 lists: Devices you can access / Devices with access to this server. Each manual
 direction has an × and an exact-credential confirmation. Outgoing removal
 explicitly leaves the other server's grant; reverse access remains independent.
-Fleet-managed directions stay marked Managed, with manual removal in details
+Identity Service-managed directions stay marked Managed, with manual removal in details
 and qualified confirmation/success copy. Unselected saved routes are identified.
 Clicking a name opens rename, test, renewal, credentials, activity and audit;
 the master switch and refresh live under collapsed Connection settings.
@@ -249,7 +249,7 @@ settled failures. No pairing protocol or owner/agent access policy changed.
 
 Browser coverage retains 50-peer sequential typing with concurrent metadata
 updates and the 100 ms gate, then exercises cancellation, independent removal,
-stale-generation rejection, manual/fleet overlap, dialog feedback and keyboard
+stale-generation rejection, manual/identity-service overlap, dialog feedback and keyboard
 navigation. Desktop/phone captures are archived and inspected individually at
 `.artifacts/ui-testing/2026-11-01-peer-device-lists/`. Review evidence and logs
 live in ignored `tasks/peer-list-ui/`. The full workspace run has 6,709 server

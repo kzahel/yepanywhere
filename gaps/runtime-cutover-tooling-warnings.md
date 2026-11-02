@@ -56,3 +56,24 @@ The broader client run also retains two jsdom “navigation (except hash changes
 notices already present in the pre-Connections peer-access workspace logs. They
 are unrelated to the browser-based new page, whose interactions run in Chromium;
 no global jsdom/navigation suppression was added.
+
+
+## Identity Service rename verification — 2026-11-02
+
+The rename's scoped lint/format, typecheck, server build, 48 core cases, five
+browser cases and complete workspace tests pass. The final whole-tree
+`pnpm format:check` still reports formatter-only differences in concurrently
+edited session-creation/provider files outside this task:
+
+- `packages/server/src/sdk/providers/provider-runtime-worker.ts`
+- `packages/server/test/routes/sessions-queued-start-metadata.test.ts`
+- `packages/server/test/sdk/providers/provider-runtime-host.test.ts`
+- `scripts/provider-runtime-discovery.mjs`
+
+These were already active unrelated edits, not changes introduced or staged by
+the naming task. Formatting/committing them here cannot safely be isolated
+from their owner's in-progress semantic work. They are left untouched for that
+workstream's final formatter pass; no formatter suppression was added. Exact
+check output is retained in ignored
+`tasks/identity-service-rename/phase3-format-final.log`. The console baseline
+remains 108 warning sites; no new client logging was added.

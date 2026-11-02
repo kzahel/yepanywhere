@@ -32,7 +32,7 @@ Target settings and existing native permission/sandbox policy remain ceilings.
 Public-key continuity registered by mobile clients proves continuity on an
 already authenticated connection. It is not repurposed as unattended login.
 The initial manual ceremony uses distinct random peer secrets with existing
-SRP-6a and NaCl helpers. A subsequent fleet-issued, device-key-bound credential
+SRP-6a and NaCl helpers. A subsequent identity-service-issued, device-key-bound credential
 is a separate authenticator into the same identity/grant boundary; no new
 signature/challenge protocol is introduced by this slice.
 
@@ -95,11 +95,11 @@ both a separately issued launch peer-access grant and that outgoing record's
 explicit agent-use policy. Existing local management leases remain local.
 
 Incoming credentials cap at 64. Outgoing topology caps at 64 distinct targets,
-with up to 128 credentials so manual and fleet access can coexist per pair.
+with up to 128 credentials so manual and identity-service access can coexist per pair.
 Private v2 profile storage caps at eight MiB and uses durable atomic replacement;
 v1 migrates preserving IDs, manual policy and selected routes. Unknown versions
 fail closed. A separate selection maps each target UUID to one credential;
-importing fleet access never replaces a selected manual credential. Owner
+importing identity-service access never replaces a selected manual credential. Owner
 selection is explicit, and denial/removal never falls back automatically.
 Mutation serialization prevents lost
 updates. Invalid/corrupt/unknown-version state fails closed rather than resetting
@@ -109,7 +109,7 @@ HTTP admission to the same active generation, checking it again after async
 crypto. A source import captures a state revision before preflight and checks
 that revision in its serialized durable commit; a delayed import cannot undo
 removal or replacement. Failed preflight never publishes or stores a new route.
-There is at most one manual and one fleet incoming record per source UUID. If a create or
+There is at most one manual and one identity-service incoming record per source UUID. If a create or
 rotation response is lost, list its nonsecret source/credential ID and generation,
 then rotate or remove it; do not replay a secret export or silently make another
 record. Incoming and outgoing expiry/revocation survive restart.
@@ -273,21 +273,21 @@ Run a light opt-in agent trial only after deterministic fixtures are stable.
 Qualify Windows through actual multi-device enrollment when an authorized host
 is available; do not infer Windows from POSIX transports.
 
-## Optional fleet login remains separate
+## Optional identity-service login remains separate
 
-The optional [fleet service](fleet-authentication.md) implements local account
-login, key-bound enrollment and directional proposals. The fleet consumer adds
+The optional [Identity Service](identity-service.md) implements local account
+login, key-bound enrollment and directional proposals. The identity-service consumer adds
 owner acceptance, signed/source-encrypted SRP delivery and an additional
 short-lived issuer token at protected admission. Its independent integration
 review is complete; external OIDC now feeds the same key-bound enrollment,
 with a browser-only confirmation code and live initiating-owner checks. A
 central service never receives manual peer secrets or becomes a prerequisite for manual grants.
-Fleet credentials have an explicit stored origin and advertise fleet support
+Identity Service credentials have an explicit stored origin and advertise identity-service support
 in the authenticated SRP metadata before the source sends a request. They
 require both current SRP possession and matching issuer/account/client/profile/
-credential-generation claims. A fleet secret never enters manual admission.
+credential-generation claims. An identity-service secret never enters manual admission.
 The reviewed ceremony, target ceilings and offline revocation bounds are owned
-by the fleet topic; SRP remains the existing authenticated transport.
+by the identity-service topic; SRP remains the existing authenticated transport.
 
 ## Owner UI direction: relay pairing and audit
 
@@ -472,8 +472,8 @@ an inferred legacy default. This permits YA
 OS-account execution; project filters are not a sandbox. Global native session
 command settings and provider permission/sandbox policy remain ceilings.
 Renewal preserves an existing scoped/read-only manual credential's projects and
-operations; it never silently upgrades that credential. Fleet policy ceilings
-and explicit credential selection remain unchanged. If a different fleet
+operations; it never silently upgrades that credential. Identity Service policy ceilings
+and explicit credential selection remain unchanged. If a different identity-service
 credential is selected, setup asks the owner to resolve selection first rather
 than falsely reporting the new manual grant as the active route.
 
@@ -482,14 +482,14 @@ The two directions are independent. Initial setup can request both; later
 Each manually paired direction has an × with a confirmation explaining which
 access changes and which reverse connection remains. Incoming removal is
 locally enforced immediately; outgoing removal deletes
-only this manual outgoing credential, preserves fleet records/selection and
+only this manual outgoing credential, preserves identity-service records/selection and
 leaves the target's incoming grant visible there. Its success message explicitly
 says that remote grant remains; local removal does not claim remote cleanup.
 A confirmation binds the exact credential ID and generation observed when it
 opened. A concurrent rotation fails visibly rather than removing the new
 credential; cancellation sends no mutation. A failed removal keeps its dialog
-open. Fleet-managed directions show **Managed**, with manual credential removal
-available in details and an explicit warning that fleet access remains.
+open. Identity Service-managed directions show **Managed**, with manual credential removal
+available in details and an explicit warning that identity-service access remains.
 Accepted native agent work continues after access is revoked. Fresh target
 owner login is required for later pairing-secret or authentication-policy changes;
 routine automatic refresh uses only the existing pair proof.
@@ -532,7 +532,7 @@ Owner listings paginate server metadata, show recent nonsecret audit and at most
 No password, invitation secret, verifier, owner resume key or prompt body enters
 these projections. Changing human Remote Access credentials keeps independent
 peer credentials; Remote Access links to the incoming-control revocation view.
-Read-only UI, richer scopes, route discovery, full mesh and fleet/OIDC settings
+Read-only UI, richer scopes, route discovery, full mesh and identity-service/OIDC settings
 remain separate follow-ups.
 
 
@@ -551,7 +551,7 @@ Refreshable manual pairings use a distinct `peer-v1` SRP protocol. The retained
 per-pair secret proves transport/refresh identity; it is not an ordinary v0 API
 bearer. Ordinary requests require a one-hour random access credential bound to
 the verified source, target, pair and permission generation. Targets persist
-only access hashes. Legacy fixed-expiry and fleet credentials keep `peer-v0`.
+only access hashes. Legacy fixed-expiry and identity-service credentials keep `peer-v0`.
 Browser owner login and its saved sessions are unchanged.
 
 Only verified peer-v1 channels can reach `GET /peer/v1/auth/identity` or
@@ -593,7 +593,7 @@ all-project control scope, and a deadline matching the historical 30-day default
 Each end checks its own evidence against the exact credential and opposite
 server. Missing evidence, changed scope, renewed generations and expired grants
 require owner sign-in. A protected migration refusal leaves the original fixed
-grant usable and discards its unaccepted candidate. Explicitly time-limited manual grants and fleet policy
+grant usable and discards its unaccepted candidate. Explicitly time-limited manual grants and identity-service policy
 are never silently extended. New explicit fixed choices carry a durable false
 marker in both target policy and the source invitation, excluding them from the
 historical heuristic. Renewing both directions preserves an existing reverse

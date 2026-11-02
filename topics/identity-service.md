@@ -1,17 +1,16 @@
-# Optional fleet accounts and enrollment
+# Optional Identity Service accounts and enrollment
 
 Status: implemented and independently reviewed for plan 168 steps 3–4,
 2026-10-31. The standalone basic service, owner HTTP consumer and OIDC adapter
 complete protected native workflows. Sol 6.1 high and Daybreak Blue high
 reviewed the design and code, then rechecked all material fixes. Manual
-[peer access](peer-access.md) remains independent. Fleet accounts are optional
+[peer access](peer-access.md) remains independent. Identity Service accounts are optional
 and the API remains unstable; live vendor qualification and enrollment/grant UI
 are follow-ups.
 
-The terminology-only rename in [plan 172](../docs/tactical/172-identity-service-naming.md)
-is authorized. Service internals now live in `packages/server/src/identity-service/`;
-wire/storage names remain unchanged. The owner administration and UI wording
-are updated in subsequent reviewed slices.
+The [plan 172](../docs/tactical/172-identity-service-naming.md) naming cleanup
+uses Identity Service in code, owner administration and UI documentation.
+Protocol/storage compatibility names are retained in the ledger below.
 
 ## Scope and first-key trust
 
@@ -66,7 +65,7 @@ logout/account-disable detection; no fresh MFA assertion is invented.
 
 This small account-session API is not an OAuth/OpenID provider for arbitrary
 applications. Use `jose` for JWS/JWT/JWE and `oauth4webapi` for DPoP resource
-request construction/validation. Fleet signatures accept ES256 only; envelopes use
+request construction/validation. Identity Service signatures accept ES256 only; envelopes use
 ECDH-ES/A256GCM. Explicit HTTPS public origin and TLS termination are required
 for network deployment; plain HTTP is an explicit loopback fixture option.
 Do not infer authority from proxy headers, token-supplied URLs or relay names.
@@ -131,7 +130,7 @@ absolute expiry, including tokens minted immediately before the deadline.
 
 ## Control-plane nonce admission
 
-DPoP is used on actual fleet HTTP resources, not synthetic peer URLs. The library
+DPoP is used on actual identity-service HTTP resources, not synthetic peer URLs. The library
 validates signature, token hash, method and URI. YA additionally checks token
 purpose, account/client/profile/session generation, nonce and authorization.
 A proof has a 60-second maximum age and five-second future allowance.
@@ -161,7 +160,7 @@ fails because each nonce is consumed once. Lost replies can require a new
 rate-limited challenge.
 
 The client may retry one explicit pre-admission nonce challenge. It never retries
-an ambiguous application mutation automatically. Fleet calls are serialized per
+an ambiguous application mutation automatically. Identity Service calls are serialized per
 profile with at most eight waiters and retain caller deadlines. Token renewal
 is demand-driven/coalesced; no idle polling or per-session timer is added.
 
@@ -179,7 +178,7 @@ local project/action ceiling, acknowledging server-account execution authority
 for create/message. Initial acceptance/sync is explicit, not account-wide mesh
 permission. Human UI can follow these owner-only HTTP operations.
 
-The target creates a distinct fleet SRP credential. A signed invitation binds
+The target creates a distinct identity-service SRP credential. A signed invitation binds
 issuer/account, both client/profile IDs and accepted public keys/generations,
 relationship ID/generation, credential ID/generation, policy, owner-selected
 route and validity. Use `typ=ya-peer-invitation+jwt`, exact source-client audience
@@ -206,11 +205,11 @@ export. Outboxes survive restart and are retired by revocation/disconnect.
 ## Per-request peer authority
 
 Keep the existing SRP/NaCl channel as credential-possession and target proof.
-The first slice omits peer-side DPoP and synthetic logical HTTP URIs. Fleet
+The first slice omits peer-side DPoP and synthetic logical HTTP URIs. Identity Service
 service key proof controls token renewal, and the SRP secret is delivered only
-to the accepted source encryption key. A fleet peer request additionally carries
+to the accepted source encryption key. An identity-service peer request additionally carries
 a short-lived issuer-signed token bound to that exact SRP credential/generation.
-A token alone or SRP secret alone cannot enter a fleet record.
+A token alone or SRP secret alone cannot enter an identity-service record.
 
 Use `typ=ya-peer-grant+jwt`, `iss=trusted issuer`,
 `aud=urn:yep-anywhere:peer:<target-profile-uuid>`, source-client `sub`, `iat`,
@@ -220,9 +219,9 @@ ID/generation, credential ID/generation, project IDs and operation IDs. The
 issuer derives these from the active session and published accepted relationship.
 No arbitrary audience, account or credential supplied by a caller is signed.
 
-Retain encrypted `Authorization: Bearer <peer-secret>` and add the fleet token
+Retain encrypted `Authorization: Bearer <peer-secret>` and add the identity-service token
 in a separate bounded header. A durable credential-origin discriminator makes
-fleet records require both proofs; missing/invalid tokens never fall through to
+identity-service records require both proofs; missing/invalid tokens never fall through to
 manual auth. The unforgeable SRP handoff and bearer credential must identify the
 same current record/generation. Intersect token authority, accepted relationship
 and current local ceiling; preserve source launch/outgoing-record checks.
@@ -250,19 +249,19 @@ rotation with bounded retained public keys; no automatic key-rotation service.
 The five-minute offline revocation bound covers account, client and relationship
 revocation by stopping renewal. It does not cover compromise/removal of an issuer
 signing key: cached trust can last ten minutes. Emergency local issuer distrust
-immediately retires its fleet grants/channels and cache; manual peers survive.
+immediately retires its identity-service grants/channels and cache; manual peers survive.
 
 ## Coexistence and versioned peer state
 
 Peer state v2 explicitly migrates v1 credentials as manual, preserving all
 existing IDs, meaning, retry scopes and source attestations. Incoming uniqueness
-becomes `(source profile, origin)`; manual and one fleet relationship may coexist.
+becomes `(source profile, origin)`; manual and one identity-service relationship may coexist.
 Each outgoing credential has its own ID/origin and policy. A separate map selects
 one credential per public target UUID. Existing v1 selections stay manual.
 
-Fleet import never changes an existing manual selection. An owner selects a
-new/standby credential explicitly. Deleting/disconnecting fleet access removes
-only fleet credentials and clears a removed selection; surviving manual records
+Identity Service import never changes an existing manual selection. An owner selects a
+new/standby credential explicitly. Deleting/disconnecting identity-service access removes
+only identity-service credentials and clears a removed selection; surviving manual records
 remain inspectable and can be explicitly selected. There is no silent fallback
 after denial, expiry or an ambiguous mutation, and topology never duplicates the
 same public target. `DELETE outgoing/<target>` deliberately removes all its
@@ -270,13 +269,13 @@ credentials; origin-specific operations support narrower removal.
 
 Atomic migration leaves either complete v1 or complete v2 state; repeated
 migration derives the same IDs. Unknown versions fail closed and older code
-refuses v2 rather than interpreting fleet credentials as manual. Manual wire
-messages remain unchanged. Fleet invitations/metadata advertise their distinct
+refuses v2 rather than interpreting identity-service credentials as manual. Manual wire
+messages remain unchanged. Identity Service invitations/metadata advertise their distinct
 version; unsupported targets/importers fail explicitly before credential release.
 Both sides preserve current receipt/retry identity across credential changes.
 
 YA enrollment/disconnect has its own durable generation. Removing it retires its
-local fleet records/keys first and aborts pending work; late refresh/sync cannot
+local identity-service records/keys first and aborts pending work; late refresh/sync cannot
 recreate them. Manual records survive. If the optional service is unavailable,
 report remote revocation unconfirmed without restoring local authority.
 
@@ -285,7 +284,7 @@ report remote revocation unconfirmed without restoring local authority.
 Use existing `openid-client` authorization-code OIDC with PKCE/state/nonce,
 exact configured issuer/client/callback and one-use pending flows. External
 accounts must be administrator-provisioned by exact `(issuer, subject)`; a login
-at an arbitrary account of a configured provider does not create fleet membership.
+at an arbitrary account of a configured provider does not create identity-service membership.
 No implicit local/external account linking is offered.
 
 The initiating YA owner creates a pending flow bound to its profile, both keys,
@@ -296,7 +295,7 @@ YA, never placed in browser URLs. It conveys no account authority before OIDC
 completion. Callback consumption is single-use before exchange; completion
 stores the authenticated account result against that exact flow, not a browser
 refresh capability. Browser output contains only transaction confirmation
-information, never a fleet session or refresh capability.
+information, never an identity-service session or refresh capability.
 
 The same originating owner session then completes through YA. YA checks local
 flow/generation/session binding and redeems the browser confirmation code with
@@ -307,11 +306,11 @@ wrong profile/key or expired/restarted flow cannot redeem it. Missing stable
 owner-session binding refuses initiation rather than weakening that check.
 
 Configured Keycloak/Dex-compatible and Clerk OIDC providers share this adapter.
-Upstream owns MFA/recovery. One-hour absolute OIDC fleet sessions bound later
+Upstream owns MFA/recovery. One-hour absolute OIDC identity-service sessions bound later
 refresh without asserting continuous upstream logout detection. Protocol tests
 use an owned local issuer, real code exchange/JWKS and verified tokens; live
 vendor qualification remains distinct. Existing artifact OAuth/email policy is
-not fleet account authority.
+not identity-service account authority.
 
 ### Browser confirmation and owner-publication admission
 
@@ -345,7 +344,7 @@ connection/session rather than an immutable request snapshot. Logout before
 enrollment transmission prevents remote membership. Once enrollment has been
 sent, the remote durable operation can already have committed: later logout
 prevents local adoption but cannot promise to undo accepted remote work. A
-reserved local persistence-queue slot lets the single serialized fleet client
+reserved local persistence-queue slot lets the single serialized identity-service client
 discard only its exact newly published refresh family even when ordinary
 policy writes have filled the queue. A newer family or epoch is never removed.
 Report that remote outcome as unconfirmed. Never unconditionally delete a client to
@@ -361,9 +360,9 @@ requires owner-only file permissions and at most four configured providers.
 Each entry has `id`, `displayName`, exact upstream `issuer`, `clientId`,
 `clientSecret`, optional `tokenEndpointAuthMethod` (`client_secret_basic` by
 default, or `client_secret_post`) and `idTokenSigningAlgorithm` (`RS256` by
-default, or `ES256`). These are upstream ID-token algorithms; YA's own fleet
+default, or `ES256`). These are upstream ID-token algorithms; YA's own identity-service
 signatures remain ES256. Register the fixed callback
-`FLEET_ORIGIN/fleet/v0/oidc/callback/PROVIDER_ID` at that provider. Upstream
+`IDENTITY_SERVICE_ORIGIN/fleet/v0/oidc/callback/PROVIDER_ID` at that provider. Upstream
 responses are limited to 64 KiB with five-second request budgets; redirects are
 refused. Network use requires HTTPS; explicit owned loopback fixtures may use
 HTTP. No provider is enabled or chosen implicitly.
@@ -395,7 +394,7 @@ anonymous loopback or an agent's session lease.
 
 ### Standalone service surface
 
-The service can be constructed with `createFleetService(FleetStore)` without a
+The service can be constructed with `createIdentityService(IdentityServiceStore)` without a
 listener. Its HTTP resources are under `/fleet/v0`; this version remains
 unstable. `GET /fleet/v0` explains the authentication boundary and `GET
 /fleet/v0/jwks` publishes only signing public keys. `POST /login` accepts local
@@ -429,7 +428,7 @@ removal as described above.
 service. An explicit `--fixture-http` permits only loopback HTTP for owned tests.
 There is no forwarded-header trust or implicit TLS proxy deployment mode.
 Administrator commands and serving refuse concurrent directory ownership. No
-listener is started by importing the fleet modules, and the main YA server
+listener is started by importing the identity-service modules, and the main YA server
 does not start this service automatically.
 
 ### YA owner surface and credential selection
@@ -438,7 +437,7 @@ Existing authenticated owner proof gates every `/api/peers/identity-service` ope
 even when ordinary app auth is disabled; native session leases do not authorize
 these routes. `PUT /api/peers/identity-service` chooses the exact issuer/account and creates
 profile keys. `POST /identity-service/login` supplies basic credentials (never saved),
-returning only public enrolled-client data. Under `/api/peers`, fleet directory
+returning only public enrolled-client data. Under `/api/peers`, identity-service directory
 reads are `GET /identity-service/clients[/:id]`, `GET /identity-service/relationships[/:id]` and `GET
 /identity-service/mailbox`. `POST /identity-service/relationships` proposes, `POST /identity-service/accept`
 accepts exact projects/actions/expiry and route with execution acknowledgement,
@@ -448,13 +447,13 @@ acknowledgement follows durable local publication; an unsuccessful acknowledgeme
 is reported separately and can be repeated after mailbox removal.
 
 `POST /outgoing/:targetId/select` with `{credentialId}` explicitly selects a
-manual or fleet credential. Importing fleet credentials leaves selection alone,
+manual or identity-service credential. Importing identity-service credentials leaves selection alone,
 including when no credential is selected. `DELETE
 /outgoing/:targetId/credentials/:credentialId` removes just that credential;
 `DELETE /outgoing/:targetId` retains its established all-credentials meaning.
-`DELETE /identity-service/relationships/:id` removes matching local fleet access first and
+`DELETE /identity-service/relationships/:id` removes matching local identity-service access first and
 then attempts issuer revocation. `DELETE /identity-service` durably removes local keys and
-fleet records before attempting client revocation, reporting remote confirmation
+identity-service records before attempting client revocation, reporting remote confirmation
 separately. Surviving manual credentials and unrelated agent leases remain;
 removed selections are cleared and must be chosen again explicitly.
 
@@ -466,7 +465,7 @@ mail deleted, retired generations limited to current state. Limiters retain at
 most 1,024 keys. Keep at most four bcrypt, eight JWT/key verification/signing
 jobs, four service preflights and one coalesced JWKS fetch per issuer. Abandoned
 native crypto still owns its slot until settlement. Mutation queues cap at 16 ordinary writes; the YA peer store reserves one
-additional slot for conditional cleanup by its single serialized fleet client.
+additional slot for conditional cleanup by its single serialized identity-service client.
 Service/peer state files cap at eight MiB, service HTTP bodies at 64 KiB, JWTs at
 32 KiB, HTTP replies at 256 KiB and request lifetime at ten seconds. Peer channel
 limits remain unchanged. Refuse capacity instead of evicting active authority.
@@ -474,7 +473,7 @@ Measure the final encoded JWE, not just its plaintext or inner JWS; envelope
 construction that exceeds the cap fails before credential publication. Metadata
 lists are paginated (default 20, maximum 50); ciphertext fetch is per envelope.
 Explicit source adoption handles one envelope per bounded request, not an
-unbounded fleet scan or batch of preflights.
+unbounded identity-service scan or batch of preflights.
 
 The implemented sequence is real local accounts and sessions, key-bound
 enrollment/proposals, target acceptance/mailbox/source adoption, per-request
@@ -484,7 +483,7 @@ No scheduler, cloning/worktree policy, roles or custom delegation lifecycle.
 
 Completion requires real password and OIDC consumers each performing protected
 create/message/follow/revoke, same-pair manual/identity-service coexistence with explicit
-selection, and manual access with the fleet service stopped. Cover ownership,
+selection, and manual access with the Identity Service stopped. Cover ownership,
 restart/corruption, one-use login/nonce races, lost refresh/delivery replies,
 wrong issuer/audience/key, local ceiling reductions, downgrade and disconnect
 races. Run light opt-in model evidence only after deterministic boundaries pass.
@@ -546,8 +545,8 @@ new identity, key rotation or new authority follows from the rename.
 | Existing JWT type/purpose/version and state-marker literals | Signed/encrypted envelopes, profile continuity and fail-closed parsing |
 | `fleet_unavailable`, `fleet_state_unavailable` | Existing structured API error codes |
 
-Owner administration now uses `/api/peers/identity-service`; standalone service
-protocol paths stay `/fleet/v0`. UI labels and current documentation links are
-updated in phase 3.
+Owner administration uses `/api/peers/identity-service`; standalone service
+protocol paths stay `/fleet/v0`. The UI calls these account-managed credentials
+and access through your account.
 Generic "fleet" in performance scenarios, historical evidence and unrelated
 device-file events is outside this subsystem's rename.

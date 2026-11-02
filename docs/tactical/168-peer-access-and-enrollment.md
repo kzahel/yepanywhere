@@ -1,4 +1,4 @@
-# Directional peer access and optional fleet enrollment
+# Directional peer access and optional identity-service enrollment
 
 Status: all four implementation stages complete and independently reviewed,
 2026-10-31. Final workspace verification is recorded below. Enrollment/grant UI
@@ -7,7 +7,7 @@ and live external-provider qualification remain separate follow-ups.
 The maintainer wants agents to discover authorized YA hosts and use the same
 HTTP operations there. YA should expose topology, identity and provenance;
 native agents retain checkout, worktree, polling and workflow decisions.
-Manual enrollment must work without a central login. An optional fleet service
+Manual enrollment must work without a central login. An optional Identity Service
 may use real basic local accounts or external authentication interchangeably.
 
 ## Existing work and constraints
@@ -170,7 +170,7 @@ integration for identity, reconnect, revocation and ambiguous outcomes. No
 Tailscale dependency. Qualify Windows after real multi-device enrollment is
 available, using the common machine-control interface if a testbed is available.
 
-## 3 — Offer an optional fleet service with real local accounts
+## 3 — Offer an optional Identity Service with real local accounts
 
 The first implementation unit is complete: independent Hono service, real
 offline-provisioned bcrypt accounts, key-bound DPoP enrollment, absolute-lived
@@ -193,18 +193,18 @@ standby access. Seven protected integration scenarios plus a JWKS boundary case
 exercise real owner cookies, SRP, an owned relay, native Unix HTTP creation,
 messaging, compact following and provenance, lost responses, revocation during
 preflight, forged invitations/grants, expiry on both ends, uncertain native
-outcomes and selected-fleet outage without fallback. Mixed-origin capacity and
+outcomes and selected-identity-service outage without fallback. Mixed-origin capacity and
 atomic v1 migration are covered. Core tests pass 81 cases; workspace gates pass
 with 6,666 server and 7,062 client tests.
 
-A light opt-in Sol subscription trial through fleet-enrolled relay access passed
+A light opt-in Sol subscription trial through identity-service-enrolled relay access passed
 in 33.672 seconds: 15 requests, zero API errors, 1,124 bootstrap bytes and 15,163
 fetched help bytes. Processed input was 174,762 tokens with 152,064 cached, not
 unique context. Native worker behavior remains scripted; paid OIDC providers,
-packaged UI and live fleet Windows qualification are separate. OIDC is completed
+packaged UI and live identity-service Windows qualification are separate. OIDC is completed
 in step 4 below.
 
-The [concrete fleet design](../../topics/fleet-authentication.md) has completed
+The [concrete identity-service design](../../topics/identity-service.md) has completed
 independent Sol high and Daybreak Blue high review before source edits. It separates real basic login
 from device-key binding, target-enforced proposals and protected peer access;
 manual enrollment remains independent. Its token/envelope protocol is not
@@ -220,7 +220,7 @@ Accounts introduce enrolled device/server identities and propose directional
 grants. Targets explicitly trust an issuer and intersect its proposals with
 local ceilings; joining an account does not silently grant execution on every
 host. Define signed/key-bound grant issuance, audience, expiry and offline
-revocation semantics before enabling consumption. Do not expose fleet signing
+revocation semantics before enabling consumption. Do not expose identity-service signing
 secrets to sessions or conflate login with target authorization.
 
 Use the same local account adapter in deterministic isolated integration tests.
@@ -246,12 +246,12 @@ through async signing, nonce retry and durable publication; queue saturation
 and disk reconstruction. A real SRP-session regression covers stored-session
 revocation/replacement/expiry while the socket remains open. Both independent
 reviewers rechecked all material fixes and reported no remaining finding. The
-[fleet contract](../../topics/fleet-authentication.md) owns the final HTTP shape,
+[identity-service contract](../../topics/identity-service.md) owns the final HTTP shape,
 confirmation, bounds and accepted-remote-work uncertainty semantics.
 
 The small standalone callback page was captured and inspected at desktop and
 phone sizes with synthetic data. This qualifies the owned protocol fixture,
-not a real Keycloak/Dex/Clerk deployment, packaged provider UI or fleet Windows.
+not a real Keycloak/Dex/Clerk deployment, packaged provider UI or identity-service Windows.
 Native agents keep their existing private API discovery and workflow decisions.
 
 Add a real OIDC adapter through the existing audited openid-client dependency.
@@ -263,7 +263,7 @@ the configured upstream without inventing an assertion of fresh MFA.
 
 Test the OIDC protocol boundary with a local standards-compliant issuer fixture,
 not live paid accounts in CI. Keep native/manual enrollment working with the
-fleet service absent. Record any provider-specific qualification still needed.
+Identity Service absent. Record any provider-specific qualification still needed.
 
 Final workspace evidence: 6,680 server tests and 7,062 client tests pass, along
 with the remaining workspace packages. Lint, formatting and type checks pass.
@@ -273,7 +273,7 @@ A clean run after final source changes does not explain that intermittent
 failure. Final core API coverage is 94 cases; the additional live SRP regression
 runs with the relay handler tests. An isolated Bun 1.3.14 probe also completes
 real owned-issuer OIDC/PKCE/JWKS, browser confirmation, DPoP and durable restart.
-This adds runtime evidence, not live external-provider or fleet Windows proof.
+This adds runtime evidence, not live external-provider or identity-service Windows proof.
 
 ## Reviews, evidence and commits
 
