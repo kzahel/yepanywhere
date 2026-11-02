@@ -1,3 +1,4 @@
+import { SESSION_CREATION_INPUT_SCHEMA } from "./migrations/021-session-creation-input.js";
 import { NATIVE_SESSION_ALLOCATIONS_SCHEMA } from "./migrations/020-native-session-allocations.js";
 import { SESSION_CREATION_GENERATION_SCHEMA } from "./migrations/019-session-creation-generation.js";
 import { SESSION_CREATIONS_SCHEMA } from "./migrations/018-session-creations.js";
@@ -60,6 +61,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 18, sql: SESSION_CREATIONS_SCHEMA },
   { version: 19, sql: SESSION_CREATION_GENERATION_SCHEMA },
   { version: 20, sql: NATIVE_SESSION_ALLOCATIONS_SCHEMA },
+  { version: 21, sql: SESSION_CREATION_INPUT_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

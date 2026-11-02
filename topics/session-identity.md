@@ -1,9 +1,10 @@
 # YA-owned session identity and startup lifecycle
 
-Status: implementation in progress under plan 171. Typed identity storage and
-bound Claude/Codex detail reads are implemented; launch behavior is unchanged.
-Discovery/watch/source migration, durable admission and release qualification
-remain pending.
+Status: implementation in progress under plan 171. Scoped identities, retained
+provider history/watch adapters, creation-control storage and saved-session reads
+and collections are implemented. Ordinary launch behavior remains unchanged.
+Managed dispatch, cold-resume/owned-browser gates, caller rollout and release
+qualification remain pending.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 defines the implementation slices, isolated-profile qualification and requested
@@ -711,3 +712,30 @@ work in plan 171 is unchanged.
 This prerequisite does not enable durable launch routes or advertise a creation
 capability. Actual dispatch, owner/host reconciliation and caller rollout still
 require the remaining phase 4–9 implementation and qualification.
+
+### Saved launch choices and initial input identity
+
+Migration 21 reserves one independent initial-input UUID with every fresh
+creation's identity, payload and attempt. Request replay, explicit pre-effect
+retry, deletion and profile reopen retain it. It is a message/receipt identity,
+not the YA session id, native session id or startup attempt id. Older creation
+rows remain readable and replayable with a null input id; migration does not
+invent missing original launch choices or authorize dispatch of those records.
+
+The private saved request can additionally carry a versioned launch-choice
+snapshot: explicit provider model, client name, router selectors, tool rules,
+recap/suggestion/helper settings, compaction choices, sandbox/network choice,
+machine-control choice and selected global instructions. Permission patterns
+and nested data are copied; unknown option fields, actor hints, environment
+objects and desktop-control credential proof are excluded. Retired execution
+and resume-only options cannot enter this new-session snapshot. The serialized
+snapshot shares the existing 256 KiB request and 512 MiB profile payload bounds.
+Changed saved choices conflict on request-key reuse; identical choices replay.
+
+These are submitted choices, not current authorization or proof that a provider
+has accepted input. Dispatch must separately revalidate the actor/grants, obtain
+current credential proof, preserve settled account/sandbox facts and establish
+provider-specific binding/consumption evidence. A stored machine-control flag or
+source hint cannot recreate desktop credential provenance. Raw provider options
+and child environments are not restored from the database. Runtime dispatch and
+public creation capability remain gated by the rest of plan 171.

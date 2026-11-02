@@ -685,6 +685,10 @@ binding releases only its own claim. Unknown outcomes retain quarantine across
 restart/deletion; legacy reads and watches cannot bypass it. A deterministic
 watch race and a retained-preview regression were corrected after review;
 focused, owned Node/Bun probes and complete Node 26 workspace checks pass.
+The additional launch-choice snapshot and independent first-input UUID are also
+independently accepted, with real SQLite/replay/reopen and Node 22/Bun checks.
+Static gates pass; its two full runs hit the separately tracked Rendez restart
+failure, which remains open. Actual managed dispatch and input evidence are next.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

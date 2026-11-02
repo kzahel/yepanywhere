@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -80,13 +81,52 @@ it("commits exact text, immutable source and creator beside an unbound identity,
   roots.push(root);
   const path = join(root, "db.sqlite"),
     first = await fixture(path);
+  const launch = {
+    schemaVersion: 1 as const,
+    model: "explicit-native-model",
+    routerAccountId: "account_a",
+    machineControl: true,
+    sandboxLevel: "project-write" as const,
+    sandboxNetworkFirewall: false,
+    permissions: { allow: ["Read(*)"], deny: ["Bash(curl *)"] },
+    compactAtContextPercent: 71,
+    globalInstructions: "  selected global instructions\n",
+    recapMode: "off" as const,
+    desktopControlOrigin: { launch: "DO_NOT_PERSIST_CREDENTIAL" },
+    instructionUsername: "do-not-trust-this-actor",
+    env: { AUTH_TOKEN: "DO_NOT_PERSIST_ENV" },
+  };
   expect(first.store.generation).toBe(1);
   const admitted = first.store.admit({
     requestId: "request_0001",
     context,
-    request,
+    request: { ...request, launch },
   });
   expect(first.store.generation).toBe(2);
+  const frozenRequest = structuredClone(admitted.request!);
+  expect(admitted.initialInputId).toMatch(/^[a-f0-9-]{36}$/);
+  expect(admitted.initialInputId).not.toBe(admitted.sessionId);
+  expect(admitted.initialInputId).not.toBe(admitted.attempt.attemptId);
+  expect(admitted.request?.launch).toMatchObject({
+    model: launch.model,
+    permissions: launch.permissions,
+    sandboxLevel: "project-write",
+    compactAtContextPercent: 71,
+    globalInstructions: launch.globalInstructions,
+  });
+  const persisted = rows(
+    first.database,
+    "SELECT payload_json FROM session_creations",
+  )[0]!.payload_json;
+  expect(persisted).not.toContain("DO_NOT_PERSIST");
+  expect(admitted.request?.launch).not.toHaveProperty("desktopControlOrigin");
+  expect(admitted.request?.launch).not.toHaveProperty("instructionUsername");
+  launch.permissions.allow[0] = "caller mutation";
+  expect(
+    first.store.get(context.owner, "request_0001")?.request?.launch?.permissions
+      ?.allow,
+  ).toEqual(["Read(*)"]);
+
   expect(admitted.request?.message).toBe(request.message);
   expect(first.metadata.identities.resolveYa(admitted.sessionId)).toMatchObject(
     {
@@ -116,10 +156,48 @@ it("commits exact text, immutable source and creator beside an unbound identity,
   const second = await fixture(path);
   const reopenedGeneration = second.store.generation;
   expect(
-    second.store.admit({ requestId: "request_0001", context, request })
-      .sessionId,
+    second.store.admit({
+      requestId: "request_0001",
+      context,
+      request: frozenRequest,
+    }).sessionId,
   ).toBe(admitted.sessionId);
   expect(second.store.generation).toBe(reopenedGeneration);
+  expect(second.store.get(context.owner, "request_0001")?.initialInputId).toBe(
+    admitted.initialInputId,
+  );
+  expect(
+    second.store.get(context.owner, "request_0001")?.request?.launch
+      ?.globalInstructions,
+  ).toBe(launch.globalInstructions);
+  expect(() =>
+    second.store.admit({
+      requestId: "request_0001",
+      context,
+      request: {
+        ...frozenRequest,
+        launch: {
+          ...frozenRequest.launch!,
+          permissions: { deny: ["Write(*)"] },
+        },
+      },
+    }),
+  ).toThrow(SessionCreationConflict);
+  const retiredLaunch = {
+    ...frozenRequest.launch!,
+    remoteEnv: { TOKEN: "DO_NOT_PERSIST" },
+  };
+  expect(() =>
+    second.store.admit({
+      requestId: "bad_remote_01",
+      context,
+      request: {
+        ...frozenRequest,
+        launch: retiredLaunch,
+      },
+    }),
+  ).toThrow("Retired execution options");
+
   expect(
     second.metadata.getMetadata(admitted.sessionId)?.creationProvenance
       ?.surface,
@@ -234,6 +312,7 @@ it("replays retries before mutable checks, retains historical results, and refus
   const { store, database } = await fixture();
   const a = store.admit({ requestId: "request_0001", context, request });
   store.failBeforeEffects(a.attempt, "startup-unavailable");
+  const inputId = a.initialInputId;
   const failedGeneration = store.generation;
   const retry = store.retry(
     context.owner,
@@ -242,6 +321,7 @@ it("replays retries before mutable checks, retains historical results, and refus
     a.attempt.attemptId,
   );
   expect(store.generation).toBe(failedGeneration + 1);
+  expect(store.getForSession(a.sessionId)?.initialInputId).toBe(inputId);
   expect(
     store.retry(context.owner, a.requestId, "retry_00001", a.attempt.attemptId),
   ).toEqual(retry);
@@ -314,4 +394,73 @@ it("upgrades an existing admission database without changing its capacity counte
   ).toMatchObject([
     { operations: 4, payload_bytes: 123, attempt_bytes: 456, generation: 1 },
   ]);
+});
+
+it("preserves old creation replay without inventing an input identity during the actual 20→21 migration", async () => {
+  const database = openSqliteOrThrow(":memory:");
+  databases.push(database);
+  migrateDiscoveryDatabase(database, discoveryMigrationPrefix(20));
+  const normalized = {
+    ...request,
+    settings: {
+      requestedModel: request.settings.requestedModel,
+      permissionMode: request.settings.permissionMode,
+      thinking: null,
+      effort: null,
+      serviceTier: null,
+    },
+  };
+  const payload = JSON.stringify(normalized),
+    source = JSON.stringify(context),
+    bytes = Buffer.byteLength(payload) + Buffer.byteLength(source);
+  const hash = createHash("sha256")
+    .update(payload)
+    .update("\0")
+    .update(source)
+    .digest("hex");
+  const statements = [
+    database.prepare(
+      "INSERT INTO session_identities VALUES ('legacy-public', 'claude', ?, '2026-11-01T00:00:00Z', NULL, NULL, NULL)",
+    ),
+    database.prepare(
+      "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, deleted, created_at) VALUES ('legacy-operation', 'limited:alice', 'legacy_request_01', ?, 'legacy-public', ?, ?, ?, 'legacy-attempt', 1, 0, '2026-11-01T00:00:00Z')",
+    ),
+    database.prepare(
+      "INSERT INTO session_creation_attempts VALUES ('legacy-attempt', 'legacy-operation', 0, 'saved', 'not-admitted', '{}', 2, '2026-11-01T00:00:00Z')",
+    ),
+    database.prepare(
+      "UPDATE session_creation_capacity SET operations = 1, payload_bytes = ?, attempt_bytes = 2",
+    ),
+  ];
+  try {
+    database.transaction(() => {
+      statements[0]!.run(request.projectId);
+      statements[1]!.run(hash, payload, bytes, source);
+      statements[2]!.run();
+      statements[3]!.run(bytes);
+    });
+  } finally {
+    for (const statement of statements) statement.finalize();
+  }
+  migrateDiscoveryDatabase(database);
+  const root = await mkdtemp(join(tmpdir(), "ya-old-creation-input-"));
+  roots.push(root);
+  const metadata = new SessionMetadataService({ database, dataDir: root });
+  await metadata.initialize();
+  const store = metadata.creations;
+  const replay = store.admit({
+    requestId: "legacy_request_01",
+    context,
+    request,
+  });
+  expect(replay).toMatchObject({
+    sessionId: "legacy-public",
+    initialInputId: null,
+    request,
+  });
+  expect(replay.request?.launch).toBeUndefined();
+  expect(store.generation).toBe(1);
+  expect(
+    rows(database, "SELECT request_hash, payload_json FROM session_creations"),
+  ).toEqual([{ request_hash: hash, payload_json: payload }]);
 });

@@ -1,3 +1,7 @@
+import {
+  snapshotCreationLaunch,
+  type CreationLaunchSnapshot,
+} from "./session-creation-launch.js";
 import { createHash, randomUUID } from "node:crypto";
 import { isAbsolute } from "node:path";
 import {
@@ -40,6 +44,8 @@ export interface SavedCreationRequest {
   projectPath: string;
   message: string;
   settings: EffectiveSessionLaunchSettingsValue;
+  /** Absent only on storage-foundation/legacy records with no runtime launch. */
+  launch?: CreationLaunchSnapshot;
 }
 export type CreationState = SessionCreationStatus["state"];
 export type CreationDelivery = SessionCreationStatus["delivery"];
@@ -80,6 +86,8 @@ export interface CreationAttempt extends CreationAttemptFence {
 export interface SavedSessionCreation {
   readonly id: string;
   readonly requestId: string;
+  /** Null marks an older record that cannot be dispatched as a fresh request. */
+  readonly initialInputId: string | null;
   readonly sessionId: YaSessionId;
   readonly request: SavedCreationRequest | null;
   readonly context: CreationContext;
@@ -106,6 +114,7 @@ interface OperationRow {
   id: string;
   owner_key: string;
   request_key: string;
+  initial_input_id: string | null;
   request_hash: string;
   session_id: string;
   payload_json: string | null;
@@ -257,6 +266,9 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
     projectId: request.projectId,
     projectPath: request.projectPath,
     message: request.message,
+    ...(request.launch !== undefined
+      ? { launch: snapshotCreationLaunch(request.launch) }
+      : {}),
     settings: {
       requestedModel: s.requestedModel,
       permissionMode: s.permissionMode,
@@ -331,7 +343,7 @@ export class SessionCreationStore {
         "UPDATE session_creation_capacity SET operations = operations + ?, payload_bytes = payload_bytes + ?, attempt_bytes = attempt_bytes + ? WHERE id = 1",
       ),
       insert: database.prepare(
-        "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+        "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at, initial_input_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
       ),
       insertAttempt: database.prepare(
         "INSERT INTO session_creation_attempts (id, creation_id, state, delivery, detail_json, detail_bytes, updated_at) VALUES (?, ?, 'saved', 'not-admitted', '{}', 2, ?)",
@@ -417,6 +429,7 @@ export class SessionCreationStore {
     return {
       id: row.id,
       requestId: row.request_key,
+      initialInputId: row.initial_input_id,
       sessionId: parseYaSessionId(row.session_id),
       request:
         row.payload_json === null
@@ -488,6 +501,7 @@ export class SessionCreationStore {
     const sessionId = parseYaSessionId(randomUUID()),
       id = randomUUID(),
       attempt = randomUUID(),
+      initialInputId = randomUUID(),
       now = new Date().toISOString();
     try {
       this.metadata.commitNewSession(
@@ -529,6 +543,7 @@ export class SessionCreationStore {
             contextText,
             attempt,
             now,
+            initialInputId,
           );
           this.statements.insertAttempt.run(attempt, id, now);
           this.statements.advanceGeneration.run();

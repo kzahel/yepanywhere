@@ -137,3 +137,22 @@ passed; server duration 134.48 s. The 231 focused identity/admission/auth and
 retained Supervisor regressions pass. No Rendez source, fixture, assertion,
 retry or budget changed. Evidence: ignored
 `tasks/session-identity/phase-4-saved-reads-test.log`. This full run remains red.
+
+
+2026-11-02: launch-intent storage verification on macOS / Node 26.7.0 missed
+its second top-level prepared-image delivery at line 231 (1 observed, 2
+expected), matching the separately recorded restart symptom above. 6,818
+other server checks and all 7,064 client checks passed; server duration
+128.91 s. The new SQLite/snapshot checks and direct Node 22/Bun probes pass.
+No Rendez source, fixture, assertion, retry or budget changed. Evidence:
+ignored `tasks/session-identity/phase-4-launch-intent-test.log`. This run remains
+red; an additional supported-runtime full run is recorded separately and does
+not close this watcher gap or replace the failure.
+
+
+The additional launch-intent Node 22.23.3 full run also missed that same
+second prepared-image delivery at line 231: 6,818 other server and all 7,064
+client checks passed, server duration 134.60 s. Evidence: ignored
+`tasks/session-identity/phase-4-launch-intent-node22-test.log`. Both full runs
+remain red. No watcher implementation, fixture, assertion, timeout or retry
+setting changed; storage/snapshot qualification does not resolve this gap.

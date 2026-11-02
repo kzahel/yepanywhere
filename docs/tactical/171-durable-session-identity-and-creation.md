@@ -110,6 +110,20 @@ Runtime work and the provenance defect remain unimplemented.
   server / 7,064 client; server 129.64 s). The earlier full preview failure is
   retained as red evidence. No actual durable launcher or capability is enabled
   by this prerequisite.
+- Phase 4 launch-intent storage is independently accepted by Sol 6.1 High: migration 21
+  reserves an independent first-input UUID in the admission transaction, while a
+  versioned allowlist retains additional submitted model/tool/sandbox/router/
+  helper/compaction choices without environment objects or live desktop proof.
+  Existing request/payload budgets apply; old records retain null input ids and
+  absent launch snapshots. Real SQLite checks cover caller mutation, replay,
+  changed-choice conflict, retry/reopen stability and actual 20→21 legacy replay.
+  Final focused checks: 23 cases / five files / 3.11 s. Actual Node 22 and
+  pinned Bun migration/snapshot/input-id/retry/reopen probes pass; lint has zero
+  warnings and format/typecheck pass. Full Node 26 and Node 22 runs both hit the
+  existing Rendez top-level restart line-231 failure (6,818 other server /
+  7,064 client checks pass; 128.91/134.60 s server runs). Both red results remain
+  recorded in the existing gap; this slice changes no watcher code or budgets.
+  This is preparation for dispatch; no new launch route/capability is enabled.
 - Phase 2: implemented and independently accepted by Sol 6.1 High after fixing
   stored-identity missing-transcript fallback and Codex read ownership. Migration
   17, scoped forward/reverse adoption and bound Claude/Codex detail/history are
