@@ -870,6 +870,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "peer-connections",
     introducedIn: "0.11.1",
   },
+  codexTextCreation: {
+    id: 143,
+    direction: "server",
+    name: "session-creation-codex-text",
+    introducedIn: "0.11.1",
+  },
   claudeTextCreation: {
     id: 142,
     direction: "server",

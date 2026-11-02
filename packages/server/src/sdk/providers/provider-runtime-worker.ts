@@ -113,7 +113,11 @@ async function main(): Promise<void> {
       process.send({
         type: "launchHello",
         protocolVersion: 1,
-        features: ["session-creation-owner-v1", BOUND_RUNTIME_FEATURE],
+        features: [
+          "session-creation-owner-v1",
+          "session-creation-codex-v1",
+          BOUND_RUNTIME_FEATURE,
+        ],
       });
     }
     const request = await readLaunchRequest();
@@ -225,6 +229,9 @@ async function main(): Promise<void> {
           }),
           sessionSandbox,
           sessionSandboxOptions: undefined,
+          onNativeInputConsumed: creation
+            ? hooks.onNativeInputConsumed
+            : undefined,
           onToolApproval: hooks.onToolApproval,
           onAgentApiRead: hooks.onAgentApiRead,
           shouldEmitLiveDeltas: hooks.shouldEmitLiveDeltas,

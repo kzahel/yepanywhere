@@ -253,7 +253,7 @@ async function fixture(missingExecutable: boolean) {
         host: "127.0.0.1",
         hmr: false,
         proxy: {
-          "/api": { target: server.baseUrl },
+          "/api": { target: server.baseUrl, ws: true },
           "/ws": { target: server.baseUrl, ws: true },
         },
       },

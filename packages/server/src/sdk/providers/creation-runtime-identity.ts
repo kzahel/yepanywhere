@@ -33,7 +33,11 @@ export function observeProviderInputIds(
   claudeResponseStamps: boolean,
   observe: (id: string) => void,
 ): void {
-  if (message.type === "user" && typeof message.uuid === "string")
+  if (
+    claudeResponseStamps &&
+    message.type === "user" &&
+    typeof message.uuid === "string"
+  )
     observe(message.uuid);
   if (
     !claudeResponseStamps ||

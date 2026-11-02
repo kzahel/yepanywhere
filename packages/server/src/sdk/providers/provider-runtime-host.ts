@@ -608,6 +608,7 @@ export function getProviderHostStatus(): Promise<Record<string, unknown>> {
  */
 const PROVIDER_HOST_FEATURE = {
   creationOwner: "session-creation-owner-v1",
+  codexCreation: "session-creation-codex-v1",
   nativeBinding: BOUND_RUNTIME_FEATURE,
   agentApiRevocation: "agent-api-revocation",
   agentApiManagement: "agent-api-management",
@@ -621,13 +622,17 @@ function providerHostHasFeature(
   return Array.isArray(status.features) && status.features.includes(feature);
 }
 
-export async function assertHostedCreationSupport(): Promise<void> {
+export async function assertHostedCreationSupport(
+  providerName = "claude",
+): Promise<void> {
+  const status = isProviderRuntimeHostAvailable()
+    ? await getProviderHostStatus()
+    : undefined;
   if (
-    !isProviderRuntimeHostAvailable() ||
-    !providerHostHasFeature(
-      await getProviderHostStatus(),
-      PROVIDER_HOST_FEATURE.creationOwner,
-    )
+    !status ||
+    !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.creationOwner) ||
+    (providerName === "codex" &&
+      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.codexCreation))
   )
     throw new Error(
       "This provider host cannot own saved creation; update the host before starting this session",
@@ -783,6 +788,7 @@ function cloneableOptions(
 ): Record<string, unknown> {
   const {
     creationRuntime: _creationRuntime,
+    onNativeInputConsumed: _onNativeInputConsumed,
     retainedRuntimeOnly: _retainedRuntimeOnly,
     assertResumeAdmission: _assertResumeAdmission,
     onToolApproval: _onToolApproval,
@@ -869,7 +875,7 @@ export async function startHostedProviderSession(
     options.assertResumeAdmission?.();
   }
   if (creation) {
-    await assertHostedCreationSupport();
+    await assertHostedCreationSupport(providerName);
     await creation.authorize();
   }
   if (options.agentApi && !agentApiEligible(providerName, options))

@@ -257,6 +257,8 @@ export function inactiveProviderSessionOptionsResult(
  * Options for starting a new agent session.
  */
 export interface StartSessionOptions {
+  /** Trusted native RPC acknowledgement; never inferred from a user echo. */
+  onNativeInputConsumed?(nativeSessionId: string, inputId: string): void;
   /** Current controller only; functions never cross the private worker channel. */
   creationRuntime?: {
     identity: import("./creation-runtime-identity.js").CreationRuntimeIdentity;

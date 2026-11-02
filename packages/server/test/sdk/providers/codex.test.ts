@@ -23,7 +23,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -1006,6 +1006,21 @@ describe("CodexProvider", () => {
 });
 
 describe("CodexProvider app-server lifecycle", () => {
+  it("uses the native default namespace when CODEX_HOME is empty", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "codex-empty-home-"));
+    vi.stubEnv("CODEX_HOME", "");
+    try {
+      const provider = new CodexProvider();
+      expect(await provider.getNewSessionNamespace(cwd)).toEqual({
+        family: "codex",
+        storageScope: join(realpathSync(homedir()), ".codex", "sessions"),
+      });
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("wakes the idle session iterator when abort closes its input queue", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "codex-provider-abort-idle-"));
     const logPath = join(tempDir, "fake-codex-requests.jsonl");

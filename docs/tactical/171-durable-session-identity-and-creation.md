@@ -88,6 +88,24 @@ refresh, global host restart, or bulk identity rewrite is part of this milestone
 
 ## Execution progress
 
+- Codex milestone slice: the same text API/UI now binds Codex's independently
+  allocated native thread id while preserving YA identity through discovery,
+  history, browser reload and continuation. Successful native `turn/start` ACK
+  confirms input; the adapter's user echo cannot. Host and worker negotiate an
+  additional Codex creation feature before launch. Controlled local/host browser
+  cases pass; the initial live-reply misses were traced to missing WebSocket
+  upgrade forwarding in the fixture, corrected without a product refresh change.
+  All five Claude/Codex browser cases now pass (44.1 seconds). A separate actual
+  installed Codex/live model smoke confirms split IDs, native ACK, one native
+  thread and retained answer after standalone server restart. This installed CLI
+  reports 0.160.0; the protocol target/reference remains 0.166.0. The sole Sol review
+  found an empty-CODEX_HOME namespace mismatch, now corrected to native semantics
+  with a focused regression. No repeated review was requested. Recovery fault
+  qualification remains the final milestone slice. Root typecheck, lint and
+  formatting pass. The corrected full run passes 6,888 server and 7,067 client
+  tests (149.57 seconds for the server workspace); the initial run failed only
+  an outdated expected host-feature array, corrected and focused-verified.
+
 - Claude milestone slice: the narrow text acceptance API, routed/account-pinned
   dispatch, saved startup/failure UI and captured draft acknowledgement are
   implemented. Three owned-profile browser cases cover real Claude CLI against

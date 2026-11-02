@@ -1140,7 +1140,10 @@ export class Supervisor {
       attemptId: fence.attemptId,
       generation: fence.generation,
       nativeNamespace: namespace,
-      nativeSessionId: parseNativeSessionId(saved.sessionId),
+      nativeSessionId:
+        saved.request?.provider === "claude"
+          ? parseNativeSessionId(saved.sessionId)
+          : undefined,
       initialInputId: saved.initialInputId,
     });
     return {
@@ -1173,7 +1176,7 @@ export class Supervisor {
       saved.deleted ||
       saved.request?.launch?.runtimeOwner !== "host" ||
       saved.context.owner.kind !== "superuser" ||
-      saved.request.provider !== "claude"
+      !["claude", "codex"].includes(saved.request.provider)
     )
       return;
     if (
@@ -1212,7 +1215,7 @@ export class Supervisor {
     if (saved?.request?.launch?.runtimeOwner !== "host") return undefined;
     if (
       saved.context.owner.kind !== "superuser" ||
-      saved.request.provider !== "claude" ||
+      !["claude", "codex"].includes(saved.request.provider) ||
       !isProviderRuntimeHostAvailable()
     )
       throw new Error("Saved creation host owner is unavailable");
@@ -1289,7 +1292,7 @@ export class Supervisor {
       // This first vertical is deliberately private until all retained shapes
       // and the hosted contract are qualified. Never downgrade these choices.
       if (
-        request.provider !== "claude" ||
+        !["claude", "codex"].includes(request.provider) ||
         saved.context.owner.kind === "limited" ||
         launch.machineControl ||
         launch.sandboxLevel === "project-write"
@@ -1316,7 +1319,7 @@ export class Supervisor {
         throw new Error(
           "Saved creation cannot switch its selected runtime owner",
         );
-      if (hosted) await assertHostedCreationSupport();
+      if (hosted) await assertHostedCreationSupport(request.provider);
       const auth = await provider.getAuthStatus();
       store.assertCurrent(fence);
       if (
@@ -1337,7 +1340,10 @@ export class Supervisor {
         ...identity,
         bindNative(id) {
           // Claude's first vertical explicitly requests this native spelling.
-          if (id !== parseNativeSessionId(saved.sessionId))
+          if (
+            request.provider === "claude" &&
+            id !== parseNativeSessionId(saved.sessionId)
+          )
             throw new Error("Claude did not honor its chosen native id");
           identity.bindNative(id);
         },
@@ -1415,7 +1421,8 @@ export class Supervisor {
     // other launch shapes retain their existing flow until their own cuts.
     if (
       launchOptions?.creation &&
-      provider?.name === "claude" &&
+      provider &&
+      ["claude", "codex"].includes(provider.name) &&
       provider.getNewSessionNamespace &&
       launchOptions.creation.context.owner.kind === "superuser" &&
       !message.images?.length &&
@@ -3545,6 +3552,13 @@ export class Supervisor {
       if (message) managedIdentity?.assertInputAdmission();
       const start = activeProvider.startSession({
         creationRuntime: managedLaunch?.runtime,
+        onNativeInputConsumed: managedLaunch?.identity
+          ? (nativeId, inputId) => {
+              managedIdentity!.assertInputAdmission();
+              managedIdentity!.bindNative(parseNativeSessionId(nativeId));
+              managedIdentity!.observeProviderInput(inputId);
+            }
+          : undefined,
         publicSessionId: managedIdentity?.sessionId,
         nativeResumeSource: resume?.source,
         assertResumeAdmission: resume?.identity
@@ -3556,7 +3570,10 @@ export class Supervisor {
         desktopControlOrigin: modelSettings?.desktopControlOrigin,
         cwd: projectPath,
         resumeSessionId: resume?.source?.native.id ?? resumeSessionId,
-        newSessionId: resumeSessionId ? undefined : tempSessionId,
+        newSessionId:
+          resumeSessionId || (managedLaunch && activeProvider.name === "codex")
+            ? undefined
+            : tempSessionId,
         ...instructions,
         clientName: modelSettings?.clientName,
         resumeSessionAt: truncation.resumeSessionAt,

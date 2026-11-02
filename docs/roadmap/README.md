@@ -618,8 +618,10 @@ The historical progress below is foundation evidence, not completion of that UI.
 The Claude text UI/API slice now has owned-profile browser evidence for routed
 creation, saved failure across restart, typing during acceptance and recovery
 after leaving the form. Its one Sol review found two draft/recovery defects;
-their exact interleavings now pass after correction. Codex creation and the
-remaining recovery qualification are pending; no all-provider completion claim.
+their exact interleavings now pass after correction. Codex now uses the same
+workflow with explicit native-ID binding and native acknowledgement; controlled
+local/host browser checks and a standalone live installed-provider smoke pass.
+Recovery fault qualification remains pending; no all-provider completion claim.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

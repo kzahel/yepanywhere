@@ -27,7 +27,7 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
 
-async function fixture(abortBarrier?: Promise<void>) {
+async function fixture(abortBarrier?: Promise<void>, creation = identity()) {
   const events = new PassThrough({ objectMode: true });
   const queue = new MessageQueue();
   const processed: SDKMessage[] = [];
@@ -45,27 +45,40 @@ async function fixture(abortBarrier?: Promise<void>) {
     emitSupervisor: (message) =>
       supervisor.push(message as Record<string, unknown>),
   });
-  owner.setCreationIdentity({ ...identity(), token: "never-retain" });
-  await owner.start(async () => ({
-    session: {
-      iterator: output(),
-      queue,
-      abort: async () => {
-        await abortBarrier;
-        events.destroy();
+  owner.setCreationIdentity({ ...creation, token: "never-retain" });
+  let nativeAck!: (nativeId: string, inputId: string) => void;
+  await owner.start(async (hooks) => {
+    nativeAck = hooks.onNativeInputConsumed;
+    return {
+      session: {
+        iterator: output(),
+        queue,
+        abort: async () => {
+          await abortBarrier;
+          events.destroy();
+        },
       },
-    },
-    agentctlSessionEnvBridge: bridge,
-  }));
+      agentctlSessionEnvBridge: bridge,
+    };
+  });
   cleanups.push(() => owner.shutdown("test complete"));
   owner.attach(
     "first",
     "controller-one",
     (message) => controller.push(message as Record<string, unknown>),
-    { creation: identity() },
+    { creation },
   );
   owner.begin();
-  return { owner, events, queue, supervisor, controller, bridge, processed };
+  return {
+    owner,
+    events,
+    queue,
+    supervisor,
+    controller,
+    bridge,
+    processed,
+    nativeAck,
+  };
 }
 
 it("retains scoped binding/input proof through detach, acknowledgement and replay without another input", async () => {
@@ -355,4 +368,49 @@ it("closes admission when public publication fails and retains the real session 
   ).rejects.toThrow("owner has ended");
   await owner.shutdown("verify retained startup owner");
   expect(aborted).toBe(true);
+});
+
+it("Codex ignores fabricated user echoes and retains exact native RPC acknowledgement after detach", async () => {
+  const creation = parseCreationRuntimeIdentity({
+    ...identity(),
+    nativeNamespace: { family: "codex", storageScope: tmpdir() },
+    nativeSessionId: undefined,
+  });
+  const f = await fixture(undefined, creation);
+  f.events.write({
+    type: "system",
+    subtype: "init",
+    session_id: "codex-native",
+  });
+  f.events.write({
+    type: "user",
+    session_id: "codex-native",
+    uuid: creation.initialInputId,
+    message: { role: "user", content: "optimistic adapter echo" },
+  });
+  await expect.poll(() => f.processed.length).toBe(2);
+  expect(f.owner.creationEvidence()?.initialInputConsumed).toBe(false);
+  f.nativeAck("codex-native", "other-input");
+  expect(f.owner.creationEvidence()?.initialInputConsumed).toBe(false);
+  expect(() =>
+    f.nativeAck("conflicting-native", creation.initialInputId),
+  ).toThrow("conflicts");
+  f.owner.detach("first");
+  f.nativeAck("codex-native", creation.initialInputId);
+  expect(f.owner.creationEvidence()).toMatchObject({
+    nativeSessionId: "codex-native",
+    initialInputConsumed: true,
+  });
+  const recovered = f.owner.attach("second", "controller-two", () => {}, {
+    creation,
+  });
+  expect(recovered).toMatchObject({
+    creation: { initialInputConsumed: true },
+    providerSessionId: "codex-native",
+  });
+  expect(f.queue.depth).toBe(0);
+  await f.owner.shutdown("test owner loss");
+  expect(() => f.nativeAck("codex-native", creation.initialInputId)).toThrow(
+    "no longer live",
+  );
 });

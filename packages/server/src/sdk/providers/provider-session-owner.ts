@@ -142,6 +142,7 @@ export interface ProviderSessionReadyMetadata {
 }
 
 export interface ProviderSessionStartHooks {
+  onNativeInputConsumed(nativeSessionId: string, inputId: string): void;
   onAgentApiRead: ApiReadPort;
   onToolApproval: CanUseTool;
   onPermissionModeApplied: (mode: PermissionMode) => void;
@@ -334,6 +335,17 @@ export class ProviderSessionOwner {
       initialBrowserDebugEnvironment,
     );
     const result = await startSession({
+      onNativeInputConsumed: (nativeId, inputId) => {
+        if (!this.creationIdentity) return;
+        if (inputId !== this.creationIdentity.initialInputId) return;
+        if (!this.providerAlive)
+          throw new Error("Creation owner is no longer live");
+        this.bindCreationNativeId(nativeId);
+        if (!this.creationInputConsumed) {
+          this.creationInputConsumed = true;
+          this.publishCreationEvidence();
+        }
+      },
       onAgentApiRead: (operation, _caller, input = {}) =>
         this.requestAgentApiRead(operation, input),
       onToolApproval: (toolName, input, approvalOptions) =>

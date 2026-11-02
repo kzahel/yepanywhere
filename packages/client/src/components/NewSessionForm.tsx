@@ -2951,10 +2951,12 @@ export function NewSessionForm({
         !launch &&
         principalResolved &&
         !launchLock.limited &&
-        selectedProvider === "claude" &&
+        (selectedProvider === "claude" || selectedProvider === "codex") &&
         serverHasCapability(
           versionInfo,
-          SERVER_CAPABILITIES.claudeTextCreation.name,
+          selectedProvider === "codex"
+            ? SERVER_CAPABILITIES.codexTextCreation.name
+            : SERVER_CAPABILITIES.claudeTextCreation.name,
         ) &&
         submissionFiles.length === 0 &&
         trimmedMessage.length > 0 &&

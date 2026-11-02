@@ -51,6 +51,7 @@ import {
 const HOST_PROTOCOL_VERSION = PROVIDER_HOST_PROTOCOL_VERSION;
 const WORKER_READY_TIMEOUT_MS = 30_000;
 const CREATION_OWNER_FEATURE = "session-creation-owner-v1";
+const CODEX_CREATION_FEATURE = "session-creation-codex-v1";
 const MAX_CONTROL_REQUEST_BYTES = 1024 * 1024;
 const COOPERATIVE_STOP_MS = 5_000;
 const TERM_GRACE_MS = 1_500;
@@ -513,6 +514,7 @@ export class ProviderRuntimeHost {
           shuttingDown: this.shuttingDown !== null,
           features: [
             CREATION_OWNER_FEATURE,
+            CODEX_CREATION_FEATURE,
             BOUND_RUNTIME_FEATURE,
             "runtime-control",
             "session-turn",
@@ -928,6 +930,14 @@ export class ProviderRuntimeHost {
         }))
     )
       throw new Error("Native continuation does not match its launch source");
+    if (
+      creation?.nativeNamespace.family === "codex" &&
+      !requiredWorkerFeatures.includes(CODEX_CREATION_FEATURE)
+    ) {
+      if (requiredWorkerFeatures.length >= 8)
+        throw new Error("Too many required provider worker features");
+      requiredWorkerFeatures.push(CODEX_CREATION_FEATURE);
+    }
     if (creation && !requiredWorkerFeatures.includes(CREATION_OWNER_FEATURE)) {
       if (requiredWorkerFeatures.length === 8)
         throw new Error("Too many required provider worker features");
@@ -1940,6 +1950,7 @@ async function main() {
         hostProtocolVersion: HOST_PROTOCOL_VERSION,
         features: [
           CREATION_OWNER_FEATURE,
+          CODEX_CREATION_FEATURE,
           BOUND_RUNTIME_FEATURE,
           "runtime-control",
           "session-turn",

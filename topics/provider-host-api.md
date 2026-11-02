@@ -6,6 +6,11 @@
 
 Topic: provider-host-api
 
+Managed Codex creation additionally negotiates `session-creation-codex-v1` on
+both host status and the worker's pre-launch hello. The older Claude creation
+owner feature does not prove native Codex input acknowledgement support. See
+[Codex text acceptance](session-identity.md#codex-text-acceptance--november-2).
+
 Status: stable same-user discovery, foreground headless bootstrap,
 attach-or-start recovery, bounded auxiliary session turns, detached
 submission observation, recent orderly-restart recovery, explicit

@@ -58,6 +58,27 @@ submission waits for proved native first-input consumption. Startup reconciliati
 is temporary and view-owned, bounded to fifteen checks with explicit refresh
 afterward; it adds no server per-session poller.
 
+### Codex text acceptance — November 2
+
+The separately negotiated `session-creation-codex-text` capability (global id
+143) selects the same owner text API and client lifecycle for Codex. It keeps
+the pinned 0.166.0 app-server protocol. YA allocates the public id before launch;
+Codex allocates its native thread id, which binds under the canonical configured
+`CODEX_HOME/sessions` namespace. The native id never replaces the URL or enters
+browser request paths. Resume/history use that exact stored native address.
+
+Codex's adapter-generated user echo is presentation, not delivery evidence.
+Only successful `turn/start` acknowledgement confirms its exact initial-input
+UUID. The callback records native binding and input evidence synchronously
+before later effort-restoration awaits. Local attempts validate their current
+fence; hosted workers retain the same evidence across controller detach and
+reattach. Failed or unknown acknowledgement cannot authorize automatic replay.
+Hosted Codex additionally requires `session-creation-codex-v1` from the host and
+the worker's pre-launch hello; the older Claude owner feature alone is insufficient.
+Empty `CODEX_HOME` follows the pinned native default, including auth/config reads.
+Other input shapes and servers without the narrow capability keep their existing
+flow; the broader receipts capability remains unadvertised.
+
 ### Managed dispatch boundary
 
 The stored-request dispatcher reads committed text/settings and the

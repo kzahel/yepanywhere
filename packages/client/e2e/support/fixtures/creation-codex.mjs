@@ -1,0 +1,158 @@
+// Controlled pinned app-server peer, with native on-disk history and explicit
+// acknowledgement/reply barriers. No model traffic or inherited credentials.
+import { appendFileSync, existsSync } from "node:fs";
+
+if (process.argv.includes("--version")) {
+  console.log("codex-cli 0.166.0");
+  process.exit(0);
+}
+if (process.argv.includes("login")) {
+  console.log("Logged in using API key");
+  process.exit(0);
+}
+const native = "019a0000-cccc-7ccc-8ccc-cccccccccccc";
+const cwd = process.env.YEP_E2E_CREATION_CWD;
+const file = process.env.YEP_E2E_CREATION_NATIVE_FILE;
+const log = process.env.YEP_E2E_CREATION_REQUESTS;
+const gate = process.env.YEP_E2E_CREATION_GATE;
+const write = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
+const respond = (id, result) => write({ id, result });
+const notify = (method, params) => write({ method, params });
+const row = (type, payload) =>
+  appendFileSync(
+    file,
+    `${JSON.stringify({ timestamp: new Date().toISOString(), type, payload })}\n`,
+  );
+const model = {
+  id: "gpt-6.1-sol",
+  model: "gpt-6.1-sol",
+  displayName: "Owned fixture model",
+  description: "Controlled protocol",
+  hidden: false,
+  isDefault: true,
+  supportedReasoningEfforts: [{ reasoningEffort: "high", description: "high" }],
+  defaultReasoningEffort: "high",
+  inputModalities: ["text"],
+  supportsPersonality: false,
+};
+async function handle(message) {
+  appendFileSync(log, `${JSON.stringify(message)}\n`);
+  if (message.id === undefined) return;
+  const { id, params = {}, method } = message;
+  switch (method) {
+    case "initialize":
+      respond(id, { userAgent: "owned-controlled-codex" });
+      break;
+    case "account/read":
+      respond(id, { account: { type: "apiKey" }, requiresOpenaiAuth: false });
+      break;
+    case "model/list":
+      respond(id, { data: [model], nextCursor: null });
+      break;
+    case "skills/list":
+      respond(id, { data: [{ cwd, skills: [], errors: [] }] });
+      break;
+    case "thread/start":
+      row("session_meta", {
+        id: native,
+        cwd,
+        timestamp: new Date().toISOString(),
+        originator: "yep-anywhere",
+        cli_version: "0.166.0",
+        source: "cli",
+      });
+      respond(id, {
+        thread: {
+          id: native,
+          cwd,
+          turns: [],
+          status: { type: "idle" },
+          path: file,
+        },
+        model: model.id,
+        reasoningEffort: "high",
+      });
+      break;
+    case "thread/resume":
+      if (params.threadId !== native || params.path !== file)
+        throw new Error("Wrong native resume address");
+      respond(id, {
+        thread: {
+          id: native,
+          cwd,
+          turns: [],
+          status: { type: "idle" },
+          path: file,
+        },
+        model: model.id,
+        reasoningEffort: "high",
+      });
+      break;
+    case "turn/start": {
+      if (params.threadId !== native)
+        throw new Error("Public id reached native input");
+      while (!existsSync(`${gate}.ack`))
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      const text = params.input
+        .filter((item) => item.type === "text")
+        .map((item) => item.text)
+        .join("\n");
+      const inputId = params.clientUserMessageId;
+      row("response_item", {
+        type: "message",
+        id: inputId,
+        role: "user",
+        content: [{ type: "input_text", text }],
+      });
+      row("event_msg", {
+        type: "user_message",
+        message: text,
+        client_id: inputId,
+      });
+      const turn = {
+        id: `turn-${inputId}`,
+        status: "inProgress",
+        items: [],
+        error: null,
+      };
+      respond(id, { turn });
+      notify("turn/started", { threadId: native, turn });
+      while (!existsSync(`${gate}.reply`))
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      row("response_item", {
+        type: "message",
+        id: `answer-${inputId}`,
+        role: "assistant",
+        content: [{ type: "output_text", text: "OWNED_CODEX_CREATION_REPLY" }],
+      });
+      notify("item/completed", {
+        threadId: native,
+        turnId: turn.id,
+        item: {
+          type: "agentMessage",
+          id: `answer-${inputId}`,
+          text: "OWNED_CODEX_CREATION_REPLY",
+        },
+      });
+      notify("turn/completed", {
+        threadId: native,
+        turn: { ...turn, status: "completed" },
+      });
+      break;
+    }
+    default:
+      respond(id, {});
+  }
+}
+let buffer = "";
+process.stdin.on("data", (chunk) => {
+  buffer += chunk;
+  const lines = buffer.split("\n");
+  buffer = lines.pop() ?? "";
+  for (const line of lines)
+    if (line.trim())
+      void handle(JSON.parse(line)).catch((error) => {
+        console.error(error);
+        process.exit(1);
+      });
+});

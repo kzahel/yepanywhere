@@ -26,7 +26,7 @@ import { startAgentSelfSession } from "./agent-self.js";
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
   CODEX_TOOL_CORRELATION_FIELD,
   type CodexAsyncUserInputQuestion,
@@ -1487,6 +1487,30 @@ export class CodexProvider implements AgentProvider {
     );
   }
 
+  async getNewSessionNamespace(cwd: string) {
+    const physicalCwd = await realpath(cwd);
+    const env = this.getCodexEnv();
+    let root = resolve(
+      physicalCwd,
+      env.CODEX_HOME ?? join(homedir(), ".codex"),
+      "sessions",
+    );
+    const missing: string[] = [];
+    for (;;) {
+      try {
+        root = join(await realpath(root), ...missing.reverse());
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        const parent = dirname(root);
+        if (parent === root) throw error;
+        missing.push(basename(root));
+        root = parent;
+      }
+    }
+    return { family: "codex" as const, storageScope: root };
+  }
+
   private getCodexClientName(overrideClientName?: string): string {
     const normalizedClientName =
       typeof overrideClientName === "string" ? overrideClientName.trim() : "";
@@ -1514,6 +1538,9 @@ export class CodexProvider implements AgentProvider {
     if (this.config.codexHome) {
       env.CODEX_HOME = this.config.codexHome;
     }
+    // The pinned CLI treats an empty CODEX_HOME as unset. Keep admission,
+    // auth/config reads and the native subprocess on that same namespace.
+    if (env.CODEX_HOME === "") delete env.CODEX_HOME;
     return env;
   }
 
@@ -3913,6 +3940,8 @@ export class CodexProvider implements AgentProvider {
               turnStartParams,
             );
             runtimeState.activeTurnId = turnResult.turn.id;
+            if (message.uuid)
+              options.onNativeInputConsumed?.(sessionId, message.uuid);
             await restoreThreadEffort?.();
             settlePendingTurnStart(turnResult.turn.id);
           } catch (error) {
