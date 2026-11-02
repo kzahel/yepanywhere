@@ -16,6 +16,19 @@ limits. This does not enable every retained provider or input shape.
 defines the implementation slices, isolated-profile qualification and requested
 Sol 6.1 High review/commit loop. It is a plan, not implementation evidence.
 
+### Selected consolidation target
+
+The selected end state is one stable, transport-independent creation contract
+for retained YA-owned new user-visible sessions. Qualified text creation is the
+implemented foundation; remaining callers/input shapes must migrate to that
+admission/startup owner and retire the implementations they supersede. Supported
+older HTTP routes may remain compatibility adapters into that same owner.
+Provider-native allocation stays in adapters; existing-session resume and
+external-history adoption keep their explicit boundaries. This is a selected
+migration target, not a claim of universal current coverage.
+[Plan 171's completion criteria](../docs/tactical/171-durable-session-identity-and-creation.md#completion-target--one-creation-contract-retired-legacy-implementations)
+require deletion of the legacy creation implementations as adoption proceeds.
+
 ### Qualified Claude text acceptance — November 2
 
 The narrow optional capability `session-creation-claude-text` (global id 142)

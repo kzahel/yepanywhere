@@ -27,6 +27,18 @@ retained as direction; it is not a prerequisite to deliver this first milestone.
 Use a narrowly gated text-creation contract without claiming the complete
 `session-creation-receipts` guarantee. Existing-server fallback remains required.
 
+## Consolidation endpoint
+
+The selected refactor endpoint is one stable creation contract, with legacy
+creation implementations removed as their callers migrate. The new durable
+text path is the foundation for that consolidation. Existing public routes may
+remain compatibility adapters to the common owner; supported older-server
+client fallback is a separate compatibility requirement.
+[Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#completion-target--one-creation-contract-retired-legacy-implementations)
+records the caller migration/deletion sequence and completion criteria. Adding
+provider coverage alone does not meet those criteria. The optional UI proposals
+below follow the common contract rather than introducing another creation path.
+
 ## Problem and retained legacy behavior
 
 Before this milestone, New Session coupled request submission, provider startup

@@ -677,6 +677,14 @@ one assembled-host approval barrier failure passed focused and final full runs;
 that unresolved ordering evidence. Other provider/input/platform shapes retain
 their rollout gates.
 
+The selected [consolidation endpoint](../tactical/171-durable-session-identity-and-creation.md#completion-target--one-creation-contract-retired-legacy-implementations)
+is one stable session-creation contract with the superseded implementations
+removed during caller migration. Remaining work starts with Project Queue on
+Claude/Codex, then attachments/ordinary callers and the remaining retained
+callers/provider shapes. Compatibility routes can remain thin adapters to the
+same admission owner; additional provider qualification alone does not finish
+this refactor. These remaining migrations are planned, not implemented.
+
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review
 after each implementation slice and commits as work proceeds. Plan review is

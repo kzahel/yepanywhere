@@ -17,6 +17,62 @@ The coordination requirements and coverage ledger below extend this plan;
 Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
 The common caller rollout is partial; the provenance defect remains open.
 
+## Completion target — one creation contract, retired legacy implementations
+
+The maintainer clarified that the endpoint of this refactor is one stable
+session-creation contract. The qualified text path is the working foundation;
+parallel creation implementations are migration debt to remove as callers move.
+Provider qualification alone does not complete the tactical plan.
+
+All retained YA-owned new user-visible sessions must enter the same
+transport-independent admission owner. UI, Project Queue, review, native/peer
+API and maintenance callers supply their authenticated creation context and
+creation intent. That owner saves the public identity, payload/settings/source
+and operation identity before dispatch, and owns acceptance, startup attempts,
+failure and uncertainty. Existing Supervisor/runtime owners and provider
+adapters execute admitted work and supply native identity/input evidence.
+Callers must not reproduce that lifecycle or rely on a later callback to save
+logical-session facts. Native transcripts remain provider-owned.
+
+This does not require one HTTP URL. Older routes may remain thin compatibility
+adapters into the same owner while preserving supported response, authorization
+and receipt semantics. Current clients still need their supported older-server
+fallback. Retaining those interfaces must not retain a second creation engine
+inside the new server. Native provider allocation remains adapter work; resume
+of an existing session and adoption of externally created history have their
+own explicit boundaries. Fork/clone creation of a new public resource must join
+the admission migration without requiring a full lineage/workspace redesign.
+
+Each migration slice must identify and delete the creation implementation it
+supersedes, including obsolete startup callbacks, public-id remapping and draft
+acknowledgement branches where their last applicable consumer has moved. Keep
+only compatibility behavior with a named supported consumer and explicit owner.
+An unsupported retained provider or input shape needs a concrete migration or
+retirement decision; an indefinite bypass cannot satisfy completion.
+
+Recommended remaining sequence, keeping the larger-slice/single-review cadence:
+
+1. **Project Queue on Claude/Codex.** Carry queued creation through the common
+   identity/admission owner, define idempotent promotion and restart recovery,
+   and retire its separate new-session creation behavior. Preserve the repaired
+   enqueue provenance and existing scheduling/runtime ownership.
+2. **Attachments and ordinary creation callers.** Admit durable attachment claims
+   and the initial payload together, migrate the retained form/create/start
+   paths, and delete their superseded creation and unsafe draft-clear logic.
+3. **Remaining retained callers and provider shapes.** Migrate review, native/peer,
+   maintenance and new fork/clone resources; close their provenance omissions.
+   Finish or explicitly retire remaining provider/input shapes, then remove
+   their creation bypasses and obsolete remap branches.
+
+Completion requires an audited ingress inventory with no retained YA-owned
+user-visible creation bypass, one admission/startup authority, deleted legacy
+implementations, preserved supported API/skew behavior, and focused evidence
+for caller-specific failure/restart/duplicate-delivery boundaries. Advertise the
+broad receipts contract only after its complete guarantees hold. Optional
+background UX and automatic retry policy remain separate feature decisions.
+This section selects the consolidation target and sequence; it does not claim
+these remaining migrations are already implemented.
+
 ## Active milestone — Claude and Codex creation, November 2
 
 The maintainer narrowed execution after the implementation audit: deliver a
@@ -1453,8 +1509,10 @@ payload, disabled provider after acceptance, full capacity, interrupted staging,
 foreign attachment refusal, crash at side-effect boundaries and pinned settings.
 Reads/replays remain possible at capacity. Qualify legacy/v0 response semantics
 and existing queue behavior. Satisfy the source ledger for each migrated caller;
-partial coverage cannot close the full provenance gap. Review, fix/re-review,
-check and commit each cut.
+partial coverage cannot close the full provenance gap. Each cut must retire
+its superseded creation implementation under the completion target above.
+Use one Sol review, focused corrections/checks and a commit per larger slice;
+the earlier repeated-review loop is superseded.
 
 ## 8 — present saved and failed sessions with safe draft acknowledgement
 
