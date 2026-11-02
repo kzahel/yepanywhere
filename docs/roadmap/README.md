@@ -628,8 +628,18 @@ findings corrected and focused-verified. The narrowed milestone is complete; oth
 attachment/caller and cross-platform release qualification remain follow-ups. The maintainer
 has now selected a bounded [release-qualification slice](../tactical/171-durable-session-identity-and-creation.md#release-qualification--selected-next-slice)
 for actual provider versions, relay interruption, worker saturation, source/draft
-retirement and supported-server fallback. It is in progress with one Sol review;
-attachments and additional caller migration remain later implementation work.
+retirement and supported-server fallback. Actual Codex 0.166.0/live model and
+published-server 0.8.0/0.11.0 compatibility pass. Browser checks found and fixed
+stranded pre-dispatch queue status after restart; draft/account isolation, relay
+interruption/host switching and router refusal pass in the combined 18-case run.
+The single Sol review found competing startup could invalidate a live queue;
+controller provenance now preserves live owners, with focused duplicate-startup
+and exactly-once promotion evidence on Node/Bun. The bounded slice is complete:
+18 combined browser cases, focused post-review recovery and the full 6,888-case
+server suite pass; static checks and corrected client browser files pass.
+Live Claude remains blocked by
+missing account grants for the owned router client. Attachments and additional
+caller migration remain later implementation work.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

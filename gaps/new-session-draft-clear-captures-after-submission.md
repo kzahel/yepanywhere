@@ -65,3 +65,8 @@ sessions: acceptance released midway through sequential typing with concurrent
 metadata updates, event-to-rendered-frame acknowledgement within 100 ms,
 preserved newer draft and explicit navigation/
 return. This qualifies ordinary text only and leaves the broader gap open.
+
+The release-qualification slice adds actual sibling-tab and independent-browser
+server-sync acknowledgement checks for ordinary text, plus signed acting-account
+and two-host relay retirement. Those narrow cases pass; Queue/attachment callers
+above remain excluded and keep this gap open.

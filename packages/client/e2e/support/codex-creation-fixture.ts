@@ -15,6 +15,7 @@ import {
 export async function createCodexCreationFixture(
   hosted: boolean,
   independentHost = false,
+  inputs: NodeJS.ProcessEnv = {},
 ) {
   let projectId = "",
     gate = "",
@@ -23,6 +24,7 @@ export async function createCodexCreationFixture(
     USE_MOCK_SDK: "false",
     OPENAI_API_KEY: "owned-fixture-only",
     ENABLED_PROVIDERS: "codex",
+    ...inputs,
   };
   let server = await startYaServerProcess({
     label: "owned creation recovery",

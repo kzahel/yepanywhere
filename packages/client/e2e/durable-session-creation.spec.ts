@@ -38,7 +38,11 @@ test.skip(
 );
 test.afterAll(() => presentUiCaptures());
 
-async function fixture(missingExecutable: boolean, savedSessions = 0) {
+async function fixture(
+  missingExecutable: boolean,
+  savedSessions = 0,
+  routerUnavailable = false,
+) {
   let server: Awaited<ReturnType<typeof startYaServerProcess>> | undefined;
   let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
   let router: ReturnType<typeof createServer> | undefined;
@@ -134,7 +138,7 @@ async function fixture(missingExecutable: boolean, savedSessions = 0) {
     DISABLE_ERROR_REPORTING: "1",
   };
   // Router authorization is independent of a direct-provider login/API key.
-  if (!missingExecutable) delete env.ANTHROPIC_API_KEY;
+  if (!missingExecutable && !routerUnavailable) delete env.ANTHROPIC_API_KEY;
   try {
     server = await startYaServerProcess({
       label: "durable Claude creation",
@@ -231,6 +235,11 @@ async function fixture(missingExecutable: boolean, savedSessions = 0) {
         for await (const chunk of req) raw += chunk;
         const body = JSON.parse(raw || "{}");
         routerRequests.push({ path: req.url!, body });
+        if (routerUnavailable && req.url === "/v1/pools/prepare") {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Owned router unavailable" }));
+          return;
+        }
         res.setHeader("Content-Type", "application/json");
         let response: unknown = {};
         if (req.url === "/v1/info")
@@ -647,6 +656,61 @@ test("typing during delayed acceptance stays responsive with 200 saved sessions 
     expect(owned.modelRequests).toHaveLength(1);
   } finally {
     release?.();
+    await context.close();
+    await owned.close();
+  }
+});
+
+test("router refusal preserves saved intent and never falls back to available direct credentials", async ({
+  browser,
+}) => {
+  const owned = await fixture(false, 0, true);
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage();
+  try {
+    await page.goto(
+      `${owned.origin}/new-session?projectId=${owned.projectId}&provider=claude&model=sonnet`,
+    );
+    await page
+      .locator("textarea.new-session-form-textarea")
+      .pressSequentially(prompt);
+    const accepted = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname.endsWith("/session-creations"),
+    );
+    await page
+      .getByRole("button", { name: "Start session", exact: true })
+      .click();
+    const response = await accepted;
+    expect(response.status()).toBe(202);
+    expect(response.request().postDataJSON().routerAccountId).toBe(
+      "owned-account",
+    );
+    const receipt = await response.json();
+    const path = `/projects/${receipt.projectId}/sessions/${receipt.sessionId}`;
+    await expect(page).toHaveURL(new RegExp(`/sessions/${receipt.sessionId}$`));
+    await expect
+      .poll(async () =>
+        ["failed", "uncertain"].includes(
+          (await owned.request(path)).session.creation.state,
+        ),
+      )
+      .toBe(true);
+    const detail = await owned.request(path);
+    expect(detail.session.initialPrompt).toBe(prompt);
+    expect(detail.session.creation.delivery).not.toBe("consumed");
+    await page.reload();
+    await expect(
+      page.getByRole("region", { name: "Session startup" }),
+    ).toBeVisible();
+    expect(owned.modelRequests).toHaveLength(0);
+    expect(
+      owned.routerRequests.filter(
+        (request) => request.path === "/v1/pools/prepare",
+      ),
+    ).toHaveLength(1);
+  } finally {
     await context.close();
     await owned.close();
   }

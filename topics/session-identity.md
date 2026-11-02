@@ -105,6 +105,53 @@ not qualify the pinned 0.166.0 executable. Node 22/macOS and local Bun owner-los
 are exercised; macOS Bun hosting, Windows/Linux release qualification and live
 Anthropic credentials are not claimed.
 
+### Bounded release qualification — November 2
+
+This qualification slice keeps the same ordinary Claude/Codex text scope.
+Actual pinned Codex 0.166.0/live model creation, native acknowledgement, profile
+restart and continuation pass under one public id/native thread. This supersedes
+the earlier 0.160.0 live-executable limit for this workflow, without changing the
+pinned protocol or the machine's installed CLI.
+
+Current-client compatibility passes against isolated published YA 0.8.0 and
+0.11.0 servers using the established start endpoint and history reload. A permanent
+capability-absence case also covers version facts inside the streamed New Session
+bootstrap, as well as standalone version reads.
+
+Owned encrypted relay checks cover a phone-width client losing the actual
+acceptance replies and recovering by read without a second native input, plus
+late host-A acceptance after switching to host B. Host B's draft and view remain
+unchanged; returning to A recovers its original session. This is browser/transport
+evidence, not physical-phone backgrounding or OS lifecycle qualification.
+
+Real sibling tabs and independent browser contexts preserve newer unsent drafts
+through acknowledgement and reload. A real signed acting-user switch followed by
+the document renewal used by Settings keeps the new account's draft separate and
+refuses owner receipt reads. Account switching does not grant access to the
+superuser's saved operation.
+
+Worker saturation exposes queued status and promotes exactly once. Restart before
+dispatch marks a stranded saved/queued attempt safely failed/not-admitted when
+its recorded controller PID no longer exists, retaining its id, request, prompt
+and source. This corrects the prior indefinite
+queued presentation; no automatic dispatch/replay is added. Attempts record their
+controller PID privately, retaining it across state changes and stamping retries
+with their new controller. A live or reused PID, permission-denied liveness probe,
+or legacy pre-dispatch attempt without controller evidence is left conservative.
+A competing startup that later fails its port bind cannot invalidate the running
+controller's queue; Node and Bun browser checks exercise rejection followed by
+exactly-once promotion. PID liveness never authorizes dispatch or native input.
+Router preparation refusal with available direct bait credentials retains saved
+intent and causes no
+model request or direct fallback, including after reload.
+
+Live Claude remains access-blocked: an independently paired router client receives
+no account grants, and no portable direct Claude credentials are available. The
+controlled pinned Claude SDK/CLI/AAR checks do not substitute for that live model
+check. Existing router credentials and account grants are not evidence that a
+newly paired test client is authorized. Linux/Windows native execution and
+physical-phone qualification remain separate release evidence.
+
 ### Managed dispatch boundary
 
 The stored-request dispatcher reads committed text/settings and the
@@ -1010,14 +1057,24 @@ Host inventory retains monotonic native/input evidence; managed workers are
 excluded from legacy orderly-restart launch recipes.
 
 Before new admission at Hono startup, one bounded transaction marks previously
-unconfirmed dispatched attempts uncertain. It reads compact control rows, not
+unconfirmed dispatched attempts uncertain when their recorded controller is no
+longer alive; attempts owned by a live controller remain untouched. Older
+unconfirmed dispatched attempts without controller evidence retain the existing
+uncertainty treatment. It reads compact control rows, not
 saved prompts or provider history. Reattachment reconstructs its expected
 namespace from the saved allocation/binding and compares the full worker fence.
 It can restore observation/approvals while input is unconfirmed, without
 queueing a message. Binding alone preserves uncertainty and input refusal;
 only confirmation of the exact initial UUID atomically restores bound/consumed.
-Full owner loss keeps uncertainty and the original prompt. Saved/queued records
-remain saved/queued; this recovery performs no automatic native launch.
+Full owner loss keeps uncertainty and the original prompt. Saved/queued attempts
+that never entered dispatch become `failed`/`not-admitted` with `launch-refused`
+on startup only when their recorded controller PID is confirmed absent: the old
+controller's in-memory worker queue no longer exists. Legacy pre-dispatch attempts
+without this evidence remain unchanged. A live/reused PID or failed liveness
+probe conservatively suppresses recovery; no exclusive profile lease is implied.
+Their public id, request identity, prompt and source remain available; repeated
+admission returns that same result. This recovery performs no automatic native
+launch or initial-input replay.
 
 Implementation is split into a non-enabling startup-negotiation cut, then
 owner evidence and protocol-2 attach, then saved-dispatch integration and owned

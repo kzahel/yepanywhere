@@ -299,6 +299,17 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
   };
 }
 
+/** Conservative liveness only; a live/reused PID never authorizes recovery. */
+function controllerAlive(pid: number): boolean {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
+}
+
 /** Profile-owned synchronous control state. Fixed statements, no timers or caches. */
 export class SessionCreationStore {
   private readonly statements: Record<
@@ -366,7 +377,7 @@ export class SessionCreationStore {
         "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at, initial_input_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
       ),
       insertAttempt: database.prepare(
-        "INSERT INTO session_creation_attempts (id, creation_id, state, delivery, detail_json, detail_bytes, updated_at) VALUES (?, ?, 'saved', 'not-admitted', '{}', 2, ?)",
+        "INSERT INTO session_creation_attempts (id, creation_id, state, delivery, detail_json, detail_bytes, updated_at) VALUES (?, ?, 'saved', 'not-admitted', ?, ?, ?)",
       ),
       updateAttempt: database.prepare(
         "UPDATE session_creation_attempts SET generation = ?, state = ?, delivery = ?, detail_json = ?, detail_bytes = ?, updated_at = ? WHERE id = ?",
@@ -388,9 +399,40 @@ export class SessionCreationStore {
   }
 
   /** Once per Hono startup: compact control rows only, never saved prompts. */
-  recoverOwnerLoss(): void {
+  recoverOwnerLoss(
+    isControllerAlive: (pid: number) => boolean = controllerAlive,
+  ): void {
     this.database.transaction(() => {
+      const liveness = new Map<number, boolean>();
       for (const row of this.statements.projections.all<ProjectionRow>()) {
+        const { controllerPid } = JSON.parse(row.detail_json) as {
+          controllerPid?: number;
+        };
+        if (controllerPid !== undefined) {
+          if (!liveness.has(controllerPid))
+            liveness.set(controllerPid, isControllerAlive(controllerPid));
+          // Another API controller may still own this exact attempt/queue,
+          // including a duplicate startup that has not attempted its bind yet.
+          if (liveness.get(controllerPid)) continue;
+        }
+        if (!row.deleted && ["saved", "queued"].includes(row.state)) {
+          // Legacy attempts have no controller evidence; do not infer owner loss.
+          if (controllerPid === undefined) continue;
+          // The prior controller's in-memory dispatch queue cannot promote this
+          // item. No dispatch fence was entered, so preserve intent as a safe
+          // failure rather than an indefinitely queued session or silent replay.
+          this.update(
+            {
+              creationId: row.creation_id,
+              attemptId: row.attempt_id,
+              generation: row.generation,
+            },
+            "failed",
+            "not-admitted",
+            "launch-refused",
+          );
+          continue;
+        }
         if (
           row.deleted ||
           row.delivery === "consumed" ||
@@ -546,6 +588,8 @@ export class SessionCreationStore {
       attempt = randomUUID(),
       initialInputId = randomUUID(),
       now = new Date().toISOString();
+    const detail = JSON.stringify({ controllerPid: process.pid });
+    const detailBytes = Buffer.byteLength(detail);
     try {
       this.metadata.commitNewSession(
         this.database,
@@ -568,7 +612,7 @@ export class SessionCreationStore {
         () => {
           if (this.statements.byKey.get(ownerKey(context.owner), requestId))
             throw new SessionCreationConflict();
-          this.reserve(1, bytes, 2);
+          this.reserve(1, bytes, detailBytes);
           this.metadata.identities.allocateWithinTransaction({
             sessionId,
             provider: request.provider,
@@ -588,7 +632,13 @@ export class SessionCreationStore {
             now,
             initialInputId,
           );
-          this.statements.insertAttempt.run(attempt, id, now);
+          this.statements.insertAttempt.run(
+            attempt,
+            id,
+            detail,
+            detailBytes,
+            now,
+          );
           this.statements.advanceGeneration.run();
         },
       );
@@ -633,11 +683,15 @@ export class SessionCreationStore {
     namespace?: NativeSessionNamespace,
   ): CreationAttempt {
     const previous = this.statements.attempt.get<AttemptRow>(fence.attemptId)!;
-    const retained: { nativeNamespace?: NativeSessionNamespace } = JSON.parse(
-      previous.detail_json,
-    );
+    const retained: {
+      nativeNamespace?: NativeSessionNamespace;
+      controllerPid?: number;
+    } = JSON.parse(previous.detail_json);
     const nativeNamespace = namespace ?? retained.nativeNamespace;
     const detail = JSON.stringify({
+        ...(retained.controllerPid !== undefined
+          ? { controllerPid: retained.controllerPid }
+          : {}),
         ...(nativeNamespace
           ? { nativeNamespace: validateNativeSessionNamespace(nativeNamespace) }
           : {}),
@@ -876,11 +930,15 @@ export class SessionCreationStore {
         throw new SessionCreationConflict();
       if (row.attempt_count >= MAX_ATTEMPTS)
         throw new SessionCreationCapacityError();
-      this.reserve(0, 0, 2);
+      const detail = JSON.stringify({ controllerPid: process.pid });
+      const detailBytes = Buffer.byteLength(detail);
+      this.reserve(0, 0, detailBytes);
       const attempt = randomUUID();
       this.statements.insertAttempt.run(
         attempt,
         row.id,
+        detail,
+        detailBytes,
         new Date().toISOString(),
       );
       this.statements.current.run(attempt, row.id);

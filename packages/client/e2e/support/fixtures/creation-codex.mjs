@@ -1,6 +1,8 @@
 // Controlled pinned app-server peer, with native on-disk history and explicit
 // acknowledgement/reply barriers. No model traffic or inherited credentials.
-import { appendFileSync, existsSync } from "node:fs";
+import { appendFileSync, existsSync, openSync, closeSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { dirname, join } from "node:path";
 
 if (process.argv.includes("--version")) {
   console.log("codex-cli 0.166.0");
@@ -10,9 +12,10 @@ if (process.argv.includes("login")) {
   console.log("Logged in using API key");
   process.exit(0);
 }
-const native = "019a0000-cccc-7ccc-8ccc-cccccccccccc";
+let native = "019a0000-cccc-7ccc-8ccc-cccccccccccc";
 const cwd = process.env.YEP_E2E_CREATION_CWD;
-const file = process.env.YEP_E2E_CREATION_NATIVE_FILE;
+let file = process.env.YEP_E2E_CREATION_NATIVE_FILE;
+const store = dirname(file);
 const log = process.env.YEP_E2E_CREATION_REQUESTS;
 const gate = process.env.YEP_E2E_CREATION_GATE;
 const write = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
@@ -53,6 +56,13 @@ async function handle(message) {
       respond(id, { data: [{ cwd, skills: [], errors: [] }] });
       break;
     case "thread/start":
+      try {
+        closeSync(openSync(`${log}.first-thread`, "wx"));
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+        native = randomUUID();
+      }
+      file = join(store, `rollout-${native}.jsonl`);
       row("session_meta", {
         id: native,
         cwd,
@@ -74,8 +84,13 @@ async function handle(message) {
       });
       break;
     case "thread/resume":
-      if (params.threadId !== native || params.path !== file)
+      if (
+        params.path !== join(store, `rollout-${params.threadId}.jsonl`) ||
+        !existsSync(params.path)
+      )
         throw new Error("Wrong native resume address");
+      native = params.threadId;
+      file = params.path;
       respond(id, {
         thread: {
           id: native,

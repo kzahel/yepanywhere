@@ -515,6 +515,9 @@ it("preserves old creation replay without inventing an input identity during the
   });
   expect(replay.request?.launch).toBeUndefined();
   expect(store.generation).toBe(1);
+  store.recoverOwnerLoss(() => false);
+  expect(store.getForSession(replay.sessionId)?.attempt.state).toBe("saved");
+  expect(store.generation).toBe(1);
   expect(
     rows(database, "SELECT request_hash, payload_json FROM session_creations"),
   ).toEqual([{ request_hash: hash, payload_json: payload }]);
@@ -556,7 +559,17 @@ it("recovers lost controllers without input replay and accepts only scoped curre
     confirmed.initialInputId!,
   );
   store.markQueued(queued.attempt);
-  store.recoverOwnerLoss();
+  const liveGeneration = store.generation;
+  store.recoverOwnerLoss((pid) => {
+    expect(pid).toBe(process.pid);
+    return true;
+  });
+  expect(store.generation).toBe(liveGeneration);
+  expect(store.getForSession(queued.sessionId)?.attempt.state).toBe("queued");
+  expect(store.getForSession(unbound.sessionId)?.attempt.state).toBe(
+    "dispatching",
+  );
+  store.recoverOwnerLoss(() => false);
   expect(store.getForSession(unbound.sessionId)?.attempt).toMatchObject({
     state: "uncertain",
     delivery: "uncertain",
@@ -569,8 +582,22 @@ it("recovers lost controllers without input replay and accepts only scoped curre
     state: "bound",
     delivery: "consumed",
   });
-  expect(store.getForSession(queued.sessionId)?.attempt.state).toBe("queued");
-  expect(store.getForSession(saved.sessionId)?.attempt.state).toBe("saved");
+  expect(store.getForSession(queued.sessionId)?.attempt).toMatchObject({
+    state: "failed",
+    delivery: "not-admitted",
+    failure: "launch-refused",
+  });
+  expect(store.getForSession(saved.sessionId)?.attempt).toMatchObject({
+    state: "failed",
+    delivery: "not-admitted",
+    failure: "launch-refused",
+  });
+  expect(store.getForSession(queued.sessionId)?.request?.message).toBe(
+    request.message,
+  );
+  expect(store.getForSession(saved.sessionId)?.request?.message).toBe(
+    request.message,
+  );
   expect(store.getDispatchNamespace(first)).toEqual(one);
   const native = nativeSessionRef(
     "claude",

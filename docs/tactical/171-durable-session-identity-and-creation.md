@@ -105,6 +105,59 @@ creation-provenance and general unconfirmed-follow-up gaps remain open outside
 this scope. The routed-Codex direct-account discovery gap is independent and
 must not be represented as closed by successful routed model inference.
 
+## Release qualification results
+
+- The actual official Codex 0.166.0 executable and live model pass creation,
+  native ACK, split public/native ids, profile restart and continuation in the
+  same native thread. The disposable install leaves the normal CLI unchanged.
+- The current client passes against actual published YA 0.8.0 and 0.11.0 servers:
+  one established start, no new receipt endpoint, native answer and reload.
+  Permanent capability-absence coverage also edits the streamed bootstrap's
+  version part so the test exercises the real source of capability facts.
+- Browser worker saturation/promotion exposed one product defect: saved/queued
+  pre-dispatch attempts stayed queued after Hono restart although the in-memory
+  queue was gone. Startup now retains intent as failed/not-admitted/launch-refused
+  only with evidence that the recorded controller PID is gone;
+  dispatched unconfirmed effects remain uncertain. Focused store and real
+  standalone browser checks pass, with no automatic dispatch or input replay.
+- Real sibling tabs, independent browser draft sync and a signed acting-account
+  switch preserve the newer/account-owned draft. Encrypted relay tests pass
+  phone-width reply interruption/read-only recovery and host-A/host-B retirement.
+  Router refusal with direct bait credentials causes zero model requests.
+- Live Claude is ACCESS-BLOCKED: the independently paired router client has no
+  account grants; direct portable credentials are absent. Controlled pinned
+  SDK/CLI/AAR checks remain distinct. Physical-device and Linux/Windows execution
+  are not claimed. The routed-Codex discovery/account gap remains open.
+- The single actual localhost:3400 Sol 6.1 High/bypassPermissions review found
+  a competing-startup defect: recovery ran before the new server discovered an
+  occupied port and could invalidate the incumbent queue. Private controller-PID
+  provenance and conservative liveness checks correct it. The focused real
+  duplicate-startup check proves rejection leaves the incumbent queued, then
+  capacity release promotes it exactly once. Untagged legacy pre-dispatch rows
+  remain conservative; live/reused PIDs never authorize delivery. The original
+  REVISE report and correction evidence are retained under ignored
+  `tasks/session-identity/reviews/release-qualification.md`. No second review was
+  requested; only the owned reviewer was retired, with verified stop.
+- All 18 bounded browser cases passed together in 2.1 minutes before this
+  review correction. Post-correction Node queue/duplicate-startup and recovery
+  checks pass four cases in 37.6 seconds; Bun 1.3.14 passes the same full-worker
+  duplicate-startup/restart case in 12.6 seconds. The full server suite passes
+  6,888 tests in 130.31 seconds. Root typecheck, lint (zero warnings), format and
+  exact-file checks pass.
+- The pre-review full workspace run passed 6,888 server / 7,067 client tests.
+  The final workspace attempt omitted the browser-cache environment under its
+  temporary home, producing browser-not-found failures and skipped browser
+  cases; its concurrent server run also hit an unrelated filesystem-watch
+  timeout. All nine affected client files pass with the cache configured
+  (51 cases); the complete isolated server run above passes. The failed logs
+  remain recorded rather than represented as a successful final root command.
+  A concurrent Node/Bun Playwright output collision was corrected with separate
+  output directories; Bun's different occupied-port wording is accepted without
+  weakening the incumbent-state/promotion assertions.
+- This bounded slice is complete with the explicit live-Claude access gate
+  above. No attachment/Project Queue migration, provider expansion, protocol
+  defaults or primary-server changes were made.
+
 ## Execution progress
 
 - Recovery milestone slice: four owned-profile fault cases pass: lost HTTP
