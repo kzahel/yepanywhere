@@ -1,6 +1,14 @@
-import { nativeSessionRef, type NativeSessionId } from "@yep-anywhere/shared";
+import {
+  nativeSessionRef,
+  type NativeSessionRef,
+  type YaSessionId,
+  type NativeSessionId,
+} from "@yep-anywhere/shared";
 import type { ManagedProcessIdentity } from "../supervisor/Process.js";
-import type { NativeSessionNamespace } from "./SessionIdentityStore.js";
+import type {
+  SessionIdentityStore,
+  NativeSessionNamespace,
+} from "./SessionIdentityStore.js";
 import {
   StaleCreationAttempt,
   type CreationAttemptFence,
@@ -63,5 +71,35 @@ export function creationProcessIdentity(
         if (!(error instanceof StaleCreationAttempt)) throw error;
       }
     },
+  };
+}
+
+/** A cold continuation validates its existing address; it never rebinds it. */
+export function boundProcessIdentity(
+  identities: SessionIdentityStore,
+  sessionId: YaSessionId,
+  native: NativeSessionRef,
+  assertAdmission: () => void,
+): ManagedProcessIdentity {
+  const assertCurrent = () => {
+    const current = identities.resolveYa(sessionId)?.native;
+    if (
+      !current ||
+      current.family !== native.family ||
+      current.storageScope !== native.storageScope ||
+      current.id !== native.id
+    )
+      throw new Error("Session native binding changed before continuation");
+    assertAdmission();
+  };
+  return {
+    sessionId,
+    bindNative(id) {
+      assertCurrent();
+      if (id !== native.id)
+        throw new Error("Provider resumed a different native session");
+    },
+    assertInputAdmission: assertCurrent,
+    observeProviderInput() {},
   };
 }

@@ -744,6 +744,7 @@ function cloneableOptions(
 ): Record<string, unknown> {
   const {
     creationRuntime: _creationRuntime,
+    retainedRuntimeOnly: _retainedRuntimeOnly,
     onToolApproval: _onToolApproval,
     onAgentApiRead: _onAgentApiRead,
     onPermissionModeApplied: _onPermissionModeApplied,
@@ -840,6 +841,10 @@ export async function startHostedProviderSession(
         ...creationControllerFields(options),
       })
     : null;
+  if (options.retainedRuntimeOnly && !runtime)
+    throw new Error(
+      "Retained provider owner is unavailable; hosted cold continuation is not qualified",
+    );
   if (creation && options.resumeSessionId && !runtime)
     throw new Error(
       "Saved creation owner is unavailable; do not relaunch its initial input",
@@ -877,9 +882,9 @@ export async function startHostedProviderSession(
         runtime.reattach.sandboxNetworkFirewall !==
           requestedReattach.sandboxNetworkFirewall))
   ) {
-    if (creation)
+    if (creation || options.retainedRuntimeOnly)
       throw new Error(
-        "Saved creation cannot replace a worker with different sandbox settings",
+        "Retained continuation cannot replace a worker with different sandbox settings",
       );
     await requestHost("terminate", { runtimeId: runtime.runtimeId });
     runtime = null;

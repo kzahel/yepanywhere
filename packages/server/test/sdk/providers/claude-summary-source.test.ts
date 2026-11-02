@@ -9,6 +9,7 @@ import {
   readFile,
   rm,
   realpath,
+  readdir,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -310,3 +311,45 @@ nativeTest.each(["alias", "conventional", "relative-home"] as const)(
     }
   },
 );
+
+it("refuses an invalid native continuation before allocating its child bridge", async () => {
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "ya-cold-refusal-")),
+  );
+  try {
+    vi.stubEnv("TMPDIR", root);
+    vi.stubEnv("TMP", root);
+    vi.stubEnv("TEMP", root);
+    vi.stubEnv("CLAUDE_CONFIG_DIR", join(root, "home"));
+    await mkdir(join(root, "home", "projects"), { recursive: true });
+    const source = join(root, "foreign-store");
+    await mkdir(source);
+    const native = nativeSessionRef(
+      "claude",
+      source,
+      parseNativeSessionId("native-refusal"),
+    );
+    const childEnvironment = vi.fn(() => ({
+      AGENTCTL_SESSION_ID: "public-session",
+      YEP_BROWSER_DEBUG_CALLER_TOKEN: "owned-test-value",
+    }));
+    const before = await readdir(root);
+    await expect(
+      new ClaudeProvider().startSession({
+        cwd: root,
+        resumeSessionId: native.id,
+        nativeResumeSource: {
+          native,
+          filePath: join(source, native.id + ".jsonl"),
+          projectId: toUrlProjectId(root),
+        },
+        getSessionChildEnv: childEnvironment,
+      }),
+    ).rejects.toThrow("outside the launch transcript store");
+    expect(await readdir(root)).toEqual(before);
+    expect(childEnvironment).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllEnvs();
+    await rm(root, { recursive: true, force: true });
+  }
+});

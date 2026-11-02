@@ -1389,6 +1389,7 @@ class CodexAppServerClient {
 export class CodexProvider implements AgentProvider {
   readonly name = "codex" as const;
   readonly displayName = "Codex";
+  readonly supportsNativeResumeSource = true;
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle = true;
   readonly supportsSlashCommands = true;
@@ -2003,6 +2004,28 @@ export class CodexProvider implements AgentProvider {
   private async startSessionInternal(
     options: StartSessionOptions,
   ): Promise<AgentSession> {
+    if (options.nativeResumeSource) {
+      if (!options.resumeSessionId)
+        throw new Error("Native resume source requires a continuation id");
+      assertProviderForkSource(
+        {
+          nativeSessionId: parseNativeSessionId(options.resumeSessionId),
+          nativeSource: options.nativeResumeSource,
+        },
+        this.name,
+      );
+      const env = this.getCodexEnv();
+      const root =
+        options.sessionSandbox?.transcriptDir ??
+        join(env.CODEX_HOME ?? join(homedir(), ".codex"), "sessions");
+      if (
+        (await realpath(root).catch(() => undefined)) !==
+        options.nativeResumeSource.native.storageScope
+      )
+        throw new Error(
+          "Codex continuation is outside the launch transcript store",
+        );
+    }
     // These effort mappings read the model's supported efforts, which a fresh
     // session worker has not loaded yet.
     if (
@@ -3090,17 +3113,15 @@ export class CodexProvider implements AgentProvider {
       ...agentServerEnvironmentFor(options),
       ...agentApiEnvironmentFor(options),
     });
-    if (options.resumeSessionId) {
+    const publicSessionId = options.publicSessionId ?? options.resumeSessionId;
+    if (publicSessionId) {
       // The bridge only reaches bash tool shells that source BASH_ENV, which
       // codex's sandbox may strip. For resume the id is known at spawn, so set
       // it directly in the app-server env too; every shell codex launches
       // inherits it regardless of BASH_ENV. New sessions (id unknown until
       // thread/start) stay on the bridge alone.
-      codexEnv.AGENTCTL_SESSION_ID = options.resumeSessionId;
-      Object.assign(
-        codexEnv,
-        options.getSessionChildEnv?.(options.resumeSessionId),
-      );
+      codexEnv.AGENTCTL_SESSION_ID = publicSessionId;
+      Object.assign(codexEnv, options.getSessionChildEnv?.(publicSessionId));
     }
     const appServer = new CodexAppServerClient(
       codexCommand,
@@ -3163,6 +3184,10 @@ export class CodexProvider implements AgentProvider {
         initialPermissionMode,
       );
 
+      if (options.nativeResumeSource && !experimentalApiEnabled)
+        throw new Error(
+          "Codex continuation requires native rollout path support",
+        );
       const threadResumeParams = this.createThreadResumeParams(
         options,
         sessionId,
@@ -3178,8 +3203,15 @@ export class CodexProvider implements AgentProvider {
       );
       options.onPermissionModeApplied?.(initialPermissionMode);
 
+      if (
+        options.nativeResumeSource &&
+        threadResult.thread.id !== options.nativeResumeSource.native.id
+      )
+        throw new Error("Codex resumed a different native thread");
       sessionId = threadResult.thread.id;
-      agentctlSessionEnvBridge.publishSessionId(sessionId);
+      agentctlSessionEnvBridge.publishSessionId(
+        options.publicSessionId ?? sessionId,
+      );
       runtimeState.threadId = sessionId;
       runtimeState.resolvedModel = threadResult.model;
       if (threadResult.sandbox?.type === "workspaceWrite") {
@@ -4300,6 +4332,9 @@ export class CodexProvider implements AgentProvider {
   ): CodexThreadResumeParamsForRequest {
     const params: CodexThreadResumeParamsForRequest = {
       threadId: options.resumeSessionId ?? sessionId,
+      ...(options.nativeResumeSource
+        ? { path: options.nativeResumeSource.filePath }
+        : {}),
       model: options.model ?? null,
       ...(options.routerLaunch ? { modelProvider: "aar" } : {}),
       ...(options.serviceTier ? { serviceTier: options.serviceTier } : {}),

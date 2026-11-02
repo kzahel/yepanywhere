@@ -171,3 +171,16 @@ ownership/API-error/stop corrections passed (6,836 server / 7,064 client;
 changes justify that fresh qualification; the watcher itself remains unchanged.
 This pass qualifies that source snapshot and does not close the intermittent
 restart defect or replace the preceding red evidence.
+
+
+2026-11-02: final reviewed local cold-resume qualification on macOS / Node
+26.7.0 again missed the second prepared-image delivery at line 231 (1 observed,
+2 expected). All 6,871 other server and 7,064 client checks passed; server
+133.51 s. The 232 focused native/host/source/Supervisor cases pass. This cut
+changes no Rendez source, fixture, assertion or budget. Evidence: ignored
+`tasks/session-identity/phase-3-cold-resume-review-corrected-full-test.log`.
+The earlier pre-review-correction source passed 6,870 server / 7,064 client
+checks in 131.01 s (`phase-3-cold-resume-final-full-test.log`); it does not
+qualify the corrected source or erase this failure. Inspection confirms the
+same restart/event-observation boundary remains unqualified; no isolated
+retry replaces this result and this gap remains open.

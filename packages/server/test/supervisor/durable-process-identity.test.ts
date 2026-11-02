@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import {
+  DEFAULT_INSTRUCTION_RESTORATION,
   parseNativeSessionId,
   parseYaSessionId,
   toUrlProjectId,
@@ -880,3 +881,154 @@ it("refuses out-of-band native commands while startup is uncertain and reopens o
   });
   expect(nativeCommand).toHaveBeenCalledOnce();
 });
+
+it.each([
+  ["reactivate", "continue"],
+  ["resume", "continue"],
+  ["reactivate", "stale-source"],
+  ["resume", "deleted"],
+  ["reactivate", "deleted-during-instructions"],
+  ["resume", "deleted-during-instructions"],
+  ["reactivate", "wrong-provider-id"],
+  ["resume", "wrong-provider-id"],
+] as const)(
+  "cold %s preserves native/public identity (%s)",
+  async (entry, outcome) => {
+    const f = await storageFixture();
+    const native = {
+      ...f.namespace,
+      id: parseNativeSessionId("native-cold-thread"),
+    };
+    const fence = f.store.beginDispatch(f.saved.attempt, f.namespace);
+    f.store.bindNative(fence, native);
+    f.store.confirmOwnedInput(fence, native, f.saved.initialInputId!);
+    const source = createControllableIterator();
+    const queue = new MessageQueue();
+    const starts: import("../../src/sdk/providers/types.js").StartSessionOptions[] =
+      [];
+    const abort = vi.fn(source.finish);
+    const provider = {
+      name: "claude",
+      displayName: "controlled native continuation",
+      supportsNativeResumeSource: true,
+      supportsPermissionMode: true,
+      supportsThinkingToggle: true,
+      supportsSlashCommands: true,
+      supportsSteering: false,
+      isInstalled: async () => true,
+      isAuthenticated: async () => true,
+      getAuthStatus: async () => ({
+        installed: true,
+        authenticated: true,
+        enabled: true,
+      }),
+      getAvailableModels: async () => [],
+      startSession: async (options) => {
+        starts.push(options);
+        return {
+          iterator: source.iterator,
+          queue,
+          abort,
+          sessionId: native.id,
+          initializedSessionId:
+            outcome === "wrong-provider-id" ? "wrong-native" : native.id,
+        };
+      },
+    } satisfies AgentProvider;
+    const resolve = vi.fn(async () => {
+      if (outcome === "deleted") f.store.delete(fence);
+      return {
+        native:
+          outcome === "stale-source"
+            ? { ...native, storageScope: join(f.root, "wrong-scope") }
+            : native,
+        filePath: join(f.root, "native.jsonl"),
+        projectId: toUrlProjectId(f.root),
+      };
+    });
+    const supervisor = new Supervisor({
+      provider,
+      sessionMetadataService: f.metadata,
+      resolveNativeForkSource: resolve,
+      getInstructionRestorationSettings: () => ({
+        ...DEFAULT_INSTRUCTION_RESTORATION,
+        providers: { claude: true },
+      }),
+      readInstructionHistory: async () => {
+        if (outcome === "deleted-during-instructions") f.store.delete(fence);
+        return [];
+      },
+    });
+    cleanup.push(async () => {
+      for (const process of supervisor.getAllProcesses())
+        await supervisor.abortProcess(process.id);
+      await supervisor.stopBackgroundTasks();
+    });
+    const launch =
+      entry === "reactivate"
+        ? supervisor.reactivateSession(f.root, f.saved.sessionId)
+        : supervisor.resumeSession(
+            f.saved.sessionId,
+            f.root,
+            {
+              text: "later turn",
+              uuid: "later-input",
+            },
+            undefined,
+            undefined,
+            { requireProviderSessionId: true },
+          );
+    if (outcome !== "continue") {
+      await expect(launch).rejects.toThrow();
+      expect(starts).toHaveLength(outcome === "wrong-provider-id" ? 1 : 0);
+      expect(abort).toHaveBeenCalledTimes(
+        outcome === "wrong-provider-id" ? 1 : 0,
+      );
+      expect(
+        f.metadata.identities.resolveYa(f.saved.sessionId)?.native,
+      ).toEqual(native);
+      return;
+    }
+    const process = await launch;
+    expect(process).toBeInstanceOf(Process);
+    if (!(process instanceof Process)) throw new Error("Expected cold process");
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(starts).toHaveLength(1);
+    expect(starts[0]).toMatchObject({
+      resumeSessionId: native.id,
+      publicSessionId: f.saved.sessionId,
+      nativeResumeSource: { native },
+    });
+    expect(starts[0]?.initialMessage).toBeUndefined();
+    expect(process.sessionId).toBe(f.saved.sessionId);
+    source.push({ type: "system", subtype: "init", session_id: native.id });
+    source.push({
+      type: "assistant",
+      uuid: "cold-answer",
+      session_id: native.id,
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "continued" }],
+      },
+    });
+    await waitFor(() =>
+      expect(process.getMessageHistory()).toHaveLength(
+        entry === "resume" ? 3 : 2,
+      ),
+    );
+    expect(
+      process
+        .getMessageHistory()
+        .every(
+          (m) =>
+            m.session_id === undefined || m.session_id === f.saved.sessionId,
+        ),
+    ).toBe(true);
+    expect(f.metadata.identities.resolveYa(f.saved.sessionId)?.native).toEqual(
+      native,
+    );
+    expect(f.store.getForSession(f.saved.sessionId)?.attempt.delivery).toBe(
+      "consumed",
+    );
+  },
+);

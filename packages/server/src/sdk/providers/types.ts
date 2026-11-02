@@ -73,11 +73,14 @@ export type ProviderForkBoundary =
   | { kind: "entry"; provider: "pi"; entryId: string };
 
 /** Operation-scoped native source facts; application lineage keeps its YA id. */
-export interface ProviderForkSource {
+export interface ProviderSessionSource {
   native: NativeSessionRef;
   filePath: string;
   projectId: UrlProjectId;
 }
+
+/** Retained fork naming; the address is also shared by cold continuations. */
+export type ProviderForkSource = ProviderSessionSource;
 
 export interface ProviderForkOptions {
   nativeSessionId: NativeSessionId;
@@ -297,8 +300,12 @@ export interface StartSessionOptions {
   cwd: string;
   /** Initial message to send (optional - session can wait for message) */
   initialMessage?: UserMessage;
-  /** Session ID to resume (optional) */
+  /** Provider-native session ID to resume (optional). */
   resumeSessionId?: string;
+  /** Trusted operation-scoped transcript source; never accepted from HTTP JSON. */
+  nativeResumeSource?: ProviderSessionSource;
+  /** Private host admission: claim an incumbent, never start/replace a worker. */
+  retainedRuntimeOnly?: boolean;
   /**
    * YA's id for a new session. Providers that accept a caller-chosen id use
    * it as the native id, so the session never changes id once its provider
@@ -573,6 +580,8 @@ export interface AgentProvider {
   /** Human-readable display name */
   readonly displayName: string;
   /** Whether this provider supports permission modes (default: true) */
+  /** Accepts and verifies a trusted scoped native continuation source. */
+  readonly supportsNativeResumeSource?: boolean;
   readonly supportsPermissionMode: boolean;
   /** Whether this provider supports extended thinking toggle (default: true) */
   readonly supportsThinkingToggle: boolean;

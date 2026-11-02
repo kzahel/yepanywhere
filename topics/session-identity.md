@@ -4,8 +4,9 @@ Status: implementation in progress under plan 171. Scoped identities, retained
 provider history/watch adapters, creation-control storage and saved-session reads
 and collections are implemented. The first ordinary Claude text path now uses
 the stored-request dispatcher and permanent-identity Process boundary;
-remaining caller/provider shapes, hosted dispatch,
-cold-resume/owned-browser gates and release qualification remain pending.
+qualified hosted Claude text and local Claude/Codex cold continuations are
+implemented. Remaining caller/provider shapes, broader cold-resume/owned-browser
+gates and release qualification remain pending.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 defines the implementation slices, isolated-profile qualification and requested
@@ -266,6 +267,27 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   path addressing or a different returned thread before starting a turn. Tailed
   helpers are unchanged. This does not qualify cold resume, prompt-cache touches,
   new launch identity or durable helper admission/provenance.
+- Qualified local Claude-family and Codex cold continuations resolve one
+  operation-scoped native source before launch. The provider receives the
+  native id and proven storage/path facts; Process, public events, settings and
+  child/API authority retain the YA id. A continuation validates the existing
+  binding instead of allocating or replacing it, and a different returned
+  native id fails before a later user turn. Unconsumed creation attempts still
+  require explicit recovery; cold continuation never replays the saved first
+  input. Generation/deletion and binding checks run again before admission.
+  Claude retains its configured account home and only uses a validated native
+  project selector or the exact conventional cwd address; unaddressable roots
+  refuse. Codex retains its configured native home, supplies the proven rollout
+  path, and refuses a peer without path support before thread resume. Its child
+  environment and bridge keep the public id even after native thread init.
+  Claude's prompt-cache callback also retains this native address.
+  This qualifies local scoped continuation only. Managed retained-host
+  observation uses its existing fenced attach contract; new hosted cold workers
+  and unqualified differing-id provider continuations explicitly refuse until
+  their enabling slices. Stored equal-id legacy host sessions retain a claim-only
+  attach path: an absent owner or changed sandbox refuses before fresh launch or
+  termination. Restart-only configuration changes also refuse before aborting
+  that incumbent. Other unqualified equal-id paths remain unchanged.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.

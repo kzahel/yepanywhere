@@ -11,7 +11,7 @@ was authorized on November 1; phase 1's concrete decisions are recorded in
 and were independently accepted by Sol 6.1 High after three concrete design
 corrections. Phase 2 and phase 3's read/discovery/watch/source foundation are
 implemented and independently accepted. Qualified ordinary Claude text callers and the default SDK bridge are
-implemented. Cold-resume/owned-browser gates and phase 4's remaining input
+implemented. Broader cold-resume/owned-browser gates and phase 4's remaining input
 shapes and routed/sandboxed rollout remain pending; qualified hosted Claude text
 now carries fenced worker evidence across Hono replacement.
 Acceptance covers the plan's ordering, intermediate contracts
@@ -25,6 +25,33 @@ Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
 The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
+
+- Phase 3 local Claude/Codex cold continuation is independently accepted by
+  Sol 6.1 High after correcting retained legacy-host interception and failed
+  bridge cleanup. One provider-owned native-source boundary supplies native
+  resume/control id and proven path, while Process/events and child/API/self
+  authority retain the YA id. Existing bindings validate without allocation;
+  stale scope, deletion during source/instruction awaits and a different
+  provider attachment refuse before later input. Claude retains account-home
+  selection and its prompt-cache native address; Codex uses the exact rollout
+  path and refuses unsupported negotiation. Stored equal-id legacy host
+  sessions attach only to the incumbent; missing owners and destructive
+  configuration/sandbox replacements refuse before launch/termination.
+  Focused checks pass 232 cases / five files / 24.79 s, including actual host
+  worker generation replacement with real SQLite. Actual pinned SDK/CLI
+  standalone probes pass two split-id cold HTTP resumes across profile restarts
+  on Node 22, Node 26 and Bun, selecting one native alias despite competing
+  same-id history. A final Node 26 run also checks one retained original native
+  input. The initial full run exposed two instruction-source fixture adapters
+  missing their new opt-in; their production id/path/public assertions now pass.
+  The pre-review-correction complete workspace passed 6,870 server / 7,064
+  client cases (server 131.01 s). Final corrected source passes lint with zero
+  warnings, format and typecheck. Its complete workspace run passes 6,871 other
+  server / 7,064 client checks but hits the existing top-level Rendez restart
+  failure (server 133.51 s). The red run is retained without retry; the separate
+  [watcher gap](../../gaps/rendez-nested-watch-event-after-restart.md) stays open.
+  Other provider cold paths, fresh hosted cold workers and owned released-client
+  qualification remain gates before differing-id new launches.
 
 - Phase 4 hosted transport and saved-attempt reconciliation are independently
   accepted by Sol 6.1 High after correcting compiled asset delivery, deferred

@@ -726,7 +726,14 @@ Deferred local fallback, destructive configuration/compact replacement and
 uncertain native-command ingress refuse before effects. The private managed
 feature is enabled only for qualified hosted Claude text; the global receipts
 capability and broader rollout remain gated.
-Fully scoped cold resumes,
+Local Claude/Codex scoped cold continuation is independently accepted: native
+id/path selection is separate from public Process/events and child authority;
+exact attachment, deletion/generation races and failed bridge cleanup are
+qualified. Owned pinned SDK/CLI two-turn/profile-restart probes pass on Node 22,
+Node 26 and Bun, including competing same-id native history. Legacy hosted
+incumbents retain claim-only attachment; unsupported fresh hosted workers and
+restart-only configuration replacement refuse before destructive effects.
+Remaining provider/host cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable
 admission, split-id launches and release qualification remain gated. This does not displace release delivery or

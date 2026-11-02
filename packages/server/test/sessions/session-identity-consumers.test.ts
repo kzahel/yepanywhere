@@ -154,6 +154,7 @@ it.each(["claude", "codex"] as const)(
         });
         const provider = {
           name: providerName,
+          supportsNativeResumeSource: true,
           startSession: start,
           isInstalled: async () => true,
           isAuthenticated: async () => true,
@@ -327,6 +328,14 @@ it.each(["claude", "codex"] as const)(
           .resumeSession(publicId, workingPath, { text: "continue" })
           .catch((error) => error);
         expect(start, String(resume)).toHaveBeenCalledOnce();
+        expect(start.mock.calls[0]?.[0]).toMatchObject({
+          resumeSessionId: nativeId,
+          publicSessionId: publicId,
+          nativeResumeSource: {
+            native: { id: nativeId },
+            filePath: nativeFile,
+          },
+        });
         expect(JSON.stringify(instructionHistory)).toContain(
           "correct native history SOURCE-4242",
         );

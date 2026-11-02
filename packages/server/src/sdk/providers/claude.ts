@@ -108,6 +108,7 @@ import type {
   ProviderSessionOptionsUpdateResult,
   ProviderName,
   ProviderForkOptions,
+  ProviderForkSource,
   ProviderForkResult,
   ProviderLoginLaunch,
   StartSessionOptions,
@@ -1123,6 +1124,7 @@ export async function probeClaudeControlLiveness(
 export class ClaudeProvider implements AgentProvider {
   readonly name: ProviderName = "claude";
   readonly displayName: string = "Claude";
+  readonly supportsNativeResumeSource = true;
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle: boolean = true;
   readonly supportsSlashCommands = true;
@@ -1839,6 +1841,61 @@ export class ClaudeProvider implements AgentProvider {
     }
   }
 
+  /** Keep account-home selection unchanged while addressing one captured root. */
+  private async nativeSourceEnvironment(
+    source: ProviderForkSource,
+    cwd: string,
+    sessionSandbox: SessionSandboxRuntime | undefined,
+    env: NodeJS.ProcessEnv,
+  ): Promise<string> {
+    let nativeCwd = cwd;
+    const scope = source.native.storageScope;
+    if (sessionSandbox) {
+      if ((await realpath(sessionSandbox.transcriptDir)) !== scope)
+        throw new Error(
+          "Claude native source does not match the inherited private transcript root",
+        );
+    } else {
+      // A child runs in the physical directory, including when its supplied
+      // cwd is a symlink. Resolve that before interpreting a relative home.
+      const physicalCwd = await realpath(nativeCwd).catch(() => null);
+      if (!physicalCwd)
+        throw new Error(
+          "Claude native source has no available native project cwd",
+        );
+      nativeCwd = physicalCwd;
+      // Do not change the home spelling: it can select the operator's account.
+      const projects = await realpath(
+        resolve(
+          nativeCwd,
+          env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
+          "projects",
+        ),
+      ).catch(() => null);
+      if (projects !== dirname(scope))
+        throw new Error(
+          "Claude native source is outside the launch transcript store; scoped resume is not qualified",
+        );
+      const name = basename(scope);
+      if (
+        env.CLAUDE_CONFIG_DIR &&
+        /^[A-Za-z0-9_-]{1,64}$/.test(name) &&
+        !/^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(name)
+      ) {
+        env.CLAUDE_CODE_PROJECT_DIR_NAME = name;
+      } else {
+        // Clearing an unusable selector is safe only when cwd addresses the
+        // same captured native directory. Never try a competing same-id file.
+        env.CLAUDE_CODE_PROJECT_DIR_NAME = undefined;
+        if (claudeCwdProjectDirectory(nativeCwd) !== name)
+          throw new Error(
+            "Claude native source cannot be addressed by the native project selector or cwd",
+          );
+      }
+    }
+    return nativeCwd;
+  }
+
   private async generateForkBackedSummary(
     request: Extract<SummaryGenerationRequest, { strategy: "fork" }>,
   ): Promise<SummaryGenerationResult> {
@@ -1853,52 +1910,13 @@ export class ClaudeProvider implements AgentProvider {
     let nativeCwd = request.nativeSource
       ? fromUrlProjectId(request.nativeSource.projectId)
       : request.cwd;
-    if (request.nativeSource) {
-      const scope = request.nativeSource.native.storageScope;
-      if (request.sessionSandbox) {
-        if ((await realpath(request.sessionSandbox.transcriptDir)) !== scope)
-          throw new Error(
-            "Claude summary source does not match the inherited private transcript root",
-          );
-      } else {
-        // A child runs in the physical directory, including when its supplied
-        // cwd is a symlink. Resolve that before interpreting a relative home.
-        const physicalCwd = await realpath(nativeCwd).catch(() => null);
-        if (!physicalCwd)
-          throw new Error(
-            "Claude summary source has no available native project cwd",
-          );
-        nativeCwd = physicalCwd;
-        // Do not change the home spelling: it can select the operator's account.
-        const projects = await realpath(
-          resolve(
-            nativeCwd,
-            summaryEnv.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
-            "projects",
-          ),
-        ).catch(() => null);
-        if (projects !== dirname(scope))
-          throw new Error(
-            "Claude summary source is outside the launch transcript store; scoped resume is not qualified",
-          );
-        const name = basename(scope);
-        if (
-          summaryEnv.CLAUDE_CONFIG_DIR &&
-          /^[A-Za-z0-9_-]{1,64}$/.test(name) &&
-          !/^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])$/i.test(name)
-        ) {
-          summaryEnv.CLAUDE_CODE_PROJECT_DIR_NAME = name;
-        } else {
-          // Clearing an unusable selector is safe only when cwd addresses the
-          // same captured native directory. Never try a competing same-id file.
-          summaryEnv.CLAUDE_CODE_PROJECT_DIR_NAME = undefined;
-          if (claudeCwdProjectDirectory(nativeCwd) !== name)
-            throw new Error(
-              "Claude summary source cannot be addressed by the native project selector or cwd",
-            );
-        }
-      }
-    }
+    if (request.nativeSource)
+      nativeCwd = await this.nativeSourceEnvironment(
+        request.nativeSource,
+        nativeCwd,
+        request.sessionSandbox,
+        summaryEnv,
+      );
     if (request.signal?.aborted)
       throw new DOMException("Summary generation cancelled", "AbortError");
     const userPrompt =
@@ -2250,16 +2268,6 @@ export class ClaudeProvider implements AgentProvider {
     const providerSessionOptions = getClaudeSessionLaunchOptions(
       options.sessionOptions,
     );
-    const launchBridge = createLaunchAgentctlSessionEnvBridge({
-      initialSessionId: options.publicSessionId ?? options.resumeSessionId,
-      getSessionEnv: options.getSessionChildEnv,
-      sessionSandbox: options.sessionSandbox,
-    });
-    const agentctlSessionEnvBridge = launchBridge?.bridge ?? null;
-    // Spawns must use this runtime: it also mounts the bridge directory.
-    const sessionSandbox = launchBridge
-      ? launchBridge.sessionSandbox
-      : options.sessionSandbox;
     const autoCompactOverrideEnv = getClaudeAutoCompactOverrideEnv(
       options.launchCompactPercentOverride,
     );
@@ -2277,6 +2285,33 @@ export class ClaudeProvider implements AgentProvider {
         baseClaudeEnv,
         claudeRouterEnvironment(options.routerLaunch),
       );
+    if (options.nativeResumeSource) {
+      if (!options.resumeSessionId)
+        throw new Error("Native resume source requires a continuation id");
+      assertProviderForkSource(
+        {
+          nativeSessionId: parseNativeSessionId(options.resumeSessionId),
+          nativeSource: options.nativeResumeSource,
+        },
+        this.name,
+      );
+      await this.nativeSourceEnvironment(
+        options.nativeResumeSource,
+        options.cwd,
+        options.sessionSandbox,
+        baseClaudeEnv,
+      );
+    }
+    const launchBridge = createLaunchAgentctlSessionEnvBridge({
+      initialSessionId: options.publicSessionId ?? options.resumeSessionId,
+      getSessionEnv: options.getSessionChildEnv,
+      sessionSandbox: options.sessionSandbox,
+    });
+    const agentctlSessionEnvBridge = launchBridge?.bridge ?? null;
+    // Spawns must use this runtime: it also mounts the bridge directory.
+    const sessionSandbox = launchBridge
+      ? launchBridge.sessionSandbox
+      : options.sessionSandbox;
     const claudeEnv = agentctlSessionEnvBridge
       ? agentctlSessionEnvBridge.extendEnv(baseClaudeEnv)
       : baseClaudeEnv;
@@ -2667,7 +2702,7 @@ export class ClaudeProvider implements AgentProvider {
       getProviderRetention: () => providerRetention.getSnapshot(),
       refreshPromptCache: ({ sessionId }) =>
         this.refreshPromptCache({
-          sessionId,
+          sessionId: options.nativeResumeSource?.native.id ?? sessionId,
           cwd: effectiveCwd,
           model: normalizeClaudeLaunchModel(options.model),
           thinking: options.thinking,

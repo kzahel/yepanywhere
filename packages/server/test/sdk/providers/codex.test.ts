@@ -1,5 +1,6 @@
 import {
   parseNativeSessionId,
+  parseYaSessionId,
   nativeSessionRef,
   toUrlProjectId,
 } from "@yep-anywhere/shared";
@@ -3558,6 +3559,92 @@ import { appendFileSync } from "node:fs";`,
     },
   );
 
+  it.each([false, true])(
+    "cold native continuation keeps child authority public (mismatch=%s)",
+    async (mismatch) => {
+      const root = mkdtempSync(join(tmpdir(), "codex-native-resume-"));
+      const home = join(root, "home"),
+        sessions = join(home, "sessions"),
+        logPath = join(root, "requests.jsonl");
+      mkdirSync(sessions, { recursive: true });
+      const nativeId = parseNativeSessionId("native-resume-thread");
+      const publicId = parseYaSessionId("22345678-1234-4234-8234-123456789abc");
+      const filePath = join(sessions, "rollout-other-leaf.jsonl");
+      writeFileSync(
+        filePath,
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: nativeId, cwd: root },
+        }) + "\n",
+      );
+      const command = createFakeCodexCommand(
+        root,
+        "continuation-protocol",
+        buildFakeCodexAppServerForForkSummary(
+          logPath,
+          mismatch ? "wrong-thread" : undefined,
+        ),
+      );
+      const options = {
+        cwd: root,
+        resumeSessionId: nativeId,
+        publicSessionId: publicId,
+        nativeResumeSource: {
+          native: nativeSessionRef("codex", realpathSync(sessions), nativeId),
+          filePath,
+          projectId: toUrlProjectId(root),
+        },
+      };
+      let session:
+        | Awaited<ReturnType<CodexProvider["startSession"]>>
+        | undefined;
+      try {
+        const otherHome = join(root, "foreign-home");
+        mkdirSync(join(otherHome, "sessions"), { recursive: true });
+        await expect(
+          new CodexProvider({
+            codexPath: command,
+            codexHome: otherHome,
+          }).startSession(options),
+        ).rejects.toThrow("outside the launch transcript store");
+        expect(existsSync(logPath)).toBe(false);
+        session = await new CodexProvider({
+          codexPath: command,
+          codexHome: home,
+        }).startSession(options);
+        if (mismatch)
+          expect((await session.iterator.next()).value).toMatchObject({
+            type: "error",
+            session_id: nativeId,
+            codexWillRetry: false,
+            error: "Codex resumed a different native thread",
+          });
+        else
+          expect((await session.iterator.next()).value).toMatchObject({
+            type: "system",
+            subtype: "init",
+            session_id: nativeId,
+          });
+        const requests = readFakeCodexRequests(logPath);
+        expect(
+          requests.find((r) => r.method === "thread/resume")?.params,
+        ).toMatchObject({ threadId: nativeId, path: filePath });
+        expect(requests.find((r) => r.method === "initialize")).toMatchObject({
+          nativeHome: home,
+          publicSessionId: publicId,
+        });
+        expect(
+          requests.some(
+            (r) => r.method === "thread/start" || r.method === "turn/start",
+          ),
+        ).toBe(false);
+      } finally {
+        await session?.abort();
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("addresses a scoped fork by native id/path and keeps its pinned native home", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "codex-scoped-fork-"));
     const sourceHome = join(tempDir, "source-home");
@@ -5186,6 +5273,7 @@ function logRequest(message) {
       method: message.method,
       params: message.params,
       nativeHome: process.env.CODEX_HOME,
+      publicSessionId: process.env.AGENTCTL_SESSION_ID,
     }) + "\\n",
   );
 }

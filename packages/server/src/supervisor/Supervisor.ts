@@ -3,7 +3,10 @@ import {
   RouterUnavailable,
 } from "../services/AgentAuthRouter.js";
 import { randomUUID } from "node:crypto";
-import { creationProcessIdentity } from "../sessions/creation-process-identity.js";
+import {
+  boundProcessIdentity,
+  creationProcessIdentity,
+} from "../sessions/creation-process-identity.js";
 import {
   StaleCreationAttempt,
   type CreationContext,
@@ -1238,6 +1241,22 @@ export class Supervisor {
     return saved?.request?.launch?.runtimeOwner === "host";
   }
 
+  private requiresRetainedHostedRuntime(
+    sessionId: string,
+    settings?: ModelSettings,
+  ): boolean {
+    if (
+      !isYaSessionId(sessionId) ||
+      !this.sessionMetadataService?.identities?.resolveYa(sessionId)
+    )
+      return false;
+    const provider = this.resolveProvider(settings);
+    return (
+      provider?.runtimeOwner === "host" &&
+      provider.supportsNativeResumeSource === true
+    );
+  }
+
   private async dispatchSavedSession(
     fence: CreationAttemptFence,
     authorize: (saved: SavedSessionCreation) => Promise<void>,
@@ -2012,7 +2031,7 @@ export class Supervisor {
   private async settleProviderSessionId(
     process: Process,
     required: boolean,
-    expectedSessionId?: string,
+    expectedPublicSessionId?: string,
   ): Promise<void> {
     if (!required) {
       await process.waitForSessionId();
@@ -2021,12 +2040,19 @@ export class Supervisor {
 
     try {
       const providerSessionId = await process.waitForProviderSessionId();
+      const expectedNativeSessionId =
+        expectedPublicSessionId && isYaSessionId(expectedPublicSessionId)
+          ? (this.sessionMetadataService?.identities?.resolveYa(
+              expectedPublicSessionId,
+            )?.native?.id ?? expectedPublicSessionId)
+          : expectedPublicSessionId;
       if (
-        expectedSessionId !== undefined &&
-        providerSessionId !== expectedSessionId
+        expectedPublicSessionId !== undefined &&
+        (providerSessionId !== expectedNativeSessionId ||
+          process.sessionId !== expectedPublicSessionId)
       ) {
         throw new Error(
-          `Provider attached session ${providerSessionId} instead of ${expectedSessionId}`,
+          `Provider attached session ${providerSessionId} instead of ${expectedNativeSessionId} for ${expectedPublicSessionId}`,
         );
       }
     } catch (error) {
@@ -2948,6 +2974,11 @@ export class Supervisor {
       );
     }
 
+    const resume = await this.providerResumeAddress(
+      resumeSessionId,
+      projectPath,
+      activeProvider,
+    );
     const processHolder: { process: Process | null } = { process: null };
     const effectiveMode = permissionMode ?? this.defaultPermissionMode;
     const promptSuggestionMode = this.resolvePromptSuggestionMode(
@@ -3026,22 +3057,28 @@ export class Supervisor {
       modelSettings?.routerPolicy,
       modelSettings,
     );
+    let startedProviderAbort: (() => void | Promise<void>) | undefined;
     try {
       const agentApiEpoch = this.agentApiEpoch;
       const peerApiEpoch = this.peerApiEpoch;
+      const instructions = await this.instructionLaunchOptions(
+        activeProvider.name,
+        resumeSessionId,
+        projectId,
+        Boolean(sessionSandbox) || Boolean(modelSettings?.executor),
+      );
+      resume?.identity?.assertInputAdmission();
       const start = activeProvider.startSession({
         routerLaunch,
         machineControl: modelSettings?.machineControl,
         desktopControlOrigin: modelSettings?.desktopControlOrigin,
         cwd: projectPath,
         // No initialMessage - queue will block until one is pushed
-        ...(await this.instructionLaunchOptions(
-          activeProvider.name,
-          resumeSessionId,
-          projectId,
-          Boolean(sessionSandbox) || Boolean(modelSettings?.executor),
-        )),
-        resumeSessionId,
+        ...instructions,
+        resumeSessionId: resume?.source?.native.id ?? resumeSessionId,
+        nativeResumeSource: resume?.source,
+        retainedRuntimeOnly: resume?.retainedRuntimeOnly,
+        publicSessionId: resume?.sessionId,
         newSessionId: resumeSessionId ? undefined : tempSessionId,
         resumeSessionAt: truncation.resumeSessionAt,
         resumeDropsTurn: truncation.resumeDropsTurn,
@@ -3097,6 +3134,7 @@ export class Supervisor {
         start,
         retryProviderStartupFailure || requireProviderSessionId,
       );
+      startedProviderAbort = result.abort;
 
       const {
         iterator,
@@ -3124,6 +3162,7 @@ export class Supervisor {
         projectPath,
         projectId,
         sessionId: tempSessionId,
+        managedIdentity: resume?.identity,
         initialState: "idle",
         idleTimeoutMs: this.idleTimeoutMs,
         projectDisplayName: this.projectDisplayName,
@@ -3239,12 +3278,83 @@ export class Supervisor {
 
       return process;
     } catch (error) {
+      if (resume) {
+        const process = processHolder.process;
+        if (process) {
+          const needsOwnership =
+            !process.isTerminated || process.hasUnverifiedProviderOwnership;
+          const stopped = process.terminateAndWait(
+            "cold continuation boundary failed",
+          );
+          if (needsOwnership && !this.processes.has(process.id))
+            this.registerProcess(process, false);
+          await stopped;
+        } else await startedProviderAbort?.();
+      }
       if (routerLaunch && !resumeSessionId) {
         // The connector retains pending cancellation durably if AAR is offline.
         await this.agentAuthRouter?.cancel(tempSessionId).catch(() => {});
       }
       throw error;
     }
+  }
+
+  /** Resolve once at native I/O; application settings and authority keep P. */
+  private async providerResumeAddress(
+    sessionId: string | undefined,
+    projectPath: string,
+    provider: AgentProvider,
+  ) {
+    if (!sessionId || !isYaSessionId(sessionId)) return undefined;
+    const identities = this.sessionMetadataService?.identities;
+    const stored = identities?.resolveYa(sessionId);
+    if (!stored) return undefined;
+    if (!stored.native) throw new Error("Session has no native continuation");
+    if (!provider.supportsNativeResumeSource) {
+      if (stored.native.id !== parseNativeSessionId(sessionId))
+        throw new Error("Provider scoped continuation is not qualified");
+      return undefined;
+    }
+    if (provider.runtimeOwner === "host") {
+      if (stored.native.id !== parseNativeSessionId(sessionId))
+        throw new Error("Hosted split-id cold continuation is not qualified");
+      return { sessionId, retainedRuntimeOnly: true as const };
+    }
+    const source = await this.resolveNativeForkSource?.(
+      sessionId,
+      projectPath,
+      provider.name,
+    );
+    if (
+      !source ||
+      source.native.id !== stored.native.id ||
+      source.native.family !== stored.native.family ||
+      source.native.storageScope !== stored.native.storageScope
+    )
+      throw new Error("Stored continuation requires its exact native source");
+    const creation =
+      this.sessionMetadataService?.creations?.getForSession(sessionId);
+    const assertAdmission = () => {
+      if (!creation) return;
+      const current = this.sessionMetadataService!.creations.assertCurrent(
+        creation.attempt,
+      );
+      if (
+        current.attempt.state !== "bound" ||
+        current.attempt.delivery !== "consumed"
+      )
+        throw new SessionMessageRejectedError(
+          "Session startup has not completed; use creation recovery",
+        );
+    };
+    const identity = boundProcessIdentity(
+      identities!,
+      sessionId,
+      stored.native,
+      assertAdmission,
+    );
+    identity.assertInputAdmission();
+    return { source, identity, sessionId, retainedRuntimeOnly: false as const };
   }
 
   /**
@@ -3262,7 +3372,6 @@ export class Supervisor {
     requireProviderSessionId = false,
     managedLaunch?: ManagedProviderLaunch,
   ): Promise<Process> {
-    const managedIdentity = managedLaunch?.identity;
     const activeProvider = provider ?? this.provider;
     if (!activeProvider) {
       throw new Error("provider is not available");
@@ -3287,6 +3396,15 @@ export class Supervisor {
         modelSettings,
       );
     }
+
+    const resume = managedLaunch?.runtime
+      ? undefined
+      : await this.providerResumeAddress(
+          resumeSessionId,
+          projectPath,
+          activeProvider,
+        );
+    const managedIdentity = managedLaunch?.identity ?? resume?.identity;
 
     // We need to reference process in the callback before it's assigned
     const processHolder: { process: Process | null } = { process: null };
@@ -3379,15 +3497,18 @@ export class Supervisor {
         Boolean(sessionSandbox) || Boolean(modelSettings?.executor),
       );
       await managedLaunch?.authorize();
+      resume?.identity?.assertInputAdmission();
       if (message) managedIdentity?.assertInputAdmission();
       const start = activeProvider.startSession({
         creationRuntime: managedLaunch?.runtime,
         publicSessionId: managedIdentity?.sessionId,
+        nativeResumeSource: resume?.source,
+        retainedRuntimeOnly: resume?.retainedRuntimeOnly,
         routerLaunch,
         machineControl: modelSettings?.machineControl,
         desktopControlOrigin: modelSettings?.desktopControlOrigin,
         cwd: projectPath,
-        resumeSessionId,
+        resumeSessionId: resume?.source?.native.id ?? resumeSessionId,
         newSessionId: resumeSessionId ? undefined : tempSessionId,
         ...instructions,
         clientName: modelSettings?.clientName,
@@ -3813,7 +3934,10 @@ export class Supervisor {
                 );
               }
             } else {
-              if (this.isSavedHostedSession(sessionId))
+              if (
+                this.isSavedHostedSession(sessionId) ||
+                this.requiresRetainedHostedRuntime(sessionId, modelSettings)
+              )
                 throw new SessionMessageRejectedError(
                   "Saved hosted session cannot replace its provider owner for configuration",
                 );
@@ -4918,7 +5042,10 @@ export class Supervisor {
     permissionMode: PermissionMode,
     settings: ModelSettings,
   ): Promise<Process | null> {
-    if (this.isSavedHostedSession(process.sessionId))
+    if (
+      this.isSavedHostedSession(process.sessionId) ||
+      this.requiresRetainedHostedRuntime(process.sessionId, settings)
+    )
       throw new SessionMessageRejectedError(
         "Saved hosted session cannot replace its provider owner for configuration",
       );

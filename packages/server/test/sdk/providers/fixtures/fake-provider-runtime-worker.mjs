@@ -47,7 +47,9 @@ const server = createServer((socket) => {
             message: {
               type: "system",
               subtype: "init",
-              session_id: `fake-session-${sequence}`,
+              session_id:
+                launchRequest.options.newSessionId ??
+                `fake-session-${sequence}`,
             },
           })}\n`,
         );

@@ -1,3 +1,11 @@
+import { SessionMetadataService } from "../../../src/metadata/SessionMetadataService.js";
+import { Supervisor } from "../../../src/supervisor/Supervisor.js";
+import {
+  nativeSessionRef,
+  parseNativeSessionId,
+  toUrlProjectId,
+} from "@yep-anywhere/shared";
+import type { AgentProvider } from "../../../src/sdk/providers/types.js";
 import { openSqliteOrThrow } from "../../../src/storage/sqlite.js";
 import { migrateDiscoveryDatabase } from "../../../src/storage/discovery-sqlite.js";
 import { ApiReceiptStore } from "../../../src/core-api/receipt-store.js";
@@ -2486,6 +2494,107 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     await second.abort();
     await waitUntil(() => host.runtimes.size === 0);
     await host.shutdown("proxy test complete");
+  });
+
+  it("restores a stored legacy Supervisor session through the retained worker only", async () => {
+    const root = await mkdtemp(join(runtimeTmpDir, "ya-legacy-cold-"));
+    temporaryPaths.push(root);
+    const host = new ProviderRuntimeHost({
+      runtimeDir: root,
+      controlSocketPath: join(root, "host.sock"),
+      token: "legacy-cold",
+      workerPath: fixtureWorker,
+    });
+    const database = openSqliteOrThrow(join(root, "metadata.sqlite"));
+    migrateDiscoveryDatabase(database);
+    const metadata = new SessionMetadataService({ dataDir: root, database });
+    await metadata.initialize();
+    const nativeId = parseNativeSessionId("legacy-retained-native");
+    const identity = metadata.identities.adoptDiscovered({
+      provider: "claude",
+      native: nativeSessionRef("claude", root, nativeId),
+      projectId: toUrlProjectId(root),
+      createdAt: new Date().toISOString(),
+    });
+    const provider = {
+      name: "claude",
+      runtimeOwner: "host",
+      supportsNativeResumeSource: true,
+      displayName: "controlled legacy hosted adapter",
+      supportsPermissionMode: true,
+      supportsThinkingToggle: false,
+      supportsSlashCommands: false,
+      supportsSteering: false,
+      isInstalled: async () => true,
+      isAuthenticated: async () => true,
+      getAvailableModels: async () => [],
+      getAuthStatus: async () => ({
+        installed: true,
+        authenticated: true,
+        enabled: true,
+      }),
+      startSession: (options) =>
+        startHostedProviderSession("claude", options, {}),
+    } satisfies AgentProvider;
+    const supervisor = new Supervisor({
+      provider,
+      sessionMetadataService: metadata,
+    });
+    try {
+      await host.start();
+      process.env.YEP_PROVIDER_RUNTIME_SOCKET = join(root, "host.sock");
+      process.env.YEP_PROVIDER_RUNTIME_TOKEN = "legacy-cold";
+      process.env.YEP_SERVER_GENERATION = "legacy-first";
+      expect(await initializeProviderRuntimeHost()).toBe(true);
+      const first = await startHostedProviderSession(
+        "claude",
+        { cwd: root, newSessionId: identity.sessionId },
+        {},
+      );
+      expect((await first.iterator.next()).value?.session_id).toBe(
+        identity.sessionId,
+      );
+      await first.publishAgentctlSessionId?.(identity.sessionId);
+      const pid = [...host.runtimes.values()][0].pid;
+      await first.detachForServerReload?.();
+      closeProviderRuntimeHostRegistration();
+      process.env.YEP_SERVER_GENERATION = "legacy-replacement";
+      expect(await initializeProviderRuntimeHost()).toBe(true);
+      expect(
+        metadata.creations.getForSession(identity.sessionId),
+      ).toBeUndefined();
+      const restored = await supervisor.reactivateSession(
+        root,
+        identity.sessionId,
+        "bypassPermissions",
+      );
+      expect(await restored.waitForProviderSessionId()).toBe(
+        identity.sessionId,
+      );
+      expect(restored.sessionId).toBe(identity.sessionId);
+      expect(host.runtimes.size).toBe(1);
+      expect([...host.runtimes.values()][0].pid).toBe(pid);
+      await expect(
+        supervisor.reconfigureProcess(restored.id, {
+          thinking: { type: "enabled", budgetTokens: 1024 },
+        }),
+      ).rejects.toThrow("cannot replace its provider owner");
+      expect([...host.runtimes.values()][0].pid).toBe(pid);
+      expect(restored.isTerminated).toBe(false);
+      await supervisor.abortProcess(restored.id);
+      await waitUntil(() => host.runtimes.size === 0);
+      await expect(
+        supervisor.reactivateSession(root, identity.sessionId),
+      ).rejects.toThrow("Retained provider owner is unavailable");
+      expect(host.runtimes.size).toBe(0);
+    } finally {
+      for (const process of supervisor.getAllProcesses())
+        await supervisor.abortProcess(process.id);
+      await supervisor.stopBackgroundTasks();
+      await host.shutdown("legacy cold proof complete");
+      metadata.creations.close();
+      database.close();
+    }
   });
 
   it("reattaches only the same router binding", async () => {
