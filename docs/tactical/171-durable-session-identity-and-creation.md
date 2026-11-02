@@ -214,6 +214,25 @@ missed the second nested delivery. Both red results remain recorded in the
 [existing watcher gap](../../gaps/rendez-nested-watch-event-after-restart.md).
 No passing aggregate/root result is claimed.
 
+## Native API provenance — subsequent slice
+
+The maintainer authorized the next native v0/peer source repair and provider
+rollout slices on November 2. Native command creation now supplies an explicit
+API source to the existing pre-effect metadata writer; original trusted creator,
+peer authority, receipt and input evidence are unchanged. Worker deferral carries
+the source, native remap/reload retain it, and sends do not relabel sessions.
+The focused four-file native/peer suite passes 34 cases, including real
+Supervisor and SQLite coverage for local/peer creators and deferred failure.
+This slice adds no API/capability/default or durable-identity contract. Its
+single Sol 6.1 High review found that an assertion inside an expected deferred
+startup failure could be swallowed. Captured entry observations are now asserted
+outside that failure; the corrected 34-case focused run passes in 18.11 seconds.
+No runtime defect or second review. The full runtime run passes 6,895 server and
+7,067 client tests; root static checks pass. The original REVISE and correction
+are retained under ignored `tasks/session-identity/reviews/native-api-provenance.md`.
+The owned reviewer was retired with verified stop. OpenCode, then Pi, are the
+following bounded provider slices.
+
 ## Execution progress
 
 - Recovery milestone slice: four owned-profile fault cases pass: lost HTTP

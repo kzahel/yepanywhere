@@ -25,7 +25,7 @@ enqueue request source as described below.
 
 The [launch-path provenance audit](../gaps/session-creation-source-missing-launch-paths.md)
 records remaining omissions beyond that boundary: UI-requested review
-sessions, the final fork-after-summary target, native v0 API creation,
+sessions, the final fork-after-summary target,
 maintenance diagnostic creation, and retained forks after a failed restart
 continuation. The HTTP coverage statement above describes the intended contract;
 the remaining paths do not yet satisfy it.
@@ -36,13 +36,25 @@ durable session identity/startup work. It is a proposal, not current behavior.
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#creation-source-admission-and-coverage)
 now incorporates that recommendation into admission, startup, caller migration
 and qualification. It requires explicit source decisions and preserves legacy
-unknown records; the omissions above remain open until implemented and verified.
+unknown records; the remaining omissions above stay open until implemented and verified.
 
 Qualified ordinary Claude/Codex text admission, including routed launches, persists
 source with the saved logical session before provider startup or worker deferral.
 The narrow [text acceptance contract](session-identity.md#qualified-claude-text-acceptance--november-2)
 returns that identity even when startup fails. This does not close the six-path
 audit or migrate attachment/other-provider creation.
+
+## Native v0 and peer creation
+
+Native v0 creation explicitly records `{ surface: "api" }` through Supervisor's
+pre-launch metadata boundary, including worker deferral and incoming peer
+creation. This API entry point does not infer web/desktop source from caller
+headers or an asserted session id. Native binding/remap and restart retain the
+source; existing-session messages do not relabel it. Trusted creator/peer
+identity, directional grants, receipts and native input-consumption evidence
+remain separate and unchanged. A failure to save metadata starts no provider.
+This is provenance coverage on the existing native command path, not migration
+to the ordinary text-creation receipt/identity contract.
 
 ## Project Queue origin
 

@@ -17,7 +17,9 @@ It now retains required source at ordinary Claude/Codex text admission;
 [the identity contract](session-identity.md#qualified-claude-text-acceptance--november-2)
 owns the implemented scope and capability gates. The subsequent
 [Queue provenance repair](session-creation-provenance.md#project-queue-origin)
-covers source on existing queue launch paths; five other audited omissions remain
+covers source on existing queue launch paths. The subsequent
+[native v0/peer source repair](session-creation-provenance.md#native-v0-and-peer-creation)
+covers that entry point; four other audited omissions remain
 an explicit later rollout. Queue durable identity/receipt migration remains
 separate, so the complete provenance gap is still open.
 

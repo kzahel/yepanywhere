@@ -648,7 +648,11 @@ before native launch, including worker deferral/staged attachments. Six real
 integration cases and Node/Bun cold detail/Global Sessions/Inbox checks pass.
 Static checks pass; full tests retain the separately tracked rendez watcher
 failure. Broader Queue identity/receipt migration, attachments in ordinary
-creation and the five remaining provenance caller omissions stay open.
+creation stay separate. Native v0/peer source now enters the same pre-launch
+metadata writer. Its sole Sol review found a swallowed test assertion; the
+corrected focused cases and full runtime/static checks pass. Four other source
+omissions remain. The maintainer
+authorized bounded OpenCode and subsequent Pi identity/qualification slices.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

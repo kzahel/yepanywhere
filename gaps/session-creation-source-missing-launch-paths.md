@@ -24,7 +24,10 @@ including worker deferral and staged attachments. Restart, edits, retry and
 Start/Force start preserve it; existing-session turns do not relabel their
 session, and old queue items stay unknown. See the
 [implemented Queue contract](../topics/session-creation-provenance.md#project-queue-origin).
-The five other audited paths remain unresolved, so this gap remains open. The
+Native v0/peer creation is subsequently repaired through the same pre-launch
+metadata writer, independently of trusted creator/receipt facts. Its local and
+peer native-ownership checks cover direct and deferred starts. Four other
+audited paths remain unresolved, so this gap stays open. The
 original unmarked session cannot be safely backfilled without its enqueue source.
 
 ## Affected paths audited on 2026-11-01
@@ -108,8 +111,8 @@ and Inbox/Global Sessions after reload. Older-server queue/request compatibility
 needs review before adding fields; this audit does not select a new capability
 or API contract.
 
-The original request was an audit and gap capture. The later Queue repair
-closes that omission only. Remaining repairs span independent review, fork,
+The original request was an audit and gap capture. The later Queue and native v0/peer repairs
+close those omissions only. Remaining repairs span independent review, fork,
 native API and maintenance launch owners; closing Queue does not establish
 complete source coverage or justify guessing old records.
 

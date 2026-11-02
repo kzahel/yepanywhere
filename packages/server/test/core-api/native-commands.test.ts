@@ -1,3 +1,7 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import {
   Process,
   createControllableIterator,
@@ -20,213 +24,266 @@ import type {
 } from "../../src/sdk/providers/types.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
 
-it("uses native admission and queued input, follows consumption, and never resumes a stopped owner", async () => {
-  const database = openSqliteOrThrow(":memory:");
-  migrateDiscoveryDatabase(database);
-  const store = new ApiReceiptStore(database);
-  let options: StartSessionOptions | undefined;
-  let starts = 0,
-    steers = 0;
-  const consumed: string[] = [];
-  let releaseFirst!: () => void;
-  const firstTurn = new Promise<void>((resolve) => (releaseFirst = resolve));
-  let firstConsumed!: () => void;
-  const firstInput = new Promise<void>((resolve) => (firstConsumed = resolve));
-  let nextConsumed!: () => void;
-  const secondInput = new Promise<void>((resolve) => (nextConsumed = resolve));
-  const nativeId = "00000000-0000-4000-8000-000000000042";
-  const provider = {
-    name: "codex",
-    async startSession(request: StartSessionOptions) {
-      if (++starts > 1) throw new Error("Scripted queued startup failure");
-      options = request;
-      const queue = new MessageQueue();
-      const incoming = queue.generator();
-      const iterator = (async function* () {
-        yield {
-          type: "system" as const,
-          subtype: "init" as const,
-          session_id: nativeId,
-        };
-        for await (const message of incoming) {
-          consumed.push(message.uuid!);
-          if (consumed.length === 2) nextConsumed();
-          if (consumed.length === 1) {
-            firstConsumed();
-            await firstTurn;
-          }
+it.each(["superuser", "peer"] as const)(
+  "uses native admission and queued input with API provenance independent of %s creator",
+  async (principal) => {
+    const database = openSqliteOrThrow(":memory:");
+    migrateDiscoveryDatabase(database);
+    const store = new ApiReceiptStore(database);
+    const root = await mkdtemp(join(tmpdir(), "ya-native-api-source-"));
+    const metadata = new SessionMetadataService({ database, dataDir: root });
+    await metadata.initialize();
+    let options: StartSessionOptions | undefined;
+    let starts = 0,
+      steers = 0;
+    const consumed: string[] = [];
+    const provenanceCountsAtStart: number[] = [];
+    let releaseFirst!: () => void;
+    const firstTurn = new Promise<void>((resolve) => (releaseFirst = resolve));
+    let firstConsumed!: () => void;
+    const firstInput = new Promise<void>(
+      (resolve) => (firstConsumed = resolve),
+    );
+    let nextConsumed!: () => void;
+    const secondInput = new Promise<void>(
+      (resolve) => (nextConsumed = resolve),
+    );
+    const nativeId = "00000000-0000-4000-8000-000000000042";
+    const provider = {
+      name: "codex",
+      async startSession(request: StartSessionOptions) {
+        starts++;
+        provenanceCountsAtStart.push(
+          Object.values(metadata.getAllMetadata()).filter(
+            (m) => m.creationProvenance?.surface === "api",
+          ).length,
+        );
+        if (starts > 1) throw new Error("Scripted queued startup failure");
+        options = request;
+        const queue = new MessageQueue();
+        const incoming = queue.generator();
+        const iterator = (async function* () {
           yield {
-            type: "result" as const,
-            subtype: "success" as const,
+            type: "system" as const,
+            subtype: "init" as const,
             session_id: nativeId,
           };
-        }
-      })();
-      return {
-        queue,
-        iterator,
-        steer: async () => {
-          steers++;
-          return true;
-        },
-        abort: async () => {
-          releaseFirst();
-          await incoming.return();
-        },
-      };
-    },
-  } as unknown as AgentProvider;
-  const supervisor = new Supervisor({
-    provider,
-    defaultPermissionMode: "default",
-    maxWorkers: 1,
-  });
-  const nativeOwner = nativeSessionCommandOwner({
-    supervisor,
-    globalInstructions: () => "Fixture guidance",
-  });
-  let failed!: () => void;
-  const failure = new Promise<void>((resolve) => (failed = resolve));
-  const owner: typeof nativeOwner = {
-    ...nativeOwner,
-    start: (project, request, receipt, settled, onFailed, onConsumed) =>
-      nativeOwner.start(
-        project,
-        request,
-        receipt,
-        settled,
-        () => {
-          onFailed();
-          failed();
-        },
-        onConsumed,
-      ),
-  };
-  const remapped: string[] = [];
-  const firstObserver = supervisor.observeSessionIdRemaps((oldId, newId) => {
-    remapped.push("first:" + newId);
-    store.remap(oldId, newId);
-  });
-  const secondObserver = supervisor.observeSessionIdRemaps((_oldId, newId) =>
-    remapped.push("second:" + newId),
-  );
-  const commands = new SessionCommands("A", store, owner, () => true);
-  const launch = {
-    id: "parent",
-    launchId: "launch",
-    management: true as const,
-  };
-  try {
-    const project = {
-      id: encodeProjectId(process.cwd()),
-      name: "Fixture",
-      path: process.cwd(),
+          for await (const message of incoming) {
+            consumed.push(message.uuid!);
+            if (consumed.length === 2) nextConsumed();
+            if (consumed.length === 1) {
+              firstConsumed();
+              await firstTurn;
+            }
+            yield {
+              type: "result" as const,
+              subtype: "success" as const,
+              session_id: nativeId,
+            };
+          }
+        })();
+        return {
+          queue,
+          iterator,
+          steer: async () => {
+            steers++;
+            return true;
+          },
+          abort: async () => {
+            releaseFirst();
+            await incoming.return();
+          },
+        };
+      },
+    } as unknown as AgentProvider;
+    const supervisor = new Supervisor({
+      provider,
+      sessionMetadataService: metadata,
+      defaultPermissionMode: "default",
+      maxWorkers: 1,
+    });
+    const nativeOwner = nativeSessionCommandOwner({
+      supervisor,
+      globalInstructions: () => "Fixture guidance",
+    });
+    let failed!: () => void;
+    const failure = new Promise<void>((resolve) => (failed = resolve));
+    const owner: typeof nativeOwner = {
+      ...nativeOwner,
+      start: (project, request, receipt, settled, onFailed, onConsumed) =>
+        nativeOwner.start(
+          project,
+          request,
+          receipt,
+          settled,
+          () => {
+            onFailed();
+            failed();
+          },
+          onConsumed,
+        ),
     };
-    const request = createSessionRequest.parse({
-      requestId: "native-review-1",
-      projectId: project.id,
-      provider: "codex",
-      model: "fixture-model",
-      thinking: "on:high",
-      permissionMode: "bypassPermissions",
-      message: "Review",
+    const remapped: string[] = [];
+    const firstObserver = supervisor.observeSessionIdRemaps((oldId, newId) => {
+      remapped.push("first:" + newId);
+      store.remap(oldId, newId);
     });
-    const receipt = commands.create(project, request, launch);
-    await commands.idle();
-    await firstInput;
-    expect(store.get(receipt.id)).toMatchObject({
-      state: "accepted",
-      sessionId: nativeId,
-      delivery: "consumed",
-      completion: "unknown",
-      creator: { sessionId: "parent" },
-    });
-    expect(options).toMatchObject({
-      model: "fixture-model",
-      effort: "high",
-      permissionMode: "bypassPermissions",
-      globalInstructions: "Fixture guidance",
-    });
-    const nativeProcess = supervisor.getProcessForSession(nativeId)!;
-    expect(remapped).toContain("first:" + nativeId);
-    expect(remapped).toContain("second:" + nativeId);
-    expect(nativeProcess.hasAcceptedApiInput(receipt.id)).toBe(true);
-    const session = {
-      id: nativeId,
-      projectId: project.id,
-      provider: "codex",
-      title: null,
-      updatedAt: "",
-      state: "in-turn",
-    };
-    const input = sendMessageRequest.parse({
-      requestId: "native-input-1",
-      message: "Follow up",
-    });
-    const sent = commands.send(session, input, launch);
-    expect(sent).toMatchObject({
-      state: "accepted",
-      delivery: "unknown",
-      completion: "unknown",
-    });
-    expect(commands.send(session, input, launch).id).toBe(sent.id);
-    expect(nativeProcess.getInfo().queueDepth).toBe(1);
-    expect(steers).toBe(0);
-    const before = await commands.follow(sent.id, {});
-    const waiting = commands.follow(sent.id, {
-      after: before.cursor,
-      waitMs: "4000",
-    });
-    releaseFirst();
-    expect(await waiting).toMatchObject({
-      changed: true,
-      receipt: { delivery: "consumed", completion: "unknown" },
-    });
-    await secondInput;
-    expect(consumed).toEqual([receipt.id, sent.id]);
-    expect(starts).toBe(1);
-    expect(steers).toBe(0);
-    store.update(receipt.id, { state: "uncertain", sessionId: null });
-    expect(await commands.receipt(receipt.id)).toMatchObject({
-      state: "accepted",
-      sessionId: nativeId,
-      delivery: "consumed",
-    });
-    const queued = commands.create(project, {
-      ...request,
-      requestId: "native-review-2",
-    });
-    await commands.idle();
-    expect(store.get(queued.id)?.state).toBe("queued");
-    await supervisor.abortProcess(nativeProcess.id);
-    await failure;
-    expect(store.get(queued.id)).toMatchObject({
-      state: "uncertain",
-      failure: { code: "launch_uncertain" },
-    });
-    expect(commands.send(session, input, launch)).toMatchObject({
-      id: sent.id,
-      delivery: "consumed",
-    });
-    expect(() =>
-      commands.send(session, { ...input, requestId: "native-input-2" }, launch),
-    ).toThrow("incumbent active native owner");
-    expect(starts).toBe(2);
-  } finally {
-    releaseFirst();
-    commands.close();
-    firstObserver();
-    secondObserver();
-    await Promise.all(
-      supervisor
-        .getAllProcesses()
-        .map((process) => supervisor.abortProcess(process.id)),
+    const secondObserver = supervisor.observeSessionIdRemaps((_oldId, newId) =>
+      remapped.push("second:" + newId),
     );
-    await supervisor.stopBackgroundTasks();
-    store.close();
-    database.close();
-  }
-});
+    const commands = new SessionCommands("A", store, owner, () => true);
+    const launch = {
+      id: "parent",
+      launchId: "launch",
+      management: true as const,
+    };
+    try {
+      const project = {
+        id: encodeProjectId(process.cwd()),
+        name: "Fixture",
+        path: process.cwd(),
+      };
+      const request = createSessionRequest.parse({
+        requestId: "native-review-1",
+        projectId: project.id,
+        provider: "codex",
+        model: "fixture-model",
+        thinking: "on:high",
+        permissionMode: "bypassPermissions",
+        message: "Review",
+      });
+      const creator =
+        principal === "peer"
+          ? {
+              serverId: "peer-source",
+              sessionId: "parent",
+              launchId: "peer-launch",
+              principal: { kind: "peer" as const },
+              authentication: {
+                credentialId: "fixture-peer",
+                generation: 1,
+                sessionAttribution: "source-attested" as const,
+              },
+            }
+          : undefined;
+      const receipt = commands.create(project, request, launch, creator);
+      await commands.idle();
+      await firstInput;
+      expect(store.get(receipt.id)).toMatchObject({
+        state: "accepted",
+        sessionId: nativeId,
+        delivery: "consumed",
+        completion: "unknown",
+        creator: { sessionId: "parent" },
+      });
+      expect(metadata.getMetadata(nativeId)?.creationProvenance).toEqual({
+        surface: "api",
+      });
+      const reopened = new SessionMetadataService({ database, dataDir: root });
+      await reopened.initialize();
+      expect(reopened.getMetadata(nativeId)?.creationProvenance).toEqual({
+        surface: "api",
+      });
+      expect(store.get(receipt.id)?.creator.principal.kind).toBe(principal);
+      expect(options).toMatchObject({
+        model: "fixture-model",
+        effort: "high",
+        permissionMode: "bypassPermissions",
+        globalInstructions: "Fixture guidance",
+      });
+      const nativeProcess = supervisor.getProcessForSession(nativeId)!;
+      expect(remapped).toContain("first:" + nativeId);
+      expect(remapped).toContain("second:" + nativeId);
+      expect(nativeProcess.hasAcceptedApiInput(receipt.id)).toBe(true);
+      const session = {
+        id: nativeId,
+        projectId: project.id,
+        provider: "codex",
+        title: null,
+        updatedAt: "",
+        state: "in-turn",
+      };
+      const input = sendMessageRequest.parse({
+        requestId: "native-input-1",
+        message: "Follow up",
+      });
+      const sent = commands.send(session, input, launch);
+      expect(sent).toMatchObject({
+        state: "accepted",
+        delivery: "unknown",
+        completion: "unknown",
+      });
+      expect(commands.send(session, input, launch).id).toBe(sent.id);
+      expect(nativeProcess.getInfo().queueDepth).toBe(1);
+      expect(steers).toBe(0);
+      const before = await commands.follow(sent.id, {});
+      const waiting = commands.follow(sent.id, {
+        after: before.cursor,
+        waitMs: "4000",
+      });
+      releaseFirst();
+      expect(await waiting).toMatchObject({
+        changed: true,
+        receipt: { delivery: "consumed", completion: "unknown" },
+      });
+      await secondInput;
+      expect(consumed).toEqual([receipt.id, sent.id]);
+      expect(starts).toBe(1);
+      expect(steers).toBe(0);
+      store.update(receipt.id, { state: "uncertain", sessionId: null });
+      expect(await commands.receipt(receipt.id)).toMatchObject({
+        state: "accepted",
+        sessionId: nativeId,
+        delivery: "consumed",
+      });
+      const queued = commands.create(
+        project,
+        {
+          ...request,
+          requestId: "native-review-2",
+        },
+        launch,
+        creator,
+      );
+      await commands.idle();
+      expect(store.get(queued.id)?.state).toBe("queued");
+      await supervisor.abortProcess(nativeProcess.id);
+      await failure;
+      expect(store.get(queued.id)).toMatchObject({
+        state: "uncertain",
+        failure: { code: "launch_uncertain" },
+      });
+      expect(commands.send(session, input, launch)).toMatchObject({
+        id: sent.id,
+        delivery: "consumed",
+      });
+      expect(() =>
+        commands.send(
+          session,
+          { ...input, requestId: "native-input-2" },
+          launch,
+        ),
+      ).toThrow("incumbent active native owner");
+      expect(starts).toBe(2);
+      // Assert outside the expected failure path: no swallowed provider assertion.
+      expect(provenanceCountsAtStart).toEqual([1, 2]);
+    } finally {
+      releaseFirst();
+      commands.close();
+      firstObserver();
+      secondObserver();
+      await Promise.all(
+        supervisor
+          .getAllProcesses()
+          .map((process) => supervisor.abortProcess(process.id)),
+      );
+      await supervisor.stopBackgroundTasks();
+      store.close();
+      database.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
 
 it("preserves batched input identities, rejects false push evidence, and tears down pending monitors on abort", async () => {
   const database = openSqliteOrThrow(":memory:");

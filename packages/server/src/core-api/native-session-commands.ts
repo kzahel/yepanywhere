@@ -196,6 +196,7 @@ export function nativeSessionCommandOwner(deps: {
         },
         {
           projectId: project.id as UrlProjectId,
+          creationProvenance: { surface: "api" },
           requireProviderSessionId: true,
           onStarted: (id, process) => {
             settled(id);

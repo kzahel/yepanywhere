@@ -845,7 +845,10 @@ silently acquire newly added mutation operations.
 Keep current creation-source hints (`web`/`desktop`/`api`) and limited-user
 ownership, but add trusted creator facts: immediate principal, originating
 server/session/launch when authenticated, destination identity, request identity
-and time. Current `creationProvenance` is optional client/source metadata, not
+and time. Native local/peer creation now records the descriptive API surface
+before provider startup, including worker-deferred launch; see
+[creation provenance](session-creation-provenance.md#native-v0-and-peer-creation).
+Current `creationProvenance` is optional client/source metadata, not
 an authenticated agent-parent identity. The launch credential can establish
 local session attribution; caller-supplied ids cannot. Do not overload the
 existing fork or `/btw` parent fields. Attribute later submitted messages too.
