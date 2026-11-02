@@ -968,6 +968,7 @@ export class ClaudeGatewayProvider extends ClaudeProvider {
   override async startSession(
     options: Parameters<ClaudeProvider["startSession"]>[0],
   ): ReturnType<ClaudeProvider["startSession"]> {
+    if (options.nativeResumeSource) await this.sessionEnvironment(options);
     await this.ensureServiceReadyForModel(options.model);
     return super.startSession(options);
   }

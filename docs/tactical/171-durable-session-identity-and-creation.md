@@ -26,6 +26,28 @@ The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
 
+- Phase 3 provider-variant continuation is independently accepted by Sol
+  6.1 High after correcting a vacuous Gateway readiness assertion to configure
+  an actual autostart-capable service. Claude/Gateway/Ollama share one native
+  environment validator; Gateway checks before readiness and revalidates before
+  SDK launch. Codex OSS retains per-turn exec, validates UUID/native-store/header
+  before routing/leases, refuses a different native thread, reports failed turns
+  and releases actual children, input waits and installation leases on teardown.
+  Pinned `rust-v0.166.0` source proves UUID resume avoids the missing-name
+  allocation fallback; no target/protocol refresh is made. Focused checks pass
+  68 cases / five files / 2.75 s. All nine standalone variant/runtime probes
+  pass on Node 22, Node 26 and Bun. Gateway/Ollama use the actual pinned SDK/CLI
+  and an owned fake model for two split-id cold resumes across restarts, with
+  competing native history untouched. OSS uses a controlled OS CLI/native
+  rollout peer. Neither external model/installed-Codex nor Linux/Windows native
+  execution is claimed. Final lint has zero warnings; format/typecheck pass.
+  Both complete workspace outcomes remain red at the existing Rendez restart
+  defect: pre-correction top-level line 231 (135.35 s), final corrected nested
+  delivery (133.09 s), each with 6,882 other server / 7,064 client cases passing.
+  No watcher source/budget changed or blind retry replaced either result.
+  Hosted cold workers, broader released-client observation and new-launch gates
+  remain open.
+
 - Phase 3 retained ACP cold continuation is independently accepted by Sol
   6.1 High. Grok and frozen Gemini validate their actual launch store and
   original physical project before CLI/bridge effects; native RPC keeps N and

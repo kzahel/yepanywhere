@@ -66,6 +66,12 @@ returned native id independently. The shared `resolveNativeSessionSource` callba
 acquisition; the fork boundary additionally requires a physical file; this adds no catalogue, registry or conversation store.
 See [session identity](session-identity.md) for current enabling limits.
 
+Claude, Gateway and Ollama share one native-environment/source validation
+boundary. Gateway validates a scoped continuation before readiness or service
+autostart, then revalidates at actual SDK launch after that await. Validation
+preserves the configured account-home spelling and native project selector;
+the common bridge and observations retain YA identity.
+
 ### Retained ACP continuation and teardown
 
 Grok and frozen Gemini ACP opt into scoped native continuation. Their actual

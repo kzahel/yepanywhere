@@ -292,6 +292,11 @@ editor, so late metadata cannot replace an editor while input is underway.
 
 ### CodexOSS
 
+Scoped continuation validates the native session before model-route resolution
+or installation-lease acquisition. It retains the launch-selected endpoint for
+later turns; native UUID addressing and lifecycle behavior follow
+[Codex session ownership](codex-sessions.md#scoped-codex-oss-continuation).
+
 - CodexOSS launches against the entries with `codexEnabled`, listing their
   models from `/v1/models` and passing Codex `model_providers.<key>` overrides on
   the command line — base URL and `wire_api` — rather than editing the user's

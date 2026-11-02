@@ -93,6 +93,13 @@ codex-cli 0.154.0).
 
 The provider handles both JSON output (first turn) and text output (resume turns).
 
+YA's public session id can differ from Codex's native UUID. Scoped continuation
+checks the actual Codex store and rollout header before starting the CLI, and
+uses the native UUID for `exec resume` while keeping YA identity in APIs and
+history. A failed CLI turn reports its error; stopping the session releases its
+input wait and installation lease. See the
+[Codex session contract](../topics/codex-sessions.md#scoped-codex-oss-continuation).
+
 ## Troubleshooting
 
 ### Check for Context Truncation

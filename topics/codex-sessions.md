@@ -88,6 +88,33 @@ find it. The rename is reversible and the content untouched; see
 `topics/heartbeat.md` § Unowned Resume Exemptions and
 `packages/server/src/sessions/resume-exemption.ts`.
 
+
+## Scoped Codex OSS continuation
+
+Codex OSS retains its existing per-turn `codex exec` transport. A scoped cold
+continuation requires a native UUID, the actual canonical `CODEX_HOME/sessions`
+(or native home default), a physical descendant rollout and a matching bounded
+`session_meta` id/original-project header. Reader-only directory overrides do
+not select the CLI's store. Scoped native-home overrides must be absolute.
+These checks precede model routing and installation leases. Working-project
+metadata and the original transcript project stay separate.
+
+Only a UUID is sent to `exec resume`: pinned Codex resolves it directly through
+`thread/resume`, while an unresolved name may start a fresh thread. A scoped
+continuation never submits such a name. An unexpected native `thread.started`
+id fails the continuation instead of redirecting later turns. Native CLI ids
+stay native; Process, API/events and returned history keep the public YA id.
+The original saved input is not replayed.
+
+A nonzero native exit or asynchronous spawn/pipe failure reports a failed turn.
+Actual child closure is observed before teardown releases the installation
+lease. Abort cancels an idle queue wait, prevents launch after the local user
+echo and works before the first iterator pull; stopping at init also releases
+the lease. This per-turn adapter may be idle without an OS child. A local user
+echo is not evidence that native input was consumed. This qualifies existing
+continuation, without enabling new differing-id allocation or changing the
+pinned Codex protocol/version or endpoint choice.
+
 ## Process-Scoped Subagent Depth
 
 The server-wide **Subagent nesting limit** is snapshotted for each newly started

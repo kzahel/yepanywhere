@@ -198,3 +198,21 @@ run passed 6,873 server / 7,064 client cases in 130.10 s
 (`phase-3-opencode-cold-final-full-test.log`). That pass qualifies the corrected
 source, not a Rendez repair; no watcher source, timeout or assertion changed,
 and the initial red run remains preserved.
+
+2026-11-02: provider-variant cold-continuation workspace verification on macOS /
+Node 26.7.0 again missed the second prepared-image delivery at line 231
+(1 observed, 2 expected). All 6,882 other server and 7,064 client cases pass;
+server duration 135.35 s. The 68 focused provider/source/ownership cases and
+nine standalone variant/runtime probes pass. This cut changes no Rendez
+watcher, fixture, assertion or timeout. Evidence: ignored
+`tasks/session-identity/phase-3-variants-cold-full-test.log`. The preceding ACP
+cut passed 6,880 server / 7,064 client cases (133.43 s); it does not qualify
+this source or repair the watcher. This run remains red without a blind retry.
+
+The final provider-variant source then received the independently reviewed
+Gateway autostart-capable refusal-fixture correction. Its new full qualification
+missed the second nested-file delivery at line 364 (1 observed, 2 expected):
+6,882 other server / 7,064 client cases pass; server 133.09 s. Evidence:
+`tasks/session-identity/phase-3-variants-cold-autostart-full-test.log`. This is a
+separate red result of the corrected fixture, not an unchanged-source retry or
+passing replacement. Watcher source, assertion and timeout remain unchanged.

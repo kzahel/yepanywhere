@@ -765,6 +765,16 @@ nine standalone provider/alias × Node 22/26/Bun restart probes pass. Standalone
 Gemini native/reader roots now agree. Final static and complete workspace checks
 pass; native CLI/model, other-OS and hosted cold-worker evidence are separate.
 The Rendez instability and remaining creation/host/variant gates stay open.
+Local provider-variant continuation is independently accepted after correcting
+the Gateway autostart-refusal fixture. Gateway/Ollama share Claude's native
+environment boundary, with Gateway validation before readiness. Codex OSS
+validates native UUID/store/header before routing/leases and retains actual
+failure/teardown evidence through its existing per-turn exec transport. Focused
+and all nine standalone variant/runtime probes pass; actual pinned Claude SDK
+and controlled OSS CLI peers use no external model. Static checks pass. Both
+workspace runs retain the existing Rendez restart failure (6,882 other server /
+7,064 client cases pass); this does not establish a watcher fix or full green.
+Hosted continuation and the later creation/receipt/observation gates remain open.
 Remaining provider/host cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

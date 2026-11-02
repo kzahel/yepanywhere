@@ -2258,16 +2258,9 @@ export class ClaudeProvider implements AgentProvider {
     );
   }
 
-  private async startSessionInternal(
-    options: StartSessionOptions,
-  ): Promise<AgentSession> {
+  /** Resolve and validate the actual native environment before readiness effects. */
+  protected async sessionEnvironment(options: StartSessionOptions) {
     if (options.executor) throw new Error("SSH executors have been removed");
-    const log = getLogger();
-    const queue = new MessageQueue();
-    const abortController = new AbortController();
-    const providerSessionOptions = getClaudeSessionLaunchOptions(
-      options.sessionOptions,
-    );
     const autoCompactOverrideEnv = getClaudeAutoCompactOverrideEnv(
       options.launchCompactPercentOverride,
     );
@@ -2302,6 +2295,20 @@ export class ClaudeProvider implements AgentProvider {
         baseClaudeEnv,
       );
     }
+    return baseClaudeEnv;
+  }
+
+  private async startSessionInternal(
+    options: StartSessionOptions,
+  ): Promise<AgentSession> {
+    if (options.executor) throw new Error("SSH executors have been removed");
+    const log = getLogger();
+    const queue = new MessageQueue();
+    const abortController = new AbortController();
+    const providerSessionOptions = getClaudeSessionLaunchOptions(
+      options.sessionOptions,
+    );
+    const baseClaudeEnv = await this.sessionEnvironment(options);
     const launchBridge = createLaunchAgentctlSessionEnvBridge({
       initialSessionId: options.publicSessionId ?? options.resumeSessionId,
       getSessionEnv: options.getSessionChildEnv,

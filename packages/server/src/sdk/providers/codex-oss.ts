@@ -12,6 +12,9 @@
  */
 
 import { type ChildProcess, exec, spawn } from "node:child_process";
+import { realpath } from "node:fs/promises";
+import { homedir, userInfo } from "node:os";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 import {
@@ -25,6 +28,8 @@ import {
   qualifiedGatewayModelId,
   tomlString,
   unionModelCatalogs,
+  fromUrlProjectId,
+  parseNativeSessionId,
   type EffortLevel,
   type GatewayEndpointEffortProbe,
   type GatewayModelEffort,
@@ -45,7 +50,8 @@ import {
 } from "../../services/ProviderInstallationCoordinator.js";
 import { probeServiceEffort } from "../../services/GatewayEffortProbe.js";
 import { findCodexCliPath } from "../cli-detection.js";
-import { MessageQueue } from "../messageQueue.js";
+import { MessageQueue, type QueuedSDKUserMessage } from "../messageQueue.js";
+import { readFirstLine } from "../../utils/jsonl.js";
 import type { SDKMessage } from "../types.js";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
 import type {
@@ -54,7 +60,10 @@ import type {
   AuthStatus,
   StartSessionOptions,
 } from "./types.js";
-import { inactiveProviderSessionOptionsResult } from "./types.js";
+import {
+  assertProviderForkSource,
+  inactiveProviderSessionOptionsResult,
+} from "./types.js";
 
 const log = getLogger().child({ component: "codex-oss-provider" });
 
@@ -195,6 +204,7 @@ type CodexItem =
  * CodexOSS Provider - spawns Codex CLI with --oss for local models.
  */
 export class CodexOSSProvider implements AgentProvider {
+  readonly supportsNativeResumeSource = true;
   readonly name = "codex-oss" as const;
   readonly displayName = "CodexOSS";
   readonly supportsPermissionMode = false;
@@ -675,6 +685,69 @@ export class CodexOSSProvider implements AgentProvider {
    * Start a new CodexOSS session.
    */
   async startSession(options: StartSessionOptions): Promise<AgentSession> {
+    const source = options.nativeResumeSource;
+    if (source) {
+      if (
+        !options.resumeSessionId ||
+        !source.filePath ||
+        options.executor ||
+        options.sessionSandbox
+      )
+        throw new Error(
+          "Codex OSS scoped continuation requires its local native source",
+        );
+      assertProviderForkSource(
+        {
+          nativeSessionId: parseNativeSessionId(options.resumeSessionId),
+          nativeSource: source,
+        },
+        this.name,
+      );
+      // UUIDs select thread/resume directly in pinned Codex. A name can miss
+      // lookup and fall back to thread/start; it cannot address a scoped owner.
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          options.resumeSessionId,
+        )
+      )
+        throw new Error("Codex OSS scoped continuation requires a native UUID");
+      const home =
+        process.env.CODEX_HOME ||
+        join(
+          process.platform === "win32" ? userInfo().homedir : homedir(),
+          ".codex",
+        );
+      if (!isAbsolute(home))
+        throw new Error(
+          "Codex OSS scoped continuation requires an absolute native home",
+        );
+      const scope = await realpath(join(home, "sessions"));
+      const file = await realpath(source.filePath);
+      const path = relative(scope, file);
+      if (
+        scope !== source.native.storageScope ||
+        !path ||
+        path === ".." ||
+        path.startsWith(".." + sep) ||
+        isAbsolute(path)
+      )
+        throw new Error(
+          "Codex OSS continuation is outside the launch session store",
+        );
+      const line = await readFirstLine(file, 1024 * 1024);
+      const header = line ? JSON.parse(line) : null;
+      if (
+        header?.type !== "session_meta" ||
+        header.payload?.id !== source.native.id ||
+        typeof header.payload.cwd !== "string" ||
+        !isAbsolute(header.payload.cwd) ||
+        (await realpath(header.payload.cwd)) !==
+          (await realpath(fromUrlProjectId(source.projectId)))
+      )
+        throw new Error(
+          "Codex OSS continuation header does not match its native source",
+        );
+    }
     const gatewayRoute = await this.launchGatewayRoute(options);
     const installationLease =
       await this.installationCoordinator.acquireRuntimeLease(
@@ -682,7 +755,10 @@ export class CodexOSSProvider implements AgentProvider {
       );
     const queue = new MessageQueue();
     const abortController = new AbortController();
-    const pidRef: { value?: number } = {};
+    const runtime: { process?: ChildProcess; exit: Promise<number | null> } = {
+      exit: Promise.resolve(null),
+    };
+    const input = queue[Symbol.asyncIterator]();
 
     if (options.initialMessage) {
       queue.push(options.initialMessage);
@@ -691,14 +767,21 @@ export class CodexOSSProvider implements AgentProvider {
     const sessionIterator = this.runSession(
       options,
       gatewayRoute,
-      queue,
+      input,
       abortController.signal,
-      pidRef,
+      runtime,
     );
     const iterator = (async function* () {
       try {
         yield* sessionIterator;
       } finally {
+        await input.return();
+        if (
+          runtime.process?.exitCode === null &&
+          runtime.process.signalCode === null
+        )
+          runtime.process.kill("SIGTERM");
+        await runtime.exit;
         await installationLease.release();
       }
     })();
@@ -706,7 +789,17 @@ export class CodexOSSProvider implements AgentProvider {
     return {
       iterator,
       queue,
-      abort: () => abortController.abort(),
+      abort: async () => {
+        abortController.abort();
+        await input.return();
+        if (
+          runtime.process?.exitCode === null &&
+          runtime.process.signalCode === null
+        )
+          runtime.process.kill("SIGTERM");
+        await runtime.exit;
+        await installationLease.release();
+      },
       ...(gatewayRoute ? { gatewayServiceId: gatewayRoute.serviceId } : {}),
       setSessionOptions: async (requested) =>
         inactiveProviderSessionOptionsResult(
@@ -714,7 +807,7 @@ export class CodexOSSProvider implements AgentProvider {
           "The Codex OSS CLI adapter exposes no automatic title, recap, progress-summary, or prompt-suggestion generator",
         ),
       get pid() {
-        return pidRef.value;
+        return runtime.process?.pid;
       },
     };
   }
@@ -746,11 +839,13 @@ export class CodexOSSProvider implements AgentProvider {
   private async *runSession(
     options: StartSessionOptions,
     gatewayRoute: ModelCatalogRoute | null,
-    queue: MessageQueue,
+    input: AsyncIterable<QueuedSDKUserMessage>,
     signal: AbortSignal,
-    pidRef: { value?: number },
+    runtime: { process?: ChildProcess; exit: Promise<number | null> },
   ): AsyncIterableIterator<SDKMessage> {
+    if (signal.aborted) return;
     const codexPath = await this.findCodexPath();
+    if (signal.aborted) return;
     if (!codexPath) {
       yield {
         type: "error",
@@ -785,7 +880,7 @@ export class CodexOSSProvider implements AgentProvider {
       } as SDKMessage;
     }
 
-    const messageGen = queue;
+    const messageGen = input;
     let isFirstNewMessage = !options.resumeSessionId;
     for await (const message of messageGen) {
       if (signal.aborted) break;
@@ -807,6 +902,8 @@ export class CodexOSSProvider implements AgentProvider {
         session_id: currentSessionId || `pending-${Date.now()}`,
         message: { role: "user", content: userPrompt },
       } as SDKMessage;
+
+      if (signal.aborted) break;
 
       // Increment turn number and reset accumulators for this new turn
       turnNumber++;
@@ -836,6 +933,7 @@ export class CodexOSSProvider implements AgentProvider {
 
       // Spawn codex process
       let codexProcess: ChildProcess;
+      let processError: Error | undefined;
       try {
         log.debug(
           {
@@ -855,7 +953,17 @@ export class CodexOSSProvider implements AgentProvider {
           env: stripYaControlPlaneCredentials(process.env),
           shell: process.platform === "win32",
         });
-        pidRef.value = codexProcess.pid;
+        runtime.process = codexProcess;
+        runtime.exit = new Promise((resolve) =>
+          codexProcess.once("close", resolve),
+        );
+        codexProcess.once("error", (error) => {
+          processError = error;
+        });
+        codexProcess.stdin?.on("error", (error) => {
+          processError = error;
+          codexProcess.kill("SIGTERM");
+        });
 
         // For first turn, send prompt via stdin
         // For resume, prompt is passed as argument
@@ -916,6 +1024,14 @@ export class CodexOSSProvider implements AgentProvider {
           if (event) {
             // Update session ID from thread.started (only on first turn)
             if (event.type === "thread.started") {
+              if (
+                options.nativeResumeSource &&
+                event.thread_id !== options.resumeSessionId
+              ) {
+                throw new Error(
+                  "Codex OSS continuation opened a different native thread",
+                );
+              }
               log.debug(
                 { threadId: event.thread_id, turnNumber },
                 "Captured thread_id from thread.started",
@@ -1037,10 +1153,7 @@ export class CodexOSSProvider implements AgentProvider {
         }
 
         // Wait for exit
-        const exitCode = await new Promise<number | null>((resolve) => {
-          codexProcess.on("close", resolve);
-          codexProcess.on("error", () => resolve(null));
-        });
+        const exitCode = await runtime.exit;
 
         if (exitCode !== 0 && stderr) {
           log.warn(
@@ -1053,6 +1166,14 @@ export class CodexOSSProvider implements AgentProvider {
         yield {
           type: "result",
           session_id: currentSessionId,
+          ...(exitCode !== 0 || processError
+            ? {
+                error:
+                  processError?.message ??
+                  (stderr.trim().slice(0, 2000) ||
+                    `Codex exited with status ${exitCode}`),
+              }
+            : {}),
         } as SDKMessage;
       } finally {
         clearTimeout(timeoutId);
