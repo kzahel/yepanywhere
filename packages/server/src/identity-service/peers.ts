@@ -74,7 +74,7 @@ const unavailable = (error: unknown): never => {
     error instanceof IdentityServiceError && error.status === 401
       ? "unauthorized"
       : "peer_unavailable",
-    "Fleet authority is unavailable or no longer current",
+    "Identity Service authority is unavailable or no longer current",
     error instanceof IdentityServiceError && error.status === 401 ? 401 : 503,
   );
 };
@@ -116,7 +116,7 @@ export class DelegatedPeerAccess {
     if (this.retiring)
       throw new IdentityServiceError(
         "unauthorized",
-        "Fleet access is being retired",
+        "Identity Service access is being retired",
         401,
       );
     const state = this.manager.store.read(),
@@ -124,7 +124,7 @@ export class DelegatedPeerAccess {
     if (!enrollment)
       throw new IdentityServiceError(
         "login_required",
-        "Configure fleet enrollment first",
+        "Configure identity service enrollment first",
         401,
       );
     return { state, enrollment, epoch: state.fleet.epoch };
@@ -133,7 +133,7 @@ export class DelegatedPeerAccess {
     if (this.state().epoch !== epoch)
       throw new IdentityServiceError(
         "unauthorized",
-        "Fleet enrollment changed",
+        "Identity Service enrollment changed",
         401,
       );
   }
@@ -513,7 +513,7 @@ export class DelegatedPeerAccess {
           )
             throw new IdentityServiceError(
               "conflict",
-              "Revoke the previous fleet credential before reissuing it",
+              "Revoke the previous identity service credential before reissuing it",
               409,
             );
           return this.deliver(existing.id, signal);
@@ -533,7 +533,7 @@ export class DelegatedPeerAccess {
         )
           throw new IdentityServiceError(
             "capacity",
-            "Incoming fleet credential/outbox capacity reached",
+            "Incoming identity service credential/outbox capacity reached",
             503,
           );
         const id = randomUUID(),
@@ -607,7 +607,7 @@ export class DelegatedPeerAccess {
           if (next.incoming.length >= 64 || next.fleet.outbox.length >= 64)
             throw new IdentityServiceError(
               "capacity",
-              "Incoming fleet credential/outbox capacity reached",
+              "Incoming identity service credential/outbox capacity reached",
               503,
             );
           next.incoming.push(record);
@@ -862,7 +862,7 @@ export class DelegatedPeerAccess {
           )
             throw new IdentityServiceError(
               "conflict",
-              "Revoke previous outgoing fleet access before importing a different envelope",
+              "Revoke previous outgoing identity service access before importing a different envelope",
               409,
             );
           if (
@@ -875,7 +875,7 @@ export class DelegatedPeerAccess {
           )
             throw new IdentityServiceError(
               "capacity",
-              "Outgoing fleet credential/topology capacity reached",
+              "Outgoing identity service credential/topology capacity reached",
               503,
             );
           next.outgoing.push(record);
@@ -986,7 +986,7 @@ export class DelegatedPeerAccess {
           )
             throw new IdentityServiceError(
               "capacity",
-              "Fleet peer token capacity reached",
+              "Identity Service peer token capacity reached",
               503,
             );
           this.tokenCache.set(peer.binding.relationshipId, result);
@@ -1044,7 +1044,7 @@ export class DelegatedPeerAccess {
       )
         throw new IdentityServiceError(
           "unauthorized",
-          "Fleet token does not match the target's current acceptance",
+          "Identity Service token does not match the target's current acceptance",
           401,
         );
       this.assert(epoch);
@@ -1059,7 +1059,7 @@ export class DelegatedPeerAccess {
             if (claims.exp * 1000 <= Date.now())
               throw new IdentityServiceError(
                 "unauthorized",
-                "Fleet authority expired",
+                "Identity Service authority expired",
                 401,
               );
           } catch (error) {

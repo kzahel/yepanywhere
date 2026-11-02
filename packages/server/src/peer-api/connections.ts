@@ -448,7 +448,7 @@ export class PeerConnections {
       if (input.bidirectional && remote.selectedOrigin === "fleet")
         throw new CoreApiError(
           "peer_record_conflict",
-          "The other server has a fleet credential selected for this server; inspect that selection before adding reverse access",
+          "The other server has an identity service credential selected for this server; inspect that selection before adding reverse access",
           409,
         );
       const automatic =
@@ -464,7 +464,7 @@ export class PeerConnections {
       )
         throw new CoreApiError(
           "peer_record_conflict",
-          "A fleet credential is selected for this server; explicitly select or remove it before configuring trusted control",
+          "An identity service credential is selected for this server; explicitly select or remove it before configuring trusted control",
           409,
         );
       if (

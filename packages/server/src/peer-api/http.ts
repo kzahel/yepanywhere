@@ -174,7 +174,7 @@ export function createPeerReceiver(
         )
           throw new CoreApiError(
             "unauthorized",
-            "A fleet grant token is required",
+            "An identity service grant token is required",
             401,
           );
         authority = await options.identityServiceAuthority(

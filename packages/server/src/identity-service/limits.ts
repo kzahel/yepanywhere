@@ -8,7 +8,7 @@ export class IdentityServiceWorkBudget {
     if (this.count >= this.maximum)
       throw new IdentityServiceError(
         "capacity",
-        "Fleet work capacity reached",
+        "Identity Service work capacity reached",
         503,
       );
     this.count++;
@@ -29,7 +29,11 @@ export async function identityServiceWait<T>(
   const cancelled = new Promise<never>((_resolve, reject) => {
     abort = () =>
       reject(
-        new IdentityServiceError("cancelled", "Fleet request cancelled", 503),
+        new IdentityServiceError(
+          "cancelled",
+          "Identity Service request cancelled",
+          503,
+        ),
       );
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) abort();
@@ -67,7 +71,7 @@ export class IdentityServiceLimiter {
     if (bucket.tokens < 1)
       throw new IdentityServiceError(
         "rate_limited",
-        "Fleet request rate exceeded",
+        "Identity Service request rate exceeded",
         429,
       );
     bucket.tokens--;
@@ -83,7 +87,7 @@ export class IdentityServiceLimiter {
       if (this.keys.size >= 1024)
         throw new IdentityServiceError(
           "rate_limited",
-          "Fleet limiter identity capacity reached",
+          "Identity Service limiter identity capacity reached",
           429,
         );
       bucket = { tokens: this.keyBurst, at: now };
@@ -114,7 +118,7 @@ export async function identityServiceJson(
       if (bytes > maximum)
         throw new IdentityServiceError(
           "invalid_request",
-          "Fleet request body exceeds its byte limit",
+          "Identity Service request body exceeds its byte limit",
         );
       chunks.push(value);
     }

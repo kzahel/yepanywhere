@@ -85,7 +85,10 @@ export async function protectedProfile(
             type: "assistant",
             uuid: "answer",
             content: [
-              { type: "text", text: "Protected fleet workflow completed." },
+              {
+                type: "text",
+                text: "Protected identity service workflow completed.",
+              },
             ],
           },
         ],

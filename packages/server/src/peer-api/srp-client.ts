@@ -192,7 +192,7 @@ export class SrpPeerTransport implements PeerTransport {
         )
           throw new CoreApiError(
             "unauthorized",
-            "Fleet authority expired before submission or observation",
+            "Identity Service authority expired before submission or observation",
             401,
           );
       };
@@ -203,7 +203,7 @@ export class SrpPeerTransport implements PeerTransport {
         )
           throw new CoreApiError(
             "unauthorized",
-            "Fleet authority has expired",
+            "Identity Service authority has expired",
             401,
           );
         identityServiceDeadline = setTimeout(

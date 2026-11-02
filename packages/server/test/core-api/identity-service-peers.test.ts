@@ -89,21 +89,21 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   await vi.waitFor(() =>
     expect(target.manager.publicState().relay?.status).toBe("waiting"),
   );
-  const r = (await source.json("/fleet/relationships", "POST", {
+  const r = (await source.json("/identity-service/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
   })) as AccessRelationship;
-  const issued = await target.json("/fleet/accept", "POST", {
+  const issued = await target.json("/identity-service/accept", "POST", {
     relationshipId: r.id,
     policy,
     route: relayRoute,
     acknowledgeExecutionAuthority: "server-account",
   });
-  await source.json("/fleet/adopt", "POST", {
+  await source.json("/identity-service/adopt", "POST", {
     envelopeId: issued.envelopeId,
     allowAgentSessions: true,
   });
-  await source.json("/fleet/adopt", "POST", {
+  await source.json("/identity-service/adopt", "POST", {
     envelopeId: issued.envelopeId,
     allowAgentSessions: true,
   });
@@ -111,18 +111,20 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   expect(source.manager.store.read().selected[target.id]).toBe(
     manual.credentialId,
   );
-  const fleet = source.manager.store
+  const identityService = source.manager.store
     .read()
     .outgoing.find((p) => p.origin === "fleet")!;
   expect(JSON.stringify(target.manager.store.read())).not.toContain(
-    fleet.invitation.secret,
+    identityService.invitation.secret,
   );
-  expect(JSON.stringify(f.store.read())).not.toContain(fleet.invitation.secret);
+  expect(JSON.stringify(f.store.read())).not.toContain(
+    identityService.invitation.secret,
+  );
   expect(JSON.stringify(await source.json("/"))).not.toContain(
-    fleet.invitation.secret,
+    identityService.invitation.secret,
   );
   await source.json(`/outgoing/${target.id}/select`, "POST", {
-    credentialId: fleet.invitation.credentialId,
+    credentialId: identityService.invitation.credentialId,
   });
   await source.manager.setAgentAccess({ enabled: true });
   const runtime = await createAgentApiRuntime({ serverId: source.id });
@@ -163,7 +165,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   );
   expect(followed.status).toBe(200);
   expect(JSON.stringify(followed.body)).toContain(
-    "Protected fleet workflow completed.",
+    "Protected identity service workflow completed.",
   );
   const sent = await nativeRequest(
     runtime,
@@ -174,9 +176,42 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   expect(sent.status).toBe(202);
   expect(target.starts()).toBe(1);
   expect(target.sends()).toBe(1);
-  if (fleet.origin !== "fleet") throw new Error("Expected fleet credential");
+
+  const stateDigest = (value: unknown) =>
+    identityServiceDigest(
+      JSON.stringify(value, (_key, item) =>
+        item && typeof item === "object" && !Array.isArray(item)
+          ? Object.fromEntries(
+              Object.entries(item).sort(([a], [b]) => a.localeCompare(b)),
+            )
+          : item,
+      ),
+    );
+  const beforeRestart = {
+    serviceId: f.store.read().serviceId,
+    signingKey: stateDigest(f.store.read().signingKey),
+    source: stateDigest(source.manager.store.read()),
+    target: stateDigest(target.manager.store.read()),
+  };
+  await f.restartService();
+  expect(f.store.read().serviceId).toBe(beforeRestart.serviceId);
+  expect(stateDigest(f.store.read().signingKey)).toBe(beforeRestart.signingKey);
+  for (const [profile, digest] of [
+    [source, beforeRestart.source],
+    [target, beforeRestart.target],
+  ] as const) {
+    const restored = new PeerAccessStore(profile.id, profile.directory);
+    await restored.initialize();
+    expect(stateDigest(restored.read())).toBe(digest);
+    await restored.close();
+  }
+  expect((await nativeRequest(runtime, token, base + "/projects")).status).toBe(
+    200,
+  );
+  if (identityService.origin !== "fleet")
+    throw new Error("Expected identity service credential");
   const cachedAuthority = await source.manager.delegatedAccess
-    .transport(fleet)
+    .transport(identityService)
     .token(new AbortController().signal);
   f.offline();
   expect((await nativeRequest(runtime, token, base + "/projects")).status).toBe(
@@ -189,7 +224,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
       (await nativeRequest(runtime, token, base + "/projects")).status,
     ).toBe(503);
     expect(source.manager.store.read().selected[target.id]).toBe(
-      fleet.invitation.credentialId,
+      identityService.invitation.credentialId,
     );
   } finally {
     vi.useRealTimers();
@@ -200,7 +235,10 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
     sessionId: "parent",
   });
   expect(JSON.stringify(relationship)).toContain(target.id);
-  const revoked = await target.json(`/fleet/relationships/${r.id}`, "DELETE");
+  const revoked = await target.json(
+    `/identity-service/relationships/${r.id}`,
+    "DELETE",
+  );
   expect(revoked).toMatchObject({
     localRemoved: true,
     remoteRevocation: "confirmed",
@@ -209,7 +247,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
     401,
   );
   expect(source.manager.store.read().selected[target.id]).toBe(
-    fleet.invitation.credentialId,
+    identityService.invitation.credentialId,
   );
   await source.json(`/outgoing/${target.id}/select`, "POST", {
     credentialId: manual.credentialId,
@@ -218,7 +256,7 @@ it("uses real basic enrollment and protected SRP for native create/message/follo
   expect((await nativeRequest(runtime, token, base + "/projects")).status).toBe(
     200,
   );
-  expect(await source.json("/fleet", "DELETE")).toMatchObject({
+  expect(await source.json("/identity-service", "DELETE")).toMatchObject({
     localRemoved: true,
     remoteRevocation: "unconfirmed",
   });
@@ -295,7 +333,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
     operations,
     expiresAt: Date.now() + 600_000,
   };
-  const r = (await source.json("/fleet/relationships", "POST", {
+  const r = (await source.json("/identity-service/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
   })) as AccessRelationship;
@@ -306,11 +344,13 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
     acknowledgeExecutionAuthority: "server-account",
   };
   f.loseUpload();
-  expect((await target.call("/fleet/accept", "POST", body)).status).toBe(503);
+  expect(
+    (await target.call("/identity-service/accept", "POST", body)).status,
+  ).toBe(503);
   expect(target.manager.store.read().incoming).toHaveLength(1);
   expect(target.manager.store.read().fleet.outbox).toHaveLength(1);
   const ciphertext = target.manager.store.read().fleet.outbox[0]!.ciphertext;
-  const delivered = await target.json("/fleet/accept", "POST", body);
+  const delivered = await target.json("/identity-service/accept", "POST", body);
   expect(target.manager.store.read().fleet.outbox[0]!.ciphertext).toBe(
     ciphertext,
   );
@@ -348,7 +388,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   try {
     expect(
       (
-        await source.call("/fleet/adopt", "POST", {
+        await source.call("/identity-service/adopt", "POST", {
           envelopeId: delivered.envelopeId,
         })
       ).status,
@@ -378,7 +418,7 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
       await heldPreflight;
       return originalStep.apply(this, args);
     });
-  const staleImport = source.call("/fleet/adopt", "POST", {
+  const staleImport = source.call("/identity-service/adopt", "POST", {
     envelopeId: delivered.envelopeId,
   });
   try {
@@ -395,13 +435,13 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   }
   f.loseAck();
   expect(
-    await source.json("/fleet/adopt", "POST", {
+    await source.json("/identity-service/adopt", "POST", {
       envelopeId: delivered.envelopeId,
     }),
   ).toMatchObject({ imported: true, acknowledged: false });
   expect(f.store.read().mailbox).toEqual([]);
   expect(
-    await source.json("/fleet/adopt", "POST", {
+    await source.json("/identity-service/adopt", "POST", {
       envelopeId: delivered.envelopeId,
     }),
   ).toMatchObject({ imported: true, acknowledged: true });
@@ -456,13 +496,13 @@ it("recovers lost opaque delivery replies and rejects peer token/credential down
   expect(await source.read("projects", { serverId: target.id })).toMatchObject({
     items: [{ id: "p" }],
   });
-  await target.json("/fleet", "DELETE");
+  await target.json("/identity-service", "DELETE");
   await expect(
     source.read("projects", { serverId: target.id }),
   ).rejects.toMatchObject({ code: "unauthorized" });
 }, 20_000);
 
-it("refuses observation after fleet token expiry while retaining native work already admitted", async () => {
+it("refuses observation after identity service token expiry while retaining native work already admitted", async () => {
   const f = await fixture(),
     source = await f.make(),
     target = await f.make();
@@ -471,17 +511,17 @@ it("refuses observation after fleet token expiry while retaining native work alr
     operations,
     expiresAt: Date.now() + 600_000,
   };
-  const r = (await source.json("/fleet/relationships", "POST", {
+  const r = (await source.json("/identity-service/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
   })) as AccessRelationship;
-  const delivered = await target.json("/fleet/accept", "POST", {
+  const delivered = await target.json("/identity-service/accept", "POST", {
     relationshipId: r.id,
     policy,
     route: target.route,
     acknowledgeExecutionAuthority: "server-account",
   });
-  await source.json("/fleet/adopt", "POST", {
+  await source.json("/identity-service/adopt", "POST", {
     envelopeId: delivered.envelopeId,
   });
   const peer = source.manager.store.read().outgoing[0]!;
@@ -532,7 +572,7 @@ it("refuses observation after fleet token expiry while retaining native work alr
   }
 });
 
-it("renews fleet account tokens during adoption without invalidating the peer-policy revision fence", async () => {
+it("renews identity service account tokens during adoption without invalidating the peer-policy revision fence", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   try {
     const f = await fixture(),
@@ -543,11 +583,11 @@ it("renews fleet account tokens during adoption without invalidating the peer-po
       operations,
       expiresAt: Date.now() + 600_000,
     };
-    const r = (await source.json("/fleet/relationships", "POST", {
+    const r = (await source.json("/identity-service/relationships", "POST", {
       targetClientId: target.client.id,
       policy,
     })) as AccessRelationship;
-    const delivered = await target.json("/fleet/accept", "POST", {
+    const delivered = await target.json("/identity-service/accept", "POST", {
       relationshipId: r.id,
       policy,
       route: target.route,
@@ -558,7 +598,7 @@ it("renews fleet account tokens during adoption without invalidating the peer-po
       revision = source.manager.store.currentRevision();
     vi.setSystemTime(Date.now() + 286_000);
     expect(
-      await source.json("/fleet/adopt", "POST", {
+      await source.json("/identity-service/adopt", "POST", {
         envelopeId: delivered.envelopeId,
       }),
     ).toMatchObject({ imported: true, acknowledged: true });
@@ -583,24 +623,25 @@ it("does not confirm an expired source reply even before its expiry timer runs",
       operations,
       expiresAt: Date.now() + 600_000,
     };
-    const r = (await source.json("/fleet/relationships", "POST", {
+    const r = (await source.json("/identity-service/relationships", "POST", {
       targetClientId: target.client.id,
       policy,
     })) as AccessRelationship;
-    const delivered = await target.json("/fleet/accept", "POST", {
+    const delivered = await target.json("/identity-service/accept", "POST", {
       relationshipId: r.id,
       policy,
       route: target.route,
       acknowledgeExecutionAuthority: "server-account",
     });
-    await source.json("/fleet/adopt", "POST", {
+    await source.json("/identity-service/adopt", "POST", {
       envelopeId: delivered.envelopeId,
       allowAgentSessions: true,
     });
     const peer = source.manager.store
       .read()
       .outgoing.find((p) => p.origin === "fleet")!;
-    if (peer.origin !== "fleet") throw new Error("Expected fleet credential");
+    if (peer.origin !== "fleet")
+      throw new Error("Expected identity service credential");
     const authority = await source.manager.delegatedAccess
       .transport(peer)
       .token(new AbortController().signal);
@@ -668,21 +709,22 @@ it("admits manual standby at 64 mixed credentials, retains the 64-target bound a
     operations,
     expiresAt: Date.now() + 600_000,
   };
-  const r = (await source.json("/fleet/relationships", "POST", {
+  const r = (await source.json("/identity-service/relationships", "POST", {
     targetClientId: target.client.id,
     policy,
   })) as AccessRelationship;
-  const delivered = await target.json("/fleet/accept", "POST", {
+  const delivered = await target.json("/identity-service/accept", "POST", {
     relationshipId: r.id,
     policy,
     route: target.route,
     acknowledgeExecutionAuthority: "server-account",
   });
-  await source.json("/fleet/adopt", "POST", {
+  await source.json("/identity-service/adopt", "POST", {
     envelopeId: delivered.envelopeId,
   });
   const original = source.manager.store.read().outgoing[0]!;
-  if (original.origin !== "fleet") throw new Error("Expected fleet peer");
+  if (original.origin !== "fleet")
+    throw new Error("Expected identity service peer");
   await source.manager.store.mutate((next) => {
     for (let i = 0; i < 63; i++) {
       const id = randomUUID();

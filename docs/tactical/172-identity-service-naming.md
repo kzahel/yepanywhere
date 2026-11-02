@@ -189,3 +189,15 @@ private type indexes and Hono context keys changed. Wire/storage literals did
 not change. Typecheck, lint/format and 48 tests in five focused core files pass
 (18.53 s). Read-only Sol 6.1 high/bypass review through localhost:3400 reported
 no actionable findings. Evidence is in ignored `tasks/identity-service-rename/`.
+
+Phase 2 is implemented: owner administration uses `/api/peers/identity-service`,
+and the standalone admin usage label is `identity-service`. Human diagnostics
+and eval command naming are updated. The repeated nine-tag release audit found
+no affected stable routes. Protocol/storage literals remain unchanged, including
+standalone `/fleet/v0`; no aliases or migrations were added. Existing native
+workflow coverage now restarts the same service directory, reloads both peer
+profiles, checks continuity via safe canonical digests and continues protected
+access before exercising outage/revocation. Typecheck and all 48 focused cases
+pass (18.64 s); CLI usage smoke and scoped lint/format pass. Sol's recheck closed
+all three initial fixture/route findings. Whole-tree format at this point also
+reports concurrent provider-runtime edits; those files remain outside this task.

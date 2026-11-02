@@ -31,12 +31,12 @@ const operations: Operation[] = [
 ];
 async function fixture(options?: Parameters<typeof oidcFixture>[0]) {
   const upstream = await oidcFixture(options);
-  const fleet = await identityServiceFixture(cleanup, {
+  const identityService = await identityServiceFixture(cleanup, {
     external: { issuer: upstream.issuer, subject: upstream.subject },
     oidcProviders: [upstream.provider],
     oidcFetch: upstream.fetcher,
   });
-  return { ...fleet, upstream };
+  return { ...identityService, upstream };
 }
 
 async function confirmation(response: Response) {
@@ -67,7 +67,7 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
     target = await f.make();
 
   const enroll = async (profile: typeof source) => {
-    const started = await profile.json("/fleet/oidc/start", "POST", {
+    const started = await profile.json("/identity-service/oidc/start", "POST", {
       providerId: "owned",
       displayName: "OIDC YA host",
     });
@@ -81,33 +81,43 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
     expect(f.store.read().clients).toEqual([]);
     const { callback, code } = await browser(f, started.authorizationUrl);
     expect((await f.service.app.fetch(new Request(callback))).status).toBe(401);
-    expect(await profile.json(`/fleet/oidc/${started.flowId}`)).toMatchObject({
+    expect(
+      await profile.json(`/identity-service/oidc/${started.flowId}`),
+    ).toMatchObject({
       status: "ready",
     });
     const other = await profile.otherOwner();
     expect(
       (
-        await other(`/fleet/oidc/${started.flowId}/complete`, "POST", {
-          confirmationCode: code,
-        })
+        await other(
+          `/identity-service/oidc/${started.flowId}/complete`,
+          "POST",
+          {
+            confirmationCode: code,
+          },
+        )
       ).status,
     ).toBe(401);
-    return profile.json(`/fleet/oidc/${started.flowId}/complete`, "POST", {
-      confirmationCode: code,
-    });
+    return profile.json(
+      `/identity-service/oidc/${started.flowId}/complete`,
+      "POST",
+      {
+        confirmationCode: code,
+      },
+    );
   };
   const sourceClient = await enroll(source);
   // Completion, rather than the browser callback, creates membership.
   expect(f.store.read().clients).toHaveLength(1);
   // The second host uses the same account but its own local owner session/key.
-  const started = await target.json("/fleet/oidc/start", "POST", {
+  const started = await target.json("/identity-service/oidc/start", "POST", {
     providerId: "owned",
     displayName: "OIDC target",
   });
   const { code } = await browser(f, started.authorizationUrl);
   expect(f.store.read().clients).toHaveLength(1);
   const targetClient = await target.json(
-    `/fleet/oidc/${started.flowId}/complete`,
+    `/identity-service/oidc/${started.flowId}/complete`,
     "POST",
     { confirmationCode: code },
   );
@@ -120,17 +130,17 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
     operations,
     expiresAt: Date.now() + 600_000,
   };
-  const r = await source.json("/fleet/relationships", "POST", {
+  const r = await source.json("/identity-service/relationships", "POST", {
     targetClientId: targetClient.id,
     policy,
   });
-  const delivered = await target.json("/fleet/accept", "POST", {
+  const delivered = await target.json("/identity-service/accept", "POST", {
     relationshipId: r.id,
     policy,
     route: target.route,
     acknowledgeExecutionAuthority: "server-account",
   });
-  const imported = await source.json("/fleet/adopt", "POST", {
+  const imported = await source.json("/identity-service/adopt", "POST", {
     envelopeId: delivered.envelopeId,
     allowAgentSessions: true,
   });
@@ -182,12 +192,12 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
   );
   expect(followed.status).toBe(200);
   expect(JSON.stringify(followed.body)).toContain(
-    "Protected fleet workflow completed.",
+    "Protected identity service workflow completed.",
   );
   expect(
     source.manager.store.read().fleet.enrollment!.credentials!.client.id,
   ).toBe(sourceClient.id);
-  await target.json(`/fleet/relationships/${r.id}`, "DELETE");
+  await target.json(`/identity-service/relationships/${r.id}`, "DELETE");
   expect((await nativeRequest(runtime, token, base + "/projects")).status).toBe(
     401,
   );
@@ -199,19 +209,26 @@ it("rejects wrong upstream nonce, signature, issuer and subject without implicit
   const f = await fixture(),
     source = await f.make();
   for (const fault of ["nonce", "signature", "issuer", "subject"] as const) {
-    const started = await source.json("/fleet/oidc/start", "POST", {
+    const started = await source.json("/identity-service/oidc/start", "POST", {
       providerId: "owned",
       displayName: "invalid external identity",
     });
     f.upstream.failNext(fault);
     const callback = await f.upstream.authorize(started.authorizationUrl);
     expect((await f.service.app.fetch(new Request(callback))).status).toBe(401);
-    expect(await source.json(`/fleet/oidc/${started.flowId}`)).toMatchObject({
+    expect(
+      await source.json(`/identity-service/oidc/${started.flowId}`),
+    ).toMatchObject({
       status: "failed",
     });
     expect(
-      (await source.call(`/fleet/oidc/${started.flowId}/complete`, "POST", {}))
-        .status,
+      (
+        await source.call(
+          `/identity-service/oidc/${started.flowId}/complete`,
+          "POST",
+          {},
+        )
+      ).status,
     ).toBe(401);
     expect(f.store.read().clients).toEqual([]);
     expect(f.store.read().sessions).toEqual([]);
@@ -222,24 +239,29 @@ it("fences detached owners, disconnect and expired upstream flows without browse
   vi.useFakeTimers({ toFake: ["Date"] });
   const f = await fixture(),
     source = await f.make();
-  const started = await source.json("/fleet/oidc/start", "POST", {
+  const started = await source.json("/identity-service/oidc/start", "POST", {
     providerId: "owned",
     displayName: "will disconnect",
   });
-  await source.json("/fleet", "DELETE");
+  await source.json("/identity-service", "DELETE");
   const callback = await f.upstream.authorize(started.authorizationUrl);
   expect((await f.service.app.fetch(new Request(callback))).status).toBe(200);
   expect(
-    (await source.call(`/fleet/oidc/${started.flowId}/complete`, "POST", {}))
-      .status,
+    (
+      await source.call(
+        `/identity-service/oidc/${started.flowId}/complete`,
+        "POST",
+        {},
+      )
+    ).status,
   ).toBe(401);
   expect(f.store.read().clients).toEqual([]);
   expect(source.manager.store.read().fleet.enrollment).toBeNull();
-  await source.json("/fleet", "PUT", {
+  await source.json("/identity-service", "PUT", {
     issuer: f.issuer,
     accountId: f.accountId,
   });
-  const expired = await source.json("/fleet/oidc/start", "POST", {
+  const expired = await source.json("/identity-service/oidc/start", "POST", {
     providerId: "owned",
     displayName: "will expire",
   });
@@ -247,13 +269,18 @@ it("fences detached owners, disconnect and expired upstream flows without browse
   const late = await f.upstream.authorize(expired.authorizationUrl);
   expect((await f.service.app.fetch(new Request(late))).status).toBe(401);
   expect(
-    (await source.call(`/fleet/oidc/${expired.flowId}/complete`, "POST", {}))
-      .status,
+    (
+      await source.call(
+        `/identity-service/oidc/${expired.flowId}/complete`,
+        "POST",
+        {},
+      )
+    ).status,
   ).toBe(401);
   await source.invalidateOwner();
   expect(
     (
-      await source.call("/fleet/oidc/start", "POST", {
+      await source.call("/identity-service/oidc/start", "POST", {
         providerId: "owned",
         displayName: "detached",
       })
@@ -267,18 +294,22 @@ it("invalidates an outstanding OIDC flow when its enrolled client is revoked", a
     source = await f.make(),
     target = await f.make();
   const enroll = async (profile: typeof source) => {
-    const flow = await profile.json("/fleet/oidc/start", "POST", {
+    const flow = await profile.json("/identity-service/oidc/start", "POST", {
       providerId: "owned",
       displayName: "revocation host",
     });
     const { code } = await browser(f, flow.authorizationUrl);
-    return profile.json(`/fleet/oidc/${flow.flowId}/complete`, "POST", {
-      confirmationCode: code,
-    });
+    return profile.json(
+      `/identity-service/oidc/${flow.flowId}/complete`,
+      "POST",
+      {
+        confirmationCode: code,
+      },
+    );
   };
   const sourceClient = await enroll(source);
   await enroll(target);
-  const pending = await source.json("/fleet/oidc/start", "POST", {
+  const pending = await source.json("/identity-service/oidc/start", "POST", {
     providerId: "owned",
     displayName: "pending reauthentication",
   });
@@ -289,8 +320,13 @@ it("invalidates an outstanding OIDC flow when its enrolled client is revoked", a
   const callback = await f.upstream.authorize(pending.authorizationUrl);
   expect((await f.service.app.fetch(new Request(callback))).status).toBe(401);
   expect(
-    (await source.call(`/fleet/oidc/${pending.flowId}/complete`, "POST", {}))
-      .status,
+    (
+      await source.call(
+        `/identity-service/oidc/${pending.flowId}/complete`,
+        "POST",
+        {},
+      )
+    ).status,
   ).toBe(401);
   expect(f.store.read().clients.filter((c) => !c.revoked)).toHaveLength(1);
   expect(
@@ -302,16 +338,20 @@ it("caps delayed OIDC redemption at the verified callback's absolute family dead
   vi.useFakeTimers({ toFake: ["Date"] });
   const f = await fixture(),
     source = await f.make();
-  const pending = await source.json("/fleet/oidc/start", "POST", {
+  const pending = await source.json("/identity-service/oidc/start", "POST", {
     providerId: "owned",
     displayName: "delayed completion",
   });
   const { code } = await browser(f, pending.authorizationUrl);
   const completedAt = Date.now();
   vi.setSystemTime(Date.now() + 120_000);
-  await source.json(`/fleet/oidc/${pending.flowId}/complete`, "POST", {
-    confirmationCode: code,
-  });
+  await source.json(
+    `/identity-service/oidc/${pending.flowId}/complete`,
+    "POST",
+    {
+      confirmationCode: code,
+    },
+  );
   const session = f.store.read().sessions[0]!;
   expect(session.expiresAt).toBe(completedAt + 3_600_000);
   expect(session.expiresAt - session.createdAt).toBe(3_480_000);
@@ -321,7 +361,7 @@ it("requires a browser-only code after login, rejects cross-flow codes and retir
   const f = await fixture(),
     source = await f.make();
   const start = () =>
-    source.json("/fleet/oidc/start", "POST", {
+    source.json("/identity-service/oidc/start", "POST", {
       providerId: "owned",
       displayName: "<untrusted> & claimed host",
     });
@@ -329,18 +369,23 @@ it("requires a browser-only code after login, rejects cross-flow codes and retir
     second = await start();
   // Readiness is not confirmation, and trying early does not consume the flow.
   expect(
-    (await source.call(`/fleet/oidc/${first.flowId}/complete`, "POST", {}))
-      .status,
+    (
+      await source.call(
+        `/identity-service/oidc/${first.flowId}/complete`,
+        "POST",
+        {},
+      )
+    ).status,
   ).toBe(409);
   const a = await browser(f, first.authorizationUrl),
     b = await browser(f, second.authorizationUrl);
-  const status = await source.json(`/fleet/oidc/${first.flowId}`);
+  const status = await source.json(`/identity-service/oidc/${first.flowId}`);
   expect(status).toEqual({ flowId: first.flowId, status: "ready" });
   expect(JSON.stringify(status)).not.toContain(a.code);
   // An attacker who created the login URL has keys and readiness, but not this code.
   for (const code of [undefined, b.code, "wrong", "wrong", "wrong"]) {
     const response = await source.call(
-      `/fleet/oidc/${first.flowId}/complete`,
+      `/identity-service/oidc/${first.flowId}/complete`,
       "POST",
       { confirmationCode: code },
     );
@@ -350,20 +395,32 @@ it("requires a browser-only code after login, rejects cross-flow codes and retir
   }
   expect(
     (
-      await source.call(`/fleet/oidc/${first.flowId}/complete`, "POST", {
-        confirmationCode: a.code,
-      })
+      await source.call(
+        `/identity-service/oidc/${first.flowId}/complete`,
+        "POST",
+        {
+          confirmationCode: a.code,
+        },
+      )
     ).status,
   ).toBe(401);
-  await source.json(`/fleet/oidc/${second.flowId}/complete`, "POST", {
-    confirmationCode: b.code,
-  });
+  await source.json(
+    `/identity-service/oidc/${second.flowId}/complete`,
+    "POST",
+    {
+      confirmationCode: b.code,
+    },
+  );
   expect(f.store.read().clients).toHaveLength(1);
   expect(
     (
-      await source.call(`/fleet/oidc/${second.flowId}/complete`, "POST", {
-        confirmationCode: b.code,
-      })
+      await source.call(
+        `/identity-service/oidc/${second.flowId}/complete`,
+        "POST",
+        {
+          confirmationCode: b.code,
+        },
+      )
     ).status,
   ).toBe(401);
 });
@@ -413,7 +470,7 @@ it("rechecks the live initiating owner before enrollment, queued publication and
   ] as const) {
     const f = await fixture(),
       source = await f.make();
-    const flow = await source.json("/fleet/oidc/start", "POST", {
+    const flow = await source.json("/identity-service/oidc/start", "POST", {
       providerId: "owned",
       displayName: "logout race",
     });
@@ -460,7 +517,7 @@ it("rechecks the live initiating owner before enrollment, queued publication and
       );
     }
     const completing = source.call(
-      `/fleet/oidc/${flow.flowId}/complete`,
+      `/identity-service/oidc/${flow.flowId}/complete`,
       "POST",
       { confirmationCode: code },
     );
@@ -488,13 +545,13 @@ it("rechecks the live initiating owner before enrollment, queued publication and
   }
 });
 
-it("supports configured ES256 ID tokens and client_secret_post without changing fleet authority", async () => {
+it("supports configured ES256 ID tokens and client_secret_post without changing identity service authority", async () => {
   const f = await fixture({
       algorithm: "ES256",
       authMethod: "client_secret_post",
     }),
     source = await f.make();
-  const providers = await source.json("/fleet/oidc/providers");
+  const providers = await source.json("/identity-service/oidc/providers");
   expect(providers).toEqual({
     items: [
       {
@@ -504,14 +561,18 @@ it("supports configured ES256 ID tokens and client_secret_post without changing 
       },
     ],
   });
-  const started = await source.json("/fleet/oidc/start", "POST", {
+  const started = await source.json("/identity-service/oidc/start", "POST", {
     providerId: "owned",
     displayName: "ES256 / POST",
   });
   const { code } = await browser(f, started.authorizationUrl);
-  await source.json(`/fleet/oidc/${started.flowId}/complete`, "POST", {
-    confirmationCode: code,
-  });
+  await source.json(
+    `/identity-service/oidc/${started.flowId}/complete`,
+    "POST",
+    {
+      confirmationCode: code,
+    },
+  );
   expect(f.store.read().clients).toHaveLength(1);
   expect(f.upstream.jwksReads()).toBe(1);
   expect(source.manager.store.read().incoming).toHaveLength(0);
@@ -530,7 +591,7 @@ it("bounds upstream discovery replies and recovers a failed configuration fetch"
   });
   const source = await f.make(),
     start = () =>
-      source.call("/fleet/oidc/start", "POST", {
+      source.call("/identity-service/oidc/start", "POST", {
         providerId: "owned",
         displayName: "bounded upstream",
       });
@@ -547,7 +608,7 @@ it.each([0, 1])(
   async (alreadySent) => {
     const f = await fixture(),
       source = await f.make();
-    const flow = await source.json("/fleet/oidc/start", "POST", {
+    const flow = await source.json("/identity-service/oidc/start", "POST", {
       providerId: "owned",
       displayName: "DPoP signing race",
     });
@@ -592,7 +653,7 @@ it.each([0, 1])(
       },
     );
     const completion = source.call(
-      `/fleet/oidc/${flow.flowId}/complete`,
+      `/identity-service/oidc/${flow.flowId}/complete`,
       "POST",
       { confirmationCode: code },
     );
@@ -618,7 +679,7 @@ it.each([0, 1])(
 it("conditionally discards a published family even when the normal persistence queue is full", async () => {
   const f = await fixture(),
     source = await f.make();
-  const flow = await source.json("/fleet/oidc/start", "POST", {
+  const flow = await source.json("/identity-service/oidc/start", "POST", {
     providerId: "owned",
     displayName: "full cleanup queue",
   });
@@ -647,7 +708,7 @@ it("conditionally discards a published family even when the normal persistence q
     },
   );
   const response = await source.call(
-    `/fleet/oidc/${flow.flowId}/complete`,
+    `/identity-service/oidc/${flow.flowId}/complete`,
     "POST",
     { confirmationCode: code },
   );

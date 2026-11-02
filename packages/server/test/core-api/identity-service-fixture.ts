@@ -21,8 +21,8 @@ export async function identityServiceFixture(
 ) {
   const directory = await mkdtemp(join(tmpdir(), "ya-fleet-integration-"));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
-  const issuer = "http://127.0.0.1:45679",
-    store = new IdentityServiceStore(directory, issuer, true);
+  const issuer = "http://127.0.0.1:45679";
+  let store = new IdentityServiceStore(directory, issuer, true);
   await store.initialize();
   cleanup.push(() => store.close());
   const accountId = options.external
@@ -31,12 +31,17 @@ export async function identityServiceFixture(
         options.external.subject,
         "Owned OIDC account",
       )
-    : await store.provisionLocal("owner", "temporary fleet password");
-  const service = createIdentityService(store, {
-    oidcProviders: options.oidcProviders,
-    oidcFetch: options.oidcFetch,
-    remoteAddress: () => "127.0.0.1",
-  });
+    : await store.provisionLocal(
+        "owner",
+        "temporary identity service password",
+      );
+  const createService = () =>
+    createIdentityService(store, {
+      oidcProviders: options.oidcProviders,
+      oidcFetch: options.oidcFetch,
+      remoteAddress: () => "127.0.0.1",
+    });
+  let service = createService();
   let available = true,
     dropUpload = false,
     dropAck = false;
@@ -114,14 +119,15 @@ export async function identityServiceFixture(
       return response.status === 204 ? null : response.json();
     };
     expect(
-      (await call("/fleet", "PUT", { issuer, accountId }, false)).status,
+      (await call("/identity-service", "PUT", { issuer, accountId }, false))
+        .status,
     ).toBe(403);
-    await json("/fleet", "PUT", { issuer, accountId });
+    await json("/identity-service", "PUT", { issuer, accountId });
     const client = options.external
       ? undefined
-      : await json("/fleet/login", "POST", {
+      : await json("/identity-service/login", "POST", {
           username: "owner",
-          password: "temporary fleet password",
+          password: "temporary identity service password",
           displayName: "owned YA profile",
         });
     return {
@@ -138,10 +144,20 @@ export async function identityServiceFixture(
     };
   };
   return {
-    store,
+    get store() {
+      return store;
+    },
     accountId,
     issuer,
-    service,
+    get service() {
+      return service;
+    },
+    restartService: async () => {
+      await service.close();
+      store = new IdentityServiceStore(directory, issuer, true);
+      await store.initialize();
+      service = createService();
+    },
     make,
     directory,
     intercept: (value: typeof interceptor) => {

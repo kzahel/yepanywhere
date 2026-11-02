@@ -46,7 +46,7 @@ export async function identityServiceMain(args = process.argv.slice(2)) {
   });
   if (!values.directory || !values.issuer)
     throw new Error(
-      "Usage: fleet --directory PRIVATE_DIR --issuer HTTPS_ORIGIN serve|local-account USERNAME|oidc-account ISSUER SUBJECT NAME",
+      "Usage: identity-service --directory PRIVATE_DIR --issuer HTTPS_ORIGIN serve|local-account USERNAME|oidc-account ISSUER SUBJECT NAME",
     );
   const issuer = identityServiceOrigin(values.issuer, values["fixture-http"]);
   const store = new IdentityServiceStore(
@@ -95,7 +95,8 @@ export async function identityServiceMain(args = process.argv.slice(2)) {
       await store.close();
       return;
     }
-    if (positionals[0] !== "serve") throw new Error("Unknown fleet command");
+    if (positionals[0] !== "serve")
+      throw new Error("Unknown identity service command");
     let oidcProviders: unknown;
     if (values["oidc-config"]) {
       const path = resolve(values["oidc-config"]);
@@ -145,7 +146,7 @@ if (
 ) {
   void identityServiceMain().catch(() => {
     process.stderr.write(
-      "Fleet command failed; check ownership, private configuration and account input\n",
+      "Identity Service command failed; check ownership, private configuration and account input\n",
     );
     process.exitCode = 1;
   });

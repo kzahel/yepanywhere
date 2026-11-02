@@ -97,7 +97,7 @@ keeps that client closed; callers await completion before treating removal as
 durable.
 
 Control-plane tokens use RFC 9068 access-token shape (`typ=at+jwt`) with exact
-issuer/fleet-service audience, `iat`, `exp`, `jti`, `cnf.jkt` and explicit purpose.
+issuer/identity-service-service audience, `iat`, `exp`, `jti`, `cnf.jkt` and explicit purpose.
 Required identity and ledger fields depend on the purpose:
 
 | Purpose | Subject and client ID | Applicable authority before dispatch |
@@ -376,14 +376,14 @@ flow token still uses the flow UUID for subject and client ID before membership
 exists. An OIDC family's absolute deadline is one hour from the verified
 callback; delaying redemption or the common enrollment cannot extend it.
 
-Under `/api/peers`, `GET /fleet/oidc/providers` lists public provider choices.
-`POST /fleet/oidc/start` takes `{providerId, displayName}`, returning only
+Under `/api/peers`, `GET /identity-service/oidc/providers` lists public provider choices.
+`POST /identity-service/oidc/start` takes `{providerId, displayName}`, returning only
 `flowId`, `authorizationUrl`, `expiresAt`, `profileId` and
 `signingFingerprint`. The initiating backend keeps the
 key-bound redemption token private. Open the authorization URL in a browser;
 the upstream callback displays a one-use enrollment confirmation code. The
-same authenticated YA owner session calls `GET /fleet/oidc/:flowId` and `POST
-/fleet/oidc/:flowId/complete` with `{confirmationCode}`. Completion uses the common DPoP pending/enrollment
+same authenticated YA owner session calls `GET /identity-service/oidc/:flowId` and `POST
+/identity-service/oidc/:flowId/complete` with `{confirmationCode}`. Completion uses the common DPoP pending/enrollment
 and session path, then returns public client identity. The local backend keeps
 at most eight pending flows; restart/disconnect removes them. Missing stable
 owner binding, another owner session, an expired flow or a changed profile
@@ -414,7 +414,7 @@ fail with a request for a smaller page. Responses contain no password hashes,
 private keys or another client's refresh capability.
 
 After building the server package, run `node
-packages/server/dist/fleet/main.js --directory PRIVATE_DIR --issuer
+packages/server/dist/identity-service/main.js --directory PRIVATE_DIR --issuer
 https://HOST:PORT local-account USERNAME`, supplying the password through private
 stdin. This creates or changes that account, invalidating its session families.
 `oidc-account ISSUER SUBJECT NAME` provisions an exact external identity;
@@ -434,16 +434,16 @@ does not start this service automatically.
 
 ### YA owner surface and credential selection
 
-Existing authenticated owner proof gates every `/api/peers/fleet` operation,
+Existing authenticated owner proof gates every `/api/peers/identity-service` operation,
 even when ordinary app auth is disabled; native session leases do not authorize
-these routes. `PUT /api/peers/fleet` chooses the exact issuer/account and creates
-profile keys. `POST /fleet/login` supplies basic credentials (never saved),
+these routes. `PUT /api/peers/identity-service` chooses the exact issuer/account and creates
+profile keys. `POST /identity-service/login` supplies basic credentials (never saved),
 returning only public enrolled-client data. Under `/api/peers`, fleet directory
-reads are `GET /fleet/clients[/:id]`, `GET /fleet/relationships[/:id]` and `GET
-/fleet/mailbox`. `POST /fleet/relationships` proposes, `POST /fleet/accept`
+reads are `GET /identity-service/clients[/:id]`, `GET /identity-service/relationships[/:id]` and `GET
+/identity-service/mailbox`. `POST /identity-service/relationships` proposes, `POST /identity-service/accept`
 accepts exact projects/actions/expiry and route with execution acknowledgement,
-`POST /fleet/deliver/:credentialId` retries the same durable ciphertext, and
-`POST /fleet/adopt` imports one envelope after verification/preflight. Import
+`POST /identity-service/deliver/:credentialId` retries the same durable ciphertext, and
+`POST /identity-service/adopt` imports one envelope after verification/preflight. Import
 acknowledgement follows durable local publication; an unsuccessful acknowledgement
 is reported separately and can be repeated after mailbox removal.
 
@@ -452,8 +452,8 @@ manual or fleet credential. Importing fleet credentials leaves selection alone,
 including when no credential is selected. `DELETE
 /outgoing/:targetId/credentials/:credentialId` removes just that credential;
 `DELETE /outgoing/:targetId` retains its established all-credentials meaning.
-`DELETE /fleet/relationships/:id` removes matching local fleet access first and
-then attempts issuer revocation. `DELETE /fleet` durably removes local keys and
+`DELETE /identity-service/relationships/:id` removes matching local fleet access first and
+then attempts issuer revocation. `DELETE /identity-service` durably removes local keys and
 fleet records before attempting client revocation, reporting remote confirmation
 separately. Surviving manual credentials and unrelated agent leases remain;
 removed selections are cleared and must be chosen again explicitly.
@@ -483,7 +483,7 @@ Native agents keep their existing private `/me`, discovery and v0 workflow.
 No scheduler, cloning/worktree policy, roles or custom delegation lifecycle.
 
 Completion requires real password and OIDC consumers each performing protected
-create/message/follow/revoke, same-pair manual/fleet coexistence with explicit
+create/message/follow/revoke, same-pair manual/identity-service coexistence with explicit
 selection, and manual access with the fleet service stopped. Cover ownership,
 restart/corruption, one-use login/nonce races, lost refresh/delivery replies,
 wrong issuer/audience/key, local ceiling reductions, downgrade and disconnect
@@ -546,7 +546,8 @@ new identity, key rotation or new authority follows from the rename.
 | Existing JWT type/purpose/version and state-marker literals | Signed/encrypted envelopes, profile continuity and fail-closed parsing |
 | `fleet_unavailable`, `fleet_state_unavailable` | Existing structured API error codes |
 
-Human-readable diagnostics/CLI labels and owner `/api/peers/fleet` routes remain
-phase-2 work; UI labels and current documentation links remain phase-3 work.
+Owner administration now uses `/api/peers/identity-service`; standalone service
+protocol paths stay `/fleet/v0`. UI labels and current documentation links are
+updated in phase 3.
 Generic "fleet" in performance scenarios, historical evidence and unrelated
 device-file events is outside this subsystem's rename.

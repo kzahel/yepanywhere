@@ -65,7 +65,7 @@ async function main() {
   const cases = option("cases", "identity").split(",") as CaseId[];
   if (cases.some((value) => !Object.hasOwn(CASES, value)))
     throw new Error("Unknown eval case");
-  const peerIdentityService = process.argv.includes("--peer-fleet");
+  const peerIdentityService = process.argv.includes("--peer-identity-service");
   const peerRelay =
     process.argv.includes("--peer-relay") || peerIdentityService;
   if (peerRelay && cases.some((caseId) => caseId !== "workflow"))

@@ -100,7 +100,7 @@ export class PeerDirectory {
     if (grant.identityBinding && (!authority || authority.grant !== grant))
       throw new CoreApiError(
         "unauthorized",
-        "Fleet peer authority is required for this credential",
+        "Identity Service peer authority is required for this credential",
         401,
       );
     const expiresAt = Math.min(

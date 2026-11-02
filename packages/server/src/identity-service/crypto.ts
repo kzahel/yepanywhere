@@ -34,7 +34,7 @@ export function identityServiceOrigin(
   )
     throw new IdentityServiceError(
       "invalid_issuer",
-      "Fleet issuer requires an explicit HTTPS origin",
+      "Identity Service issuer requires an explicit HTTPS origin",
     );
   return url.origin;
 }
@@ -50,7 +50,7 @@ export async function importIdentityServiceKey(
   if (imported instanceof Uint8Array)
     throw new IdentityServiceError(
       "invalid_key",
-      "An asymmetric fleet key is required",
+      "An asymmetric identity service key is required",
     );
   return imported;
 }
@@ -91,7 +91,7 @@ export async function signIdentityServiceJwt(
   if (Buffer.byteLength(signed) > IDENTITY_SERVICE_JWT_BYTES)
     throw new IdentityServiceError(
       "token_too_large",
-      "Fleet token exceeds 32 KiB; narrow the granted scope",
+      "Identity Service token exceeds 32 KiB; narrow the granted scope",
     );
   return signed;
 }
@@ -153,7 +153,7 @@ export async function verifyIdentityServicePeerJwt(
   )
     throw new IdentityServiceError(
       "unauthorized",
-      "Fleet peer token lifetime is invalid",
+      "Identity Service peer token lifetime is invalid",
       401,
     );
   return claims;

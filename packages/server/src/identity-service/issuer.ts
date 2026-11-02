@@ -133,7 +133,7 @@ export class IdentityIssuerVerifier {
     if (Buffer.byteLength(token) > 32 * 1024)
       throw new IdentityServiceError(
         "unauthorized",
-        "Oversized fleet JWT",
+        "Oversized identity service JWT",
         401,
       );
     const header = jose.decodeProtectedHeader(token);
@@ -205,7 +205,7 @@ export class IdentityIssuerVerifier {
       if (epoch !== this.epoch || claims.exp * 1000 <= this.now())
         throw new IdentityServiceError(
           "unauthorized",
-          "Fleet peer authority expired or was retired",
+          "Identity Service peer authority expired or was retired",
           401,
         );
       return claims;

@@ -312,7 +312,7 @@ export class PeerAccessManager {
         if (!this.identityService?.authority)
           throw new CoreApiError(
             "unauthorized",
-            "Fleet authority is not configured",
+            "Identity Service authority is not configured",
             401,
           );
         return this.identityService.authority(grant, token, signal);

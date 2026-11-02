@@ -88,19 +88,27 @@ export class IdentityServiceClient {
   private serialize<T>(signal: AbortSignal, work: () => Promise<T>) {
     if (this.closed)
       return Promise.reject(
-        new IdentityServiceError("unauthorized", "Fleet client is closed", 401),
+        new IdentityServiceError(
+          "unauthorized",
+          "Identity Service client is closed",
+          401,
+        ),
       );
     if (this.disconnecting)
       return Promise.reject(
         new IdentityServiceError(
           "unauthorized",
-          "Fleet client is disconnecting",
+          "Identity Service client is disconnecting",
           401,
         ),
       );
     if (this.waiting >= 9)
       return Promise.reject(
-        new IdentityServiceError("capacity", "Fleet client queue is full", 503),
+        new IdentityServiceError(
+          "capacity",
+          "Identity Service client queue is full",
+          503,
+        ),
       );
     const epoch = this.epoch;
     this.waiting++;
@@ -109,7 +117,7 @@ export class IdentityServiceClient {
       if (epoch !== this.epoch)
         throw new IdentityServiceError(
           "unauthorized",
-          "Fleet client was disconnected",
+          "Identity Service client was disconnected",
           401,
         );
       return work();
@@ -136,7 +144,7 @@ export class IdentityServiceClient {
     if (!reader)
       throw new IdentityServiceError(
         "bad_response",
-        "Fleet service returned an empty reply",
+        "Identity Service service returned an empty reply",
         502,
       );
     try {
@@ -150,7 +158,7 @@ export class IdentityServiceClient {
         if (bytes > 256 * 1024)
           throw new IdentityServiceError(
             "bad_response",
-            "Fleet reply exceeds its byte bound",
+            "Identity Service reply exceeds its byte bound",
             502,
           );
         chunks.push(value);
@@ -165,7 +173,7 @@ export class IdentityServiceClient {
     } catch {
       throw new IdentityServiceError(
         "bad_response",
-        "Fleet service returned invalid JSON",
+        "Identity Service service returned invalid JSON",
         502,
       );
     }
@@ -175,7 +183,7 @@ export class IdentityServiceClient {
         .safeParse(result);
       throw new IdentityServiceError(
         error.success ? error.data.error : "fleet_unavailable",
-        error.success ? error.data.message : "Fleet request failed",
+        error.success ? error.data.message : "Identity Service request failed",
         response.status >= 400 && response.status < 600
           ? (response.status as ContentfulStatusCode)
           : 502,
@@ -199,7 +207,7 @@ export class IdentityServiceClient {
     )
       throw new IdentityServiceError(
         "invalid_request",
-        "Use a fleet resource path",
+        "Use an identity service resource path",
       );
     const url = new URL(`${this.issuer}/fleet/v0${path}`),
       handle = await this.dpop();
@@ -249,7 +257,7 @@ export class IdentityServiceClient {
       if (epoch !== this.epoch)
         throw new IdentityServiceError(
           "unauthorized",
-          "Fleet client was disconnected",
+          "Identity Service client was disconnected",
           401,
         );
       await this.options.publish?.(credentials, assertOwner);
@@ -257,7 +265,7 @@ export class IdentityServiceClient {
       if (epoch !== this.epoch)
         throw new IdentityServiceError(
           "unauthorized",
-          "Fleet client was disconnected",
+          "Identity Service client was disconnected",
           401,
         );
       this.credentials = credentials;
@@ -281,7 +289,7 @@ export class IdentityServiceClient {
     )
       throw new IdentityServiceError(
         "invalid_key",
-        "Fleet credentials do not match this profile",
+        "Identity Service credentials do not match this profile",
       );
     this.credentials = valid;
   }
@@ -468,7 +476,7 @@ export class IdentityServiceClient {
     if (!credentials || credentials.familyExpiresAt <= this.now())
       throw new IdentityServiceError(
         "login_required",
-        "Fleet login is required",
+        "Identity Service login is required",
         401,
       );
     if (credentials.expiresAt > this.now() + 15_000) return credentials;

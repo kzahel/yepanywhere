@@ -28,7 +28,7 @@ export async function createPeerEvalRouter(
   database: SqliteDatabase,
   receipts: ApiReceiptStore,
   projects: ApiProject[],
-  fleet = false,
+  useIdentityService = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), "ya-peer-eval-"));
   const sourceDb = openSqliteOrThrow(":memory:");
@@ -36,11 +36,12 @@ export async function createPeerEvalRouter(
   const sourceReceipts = new ReceiptStore(sourceDb);
   let identityServiceStore: IdentityServiceStore | undefined,
     identityService: ReturnType<typeof createIdentityService> | undefined;
-  const identityServiceOptions = fleet
+  const identityServiceOptions = useIdentityService
     ? {
         allowInsecureLoopback: true,
         fetch: (async (input, init) => {
-          if (!identityService) throw new Error("Fleet fixture not ready");
+          if (!identityService)
+            throw new Error("Identity Service fixture not ready");
           return identityService.app.fetch(new Request(input, init));
         }) as typeof fetch,
       }
@@ -113,7 +114,7 @@ export async function createPeerEvalRouter(
       .filter((operation) => operation.path.includes(":serverId"))
       .map((operation) => operation.id);
     await a.setAgentAccess({ enabled: true });
-    if (fleet) {
+    if (useIdentityService) {
       const issuer = "http://127.0.0.1:45679";
       identityServiceStore = new IdentityServiceStore(
         join(root, "fleet"),
@@ -153,7 +154,7 @@ export async function createPeerEvalRouter(
         acknowledgeExecutionAuthority: "server-account",
       });
       if (!("envelopeId" in delivered) || !delivered.envelopeId)
-        throw new Error("Fleet eval invitation was not published");
+        throw new Error("Identity Service eval invitation was not published");
       const adopted = await a.delegatedAccess.adopt({
         envelopeId: delivered.envelopeId,
         allowAgentSessions: true,

@@ -95,7 +95,7 @@ function validateState(value: unknown, issuer: string): IdentityServiceState {
         ),
     )
   )
-    throw new Error("Inconsistent fleet directory");
+    throw new Error("Inconsistent identity service directory");
   return state;
 }
 
@@ -155,7 +155,7 @@ export class IdentityServiceStore {
   }
   async initialize() {
     if (this.state || this.ownership || this.closed)
-      throw new Error("Fleet store already initialized or closed");
+      throw new Error("Identity Service store already initialized or closed");
     try {
       await mkdir(this.directory, { recursive: true, mode: 0o700 });
       await enforceOwnerOnlyPathPermissionsStrict(this.directory, "directory");
@@ -177,13 +177,15 @@ export class IdentityServiceStore {
       let saved: unknown;
       try {
         if ((await stat(this.path)).size > IDENTITY_SERVICE_STATE_BYTES)
-          throw new Error("Oversized fleet state");
+          throw new Error("Oversized identity service state");
         await enforceOwnerOnlyPathPermissionsStrict(this.path, "file");
         saved = JSON.parse(await readFile(this.path, "utf8"));
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         if (identity !== undefined)
-          throw new Error("Missing state for an existing fleet identity");
+          throw new Error(
+            "Missing state for an existing identity service identity",
+          );
         // The ownership database is deliberately not the service identity.
         saved = {
           version: 1,
@@ -204,7 +206,7 @@ export class IdentityServiceStore {
       }
       this.state = validateState(saved, this.issuer);
       if (identity !== undefined && identity !== this.state.serviceId)
-        throw new Error("Fleet identity marker mismatch");
+        throw new Error("Identity Service identity marker mismatch");
       if (identity === undefined)
         await writeFileAtomically(identityPath, this.state.serviceId, {
           mode: 0o600,
@@ -217,7 +219,7 @@ export class IdentityServiceStore {
       this.ownership = undefined;
       throw new IdentityServiceError(
         "fleet_state_unavailable",
-        "Fleet directory is already owned or cannot be loaded safely",
+        "Identity Service directory is already owned or cannot be loaded safely",
         503,
       );
     }
@@ -226,7 +228,7 @@ export class IdentityServiceStore {
     if (!this.state || this.failed || this.closed)
       throw new IdentityServiceError(
         "fleet_state_unavailable",
-        "Fleet directory is unavailable",
+        "Identity Service directory is unavailable",
         503,
       );
     return this.state;
@@ -240,7 +242,7 @@ export class IdentityServiceStore {
       return Promise.reject(
         new IdentityServiceError(
           "capacity",
-          "Fleet publication queue is full",
+          "Identity Service publication queue is full",
           503,
         ),
       );
@@ -254,7 +256,7 @@ export class IdentityServiceStore {
       if (Buffer.byteLength(content) > IDENTITY_SERVICE_STATE_BYTES)
         throw new IdentityServiceError(
           "capacity",
-          "Fleet directory exceeds its byte limit",
+          "Identity Service directory exceeds its byte limit",
           503,
         );
       try {
@@ -267,7 +269,7 @@ export class IdentityServiceStore {
         this.failed = true;
         throw new IdentityServiceError(
           "fleet_state_unavailable",
-          "Fleet publication is uncertain; admission is closed",
+          "Identity Service publication is uncertain; admission is closed",
           503,
         );
       }

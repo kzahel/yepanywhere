@@ -117,7 +117,8 @@ export function createIdentityService(
       return c.json(
         {
           error: "invalid_origin",
-          message: "Request origin does not match configured fleet issuer",
+          message:
+            "Request origin does not match configured identity service issuer",
         },
         400,
       );
@@ -128,7 +129,8 @@ export function createIdentityService(
       return c.json(
         {
           error: "invalid_request",
-          message: "Fleet authorization header exceeds its byte bound",
+          message:
+            "Identity Service authorization header exceeds its byte bound",
         },
         400,
       );
@@ -143,7 +145,7 @@ export function createIdentityService(
       if (reply.byteLength > 256 * 1024)
         throw new IdentityServiceError(
           "reply_too_large",
-          "Fleet reply exceeds 256 KiB; request a smaller page",
+          "Identity Service reply exceeds 256 KiB; request a smaller page",
           503,
         );
       c.res = new Response(reply, {
@@ -170,12 +172,15 @@ export function createIdentityService(
       return c.json(
         {
           error: "invalid_request",
-          message: "Request does not match the fleet API schema",
+          message: "Request does not match the identity service API schema",
         },
         400,
       );
     return c.json(
-      { error: "fleet_unavailable", message: "Fleet operation failed" },
+      {
+        error: "fleet_unavailable",
+        message: "Identity Service operation failed",
+      },
       503,
     );
   });

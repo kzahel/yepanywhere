@@ -48,7 +48,7 @@ export const accessPolicySchema = z
   .strict()
   .refine(
     (policy) => Buffer.byteLength(JSON.stringify(policy)) <= 12 * 1024,
-    "A fleet policy must fit within 12 KiB encoded JSON",
+    "An identity service policy must fit within 12 KiB encoded JSON",
   );
 export type AccessPolicy = z.infer<typeof accessPolicySchema>;
 export function narrowerPolicy(policy: AccessPolicy, ceiling: AccessPolicy) {

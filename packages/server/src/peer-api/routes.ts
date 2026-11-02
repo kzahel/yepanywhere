@@ -241,7 +241,7 @@ export function createPeerManagementRoutes(
     if (selected && selected !== existing?.invitation.credentialId)
       throw new CoreApiError(
         "peer_record_conflict",
-        "A fleet credential is already selected; inspect credential selection before importing trusted control",
+        "An identity service credential is already selected; inspect credential selection before importing trusted control",
         409,
       );
     const owner = liveOwner(c);
@@ -350,10 +350,10 @@ export function createPeerManagementRoutes(
       );
     return binding;
   };
-  routes.get("/fleet/oidc/providers", async (c) =>
+  routes.get("/identity-service/oidc/providers", async (c) =>
     c.json(await manager.delegatedAccess.oidcProviders(c.req.raw.signal)),
   );
-  routes.post("/fleet/oidc/start", async (c) =>
+  routes.post("/identity-service/oidc/start", async (c) =>
     c.json(
       await manager.delegatedAccess.startOidc(
         await c.req.json(),
@@ -362,7 +362,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.get("/fleet/oidc/:id", async (c) =>
+  routes.get("/identity-service/oidc/:id", async (c) =>
     c.json(
       await manager.delegatedAccess.oidcStatus(
         c.req.param("id"),
@@ -371,7 +371,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.post("/fleet/oidc/:id/complete", async (c) => {
+  routes.post("/identity-service/oidc/:id/complete", async (c) => {
     const owner = await boundOwner(c),
       input = await c.req.json();
     const assertOwner = () => {
@@ -394,23 +394,23 @@ export function createPeerManagementRoutes(
     );
   });
 
-  routes.put("/fleet", async (c) => {
+  routes.put("/identity-service", async (c) => {
     await manager.delegatedAccess.configure(await c.req.json());
     return c.json(manager.publicState().fleet);
   });
-  routes.post("/fleet/login", async (c) =>
+  routes.post("/identity-service/login", async (c) =>
     c.json(
       await manager.delegatedAccess.login(await c.req.json(), c.req.raw.signal),
     ),
   );
-  routes.delete("/fleet", async (c) =>
+  routes.delete("/identity-service", async (c) =>
     c.json(await manager.delegatedAccess.disconnect()),
   );
   const page = (query: unknown) => {
     const parsed = identityServicePageQuery.parse(query);
     return `cursor=${parsed.cursor}&limit=${parsed.limit}`;
   };
-  routes.get("/fleet/clients", async (c) =>
+  routes.get("/identity-service/clients", async (c) =>
     c.json(
       await manager.delegatedAccess.request(
         `/clients?${page(c.req.query())}`,
@@ -420,7 +420,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.get("/fleet/clients/:id", async (c) =>
+  routes.get("/identity-service/clients/:id", async (c) =>
     c.json(
       await manager.delegatedAccess.introduce(
         z.uuid().parse(c.req.param("id")),
@@ -428,7 +428,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.get("/fleet/relationships", async (c) =>
+  routes.get("/identity-service/relationships", async (c) =>
     c.json(
       await manager.delegatedAccess.request(
         `/relationships?${page(c.req.query())}`,
@@ -438,7 +438,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.get("/fleet/relationships/:id", async (c) =>
+  routes.get("/identity-service/relationships/:id", async (c) =>
     c.json(
       await manager.delegatedAccess.request(
         `/relationships/${z.uuid().parse(c.req.param("id"))}`,
@@ -448,7 +448,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.post("/fleet/relationships", async (c) =>
+  routes.post("/identity-service/relationships", async (c) =>
     c.json(
       await manager.delegatedAccess.propose(
         await c.req.json(),
@@ -457,7 +457,7 @@ export function createPeerManagementRoutes(
       201,
     ),
   );
-  routes.delete("/fleet/relationships/:id", async (c) =>
+  routes.delete("/identity-service/relationships/:id", async (c) =>
     c.json(
       await manager.delegatedAccess.revokeRelationship(
         z.uuid().parse(c.req.param("id")),
@@ -465,7 +465,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.post("/fleet/accept", async (c) =>
+  routes.post("/identity-service/accept", async (c) =>
     c.json(
       await manager.delegatedAccess.accept(
         await c.req.json(),
@@ -474,7 +474,7 @@ export function createPeerManagementRoutes(
       201,
     ),
   );
-  routes.post("/fleet/deliver/:id", async (c) =>
+  routes.post("/identity-service/deliver/:id", async (c) =>
     c.json(
       await manager.delegatedAccess.deliver(
         z.uuid().parse(c.req.param("id")),
@@ -482,7 +482,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.get("/fleet/mailbox", async (c) =>
+  routes.get("/identity-service/mailbox", async (c) =>
     c.json(
       await manager.delegatedAccess.request(
         `/mailbox?${page(c.req.query())}`,
@@ -492,7 +492,7 @@ export function createPeerManagementRoutes(
       ),
     ),
   );
-  routes.post("/fleet/adopt", async (c) =>
+  routes.post("/identity-service/adopt", async (c) =>
     c.json(
       await manager.delegatedAccess.adopt(await c.req.json(), c.req.raw.signal),
     ),

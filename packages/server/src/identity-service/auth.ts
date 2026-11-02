@@ -248,7 +248,7 @@ export class IdentityServiceAuth {
     )
       throw new IdentityServiceError(
         "unauthorized",
-        "Fleet token purpose or lifetime is invalid",
+        "Identity Service token purpose or lifetime is invalid",
         401,
       );
     const state = this.store.read();
@@ -306,7 +306,7 @@ export class IdentityServiceAuth {
     )
       throw new IdentityServiceError(
         "unauthorized",
-        "Fleet session is no longer current",
+        "Identity Service session is no longer current",
         401,
       );
     return { account, session, client };
@@ -344,7 +344,7 @@ export class IdentityServiceAuth {
       if (error instanceof IdentityServiceError) throw error;
       throw new IdentityServiceError(
         "unauthorized",
-        "Invalid fleet token or key proof",
+        "Invalid identity service token or key proof",
         401,
       );
     }
@@ -509,7 +509,7 @@ export class IdentityServiceAuth {
       if (!existing && state.clients.length >= 256)
         throw new IdentityServiceError(
           "capacity",
-          "Active fleet client capacity reached",
+          "Active identity service client capacity reached",
           503,
         );
       if (
