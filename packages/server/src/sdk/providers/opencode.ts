@@ -13,6 +13,9 @@
 
 import { type ChildProcess, exec, execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { createServer } from "node:net";
+import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -31,7 +34,10 @@ import type {
   OpenCodeSessionStatus,
   OpenCodeSessionStatusEvent,
 } from "@yep-anywhere/shared";
-import { parseOpenCodeSSEEvent } from "@yep-anywhere/shared";
+import {
+  parseNativeSessionId,
+  parseOpenCodeSSEEvent,
+} from "@yep-anywhere/shared";
 import { getLogger } from "../../logging/logger.js";
 import { whichCommand } from "../which-command.js";
 import { MessageQueue } from "../messageQueue.js";
@@ -68,6 +74,7 @@ import type {
   StartSessionOptions,
 } from "./types.js";
 import {
+  assertProviderForkSource,
   resolveProviderSessionOptions,
   unknownProviderSessionOptionsResult,
 } from "./types.js";
@@ -105,6 +112,8 @@ let nextPort = 14100;
 
 interface OpenCodeRuntimeState {
   baseUrl: string;
+  /** Spawn-only local server credential; never metadata or public session facts. */
+  authorization?: string;
   cwd: string;
   opencodeSessionId: string;
   serverProcess: ChildProcess;
@@ -199,9 +208,30 @@ function getNextPort(): number {
   return nextPort++;
 }
 
+async function availableLoopbackPort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  await new Promise<void>((resolve, reject) =>
+    server.close((error) => (error ? reject(error) : resolve())),
+  );
+  if (!address || typeof address === "string")
+    throw new Error("OpenCode loopback port is unavailable");
+  return address.port;
+}
+
+function authorizationHeaders(authorization?: string): Record<string, string> {
+  return authorization ? { Authorization: authorization } : {};
+}
+
 function isProcessStillAlive(process: ChildProcess): boolean {
   return (
-    !process.killed && process.exitCode === null && process.signalCode === null
+    typeof process.pid === "number" &&
+    process.exitCode === null &&
+    process.signalCode === null
   );
 }
 
@@ -255,6 +285,7 @@ function getOpenCodeEventSessionId(
 export class OpenCodeProvider implements AgentProvider {
   readonly name = "opencode" as const;
   readonly displayName = "OpenCode";
+  readonly supportsNativeResumeSource = true;
   readonly supportsPermissionMode = false; // OpenCode has its own permission model
   // OpenCode exposes per-model reasoning effort via model "variants"
   // (low/medium/high/xhigh/max); the effort selector is gated per-model by
@@ -266,8 +297,18 @@ export class OpenCodeProvider implements AgentProvider {
   private readonly opencodePath?: string;
   private modelCatalogStatus: ModelCatalogStatus | undefined;
 
+  private nextConfiguredPort: number | undefined;
+
   constructor(config: OpenCodeProviderConfig = {}) {
     this.opencodePath = config.opencodePath;
+    if (
+      config.basePort !== undefined &&
+      (!Number.isInteger(config.basePort) ||
+        config.basePort < 1 ||
+        config.basePort > 65535)
+    )
+      throw new Error("OpenCode basePort must be a valid TCP port");
+    this.nextConfiguredPort = config.basePort;
   }
 
   /**
@@ -415,6 +456,33 @@ export class OpenCodeProvider implements AgentProvider {
    * immediately on the first init yield rather than racing a 5-second timeout.
    */
   async startSession(options: StartSessionOptions): Promise<AgentSession> {
+    if (options.resumeSessionId) {
+      const id = parseNativeSessionId(options.resumeSessionId);
+      if (!id.startsWith("ses_"))
+        throw new Error("OpenCode continuation requires a native ses_ handle");
+      if (options.nativeResumeSource) {
+        assertProviderForkSource(
+          { nativeSessionId: id, nativeSource: options.nativeResumeSource },
+          this.name,
+        );
+        const launchRoot = join(
+          process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"),
+          "opencode",
+        );
+        if (
+          (await realpath(launchRoot).catch(() => undefined)) !==
+          options.nativeResumeSource.native.storageScope
+        )
+          throw new Error(
+            "OpenCode continuation is outside the launch data store",
+          );
+        if (options.executor || options.sessionSandbox)
+          throw new Error(
+            "OpenCode scoped continuation requires its local data store",
+          );
+      }
+    } else if (options.nativeResumeSource)
+      throw new Error("Native resume source requires a continuation id");
     const providerSessionOptions = resolveProviderSessionOptions(
       options.sessionOptions,
     );
@@ -425,22 +493,56 @@ export class OpenCodeProvider implements AgentProvider {
       return this.errorSession("OpenCode CLI not found");
     }
 
-    const port = getNextPort();
+    const protectedRuntime = Boolean(
+      options.nativeResumeSource ||
+        options.publicSessionId ||
+        options.creationRuntime,
+    );
+    const port =
+      this.nextConfiguredPort === undefined
+        ? protectedRuntime
+          ? await availableLoopbackPort()
+          : getNextPort()
+        : this.nextConfiguredPort++;
+    if (port > 65535) throw new Error("OpenCode port range exhausted");
     const baseUrl = `http://127.0.0.1:${port}`;
+    const password = protectedRuntime
+      ? randomBytes(32).toString("hex")
+      : undefined;
+    const authorization = password
+      ? `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`
+      : undefined;
 
     let serverProcess: ChildProcess;
     try {
       serverProcess = spawn(
         opencodePath,
-        ["serve", "--port", String(port), "--print-logs"],
+        [
+          "serve",
+          "--port",
+          String(port),
+          ...(protectedRuntime ? ["--hostname", "127.0.0.1"] : []),
+          "--print-logs",
+        ],
         {
           cwd: options.cwd,
           stdio: ["pipe", "pipe", "pipe"],
-          env: stripYaControlPlaneCredentials(process.env),
+          env: stripYaControlPlaneCredentials({
+            ...process.env,
+            ...(password
+              ? {
+                  OPENCODE_SERVER_USERNAME: "opencode",
+                  OPENCODE_SERVER_PASSWORD: password,
+                }
+              : {}),
+          }),
           shell: process.platform === "win32",
         },
       );
 
+      serverProcess.on("error", (error) => {
+        log.debug({ error: error.message }, "OpenCode server process failed");
+      });
       serverProcess.stdout?.on("data", (chunk: Buffer) => {
         log.debug(
           { port, line: chunk.toString().trim() },
@@ -460,17 +562,25 @@ export class OpenCodeProvider implements AgentProvider {
     }
 
     // Block until server is ready before returning to the Supervisor
-    const serverReady = await this.waitForServer(baseUrl, 10000);
+    const serverReady = await this.waitForServer(
+      baseUrl,
+      10000,
+      authorization,
+      serverProcess,
+    );
     if (!serverReady) {
       serverProcess.kill("SIGTERM");
-      return this.errorSession("OpenCode server failed to start");
+      return this.errorSession(
+        "OpenCode server failed to start",
+        serverProcess,
+      );
     }
 
     log.info({ port, cwd: options.cwd }, "OpenCode server ready");
 
     // Resolve the opencode session ID synchronously (relative to Supervisor startup)
     let opencodeSessionId: string;
-    if (options.resumeSessionId?.startsWith("ses_")) {
+    if (options.resumeSessionId) {
       opencodeSessionId = options.resumeSessionId;
       log.info({ opencodeSessionId }, "Resuming existing OpenCode session");
     } else {
@@ -479,6 +589,7 @@ export class OpenCodeProvider implements AgentProvider {
           method: "POST",
           headers: {
             Accept: "application/json",
+            ...authorizationHeaders(authorization),
             "Content-Type": "application/json",
           },
           body: JSON.stringify(
@@ -510,6 +621,7 @@ export class OpenCodeProvider implements AgentProvider {
     const pidRef = { value: serverProcess.pid };
     const runtime: OpenCodeRuntimeState = {
       baseUrl,
+      authorization,
       cwd: options.cwd,
       opencodeSessionId,
       serverProcess,
@@ -579,10 +691,13 @@ export class OpenCodeProvider implements AgentProvider {
     const log = getLogger();
     try {
       const response = await fetch(
-        `${runtime.baseUrl}/session/${runtime.opencodeSessionId}/abort`,
+        `${runtime.baseUrl}/session/${encodeURIComponent(runtime.opencodeSessionId)}/abort`,
         {
           method: "POST",
-          headers: { Accept: "application/json" },
+          headers: {
+            Accept: "application/json",
+            ...authorizationHeaders(runtime.authorization),
+          },
           signal: AbortSignal.timeout(5000),
         },
       );
@@ -606,14 +721,22 @@ export class OpenCodeProvider implements AgentProvider {
   /**
    * Return a minimal AgentSession whose iterator immediately yields one error message.
    */
-  private errorSession(errorMsg: string): AgentSession {
+  private errorSession(errorMsg: string, process?: ChildProcess): AgentSession {
     const queue = new MessageQueue();
     return {
       iterator: (async function* () {
         yield { type: "error", error: errorMsg } as SDKMessage;
       })(),
       queue,
-      abort: () => {},
+      abort: () => {
+        process?.kill("SIGTERM");
+      },
+      ...(process
+        ? {
+            pid: process.pid,
+            isProcessAlive: () => isProcessStillAlive(process),
+          }
+        : {}),
     };
   }
 
@@ -643,7 +766,10 @@ export class OpenCodeProvider implements AgentProvider {
 
     try {
       const response = await fetch(`${runtime.baseUrl}/session/status`, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          ...authorizationHeaders(runtime.authorization),
+        },
         signal: AbortSignal.timeout(5000),
       });
 
@@ -895,7 +1021,10 @@ export class OpenCodeProvider implements AgentProvider {
     const ssePromise = (async () => {
       try {
         const response = await fetch(sseUrl, {
-          headers: { Accept: "text/event-stream" },
+          headers: {
+            Accept: "text/event-stream",
+            ...authorizationHeaders(runtime.authorization),
+          },
           signal: sseController.signal,
         });
 
@@ -1027,11 +1156,12 @@ export class OpenCodeProvider implements AgentProvider {
           "Sending message to OpenCode",
         );
         const response = await fetch(
-          `${runtime.baseUrl}/session/${runtime.opencodeSessionId}/message`,
+          `${runtime.baseUrl}/session/${encodeURIComponent(runtime.opencodeSessionId)}/message`,
           {
             method: "POST",
             headers: {
               Accept: "application/json",
+              ...authorizationHeaders(runtime.authorization),
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -1244,6 +1374,7 @@ export class OpenCodeProvider implements AgentProvider {
         method: "POST",
         headers: {
           Accept: "application/json",
+          ...authorizationHeaders(runtime.authorization),
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -1673,17 +1804,33 @@ export class OpenCodeProvider implements AgentProvider {
   private async waitForServer(
     baseUrl: string,
     timeoutMs: number,
+    authorization?: string,
+    process?: ChildProcess,
   ): Promise<boolean> {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
+      if (process && !isProcessStillAlive(process)) return false;
       try {
+        if (authorization) {
+          const refusal = await fetch(`${baseUrl}/session`, {
+            headers: {
+              Accept: "application/json",
+              Authorization: "Basic aW52YWxpZDppbnZhbGlk",
+            },
+            signal: AbortSignal.timeout(1000),
+          });
+          if (refusal.status !== 401) return false;
+        }
         const response = await fetch(`${baseUrl}/session`, {
-          headers: { Accept: "application/json" },
+          headers: {
+            Accept: "application/json",
+            ...authorizationHeaders(authorization),
+          },
           signal: AbortSignal.timeout(1000),
         });
         if (response.ok) {
-          return true;
+          return !process || isProcessStillAlive(process);
         }
       } catch {
         // Server not ready yet

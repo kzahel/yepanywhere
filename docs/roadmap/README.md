@@ -740,6 +740,13 @@ native-id browser requests. Real pinned Claude SDK/CLI and controlled Codex
 app-server fixtures are used without external model calls. Sequential typing
 acknowledges each character within 20 ms in these fixtures. Other provider/skew
 and future draft-volume gates remain.
+OpenCode scoped cold continuation is independently accepted for native DB,
+JSON and proved fileless-export sources. Native HTTP control retains N while
+public identity stays P. Private authenticated loopback ownership prevents an
+unrelated port from receiving input, and failed startup retains its real child
+until exit. Real app/store/protocol/reopen and standalone Node 22/26/Bun probes
+pass; no installed OpenCode CLI/model smoke is claimed. Differing-id new
+OpenCode launches remain gated with the other provider rollout.
 Remaining provider/host cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

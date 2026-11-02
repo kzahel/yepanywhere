@@ -75,12 +75,15 @@ export type ProviderForkBoundary =
 /** Operation-scoped native source facts; application lineage keeps its YA id. */
 export interface ProviderSessionSource {
   native: NativeSessionRef;
-  filePath: string;
+  /** Physical source when present; some native stores have no per-session file. */
+  filePath?: string;
   projectId: UrlProjectId;
 }
 
-/** Retained fork naming; the address is also shared by cold continuations. */
-export type ProviderForkSource = ProviderSessionSource;
+/** Copy/helper operations require an actual readable physical source. */
+export interface ProviderForkSource extends ProviderSessionSource {
+  filePath: string;
+}
 
 export interface ProviderForkOptions {
   nativeSessionId: NativeSessionId;
@@ -105,7 +108,10 @@ export interface ProviderForkResult {
 }
 
 export function assertProviderForkSource(
-  options: Pick<ProviderForkOptions, "nativeSessionId" | "nativeSource">,
+  options: {
+    nativeSessionId: NativeSessionId;
+    nativeSource?: ProviderSessionSource;
+  },
   provider: ProviderName,
 ): void {
   parseNativeSessionId(options.nativeSessionId);

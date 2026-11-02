@@ -2007,6 +2007,8 @@ export class CodexProvider implements AgentProvider {
     if (options.nativeResumeSource) {
       if (!options.resumeSessionId)
         throw new Error("Native resume source requires a continuation id");
+      if (!options.nativeResumeSource.filePath)
+        throw new Error("Codex continuation requires its native rollout path");
       assertProviderForkSource(
         {
           nativeSessionId: parseNativeSessionId(options.resumeSessionId),

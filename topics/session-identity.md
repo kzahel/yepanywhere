@@ -277,7 +277,7 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   path addressing or a different returned thread before starting a turn. Tailed
   helpers are unchanged. This does not qualify cold resume, prompt-cache touches,
   new launch identity or durable helper admission/provenance.
-- Qualified local Claude-family and Codex cold continuations resolve one
+- Qualified local Claude-family, Codex and OpenCode cold continuations resolve one
   operation-scoped native source before launch. The provider receives the
   native id and proven storage/path facts; Process, public events, settings and
   child/API authority retain the YA id. A continuation validates the existing
@@ -291,6 +291,15 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   path, and refuses a peer without path support before thread resume. Its child
   environment and bridge keep the public id even after native thread init.
   Claude's prompt-cache callback also retains this native address.
+  OpenCode resolves DB-backed, JSON-backed or fileless CLI-export proof from
+  its configured native data root. Continuation uses the native `ses_*` handle
+  without allocating another conversation; public ids never choose an HTTP
+  session. A missing source, wrong root or invalid native handle refuses before
+  launch. A scoped OpenCode owner uses an unused loopback port and a temporary
+  local HTTP credential; readiness must reject a wrong credential before the
+  real credential is used. An unrelated or unsupported endpoint gets no input.
+  All owner operations authenticate, and failed startup retains its real child
+  handle until exit is verified. Sending a signal does not certify exit.
   This qualifies local scoped continuation only. Managed retained-host
   observation uses its existing fenced attach contract; new hosted cold workers
   and unqualified differing-id provider continuations explicitly refuse until

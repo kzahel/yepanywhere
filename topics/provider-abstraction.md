@@ -54,15 +54,16 @@ limits; routing, sandbox, hosting and remaining input shapes stay gated there.
 ### Scoped native continuation
 
 `ProviderSessionSource` carries one proven native reference, physical transcript
-path and original project. Retained `ProviderForkSource` is an alias for the
-same address. The trusted `StartSessionOptions.nativeResumeSource` is resolved
+path when one exists and original project. `ProviderForkSource` requires the
+physical path for copy/helper operations; a fileless continuation does not
+invent one. The trusted `StartSessionOptions.nativeResumeSource` is resolved
 at the server/provider boundary; it is never accepted from client JSON.
 Adapters opt into `supportsNativeResumeSource` only after validating storage
 selection and exact native continuation. Native ids remain in provider-facing
 resume/control fields; `publicSessionId` owns bridges, child authority and
 AgentSelf. Supervisor keeps the original YA Process identity and checks the
-returned native id independently. Existing fork callback ownership supplies
-source acquisition; this adds no catalogue, registry or conversation store.
+returned native id independently. The shared `resolveNativeSessionSource` callback supplies authoritative source
+acquisition; the fork boundary additionally requires a physical file; this adds no catalogue, registry or conversation store.
 See [session identity](session-identity.md) for current enabling limits.
 
 ### Provider-wide session and process discovery

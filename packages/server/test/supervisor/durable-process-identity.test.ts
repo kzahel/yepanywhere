@@ -949,7 +949,7 @@ it.each([
     const supervisor = new Supervisor({
       provider,
       sessionMetadataService: f.metadata,
-      resolveNativeForkSource: resolve,
+      resolveNativeSessionSource: resolve,
       getInstructionRestorationSettings: () => ({
         ...DEFAULT_INSTRUCTION_RESTORATION,
         providers: { claude: true },

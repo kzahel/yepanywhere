@@ -184,3 +184,17 @@ checks in 131.01 s (`phase-3-cold-resume-final-full-test.log`); it does not
 qualify the corrected source or erase this failure. Inspection confirms the
 same restart/event-observation boundary remains unqualified; no isolated
 retry replaces this result and this gap remains open.
+
+
+2026-11-02: the first OpenCode cold-source workspace run missed the second
+nested delivery at line 364 (1 observed, 2 expected): 6,872 other server and
+7,064 client checks passed; server 132.45 s. Evidence: ignored
+`tasks/session-identity/phase-3-opencode-cold-full-test.log`. An isolated
+instrumented eight-trial restart diagnostic passed without reproducing the
+failure (`rendez-watch-diagnostic.log`); it changes scheduling and supplies no
+proof for a watcher fix. The OpenCode source then received an independently
+reviewed explicit-loopback hostname correction. Its new complete workspace
+run passed 6,873 server / 7,064 client cases in 130.10 s
+(`phase-3-opencode-cold-final-full-test.log`). That pass qualifies the corrected
+source, not a Rendez repair; no watcher source, timeout or assertion changed,
+and the initial red run remains preserved.

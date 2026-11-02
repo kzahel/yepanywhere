@@ -2430,7 +2430,7 @@ export function createApp(options: AppOptions): AppResult {
           )
       : undefined,
     onSessionSummary: getSessionSummary,
-    resolveNativeForkSource: async (sessionId, projectPath, provider) => {
+    resolveNativeSessionSource: async (sessionId, projectPath, provider) => {
       const deps = {
         signal: sessionReadLifetime.signal,
         identities: options.sessionMetadataService?.identities,
@@ -2477,15 +2477,29 @@ export function createApp(options: AppOptions): AppResult {
         throw new Error(
           "Session native fork source does not match the provider",
         );
+      // A fileless native store still needs authoritative existence/membership
+      // proof; the stored binding alone cannot certify a live provider source.
+      const proven = identity.native
+        ? await source?.reader.getNativeSessionRef?.(native.id)
+        : native;
+      if (
+        !proven ||
+        proven.id !== native.id ||
+        proven.family !== native.family ||
+        proven.storageScope !== native.storageScope
+      )
+        throw new Error("Session has no matching readable native source");
       const filePath = await source?.reader.getSessionFilePath?.(native.id);
       if (sessionReadLifetime.signal.aborted)
         throw new DOMException(
           "Native source acquisition cancelled",
           "AbortError",
         );
-      if (!filePath)
-        throw new Error("Session native fork transcript is missing");
-      return { native, filePath, projectId: identity.transcriptProjectId };
+      return {
+        native,
+        ...(filePath ? { filePath } : {}),
+        projectId: identity.transcriptProjectId,
+      };
     },
     recoverSessionLaunchSettings: async (sessionId, projectId, provider) => {
       const project = await scanner.getOrCreateProject(projectId);

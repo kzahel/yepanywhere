@@ -24,6 +24,27 @@ must resolve that binding rather than infer OpenCode solely from the public
 id's prefix. [Session creation](session-creation.sketches.md) depends on this
 ownership boundary.
 
+## Scoped cold continuation
+
+The server resolves existing YA identity to a proved OpenCode data root and
+native handle before continuation. DB and legacy JSON sources retain their
+actual physical paths; a proved CLI-export source may have no per-session file.
+Cold continuation never fabricates a path or falls back to `POST /session` when a
+provided handle is invalid. Native HTTP control uses the native handle, while
+Process, events and public collections keep the original YA id across restart.
+This does not enable durable differing-id new OpenCode launches yet.
+
+Scoped owners choose an unused loopback port unless an explicit internal
+`basePort` is supplied, and use a fresh spawn-only HTTP Basic credential. The
+endpoint must reject an invalid credential before accepting the real one; an
+open or unrelated port cannot establish readiness. Credentials stay outside
+metadata, snapshots and public facts. This uses OpenCode's documented
+[local server authentication](https://opencode.ai/docs/server/#authentication).
+Older endpoints without enforcement fail explicitly for this scoped path;
+legacy unqualified launches keep their existing transport during rollout.
+Startup failure retains the actual child handle for cleanup, and liveness
+requires actual exit evidence rather than the fact that SIGTERM was sent.
+
 ## Scope
 
 OpenCode is integrated through `opencode serve` plus HTTP and SSE, not through a

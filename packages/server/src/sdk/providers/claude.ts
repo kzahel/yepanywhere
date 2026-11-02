@@ -108,7 +108,7 @@ import type {
   ProviderSessionOptionsUpdateResult,
   ProviderName,
   ProviderForkOptions,
-  ProviderForkSource,
+  ProviderSessionSource,
   ProviderForkResult,
   ProviderLoginLaunch,
   StartSessionOptions,
@@ -1843,7 +1843,7 @@ export class ClaudeProvider implements AgentProvider {
 
   /** Keep account-home selection unchanged while addressing one captured root. */
   private async nativeSourceEnvironment(
-    source: ProviderForkSource,
+    source: ProviderSessionSource,
     cwd: string,
     sessionSandbox: SessionSandboxRuntime | undefined,
     env: NodeJS.ProcessEnv,

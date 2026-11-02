@@ -26,6 +26,31 @@ The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
 
+- Phase 3 OpenCode cold continuation and fileless source acquisition are
+  independently accepted by Sol 6.1 High after pinning the protected native
+  listener's hostname explicitly. One source callback supplies proved native
+  facts and an optional actual path; fork/copy requires a physical source.
+  DB, JSON and CLI-export cold resumes retain their existing native handle and
+  public identity, with no native session allocation. Wrong scope/handle refuses
+  before CLI effects. Scoped owners use a selected unused loopback port and
+  fresh private HTTP credential; an unrelated endpoint receives no input, and
+  startup failure retains the actual child until exit evidence. The existing
+  internal basePort option is now honored for isolated fixture ownership.
+  Real app/SQLite/OS HTTP/native-store/reopen checks pass; the broader focused
+  scope passes 214 cases / eight files / 25.36 s. The final hostname-bound subset
+  passes 24 cases / two files / 4.05 s. Standalone OS YA/fileless-native HTTP and
+  profile-restart probes pass on Node 22, Node 26 and Bun; a final Node 26 probe
+  enforces the explicit hostname argument. The installed OpenCode CLI is absent,
+  so this records controlled native protocol evidence, not an external model or
+  installed-CLI smoke claim. Lint has zero warnings, format/typecheck pass.
+  The pre-hostname-correction full run hit the known Rendez nested-restart
+  failure (6,872 other server / 7,064 client; server 132.45 s); it is preserved.
+  Eight isolated instrumented watcher restarts did not reproduce that failure
+  and justify no watcher fix or gap closure. The corrected complete Node 26
+  workspace passes (6,873 server / 7,064 client; server 130.10 s). New OpenCode
+  launch ownership and remaining provider/host cold gates
+  remain later slices.
+
 - Phase 3 owned released-client observation passes on published 0.8.0 and
   0.11.0 for Claude and Codex. Four existing-API probes and four actual released
   composer probes exercise differing public/native ids, one pending input,

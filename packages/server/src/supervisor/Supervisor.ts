@@ -89,6 +89,7 @@ import type {
   AgentProvider,
   ProviderForkBoundary,
   ProviderForkSource,
+  ProviderSessionSource,
   SummaryGenerationRequest,
   SummaryGenerationResult,
 } from "../sdk/providers/types.js";
@@ -549,11 +550,11 @@ export interface SupervisorOptions {
   /** Best-effort transcript recovery for sessions without a launch snapshot. */
   recoverSessionLaunchSettings?: RecoverSessionLaunchSettingsCallback;
   /** Resolve native I/O once; settings, routing and lineage keep the public id. */
-  resolveNativeForkSource?: (
+  resolveNativeSessionSource?: (
     sessionId: string,
     projectPath: string,
     provider: ProviderName,
-  ) => Promise<ProviderForkSource>;
+  ) => Promise<ProviderSessionSource>;
   /** Callback to read the current provider-scoped prompt-cache keepalive setting. */
   getPromptCacheKeepaliveSettings?: (
     provider: ProviderName,
@@ -736,7 +737,7 @@ export class Supervisor {
   }
   private onSessionSummary?: OnSessionSummaryCallback;
   private recoverSessionLaunchSettings?: RecoverSessionLaunchSettingsCallback;
-  private resolveNativeForkSource?: SupervisorOptions["resolveNativeForkSource"];
+  private resolveNativeSessionSource?: SupervisorOptions["resolveNativeSessionSource"];
   private backgroundTasksStopped = false;
   private backgroundStop: Promise<void> | undefined;
   private staleCheckTimer: ReturnType<typeof setInterval>;
@@ -833,7 +834,7 @@ export class Supervisor {
     this.onContextWindowObserved = options.onContextWindowObserved;
     this.onSessionSummary = options.onSessionSummary;
     this.recoverSessionLaunchSettings = options.recoverSessionLaunchSettings;
-    this.resolveNativeForkSource = options.resolveNativeForkSource;
+    this.resolveNativeSessionSource = options.resolveNativeSessionSource;
     this.getPromptCacheKeepaliveSettings =
       options.getPromptCacheKeepaliveSettings;
     this.postCompactAction = options.postCompactAction;
@@ -3320,7 +3321,7 @@ export class Supervisor {
         throw new Error("Hosted split-id cold continuation is not qualified");
       return { sessionId, retainedRuntimeOnly: true as const };
     }
-    const source = await this.resolveNativeForkSource?.(
+    const source = await this.resolveNativeSessionSource?.(
       sessionId,
       projectPath,
       provider.name,
@@ -4165,6 +4166,22 @@ export class Supervisor {
     });
   }
 
+  private async nativeForkSource(
+    sessionId: string,
+    projectPath: string,
+    provider: ProviderName,
+  ): Promise<ProviderForkSource | undefined> {
+    const source = await this.resolveNativeSessionSource?.(
+      sessionId,
+      projectPath,
+      provider,
+    );
+    if (!source) return undefined;
+    if (!source.filePath)
+      throw new Error("Session native fork transcript is missing");
+    return { ...source, filePath: source.filePath };
+  }
+
   /** Whether the resolved provider has a real transcript-fork primitive. */
   supportsForkSession(providerName?: ProviderName): boolean {
     const provider = this.resolveProvider(
@@ -4213,7 +4230,7 @@ export class Supervisor {
     if (typeof provider.forkSession !== "function") {
       throw new Error(`${provider.name} does not support transcript fork`);
     }
-    const nativeSource = await this.resolveNativeForkSource?.(
+    const nativeSource = await this.nativeForkSource(
       options.sessionId,
       options.projectPath,
       provider.name,
@@ -4504,7 +4521,7 @@ export class Supervisor {
       return provider.generateSummary(request);
     if (request.signal?.aborted)
       throw new DOMException("Summary generation cancelled", "AbortError");
-    const nativeSource = await this.resolveNativeForkSource?.(
+    const nativeSource = await this.nativeForkSource(
       request.generatorSessionId,
       request.cwd,
       provider.name,
