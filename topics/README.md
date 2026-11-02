@@ -38,6 +38,8 @@
 - Hard development rules for upstream-facing defaults
 - Kzahel-disabled feature decisions
 - Session UI customization
+- [Shared UI controls and feedback](shared-ui-controls.md) (toast lifetimes,
+  dropdown placement, and fatal client diagnostics)
 - Provider image sizing guidance
 - Attachment previews and same-browser cache
 - Project directory storage (app-data-only default, global project-local

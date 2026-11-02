@@ -223,6 +223,97 @@ remains authoritative. Existing `small`, `default`, `large`, and `larger`
 stored values load as 85, 100, 115, and 130% respectively; the default remains
 115%.
 
+## Session Header Space
+
+Session and shared page headers reserve a 44 CSS pixel single-line row. Their
+sidebar/back, model and overflow controls use 36 pixel mouse targets and 44
+pixel coarse-pointer targets. Vertical row padding fits around those targets
+within the reserved height, rather than increasing the row when actions load
+or pointer type changes. Model pills and icons keep their compact visual size;
+intentional multi-line content, including inline rename, may expand the row.
+Session titles use the base UI font size at every width. Crossing a responsive
+breakpoint changes available text space and controls, never the title's size.
+
+The session header reserves space for the session title and the `…` menu.
+The project breadcrumb stays visible on the same line at every width. It uses
+the assigned short code when enabled and supported, otherwise the project
+name. The label is ellipsized to fit its width budget; the session title yields
+space first. Its accessible label and tooltip retain the full project name,
+and its link still opens the project's sessions. Missing code metadata or an
+older server never hides the project identity.
+The model pill carries the activity indicator at every width; the header does
+not repeat it as a separate thinking icon.
+Its responsive tiers use the header column's width, including space taken by
+the sidebar or a docked pane, and restore controls in the reverse order:
+
+- At 720 CSS pixels and above, Share and Issues retain their header controls.
+- Below 720 pixels, Share and Issues move into the session menu. Their menu
+  entries retain viewer/link and association counts; Issues opens the session's
+  filtered issue list. Hidden controls do not keep polling behind the menu.
+- Below 600 pixels, the model pill keeps model identity with abbreviated effort
+  (`L`, `M`, `H`, `XH`), retains full accessible labels and its configuration
+  action, and carries the activity dot.
+  The project breadcrumb retains up to 3.5rem (5rem in the compact tier,
+  8.5rem in the full tier), independently of session-title length.
+
+Narrow or crowded headers open manual Rename in a compact dialog with a labeled
+input and explicit Save/Cancel actions. Leaving the field or dismissing the
+keyboard never saves the dialog; closing or Android Back cancels. Roomy headers
+retain inline rename. The presentation is chosen on opening and stays stable
+through keyboard resizes and rotation; an inline field wraps rather than
+collapsing when its header narrows. Navigating away dismisses Rename without
+saving. Both editors focus/select in their mounting commit, keep their drafts
+independent of transcript updates, do not submit an active IME composition, and
+retain the field and draft on save failure.
+
+## Desktop Sidebar Display Modes
+
+The desktop sidebar has three browser-persisted display modes. Expanded mode
+reserves the configured sidebar width; collapsed mode reserves only the icon
+rail; minimized mode reserves no width and leaves the standard sidebar toggle
+fixed over the page at 2px from the top-left viewport edge. The floating toggle
+is an overlay: page headers and content do not add padding or otherwise reflow
+around it.
+
+Every desktop mode carries its own toggle: expanded mode puts it at the right
+edge of the sidebar header opposite the brand, collapsed mode centers it in the
+rail, and minimized mode is the floating restore control. Page headers show a
+sidebar control only when the sidebar is an overlay rather than a persistent
+column — the narrow-viewport case and the content-frame routes. A page header
+with no leading control widens its left inset, since the missing button's own
+padding no longer supplies it.
+
+The sidebar header's controls align on the brand glyph. Their icon ink matches
+the wordmark's inset.
+
+Minimize is available only from the collapsed desktop rail. Its small
+bottom-line control removes the entire rail, and the floating standard toggle
+restores the collapsed rail rather than expanding it. Mobile overlay behavior
+is unchanged. The normal default remains the expanded sidebar, so the new
+control appears only after the user has already selected or reached collapsed
+desktop mode.
+
+A fresh Settings window or reload starts with an expanded preference reduced
+to the collapsed icon rail. This initial route choice does not write browser
+preferences or change another open window. A saved minimized mode stays
+minimized, and an explicit `?sidebar=expanded` takes precedence. The reader
+can expand the rail normally; same-window navigation retains its current mode.
+
+A tab opened directly on the new-session page or reloaded there honors the
+saved expanded, collapsed or minimized mode. With no saved choice, it starts
+expanded. The [pre-boot composer](early-typing-handoff.md#pre-boot-composer)
+reserves the same sidebar space so adopting early typing does not require
+hiding navigation; `?sidebar=expanded` still wins.
+
+## Session List Menu Visibility
+
+Session row menus remain hidden at rest on both desktop and touch screens.
+Desktop hover reveals only the hovered row's menu. Touch devices reveal the
+menu for the focused row; keyboard focus and an open menu keep its trigger
+visible. Touch hover emulation must not reveal menus across the list or require
+a second tap to open a session. These rules apply to compact sidebar rows and
+session cards alike.
+
 ## Mockup Requirements
 
 The landed surface shows a realistic session composer/toolbar mockup

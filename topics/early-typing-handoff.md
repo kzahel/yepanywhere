@@ -140,7 +140,7 @@ its own composer.
    Shift+Enter still adds a newline. On a coarse pointer, Enter is a newline,
    as in the app.
 6. **The tab honors the saved sidebar mode**, including on reload (see
-   [UI architecture](ui-architecture.md#desktop-sidebar-display-modes)). The
+   [Session UI](session-ui-customization.md#desktop-sidebar-display-modes)). The
    pre-boot field reserves the saved desktop sidebar width, including the
    collapsed rail or minimized mode, rather than hiding navigation. An explicit
    `?sidebar=expanded` overrides the saved mode; responsive width limits still

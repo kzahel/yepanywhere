@@ -44,8 +44,8 @@ the "Message Delivery" pane (not Appearance, not new-session defaults):
 a slider with an adjacent numeric input where 0 reads as "never batch
 consecutive queued turns". Changes apply immediately (no Save button);
 the header-row Undo reverts to the pane-open snapshot (see
-[ui-architecture](ui-architecture.md) § Settings Pane Conventions). The
-pane also hosts `clientDefaults.steerNowDefault`: the initial state of
+[Settings Pane Conventions](settings-ui-placement.md#settings-pane-conventions)).
+The pane also hosts `clientDefaults.steerNowDefault`: the initial state of
 the per-turn "now" steering toggle for providers with a "now" lane
 (currently Claude only — Codex has steer vs queue but no "now"); the
 toggle itself stays per-turn, and its visibility is a Toolbar settings

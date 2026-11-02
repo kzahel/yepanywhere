@@ -102,6 +102,60 @@ renderers or file viewers through that badge. Session messages still acquire
 their rich rendering code with the session route. A built-client browser check
 requires New Session to mount without requesting the KaTeX chunk.
 
+## Selected-Route Module Ownership
+
+The initial client module graph contains the stable source/authentication,
+navigation, error, and layout shell plus the selected page. A page that is not
+selected must not be evaluated merely because its route exists. Local and
+remote entrypoints apply the same rule; login and public bearer-link entry do
+not reach the authenticated session-management page graph.
+
+A route-level loading boundary preserves the shell and final page geometry.
+It never flashes an unauthenticated surface, loses the URL, or substitutes a
+temporary 404. A module generation has one shared acquisition promise, and a
+failure becomes an actionable route error rather than an indefinite spinner.
+
+A selected session starts its remote app, connection gate, navigation layout,
+page, transcript, and composer acquisitions together from the initial URL. Its
+module and connection boundaries render the same full-viewport session shell;
+status changes stay in the transcript slot while header and composer geometry
+remain reserved. Once the real session header or composer is visible, a lazy
+descendant must not hide it or return the route to a generic page fallback.
+
+Session DOM linger belongs outside the module-acquisition boundary. Making
+`SessionPage` lazy must not create a second module instance, tear down a view
+that `NavigationLayout` is deliberately retaining, or convert an already-warm
+back/reselect into a remount.
+
+Ordinary Settings entry loads the layout and selected category. Search may
+load every pane because its results are operable instances of the same controls;
+it starts those acquisitions progressively only when search begins and keeps
+already found results stable.
+
+Cold Settings entry starts its app, navigation-layout, and Settings module
+downloads together in both local and remote clients. Settings navigation,
+search, and available category controls do not wait for sidebar session data.
+An inactive category's module is acquired only when selected or searched.
+Each search pane has its own loading/error boundary, so a delayed or failed
+pane cannot hide other results or disable their controls and jump links.
+Search remains marked busy while panes are incomplete, and does not claim
+there are no matches until all panes have loaded. A failed module exposes the
+existing diagnostic and Reload Page recovery within that pane.
+
+A local new-session tab acquires its app, navigation layout and form modules
+together, then mounts those ready components in its first React commit. The
+inline composer retains typing during acquisition. Successful startup does
+not insert a module loading fallback between that field and the real form:
+doing so adds React's minimum fallback display delay even after code is ready.
+Acquisition failures still reach the route error boundary. Later navigation
+retains lazy acquisition and the normal route boundaries.
+
+Dynamic route assets remain part of one deployed entrypoint generation. Old
+loaded entrypoints must be able to acquire chunks they name after a deployment,
+or recover once through a state-preserving fresh entry. The retention and
+recovery contract is below; the implementation handoff is
+[`docs/tactical/096-client-route-module-loading.md`](../docs/tactical/096-client-route-module-loading.md).
+
 ## Shared package initialization
 
 The shared package declares its library modules free of import-time effects
@@ -165,6 +219,31 @@ Development server reload actions replace Vite alongside Hono, adopting fresh
 startup configuration while the provider host and its workers remain alive.
 If Vite exits or cannot start, the wrapper keeps Hono and the provider host
 running, reports the failure, and allows the next reload request to retry.
+
+## Global Reload Notice Placement
+
+The shared backend/frontend reload notice preserves page identity and
+navigation rather than claiming the full top edge. On desktop and tablet it is
+an intrinsic-width card at the lower viewport edge, where unused space is more
+likely; it must not cover a session title, page-level navigation, or session
+composer controls or another fixed lower-corner action. The notice stack
+measures live fixed occupants as one allocation problem: it occupies the
+lower-right space when that space is clear and lifts the entire stack above
+the session composer or floating action button when it would collide. A second
+notice must not grow underneath a higher-z-index occupant. On phone it may
+remain at the top, but stays inset from both viewport edges instead of becoming
+a full-width bar.
+
+Every form has an explicit × dismiss control with at least a 36×36 pixel hit
+target. Visible copy stays compact; complete restart-risk and action wording
+remains available through accessible names and hover titles. All
+`ReloadBanner` callers inherit this placement and interaction contract.
+An empty notice stack stays mounted for future notices but does not measure
+geometry or schedule placement for composer mutations. A later visible notice
+still receives the same collision-aware placement.
+Choosing any action consumes the current notice instead of morphing it into a
+status or confirmation panel. The requested reload or safe-restart schedule
+continues; after a reload, later source changes may produce a fresh notice.
 
 ## Response contract
 

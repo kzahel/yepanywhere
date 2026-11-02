@@ -20,8 +20,8 @@ See also:
   (≥1100px, collapsible handle, composer stays in the session column).
 - [`source-control.md`](source-control.md) — workbench splitters: edge
   handles, keyboard resize, live reflow, persisted width.
-- [`ui-architecture.md`](ui-architecture.md) — desktop sidebar
-  expanded/collapsed/minimized modes.
+- [Session UI](session-ui-customization.md#desktop-sidebar-display-modes) —
+  desktop sidebar expanded/collapsed/minimized modes.
 - [`vanilla-defaults.md`](vanilla-defaults.md) — YA-novel chrome ships
   configurable and default-off.
 - [`active-content-security.md`](active-content-security.md) — vhost Host

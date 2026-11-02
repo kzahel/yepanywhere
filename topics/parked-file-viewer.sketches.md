@@ -35,7 +35,7 @@ this codebase: a resizable multi-column workbench with edge-only splitters
   narrowed to its minimum but never removed. It may additionally collapse to a
   narrow strip that keeps the composer, status, and the parked controller
   operable, mirroring the desktop sidebar's expanded/collapsed modes
-  ([UI architecture § Desktop Sidebar Display Modes](ui-architecture.md#desktop-sidebar-display-modes)),
+  ([Desktop Sidebar Display Modes](session-ui-customization.md#desktop-sidebar-display-modes)),
   so a reader can give a document nearly the whole width without leaving the
   session. The collapsed session still receives and buffers live updates
   exactly as the covered transcript does today.

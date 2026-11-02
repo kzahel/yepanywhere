@@ -24,6 +24,34 @@ below the global one that § Server-definitive settings and constants defines),
 and capability gating that § Server-definitive settings and constants reasons
 about).
 
+## Settings Pane Conventions
+
+Toggles, sliders, and selects apply changes immediately; continuous controls
+such as sliders debounce their saves. Explicit Save flows are reserved for
+free-text or configuration forms where partial input should not be applied.
+
+Panes register undo through `useSettingsUndo` / `useSettingsUndoBaseline` in
+`pages/settings/SettingsUndoContext.tsx`. `SettingsLayout` renders the single
+Undo button at the top-right of the header, outside scrollable pane content.
+Panes adopting immediate apply should register undo so accidental changes remain
+recoverable.
+
+Undo is one step at pane granularity, without a per-action history or redo
+chain. The header button and `Ctrl+Z` / `⌘Z` invoke the same active-pane
+registration. Its tooltip and accessible label name the pane and explain that
+it undoes changes made since opening it. In text-editable controls, the shortcut
+remains native text undo.
+
+Snapshot panes, including immediate-apply panes and simple Save forms, restore
+the pane-open snapshot via `useSettingsUndoBaseline`. Local Access uses
+`useSettingsUndo` to discard only unapplied edits: restoring an old network
+binding automatically could sever the operator's connection, so applying stays
+behind the explicit button. Status/action panes have no undoable settings.
+
+Providers retains independent sub-forms with their own drafts, validation, and
+Save/cancel lifecycles, so a pane-wide Undo has no clear scope. Do not add it
+unless the pane is restructured to make that scope clear.
+
 ## Persistence mechanisms (pick one deliberately)
 
 YA has three, and the choice is about *scope of persistence*, not convenience:
