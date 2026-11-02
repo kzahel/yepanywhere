@@ -267,7 +267,57 @@ The original review/correction is retained under ignored
 The owned reviewer was retired with verified stop. Corrected focused coverage
 passes 26 cases/three files in 5.50 seconds, including both real native scope
 variants; final parameterized resume checks pass two cases in 6.37 seconds.
-Pi is the next bounded slice.
+Pi follows as the next bounded slice below.
+
+## Pi ordinary text creation — current slice
+
+The Pi-specific optional capability (global id 145) adds ordinary owner text
+acceptance with a canonical native session namespace, reader-root agreement and
+native `get_state` file-scope validation before prompt delivery. Pi allocates N;
+public P remains permanent. Successful native RPC prompt preflight confirms the
+exact input UUID; queue/user/stream echoes cannot. Host and worker negotiate
+`session-creation-pi-v1` before launch. Other shapes preserve their existing flow.
+The [Pi provider contract](../../topics/pi-provider.md#durable-ordinary-text-creation)
+owns observable behavior and version/platform limits.
+
+Focused provider/RPC/native-read/resume/host coverage passes 72 cases/five files
+in 13.93 seconds. Four initial browser cases pass in 28.8 seconds. Visual review
+caught a fixture branch-parent error that hid the first turn after continuation;
+the fixture now preserves its native parent, and both local/hosted cases assert
+both turns after reload (22.3 seconds). An outside-scope native-file refusal
+passes before any prompt (3.0 seconds). Desktop/phone captures were inspected:
+both turns remain visible and composer usable. Actual published clients 0.8.0
+and 0.11.0 receive idle native-file append updates after Hono restart and reload,
+with no native handle in browser requests. The real Pi 1.4.0 executable passes
+RPC/native history creation and cold continuation against an owned local model
+endpoint, retaining original conversation context in exactly two requests.
+This is an actual executable/protocol/storage check, not an external model pass.
+Current-client fallback against the actual published YA 0.11.0 server passes:
+one legacy start, no durable-admission request, answer and history reload. The
+older-host test now retains generic owner/Codex features while refusing the
+separate Pi/OpenCode capabilities; focused check passes in 2.47 seconds.
+Root static checks pass. The sole Sol 6.1 High review found that the native-file
+check accepted root-level/deeply nested files the reader cannot discover. Managed
+startup now requires the reader's one-directory JSONL layout before any prompt;
+focused root/deep/outside regressions pass three cases in 11.1 seconds with
+zero native prompts, preserving saved input. The original review is preserved under ignored
+`tasks/session-identity/reviews/pi-creation.md`; no second review. The owned
+reviewer was retired with verified stop.
+
+The first full workspace run passed 6,895 server/7,067 client cases but failed
+the assembled Claude host's post-replacement waiting-input barrier. Its unchanged
+focused rerun passes in 8.08 seconds. The unresolved ordering/diagnostic evidence
+is captured in [the suite gap](../../gaps/full-suite-timing-and-diagnostics.md),
+without raising budgets or suppressing output. One final full run follows the
+Pi layout correction; no green aggregate is claimed for the first run.
+The final full run passes 6,896 server and 7,067 client cases (server 143.14
+seconds), including the assembled replacement case. Corrected root lint,
+format and type checks pass; the real Pi executable/default-path creation and
+cold continuation also pass after the layout guard. The original intermittent
+failure stays captured rather than being described as fixed. This completes
+the authorized native API provenance, OpenCode and Pi slices; remaining source
+omissions, other providers/input shapes and release/OS matrices retain their
+separate scope.
 
 ## Execution progress
 
@@ -1330,8 +1380,8 @@ current Claude/Codex/Gemini support covers the other rows.
 | `claude-ollama` | Claude SDK/transcript family with Ollama launch facts | Preserve retained provider/configuration; qualify native scope and the same read/resume/watch boundaries. |
 | `codex` | App-server thread id, rollout reader | Differing-id launch, native source fork/clone, rollout discovery, owned-input confirmation and focused watch; host claims/bound/reattach. |
 | `codex-oss` | Codex runtime/storage family with distinct launch choice | Qualify alongside Codex or in its own reviewed cut; preserve launch variant even when native discovery reports the family. |
-| `opencode` | Native `ses_*`; JSON, SQLite DB and export-backed history | Prefix-independent reader selection, native resume/control and reverse lookup; qualify/extend focused observation for each available source, including no single transcript path. Current normalization to Claude is insufficient. |
-| `pi` | Retained RPC/native transcript shape | Native read/resume/control/discovery and process ownership joins; qualify a focused/bounded observation path for old clients before split-id launch. No current focused Pi target is assumed. |
+| `opencode` | Native `ses_*`; ordinary owner text capability 144 | DB/WAL and JSON qualify for new durable launches; export-only remains read/resume. Prefix-independent native resolution and published-client observation pass. Actual free-model endpoint error prevents a live-model pass claim. |
+| `pi` | Native RPC ID and JSONL; ordinary owner text capability 145 | Native read/resume/discovery foundations and idle native-file observation qualify; local/hosted lifecycle and actual Pi 1.4.0 owned-model smoke pass. Other input/caller/platform shapes retain their gates. |
 | `grok` | Retained ACP/native transcript shape | Native read/resume/control/discovery and ownership joins; qualify bounded old-client observation. No current focused Grok target is assumed. |
 | `gemini` | Frozen CLI/native history path | Preserve current protocol and historical reads; audit namespace separately from ACP and qualify broad/focused observation or obtain an explicit limitation decision before enabling. |
 | `gemini-acp` | Frozen ACP/native history path | Preserve current mapping without refresh; qualify source/resume/control, storage scope and observation independently of CLI assumptions. |

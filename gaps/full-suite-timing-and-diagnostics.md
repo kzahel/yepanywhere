@@ -124,3 +124,23 @@ client run; suppressing navigation globally would hide unrelated regressions.
 The touched peer/bootstrap tests pass without runtime warnings in focused
 runs. This repair changes only their measured time budgets and a capability
 registry reference, so the independent diagnostic-fixture audit remains open.
+
+
+2026-11-02: Pi durable-creation validation's first full Node 22/macOS run failed
+`provider-host-system.test.mjs` at the post-replacement `waiting-input` barrier
+(line 234), after both native runtimes reattached and the separately delayed
+initial input was confirmed. Replacement Hono had already bound HTTP; this is
+a different barrier from the September startup timeout above. Shutdown also
+logged instruction restoration `write after end`. The same unchanged assembled
+case passed an isolated rerun in 8.08 seconds. The earlier native-API/OpenCode full
+runs passed it. This is an ordering/retained-approval finding with unknown cause,
+not evidence that a larger timeout is needed. Keep its actual runtime/callback
+barriers and inspect host/controller pending-input projection before changing
+budgets; Pi-only creation gates do not establish a fix. The first full run had
+6,895 passing server/7,067 client cases; no green aggregate is claimed for it.
+Evidence is retained under ignored `tasks/session-identity/pi-full-test.log` and
+`pi-assembled-host-focused.log`; the final full-run result is recorded in plan171.
+
+The final full run passed the assembled case and all 6,896 server/7,067 client
+cases (server 143.14 seconds). That passing run does not establish a fix for the
+first run's retained-approval ordering failure.

@@ -53,6 +53,7 @@ const WORKER_READY_TIMEOUT_MS = 30_000;
 const CREATION_OWNER_FEATURE = "session-creation-owner-v1";
 const CODEX_CREATION_FEATURE = "session-creation-codex-v1";
 const OPENCODE_CREATION_FEATURE = "session-creation-opencode-v1";
+const PI_CREATION_FEATURE = "session-creation-pi-v1";
 const MAX_CONTROL_REQUEST_BYTES = 1024 * 1024;
 const COOPERATIVE_STOP_MS = 5_000;
 const TERM_GRACE_MS = 1_500;
@@ -517,6 +518,7 @@ export class ProviderRuntimeHost {
             CREATION_OWNER_FEATURE,
             CODEX_CREATION_FEATURE,
             OPENCODE_CREATION_FEATURE,
+            PI_CREATION_FEATURE,
             BOUND_RUNTIME_FEATURE,
             "runtime-control",
             "session-turn",
@@ -937,7 +939,9 @@ export class ProviderRuntimeHost {
         ? CODEX_CREATION_FEATURE
         : creation?.nativeNamespace.family === "opencode"
           ? OPENCODE_CREATION_FEATURE
-          : undefined;
+          : creation?.nativeNamespace.family === "pi"
+            ? PI_CREATION_FEATURE
+            : undefined;
     if (
       nativeCreationFeature &&
       !requiredWorkerFeatures.includes(nativeCreationFeature)
@@ -1960,6 +1964,7 @@ async function main() {
           CREATION_OWNER_FEATURE,
           CODEX_CREATION_FEATURE,
           OPENCODE_CREATION_FEATURE,
+          PI_CREATION_FEATURE,
           BOUND_RUNTIME_FEATURE,
           "runtime-control",
           "session-turn",

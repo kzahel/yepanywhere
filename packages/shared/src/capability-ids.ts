@@ -870,6 +870,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "peer-connections",
     introducedIn: "0.11.1",
   },
+  piTextCreation: {
+    id: 145,
+    direction: "server",
+    name: "session-creation-pi-text",
+    introducedIn: "0.11.1",
+  },
   opencodeTextCreation: {
     id: 144,
     direction: "server",

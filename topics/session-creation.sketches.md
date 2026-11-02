@@ -6,7 +6,8 @@ Persist a session before provider startup and keep its public id and failure
 history even when no provider session/transcript exists. This reopens the
 new-session portion of [plan 150](../docs/tactical/150-ya-owned-session-ids.md#november-1-selected-follow-up),
 not its entire fork/clone program. The November 2 ordinary Claude/Codex text
-workflow is implemented; broader proposal and release qualification remain
+workflow is implemented, followed by independently gated OpenCode and Pi
+ordinary owner text creation. Broader proposal/release/OS qualification remains
 pending. Exact API/capability and evidence boundaries live in
 [the identity contract](session-identity.md#qualified-claude-text-acceptance--november-2). The
 [roadmap](../docs/roadmap/README.md) records scope and priority.
@@ -20,7 +21,7 @@ refresh. Safe acknowledgement preserves newer drafts. Claude accepts a chosen id
 Codex's native thread id is an explicit binding. [Plan 171's active milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2)
 records the three larger implementation slices and focused/browser qualification.
 
-Attachments, automated retry, other-provider/caller rollout and the optional
+Attachments, automated retry, remaining provider/caller rollout and the optional
 background action/shortcut remain later work. The broader proposal below is
 retained as direction; it is not a prerequisite to deliver this first milestone.
 Use a narrowly gated text-creation contract without claiming the complete
@@ -277,4 +278,5 @@ delegation are not required by this proposal.
 OpenCode ordinary owner text creation now joins the narrow saved-intent flow
 behind its own optional bit; see the [native proof and storage boundary](opencode-backend.md#durable-ordinary-text-creation).
 This does not expand the sketches' global receipts, attachment or background
-Queue migration scope. Pi remains the next independent provider qualification.
+Queue migration scope. Pi ordinary owner text creation is independently
+qualified behind its own optional capability; see its [RPC proof and storage boundary](pi-provider.md#durable-ordinary-text-creation).

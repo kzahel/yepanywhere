@@ -24,8 +24,9 @@ import { assertProviderForkSource } from "./types.js";
 import { type ChildProcess, exec, execFile, spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { realpath } from "node:fs/promises";
+import { nativeStorageScope } from "./native-storage-scope.js";
 import { readFirstLine } from "../../utils/jsonl.js";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -498,12 +499,46 @@ export class PiProvider implements AgentProvider {
     return file;
   }
 
+  async getNewSessionNamespace(cwd: string) {
+    const agentDir = (
+      process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent")
+    ).replace(/^~(?=$|[/\\])/, homedir());
+    const storageScope = await nativeStorageScope(
+      resolve(await realpath(cwd), agentDir, "sessions"),
+    );
+    const readerRoot =
+      this.sessionsDir ??
+      process.env.PI_SESSIONS_DIR ??
+      join(homedir(), ".pi", "agent", "sessions");
+    if (
+      readerRoot &&
+      (await nativeStorageScope(resolve(cwd, readerRoot))) !== storageScope
+    )
+      throw new Error(
+        "Pi creation requires the reader and native session store to match",
+      );
+    return { family: "pi" as const, storageScope };
+  }
+
   async startSession(options: StartSessionOptions): Promise<AgentSession> {
     const log = getLogger();
     const env = stripYaControlPlaneCredentials({
       ...process.env,
       ...options.remoteEnv,
     });
+    if (options.publicSessionId && !options.resumeSessionId) {
+      if (
+        env.PI_CODING_AGENT_DIR !== process.env.PI_CODING_AGENT_DIR ||
+        env.PI_CODING_AGENT_SESSION_DIR !==
+          process.env.PI_CODING_AGENT_SESSION_DIR ||
+        env.HOME !== process.env.HOME ||
+        env.USERPROFILE !== process.env.USERPROFILE
+      )
+        throw new Error(
+          "Pi creation cannot change its native storage environment",
+        );
+      await this.getNewSessionNamespace(options.cwd);
+    }
     const resumeFile = await this.nativeResumeFile(options, env);
     const piTarget = await this.findPiLaunchTarget();
     if (!piTarget) {
@@ -551,7 +586,29 @@ export class PiProvider implements AgentProvider {
       if (!state.success) {
         throw new Error(state.error ?? "get_state failed");
       }
-      sessionId = (state.data as PiSessionState).sessionId;
+      sessionId = parseNativeSessionId(
+        (state.data as PiSessionState).sessionId,
+      );
+      if (options.publicSessionId && !options.resumeSessionId) {
+        const namespace = await this.getNewSessionNamespace(options.cwd);
+        const file = (state.data as PiSessionState).sessionFile;
+        if (typeof file !== "string")
+          throw new Error("Pi creation requires a native session file");
+        const nativeFile = await nativeStorageScope(resolve(options.cwd, file));
+        const part = relative(namespace.storageScope, nativeFile);
+        if (
+          !part ||
+          part === ".." ||
+          part.startsWith(".." + (process.platform === "win32" ? "\\" : "/")) ||
+          isAbsolute(part) ||
+          // PiSessionReader enumerates exactly root/<project>/*.jsonl.
+          part.split(sep).length !== 2 ||
+          !part.endsWith(".jsonl")
+        )
+          throw new Error(
+            "Pi created outside the discoverable launch session store",
+          );
+      }
       if (resumeFile) {
         const current = state.data as PiSessionState;
         if (
@@ -917,6 +974,8 @@ export class PiProvider implements AgentProvider {
                 endTurn(response.error ?? "pi rejected the prompt");
                 return;
               }
+              if (message.uuid)
+                options.onNativeInputConsumed?.(sessionId, message.uuid);
               const disposition = (
                 response.data as { disposition?: unknown } | undefined
               )?.disposition;

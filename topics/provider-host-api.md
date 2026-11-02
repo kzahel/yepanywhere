@@ -10,6 +10,14 @@ Managed Codex creation additionally negotiates `session-creation-codex-v1` on
 both host status and the worker's pre-launch hello. The older Claude creation
 owner feature does not prove native Codex input acknowledgement support. See
 [Codex text acceptance](session-identity.md#codex-text-acceptance--november-2).
+Managed OpenCode and Pi creation independently require
+`session-creation-opencode-v1` and `session-creation-pi-v1`, respectively, from
+both host and worker. The generic owner feature or another provider's feature
+cannot authorize their native input proof. See
+[OpenCode creation](opencode-backend.md#durable-ordinary-text-creation) and
+[Pi creation](pi-provider.md#durable-ordinary-text-creation); these private
+features do not broaden the public host platform/runtime matrix.
+
 
 Status: stable same-user discovery, foreground headless bootstrap,
 attach-or-start recovery, bounded auxiliary session turns, detached

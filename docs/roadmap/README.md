@@ -662,7 +662,17 @@ and static checks pass. The actual 1.18.18 free-model probe returned an upstream
 error, so no successful live-model turn is claimed.
 [Its provider contract](../../topics/opencode-backend.md#durable-ordinary-text-creation)
 requires observable DB/JSON storage for new durable launches; export-only history
-remains readable. Pi and other provider/input shapes retain their rollout gates.
+remains readable. Pi ordinary owner text creation now has optional capability 145, reader/native
+scope validation, native prompt-preflight evidence and separate host negotiation.
+Controlled local/hosted lifecycle/failure checks, published-client idle native
+watch/reload and actual Pi 1.4.0 creation/continuation against an owned local model
+endpoint pass. Its sole Sol review found a reader-invisible file-layout gap;
+startup now refuses root/deep paths before input, with focused regressions.
+Final static and full workspace checks pass (6,896 server/7,067 client), after
+one assembled-host approval barrier failure passed focused and final full runs;
+[the diagnostic gap](../../gaps/full-suite-timing-and-diagnostics.md) preserves
+that unresolved ordering evidence. Other provider/input/platform shapes retain
+their rollout gates.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review
@@ -802,17 +812,21 @@ JSON and proved fileless-export sources. Native HTTP control retains N while
 public identity stays P. Private authenticated loopback ownership prevents an
 unrelated port from receiving input, and failed startup retains its real child
 until exit. Real app/store/protocol/reopen and standalone Node 22/26/Bun probes
-pass; no installed OpenCode CLI/model smoke is claimed. Differing-id new
-OpenCode launches remain gated with the other provider rollout.
+pass. Ordinary owner text now uses the independently qualified optional
+capability 144 for observable DB/JSON stores; export-only remains read/resume.
+The real 1.18.18 executable starts, but an upstream free-model error prevents
+successful external-model qualification.
 Pi scoped cold continuation is independently accepted after correcting native
 home and empty-directory handling. Exact file/header/project and launch scope
 are checked before effects; returned native attachment is verified before input.
 Changed child home or working project refuses explicitly. Public identity stays
 YA across real app/store/OS RPC/reopen and standalone Node 22/26/Bun probes.
 Startup failure and idle teardown retain/verify actual process evidence; final
-static and complete workspace checks pass. No installed Pi CLI/model or other-OS
-runtime smoke is claimed. New Pi creation and durable user-turn mapping remain
-gated separately.
+static and complete workspace checks passed for that foundation. Ordinary owner
+text now uses optional capability 145 with native RPC preflight proof, local/hosted
+browser qualification and real Pi 1.4.0 creation/continuation against an owned
+local model endpoint. External model accounts and other OS/runtime matrices
+remain unqualified.
 Retained Grok/Gemini ACP cold continuation is independently accepted with
 pre-effect native scope/project checks, native RPC/public identity separation,
 Grok tool-shell identity and real child/pending-call teardown. Failed Gemini

@@ -14,6 +14,47 @@ Candidate designs that are not current behavior, including YA-supplied web
 search/fetch tools for pi, live in
 [`pi-provider.sketches.md`](pi-provider.sketches.md).
 
+## Durable ordinary text creation
+
+The optional `session-creation-pi-text` capability (global id 145) selects the
+owner-only [saved-intent acceptance lifecycle](session-identity.md#qualified-claude-text-acceptance--november-2).
+YA commits its public UUID, prompt/settings/source and initial-input identity
+before launch. Pi allocates its native session ID; `get_state` binds that handle
+without replacing the public ID in URLs, events, metadata or collections.
+History, discovery and cold continuation resolve the stored native address.
+
+The canonical native scope is `PI_CODING_AGENT_DIR/sessions`, using Pi's native
+home default when unset/empty. The configured YA reader root must match that
+scope. New managed launches refuse a changed native home/storage environment
+before spawning; native `get_state` must report a session file inside the
+admitted scope, in the reader-discoverable `root/<project>/*.jsonl` layout,
+before any prompt is delivered. Root-level or more deeply nested files refuse
+without input. Pi may defer creating that file
+until the first conversation message, so an absent file alone does not fail
+startup. Unsupported input/caller shapes and older servers without this exact
+optional bit retain the existing entry points; the global receipts capability
+remains unadvertised.
+
+Only a successful native RPC `prompt` response confirms the exact input UUID
+associated with that request. Pi 1.4.0 emits it after prompt preflight succeeds
+with started, queued or handled disposition. SDK echoes, queue pulls and stream
+events are presentation only. Refused/unknown responses leave input unconfirmed;
+owner loss preserves uncertainty and cannot replay the saved prompt. Turn
+completion still follows the existing settled-turn boundary below. Native input
+confirmation is not a promise of a successful model answer or persisted reply.
+Hosting additionally requires `session-creation-pi-v1` from both host and worker;
+older generations refuse before native effects without replacing incumbents.
+
+Controlled local/hosted browser checks cover confirmation, streaming, both turns
+after reload/restart/continuation, native refusal, owner loss and an outside-scope
+file. Actual published 0.8.0/0.11.0 clients receive idle native-file updates under
+the public ID after restart. The real Pi 1.4.0 executable also passes creation,
+native JSONL reads and cold continuation against an owned local model endpoint,
+including original conversation context and exactly two model requests. This is
+Node 22/macOS qualification; no external model account, Linux/Windows or Bun
+hosting qualification is claimed. The [implementation ledger](../docs/tactical/171-durable-session-identity-and-creation.md)
+records bounded checks, sole review and remaining provider gates.
+
 ## What pi is (confirmed against the local checkout, 2026-06-21)
 
 A TypeScript monorepo coding agent. The fork at `~/pi` (`origin

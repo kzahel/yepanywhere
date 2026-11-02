@@ -599,6 +599,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
           "session-creation-owner-v1",
           "session-creation-codex-v1",
           "session-creation-opencode-v1",
+          "session-creation-pi-v1",
           "session-native-binding-v1",
           "runtime-control",
           "session-turn",
@@ -2058,7 +2059,15 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     vi.spyOn(host, "handleRequest").mockImplementation(
       async (request: Record<string, unknown>, owner: unknown) => {
         const result = await handle(request, owner);
-        return request.op === "status" ? { ...result, features: [] } : result;
+        return request.op === "status"
+          ? {
+              ...result,
+              features: [
+                "session-creation-owner-v1",
+                "session-creation-codex-v1",
+              ],
+            }
+          : result;
       },
     );
     await host.start();
@@ -2067,6 +2076,9 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     process.env.YEP_SERVER_GENERATION = "old-api";
     try {
       expect(await initializeProviderRuntimeHost()).toBe(true);
+      await expect(assertHostedCreationSupport("pi")).rejects.toThrow(
+        "update the host",
+      );
       await expect(assertHostedCreationSupport("opencode")).rejects.toThrow(
         "update the host",
       );

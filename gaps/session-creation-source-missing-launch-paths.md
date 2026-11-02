@@ -112,8 +112,8 @@ needs review before adding fields; this audit does not select a new capability
 or API contract.
 
 The original request was an audit and gap capture. The later Queue and native v0/peer repairs
-close those omissions only. Remaining repairs span independent review, fork,
-native API and maintenance launch owners; closing Queue does not establish
+close those omissions only. Remaining repairs span independent review, fork
+and maintenance launch owners; closing Queue does not establish
 complete source coverage or justify guessing old records.
 
 Found 2026-11-01 while investigating a YA-created session missing from the

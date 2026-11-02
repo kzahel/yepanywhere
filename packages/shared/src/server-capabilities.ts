@@ -15,6 +15,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  piTextCreation: {
+    name: "session-creation-pi-text",
+    index: CAPABILITY_ID_ALLOCATIONS.piTextCreation.id,
+    introducedIn: "0.11.1",
+  },
   opencodeTextCreation: {
     name: "session-creation-opencode-text",
     index: CAPABILITY_ID_ALLOCATIONS.opencodeTextCreation.id,
@@ -307,6 +312,42 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  piTextCreation: {
+    id: CAPABILITY_ID_ALLOCATIONS.piTextCreation.id,
+    name: "session-creation-pi-text",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.11.1",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.piTextCreation.id,
+    },
+    description:
+      "Owner-only Pi text creation saves intent before startup, binds its native RPC session handle without public remap and confirms input only from a successful native prompt preflight response.",
+    clientFallback:
+      "Use existing process-start endpoints for older servers and unsupported input shapes.",
+    serverContract: {
+      routes: [
+        "POST /api/projects/:projectId/session-creations",
+        "POST /api/session-creations",
+        "GET /api/session-creations/:requestId",
+      ],
+      requestFields: ["requestId", "provider", "message"],
+      responseFields: [
+        "requestId",
+        "sessionId",
+        "projectId",
+        "provider",
+        "creation",
+        "serverTimestamp",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Durable ordinary text acceptance is separate from the deferred all-provider/attachment receipts contract.",
+    },
+  },
   opencodeTextCreation: {
     id: CAPABILITY_ID_ALLOCATIONS.opencodeTextCreation.id,
     name: "session-creation-opencode-text",
@@ -5007,6 +5048,7 @@ export function getSessionTextCreationCapability(
 ) {
   if (provider === "claude") return SERVER_CAPABILITIES.claudeTextCreation;
   if (provider === "codex") return SERVER_CAPABILITIES.codexTextCreation;
+  if (provider === "pi") return SERVER_CAPABILITIES.piTextCreation;
   if (provider === "opencode") return SERVER_CAPABILITIES.opencodeTextCreation;
   return undefined;
 }

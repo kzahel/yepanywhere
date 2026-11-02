@@ -8,6 +8,9 @@ existing flow. Scoped history/watch/discovery and local/host continuation
 foundations are implemented. Remaining caller/provider shapes, attachments,
 automated retry and broader release/OS qualification remain separate follow-ups.
 Published 0.8.0/0.11.0 Claude/Codex observation is qualified as described below.
+OpenCode and Pi ordinary owner text creation now have independent optional
+capabilities; their provider sections record native proof, storage and validation
+limits. This does not enable every retained provider or input shape.
 
 [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 defines the implementation slices, isolated-profile qualification and requested
@@ -89,6 +92,16 @@ feature gate. Public UUID and native `ses_*` remain separate throughout the
 same saved-intent, recovery, history and continuation lifecycle. DB/WAL and JSON
 stores qualify for new launches; export-only sources remain read/resume-only.
 The global receipts capability and other provider/input shapes remain gated.
+
+### Pi text acceptance — November 2
+
+The separately negotiated `session-creation-pi-text` capability (global id 145)
+selects ordinary owner text acceptance for Pi. The
+[Pi contract](pi-provider.md#durable-ordinary-text-creation) owns canonical
+reader/native scope agreement, native file validation, prompt-preflight proof
+and the host/worker feature. The same saved-intent recovery rules retain YA's
+public ID while Pi allocates its native ID. Other input/caller shapes and the
+global receipts contract remain gated independently.
 
 ### Recovery and verification boundary — November 2
 

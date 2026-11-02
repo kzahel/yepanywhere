@@ -33,10 +33,40 @@ import {
 } from "../index.js";
 
 describe("server capability advertisements", () => {
+  it("requires the Pi-specific text creation bit across supported releases", () => {
+    const name = getSessionTextCreationCapability("pi")!.name;
+    expect(name).toBe(CAPABILITY_ID_ALLOCATIONS.piTextCreation.name);
+    expect(getSessionTextCreationCapability("unqualified")).toBeUndefined();
+    for (const current of ["0.8.0", "0.9.0", "0.10.0", "0.11.0", "99.0.0"]) {
+      expect(serverHasCapability({ current }, name)).toBe(false);
+      expect(
+        serverHasCapability(
+          {
+            current,
+            ...encodeVersionedServerCapabilities(
+              [
+                CAPABILITY_ID_ALLOCATIONS.codexTextCreation.name,
+                CAPABILITY_ID_ALLOCATIONS.claudeTextCreation.name,
+              ],
+              current,
+            ),
+          },
+          name,
+        ),
+      ).toBe(false);
+      expect(
+        serverHasCapability(
+          { current, ...encodeVersionedServerCapabilities([name], current) },
+          name,
+        ),
+      ).toBe(true);
+    }
+  });
+
   it("requires the OpenCode-specific text creation bit across supported releases", () => {
     const name = getSessionTextCreationCapability("opencode")!.name;
     expect(name).toBe(CAPABILITY_ID_ALLOCATIONS.opencodeTextCreation.name);
-    expect(getSessionTextCreationCapability("pi")).toBeUndefined();
+    expect(getSessionTextCreationCapability("unqualified")).toBeUndefined();
     for (const current of ["0.8.0", "0.9.0", "0.10.0", "0.11.0", "99.0.0"]) {
       expect(serverHasCapability({ current }, name)).toBe(false);
       expect(
