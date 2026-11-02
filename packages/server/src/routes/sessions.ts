@@ -3305,23 +3305,32 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       // Claude uses the fast reverse-scan when there is no durable overlay to
       // compare; every other provider goes through the cross-provider load +
       // normalize, then a shared extractor on the uniform message form.
+      const sourceDeps = providerResolutionDeps(deps);
       const bound = boundSessionSource(
         transcriptProject,
         sessionId,
-        providerResolutionDeps(deps),
+        sourceDeps,
       );
-      const reader =
+      const legacy =
         bound === undefined
-          ? deps.readerFactory(transcriptProject)
-          : bound?.source.reader;
-      const nativeSessionId =
-        bound === undefined
-          ? parseNativeSessionId(sessionId)
-          : bound?.nativeSessionId;
-      lastAgentText ??=
-        reader?.getLastAgentExcerpt && nativeSessionId
-          ? await reader.getLastAgentExcerpt(nativeSessionId)
+          ? await resolveLegacySessionSource(
+              {
+                provider: transcriptProject.provider,
+                reader: deps.readerFactory(transcriptProject),
+                sessionDir: transcriptProject.sessionDir,
+                kind: "primary",
+              },
+              sessionId,
+              { ...transcriptProject, id: transcriptProjectId },
+              sourceDeps,
+            )
           : undefined;
+      const readable = bound ?? legacy;
+      lastAgentText ??= readable?.source.reader.getLastAgentExcerpt
+        ? await readable.source.reader.getLastAgentExcerpt(
+            readable.nativeSessionId,
+          )
+        : undefined;
       if (lastAgentText === undefined) {
         const normalized = await loadRestartSourceSession(
           transcriptProject,
@@ -9420,7 +9429,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           },
         );
         try {
-          const child = identities?.adoptDiscovered({
+          const child = identities?.adoptCopiedNative({
             native: nativeCopy,
             provider: cloneProvider,
             projectId: birthProjectId,

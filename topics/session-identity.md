@@ -672,3 +672,42 @@ attempt projections rather than decoding retained request payloads.
 
 Public creation, actual durable launching, the remaining callers and capability
 advertisement remain gated by the rest of plan 171.
+
+### Native allocation and discovery quarantine
+
+Migration 20 gives each dispatching creation one unresolved native-allocation
+claim. The current attempt/generation and canonical provider family/store scope
+commit in the same transaction as dispatch. The scope comes from trusted launch
+configuration, including the actual account/sandbox store; it is never a client
+hint or an id-format inference. The private namespace evidence remains in the
+attempt's existing 8 KiB/64 MiB budgets. Oversized or over-capacity evidence
+refuses dispatch and rolls back the claim. Claims are bounded by the profile's
+10,000 operations; they have no timers or automatic expiry.
+
+While a claim exists, unknown native discoveries in that namespace cannot be
+adopted or exposed as another public session. Existing reverse bindings stay
+readable, and unrelated proven scopes remain usable. Old scope-less catalogue
+rows defer while that family has unresolved allocation. Batch discovery returns
+an aligned absent result for each deferred row, so one quarantined native
+resource does not prevent unrelated known rows from publishing. Point legacy
+history, excerpts, helper/diagnostic reads and focused watches use the same
+native-source proof; unavailable proof cannot authorize an ambient fallback.
+Native catalogue/index rows and provider files keep their physical addresses.
+
+A matching current-attempt native binding releases only its own claim atomically.
+Another unresolved allocation in the same namespace continues to quarantine
+unknown discovery. Wrong scopes, duplicate bindings and stale callbacks cannot
+release it. Uncertain owner loss or deletion without a proven binding retains
+the claim across restart; deleting a saved payload does not prove absence of
+native effects. Explicit evidence-based reconciliation remains required before
+that uncertainty can be cleared.
+
+Retained native fork/copy adapters may import their known successful owned copy
+through the explicitly named copied-native boundary. It preserves their existing
+child id and conflict checks; it does not infer which unknown discovery belongs
+to an unresolved startup. The remaining pre-effect fork/provenance admission
+work in plan 171 is unchanged.
+
+This prerequisite does not enable durable launch routes or advertise a creation
+capability. Actual dispatch, owner/host reconciliation and caller rollout still
+require the remaining phase 4–9 implementation and qualification.

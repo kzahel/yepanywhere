@@ -287,7 +287,7 @@ it("counts a bound creation before native publication and deduplicates its later
       sessionCount: 2,
       sessionCountsByProvider: { claude: 2 },
     });
-    const attempt = metadata.creations.beginDispatch(saved.attempt);
+    const attempt = metadata.creations.beginDispatch(saved.attempt, native);
     metadata.creations.bindNative(attempt, native);
     expect((await cards([unrelated]))[0]).toMatchObject({
       sessionCount: 2,

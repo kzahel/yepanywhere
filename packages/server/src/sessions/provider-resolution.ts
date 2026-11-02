@@ -132,6 +132,8 @@ export async function resolveLegacySessionSource(
       )
         return null;
     }
+    if (deps.identities && !deps.identities.canDiscoverNative(native))
+      return null;
     const owner = deps.identities?.lookupNative(native);
     if (
       owner &&
@@ -139,6 +141,13 @@ export async function resolveLegacySessionSource(
     )
       return null;
   }
+  if (
+    !native &&
+    deps.identities?.hasPendingNativeFamily(
+      nativeSessionFamily(source.provider),
+    )
+  )
+    return null;
   const selected = native
     ? {
         ...source,
@@ -283,6 +292,10 @@ async function publicSessionSummaries<T extends SessionListSummary>(
     .adoptDiscoveredBatch(candidates)
     .entries()) {
     const position = positions[index]!;
+    if (!identity) {
+      excluded.add(position);
+      continue;
+    }
     result[position] = {
       ...sessions[position]!,
       id: identity.sessionId,

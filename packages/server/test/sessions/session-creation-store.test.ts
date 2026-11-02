@@ -198,8 +198,8 @@ it("fences generations, binding, delivery, uncertain recovery and stale cleanup 
     "/native/project",
     parseNativeSessionId("native_00001"),
   );
-  const activeA = store.beginDispatch(a.attempt),
-    activeB = store.beginDispatch(b.attempt);
+  const activeA = store.beginDispatch(a.attempt, native),
+    activeB = store.beginDispatch(b.attempt, native);
   expect(() => store.bindNative(a.attempt, native)).toThrow(
     StaleCreationAttempt,
   );

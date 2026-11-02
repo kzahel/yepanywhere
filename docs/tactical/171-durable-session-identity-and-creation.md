@@ -86,6 +86,30 @@ Runtime work and the provenance defect remain unimplemented.
   path supplied for the final run. That corrected complete Node 26 workspace
   passes (6,814 server / 7,064 client; server 127.96 s). Public creation, actual
   durable launching and capability remain unchanged.
+- Phase 4 native-allocation quarantine is independently accepted by Sol 6.1
+  High. Dispatch
+  and the selected native namespace claim commit together, preventing an early
+  provider transcript from being adopted as a second public session. Known
+  bindings remain usable; matching binding releases its claim, while uncertainty
+  and deletion without native proof retain it. Private namespace evidence uses
+  existing attempt budgets. Real SQLite and HTTP/native-file checks cover
+  rollback/capacity, two concurrent claims, wrong/stale binding, reopen, legacy
+  read/list exclusion and publication solely under the YA id after binding.
+  A review correction removes the asynchronous no-claim watch fallback: the
+  deterministic red case attached N after a paused lookup; the corrected source
+  refuses N while known and unrelated scopes still receive actual append events.
+  A full-gate regression also exposed unnecessary summary acquisition in the
+  retained preview path. Direct guarded excerpt reads preserve that historical
+  behavior; a separate Sol review accepts the correction. Final focused checks
+  pass 107 cases across 14 files in 5.26 s. Corrected owned
+  Node/Bun standalone early-file/guarded-preview/restart/live-binding/restart
+  probes pass; direct
+  Node 22/Bun 19→20 and retained-quarantine probes pass. Node 22 emits its
+  documented SQLite experimental notice. Final lint has zero warnings;
+  format/typecheck and the corrected complete Node 26 workspace pass (6,817
+  server / 7,064 client; server 129.64 s). The earlier full preview failure is
+  retained as red evidence. No actual durable launcher or capability is enabled
+  by this prerequisite.
 - Phase 2: implemented and independently accepted by Sol 6.1 High after fixing
   stored-identity missing-transcript fallback and Codex read ownership. Migration
   17, scoped forward/reverse adoption and bound Claude/Codex detail/history are

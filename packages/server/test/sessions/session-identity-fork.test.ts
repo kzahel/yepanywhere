@@ -286,7 +286,7 @@ it("forks and clones the native Claude source while keeping public lineage and d
           },
         });
         expect(fork.mock.calls[0]?.[0]).not.toHaveProperty("sessionId");
-        const adoption = vi.spyOn(metadata.identities, "adoptDiscovered");
+        const adoption = vi.spyOn(metadata.identities, "adoptCopiedNative");
         adoption.mockImplementationOnce(() => {
           throw new Error("injected identity save failure");
         });

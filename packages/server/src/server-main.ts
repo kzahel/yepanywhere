@@ -17,7 +17,6 @@ import {
   idleReapHoursToMs,
   isClaudeProviderName,
   isYaSessionId,
-  parseNativeSessionId,
   toUrlProjectId,
   parseSpeechVoiceBackends,
   unionSpeechVoiceBackends,
@@ -139,7 +138,10 @@ import { SpeechBackendInstallService } from "./services/voice/speechBackendInsta
 import { claudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { codexEntryCacheBudget } from "./sessions/codex-entry-cache-budget.js";
 import { providerCatalogFamily } from "./sessions/provider-catalog-family.js";
-import { boundSessionSource } from "./sessions/provider-resolution.js";
+import {
+  boundSessionSource,
+  resolveLegacySessionSource,
+} from "./sessions/provider-resolution.js";
 import { AttachmentStagingService } from "./uploads/AttachmentStagingService.js";
 import { UploadManager } from "./uploads/manager.js";
 import {
@@ -1373,12 +1375,26 @@ async function startServer() {
         identity ? { kind: "stored", identity } : { kind: "legacy" },
       );
       if (bound === null) return null;
-      return {
-        reader: bound?.source.reader ?? readerFactory(project),
-        nativeSessionId:
-          bound?.nativeSessionId ?? parseNativeSessionId(sessionId),
-        projectId: bound?.projectId ?? project.id,
-      };
+      const legacy = bound
+        ? undefined
+        : await resolveLegacySessionSource(
+            {
+              reader: readerFactory(project),
+              provider: project.provider,
+              sessionDir: project.sessionDir,
+              kind: "primary",
+            },
+            sessionId,
+            project,
+            { readerFactory, identities: sessionMetadataService.identities },
+          );
+      return bound || legacy
+        ? {
+            reader: bound?.source.reader ?? legacy!.source.reader,
+            nativeSessionId: bound?.nativeSessionId ?? legacy!.nativeSessionId,
+            projectId: bound?.projectId ?? project.id,
+          }
+        : null;
     },
   });
 

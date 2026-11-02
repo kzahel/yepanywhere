@@ -29,6 +29,13 @@ export function metadataForNativeCatalogRow(
   if (!metadata) return undefined;
   const native = nativeCatalogSessionRef(row);
   const bound = native && metadata.identities.lookupNative(native);
+  if (
+    !bound &&
+    (native
+      ? !metadata.identities.canDiscoverNative(native)
+      : metadata.identities.hasPendingNativeFamily(row.catalogFamily))
+  )
+    return undefined;
   if (bound) return metadata.getMetadata(bound.sessionId);
   // A public claim without this native binding is a different resource (or
   // an unbound one). Do not import its archive/provider facts into this row.
@@ -47,6 +54,7 @@ export async function projectCatalogIdentities(
   signal?: AbortSignal,
 ): Promise<Array<SessionCatalogRow & { nativeSessionId: string }>> {
   if (signal?.aborted) return [];
+  const excluded = new Set<number>();
   const rows = nativeRows.map((row) => ({
     ...row,
     nativeSessionId: row.sessionId,
@@ -60,6 +68,13 @@ export async function projectCatalogIdentities(
     const positions: number[] = [];
     for (const [position, row] of nativeRows.entries()) {
       if (signal?.aborted) return [];
+      if (
+        !row.nativeStorageScope &&
+        identities.hasPendingNativeFamily(row.catalogFamily)
+      ) {
+        excluded.add(position);
+        continue;
+      }
       if (
         !["claude", "codex", "opencode", "pi", "grok", "gemini"].includes(
           row.catalogFamily,
@@ -110,6 +125,10 @@ export async function projectCatalogIdentities(
       .adoptDiscoveredBatch(candidates)
       .entries()) {
       const position = positions[index]!;
+      if (!identity) {
+        excluded.add(position);
+        continue;
+      }
       rows[position] = {
         ...rows[position]!,
         sessionId: identity.sessionId,
@@ -122,5 +141,5 @@ export async function projectCatalogIdentities(
       };
     }
   }
-  return rows;
+  return rows.filter((_, index) => !excluded.has(index));
 }

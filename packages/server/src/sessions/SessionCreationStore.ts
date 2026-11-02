@@ -6,6 +6,7 @@ import {
   EFFORT_LEVEL_ORDER,
   assertUrlProjectId,
   parseYaSessionId,
+  nativeSessionFamily,
   type NativeSessionRef,
   type SessionCreationStatus,
   type ProviderName,
@@ -17,6 +18,10 @@ import type {
   EffectiveSessionLaunchSettingsValue,
   SessionMetadataService,
 } from "../metadata/SessionMetadataService.js";
+import {
+  validateNativeSessionNamespace,
+  type NativeSessionNamespace,
+} from "./SessionIdentityStore.js";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
 
 /** Trusted ownership, separate from descriptive client hints. Never stores grants. */
@@ -265,6 +270,9 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
 /** Profile-owned synchronous control state. Fixed statements, no timers or caches. */
 export class SessionCreationStore {
   private readonly statements: Record<
+    | "claimNative"
+    | "nativeClaim"
+    | "releaseNativeClaim"
     | "advanceGeneration"
     | "projections"
     | "byId"
@@ -288,6 +296,15 @@ export class SessionCreationStore {
   ) {
     metadata.assertProfileConnection(database);
     this.statements = {
+      claimNative: database.prepare(
+        "INSERT INTO native_session_allocations (creation_id, attempt_id, generation, native_family, native_scope) VALUES (?, ?, ?, ?, ?)",
+      ),
+      nativeClaim: database.prepare(
+        "SELECT * FROM native_session_allocations WHERE creation_id = ?",
+      ),
+      releaseNativeClaim: database.prepare(
+        "DELETE FROM native_session_allocations WHERE creation_id = ? AND attempt_id = ? AND generation = ?",
+      ),
       advanceGeneration: database.prepare(
         "UPDATE session_creation_capacity SET generation = generation + 1 WHERE id = 1",
       ),
@@ -555,9 +572,19 @@ export class SessionCreationStore {
     delivery: CreationDelivery,
     failure?: CreationAttempt["failure"],
     generation = fence.generation,
+    namespace?: NativeSessionNamespace,
   ): CreationAttempt {
     const previous = this.statements.attempt.get<AttemptRow>(fence.attemptId)!;
-    const detail = JSON.stringify(failure ? { failure } : {}),
+    const retained: { nativeNamespace?: NativeSessionNamespace } = JSON.parse(
+      previous.detail_json,
+    );
+    const nativeNamespace = namespace ?? retained.nativeNamespace;
+    const detail = JSON.stringify({
+        ...(nativeNamespace
+          ? { nativeNamespace: validateNativeSessionNamespace(nativeNamespace) }
+          : {}),
+        ...(failure ? { failure } : {}),
+      }),
       size = Buffer.byteLength(detail);
     if (size > 8192) throw new SessionCreationCapacityError();
     this.reserve(0, 0, size - previous.detail_bytes);
@@ -582,17 +609,31 @@ export class SessionCreationStore {
     });
   }
   /** Persist before the external launch. The returned generation owns its callbacks. */
-  beginDispatch(fence: CreationAttemptFence): CreationAttempt {
+  beginDispatch(
+    fence: CreationAttemptFence,
+    namespace: NativeSessionNamespace,
+  ): CreationAttempt {
+    const selected = validateNativeSessionNamespace(namespace);
     return this.database.transaction(() => {
       const current = this.assertCurrent(fence);
       if (!["saved", "queued"].includes(current.attempt.state))
         throw new SessionCreationConflict();
+      if (nativeSessionFamily(current.request!.provider) !== selected.family)
+        throw new SessionCreationConflict();
+      this.statements.claimNative.run(
+        fence.creationId,
+        fence.attemptId,
+        fence.generation + 1,
+        selected.family,
+        selected.storageScope,
+      );
       return this.update(
         fence,
         "dispatching",
         "not-admitted",
         undefined,
         fence.generation + 1,
+        selected,
       );
     });
   }
@@ -619,7 +660,28 @@ export class SessionCreationStore {
       const current = this.assertCurrent(fence);
       if (!["dispatching", "bound"].includes(current.attempt.state))
         throw new SessionCreationConflict();
+      const claim = this.statements.nativeClaim.get<{
+        attempt_id: string;
+        generation: number;
+        native_family: string;
+        native_scope: string;
+      }>(fence.creationId);
+      if (
+        claim &&
+        (claim.attempt_id !== fence.attemptId ||
+          claim.generation !== fence.generation ||
+          claim.native_family !== native.family ||
+          claim.native_scope !== native.storageScope)
+      )
+        throw new SessionCreationConflict();
+      if (!claim && current.attempt.state !== "bound")
+        throw new SessionCreationConflict();
       this.metadata.identities.bindWithinTransaction(current.sessionId, native);
+      this.statements.releaseNativeClaim.run(
+        fence.creationId,
+        fence.attemptId,
+        fence.generation,
+      );
       return this.update(fence, "bound", current.attempt.delivery);
     });
   }

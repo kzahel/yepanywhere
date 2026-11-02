@@ -678,7 +678,13 @@ before their native transcript exists. An atomic control revision participates
 in conditionals and stats invalidation. Hidden projects remain hidden, startup
 updates imply no unread provider content, and mixed bound/native counts use
 identity union. Focused, standalone Node/Bun and complete Node 26 checks pass;
-equal-id Claude integration is next.
+equal-id Claude integration is next. Native-allocation quarantine is also
+independently accepted: dispatch records the selected namespace before effects,
+early unknown transcripts cannot become duplicate public sessions, and matching
+binding releases only its own claim. Unknown outcomes retain quarantine across
+restart/deletion; legacy reads and watches cannot bypass it. A deterministic
+watch race and a retained-preview regression were corrected after review;
+focused, owned Node/Bun probes and complete Node 26 workspace checks pass.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

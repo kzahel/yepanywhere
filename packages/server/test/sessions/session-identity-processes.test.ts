@@ -706,7 +706,7 @@ it("cancels a native discovery before it can adopt or publish after app/database
       database: storage.getDatabase(),
     });
     await metadata.initialize();
-    const adoption = vi.spyOn(metadata.identities, "adoptDiscovered");
+    const adoption = vi.spyOn(metadata.identities, "adoptDiscoveredBatch");
     app = createApp({
       sdk: new MockClaudeSDK(),
       dataDir,

@@ -188,9 +188,12 @@ it("reads saved/failed sessions through authorized APIs without a native project
           "retry_bound_missing",
           current.attempt.attemptId,
         );
-        const dispatch = metadata.creations.beginDispatch(retry);
         const scope = join(root, "selected-native-scope");
         await mkdir(scope);
+        const dispatch = metadata.creations.beginDispatch(retry, {
+          family: "claude",
+          storageScope: await realpath(scope),
+        });
         metadata.creations.bindNative(
           dispatch,
           nativeSessionRef(

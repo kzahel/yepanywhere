@@ -9,6 +9,7 @@ import {
   parseNativeSessionId,
   parseYaSessionId,
   type NativeSessionRef,
+  type NativeSessionFamily,
   type NativeSessionId,
   type ProviderName,
   type UrlProjectId,
@@ -48,6 +49,34 @@ interface IdentityRow {
   native_family: string | null;
   native_scope: string | null;
   native_id: string | null;
+}
+
+/** Actual canonical provider store selected before native allocation. */
+export type NativeSessionNamespace = Pick<
+  NativeSessionRef,
+  "family" | "storageScope"
+>;
+export function validateNativeSessionNamespace(
+  namespace: NativeSessionNamespace,
+): NativeSessionNamespace {
+  if (
+    !namespace ||
+    !NATIVE_SESSION_FAMILIES.includes(namespace.family) ||
+    typeof namespace.storageScope !== "string" ||
+    !isAbsolute(namespace.storageScope) ||
+    namespace.storageScope.length > 4096 ||
+    [...namespace.storageScope].some(
+      (c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127,
+    )
+  )
+    throw new Error("Invalid native session namespace");
+  return { family: namespace.family, storageScope: namespace.storageScope };
+}
+export class NativeSessionAllocationPending extends Error {
+  constructor() {
+    super("Native session allocation is unresolved in this provider store");
+    this.name = "NativeSessionAllocationPending";
+  }
 }
 
 export class SessionIdentityConflict extends Error {
@@ -112,13 +141,21 @@ function decode(row: IdentityRow | undefined): SessionIdentity | undefined {
 
 /** Profile-owned indexed identity lookup, with no per-session cache or timers. */
 export class SessionIdentityStore {
-  // Four fixed statements, released with this owner or the database.
+  // Six fixed statements, released with this owner or the database.
   private readonly byPublicId: SqliteStatement;
   private readonly byNativeRef: SqliteStatement;
   private readonly insert: SqliteStatement;
   private readonly bind: SqliteStatement;
+  private readonly pendingScope: SqliteStatement;
+  private readonly pendingFamily: SqliteStatement;
 
   constructor(private readonly database: SqliteDatabase) {
+    this.pendingScope = database.prepare(
+      "SELECT 1 FROM native_session_allocations WHERE native_family = ? AND native_scope = ? LIMIT 1",
+    );
+    this.pendingFamily = database.prepare(
+      "SELECT 1 FROM native_session_allocations WHERE native_family = ? LIMIT 1",
+    );
     this.byPublicId = database.prepare(
       "SELECT * FROM session_identities WHERE session_id = ?",
     );
@@ -148,26 +185,58 @@ export class SessionIdentityStore {
     );
   }
 
+  /** Known bindings remain addressable; only unknown native discovery defers. */
+  isNativeNamespacePending(namespace: NativeSessionNamespace): boolean {
+    validateNativeSessionNamespace(namespace);
+    return (
+      this.pendingScope.get(namespace.family, namespace.storageScope) !==
+      undefined
+    );
+  }
+  hasPendingNativeFamily(family: NativeSessionFamily): boolean {
+    if (!NATIVE_SESSION_FAMILIES.includes(family))
+      throw new Error("Invalid native session family");
+    return this.pendingFamily.get(family) !== undefined;
+  }
+  canDiscoverNative(native: NativeSessionRef): boolean {
+    return (
+      Boolean(this.lookupNative(native)) ||
+      !this.isNativeNamespacePending(native)
+    );
+  }
+
   /**
    * Explicit native discovery/import boundary. An already bound resource keeps
    * its YA identity, while a legacy resource keeps its existing native/public id.
    * This cannot bind an unbound managed session; attempts own that later step.
    */
   adoptDiscovered(input: DiscoveredSessionIdentity): SessionIdentity {
-    return this.adoptDiscoveredBatch([input])[0]!;
+    const identity = this.adoptDiscoveredBatch([input])[0];
+    if (!identity) throw new NativeSessionAllocationPending();
+    return identity;
   }
 
   /** One discovery publication takes one transaction, never a lock per row. */
   adoptDiscoveredBatch(
     inputs: readonly DiscoveredSessionIdentity[],
-  ): SessionIdentity[] {
+  ): Array<SessionIdentity | undefined> {
     if (inputs.length === 0) return [];
     return this.database.transaction(() =>
       inputs.map((input) => this.adopt(input)),
     );
   }
 
-  private adopt(input: DiscoveredSessionIdentity): SessionIdentity {
+  /** Only a known successful owned native copy may bypass discovery quarantine. */
+  adoptCopiedNative(
+    input: Omit<DiscoveredSessionIdentity, "legacyProvider">,
+  ): SessionIdentity {
+    return this.database.transaction(() => this.adopt(input, true)!);
+  }
+
+  private adopt(
+    input: DiscoveredSessionIdentity,
+    copied = false,
+  ): SessionIdentity | undefined {
     validateNative(input.native);
     if (nativeSessionFamily(input.provider) !== input.native.family) {
       throw new SessionIdentityConflict();
@@ -180,6 +249,7 @@ export class SessionIdentityStore {
       }
       return bound;
     }
+    if (!copied && this.isNativeNamespacePending(input.native)) return;
     // Conversion is specific to legacy native discovery, never an I/O fallback.
     const sessionId = parseYaSessionId(input.native.id);
     if (this.resolveYa(sessionId)) throw new SessionIdentityConflict();
@@ -242,5 +312,7 @@ export class SessionIdentityStore {
     this.byNativeRef.finalize();
     this.insert.finalize();
     this.bind.finalize();
+    this.pendingScope.finalize();
+    this.pendingFamily.finalize();
   }
 }

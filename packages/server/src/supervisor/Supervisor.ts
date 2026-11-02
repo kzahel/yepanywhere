@@ -3686,7 +3686,7 @@ export class Supervisor {
     // that succeeds; later persistence failures retain a known native result.
     try {
       if (fork.native && identities) {
-        const adopted = identities.adoptDiscovered({
+        const adopted = identities.adoptCopiedNative({
           native: fork.native,
           provider: provider.name,
           projectId:

@@ -419,6 +419,7 @@ import { OpenCodeSessionReader } from "./sessions/opencode-reader.js";
 import { PiSessionReader } from "./sessions/pi-reader.js";
 import {
   boundSessionSource,
+  resolveLegacySessionSource,
   findSessionListSummaryAcrossProviders,
   findSessionSummaryAcrossProviders,
   getSessionSourceForProvider,
@@ -1572,15 +1573,60 @@ export function createApp(options: AppOptions): AppResult {
       console.warn(`[App] Failed to close session reader ${key}:`, error);
     }
   };
+  const focusedNativeFile = (
+    filePath: string,
+    native: Pick<NativeSessionRef, "family">,
+  ) => ({
+    filePath,
+    provider: native.family,
+    ...(native.family === "opencode" && filePath.endsWith("opencode.db")
+      ? { additionalFilePaths: [`${filePath}-wal`] }
+      : native.family === "grok"
+        ? {
+            additionalFilePaths: [
+              "chat_history.jsonl",
+              "events.jsonl",
+              "updates.jsonl",
+            ].map((name) => join(dirname(filePath), name)),
+          }
+        : {}),
+  });
   const focusedSessionWatchManager = new FocusedSessionWatchManager({
     scanner,
     codexScanner,
     geminiScanner,
-    resolveStoredSessionFile: async ({ sessionId }, signal) => {
+    resolveStoredSessionFile: async (
+      { sessionId, projectId, providerHint },
+      signal,
+    ) => {
+      if (signal.aborted || sessionReadLifetime.signal.aborted) return null;
       const identity = isYaSessionId(sessionId)
         ? options.sessionMetadataService?.identities?.resolveYa(sessionId)
         : undefined;
-      if (!identity) return undefined;
+      if (!identity) {
+        const identities = options.sessionMetadataService?.identities;
+        if (!identities) return undefined;
+        if (!isUrlProjectId(projectId)) return null;
+        const project = await scanner.getOrCreateProject(projectId);
+        if (!project || signal.aborted) return null;
+        const deps = { ...sessionProviderResolutionDeps(), signal };
+        for (const source of getSessionSources(project, deps, providerHint)) {
+          const legacy = await resolveLegacySessionSource(
+            source,
+            sessionId,
+            project,
+            deps,
+          );
+          if (!legacy?.native || signal.aborted) continue;
+          const filePath = await legacy.source.reader.getSessionFilePath?.(
+            legacy.nativeSessionId,
+          );
+          if (signal.aborted) return null;
+          if (filePath && identities.canDiscoverNative(legacy.native))
+            return focusedNativeFile(filePath, legacy.native);
+        }
+        return null;
+      }
       const native = identity.native;
       if (
         !native ||
@@ -1596,23 +1642,7 @@ export function createApp(options: AppOptions): AppResult {
         native,
       );
       const filePath = await reader.getSessionFilePath?.(native.id);
-      return filePath
-        ? {
-            filePath,
-            provider: native.family,
-            ...(native.family === "opencode" && filePath.endsWith("opencode.db")
-              ? { additionalFilePaths: [`${filePath}-wal`] }
-              : native.family === "grok"
-                ? {
-                    additionalFilePaths: [
-                      "chat_history.jsonl",
-                      "events.jsonl",
-                      "updates.jsonl",
-                    ].map((name) => join(dirname(filePath), name)),
-                  }
-                : {}),
-          }
-        : null;
+      return filePath ? focusedNativeFile(filePath, native) : null;
     },
   });
   let conversationSubscriptions: ConversationSubscriptions | undefined;
@@ -2460,25 +2490,35 @@ export function createApp(options: AppOptions): AppResult {
     recoverSessionLaunchSettings: async (sessionId, projectId, provider) => {
       const project = await scanner.getOrCreateProject(projectId);
       if (!project) return undefined;
-      const bound = boundSessionSource(project, sessionId, {
-        readerFactory,
-        identities: options.sessionMetadataService?.identities,
-      });
+      const deps = sessionProviderResolutionDeps();
+      const bound = boundSessionSource(project, sessionId, deps);
       if (bound === null) return undefined;
       const recoveryProvider =
         bound?.source.provider ?? provider ?? project.provider;
       if (recoveryProvider !== "codex" && recoveryProvider !== "codex-oss") {
         return undefined;
       }
-      const reader =
-        bound?.source.reader ??
-        readerFactory({
-          ...project,
-          provider: recoveryProvider,
-          sessionDir: codexSessionsDir,
-        });
-      return reader.getRecoveredLaunchSettings?.(
-        bound?.nativeSessionId ?? sessionId,
+      const legacy = bound
+        ? undefined
+        : await resolveLegacySessionSource(
+            {
+              provider: recoveryProvider,
+              reader: readerFactory({
+                ...project,
+                provider: recoveryProvider,
+                sessionDir: codexSessionsDir,
+              }),
+              sessionDir: codexSessionsDir,
+              kind: "codex",
+            },
+            sessionId,
+            project,
+            deps,
+          );
+      return (
+        bound?.source.reader ?? legacy?.source.reader
+      )?.getRecoveredLaunchSettings?.(
+        bound?.nativeSessionId ?? legacy!.nativeSessionId,
       );
     },
     getPromptCacheKeepaliveSettings: (providerName) => {
@@ -2510,19 +2550,23 @@ export function createApp(options: AppOptions): AppResult {
       const project = await scanner.getOrCreateProject(projectId);
       if (!project)
         throw new Error("Instruction history project is unavailable");
-      const bound = boundSessionSource(
-        project,
-        sessionId,
-        sessionProviderResolutionDeps(),
-      );
+      const deps = sessionProviderResolutionDeps();
+      const bound = boundSessionSource(project, sessionId, deps);
       if (bound === null)
         throw new Error("Instruction history has no native source");
-      const reader =
-        bound?.source.reader ?? readerFactory({ ...project, provider });
-      const loaded = await reader.getSession(
-        bound?.nativeSessionId ?? sessionId,
-        bound?.projectId ?? projectId,
-      );
+      const candidate = bound
+        ? undefined
+        : getSessionSourceForProvider(project, deps, provider);
+      const legacy = candidate
+        ? await resolveLegacySessionSource(candidate, sessionId, project, deps)
+        : undefined;
+      const reader = bound?.source.reader ?? legacy?.source.reader;
+      const loaded = reader
+        ? await reader.getSession(
+            bound?.nativeSessionId ?? legacy!.nativeSessionId,
+            bound?.projectId ?? projectId,
+          )
+        : null;
       if (!loaded)
         throw new Error(
           "Instruction history is unavailable for resumed session",
@@ -2632,6 +2676,7 @@ export function createApp(options: AppOptions): AppResult {
             const identities = options.sessionMetadataService?.identities;
             if (!identities) return undefined;
             let identity = identities.lookupNative(native);
+            if (!identity && !identities.canDiscoverNative(native)) return null;
             let discoveredProjectId: UrlProjectId | undefined;
             if (!identity) {
               if (identities.resolveYa(parseYaSessionId(nativeId))) return null;
@@ -2665,14 +2710,17 @@ export function createApp(options: AppOptions): AppResult {
                 (await readClaudeCatalogHead(file)).createdAt ??
                 event.timestamp;
               if (signal.aborted) return null;
-              identity = identities.adoptDiscovered({
-                native,
-                provider: event.provider,
-                legacyProvider:
-                  options.sessionMetadataService?.getProvider(nativeId),
-                projectId: project.id,
-                createdAt,
-              });
+              identity = identities.adoptDiscoveredBatch([
+                {
+                  native,
+                  provider: event.provider,
+                  legacyProvider:
+                    options.sessionMetadataService?.getProvider(nativeId),
+                  projectId: project.id,
+                  createdAt,
+                },
+              ])[0];
+              if (!identity) return null;
             }
             return {
               sessionId: identity.sessionId,
@@ -3463,13 +3511,10 @@ export function createApp(options: AppOptions): AppResult {
       const source = provider
         ? getSessionSourceForProvider(project, deps, provider)
         : getSessionSources(project, deps)[0];
-      return source
-        ? {
-            source,
-            nativeSessionId: parseNativeSessionId(sessionId),
-            projectId: project.id,
-          }
+      const legacy = source
+        ? await resolveLegacySessionSource(source, sessionId, project, deps)
         : null;
+      return legacy ? { ...legacy, projectId: project.id } : null;
     };
     const issueSettings = () =>
       settings.getSetting("issueAssociations") ?? DEFAULT_ISSUE_SETTINGS;

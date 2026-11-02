@@ -90,6 +90,7 @@ export function describeNativeProcessSessions(deps: {
     const identities =
       deps.metadata.identities.adoptDiscoveredBatch(discoveries);
     for (const [index, identity] of identities.entries()) {
+      if (!identity) continue;
       const { session, row } = matched[index]!;
       const metadata = deps.metadata.getMetadata(identity.sessionId);
       const title = getSessionDisplayTitle({
