@@ -311,3 +311,60 @@ it.each(["remote", "sandbox", "codex-default"])(
     await session.abort();
   },
 );
+
+it("bootstraps public API and self identity before native start and keeps it across native init", async () => {
+  const { parseYaSessionId } = await import("@yep-anywhere/shared");
+  const native = createControllableIterator();
+  let delivered!: StartSessionOptions;
+  const publicId = parseYaSessionId("public-creation-session");
+  const session = await startAgentSelfSession(
+    "claude",
+    {
+      cwd: ".",
+      publicSessionId: publicId,
+      newSessionId: "native-creation-session",
+      agentSelf: true,
+      agentApi: { serverId: "public-creation-profile" },
+    },
+    async (options) => {
+      delivered = options;
+      expect(
+        (await api(options.agentApiEnvironment!, "/v0/me")).json().session.id,
+      ).toBe(publicId);
+      return {
+        queue: new MessageQueue(),
+        iterator: {
+          ...native.iterator,
+          [Symbol.asyncIterator]() {
+            return this;
+          },
+        },
+        abort: () => native.finish(),
+      };
+    },
+  );
+  try {
+    native.push({
+      type: "system",
+      subtype: "init",
+      session_id: "native-creation-session",
+    });
+    await session.iterator.next();
+    expect(
+      (await api(delivered.agentApiEnvironment!, "/v0/me")).json().session.id,
+    ).toBe(publicId);
+    const response = await fetch(
+      delivered.agentEnvironment!.AGENT_YA_API_URL + "/v1/self",
+      {
+        headers: {
+          Authorization:
+            "Bearer " + delivered.agentEnvironment!.AGENT_YA_API_TOKEN,
+        },
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ sessionId: publicId });
+  } finally {
+    await session.abort();
+  }
+});

@@ -3,7 +3,6 @@ import { chmod, rm } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import {
   type ProviderSessionOwner,
-  PROVIDER_SESSION_PROTOCOL_VERSION,
   providerSessionErrorMessage,
 } from "./provider-session-owner.js";
 
@@ -92,7 +91,7 @@ export class ProviderRuntimeSocketAdapter {
     if (request.type !== "attach" || request.token !== this.token) {
       throw new Error("Unauthorized provider worker attach");
     }
-    if (request.protocolVersion !== PROVIDER_SESSION_PROTOCOL_VERSION) {
+    if (request.protocolVersion !== this.owner.protocolVersion()) {
       throw new Error("Incompatible provider worker protocol");
     }
     const generation =
@@ -102,6 +101,7 @@ export class ProviderRuntimeSocketAdapter {
       generation,
       (message) => writeSocket(socket, message),
       {
+        creation: request.creation,
         isActive: () => !socket.destroyed,
         agentApiAllowed: request.agentApiAllowed === true,
         agentApiPeersAllowed: request.agentApiPeersAllowed === true,

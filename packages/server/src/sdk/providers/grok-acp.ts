@@ -550,7 +550,7 @@ export class GrokACPProvider implements AgentProvider {
       promptError: null,
     };
     const agentctlSessionEnvBridge = createAgentctlSessionEnvBridge(
-      options.resumeSessionId,
+      options.publicSessionId ?? options.resumeSessionId,
       options.getSessionChildEnv,
     );
     const iterator = this.runSession(

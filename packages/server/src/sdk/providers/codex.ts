@@ -3078,7 +3078,7 @@ export class CodexProvider implements AgentProvider {
       // Spawns must use this runtime: it also mounts the bridge directory.
       sessionSandbox,
     } = createLaunchAgentctlSessionEnvBridge({
-      initialSessionId: options.resumeSessionId,
+      initialSessionId: options.publicSessionId ?? options.resumeSessionId,
       getSessionEnv: options.getSessionChildEnv,
       sessionSandbox: options.sessionSandbox,
     });

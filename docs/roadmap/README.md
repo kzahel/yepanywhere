@@ -710,6 +710,14 @@ launch input, old workers retain their behavior, and owned Node 22/26
 deadline/verified-cleanup probes pass. Focused assembled-host and complete
 workspace checks pass. Managed worker evidence and attach fencing remain
 gated, alongside remaining input shapes and router/sandbox integration.
+Worker-held attempt/native/input evidence and protocol-2 attach are now
+independently accepted after correcting child/self identity bootstrap.
+Scoped stale/forged attachment and terminal admission checks pass; actual
+pinned SDK/CLI probes cover detached delivery and replay, and a real Bash
+tool verifies public bridge/self/API identity before any controller publication.
+Owned Node 22/26 worker and Node/Bun owner qualification pass, as do final
+workspace gates. The managed feature remains unadvertised until host transport,
+saved-attempt reconciliation and Hono replacement are qualified.
 Fully scoped cold resumes,
 remaining provider observation,
 released-client qualification and native source consumers are next; durable

@@ -2251,7 +2251,7 @@ export class ClaudeProvider implements AgentProvider {
       options.sessionOptions,
     );
     const launchBridge = createLaunchAgentctlSessionEnvBridge({
-      initialSessionId: options.resumeSessionId,
+      initialSessionId: options.publicSessionId ?? options.resumeSessionId,
       getSessionEnv: options.getSessionChildEnv,
       sessionSandbox: options.sessionSandbox,
     });

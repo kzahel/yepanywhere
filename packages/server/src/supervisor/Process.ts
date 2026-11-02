@@ -1,3 +1,4 @@
+import { observeProviderInputIds } from "../sdk/providers/creation-runtime-identity.js";
 import { randomUUID } from "node:crypto";
 import type {
   ContextBreakdown,
@@ -5324,37 +5325,19 @@ export class Process {
             }
             message = { ...message, session_id: this._sessionId };
           }
-          if (message.type === "user" && message.uuid) {
-            if (!this.nativeSessionId) {
-              throw new Error("Provider input arrived before native binding");
-            }
-            this.managedIdentity.observeProviderInput(message.uuid);
-          }
-          // The pinned Claude SDK normally emits response-to-input stamps,
-          // without re-yielding user rows. A delivery-failure result can echo a
-          // failed send, so only actual reply frames/success qualify here.
           if (
-            this.nativeSessionId &&
-            isClaudeProviderName(this.provider) &&
-            !message.parent_tool_use_id &&
-            (message.type === "assistant" ||
-              message.type === "stream_event" ||
-              (message.type === "result" && message.subtype === "success"))
+            message.type === "user" &&
+            message.uuid &&
+            !this.nativeSessionId
           ) {
-            if (typeof message.user_message_uuid === "string") {
-              this.managedIdentity.observeProviderInput(
-                message.user_message_uuid,
-              );
-            }
-            if (
-              Array.isArray(message.user_message_uuids) &&
-              message.user_message_uuids.length <= 64
-            ) {
-              for (const id of message.user_message_uuids) {
-                if (typeof id === "string")
-                  this.managedIdentity.observeProviderInput(id);
-              }
-            }
+            throw new Error("Provider input arrived before native binding");
+          }
+          if (this.nativeSessionId) {
+            observeProviderInputIds(
+              message,
+              isClaudeProviderName(this.provider),
+              (id) => this.managedIdentity!.observeProviderInput(id),
+            );
           }
         }
         if (this.toolResultMediaMaterializer) {

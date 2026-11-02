@@ -55,7 +55,7 @@ export class AgentSelfState {
     private readonly provider: ProviderName,
     options: StartSessionOptions,
   ) {
-    this.sessionId = options.resumeSessionId;
+    this.sessionId = options.publicSessionId ?? options.resumeSessionId;
     this.launch = {
       model: value(options.model, "launch-request", "launch", "default"),
       effort: value(options.effort, "launch-request", "launch", "default"),

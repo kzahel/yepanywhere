@@ -10,8 +10,9 @@ was authorized on November 1; phase 1's concrete decisions are recorded in
 [the identity contract](../../topics/session-identity.md#phase-1-implementation-decisions--2026-11-01)
 and were independently accepted by Sol 6.1 High after three concrete design
 corrections. Phase 2 and phase 3's read/discovery/watch/source foundation are
-implemented and independently accepted. Cold-resume/owned-browser gates and
-phase 4's ordinary caller, routed/sandboxed and hosted rollout remain pending.
+implemented and independently accepted. Qualified ordinary Claude text callers and the default SDK bridge are
+implemented. Cold-resume/owned-browser gates and phase 4's remaining input
+shapes, routed/sandboxed and hosted rollout remain pending.
 Acceptance covers the plan's ordering, intermediate contracts
 and enabling gates, not an unspecified schema/wire contract or source work.
 Section 1 and per-slice implementation reviews remain required below.
@@ -20,9 +21,30 @@ The maintainer subsequently requested incorporation of the separate
 [creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md).
 The coordination requirements and coverage ledger below extend this plan;
 Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
-The common caller rollout and the provenance defect remain unimplemented.
+The common caller rollout is partial; the provenance defect remains open.
 
 ## Execution progress
+
+- Phase 4 worker ownership and protocol-2 attachment are independently accepted
+  by Sol 6.1 High after correcting an inner-bridge/AgentSelf bootstrap gap.
+  One immutable bounded creation record carries public id, attempt, native
+  namespace/optional chosen id and independent input UUID. The worker retains
+  native binding and matching input confirmation across detach and acknowledged
+  replay; stale/forged attach fails before replay. Native conflict, completion,
+  API failure and failed public publication close input while retaining cleanup
+  ownership. Private public-id bootstrap initializes inner bridges and self/API
+  identity before native startup; native handles remain separate.
+  Focused checks pass 94 cases / eight files / 10.91 s. Owned pinned SDK/CLI
+  owner probes pass on Node 22, Node 26 and Bun. Actual production-worker
+  socket-2/detached proof and wrong-namespace pre-effect refusal pass on Node 22
+  and Node 26. Real native Bash verifies the inner bridge, AgentSelf and local
+  API all use P with P != N and no controller identity publication on both Node
+  runtimes. Its explicit approval controller preserves existing permission
+  ownership; detached delivery is a separate probe. Lint has zero warnings,
+  format/typecheck and the complete Node 26 workspace pass (6,855 server /
+  7,064 client; server 130.30 s). Host transport, saved-attempt reconciliation,
+  Hono replacement and managed feature advertisement remain gated.
+
 
 - The phase 4 host design refinement and non-enabling startup negotiation are
   independently accepted by Sol 6.1 High. Required worker features withhold
@@ -65,8 +87,7 @@ The common caller rollout and the provenance defect remain unimplemented.
   lint has zero warnings, format/typecheck and the complete Node 26 workspace
   pass (6,841 server / 7,064 client; server 129.09 s). Deferred callbacks retain
   copied launch values instead of raw HTTP contexts/bodies.
-  Legacy RealClaudeSDK default omission,
-  slash/attachment/runtime-authority inputs, limited/routed/sandboxed/hosted
+  Slash/attachment/runtime-authority inputs, limited/routed/sandboxed/hosted
   paths and later phase gates remain pending; no receipt capability ships.
 
 - Phase 4 managed runtime boundary is independently accepted by Sol 6.1 High:

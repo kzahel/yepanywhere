@@ -1,5 +1,6 @@
 import "../../startupEnv.js";
 import type { PermissionMode } from "@yep-anywhere/shared";
+import { nativeSessionFamily } from "@yep-anywhere/shared";
 import { prepareSessionSandbox } from "../../session-sandbox.js";
 import { getModuleEnv } from "../../yaModuleEnv.js";
 import {
@@ -19,6 +20,7 @@ import type { ProviderName, StartSessionOptions } from "./types.js";
 import { withInstructionRestoration } from "./instruction-restoration.js";
 
 interface WorkerLaunchRequest {
+  creation?: unknown;
   providerName: ProviderName;
   options: StartSessionOptions & {
     browserDebugEnvironment?: Record<string, string>;
@@ -105,6 +107,19 @@ async function main(): Promise<void> {
       process.send({ type: "launchHello", protocolVersion: 1, features: [] });
     }
     const request = await readLaunchRequest();
+    if (request.creation !== undefined)
+      owner.setCreationIdentity(request.creation);
+    const creation = owner.creationEvidence()?.identity;
+    if (
+      creation &&
+      (nativeSessionFamily(request.providerName) !==
+        creation.nativeNamespace.family ||
+        request.options.newSessionId !== creation.nativeSessionId ||
+        request.options.resumeSessionId !== undefined ||
+        (request.options.initialMessage !== undefined &&
+          request.options.initialMessage.uuid !== creation.initialInputId))
+    )
+      throw new Error("Creation identity does not match provider launch");
     owner.setIssuedPeerGrantId(request.options.agentApi?.peerGrantId);
     const {
       browserDebugEnvironment: initialBrowserDebugEnvironment,
@@ -115,6 +130,19 @@ async function main(): Promise<void> {
       const provider = getRawProvider(request.providerName);
       if (!provider)
         throw new Error(`Unknown provider ${request.providerName}`);
+      if (creation) {
+        const namespace = await provider.getNewSessionNamespace?.(
+          providerOptions.cwd,
+        );
+        if (
+          !namespace ||
+          namespace.family !== creation.nativeNamespace.family ||
+          namespace.storageScope !== creation.nativeNamespace.storageScope
+        )
+          throw new Error(
+            "Creation native namespace does not match this worker",
+          );
+      }
       if (request.providerName === "claude-gateway") {
         await provider.getAvailableModels();
         await ClaudeGatewayProvider.retainOwnedGatewayProcessGroups(
@@ -147,15 +175,16 @@ async function main(): Promise<void> {
         ? await prepareSessionSandbox(sandboxOptions)
         : undefined;
       const agentctlSessionEnvBridge = createAgentctlSessionEnvBridge(
-        providerOptions.resumeSessionId,
+        creation?.sessionId ?? providerOptions.resumeSessionId,
         () => ({ ...hooks.getBrowserDebugEnvironment() }),
       );
       copyAgentctlBashEnvInto(process.env, agentctlSessionEnvBridge, {
-        sessionId: providerOptions.resumeSessionId,
+        sessionId: creation?.sessionId ?? providerOptions.resumeSessionId,
       });
       try {
         const session = await provider.startSession({
           ...providerOptions,
+          ...(creation ? { publicSessionId: creation.sessionId } : {}),
           getSessionChildEnv: () => ({
             ...hooks.getBrowserDebugEnvironment(),
           }),

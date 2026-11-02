@@ -806,7 +806,8 @@ worker replacement, direct fallback or provider reselection is implicit.
 
 A managed launch carries a version-1 `creation` record: YA `sessionId`,
 `creationId`, `attemptId`, positive integer `generation`, original scoped
-native namespace, chosen `nativeSessionId`, and independent `initialInputId`.
+native namespace, chosen `nativeSessionId` (omitted for provider-allocated ids),
+and independent `initialInputId`.
 It carries no principal, credentials, grants or saved prompt. The authenticated
 Hono owner validates this record against the current SQLite attempt and current
 authorization; the worker holds only that launch's immutable copy. The host
@@ -843,6 +844,14 @@ closes admission and fails the owner. Ready/attached state and host inventory
 retain bounded evidence for the one creation attempt, including whether the
 initial input was confirmed. Public-id publication and child authority always
 use the YA id. Native events stay native until the Hono Process boundary.
+
+Private `StartSessionOptions.publicSessionId` bootstraps the YA id into
+AgentSelf/API leases and each provider's child bridge before native startup.
+Native new/resume handles stay in their existing provider-facing fields. The
+managed owner also publishes the public id through the returned session hook
+before draining output or exposing readiness; publication failure closes
+admission while retaining the actual session for cleanup. A later Hono RPC is
+not the initialization boundary for child authority.
 
 Reattachment never queues the saved initial input again. Positive surviving
 owner evidence can reconcile an uncertain attempt only when the complete fence,
