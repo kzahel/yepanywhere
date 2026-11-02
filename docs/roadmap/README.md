@@ -658,8 +658,11 @@ OpenCode ordinary text creation is implemented behind optional capability
 controlled local/hosted lifecycle and published-client observation pass.
 Its sole Sol review identified empty-XDG scope mismatch, corrected across
 creation/read/resume with focused real-native regression coverage. Full tests
-and static checks pass. The actual 1.18.18 free-model probe returned an upstream
-error, so no successful live-model turn is claimed.
+and static checks pass. The earlier free-model endpoint failed, but subsequent
+OpenCode 1.18.18/OpenAI subscription OAuth smoke with `openai/gpt-6.1-sol` passes
+live creation, native input proof, cold continuation and both exact answers
+after two owned restarts, with one native session/two inputs and one public id.
+This live API/storage qualification is local-owner Node 22/macOS.
 [Its provider contract](../../topics/opencode-backend.md#durable-ordinary-text-creation)
 requires observable DB/JSON storage for new durable launches; export-only history
 remains readable. Pi ordinary owner text creation now has optional capability 145, reader/native
@@ -814,8 +817,10 @@ unrelated port from receiving input, and failed startup retains its real child
 until exit. Real app/store/protocol/reopen and standalone Node 22/26/Bun probes
 pass. Ordinary owner text now uses the independently qualified optional
 capability 144 for observable DB/JSON stores; export-only remains read/resume.
-The real 1.18.18 executable starts, but an upstream free-model error prevents
-successful external-model qualification.
+The real 1.18.18 executable now passes live subscription-model creation and
+cold continuation with `openai/gpt-6.1-sol` in an authorized standalone profile.
+The original free-model endpoint error remains a separate availability result;
+other OS/runtime and live hosted/browser matrices remain unqualified.
 Pi scoped cold continuation is independently accepted after correcting native
 home and empty-directory handling. Exact file/header/project and launch scope
 are checked before effects; returned native attachment is verified before input.

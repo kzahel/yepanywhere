@@ -75,10 +75,24 @@ loss of its owner retains uncertainty and never replays the saved text.
 This conservative boundary can keep follow-up disabled while an initial turn
 is still streaming. Controlled adapter/native DB, HTTP/SSE and hosted lifecycle
 checks pass on Node 22/macOS, as does actual published 0.8.0/0.11.0 observation.
-The isolated real OpenCode 1.18.18 free-model probe returned an upstream error;
-no successful live-model or Linux/Windows qualification is claimed. Hosting additionally negotiates `session-creation-opencode-v1`
-from both host and worker before launch; an old host/worker fails without
-falling back to a new local owner or disturbing incumbents.
+The earlier unauthenticated free-model probe returned an upstream error. A
+subsequent isolated OpenCode 1.18.18 smoke using OpenAI subscription OAuth and
+`openai/gpt-6.1-sol` passes live creation, native input confirmation, server
+restart and cold continuation. Both exact assistant replies survive a second
+restart; read-only native DB checks establish one native session and exactly
+two user inputs. Public collections retain one YA id and refuse a native-id
+public alias. This live qualification is an API/storage smoke on Node 22/macOS
+with a local owner; the existing hosted/browser evidence remains controlled,
+and Linux/Windows live qualification is not claimed.
+
+OpenCode owns subscription authentication in the selected profile; YA launches
+it using that profile's native credentials. A separate OpenCode subscription
+is not required for the tested OpenAI OAuth route. The primary Codex login and
+credentials were not copied into the standalone test profile.
+
+Hosting additionally negotiates `session-creation-opencode-v1` from both host
+and worker before launch; an old host/worker fails without falling back to a
+new local owner or disturbing incumbents.
 
 ## Scope
 

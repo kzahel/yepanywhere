@@ -251,7 +251,7 @@ Desktop/phone captures were inspected: both turns and composer remain usable.
 The pinned OpenCode 1.18.18 executable started, allocated/bound native identity,
 but the isolated unauthenticated free model produced no answer within 70 seconds.
 A direct native availability probe returned upstream UnknownError (exit 1), so
-no live-model creation/continuation pass is claimed. Its installed binary and
+that initial run did not qualify live-model creation/continuation. Its binary and
 profiles are confined to ignored task artifacts; no user provider/config changed.
 Focused native/provider/host checks pass 71 cases in 17.39 seconds. The five-case
 browser suite passed four; the fileless failure assertion incorrectly required
@@ -268,6 +268,31 @@ The owned reviewer was retired with verified stop. Corrected focused coverage
 passes 26 cases/three files in 5.50 seconds, including both real native scope
 variants; final parameterized resume checks pass two cases in 6.37 seconds.
 Pi follows as the next bounded slice below.
+
+### OpenCode subscription qualification — November 2
+
+The maintainer authorized OpenCode sign-in with the existing ChatGPT
+subscription account in a dedicated standalone profile. Native device sign-in
+saved OpenCode's own OAuth credential with mode 0600. No primary Codex credential copy or metered
+API key was used. This supersedes the earlier free-model availability limit
+for the tested subscription path, without changing the pinned executable.
+
+OpenCode 1.18.18 reports `openai/gpt-6.1-sol` in its authenticated model catalog.
+The live API/storage smoke passes saved 202/public UUID, exact first assistant
+answer and native input confirmation, owned YA restart, cold native continuation
+and exact second answer, then another owned restart retaining both replies.
+A read-only native DB check establishes one native allocation, exactly two user
+inputs and both exact assistant text values. Public collection/alias checks
+retain one YA resource and return 404 for its native `ses_*` alias. Owned server
+and native processes are stopped afterward; the authorized standalone login
+remains available for later testing. Credentials remain outside tracked files.
+
+Evidence is retained under ignored `tasks/session-identity/opencode-chatgpt-smoke.log`
+and `opencode-chatgpt-standalone/smoke-result.json`. This is Node 22/macOS local
+owner qualification with the live subscription model; it does not broaden the
+host/browser/OS matrix or imply a new protocol/schema refresh. Only owning
+contracts/roadmap/evidence docs change in this follow-up; no implementation
+review or full runtime suite is repeated for this documentation-only record.
 
 ## Pi ordinary text creation — current slice
 
@@ -1380,7 +1405,7 @@ current Claude/Codex/Gemini support covers the other rows.
 | `claude-ollama` | Claude SDK/transcript family with Ollama launch facts | Preserve retained provider/configuration; qualify native scope and the same read/resume/watch boundaries. |
 | `codex` | App-server thread id, rollout reader | Differing-id launch, native source fork/clone, rollout discovery, owned-input confirmation and focused watch; host claims/bound/reattach. |
 | `codex-oss` | Codex runtime/storage family with distinct launch choice | Qualify alongside Codex or in its own reviewed cut; preserve launch variant even when native discovery reports the family. |
-| `opencode` | Native `ses_*`; ordinary owner text capability 144 | DB/WAL and JSON qualify for new durable launches; export-only remains read/resume. Prefix-independent native resolution and published-client observation pass. Actual free-model endpoint error prevents a live-model pass claim. |
+| `opencode` | Native `ses_*`; ordinary owner text capability 144 | DB/WAL and JSON qualify for new durable launches; export-only remains read/resume. Prefix-independent native resolution and published-client observation pass. Live OpenCode 1.18.18/OpenAI subscription API creation and cold continuation pass on Node 22/macOS; other live runtime/OS matrices remain unqualified. |
 | `pi` | Native RPC ID and JSONL; ordinary owner text capability 145 | Native read/resume/discovery foundations and idle native-file observation qualify; local/hosted lifecycle and actual Pi 1.4.0 owned-model smoke pass. Other input/caller/platform shapes retain their gates. |
 | `grok` | Retained ACP/native transcript shape | Native read/resume/control/discovery and ownership joins; qualify bounded old-client observation. No current focused Grok target is assumed. |
 | `gemini` | Frozen CLI/native history path | Preserve current protocol and historical reads; audit namespace separately from ACP and qualify broad/focused observation or obtain an explicit limitation decision before enabling. |

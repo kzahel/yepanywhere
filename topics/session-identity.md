@@ -92,6 +92,11 @@ feature gate. Public UUID and native `ses_*` remain separate throughout the
 same saved-intent, recovery, history and continuation lifecycle. DB/WAL and JSON
 stores qualify for new launches; export-only sources remain read/resume-only.
 The global receipts capability and other provider/input shapes remain gated.
+A live OpenCode 1.18.18/OpenAI subscription smoke with `openai/gpt-6.1-sol`
+qualifies local-owner API creation, native input proof and cold continuation
+through two owned restarts under one public id; both exact answers and exactly
+two native user inputs are verified. Its provider contract records the separate
+controlled browser/host coverage and remaining live OS/runtime boundaries.
 
 ### Pi text acceptance — November 2
 
