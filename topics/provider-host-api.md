@@ -131,6 +131,17 @@ the new transition. Unsupported
 new launches never upgrade or restart incumbent workers. A request timeout or
 cleanup failure is not evidence that native effects were absent.
 
+Existing native continuations separately negotiate `session-native-binding-v1`
+and worker protocol 3. The exact YA id/scoped native binding must match at
+launch, claim, attach and release; it carries no new-creation authority. A
+surviving creation worker keeps protocol 2. Unconfirmed first input cannot
+cold-start a replacement; a later continuation after confirmed consumption may
+use the proved native source. Recent continuation recipes retain the binding
+and omit their previous initial message. Stores containing these recipes use
+private format 2 so older readers refuse rather than discard binding fields;
+legacy-only stores retain format 1. See the owning
+[hosted native continuation contract](session-identity.md#hosted-native-continuation).
+
 The stream carries queue pushes, queue-depth/removal state, sequenced
 `SDKMessage` events and acknowledgements, provider controls/RPC, permission
 state, approvals, completion, and failure. Acknowledgement advances only after

@@ -2,6 +2,7 @@ import {
   draftStorage,
   subscribeDraftStorage,
   confirmSyncedDraft,
+  confirmCapturedDraftSubmission,
   resumeSyncedDraft,
 } from "../lib/draftSyncStorage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -61,6 +62,12 @@ export interface DraftControls {
   ) => boolean;
   /** Clear both input state and localStorage (call on confirmed success) */
   clearDraft: () => void;
+  /** Capture this exact slot/value before asynchronous creation work. */
+  captureSubmission?: () => {
+    text: string;
+    confirm: () => boolean;
+    cancel: () => void;
+  };
   /** Restore from localStorage (call on failure) */
   restoreFromStorage: () => void;
   /** Focus the textarea that owns this draft, if it is mounted. */
@@ -564,6 +571,54 @@ export function useDraftPersistence(
     pendingSendRef.current = false;
   }, []);
 
+  const captureSubmission = useCallback(() => {
+    const capturedKey = keyRef.current;
+    const capturedSession = sessionDraftRef.current;
+    const capturedText = valueRef.current;
+    if (pendingValueRef.current !== null) {
+      saveToStorage(capturedKey, pendingValueRef.current, capturedSession);
+      pendingValueRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    const physicalKey = draftStorage.physicalKey(capturedKey);
+    const before = draftStorage.getItem(capturedKey);
+    // A queued sibling event may already have changed physical storage.
+    if (localStorage.getItem(physicalKey) === before)
+      markPendingSendInStorage(
+        capturedKey,
+        getServerClockTimestamp(),
+        capturedSession,
+      );
+    const capturedValue = draftStorage.getItem(capturedKey);
+    return {
+      text: capturedText,
+      confirm() {
+        const ownsInput =
+          keyRef.current === capturedKey && valueRef.current === capturedText;
+        if (
+          !confirmCapturedDraftSubmission({
+            key: capturedKey,
+            physicalKey,
+            raw: capturedValue,
+          })
+        )
+          return false;
+        updateStoredSessionDraftIndex(capturedSession);
+        if (!ownsInput) return false;
+        valueRef.current = "";
+        pendingSendRef.current = false;
+        setValueInternal("");
+        return true;
+      },
+      cancel() {
+        resumeSyncedDraft(capturedKey);
+      },
+    };
+  }, []);
+
   // Clear both state and localStorage (for confirmed successful send)
   const clearDraft = useCallback(() => {
     confirmSyncedDraft(keyRef.current);
@@ -621,6 +676,7 @@ export function useDraftPersistence(
       confirmInputClear,
       discardPendingSendDraft,
       clearDraft,
+      captureSubmission,
       restoreFromStorage,
     }),
     [
@@ -633,6 +689,7 @@ export function useDraftPersistence(
       confirmInputClear,
       discardPendingSendDraft,
       clearDraft,
+      captureSubmission,
       restoreFromStorage,
     ],
   );

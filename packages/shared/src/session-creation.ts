@@ -13,3 +13,13 @@ export interface SessionCreationStatus {
   delivery: "not-admitted" | "uncertain" | "consumed";
   failure?: "startup-unavailable" | "launch-refused" | "cancelled";
 }
+
+/** Durable text acceptance; provider startup and delivery are separate facts. */
+export interface TextSessionCreationReceipt {
+  requestId: string;
+  sessionId: string;
+  projectId: string;
+  provider: string;
+  creation: SessionCreationStatus;
+  serverTimestamp: number;
+}

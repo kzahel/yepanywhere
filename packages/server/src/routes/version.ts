@@ -511,6 +511,7 @@ export const RESUME_PROTOCOL_VERSION = 3;
 export const REMOTE_COMPATIBILITY_LEVEL = 10;
 
 const BASE_CAPABILITIES: string[] = [
+  SERVER_CAPABILITIES.claudeTextCreation.name,
   SERVER_CAPABILITIES.contextUsageBreakdown.name,
   SERVER_CAPABILITIES.processServiceTierChange.name,
   SERVER_CAPABILITIES.mcpAppViews.name,

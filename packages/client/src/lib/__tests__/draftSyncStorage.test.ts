@@ -1090,6 +1090,40 @@ describe("local-first snapshot synchronization", () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(reads()).toBe(1);
   });
+  it("preserves a newer physical sibling draft when its storage event is held past creation acknowledgement", async () => {
+    setDraftAccount("local", "alice");
+    const s = server("alice");
+    const owner = new DraftSyncClient("local", "alice", s.transport);
+    clients.push(owner);
+    const draftKey = "draft-new-session:local";
+    const sent = JSON.stringify({
+      version: 1,
+      text: "submitted creation",
+      pendingSendAt: Date.now(),
+    });
+    const physicalKey = draftStorage.physicalKey(draftKey);
+    expect(physicalKey).not.toBe(draftKey);
+    localStorage.setItem(physicalKey, sent);
+    owner.edit(draftKey, sent);
+    const entry = owner.register(draftKey)!;
+    await entry.submissionTask;
+    const newer = raw("sibling's newer unsent draft");
+    // Do not deliver the storage event: the coordinator still holds sent.
+    localStorage.setItem(physicalKey, newer);
+    expect(entry.saved.raw).toBe(sent);
+    expect(
+      owner.confirmCapturedSubmission({
+        key: draftKey,
+        physicalKey,
+        raw: sent,
+      }),
+    ).toBe(false);
+    expect(localStorage.getItem(physicalKey)).toBe(newer);
+    expect(entry.saved.raw).toBe(newer);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(localStorage.getItem(physicalKey)).toBe(newer);
+  });
+
   it("never restores a typed prefix from a read older than the sent draft", async () => {
     const s = server(),
       typing = client(s),

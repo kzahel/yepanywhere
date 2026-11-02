@@ -15,6 +15,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  claudeTextCreation: {
+    name: "session-creation-claude-text",
+    index: CAPABILITY_ID_ALLOCATIONS.claudeTextCreation.id,
+    introducedIn: "0.11.1",
+  },
   peerAuthenticationRefresh: {
     name: "peer-authentication-refresh",
     index: CAPABILITY_ID_ALLOCATIONS.peerAuthenticationRefresh.id,
@@ -292,6 +297,42 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  claudeTextCreation: {
+    id: CAPABILITY_ID_ALLOCATIONS.claudeTextCreation.id,
+    name: "session-creation-claude-text",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.11.1",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.claudeTextCreation.id,
+    },
+    description:
+      "Owner-only Claude text creation saves intent before startup and returns a stable session receipt, including routed launches.",
+    clientFallback:
+      "Use existing process-start endpoints for older servers and unsupported input shapes.",
+    serverContract: {
+      routes: [
+        "POST /api/projects/:projectId/session-creations",
+        "POST /api/session-creations",
+        "GET /api/session-creations/:requestId",
+      ],
+      requestFields: ["requestId", "provider", "message"],
+      responseFields: [
+        "requestId",
+        "sessionId",
+        "projectId",
+        "provider",
+        "creation",
+        "serverTimestamp",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Durable ordinary text acceptance is separate from the deferred all-provider/attachment receipts contract.",
+    },
+  },
   agentSessionView: {
     id: CAPABILITY_ID_ALLOCATIONS.agentSessionView.id,
     name: "agent-session-view",

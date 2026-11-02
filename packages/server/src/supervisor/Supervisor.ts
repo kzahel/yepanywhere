@@ -428,6 +428,9 @@ export interface SessionLaunchOptions {
   /** Trusted request admission; retained callers migrate explicitly. */
   creation?: {
     context: CreationContext;
+    requestId?: string;
+    submissionHash?: string;
+    onAccepted?: (saved: SavedSessionCreation) => void;
     authorize(saved: SavedSessionCreation): Promise<void>;
   };
   /** Canonical YA project id when it differs from the provider cwd. */
@@ -1198,9 +1201,9 @@ export class Supervisor {
     contract.observe(runtime.creation);
   }
 
-  private hostedSavedLaunch(
+  private async hostedSavedLaunch(
     sessionId: string,
-  ): ManagedProviderLaunch | undefined {
+  ): Promise<ManagedProviderLaunch | undefined> {
     if (!isYaSessionId(sessionId)) return undefined;
     const store = this.sessionMetadataService?.creations;
     const saved = store?.getForSession(sessionId);
@@ -1216,6 +1219,18 @@ export class Supervisor {
     const namespace = store!.getDispatchNamespace(saved.attempt);
     if (!namespace)
       throw new Error("Saved creation has no dispatched host owner");
+    if (
+      saved.attempt.state === "bound" &&
+      saved.attempt.delivery === "consumed"
+    ) {
+      const runtime = (await listHostedProviderRuntimes()).find(
+        (value) => value.sessionId === sessionId && value.state !== "closing",
+      );
+      store!.assertCurrent(saved.attempt);
+      // A surviving creation worker keeps its original protocol/attempt. After
+      // confirmed input and owner loss, continue N; never redispatch saved I.
+      if (!runtime || runtime.binding) return undefined;
+    }
     const authorize = async () => {
       store!.assertCurrent(saved.attempt);
       if (!isProviderRuntimeHostAvailable())
@@ -1276,8 +1291,6 @@ export class Supervisor {
       if (
         request.provider !== "claude" ||
         saved.context.owner.kind === "limited" ||
-        launch.routerAccountId ||
-        launch.routerPoolId ||
         launch.machineControl ||
         launch.sandboxLevel === "project-write"
       ) {
@@ -1306,7 +1319,11 @@ export class Supervisor {
       if (hosted) await assertHostedCreationSupport();
       const auth = await provider.getAuthStatus();
       store.assertCurrent(fence);
-      if (!auth.installed || !auth.authenticated || auth.enabled === false) {
+      if (
+        !auth.installed ||
+        (!(launch.routerAccountId || launch.routerPoolId) &&
+          (!auth.authenticated || auth.enabled === false))
+      ) {
         store.failBeforeEffects(fence, "startup-unavailable");
         throw new Error("Provider startup is unavailable");
       }
@@ -1412,17 +1429,16 @@ export class Supervisor {
       !message.metadata?.apiSubmissionId &&
       !message.metadata?.apiSubmissionIds?.length &&
       !message.metadata?.hidden &&
-      !modelSettings?.routerAccountId &&
-      !modelSettings?.routerPoolId &&
       !modelSettings?.machineControl &&
       modelSettings?.sandboxLevel !== "project-write" &&
       this.sessionMetadataService?.creations
     ) {
       const store = this.sessionMetadataService.creations;
       const saved = store.admit({
-        requestId: randomUUID(),
+        requestId: launchOptions.creation.requestId ?? randomUUID(),
         context: launchOptions.creation.context,
         request: {
+          submissionHash: launchOptions.creation.submissionHash,
           projectId,
           projectPath,
           provider: provider.name,
@@ -1447,6 +1463,7 @@ export class Supervisor {
           }),
         },
       });
+      launchOptions.creation.onAccepted?.(saved);
       try {
         if (this.isAtCreationCapacity() && this.pendingCreationStarts < 16) {
           const preemptable = this.findPreemptableWorker();
@@ -1473,6 +1490,11 @@ export class Supervisor {
         throw error;
       }
     }
+
+    if (launchOptions?.creation?.onAccepted)
+      throw new Error(
+        "This launch shape does not support durable text acceptance",
+      );
 
     // Check if at capacity
     if (this.isAtCapacity()) {
@@ -1745,7 +1767,7 @@ export class Supervisor {
       launchCold: async (resolved) => {
         const provider = this.resolveProvider(resolved.modelSettings);
         if (provider) {
-          const managed = this.hostedSavedLaunch(resumeSessionId);
+          const managed = await this.hostedSavedLaunch(resumeSessionId);
           if (managed)
             return this.startProviderSession(
               projectPath,
@@ -3078,6 +3100,9 @@ export class Supervisor {
         ...instructions,
         resumeSessionId: resume?.source?.native.id ?? resumeSessionId,
         nativeResumeSource: resume?.source,
+        assertResumeAdmission: resume?.identity
+          ? () => resume.identity!.assertInputAdmission()
+          : undefined,
         retainedRuntimeOnly: resume?.retainedRuntimeOnly,
         publicSessionId: resume?.sessionId,
         newSessionId: resumeSessionId ? undefined : tempSessionId,
@@ -3311,15 +3336,29 @@ export class Supervisor {
     const stored = identities?.resolveYa(sessionId);
     if (!stored) return undefined;
     if (!stored.native) throw new Error("Session has no native continuation");
+    const savedCreation =
+      this.sessionMetadataService?.creations?.getForSession(sessionId);
+    if (
+      savedCreation?.request?.launch?.runtimeOwner === "host" &&
+      provider.runtimeOwner !== "host"
+    )
+      throw new Error("Saved creation cannot replace its hosted owner");
     if (!provider.supportsNativeResumeSource) {
       if (stored.native.id !== parseNativeSessionId(sessionId))
         throw new Error("Provider scoped continuation is not qualified");
       return undefined;
     }
     if (provider.runtimeOwner === "host") {
-      if (stored.native.id !== parseNativeSessionId(sessionId))
-        throw new Error("Hosted split-id cold continuation is not qualified");
-      return { sessionId, retainedRuntimeOnly: true as const };
+      const runtime = (await listHostedProviderRuntimes()).find(
+        (value) => value.sessionId === sessionId && value.state !== "closing",
+      );
+      if (
+        runtime &&
+        !runtime.binding &&
+        !runtime.creation &&
+        stored.native.id === parseNativeSessionId(sessionId)
+      )
+        return { sessionId, retainedRuntimeOnly: true as const };
     }
     const source = await this.resolveNativeSessionSource?.(
       sessionId,
@@ -3332,7 +3371,11 @@ export class Supervisor {
       source.native.family !== stored.native.family ||
       source.native.storageScope !== stored.native.storageScope
     )
-      throw new Error("Stored continuation requires its exact native source");
+      throw new Error(
+        provider.runtimeOwner === "host"
+          ? "Retained provider owner is unavailable without its exact native source"
+          : "Stored continuation requires its exact native source",
+      );
     const creation =
       this.sessionMetadataService?.creations?.getForSession(sessionId);
     const assertAdmission = () => {
@@ -3504,6 +3547,9 @@ export class Supervisor {
         creationRuntime: managedLaunch?.runtime,
         publicSessionId: managedIdentity?.sessionId,
         nativeResumeSource: resume?.source,
+        assertResumeAdmission: resume?.identity
+          ? () => resume.identity!.assertInputAdmission()
+          : undefined,
         retainedRuntimeOnly: resume?.retainedRuntimeOnly,
         routerLaunch,
         machineControl: modelSettings?.machineControl,
@@ -4086,7 +4132,7 @@ export class Supervisor {
 
       // Use provider if available (preferred)
       if (provider) {
-        const managed = this.hostedSavedLaunch(sessionId);
+        const managed = await this.hostedSavedLaunch(sessionId);
         if (managed && resumeMode !== "full")
           throw new Error(
             "Saved hosted creation requires retained-owner resume",
@@ -7420,7 +7466,7 @@ export class Supervisor {
       : { permissionMode, modelSettings };
     const provider = this.resolveProvider(resolved.modelSettings);
     const managed = resumeSessionId
-      ? this.hostedSavedLaunch(resumeSessionId)
+      ? await this.hostedSavedLaunch(resumeSessionId)
       : undefined;
     if (managed && provider?.runtimeOwner !== "host")
       throw new Error("Saved creation cannot replace its hosted owner");

@@ -695,6 +695,17 @@ async function retainedHostFixture(maxWorkers = 0) {
     { ...f.namespace, id: parseNativeSessionId(saved.sessionId) },
     saved.initialInputId!,
   );
+  // Discovery may race owner loss; attachment must still recheck authority.
+  const inventory = vi
+    .spyOn(providerHost, "listHostedProviderRuntimes")
+    .mockResolvedValue([
+      {
+        sessionId: saved.sessionId,
+        state: "detached",
+        creation: { identity: {}, initialInputConsumed: true },
+      } as unknown as providerHost.HostedProviderRuntimeInfo,
+    ]);
+  cleanup.push(async () => inventory.mockRestore());
   let ownerAlive = true,
     allocations = 0,
     attaches = 0,

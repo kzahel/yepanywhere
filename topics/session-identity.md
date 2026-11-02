@@ -13,6 +13,51 @@ and Codex owned-session observation is qualified as described below.
 defines the implementation slices, isolated-profile qualification and requested
 Sol 6.1 High review/commit loop. It is a plan, not implementation evidence.
 
+### Qualified Claude text acceptance — November 2
+
+The narrow optional capability `session-creation-claude-text` (global id 142)
+selects owner-only ordinary Claude text creation, including an explicitly
+selected router account/pool. Attachments, slash commands, machine control,
+project-write sandboxing, limited-user launches and other providers retain their
+existing entry points. This does not promise the broader proposed
+`session-creation-receipts` attachment/all-caller contract.
+
+`POST /api/projects/:projectId/session-creations` and detached
+`POST /api/session-creations` use existing start-body choices plus an owner-scoped
+8–128 character `requestId`. A 202 response carries `requestId`, permanent
+`sessionId`, `projectId`, `provider`, public `creation` status and server time;
+it means saved intent, independently of provider readiness/delivery.
+`GET /api/session-creations/:requestId` recovers that owner's result without
+starting anything. Identical submissions resolve the original record; conflicting
+input is 409 and deleted operations are 410. A canonical hash of submitted
+body/project precedes mutable defaults and availability. Concurrent requests
+recheck the saved key immediately before dispatch admission. Legacy start
+endpoints keep their established process/queued response semantics.
+
+Identity, exact text/settings/source and independent initial-input id commit
+before acceptance. Existing Supervisor/WorkerQueue machinery owns later dispatch;
+closing the originating browser does not cancel it. A routed request retains its
+chosen account/pool and uses AAR authorization independently of direct login.
+Routing failure never falls back to direct credentials. The selected executable
+is rechecked even when its path was cached before an installation change, so a
+missing CLI can fail before native effects.
+
+The form retains a source/account/draft-scoped recovery identity before sending,
+then opens the stable session on acceptance. Draft capture precedes async work.
+Acknowledgement clears only that value/slot; newer edits remain and offer Open
+saved session without forced navigation. Response failure tries read-only receipt
+recovery; unresolved requests remain visible with their original identity. Source
+change or view retirement cannot navigate a later view.
+The recovery identity and accepted receipt remain stored until the owning view
+settles its captured draft; returning after retirement recovers the same session.
+Draft acknowledgement checks the physical account-scoped storage value through
+the sync coordinator, including when a sibling storage event has not arrived.
+Saved/startup/failure/uncertainty presentation exposes the saved prompt and
+Copy/Refresh. Follow-up
+submission waits for proved native first-input consumption. Startup reconciliation
+is temporary and view-owned, bounded to fifteen checks with explicit refresh
+afterward; it adds no server per-session poller.
+
 ### Managed dispatch boundary
 
 The stored-request dispatcher reads committed text/settings and the
@@ -21,17 +66,18 @@ check, and records dispatch before invoking the provider. Worker deferral keeps
 the existing worker queue and re-reads the saved request at promotion; cancellation
 records a safe failure before acknowledgement. It does not reconstruct live
 desktop credentials or silently downgrade router, sandbox or hosted choices.
-Its first qualified path is superuser-owned local unsandboxed, non-router Claude; other choices
-are explicitly refused before effects until their later rollout slices.
+The qualified path is superuser-owned unsandboxed Claude text, including selected
+router accounts/pools and supported local/hosted ownership; other choices refuse
+before effects until their later rollout slices.
 The existing project/detached creation routes use it for superuser text requests
 resolved through the Claude AgentProvider adapter, without attachments, slash
-commands, runtime-only input authority, router, sandbox or machine control.
+commands, runtime-only input authority, project-write sandbox or machine control.
 Hosting additionally requires the negotiated private owner contract described
 below. Other shapes retain their existing path during rollout.
 The legacy Claude SDK bridge now resolves the same configured adapter when
 provider is omitted; explicit overrides and unnamed independent SDKs retain
 their existing behavior. Completed/queued/error response shapes and advertised
-capabilities are unchanged; no creation-receipts API is exposed yet.
+capabilities are unchanged; the broader creation-receipts contract remains unadvertised.
 
 Before provider availability checks, the qualified route commits the exact
 prompt, trusted creator and request source. Failure leaves a readable failed
@@ -302,13 +348,11 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   real credential is used. An unrelated or unsupported endpoint gets no input.
   All owner operations authenticate, and failed startup retains its real child
   handle until exit is verified. Sending a signal does not certify exit.
-  This qualifies local scoped continuation only. Managed retained-host
-  observation uses its existing fenced attach contract; new hosted cold workers
-  and unqualified differing-id provider continuations explicitly refuse until
-  their enabling slices. Stored equal-id legacy host sessions retain a claim-only
-  attach path: an absent owner or changed sandbox refuses before fresh launch or
-  termination. Restart-only configuration changes also refuse before aborting
-  that incumbent. Other unqualified equal-id paths remain unchanged.
+  Hosted continuation uses the separately negotiated native-binding contract
+  below. Stored equal-id legacy workers retain their claim-only attach path;
+  a new cold worker requires the exact native source. Changed sandbox settings
+  and restart-only configuration changes refuse before aborting an incumbent.
+  Other unqualified equal-id paths remain unchanged.
 - New Claude sessions receive YA's chosen id through the provider launch
   option. This avoids an ordinary native-id change, but does not establish
   complete durable launch ownership or recovery by itself.
@@ -934,3 +978,34 @@ host/Hono replacement qualification. Mixed host/worker generations, forged or
 stale attach, wrong native id, detached input consumption and owner loss are
 required negative/positive checks. A feature must not imply support on Bun,
 compiled Desktop or another platform outside the existing host matrix.
+
+### Hosted native continuation
+
+An existing bound native session uses the separate private
+`session-native-binding-v1` feature and worker socket protocol 3. Its immutable
+version-1 record contains only the YA id and scoped native reference. It grants
+no creation or initial-input authority. Host claims, worker attachment and
+release must match the complete record and protocol before changing ownership
+or replaying output. The host claims P while native provider operations use N;
+worker child/API publication uses P. Native output stays native until the Hono
+Process projection. A conflicting native id fails the owner.
+
+Hono rechecks the stored binding and deletion/current-attempt fence around
+asynchronous admission, attachment and later input. Providers still validate
+their physical native source before CLI effects; Gateway does so before worker
+catalog readiness can autostart its service. Private storage-scope facts stay
+inside controller inventory and are omitted from the public host inventory.
+
+A surviving creation worker retains its exact protocol-2 creation attempt.
+Unconfirmed first input never cold-starts another owner or replays saved text.
+After the first input is confirmed consumed, a later explicit continuation may
+start a protocol-3 worker from its proved native source if the previous owner
+is gone. A surviving protocol-3 worker is reattached instead. An older host or
+worker without the negotiated feature refuses the new transition without
+restarting incumbents. Existing legacy workers keep protocol 1.
+
+Orderly-restart recipes for protocol-3 continuations retain their exact native
+binding and remove the prior launch's initial message. A fresh accepted turn
+supplies its own input. Managed creation workers remain excluded from those
+recipes. This contract does not advertise global creation receipts or expand
+the supported host platform/runtime matrix.

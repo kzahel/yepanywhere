@@ -41,6 +41,12 @@ import {
   parseCreationRuntimeEvidence,
   sameCreationRuntimeIdentity,
 } from "../packages/server/src/sdk/providers/creation-runtime-record.mjs";
+import {
+  BOUND_RUNTIME_FEATURE,
+  BOUND_RUNTIME_PROTOCOL_VERSION,
+  parseBoundRuntimeIdentity,
+  sameBoundRuntimeIdentity,
+} from "../packages/server/src/sdk/providers/bound-runtime-identity.mjs";
 
 const HOST_PROTOCOL_VERSION = PROVIDER_HOST_PROTOCOL_VERSION;
 const WORKER_READY_TIMEOUT_MS = 30_000;
@@ -223,6 +229,12 @@ function publicRuntimeEntry(entry) {
     detachedAt: entry.detachedAt,
     reattach: entry.reattach,
     worker: entry.workerMetadata,
+    ...(entry.binding
+      ? {
+          binding: entry.binding,
+          workerProtocolVersion: BOUND_RUNTIME_PROTOCOL_VERSION,
+        }
+      : {}),
     ...(entry.creation
       ? {
           creation: entry.creation,
@@ -501,6 +513,7 @@ export class ProviderRuntimeHost {
           shuttingDown: this.shuttingDown !== null,
           features: [
             CREATION_OWNER_FEATURE,
+            BOUND_RUNTIME_FEATURE,
             "runtime-control",
             "session-turn",
             "session-turn-await",
@@ -834,6 +847,7 @@ export class ProviderRuntimeHost {
         auxiliaryOwned: true,
         auxiliaryIdleTimeoutMs: launch.idleTimeoutMs,
         providerName,
+        ...(launch.binding ? { binding: launch.binding } : {}),
         projectPath: launch.projectPath,
         providerSessionId: request.target.providerSessionId,
         yaSessionId: request.target.yaSessionId,
@@ -886,6 +900,34 @@ export class ProviderRuntimeHost {
       request.creation === undefined
         ? undefined
         : parseCreationRuntimeIdentity(request.creation);
+    const binding =
+      request.binding === undefined
+        ? undefined
+        : parseBoundRuntimeIdentity(request.binding);
+    if (creation && binding)
+      throw new Error("A continuation cannot be a new creation attempt");
+    if (binding && !requiredWorkerFeatures.includes(BOUND_RUNTIME_FEATURE)) {
+      if (requiredWorkerFeatures.length === 8)
+        throw new Error("Too many required provider worker features");
+      requiredWorkerFeatures = [
+        ...requiredWorkerFeatures,
+        BOUND_RUNTIME_FEATURE,
+      ];
+    }
+    if (binding && request.sessionId !== binding.sessionId)
+      throw new Error("Native continuation must claim its YA identity");
+    if (
+      binding &&
+      (agentHarness(providerName) !== binding.native.family ||
+        request.options?.publicSessionId !== binding.sessionId ||
+        request.options?.resumeSessionId !== binding.native.id ||
+        !sameBoundRuntimeIdentity(binding, {
+          version: 1,
+          sessionId: request.options?.publicSessionId,
+          native: request.options?.nativeResumeSource?.native,
+        }))
+    )
+      throw new Error("Native continuation does not match its launch source");
     if (creation && !requiredWorkerFeatures.includes(CREATION_OWNER_FEATURE)) {
       if (requiredWorkerFeatures.length === 8)
         throw new Error("Too many required provider worker features");
@@ -901,21 +943,25 @@ export class ProviderRuntimeHost {
       typeof request.sessionId === "string" && request.sessionId
         ? request.sessionId
         : undefined;
-    const providerSessionId = creation
-      ? undefined
-      : typeof request.providerSessionId === "string" &&
-          request.providerSessionId
-        ? request.providerSessionId
-        : sessionId;
-    const yaSessionId = creation
-      ? creation.sessionId
-      : typeof request.yaSessionId === "string" && request.yaSessionId
-        ? request.yaSessionId
-        : sessionId;
+    const providerSessionId = binding
+      ? binding.native.id
+      : creation
+        ? undefined
+        : typeof request.providerSessionId === "string" &&
+            request.providerSessionId
+          ? request.providerSessionId
+          : sessionId;
+    const yaSessionId = binding
+      ? binding.sessionId
+      : creation
+        ? creation.sessionId
+        : typeof request.yaSessionId === "string" && request.yaSessionId
+          ? request.yaSessionId
+          : sessionId;
     if (sessionId) {
       const existing = this.runtimeForSession(sessionId);
       if (existing) {
-        if (creation || existing.creation)
+        if (creation || binding || existing.creation || existing.binding)
           throw controlError(
             "ownership-unknown",
             "Managed creation already has a runtime; claim its exact attempt",
@@ -969,6 +1015,7 @@ export class ProviderRuntimeHost {
     const launchInput = JSON.stringify({
       providerName,
       ...(creation ? { creation } : {}),
+      ...(binding ? { binding } : {}),
       options: workerOptions,
       runtimeConfig: request.runtimeConfig ?? {},
     });
@@ -998,6 +1045,7 @@ export class ProviderRuntimeHost {
     const entry = {
       runtimeId,
       sessionId,
+      binding,
       creation: creation
         ? { identity: creation, initialInputConsumed: false }
         : undefined,
@@ -1032,8 +1080,13 @@ export class ProviderRuntimeHost {
         request.auxiliaryIdleTimeoutMs ?? DEFAULT_AUXILIARY_IDLE_TIMEOUT_MS,
       launchRecipe: {
         providerName,
+        ...(binding ? { binding } : {}),
         projectPath,
-        options: structuredClone(options),
+        // A recent recipe can resume the conversation, never an input from
+        // its previous owner. A fresh submission supplies its own text.
+        options: structuredClone(
+          binding ? { ...options, initialMessage: undefined } : options,
+        ),
         runtimeConfig: structuredClone(request.runtimeConfig ?? {}),
         reattach: structuredClone(request.reattach ?? {}),
       },
@@ -1170,6 +1223,14 @@ export class ProviderRuntimeHost {
       if (requiredWorkerFeatures.length === 0) releaseLaunchInput();
       const readyMessage = await ready;
       entry.workerMetadata = readyMessage.metadata;
+      if (
+        binding &&
+        !sameBoundRuntimeIdentity(binding, readyMessage.metadata?.binding)
+      )
+        throw controlError(
+          "ownership-unknown",
+          "Provider worker returned a different native binding",
+        );
       if (creation)
         this.recordCreationEvidence(entry, readyMessage.metadata?.creation);
       if (
@@ -1252,7 +1313,7 @@ export class ProviderRuntimeHost {
       return;
     }
     if (message?.type === "bound" && typeof message.sessionId === "string") {
-      if (entry.creation)
+      if (entry.creation || entry.binding)
         throw new Error(
           "Managed worker cannot publish an unfenced native binding",
         );
@@ -1274,7 +1335,12 @@ export class ProviderRuntimeHost {
         generation: message.generation,
         ...(entry.creation
           ? { creation: entry.creation.identity, workerProtocolVersion: 2 }
-          : {}),
+          : entry.binding
+            ? {
+                binding: entry.binding,
+                workerProtocolVersion: BOUND_RUNTIME_PROTOCOL_VERSION,
+              }
+            : {}),
       });
       return;
     }
@@ -1322,6 +1388,16 @@ export class ProviderRuntimeHost {
 
   assertManagedController(entry, request) {
     if (
+      entry.binding
+        ? request.workerProtocolVersion !== BOUND_RUNTIME_PROTOCOL_VERSION ||
+          !sameBoundRuntimeIdentity(entry.binding, request.binding)
+        : request.binding !== undefined
+    )
+      throw controlError(
+        "ownership-unknown",
+        "Provider worker requires its exact native binding and protocol",
+      );
+    if (
       entry.creation &&
       (request.workerProtocolVersion !== 2 ||
         !sameCreationRuntimeIdentity(entry.creation.identity, request.creation))
@@ -1364,7 +1440,7 @@ export class ProviderRuntimeHost {
         ? request.yaSessionId
         : sessionId;
     const entry = this.runtimes.get(runtimeId);
-    if (entry?.creation)
+    if (entry?.creation || entry?.binding)
       throw new Error("Managed native binding requires worker evidence");
     if (!entry || !this.isRuntimeClaimable(entry)) {
       throw new Error(`Unknown or dead provider runtime ${runtimeId}`);
@@ -1428,7 +1504,7 @@ export class ProviderRuntimeHost {
     const entry = this.runtimeForSession(sessionId);
     if (entry) this.assertManagedController(entry, request);
     if (!entry || !this.isRuntimeClaimable(entry)) return null;
-    if (entry.creation && !entry.workerMetadata)
+    if ((entry.creation || entry.binding) && !entry.workerMetadata)
       throw controlError(
         "ownership-unknown",
         "Managed provider worker is not ready to attach",
@@ -1864,6 +1940,7 @@ async function main() {
         hostProtocolVersion: HOST_PROTOCOL_VERSION,
         features: [
           CREATION_OWNER_FEATURE,
+          BOUND_RUNTIME_FEATURE,
           "runtime-control",
           "session-turn",
           "session-turn-await",

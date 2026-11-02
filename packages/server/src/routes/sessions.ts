@@ -2,6 +2,12 @@ import {
   savedCreationView,
   creationStatusForSession,
 } from "../sessions/session-creation-view.js";
+import {
+  textCreationReceipt,
+  textCreationSubmissionHash,
+} from "../sessions/session-creation-acceptance.js";
+import type { SavedSessionCreation } from "../sessions/SessionCreationStore.js";
+import { readLimitedJsonObject } from "./limited-json-body.js";
 import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
 import {
@@ -479,6 +485,7 @@ async function resolveSessionReader({
 }
 
 interface StartSessionBody {
+  requestId?: string;
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
@@ -2129,6 +2136,112 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
     };
   };
+  // The new routes opt into durable acceptance. Legacy starts still wait for
+  // their established process/queue response and never receive a receipt.
+  const textAcceptance = (
+    c: Context,
+    body: StartSessionBody,
+    projectId: string,
+  ) => {
+    if (!c.req.path.endsWith("/session-creations")) return undefined;
+    const context = creationForRequest(c, body.creationProvenance);
+    if (context.context.owner.kind !== "superuser")
+      return c.json(
+        { error: "Durable text creation requires the server owner" },
+        403,
+      );
+    if (
+      typeof body.requestId !== "string" ||
+      !/^[A-Za-z0-9_-]{8,128}$/.test(body.requestId)
+    )
+      return c.json({ error: "Invalid creation request id" }, 400);
+    const store = deps.sessionMetadataService?.creations;
+    if (!store)
+      return c.json({ error: "Durable session storage is unavailable" }, 503);
+    const submissionHash = textCreationSubmissionHash(body, projectId);
+    const existing = store.get(context.context.owner, body.requestId);
+    if (existing) {
+      if (existing.deleted)
+        return c.json({ error: "Session creation was deleted" }, 410);
+      if (existing.request?.submissionHash !== submissionHash)
+        return c.json(
+          { error: "Creation request conflicts with saved input" },
+          409,
+        );
+      return c.json(textCreationReceipt(existing), 202);
+    }
+    if (
+      body.provider !== "claude" ||
+      typeof body.message !== "string" ||
+      !body.message.trim() ||
+      body.images !== undefined ||
+      body.documents !== undefined ||
+      body.attachments !== undefined ||
+      body.machineControl ||
+      body.executor ||
+      body.sandboxLevel === "project-write" ||
+      body.message?.trimStart().startsWith("/")
+    )
+      return c.json(
+        {
+          error: "This request is outside the supported durable text workflow",
+        },
+        400,
+      );
+    let accepted = false;
+    let resolve!: (saved: SavedSessionCreation) => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<SavedSessionCreation>((yes, no) => {
+      resolve = yes;
+      reject = no;
+    });
+    return {
+      promise,
+      replay() {
+        const saved = store.get(context.context.owner, body.requestId!);
+        if (!saved) return undefined;
+        if (saved.deleted)
+          return c.json({ error: "Session creation was deleted" }, 410);
+        if (saved.request?.submissionHash !== submissionHash)
+          return c.json(
+            { error: "Creation request conflicts with saved input" },
+            409,
+          );
+        return c.json(textCreationReceipt(saved), 202);
+      },
+      creation: {
+        ...context,
+        requestId: body.requestId,
+        submissionHash,
+        onAccepted(saved: SavedSessionCreation) {
+          accepted = true;
+          resolve(saved);
+        },
+      },
+      failed(error: unknown) {
+        if (!accepted) reject(error);
+      },
+      finished() {
+        if (!accepted) reject(new Error("Creation was not durably accepted"));
+      },
+    };
+  };
+  routes.get("/session-creations/:requestId", (c) => {
+    const principal = principalFor(c);
+    if (principal.kind !== "superuser")
+      return c.json({ error: "Forbidden" }, 403);
+    const requestId = c.req.param("requestId");
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(requestId))
+      return c.json({ error: "Invalid creation request id" }, 400);
+    const saved = deps.sessionMetadataService?.creations.get(
+      { kind: "superuser" },
+      requestId,
+    );
+    if (!saved) return c.json({ error: "Creation request not found" }, 404);
+    if (saved.deleted)
+      return c.json({ error: "Session creation was deleted" }, 410);
+    return c.json(textCreationReceipt(saved));
+  });
   const boundSessionReads = new BoundSessionReads({
     readerFactory: deps.readerFactory,
     sessionIndexService: deps.sessionIndexService,
@@ -4223,26 +4336,31 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   });
 
   // POST /api/projects/:projectId/sessions - Start new session
-  routes.post("/projects/:projectId/sessions", async (c) => {
-    const projectId = c.req.param("projectId");
+  const startProjectSession = async (c: Context) => {
+    const projectId = c.req.param("projectId") ?? "";
 
     // Validate projectId format at API boundary
     if (!isUrlProjectId(projectId)) {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    // Use getOrCreateProject to allow starting sessions in new directories
-    const project = await deps.scanner.getOrCreateProject(projectId);
-    if (!project) {
-      return c.json({ error: "Project not found or path does not exist" }, 404);
-    }
-
     let body: StartSessionBody;
     try {
-      body = await c.req.json<StartSessionBody>();
+      body = c.req.path.endsWith("/session-creations")
+        ? ((await readLimitedJsonObject(
+            c.req.raw,
+            256 * 1024,
+          )) as unknown as StartSessionBody)
+        : await c.req.json<StartSessionBody>();
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
+
+    const acceptance = textAcceptance(c, body, projectId);
+    if (acceptance instanceof Response) return acceptance;
+    const project = await deps.scanner.getOrCreateProject(projectId);
+    if (!project)
+      return c.json({ error: "Project not found or path does not exist" }, 404);
 
     if (
       body.machineControl !== undefined &&
@@ -4325,7 +4443,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       serviceTier,
     });
 
-    const result = await deps.supervisor.startSession(
+    const replay = acceptance?.replay();
+    if (replay) return replay;
+    const operation = deps.supervisor.startSession(
       project.path,
       userMessage,
       body.mode,
@@ -4361,7 +4481,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
       {
         projectId: project.id,
-        creation: creationForRequest(c, body.creationProvenance),
+        creation:
+          acceptance?.creation ??
+          creationForRequest(c, body.creationProvenance),
         onStarted: newSessionLaunchCallback({
           creationProvenance: requestCreationProvenance(
             c,
@@ -4383,6 +4505,18 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         }),
       },
     );
+
+    if (acceptance) {
+      void operation.then(acceptance.finished, acceptance.failed);
+      const saved = await acceptance.promise;
+      void deps.userUsageService?.recordSession(actingUsername(c));
+      void deps.userUsageService?.recordTurn(
+        actingUsername(c),
+        userMessage.text,
+      );
+      return c.json(textCreationReceipt(saved), 202);
+    }
+    const result = await operation;
 
     // Check if queue is full
     if (isQueueFullResponse(result)) {
@@ -4412,7 +4546,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       sandboxEnforcement: result.sandboxEnforcement,
       serverTimestamp,
     });
-  });
+  };
+  routes.post("/projects/:projectId/sessions", startProjectSession);
+  routes.post("/projects/:projectId/session-creations", startProjectSession);
 
   // POST /api/projects/:projectId/sessions/create - Create session without starting agent
   // Used for two-phase flow: create session first, upload files, then send first message
@@ -4578,13 +4714,21 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   });
 
   // POST /api/sessions - Start a detached new session under the hidden No Project workspace
-  routes.post("/sessions", async (c) => {
+  const startDetachedSession = async (c: Context) => {
     let body: StartSessionBody;
     try {
-      body = await c.req.json<StartSessionBody>();
+      body = c.req.path.endsWith("/session-creations")
+        ? ((await readLimitedJsonObject(
+            c.req.raw,
+            256 * 1024,
+          )) as unknown as StartSessionBody)
+        : await c.req.json<StartSessionBody>();
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
+
+    const acceptance = textAcceptance(c, body, "detached");
+    if (acceptance instanceof Response) return acceptance;
 
     if (
       body.machineControl !== undefined &&
@@ -4656,7 +4800,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       body.model && body.model !== "default" ? body.model : undefined;
     const serviceTier = normalizeOptionalServiceTier(body.serviceTier);
 
-    const result = await deps.supervisor.startSession(
+    const replay = acceptance?.replay();
+    if (replay) return replay;
+    const operation = deps.supervisor.startSession(
       projectPath,
       userMessage,
       body.mode,
@@ -4686,7 +4832,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         helperSideModel: helperSettings.helperSideModel,
       },
       {
-        creation: creationForRequest(c, body.creationProvenance),
+        creation:
+          acceptance?.creation ??
+          creationForRequest(c, body.creationProvenance),
         onStarted: newSessionLaunchCallback({
           creationProvenance: requestCreationProvenance(
             c,
@@ -4705,6 +4853,18 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         }),
       },
     );
+
+    if (acceptance) {
+      void operation.then(acceptance.finished, acceptance.failed);
+      const saved = await acceptance.promise;
+      void deps.userUsageService?.recordSession(actingUsername(c));
+      void deps.userUsageService?.recordTurn(
+        actingUsername(c),
+        userMessage.text,
+      );
+      return c.json(textCreationReceipt(saved), 202);
+    }
+    const result = await operation;
 
     if (isQueueFullResponse(result)) {
       return c.json(
@@ -4732,7 +4892,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       sandboxEnforcement: result.sandboxEnforcement,
       serverTimestamp,
     });
-  });
+  };
+  routes.post("/sessions", startDetachedSession);
+  routes.post("/session-creations", startDetachedSession);
 
   // POST /api/sessions/create - Create a detached session without sending an initial message
   routes.post("/sessions/create", async (c) => {

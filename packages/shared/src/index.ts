@@ -1,4 +1,7 @@
-export type { SessionCreationStatus } from "./session-creation.js";
+export type {
+  SessionCreationStatus,
+  TextSessionCreationReceipt,
+} from "./session-creation.js";
 export type {
   ArtifactVhost,
   ArtifactVhostLinkedFiles,

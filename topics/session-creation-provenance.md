@@ -37,9 +37,15 @@ now incorporates that recommendation into admission, startup, caller migration
 and qualification. It requires explicit source decisions and preserves legacy
 unknown records; the omissions above remain open until implemented and verified.
 
+Qualified ordinary Claude text admission, including routed launches, persists
+source with the saved logical session before provider startup or worker deferral.
+The narrow [text acceptance contract](session-identity.md#qualified-claude-text-acceptance--november-2)
+returns that identity even when startup fails. This does not close the six-path
+audit or migrate attachment/other-provider creation.
+
 The first accepted provenance value remains attached to the YA session across
-provider restarts and later messages. A creation request that waits for a
-worker records it when the session actually starts. Invalid or unknown
+provider restarts and later messages. Legacy creation requests waiting for a worker still use their existing start
+callback; migrated text admission records it before waiting. Invalid or unknown
 declared provenance falls back to the headers without blocking a session
 start. Provider-native (for example terminal-started), pre-feature, and
 server-internal sessions have no provenance; YA does not infer their source

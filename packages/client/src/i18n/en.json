@@ -4964,5 +4964,21 @@
   "connectionsAuditDisabled": "Server connections disabled",
   "connectionsAuditUpdated": "Connection updated",
   "connectionsPairedServers": "Paired servers",
-  "connectionsPasswordChangesHint": "Changing your Remote Access name or password keeps paired servers connected. Revoke their incoming control separately in Server Connections."
+  "connectionsPasswordChangesHint": "Changing your Remote Access name or password keeps paired servers connected. Revoke their incoming control separately in Server Connections.",
+  "sessionCreationLabel": "Session startup",
+  "sessionCreationStarting": "Your request is saved. Starting the session…",
+  "sessionCreationQueued": "Your request is saved and waiting for an available worker.",
+  "sessionCreationFailed": "The session could not start. Your prompt is saved.",
+  "sessionCreationUncertain": "Startup was interrupted. Your prompt is saved, but delivery is unconfirmed. Check the session before submitting it again.",
+  "sessionCreationSavedPrompt": "Saved prompt",
+  "sessionCreationCopyPrompt": "Copy prompt",
+  "sessionCreationRefresh": "Refresh status",
+  "sessionCreationCopyFailed": "Copy failed. You can select the text under Saved prompt.",
+  "sessionCreationUnconfirmedRequest": "An earlier creation has not been confirmed. Your draft is preserved.",
+  "sessionCreationCheckSaved": "Check saved session",
+  "sessionCreationStillUnconfirmed": "Creation is still unconfirmed. Keep this draft and check again.",
+  "sessionCreationNewerDraft": "Session saved. Your newer draft is preserved.",
+  "sessionCreationOpenSaved": "Open saved session",
+  "sessionCreationBlocked": "Check the startup status before sending another message.",
+  "sessionCreationSavedWhileAway": "A session was saved while you were away. Check it before submitting again."
 }

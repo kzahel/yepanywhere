@@ -102,6 +102,7 @@ export class ProviderRuntimeSocketAdapter {
       (message) => writeSocket(socket, message),
       {
         creation: request.creation,
+        binding: request.binding,
         isActive: () => !socket.destroyed,
         agentApiAllowed: request.agentApiAllowed === true,
         agentApiPeersAllowed: request.agentApiPeersAllowed === true,

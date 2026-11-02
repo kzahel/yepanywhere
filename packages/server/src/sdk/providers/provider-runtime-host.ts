@@ -14,7 +14,10 @@ import { createConnection, type Socket } from "node:net";
 import { getLogger } from "../../logging/logger.js";
 import { getModuleEnv, harvestYaModuleEnv } from "../../yaModuleEnv.js";
 import { setProviderHostDegraded } from "./provider-host-status.js";
-import { normalizeProviderWorkItems } from "@yep-anywhere/shared";
+import {
+  normalizeProviderWorkItems,
+  nativeSessionFamily,
+} from "@yep-anywhere/shared";
 import type {
   PermissionMode,
   ThinkingConfig,
@@ -44,6 +47,13 @@ import {
   sameCreationRuntimeIdentity,
   type CreationRuntimeEvidence,
 } from "./creation-runtime-identity.js";
+import {
+  BOUND_RUNTIME_FEATURE,
+  BOUND_RUNTIME_PROTOCOL_VERSION,
+  parseBoundRuntimeIdentity,
+  sameBoundRuntimeIdentity,
+  type BoundRuntimeIdentity,
+} from "./bound-runtime-identity.mjs";
 
 const HOST_REQUEST_TIMEOUT_MS = 15_000;
 const WORKER_RPC_TIMEOUT_MS = 30_000;
@@ -90,6 +100,7 @@ interface WorkerCapabilities {
 
 interface WorkerMetadata {
   creation?: CreationRuntimeEvidence;
+  binding?: BoundRuntimeIdentity;
   sessionId?: string;
   queueDepth: number;
   providerActivity?: ProviderActivitySnapshot;
@@ -123,6 +134,7 @@ export interface HostedProviderReattachSpec {
 }
 
 export interface HostedProviderRuntimeInfo {
+  binding?: BoundRuntimeIdentity;
   creation?: CreationRuntimeEvidence;
   workerProtocolVersion?: number;
   hostProtocolVersion: number;
@@ -596,6 +608,7 @@ export function getProviderHostStatus(): Promise<Record<string, unknown>> {
  */
 const PROVIDER_HOST_FEATURE = {
   creationOwner: "session-creation-owner-v1",
+  nativeBinding: BOUND_RUNTIME_FEATURE,
   agentApiRevocation: "agent-api-revocation",
   agentApiManagement: "agent-api-management",
   agentApiPeers: "agent-api-peers",
@@ -621,12 +634,31 @@ export async function assertHostedCreationSupport(): Promise<void> {
     );
 }
 
-function creationControllerFields(
+function boundRuntimeIdentity(
+  options: StartSessionOptions,
+): BoundRuntimeIdentity | undefined {
+  if (!options.nativeResumeSource) return undefined;
+  if (options.creationRuntime)
+    throw new Error("A native continuation cannot create a new attempt");
+  const binding = parseBoundRuntimeIdentity({
+    version: 1,
+    sessionId: options.publicSessionId,
+    native: options.nativeResumeSource.native,
+  });
+  if (binding.native.id !== options.resumeSessionId)
+    throw new Error("Native continuation id does not match its source");
+  return binding;
+}
+
+function runtimeControllerFields(
   options: StartSessionOptions,
 ): Record<string, unknown> {
-  return options.creationRuntime
-    ? { creation: options.creationRuntime.identity, workerProtocolVersion: 2 }
-    : {};
+  const binding = boundRuntimeIdentity(options);
+  return binding
+    ? { binding, workerProtocolVersion: BOUND_RUNTIME_PROTOCOL_VERSION }
+    : options.creationRuntime
+      ? { creation: options.creationRuntime.identity, workerProtocolVersion: 2 }
+      : {};
 }
 
 export async function revokeHostedAgentApiAccess(
@@ -659,10 +691,17 @@ export function requestHostedProjectService(
   );
 }
 
-export function getProviderHostInventory(): Promise<
+export async function getProviderHostInventory(): Promise<
   HostedProviderRuntimeInfo[]
 > {
-  return requestHost("inventory");
+  const runtimes = await requestHost<HostedProviderRuntimeInfo[]>("inventory");
+  return runtimes.map(({ binding: _binding, worker, ...runtime }) => {
+    // Native storage scope is a private controller fact. The existing native
+    // id remains available for explicit provider-host turn targeting.
+    if (!worker) return { ...runtime, worker };
+    const { binding: _workerBinding, ...publicWorker } = worker;
+    return { ...runtime, worker: publicWorker };
+  });
 }
 
 export function getProviderHostSessionTurnStatus(
@@ -745,6 +784,7 @@ function cloneableOptions(
   const {
     creationRuntime: _creationRuntime,
     retainedRuntimeOnly: _retainedRuntimeOnly,
+    assertResumeAdmission: _assertResumeAdmission,
     onToolApproval: _onToolApproval,
     onAgentApiRead: _onAgentApiRead,
     onPermissionModeApplied: _onPermissionModeApplied,
@@ -802,7 +842,32 @@ export async function startHostedProviderSession(
   if (!isProviderRuntimeHostAvailable()) {
     throw new Error("Provider runtime host is unavailable");
   }
+  if (options.nativeResumeSource) {
+    options = {
+      ...options,
+      nativeResumeSource: Object.freeze({
+        ...options.nativeResumeSource,
+        native: Object.freeze({ ...options.nativeResumeSource.native }),
+      }),
+    };
+  }
   const creation = options.creationRuntime;
+  const binding = boundRuntimeIdentity(options);
+  if (binding) {
+    if (nativeSessionFamily(providerName) !== binding.native.family)
+      throw new Error("Native binding has the wrong provider family");
+    options.assertResumeAdmission?.();
+    if (
+      !providerHostHasFeature(
+        await getProviderHostStatus(),
+        PROVIDER_HOST_FEATURE.nativeBinding,
+      )
+    )
+      throw new Error(
+        "Update the provider host before starting a scoped native continuation",
+      );
+    options.assertResumeAdmission?.();
+  }
   if (creation) {
     await assertHostedCreationSupport();
     await creation.authorize();
@@ -835,10 +900,14 @@ export async function startHostedProviderSession(
       );
   }
   await creation?.authorize();
+  options.assertResumeAdmission?.();
   let runtime = options.resumeSessionId
     ? await requestHost<HostedProviderRuntimeInfo | null>("claim", {
-        sessionId: creation?.identity.sessionId ?? options.resumeSessionId,
-        ...creationControllerFields(options),
+        sessionId:
+          creation?.identity.sessionId ??
+          binding?.sessionId ??
+          options.resumeSessionId,
+        ...runtimeControllerFields(options),
       })
     : null;
   if (options.retainedRuntimeOnly && !runtime)
@@ -849,6 +918,15 @@ export async function startHostedProviderSession(
     throw new Error(
       "Saved creation owner is unavailable; do not relaunch its initial input",
     );
+  if (
+    runtime &&
+    binding &&
+    (runtime.workerProtocolVersion !== BOUND_RUNTIME_PROTOCOL_VERSION ||
+      runtime.sessionId !== binding.sessionId ||
+      runtime.providerSessionId !== binding.native.id ||
+      !sameBoundRuntimeIdentity(binding, runtime.binding))
+  )
+    throw new Error("Retained worker does not match the native binding");
   if (
     runtime &&
     creation &&
@@ -882,7 +960,7 @@ export async function startHostedProviderSession(
         runtime.reattach.sandboxNetworkFirewall !==
           requestedReattach.sandboxNetworkFirewall))
   ) {
-    if (creation || options.retainedRuntimeOnly)
+    if (creation || binding || options.retainedRuntimeOnly)
       throw new Error(
         "Retained continuation cannot replace a worker with different sandbox settings",
       );
@@ -892,11 +970,15 @@ export async function startHostedProviderSession(
   const hydrateHistory = !runtime && Boolean(options.instructionReadHistory);
   if (!runtime) {
     await creation?.authorize();
+    options.assertResumeAdmission?.();
     runtime = await requestHost<HostedProviderRuntimeInfo>("launch", {
       providerName,
       projectPath: options.cwd,
-      sessionId: creation?.identity.sessionId ?? options.resumeSessionId,
-      ...(creation ? { creation: creation.identity } : {}),
+      sessionId:
+        creation?.identity.sessionId ??
+        binding?.sessionId ??
+        options.resumeSessionId,
+      ...runtimeControllerFields(options),
       options: {
         ...cloneableOptions(options),
         deferInstructionHistory: hydrateHistory,
@@ -905,6 +987,15 @@ export async function startHostedProviderSession(
       reattach: reattachSpec(options),
     });
   }
+  if (
+    binding &&
+    (runtime.workerProtocolVersion !== BOUND_RUNTIME_PROTOCOL_VERSION ||
+      runtime.sessionId !== binding.sessionId ||
+      runtime.providerSessionId !== binding.native.id ||
+      !sameBoundRuntimeIdentity(binding, runtime.binding))
+  )
+    throw new Error("Provider host did not preserve the native binding");
+  options.assertResumeAdmission?.();
   if (creation) {
     if (
       runtime.workerProtocolVersion !== 2 ||
@@ -932,6 +1023,7 @@ class HostedMessageQueue implements AgentMessageQueue {
     initialDepth: number,
     private readonly send: (message: unknown) => void,
     private readonly rpc: <T>(method: string, args?: unknown[]) => Promise<T>,
+    private readonly assertAdmission?: () => void,
   ) {
     this.remoteDepth = initialDepth;
   }
@@ -944,6 +1036,7 @@ class HostedMessageQueue implements AgentMessageQueue {
   }
 
   trackSteer(message: UserMessage): void {
+    this.assertAdmission?.();
     this.pending.push(message);
   }
 
@@ -1057,6 +1150,7 @@ class HostedAgentSession {
       runtime.worker.queueDepth,
       (message) => this.send(message),
       <T>(method: string, args?: unknown[]) => this.rpc<T>(method, args),
+      options.assertResumeAdmission,
     );
   }
 
@@ -1068,11 +1162,18 @@ class HostedAgentSession {
     const environment = getEnvironment();
     if (!environment) throw new Error("Provider runtime host is unavailable");
     await options.creationRuntime?.authorize();
+    options.assertResumeAdmission?.();
+    if (!runtime.worker)
+      throw new Error("Provider worker is not ready to attach");
     const socket = createConnection(runtime.socketPath);
+    // Keep construction failures exception-safe before attach installs the
+    // request/lifetime listeners (a failed connect may report asynchronously).
+    socket.on("error", () => {});
     socket.setEncoding("utf8");
-    const proxy = new HostedAgentSession(runtime, options, socket);
     try {
+      const proxy = new HostedAgentSession(runtime, options, socket);
       await proxy.attach(environment);
+      options.assertResumeAdmission?.();
       const publicSessionId =
         options.creationRuntime?.identity.sessionId ??
         options.publicSessionId ??
@@ -1087,7 +1188,7 @@ class HostedAgentSession {
       }
       await requestHost("confirmAttach", {
         runtimeId: runtime.runtimeId,
-        ...creationControllerFields(options),
+        ...runtimeControllerFields(options),
       });
       if (hydrateHistory) {
         const history = options.instructionReadHistory ?? [];
@@ -1120,11 +1221,16 @@ class HostedAgentSession {
           type: "attach",
           token: environment.token,
           generation: environment.generation,
-          protocolVersion: this.options.creationRuntime
-            ? 2
-            : WORKER_PROTOCOL_VERSION,
+          protocolVersion: boundRuntimeIdentity(this.options)
+            ? BOUND_RUNTIME_PROTOCOL_VERSION
+            : this.options.creationRuntime
+              ? 2
+              : WORKER_PROTOCOL_VERSION,
           ...(this.options.creationRuntime
             ? { creation: this.options.creationRuntime.identity }
+            : {}),
+          ...(boundRuntimeIdentity(this.options)
+            ? { binding: boundRuntimeIdentity(this.options) }
             : {}),
           agentApiPeerGrantId: this.options.agentApi?.peerGrantId,
           agentApiPeersAllowed: Boolean(
@@ -1154,7 +1260,11 @@ class HostedAgentSession {
             if (message.type === "attached") {
               if (
                 message.protocolVersion !==
-                (this.options.creationRuntime ? 2 : WORKER_PROTOCOL_VERSION)
+                (boundRuntimeIdentity(this.options)
+                  ? BOUND_RUNTIME_PROTOCOL_VERSION
+                  : this.options.creationRuntime
+                    ? 2
+                    : WORKER_PROTOCOL_VERSION)
               ) {
                 clearTimeout(timeout);
                 reject(new Error("Provider worker protocol is incompatible"));
@@ -1244,6 +1354,24 @@ class HostedAgentSession {
     // controller. Workers predating the explicit field fall back to the
     // runtime's bound session id.
     if (this.options.creationRuntime) return;
+    const binding = boundRuntimeIdentity(this.options);
+    if (binding) {
+      if (
+        !sameBoundRuntimeIdentity(binding, message.binding) ||
+        (message.providerSessionId !== undefined &&
+          message.providerSessionId !== binding.native.id) ||
+        (Number(message.acknowledgedSequence ?? 0) > 0 &&
+          !message.providerSessionId)
+      )
+        throw new Error(
+          "Attached worker has conflicting native binding evidence",
+        );
+      this.initializedSessionId =
+        typeof message.providerSessionId === "string"
+          ? message.providerSessionId
+          : undefined;
+      return;
+    }
     const providerSessionId = message.providerSessionId;
     this.initializedSessionId =
       typeof providerSessionId === "string" && providerSessionId
@@ -1387,12 +1515,29 @@ class HostedAgentSession {
   }
 
   private send(message: unknown): void {
+    if (
+      message &&
+      typeof message === "object" &&
+      "type" in message &&
+      message.type === "queuePush"
+    )
+      this.options.assertResumeAdmission?.();
     if (this.socket.destroyed)
       throw new Error("Provider worker is disconnected");
     this.socket.write(`${JSON.stringify(message)}\n`);
   }
 
   private rpc<T>(method: string, args: unknown[] = []): Promise<T> {
+    // Cleanup and publication must remain possible after deletion. Only
+    // methods capable of submitting new provider input cross this fence.
+    if (
+      method === "steer" ||
+      method === "appendConversationContext" ||
+      method === "forceReadInstructions" ||
+      method === "refreshPromptCache" ||
+      method === "runProviderCommand"
+    )
+      this.options.assertResumeAdmission?.();
     const id = this.nextRpcId++;
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -1487,7 +1632,7 @@ class HostedAgentSession {
     this.cancelApprovals();
     await requestHost("release", {
       runtimeId: this.runtime.runtimeId,
-      ...creationControllerFields(this.options),
+      ...runtimeControllerFields(this.options),
     });
     this.done = true;
     this.socket.end();
@@ -1734,6 +1879,11 @@ class HostedAgentSession {
         ? { revokeAgentApiAccess: () => this.rpc<void>("revokeAgentApiAccess") }
         : {}),
       publishAgentctlSessionId: async (sessionId, browserDebugEnvironment) => {
+        const binding = boundRuntimeIdentity(this.options);
+        if (binding && sessionId !== binding.sessionId)
+          throw new Error(
+            "Continuation child publication must use the YA identity",
+          );
         if (
           this.options.creationRuntime &&
           sessionId !== this.options.creationRuntime.identity.sessionId
@@ -1750,7 +1900,7 @@ class HostedAgentSession {
         );
         // The managed host already claimed P before startup; only the worker's
         // scoped evidence may establish N. Public publication is not a bind.
-        if (this.options.creationRuntime) return;
+        if (this.options.creationRuntime || binding) return;
         const bound = await requestHost<HostedProviderRuntimeInfo>("bind", {
           runtimeId: this.runtime.runtimeId,
           sessionId,

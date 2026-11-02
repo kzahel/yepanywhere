@@ -132,6 +132,62 @@ describe("useDraftPersistence", () => {
     expect(readStoredText("draft-test")).toBe("next turn draft");
   });
 
+  it("acknowledges a captured creation without clearing a newer edit or another slot", () => {
+    const { result, rerender } = renderHook(
+      ({ draftKey }) => useDraftPersistence(draftKey),
+      { initialProps: { draftKey: "creation-slot" } },
+    );
+    act(() => result.current[1]("submitted prompt"));
+    let captured: ReturnType<
+      NonNullable<(typeof result.current)[2]["captureSubmission"]>
+    >;
+    act(() => {
+      captured = result.current[2].captureSubmission!();
+    });
+    act(() => result.current[1]("newer unsent prompt"));
+    act(() => captured!.confirm());
+    expect(result.current[0]).toBe("newer unsent prompt");
+    expect(readStoredText("creation-slot")).toBe("newer unsent prompt");
+    act(() => {
+      captured = result.current[2].captureSubmission!();
+    });
+    rerender({ draftKey: "different-slot" });
+    act(() => result.current[1]("another slot's text"));
+    act(() => captured!.confirm());
+    expect(result.current[0]).toBe("another slot's text");
+    expect(readStoredText("different-slot")).toBe("another slot's text");
+  });
+
+  it("preserves a sibling edit arriving after creation capture and before acknowledgement", () => {
+    const { result } = renderHook(() =>
+      useDraftPersistence("creation-sibling-slot"),
+    );
+    act(() => result.current[1]("submitted prompt"));
+    let captured: ReturnType<
+      NonNullable<(typeof result.current)[2]["captureSubmission"]>
+    >;
+    act(() => {
+      captured = result.current[2].captureSubmission!();
+    });
+    const newer = JSON.stringify({
+      version: 1,
+      text: "sibling's unsent prompt",
+    });
+    act(() => {
+      store.set("creation-sibling-slot", newer);
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "creation-sibling-slot",
+          newValue: newer,
+        }),
+      );
+    });
+    act(() => captured!.confirm());
+    expect(readStoredText("creation-sibling-slot")).toBe(
+      "sibling's unsent prompt",
+    );
+  });
+
   it("removes the recovery copy when the cleared input stays empty", () => {
     const { result } = renderHook(() => useDraftPersistence("draft-test"));
 

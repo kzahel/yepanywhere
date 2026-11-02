@@ -310,6 +310,8 @@ export interface StartSessionOptions {
   resumeSessionId?: string;
   /** Trusted operation-scoped transcript source; never accepted from HTTP JSON. */
   nativeResumeSource?: ProviderSessionSource;
+  /** Controller-owned recheck of an existing binding before hosted effects. */
+  assertResumeAdmission?: () => void;
   /** Private host admission: claim an incumbent, never start/replace a worker. */
   retainedRuntimeOnly?: boolean;
   /**

@@ -43,6 +43,8 @@ export type CreationContext = {
     | { kind: "internal"; reason: "recap" | "retitle" | "fork-summary" };
 };
 export interface SavedCreationRequest {
+  /** Hash of the submitted wire request, before mutable launch defaults. */
+  submissionHash?: string;
   provider: ProviderName;
   projectId: UrlProjectId;
   projectPath: string;
@@ -219,6 +221,11 @@ function contextSnapshot(context: CreationContext): CreationContext {
 }
 function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
   if (
+    request?.submissionHash !== undefined &&
+    !/^[a-f0-9]{64}$/.test(request.submissionHash)
+  )
+    throw new Error("Invalid creation submission hash");
+  if (
     !request ||
     !ALL_PROVIDERS.includes(request.provider) ||
     typeof request.message !== "string" ||
@@ -270,6 +277,9 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
           };
   return {
     provider: request.provider,
+    ...(request.submissionHash
+      ? { submissionHash: request.submissionHash }
+      : {}),
     projectId: request.projectId,
     projectPath: request.projectPath,
     message: request.message,

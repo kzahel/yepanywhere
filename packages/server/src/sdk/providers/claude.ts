@@ -1405,7 +1405,13 @@ export class ClaudeProvider implements AgentProvider {
 
   /** Check whether YA has an executable Claude Code runtime to launch. */
   private async isClaudeCliInstalled(): Promise<boolean> {
-    return resolveLocalClaudeCodeExecutable() !== undefined;
+    const executable = resolveLocalClaudeCodeExecutable();
+    // Installation can change after this module resolved the executable.
+    // Recheck the captured path before admitting a saved startup attempt.
+    return (
+      executable !== undefined &&
+      resolvePathExecutable(executable) !== undefined
+    );
   }
 
   /**
@@ -2259,6 +2265,12 @@ export class ClaudeProvider implements AgentProvider {
   }
 
   /** Resolve and validate the actual native environment before readiness effects. */
+  async validateNativeResumeSource(
+    options: StartSessionOptions,
+  ): Promise<void> {
+    if (options.nativeResumeSource) await this.sessionEnvironment(options);
+  }
+
   protected async sessionEnvironment(options: StartSessionOptions) {
     if (options.executor) throw new Error("SSH executors have been removed");
     const autoCompactOverrideEnv = getClaudeAutoCompactOverrideEnv(

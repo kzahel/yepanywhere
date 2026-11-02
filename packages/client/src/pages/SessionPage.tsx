@@ -1,3 +1,4 @@
+import { SessionCreationNotice } from "../components/SessionCreationNotice";
 import { RoutedSessionContext } from "../contexts/RoutedSessionContext";
 import {
   DRAFT_STORAGE_EVENT,
@@ -6770,6 +6771,11 @@ function SessionPageContent({
             data-session-read-scope={sessionId}
             {...transcriptComposerFocus}
           >
+            <SessionCreationNotice
+              creation={session?.creation}
+              prompt={session?.initialPrompt}
+              onRefresh={refreshTranscriptTail}
+            />
             {error && (
               <div role="status">
                 {t("sessionErrorPrefix")} {error.message}
@@ -7194,16 +7200,23 @@ function SessionPageContent({
                   primaryActionKind={
                     mainComposerForAside ? "send" : primaryComposerAction
                   }
+                  disabled={
+                    !!session?.creation &&
+                    session.creation.delivery !== "consumed"
+                  }
                   placeholder={
-                    mainComposerForAside
-                      ? "/btw follow-up"
-                      : status.owner === "external"
-                        ? t("sessionPlaceholderExternal")
-                        : processState === "idle"
-                          ? shouldDeferMessages
-                            ? t("sessionPlaceholderQueue")
-                            : t("sessionPlaceholderResume")
-                          : t("sessionPlaceholderQueue")
+                    session?.creation &&
+                    session.creation.delivery !== "consumed"
+                      ? t("sessionCreationBlocked")
+                      : mainComposerForAside
+                        ? "/btw follow-up"
+                        : status.owner === "external"
+                          ? t("sessionPlaceholderExternal")
+                          : processState === "idle"
+                            ? shouldDeferMessages
+                              ? t("sessionPlaceholderQueue")
+                              : t("sessionPlaceholderResume")
+                            : t("sessionPlaceholderQueue")
                   }
                   mode={permissionMode}
                   onModeChange={setPermissionMode}

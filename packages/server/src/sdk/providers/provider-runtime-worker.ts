@@ -4,6 +4,11 @@ import { nativeSessionFamily } from "@yep-anywhere/shared";
 import { prepareSessionSandbox } from "../../session-sandbox.js";
 import { getModuleEnv } from "../../yaModuleEnv.js";
 import {
+  BOUND_RUNTIME_FEATURE,
+  parseBoundRuntimeIdentity,
+  sameBoundRuntimeIdentity,
+} from "./bound-runtime-identity.mjs";
+import {
   copyAgentctlBashEnvInto,
   createAgentctlSessionEnvBridge,
   pickStaticAgentEnvironment,
@@ -21,6 +26,7 @@ import { withInstructionRestoration } from "./instruction-restoration.js";
 
 interface WorkerLaunchRequest {
   creation?: unknown;
+  binding?: unknown;
   providerName: ProviderName;
   options: StartSessionOptions & {
     browserDebugEnvironment?: Record<string, string>;
@@ -107,12 +113,28 @@ async function main(): Promise<void> {
       process.send({
         type: "launchHello",
         protocolVersion: 1,
-        features: ["session-creation-owner-v1"],
+        features: ["session-creation-owner-v1", BOUND_RUNTIME_FEATURE],
       });
     }
     const request = await readLaunchRequest();
     if (request.creation !== undefined)
       owner.setCreationIdentity(request.creation);
+    if (request.binding !== undefined) owner.setBoundIdentity(request.binding);
+    const binding =
+      request.binding === undefined
+        ? undefined
+        : parseBoundRuntimeIdentity(request.binding);
+    if (
+      binding &&
+      (nativeSessionFamily(request.providerName) !== binding.native.family ||
+        request.options.resumeSessionId !== binding.native.id ||
+        !sameBoundRuntimeIdentity(binding, {
+          version: 1,
+          sessionId: request.options.publicSessionId,
+          native: request.options.nativeResumeSource?.native,
+        }))
+    )
+      throw new Error("Native binding does not match provider continuation");
     const creation = owner.creationEvidence()?.identity;
     if (
       creation &&
@@ -147,21 +169,6 @@ async function main(): Promise<void> {
             "Creation native namespace does not match this worker",
           );
       }
-      if (request.providerName === "claude-gateway") {
-        await provider.getAvailableModels();
-        await ClaudeGatewayProvider.retainOwnedGatewayProcessGroups(
-          (processGroupId) => {
-            // A worker with no live channel still gives the child up: the
-            // gateway is a shared service that has to outlive this session
-            // either way, and killing it on this worker's exit is worse than
-            // the runtime host not knowing about it.
-            if (typeof process.send === "function" && process.connected) {
-              process.send({ type: "retainedProcessGroup", processGroupId });
-            }
-          },
-        );
-      }
-
       const sandboxOptions = providerOptions.sessionSandboxOptions;
       if (
         sandboxOptions &&
@@ -178,12 +185,36 @@ async function main(): Promise<void> {
       const sessionSandbox = sandboxOptions
         ? await prepareSessionSandbox(sandboxOptions)
         : undefined;
+      if (request.providerName === "claude-gateway") {
+        await (provider as ClaudeGatewayProvider).validateNativeResumeSource({
+          ...providerOptions,
+          sessionSandbox,
+        });
+        await provider.getAvailableModels();
+        await ClaudeGatewayProvider.retainOwnedGatewayProcessGroups(
+          (processGroupId) => {
+            // A worker with no live channel still gives the child up: the
+            // gateway is a shared service that has to outlive this session
+            // either way, and killing it on this worker's exit is worse than
+            // the runtime host not knowing about it.
+            if (typeof process.send === "function" && process.connected) {
+              process.send({ type: "retainedProcessGroup", processGroupId });
+            }
+          },
+        );
+      }
+
       const agentctlSessionEnvBridge = createAgentctlSessionEnvBridge(
-        creation?.sessionId ?? providerOptions.resumeSessionId,
+        creation?.sessionId ??
+          binding?.sessionId ??
+          providerOptions.resumeSessionId,
         () => ({ ...hooks.getBrowserDebugEnvironment() }),
       );
       copyAgentctlBashEnvInto(process.env, agentctlSessionEnvBridge, {
-        sessionId: creation?.sessionId ?? providerOptions.resumeSessionId,
+        sessionId:
+          creation?.sessionId ??
+          binding?.sessionId ??
+          providerOptions.resumeSessionId,
       });
       try {
         const session = await provider.startSession({

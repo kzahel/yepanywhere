@@ -1,3 +1,9 @@
+import {
+  acceptTextCreation,
+  getTextCreation,
+  settleTextCreation,
+  pendingTextCreation,
+} from "../lib/textSessionCreation";
 import { useRouterDiscovery } from "../hooks/useRouterDiscovery";
 import {
   RouterPoolSelector,
@@ -487,6 +493,18 @@ export function NewSessionForm({
   const { relayTransport, relayedServerSpeechAvailable } =
     useSpeechSourceRuntime();
   const clientSummarySourceKey = useClientSummarySourceKey();
+  const creationViewOwner = useRef({
+    active: true,
+    sourceKey: clientSummarySourceKey,
+    accountKey: null as string | null,
+  });
+  creationViewOwner.current.sourceKey = clientSummarySourceKey;
+  useEffect(() => {
+    creationViewOwner.current.active = true;
+    return () => {
+      creationViewOwner.current.active = false;
+    };
+  }, []);
   const sourceRuntime = useCurrentSourceRuntime();
   const sourceSummary = sourceRuntime.summary;
   const sourceTransport = sourceRuntime.transport;
@@ -542,6 +560,13 @@ export function NewSessionForm({
   >(new Map());
   const removedPendingUploadIdsRef = useRef<Set<string>>(new Set());
   const [isStarting, setIsStarting] = useState(false);
+  const [acceptingText, setAcceptingText] = useState(false);
+  const [acceptedCreation, setAcceptedCreation] = useState<
+    | (import("@yep-anywhere/shared").TextSessionCreationReceipt & {
+        sourceKey: string;
+      })
+    | null
+  >(null);
   const [fullPane, setFullPane] = useState(false);
   const [fullPaneWide, setFullPaneWide] = useState(false);
   const [showOptionCaptions, setShowOptionCaptions] = useState(false);
@@ -658,6 +683,21 @@ export function NewSessionForm({
   // form reads them so it stops presenting a choice that would be refused.
   // See topics/limited-users.md § Delivery v1.
   const { principal, resolved: principalResolved } = useActingPrincipal();
+  creationViewOwner.current.accountKey = principal.username;
+  const pendingCreation = useMemo(
+    () =>
+      isStarting
+        ? null
+        : pendingTextCreation(
+            `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
+          ),
+    [
+      clientSummarySourceKey,
+      principal.username,
+      newSessionDraftKey,
+      isStarting,
+    ],
+  );
   const historyScope = principalResolved
     ? JSON.stringify([clientSummarySourceKey, principal.username])
     : null;
@@ -2907,6 +2947,24 @@ export function NewSessionForm({
       const actionAtMs = Date.now();
       const clientTimestamp = getServerClockTimestamp(actionAtMs);
 
+      const durableText =
+        !launch &&
+        principalResolved &&
+        !launchLock.limited &&
+        selectedProvider === "claude" &&
+        serverHasCapability(
+          versionInfo,
+          SERVER_CAPABILITIES.claudeTextCreation.name,
+        ) &&
+        submissionFiles.length === 0 &&
+        trimmedMessage.length > 0 &&
+        !command &&
+        effectiveSandboxLevel === "none" &&
+        !machineControlSelected;
+      const capturedSubmission = durableText
+        ? draftControls.captureSubmission?.()
+        : undefined;
+      setAcceptingText(durableText);
       setInterimTranscript("");
       consumeSpeechAttribution();
       setIsStarting(true);
@@ -3035,6 +3093,55 @@ export function NewSessionForm({
           draftControls.clearDraft();
           setIsStarting(false);
           return;
+        }
+
+        if (durableText) {
+          const receipt = await acceptTextCreation(
+            sourceTransport,
+            `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
+            resolvedProjectId ?? undefined,
+            trimmedMessage,
+            sessionOptions,
+            clientTimestamp,
+            messageMetadata,
+            capturedSubmission?.text,
+          );
+          if (
+            !creationViewOwner.current.active ||
+            creationViewOwner.current.sourceKey !== clientSummarySourceKey ||
+            creationViewOwner.current.accountKey !== principal.username
+          )
+            return true;
+          const cleared = capturedSubmission?.confirm() ?? false;
+          if (
+            cleared ||
+            (capturedSubmission &&
+              draftControls.getDraft() !== capturedSubmission.text)
+          )
+            settleTextCreation(
+              `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
+              receipt.requestId,
+            );
+          setIsStarting(false);
+          setAcceptingText(false);
+          if (!cleared) {
+            setAcceptedCreation({
+              ...receipt,
+              sourceKey: clientSummarySourceKey,
+            });
+            return true;
+          }
+          navigate(
+            `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
+            {
+              state: createSessionNavigationState({
+                projectApp,
+                initialTitle: trimmedMessage,
+                initialProvider: selectedProvider ?? undefined,
+              }),
+            },
+          );
+          return true;
         }
 
         if (submissionFiles.length > 0) {
@@ -3202,8 +3309,10 @@ export function NewSessionForm({
         return true;
       } catch (err) {
         console.error("Failed to start session:", err);
-        draftControls.restoreFromStorage();
+        if (capturedSubmission) capturedSubmission.cancel();
+        else draftControls.restoreFromStorage();
         setIsStarting(false);
+        setAcceptingText(false);
 
         // Show user-visible error message
         let errorMessage = t("newSessionStartError");
@@ -3247,6 +3356,10 @@ export function NewSessionForm({
     },
     [
       basePath,
+      newSessionDraftKey,
+      principal.username,
+      principalResolved,
+      sourceTransport,
       draftControls,
       routerSelection,
       routedModel,
@@ -4154,7 +4267,7 @@ export function NewSessionForm({
                 }
               }}
               placeholder={resolvedPlaceholder}
-              disabled={isStarting}
+              disabled={isStarting && !acceptingText}
               // Read-only rather than disabled: the draft stays selectable and
               // scrollable so it can still be read, just not sent.
               readOnly={composerMuted}
@@ -5320,6 +5433,77 @@ export function NewSessionForm({
       : null,
   ].filter((label): label is string => label !== null);
 
+  const creationRecovery = (
+    <>
+      {acceptedCreation &&
+        acceptedCreation.sourceKey === clientSummarySourceKey && (
+          <div role="status" className={styles.creationRecovery}>
+            <span>{t("sessionCreationNewerDraft")}</span>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `${basePath}/projects/${acceptedCreation.projectId}/sessions/${acceptedCreation.sessionId}`,
+                )
+              }
+            >
+              {t("sessionCreationOpenSaved")}
+            </button>
+          </div>
+        )}
+      {pendingCreation && (
+        <div role="status" className={styles.creationRecovery}>
+          <span>
+            {t(
+              pendingCreation.receipt
+                ? "sessionCreationSavedWhileAway"
+                : "sessionCreationUnconfirmedRequest",
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={async () => {
+              const key = `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`;
+              const pending = pendingTextCreation(key);
+              if (!pending) return;
+              try {
+                const receipt = await getTextCreation(
+                  sourceTransport,
+                  pending.requestId,
+                );
+                if (
+                  !creationViewOwner.current.active ||
+                  creationViewOwner.current.sourceKey !==
+                    clientSummarySourceKey ||
+                  creationViewOwner.current.accountKey !== principal.username
+                )
+                  return;
+                const cleared =
+                  pending.draftText !== undefined &&
+                  draftControls.getDraft() === pending.draftText
+                    ? draftControls.captureSubmission?.().confirm()
+                    : false;
+                if (
+                  cleared ||
+                  (pending.draftText !== undefined &&
+                    draftControls.getDraft() !== pending.draftText)
+                )
+                  settleTextCreation(key, receipt.requestId);
+                navigate(
+                  `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
+                );
+              } catch {
+                showToast(t("sessionCreationStillUnconfirmed"), "error");
+              }
+            }}
+          >
+            {t("sessionCreationCheckSaved")}
+          </button>
+        </div>
+      )}
+    </>
+  );
+
   const displayDefaultsError =
     displayDefaultsPending && settingsError ? (
       <div role="alert" className={styles.catalogStatus}>
@@ -5342,6 +5526,7 @@ export function NewSessionForm({
         className="new-session-form new-session-form-compact"
         onKeyDownCapture={handleComposerKeyDown}
       >
+        {creationRecovery}
         {displayDefaultsError}
         {inputArea}
       </div>
@@ -5372,6 +5557,7 @@ export function NewSessionForm({
         </div>
       )}
 
+      {creationRecovery}
       {displayDefaultsError}
 
       <div

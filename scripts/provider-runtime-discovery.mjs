@@ -17,6 +17,7 @@ import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import ts from "typescript";
+import { parseBoundRuntimeIdentity } from "../packages/server/src/sdk/providers/bound-runtime-identity.mjs";
 
 import {
   assertProviderSocketPath,
@@ -308,13 +309,32 @@ function parseRecentRuntimeCandidate(value) {
     launch.reattach ?? {},
     "recent runtime reattach settings",
   );
+  const binding =
+    launch.binding === undefined
+      ? undefined
+      : parseBoundRuntimeIdentity(launch.binding);
+  if (
+    binding &&
+    (binding.sessionId !== yaSessionId ||
+      binding.native.id !== providerSessionId ||
+      binding.native.family !== harness ||
+      options.initialMessage !== undefined)
+  )
+    throw new Error("Invalid provider host recent native continuation");
   return {
     target: {
       harness,
       providerSessionId,
       ...(yaSessionId ? { yaSessionId } : {}),
     },
-    launch: { providerName, projectPath, options, runtimeConfig, reattach },
+    launch: {
+      providerName,
+      projectPath,
+      options,
+      runtimeConfig,
+      reattach,
+      ...(binding ? { binding } : {}),
+    },
   };
 }
 
@@ -329,7 +349,10 @@ export function consumeProviderHostRecentRuntimes(paths, now = Date.now()) {
     }
     const raw = readFileSync(consumedPath, "utf8");
     const value = requireRecord(JSON.parse(raw), "recent runtime store");
-    if (value.version !== RECENT_RUNTIME_SCHEMA_VERSION) {
+    if (
+      value.version !== RECENT_RUNTIME_SCHEMA_VERSION &&
+      value.version !== 2
+    ) {
       throw new Error("Invalid provider host recent runtime store version");
     }
     const stoppedAt = Date.parse(value.stoppedAt);
@@ -365,7 +388,11 @@ export function writeProviderHostRecentRuntimes(paths, candidates) {
     throw new Error("Provider host recent runtime store exceeds its bound");
   }
   const value = `${JSON.stringify({
-    version: RECENT_RUNTIME_SCHEMA_VERSION,
+    // Older readers discard unknown launch fields. Mark a scoped recipe so
+    // they refuse it instead of silently relaunching it as a legacy worker.
+    version: candidates.some((candidate) => candidate.launch?.binding)
+      ? 2
+      : RECENT_RUNTIME_SCHEMA_VERSION,
     stoppedAt: new Date().toISOString(),
     candidates: candidates.map(parseRecentRuntimeCandidate),
   })}\n`;

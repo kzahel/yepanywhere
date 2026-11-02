@@ -12,7 +12,14 @@ import { ApiReceiptStore } from "../../../src/core-api/receipt-store.js";
 import { SessionCommands } from "../../../src/core-api/session-commands.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
-import { chmod, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -45,6 +52,7 @@ import {
   ensureProviderRuntimeHost,
   initializeProviderRuntimeHost,
   startHostedProviderSession,
+  getProviderHostInventory,
   revokeHostedAgentApiAccess,
   revokeHostedPeerAgentApiAccess,
 } from "../../../src/sdk/providers/provider-runtime-host.js";
@@ -588,6 +596,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
         hostProtocolVersion: 3,
         features: [
           "session-creation-owner-v1",
+          "session-native-binding-v1",
           "runtime-control",
           "session-turn",
           "session-turn-await",
@@ -712,6 +721,9 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     };
 
     writeProviderHostRecentRuntimes(paths, [candidate]);
+    expect(
+      JSON.parse(await readFile(paths.recentRuntimePath, "utf8")).version,
+    ).toBe(1);
     expect((await stat(paths.recentRuntimePath)).mode & 0o077).toBe(0);
     expect(consumeProviderHostRecentRuntimes(paths)).toEqual([
       { ...candidate, expiresAt: expect.any(String) },
@@ -2494,6 +2506,189 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     await second.abort();
     await waitUntil(() => host.runtimes.size === 0);
     await host.shutdown("proxy test complete");
+  });
+
+  it("keeps a bound native continuation fenced across controller loss and recent recipes", async () => {
+    const root = await mkdtemp(join(runtimeTmpDir, "ya-bound-worker-"));
+    temporaryPaths.push(root);
+    const recent: unknown[][] = [];
+    const host = new ProviderRuntimeHost({
+      runtimeDir: root,
+      controlSocketPath: join(root, "host.sock"),
+      token: "bound-token",
+      workerPath: join(
+        dirname(fixtureWorker),
+        "bound-provider-runtime-worker.ts",
+      ),
+      publishRecentRuntimes: (entries: unknown[]) => recent.push(entries),
+    });
+    const binding = {
+      version: 1,
+      sessionId: "public-bound-session",
+      native: nativeSessionRef(
+        "claude",
+        root,
+        parseNativeSessionId("native-bound-session"),
+      ),
+    };
+    let current = true;
+    const options = {
+      cwd: root,
+      model: "hold-ready",
+      publicSessionId: binding.sessionId,
+      resumeSessionId: binding.native.id,
+      nativeResumeSource: {
+        native: binding.native,
+        projectId: toUrlProjectId(root),
+      },
+      assertResumeAdmission: () => {
+        if (!current) throw new Error("saved session was deleted");
+      },
+    };
+    try {
+      await host.start();
+      process.env.YEP_PROVIDER_RUNTIME_SOCKET = join(root, "host.sock");
+      process.env.YEP_PROVIDER_RUNTIME_TOKEN = "bound-token";
+      process.env.YEP_SERVER_GENERATION = "bound-first";
+      expect(await initializeProviderRuntimeHost()).toBe(true);
+      const {
+        assertResumeAdmission: _assertResumeAdmission,
+        ...workerOptions
+      } = options;
+      const launch = host.handleRequest({
+        op: "launch",
+        token: "bound-token",
+        protocolVersion: 3,
+        generation: "bound-first",
+        providerName: "claude",
+        projectPath: root,
+        sessionId: binding.sessionId,
+        binding,
+        options: workerOptions,
+      });
+      await waitUntil(() => host.runtimes.size === 1);
+      const entry = [...host.runtimes.values()][0];
+      // The replacement must not claim P while its worker has no metadata
+      // or listener yet. A held OS worker makes this race deterministic.
+      await new Promise<void>((resolve) =>
+        entry.child.on("message", (message: { type?: string }) => {
+          if (message.type === "fixtureHoldingReady") resolve();
+        }),
+      );
+      expect(() =>
+        host.claim({
+          sessionId: binding.sessionId,
+          generation: "bound-first",
+          binding,
+          workerProtocolVersion: 3,
+        }),
+      ).toThrow("not ready");
+      expect(entry.attachedServerGeneration).toBe("bound-first");
+      entry.child.send({ type: "fixtureReady" });
+      const launched = await launch;
+      expect(entry.sessionId).toBe(binding.sessionId);
+      expect(entry.providerSessionId).toBe(binding.native.id);
+      expect(entry.creation).toBeUndefined();
+      const publicInventory = await getProviderHostInventory();
+      expect(publicInventory[0]).not.toHaveProperty("binding");
+      expect(publicInventory[0].worker).not.toHaveProperty("binding");
+      expect(() =>
+        host.claim({ sessionId: binding.sessionId, generation: "bound-first" }),
+      ).toThrow("exact native binding");
+      expect(() =>
+        host.claim({
+          sessionId: binding.sessionId,
+          generation: "bound-first",
+          binding: {
+            ...binding,
+            native: { ...binding.native, storageScope: join(root, "foreign") },
+          },
+          workerProtocolVersion: 3,
+        }),
+      ).toThrow("exact native binding");
+      // Exercise the worker's abrupt socket-close release path, without an
+      // app-originated release request supplying the fields on its behalf.
+      await new Promise<void>((resolve, reject) => {
+        const socket = createConnection(launched.socketPath);
+        let buffer = "";
+        socket.setEncoding("utf8");
+        socket.on("error", reject);
+        socket.on("connect", () =>
+          socket.write(
+            JSON.stringify({
+              type: "attach",
+              token: "bound-token",
+              protocolVersion: 3,
+              generation: "bound-first",
+              binding,
+            }) + "\n",
+          ),
+        );
+        socket.on("data", (chunk) => {
+          buffer += chunk;
+          const lines = buffer.split("\n");
+          buffer = lines.pop()!;
+          for (const line of lines) {
+            const frame = JSON.parse(line);
+            if (frame.type === "error") reject(new Error(frame.error));
+            if (frame.type === "event") {
+              expect(frame.message.session_id).toBe(binding.native.id);
+              socket.end(
+                JSON.stringify({ type: "ack", sequence: frame.sequence }) +
+                  "\n",
+              );
+            }
+          }
+        });
+        socket.on("close", () => resolve());
+      });
+      await waitUntil(() => !entry.attachedServerGeneration);
+      closeProviderRuntimeHostRegistration();
+      process.env.YEP_SERVER_GENERATION = "bound-second";
+      expect(await initializeProviderRuntimeHost()).toBe(true);
+      const second = await startHostedProviderSession("claude", options, {});
+      expect(second.initializedSessionId).toBe(binding.native.id);
+      await expect(
+        second.publishAgentctlSessionId?.(binding.native.id),
+      ).rejects.toThrow("YA identity");
+      await second.publishAgentctlSessionId?.(binding.sessionId);
+      expect([...host.runtimes.values()][0].pid).toBe(entry.pid);
+      second.queue.push({ text: "LATER_ONCE" });
+      expect((await second.iterator.next()).value?.message?.content).toBe(
+        "LATER_ONCE",
+      );
+      expect((await second.iterator.next()).value?.type).toBe("result");
+      current = false;
+      const depth = second.queue.depth;
+      expect(() => second.queue.push({ text: "STALE_INPUT" })).toThrow(
+        "deleted",
+      );
+      expect(second.queue.depth).toBe(depth);
+      await second.detachForServerReload?.();
+      await host.shutdown("bound proof complete");
+      expect(recent).toHaveLength(1);
+      expect(recent[0]).toMatchObject([
+        {
+          target: {
+            yaSessionId: binding.sessionId,
+            providerSessionId: binding.native.id,
+          },
+          launch: { binding },
+        },
+      ]);
+      const paths = resolveProviderHostPaths({
+        YEP_PROVIDER_HOST_RUNTIME_DIR: root,
+      });
+      writeProviderHostRecentRuntimes(paths, recent[0]);
+      expect(
+        JSON.parse(await readFile(paths.recentRuntimePath, "utf8")).version,
+      ).toBe(2);
+      expect(
+        consumeProviderHostRecentRuntimes(paths)[0].launch.binding,
+      ).toEqual(binding);
+    } finally {
+      await host.shutdown("bound fixture cleanup");
+    }
   });
 
   it("restores a stored legacy Supervisor session through the retained worker only", async () => {

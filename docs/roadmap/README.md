@@ -615,6 +615,11 @@ implementation. Saved startup/failure/uncertainty and safe draft acknowledgement
 are the user milestone. Broader providers, attachments, automated retry, optional
 background creation and the remaining provenance callers follow separately.
 The historical progress below is foundation evidence, not completion of that UI.
+The Claude text UI/API slice now has owned-profile browser evidence for routed
+creation, saved failure across restart, typing during acceptance and recovery
+after leaving the form. Its one Sol review found two draft/recovery defects;
+their exact interleavings now pass after correction. Codex creation and the
+remaining recovery qualification are pending; no all-provider completion claim.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

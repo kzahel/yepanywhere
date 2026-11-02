@@ -870,6 +870,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "peer-connections",
     introducedIn: "0.11.1",
   },
+  claudeTextCreation: {
+    id: 142,
+    direction: "server",
+    name: "session-creation-claude-text",
+    introducedIn: "0.11.1",
+  },
 } as const satisfies Record<string, CapabilityIdAllocation>;
 
 export type CapabilityBitset = readonly (readonly [

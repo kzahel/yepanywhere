@@ -145,6 +145,120 @@ describe("a session start that waits for a worker", () => {
     return { supervisor, owners, routes: routesFor(supervisor) };
   }
 
+  it("accepts text before native init and coalesces concurrent/replayed requests without another owner", async () => {
+    const f = nativeRoutes();
+    const body = {
+      requestId: "owned_creation_request",
+      provider: "claude",
+      message: "exact accepted input",
+      model: "sonnet",
+    };
+    const submit = (value = body) =>
+      f.routes.request(`/projects/${projectId}/session-creations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(value),
+      });
+    const responses = await Promise.all([submit(), submit()]);
+    expect(responses.map((r) => r.status)).toEqual([202, 202]);
+    const [first, second] = await Promise.all(responses.map((r) => r.json()));
+    expect(first.sessionId).toBe(second.sessionId);
+    expect(metadata.creations.listProjections()).toHaveLength(1);
+    await waitFor(() => expect(f.owners).toHaveLength(1));
+    expect(
+      metadata.creations.get({ kind: "superuser" }, body.requestId)?.request
+        ?.message,
+    ).toBe(body.message);
+    const replay = await submit();
+    expect((await replay.json()).sessionId).toBe(first.sessionId);
+    expect(
+      (await submit({ ...body, message: "conflicting input" })).status,
+    ).toBe(409);
+    expect(f.owners).toHaveLength(1);
+    f.owners[0]!.push({
+      type: "system",
+      subtype: "init",
+      session_id: first.sessionId,
+    });
+    f.owners[0]!.push({
+      type: "assistant",
+      session_id: first.sessionId,
+      user_message_uuid: metadata.creations.get(
+        { kind: "superuser" },
+        body.requestId,
+      )!.initialInputId!,
+      message: { role: "assistant", content: "confirmed" },
+    });
+    await waitFor(() =>
+      expect(
+        metadata.creations.get({ kind: "superuser" }, body.requestId)?.attempt
+          .delivery,
+      ).toBe("consumed"),
+    );
+    const status = await f.routes.request(
+      `/session-creations/${body.requestId}`,
+    );
+    expect(await status.json()).toMatchObject({
+      sessionId: first.sessionId,
+      creation: { delivery: "consumed" },
+    });
+  });
+
+  it("retains an accepted failed text request and its original result across database reopen", async () => {
+    const f = nativeRoutes(false);
+    const body = {
+      requestId: "owned_failed_creation",
+      provider: "claude",
+      message: "saved before unavailable startup",
+      model: "sonnet",
+    };
+    const submit = () =>
+      f.routes.request(`/projects/${projectId}/session-creations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Yep-Client-Surface": "desktop",
+        },
+        body: JSON.stringify(body),
+      });
+    const accepted = await submit();
+    expect(accepted.status).toBe(202);
+    const receipt = await accepted.json();
+    await waitFor(() =>
+      expect(
+        metadata.creations.get({ kind: "superuser" }, body.requestId)?.attempt
+          .state,
+      ).toBe("failed"),
+    );
+    expect(f.owners).toHaveLength(0);
+    await f.supervisor.stopBackgroundTasks();
+    closeTestDiscoveryDatabases();
+    metadata = createTestSessionMetadataService(join(root, "data"));
+    await metadata.initialize();
+    const reopened = nativeRoutes(false);
+    const result = await reopened.routes.request(
+      `/session-creations/${body.requestId}`,
+    );
+    expect(await result.json()).toMatchObject({
+      sessionId: receipt.sessionId,
+      creation: { state: "failed", delivery: "not-admitted" },
+    });
+    expect(
+      metadata.getMetadata(receipt.sessionId)?.creationProvenance?.surface,
+    ).toBe("desktop");
+    const replay = await reopened.routes.request(
+      `/projects/${projectId}/session-creations`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    expect(replay.status).toBe(202);
+    expect((await replay.json()).sessionId).toBe(receipt.sessionId);
+    expect(reopened.owners).toHaveLength(0);
+  });
+
   for (const route of ["project", "detached"] as const) {
     it(`retains ${route} prompt/source and first-input metadata when the provider is unavailable`, async () => {
       const f = nativeRoutes(false);

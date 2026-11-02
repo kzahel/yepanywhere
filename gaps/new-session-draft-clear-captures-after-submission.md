@@ -50,3 +50,12 @@ Not fixed during the attachment-ID repair: this requires a separate client
 submission-lifecycle change and its input/concurrency verification.
 
 Found 2026-09-30 while auditing draft sync after a failed Project Queue enqueue.
+
+2026-11-02: qualified ordinary Claude text acceptance captures its draft before
+async work. Focused hook and real browser delayed-ack checks preserve newer edits
+and slots and avoid navigating away from newer work. A real account-scoped sync
+coordinator regression also checks physical storage before clearing when a
+sibling storage event is delayed. Recovery retains the accepted operation until
+the owning form settles its draft. Legacy attachment, Queue
+and other creation paths above remain open; this narrow migration does not close
+the gap.

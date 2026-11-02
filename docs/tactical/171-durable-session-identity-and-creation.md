@@ -88,6 +88,20 @@ refresh, global host restart, or bulk identity rewrite is part of this milestone
 
 ## Execution progress
 
+- Claude milestone slice: the narrow text acceptance API, routed/account-pinned
+  dispatch, saved startup/failure UI and captured draft acknowledgement are
+  implemented. Three owned-profile browser cases cover real Claude CLI against
+  a controlled model endpoint: delayed acceptance with sequential typing,
+  disappeared executable plus page/server restart, and form retirement before
+  acceptance followed by recovery without a second submission. Focused server
+  checks pass (164 tests); draft checks pass (93 tests). One actual Sol 6.1 High
+  review identified delayed sibling storage and retired-form recovery defects;
+  both were corrected and the exact interleavings verified without re-review.
+  This is controlled native evidence, not a live Anthropic model smoke. Codex
+  creation and the remaining recovery slice are still pending. Required root
+  typecheck, lint and formatting pass; the final full run passes 6,886 server
+  and 7,067 client tests (140.34 seconds for the server workspace).
+
 - Phase 3 provider-variant continuation is independently accepted by Sol
   6.1 High after correcting a vacuous Gateway readiness assertion to configure
   an actual autostart-capable service. Claude/Gateway/Ollama share one native
