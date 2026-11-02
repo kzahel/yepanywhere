@@ -625,7 +625,11 @@ Recovery fault qualification now passes lost-reply, surviving-worker and
 local/host owner-loss cases, with ten focused E2E cases passing together and a
 local Bun owner-loss check. Each slice received one Sol review, with material
 findings corrected and focused-verified. The narrowed milestone is complete; other-provider,
-attachment/caller and cross-platform release qualification remain follow-ups.
+attachment/caller and cross-platform release qualification remain follow-ups. The maintainer
+has now selected a bounded [release-qualification slice](../tactical/171-durable-session-identity-and-creation.md#release-qualification--selected-next-slice)
+for actual provider versions, relay interruption, worker saturation, source/draft
+retirement and supported-server fallback. It is in progress with one Sol review;
+attachments and additional caller migration remain later implementation work.
 
 [Plan 171](../tactical/171-durable-session-identity-and-creation.md) defines
 bounded identity/creation slices, standalone-profile tests, Sol 6.1 High review

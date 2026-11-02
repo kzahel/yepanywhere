@@ -79,6 +79,32 @@ Do not weaken or advertise the broader `session-creation-receipts` promise befor
 its attachment/all-caller guarantees exist. No compatibility cutoff, provider
 refresh, global host restart, or bulk identity rewrite is part of this milestone.
 
+## Release qualification — selected next slice
+
+The maintainer approved one bounded qualification slice after the November 2
+milestone. Keep ordinary Claude/Codex text scope, standalone profiles, focused
+corrections, one actual localhost:3400 Sol 6.1 High/bypassPermissions review and
+commits as work proceeds. This authorizes exercising the declared provider
+versions; it does not select a provider protocol refresh, default change or
+migration of attachments, Project Queue and other creation callers.
+
+| Check | Required evidence |
+| --- | --- |
+| Actual providers | Pinned Codex executable creation/answer/restart/continuation; live Claude through available authorized credentials/router, with unavailable evidence explicit. |
+| Phone-width relay interruption | Real encrypted relay submission/reconnect recovers the same public session and never replays initial input. A viewport check does not claim physical-phone lifecycle qualification. |
+| Worker saturation | Queued UI/prompt/source, exactly-once promotion and an accurate recoverable state after restart before dispatch. |
+| Source/account retirement | A delayed acceptance cannot navigate another source/account or clear its draft; original result remains recoverable. |
+| Browser draft handoff | Real sibling tabs and independent browser contexts preserve newer unsent drafts across acknowledgement. |
+| Supported older server | Current client falls back when narrow capability is absent; unsupported shapes retain the existing path. Reuse the existing released corpus where practical. |
+| Router/auth refusal | Unavailable/expired authorization remains pinned, retains saved input and gives honest failure/uncertainty without direct fallback or duplicate dispatch. |
+
+Use permanent E2E only where browser/transport interleavings are the unique
+boundary. Keep one-off installed-provider/compatibility probes as qualification
+evidence; report exact runtimes, wall time and limits. The existing draft-loss,
+creation-provenance and general unconfirmed-follow-up gaps remain open outside
+this scope. The routed-Codex direct-account discovery gap is independent and
+must not be represented as closed by successful routed model inference.
+
 ## Execution progress
 
 - Recovery milestone slice: four owned-profile fault cases pass: lost HTTP
