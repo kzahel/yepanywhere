@@ -10,7 +10,6 @@ import {
 } from "./support/process-registry.js";
 import { expect, test, type Browser } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 
 // Two owned server startups plus browser/native protocol teardown.
 test.setTimeout(90_000);
@@ -19,24 +18,12 @@ test.skip(
   "Controlled provider uses a POSIX executable fixture",
 );
 async function fixture(browser: Browser, inputs: NodeJS.ProcessEnv = {}) {
-  const owned = await createCodexCreationFixture(false, false, inputs);
-  let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
+  const owned = await createCodexCreationFixture(false, false, inputs, {
+    serveBuiltClient: true,
+  });
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
-    vite = await createTestViteServer({
-      configFile: resolve("vite.config.ts"),
-      root: process.cwd(),
-      server: {
-        host: "127.0.0.1",
-        hmr: false,
-        proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-      },
-    });
-    await vite.listen();
-    const address = vite.httpServer!.address();
-    if (!address || typeof address === "string")
-      throw new Error("Missing owned Vite listener");
-    const origin = `http://127.0.0.1:${address.port}`;
+    const origin = owned.server.baseUrl;
     const formUrl = `${origin}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`;
     return {
       ...owned,
@@ -45,13 +32,11 @@ async function fixture(browser: Browser, inputs: NodeJS.ProcessEnv = {}) {
       formUrl,
       async close() {
         await context.close();
-        await vite?.close();
         await owned.close();
       },
     };
   } catch (error) {
     await context.close();
-    await vite?.close();
     await owned.close();
     throw error;
   }
@@ -292,7 +277,18 @@ test("independent browser draft handoff survives another device's creation ackno
     await page.goto(owned.formUrl);
     const composer = page.locator("textarea.new-session-form-textarea");
     await composer.pressSequentially("OWNED_DEVICE_DRAFT");
+    await expect(composer).toHaveValue("OWNED_DEVICE_DRAFT");
     await composer.blur();
+    // Establish the initial handoff before the next auto-focused editor opens.
+    // A focused nonempty prefix intentionally holds subsequent remote text.
+    await expect
+      .poll(async () => {
+        const response = await owned.request("/drafts/read", {
+          slot: { kind: "new-session" },
+        });
+        return (await response.json()).snapshot.payload.fields.text;
+      })
+      .toBe("OWNED_DEVICE_DRAFT");
     await otherPage.goto(owned.formUrl);
     const other = otherPage.locator("textarea.new-session-form-textarea");
     await expect(other).toHaveValue("OWNED_DEVICE_DRAFT");

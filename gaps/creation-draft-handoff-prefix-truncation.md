@@ -1,29 +1,26 @@
-# Creation draft handoff can retain only a typed prefix in CI
+# Relay source handoff can retain only a locally typed prefix in CI
 
-CI run 41621863151 on 5b17d3b41 and the otherwise green run 41623035865 on
-37017c4a3 exposed two related-looking draft observations:
+CI run 41621863151 on 5b17d3b41 exposed
+`session-creation-remote-qualification.spec.ts:331`: after switching from
+relay host A to B and releasing A's accepted creation reply, B's editor
+retained `OWNED_SOURCE_B_U` instead of `OWNED_SOURCE_B_UNSENT`. The retry
+passed. This is a local editor value mismatch across source handoff.
 
-- `session-creation-remote-qualification.spec.ts:331`: after switching from
-  relay host A to B and releasing A's accepted creation reply, B's editor
-  retained `OWNED_SOURCE_B_U` instead of `OWNED_SOURCE_B_UNSENT`. The retry
-  passed. This is a local editor value mismatch across source handoff.
-- `session-creation-qualification.spec.ts:298`: a second independent browser
-  read `OWNED_DE` instead of `OWNED_DEVICE_DRAFT`, after the first browser's
-  sequential typing. This happened before the held creation reply was
-  installed; its retry passed. This could involve draft propagation and is
-  not evidence that creation acknowledgement caused the mismatch.
+The prefix remained through the unchanged five-second assertion. Capture
+that editor's per-key acknowledgements, physical local draft, queued server
+writes/version receipts and source-generation transitions together before
+changing draft ownership or synchronization. Preserve the existing regression
+and distinguish a local lost edit from remote focus protection.
 
-The failures retained these prefixes through the unchanged five-second
-assertions. They do not establish a common cause or justify raising a budget.
-Existing cases already protect these boundaries; preserve their assertions.
-Capture the first editor's DOM value, its per-key acknowledgements, queued
-server writes/version receipts and source-generation transitions together
-before changing draft ownership or synchronization. Distinguish a local lost
-edit from a remote reader that accepted an incomplete snapshot.
+The separately observed independent-browser prefix was a different boundary:
+its trace showed the full text accepted by the server and read by browser B.
+B had already auto-focused the earlier prefix, so the documented focus rule
+held the later version until blur. That creation-acknowledgement fixture now
+establishes initial publication before opening B; it supplies no evidence of
+local keystroke loss or a common cause with this source-switch observation.
 
-The CI recovery changes remove cold source graphs from native/Claude creation
-fixtures; they do not establish a fix for these separate multi-source/device
-handoffs. The frozen run evidence is in ignored
-`tasks/ci-recovery-2026-11-03/ci-green.log` and the downloaded shard1 artifacts.
+The built native/Claude fixtures do not establish a fix for this remaining
+multi-source handoff. Evidence is in ignored
+`tasks/ci-recovery-2026-11-03/ci-scanner-shard1-artifacts/` and `ci-green.log`.
 
 Found 2026-11-03 during issue #171 CI recovery and issue #168 scanner repair.

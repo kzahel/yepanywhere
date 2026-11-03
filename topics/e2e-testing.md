@@ -228,6 +228,12 @@ to the UI and must not be relaxed for a cross-origin fixture import.
 Creation fixtures register their owned project before exercising launch, so
 project admission does not depend on a transient discovery/virtual-project
 cache entry or on source compilation delaying the first interaction.
+Multi-browser creation tests establish initial draft publication through the
+real draft read API before opening an auto-focused second editor. The normal
+draft quiet debounce can publish an intermediate prefix while typing continues;
+a focused nonempty editor deliberately holds later remote text until blur.
+Keep the local sequential-typing assertion and verify the full server snapshot
+as the handoff precondition before testing delayed creation acknowledgement.
 The in-process Project App fixture also serves the invocation's built client;
 only its project's live-preview process needs Vite/HMR. It mounts real auth and
 server-settings services so principal resolution can admit the Apps settings
