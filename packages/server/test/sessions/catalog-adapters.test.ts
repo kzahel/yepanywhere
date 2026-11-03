@@ -10,6 +10,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
+import { encodeProjectId } from "../../src/projects/paths.js";
 import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
 import { GrokSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/grok-catalog-adapter.js";
 import { OpenCodeSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/opencode-catalog-adapter.js";
@@ -451,6 +453,23 @@ describe("AntigravitySessionCatalogAdapter", () => {
     await writeFile(join(directory, `${id}.db-wal`), "new native activity");
     const next = await collect(adapter);
     expect(next.rows[0]?.sourceVersion).not.toBe(first.rows[0]?.sourceVersion);
+  });
+
+  it("lists a project's accepted rows without a native process or another inventory", async () => {
+    const directory = await seed();
+    await writeJson(join(directory, `${id}.meta`), { cwd: root });
+    const accepted = await collect(
+      new AntigravitySessionCatalogAdapter({ sessionsDir: directory }),
+    );
+    const reader = new AntigravitySessionReader({
+      projectPath: root,
+      sessionsDir: directory,
+      catalogRows: async () => accepted.rows,
+    });
+    expect(await reader.listSessions(encodeProjectId(root))).toEqual([
+      expect.objectContaining({ id, provider: "antigravity" }),
+    ]);
+    await reader.close();
   });
 
   it("keeps accepted rows on malformed acquisition and rejects out-of-store aliases", async () => {

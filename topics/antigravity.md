@@ -73,10 +73,9 @@ is forwarded normally, but no YA command inventory, steering, manual compact,
 rewind, fork, quota dashboard, sandbox or custom instructions are promised.
 Native skills, hooks, MCP configuration and provider-created workspace files
 remain Google's behavior; YA creates no project-local cache or Git exclusions.
-Use an already recognized YA project for this preview. Native-only project
-discovery, retained global catalog integration and external-process detection
-are not qualified; a project that has never appeared in YA can lack draft and
-project-service context even though direct native creation succeeds.
+Native-only projects now join the shared retained catalog and project list;
+Claude history is not required. External-process detection and focused native
+history observation remain unqualified.
 
 ## Identity and history
 
@@ -138,6 +137,40 @@ Desktop 1000×600 and phone 375×812 captures exercised sequential typing during
 native streaming: all 100 characters survived in each viewport, with the
 slowest input acknowledgement below 12 ms. This does not qualify advanced
 operations, native project discovery or another platform.
+
+## Shared discovery first pass — 2026-11-03
+
+Antigravity, Pi, Grok and OpenCode register their native catalog adapters in
+`native-catalog-registry.ts`. The existing retained session catalog owns the
+acquisition and durable rows; a compact projection contributes native project
+paths, provider counts and activity to `ProjectScanner`. File-catalog production
+reads the scanner's file layer, so project discovery cannot await itself.
+Native project facts are not duplicated in the scanner's persistent cache.
+Existing project permissions, hidden directories, ownership metadata and public
+session adoption still apply.
+
+Antigravity discovery reads at most 2,000 `.meta` records, in batches of eight,
+with a 16 KiB metadata limit. Native database and WAL file facts version rows;
+their contents are never decoded. These rows have identity fidelity and no
+inferred title. Browsing starts no native agent, login or model prompt. Explicit
+history reads still use Google's loader and preserve the active-owner guard.
+App-owned Antigravity session listings consume accepted catalog rows instead
+of repeating native inventories per project.
+
+Retained project reads return accepted state while finite discovery runs.
+Completeness requires accepted coverage of each eligible native store, including
+empty stores; failed acquisition retains the previous generation. Only historically
+used families are eligible. Antigravity joins the existing provider-root watcher
+owner, watching native metadata, database and WAL changes. Changes under a
+registered native store refresh that store without rescanning file-provider
+projects. Project notifications follow changed project facts, rather than title
+changes alone. There is no new polling loop or watcher per project.
+
+This slice does not unify all per-project readers, queue/title lookups, focused
+history watches or process-to-session correlation. Grok and OpenCode do not gain
+a new root watcher here; their existing invalidation and explicit catalog refresh
+behavior remains. Legacy Gemini execution and historical readers remain intact.
+The remaining sequence below still applies; this is not Gemini retirement.
 
 ## Discovery and cleanup scope — discussion, 2026-11-03
 

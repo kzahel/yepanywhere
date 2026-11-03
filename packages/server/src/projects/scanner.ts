@@ -1,3 +1,4 @@
+import type { CatalogProjectSource } from "./catalog-projects.js";
 import { claudeCwdProjectDirectory } from "./claude-project-directory.js";
 import type { Dirent } from "node:fs";
 import {
@@ -35,6 +36,7 @@ import {
 } from "./paths.js";
 
 export interface ScannerOptions {
+  catalogProjects?: CatalogProjectSource;
   projectsDir?: string; // override for testing
   codexSessionsDir?: string; // override for testing
   geminiSessionsDir?: string; // override for testing
@@ -187,8 +189,16 @@ export class ProjectScanner {
   private eventBus: EventBus | undefined;
   private unsubscribeEventBus: (() => void) | null = null;
   private disposed = false;
+  private catalogProjects?: CatalogProjectSource;
+  private joined?: {
+    base: ProjectSnapshot | null;
+    version: string;
+    snapshot: ProjectSnapshot;
+  };
+  private publishedCatalogVersion?: string;
 
   constructor(options: ScannerOptions = {}) {
+    this.catalogProjects = options.catalogProjects;
     this.projectsDir = options.projectsDir ?? CLAUDE_PROJECTS_DIR;
     this.codexSessionsDir = options.codexSessionsDir ?? CODEX_SESSIONS_DIR;
     this.geminiSessionsDir = options.geminiSessionsDir ?? GEMINI_TMP_DIR;
@@ -218,6 +228,23 @@ export class ProjectScanner {
       this.unsubscribeEventBus = options.eventBus.subscribe((event) => {
         if (event.type === "file-change") {
           this.handleFileChange(event);
+        } else if (event.type === "session-catalog-updated") {
+          const view = this.catalogProjects?.peek();
+          if (!view || this.publishedCatalogVersion === view.version) return;
+          this.publishedCatalogVersion = view.version;
+          const previousIds =
+            this.joined?.snapshot.projects.map((project) => project.id) ?? [];
+          this.eventBus?.emit({
+            type: "projects-changed",
+            collectionRefresh: true,
+            projectIds: [
+              ...new Set([
+                ...previousIds,
+                ...this.joinedSnapshot().projects.map((project) => project.id),
+              ]),
+            ],
+            timestamp: new Date().toISOString(),
+          });
         }
       });
     }
@@ -237,17 +264,76 @@ export class ProjectScanner {
    * first scan. For synchronous callers that can tolerate a stale list.
    */
   cachedProjects(): readonly Pick<Project, "id" | "path">[] {
-    return this.snapshot?.projects ?? [];
+    return this.joinedSnapshot().projects;
   }
 
   async listProjects(): Promise<Project[]> {
-    const snapshot = await this.getSnapshot();
+    const base = await this.getSnapshot();
+    await this.catalogProjects?.read(true);
+    const snapshot = this.joinedSnapshot(base);
     const sandboxDirs = this.sandboxSessionDirs();
     return Promise.all(
       snapshot.projects.map((project) =>
         this.readProject(project, sandboxDirs),
       ),
     );
+  }
+
+  /** Catalog production reads only the file-scanner layer, never its own projection. */
+  async listFileCatalogProjects(): Promise<Project[]> {
+    const snapshot = await this.getSnapshot();
+    return Promise.all(
+      snapshot.projects.map((project) => this.readProject(project)),
+    );
+  }
+
+  private joinedSnapshot(base = this.snapshot): ProjectSnapshot {
+    const view = this.catalogProjects?.peek();
+    if (!view?.projects.length) return base ?? this.buildSnapshot([]);
+    if (this.joined?.base === base && this.joined.version === view.version)
+      return this.joined.snapshot;
+    const projects = new Map<string, Project>(
+      (base?.projects ?? [])
+        .filter(
+          (project) =>
+            !(
+              project.path === homedir() &&
+              project.sessionCount === 0 &&
+              project.lastActivity === null
+            ),
+        )
+        .map((project) => [
+          getProjectIdentityKey(project.path),
+          {
+            ...project,
+            sessionCountsByProvider: { ...project.sessionCountsByProvider },
+          },
+        ]),
+    );
+    for (const native of view.projects) {
+      if (this.isHiddenProjectPath(native.path)) continue;
+      const key = getProjectIdentityKey(native.path);
+      const project =
+        projects.get(key) ??
+        this.registeredProject(native.path, native.lastActivity);
+      if (!project.sessionCount) project.provider = native.provider;
+      for (const [provider, count] of Object.entries(native.counts))
+        addProviderSessionCount(project, provider as ProviderName, count);
+      project.lastActivity = latestActivity(
+        project.lastActivity,
+        native.lastActivity,
+      );
+      projects.set(key, project);
+    }
+    for (const metadata of Object.values(
+      this.projectMetadataService?.getAllProjects() ?? {},
+    )) {
+      const project = projects.get(getProjectIdentityKey(metadata.path));
+      if (project) project.ownerUsername = metadata.ownerUsername;
+    }
+    const snapshot = this.buildSnapshot([...projects.values()]);
+    this.joined = { base, version: view.version, snapshot };
+    return snapshot;
   }
 
   /** Retained project reads never wait for provider discovery or sandbox counts. */
@@ -260,9 +346,11 @@ export class ProjectScanner {
     await this.initializeRetainedProjects();
     if (this.disposed) throw new Error("Project scanner is disposed");
     this.scheduleRetainedRefresh();
+    const catalog = await this.catalogProjects?.read();
+    if (this.disposed) throw new Error("Project scanner is disposed");
     const sandboxDirs = this.sandboxSessionDirs();
     const projects = new Map(
-      (this.snapshot?.projects ?? []).map((project) => [
+      this.joinedSnapshot().projects.map((project) => [
         getProjectIdentityKey(project.path),
         this.cloneProject(project, sandboxDirs),
       ]),
@@ -286,8 +374,11 @@ export class ProjectScanner {
       projects: [...projects.values()].filter(
         (project) => !this.isHiddenProjectPath(project.path),
       ),
-      complete: this.snapshot !== null,
-      refreshing: Boolean(this.retainedRefresh || this.retainedTimer),
+      complete: this.snapshot !== null && (catalog?.complete ?? true),
+      refreshing: Boolean(
+        this.retainedRefresh || this.retainedTimer || catalog?.refreshing,
+      ),
+      ...(catalog?.refreshError ? { refreshError: catalog.refreshError } : {}),
       ...(this.retainedRefreshError
         ? { refreshError: this.retainedRefreshError }
         : {}),
@@ -368,6 +459,7 @@ export class ProjectScanner {
       this.snapshot?.projects.map((project) => project.id) ?? [];
     this.retainedRefresh = this.initializeRetainedProjects()
       .then(() => this.getSnapshot(true))
+      .then(() => this.catalogProjects?.read(true))
       .then(() => undefined)
       .catch((error: unknown) => {
         if (this.disposed) return;
@@ -385,7 +477,7 @@ export class ProjectScanner {
           projectIds: [
             ...new Set([
               ...previousIds,
-              ...(this.snapshot?.projects.map((project) => project.id) ?? []),
+              ...this.joinedSnapshot().projects.map((project) => project.id),
             ]),
           ],
           timestamp: new Date().toISOString(),
@@ -934,6 +1026,7 @@ export class ProjectScanner {
       return;
     }
 
+    if (!["claude", "codex", "gemini"].includes(event.provider)) return;
     if (event.provider === "claude") {
       const parts = relative(this.projectsDir, event.path).split(sep);
       const first = parts[0] ?? "";
@@ -1217,10 +1310,12 @@ export class ProjectScanner {
     projectId: string,
     options?: GetProjectOptions,
   ): Promise<Project | null> {
-    const snapshot =
+    const base =
       options?.allowStaleSnapshot && this.snapshot
         ? this.snapshot
         : await this.getSnapshot();
+    await this.catalogProjects?.read();
+    const snapshot = this.joinedSnapshot(base);
     let project = snapshot.byId.get(projectId);
     if (!project) {
       try {

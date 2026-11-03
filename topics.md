@@ -474,3 +474,5 @@
 - peer-access — directional v0 routing, manual enrollment and optional fleet login.
 
 - managed-viewer-publication - Separate viewer content from lifecycle updates.
+
+- antigravity-discovery — native ACP provider and shared catalog/project discovery.

@@ -229,7 +229,7 @@ it("omits a catalogue candidate whose native identity changes after enumeration"
     sessionDir: f.sessionsDir,
   };
   const scanner = {
-    listProjects: async () => [project],
+    listFileCatalogProjects: async () => [project],
   } as unknown as ProjectScanner;
   try {
     const adapters = await collectionCatalogAdapters(

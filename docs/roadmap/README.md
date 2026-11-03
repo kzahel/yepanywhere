@@ -578,18 +578,22 @@ reuses Google's saved native login without YA authentication management.
 macOS arm64 live tests established native creation, text streaming, stable YA
 identity and cold continuation on the existing account plan. Controlled child
 tests cover approvals, cancellation, native replay and refused continuation.
-This is a preview; Linux/Windows qualification, native project/catalog discovery,
-larger histories, shared-host ownership and the broader tool/media matrix remain open. See the
+The shared catalog now discovers native Antigravity projects and contributes
+Pi/Grok/OpenCode projects through the same projection. Metadata-only browsing
+starts no agent process; native-store changes reuse the retained refresh owner.
+This is a preview; Linux/Windows qualification, larger histories, focused native
+observation, shared-host ownership and the broader tool/media matrix remain
+open. See the
 [provider contract](../../topics/antigravity.md). Legacy Gemini remains frozen.
 
 **Scoping direction, 2026-11-03:** use Antigravity discovery and eventual
 legacy Gemini execution retirement to consolidate shared native-store catalog,
 project contribution and exact reader-resolution paths. Preserve read-only
 Gemini history. The [discussion scope](../../topics/antigravity.md#discovery-and-cleanup-scope--discussion-2026-11-03)
-extends plan 093; it proposes discovery/source lookup first and separately
-assesses Grok/Antigravity ACP transport sharing. The detailed sequence remains
-under discussion; this does not reopen the archived core or select a new
-transcript store.
+extends plan 093. Its first discovery slice is implemented; per-project reader
+migration and source lookups remain, with Grok/Antigravity ACP transport sharing
+assessed separately. The remaining sequence is still under discussion; this
+does not reopen the archived core or select a new transcript store.
 
 Rows 1, 2, 3 and 11 are the completed removal set. The independent review
 closed direct-fork and background-candidate SSH boundaries; plan 161 records

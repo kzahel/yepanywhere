@@ -10,7 +10,16 @@ import type {
 } from "../sessions/catalog-types.js";
 import { readCodexAsyncQuestions } from "../sessions/codex-async-questions.js";
 import type { EventBus } from "../watcher/EventBus.js";
-import { SessionCatalogService } from "./SessionCatalogService.js";
+import {
+  catalogProjects,
+  catalogStoreKey,
+  type CatalogProjectsView,
+  type CatalogProjectStore,
+} from "../projects/catalog-projects.js";
+import {
+  SessionCatalogService,
+  type SessionCatalogSnapshot,
+} from "./SessionCatalogService.js";
 
 export interface RetainedSessionCollectionsOptions {
   dataDir: string;
@@ -18,8 +27,10 @@ export interface RetainedSessionCollectionsOptions {
     rows: readonly Readonly<SessionCatalogRow>[],
     signal: AbortSignal,
     changedPaths?: ReadonlySet<string>,
+    sources?: readonly CatalogProjectStore[],
   ) => Promise<NativeSessionCatalogAdapter[]>;
   eventBus?: EventBus;
+  projectStores?: () => readonly CatalogProjectStore[];
   shouldReadQuestions?: (row: Readonly<SessionCatalogRow>) => boolean;
 }
 
@@ -37,6 +48,14 @@ export class RetainedSessionCollections {
   private retryAfter = 0;
   private refreshError?: string;
   private initialized = false;
+  private projectView: CatalogProjectsView = {
+    projects: [],
+    complete: false,
+    version: "uninitialized",
+  };
+  private projectProjectionKey?: string;
+  private projectStoresKey?: string;
+  private projectedStoresKey?: string;
 
   constructor(private readonly options: RetainedSessionCollectionsOptions) {
     this.catalog = new SessionCatalogService({
@@ -115,6 +134,72 @@ export class RetainedSessionCollections {
     };
   }
 
+  peekProjects(): CatalogProjectsView {
+    const stores = this.options.projectStores?.() ?? [];
+    if (!stores.length)
+      return { projects: [], complete: true, version: "unused" };
+    if (this.projectedStoresKey !== JSON.stringify(stores.map(catalogStoreKey)))
+      return {
+        projects: [],
+        complete: false,
+        version: "uninitialized",
+        refreshing: Boolean(this.work || this.timer),
+      };
+    return {
+      ...this.projectView,
+      refreshing: Boolean(this.work || this.timer),
+      ...(this.refreshError ? { refreshError: this.refreshError } : {}),
+    };
+  }
+
+  async readProjects(refresh = false): Promise<CatalogProjectsView> {
+    if (!this.options.projectStores?.().length) return this.peekProjects();
+    await this.initialize();
+    this.controller.signal.throwIfAborted();
+    const storesKey = JSON.stringify(
+      this.options.projectStores!().map(catalogStoreKey),
+    );
+    if (storesKey !== this.projectStoresKey) {
+      this.projectStoresKey = storesKey;
+      this.invalidate();
+    }
+    if (refresh && (this.work || (this.dirty && Date.now() >= this.retryAfter)))
+      await this.refresh();
+    const accepted = await this.catalog.readRows();
+    this.controller.signal.throwIfAborted();
+    this.updateProjects(accepted);
+    this.schedule();
+    return this.peekProjects();
+  }
+
+  private updateProjects(accepted: {
+    snapshot: SessionCatalogSnapshot;
+    rows: readonly Readonly<SessionCatalogRow>[];
+  }): void {
+    const token = this.catalog.getToken();
+    if (
+      accepted.snapshot.catalogEpoch !== token.catalogEpoch ||
+      accepted.snapshot.catalogGeneration !== token.catalogGeneration
+    )
+      return;
+    const stores = this.options.projectStores?.() ?? [];
+    const key = JSON.stringify([
+      accepted.snapshot.catalogEpoch,
+      accepted.snapshot.catalogGeneration,
+      stores.map(catalogStoreKey),
+    ]);
+    if (key === this.projectProjectionKey) return;
+    const next = catalogProjects(
+      accepted.rows,
+      accepted.snapshot.providerSources,
+      stores,
+    );
+    if (next.version !== this.projectView.version) this.projectView = next;
+    this.projectProjectionKey = key;
+    this.projectedStoresKey = JSON.stringify(stores.map(catalogStoreKey));
+    this.projectStoresKey = this.projectedStoresKey;
+  }
+
   invalidate(path?: string): void {
     this.dirty = true;
     if (path && this.changedPaths.size < 1024) this.changedPaths.add(path);
@@ -184,13 +269,15 @@ export class RetainedSessionCollections {
       previous.rows,
       this.controller.signal,
       changedPaths,
+      previous.snapshot.providerSources,
     );
     this.controller.signal.throwIfAborted();
     await this.catalog.reconcile(adapters);
-    this.publish();
 
     // The first publication is usable before any optional tail is opened.
     const accepted = await this.catalog.readRows();
+    this.updateProjects(accepted);
+    this.publish();
     const enriched: SessionCatalogRow[] = [];
     let changed = false;
     for (const row of accepted.rows) {
@@ -230,7 +317,9 @@ export class RetainedSessionCollections {
     }
     if (changed) {
       this.controller.signal.throwIfAborted();
-      await this.catalog.reconcile(catalogAdaptersForRows(enriched));
+      await this.catalog.reconcile(
+        catalogAdaptersForRows(enriched, accepted.snapshot.providerSources),
+      );
     }
   }
 

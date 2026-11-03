@@ -18,7 +18,9 @@ import {
 } from "../sdk/providers/antigravity-runtime.js";
 import { AntigravityTranscript } from "../sdk/providers/antigravity-transcript.js";
 import { readAntigravityMetadata } from "./antigravity-metadata.js";
+import { catalogProjectIdentity } from "./catalog-adapters/row.js";
 import { AntigravitySessionCatalogAdapter } from "./catalog-adapters/antigravity-catalog-adapter.js";
+import type { SessionCatalogRow } from "./catalog-types.js";
 import type { ISessionReader, LoadedSession } from "./types.js";
 
 interface NativeListEntry {
@@ -40,7 +42,16 @@ export class AntigravitySessionReader implements ISessionReader {
   private runtimes = new Set<AntigravityRuntime>();
   private closed = false;
 
-  constructor(options: { projectPath: string; sessionsDir?: string }) {
+  private readonly catalogRows?: () => Promise<
+    readonly Readonly<SessionCatalogRow>[]
+  >;
+
+  constructor(options: {
+    projectPath: string;
+    sessionsDir?: string;
+    catalogRows?: () => Promise<readonly Readonly<SessionCatalogRow>[]>;
+  }) {
+    this.catalogRows = options.catalogRows;
     this.projectPath = options.projectPath;
     this.directory = options.sessionsDir ?? antigravitySessionsDir();
   }
@@ -99,18 +110,30 @@ export class AntigravitySessionReader implements ISessionReader {
   }
 
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
-    const scan = await new AntigravitySessionCatalogAdapter({
-      sessionsDir: this.directory,
-    }).scan({
-      catalogEpoch: "reader",
-      targetGeneration: 0,
-      mode: { kind: "complete" },
-      signal: new AbortController().signal,
-    });
-    const physical = await realpath(this.projectPath);
+    const rows = this.catalogRows
+      ? await this.catalogRows()
+      : (
+          await new AntigravitySessionCatalogAdapter({
+            sessionsDir: this.directory,
+          }).scan({
+            catalogEpoch: "reader",
+            targetGeneration: 0,
+            mode: { kind: "complete" },
+            signal: new AbortController().signal,
+          })
+        ).rows;
+    const scope = await realpath(this.directory).catch(() => null);
+    if (!scope) return [];
+    const identity = catalogProjectIdentity(
+      this.projectPath,
+    ).projectIdentityKey;
     const summaries: SessionSummary[] = [];
-    for (const row of scan.rows) {
-      if ((await realpath(row.projectPath).catch(() => null)) !== physical)
+    for (const row of rows) {
+      if (
+        row.catalogFamily !== "antigravity" ||
+        row.nativeStorageScope !== scope ||
+        row.projectIdentityKey !== identity
+      )
         continue;
       const summary = await this.summary(row.sessionId, projectId);
       if (summary) summaries.push(summary);
@@ -132,7 +155,7 @@ export class AntigravitySessionReader implements ISessionReader {
       title: row?.title || "Antigravity session",
       fullTitle: row?.title || null,
       createdAt: metadata.info.birthtime.toISOString(),
-      updatedAt: metadata.info.mtime.toISOString(),
+      updatedAt: new Date(metadata.updatedAtMs).toISOString(),
       messageCount: 0,
       ownership: { owner: "external" },
     };

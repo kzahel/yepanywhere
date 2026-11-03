@@ -410,6 +410,7 @@ import { createSpeechVocabularyRoutes } from "./routes/speech-vocabulary.js";
 import { CodexSessionReader } from "./sessions/codex-reader.js";
 import { createCodexSessionDiscoveryIndex } from "./sessions/codex-discovery.js";
 import { GeminiSessionReader } from "./sessions/gemini-reader.js";
+import { nativeCatalogAdapters } from "./sessions/catalog-adapters/native-catalog-registry.js";
 import { AntigravitySessionReader } from "./sessions/antigravity-reader.js";
 import { GrokSessionReader } from "./sessions/grok-reader.js";
 import { MergedSessionReader } from "./sessions/merged-reader.js";
@@ -454,6 +455,7 @@ export interface AppOptions {
   geminiSessionsDir?: string; // override for testing
   grokSessionsDir?: string; // override for testing
   piSessionsDir?: string; // override for testing
+  antigravitySessionsDir?: string; // override for testing
   idleTimeoutMs?: number;
   /** Test-only session-detail augmentation delay for performance clock probes. */
   persistedAugmentDelayMs?: number;
@@ -1244,7 +1246,31 @@ export function createApp(options: AppOptions): AppResult {
     }
     return byProject;
   };
+  let retainedCollections: RetainedSessionCollections | undefined;
+  const getCatalogFamilies =
+    options.getCatalogFamilies ??
+    (() =>
+      (options.sessionMetadataService?.getRecordedProviders() ?? []).map(
+        providerCatalogFamily,
+      ));
+  const nativeStores = () =>
+    nativeCatalogAdapters(getCatalogFamilies(), {
+      grokSessionsDir,
+      piSessionsDir,
+      antigravitySessionsDir: options.antigravitySessionsDir,
+    });
   const scanner = new ProjectScanner({
+    catalogProjects: {
+      read: (refresh) =>
+        retainedCollections?.readProjects(refresh) ??
+        Promise.resolve({ projects: [], complete: false, version: "starting" }),
+      peek: () =>
+        retainedCollections?.peekProjects() ?? {
+          projects: [],
+          complete: false,
+          version: "starting",
+        },
+    },
     getSandboxSessionDirs: claudeSandboxSessionDirs,
     projectsDir: options.projectsDir,
     codexScanner,
@@ -1640,7 +1666,6 @@ export function createApp(options: AppOptions): AppResult {
     },
   });
   let conversationSubscriptions: ConversationSubscriptions | undefined;
-  let retainedCollections: RetainedSessionCollections | undefined;
   let hostAgentProcessService: HostAgentProcessService | undefined;
   let issueIndexer: IssueIndexer | undefined;
   let issueConfirmer: IssueConfirmer | undefined;
@@ -1849,6 +1874,8 @@ export function createApp(options: AppOptions): AppResult {
               new AntigravitySessionReader({
                 projectPath: project.path,
                 sessionsDir: native.storageScope,
+                catalogRows: async () =>
+                  (await retainedCollections?.read())?.rows ?? [],
               }),
           );
         case "grok":
@@ -2010,7 +2037,13 @@ export function createApp(options: AppOptions): AppResult {
       case "antigravity":
         return getOrCreateReader(
           `antigravity::${project.path}`,
-          () => new AntigravitySessionReader({ projectPath: project.path }),
+          () =>
+            new AntigravitySessionReader({
+              projectPath: project.path,
+              sessionsDir: options.antigravitySessionsDir,
+              catalogRows: async () =>
+                (await retainedCollections?.read())?.rows ?? [],
+            }),
         );
       case "grok":
         return getOrCreateReader(
@@ -3356,6 +3389,7 @@ export function createApp(options: AppOptions): AppResult {
   retainedCollections = new RetainedSessionCollections({
     dataDir: effectiveDataDir,
     eventBus: options.eventBus,
+    projectStores: nativeStores,
     shouldReadQuestions: (row) =>
       !(
         metadataForNativeCatalogRow(row, options.sessionMetadataService)
@@ -3366,7 +3400,7 @@ export function createApp(options: AppOptions): AppResult {
             ?.activeAfterMs,
         )
       ),
-    adapters: (rows, signal, changedPaths) =>
+    adapters: (rows, signal, changedPaths, sources) =>
       collectionCatalogAdapters(
         {
           scanner,
@@ -3382,16 +3416,13 @@ export function createApp(options: AppOptions): AppResult {
           piSessionsDir,
           piReaderFactory,
           sessionIndexService: options.sessionIndexService,
-          getCatalogFamilies:
-            options.getCatalogFamilies ??
-            (() =>
-              (
-                options.sessionMetadataService?.getRecordedProviders() ?? []
-              ).map(providerCatalogFamily)),
+          getCatalogFamilies,
+          antigravitySessionsDir: options.antigravitySessionsDir,
         },
         rows,
         signal,
         changedPaths,
+        sources,
       ),
   });
   const conversationCatalog = retainedCollections;

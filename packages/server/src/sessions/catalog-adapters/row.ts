@@ -95,6 +95,10 @@ export function catalogFileVersion(stats: Stats): string {
 /** Publish a complete retained generation without rediscovering native stores. */
 export function catalogAdaptersForRows(
   rows: readonly Readonly<SessionCatalogRow>[],
+  sources: readonly Pick<
+    NativeSessionCatalogAdapter,
+    "catalogFamily" | "storeKey"
+  >[] = [],
 ): NativeSessionCatalogAdapter[] {
   const groups = new Map<
     string,
@@ -104,6 +108,13 @@ export function catalogAdaptersForRows(
       rows: SessionCatalogRow[];
     }
   >();
+  // Preserve coverage of an empty store during projection-only publications.
+  for (const source of sources) {
+    groups.set(JSON.stringify([source.catalogFamily, source.storeKey]), {
+      ...source,
+      rows: [],
+    });
+  }
   for (const row of rows) {
     const key = JSON.stringify([row.catalogFamily, row.storeKey]);
     let group = groups.get(key);

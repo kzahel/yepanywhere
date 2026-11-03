@@ -221,7 +221,7 @@ it("publishes native heads before questions and refreshes only a modified sessio
   }
   const scanner = new ProjectScanner({ projectsDir: join(dataDir, "unused") });
   const discovery = vi
-    .spyOn(scanner, "listProjects")
+    .spyOn(scanner, "listFileCatalogProjects")
     .mockResolvedValue([project]);
   const reader = new CodexSessionReader({ sessionsDir: dataDir, projectPath });
   const headReads = vi.spyOn(reader, "getSessionListSummary");
@@ -546,7 +546,7 @@ it("keeps a reaped Claude session at its content time, not its shutdown mtime", 
       .join("\n")}\n`,
   );
   const scanner = new ProjectScanner({ projectsDir: join(dataDir, "unused") });
-  vi.spyOn(scanner, "listProjects").mockResolvedValue([project]);
+  vi.spyOn(scanner, "listFileCatalogProjects").mockResolvedValue([project]);
   const reader = new ClaudeSessionReader({ sessionDir });
   const bus = new EventBus();
   collections = new RetainedSessionCollections({
@@ -677,7 +677,7 @@ it("reads a row an older build stored for an unchanged file once more", async ()
   seed.stop();
 
   const scanner = new ProjectScanner({ projectsDir: join(dataDir, "unused") });
-  vi.spyOn(scanner, "listProjects").mockResolvedValue([project]);
+  vi.spyOn(scanner, "listFileCatalogProjects").mockResolvedValue([project]);
   const reader = new CodexSessionReader({ sessionsDir: dataDir, projectPath });
   const headReads = vi.spyOn(reader, "getSessionListSummary");
   collections = new RetainedSessionCollections({

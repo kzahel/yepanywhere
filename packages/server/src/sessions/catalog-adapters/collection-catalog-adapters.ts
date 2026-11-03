@@ -1,5 +1,5 @@
 import { readdir, stat } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, join, relative, isAbsolute } from "node:path";
 import { parseNativeSessionId } from "@yep-anywhere/shared";
 import type { ProjectScanner } from "../../projects/scanner.js";
 import type { Project } from "../../supervisor/types.js";
@@ -28,9 +28,10 @@ import {
   readClaudeCatalogHead,
   readClaudeCatalogTail,
 } from "../claude-summary.js";
-import { GrokSessionCatalogAdapter } from "./grok-catalog-adapter.js";
-import { PiSessionCatalogAdapter } from "./pi-catalog-adapter.js";
-import { OpenCodeSessionCatalogAdapter } from "./opencode-catalog-adapter.js";
+import {
+  nativeCatalogAdapters,
+  type NativeCatalogOptions,
+} from "./native-catalog-registry.js";
 import {
   catalogAdaptersForRows,
   catalogFileVersion,
@@ -46,7 +47,9 @@ import {
  */
 const FILE_ROW_FORMAT = 4;
 
-export interface CollectionCatalogDeps extends SessionProviderResolutionDeps {
+export interface CollectionCatalogDeps
+  extends SessionProviderResolutionDeps,
+    NativeCatalogOptions {
   scanner: ProjectScanner;
   getCatalogFamilies: () => readonly ProviderCatalogFamily[];
 }
@@ -192,6 +195,10 @@ async function refreshChangedRows(
   previousRows: readonly Readonly<SessionCatalogRow>[],
   signal: AbortSignal,
   changedPaths: ReadonlySet<string>,
+  sources: readonly Pick<
+    NativeSessionCatalogAdapter,
+    "catalogFamily" | "storeKey"
+  >[],
 ): Promise<NativeSessionCatalogAdapter[] | undefined> {
   const knownPaths = new Set(
     previousRows
@@ -249,7 +256,7 @@ async function refreshChangedRows(
     );
     if (refreshed) rows.push(refreshed);
   }
-  return catalogAdaptersForRows(rows);
+  return catalogAdaptersForRows(rows, sources);
 }
 
 export async function collectionCatalogAdapters(
@@ -257,13 +264,53 @@ export async function collectionCatalogAdapters(
   previousRows: readonly Readonly<SessionCatalogRow>[],
   signal: AbortSignal,
   changedPaths?: ReadonlySet<string>,
+  sources: readonly Pick<
+    NativeSessionCatalogAdapter,
+    "catalogFamily" | "storeKey"
+  >[] = [],
 ): Promise<NativeSessionCatalogAdapter[]> {
+  if (changedPaths?.size) {
+    const native = nativeCatalogAdapters(deps.getCatalogFamilies(), deps);
+    const contains = (store: NativeSessionCatalogAdapter, path: string) => {
+      const child = relative(store.storeKey, path);
+      return (
+        child !== ".." &&
+        !child.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) &&
+        !isAbsolute(child)
+      );
+    };
+    if (
+      [...changedPaths].every((path) =>
+        native.some((store) => contains(store, path)),
+      )
+    ) {
+      const affected = native.filter((store) =>
+        [...changedPaths].some((path) => contains(store, path)),
+      );
+      const keys = new Set(
+        affected.map((store) =>
+          JSON.stringify([store.catalogFamily, store.storeKey]),
+        ),
+      );
+      const unaffected = (
+        row: Pick<NativeSessionCatalogAdapter, "catalogFamily" | "storeKey">,
+      ) => !keys.has(JSON.stringify([row.catalogFamily, row.storeKey]));
+      return [
+        ...catalogAdaptersForRows(
+          previousRows.filter(unaffected),
+          sources.filter(unaffected),
+        ),
+        ...affected,
+      ];
+    }
+  }
   if (changedPaths) {
     const targeted = await refreshChangedRows(
       deps,
       previousRows,
       signal,
       changedPaths,
+      sources,
     );
     if (targeted) return targeted;
   }
@@ -273,7 +320,9 @@ export async function collectionCatalogAdapters(
       ["claude", "codex", "gemini"].includes(family),
     ),
   );
-  const projects = fileFamilies.size ? await deps.scanner.listProjects() : [];
+  const projects = fileFamilies.size
+    ? await deps.scanner.listFileCatalogProjects()
+    : [];
   signal.throwIfAborted();
   const providerCatalog = await buildProviderProjectCatalog({ projects });
   const resolution = providerResolutionDeps({
@@ -364,15 +413,6 @@ export async function collectionCatalogAdapters(
       }),
     });
   }
-  if (families.has("grok"))
-    adapters.push(
-      new GrokSessionCatalogAdapter({ sessionsDir: deps.grokSessionsDir }),
-    );
-  if (families.has("pi"))
-    adapters.push(
-      new PiSessionCatalogAdapter({ sessionsDir: deps.piSessionsDir }),
-    );
-  if (families.has("opencode"))
-    adapters.push(new OpenCodeSessionCatalogAdapter());
+  adapters.push(...nativeCatalogAdapters([...families], deps));
   return adapters;
 }

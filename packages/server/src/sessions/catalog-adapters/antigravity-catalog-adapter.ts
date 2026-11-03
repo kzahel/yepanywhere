@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdir } from "node:fs/promises";
+import { opendir } from "node:fs/promises";
 import { antigravitySessionsDir } from "../../sdk/providers/antigravity-runtime.js";
 import {
   ANTIGRAVITY_METADATA_LIMIT,
@@ -25,28 +25,31 @@ export class AntigravitySessionCatalogAdapter
   }
 
   async scan(context: SessionCatalogScanContext) {
-    let files: string[];
+    const files: string[] = [];
     try {
-      files = (await readdir(this.storeKey))
-        .filter(
-          (file) =>
-            file.endsWith(".meta") &&
-            ANTIGRAVITY_SESSION_ID.test(file.slice(0, -5)),
+      for await (const entry of await opendir(this.storeKey)) {
+        context.signal.throwIfAborted();
+        if (
+          !entry.name.endsWith(".meta") ||
+          !ANTIGRAVITY_SESSION_ID.test(entry.name.slice(0, -5))
         )
-        .sort();
+          continue;
+        if (files.length >= ANTIGRAVITY_METADATA_LIMIT)
+          throw new Error(
+            "Antigravity native store exceeds the experimental session limit",
+          );
+        files.push(entry.name);
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       return { sourceVersion: "absent", rows: [] };
     }
-    if (files.length > ANTIGRAVITY_METADATA_LIMIT)
-      throw new Error(
-        "Antigravity native store exceeds the experimental session limit",
-      );
+    files.sort();
     const rows: SessionCatalogRow[] = [];
     const version = createHash("sha256");
     for (let offset = 0; offset < files.length; offset += 8) {
       context.signal.throwIfAborted();
-      const batch = await Promise.all(
+      const batch = await Promise.allSettled(
         files.slice(offset, offset + 8).map(async (file) => {
           const id = file.slice(0, -5);
           const metadata = await readAntigravityMetadata(this.storeKey, id);
@@ -71,11 +74,14 @@ export class AntigravitySessionCatalogAdapter
         }),
       );
       context.signal.throwIfAborted();
-      for (const row of batch)
+      for (const result of batch) {
+        if (result.status === "rejected") throw result.reason;
+        const row = result.value;
         if (row) {
           rows.push(row);
           version.update(JSON.stringify([row.sessionId, row.sourceVersion]));
         }
+      }
     }
     return {
       sourceVersion: version.digest("hex"),

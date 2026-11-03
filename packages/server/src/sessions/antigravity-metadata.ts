@@ -1,5 +1,5 @@
-import type { Stats } from "node:fs";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { constants, type Stats } from "node:fs";
+import { open, realpath, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { isAbsolutePath } from "../projects/paths.js";
 import { catalogFileVersion } from "./catalog-adapters/row.js";
@@ -25,12 +25,29 @@ export async function readAntigravityMetadata(directory: string, id: string) {
       basename(dbPath) !== `${id}.db`
     )
       throw new Error("Antigravity session escapes its native store");
-    const [metaInfo, info] = await Promise.all([stat(metaPath), stat(dbPath)]);
-    if (!metaInfo.isFile() || !info.isFile() || metaInfo.size > 16_384)
-      throw new Error("Invalid Antigravity session metadata");
-    const metadata = JSON.parse(await readFile(metaPath, "utf8")) as {
-      cwd?: unknown;
-    };
+    const info = await stat(dbPath);
+    if (!info.isFile()) throw new Error("Invalid Antigravity database");
+    const handle = await open(
+      metaPath,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    let metaInfo: Stats;
+    let metadata: { cwd?: unknown };
+    try {
+      metaInfo = await handle.stat();
+      if (!metaInfo.isFile() || metaInfo.size > 16_384)
+        throw new Error("Invalid Antigravity session metadata");
+      const buffer = Buffer.alloc(16_385);
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+      if (
+        bytesRead > 16_384 ||
+        catalogFileVersion(metaInfo) !== catalogFileVersion(await handle.stat())
+      )
+        throw new Error("Antigravity metadata changed during discovery");
+      metadata = JSON.parse(buffer.subarray(0, bytesRead).toString("utf8"));
+    } finally {
+      await handle.close();
+    }
     if (typeof metadata.cwd !== "string" || !isAbsolutePath(metadata.cwd))
       throw new Error("Antigravity session has no absolute project path");
     // SQLite may append to the WAL without touching the database itself.

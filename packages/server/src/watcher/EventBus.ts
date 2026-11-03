@@ -28,7 +28,12 @@ import type { SessionOwnership, SessionSummary } from "../supervisor/types.js";
 export type FileChangeType = "create" | "modify" | "delete";
 
 /** Provider that owns the watched directory */
-export type WatchProvider = "claude" | "gemini" | "codex" | "pi";
+export type WatchProvider =
+  | "claude"
+  | "gemini"
+  | "codex"
+  | "pi"
+  | "antigravity";
 
 export interface FileChangeEvent {
   type: "file-change";

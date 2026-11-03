@@ -1,3 +1,4 @@
+import { antigravitySessionsDir } from "./sdk/providers/antigravity-runtime.js";
 import { localPeerHost } from "./peer-api/connection-contracts.js";
 import { PeerAccessManager } from "./peer-api/manager.js";
 import { readServerIdentity } from "./core-api/server-identity.js";
@@ -578,6 +579,12 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
   activationDelayMs: PROVIDER_WATCH_ACTIVATION_DELAY_MS,
   activationYieldMs: PROVIDER_WATCH_ACTIVATION_YIELD_MS,
   specs: [
+    {
+      family: "antigravity",
+      provider: "antigravity",
+      watchDir: antigravitySessionsDir(),
+      debounceMs: 200,
+    },
     {
       family: "claude",
       watchDir: config.claudeSessionsDir,

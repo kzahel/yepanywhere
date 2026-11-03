@@ -864,6 +864,12 @@ export class FileWatcher {
         return this.parseCodexFileType(relativePath);
       case "pi":
         return this.parsePiFileType(relativePath);
+      case "antigravity":
+        return /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(?:meta|db(?:-wal)?)$/i.test(
+          relativePath,
+        )
+          ? "session"
+          : "other";
     }
   }
 

@@ -156,7 +156,7 @@ it("projects scoped Gemini sources once through native discovery, indexed metada
         sessionDir: scope,
       };
       const listing = vi
-        .spyOn(app.scanner, "listProjects")
+        .spyOn(app.scanner, "listFileCatalogProjects")
         .mockResolvedValue([project]);
       const deps = {
         scanner: app.scanner,
