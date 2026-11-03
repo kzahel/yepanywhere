@@ -625,13 +625,19 @@ its existing gentle interjection; Pi/Antigravity audits do not enable speculativ
 urgency controls. This does not restart the archived general core program.
 The maintainer selected [native provider integration scenarios](../tactical/175-native-provider-integration-scenarios.md)
 as the evidence base for further provider refactors. Eight shared queue,
-real-tool and gentle/immediate steering cases now pass against real Claude
-2.1.312 and Codex 0.166.0 with scripted local model APIs, no inference, owned
-profiles and joined teardown; they run in the ordinary server suite/CI. The
-[qualification matrix](../../topics/native-provider-testing.md#all-provider-adoption-matrix)
-keeps other families and Linux/Windows qualification explicit. Next: extend
-native identity/batching, queued compact and recovery scenarios, then use that
-evidence to simplify scheduling; all-provider coverage is not yet complete.
+real-tool and gentle/immediate steering cases pass against real Claude 2.1.312
+and Codex 0.166.0 with scripted local model APIs, no inference, owned profiles
+and joined teardown; they run in the ordinary server suite/CI. The November 3
+expansion investigation demonstrated local endpoint routing through the real
+Pi, OpenCode, Grok, Gemini ACP, Antigravity, Claude Gateway/Ollama and Codex OSS
+adapters. Antigravity's native tool/cancel/model-change/cold-load probes also
+passed. These are feasibility findings, not retained all-provider CI coverage.
+The [qualification matrix](../../topics/native-provider-testing.md#all-provider-adoption-matrix)
+and expanded plan distinguish those states. Next: promote Antigravity and the
+other proven routes, deepen cancellation/settings/persistence/resume, then
+protect identity/batching and queued compact before simplifying scheduling.
+App ownership/fault interleavings and Linux/Windows acceptance remain explicit;
+the comprehensive matrix does not select new UI controls or thaw legacy Gemini.
 Release-delivery work remains independently required; local sessions,
 same-host provider ownership, ordinary queues, direct/relay access and native
 client transport remain retained foundations.

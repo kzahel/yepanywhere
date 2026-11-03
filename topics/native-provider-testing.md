@@ -109,24 +109,89 @@ by the macOS sample.
 
 ## All-provider adoption matrix
 
-Qualification is per executable, launch path, capability and platform. A shared
-base class or protocol does not automatically qualify another launch mode.
+Qualification is per executable, production launch path, capability and platform.
+The November 3 expansion audit proved local-model routing with the real
+production adapters listed below. Those exploratory probes are feasibility
+evidence, **not additional retained CI scenarios**. The ordinary suite still
+contains only the eight Claude/Codex cases above.
 
-| Retained family/path | Local model route / evidence | Remaining qualification |
+| Retained family/path | Local model route / executable evidence | Retained coverage / next qualification |
 | --- | --- | --- |
-| Claude | Anthropic `ANTHROPIC_BASE_URL`; all four shared cases pass. | Resume, approvals, compaction and failures. |
-| Claude Gateway / Ollama | Same real Claude executable, different endpoint/auth/model setup; reusable Messages transport. | Run those production launch paths explicitly; plain Claude results do not qualify them. |
-| Codex | Custom `model_providers` Responses endpoint; all four shared cases pass. | Resume, approvals, compaction and failures. |
-| Codex OSS | Same real CLI, different local-model launch path. | Qualify the OSS launch and local-server assumptions explicitly. |
-| Pi | Existing [real Pi effort-retry test](../packages/server/test/e2e/pi-effort-retry.e2e.test.ts) uses a local Chat Completions server and private models config. | Pi is absent on this host; migrate that proven route into shared queue/tool/control cases before claiming coverage. |
-| OpenCode | [Documented actual-executable reproduction](opencode-backend.md) uses an OpenAI-compatible custom provider, `options.baseURL`, private `OPENCODE_CONFIG`/XDG roots. | OpenCode is absent on this host; qualify its server lifecycle and shared scenarios. |
-| Grok ACP | Retained ACP adapter and native interject capability exist. | Binary absent here; establish supported local endpoint/auth routing first. No guessed environment override or fake CLI qualification. |
-| Gemini / Gemini ACP | Both names execute ACP. Installed Gemini bundle exposes `GOOGLE_GEMINI_BASE_URL` and API-key routing. | Owned ACP authentication and a local GenAI transport are not yet qualified. Keep frozen provider policy; source discovery alone is not a scenario pass. |
-| Antigravity ACP | Owned real ACP initialize probe reports 1.4.5; control/startup evidence only. | Local model endpoint routing is unqualified. Native login alone is insufficient for inference-free model scenarios. |
+| Claude | SDK-bundled 2.1.312; Anthropic Messages via `ANTHROPIC_BASE_URL`. | Four retained scenarios pass; expand lifecycle, persistence and faults. |
+| Claude Gateway | Same bundled executable; actual Gateway adapter configured with an owned service URL; local catalog/probe and Messages round trip pass. | Promote the distinct launch, routing, catalog and option behavior into scenarios. |
+| Claude Ollama | Same bundled executable; actual Ollama adapter URL setter routes Messages to the local stub. | Promote launch behavior; this proves the Claude launch path, not a real Ollama server. |
+| Codex | Pinned 0.166.0; custom Responses endpoint through app-server. | Four retained scenarios pass; expand lifecycle, persistence and faults. |
+| Codex OSS | Same pinned CLI, **different `codex exec --json` adapter**; a configured service reaches local Responses and returns assistant output. | Promote the distinct exec lifecycle, controls and history. Native Ollama discovery remains separate. |
+| Pi | Test-only 1.4.0; private `models.json` with `baseUrl` / `openai-completions`; production RPC adapter returns the local reply. | Promote route and existing effort-retry precedent, then queue/tool/lifecycle/history cases. |
+| OpenCode | Test-only 1.18.9; `options.baseURL`, custom OpenAI-compatible model and private `OPENCODE_CONFIG`/XDG roots; production server adapter returns local Chat Completions output. | Promote server ownership, queue/tool/cancel/history; explicitly cover Git and non-Git projects. |
+| Grok ACP | Test-only 1.0.67; private TOML `model.<id>.base_url`, `api_backend = "responses"`, synthetic `env_key`; production ACP adapter returns local output. | Promote receipt/steer, tools, cancellation and history. Native title/summary model calls also reach the local stub and need named expectations. |
+| Gemini / Gemini ACP | Installed 0.36.0; both YA names use ACP. Private settings select API-key mode, `GOOGLE_GEMINI_BASE_URL` routes GenAI to localhost; direct ACP and production adapter round trips pass. | Promote a bounded retained baseline while preserving frozen product policy; no steering or auth/UI expansion follows from this probe. |
+| Antigravity ACP | Installed official 1.4.5; API-key mode plus `GOOGLE_GEMINI_BASE_URL`; production YA adapter returns local GenAI output. Native ACP tool/cancel/model-change/cold-load probes also pass below. | Promote through YA Process/reader/Supervisor, preserving preview and platform limits. |
 
-Do not claim “all providers pass” while cells remain unqualified. Missing
-installations, unavailable endpoint overrides, unsupported capabilities and
-actual failures are different findings. Preserve those distinctions in reports.
+Pi, OpenCode and Grok were provisioned only under an ignored test-tools root;
+primary installations and PATH were unchanged. Tested versions match the
+existing audited targets where recorded. Their primary endpoint controls are
+documented by [Pi](https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/docs/models.md),
+[OpenCode](https://opencode.ai/docs/providers) and
+[Grok](https://docs.x.ai/build/settings). Actual executable probes, rather than
+those documents alone, establish the table's local-routing findings.
+
+Do not claim all-provider scenario coverage while those cells remain exploratory.
+A passing adapter turn also does not establish YA provider-discovery/authentication
+admission: a private API-key transport is different from subscription readiness.
+No real account was used by these probes. Distinguish unavailable installations,
+unsupported operations, actual defects and untested paths.
+
+## Antigravity endpoint and depth evidence — 2026-11-03
+
+Google [documents the CLI endpoint override](https://antigravity.google/docs/install?tab=cli).
+A separate probe establishes it works for YA's actual **ACP** distribution:
+
+- Set `GEMINI_HOME` to an owned `.gemini` directory, use a synthetic
+  `GEMINI_API_KEY`, and set `GOOGLE_GEMINI_BASE_URL` to the loopback stub.
+- Prepare that root's `antigravity-acp/settings.json` with
+  `{ "auth": { "type": "gemini-api-key" } }`. No OAuth login or `authenticate`
+  RPC is needed. This is fixture-only native configuration, not a YA auth change.
+- Real ACP 1.4.5 sends `POST /v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse`
+  and returns the scripted text. The production YA adapter separately yields
+  its assistant and result events from that endpoint.
+- A scripted `view_file` call reads actual bytes from an owned project. The
+  following model request contains those bytes; the stub did not supply them.
+- `session/cancel` during a real partial response returns `stopReason: cancelled`
+  and closes the held HTTP stream. `session/set_model` changes the next request
+  from Gemini 3.8 Flash to 3.7 Flash.
+- After stopping the native process, the runtime's own `.db`/`.meta` files remain.
+  A new process's `session/load` replays earlier output, and its next model request
+  includes the earlier user input and real tool result. No database decoder or
+  synthetic history is used.
+
+The cold-load probe restored conversation context but reset the chosen native
+model to its default. This is an observation, not a YA defect verdict: test YA's
+saved-model reapplication separately from the native default. YA currently
+selects Antigravity's model at launch and exposes no live `AgentSession.setModel`
+or steering hook. A native control probe is not proof of a YA UI feature.
+The ACP distribution's [registry](https://raw.githubusercontent.com/agentclientprotocol/registry/main/antigravity-acp/agent.json)
+identifies the tested version and official platform artifacts.
+
+The Codex OSS probe initially used an invented model ID and correctly received
+native missing-model-metadata diagnostics. Selecting a known native model while
+keeping its configured endpoint local produced a reply without error events.
+Fixture setup must distinguish an intentionally tested unknown-model path from
+an accidental warning in the successful baseline.
+
+GenAI needs a third wire transport alongside Messages and Responses; Pi and
+OpenCode also require Chat Completions. Native Grok's Responses parser required
+`created_at` and SSE `sequence_number` fields that the minimal Codex stub omitted.
+Make shared transports valid for their wire protocol rather than accumulating
+provider-specific malformed-response exceptions. Record expected auxiliary
+requests explicitly; an unexplained extra request is not automatically accepted.
+
+Gemini's client attempted to proxy its loopback model URL despite `NO_PROXY`.
+The probe allowed a CONNECT tunnel only to its exact owned model listener;
+external CONNECTs remained denied. OpenCode attempted a registry lookup and
+Gemini attempted telemetry; both were denied while the model round trips
+completed. Fixture setup must account for such native startup behavior and join
+all child exits before deleting roots; Pi abort itself only requests termination.
 
 ## Adding scenarios, providers and upgrades
 
