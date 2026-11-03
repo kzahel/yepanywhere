@@ -3,6 +3,7 @@
  */
 
 import {
+  parseSteeringModeSettings,
   NEW_SESSION_BOOTSTRAP,
   CODEX_REASONING_SUMMARIES,
   limitedUserInstructionsError,
@@ -1098,6 +1099,16 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps) {
             400,
           );
         }
+      }
+
+      if ("steeringModes" in body) {
+        const parsed = parseSteeringModeSettings(body.steeringModes);
+        if (!parsed)
+          return c.json(
+            { error: "steeringModes must map codex to gentle or immediate" },
+            400,
+          );
+        updates.steeringModes = parsed;
       }
 
       if ("codexCyberAccessProgram" in body) {

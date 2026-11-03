@@ -591,6 +591,15 @@ Gemini stream-JSON adapter and exclusive event parser/tests are also removed;
 discovery keeps both Gemini names on ACP, while historical readers and
 normalization/display coverage remain. Both changes pass workspace/static
 checks. This does not raise provider-version floors or expand frozen Gemini.
+The maintainer's next bounded architecture slice,
+[shared steering and native urgency](../tactical/174-shared-steering-and-native-urgency.md),
+uses provider capability facts and adapter-owned translation. Claude retains
+per-message Now; Codex adds an opt-in launch-scoped Immediate experiment with
+gentle as the default and native configuration authoritative. Real standalone
+Claude/Codex trials verify generation interruption and continued cache hits,
+with incomplete aborted-generation usage explicitly recorded. Grok advertises
+its existing gentle interjection; Pi/Antigravity audits do not enable speculative
+urgency controls. This does not restart the archived general core program.
 Release-delivery work remains independently required; local sessions,
 same-host provider ownership, ordinary queues, direct/relay access and native
 client transport remain retained foundations.

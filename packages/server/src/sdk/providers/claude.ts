@@ -1,5 +1,6 @@
 import { claudeCwdProjectDirectory } from "../../projects/claude-project-directory.js";
 import { nativeStorageScope } from "./native-storage-scope.js";
+import { prepareClaudeInput } from "./claude-delivery.js";
 import { fromUrlProjectId, parseNativeSessionId } from "@yep-anywhere/shared";
 import { assertClaudeCopyRoot } from "../../sessions/fork.js";
 import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
@@ -1123,6 +1124,11 @@ export class ClaudeProvider implements AgentProvider {
   readonly supportsSlashCommands = true;
   readonly supportsSteering = true;
   readonly supportsSteerNow = true;
+  readonly steering = {
+    selection: "per-message" as const,
+    modes: ["gentle", "immediate"] as const,
+    defaultMode: "immediate" as const,
+  };
   readonly supportsRecaps = true;
   // Intentionally false. Claude emits native away_summary recaps only in the
   // interactive TUI (entrypoint:cli), which writes them to the session JSONL
@@ -2319,7 +2325,7 @@ export class ClaudeProvider implements AgentProvider {
   ): Promise<AgentSession> {
     if (options.executor) throw new Error("SSH executors have been removed");
     const log = getLogger();
-    const queue = new MessageQueue();
+    const queue = new MessageQueue(prepareClaudeInput);
     const abortController = new AbortController();
     const providerSessionOptions = getClaudeSessionLaunchOptions(
       options.sessionOptions,

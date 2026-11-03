@@ -20,6 +20,7 @@
   "sourceIntroductions": {
     "file-folder-listing": "2026-10-29",
     "agent-api-bootstrap": "2026-10-30",
-    "queued-session-compaction": "2026-11-03"
+    "queued-session-compaction": "2026-11-03",
+    "provider-steering-modes": "2026-11-03"
   }
 }

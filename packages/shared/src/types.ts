@@ -529,6 +529,7 @@ export interface ProviderInfo extends ProviderDescriptor {
    * (Claude `priority: "now"`). Default: false.
    */
   supportsSteerNow?: boolean;
+  steering?: import("./steering.js").ProviderSteeringCapabilities;
   /** Whether this provider can generate YA-triggered recap messages. */
   supportsRecaps?: boolean;
   /** Whether this provider emits recaps natively without a YA side query. */

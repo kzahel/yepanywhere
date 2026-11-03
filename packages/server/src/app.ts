@@ -726,6 +726,7 @@ export function createApp(options: AppOptions): AppResult {
         options.sessionMetadataService?.getAllMetadata() ?? {},
       ).some((metadata) => metadata.provider === "claude-ollama"),
     getProviderRuntimeSnapshot: () => ({
+      steeringModes: options.serverSettingsService?.getSetting("steeringModes"),
       codexCliPath: options.codexCliPath,
       codexPlanToolMode:
         options.serverSettingsService?.getSetting("codexPlanToolMode") ??

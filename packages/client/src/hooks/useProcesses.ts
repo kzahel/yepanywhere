@@ -26,6 +26,7 @@ import { useRetainedClientQuery } from "./useRetainedClientQuery";
  * Process info returned from the API.
  */
 export interface ProcessInfo {
+  steering?: import("@yep-anywhere/shared").ProviderSteeringState;
   id: string;
   sessionId: string;
   projectId: UrlProjectId;

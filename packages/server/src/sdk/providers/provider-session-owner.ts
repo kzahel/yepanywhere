@@ -1,3 +1,4 @@
+import { parseProviderSteeringState } from "@yep-anywhere/shared";
 import { randomUUID } from "node:crypto";
 import {
   agentCatalogRequest,
@@ -104,6 +105,7 @@ export interface ProviderSessionSandboxMetadata {
 }
 
 export interface ProviderSessionReadyMetadata {
+  steering?: import("@yep-anywhere/shared").ProviderSteeringState;
   binding?: BoundRuntimeIdentity;
   creation?: CreationRuntimeEvidence;
   sessionId?: string;
@@ -174,6 +176,7 @@ export interface ProviderSessionOwnerOptions {
 }
 
 export interface ProviderSessionAttachedState {
+  steering?: import("@yep-anywhere/shared").ProviderSteeringState;
   type: "attached";
   protocolVersion: number;
   runtimeId: string;
@@ -226,6 +229,9 @@ export class ProviderSessionOwner {
   };
   private appliedPermissionMode: PermissionMode | undefined;
   private providerSessionId: string | undefined;
+  private steering:
+    | import("@yep-anywhere/shared").ProviderSteeringState
+    | undefined;
   private shuttingDown: Promise<void> | null = null;
   private unsubscribeQueueDepth: (() => void) | null = null;
   private unsubscribeQueueRemoved: (() => void) | null = null;
@@ -419,6 +425,7 @@ export class ProviderSessionOwner {
   readyMetadata(): ProviderSessionReadyMetadata {
     const session = this.requireSession();
     return {
+      steering: this.steering,
       ...(this.boundIdentity ? { binding: this.boundIdentity } : {}),
       ...(this.creationIdentity ? { creation: this.creationEvidence() } : {}),
       sessionId: session.sessionId,
@@ -659,6 +666,7 @@ export class ProviderSessionOwner {
       providerRetention: this.providerRetention,
       appliedPermissionMode: this.appliedPermissionMode,
       providerSessionId: this.providerSessionId,
+      steering: this.steering,
       ...(this.boundIdentity ? { binding: this.boundIdentity } : {}),
       ...(this.creationIdentity ? { creation: this.creationEvidence() } : {}),
     };
@@ -745,6 +753,8 @@ export class ProviderSessionOwner {
         this.browserDebugEnvironment,
       );
     }
+    if (message.type === "system" && message.subtype === "init")
+      this.steering = parseProviderSteeringState(message.steering);
     const sequence = ++this.sequence;
     const bytes = Buffer.byteLength(JSON.stringify(message));
     const event: BufferedEvent = {

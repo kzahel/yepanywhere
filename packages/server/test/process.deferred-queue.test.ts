@@ -1,3 +1,4 @@
+import { prepareClaudeInput } from "../src/sdk/providers/claude-delivery.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getLogger } from "../src/logging/logger.js";
 import {
@@ -933,13 +934,11 @@ describe("Process", () => {
         {
           text: "patient one",
           tempId: "temp-patient-1",
-          priority: "next",
           metadata: { deliveryIntent: "steer" },
         },
         {
           text: "patient two",
           tempId: "temp-patient-2",
-          priority: "next",
           metadata: { deliveryIntent: "steer" },
         },
       ]);
@@ -981,7 +980,6 @@ describe("Process", () => {
         {
           text: `patient one\n\n${CONCAT_SEPARATOR}\n\npatient two`,
           tempIds: ["temp-patient-1", "temp-patient-2"],
-          priority: "next",
         },
       ]);
 
@@ -991,7 +989,7 @@ describe("Process", () => {
 
     it("marks Claude queued delivery with later priority after turn end", async () => {
       const controller = createControllableIterator();
-      const queue = new MessageQueue();
+      const queue = new MessageQueue(prepareClaudeInput);
       const process = new Process(controller.iterator, {
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,

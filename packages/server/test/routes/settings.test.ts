@@ -146,6 +146,43 @@ describe("Settings Routes", () => {
   });
 
   describe("PUT /", () => {
+    it("saves qualified launch steering modes and rejects unsupported writes atomically", async () => {
+      const routes = createSettingsRoutes({
+        serverSettingsService: mockServerSettingsService,
+      });
+      for (const steeringModes of [
+        { codex: "immediate" },
+        { codex: "gentle" },
+        {},
+      ]) {
+        const response = await routes.request("/", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ steeringModes }),
+        });
+        expect(response.status).toBe(200);
+        expect((await response.json()).settings.steeringModes).toEqual(
+          steeringModes,
+        );
+      }
+      vi.mocked(mockServerSettingsService.updateSettings).mockClear();
+      for (const steeringModes of [
+        { codex: "now" },
+        { pi: "immediate" },
+        { claude: "gentle" },
+        [],
+        null,
+      ]) {
+        const response = await routes.request("/", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ steeringModes, wakeTurnsEnabled: true }),
+        });
+        expect(response.status).toBe(400);
+      }
+      expect(mockServerSettingsService.updateSettings).not.toHaveBeenCalled();
+    });
+
     it("saves or disables the readiness executable and notifies after saving", async () => {
       const changed = vi.fn(() =>
         expect(settings.projectQueueReadinessCheck).toEqual(command),

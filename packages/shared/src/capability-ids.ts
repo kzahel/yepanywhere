@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  providerSteeringModes: {
+    id: 149,
+    direction: "server",
+    name: "provider-steering-modes",
+    introducedIn: "0.11.1",
+  },
   queuedSessionCompaction: {
     id: 148,
     direction: "server",

@@ -1,3 +1,4 @@
+import { parseProviderSteeringState } from "@yep-anywhere/shared";
 import { observeProviderInputIds } from "../sdk/providers/creation-runtime-identity.js";
 import { randomUUID } from "node:crypto";
 import type {
@@ -950,6 +951,7 @@ export interface ProcessConstructorOptions extends ProcessOptions {
    * message, so provider identity settles at construction instead.
    */
   initializedSessionId?: string;
+  initialSteering?: import("@yep-anywhere/shared").ProviderSteeringState;
   /** Check if underlying CLI process is still alive (for stale detection) */
   isProcessAlive?: () => boolean;
   /** Return true when an idle process should stay owned for an explicit feature. */
@@ -1056,6 +1058,9 @@ export interface ProcessConstructorOptions extends ProcessOptions {
 class NativeSessionBindingError extends Error {}
 
 export class Process {
+  private steering:
+    | import("@yep-anywhere/shared").ProviderSteeringState
+    | undefined;
   readonly id: string;
   private readonly _sessionId: string;
   readonly projectPath: string;
@@ -1372,6 +1377,7 @@ export class Process {
         : { type: "in-turn" };
 
     this.messageQueue = options.queue;
+    this.steering = options.initialSteering;
     this.deferredDeliveryOverrides = options.deferredDelivery;
     this.sessionQueuePersistenceService =
       options.sessionQueuePersistenceService;
@@ -3121,6 +3127,7 @@ export class Process {
     }
 
     const info: ProcessInfo = {
+      steering: this.steering,
       id: this.id,
       sessionId: this._sessionId,
       projectId: this.projectId,
@@ -3807,34 +3814,14 @@ export class Process {
     message: UserMessage,
     composeAnchor?: string | null,
   ): UserMessage {
-    const prepared = this.withProviderDeliveryPriority(
-      this.applyComposeAnchor(
-        this.applyTurnTimestamp(this.expandEmulatedSlashCommand(message)),
-        composeAnchor,
-      ),
+    const prepared = this.applyComposeAnchor(
+      this.applyTurnTimestamp(this.expandEmulatedSlashCommand(message)),
+      composeAnchor,
     );
     return {
       ...prepared,
       mode: prepared.mode ?? this._permissionMode,
     };
-  }
-
-  private withProviderDeliveryPriority(message: UserMessage): UserMessage {
-    if (!isClaudeProviderName(this.provider)) {
-      return message;
-    }
-
-    const deliveryIntent = message.metadata?.deliveryIntent;
-    if (deliveryIntent === "steer") {
-      return {
-        ...message,
-        priority: message.metadata?.steerNow ? "now" : "next",
-      };
-    }
-    if (deliveryIntent === "deferred" || deliveryIntent === "patient") {
-      return { ...message, priority: "later" };
-    }
-    return message;
   }
 
   private inputRejectionError(): string | null {
@@ -5401,6 +5388,12 @@ export class Process {
           await this.localNoticePublication;
         }
         const receivedAt = new Date();
+        if (
+          message.type === "system" &&
+          message.subtype === "init" &&
+          message.steering
+        )
+          this.steering = parseProviderSteeringState(message.steering);
         this._lastMessageTime = receivedAt;
         this._lastProviderMessageTime = receivedAt;
         if (isProviderContentMessage(message)) {

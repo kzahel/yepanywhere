@@ -4993,5 +4993,11 @@
   "sessionCreationNewerDraft": "Session saved. Your newer draft is preserved.",
   "sessionCreationOpenSaved": "Open saved session",
   "sessionCreationBlocked": "Check the startup status before sending another message.",
-  "sessionCreationSavedWhileAway": "A session was saved while you were away. Check it before submitting again."
+  "sessionCreationSavedWhileAway": "A session was saved while you were away. Check it before submitting again.",
+  "providerSteeringLaunchTitle": "{provider} steering mode",
+  "providerSteeringLaunchDescription": "Gentle waits for the next model request. Immediate can interrupt generation to include your correction sooner. Applies when a session starts or resumes; active sessions keep their mode. Native provider configuration takes precedence.",
+  "providerSteeringGentle": "Gentle",
+  "providerSteeringImmediate": "Immediate (experiment)",
+  "providerSteeringNativeConfig": "Native configuration",
+  "providerSteeringOwners": "Active session modes: {modes}"
 }

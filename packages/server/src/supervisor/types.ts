@@ -245,6 +245,7 @@ export type ProcessState =
 
 // Process info (for API responses)
 export interface ProcessInfo {
+  steering?: import("@yep-anywhere/shared").ProviderSteeringState;
   id: string;
   sessionId: string;
   projectId: UrlProjectId;

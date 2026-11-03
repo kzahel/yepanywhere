@@ -1707,3 +1707,4 @@ export {
 } from "./session-identity.js";
 
 export { isSessionCreationPending } from "./session-creation.js";
+export * from "./steering.js";

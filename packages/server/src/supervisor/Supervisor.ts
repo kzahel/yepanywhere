@@ -3071,6 +3071,7 @@ export class Supervisor {
           activeProvider.initializesOnFirstMessage === true,
         appendConversationContextFn: result.appendConversationContext,
         initializedSessionId: result.initializedSessionId,
+        initialSteering: result.initialSteering,
         publishAgentctlSessionIdFn: publishAgentctlSessionId,
         permissionMode: effectiveMode,
         provider: activeProvider.name,

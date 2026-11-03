@@ -24,6 +24,7 @@ const cwd = process.env.YEP_E2E_CREATION_CWD;
 let file = process.env.YEP_E2E_CREATION_NATIVE_FILE;
 const store = dirname(file);
 const log = process.env.YEP_E2E_CREATION_REQUESTS;
+appendFileSync(`${log}.launches`, `${JSON.stringify(process.argv.slice(2))}\n`);
 const gate = process.env.YEP_E2E_CREATION_GATE;
 const write = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 const respond = (id, result) => write({ id, result });

@@ -16,7 +16,7 @@ surface when you need to gate/render/audit".
 This is a forward-looking guideline, adopted incrementally. Existing
 provider/model conditionals have **not** all been migrated.
 `yaModelIdForReported`, native compact-threshold support, and launch-scoped
-compact-percent support (below) are the first surfaces to adopt this seam.
+compact-percent support and native steering urgency (below) adopt this seam.
 Don't treat the presence of remaining inline conditionals as a bug to sweep;
 migrate them when they next hit a trigger below.
 
@@ -34,6 +34,28 @@ migrate them when they next hit a trigger below.
   runtime).
 
 ### Provider input queues
+
+Shared delivery metadata expresses user intent; native urgency belongs at the
+adapter ingress, before batching can combine messages. Claude's
+`prepareClaudeInput` maps steer/Now to `next`/`now` and deferred/patient to
+`later`; generic `Process` does not choose Claude priorities. Preserve each
+input's identity and authoritative consumption evidence through that mapping.
+
+`ProviderInfo.steering` describes native modes and selection scope. A
+`per-message` provider may offer immediate steering beside Send; a `launch`
+provider configures new owners through capability-gated settings. Do not
+pretend a launch flag is a per-message API, or simulate immediate steering
+with interrupt-and-resend. Keep regular/patient scheduling separate from
+native urgency. A gentle-only adapter such as Grok can advertise the same
+contract without exposing an immediate control.
+
+Codex captures the YA choice at owner creation, applies it at native launch,
+and emits mode/source evidence in init. The worker retains that evidence in
+attach state after init is acknowledged; a replacement server must use it
+rather than reconstructing mode from today's settings. Native configuration
+that YA cannot resolve is reported as `native-config`. See
+[the steering contract](steer-queue-provider-differences.md#shared-steering-contract)
+and [plan 174](../docs/tactical/174-shared-steering-and-native-urgency.md).
 
 Every provider session supplies its input queue, including scripted/mock
 providers and provider-host proxies. `Process` uses that queue for submission,

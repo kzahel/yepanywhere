@@ -104,6 +104,15 @@ export async function createCodexCreationFixture(
         .filter(Boolean)
         .map((line) => JSON.parse(line));
     },
+    async launches(): Promise<string[][]> {
+      return (
+        await readFile(`${requestsFile}.launches`, "utf8").catch(() => "")
+      )
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+    },
     releaseCompactBoundary: () =>
       writeFile(`${gate}.compact-boundary`, "release"),
     releaseCompactCompletion: () =>

@@ -1,3 +1,4 @@
+import { parseProviderSteeringState } from "@yep-anywhere/shared";
 import { agentApiEligible } from "../../agent-api/eligibility.js";
 import { agentSelfEnabled } from "./agent-self.js";
 import {
@@ -1163,6 +1164,9 @@ class HostedAgentSession {
   private callbacksActive = false;
   private pendingAppliedPermissionMode: PermissionMode | undefined;
   private initializedSessionId: string | undefined;
+  private steering:
+    | import("@yep-anywhere/shared").ProviderSteeringState
+    | undefined;
   readonly queue: HostedMessageQueue;
 
   private constructor(
@@ -1359,6 +1363,7 @@ class HostedAgentSession {
   }
 
   private applyAttachedState(message: Record<string, unknown>): void {
+    this.steering = parseProviderSteeringState(message.steering);
     if (this.options.creationRuntime) {
       const evidence = this.observeCreationEvidence(message.creation);
       this.initializedSessionId = evidence.nativeSessionId;
@@ -1849,6 +1854,7 @@ class HostedAgentSession {
         ? { gatewayServiceId: this.runtime.reattach.gatewayServiceId }
         : {}),
       initializedSessionId: this.initializedSessionId,
+      initialSteering: this.steering,
       initialTurnState: this.activeProviderTurn ? "in-turn" : "idle",
       ...(capabilities.probeLiveness
         ? {

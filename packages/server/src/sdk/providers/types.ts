@@ -488,6 +488,7 @@ export interface AgentSession {
    * iterator will never replay that init.
    */
   initializedSessionId?: string;
+  initialSteering?: import("@yep-anywhere/shared").ProviderSteeringState;
   /**
    * Publish the provider's canonical session id into any child-process
    * environment bridge the provider installed before startup.
@@ -604,6 +605,7 @@ export interface AgentProvider {
    * ending the turn. Optional; absent means false.
    */
   readonly supportsSteerNow?: boolean;
+  readonly steering?: import("@yep-anywhere/shared").ProviderSteeringCapabilities;
   /**
    * Whether this provider can synthesize an on-return recap of recent
    * activity. See topics/recaps.md. Optional; absent means false.

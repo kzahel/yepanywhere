@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import {
   DEFAULT_INSTRUCTION_RESTORATION,
   parseInstructionRestorationSettings,
+  parseSteeringModeSettings,
   type InstructionRestorationSettings,
 } from "@yep-anywhere/shared";
 import type { ArtifactViewerConfig } from "@yep-anywhere/shared";
@@ -109,6 +110,7 @@ export type ToolResultMediaPreservation =
 
 /** Server-wide settings */
 export interface ServerSettings {
+  steeringModes?: import("@yep-anywhere/shared").SteeringModeSettings;
   computerControl?: import("../machine-control/legacy-retirement.js").LegacyComputerSettings;
   /** Experimental issue discovery; absent means disabled, viewed scope. */
   issueAssociations?: import("@yep-anywhere/shared").IssueSettings;
@@ -521,6 +523,8 @@ function normalizeLoadedSettings(settings: ServerSettings): ServerSettings {
   normalized.codexPlanToolMode = isCodexPlanToolMode(settings.codexPlanToolMode)
     ? settings.codexPlanToolMode
     : undefined;
+  normalized.steeringModes =
+    parseSteeringModeSettings(settings.steeringModes) ?? undefined;
   normalized.codexCyberAccessProgram = isCodexCyberAccessProgram(
     settings.codexCyberAccessProgram,
   )

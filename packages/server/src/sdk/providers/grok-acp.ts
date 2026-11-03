@@ -362,6 +362,11 @@ export class GrokACPProvider implements AgentProvider {
    * do not cancel the turn (`supportsSteerNow` stays unset).
    */
   readonly supportsSteering = true;
+  readonly steering = {
+    selection: "per-message",
+    modes: ["gentle"],
+    defaultMode: "gentle",
+  } as const;
 
   private readonly grokPath?: string;
   private readonly createClient: () => ACPClient;

@@ -127,6 +127,7 @@ export interface ProviderRuntimeConfig {
 }
 
 export interface ProviderRuntimeSnapshot {
+  steeringModes?: import("@yep-anywhere/shared").SteeringModeSettings;
   codexCliPath?: string;
   codexPlanToolMode?: CodexPlanToolMode;
   codexCyberAccessProgram?: CodexCyberAccessProgram;
@@ -184,6 +185,9 @@ export function configureProviderRuntime(config: ProviderRuntimeConfig): void {
   claudeOllamaProvider.setSubagentMaxDepthGetter(getSubagentMaxDepth);
   grokACPProvider.setSubagentMaxDepthGetter(getSubagentMaxDepth);
   codexProvider.setReasoningSummaryGetter(getCodexReasoningSummary);
+  codexProvider.setSteeringModeGetter(
+    () => getProviderRuntimeSnapshot().steeringModes?.codex,
+  );
   codexProvider.setPlanToolModeGetter(getCodexPlanToolMode);
   codexProvider.setCyberAccessProgramGetter(getCodexCyberAccessProgram);
   codexProvider.setMcpAppViewsGetter(

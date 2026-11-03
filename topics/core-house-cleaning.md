@@ -328,6 +328,14 @@ stays paused.
 Do not restore the archived architecture or require Gemini/AGY qualification to begin.
 API delegation stays a separate future project.
 
+The subsequent [shared steering slice](../docs/tactical/174-shared-steering-and-native-urgency.md)
+keeps shared intent in the UI and native translation in provider adapters.
+Claude Now remains per message; Codex's opt-in Immediate trial applies at
+owner launch, preserves active owners and native configuration, and defaults
+to gentle. Standalone live trials and the other-provider audit are recorded
+in that plan. This is an incremental retained-provider improvement, not a
+replacement input scheduler or restoration of the archived core.
+
 ## Scope control
 
 This effort should be substantial in deletion and modest in new mechanisms.

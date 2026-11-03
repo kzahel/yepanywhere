@@ -372,18 +372,39 @@ async function waitForCodexOverloadRetry(
  */
 export async function codexSteerLaneArguments(
   env: NodeJS.ProcessEnv,
+  mode?: import("@yep-anywhere/shared").SteeringMode,
 ): Promise<string[]> {
+  return (await resolveCodexSteering(env, mode)).args;
+}
+
+async function resolveCodexSteering(
+  env: NodeJS.ProcessEnv,
+  mode?: import("@yep-anywhere/shared").SteeringMode,
+): Promise<{
+  args: string[];
+  state: import("@yep-anywhere/shared").ProviderSteeringState;
+}> {
   const configPath = join(
     env.CODEX_HOME ?? join(homedir(), ".codex"),
     "config.toml",
   );
   try {
     const config = await readFile(configPath, "utf8");
-    if (/\binstant_interrupt\b/.test(config)) return [];
+    if (/\binstant_interrupt\b/.test(config))
+      return {
+        args: [],
+        state: { mode: "native-config", source: "native-config" },
+      };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  return ["-c", "features.instant_interrupt=false"];
+  return {
+    args: ["-c", `features.instant_interrupt=${mode === "immediate"}`],
+    state: {
+      mode: mode ?? "gentle",
+      source: mode ? "ya-setting" : "ya-default",
+    },
+  };
 }
 
 async function withCodexTimeout<T>(
@@ -493,6 +514,7 @@ interface TokenUsageSnapshot {
 }
 
 interface CodexTurnRuntimeState {
+  steeringMode?: import("@yep-anywhere/shared").SteeringMode;
   threadId: string;
   goalObjective?: string | null;
   goalStatus?: ThreadGoalSetResponse["goal"]["status"] | null;
@@ -1396,6 +1418,11 @@ export class CodexProvider implements AgentProvider {
   readonly supportsThinkingToggle = true;
   readonly supportsSlashCommands = true;
   readonly supportsSteering = true;
+  readonly steering = {
+    selection: "launch" as const,
+    modes: ["gentle", "immediate"] as const,
+    defaultMode: "gentle" as const,
+  };
   readonly supportsRecaps = true;
   readonly supportsNativePromptSuggestions = false;
   readonly supportsNativeCompactThreshold = true;
@@ -1420,6 +1447,9 @@ export class CodexProvider implements AgentProvider {
   private getConfiguredSubagentMaxDepth: () => SubagentMaxDepth = () =>
     DEFAULT_SUBAGENT_MAX_DEPTH;
   private getMcpAppViews: () => boolean = () => false;
+  private getSteeringMode: () =>
+    | import("@yep-anywhere/shared").SteeringMode
+    | undefined = () => undefined;
 
   constructor(config: CodexProviderConfig = {}) {
     this.config = config;
@@ -1435,6 +1465,12 @@ export class CodexProvider implements AgentProvider {
 
   setMcpAppViewsGetter(getter: () => boolean): void {
     this.getMcpAppViews = getter;
+  }
+
+  setSteeringModeGetter(
+    getter: () => import("@yep-anywhere/shared").SteeringMode | undefined,
+  ): void {
+    this.getSteeringMode = getter;
   }
 
   setReasoningSummaryGetter(getter: () => CodexReasoningSummary): void {
@@ -2068,6 +2104,15 @@ export class CodexProvider implements AgentProvider {
           "Codex continuation is outside the launch transcript store",
         );
     }
+    const steeringMode = this.getSteeringMode();
+    if (steeringMode === "immediate") {
+      const version = await this.getInstalledCodexCliVersion();
+      const parts = version?.split(".").map(Number);
+      if (!parts || !((parts[0] ?? 0) > 0 || (parts[1] ?? 0) >= 164))
+        throw new Error(
+          `Immediate steering requires Codex 0.164.0 or newer (installed: ${version ?? "unknown"}). Update Codex or choose Gentle.`,
+        );
+    }
     // These effort mappings read the model's supported efforts, which a fresh
     // session worker has not loaded yet.
     if (
@@ -2084,6 +2129,7 @@ export class CodexProvider implements AgentProvider {
     const queue = new MessageQueue();
     const abortController = new AbortController();
     const runtimeState: CodexTurnRuntimeState = {
+      steeringMode,
       ...(options.routerLaunch
         ? { cyberAccessAccountKey: `aar:${options.routerLaunch.accountId}` }
         : {}),
@@ -3174,6 +3220,10 @@ export class CodexProvider implements AgentProvider {
       codexEnv.AGENTCTL_SESSION_ID = publicSessionId;
       Object.assign(codexEnv, options.getSessionChildEnv?.(publicSessionId));
     }
+    const steering = await resolveCodexSteering(
+      codexEnv,
+      runtimeState.steeringMode,
+    );
     const appServer = new CodexAppServerClient(
       codexCommand,
       options.cwd,
@@ -3187,7 +3237,7 @@ export class CodexProvider implements AgentProvider {
         ...(options.routerLaunch
           ? codexRouterArguments(options.routerLaunch)
           : []),
-        ...(await codexSteerLaneArguments(codexEnv)),
+        ...steering.args,
       ],
     );
     setActiveClient(appServer);
@@ -3289,6 +3339,7 @@ export class CodexProvider implements AgentProvider {
       yield withCodexTimestamp({
         type: "system",
         subtype: "init",
+        steering: steering.state,
         session_id: sessionId,
         cwd: options.cwd,
         slash_command_inventory: this.createCodexSlashCommands(

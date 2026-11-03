@@ -1789,6 +1789,7 @@ export const DEFAULT_FILE_ACCESS: FileAccessSettings = {
 
 /** Server-wide settings that persist across restarts */
 export interface ServerSettings {
+  steeringModes?: import("@yep-anywhere/shared").SteeringModeSettings;
   issueAssociations?: import("@yep-anywhere/shared").IssueSettings;
   /** Opt-in project upload monitoring; absent means disabled. */
   rendez?: {

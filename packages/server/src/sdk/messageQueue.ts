@@ -227,6 +227,12 @@ export class MessageQueue
   /** Set when concatDrain() is called to prevent generator from yielding stale data */
   private drainedByExternal = false;
 
+  constructor(
+    private readonly prepareInput: (message: UserMessage) => UserMessage = (
+      message,
+    ) => message,
+  ) {}
+
   /**
    * Push a message onto the queue.
    * If the consumer is waiting, resolves immediately.
@@ -235,6 +241,7 @@ export class MessageQueue
    * @returns The new queue depth (0 if resolved immediately)
    */
   push(message: UserMessage): number {
+    message = this.prepareInput(message);
     if (this.waiting) {
       const resolve = this.waiting;
       this.waiting = null;

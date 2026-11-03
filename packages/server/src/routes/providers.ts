@@ -151,6 +151,7 @@ export function createProvidersRoutes(deps: ProviderRouteDeps = {}): Hono {
         supportsSlashCommands: provider.supportsSlashCommands,
         supportsSteering: provider.supportsSteering,
         supportsSteerNow: provider.supportsSteerNow,
+        steering: provider.steering,
         supportsRecaps: provider.supportsRecaps,
         supportsNativeRecaps: provider.supportsNativeRecaps,
         supportsNativePromptSuggestions:

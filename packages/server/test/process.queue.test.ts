@@ -389,7 +389,7 @@ describe("Process", () => {
       await process.abort();
     });
 
-    it("marks Claude steer-now messages with now priority", async () => {
+    it("passes immediate-steering intent to the provider adapter", async () => {
       let resolveIterator!: () => void;
       const iterator: AsyncIterator<SDKMessage> = {
         next: () =>
@@ -418,7 +418,7 @@ describe("Process", () => {
       expect(steerFn).toHaveBeenCalledWith(
         expect.objectContaining({
           text: "steer immediately",
-          priority: "now",
+          metadata: { deliveryIntent: "steer", steerNow: true },
         }),
       );
 

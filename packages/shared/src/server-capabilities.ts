@@ -322,6 +322,26 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  providerSteeringModes: {
+    id: CAPABILITY_ID_ALLOCATIONS.providerSteeringModes.id,
+    name: "provider-steering-modes",
+    kind: "permanent",
+    area: "settings",
+    introducedIn: "0.11.1",
+    advertisement: { kind: "version-implied" },
+    description: "Provider steering selection scope and launch-mode settings.",
+    clientFallback:
+      "Keep existing steer controls; send no steering-mode setting to older servers.",
+    serverContract: {
+      routes: ["GET /api/providers", "GET /api/settings", "PUT /api/settings"],
+      requestFields: ["steeringModes"],
+      responseFields: ["steering", "steeringModes"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason: "Gate launch-scoped steering settings on installed servers.",
+    },
+  },
   queuedSessionCompaction: {
     id: CAPABILITY_ID_ALLOCATIONS.queuedSessionCompaction.id,
     name: "queued-session-compaction",

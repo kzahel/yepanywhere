@@ -55,6 +55,9 @@ export function resolveSessionProviderCapabilities(params: {
     supportsCurrentTurnSteering: providerInfo
       ? metadataSupportsSteering
       : staticSupportsSteering,
-    supportsSteerNow: providerInfo?.supportsSteerNow === true,
+    supportsSteerNow: providerInfo?.steering
+      ? providerInfo.steering.selection === "per-message" &&
+        providerInfo.steering.modes.includes("immediate")
+      : providerInfo?.supportsSteerNow === true,
   };
 }

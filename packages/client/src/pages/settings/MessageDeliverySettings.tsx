@@ -18,6 +18,9 @@ import {
   formatDurationSeconds,
   parseDurationSeconds,
   serverHasCapability,
+  SERVER_CAPABILITIES,
+  type SteeringModeSettings,
+  type ProviderName,
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CommittedRangeInput } from "../../components/ui/CommittedRangeInput";
@@ -35,6 +38,7 @@ import { useVersion } from "../../hooks/useVersion";
 import { useI18n } from "../../i18n";
 
 import { SettingsItem } from "./SettingsItem";
+import { ProviderSteeringSettings } from "./ProviderSteeringSettings";
 import { ProjectQueueReadinessSettings } from "./ProjectQueueReadinessSettings";
 import { RendezSettings, type RendezSettingsValue } from "./RendezSettings";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
@@ -147,7 +151,20 @@ function PatientCompactThresholdItem({
   );
 }
 
+function sameSteeringModes(
+  a: SteeringModeSettings,
+  b: SteeringModeSettings,
+): boolean {
+  return (
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.entries(a).every(
+      ([provider, mode]) => b[provider as ProviderName] === mode,
+    )
+  );
+}
+
 interface MessageDeliveryBaseline {
+  steeringModes: SteeringModeSettings;
   joinWindowSeconds: number;
   projectQueueQuietSeconds: number;
   clearloopInactivitySeconds: number;
@@ -231,6 +248,10 @@ export function MessageDeliverySettings() {
   useSettingsPaneTitle(t("messageDeliveryTitle"));
   const { settings, isLoading, error, updateSettings } = useServerSettings();
   const { version } = useVersion();
+  const supportsProviderSteering = serverHasCapability(
+    version,
+    SERVER_CAPABILITIES.providerSteeringModes.name,
+  );
 
   const supportsReadinessCheck = serverHasCapability(
     version,
@@ -337,6 +358,7 @@ export function MessageDeliverySettings() {
   useEffect(() => {
     if (settings && !baselineRef.current) {
       baselineRef.current = {
+        steeringModes: { ...settings.steeringModes },
         joinWindowSeconds: settings.deferredJoinWindowSeconds ?? 0,
         projectQueueQuietSeconds:
           clampProjectQueueQuietSeconds(settings.projectQueueQuietSeconds) ??
@@ -540,6 +562,11 @@ export function MessageDeliverySettings() {
       shownBangCommands !== baseline.bangCommandsEnabled ||
       shownBusyDefaultAction !== baseline.busyComposerDefaultAction ||
       shownSteerNowDefault !== baseline.steerNowDefault ||
+      (supportsProviderSteering &&
+        !sameSteeringModes(
+          settings?.steeringModes ?? {},
+          baseline.steeringModes,
+        )) ||
       shownPatientQueueDefault !== baseline.patientQueueDefault ||
       (supportsTopicShift &&
         (settings?.clientDefaults?.patientQueueCompactAtPercent !==
@@ -574,13 +601,16 @@ export function MessageDeliverySettings() {
       snapshot.keepMobileKeyboardOpenAfterDelivery,
     );
     await updateSettings({
+      ...(supportsProviderSteering
+        ? { steeringModes: snapshot.steeringModes }
+        : {}),
       ...(supportsRendez
         ? {
             rendez: {
               ...settings?.rendez,
               enabled: snapshot.rendez.enabled,
               projects: snapshot.rendez.projects,
-              delivery: snapshot.rendez.delivery,
+              delivery: snapshot.rendez.delivery ?? "auto",
             },
           }
         : {}),
@@ -620,6 +650,7 @@ export function MessageDeliverySettings() {
     setBackgroundSessionCreation,
     supportsClearloop,
     supportsReadinessCheck,
+    supportsProviderSteering,
     supportsRendez,
     supportsTopicShift,
     settings?.rendez,
@@ -997,6 +1028,15 @@ export function MessageDeliverySettings() {
             aria-label={t("messageDeliverySteerNowDefaultTitle")}
           />
         </SettingsItem>
+
+        {supportsProviderSteering && (
+          <ProviderSteeringSettings
+            value={settings?.steeringModes ?? {}}
+            onChange={(steeringModes) => {
+              void updateSettings({ steeringModes }).catch(() => {});
+            }}
+          />
+        )}
 
         <SettingsItem
           as="label"

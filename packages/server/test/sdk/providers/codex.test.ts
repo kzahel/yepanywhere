@@ -504,25 +504,44 @@ describe("CodexProvider", () => {
       }
     });
 
-    it("launches sessions with steer-cancels-generation disabled unless the user's Codex config sets it", async () => {
+    it("captures steering mode at owner launch and respects native configuration", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "codex-steer-lane-"));
       const argvPath = join(tempDir, "argv.jsonl");
       const codexPath = createFakeCodexCommand(
         tempDir,
         "fake-codex-steer-lane",
-        buildFakeCodexAppServer(join(tempDir, "requests.jsonl")).replace(
-          /^(#![^\n]*\n)/,
-          `$1(await import("node:fs")).appendFileSync(${JSON.stringify(argvPath)}, JSON.stringify(process.argv.slice(2)) + "\\n");\n`,
-        ),
+        buildFakeCodexAppServer(join(tempDir, "requests.jsonl"))
+          .replace(/codex-cli \d+\.\d+\.\d+/g, "codex-cli 0.166.0")
+          .replace(
+            /^(#![^\n]*\n)/,
+            `$1(await import("node:fs")).appendFileSync(${JSON.stringify(argvPath)}, JSON.stringify(process.argv.slice(2)) + "\\n");\n`,
+          ),
       );
-      const launchArguments = async (codexHome: string): Promise<string[]> => {
+      const launchArguments = async (
+        codexHome: string,
+        mode?: "gentle" | "immediate",
+      ): Promise<string[]> => {
         writeFileSync(argvPath, "");
-        const session = await new CodexProvider({
+        const provider = new CodexProvider({
           codexPath,
           codexHome,
-        }).startSession({ cwd: tempDir });
+        });
+        provider.setSteeringModeGetter(() => mode);
+        const session = await provider.startSession({ cwd: tempDir });
+        // A changed default must not reconfigure an already-created owner.
+        provider.setSteeringModeGetter(() =>
+          mode === "immediate" ? "gentle" : "immediate",
+        );
         try {
-          await session.iterator.next();
+          const init = await session.iterator.next();
+          expect(init.value?.steering).toEqual(
+            codexHome.endsWith("configured-home")
+              ? { mode: "native-config", source: "native-config" }
+              : {
+                  mode: mode ?? "gentle",
+                  source: mode ? "ya-setting" : "ya-default",
+                },
+          );
         } finally {
           await session.abort();
         }
@@ -537,6 +556,9 @@ describe("CodexProvider", () => {
         expect((await launchArguments(defaultHome)).join(" ")).toContain(
           "-c features.instant_interrupt=false",
         );
+        expect(
+          (await launchArguments(defaultHome, "immediate")).join(" "),
+        ).toContain("-c features.instant_interrupt=true");
 
         const configuredHome = join(tempDir, "configured-home");
         mkdirSync(configuredHome);
@@ -544,9 +566,24 @@ describe("CodexProvider", () => {
           join(configuredHome, "config.toml"),
           "[features]\ninstant_interrupt = true\n",
         );
-        expect((await launchArguments(configuredHome)).join(" ")).not.toContain(
-          "instant_interrupt",
+        expect(
+          (await launchArguments(configuredHome, "immediate")).join(" "),
+        ).not.toContain("instant_interrupt");
+        writeFileSync(
+          codexPath,
+          readFileSync(codexPath, "utf8").replace(
+            /codex-cli \d+\.\d+\.\d+/g,
+            "codex-cli 0.163.0",
+          ),
         );
+        const unsupported = new CodexProvider({
+          codexPath,
+          codexHome: defaultHome,
+        });
+        unsupported.setSteeringModeGetter(() => "immediate");
+        await expect(
+          unsupported.startSession({ cwd: tempDir }),
+        ).rejects.toThrow("Immediate steering requires Codex 0.164.0");
       } finally {
         rmSync(tempDir, { recursive: true, force: true });
       }

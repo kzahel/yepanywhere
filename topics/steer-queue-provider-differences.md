@@ -178,7 +178,7 @@ Codex `turn/interrupt`) bracket the ladder but cancel work; they are not
 
 | Level | Claude mechanism | Codex mechanism | YA UI |
 |---|---|---|---|
-| 0. Inject now (abort in-flight *generation*, keep the turn) | `priority: "now"` on a streamed user message; while inference is active the CLI aborts sampling and re-calls the model with the message. The priority itself stays queued behind foreground Bash. YA separately makes configured Bash calls resumable after writing the steer, as described below. | none as a single lane; TUI `Esc` on the pending-steer prompt composes interrupt+submit | Claude-only `Now` checkbox beside steer, default on when no preference is stored |
+| 0. Inject now (abort in-flight *generation*, keep the turn) | `priority: "now"` on a streamed user message; while inference is active the CLI aborts sampling and re-calls the model with the message. The priority itself stays queued behind foreground Bash. YA separately makes configured Bash calls resumable after writing the steer, as described below. | `turn/steer` with launch-scoped `features.instant_interrupt=true` on Codex 0.164+; no per-steer urgency field | Claude `Now` checkbox, default on; Codex Immediate experiment in Message delivery settings for new owners |
 | 1. After current tool call / tool batch | `priority: "next"`; the loop drains `getCommandsByMaxPriority("next")` at post-tool-batch boundaries (internal task notifications use this lane) | `turn/steer` RPC `{threadId, expectedTurnId, input}`; lands in the active turn's `pending_input`, consumed when the *next model request* is composed — it does NOT abort in-flight sampling, so during a long thinking/text stretch it waits for the whole current response (and its tool batch). Native TUI default for typed mid-turn input | ↗ steer |
 | 2. End of turn (the real queue) | `priority: "later"`; not consumed mid-turn, starts the next turn at turn end (cron/loop prompts use this lane) | no protocol lane — the native app holds the message client-side until `turn/completed`; YA holds it server-side (`deferred`) | → queue |
 | 3. End of turn + verified quiet window | not native | not native | Zz patient (`patienceSeconds`) |
@@ -198,12 +198,39 @@ waited, the write landed uninterrupted, and the steer arrived as the next
 item (level 1, the behavior in the table above). In real use the default
 cost a session four rewrites of a multi-minute write, one per user steer.
 
-Contract: YA Codex session launches pass `-c features.instant_interrupt=false`
-so ↗ steer stays level 1. When `$CODEX_HOME/config.toml` mentions
+Contract: YA Codex session launches default to `-c features.instant_interrupt=false`
+so ↗ steer stays level 1. The opt-in Immediate experiment instead passes
+`-c features.instant_interrupt=true` for newly started owners and requires
+Codex 0.164+. Active owners retain their captured mode. When `$CODEX_HOME/config.toml` mentions
 `instant_interrupt` at all, YA passes nothing and the user's setting governs.
 The `-c` form is deliberate: a CLI without the feature ignores an unknown
 `features.*` key but exits on `--disable <unknown>`. One-shot app-servers
 (model list, rate limits, recaps, summaries) take no steers and are unchanged.
+
+### Shared steering contract
+
+Provider discovery describes gentle/immediate modes and whether selection is
+per message or at launch. The UI renders those facts without knowing native
+Claude priorities or Codex flags. Claude translation happens at its queue
+ingress before batching; Grok advertises its existing gentle-only interjection.
+The launch-mode settings row and `steeringModes` writes require capability
+149, `provider-steering-modes`; older servers receive neither the row nor an
+Undo write containing the new field. Missing Codex preference remains gentle.
+
+Message delivery settings shows the modes captured by active launch-scoped
+owners. The choice applies when a session next starts or resumes, never by
+restarting an active owner. Explicit native configuration wins; its presence
+is reported as native configuration without guessing the effective boolean.
+Init/attach carries mode/source across replacement of the YA web server.
+
+The November 3 standalone trials interrupted numbered text generation with
+Claude 2.1.312 and Codex 0.165.0, using the same native owner for warm-up,
+generation and correction. Both immediate modes interrupted generation while
+gentle modes finished the numbered response first. Correction requests still
+reported cache hits. Aborted-generation accounting was incomplete, so this
+does not establish zero wasted output, lower cost or universal cache behavior.
+[Plan 174](../docs/tactical/174-shared-steering-and-native-urgency.md) records
+timings, token observations, test boundaries and the other-provider audit.
 
 Asymmetry worth knowing: Codex exposes steering in the protocol but
 queueing only as client-side holding; Claude exposes all three native
