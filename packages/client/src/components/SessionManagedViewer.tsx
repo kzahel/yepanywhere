@@ -30,7 +30,8 @@ import {
   presentSessionViewer,
   restoreSessionViewer,
   sessionViewerFreezesTranscript,
-  type SessionViewerControllerState,
+  type SessionViewerRenderState,
+  useSessionViewerRenderState,
   useSessionViewerController,
 } from "../lib/sessionViewerController";
 import { Modal, ModalChrome, useModalLayer } from "./ui/Modal";
@@ -254,7 +255,7 @@ export function SessionManagedViewerHost({
   rightPaneTarget?: HTMLElement | null;
   rightPaneWide?: boolean;
 }) {
-  const controller = useSessionViewerController();
+  const controller = useSessionViewerRenderState();
   const { sessionRightPaneEnabled } = useSessionRightPaneSetting();
   const { panelSlideDurationMs } = usePanelSlideAnimations();
   const controllerRef = useRef(controller);
@@ -367,7 +368,7 @@ function SessionPanelPane({
   inactive,
   docked,
 }: {
-  panel: Extract<SessionViewerControllerState, { kind: "panel" }>;
+  panel: Extract<SessionViewerRenderState, { kind: "panel" }>;
   inactive: boolean;
   docked: boolean;
 }) {

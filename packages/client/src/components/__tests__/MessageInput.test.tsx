@@ -6018,7 +6018,6 @@ describe("MessageInput", () => {
           lineSuffix: ":12",
           minimize,
           minimized: true,
-          onClose: close,
           restore,
         }}
         speechWaveformActive
@@ -6131,7 +6130,6 @@ describe("MessageInput", () => {
           lineSuffix: ":12",
           minimize,
           minimized: false,
-          onClose: vi.fn(),
           restore: vi.fn(),
         }}
         speechControl={{
@@ -6184,7 +6182,6 @@ describe("MessageInput", () => {
         fileViewerController={{
           close,
           closeAction: { label: "sessionViewerClose", run: close },
-          content: "output",
           id: "activity-1",
           kind: "panel",
           sessionId: "session-1",
@@ -6192,9 +6189,7 @@ describe("MessageInput", () => {
           briefLabel: "Bash",
           minimize,
           minimized: false,
-          onClose: close,
           restore: vi.fn(),
-          title: "Bash Command",
         }}
         attachmentControl={{ attachmentCount: 0 }}
         shortcutsControl={{

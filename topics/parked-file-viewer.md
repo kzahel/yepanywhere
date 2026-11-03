@@ -226,14 +226,21 @@ tab opens that viewer URL and closes the current viewer. It does not open a
 raw active-file response. Standalone pages omit move-out. Existing separate
 file-specific controls (preview, fullscreen, download) remain outside this group.
 
-A viewer registers itself with the session's managed-viewer controller, and
-registering again re-renders that controller's host. So a source may register
-only when the viewer's own state actually changes, never merely because the
-surface that owns it re-rendered and rebuilt a prop object. A source whose
-caller passes freshly allocated callbacks or navigation state each render must
-register on the values it presents and reach the caller's latest handlers
-indirectly; registering on object identity is an update loop that React aborts
-as exceeded update depth, replacing the session with the crash screen.
+The session controller separates lifecycle/layout metadata from the render
+payload. Session layout, toolbar, freeze/resume, reload persistence, and view
+reporting observe the metadata snapshot; only the managed viewer host observes
+title, actions, content, and file render callbacks. Re-presenting the same viewer
+with unchanged metadata preserves that snapshot and emits no metadata change,
+even when its source rebuilt React nodes or handlers. Updated content still
+reaches the host without remounting its selected child or resetting local state.
+Minimize/restore survive same-viewer content refreshes, and Close invokes the
+latest source callback. Close-action callbacks likewise refresh without a
+metadata notification when their label, destructive flag, and busy flag match.
+
+Sources still publish from committed effects or user commands, never during
+render. If a source also subscribes to viewer state, it observes metadata;
+render payload subscription belongs to the host. A new identity or a meaningful
+metadata change notifies those consumers. No-op lifecycle commands notify none.
 
 The parked controller's trailing button is one close descriptor — a label, a
 destructive flag, a busy flag and what to run — carried on the registration

@@ -66,16 +66,31 @@ export type SessionViewerRegistration =
   | (SessionViewerBase & { kind: "artifact"; url: string; onClose?: never })
   | FileViewerRegistration;
 
-export type SessionViewerControllerState = SessionViewerRegistration & {
+type ViewerCommands = {
   close: () => void;
   minimize: () => void;
   minimized: boolean;
   restore: () => void;
 };
 
+/** Layout and toolbar consumers never observe React content or source handlers. */
+export type SessionViewerControllerState = (
+  | (SessionViewerBase & { kind: "panel" })
+  | FileViewerBase
+  | Extract<SessionViewerRegistration, { kind: "artifact" | "vhost" }>
+) &
+  ViewerCommands;
+
+/** Only the managed host subscribes to the current render payload. */
+export type SessionViewerRenderState = SessionViewerRegistration &
+  ViewerCommands;
+
 interface ControllerStore {
-  current: SessionViewerControllerState | null;
+  current: SessionViewerRenderState | null;
+  snapshot: SessionViewerControllerState | null;
+  renderSnapshot: SessionViewerRenderState | null;
   listeners: Set<() => void>;
+  renderListeners: Set<() => void>;
   resumeRevision: number;
 }
 
@@ -85,13 +100,18 @@ interface ControllerStore {
 const hotData: { store?: ControllerStore } | undefined = import.meta.hot?.data;
 const store: ControllerStore = hotData?.store ?? {
   current: null,
+  snapshot: null,
+  renderSnapshot: null,
   listeners: new Set(),
+  renderListeners: new Set(),
   resumeRevision: 0,
 };
 if (hotData) hotData.store = store;
-let current = store.current;
+// An already-open Vite page may carry the previous store shape through HMR.
+store.snapshot ??= null;
+store.renderSnapshot ??= store.current;
+store.renderListeners ??= new Set();
 const listeners = store.listeners;
-let resumeRevision = store.resumeRevision;
 
 function emit(): void {
   for (const listener of listeners) listener();
@@ -115,31 +135,42 @@ function frozenTranscriptSessionId(
   return state.sessionId;
 }
 
-function replaceCurrent(next: SessionViewerControllerState | null): void {
-  const previousFrozenSessionId = frozenTranscriptSessionId(current);
+function replaceCurrent(next: SessionViewerRenderState | null): void {
+  const previousFrozenSessionId = frozenTranscriptSessionId(store.current);
   const nextFrozenSessionId = frozenTranscriptSessionId(next);
   if (
     previousFrozenSessionId &&
     previousFrozenSessionId !== nextFrozenSessionId
   ) {
-    resumeRevision += 1;
+    store.resumeRevision += 1;
   }
-  current = next;
+  const nextSnapshot = next ? controllerSnapshot(next, store.snapshot) : null;
+  const metadataChanged = store.snapshot !== nextSnapshot;
+  const renderChanged =
+    metadataChanged || !sameRenderContent(store.renderSnapshot, next);
+  // Install every value before notifying either group. Source handlers stay
+  // current even when their new allocation changes neither observable snapshot.
   store.current = next;
-  store.resumeRevision = resumeRevision;
-  emit();
+  store.snapshot = nextSnapshot;
+  if (renderChanged) {
+    store.renderSnapshot = next;
+  }
+  if (metadataChanged) emit();
+  if (renderChanged) {
+    for (const listener of store.renderListeners) listener();
+  }
 }
 
 export function closeSessionViewer(id: string): void {
-  if (current?.id !== id) return;
-  const onClose = current.onClose;
+  if (store.current?.id !== id) return;
+  const onClose = store.current.onClose;
   replaceCurrent(null);
   onClose?.();
 }
 
 function setMinimized(id: string, minimized: boolean): void {
-  if (current?.id !== id || current.minimized === minimized) return;
-  replaceCurrent({ ...current, minimized });
+  if (store.current?.id !== id || store.current.minimized === minimized) return;
+  replaceCurrent({ ...store.current, minimized });
 }
 
 export function minimizeSessionViewer(id: string): void {
@@ -170,18 +201,114 @@ function defaultCloseAction(
 function toController(
   registration: SessionViewerRegistration,
   minimized: boolean,
-): SessionViewerControllerState {
+): SessionViewerRenderState {
   const { id } = registration;
-  const close = () => closeSessionViewer(id);
+  const previous =
+    store.current?.id === id &&
+    store.current.kind === registration.kind &&
+    store.current.sessionId === registration.sessionId
+      ? store.current
+      : null;
+  const close = previous?.close ?? (() => closeSessionViewer(id));
   return {
     ...registration,
     closeAction:
       registration.closeAction ?? defaultCloseAction(registration, close),
     close,
-    minimize: () => setMinimized(id, true),
+    minimize: previous?.minimize ?? (() => setMinimized(id, true)),
     minimized,
-    restore: () => setMinimized(id, false),
+    restore: previous?.restore ?? (() => setMinimized(id, false)),
   };
+}
+
+/** Compare only a small data snapshot, never arbitrary React nodes. */
+function sameFields(a: object, b: object): boolean {
+  const fields = Object.entries(a);
+  const other = b as Record<string, unknown>;
+  return (
+    fields.length === Object.keys(b).length &&
+    fields.every(([key, value]) => Object.is(value, other[key]))
+  );
+}
+
+function controllerSnapshot(
+  next: SessionViewerRenderState,
+  previous: SessionViewerControllerState | null,
+): SessionViewerControllerState {
+  const sameViewer =
+    previous?.id === next.id &&
+    previous.kind === next.kind &&
+    previous.sessionId === next.sessionId;
+  const id = next.id;
+  let closeAction = next.closeAction;
+  if (closeAction) {
+    // The button's identity/metadata is observable; its latest implementation
+    // is not. Refreshing an inline callback must not wake its publishing parent.
+    closeAction = {
+      ...closeAction,
+      run:
+        sameViewer && previous.closeAction
+          ? previous.closeAction.run
+          : () => {
+              if (store.current?.id === id) store.current.closeAction?.run();
+            },
+    };
+    if (sameViewer && sameCloseAction(previous.closeAction, closeAction)) {
+      closeAction = previous.closeAction;
+    }
+  }
+  const base = {
+    id: next.id,
+    sessionId: next.sessionId,
+    label: next.label,
+    briefLabel: next.briefLabel,
+    openedBy: next.openedBy,
+    closeAction,
+    close: next.close,
+    minimize: next.minimize,
+    restore: next.restore,
+    minimized: next.minimized,
+  };
+  const metadata: SessionViewerControllerState =
+    next.kind === "file"
+      ? {
+          ...base,
+          kind: next.kind,
+          filePath: next.filePath,
+          lineSuffix: next.lineSuffix,
+          supportsRightPane: next.supportsRightPane,
+        }
+      : next.kind === "vhost"
+        ? {
+            ...base,
+            kind: next.kind,
+            url: next.url,
+            sourceUrl: next.sourceUrl,
+            artifactToken: next.artifactToken,
+          }
+        : next.kind === "artifact"
+          ? { ...base, kind: next.kind, url: next.url }
+          : { ...base, kind: next.kind };
+  return previous && sameFields(previous, metadata) ? previous : metadata;
+}
+
+function sameRenderContent(
+  a: SessionViewerRenderState | null,
+  b: SessionViewerRenderState | null,
+): boolean {
+  if (!a || !b) return a === b;
+  if (a.kind === "panel" && b.kind === "panel") {
+    return (
+      a.title === b.title &&
+      a.actions === b.actions &&
+      a.contentRef === b.contentRef &&
+      a.content === b.content
+    );
+  }
+  if (a.kind === "file" && b.kind === "file") {
+    return a.renderContent === b.renderContent;
+  }
+  return true;
 }
 
 /**
@@ -193,14 +320,14 @@ function toController(
 export function presentSessionViewer(
   registration: SessionViewerRegistration,
 ): void {
-  const previous = current;
+  const previous = store.current;
   const minimized = previous?.id === registration.id && previous.minimized;
   replaceCurrent(toController(registration, Boolean(minimized)));
   if (previous && previous.id !== registration.id) previous.onClose?.();
 }
 
 export function clearSessionViewer(id: string): void {
-  if (current?.id !== id) return;
+  if (store.current?.id !== id) return;
   replaceCurrent(null);
 }
 
@@ -228,13 +355,13 @@ export function setSessionViewerCloseAction(
   id: string,
   closeAction: SessionViewerCloseAction | undefined,
 ): void {
-  if (current?.id !== id) return;
-  if (sameCloseAction(current.closeAction, closeAction)) return;
-  replaceCurrent({ ...current, closeAction });
+  if (store.current?.id !== id) return;
+  if (sameCloseAction(store.current.closeAction, closeAction)) return;
+  replaceCurrent({ ...store.current, closeAction });
 }
 
 export function clearCurrentSessionViewer(): void {
-  if (!current) return;
+  if (!store.current) return;
   replaceCurrent(null);
 }
 
@@ -244,7 +371,12 @@ function subscribe(listener: () => void): () => void {
 }
 
 function getSnapshot(): SessionViewerControllerState | null {
-  return current;
+  return store.snapshot;
+}
+
+// Initialize the metadata projection after a hot update without publishing.
+if (store.current && !store.snapshot) {
+  store.snapshot = controllerSnapshot(store.current, null);
 }
 
 export {
@@ -256,10 +388,29 @@ export function useSessionViewerController(): SessionViewerControllerState | nul
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
+function subscribeRender(listener: () => void): () => void {
+  store.renderListeners.add(listener);
+  return () => store.renderListeners.delete(listener);
+}
+
+function getRenderSnapshot(): SessionViewerRenderState | null {
+  return store.renderSnapshot;
+}
+
+export function useSessionViewerRenderState(): SessionViewerRenderState | null {
+  return useSyncExternalStore(
+    subscribeRender,
+    getRenderSnapshot,
+    getRenderSnapshot,
+  );
+}
+
 export function isSessionViewerTranscriptFrozen(
   sessionId: string | null,
 ): boolean {
-  return sessionId !== null && frozenTranscriptSessionId(current) === sessionId;
+  return (
+    sessionId !== null && frozenTranscriptSessionId(store.current) === sessionId
+  );
 }
 
 /**
@@ -269,7 +420,7 @@ export function isSessionViewerTranscriptFrozen(
 export function useSessionViewerResumeRevision(): number {
   return useSyncExternalStore(
     subscribe,
-    () => resumeRevision,
-    () => resumeRevision,
+    () => store.resumeRevision,
+    () => store.resumeRevision,
   );
 }
