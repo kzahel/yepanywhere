@@ -423,3 +423,13 @@ earlier "set opus, see it on best". You can't get both "distinct by choice" and
 an owned setting should also apply when later *viewing an external* session of
 the same model, owned would additionally write the resolved-name prefixes — but
 that reintroduces the collapse. Owned-by-requested is the chosen default.
+
+
+## Exact historical reader selection
+
+A caller that knows a session's provider selects that provider's reader through
+`getSessionSourceForProvider`; provider aliases share their native family.
+An unavailable reader never falls through to another provider. Child-session
+lookups omit children when no reader exists; vocabulary collection fails that
+session's read, leaving its checkpoint unadvanced. A stored native binding
+continues to select the exact original store and native ID before legacy lookup.

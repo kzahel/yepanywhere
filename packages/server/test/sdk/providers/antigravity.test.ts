@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
 import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
+import { AntigravitySessionCatalogAdapter } from "../../../src/sessions/catalog-adapters/antigravity-catalog-adapter.js";
+import { projectCatalogIdentities } from "../../../src/sessions/catalog-identity.js";
 import { AntigravitySessionReader } from "../../../src/sessions/antigravity-reader.js";
 import type { SDKMessage } from "../../../src/sdk/types.js";
 import { createApp } from "../../setup/create-app.js";
@@ -147,6 +149,25 @@ describe("Antigravity native process boundary", () => {
           metadata.identities.resolveYa(receipt.sessionId)?.native?.id,
         ).toBe(nativeId);
         expect(receipt.sessionId).not.toBe(nativeId);
+        const nativeCatalog = await new AntigravitySessionCatalogAdapter().scan(
+          {
+            catalogEpoch: "test",
+            targetGeneration: 1,
+            mode: { kind: "complete" },
+            signal: new AbortController().signal,
+          },
+        );
+        const publicRows = await projectCatalogIdentities(
+          nativeCatalog.rows,
+          metadata,
+        );
+        expect(
+          publicRows.find((row) => row.nativeSessionId === nativeId)?.sessionId,
+        ).toBe(receipt.sessionId);
+        expect(
+          await projectCatalogIdentities(nativeCatalog.rows, metadata),
+        ).toEqual(publicRows);
+
         const reader = new AntigravitySessionReader({ projectPath: directory });
         try {
           expect(

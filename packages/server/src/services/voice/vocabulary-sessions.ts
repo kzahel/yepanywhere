@@ -3,7 +3,7 @@ import { stat } from "node:fs/promises";
 import { catalogFileVersion } from "../../sessions/catalog-adapters/row.js";
 import type { RetainedSessionCollections } from "../RetainedSessionCollections.js";
 import {
-  getSessionSources,
+  getSessionSourceForProvider,
   type ProviderResolutionDeps,
 } from "../../sessions/provider-resolution.js";
 import {
@@ -12,7 +12,6 @@ import {
 } from "../../sessions/normalization.js";
 import { sessionCatalogRowKey } from "../../sessions/catalog-types.js";
 import { nativeCatalogSessionRef } from "../../sessions/catalog-identity.js";
-import { providerCatalogFamily } from "../../sessions/provider-catalog-family.js";
 import type { VocabularySession } from "./VocabularyLearning.js";
 
 export async function* vocabularySessions(
@@ -47,23 +46,15 @@ export async function* vocabularySessions(
           throw new Error(
             `Speech learning cannot resolve project for ${row.sessionId}`,
           );
-        const legacySources = native
-          ? []
-          : getSessionSources(project, deps, row.provider);
         const reader = native
           ? deps.readerFactory(
               { ...project, provider: row.provider ?? row.catalogFamily },
               native,
             )
-          : (
-              legacySources.find(
-                (candidate) => candidate.provider === row.provider,
-              ) ??
-              legacySources.find(
-                (candidate) =>
-                  providerCatalogFamily(candidate.provider) ===
-                  row.catalogFamily,
-              )
+          : getSessionSourceForProvider(
+              project,
+              deps,
+              row.provider ?? row.catalogFamily,
             )?.reader;
         if (!reader)
           throw new Error(

@@ -5,7 +5,7 @@ import type {
 import type { Project } from "../supervisor/types.js";
 import {
   boundSessionSource,
-  getSessionSources,
+  getSessionSourceForProvider,
   type ProviderProjectCatalog,
   type ProviderResolutionDeps,
 } from "./provider-resolution.js";
@@ -49,7 +49,12 @@ export function readerForProviderChildren(
   provider?: ProviderName,
   catalog?: ProviderProjectCatalog,
 ): ISessionReader | undefined {
-  return getSessionSources(project, deps, provider, catalog)[0]?.reader;
+  return getSessionSourceForProvider(
+    project,
+    deps,
+    provider ?? project.provider,
+    catalog,
+  )?.reader;
 }
 
 export async function attachProviderChildSessions<

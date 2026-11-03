@@ -105,6 +105,35 @@ describe("attachProviderChildSessions", () => {
     expect(attached[1]?.providerChildren).toBeUndefined();
   });
 
+  it("does not read a different provider when the recorded provider is unavailable", async () => {
+    const project: Project = {
+      id: toUrlProjectId("/tmp/project"),
+      path: "/tmp/project",
+      name: "project",
+      sessionCount: 1,
+      sessionDir: "/tmp/claude",
+      activeOwnedCount: 0,
+      activeExternalCount: 0,
+      lastActivity: null,
+      provider: "claude",
+    };
+    const readChildren = vi.fn(async () => [child]);
+    const attached = await attachProviderChildSessions(
+      [{ id: "sess-1", provider: "codex" as const }],
+      project,
+      {
+        readerFactory: () =>
+          ({
+            listProviderChildSessions: readChildren,
+          }) as unknown as ISessionReader,
+      },
+      "fresh",
+      { codexPaths: new Set(), geminiPaths: new Set() },
+    );
+    expect(attached[0]?.providerChildren).toBeUndefined();
+    expect(readChildren).not.toHaveBeenCalled();
+  });
+
   it("attaches Codex children after the accepted projection publishes", async () => {
     const project: Project = {
       id: toUrlProjectId("/tmp/project"),

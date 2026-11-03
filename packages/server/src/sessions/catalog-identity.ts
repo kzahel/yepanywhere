@@ -75,13 +75,7 @@ export async function projectCatalogIdentities(
         excluded.add(position);
         continue;
       }
-      if (
-        !["claude", "codex", "opencode", "pi", "grok", "gemini"].includes(
-          row.catalogFamily,
-        ) ||
-        !row.nativeStorageScope
-      )
-        continue;
+      if (!row.nativeStorageScope) continue;
       const native = nativeSessionRef(
         row.catalogFamily,
         row.nativeStorageScope,

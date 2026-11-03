@@ -156,7 +156,9 @@ their contents are never decoded. These rows have identity fidelity and no
 inferred title. Browsing starts no native agent, login or model prompt. Explicit
 history reads still use Google's loader and preserve the active-owner guard.
 App-owned Antigravity session listings consume accepted catalog rows instead
-of repeating native inventories per project.
+of repeating native inventories per project. Public catalog projection honors
+existing Antigravity bindings, so a discovered native UUID cannot replace an
+already allocated YA session ID.
 
 Retained project reads return accepted state while finite discovery runs.
 Completeness requires accepted coverage of each eligible native store, including
