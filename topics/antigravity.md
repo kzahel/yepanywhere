@@ -100,9 +100,10 @@ in-memory view survives YA's short transport replay window, is discarded on
 owner exit, and is never persisted as a substitute transcript. Concurrent use
 of the same conversation in a separate editor/CLI is not qualified.
 
-This preview has no install-wide scanner or filesystem watcher. Explicit reads
-own native subprocesses; reader disposal closes them. Lists coalesce and cache
-for five seconds, cap at 2,000 entries and refuse unsupported pagination.
+App browsing uses the shared catalog and provider-root watcher described below.
+Explicit native history and title reads own subprocesses; reader disposal closes
+them. Native title lookups coalesce and cache their ACP list for five seconds,
+cap at 2,000 entries and refuse unsupported pagination.
 At most eight detail reads per cached reader may run concurrently. Replay is
 bounded to 8 MiB/10,000 messages and protocol frames to 16 MiB; excess fails
 explicitly instead of claiming complete history. Larger-corpus/bounded native
@@ -136,7 +137,7 @@ preserves existing unresolved allocations while admitting the new family.
 Desktop 1000×600 and phone 375×812 captures exercised sequential typing during
 native streaming: all 100 characters survived in each viewport, with the
 slowest input acknowledgement below 12 ms. This does not qualify advanced
-operations, native project discovery or another platform.
+operations or another platform. Discovery has separate coverage below.
 
 ## Shared discovery first pass — 2026-11-03
 
@@ -174,11 +175,11 @@ The remaining sequence below still applies; this is not Gemini retirement.
 
 ## Discovery and cleanup scope — discussion, 2026-11-03
 
-The requested target is to replace YA's legacy Gemini CLI execution with
-Antigravity ACP while improving shared provider discovery. This is a scoping
-proposal, not an approved implementation sequence or a claim that the preview
-already supplies those shared facilities. Legacy Gemini history remains
-readable and never becomes an Antigravity continuation implicitly.
+The following records the original scoping discussion. The shared discovery
+first pass above implements the catalog registry and project join. A common
+reader registry, consumer migration, focused observation and transport sharing
+remain proposals, with no approved implementation sequence. Legacy Gemini
+history remains readable and never becomes an Antigravity continuation implicitly.
 
 ### Existing work to extend
 
@@ -189,7 +190,7 @@ The [catalog observation contract](session-catalog-observation.md) owns bounded
 refresh, fidelity, source versions and publication. This scope extends those
 owners; it does not create another catalog or transcript database.
 
-The concrete splits in today's code are:
+Before the first discovery pass, the concrete splits were:
 
 - [Project discovery](../packages/server/src/projects/scanner.ts) directly
   merges Claude, Codex and legacy Gemini discovery with registered projects.
