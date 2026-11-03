@@ -103,6 +103,53 @@ async function fixture(
   return { store, metadata, saved, fence, source, queue, process, events };
 }
 
+it.each(["completion", "error"] as const)(
+  "retires a managed controller without aborting its retained worker on detach %s",
+  async (exit) => {
+    const f = await storageFixture();
+    const fence = f.store.beginDispatch(f.saved.attempt, f.namespace);
+    const source = createControllableIterator();
+    const abort = vi.fn(source.finish);
+    const process = new Process(
+      {
+        async next() {
+          const result = await source.iterator.next();
+          if (result.done && exit === "error")
+            throw new Error("Controller socket closed during detach");
+          return result;
+        },
+      },
+      {
+        projectPath: f.root,
+        projectId: toUrlProjectId(f.root),
+        sessionId: f.saved.sessionId,
+        provider: "claude",
+        queue: new MessageQueue(),
+        managedIdentity: creationProcessIdentity(f.store, fence, f.namespace),
+        abortFn: abort,
+        detachForServerReloadFn: source.finish,
+      },
+    );
+    cleanup.push(async () => {
+      await process.abort();
+    });
+    source.push({
+      type: "system",
+      subtype: "init",
+      session_id: f.saved.sessionId,
+    });
+    await process.waitForProviderSessionId();
+    await process.detachForServerReload();
+    expect(abort).not.toHaveBeenCalled();
+    // The controller is retired; the provider has not terminated.
+    expect(process.isTerminated).toBe(false);
+    expect(
+      process.queueMessage({ text: "stale controller input" }).success,
+    ).toBe(false);
+    expect(f.store.assertCurrent(fence).attempt.state).toBe("uncertain");
+  },
+);
+
 it("binds a different native id before publication, keeping replay and live ids public", async () => {
   const f = await fixture();
   const native = "f93ea87c-2248-4a40-81bd-7b6713259eaa";

@@ -146,12 +146,30 @@ cases (server 143.14 seconds). That passing run does not establish a fix for the
 first run's retained-approval ordering failure.
 
 2026-11-03: CI recovery again exposed the assembled host case on macOS/Node
-24.22.1, now at the delayed initial input's post-replacement `consumed` barrier.
-One full run and an isolated rerun exhausted the unchanged 60 s barrier;
-subsequent isolated Node 26.7.0 and Node 24.22.1 runs passed in 9.13 and 9.26 s.
-This does not establish a runtime-specific cause or close the retained-owner
-ordering finding. Failure diagnostics now retain the last creation response
-and provider barrier events, alongside the existing wrapper output, to expose
-whether native confirmation arrived and which projection remained uncertain.
-Evidence is in ignored `tasks/ci-recovery-2026-11-03/provider-host-*.log` and
-`unit.log`. No production provider behavior or timeout changed in this repair.
+24.22.1 at its post-replacement `waiting-input` barrier. A full run and an
+isolated rerun exhausted the unchanged 60 s barrier; subsequent isolated Node
+26.7.0 and Node 24.22.1 runs passed in 9.13 and 9.26 s. Diagnostics now retain
+the last creation response and provider barrier events beside wrapper output.
+
+CI 41626829224 then supplied the missing distinction: the separately delayed
+input was already `bound/consumed`, but the original worker had been aborted
+with `Provider runtime ended: server request`. Its old controller's normal
+iterator completion during reload entered managed terminal teardown, racing
+the intended detach and denying the retained approval. `Process` now treats
+completion/error during a supported intentional detach as controller retirement,
+while unexpected managed exits still verify provider teardown. Deterministic
+completion/error regressions preserve closed old input and uncertain pending
+creation state without calling provider abort. The existing assembled-worker
+case remains the real callback/ownership proof; its limit stays unchanged.
+Other timing and diagnostic entries above remain open. Evidence is retained in
+ignored `tasks/ci-recovery-2026-11-03/final-unit-ci.log` and
+`retained-failure-evidence.json`.
+
+The retirement slice's full existing managed-identity file also emits its
+negative-fixture diagnostics (`Process terminated`, stale creation attempts,
+conflicting native ids, `Provider teardown remains unverified`, and closed
+worker sockets). The 99 identity/termination/host checks pass. The new detach
+regressions and assembled callback/HTTP success paths are checked separately
+without those fault-path diagnostics. Auditing each older negative case's log
+expectations spans binding, failed abort and native API error contracts; it is
+not safely replaced by a logger-wide suppression in this ownership fix.

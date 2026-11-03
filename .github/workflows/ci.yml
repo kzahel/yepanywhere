@@ -127,6 +127,11 @@ jobs:
           test/sdk/providers/provider-runtime-host.test.ts
           test/sdk/providers/provider-host-status.test.ts
           --maxWorkers=1 --testTimeout=20000
+      - name: Managed controller retirement preserves its worker
+        run: >-
+          pnpm --filter @yep-anywhere/server exec vitest run
+          test/supervisor/durable-process-identity.test.ts
+          --testNamePattern="retires a managed controller" --maxWorkers=1
 
   agent-self-source:
     strategy:

@@ -265,6 +265,9 @@ cross the current-attempt fence, without per-token control-store queries.
 Managed stream failure and normal iterator completion close ordinary/deferred
 input before callbacks. The actual owner remains tracked while provider teardown
 is pending or unverified; only verified shutdown releases replacement ownership.
+Intentional server-reload detach instead retires the old controller's stream
+without terminating the surviving hosted owner, including a close error during
+that handoff. Its pending input remains uncertain until native confirmation.
 The namespace resolves the complete native directory, including an existing
 symlinked leaf, so discovery, quarantine and reverse lookup use the same scope.
 

@@ -251,6 +251,13 @@ Restart-impact reporting applies the same eligibility test: a hosted active
 session is counted as interruptible whenever queued or volatile input prevents
 detach.
 
+Once intentional detach begins, completion or failure of the old controller's
+iterator retires only that controller. It must not abort the retained worker or
+resolve its pending approvals as denied. Old input admission stays closed;
+the replacement controller and existing host attachment deadline own subsequent
+recovery and cleanup. An unexpected managed stream exit outside this handoff
+still verifies provider teardown before replacement ownership is released.
+
 ### Sequenced replay and acknowledgement
 
 Every worker event receives a monotonically increasing sequence number before

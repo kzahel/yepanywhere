@@ -5272,6 +5272,13 @@ export class Process {
               ),
             );
           }
+          // Reload ends this controller's iterator, not the hosted worker.
+          // Its replacement owns the surviving provider and callbacks.
+          if (
+            this.detachForServerReloadFn &&
+            this.viewerLifecycle.isDetachingForServerReload
+          )
+            break;
           if (this.managedIdentity) {
             // Do not publish idle/promote deferred turns into an ended stream.
             // Fire-and-observe: verification may await this loop's finally.
@@ -5510,6 +5517,11 @@ export class Process {
     } catch (error) {
       const err = error as Error;
       this.rejectProviderSessionId(err);
+      if (
+        this.detachForServerReloadFn &&
+        this.viewerLifecycle.isDetachingForServerReload
+      )
+        return;
 
       if (
         this.viewerLifecycle.hasUnverifiedProviderOwnership &&
