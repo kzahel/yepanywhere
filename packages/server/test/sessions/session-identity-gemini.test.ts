@@ -12,7 +12,7 @@ import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import { expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { GeminiSessionReader } from "../../src/sessions/gemini-reader.js";
 import { collectionCatalogAdapters } from "../../src/sessions/catalog-adapters/collection-catalog-adapters.js";
@@ -97,7 +97,7 @@ it("projects scoped Gemini sources once through native discovery, indexed metada
         projectsDir: join(root, "ambient"),
       });
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         discoverySqlite: storage,
         sessionMetadataService: metadata,

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DraftRead } from "@yep-anywhere/shared";
 import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
 import type { AppResult } from "../../src/app.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { createApp } from "./create-app.js";
 
 const apps: AppResult[] = [];
@@ -17,7 +17,7 @@ afterEach(async () => {
 
 function fixture(overrides: { dataDir?: string } = {}): AppResult {
   const app = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     projectsDir: join(process.env.YEP_DATA_DIR!, "empty-projects"),
     ...overrides,
   });

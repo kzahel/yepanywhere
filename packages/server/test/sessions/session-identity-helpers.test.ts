@@ -17,7 +17,6 @@ import {
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import { createApp } from "../setup/create-app.js";
 
@@ -109,7 +108,6 @@ it("resolves public helper generators to their original native sources across ro
         });
       app = createApp({
         provider,
-        sdk: new MockClaudeSDK(),
         dataDir,
         discoverySqlite: storage,
         sessionMetadataService: metadata,

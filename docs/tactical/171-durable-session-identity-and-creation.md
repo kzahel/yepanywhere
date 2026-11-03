@@ -61,7 +61,18 @@ pass (51 cases, 4.52 seconds). Full workspace checks pass: 6,925 server
 checks (147.51 seconds), 7,070 client checks (130.58 seconds), shared 967,
 relay 139 and push 45; lint/format/types and CSS pass. Existing upstream SQLite
 notices and expected negative-path diagnostics retain their documented owners.
-SDK and server-alias retirement remain next.
+SDK runtime retirement implemented: production and test fixtures now use
+AgentProvider, with no `sdk`/`realSdk` constructor alternatives, deprecated
+wrapper, alternate Supervisor engines or duplicate queue provenance field.
+The single Sol review approves. Four migrated fixture/assertion regressions
+from the first full run were corrected; focused verification passes 234 cases
+in 4.53 seconds, and two owned browser checks pass in 14.3 seconds. Final
+workspace validation passes: 6,924 server cases (144.04 seconds), 7,070 client
+cases (128.65 seconds), shared 967, relay 139 and push 45; lint/format/types pass.
+The existing [unowned jsdom diagnostics](../../gaps/client-unit-navigation-diagnostics.md)
+and upstream SQLite notices remain separately tracked. The review process was
+retired with verified provider teardown. Server-alias/public-remap retirement
+follows.
 
 ## Completion target — one creation contract, retired legacy implementations
 

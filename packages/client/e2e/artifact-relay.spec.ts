@@ -27,7 +27,7 @@ import {
   RemoteSessionService,
 } from "../../server/src/remote-access";
 import { createAcceptRelayConnection } from "../../server/src/routes/ws-relay";
-import { MockClaudeSDK } from "../../server/src/sdk/mock";
+import { ScriptedClaudeProvider } from "../../server/test/support/scripted-provider.js";
 import { RelayClientService } from "../../server/src/services/RelayClientService";
 import { ServerSettingsService } from "../../server/src/services/ServerSettingsService";
 import { UploadManager } from "../../server/src/uploads/manager";
@@ -122,7 +122,7 @@ test.beforeAll(async () => {
     authService,
     authDisabled: true,
     enabledProviders: ["claude"],
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir,
     projectsDir,
     eventBus,

@@ -1,3 +1,4 @@
+import { controlledProvider } from "../support/scripted-provider.js";
 import type { UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PushNotifier } from "../../src/push/PushNotifier.js";
@@ -596,14 +597,14 @@ describe("PushNotifier", () => {
         const supervisor = new Supervisor({
           eventBus,
           providerDiscoveryEnabled: false,
-          realSdk: {
+          provider: controlledProvider({
             startSession: async () => ({
               iterator: stream.iterator,
               queue,
               abort,
               interrupt,
             }),
-          },
+          }),
         });
         const notifier = new PushNotifier({
           eventBus,

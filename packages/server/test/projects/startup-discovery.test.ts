@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import type { AppResult } from "../../src/app.js";
 import { ProjectScanner } from "../../src/projects/scanner.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import type { Project } from "../../src/supervisor/types.js";
 import { createApp } from "../setup/create-app.js";
 
@@ -31,7 +31,10 @@ it("prepares project discovery at startup before any client request", async () =
     join(nativeDir, "session.jsonl"),
     `${JSON.stringify({ type: "user", cwd: "/home/user/recent", message: { content: "hello" } })}\n`,
   );
-  const app = createApp({ sdk: new MockClaudeSDK(), projectsDir });
+  const app = createApp({
+    provider: new ScriptedClaudeProvider(),
+    projectsDir,
+  });
   apps.push(app);
   await vi.waitFor(() => {
     expect(app.scanner.cachedProjects()).toEqual(
@@ -56,7 +59,7 @@ it("restores saved projects during startup while reconciliation is blocked", asy
     `${JSON.stringify({ type: "user", cwd: "/home/user/recent", message: { content: "hello" } })}\n`,
   );
   const options = {
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     projectsDir,
     dataDir: join(root, "data"),
   };

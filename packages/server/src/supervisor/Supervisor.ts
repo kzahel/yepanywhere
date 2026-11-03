@@ -5,7 +5,6 @@ import type {
   CreationAttachments,
   CreationAttachmentSource,
 } from "../sessions/creation-attachments.js";
-import { parseCreationProvenance } from "../sessions/creation-provenance.js";
 import {
   type AgentAuthRouter,
   RouterUnavailable,
@@ -46,7 +45,6 @@ import {
   type ProviderRuntimeStatus,
   type RecapMode,
   type SessionLivenessProbeStatus,
-  type SessionCreationProvenance,
   type SessionLivenessSnapshot,
   type SessionSandboxLevel,
   type SyntheticSessionBoundaryCommand,
@@ -126,13 +124,7 @@ import {
   parseSlashCommandSubmission,
 } from "../sdk/slashCommandEmulation.js";
 import { dispatchProviderCommand } from "./provider-command.js";
-import type {
-  ClaudeSDK,
-  PermissionMode,
-  RealClaudeSDKInterface,
-  SDKMessage,
-  UserMessage,
-} from "../sdk/types.js";
+import type { PermissionMode, SDKMessage, UserMessage } from "../sdk/types.js";
 import type {
   EventBus,
   ProcessStateEvent,
@@ -436,8 +428,6 @@ export class RetryableSessionLaunchError extends Error {
 }
 
 export interface SessionLaunchOptions {
-  /** Queue ingress source, saved before native effects; absent for retained callers/legacy queue rows. */
-  creationProvenance?: SessionCreationProvenance;
   /** Trusted request admission; retained callers migrate explicitly. */
   creation?: {
     context: CreationContext;
@@ -512,10 +502,6 @@ export interface SupervisorOptions {
   ) => import("@yep-anywhere/shared").ResolvedLimitedUserInstructions;
   /** Agent provider interface; null disables registry-backed provider discovery. */
   provider?: AgentProvider | null;
-  /** Legacy SDK interface for mock SDK */
-  sdk?: ClaudeSDK;
-  /** Real SDK interface with full features */
-  realSdk?: RealClaudeSDKInterface;
   idleTimeoutMs?: number;
   /** Names a process's project; defaults to the path's name. */
   projectDisplayName?: ProjectDisplayNameResolver;
@@ -735,8 +721,6 @@ export class Supervisor {
   private terminatedProcesses: ProcessInfo[] = []; // Recently terminated processes
   private provider: AgentProvider | null;
   private readonly providerDiscoveryEnabled: boolean;
-  private sdk: ClaudeSDK | null;
-  private realSdk: RealClaudeSDKInterface | null;
   private idleTimeoutMs: number;
   private readonly projectDisplayName: ProjectDisplayNameResolver;
   private defaultPermissionMode: PermissionMode;
@@ -852,16 +836,11 @@ export class Supervisor {
   private recapPausedSessionIds = new Set<string>();
 
   constructor(options: SupervisorOptions) {
+    if (options.provider === undefined)
+      throw new Error("An explicit provider or null must be provided");
     this.instructionOptions = options;
     this.providerDiscoveryEnabled = options.provider !== null;
-    this.provider =
-      options.provider !== undefined
-        ? options.provider
-        : options.realSdk?.providerName
-          ? getProvider(options.realSdk.providerName)
-          : null;
-    this.sdk = options.sdk ?? null;
-    this.realSdk = options.realSdk ?? null;
+    this.provider = options.provider ?? null;
     this.idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
     this.projectDisplayName = options.projectDisplayName ?? getProjectName;
     this.defaultPermissionMode = options.defaultPermissionMode ?? "default";
@@ -936,9 +915,7 @@ export class Supervisor {
         ),
       onSuccessfulProviderSession: this.onSuccessfulProviderSession,
     });
-    if (!this.provider && !this.sdk && !this.realSdk) {
-      throw new Error("Either provider, sdk, or realSdk must be provided");
-    }
+
     this.staleCheckTimer = setInterval(
       () => this.terminateStaleProcesses(),
       STALE_CHECK_INTERVAL_MS,
@@ -1786,7 +1763,6 @@ export class Supervisor {
           retryProviderStartupFailure:
             launchOptions?.retryProviderStartupFailure,
           requireProviderSessionId: launchOptions?.requireProviderSessionId,
-          creationProvenance: launchOptions?.creationProvenance,
         });
         if (isQueueFullError(result)) {
           return result;
@@ -1799,45 +1775,20 @@ export class Supervisor {
       }
     }
 
-    // Use provider if available (preferred)
-    let process: Process;
-    if (provider) {
-      process = await this.startProviderSession(
-        projectPath,
-        projectId,
-        message,
-        undefined,
-        permissionMode,
-        modelSettings,
-        provider,
-        launchOptions?.retryProviderStartupFailure,
-        launchOptions?.requireProviderSessionId,
-        undefined,
-        launchOptions?.creationProvenance,
-      );
-    } else if (this.realSdk) {
-      // Use real SDK if available
-      process = await this.startRealSession(
-        projectPath,
-        projectId,
-        message,
-        undefined,
-        permissionMode,
-        modelSettings,
-        launchOptions?.creationProvenance,
-      );
-    } else {
-      // Fall back to legacy mock SDK
-      process = await this.startLegacySession(
-        projectPath,
-        projectId,
-        message,
-        undefined,
-        permissionMode,
-        modelSettings,
-        launchOptions?.creationProvenance,
-      );
-    }
+    if (!provider) throw new Error("Requested provider is not available");
+    const process = await this.startProviderSession(
+      projectPath,
+      projectId,
+      message,
+      undefined,
+      permissionMode,
+      modelSettings,
+      provider,
+      launchOptions?.retryProviderStartupFailure,
+      launchOptions?.requireProviderSessionId,
+      undefined,
+    );
+
     await this.notifyImmediateStart(launchOptions, process, projectId);
     return process;
   }
@@ -1925,7 +1876,6 @@ export class Supervisor {
           retryProviderStartupFailure:
             launchOptions?.retryProviderStartupFailure,
           requireProviderSessionId: launchOptions?.requireProviderSessionId,
-          creationProvenance: launchOptions?.creationProvenance,
         });
         if (isQueueFullError(result)) {
           return result;
@@ -1938,36 +1888,18 @@ export class Supervisor {
       }
     }
 
-    let process: Process;
-    // Use provider if available (preferred)
-    if (provider) {
-      process = await this.createProviderSession(
-        projectPath,
-        projectId,
-        permissionMode,
-        modelSettings,
-        provider,
-        undefined,
-        launchOptions?.retryProviderStartupFailure,
-        launchOptions?.requireProviderSessionId,
-        launchOptions?.creationProvenance,
-      );
-    } else if (this.realSdk) {
-      // Use real SDK if available
-      process = await this.createRealSession(
-        projectPath,
-        projectId,
-        permissionMode,
-        modelSettings,
-        undefined,
-        launchOptions?.creationProvenance,
-      );
-    } else {
-      // Fall back to legacy mock SDK - not supported for create-only
-      throw new Error(
-        "createSession requires provider or real SDK - legacy mock SDK not supported",
-      );
-    }
+    if (!provider) throw new Error("Requested provider is not available");
+    const process = await this.createProviderSession(
+      projectPath,
+      projectId,
+      permissionMode,
+      modelSettings,
+      provider,
+      undefined,
+      launchOptions?.retryProviderStartupFailure,
+      launchOptions?.requireProviderSessionId,
+    );
+
     await this.notifyImmediateStart(launchOptions, process, projectId);
     return process;
   }
@@ -1981,7 +1913,7 @@ export class Supervisor {
    * session is already owned.
    *
    * Provider-agnostic: rides the existing message-less resume path
-   * (`createProviderSession`/`createRealSession` with `resumeSessionId`), so
+   * (`createProviderSession` with `resumeSessionId`), so
    * Claude and Codex reactivate with no synthetic turn.
    */
   async reactivateSession(
@@ -2084,18 +2016,8 @@ export class Supervisor {
             resumeSessionId,
           );
         }
-        if (this.realSdk) {
-          return this.createRealSession(
-            projectPath,
-            projectId,
-            resolved.permissionMode,
-            resolved.modelSettings,
-            resumeSessionId,
-          );
-        }
-        throw new Error(
-          "reactivateSession requires provider or real SDK - legacy mock SDK not supported",
-        );
+
+        throw new Error("Requested provider is not available");
       },
     });
   }
@@ -2107,30 +2029,6 @@ export class Supervisor {
     if (!process.hasUnverifiedProviderOwnership) return;
     throw new Error(
       `Cannot ${action} session ${process.sessionId}: prior provider teardown is in progress or unverified`,
-    );
-  }
-
-  /**
-   * Create a session using the real SDK without an initial message.
-   * The session is created and waits for a message to be queued.
-   */
-  /** Retained message-less SDK adapter; execution shares the normal start engine. */
-  private createRealSession(
-    projectPath: string,
-    projectId: UrlProjectId,
-    permissionMode?: PermissionMode,
-    modelSettings?: ModelSettings,
-    resumeSessionId?: string,
-    creationProvenance?: SessionCreationProvenance,
-  ): Promise<Process> {
-    return this.startRealSession(
-      projectPath,
-      projectId,
-      undefined,
-      resumeSessionId,
-      permissionMode,
-      modelSettings,
-      creationProvenance,
     );
   }
 
@@ -2837,252 +2735,6 @@ export class Supervisor {
     }
   }
 
-  private async startCompactFirstRealResume(
-    projectPath: string,
-    projectId: UrlProjectId,
-    message: UserMessage,
-    resumeSessionId: string,
-    permissionMode: PermissionMode | undefined,
-    modelSettings: ModelSettings | undefined,
-  ): Promise<Process> {
-    const process = await this.createRealSession(
-      projectPath,
-      projectId,
-      permissionMode,
-      modelSettings,
-      resumeSessionId,
-    );
-
-    try {
-      await this.queueAfterResumeCompaction({
-        process,
-        sessionId: resumeSessionId,
-        message,
-        allowNonIdleStart: true,
-      });
-      return process;
-    } catch (error) {
-      await process.abort();
-      this.unregisterProcess(process);
-      throw error;
-    }
-  }
-
-  /**
-   * Start a session using the real SDK with full features.
-   */
-  private async startRealSession(
-    projectPath: string,
-    projectId: UrlProjectId,
-    message: UserMessage | undefined,
-    resumeSessionId?: string,
-    permissionMode?: PermissionMode,
-    modelSettings?: ModelSettings,
-    creationProvenance?: SessionCreationProvenance,
-  ): Promise<Process> {
-    if (
-      modelSettings?.routerAccountId ||
-      modelSettings?.routerPoolId ||
-      this.sessionMetadataService?.getMetadata(resumeSessionId ?? "")
-        ?.routerBinding
-    ) {
-      throw new Error("Router sessions require a native provider adapter");
-    }
-
-    const tempSessionId = resumeSessionId ?? randomUUID();
-    if (!resumeSessionId)
-      await this.persistNewSessionSource(tempSessionId, creationProvenance);
-
-    // realSdk is guaranteed to exist here (checked in startSession)
-    if (!this.realSdk) {
-      throw new Error("realSdk is not available");
-    }
-
-    // We need to reference process in the callback before it's assigned
-    // Using a holder object allows us to set the reference later
-    const processHolder: { process: Process | null } = { process: null };
-
-    // Use provided mode or fall back to default
-    const effectiveMode = permissionMode ?? this.defaultPermissionMode;
-    const promptSuggestionMode = this.resolvePromptSuggestionMode(
-      modelSettings?.promptSuggestionMode,
-      { supportsNativePromptSuggestions: true },
-    );
-    const sessionSandbox = await prepareSessionSandbox(
-      this.newSessionSandboxOptions(
-        "claude",
-        projectPath,
-        modelSettings,
-        resumeSessionId,
-      ),
-    );
-    const agentServerAccess = this.agentServerAccessForLaunch(
-      Boolean(sessionSandbox) ||
-        modelSettings?.sandboxLevel === "project-write",
-      modelSettings?.executor,
-    );
-    const truncation = this.resolveLaunchTruncation(
-      resumeSessionId,
-      "claude",
-      modelSettings,
-    );
-    const agentApiEpoch = this.agentApiEpoch;
-    const peerApiEpoch = this.peerApiEpoch;
-    const result = await this.realSdk.startSession({
-      machineControl: modelSettings?.machineControl,
-      desktopControlOrigin: modelSettings?.desktopControlOrigin,
-      cwd: projectPath,
-      resumeSessionId,
-      resumeSessionAt: truncation.resumeSessionAt,
-      resumeDropsTurn: truncation.resumeDropsTurn,
-      permissionMode: effectiveMode,
-      model: modelSettings?.model,
-      thinking: modelSettings?.thinking,
-      effort: modelSettings?.effort,
-      launchCompactPercentOverride:
-        modelSettings?.claudeAutoCompactPercentOverride,
-      claudeSteerBackgroundBash: this.getClaudeSteerBackgroundBashSettings?.(),
-      restoredGoal: this.readRestoredGoal(resumeSessionId),
-      clientName: modelSettings?.clientName,
-      executor: modelSettings?.executor,
-      remoteEnv: modelSettings?.remoteEnv,
-      globalInstructions: modelSettings?.globalInstructions,
-      getSessionChildEnv: this.getSessionChildEnv
-        ? (sessionId) =>
-            this.getSessionChildEnv?.(sessionId, modelSettings?.executor) ?? {}
-        : undefined,
-      agentServerEnvironment: agentServerEnvironment(agentServerAccess),
-      ...this.agentApiForLaunch(
-        Boolean(sessionSandbox) ||
-          modelSettings?.sandboxLevel === "project-write",
-        modelSettings?.executor,
-      ),
-      sessionSandbox,
-      onProviderRetentionChange: () =>
-        this.handleProviderRetentionChanged(processHolder),
-      onToolApproval: async (toolName, input, opts) => {
-        // Delegate to the process's handleToolApproval
-        if (!processHolder.process) {
-          return { behavior: "deny", message: "Process not ready" };
-        }
-        return processHolder.process.handleToolApproval(toolName, input, opts);
-      },
-    });
-
-    const {
-      iterator,
-      queue,
-      abort,
-      detachForServerReload,
-      isProcessAlive,
-      probeLiveness,
-      getProviderActivity,
-      getProviderRetention,
-      setMaxThinkingTokens,
-      setEffort,
-      interrupt,
-      supportedModels,
-      supportedCommands,
-      setModel,
-      runProviderCommand,
-      publishAgentctlSessionId,
-    } = result;
-
-    const options: ProcessConstructorOptions = {
-      projectPath,
-      projectId,
-      sessionId: tempSessionId,
-      idleTimeoutMs: this.idleTimeoutMs,
-      projectDisplayName: this.projectDisplayName,
-      queue,
-      sessionQueuePersistenceService: this.sessionQueuePersistenceService,
-      toolResultMediaStore: this.toolResultMediaStore,
-      abortFn: abort,
-      detachForServerReloadFn: detachForServerReload,
-      isProcessAlive,
-      shouldRetainIdleProcess: (sessionId) =>
-        this.shouldRetainIdleProcess(sessionId),
-      initialProviderRuntimeStatus: resumeSessionId
-        ? this.terminalProviderStatuses.get(resumeSessionId)
-        : null,
-      probeLivenessFn: probeLiveness,
-      getProviderActivityFn: getProviderActivity,
-      getProviderRetentionFn: getProviderRetention,
-      getRuntimeUnviewedSinceFn: result.getRuntimeUnviewedSince,
-      setRuntimeViewerPresenceFn: result.setRuntimeViewerPresence,
-      pid: () => {
-        const p = result.pid;
-        return typeof p === "function" ? p() : p;
-      },
-      setMaxThinkingTokensFn: setMaxThinkingTokens,
-      publishAgentSelfSelectionFn: result.publishAgentSelfSelection,
-      publishAgentSessionViewsFn: result.publishAgentSessionViews,
-      setEffortFn: setEffort,
-      effortUpdatesActiveTurn: result.effortUpdatesActiveTurn,
-      setServiceTierFn: result.setServiceTier,
-      interruptFn: interrupt,
-      supportedModelsFn: supportedModels,
-      getContextBreakdownFn: result.getContextBreakdown,
-      supportedCommandsFn: supportedCommands,
-      onCommandsObserved: (sessionId, commands) =>
-        this.sessionMetadataService?.observeCommandInventory(
-          sessionId,
-          commands,
-        ) ?? Promise.resolve(),
-      setModelFn: setModel,
-      runProviderCommandFn: runProviderCommand,
-      providerInitializesOnFirstMessage: true,
-      publishAgentctlSessionIdFn: publishAgentctlSessionId,
-      permissionMode: effectiveMode,
-      provider: "claude", // Real SDK is always Claude
-      model: modelSettings?.model,
-      requestedModel: modelSettings?.requestedModel,
-      compactAtContextPercent: modelSettings?.compactAtContextPercent,
-      compactAtContextWindow: modelSettings?.compactAtContextWindow,
-      forceYaOrchestratedCompaction:
-        modelSettings?.forceYaOrchestratedCompaction,
-      launchCompactPercentOverride:
-        modelSettings?.claudeAutoCompactPercentOverride,
-      serviceTier: modelSettings?.serviceTier,
-      thinking: modelSettings?.thinking,
-      effort: modelSettings?.effort,
-      executor: modelSettings?.executor,
-      permissions: modelSettings?.permissions,
-      recapMode: modelSettings?.recapMode,
-      recapAfterSeconds: modelSettings?.recapAfterSeconds,
-      promptSuggestionMode,
-      helperSideModel: modelSettings?.helperSideModel,
-      sandboxEnforcement: sessionSandbox?.enforcement,
-      sandboxStateKey: sessionSandbox?.stateKey,
-      sandboxProjectPath: sessionSandbox?.projectPath,
-    };
-
-    const process = new Process(iterator, options);
-    processHolder.process = process;
-    this.holdAgentServerAccess(process, agentServerAccess);
-    this.holdAgentApiSession(process, result, agentApiEpoch, peerApiEpoch);
-    this.observeProcessEvents(process);
-    await this.consumePendingRewind(process, resumeSessionId, truncation);
-
-    // Wait for the real session ID from the SDK before registering
-    // This ensures the client gets the correct ID to use for persistence
-    if (!resumeSessionId) {
-      await process.waitForSessionId();
-    }
-    if (sessionSandbox) {
-      await this.persistProcessSandboxOrAbort(process);
-    }
-
-    if (message) await this.queueInitialProcessMessage(process, message);
-
-    await this.activationCoordinator.persistSuccessfulSessionBoundaryOrAbort(
-      process,
-    );
-    this.registerProcess(process, !resumeSessionId);
-
-    return process;
-  }
-
   /**
    * Create a session using the provider interface without an initial message.
    * The session is created and waits for a message to be queued.
@@ -3097,7 +2749,6 @@ export class Supervisor {
     resumeSessionId?: string,
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
-    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     return this.startProviderSession(
       projectPath,
@@ -3110,7 +2761,6 @@ export class Supervisor {
       retryProviderStartupFailure,
       requireProviderSessionId,
       undefined,
-      creationProvenance,
     );
   }
 
@@ -3190,22 +2840,6 @@ export class Supervisor {
     return { source, identity, sessionId, retainedRuntimeOnly: false as const };
   }
 
-  /** Queue origin is descriptive metadata, never an authorization grant. */
-  private async persistNewSessionSource(
-    sessionId: string,
-    provenance?: SessionCreationProvenance,
-  ): Promise<void> {
-    if (provenance === undefined) return;
-    const normalized = parseCreationProvenance(provenance);
-    if (!normalized) throw new Error("Invalid creation provenance");
-    if (!this.sessionMetadataService)
-      throw new Error("Creation provenance storage unavailable");
-    await this.sessionMetadataService.recordCreationProvenance(
-      sessionId,
-      normalized,
-    );
-  }
-
   /**
    * Start a session using the provider interface with full features.
    */
@@ -3220,7 +2854,6 @@ export class Supervisor {
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
     managedLaunch?: ManagedProviderLaunch,
-    _creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     if (
       !resumeSessionId &&
@@ -3611,79 +3244,6 @@ export class Supervisor {
     }
   }
 
-  /**
-   * Start a session using the legacy mock SDK.
-   */
-  private async startLegacySession(
-    projectPath: string,
-    projectId: UrlProjectId,
-    message: UserMessage,
-    resumeSessionId?: string,
-    permissionMode?: PermissionMode,
-    modelSettings?: ModelSettings,
-    creationProvenance?: SessionCreationProvenance,
-  ): Promise<Process> {
-    if (
-      modelSettings?.routerAccountId ||
-      modelSettings?.routerPoolId ||
-      this.sessionMetadataService?.getMetadata(resumeSessionId ?? "")
-        ?.routerBinding
-    ) {
-      throw new Error("Router sessions require a native provider adapter");
-    }
-
-    if (modelSettings?.sandboxLevel === "project-write") {
-      throw new Error(
-        "Project-write session sandboxing requires a local Claude or Codex provider runtime.",
-      );
-    }
-    // sdk is guaranteed to exist here (checked in startSession)
-    if (!this.sdk) {
-      throw new Error("sdk is not available");
-    }
-    const sessionId = resumeSessionId ?? randomUUID();
-    if (!resumeSessionId)
-      await this.persistNewSessionSource(sessionId, creationProvenance);
-
-    const iterator = this.sdk.startSession({
-      cwd: projectPath,
-      resume: resumeSessionId,
-    });
-
-    // Use provided mode or fall back to default
-    const effectiveMode = permissionMode ?? this.defaultPermissionMode;
-
-    const options: ProcessConstructorOptions = {
-      projectPath,
-      projectId,
-      sessionId,
-      idleTimeoutMs: this.idleTimeoutMs,
-      projectDisplayName: this.projectDisplayName,
-      permissionMode: effectiveMode,
-      provider: "claude", // Legacy mock SDK simulates Claude
-      model: modelSettings?.model,
-      requestedModel: modelSettings?.requestedModel,
-      compactAtContextPercent: modelSettings?.compactAtContextPercent,
-      compactAtContextWindow: modelSettings?.compactAtContextWindow,
-      forceYaOrchestratedCompaction:
-        modelSettings?.forceYaOrchestratedCompaction,
-      toolResultMediaStore: this.toolResultMediaStore,
-    };
-
-    const process = new Process(iterator, options);
-    this.observeProcessEvents(process);
-
-    // Queue the initial message
-    process.queueMessage(message);
-
-    await this.activationCoordinator.persistSuccessfulSessionBoundaryOrAbort(
-      process,
-    );
-    this.registerProcess(process, !resumeSessionId);
-
-    return process;
-  }
-
   async resumeSession(
     sessionId: string,
     requestedProjectPath: string,
@@ -3962,78 +3522,33 @@ export class Supervisor {
 
       let process: Process;
 
-      // Use provider if available (preferred)
-      if (provider) {
-        const managed = await this.hostedSavedLaunch(sessionId);
-        if (managed && resumeMode !== "full")
-          throw new Error(
-            "Saved hosted creation requires retained-owner resume",
-          );
-        if (resumeMode === "compact-first") {
-          process = await this.startCompactFirstProviderResume(
-            projectPath,
-            projectId,
-            message,
-            sessionId,
-            resolved.permissionMode,
-            resolved.modelSettings,
-            provider,
-          );
-        } else {
-          process = await this.startProviderSession(
-            projectPath,
-            projectId,
-            message,
-            sessionId,
-            resolved.permissionMode,
-            resolved.modelSettings,
-            provider,
-            false,
-            false,
-            managed,
-          );
-        }
-      } else if (this.realSdk) {
-        // Use real SDK if available
-        if (resumeMode === "compact-first") {
-          process = await this.startCompactFirstRealResume(
-            projectPath,
-            projectId,
-            message,
-            sessionId,
-            resolved.permissionMode,
-            resolved.modelSettings,
-          );
-        } else {
-          process = await this.startRealSession(
-            projectPath,
-            projectId,
-            message,
-            sessionId,
-            resolved.permissionMode,
-            resolved.modelSettings,
-          );
-        }
-      } else {
-        // Fall back to legacy mock SDK
-        if (resumeMode === "compact-first") {
-          throw new ResumeCompactionError({
-            sessionId,
-            provider: "claude",
-            attempt: {
-              status: "unavailable",
-              reason: "legacy mock SDK does not support compact-first resume",
-            },
-          });
-        }
+      if (!provider) throw new Error("Requested provider is not available");
 
-        process = await this.startLegacySession(
+      const managed = await this.hostedSavedLaunch(sessionId);
+      if (managed && resumeMode !== "full")
+        throw new Error("Saved hosted creation requires retained-owner resume");
+      if (resumeMode === "compact-first") {
+        process = await this.startCompactFirstProviderResume(
           projectPath,
           projectId,
           message,
           sessionId,
           resolved.permissionMode,
           resolved.modelSettings,
+          provider,
+        );
+      } else {
+        process = await this.startProviderSession(
+          projectPath,
+          projectId,
+          message,
+          sessionId,
+          resolved.permissionMode,
+          resolved.modelSettings,
+          provider,
+          false,
+          false,
+          managed,
         );
       }
 
@@ -6096,10 +5611,7 @@ export class Supervisor {
       return;
     }
 
-    const providerName =
-      sourceProcess.provider === "claude" && this.realSdk && !this.provider
-        ? undefined
-        : sourceProcess.provider;
+    const providerName = sourceProcess.provider;
 
     const result = await this.resumeSession(
       sourceProcess.sessionId,
@@ -7373,7 +6885,6 @@ export class Supervisor {
             request.modelSettings,
             request.retryProviderStartupFailure,
             request.requireProviderSessionId,
-            request.creationProvenance,
           );
           process = result;
         } else {
@@ -7463,7 +6974,6 @@ export class Supervisor {
     modelSettings?: ModelSettings,
     retryProviderStartupFailure = false,
     requireProviderSessionId = false,
-    creationProvenance?: SessionCreationProvenance,
   ): Promise<Process> {
     const resolved = resumeSessionId
       ? await this.activationCoordinator.resolveColdLaunchSettings(
@@ -7480,7 +6990,6 @@ export class Supervisor {
     if (managed && provider?.runtimeOwner !== "host")
       throw new Error("Saved creation cannot replace its hosted owner");
 
-    // Use provider if available (preferred)
     if (provider) {
       return this.startProviderSession(
         projectPath,
@@ -7493,33 +7002,10 @@ export class Supervisor {
         retryProviderStartupFailure,
         requireProviderSessionId,
         managed,
-        creationProvenance,
       );
     }
 
-    // Use real SDK if available
-    if (this.realSdk) {
-      return this.startRealSession(
-        projectPath,
-        projectId,
-        message,
-        resumeSessionId,
-        resolved.permissionMode,
-        resolved.modelSettings,
-        creationProvenance,
-      );
-    }
-
-    // Fall back to legacy mock SDK
-    return this.startLegacySession(
-      projectPath,
-      projectId,
-      message,
-      resumeSessionId,
-      resolved.permissionMode,
-      resolved.modelSettings,
-      creationProvenance,
-    );
+    throw new Error("Requested provider is not available");
   }
 
   // ============ Public Queue Methods ============

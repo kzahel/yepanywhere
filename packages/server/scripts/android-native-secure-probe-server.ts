@@ -17,7 +17,7 @@ import {
   createAcceptRelayConnection,
   createWsRelayRoutes,
 } from "../src/routes/ws-relay.js";
-import { MockClaudeSDK } from "../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../test/support/scripted-provider.js";
 import { UploadManager } from "../src/uploads/manager.js";
 import { InstallService } from "../src/services/InstallService.js";
 import { EventBus, FileWatcher } from "../src/watcher/index.js";
@@ -190,7 +190,7 @@ const {
   dataDir,
   discoverySqlite,
   getCatalogFamilies: () => install.getCatalogFamilies(),
-  sdk: new MockClaudeSDK(),
+  provider: new ScriptedClaudeProvider(),
   projectsDir,
   codexSessionsDir,
   geminiSessionsDir,

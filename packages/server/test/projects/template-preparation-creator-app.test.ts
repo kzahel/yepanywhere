@@ -17,7 +17,7 @@ import {
 import { levelFor } from "../../src/auth/limitedUserPolicy.js";
 import { TemplateSourceService } from "../../src/projects/TemplateSourceService.js";
 import { snapshotCreationLaunch } from "../../src/sessions/session-creation-launch.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { probeSessionSandboxAvailability } from "../../src/session-sandbox.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import type { Process } from "../../src/supervisor/Process.js";
@@ -76,7 +76,7 @@ beforeEach(async () => {
   await sessionMetadataService.initialize();
 
   instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir,
     projectsDir: join(root, "claude"),
     getCatalogFamilies: () => ["claude"],

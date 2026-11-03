@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../setup/create-app.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
@@ -159,7 +159,7 @@ describe("session detail compact-tail pagination", () => {
       projectsDir: testDir,
     });
     const { app, scanner, readerFactory, disposeSessionReaders } = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       projectsDir: testDir,
       codexSessionsDir,
       sessionIndexService: index,
@@ -235,7 +235,7 @@ describe("session detail compact-tail pagination", () => {
       },
     });
     const { app, disposeSessionReaders } = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       projectsDir: testDir,
       codexSessionsDir,
       dataDir,
@@ -263,7 +263,7 @@ describe("session detail compact-tail pagination", () => {
     const sessionId = "sess-compact-exact";
     await writeSession(sessionId);
     const { app } = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       projectsDir: testDir,
       codexSessionsDir,
     });

@@ -127,7 +127,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       vi.stubEnv("GEMINI_CLI_HOME", root);
       vi.resetModules();
       const { createApp } = await import("../setup/create-app.js");
-      const { MockClaudeSDK } = await import("../../src/sdk/mock.js");
       const { GrokACPProvider } = await import(
         "../../src/sdk/providers/grok-acp.js"
       );
@@ -238,7 +237,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
         );
         const start = vi.spyOn(provider, "startSession");
         const options = {
-          sdk: new MockClaudeSDK(),
           provider,
           dataDir,
           sessionMetadataService: metadata,

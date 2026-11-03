@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { app } from "../src/app.js";
-import { MockClaudeSDK, MockServerClaudeProvider } from "../src/sdk/mock.js";
+import { MockServerClaudeProvider } from "../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "./support/scripted-provider.js";
 import { createApp } from "./setup/create-app.js";
 
 describe("GET /health", () => {
@@ -14,7 +15,7 @@ describe("GET /health", () => {
   });
 
   it("allows macOS Tauri desktop origin in the full app", async () => {
-    const { app } = createApp({ sdk: new MockClaudeSDK() });
+    const { app } = createApp({ provider: new ScriptedClaudeProvider() });
     const res = await app.request("/health", {
       headers: { Origin: "tauri://localhost" },
     });
@@ -26,7 +27,7 @@ describe("GET /health", () => {
   });
 
   it("allows Windows Tauri desktop origin in the full app", async () => {
-    const { app } = createApp({ sdk: new MockClaudeSDK() });
+    const { app } = createApp({ provider: new ScriptedClaudeProvider() });
     const res = await app.request("/health", {
       headers: { Origin: "http://tauri.localhost" },
     });
@@ -53,8 +54,8 @@ describe("GET /health", () => {
     ]);
   });
 
-  it("keeps isolated mock-SDK apps out of provider discovery", async () => {
-    const { app } = createApp({ sdk: new MockClaudeSDK() });
+  it("keeps explicitly disabled apps out of provider discovery", async () => {
+    const { app } = createApp({ provider: null });
     const res = await app.request("/api/providers");
 
     expect(res.status).toBe(200);

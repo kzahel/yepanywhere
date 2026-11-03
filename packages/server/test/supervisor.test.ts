@@ -1,3 +1,4 @@
+import { controlledProvider } from "./support/scripted-provider.js";
 import { parseNativeSessionId } from "@yep-anywhere/shared";
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
@@ -19,9 +20,12 @@ import { getLogger } from "../src/logging/logger.js";
 import { ProjectMetadataService } from "../src/metadata/ProjectMetadataService.js";
 import { dispatchProviderCommand } from "../src/supervisor/provider-command.js";
 import type { NotificationService } from "../src/notifications/index.js";
-import { MockClaudeSDK, createMockScenario } from "../src/sdk/mock.js";
+import {
+  ScriptedClaudeProvider,
+  createMockScenario,
+} from "./support/scripted-provider.js";
 import type { AgentProvider } from "../src/sdk/providers/types.js";
-import type { RealClaudeSDKInterface } from "../src/sdk/types.js";
+
 import { createControllableIterator, waitFor } from "./process.test-support.js";
 import {
   RetryableSessionLaunchError,
@@ -121,12 +125,12 @@ function testProvider(
 }
 
 describe("Supervisor", () => {
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let supervisor: Supervisor;
 
   beforeEach(() => {
-    mockSdk = new MockClaudeSDK();
-    supervisor = new Supervisor({ sdk: mockSdk, idleTimeoutMs: 100 });
+    mockSdk = new ScriptedClaudeProvider();
+    supervisor = new Supervisor({ provider: mockSdk, idleTimeoutMs: 100 });
   });
 
   // vi.spyOn returns the existing spy for an already-spied method, so an
@@ -145,34 +149,6 @@ describe("Supervisor", () => {
 
       expect(process.id).toBeDefined();
       expect(process.projectPath).toBe("/tmp/test");
-    });
-
-    it("keeps an isolated mock SDK out of provider discovery", async () => {
-      const isolatedSdk = new MockClaudeSDK();
-      isolatedSdk.addScenario(createMockScenario("isolated-session", "Hello!"));
-      const isolatedSupervisor = new Supervisor({
-        provider: null,
-        sdk: isolatedSdk,
-        idleTimeoutMs: 100,
-      });
-
-      const process = await isolatedSupervisor.startSession(
-        "/tmp/test",
-        { text: "hi" },
-        undefined,
-        { providerName: "claude" },
-      );
-
-      await vi.waitFor(() => {
-        expect(process.sessionId).toBe("isolated-session");
-      });
-      await expect(
-        isolatedSupervisor.requestRecap(process.id),
-      ).resolves.toMatchObject({
-        supported: false,
-        emitted: false,
-        reason: "provider not found",
-      });
     });
 
     it("launches new sessions under YA's id and resumes without one", async () => {
@@ -683,7 +659,7 @@ describe("Supervisor", () => {
         setProvider: vi.fn(async () => {}),
       };
       const supervisorWithEligibility = new Supervisor({
-        sdk: mockSdk,
+        provider: mockSdk,
         idleTimeoutMs: 100,
         sessionMetadataService:
           providerMetadata as unknown as SessionMetadataService,
@@ -709,7 +685,7 @@ describe("Supervisor", () => {
     it("aborts instead of reporting success when eligibility is not durable", async () => {
       mockSdk.addScenario(createMockScenario("sess-failed-eligibility", ""));
       const supervisorWithEligibility = new Supervisor({
-        sdk: mockSdk,
+        provider: mockSdk,
         idleTimeoutMs: 100,
         onSuccessfulProviderSession: async () => {
           throw new Error("disk full");
@@ -744,35 +720,31 @@ describe("Supervisor", () => {
             abort: controlled.finish,
           };
         };
-        for (const legacy of [false, true]) {
-          const providerStart =
-            vi.fn<AgentProvider["startSession"]>(implementation);
-          const sdkStart =
-            vi.fn<RealClaudeSDKInterface["startSession"]>(implementation);
-          const start = legacy ? sdkStart : providerStart;
-          const launchSupervisor = new Supervisor({
-            provider: legacy ? null : testProvider(providerStart),
-            ...(legacy ? { realSdk: { startSession: sdkStart } } : {}),
-          });
-          const selected = { machineControl };
-          const withMessage = await launchSupervisor.startSession(
-            "/tmp/test",
-            { text: "hello" },
-            undefined,
-            selected,
-          );
-          const withoutMessage = await launchSupervisor.createSession(
-            "/tmp/test",
-            undefined,
-            selected,
-          );
-          expect(start).toHaveBeenCalledTimes(2);
-          expect(
-            start.mock.calls.map(([options]) => options.machineControl),
-          ).toEqual([machineControl, machineControl]);
-          await withMessage.abort();
-          await withoutMessage.abort();
-        }
+
+        const providerStart =
+          vi.fn<AgentProvider["startSession"]>(implementation);
+        const start = providerStart;
+        const launchSupervisor = new Supervisor({
+          provider: testProvider(providerStart),
+        });
+        const selected = { machineControl };
+        const withMessage = await launchSupervisor.startSession(
+          "/tmp/test",
+          { text: "hello" },
+          undefined,
+          selected,
+        );
+        const withoutMessage = await launchSupervisor.createSession(
+          "/tmp/test",
+          undefined,
+          selected,
+        );
+        expect(start).toHaveBeenCalledTimes(2);
+        expect(
+          start.mock.calls.map(([options]) => options.machineControl),
+        ).toEqual([machineControl, machineControl]);
+        await withMessage.abort();
+        await withoutMessage.abort();
       },
     );
 
@@ -3980,7 +3952,7 @@ describe("Supervisor", () => {
     it("records a terminated process only once when abort emits completion", async () => {
       let aborted = false;
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async () => {
           async function* iterator() {
             yield {
@@ -4004,7 +3976,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithRealSdk = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
       });
 
@@ -4021,32 +3993,32 @@ describe("Supervisor", () => {
       ).toHaveLength(1);
     });
 
-    it("passes the global Claude compaction override through the SDK wrapper", async () => {
+    it("passes the global Claude compaction override through the provider adapter", async () => {
       let aborted = false;
-      const startSession = vi.fn<RealClaudeSDKInterface["startSession"]>(
-        async () => {
-          async function* iterator() {
-            yield {
-              type: "system",
-              subtype: "init",
-              session_id: "real-sdk-compact-override",
-            };
-            while (!aborted) {
-              await new Promise((resolve) => setTimeout(resolve, 10));
-            }
-          }
-
-          return {
-            iterator: iterator(),
-            queue: new MessageQueue(),
-            abort: () => {
-              aborted = true;
-            },
+      const startSession = vi.fn<
+        Pick<AgentProvider, "startSession">["startSession"]
+      >(async () => {
+        async function* iterator() {
+          yield {
+            type: "system",
+            subtype: "init",
+            session_id: "real-sdk-compact-override",
           };
-        },
-      );
+          while (!aborted) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+        }
+
+        return {
+          iterator: iterator(),
+          queue: new MessageQueue(),
+          abort: () => {
+            aborted = true;
+          },
+        };
+      });
       const supervisorWithRealSdk = new Supervisor({
-        realSdk: { startSession },
+        provider: controlledProvider({ startSession }),
         idleTimeoutMs: 100,
       });
 
@@ -4074,27 +4046,27 @@ describe("Supervisor", () => {
       function createRewindingSupervisor() {
         let aborted = false;
         let armed: typeof pending | undefined = pending;
-        const startSession = vi.fn<RealClaudeSDKInterface["startSession"]>(
-          async (options) => {
-            async function* iterator() {
-              yield {
-                type: "system",
-                subtype: "init",
-                session_id: options.resumeSessionId ?? "fresh",
-              };
-              while (!aborted) {
-                await new Promise((resolve) => setTimeout(resolve, 10));
-              }
-            }
-            return {
-              iterator: iterator(),
-              queue: new MessageQueue(),
-              abort: () => {
-                aborted = true;
-              },
+        const startSession = vi.fn<
+          Pick<AgentProvider, "startSession">["startSession"]
+        >(async (options) => {
+          async function* iterator() {
+            yield {
+              type: "system",
+              subtype: "init",
+              session_id: options.resumeSessionId ?? "fresh",
             };
-          },
-        );
+            while (!aborted) {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          }
+          return {
+            iterator: iterator(),
+            queue: new MessageQueue(),
+            abort: () => {
+              aborted = true;
+            },
+          };
+        });
         const clearPendingRewind = vi.fn(async () => {
           armed = undefined;
         });
@@ -4105,7 +4077,7 @@ describe("Supervisor", () => {
           clearPendingRewind,
         } as unknown as SessionMetadataService;
         const supervisor = new Supervisor({
-          realSdk: { startSession },
+          provider: controlledProvider({ startSession }),
           sessionMetadataService: service,
           idleTimeoutMs: 100,
         });
@@ -4182,7 +4154,7 @@ describe("Supervisor", () => {
       let aborted = false;
       const interrupt = vi.fn(async () => false);
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async () => {
           async function* iterator() {
             yield {
@@ -4207,7 +4179,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithRealSdk = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
       });
 
@@ -4249,7 +4221,7 @@ describe("Supervisor", () => {
       let aborted = false;
       const interrupt = vi.fn(() => new Promise<boolean>(() => {}));
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async () => {
           const queue = new MessageQueue();
           async function* iterator() {
@@ -4276,7 +4248,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithRealSdk = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
         interruptTimeoutMs: 10,
       });
@@ -4319,7 +4291,7 @@ describe("Supervisor", () => {
       const aborts: Array<() => void> = [];
       const interrupt = vi.fn(async () => false);
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async (options) => {
           startCount++;
           const run = { aborted: false };
@@ -4353,7 +4325,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithRealSdk = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
       });
 
@@ -4406,7 +4378,7 @@ describe("Supervisor", () => {
       const aborts: Array<() => void> = [];
       const interrupt = vi.fn(async () => false);
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async (options) => {
           startCount++;
           const run = { aborted: false };
@@ -4441,7 +4413,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithRealSdk = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
       });
 
@@ -4495,7 +4467,7 @@ describe("Supervisor", () => {
       const lifecycle: string[] = [];
       const interrupt = vi.fn(async () => false);
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async (options) => {
           startCount++;
           const runNumber = startCount;
@@ -4532,7 +4504,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithRealSdk = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
       });
 
@@ -6292,7 +6264,7 @@ describe("Supervisor", () => {
       let aborted = false;
 
       try {
-        const realSdk: RealClaudeSDKInterface = {
+        const realSdk: Pick<AgentProvider, "startSession"> = {
           startSession: async () => {
             const queue = new MessageQueue();
             async function* iterator() {
@@ -6324,7 +6296,7 @@ describe("Supervisor", () => {
         };
 
         const supervisorWithPatientQueue = new Supervisor({
-          realSdk,
+          provider: controlledProvider(realSdk),
           idleTimeoutMs: 100,
         });
 
@@ -6480,7 +6452,9 @@ describe("Supervisor", () => {
 
       try {
         const supervisorWithoutHeartbeat = new Supervisor({
-          realSdk: { startSession: async () => ({}) as never },
+          provider: controlledProvider({
+            startSession: async () => ({}) as never,
+          }),
         });
 
         await vi.advanceTimersByTimeAsync(10 * 60_000);
@@ -6508,7 +6482,7 @@ describe("Supervisor", () => {
       }));
 
       try {
-        const realSdk: RealClaudeSDKInterface = {
+        const realSdk: Pick<AgentProvider, "startSession"> = {
           startSession: async () => {
             async function* iterator() {
               yield {
@@ -6535,7 +6509,7 @@ describe("Supervisor", () => {
         };
 
         const supervisorWithProbe = new Supervisor({
-          realSdk,
+          provider: controlledProvider(realSdk),
           idleTimeoutMs: 100,
         });
 
@@ -6608,7 +6582,7 @@ describe("Supervisor", () => {
       eventBus.subscribe((event) => events.push(event));
 
       const supervisorWithBus = new Supervisor({
-        sdk: mockSdk,
+        provider: mockSdk,
         idleTimeoutMs: 100,
         eventBus,
       });
@@ -6642,7 +6616,7 @@ describe("Supervisor", () => {
       const events: BusEvent[] = [];
       eventBus.subscribe((event) => events.push(event));
       const supervisorWithBus = new Supervisor({
-        sdk: mockSdk,
+        provider: mockSdk,
         idleTimeoutMs: 100,
         eventBus,
       });
@@ -6669,7 +6643,7 @@ describe("Supervisor", () => {
       eventBus.subscribe((event) => events.push(event));
 
       const supervisorWithBus = new Supervisor({
-        sdk: mockSdk,
+        provider: mockSdk,
         idleTimeoutMs: 100,
         eventBus,
       });
@@ -6748,7 +6722,7 @@ describe("Supervisor", () => {
       const events: BusEvent[] = [];
       eventBus.subscribe((event) => events.push(event));
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async () => {
           async function* iterator() {
             yield {
@@ -6767,7 +6741,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithBus = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
         eventBus,
       });
@@ -6806,7 +6780,7 @@ describe("Supervisor", () => {
         const events: BusEvent[] = [];
         eventBus.subscribe((event) => events.push(event));
         const supervisorWithNames = new Supervisor({
-          sdk: new MockClaudeSDK(),
+          provider: new ScriptedClaudeProvider(),
           // Keep the normal lifetime: this checks names, not idle eviction.
           eventBus,
           projectDisplayName: (projectPath) =>
@@ -6867,7 +6841,7 @@ describe("Supervisor", () => {
           typeof Supervisor
         >[0]["sessionMetadataService"];
 
-        const realSdk: RealClaudeSDKInterface = {
+        const realSdk: Pick<AgentProvider, "startSession"> = {
           startSession: async () => ({
             iterator: controller.iterator,
             queue: new MessageQueue(),
@@ -6875,8 +6849,8 @@ describe("Supervisor", () => {
           }),
         };
         const supervisorWithBus = new Supervisor({
-          realSdk,
-          idleTimeoutMs: 100,
+          provider: controlledProvider(realSdk),
+          idleTimeoutMs: 10 * 60_000,
           eventBus,
           sessionMetadataService,
         });
@@ -6939,7 +6913,7 @@ describe("Supervisor", () => {
         const events: BusEvent[] = [];
         eventBus.subscribe((event) => events.push(event));
 
-        const realSdk: RealClaudeSDKInterface = {
+        const realSdk: Pick<AgentProvider, "startSession"> = {
           startSession: async () => {
             async function* iterator() {
               yield {
@@ -6974,7 +6948,7 @@ describe("Supervisor", () => {
         );
 
         const supervisorWithBus = new Supervisor({
-          realSdk,
+          provider: controlledProvider(realSdk),
           idleTimeoutMs: 100,
           eventBus,
           onSessionSummary,
@@ -7014,7 +6988,7 @@ describe("Supervisor", () => {
       const events: BusEvent[] = [];
       eventBus.subscribe((event) => events.push(event));
 
-      const realSdk: RealClaudeSDKInterface = {
+      const realSdk: Pick<AgentProvider, "startSession"> = {
         startSession: async () => {
           async function* iterator() {
             yield {
@@ -7034,7 +7008,7 @@ describe("Supervisor", () => {
       };
 
       const supervisorWithBus = new Supervisor({
-        realSdk,
+        provider: controlledProvider(realSdk),
         idleTimeoutMs: 100,
         eventBus,
       });
@@ -7120,7 +7094,7 @@ describe("Supervisor", () => {
           events.push(event);
         });
         const supervisorWithAliveProcess = new Supervisor({
-          realSdk: { startSession },
+          provider: controlledProvider({ startSession }),
           idleTimeoutMs: 100,
           eventBus,
         });
@@ -7227,7 +7201,7 @@ describe("Supervisor", () => {
           events.push(event);
         });
         const supervisorWithFailedAbort = new Supervisor({
-          realSdk: { startSession },
+          provider: controlledProvider({ startSession }),
           idleTimeoutMs: 100,
           eventBus,
         });
@@ -7497,14 +7471,16 @@ describe("Supervisor", () => {
       try {
         let aborted = false;
 
-        const realSdk: RealClaudeSDKInterface = {
+        const realSdk: Pick<AgentProvider, "startSession"> = {
           startSession: async () => {
+            const queue = new MessageQueue();
             async function* iterator() {
               yield {
                 type: "system",
                 subtype: "init",
                 session_id: "idle-owned-safe-restart-session",
               };
+              await queue[Symbol.asyncIterator]().next();
               yield {
                 type: "result",
                 session_id: "idle-owned-safe-restart-session",
@@ -7517,7 +7493,7 @@ describe("Supervisor", () => {
 
             return {
               iterator: iterator(),
-              queue: new MessageQueue(),
+              queue,
               abort: () => {
                 aborted = true;
               },
@@ -7527,7 +7503,7 @@ describe("Supervisor", () => {
         };
 
         const supervisorWithIdleProcess = new Supervisor({
-          realSdk,
+          provider: controlledProvider(realSdk),
           idleTimeoutMs: 10 * 60 * 1000,
         });
 
@@ -7564,7 +7540,7 @@ describe("Supervisor", () => {
         let aborted = false;
         const queue = new MessageQueue();
 
-        const realSdk: RealClaudeSDKInterface = {
+        const realSdk: Pick<AgentProvider, "startSession"> = {
           startSession: async () => {
             async function* iterator() {
               yield {
@@ -7590,7 +7566,9 @@ describe("Supervisor", () => {
           },
         };
 
-        const supervisorWithReloadSafeProcess = new Supervisor({ realSdk });
+        const supervisorWithReloadSafeProcess = new Supervisor({
+          provider: controlledProvider(realSdk),
+        });
         const process = await supervisorWithReloadSafeProcess.startSession(
           "/tmp/test",
           { text: "keep running across reload" },
@@ -7642,7 +7620,7 @@ describe("Supervisor", () => {
           resolveAbort = resolve;
         });
 
-        const realSdk: RealClaudeSDKInterface = {
+        const realSdk: Pick<AgentProvider, "startSession"> = {
           startSession: async () => {
             async function* iterator() {
               yield {
@@ -7666,7 +7644,7 @@ describe("Supervisor", () => {
         };
 
         const supervisorWithUnknownLiveness = new Supervisor({
-          realSdk,
+          provider: controlledProvider(realSdk),
           idleTimeoutMs: 100,
         });
 

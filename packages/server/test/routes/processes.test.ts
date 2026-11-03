@@ -4,7 +4,7 @@ import type { SessionIndexService } from "../../src/indexes/index.js";
 import type { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { createProcessesRoutes } from "../../src/routes/processes.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import {
   SessionConfigurationConflictError,
@@ -263,7 +263,7 @@ describe("Processes Routes", () => {
   it("blocks automatic resume through the app's terminate policy", async () => {
     const updateMetadata = vi.fn(async () => undefined);
     const { app, supervisor } = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({})),
         getProvider: vi.fn(() => "codex"),
@@ -646,7 +646,7 @@ describe("Processes Routes", () => {
     }));
 
     const { app, supervisor, scanner } = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       sessionIndexService: {
         getSessionSummaryWithCache: vi.fn(async () => createSummary()),
         getSessionTitle: vi.fn(async () => "Generated title"),

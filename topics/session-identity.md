@@ -642,6 +642,20 @@ Old extension clients are not a blocker for subsequent removal of new-server
 aliases and SDK execution scaffolding. Existing native history/resume remains
 independent of this client/server protocol cleanup.
 
+## Provider-only runtime execution
+
+Production bootstrap and Supervisor use `AgentProvider` for every launch,
+empty preparation, activation, resume and worker-queue dispatch. There is no
+independent SDK launch engine or SDK constructor option. Explicit `null`
+disables provider discovery for read-only/controlled applications; a direct
+Supervisor must name its provider or explicitly select that disabled state.
+Provider runtime interfaces own session options, callbacks and native input
+observations. The development fake implements that same interface; scripted
+unit-test results live under test support, outside production bootstrap.
+Creation provenance travels with trusted admission context, rather than an
+additional queue field or a later runtime metadata callback. Existing-session
+association and delivery callbacks remain separate lifecycle responsibilities.
+
 ## Retained caller consolidation
 
 Qualified ordinary owner launch shapes use the same admission owner from native

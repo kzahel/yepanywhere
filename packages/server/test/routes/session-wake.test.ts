@@ -4,7 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { createSessionWakeRoutes } from "../../src/routes/session-wake.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import type { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import {
   SessionWakeService,
@@ -71,7 +71,7 @@ describe("session wake route", () => {
     } as unknown as ServerSettingsService;
     const logger = captureWakeLogs();
     const { app, supervisor } = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       sessionWakeSecret: secret,
       sessionWakeLogger: logger,
       serverSettingsService,
@@ -156,7 +156,7 @@ describe("session wake route", () => {
   it("resumes an eligible cold session and rejects an archived one", async () => {
     const root = await mkdtemp(join(tmpdir(), "ya-session-wake-cold-test-"));
     const secret = Buffer.alloc(32, 11);
-    const sdk = new MockClaudeSDK();
+    const sdk = new ScriptedClaudeProvider();
     const startSession = vi.spyOn(sdk, "startSession");
     const metadata = createTestSessionMetadataService(join(root, "data"));
     await metadata.initialize();
@@ -170,7 +170,7 @@ describe("session wake route", () => {
     });
     const logger = captureWakeLogs();
     const { app, supervisor } = createApp({
-      sdk,
+      provider: sdk,
       dataDir: join(root, "app-data"),
       projectsDir: join(root, "projects"),
       sessionMetadataService: metadata,
@@ -198,7 +198,7 @@ describe("session wake route", () => {
       });
       expect(startSession).toHaveBeenCalledWith(
         expect.objectContaining({
-          resume: "cold-session",
+          resumeSessionId: "cold-session",
         }),
       );
 

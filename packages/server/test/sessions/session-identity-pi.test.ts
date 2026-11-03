@@ -5,7 +5,7 @@ import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import { expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { PiSessionReader } from "../../src/sessions/pi-reader.js";
 import { PiSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/pi-catalog-adapter.js";
@@ -92,7 +92,7 @@ it("projects scoped Pi sources once through native discovery, indexed metadata a
         projectsDir: join(root, "ambient"),
       });
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         discoverySqlite: storage,
         sessionMetadataService: metadata,

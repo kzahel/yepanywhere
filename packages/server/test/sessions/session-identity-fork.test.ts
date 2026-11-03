@@ -19,7 +19,6 @@ import { getLogger } from "../../src/logging/logger.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
 import { PiProvider } from "../../src/sdk/providers/pi.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { createApp } from "../setup/create-app.js";
 
@@ -148,7 +147,6 @@ it("forks and clones the native Claude source while keeping public lineage and d
           throw new Error("a cold native copy must not launch a turn");
         });
       app = createApp({
-        sdk: new MockClaudeSDK(),
         provider,
         dataDir,
         projectsDir: join(root, "ambient"),
@@ -469,7 +467,6 @@ it("reads a retained Pi fork through the recorded native root after profile reop
         sessionsDir: join(root, "empty-ambient"),
       });
       app = createApp({
-        sdk: new MockClaudeSDK(),
         provider,
         dataDir,
         sessionMetadataService: metadata,

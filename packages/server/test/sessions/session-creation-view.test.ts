@@ -14,7 +14,7 @@ import { SessionAccessResolver } from "../../src/auth/sessionAccess.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { createApp } from "../setup/create-app.js";
 
 it("reads saved/failed sessions through authorized APIs without a native project, preserving source and refusal across restart", async () => {
@@ -83,10 +83,10 @@ it("reads saved/failed sessions through authorized APIs without a native project
         });
         sessionId = saved.sessionId;
       }
-      const sdk = new MockClaudeSDK(),
+      const sdk = new ScriptedClaudeProvider(),
         start = vi.spyOn(sdk, "startSession");
       instance = createApp({
-        sdk,
+        provider: sdk,
         dataDir,
         discoverySqlite: storage,
         sessionMetadataService: metadata,

@@ -105,7 +105,6 @@ import { gatewayEffortProbeCache } from "./services/GatewayEffortProbe.js";
 import { syncGatewayServiceExports } from "./sdk/providers/gatewayServiceExport.js";
 import { ClaudeOllamaProvider } from "./sdk/providers/claude-ollama.js";
 import { grokACPProvider } from "./sdk/providers/grok-acp.js";
-import { RealClaudeSDK } from "./sdk/real.js";
 import { configureAuthAudit } from "./security/authAuditLog.js";
 import {
   BrowserProfileService,
@@ -571,7 +570,6 @@ await warnIfCodexVersionMismatch();
 const mockProvider = config.useMockSdk
   ? new MockServerClaudeProvider()
   : undefined;
-const realSdk = config.useMockSdk ? undefined : new RealClaudeSDK();
 
 // Create the event bus and the eligibility-gated provider watcher owner.
 const eventBus = new EventBus();
@@ -1179,7 +1177,6 @@ async function startServer() {
     getCatalogFamilies: () => installService.getCatalogFamilies(),
     artifacts: config.artifacts,
     provider: mockProvider,
-    realSdk,
     projectsDir: config.claudeProjectsDir,
     idleTimeoutMs,
     persistedAugmentDelayMs: readPerfPersistedAugmentDelayMs(),

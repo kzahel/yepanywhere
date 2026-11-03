@@ -64,7 +64,7 @@ import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
 import { RemoteSessionService } from "../../src/remote-access/RemoteSessionService.js";
 import { RemoteAccessService } from "../../src/remote-access/index.js";
 import { createWsRelayRoutes } from "../../src/routes/ws-relay.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { UploadManager } from "../../src/uploads/manager.js";
 import { EventBus } from "../../src/watcher/index.js";
 
@@ -108,7 +108,7 @@ describe("Secure WebSocket Transport E2E", () => {
   let testDir: string;
   let server: ReturnType<typeof serve>;
   let serverPort: number;
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let eventBus: EventBus;
   let authService: AuthService;
   let remoteAccessService: RemoteAccessService;
@@ -131,7 +131,7 @@ describe("Secure WebSocket Transport E2E", () => {
     await mkdir(dataDir, { recursive: true });
 
     // Create services
-    mockSdk = new MockClaudeSDK();
+    mockSdk = new ScriptedClaudeProvider();
     eventBus = new EventBus();
     authService = new AuthService({
       dataDir,
@@ -154,7 +154,7 @@ describe("Secure WebSocket Transport E2E", () => {
 
     // Create the app
     const { app, supervisor } = createApp({
-      sdk: mockSdk,
+      provider: mockSdk,
       projectsDir: testDir,
       eventBus,
       authService,

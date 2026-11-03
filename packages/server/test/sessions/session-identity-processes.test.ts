@@ -15,7 +15,7 @@ import { SessionMetadataService } from "../../src/metadata/SessionMetadataServic
 import * as claudeSummary from "../../src/sessions/claude-summary.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import { attachProviderChildSessions } from "../../src/sessions/provider-child-sessions.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import type { ProcessInfo } from "../../src/supervisor/types.js";
 import {
@@ -199,7 +199,7 @@ it.each(["claude", "codex"] as const)(
         const observed: BusEvent[] = [];
         eventBus.subscribe((event) => observed.push(event));
         app = createApp({
-          sdk: new MockClaudeSDK(),
+          provider: new ScriptedClaudeProvider(),
           eventBus,
           dataDir,
           projectsDir,
@@ -591,7 +591,7 @@ it.each([false, true])(
       await metadata.setTitle(sessionId, "saved title");
       const eventBus = new EventBus();
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         eventBus,
         dataDir,
         projectsDir,
@@ -708,7 +708,7 @@ it("cancels a native discovery before it can adopt or publish after app/database
     await metadata.initialize();
     const adoption = vi.spyOn(metadata.identities, "adoptDiscoveredBatch");
     app = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       projectsDir: join(root, "empty-claude"),
       eventBus,

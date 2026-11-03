@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 import { createApp } from "../setup/create-app.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 
 const writes = vi.hoisted(() => ({
   entered: () => {},
@@ -44,7 +44,7 @@ it("app disposal settles the scanner writer and drops its trailing snapshot", as
   const instance = createApp({
     dataDir: directory,
     projectsDir: join(directory, "projects"),
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
   });
   // App disposal awaits other services before reaching the scanner. Observe
   // that boundary explicitly rather than releasing the writer after one turn.

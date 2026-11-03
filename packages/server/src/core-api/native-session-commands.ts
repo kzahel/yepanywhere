@@ -212,7 +212,6 @@ export function nativeSessionCommandOwner(deps: {
         },
         {
           projectId: project.id as UrlProjectId,
-          creationProvenance: { surface: "api" },
           creation: {
             requestId: receipt.id,
             nativeReceiptId: receipt.id,

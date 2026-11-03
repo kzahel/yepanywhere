@@ -18,7 +18,7 @@ import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
 import { RemoteAccessService } from "../../src/remote-access/index.js";
 import { createWsRelayRoutes } from "../../src/routes/ws-relay.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { UploadManager } from "../../src/uploads/manager.js";
 import { EventBus } from "../../src/watcher/index.js";
 
@@ -27,7 +27,7 @@ describe("WebSocket Local Cookie Auth E2E", () => {
   let server: ReturnType<typeof serve>;
   let serverPort: number;
   let cookieHeader: string;
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let eventBus: EventBus;
 
   beforeAll(async () => {
@@ -44,7 +44,7 @@ describe("WebSocket Local Cookie Auth E2E", () => {
     const dataDir = join(testDir, "data");
     await mkdir(dataDir, { recursive: true });
 
-    mockSdk = new MockClaudeSDK();
+    mockSdk = new ScriptedClaudeProvider();
     eventBus = new EventBus();
 
     const authService = new AuthService({
@@ -65,7 +65,7 @@ describe("WebSocket Local Cookie Auth E2E", () => {
     await remoteAccessService.configure("local-auth-remote-password");
 
     const { app, supervisor } = createApp({
-      sdk: mockSdk,
+      provider: mockSdk,
       projectsDir: testDir,
       eventBus,
       authService,

@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AppOptions, AppResult } from "../../src/app.js";
 import { AuthService } from "../../src/auth/AuthService.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { createApp } from "../setup/create-app.js";
 
@@ -86,7 +86,7 @@ describe("API security boundary", () => {
     const serverSettingsService = new ServerSettingsService({ dataDir });
     await serverSettingsService.initialize();
     instance = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       serverSettingsService,
       ...options,

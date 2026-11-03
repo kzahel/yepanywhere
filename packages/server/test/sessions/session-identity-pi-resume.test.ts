@@ -91,7 +91,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     vi.stubEnv("PI_SESSIONS_DIR", scope);
     vi.resetModules();
     const { createApp } = await import("../setup/create-app.js");
-    const { MockClaudeSDK } = await import("../../src/sdk/mock.js");
     const { PiProvider } = await import("../../src/sdk/providers/pi.js");
     const provider = new PiProvider({ piPath: cli, sessionsDir: scope });
     const source = {
@@ -238,7 +237,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       );
       const start = vi.spyOn(provider, "startSession");
       app = createApp({
-        sdk: new MockClaudeSDK(),
         provider,
         dataDir,
         sessionMetadataService: metadata,
@@ -292,7 +290,6 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       });
       await reopened.initialize();
       app = createApp({
-        sdk: new MockClaudeSDK(),
         provider,
         dataDir,
         sessionMetadataService: reopened,

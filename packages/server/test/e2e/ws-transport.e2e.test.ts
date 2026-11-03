@@ -29,7 +29,7 @@ import { createApp } from "../setup/create-app.js";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
 import { getLogger } from "../../src/logging/logger.js";
 import { createWsRelayRoutes } from "../../src/routes/ws-relay.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { UploadManager } from "../../src/uploads/manager.js";
 import { EventBus } from "../../src/watcher/index.js";
 
@@ -46,7 +46,7 @@ describe("WebSocket Transport E2E", () => {
   let testDir: string;
   let server: ReturnType<typeof serve>;
   let serverPort: number;
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let eventBus: EventBus;
 
   beforeAll(async () => {
@@ -62,12 +62,12 @@ describe("WebSocket Transport E2E", () => {
     );
 
     // Create services
-    mockSdk = new MockClaudeSDK();
+    mockSdk = new ScriptedClaudeProvider();
     eventBus = new EventBus();
 
     // Create the app
     const { app, supervisor } = createApp({
-      sdk: mockSdk,
+      provider: mockSdk,
       projectsDir: testDir,
       eventBus,
     });

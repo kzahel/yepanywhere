@@ -8,7 +8,7 @@ import type { AppResult } from "../../src/app.js";
 import { AuthService } from "../../src/auth/AuthService.js";
 import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
 import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
@@ -150,7 +150,7 @@ describe("limited-user session access through the app's session catalog", () => 
     await serverSettingsService.updateSettings({ limitedUsersEnabled: true });
 
     instance = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       projectsDir,
       getCatalogFamilies: () => ["claude"],

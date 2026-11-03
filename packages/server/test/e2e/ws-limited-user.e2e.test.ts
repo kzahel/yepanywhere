@@ -20,7 +20,7 @@ import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
 import { RemoteAccessService } from "../../src/remote-access/index.js";
 import { createWsRelayRoutes } from "../../src/routes/ws-relay.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { UploadManager } from "../../src/uploads/manager.js";
 import { EventBus } from "../../src/watcher/index.js";
@@ -79,7 +79,7 @@ describe("WebSocket limited-user login E2E", () => {
     eventBus = new EventBus();
     const { app, supervisor, authorizeSubscription, activityEventForIdentity } =
       createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         projectsDir: testDir,
         eventBus,
         authService,

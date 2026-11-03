@@ -10,7 +10,7 @@ import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { AUTHENTICATED_SRP_TRANSPORT } from "../../src/middleware/authenticated-transport.js";
 import { WS_INTERNAL_AUTHENTICATED } from "../../src/middleware/internal-auth.js";
 import { RemoteSessionService } from "../../src/remote-access/RemoteSessionService.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { createApp } from "../setup/create-app.js";
 
@@ -85,7 +85,7 @@ describe("limited-user logins through the users routes", () => {
     await serverSettingsService.updateSettings({ limitedUsersEnabled: true });
 
     instance = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       projectsDir: join(testDir, "claude"),
       authService,

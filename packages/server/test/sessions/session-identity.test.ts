@@ -22,7 +22,7 @@ import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import { codexEntryCacheBudget } from "../../src/sessions/codex-entry-cache-budget.js";
 import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { resolveLegacySessionSource } from "../../src/sessions/provider-resolution.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import { BoundSessionReads } from "../../src/sessions/bound-session-reader.js";
@@ -262,7 +262,7 @@ describe("scoped durable session identity", () => {
         );
       }
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir: join(root, "data"),
         projectsDir: ambientDir,
       });
@@ -374,7 +374,7 @@ describe("scoped durable session identity", () => {
       );
       await index.initialize();
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir: join(root, "data"),
         projectsDir: project.sessionDir,
       });
@@ -577,7 +577,7 @@ describe("scoped durable session identity", () => {
         }
         app = createApp({
           grokSessionsDir,
-          sdk: new MockClaudeSDK(),
+          provider: new ScriptedClaudeProvider(),
           dataDir,
           projectsDir,
           sessionMetadataService: metadata,
@@ -728,7 +728,7 @@ it("pins legacy proof to one root and refuses orphaned native aliases", async ()
       id,
     );
     app = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir: join(root, "data"),
       projectsDir: projects,
       sessionMetadataService: metadata,
@@ -835,7 +835,6 @@ it("cancels the production legacy fork-source proof before database teardown", a
       return original.call(this, id);
     });
     app = createApp({
-      sdk: new MockClaudeSDK(),
       provider,
       dataDir: join(root, "data"),
       projectsDir: projects,

@@ -25,7 +25,7 @@ import {
 } from "../../src/sessions/SessionCreationStore.js";
 import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { createApp } from "../setup/create-app.js";
 
 const requestFor = (path: string) => ({
@@ -254,14 +254,14 @@ it("keeps a native transcript written before binding out of public lists and leg
       request,
     });
     const native = nativeSessionRef("claude", scope, pendingId);
-    const sdk = new MockClaudeSDK(),
+    const sdk = new ScriptedClaudeProvider(),
       starts = vi.spyOn(sdk, "startSession");
     app = createApp({
       dataDir,
       projectsDir,
       discoverySqlite: storage,
       sessionMetadataService: metadata,
-      sdk,
+      provider: sdk,
     });
     let lookupEntered = () => {};
     const entered = new Promise<void>((resolve) => {

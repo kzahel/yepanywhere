@@ -14,7 +14,7 @@ import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { createApp } from "../setup/create-app.js";
 
 it("projects retained global/inbox and project lists from creation state without touching native history", async () => {
@@ -38,7 +38,7 @@ it("projects retained global/inbox and project lists from creation state without
   await projectMetadata.initialize();
   const notifications = new NotificationService({ dataDir });
   await notifications.initialize();
-  const sdk = new MockClaudeSDK(),
+  const sdk = new ScriptedClaudeProvider(),
     start = vi.spyOn(sdk, "startSession");
   let instance: ReturnType<typeof createApp> | undefined;
   try {
@@ -49,7 +49,7 @@ it("projects retained global/inbox and project lists from creation state without
       sessionMetadataService: metadata,
       projectMetadataService: projectMetadata,
       notificationService: notifications,
-      sdk,
+      provider: sdk,
     });
     const read = async (path: string) => {
       const response = await instance!.app.request(path, {

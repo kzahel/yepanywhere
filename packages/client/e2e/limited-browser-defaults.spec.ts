@@ -8,7 +8,7 @@ import { createTestViteServer } from "./support/vite-server";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture";
 import { createApp } from "../../server/test/setup/create-app";
 import { createFrontendProxy } from "../../server/src/frontend/proxy";
-import { MockClaudeSDK } from "../../server/src/sdk/mock";
+import { ScriptedClaudeProvider } from "../../server/test/support/scripted-provider.js";
 import { ServerSettingsService } from "../../server/src/services/ServerSettingsService";
 import { BrowserSettingsBackupService } from "../../server/src/services/BrowserSettingsBackupService";
 import { LimitedUsersService } from "../../server/src/auth/LimitedUsersService";
@@ -77,7 +77,7 @@ test.beforeAll(async () => {
   if (!address || typeof address === "string")
     throw new Error("Missing Vite address");
   instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir: directory,
     projectsDir: join(directory, "sessions"),
     authService: auth,

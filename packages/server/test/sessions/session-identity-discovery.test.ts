@@ -15,7 +15,7 @@ import {
 } from "@yep-anywhere/shared";
 import { expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { resolveNativeSessionRef } from "../../src/sessions/SessionIdentityStore.js";
 import { MergedSessionReader } from "../../src/sessions/merged-reader.js";
@@ -143,7 +143,7 @@ it("projects discovery once across native collections and scoped summary lookups
         await metadata.setProvider(nativeId, "claude");
       }
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         projectsDir,
         codexSessionsDir: privateRoot,

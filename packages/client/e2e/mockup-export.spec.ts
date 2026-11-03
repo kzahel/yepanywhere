@@ -22,7 +22,7 @@ import {
 } from "../mockups/export";
 import { createApp } from "../../server/test/setup/create-app";
 import { createFrontendProxy } from "../../server/src/frontend/proxy";
-import { MockClaudeSDK } from "../../server/src/sdk/mock";
+import { ScriptedClaudeProvider } from "../../server/test/support/scripted-provider.js";
 import { ServerSettingsService } from "../../server/src/services/ServerSettingsService";
 import { initFileAccess } from "../../server/src/middleware/file-access";
 import { checkMockup } from "./fixtures/mockup-checks";
@@ -206,7 +206,7 @@ test("exports matching source states, a complete bundle, and a working direct YA
         viteHost: "127.0.0.1",
       });
       instance = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         projectsDir: join(directory, "sessions"),
         serverSettingsService: settings,

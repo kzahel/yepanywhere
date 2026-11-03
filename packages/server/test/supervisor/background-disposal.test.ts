@@ -1,5 +1,7 @@
+import { controlledProvider } from "../support/scripted-provider.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MockClaudeSDK, MockRealClaudeSDK } from "../../src/sdk/mock.js";
+import { MockServerClaudeProvider } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 
 let supervisor: Supervisor | undefined;
@@ -13,7 +15,7 @@ afterEach(async () => {
 describe("Supervisor background ownership", () => {
   it("releases maintenance timers and ignores later schedule announcements", async () => {
     supervisor = new Supervisor({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
     });
     await vi.advanceTimersByTimeAsync(30000);
     await supervisor.stopBackgroundTasks();
@@ -23,7 +25,9 @@ describe("Supervisor background ownership", () => {
   });
 
   it("keeps the live provider owned when maintenance work stops", async () => {
-    supervisor = new Supervisor({ realSdk: new MockRealClaudeSDK() });
+    supervisor = new Supervisor({
+      provider: controlledProvider(new MockServerClaudeProvider()),
+    });
     const started = await supervisor.startSession("/tmp/owned", {
       text: "live turn",
     });

@@ -6,7 +6,7 @@ import { afterEach, expect, it } from "vitest";
 import type { AppResult } from "../../src/app.js";
 import { RecentsService } from "../../src/recents/RecentsService.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { createApp } from "../setup/create-app.js";
 import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
 import { AuthService } from "../../src/auth/AuthService.js";
@@ -65,7 +65,7 @@ it.each(["direct", "relay"])(
     await recentsService.recordVisit("visible-session", visibleId!);
     await recentsService.recordVisit("private-session", privateId!);
     const instance = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       projectsDir,
       serverSettingsService,
@@ -158,7 +158,7 @@ it("streams prepared route facts while version discovery is held", async () => {
     release = resolve;
   });
   const instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir,
     serverSettingsService,
     recentsService,

@@ -18,7 +18,7 @@ import {
 import { expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { GrokSessionReader } from "../../src/sessions/grok-reader.js";
 import { GrokSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/grok-catalog-adapter.js";
@@ -172,7 +172,7 @@ it("keeps Grok native ids, late replay, child and media sources scoped behind pu
         projectsDir: join(root, "empty-ambient"),
       });
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         sessionMetadataService: metadata,
         discoverySqlite: storage,

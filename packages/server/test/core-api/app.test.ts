@@ -1,5 +1,5 @@
 import { serve } from "@hono/node-server";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -71,7 +71,7 @@ it("uses the production authentication/principal boundary and retained catalog f
       },
     ]);
     instance = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       projectsDir: join(dataDir, "empty-projects"),
       authService: auth,
@@ -178,7 +178,7 @@ it("requires actual owner proof for peer administration even on an auth-disabled
     const auth = new AuthService({ dataDir });
     await auth.initialize();
     instance = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       discoverySqlite: database,
       peerAccess: manager,

@@ -16,7 +16,7 @@ import {
 import { expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import type {
   AgentProvider,
   StartSessionOptions,
@@ -161,7 +161,6 @@ it.each(["claude", "codex"] as const)(
           getAvailableModels: async () => [],
         } as unknown as AgentProvider;
         app = createApp({
-          sdk: new MockClaudeSDK(),
           provider,
           dataDir,
           projectsDir,
@@ -432,7 +431,7 @@ it.each([false, true])(
           published = true;
       });
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         projectsDir,
         eventBus: events,
@@ -606,7 +605,7 @@ it.each(["stored", "wrong-project", "wrong-path", "legacy-no-scope"])(
         },
       );
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         projectsDir: join(root, "empty-claude"),
         codexSessionsDir: ambient,
@@ -721,7 +720,7 @@ it("cancels a late legacy catalogue publication before identity adoption after s
       .mockReturnValue(pending);
     const acquisition = vi.spyOn(ConversationAcquisition.prototype, "read");
     app = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       projectsDir: join(root, "ambient"),
       sessionMetadataService: metadata,

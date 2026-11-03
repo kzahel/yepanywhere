@@ -15,7 +15,7 @@ import { SessionMetadataService } from "../../src/metadata/SessionMetadataServic
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { openSqliteOrThrow } from "../../src/storage/sqlite.js";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { OpenCodeSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/opencode-catalog-adapter.js";
 import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js";
 import { OpenCodeSessionReader } from "../../src/sessions/opencode-reader.js";
@@ -121,7 +121,7 @@ it("keeps scoped OpenCode identities through native catalogue, public history, W
         projectsDir: join(root, "empty-ambient"),
       });
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         discoverySqlite: storage,
         sessionIndexService: index,

@@ -15,7 +15,7 @@ import { expect, test } from "@playwright/test";
 import { createTestViteServer as createViteServer } from "./support/vite-server";
 import { createApp } from "../../server/test/setup/create-app";
 import { createFrontendProxy } from "../../server/src/frontend/proxy";
-import { MockClaudeSDK } from "../../server/src/sdk/mock";
+import { ScriptedClaudeProvider } from "../../server/test/support/scripted-provider.js";
 import { ServerSettingsService } from "../../server/src/services/ServerSettingsService";
 import { initFileAccess } from "../../server/src/middleware/file-access";
 import { recordUiCapture } from "./support/ui-capture";
@@ -81,7 +81,7 @@ test.beforeAll(async () => {
   if (!viteAddress || typeof viteAddress === "string")
     throw new Error("Missing Vite port");
   instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir: join(directory, "data"),
     projectsDir: join(directory, "sessions"),
     serverSettingsService: settings,

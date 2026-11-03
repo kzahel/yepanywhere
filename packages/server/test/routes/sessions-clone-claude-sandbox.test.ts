@@ -18,7 +18,7 @@ import {
   type SessionsDeps,
 } from "../../src/routes/sessions.js";
 import { getClaudeSandboxProjectDir } from "../../src/session-sandbox.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { SessionReader } from "../../src/sessions/reader.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import type { Project } from "../../src/supervisor/types.js";
@@ -105,7 +105,7 @@ describe.skipIf(process.platform !== "linux")(
     function routes() {
       return createSessionsRoutes({
         supervisor: new Supervisor({
-          sdk: new MockClaudeSDK(),
+          provider: new ScriptedClaudeProvider(),
           sandboxStateRoot: join(dataDir, "session-sandboxes"),
         }),
         scanner: {

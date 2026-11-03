@@ -6,7 +6,7 @@ import { ArtifactServer } from "../../src/artifacts/ArtifactServer.js";
 import { createArtifactRoutes } from "../../src/routes/artifacts.js";
 import { createLocalResourcePathPolicy } from "../../src/routes/local-resource-policy.js";
 import { createApp } from "../setup/create-app.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { initFileAccess } from "../../src/middleware/file-access.js";
 import {
@@ -78,7 +78,7 @@ it("configures, creates, and revokes artifacts through the app's public routes",
     envPaths: [directory],
   });
   const instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir,
     projectsDir: join(directory, "sessions"),
     serverSettingsService: settings,
@@ -269,7 +269,7 @@ it("routes the artifact Host on YA's actual HTTP port before YA APIs", async () 
     envPaths: [directory],
   });
   const instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir: join(directory, "data"),
     projectsDir: join(directory, "sessions"),
     artifacts: {
@@ -537,7 +537,7 @@ it("proxies a static vhost Host to loopback before YA APIs", async () => {
   if (!upstreamAddress || typeof upstreamAddress === "string")
     throw new Error("Missing upstream port");
   const instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     dataDir: join(directory, "data"),
     projectsDir: join(directory, "sessions"),
     artifacts: {

@@ -172,10 +172,6 @@ export function createSupervisorReviewLauncher(
               submissionHash,
               onAccepted: associate,
             },
-            creationProvenance:
-              creation.context.source.kind === "request"
-                ? creation.context.source.provenance
-                : undefined,
             onStarted: (sessionId) =>
               submissionId
                 ? onDeliveryAccepted?.(projectPath, submissionId, {

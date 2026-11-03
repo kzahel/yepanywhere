@@ -9,7 +9,7 @@ import { AuthService } from "../../src/auth/AuthService.js";
 import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
 import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import { createApp } from "../setup/create-app.js";
 
@@ -69,7 +69,7 @@ describe("a limited user's edits to shared project metadata through the app", ()
 
     // Start discovery after the fixture registration, as a persisted startup.
     instance = createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       dataDir,
       projectsDir: join(testDir, "claude"),
       getCatalogFamilies: () => ["claude"],

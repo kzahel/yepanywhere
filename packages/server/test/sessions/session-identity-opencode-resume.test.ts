@@ -50,7 +50,6 @@ it.skipIf(process.platform === "win32").each([false, true])(
     vi.stubEnv("PATH", bin + ":" + process.env.PATH);
     vi.resetModules();
     const { createApp } = await import("../setup/create-app.js");
-    const { MockClaudeSDK } = await import("../../src/sdk/mock.js");
     const { OpenCodeProvider } = await import(
       "../../src/sdk/providers/opencode.js"
     );
@@ -314,7 +313,6 @@ process.on('SIGTERM',()=>{server.closeAllConnections();server.close(()=>process.
         });
         const start = vi.spyOn(provider, "startSession");
         app = createApp({
-          sdk: new MockClaudeSDK(),
           provider,
           dataDir,
           sessionMetadataService: metadata,
@@ -401,7 +399,6 @@ process.on('SIGTERM',()=>{server.closeAllConnections();server.close(()=>process.
         });
         await reopened.initialize();
         app = createApp({
-          sdk: new MockClaudeSDK(),
           provider,
           dataDir,
           sessionMetadataService: reopened,

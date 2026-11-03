@@ -358,11 +358,7 @@ import type {
   CodexPlanToolMode,
 } from "@yep-anywhere/shared";
 import type { AgentProvider } from "./sdk/providers/types.js";
-import type {
-  ClaudeSDK,
-  PermissionMode,
-  RealClaudeSDKInterface,
-} from "./sdk/types.js";
+import type { PermissionMode } from "./sdk/types.js";
 import {
   PublicShareCaptureError,
   type PublicShareService,
@@ -452,10 +448,6 @@ export interface AppOptions {
   artifacts?: ArtifactConfig;
   /** Explicit provider override; null suppresses ambient provider discovery. */
   provider?: AgentProvider | null;
-  /** Legacy SDK interface for mock SDK (for testing) */
-  sdk?: ClaudeSDK;
-  /** Real SDK interface with full features */
-  realSdk?: RealClaudeSDKInterface;
   projectsDir?: string; // override for testing
   codexSessionsDir?: string; // override for testing
   geminiSessionsDir?: string; // override for testing
@@ -2364,14 +2356,10 @@ export function createApp(options: AppOptions): AppResult {
       // last session goes away; the live process list is that answer.
       noteGatewayServiceUsage(gatewayServiceUsage(supervisor));
     },
-    sdk: options.sdk,
-    realSdk: options.realSdk,
     provider:
       options.provider !== undefined
         ? options.provider
-        : isProviderRuntimeHostAvailable()
-          ? resolveConfiguredProvider("claude")
-          : undefined,
+        : resolveConfiguredProvider("claude"),
     idleTimeoutMs: options.idleTimeoutMs,
     defaultPermissionMode: options.defaultPermissionMode,
     eventBus: options.eventBus,

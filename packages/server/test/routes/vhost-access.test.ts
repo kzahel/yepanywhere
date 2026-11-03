@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { AuthService } from "../../src/auth/AuthService.js";
 import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { createApp } from "../setup/create-app.js";
 
 it("keeps app-link issuance and revocation behind YA authentication", async () => {
@@ -16,7 +16,7 @@ it("keeps app-link issuance and revocation behind YA authentication", async () =
   const instance = createApp({
     dataDir: directory,
     projectsDir: join(directory, "projects"),
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
     authService: auth,
     authDisabled: false,
     artifacts: {

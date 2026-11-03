@@ -15,7 +15,7 @@ import type {
   ServerSettings,
   ServerSettingsService,
 } from "../src/services/ServerSettingsService.js";
-import { MockClaudeSDK } from "../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "./support/scripted-provider.js";
 import { createApp } from "./setup/create-app.js";
 
 function getClaudeLaunchEnvironment(): Record<string, string | undefined> {
@@ -90,7 +90,7 @@ describe("provider runtime settings", () => {
     } as unknown as ServerSettingsService;
 
     createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       serverSettingsService,
     });
 
@@ -123,7 +123,7 @@ describe("provider runtime settings", () => {
     } as unknown as ServerSettingsService;
 
     createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       serverSettingsService,
     });
 
@@ -144,7 +144,7 @@ describe("provider runtime settings", () => {
     ["enabled", true],
   ] as const)("applies the %s Codex plan-tool mode", (mode, enabled) => {
     createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       codexPlanToolMode: mode,
     });
 
@@ -167,7 +167,7 @@ describe("provider runtime settings", () => {
     "sends the %s Codex cyber access program on a turn",
     (program, wireValue) => {
       createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         codexCyberAccessProgram: program,
       });
 
@@ -191,7 +191,7 @@ describe("provider runtime settings", () => {
     } as unknown as ServerSettingsService;
 
     createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       serverSettingsService,
       codexCyberAccessProgram: "standard",
     });
@@ -219,7 +219,7 @@ describe("provider runtime settings", () => {
     } as unknown as ServerSettingsService;
 
     createApp({
-      sdk: new MockClaudeSDK(),
+      provider: new ScriptedClaudeProvider(),
       serverSettingsService,
       codexPlanToolMode: "enabled",
     });

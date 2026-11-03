@@ -17,7 +17,7 @@ import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import { hashProjectPath } from "../../src/projects/gemini-project-map.js";
 import { PiSessionReader } from "../../src/sessions/pi-reader.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { handleSessionWatchSubscribe } from "../../src/routes/ws-relay-handlers.js";
 import * as sharedWatches from "../../src/watcher/SharedDirectoryWatcher.js";
@@ -160,7 +160,7 @@ it.each(["claude", "codex", "pi", "gemini"] as const)(
       }
       await metadata.setWorkingProject(sessionId, workingId, projectId);
       app = createApp({
-        sdk: new MockClaudeSDK(),
+        provider: new ScriptedClaudeProvider(),
         dataDir,
         projectsDir: join(root, "ambient"),
         sessionMetadataService: metadata,

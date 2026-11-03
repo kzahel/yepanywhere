@@ -1,27 +1,17 @@
-import type { DesktopControlOrigin } from "../desktop/machine-control.js";
 // Core types for Claude SDK abstraction
 
 // Re-export PermissionMode from shared
 export type { PermissionMode } from "@yep-anywhere/shared";
 import type {
-  ClaudeSteerBackgroundBashSettings,
   CodexAsyncUserInputQuestion,
   PermissionMode,
-  ProviderName,
   ProviderWorkItem,
-  SlashCommand,
   SessionLivenessProbeStatus,
   ToolDisplayAction,
   ToolResultMedia,
   UploadedFile,
   UserMessageMetadata,
 } from "@yep-anywhere/shared";
-import type { SessionSandboxRuntime } from "../session-sandbox.js";
-import type { ClaudeGoalSnapshot } from "./providers/claude-goal.js";
-import type {
-  ProviderSessionOptions,
-  ProviderSessionOptionsUpdateResult,
-} from "./providers/types.js";
 
 export interface ContentBlock {
   type: "text" | "tool_use" | "tool_result" | "image" | "thinking";
@@ -141,19 +131,6 @@ export interface UserMessage {
   priority?: "now" | "next" | "later";
 }
 
-export interface SDKSessionOptions {
-  cwd: string;
-  resume?: string; // session ID to resume
-}
-
-// Legacy interface for mock SDK compatibility
-export interface ClaudeSDK {
-  startSession(options: SDKSessionOptions): AsyncIterableIterator<SDKMessage>;
-}
-
-// New interface for real SDK with full features
-import type { AgentMessageQueue } from "./messageQueue.js";
-
 export interface ToolApprovalResult {
   behavior: "allow" | "deny";
   updatedInput?: unknown;
@@ -203,166 +180,6 @@ export interface ProviderRetentionSnapshot {
   foregroundWaits?: ProviderWorkItem[];
 }
 
-export interface StartSessionOptions {
-  agentApi?: import("./providers/types.js").StartSessionOptions["agentApi"];
-  onAgentApiRead?: import("./providers/types.js").StartSessionOptions["onAgentApiRead"];
-  /** Installed MC command advertisement; independent of native access. */
-  machineControl?: boolean;
-  desktopControlOrigin?: DesktopControlOrigin;
-  cwd: string;
-  initialMessage?: UserMessage;
-  resumeSessionId?: string;
-  /** Resume through this transcript UUID only; see the provider option. */
-  resumeSessionAt?: string;
-  /** With `resumeSessionAt`: the one turn the truncation may drop. */
-  resumeDropsTurn?: string;
-  /**
-   * Optional provider-visible client identity, used by providers that expose
-   * launcher identity in session metadata (currently Codex).
-   */
-  clientName?: string;
-  permissionMode?: PermissionMode;
-  /** Model to use (e.g., "sonnet", "opus", "haiku"). undefined = use CLI default */
-  model?: string;
-  /** Thinking configuration (undefined = thinking disabled) */
-  thinking?: import("@yep-anywhere/shared").ThinkingConfig;
-  /** Effort level for response quality (undefined = SDK default) */
-  effort?: import("@yep-anywhere/shared").EffortLevel;
-  /**
-   * Launch-time percentage override for Claude Code's own auto-compaction
-   * window. Omitted leaves its environment/default unchanged.
-   */
-  launchCompactPercentOverride?: number;
-  /** Claude-only policy for making matching foreground Bash calls resumable. */
-  claudeSteerBackgroundBash?: ClaudeSteerBackgroundBashSettings;
-  onToolApproval?: CanUseTool;
-  /** Retired executor hint, retained so launch boundaries can refuse it. */
-  executor?: string;
-  /** Legacy launch environment overrides, also consumed by local Pi. */
-  remoteEnv?: Record<string, string>;
-  /** Session-scoped environment resolved for the canonical id and executor. */
-  getSessionChildEnv?: (
-    sessionId: string,
-    executor?: string,
-  ) => Record<string, string>;
-  /** This launch's operator API token; see the provider StartSessionOptions. */
-  agentServerEnvironment?: Record<string, string>;
-  /** Global instructions to append to system prompt (from server settings) */
-  globalInstructions?: string;
-  /** Explicit provider-owned generation controls; omission means all off. */
-  sessionOptions?: ProviderSessionOptions;
-  /** Called when provider-owned retention evidence changes. */
-  onProviderRetentionChange?: () => void;
-  /** Prepared YA host sandbox applied to every provider child for this session. */
-  sessionSandbox?: SessionSandboxRuntime;
-  /**
-   * Last YA-observed goal for this session. Providers that keep goal state
-   * outside their own protocol (Claude) restore what only YA knows — a paused
-   * goal, whose Stop hook YA removed and intends to reinstall.
-   */
-  restoredGoal?: ClaudeGoalSnapshot | null;
-}
-
-export interface StartSessionResult {
-  revokeAgentApiAccess?: () => void | Promise<void>;
-  revokePeerAgentApiAccess?: (grantId?: string) => void | Promise<void>;
-  publishAgentSelfSelection?: (
-    selection: import("../agent-tools/protocol.js").AgentSelfSelection,
-  ) => void | Promise<void>;
-  publishAgentSessionViews?: (
-    views: readonly import("@yep-anywhere/shared").SessionClientView[],
-  ) => void | Promise<void>;
-  iterator: AsyncIterableIterator<SDKMessage>;
-  queue: AgentMessageQueue;
-  /**
-   * Dispatch a provider-native slash command out-of-band. Returns
-   * `{ handled: false }` when the command should reach the provider as
-   * ordinary turn text instead.
-   */
-  runProviderCommand?: (
-    command: string,
-    argument?: string,
-  ) => Promise<ProviderCommandResult>;
-  abort: () => void | Promise<void>;
-  /** Release only this server's client while a reload-safe provider survives. */
-  detachForServerReload?: () => void | Promise<void>;
-  /** Check if the underlying CLI process is still alive (undefined = not available) */
-  isProcessAlive?: () => boolean;
-  /** OS PID of the spawned agent child process (undefined if not available) */
-  pid?: number | (() => number | undefined);
-  /** Actively query provider/session status when passive progress evidence is stale. */
-  probeLiveness?: () => Promise<ProviderLivenessProbeResult>;
-  /** Passive raw provider/app-server event cadence, when available. */
-  getProviderActivity?: () => ProviderActivitySnapshot;
-  /** Provider-owned work that should retain an otherwise idle process. */
-  getProviderRetention?: () => ProviderRetentionSnapshot;
-  /** No-viewer period retained by a reload-safe runtime owner. */
-  getRuntimeUnviewedSince?: () => Date | undefined;
-  /**
-   * Persist a viewer transition with a reload-safe runtime owner. Completion
-   * acknowledges that exact state; failures reject for caller-owned retry.
-   */
-  setRuntimeViewerPresence?: (hasViewers: boolean) => void | Promise<void>;
-  /**
-   * Change max thinking tokens without restarting the session.
-   * Pass null to disable thinking mode.
-   * Only supported by Claude SDK 0.2.7+.
-   */
-  setMaxThinkingTokens?: (tokens: number | null) => Promise<void>;
-  /**
-   * Change the effort used by subsequent Claude responses without restarting.
-   * undefined clears the session-scoped override.
-   */
-  setEffort?: (
-    effort?: import("@yep-anywhere/shared").EffortLevel,
-  ) => Promise<void>;
-  /** This provider can publish effort changes into the active turn. */
-  effortUpdatesActiveTurn?: boolean;
-  /**
-   * Change the provider service tier (for example Codex "priority") used by
-   * subsequent turns without restarting. undefined selects the standard tier.
-   */
-  setServiceTier?: (serviceTier?: string) => Promise<void>;
-  /** Request provider-owned generation changes for this live session. */
-  setSessionOptions?: (
-    options: ProviderSessionOptions,
-  ) => Promise<ProviderSessionOptionsUpdateResult>;
-  /**
-   * Interrupt the current turn gracefully without killing the process.
-   * Only supported by Claude SDK 0.2.7+.
-   */
-  interrupt?: () => Promise<undefined | boolean>;
-  /**
-   * Get the list of available models from the SDK.
-   * Only supported by Claude SDK 0.2.7+.
-   */
-  supportedModels?: () => Promise<
-    Array<{ id: string; name: string; description?: string }>
-  >;
-  /**
-   * Get the list of available slash commands from the SDK.
-   * Only supported by Claude SDK 0.2.7+.
-   */
-  supportedCommands?: () => Promise<SlashCommand[]>;
-  /** What fills the live context window, by category (`/context` data). */
-  getContextBreakdown?: () => Promise<
-    import("@yep-anywhere/shared").ContextBreakdown
-  >;
-  /**
-   * Change the model mid-session without restarting.
-   * Only supported by Claude SDK 0.2.7+.
-   */
-  setModel?: (model?: string) => Promise<void>;
-  /**
-   * Publish the provider's canonical session id into any child-process
-   * environment bridge the provider installed before startup.
-   */
-  publishAgentctlSessionId?: (
-    sessionId: string,
-    browserDebugEnvironment?: Record<string, string>,
-  ) => void | Promise<void>;
-}
-
 export interface ProviderCommandOutput {
   /** Collapsed local-command row label. */
   summary: string;
@@ -381,10 +198,4 @@ export interface ProviderCommandResult {
   error?: string;
   /** Optional YA-local result to publish without creating a provider turn. */
   output?: ProviderCommandOutput;
-}
-
-export interface RealClaudeSDKInterface {
-  /** Canonical adapter for the legacy bridge; absent on independent SDKs. */
-  readonly providerName?: ProviderName;
-  startSession(options: StartSessionOptions): Promise<StartSessionResult>;
 }

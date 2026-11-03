@@ -1,4 +1,4 @@
-import { MockClaudeSDK } from "../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "./support/scripted-provider.js";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -51,7 +51,7 @@ it("consumes a captured native session through the real app, catalog, capability
   const app = createApp({
     dataDir: directory,
     projectsDir: join(directory, "no-projects"),
-    sdk: new MockClaudeSDK(),
+    provider: new ScriptedClaudeProvider(),
   });
   // This fixture supplies a retained catalog, not a provider project directory.
   // Focused-watch filesystem discovery is covered by its own integration tests.

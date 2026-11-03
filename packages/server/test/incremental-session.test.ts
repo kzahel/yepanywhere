@@ -3,7 +3,7 @@ import { appendFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MockClaudeSDK } from "../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "./support/scripted-provider.js";
 import { encodeProjectId } from "../src/supervisor/types.js";
 import { createApp } from "./setup/create-app.js";
 
@@ -14,14 +14,14 @@ import { createApp } from "./setup/create-app.js";
  * which is more efficient for live-updating external sessions.
  */
 describe("Incremental Session Loading", () => {
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let testDir: string;
   let projectDir: string;
   let projectId: string;
   const projectPath = "/home/user/testproject";
 
   beforeEach(async () => {
-    mockSdk = new MockClaudeSDK();
+    mockSdk = new ScriptedClaudeProvider();
     testDir = join(tmpdir(), `claude-test-${randomUUID()}`);
     const encodedPath = projectPath.replaceAll("/", "-");
     projectDir = join(testDir, "localhost", encodedPath);
@@ -64,7 +64,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session`,
       );
@@ -104,7 +104,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session?afterMessageId=${msg1Id}`,
       );
@@ -141,7 +141,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const initial = await app.request(
         `/api/projects/${projectId}/sessions/session`,
       );
@@ -203,7 +203,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session?afterMessageId=${msg2Id}`,
       );
@@ -227,7 +227,7 @@ describe("Incremental Session Loading", () => {
         })}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session?afterMessageId=nonexistent`,
       );
@@ -263,7 +263,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session?afterMessageId=${msg1Id}`,
       );
@@ -337,7 +337,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session`,
       );
@@ -424,7 +424,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session?publicShare=1`,
       );
@@ -503,7 +503,7 @@ describe("Incremental Session Loading", () => {
         ].join("\n")}\n`,
       );
 
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
       const res = await app.request(
         `/api/projects/${projectId}/sessions/session`,
       );
@@ -535,14 +535,14 @@ describe("Incremental Session Loading", () => {
 });
 
 describe("late-delivered Claude queue entries", () => {
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let testDir: string;
   let projectDir: string;
   let projectId: string;
   const projectPath = "/home/user/testproject";
 
   beforeEach(async () => {
-    mockSdk = new MockClaudeSDK();
+    mockSdk = new ScriptedClaudeProvider();
     testDir = join(tmpdir(), `claude-test-${randomUUID()}`);
     const encodedPath = projectPath.replaceAll("/", "-");
     projectDir = join(testDir, "localhost", encodedPath);
@@ -617,7 +617,7 @@ describe("late-delivered Claude queue entries", () => {
   it("includes a pre-anchor queue entry delivered after the anchor row", async () => {
     const { msg3Id, msg4Id } = await writeSteerSession();
 
-    const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+    const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
     // Anchor at the mid-turn assistant row (10:00:20): positionally the
     // queue entry (enqueue position, 10:00:10) precedes it, but its delivery
     // (10:00:30) postdates it, so it must still be returned.
@@ -644,7 +644,7 @@ describe("late-delivered Claude queue entries", () => {
   it("stops re-sending the queue entry once the anchor postdates delivery", async () => {
     const { msg4Id } = await writeSteerSession();
 
-    const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+    const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
     const res = await app.request(
       `/api/projects/${projectId}/sessions/session?afterMessageId=${msg4Id}`,
     );

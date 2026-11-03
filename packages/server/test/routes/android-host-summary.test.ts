@@ -1,3 +1,4 @@
+import { controlledProvider } from "../support/scripted-provider.js";
 import { describe, expect, it } from "vitest";
 import { createAndroidHostSummaryRoutes } from "../../src/routes/android-host-summary.js";
 import type { ProcessInfo } from "../../src/supervisor/types.js";
@@ -89,13 +90,13 @@ describe("Android foreground session summary", () => {
     });
     const supervisor = new Supervisor({
       eventBus,
-      realSdk: {
+      provider: controlledProvider({
         startSession: async () => ({
           iterator: controlled.iterator,
           queue: new MessageQueue(),
           abort: async () => controlled.finish(),
         }),
-      },
+      }),
     });
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {

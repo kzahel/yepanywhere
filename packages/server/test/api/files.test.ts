@@ -25,7 +25,7 @@ import {
   initFileAccess,
   updateFileAccess,
 } from "../../src/middleware/file-access.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
 
 function deferred<T>() {
@@ -56,13 +56,13 @@ async function primeProjectFiles(
 }
 
 describe("Files API", () => {
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let testDir: string;
   let projectId: string;
   let projectPath: string;
 
   beforeEach(async () => {
-    mockSdk = new MockClaudeSDK();
+    mockSdk = new ScriptedClaudeProvider();
 
     // Create temp directory structure with a valid project
     testDir = join(await realpath(tmpdir()), `claude-test-${randomUUID()}`);
@@ -119,7 +119,7 @@ describe("Files API", () => {
   describe("GET /api/projects/:projectId/files", () => {
     it("returns file metadata and content for text file", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -153,7 +153,7 @@ describe("Files API", () => {
         "README.md",
       ]);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -200,7 +200,7 @@ describe("Files API", () => {
       };
       const heldIndex = projectPathIndexTest.claimIndex(projectPath, { io });
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
       let response: Response | undefined;
@@ -252,7 +252,7 @@ describe("Files API", () => {
       });
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
       const coldRes = await app.request(
@@ -294,7 +294,7 @@ describe("Files API", () => {
       const { app } = createApp({
         codexSessionsDir: join(testDir, "codex-sessions"),
         geminiSessionsDir: join(testDir, "gemini-sessions"),
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
         projectScanCacheTtlMs: 0,
       });
@@ -325,7 +325,7 @@ describe("Files API", () => {
     it("renders Markdown previews with relative project media resolved", async () => {
       await primeProjectFiles(projectPath, ["docs/peer.md"]);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -378,7 +378,7 @@ describe("Files API", () => {
         "shared/_methods.md",
       ]);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -414,7 +414,7 @@ describe("Files API", () => {
       );
       await primeProjectFiles(projectPath, ["docs/assets/frontier.svg"]);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -439,7 +439,7 @@ describe("Files API", () => {
 
     it("wraps requested Markdown preview line ranges", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -466,7 +466,7 @@ describe("Files API", () => {
         "# Snap\n\n- first\n- selected\n- last\n\nTail",
       );
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -491,7 +491,7 @@ describe("Files API", () => {
       );
       await primeProjectFiles(projectPath, ["docs/peer.md"]);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -523,7 +523,7 @@ describe("Files API", () => {
       );
       await primeProjectFiles(projectPath, ["docs/peer.md"]);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -541,7 +541,7 @@ describe("Files API", () => {
 
     it("returns file metadata and content for TypeScript file", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -559,7 +559,7 @@ describe("Files API", () => {
 
     it("returns file metadata without content for binary file", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -579,7 +579,7 @@ describe("Files API", () => {
     it("sniffs unknown-extension UTF-8 files as displayable text", async () => {
       await writeFile(join(projectPath, "job.output"), "alpha\nbeta\ngamma\n");
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -601,7 +601,7 @@ describe("Files API", () => {
         ["one", "two", "three", "four"].join("\n"),
       );
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -626,7 +626,7 @@ describe("Files API", () => {
         Buffer.from([0, 1, 2, 3, 4, 5]),
       );
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -643,7 +643,7 @@ describe("Files API", () => {
 
     it("returns 400 for missing path parameter", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -656,7 +656,7 @@ describe("Files API", () => {
 
     it("returns 400 for invalid project ID format", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -671,7 +671,7 @@ describe("Files API", () => {
 
     it("returns 404 for non-existent project", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -687,7 +687,7 @@ describe("Files API", () => {
 
     it("returns 404 for non-existent file", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -702,7 +702,7 @@ describe("Files API", () => {
 
     it("returns 400 for path traversal attempt with ..", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -722,7 +722,7 @@ describe("Files API", () => {
       await writeFile(inProjectFile, "in-project notes");
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -744,7 +744,7 @@ describe("Files API", () => {
       await writeFile(outsideFile, "outside notes");
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -785,7 +785,7 @@ describe("Files API", () => {
       });
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -810,7 +810,7 @@ describe("Files API", () => {
         await symlink(outsideFile, linkPath);
 
         const { app } = createApp({
-          sdk: mockSdk,
+          provider: mockSdk,
           projectsDir: join(testDir, "sessions"),
         });
 
@@ -826,7 +826,7 @@ describe("Files API", () => {
 
     it("returns 400 for directory path", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -844,7 +844,7 @@ describe("Files API", () => {
       await writeFile(join(projectPath, ".env"), "SECRET=value");
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -862,7 +862,7 @@ describe("Files API", () => {
   describe("GET /api/projects/:projectId/files/raw", () => {
     it("serves a requested byte range so media can seek", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -879,7 +879,7 @@ describe("Files API", () => {
 
     it("returns raw text file with correct content-type", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -906,7 +906,7 @@ describe("Files API", () => {
 
     it("returns raw TypeScript file with correct content-type", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -922,7 +922,7 @@ describe("Files API", () => {
 
     it("returns raw JSON with its content-type", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -937,7 +937,7 @@ describe("Files API", () => {
 
     it("returns raw binary file with correct content-type", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -957,7 +957,7 @@ describe("Files API", () => {
       await writeFile(sparsePath, "");
       await truncate(sparsePath, sparseSize);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -972,7 +972,7 @@ describe("Files API", () => {
 
     it("sets attachment disposition when download=true", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -987,7 +987,7 @@ describe("Files API", () => {
 
     it("sets inline disposition by default", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1011,7 +1011,7 @@ describe("Files API", () => {
           '<script>fetch("/api/processes", { headers: { "X-Yep-Anywhere": "true" } })</script>',
         );
         const { app } = createApp({
-          sdk: mockSdk,
+          provider: mockSdk,
           projectsDir: join(testDir, "sessions"),
         });
 
@@ -1036,7 +1036,7 @@ describe("Files API", () => {
       await writeFile(inProjectFile, "in-project raw notes");
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1056,7 +1056,7 @@ describe("Files API", () => {
       await writeFile(outsideFile, "outside raw notes");
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1071,7 +1071,7 @@ describe("Files API", () => {
 
     it("returns 400 for path traversal attempt", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1095,7 +1095,7 @@ describe("Files API", () => {
         await symlink(outsideFile, linkPath);
 
         const { app } = createApp({
-          sdk: mockSdk,
+          provider: mockSdk,
           projectsDir: join(testDir, "sessions"),
         });
 
@@ -1111,7 +1111,7 @@ describe("Files API", () => {
 
     it("returns 404 for non-existent file", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1161,7 +1161,7 @@ describe("Files API", () => {
       await writeFile(join(projectPath, filename), "test content");
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1191,7 +1191,7 @@ describe("Files API", () => {
       await writeFile(join(projectPath, filename), "test content");
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1221,7 +1221,7 @@ describe("Files API", () => {
           suffix;
         await writeFile(join(projectPath, `paper.${extension}`), content);
         const { app } = createApp({
-          sdk: mockSdk,
+          provider: mockSdk,
           projectsDir: join(testDir, "sessions"),
         });
 
@@ -1248,7 +1248,7 @@ describe("Files API", () => {
       await writeFile(path, "<!doctype html>");
       await truncate(path, 200 * 1024 * 1024 + 1);
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
       const res = await app.request(
@@ -1266,7 +1266,7 @@ describe("Files API", () => {
       await writeFile(join(projectPath, "large.txt"), largeContent);
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1287,7 +1287,7 @@ describe("Files API", () => {
       await truncate(path, 100 * 1024 * 1024 + 1);
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1309,7 +1309,7 @@ describe("Files API", () => {
       );
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1337,7 +1337,7 @@ describe("Files API", () => {
       await writeFile(join(projectPath, "large.ts"), lines.join("\n"));
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 
@@ -1366,7 +1366,7 @@ describe("Files API", () => {
       await writeFile(join(projectPath, "large.txt"), largeContent);
 
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: join(testDir, "sessions"),
       });
 

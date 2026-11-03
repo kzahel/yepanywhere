@@ -81,7 +81,6 @@ console.log('codex');console.log('OWNED_OSS_REPLY');
     vi.stubEnv("CODEX_HOME", home);
     vi.resetModules();
     const { createApp } = await import("../setup/create-app.js");
-    const { MockClaudeSDK } = await import("../../src/sdk/mock.js");
     const { CodexOSSProvider } = await import(
       "../../src/sdk/providers/codex-oss.js"
     );
@@ -264,7 +263,6 @@ console.log('codex');console.log('OWNED_OSS_REPLY');
       );
       const start = vi.spyOn(provider, "startSession");
       const options = {
-        sdk: new MockClaudeSDK(),
         provider,
         dataDir,
         sessionMetadataService: metadata,

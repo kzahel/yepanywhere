@@ -4,14 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../setup/create-app.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 
 describe("Projects API", () => {
-  let mockSdk: MockClaudeSDK;
+  let mockSdk: ScriptedClaudeProvider;
   let testDir: string;
 
   beforeEach(async () => {
-    mockSdk = new MockClaudeSDK();
+    mockSdk = new ScriptedClaudeProvider();
     // Create temp directory structure mimicking ~/.claude/projects/
     testDir = join(tmpdir(), `claude-test-${randomUUID()}`);
     await mkdir(join(testDir, "localhost"), { recursive: true });
@@ -31,7 +31,7 @@ describe("Projects API", () => {
 
   describe("GET /api/projects", () => {
     it("returns list of projects", async () => {
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       const res = await app.request("/api/projects");
       const json = await res.json();
@@ -43,7 +43,7 @@ describe("Projects API", () => {
 
     it("returns no scanned projects when projects directory is missing", async () => {
       const { app } = createApp({
-        sdk: mockSdk,
+        provider: mockSdk,
         projectsDir: "/nonexistent/path",
       });
 
@@ -62,7 +62,7 @@ describe("Projects API", () => {
     });
 
     it("discovers projects from directory structure", async () => {
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       const res = await app.request("/api/projects");
       const json = await res.json();
@@ -75,7 +75,7 @@ describe("Projects API", () => {
 
   describe("GET /api/projects/:projectId", () => {
     it("returns 404 for unknown project", async () => {
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       const res = await app.request("/api/projects/unknown-id");
 
@@ -87,7 +87,7 @@ describe("Projects API", () => {
 
   describe("GET /api/projects/:projectId/sessions", () => {
     it("returns 404 for unknown project", async () => {
-      const { app } = createApp({ sdk: mockSdk, projectsDir: testDir });
+      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       const res = await app.request("/api/projects/unknown-id/sessions");
 
