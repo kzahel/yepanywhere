@@ -320,12 +320,18 @@ describe("Project Queue attachments of limited users", () => {
         item: ProjectQueueItemSummary;
       };
       expect(item.createdByUser).toBe("alice");
-      // The draft became the item's, inside alice's own store.
-      expect(alice.getRecord(ref.id)?.owner).toEqual({
+      const queuedRefs = item.message.stagedAttachments!.refs;
+      expect(queuedRefs.map((file) => file.id)).not.toContain(ref.id);
+      expect(queuedRefs.map((file) => file.id)).not.toContain(second.id);
+      // Copies belong to the item in alice's store; pending draft refs survive.
+      expect(alice.getRecord(queuedRefs[0]!.id)?.owner).toEqual({
         type: "project-queue",
         queueItemId: item.id,
       });
-      await expect(alice.listDraftAttachments("batch-a")).resolves.toEqual([]);
+      for (const original of [ref, second])
+        await expect(
+          alice.validateDraftRefs(original.batchId, [original]),
+        ).resolves.toEqual([original]);
       expect(staging.getRecord(ref.id)).toBeNull();
 
       // A restart loads the persisted queue and each account's staging index.
@@ -366,12 +372,17 @@ describe("Project Queue attachments of limited users", () => {
         expect(promoted).toMatchObject({ promoted: true });
         expect(supervisor.acceptedInputs).toHaveLength(1);
         const [attachment] = supervisor.acceptedInputs[0]!.message.attachments!;
-        expect(attachment).toMatchObject({ id: ref.id, name: ref.name });
+        expect(attachment).toMatchObject({
+          id: queuedRefs[0]!.id,
+          name: queuedRefs[0]!.name,
+        });
         await expect(fs.readFile(attachment!.path, "utf-8")).resolves.toBe(
           "from alice",
         );
         const attachments = supervisor.acceptedInputs[0]!.message.attachments!;
-        expect(attachments.map((file) => file.id)).toEqual([ref.id, second.id]);
+        expect(attachments.map((file) => file.id)).toEqual(
+          queuedRefs.map((file) => file.id),
+        );
         expect(
           await Promise.all(
             attachments.map((file) => fs.readFile(file.path, "utf-8")),
@@ -386,6 +397,12 @@ describe("Project Queue attachments of limited users", () => {
               .sessionId as import("@yep-anywhere/shared").YaSessionId,
           )?.request?.attachments?.files,
         ).toHaveLength(2);
+        for (const original of [ref, second])
+          await expect(
+            staging
+              .forUser("alice")
+              .validateDraftRefs(original.batchId, [original]),
+          ).resolves.toEqual([original]);
         // Settling the item removes its staged copy from alice's store.
         await waitFor(async () => {
           expect(queue.listProject(projectId).items).toEqual([]);

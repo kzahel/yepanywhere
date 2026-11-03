@@ -3,6 +3,7 @@ import {
   subscribeDraftStorage,
   confirmSyncedDraft,
   confirmCapturedDraftSubmission,
+  cancelCapturedDraftSubmission,
   resumeSyncedDraft,
 } from "../lib/draftSyncStorage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -67,6 +68,7 @@ export interface DraftControls {
     text: string;
     draftText?: string;
     confirm: () => boolean;
+    /** Release this capture without restoring over newer input or storage. */
     cancel: () => void;
   };
   /** Restore from localStorage (call on failure) */
@@ -618,7 +620,11 @@ export function useDraftPersistence(
         return true;
       },
       cancel() {
-        resumeSyncedDraft(capturedKey);
+        cancelCapturedDraftSubmission({
+          key: capturedKey,
+          physicalKey,
+          raw: capturedValue,
+        });
       },
     };
   }, []);

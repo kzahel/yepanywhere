@@ -435,7 +435,7 @@ describe("ProjectQueueService", () => {
         second.batchId,
       ]);
       expect(createdRefs[0]?.id).not.toBe(first.ref.id);
-      expect(createdRefs[1]?.id).toBe(second.ref.id);
+      expect(createdRefs[1]?.id).not.toBe(second.ref.id);
       const updated = await service.updateItem(projectId, created.id, {
         message: {
           text: created.message.text,
@@ -477,7 +477,7 @@ describe("ProjectQueueService", () => {
       for (const ref of updatedRefs) {
         expect(stagingService.getRecord(ref.id)).toBeNull();
       }
-      for (const upload of [first, third]) {
+      for (const upload of [first, second, third]) {
         await expect(
           stagingService.validateDraftRefs(upload.batchId, [upload.ref]),
         ).resolves.toEqual([upload.ref]);

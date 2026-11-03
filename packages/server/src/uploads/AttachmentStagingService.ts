@@ -684,7 +684,10 @@ export class AttachmentStagingService {
         );
         const transferable: StagedAttachmentRecord[] = [];
         for (const record of records) {
-          if (!this.protectedDraft(record.id)) {
+          // Draft publication can still be in flight when enqueue arrives.
+          // A sync-enabled store must preserve even not-yet-protected refs;
+          // otherwise that write loses its source file before it can save.
+          if (!this.draftProtection) {
             transferable.push(record);
             continue;
           }
@@ -701,7 +704,7 @@ export class AttachmentStagingService {
           transferable.push(clone);
         }
         // Persist clones first: interruption leaves ordinary TTL-owned staging,
-        // while the original synced references remain valid.
+        // while the original draft references remain valid.
         await this.saveIndex();
         const originals: StagedAttachmentRecord[] = transferable.map(
           (record) => ({

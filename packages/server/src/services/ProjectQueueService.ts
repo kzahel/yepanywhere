@@ -1520,7 +1520,7 @@ export class ProjectQueueService {
       const preparedRefsById = new Map(
         validatedRetainedRefs.map((ref) => [ref.id, ref]),
       );
-      // Transfer preserves input order, but copies synced drafts with new IDs.
+      // Transfer preserves input order; sync-enabled stores copy with new IDs.
       // Resolve by the submitted ID and persist the returned queue-owned ref.
       for (const [index, requestedRef] of addedRefs.entries()) {
         const preparedRef = transferredAddedRefs[index];

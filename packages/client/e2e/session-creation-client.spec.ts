@@ -684,3 +684,329 @@ test("background lost acknowledgement reloads into explicit recovery without dup
     await f.dispose();
   }
 });
+
+async function queueDraftFixture(browser: Browser) {
+  const f = await fixture(browser);
+  try {
+    await f.context.addInitScript(() =>
+      localStorage.setItem(
+        "yep-anywhere-session-toolbar-presence",
+        JSON.stringify({ projectQueue: "pin" }),
+      ),
+    );
+    const blocker = await (
+      await f.owned.request(`/projects/${f.projectId}/session-creations`, {
+        requestId: "queue_draft_blocker",
+        provider: "codex",
+        model: "gpt-6.1-sol",
+        message: "OWNED_QUEUE_DRAFT_BLOCKER",
+      })
+    ).json();
+    await expect
+      .poll(
+        async () =>
+          (await f.owned.requests()).filter(
+            (request) => request.method === "turn/start",
+          ).length,
+      )
+      .toBe(1);
+    const page = await f.context.newPage();
+    const formUrl = `${f.origin}/new-session?projectId=${f.projectId}&provider=codex&model=gpt-6.1-sol`;
+    await page.goto(formUrl);
+    const input = page.locator("textarea.new-session-form-textarea");
+    const queue = page.locator("button.new-session-project-queue-button");
+    await expect(input).toBeEditable();
+    await expect(queue).toBeVisible();
+    return { ...f, page, input, queue, formUrl, blocker };
+  } catch (error) {
+    await f.dispose();
+    throw error;
+  }
+}
+const queueDraftFile = (name: string) => ({
+  name,
+  mimeType: "text/plain",
+  buffer: Buffer.from(`Owned ${name}`),
+});
+
+test("Project Queue acknowledges captured files and preserves typing during a delayed acceptance", async ({
+  browser,
+}) => {
+  const f = await queueDraftFixture(browser);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await f.input.pressSequentially("First queued request");
+    await f.page
+      .locator('input[type="file"]')
+      .setInputFiles(queueDraftFile("first.txt"));
+    await expect(f.queue).toBeEnabled();
+    await f.queue.click();
+    await expect(f.input).toHaveValue("");
+    await expect(
+      f.page.getByRole("button", { name: "Remove first.txt", exact: true }),
+    ).toHaveCount(0);
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await f.owned.request("/drafts/read", {
+                slot: { kind: "new-session" },
+              })
+            ).json()
+          ).snapshot.payload.fields.text ?? "",
+      )
+      .toBe("");
+    await f.page.reload();
+    await expect(f.input).toHaveValue("");
+    await expect(
+      f.page.getByRole("button", { name: "Remove first.txt", exact: true }),
+    ).toHaveCount(0);
+
+    await f.input.pressSequentially("Captured queue request");
+    await f.page
+      .locator('input[type="file"]')
+      .setInputFiles(queueDraftFile("captured.txt"));
+    await expect(f.queue).toBeEnabled();
+    let saved!: () => void;
+    const accepted = new Promise<void>((resolve) => {
+      saved = resolve;
+    });
+    let request!: {
+      message: {
+        text: string;
+        stagedAttachments: { refs: { originalName: string }[] };
+      };
+    };
+    await f.page.route(
+      `**/api/projects/${f.projectId}/queue`,
+      async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        request = route.request().postDataJSON();
+        const response = await route.fetch();
+        expect(response.status()).toBe(201);
+        saved();
+        await held;
+        await route.fulfill({ response });
+      },
+    );
+    await f.queue.click();
+    await accepted;
+    await expect(f.input).toBeEditable();
+    await f.page
+      .locator('input[type="file"]')
+      .setInputFiles(queueDraftFile("newer.txt"));
+    await expect(
+      f.page.getByText("newer.txt", { exact: true }).first(),
+    ).toBeVisible();
+    await f.input.evaluate((element) => {
+      const input = element as HTMLTextAreaElement & {
+        acks: { latency: number; value: string }[];
+      };
+      input.acks = [];
+      input.addEventListener("keydown", (event) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            input.acks.push({
+              latency: performance.now() - event.timeStamp,
+              value: input.value,
+            }),
+          ),
+        ),
+      );
+    });
+    let typed = "Captured queue request";
+    for (const [index, character] of [..." with newer work"].entries()) {
+      if (index === 3) release();
+      await Promise.all([
+        f.input.pressSequentially(character),
+        f.page.request
+          .put(`${f.origin}/api/sessions/${f.blocker.sessionId}/metadata`, {
+            data: { title: `Queue typing ${index}` },
+            headers: { "X-Yep-Anywhere": "true" },
+          })
+          .then((response) => expect(response.status()).toBe(200)),
+      ]);
+      typed += character;
+      await expect(f.input).toHaveValue(typed);
+      await expect
+        .poll(() =>
+          f.input.evaluate(
+            (element) =>
+              (
+                element as HTMLTextAreaElement & { acks: { value: string }[] }
+              ).acks.at(-1)?.value,
+          ),
+        )
+        .toBe(typed);
+    }
+    const acks = await f.input.evaluate(
+      (element) =>
+        (element as HTMLTextAreaElement & { acks: { latency: number }[] }).acks,
+    );
+    expect(acks).toHaveLength(" with newer work".length);
+    expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThanOrEqual(
+      100,
+    );
+    expect(request.message.text).toBe("Captured queue request");
+    expect(
+      request.message.stagedAttachments.refs.map((ref) => ref.originalName),
+    ).toEqual(["captured.txt"]);
+    await expect(f.queue).toBeEnabled();
+    await f.input.blur();
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await f.owned.request("/drafts/read", {
+                slot: { kind: "new-session" },
+              })
+            ).json()
+          ).snapshot.payload.fields.text,
+      )
+      .toBe(typed);
+    for (const [name, viewport] of [
+      ["desktop", { width: 1000, height: 600 }],
+      ["phone", { width: 375, height: 812 }],
+    ] as const) {
+      await f.page.setViewportSize(viewport);
+      await recordUiCapture(f.page, `queue-draft-newer-${name}`);
+    }
+    await f.page.reload();
+    await expect(f.input).toHaveValue(typed);
+    await expect(
+      f.page.getByRole("button", { name: "Remove newer.txt", exact: true }),
+    ).toBeVisible();
+    const collection = await (
+      await f.owned.request(`/projects/${f.projectId}/queue`)
+    ).json();
+    expect(collection.items).toHaveLength(2);
+  } finally {
+    release();
+    await f.dispose();
+  }
+});
+
+test("Project Queue acceptance preserves a sibling attachment-only edit across reload", async ({
+  browser,
+}) => {
+  const f = await queueDraftFixture(browser);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await f.input.pressSequentially("Sibling queue request");
+    await f.page
+      .locator('input[type="file"]')
+      .setInputFiles(queueDraftFile("submitted.txt"));
+    await expect(f.queue).toBeEnabled();
+    const sibling = await f.context.newPage();
+    await sibling.goto(f.formUrl);
+    const other = sibling.locator("textarea.new-session-form-textarea");
+    await expect(other).toHaveValue("Sibling queue request");
+    let saved!: () => void;
+    const accepted = new Promise<void>((resolve) => {
+      saved = resolve;
+    });
+    await f.page.route(
+      `**/api/projects/${f.projectId}/queue`,
+      async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        const response = await route.fetch();
+        expect(response.status()).toBe(201);
+        saved();
+        await held;
+        await route.fulfill({ response });
+      },
+    );
+    await f.queue.click();
+    await accepted;
+    await sibling.bringToFront();
+    await sibling
+      .locator('input[type="file"]')
+      .setInputFiles(queueDraftFile("sibling.txt"));
+    await expect(
+      sibling.getByRole("button", { name: "Remove sibling.txt", exact: true }),
+    ).toBeVisible();
+    release();
+    await expect(f.queue).toBeEnabled();
+    await sibling.reload();
+    await expect(other).toHaveValue("Sibling queue request");
+    await expect(
+      sibling.getByRole("button", { name: "Remove sibling.txt", exact: true }),
+    ).toBeVisible();
+    await f.page.reload();
+    await expect(f.input).toHaveValue("Sibling queue request");
+    await expect(
+      f.page.getByRole("button", { name: "Remove sibling.txt", exact: true }),
+    ).toBeVisible();
+  } finally {
+    release();
+    await f.dispose();
+  }
+});
+
+test("Project Queue refusal preserves captured input and newer sibling work for reload recovery", async ({
+  browser,
+}) => {
+  const f = await queueDraftFixture(browser);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await f.input.pressSequentially("Refused queue request");
+    await f.page
+      .locator('input[type="file"]')
+      .setInputFiles(queueDraftFile("recover.txt"));
+    await expect(f.queue).toBeEnabled();
+    let received!: () => void;
+    const sent = new Promise<void>((resolve) => {
+      received = resolve;
+    });
+    await f.page.route(
+      `**/api/projects/${f.projectId}/queue`,
+      async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        received();
+        await held;
+        await route.fulfill({
+          status: 503,
+          json: { error: "Owned enqueue refusal" },
+        });
+      },
+    );
+    await f.queue.click();
+    await sent;
+    const sibling = await f.context.newPage();
+    await sibling.goto(f.formUrl);
+    const other = sibling.locator("textarea.new-session-form-textarea");
+    await expect(other).toHaveValue("Refused queue request");
+    await other.pressSequentially(" with sibling recovery notes");
+    release();
+    await expect(f.queue).toBeEnabled();
+    await sibling.reload();
+    await expect(other).toHaveValue(
+      "Refused queue request with sibling recovery notes",
+    );
+    await expect(
+      sibling.getByRole("button", { name: "Remove recover.txt", exact: true }),
+    ).toBeVisible();
+    await f.page.reload();
+    await expect(f.input).toHaveValue(
+      "Refused queue request with sibling recovery notes",
+    );
+    const collection = await (
+      await f.owned.request(`/projects/${f.projectId}/queue`)
+    ).json();
+    expect(collection.items).toHaveLength(0);
+  } finally {
+    release();
+    await f.dispose();
+  }
+});

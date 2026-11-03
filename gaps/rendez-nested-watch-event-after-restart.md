@@ -239,3 +239,20 @@ the native watcher readiness/event-registration diagnosis above remains open.
 Logs are retained under ignored tasks/session-identity/queue-creation-reviewed-full-test.log
 and queue-creation-final-focused.log. No green aggregate is claimed for those
 runs, and no unrelated watcher repair is bundled into creation admission.
+
+
+2026-11-03: the Project Queue captured-draft slice's first full Node 22.23.3/
+macOS run again missed the second nested delivery at line 364 (observed 1,
+expected 2). The run also exposed four Queue tests still expecting original
+file moves; those expectations are updated separately for sync-enabled copies,
+without weakening their ownership/dispatch/restart assertions. Client tests
+passed 7,075 cases. Evidence: ignored
+`tasks/session-identity/queue-draft-tests.log` (146.39 seconds server).
+Watcher source, assertions and budgets are unchanged; this red run remains
+recorded and is not replaced by an isolated rerun.
+
+After Queue expectation updates and the review-driven draft cancellation/
+project-owner corrections, the final full run passed all 6,910 server cases
+(153.86 seconds) and 7,080 client cases. Evidence:
+`tasks/session-identity/queue-draft-tests-reviewed.log`. This later green run
+does not close the intermittent watcher defect or erase the first red result.

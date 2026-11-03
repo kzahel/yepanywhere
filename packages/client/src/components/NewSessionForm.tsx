@@ -2667,7 +2667,10 @@ export function NewSessionForm({
   ]);
 
   const resolveProjectIdForSubmission = useCallback(
-    async (trimmedProjectInput: string): Promise<string | null> => {
+    async (
+      trimmedProjectInput: string,
+      ownsSubmission: () => boolean = () => true,
+    ): Promise<string | null> => {
       // New project creates exactly one folder (the server refuses a
       // missing parent), with Git unless declined, and adds an existing
       // folder as it is.
@@ -2677,6 +2680,7 @@ export function NewSessionForm({
           name: newProjectSubmission.name,
           ...(projectCreationGitChoice ? { gitInit: newProjectGitInit } : {}),
         });
+        if (!ownsSubmission()) return null;
         const createdId = added.project.id ?? null;
         if (!createdId) return null;
         const path = added.project.path ?? newProjectSubmission.path;
@@ -2714,6 +2718,7 @@ export function NewSessionForm({
               name: target.name,
             })
           : await api.addProject(target.path);
+        if (!ownsSubmission()) return null;
         resolvedProjectId = addProjectResult.project.id ?? null;
         if (!resolvedProjectId) return null;
         if (newFolder) {
@@ -3459,10 +3464,11 @@ export function NewSessionForm({
       ? prependSpeechMessagePrefix(rawTrimmedMessage, deliverySpeechPrefix)
       : rawTrimmedMessage;
     const trimmedProjectInput = normalizeProjectInput(projectInput);
-    const stagedRefs = pendingFiles
+    const submissionFiles = pendingFilesRef.current;
+    const stagedRefs = submissionFiles
       .filter(isPendingStagedFile)
       .map(toPersistedStagedAttachmentRef);
-    const canQueueAttachments = stagedRefs.length === pendingFiles.length;
+    const canQueueAttachments = stagedRefs.length === submissionFiles.length;
     if (
       !trimmedMessage ||
       !canQueueAttachments ||
@@ -3474,6 +3480,17 @@ export function NewSessionForm({
       return;
     }
 
+    // Final speech can differ from the visible snapshot selected by the manual
+    // Queue action. That newer draft was not submitted and must stay intact.
+    const capturedSubmission =
+      draftControls.getDraft().trimEnd() === finalMessage
+        ? draftControls.captureSubmission?.()
+        : undefined;
+    const submittedFileIds = new Set(submissionFiles.map((file) => file.id));
+    const stillOwnsForm = () =>
+      creationViewOwner.current.active &&
+      creationViewOwner.current.sourceKey === clientSummarySourceKey &&
+      creationViewOwner.current.accountKey === principal.username;
     consumeSpeechAttribution();
 
     const actionAtMs = Date.now();
@@ -3489,11 +3506,14 @@ export function NewSessionForm({
       : undefined;
 
     setInterimTranscript("");
+    setAcceptingText(true);
     setIsStarting(true);
 
     try {
-      const resolvedProjectId =
-        await resolveProjectIdForSubmission(trimmedProjectInput);
+      const resolvedProjectId = await resolveProjectIdForSubmission(
+        trimmedProjectInput,
+        stillOwnsForm,
+      );
       if (!resolvedProjectId) {
         throw new Error(t("projectQueueNewSessionNeedsProject"));
       }
@@ -3525,6 +3545,7 @@ export function NewSessionForm({
       ).find((tier) => tier.id === selectedServiceTier)?.id;
       const showThinking = getShowThinkingSetting();
 
+      if (!stillOwnsForm()) return;
       const response = await api.createProjectQueueItem(resolvedProjectId, {
         target: {
           type: "new-session",
@@ -3564,6 +3585,7 @@ export function NewSessionForm({
           client: "new-session",
         },
       });
+      if (!stillOwnsForm()) return;
       sourceSummary.reportProjectQueueCollectionSnapshot(response.queue);
 
       logSessionUiTrace("new-session-project-queued", {
@@ -3580,19 +3602,23 @@ export function NewSessionForm({
         attachmentCount: stagedRefs.length,
         uploadWaitMs: Date.now() - actionAtMs,
       });
-      setPendingFiles([], {
-        persistDraft: false,
-        revokeRemovedPreviewUrls: true,
-      });
-      draftControls.clearDraft();
-      setIsStarting(false);
+      if (capturedSubmission?.confirm())
+        setPendingFiles(
+          (current) => current.filter((file) => !submittedFileIds.has(file.id)),
+          { persistDraft: false, revokeRemovedPreviewUrls: true },
+        );
       showToast(t("projectQueueNewSessionQueuedToast"), "success");
     } catch (err) {
+      if (!stillOwnsForm()) return;
       console.error("Failed to queue project session:", err);
-      draftControls.restoreFromStorage();
-      setIsStarting(false);
+      capturedSubmission?.cancel();
       const errorMsg = err instanceof Error ? err.message : String(err);
       showToast(t("projectQueueSubmitFailed", { message: errorMsg }), "error");
+    } finally {
+      if (creationViewOwner.current.active) {
+        setIsStarting(false);
+        setAcceptingText(false);
+      }
     }
   };
 
@@ -3906,10 +3932,13 @@ export function NewSessionForm({
           onSpeechTargetChanged: () =>
             setSpeechPreviewRevision((revision) => revision + 1),
           onSmartTurnSend: (text) => {
-            // A deliberate background submission already owns the captured
-            // draft. Let finalization settle it instead of starting a second,
+            // A deliberate background/Queue action already owns delivery.
+            // Let finalization settle it instead of starting a second,
             // foreground submission from the transcription's spoken command.
-            if (pendingSpeechDeliveryRef.current?.kind === "background")
+            if (
+              pendingSpeechDeliveryRef.current?.kind === "background" ||
+              pendingSpeechDeliveryRef.current?.kind === "project-queue"
+            )
               return false;
             voiceButtonRef.current?.continueAfterSpeechSend();
             void handleStartSession(text, true);

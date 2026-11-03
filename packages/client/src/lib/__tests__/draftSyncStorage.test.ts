@@ -1124,6 +1124,112 @@ describe("local-first snapshot synchronization", () => {
     expect(localStorage.getItem(physicalKey)).toBe(newer);
   });
 
+  it.each(["local", "held sibling"])(
+    "cancels a captured refusal without replacing newer %s text or files",
+    async (edit) => {
+      setDraftAccount("local", "alice");
+      const s = server("alice");
+      const owner = new DraftSyncClient("local", "alice", s.transport);
+      clients.push(owner);
+      const physicalKey = draftStorage.physicalKey(key);
+      const sent = JSON.stringify({
+        version: 1,
+        text: "Submitted",
+        pendingSendAt: Date.now(),
+      });
+      localStorage.setItem(physicalKey, sent);
+      owner.edit(key, sent);
+      const entry = owner.register(key)!;
+      await entry.submissionTask;
+      const newer = JSON.stringify({
+        version: 1,
+        text: "Submitted with newer work",
+        attachments: {
+          batchId: "new-batch",
+          updatedAt: "2026-11-03T00:00:00Z",
+          refs: [
+            {
+              id: "new-file",
+              batchId: "new-batch",
+              originalName: "new.txt",
+              name: "new-file_new.txt",
+              size: 3,
+              mimeType: "text/plain",
+              createdAt: "2026-11-03T00:00:00Z",
+              updatedAt: "2026-11-03T00:00:00Z",
+            },
+          ],
+        },
+      });
+      localStorage.setItem(physicalKey, newer);
+      if (edit === "local") owner.edit(key, newer);
+      // In the sibling case its storage event has deliberately not arrived.
+      owner.cancelCapturedSubmission({ key, physicalKey, raw: sent });
+      expect(localStorage.getItem(physicalKey)).toBe(newer);
+      expect(entry.saved.raw).toBe(newer);
+      expect(entry.saved.submitted).toBeUndefined();
+      expect(
+        draftPayloadFromStorage(entry.address, entry.saved.recovery ?? null)
+          .fields.text,
+      ).toBe("Submitted");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(localStorage.getItem(physicalKey)).toBe(newer);
+      owner.stop();
+      const reopened = new DraftSyncClient("local", "alice", s.transport);
+      clients.push(reopened);
+      expect(reopened.register(key)!.saved.raw).toBe(newer);
+      expect(reopened.register(key)!.needsRecovery).toBe(false);
+    },
+  );
+
+  it("keeps newer in-memory input when cancellation follows a failed local write", async () => {
+    const owner = client(server());
+    const physicalKey = draftStorage.physicalKey(key);
+    const sent = JSON.stringify({
+      version: 1,
+      text: "Submitted",
+      pendingSendAt: Date.now(),
+    });
+    localStorage.setItem(physicalKey, sent);
+    owner.edit(key, sent);
+    const entry = owner.register(key)!;
+    await entry.submissionTask;
+    owner.edit(key, raw("Newer text that could not be stored"));
+    owner.localFailure(key);
+    owner.cancelCapturedSubmission({ key, physicalKey, raw: sent });
+    expect(entry.saved.raw).toBe(raw("Newer text that could not be stored"));
+    expect(localStorage.getItem(physicalKey)).toBe(sent);
+    expect(entry.error).toBe("local");
+    expect(entry.saved.submitted).toBeUndefined();
+  });
+
+  it("does not cancel a captured draft in a replacement account", async () => {
+    setDraftAccount("local", "alice");
+    const owner = new DraftSyncClient(
+      "local",
+      "alice",
+      server("alice").transport,
+    );
+    clients.push(owner);
+    const physicalKey = draftStorage.physicalKey(key);
+    const sent = JSON.stringify({
+      version: 1,
+      text: "Alice submitted",
+      pendingSendAt: Date.now(),
+    });
+    localStorage.setItem(physicalKey, sent);
+    owner.edit(key, sent);
+    const entry = owner.register(key)!;
+    await entry.submissionTask;
+    setDraftAccount("local", "bob");
+    const replacement = draftStorage.physicalKey(key);
+    localStorage.setItem(replacement, raw("Bob's newer draft"));
+    owner.cancelCapturedSubmission({ key, physicalKey, raw: sent });
+    expect(localStorage.getItem(physicalKey)).toBe(sent);
+    expect(localStorage.getItem(replacement)).toBe(raw("Bob's newer draft"));
+    expect(entry.saved.submitted).toBeDefined();
+  });
+
   it("never restores a typed prefix from a read older than the sent draft", async () => {
     const s = server(),
       typing = client(s),

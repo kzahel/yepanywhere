@@ -219,6 +219,17 @@ copy alongside any newer text. A crash during an unresolved send requires
 explicit recovery rather than treating the submitted text as a fresh unsent
 edit automatically.
 
+The dedicated New Session Project Queue action uses this captured confirmation
+for text and staged files. Accepted queued work removes only its submitted
+selection; newer edits and uploads survive. Captured cancellation checks the
+account/slot and latest physical storage before releasing the submission. It
+preserves current text/files exactly and keeps a differing submitted copy in
+separate recovery metadata; it does not merge that copy into the live editor.
+Queue ownership copies files even
+before their first draft write completes, so publication and conditional clear
+remain valid without making enqueue wait for synchronization. See
+[Project Queue](project-queue.md#draft-acknowledgement).
+
 Approval/question clearing and async-answer completion use their existing
 accepted-action boundaries. File-comment fields disappear only when their
 existing successful submission/removal updates the persisted comment set.

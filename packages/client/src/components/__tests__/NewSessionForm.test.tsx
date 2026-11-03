@@ -3535,7 +3535,6 @@ describe("NewSessionForm", () => {
     );
     expect(mockCreateSession).not.toHaveBeenCalled();
     expect(mockQueueMessage).not.toHaveBeenCalled();
-    expect(draftAttachmentState.value).toBe(null);
   });
 
   it("shows the new-session Project Queue action from project blocking counts", () => {
@@ -4697,6 +4696,129 @@ describe("NewSessionForm", () => {
       "newer dictated notes",
     );
   });
+
+  it("keeps a manual Project Queue speech snapshot without clearing different final wording", async () => {
+    toolbarVisibilityState.projectQueue = true;
+    inboxState.active = [{ sessionId: "active", projectId: "project-1" }];
+    serverSettingsState.isLoading = false;
+    versionState.version = {
+      capabilities: [
+        PROJECT_QUEUE_CAPABILITY,
+        SERVER_CAPABILITIES.sessionCreationAdmission.name,
+      ],
+    };
+    localStorage.setItem(UI_KEYS.speechAsrAttributionMs, "500");
+    render(
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />,
+    );
+    const input = screen.getByPlaceholderText("newSessionPlaceholder");
+    fireEvent.change(input, { target: { value: "Captured queue speech" } });
+    act(() => {
+      voicePropsState.current?.onPendingSpeechChange?.("transcribing");
+      voicePropsState.current?.onInterimTranscript?.("provisional words");
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /toolbarProjectQueueLabel/ }),
+    );
+    expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
+    act(() =>
+      voicePropsState.current?.onTranscript?.("different final words", {
+        smartTurnCommand: "send",
+      }),
+    );
+    expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
+    expect(mockConnectionFetch).not.toHaveBeenCalled();
+    expect(mockStartSession).not.toHaveBeenCalled();
+    act(() =>
+      voicePropsState.current?.onPendingSpeechChange?.(null, "completed"),
+    );
+    await waitFor(() =>
+      expect(mockCreateProjectQueueItem).toHaveBeenCalledOnce(),
+    );
+    const queued = mockCreateProjectQueueItem.mock.calls[0]?.[1].message.text;
+    expect(queued).toContain("Captured queue speech");
+    expect(queued).toContain("provisional words");
+    expect(queued).not.toContain("different final words");
+    expect((input as HTMLTextAreaElement).value).toContain(
+      "different final words",
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockConnectionFetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["unmount", "account replacement"])(
+    "fences delayed Queue project resolution after %s",
+    async (retirement) => {
+      toolbarVisibilityState.projectQueue = true;
+      inboxState.active = [{ sessionId: "active", projectId: "project-1" }];
+      serverSettingsState.isLoading = false;
+      let finish!: (result: unknown) => void;
+      mockAddProject.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const onProjectChange = vi.fn();
+      const form = () => (
+        <NewSessionForm
+          projectId="project-1"
+          selectedProject={chooserProjects[0]}
+          projects={[...chooserProjects]}
+          onProjectChange={onProjectChange}
+        />
+      );
+      const view = render(form());
+      const input = screen.getByPlaceholderText("newSessionPlaceholder");
+      fireEvent.change(input, { target: { value: "Queue this after speech" } });
+      act(() =>
+        voicePropsState.current?.onPendingSpeechChange?.("transcribing"),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: /toolbarProjectQueueLabel/ }),
+      );
+      fireEvent.change(
+        screen.getByPlaceholderText("newSessionProjectPathPlaceholder"),
+        { target: { value: "/work/queue-after-speech" } },
+      );
+      act(() => {
+        voicePropsState.current?.onTranscript?.("final words");
+        voicePropsState.current?.onPendingSpeechChange?.(null, "completed");
+      });
+      await waitFor(() => expect(mockAddProject).toHaveBeenCalledOnce());
+      mockShowToast.mockClear();
+      onProjectChange.mockClear();
+      if (retirement === "unmount") view.unmount();
+      else {
+        actingPrincipalState.principal = {
+          ...actingPrincipalState.principal,
+          username: "replacement",
+        };
+        view.rerender(form());
+      }
+      await act(async () =>
+        finish({
+          project: { id: "created-late", path: "/work/queue-after-speech" },
+          created: true,
+        }),
+      );
+      expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
+      expect(onProjectChange).not.toHaveBeenCalled();
+      expect(mockShowToast).not.toHaveBeenCalled();
+      if (retirement !== "unmount")
+        expect(
+          (
+            screen.getByRole("button", {
+              name: /newSessionCreateAndStartAction/,
+            }) as HTMLButtonElement
+          ).disabled,
+        ).toBe(false);
+    },
+  );
 
   it("keeps the real new-session textarea editable while transcribing", async () => {
     render(

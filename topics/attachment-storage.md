@@ -46,7 +46,9 @@ items keep their staged attachments in the queuing account's store
 On servers advertising `draft-sync-v1`, completed staging references follow
 [draft synchronization](draft-synchronization.md). Current synced references and
 their seven-day release grace protect originals from deletion and staging TTL.
-Queue transfer copies protected originals; a draft may reference several batches
+Queue transfer copies originals whenever draft synchronization is initialized,
+including a reference whose draft publication is still in flight; unpublished
+originals keep the normal staging TTL. A draft may reference several batches
 owned by the same account. Upload progress and unfinished bytes remain local to
 the uploading device.
 

@@ -394,6 +394,15 @@ export function confirmCapturedDraftSubmission(
   draftStorage.removeItem(captured.key);
   return true;
 }
+
+/** Release a failed capture without restoring over the live or sibling draft. */
+export function cancelCapturedDraftSubmission(
+  captured: CapturedDraftSubmission,
+): void {
+  if (draftStorage.physicalKey(captured.key) !== captured.physicalKey) return;
+  const address = draftAddress(captured.key);
+  if (address) clients.get(address.source)?.cancelCapturedSubmission(captured);
+}
 /**
  * The tab holding the window focus claims it in the storage its siblings
  * share, so a background tab can tell that someone may be typing there.
@@ -1385,6 +1394,43 @@ export class DraftSyncClient {
       if (this.started) this.release(key);
     }
   }
+  cancelCapturedSubmission(captured: CapturedDraftSubmission): void {
+    const e = this.entries.get(captured.key);
+    const submitted = e?.saved.submitted;
+    if (
+      this.stopped ||
+      !e ||
+      !submitted ||
+      physical(e.key, e.address) !== captured.physicalKey ||
+      !draftPayloadEqual(submitted.payload, payload(e.address, captured.raw))
+    )
+      return;
+    // Physical storage may already hold a sibling edit whose event is queued.
+    // Adoption never writes its body, unlike restoring/merging resume().
+    let latest = e.saved.raw;
+    if (e.error !== "local") {
+      try {
+        latest = localStorage.getItem(captured.physicalKey);
+      } catch {
+        e.error = "local";
+      }
+    }
+    if (latest !== e.saved.raw)
+      this.storage({ key: captured.physicalKey, newValue: latest });
+    const recovery = draftPayloadEqual(
+      payload(e.address, latest),
+      submitted.payload,
+    )
+      ? e.saved.recovery
+      : encode(e.address, submitted.payload, null);
+    // Invalidate in-flight submission work; retain its immutable retry receipt.
+    e.saved = { ...e.saved, raw: latest, recovery, submitted: undefined };
+    e.needsRecovery = false;
+    this.persist(e);
+    this.schedule(e, 0);
+    status();
+  }
+
   resume(key: string): void {
     const e = this.entries.get(key);
     if (e) {

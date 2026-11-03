@@ -112,6 +112,33 @@ describe("AttachmentStagingService", () => {
     ).rejects.toThrow("Invalid staging batch id");
   });
 
+  it("keeps not-yet-published sync drafts valid after queue ownership and cancellation", async () => {
+    const service = new AttachmentStagingService({ stagingRoot });
+    service.setDraftProtection(() => false);
+    const { batchId, ref } = await completeDraftUpload(
+      service,
+      Buffer.from("pending draft publication"),
+    );
+    const queued = await service.transferDraftAttachmentsToQueue({
+      batchId,
+      queueItemId: "fast-enqueue",
+      refs: [ref],
+    });
+    expect(queued[0]?.id).not.toBe(ref.id);
+    // The delayed draft write still presents the original reference.
+    expect(await service.validateDraftRefs(batchId, [ref])).toEqual([ref]);
+    const queueRecord = service.getRecord(queued[0]!.id);
+    expect(await readFile(queueRecord!.path, "utf8")).toBe(
+      "pending draft publication",
+    );
+    await service.deleteQueueAttachments("fast-enqueue");
+    const reopened = new AttachmentStagingService({ stagingRoot });
+    expect(await reopened.validateDraftRefs(batchId, [ref])).toEqual([ref]);
+    expect(await readFile(reopened.getRecord(ref.id)!.path, "utf8")).toBe(
+      "pending draft publication",
+    );
+  });
+
   it("isolates account drafts across validation, deletion, materialization and restart", async () => {
     const service = new AttachmentStagingService({ stagingRoot });
     const archer = service.forUser("archer");

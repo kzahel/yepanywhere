@@ -618,6 +618,17 @@ The latest confirmation opens the saved session for startup status. It adds no
 provider lifecycle or status polling path. Focused Claude/Codex qualification,
 desktop/phone captures and one Sol review are recorded in plan 171.
 
+The New Session Project Queue action now uses captured draft acknowledgement: acceptance preserves newer text/files and
+refusal keeps recovery data. Sync-enabled staging also preserves originals
+while their first draft save races enqueue. The remaining
+[older-server/custom-launch/template clears](../../gaps/new-session-draft-clear-captures-after-submission.md)
+stay explicit follow-ups; queue dispatch and enqueue receipt protocols are
+unchanged. One Sol review's cancellation and delayed-project-publication
+findings are corrected, with physical sibling-storage and departed-owner
+regressions. Owned browser typing, attachment/reload/refusal checks and final
+workspace gates pass; the earlier known Rendez watcher failure remains recorded
+in its gap.
+
 Current consolidation status (November 3): all production native creation
 callers now share permanent-public-ID admission, including restricted starts,
 legacy initial inputs, forks/clones and template preparation. Duplicate

@@ -591,6 +591,33 @@ not support rewind, a turn still running, a turn number that is gone — fails
 the item with that message and keeps the command text for Retry, like any
 other dispatch failure.
 
+## Draft acknowledgement
+
+The dedicated New Session form captures the exact draft and staged-file
+selection before project resolution or enqueue. Typing stays available while
+the request waits. Acceptance conditionally confirms that captured draft; it
+never clears a newer local, sibling-tab or remote revision. Only submitted file
+IDs are removed when that confirmation clears the captured input; a newer
+upload still in flight survives. A rejected enqueue conditionally cancels the
+account/slot-bound capture, adopts any newer physical sibling value, and leaves
+the current text/files exact. A differing submitted copy is retained separately
+as recovery metadata, rather than prepended to the newer editor. Reload
+preserves the newer
+local draft, and the usual independent synchronization continues.
+
+Source/account retirement prevents a pending form reply or delayed project
+resolution from clearing or publishing into its replacement. A manual Project
+Queue action awaiting speech
+settlement also retains its delivery intent when final speech contains a send
+command. If final wording differs from the manually selected visible snapshot,
+that unsent wording is retained instead of acknowledged as submitted.
+
+The enqueue payload, acceptance boundary and capability checks are unchanged.
+This does not introduce a durable browser enqueue receipt or make a lost reply
+safe to repeat blindly; inspect the server-owned queue before repeating an
+unconfirmed enqueue. Older-server creation fallback and template/handoff draft
+acknowledgement retain their separately tracked boundaries.
+
 ## Attachments
 
 Existing-session Project Queue items may contain already uploaded attachment
@@ -618,8 +645,10 @@ of its files. The draft and successful uploads remain available for recovery;
 the failed file must be attached again. The collector carries those successful
 results through the direct-send, deferred-send and Project Queue error paths.
 
-Attachments protected by a synced draft are copied into queue ownership on
-create or edit. The queue stores the copies' canonical references in the
+When draft synchronization is initialized, draft attachments are copied into
+queue ownership on create or edit, including references whose first draft save
+is still in flight. Enqueue must not move an original out from under that save.
+The queue stores the copies' canonical references in the
 submitted order, including when mixed with retained or unsynced attachments.
 Reload, promotion and cancellation use those references; cancelling an item
 or rolling back a failed save leaves the synced originals usable.
