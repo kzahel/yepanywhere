@@ -502,31 +502,6 @@ describe("SessionMetadataService", () => {
     });
   });
 
-  describe("session ID remapping", () => {
-    it("moves provisional metadata and redirects late writes", async () => {
-      await service.initialize();
-      await service.setProvider("temporary-session", "claude-gateway");
-
-      await service.remapSessionId("temporary-session", "canonical-session");
-      await service.setRequestedModel("temporary-session", "gpt-5.6-terra");
-
-      expect(service.getMetadata("canonical-session")).toEqual({
-        provider: "claude-gateway",
-        requestedModel: "gpt-5.6-terra",
-      });
-      expect(service.getMetadata("temporary-session")).toEqual({
-        provider: "claude-gateway",
-        requestedModel: "gpt-5.6-terra",
-      });
-      expect(service.getAllMetadata()).toEqual({
-        "canonical-session": {
-          provider: "claude-gateway",
-          requestedModel: "gpt-5.6-terra",
-        },
-      });
-    });
-  });
-
   describe("provider persistence", () => {
     it("does not save when the provider is already current", async () => {
       await service.initialize();

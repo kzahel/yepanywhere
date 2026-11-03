@@ -1,3 +1,4 @@
+import { seedHistoricalReceiptAlias } from "../support/legacy-session-aliases.js";
 import { expect, it, vi } from "vitest";
 import { openSqliteOrThrow } from "../../src/storage/sqlite.js";
 import { migrateDiscoveryDatabase } from "../../src/storage/discovery-sqlite.js";
@@ -234,7 +235,7 @@ it("replays after target alias changes without repeating input and publishes com
     const first = f.commands.send(session, input, launch);
     const initial = await f.commands.follow(first.id, {});
     const waiting = f.commands.follow(first.id, { after: initial.cursor });
-    f.store.remap("target", "canonical-target");
+    seedHistoricalReceiptAlias(f.store, "target", "canonical-target");
     expect(await waiting).toMatchObject({
       changed: true,
       receipt: { sessionId: "canonical-target" },

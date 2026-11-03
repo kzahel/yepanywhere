@@ -375,15 +375,22 @@ it("refuses missing enqueue provenance and failed metadata persistence before an
   );
   for (const createOnly of [false, true]) {
     const pending = createOnly
-      ? f.supervisor.createSession(f.projectPath, undefined, undefined, {
-          creation: {
-            context: {
-              owner: { kind: "superuser" },
-              source: { kind: "request", provenance: { surface: "api" } },
+      ? f.supervisor.startSession(
+          f.projectPath,
+          { text: "" },
+          undefined,
+          undefined,
+          {
+            creation: {
+              intent: "prepare",
+              context: {
+                owner: { kind: "superuser" },
+                source: { kind: "request", provenance: { surface: "api" } },
+              },
+              authorize: async () => {},
             },
-            authorize: async () => {},
           },
-        })
+        )
       : f.supervisor.startSession(
           f.projectPath,
           { text: "must not launch" },

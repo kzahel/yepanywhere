@@ -428,26 +428,34 @@ describe.skipIf(process.platform === "win32")(
           .every((r) => r.body.thinking === "on:max"),
       ).toBe(true);
     });
-    it("persists before prepare, recovers response loss, remaps identity and resumes the exact token", async () => {
+    it("persists before prepare, recovers response loss and resumes the exact token", async () => {
       const f = await fixture();
       await f.connector.connect(f.socketPath);
       f.loseCommit();
       await expect(
-        f.connector.launch("provisional", "codex", "fixture-model", "account"),
+        f.connector.launch(
+          "public-session",
+          "codex",
+          "fixture-model",
+          "account",
+        ),
       ).rejects.toThrow();
-      const ref = f.metadata.getMetadata("provisional")?.routerBinding;
+      const ref = f.metadata.getMetadata("public-session")?.routerBinding;
       expect(ref?.accountId).toBe("account");
       const first = await f.connector.launch(
-        "provisional",
+        "public-session",
         "codex",
         "fixture-model",
         "account",
       );
-      await f.metadata.remapSessionId("provisional", "canonical");
       const freshMetadata = createTestSessionMetadataService(f.root);
       await freshMetadata.initialize();
       const fresh = new AgentAuthRouter(f.root, freshMetadata);
-      const resumed = await fresh.launch("canonical", "codex", "fixture-model");
+      const resumed = await fresh.launch(
+        "public-session",
+        "codex",
+        "fixture-model",
+      );
       expect(resumed).toEqual(first);
       const prepares = f.requests.filter((r) => r.path.endsWith("prepare"));
       expect(new Set(prepares.map((r) => r.body.id)).size).toBe(1);
@@ -463,11 +471,11 @@ describe.skipIf(process.platform === "win32")(
       expect(persistedMetadata).toContain('"accountId":"account"');
       expect(persistedMetadata).not.toContain(first!.token);
       await expect(
-        fresh.launch("canonical", "codex", "fixture-model", "different"),
+        fresh.launch("public-session", "codex", "fixture-model", "different"),
       ).rejects.toThrow("pin cannot change");
       await fresh.disconnect();
       await expect(
-        fresh.launch("canonical", "codex", "fixture-model"),
+        fresh.launch("public-session", "codex", "fixture-model"),
       ).rejects.toThrow("Connect");
     });
     it("durably retries failed launch cancellation before further allocation", async () => {

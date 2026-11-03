@@ -62,16 +62,3 @@ it("keeps a newer delivery pending when an older turn is visited or replayed", a
   await service.recordNonHumanUserTurn("receiver", first);
   expect(service.getPendingNonHumanUserTurn("receiver")).toEqual(second);
 });
-
-it("carries pending delivery state through canonical session-id remapping", async () => {
-  const turn = {
-    messageId: "first",
-    timestamp: "2026-09-14T12:00:00.000Z",
-    sourceSessionId: "sender",
-  };
-  await service.recordNonHumanUserTurn("provisional", turn);
-  await service.remapSessionId("provisional", "canonical");
-  expect(service.getPendingNonHumanUserTurn("canonical")).toEqual(turn);
-  await service.acknowledgeNonHumanUserTurn("provisional", turn.messageId);
-  expect(service.getPendingNonHumanUserTurn("canonical")).toBeUndefined();
-});

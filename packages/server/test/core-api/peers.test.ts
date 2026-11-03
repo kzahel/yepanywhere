@@ -1,3 +1,7 @@
+import {
+  seedHistoricalReceiptAlias,
+  seedHistoricalOutboundAlias,
+} from "../support/legacy-session-aliases.js";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { Hono } from "hono";
@@ -281,7 +285,7 @@ it("creates, messages and follows across real v0 authentication, with separate d
       ).json()
     ).initiated,
   ).toEqual([]);
-  b.receipts.remap("parent", "local-renamed");
+  seedHistoricalReceiptAlias(b.receipts, "parent", "local-renamed");
   expect(b.receipts.get(first.id)?.creator.sessionId).toBe("parent");
   expect(
     (await (await a.app.request("/v0/servers/B/projects")).json()).items.map(
@@ -372,7 +376,7 @@ it("persists uncertain intent before sending, recovers a lost response with one 
   expect((await post(a, "/v0/servers/B/sessions")).status).toBe(503);
   await b.commands.idle();
   expect(a.outbound.list("parent", 0, 10).items[0]?.state).toBe("uncertain");
-  a.outbound.remap("parent", "canonical");
+  seedHistoricalOutboundAlias(a.outbound, "parent", "canonical");
   a.launch({
     id: "canonical",
     launchId: "new-launch",
@@ -542,7 +546,7 @@ it("checks a receipt's current session project and outgoing revocation before re
     requestId: "source-revoke-001",
   });
   await ready;
-  a.outbound.remap("parent", "canonical-parent");
+  seedHistoricalOutboundAlias(a.outbound, "parent", "canonical-parent");
   a.router.revoke("B");
   release();
   expect((await pending).status).toBe(403);
@@ -593,7 +597,7 @@ it("authorizes conflicting receipts before disclosing mismatch and accepts targe
   expect(
     (await post(a, "/v0/servers/B/sessions/parent/messages", input)).status,
   ).toBe(202);
-  b.receipts.remap("parent", "canonical-target");
+  seedHistoricalReceiptAlias(b.receipts, "parent", "canonical-target");
   b.sessions.find((s) => s.id === "parent")!.id = "canonical-target";
   const retry = await post(a, "/v0/servers/B/sessions/parent/messages", input);
   expect(retry.status).toBe(202);

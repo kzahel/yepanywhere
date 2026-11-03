@@ -2,6 +2,10 @@
 
 import { rmSync } from "node:fs";
 import { createServer } from "node:net";
+import {
+  parseCreationRuntimeIdentity,
+  sameCreationRuntimeIdentity,
+} from "../../packages/server/src/sdk/providers/creation-runtime-record.mjs";
 import { appendSimulatedTranscriptTurn } from "./simulated-transcript.mjs";
 
 const socketPath = process.env.YEP_PROVIDER_WORKER_SOCKET;
@@ -27,6 +31,12 @@ const streamDelayMs = parseNonnegativeInteger(
   "YEP_PERF_SIM_STREAM_DELAY_MS",
 );
 
+// Negotiate before launch stdin: the host sends managed identities only after hello.
+process.send?.({
+  type: "launchHello",
+  protocolVersion: 1,
+  features: ["session-creation-owner-v1"],
+});
 let launchInput = "";
 for await (const chunk of process.stdin) launchInput += chunk;
 const launchRequest = JSON.parse(launchInput);
@@ -34,8 +44,27 @@ if (launchRequest.providerName !== "claude") {
   throw new Error("simulated provider worker only supports claude");
 }
 
+const creation =
+  launchRequest.creation === undefined
+    ? undefined
+    : parseCreationRuntimeIdentity(launchRequest.creation);
+const protocolVersion = creation ? 2 : 1;
 const sessionId =
-  launchRequest.options?.resumeSessionId ?? `perf-sim-${runtimeId}`;
+  launchRequest.options?.resumeSessionId ??
+  launchRequest.options?.newSessionId ??
+  `perf-sim-${runtimeId}`;
+if (
+  creation &&
+  (creation.nativeNamespace.family !== "claude" ||
+    creation.nativeSessionId !== sessionId ||
+    launchRequest.options?.resumeSessionId)
+)
+  throw new Error("Simulated creation identity mismatch");
+let initialInputConsumed = false;
+const creationEvidence = () =>
+  creation
+    ? { identity: creation, nativeSessionId: sessionId, initialInputConsumed }
+    : undefined;
 const sockets = new Set();
 const bufferedEvents = [];
 let attachedSocket = null;
@@ -117,6 +146,12 @@ function delay(ms) {
 }
 
 async function emitTurn(message) {
+  if (creation && message?.uuid === creation.initialInputId) {
+    initialInputConsumed = true;
+    const evidence = { type: "creationEvidence", creation: creationEvidence() };
+    process.send?.(evidence);
+    write(attachedSocket, evidence);
+  }
   streaming = true;
   queueDepth = 1;
   write(attachedSocket, { type: "queueDepth", depth: queueDepth });
@@ -247,7 +282,14 @@ async function call(method, args) {
       if (typeof publishedSessionId !== "string" || !publishedSessionId) {
         throw new Error("publishAgentctlSessionId requires a session id");
       }
-      process.send?.({ type: "bound", sessionId: publishedSessionId });
+      if (creation) {
+        if (publishedSessionId !== creation.sessionId)
+          throw new Error("Simulated public identity mismatch");
+        process.send?.({
+          type: "creationEvidence",
+          creation: creationEvidence(),
+        });
+      } else process.send?.({ type: "bound", sessionId: publishedSessionId });
       return undefined;
     }
     case "interrupt":
@@ -282,7 +324,10 @@ const server = createServer((socket) => {
         if (
           request.type !== "attach" ||
           request.token !== token ||
-          request.protocolVersion !== 1
+          request.protocolVersion !== protocolVersion ||
+          (creation
+            ? !sameCreationRuntimeIdentity(creation, request.creation)
+            : request.creation !== undefined)
         ) {
           write(socket, { type: "error", error: "unauthorized attach" });
           socket.end();
@@ -292,7 +337,9 @@ const server = createServer((socket) => {
         attachedSocket = socket;
         write(socket, {
           type: "attached",
-          protocolVersion: 1,
+          protocolVersion,
+          providerSessionId: sessionId,
+          ...(creation ? { creation: creationEvidence() } : {}),
           runtimeId,
           acknowledgedSequence,
           queueDepth,
@@ -362,6 +409,7 @@ server.listen(socketPath, () => {
     type: "ready",
     metadata: {
       sessionId,
+      ...(creation ? { creation: creationEvidence() } : {}),
       queueDepth,
       providerActivity: providerActivity(),
       providerRetention: providerRetention(),

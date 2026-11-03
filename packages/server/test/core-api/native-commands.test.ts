@@ -163,14 +163,6 @@ it.each(["superuser", "peer"] as const)(
           authorize,
         ),
     };
-    const remapped: string[] = [];
-    const firstObserver = supervisor.observeSessionIdRemaps((oldId, newId) => {
-      remapped.push("first:" + newId);
-      store.remap(oldId, newId);
-    });
-    const secondObserver = supervisor.observeSessionIdRemaps((_oldId, newId) =>
-      remapped.push("second:" + newId),
-    );
     const commands = new SessionCommands("A", store, owner, () => true);
     const launch = {
       id: "parent",
@@ -243,8 +235,7 @@ it.each(["superuser", "peer"] as const)(
         globalInstructions: "Fixture guidance",
       });
       const nativeProcess = supervisor.getProcessForSession(publicId)!;
-      expect(remapped).toEqual([]);
-      expect(remapped).toEqual([]);
+      expect(supervisor.getProcessForSession(nativeId)).toBeUndefined();
       expect(nativeProcess.hasAcceptedApiInput(receipt.id)).toBe(true);
       const session = {
         id: publicId,
@@ -321,8 +312,6 @@ it.each(["superuser", "peer"] as const)(
     } finally {
       releaseFirst();
       commands.close();
-      firstObserver();
-      secondObserver();
       await Promise.all(
         supervisor
           .getAllProcesses()

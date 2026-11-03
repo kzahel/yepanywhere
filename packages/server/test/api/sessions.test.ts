@@ -4,10 +4,9 @@ import { tmpdir } from "node:os";
 import { gunzipSync } from "node:zlib";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { toUrlProjectId } from "@yep-anywhere/shared";
+import { fromUrlProjectId, toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp as createFixtureApp } from "../setup/create-app.js";
-import { MockServerClaudeProvider } from "../../src/sdk/mock.js";
 import {
   ScriptedClaudeProvider,
   createMockScenario,
@@ -69,6 +68,23 @@ describe("Sessions API", () => {
     ownedApps.add(app);
     return app;
   };
+  // Input/share tests seed an existing live runtime; creation is covered by
+  // the real SQLite admission route suites, never a synthetic HTTP reply.
+  async function seedActiveSession(
+    app: ReturnType<typeof createFixtureApp>["app"],
+    project: string,
+    sessionId: string,
+  ) {
+    const fixture = [...ownedApps].find((value) => value.app === app);
+    if (!fixture) throw new Error("Unowned API fixture");
+    const process = await fixture.supervisor.resumeSession(
+      sessionId,
+      fromUrlProjectId(project),
+      { text: "hello" },
+    );
+    if (!("id" in process)) throw new Error("Expected an active fixture");
+    return { sessionId: process.sessionId, processId: process.id };
+  }
   let mockSdk: ScriptedClaudeProvider;
   let testDir: string;
   let projectId: string;
@@ -108,247 +124,29 @@ describe("Sessions API", () => {
     await rm(testDir, { recursive: true, force: true });
   });
 
-  describe("installed MC launch selection", () => {
-    it.each([
-      ["project", false],
-      ["project", true],
-      ["detached", false],
-      ["detached", true],
-    ] as const)(
-      "carries true, false and absent selection through %s create-only=%s",
-      async (placement, createOnly) => {
-        const { app, supervisor } = createApp({
-          projectsDir: testDir,
-          provider: controlledProvider(new MockServerClaudeProvider()),
-        });
-        const start = vi.spyOn(supervisor, "startSession");
-        const create = vi.spyOn(supervisor, "createSession");
-        const path =
-          placement === "project"
-            ? `/api/projects/${projectId}/sessions`
-            : "/api/sessions";
-        for (const machineControl of [true, false, undefined]) {
-          const response = await app.request(
-            `${path}${createOnly ? "/create" : ""}`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Yep-Anywhere": "true",
-              },
-              body: JSON.stringify({ message: "hello", machineControl }),
-            },
-          );
-          expect(response.status).toBe(200);
-          const options = createOnly
-            ? create.mock.lastCall?.[2]
-            : start.mock.lastCall?.[3];
-          expect(options?.machineControl).toBe(machineControl);
-        }
-      },
-    );
-    it.each([
-      { machineControl: "true" },
-      { machineControl: true, computerControl: true },
-    ])(
-      "rejects invalid or conflicting selection %j before launching",
-      async (selection) => {
-        const { app, supervisor } = createApp({
-          provider: mockSdk,
-          projectsDir: testDir,
-        });
-        const start = vi.spyOn(supervisor, "startSession");
-        const response = await app.request("/api/sessions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello", ...selection }),
-        });
-        expect(response.status).toBe(400);
-        expect(start).not.toHaveBeenCalled();
-      },
-    );
-  });
-
-  describe("POST /api/projects/:projectId/sessions", () => {
-    it("returns 400 if message is missing", async () => {
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
+  it("does not expose retired browser creation routes", async () => {
+    const { app, supervisor } = createApp({
+      provider: mockSdk,
+      projectsDir: testDir,
+    });
+    const start = vi.spyOn(supervisor, "startSession");
+    for (const path of [
+      "/api/sessions",
+      "/api/sessions/create",
+      `/api/projects/${projectId}/sessions`,
+      `/api/projects/${projectId}/sessions/create`,
+    ]) {
+      const response = await app.request(path, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({}),
-      });
-
-      expect(res.status).toBe(400);
-      const json = await res.json();
-      expect(json.error).toBe("Message is required");
-    });
-
-    it("returns 400 for invalid JSON", async () => {
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
-        method: "POST",
-        headers: {
           "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
         },
-        body: "not json",
+        body: JSON.stringify({ message: "old creation" }),
       });
-
-      expect(res.status).toBe(400);
-      const json = await res.json();
-      expect(json.error).toBe("Invalid JSON body");
-    });
-
-    it("returns 404 for unknown project", async () => {
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request("/api/projects/unknown/sessions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({ message: "hello" }),
-      });
-
-      expect(res.status).toBe(404);
-      const json = await res.json();
-      expect(json.error).toMatch(/Project not found/);
-    });
-
-    it("refuses a retired SSH executor before launch", async () => {
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({
-          message: "hello",
-          executor: "-oProxyCommand=touch_/tmp/pwned",
-        }),
-      });
-
-      expect(res.status).toBe(400);
-      const json = await res.json();
-      expect(json.error).toBe("SSH executors have been removed");
-    });
-
-    it("starts a session and returns processId", async () => {
-      mockSdk.addScenario(createMockScenario("new-session", "Hello!"));
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({ message: "hello" }),
-      });
-
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.sessionId).toBeDefined();
-      expect(json.processId).toBeDefined();
-    });
-
-    it("starts a session from an attachment without text", async () => {
-      mockSdk.addScenario(createMockScenario("attachment-session", "Seen"));
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({
-          message: "",
-          attachments: [
-            {
-              id: "attachment-1",
-              originalName: "image.png",
-              name: "attachment-1-image.png",
-              path: "/tmp/attachment-1-image.png",
-              size: 12,
-              mimeType: "image/png",
-            },
-          ],
-        }),
-      });
-
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.processId).toBeDefined();
-    });
-
-    it("accepts permission mode parameter", async () => {
-      mockSdk.addScenario(createMockScenario("new-session", "Hello!"));
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({ message: "hello", mode: "acceptEdits" }),
-      });
-
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.sessionId).toBeDefined();
-      expect(json.processId).toBeDefined();
-    });
-
-    it("returns permissionMode and modeVersion in response", async () => {
-      mockSdk.addScenario(createMockScenario("new-session", "Hello!"));
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({ message: "hello", mode: "acceptEdits" }),
-      });
-
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.permissionMode).toBe("acceptEdits");
-      expect(json.modeVersion).toBe(0);
-    });
-
-    it("returns default permissionMode when not specified", async () => {
-      mockSdk.addScenario(createMockScenario("new-session", "Hello!"));
-      const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
-
-      const res = await app.request(`/api/projects/${projectId}/sessions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Yep-Anywhere": "true",
-        },
-        body: JSON.stringify({ message: "hello" }),
-      });
-
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.permissionMode).toBe("default");
-      expect(json.modeVersion).toBe(0);
-    });
+      expect(response.status).toBe(404);
+    }
+    expect(start).not.toHaveBeenCalled();
   });
 
   describe("POST /api/projects/:projectId/sessions/:sessionId/resume", () => {
@@ -876,19 +674,12 @@ describe("Sessions API", () => {
           isEnabled: () => true,
         } as never,
       });
-      const resumed = await app.request(
-        `/api/projects/${activeProjectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "continue" }),
-        },
+      const resumed = await seedActiveSession(
+        app,
+        activeProjectId,
+        "sess-existing",
       );
-      expect(resumed.status).toBe(200);
-      const { processId } = (await resumed.json()) as { processId: string };
+      const { processId } = resumed as { processId: string };
 
       try {
         await vi.waitFor(
@@ -1127,19 +918,12 @@ describe("Sessions API", () => {
       const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       // Start the session
-      const startRes = await app.request(
-        `/api/projects/${projectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello" }),
-        },
+      const startRes = await seedActiveSession(
+        app,
+        projectId,
+        "input-owned-session",
       );
-      expect(startRes.status).toBe(200);
-      const { sessionId } = await startRes.json();
+      const { sessionId } = startRes;
 
       // Wait for session to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1178,19 +962,12 @@ describe("Sessions API", () => {
       const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       // Start the session
-      const startRes = await app.request(
-        `/api/projects/${projectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello" }),
-        },
+      const startRes = await seedActiveSession(
+        app,
+        projectId,
+        "input-owned-session",
       );
-      expect(startRes.status).toBe(200);
-      const { sessionId } = await startRes.json();
+      const { sessionId } = startRes;
 
       // Wait for session to enter waiting-input state
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1230,19 +1007,12 @@ describe("Sessions API", () => {
       const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       // Start the session
-      const startRes = await app.request(
-        `/api/projects/${projectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello" }),
-        },
+      const startRes = await seedActiveSession(
+        app,
+        projectId,
+        "input-owned-session",
       );
-      expect(startRes.status).toBe(200);
-      const { sessionId } = await startRes.json();
+      const { sessionId } = startRes;
 
       // Wait for session to enter waiting-input state
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1283,19 +1053,12 @@ describe("Sessions API", () => {
       const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       // Start the session
-      const startRes = await app.request(
-        `/api/projects/${projectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello" }),
-        },
+      const startRes = await seedActiveSession(
+        app,
+        projectId,
+        "input-owned-session",
       );
-      expect(startRes.status).toBe(200);
-      const { sessionId } = await startRes.json();
+      const { sessionId } = startRes;
 
       // Wait for session to enter waiting-input state
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1354,19 +1117,12 @@ describe("Sessions API", () => {
         serverSettingsService: createSettingsServiceForAuditLog(false),
       }).app;
 
-      const disabledStart = await disabledApp.request(
-        `/api/projects/${projectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello" }),
-        },
+      const disabledStart = await seedActiveSession(
+        disabledApp,
+        projectId,
+        "input-owned-session",
       );
-      expect(disabledStart.status).toBe(200);
-      const disabledSession = await disabledStart.json();
+      const disabledSession = disabledStart;
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const disabledInput = await disabledApp.request(
@@ -1412,19 +1168,12 @@ describe("Sessions API", () => {
         serverSettingsService: createSettingsServiceForAuditLog(true),
       }).app;
 
-      const enabledStart = await enabledApp.request(
-        `/api/projects/${projectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello" }),
-        },
+      const enabledStart = await seedActiveSession(
+        enabledApp,
+        projectId,
+        "input-owned-session",
       );
-      expect(enabledStart.status).toBe(200);
-      const enabledSession = await enabledStart.json();
+      const enabledSession = enabledStart;
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const enabledInput = await enabledApp.request(
@@ -1472,19 +1221,12 @@ describe("Sessions API", () => {
       const { app } = createApp({ provider: mockSdk, projectsDir: testDir });
 
       // Start the session
-      const startRes = await app.request(
-        `/api/projects/${projectId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({ message: "hello" }),
-        },
+      const startRes = await seedActiveSession(
+        app,
+        projectId,
+        "input-owned-session",
       );
-      expect(startRes.status).toBe(200);
-      const { sessionId } = await startRes.json();
+      const { sessionId } = startRes;
 
       // Wait for session to enter waiting-input state
       await new Promise((resolve) => setTimeout(resolve, 50));

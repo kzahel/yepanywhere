@@ -3,8 +3,7 @@
  *
  * The core invariant: startSession() must resolve with an iterator whose FIRST
  * yield is already the init message carrying the real ses_* session ID.  That
- * allows Process.waitForSessionId() to resolve immediately without racing the
- * 5-second timeout and returning a stale UUID to the client.
+ * establishes the native binding before input; public YA identity stays separate.
  */
 
 import type { ChildProcess } from "node:child_process";

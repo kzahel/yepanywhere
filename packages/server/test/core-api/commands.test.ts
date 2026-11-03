@@ -1,3 +1,4 @@
+import { seedHistoricalReceiptAlias } from "../support/legacy-session-aliases.js";
 import {
   PeerDirectory,
   fixturePeerGrant,
@@ -345,7 +346,7 @@ it("persists request identity across reopen, marks interrupted work uncertain, a
       queueId: "native-queue",
     });
     expect(relaunched).toBe(0);
-    f.store.remap("parent", "canonical-parent");
+    seedHistoricalReceiptAlias(f.store, "parent", "canonical-parent");
     const remapped = await f.core.call("createSession", SUPERUSER, {
       body,
       launch: { ...launch, id: "canonical-parent" },
@@ -355,7 +356,7 @@ it("persists request identity across reopen, marks interrupted work uncertain, a
       creator: { sessionId: "canonical-parent", launchId: "launch-a" },
     });
     f.store.update(id, { sessionId: "child", state: "accepted" });
-    f.store.remap("child", "canonical-child");
+    seedHistoricalReceiptAlias(f.store, "child", "canonical-child");
     expect(
       f.store.relationships("canonical-child", 0, 50).creation,
     ).toMatchObject({ id, sessionId: "canonical-child" });

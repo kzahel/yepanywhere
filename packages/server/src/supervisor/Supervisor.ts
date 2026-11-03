@@ -133,7 +133,6 @@ import type {
   SessionAbortedEvent,
   SessionCreatedEvent,
   SessionForkedEvent,
-  SessionIdRemappedEvent,
   SessionStatusEvent,
   SessionStopRequestedEvent,
   SessionUpdatedEvent,
@@ -755,17 +754,6 @@ export class Supervisor {
     contextWindow: number,
     provider: ProviderName,
   ) => void;
-  private readonly sessionRemapObservers = new Set<
-    (oldId: string, newId: string) => void
-  >();
-  observeSessionIdRemaps(
-    observer: (oldId: string, newId: string) => void,
-  ): () => void {
-    this.sessionRemapObservers.add(observer);
-    return () => {
-      this.sessionRemapObservers.delete(observer);
-    };
-  }
   private onSessionSummary?: OnSessionSummaryCallback;
   private recoverSessionLaunchSettings?: RecoverSessionLaunchSettingsCallback;
   private resolveNativeSessionSource?: SupervisorOptions["resolveNativeSessionSource"];
@@ -1815,96 +1803,6 @@ export class Supervisor {
   }
 
   /**
-   * Create a session without sending an initial message.
-   * Used for two-phase flow: create session first, upload files, then send message.
-   * The agent will wait for a message to be pushed to the queue.
-   */
-  async createSession(
-    projectPath: string,
-    permissionMode?: PermissionMode,
-    modelSettings?: ModelSettings,
-    launchOptions?: SessionLaunchOptions,
-  ): Promise<Process | QueuedResponse | QueueFullResponse> {
-    this.assertSessionSandboxSettings(modelSettings);
-    const projectId = launchOptions?.projectId ?? encodeProjectId(projectPath);
-    const provider = this.resolveProvider(modelSettings);
-
-    if (
-      launchOptions?.creation &&
-      this.supportsDurableSessionCreation({ text: "" }, modelSettings, {
-        owner: launchOptions.creation.context.owner,
-        intent: "prepare",
-      })
-    ) {
-      return this.startSession(
-        projectPath,
-        { text: "" },
-        permissionMode,
-        modelSettings,
-        {
-          ...launchOptions,
-          creation: { ...launchOptions.creation, intent: "prepare" },
-        },
-      );
-    }
-
-    if (provider && this.sessionMetadataService?.creations)
-      throw new Error("New native sessions require trusted creation admission");
-
-    // Check if at capacity
-    if (this.isAtCapacity()) {
-      // Try to preempt an idle worker
-      const preemptable = this.findPreemptableWorker();
-      if (preemptable) {
-        await this.preemptWorker(preemptable);
-        // Fall through to create session normally
-      } else {
-        if (provider?.name === "claude-gateway" && !launchOptions?.onFailed) {
-          return { error: "queue_full", maxQueueSize: this.maxWorkers };
-        }
-        // Queue the request - use empty message placeholder
-        const result = this.workerQueue.enqueue({
-          type: "new-session",
-          projectPath,
-          projectId,
-          message: { text: "" }, // Placeholder, will be replaced when first message sent
-          permissionMode,
-          modelSettings,
-          onStarted: launchOptions?.onStarted,
-          onFailed: launchOptions?.onFailed,
-          onRetryableFailure: launchOptions?.onRetryableFailure,
-          retryProviderStartupFailure:
-            launchOptions?.retryProviderStartupFailure,
-          requireProviderSessionId: launchOptions?.requireProviderSessionId,
-        });
-        if (isQueueFullError(result)) {
-          return result;
-        }
-        return {
-          queued: true,
-          queueId: result.queueId,
-          position: result.position,
-        };
-      }
-    }
-
-    if (!provider) throw new Error("Requested provider is not available");
-    const process = await this.createProviderSession(
-      projectPath,
-      projectId,
-      permissionMode,
-      modelSettings,
-      provider,
-      undefined,
-      launchOptions?.retryProviderStartupFailure,
-      launchOptions?.requireProviderSessionId,
-    );
-
-    await this.notifyImmediateStart(launchOptions, process, projectId);
-    return process;
-  }
-
-  /**
    * Reactivate an existing session: spawn a live harness process bound to the
    * session id WITHOUT delivering a user turn. The process resumes the session
    * and idles on the queue (the same state it occupies after a completed turn),
@@ -2059,14 +1957,8 @@ export class Supervisor {
 
   private async settleProviderSessionId(
     process: Process,
-    required: boolean,
     expectedPublicSessionId?: string,
   ): Promise<void> {
-    if (!required) {
-      await process.waitForSessionId();
-      return;
-    }
-
     try {
       const providerSessionId = await process.waitForProviderSessionId();
       const expectedNativeSessionId =
@@ -3196,10 +3088,11 @@ export class Supervisor {
         );
       }
 
-      // Wait for the real session ID from the provider before registering.
-      // Message-driven providers only emit their init event after input arrives.
-      if (!resumeSessionId) {
-        await this.settleProviderSessionId(process, requireProviderSessionId);
+      // Public identity is already final. Wait only when this operation
+      // explicitly needs native identity/input evidence. Empty preparation
+      // must expose its incumbent without waiting for a first turn.
+      if (!resumeSessionId && requireProviderSessionId) {
+        await this.settleProviderSessionId(process);
       }
       if (sessionSandbox) {
         await this.persistProcessSandboxOrAbort(process);
@@ -3423,7 +3316,7 @@ export class Supervisor {
                 message,
               });
               if (launchOptions?.requireProviderSessionId) {
-                await this.settleProviderSessionId(existingProcess, true);
+                await this.settleProviderSessionId(existingProcess);
               }
               return existingProcess;
             }
@@ -3434,7 +3327,7 @@ export class Supervisor {
             );
             if (result.success) {
               if (launchOptions?.requireProviderSessionId) {
-                await this.settleProviderSessionId(existingProcess, true);
+                await this.settleProviderSessionId(existingProcess);
               }
               return existingProcess;
             }
@@ -3553,7 +3446,7 @@ export class Supervisor {
       }
 
       if (launchOptions?.requireProviderSessionId) {
-        await this.settleProviderSessionId(process, true, sessionId);
+        await this.settleProviderSessionId(process, sessionId);
       }
       return process;
     });
@@ -5912,106 +5805,6 @@ export class Supervisor {
           event.model,
           event.contextWindow,
           event.provider,
-        );
-      } else if (event.type === "session-id-changed") {
-        // Update session→process mapping when temp ID is replaced by real ID from SDK
-        // This is critical for ExternalSessionTracker to correctly identify owned sessions
-        const log = getLogger();
-        log.info(
-          {
-            event: "session_id_mapping_updated",
-            oldSessionId: event.oldSessionId,
-            newSessionId: event.newSessionId,
-            processId: process.id,
-            projectId: process.projectId,
-            executor: process.executor,
-          },
-          `Session ID mapping updated: ${event.oldSessionId} → ${event.newSessionId}`,
-        );
-
-        // Keep both temp and real session ID mappings to support lookups by either ID
-        // Clients might still be using the temp ID when the real ID arrives
-        // The old temp ID mapping is retained (no delete)
-        const oldIdWasPublished =
-          this.sessionToProcess.get(event.oldSessionId) === process.id;
-        if (this.recapPausedSessionIds.delete(event.oldSessionId)) {
-          this.recapPausedSessionIds.add(event.newSessionId);
-        }
-        this.sessionToProcess.set(event.newSessionId, process.id);
-        process.publishAgentSessionViews(
-          this.sessionViews.views(event.newSessionId),
-        );
-        for (const observer of this.sessionRemapObservers) {
-          try {
-            observer(event.oldSessionId, event.newSessionId);
-          } catch (error) {
-            log.warn({ error }, "Session remap observer failed");
-          }
-        }
-
-        this.everOwnedSessions.add(event.newSessionId);
-        void this.sessionMetadataService
-          ?.remapSessionId(event.oldSessionId, event.newSessionId)
-          .catch((error) => {
-            log.warn(
-              {
-                event: "session_metadata_remap_failed",
-                oldSessionId: event.oldSessionId,
-                newSessionId: event.newSessionId,
-                error: error instanceof Error ? error.message : String(error),
-              },
-              "Failed to remap provisional session metadata",
-            );
-          });
-        if (this.eventBus && oldIdWasPublished) {
-          const remapped: SessionIdRemappedEvent = {
-            type: "session-id-remapped",
-            oldSessionId: event.oldSessionId,
-            newSessionId: event.newSessionId,
-            projectId: process.projectId,
-            processId: process.id,
-            provider: process.provider,
-            timestamp: new Date().toISOString(),
-          };
-          this.eventBus.emit(remapped);
-        }
-        const retainedStatus = this.terminalProviderStatuses.get(
-          event.oldSessionId,
-        );
-        if (retainedStatus) {
-          this.terminalProviderStatuses.delete(event.oldSessionId);
-          this.retainTerminalProviderStatus(event.newSessionId, retainedStatus);
-        }
-
-        // Persist executor for remote execution resume support
-        // This saves which SSH host was used so resume can reconnect to the same remote
-        if (this.onSessionExecutor && process.executor) {
-          this.onSessionExecutor(event.newSessionId, process.executor).catch(
-            (error) => {
-              log.warn(
-                {
-                  event: "executor_save_failed",
-                  sessionId: event.newSessionId,
-                  executor: process.executor,
-                  error: error instanceof Error ? error.message : String(error),
-                },
-                `Failed to save executor for session: ${event.newSessionId}`,
-              );
-            },
-          );
-        }
-
-        // Emit ownership change for new session ID so clients can update
-        this.emitOwnershipChange(
-          event.newSessionId,
-          process.projectId,
-          sessionOwnershipFromProcess(process),
-        );
-
-        // Retry early metadata reconciliation with authoritative session ID.
-        this.scheduleInitialSessionReconciliation(
-          event.newSessionId,
-          process.projectId,
         );
       } else if (event.type === "state-change") {
         // Emit agent activity change for all states that clients need to track

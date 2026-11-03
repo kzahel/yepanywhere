@@ -466,9 +466,8 @@ export class OpenCodeProvider implements AgentProvider {
    *
    * This method is intentionally blocking: it spawns the opencode server,
    * waits for it to be ready, and creates the session via HTTP before
-   * returning. This ensures the real ses_* session ID is known before the
-   * iterator is handed to the Supervisor, so waitForSessionId() resolves
-   * immediately on the first init yield rather than racing a 5-second timeout.
+   * returning. This supplies the native ses_* identity before the iterator is handed
+   * to the Supervisor; public YA identity remains separate.
    */
   async startSession(options: StartSessionOptions): Promise<AgentSession> {
     if (options.resumeSessionId) {
@@ -920,8 +919,7 @@ export class OpenCodeProvider implements AgentProvider {
    * Main session loop.
    * Server is already started and opencodeSessionId is already known
    * (resolved in startSession before the iterator was constructed).
-   * The first yield is always the init message, so waitForSessionId() in
-   * Process resolves immediately.
+   * The first yield reports native identity; Process keeps its public ID.
    */
   private async *runSession(
     cwd: string,
@@ -942,7 +940,7 @@ export class OpenCodeProvider implements AgentProvider {
     };
     signal.addEventListener("abort", abortHandler);
 
-    // Emit init message immediately — this is what resolves waitForSessionId()
+    // Emit the native identity before processing a turn.
     yield {
       type: "system",
       subtype: "init",

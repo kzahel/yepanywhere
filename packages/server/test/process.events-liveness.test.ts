@@ -258,7 +258,7 @@ describe("Process", () => {
       }
     });
 
-    it("publishes the provider session id for agentctl-active shells", async () => {
+    it("publishes the permanent public session id for agentctl-active shells", async () => {
       const publishAgentctlSessionIdFn = vi.fn();
       const iterator = createMockIterator([
         { type: "system", subtype: "init", session_id: "sess-real" },
@@ -274,7 +274,7 @@ describe("Process", () => {
       });
 
       await waitFor(() =>
-        expect(publishAgentctlSessionIdFn).toHaveBeenCalledWith("sess-real"),
+        expect(publishAgentctlSessionIdFn).toHaveBeenCalledWith("temp-session"),
       );
     });
 

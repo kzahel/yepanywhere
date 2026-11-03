@@ -421,11 +421,6 @@ export class IssueIndexer {
     this.store.delete(id);
     this.kick();
   }
-  remap(oldId: string, newId: string): void {
-    this.fence();
-    this.store.remap(oldId, newId);
-    this.refresh();
-  }
   async settled(): Promise<void> {
     while (this.enumeration || this.work || this.viewTasks.size) {
       await this.enumeration;

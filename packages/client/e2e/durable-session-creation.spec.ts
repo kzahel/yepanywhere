@@ -209,7 +209,9 @@ async function fixture(
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-      expect(response.status, await response.clone().text()).toBe(200);
+      expect(response.status, await response.clone().text()).toBe(
+        body !== undefined && path.endsWith("/session-creations") ? 202 : 200,
+      );
       return response.json();
     };
     if (!missingExecutable) {
@@ -716,15 +718,18 @@ test("router refusal preserves saved intent and never falls back to available di
   }
 });
 
-test("legacy Claude preparation sends no phantom prompt and accepts the first turn under its saved YA id", async ({
+test("explicit Claude preparation sends no phantom prompt and accepts the first turn under its saved YA id", async ({
   browser,
 }) => {
   const owned = await fixture(false);
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const prepared = await owned.request(
-      `/projects/${owned.projectId}/sessions/create`,
+      `/projects/${owned.projectId}/session-creations`,
       {
+        requestId: crypto.randomUUID(),
+        message: "",
+        intent: "prepare",
         provider: "claude",
         model: "sonnet",
         mode: "bypassPermissions",
@@ -735,7 +740,16 @@ test("legacy Claude preparation sends no phantom prompt and accepts the first tu
         promptSuggestionMode: "off",
       },
     );
-    expect(prepared.processId).toBeTruthy();
+    expect(prepared.creation.initialInputExpected).toBe(false);
+    await expect
+      .poll(async () => ({
+        state: (await owned.request(`/sessions/${prepared.sessionId}/process`))
+          .process?.state,
+        creation: (
+          await owned.request(`/session-creations/${prepared.requestId}`)
+        ).creation,
+      }))
+      .toMatchObject({ state: "idle" });
     const path = `/projects/${owned.projectId}/sessions/${prepared.sessionId}`;
     expect(
       (await owned.request(path)).session.creation.initialInputExpected,

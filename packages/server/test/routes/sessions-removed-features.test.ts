@@ -21,7 +21,6 @@ function fixture(executor?: string) {
     provider: "claude",
   } satisfies Project;
   const startSession = vi.fn();
-  const createSession = vi.fn();
   const resumeSession = vi.fn();
   const readerFactory = vi.fn();
   const routes = createSessionsRoutes({
@@ -30,7 +29,6 @@ function fixture(executor?: string) {
     } as unknown as ProjectScanner,
     supervisor: {
       startSession,
-      createSession,
       resumeSession,
       getProcessForSession: vi.fn(),
     } as unknown as Supervisor,
@@ -44,7 +42,6 @@ function fixture(executor?: string) {
     routes,
     project,
     startSession,
-    createSession,
     resumeSession,
     readerFactory,
   };
@@ -75,46 +72,8 @@ describe("Removed execution targets", () => {
     });
     expect(getLastAgentExcerpt).toHaveBeenCalledWith("historical");
     expect(f.startSession).not.toHaveBeenCalled();
-    expect(f.createSession).not.toHaveBeenCalled();
     expect(f.resumeSession).not.toHaveBeenCalled();
   });
-
-  it.each(["sessions", "sessions/create"])(
-    "refuses an explicit lane target on %s before launching locally",
-    async (endpoint) => {
-      const f = fixture();
-      const response = await f.routes.request(
-        `/projects/${f.project.id}/${endpoint}`,
-        post({
-          message: "Run in the selected checkout",
-          workstreamId: "ws-old",
-        }),
-      );
-      expect(response.status).toBe(410);
-      expect(await response.json()).toEqual({
-        error: "Managed checkout lanes have been removed",
-      });
-      expect(f.startSession).not.toHaveBeenCalled();
-      expect(f.createSession).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each(["sessions", "sessions/create"])(
-    "refuses an explicit SSH target on %s before launching locally",
-    async (endpoint) => {
-      const f = fixture();
-      const response = await f.routes.request(
-        `/projects/${f.project.id}/${endpoint}`,
-        post({ message: "Run remotely", executor: "old-host" }),
-      );
-      expect(response.status).toBe(400);
-      expect(await response.json()).toEqual({
-        error: "SSH executors have been removed",
-      });
-      expect(f.startSession).not.toHaveBeenCalled();
-      expect(f.createSession).not.toHaveBeenCalled();
-    },
-  );
 
   it.each(["resume", "reactivate", "restart", "fork", "clone"])(
     "refuses %s of a saved remote session even when the caller requests local",
@@ -129,7 +88,7 @@ describe("Removed execution targets", () => {
         error: "SSH executors have been removed; this session is read-only",
       });
       expect(f.startSession).not.toHaveBeenCalled();
-      expect(f.createSession).not.toHaveBeenCalled();
+
       expect(f.resumeSession).not.toHaveBeenCalled();
     },
   );

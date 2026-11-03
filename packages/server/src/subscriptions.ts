@@ -519,13 +519,6 @@ export function createSessionSubscription(
           });
           break;
 
-        case "session-id-changed":
-          emit("session-id-changed", {
-            oldSessionId: event.oldSessionId,
-            newSessionId: event.newSessionId,
-          });
-          break;
-
         case "deferred-queue":
           emit("deferred-queue", {
             messages: sessionQueueSummaries(

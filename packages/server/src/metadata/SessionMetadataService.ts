@@ -265,7 +265,7 @@ export class SessionMetadataService {
     write: () => T,
   ): T {
     this.assertProfileConnection(database);
-    if (this.state.sessions[sessionId] || this.sessionIdAliases.has(sessionId))
+    if (this.state.sessions[sessionId])
       throw new Error("Creation cannot replace existing session metadata");
     const text = JSON.stringify(metadata);
     const snapshot: SessionMetadata = JSON.parse(text);
@@ -298,8 +298,6 @@ export class SessionMetadataService {
   };
   /** Last JSON written per session, so a save writes only changed rows. */
   private persisted = new Map<string, string>();
-  /** Session ID rewrites seen since process start; small ID pairs. */
-  private sessionIdAliases = new Map<string, string>();
   private unsavedGoalObservations = new Set<string>();
   private metadataSaver = createCoalescingSaver(() => this.doSave());
   private save = this.metadataSaver.flush;
@@ -453,7 +451,7 @@ export class SessionMetadataService {
    * Get metadata for a session.
    */
   getMetadata(sessionId: string): SessionMetadata | undefined {
-    return this.state.sessions[this.resolveSessionId(sessionId)];
+    return this.state.sessions[sessionId];
   }
 
   /**
@@ -510,45 +508,35 @@ export class SessionMetadataService {
   }
 
   getTranscriptDisplayObjects(sessionId: string): TranscriptDisplayObject[] {
-    return (
-      this.state.sessions[this.resolveSessionId(sessionId)]
-        ?.transcriptDisplayObjects ?? []
-    ).map((object) => {
-      if (
-        object.kind !== "fork-summary" ||
-        object.targetSessionId ||
-        !/^[A-Za-z0-9_-]{1,100}$/.test(object.id)
-      )
-        return object;
-      // Recover the projection if admission committed before its association.
-      // Indexed, compact point lookup; no prompt decoding or background loop.
-      const sessionId = this.creations.getPublicSessionId(
-        { kind: "superuser" },
-        `fork-summary-target-${object.id}`,
-      );
-      return sessionId ? { ...object, targetSessionId: sessionId } : object;
-    });
+    return (this.state.sessions[sessionId]?.transcriptDisplayObjects ?? []).map(
+      (object) => {
+        if (
+          object.kind !== "fork-summary" ||
+          object.targetSessionId ||
+          !/^[A-Za-z0-9_-]{1,100}$/.test(object.id)
+        )
+          return object;
+        // Recover the projection if admission committed before its association.
+        // Indexed, compact point lookup; no prompt decoding or background loop.
+        const sessionId = this.creations.getPublicSessionId(
+          { kind: "superuser" },
+          `fork-summary-target-${object.id}`,
+        );
+        return sessionId ? { ...object, targetSessionId: sessionId } : object;
+      },
+    );
   }
 
   getRecapMessages(sessionId: string): DurableRecapMessage[] {
-    return [
-      ...(this.state.sessions[this.resolveSessionId(sessionId)]
-        ?.recapMessages ?? []),
-    ];
+    return [...(this.state.sessions[sessionId]?.recapMessages ?? [])];
   }
 
   getSyntheticDoneMessages(sessionId: string): DurableSyntheticDoneMessage[] {
-    return [
-      ...(this.state.sessions[this.resolveSessionId(sessionId)]
-        ?.syntheticDoneMessages ?? []),
-    ];
+    return [...(this.state.sessions[sessionId]?.syntheticDoneMessages ?? [])];
   }
 
   getLocalCommandMessages(sessionId: string): DurableLocalCommandMessage[] {
-    return [
-      ...(this.state.sessions[this.resolveSessionId(sessionId)]
-        ?.localCommandMessages ?? []),
-    ];
+    return [...(this.state.sessions[sessionId]?.localCommandMessages ?? [])];
   }
 
   async addLocalCommandMessage(
@@ -568,14 +556,11 @@ export class SessionMetadataService {
   }
 
   getRewindRecords(sessionId: string): SessionRewindRecord[] {
-    return [
-      ...(this.state.sessions[this.resolveSessionId(sessionId)]
-        ?.rewindRecords ?? []),
-    ];
+    return [...(this.state.sessions[sessionId]?.rewindRecords ?? [])];
   }
 
   getPendingRewind(sessionId: string): SessionPendingRewind | undefined {
-    return this.state.sessions[this.resolveSessionId(sessionId)]?.pendingRewind;
+    return this.state.sessions[sessionId]?.pendingRewind;
   }
 
   /** Record a rewind and arm it for the next provider resume. */
@@ -619,7 +604,7 @@ export class SessionMetadataService {
     sourceSessionId: string,
     targetSessionId: string,
   ): Promise<void> {
-    const source = this.state.sessions[this.resolveSessionId(sourceSessionId)];
+    const source = this.state.sessions[sourceSessionId];
     if (!source?.rewindRecords?.length && !source?.pendingRewind) return;
     this.updateSessionMetadata(targetSessionId, (metadata) => ({
       ...metadata,
@@ -649,7 +634,7 @@ export class SessionMetadataService {
   }
 
   getClearloop(sessionId: string): SessionClearloopJob | undefined {
-    return this.state.sessions[this.resolveSessionId(sessionId)]?.clearloop;
+    return this.state.sessions[sessionId]?.clearloop;
   }
 
   async setClearloop(
@@ -665,7 +650,7 @@ export class SessionMetadataService {
 
   /** Last observed goal command for a session, whichever provider reported it. */
   getGoalCommand(sessionId: string): SlashCommand | undefined {
-    return goalCommandOf(this.getMetadata(this.resolveSessionId(sessionId)));
+    return goalCommandOf(this.getMetadata(sessionId));
   }
 
   async observeCommandInventory(
@@ -675,7 +660,6 @@ export class SessionMetadataService {
     const goal = findGoalCommand(commands);
     // An inventory without goal state is unknown, not evidence of a clear.
     if (readGoalDetails(goal)?.goalObjective === undefined) return;
-    sessionId = this.resolveSessionId(sessionId);
     const previous = this.getGoalCommand(sessionId);
     if (
       JSON.stringify(previous) === JSON.stringify(goal) &&
@@ -1172,36 +1156,6 @@ export class SessionMetadataService {
   }
 
   /**
-   * Move metadata from a provisional process ID to the provider's canonical
-   * session ID. The in-memory alias also redirects writes that began before
-   * the provider announced the canonical ID but finish after this remap.
-   */
-  async remapSessionId(
-    provisionalSessionId: string,
-    canonicalSessionId: string,
-  ): Promise<void> {
-    if (provisionalSessionId === canonicalSessionId) return;
-
-    const sourceId = this.resolveSessionId(provisionalSessionId);
-    const targetId = this.resolveSessionId(canonicalSessionId);
-    this.sessionIdAliases.set(provisionalSessionId, targetId);
-    if (sourceId !== targetId) {
-      this.sessionIdAliases.set(sourceId, targetId);
-    }
-
-    const source = this.state.sessions[sourceId];
-    if (!source || sourceId === targetId) return;
-
-    this.state.sessions[targetId] = {
-      ...source,
-      ...this.state.sessions[targetId],
-    };
-    const { [sourceId]: _, ...remaining } = this.state.sessions;
-    this.state.sessions = remaining;
-    await this.save();
-  }
-
-  /**
    * Set the initial prompt accepted for a new session.
    * Used as a durable recovery source if provider startup fails before JSONL
    * persistence writes the user message.
@@ -1371,7 +1325,7 @@ export class SessionMetadataService {
     sessionId: string,
     updater: (current: SessionMetadata) => SessionMetadata,
   ): void {
-    const resolvedSessionId = this.resolveSessionId(sessionId);
+    const resolvedSessionId = sessionId;
     const existing = this.state.sessions[resolvedSessionId] ?? {};
     const updated = updater(existing);
 
@@ -1500,24 +1454,12 @@ export class SessionMetadataService {
    * Useful when a session is deleted.
    */
   async clearSession(sessionId: string): Promise<void> {
-    const resolvedSessionId = this.resolveSessionId(sessionId);
+    const resolvedSessionId = sessionId;
     if (this.state.sessions[resolvedSessionId]) {
       const { [resolvedSessionId]: _, ...rest } = this.state.sessions;
       this.state.sessions = rest;
       await this.save();
     }
-  }
-
-  private resolveSessionId(sessionId: string): string {
-    let resolved = sessionId;
-    const visited = new Set<string>();
-    while (!visited.has(resolved)) {
-      visited.add(resolved);
-      const next = this.sessionIdAliases.get(resolved);
-      if (!next) break;
-      resolved = next;
-    }
-    return resolved;
   }
 
   private async doSave(): Promise<void> {

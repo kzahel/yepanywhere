@@ -285,55 +285,6 @@ export class ApiReceiptStore {
       nextCursor: rows.length > limit ? String(offset + limit) : null,
     };
   }
-  /** Canonicalization updates both ends without inventing a parenting relation. */
-  remap(oldId: string, newId: string) {
-    if (oldId === newId) return;
-    const changed: ApiReceipt[] = [];
-    this.database.transaction(() => {
-      const rows = this.statement(
-        "SELECT id, scope_key, receipt_json FROM agent_api_receipts WHERE session_id = ? OR source_session_id = ? LIMIT 10000",
-      ).all<{ id: string; scope_key: string; receipt_json: string }>(
-        oldId,
-        oldId,
-      );
-      if (!rows.length) return;
-      this.statement(
-        "INSERT INTO agent_api_session_aliases (id,target) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET target=excluded.target",
-      ).run(oldId, newId);
-      for (const row of rows) {
-        const previous = this.decode(row)!;
-        const next = {
-          ...previous,
-          updatedAt: new Date().toISOString(),
-          sessionId: previous.sessionId === oldId ? newId : previous.sessionId,
-          creator: {
-            ...previous.creator,
-            sessionId:
-              previous.creator.principal.kind !== "peer" &&
-              previous.creator.sessionId === oldId
-                ? newId
-                : previous.creator.sessionId,
-          },
-        };
-        const scope = JSON.parse(row.scope_key) as unknown[];
-        if (previous.creator.principal.kind !== "peer" && scope[1] === oldId)
-          scope[1] = newId;
-        if (previous.kind === "sendMessage" && scope[4] === oldId)
-          scope[4] = newId;
-        this.statement(
-          "UPDATE agent_api_receipts SET scope_key = ?, session_id = ?, source_session_id = ?, receipt_json = ? WHERE id = ?",
-        ).run(
-          JSON.stringify(scope),
-          next.sessionId,
-          next.creator.sessionId,
-          JSON.stringify(next),
-          row.id,
-        );
-        changed.push(next);
-      }
-    });
-    for (const receipt of changed) this.publish(receipt);
-  }
   close() {
     this.listeners.clear();
     for (const statement of this.statements.values()) statement.finalize();

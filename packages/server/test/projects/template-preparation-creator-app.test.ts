@@ -273,27 +273,49 @@ it("admits private No project creation only by permission, with the normal launc
       body: JSON.stringify(body),
     });
   expect(
-    (await post("/api/sessions", { message: "Make a sketch" })).status,
+    (
+      await post("/api/session-creations", {
+        requestId: crypto.randomUUID(),
+        message: "Make a sketch",
+      })
+    ).status,
   ).toBe(403);
-  expect((await post("/api/sessions/create", {})).status).toBe(403);
+  expect(
+    (
+      await post("/api/session-creations", {
+        requestId: crypto.randomUUID(),
+        message: "",
+        intent: "prepare",
+      })
+    ).status,
+  ).toBe(403);
   await users.update("archer", {
     allowNoProjectSessions: true,
     lock: { provider: "claude", model: "locked-model" },
   });
   expect(
-    (await post("/api/sessions", { message: "Escape", executor: "remote" }))
-      .status,
-  ).toBe(403);
+    (
+      await post("/api/session-creations", {
+        requestId: crypto.randomUUID(),
+        message: "Escape",
+        executor: "remote",
+      })
+    ).status,
+  ).toBe(400);
   expect(
     (
-      await post("/api/sessions", {
+      await post("/api/session-creations", {
+        requestId: crypto.randomUUID(),
         message: "Escape",
         sandboxNetworkFirewall: false,
       })
     ).status,
   ).toBe(403);
-  const response = await post("/api/sessions", { message: "Make a sketch" });
-  expect(response.status, await response.clone().text()).toBe(200);
+  const response = await post("/api/session-creations", {
+    requestId: crypto.randomUUID(),
+    message: "Make a sketch",
+  });
+  expect(response.status, await response.clone().text()).toBe(202);
   const result = await response.json();
   const own = encodeProjectId(limitedDetachedProjectPath("archer"));
   expect(result.projectId).toBe(own);
@@ -317,9 +339,14 @@ it("admits private No project creation only by permission, with the normal launc
     levelFor(grants, encodeProjectId(limitedDetachedProjectPath("skyler"))),
   ).toBe("none");
   await users.update("archer", { allowNoProjectSessions: false });
-  expect((await post("/api/sessions", { message: "Another" })).status).toBe(
-    403,
-  );
+  expect(
+    (
+      await post("/api/session-creations", {
+        requestId: crypto.randomUUID(),
+        message: "Another",
+      })
+    ).status,
+  ).toBe(403);
   expect(levelFor(users.getActiveGrants("archer")!, own)).toBe("join");
 });
 

@@ -1,5 +1,5 @@
 import { HttpError } from "../middleware/error-handler.js";
-import { textCreationSubmissionHash } from "../sessions/session-creation-acceptance.js";
+import { sessionCreationSubmissionHash } from "../sessions/session-creation-acceptance.js";
 import { createHash } from "node:crypto";
 import type { SessionLaunchOptions } from "../supervisor/Supervisor.js";
 import type {
@@ -129,7 +129,7 @@ export function createSupervisorReviewLauncher(
       (submissionId
         ? `review-${createHash("sha256").update(projectPath).update("\0").update(submissionId).digest("hex")}`
         : undefined);
-    const submissionHash = textCreationSubmissionHash(
+    const submissionHash = sessionCreationSubmissionHash(
       { text, options },
       projectPath,
     );

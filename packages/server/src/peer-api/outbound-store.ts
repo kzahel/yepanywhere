@@ -157,27 +157,6 @@ export class PeerOutboundStore {
       nextCursor: rows.length > limit ? String(offset + limit) : null,
     };
   }
-  /** Called alongside the local receipt store's canonical identity remap. */
-  remap(oldId: string, newId: string) {
-    this.database.transaction(() => {
-      const rows = this.statement(
-        "SELECT id, scope_key, record_json FROM peer_api_outbound WHERE source_session_id = ?",
-      ).all<{ id: string; scope_key: string; record_json: string }>(oldId);
-      for (const row of rows) {
-        const scope = JSON.parse(row.scope_key) as unknown[];
-        scope[1] = newId;
-        const record = outboundSchema.parse(JSON.parse(row.record_json));
-        this.statement(
-          "UPDATE peer_api_outbound SET scope_key = ?, source_session_id = ?, record_json = ? WHERE id = ?",
-        ).run(
-          JSON.stringify(scope),
-          newId,
-          JSON.stringify({ ...record, sourceSessionId: newId }),
-          row.id,
-        );
-      }
-    });
-  }
   close() {
     for (const statement of this.statements.values()) statement.finalize();
     this.statements.clear();

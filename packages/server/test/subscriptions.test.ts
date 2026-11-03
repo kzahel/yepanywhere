@@ -976,26 +976,6 @@ describe("createSessionSubscription", () => {
     expect(error?.[1]).toEqual({ message: "something broke" });
   });
 
-  it("forwards session-id-changed events", async () => {
-    const { process, fireEvent } = createMockProcess();
-    const { emit, events } = collectEmit();
-
-    createSessionSubscription(process, emit);
-
-    await fireEvent({
-      type: "session-id-changed",
-      oldSessionId: "temp-1",
-      newSessionId: "real-1",
-    } as ProcessEvent);
-
-    const changed = events.find(([type]) => type === "session-id-changed");
-    expect(changed).toBeDefined();
-    expect(changed?.[1]).toEqual({
-      oldSessionId: "temp-1",
-      newSessionId: "real-1",
-    });
-  });
-
   it("augments codex-style Edit raw patches during streaming", async () => {
     const { process, fireEvent } = createMockProcess();
     const { emit, events } = collectEmit();

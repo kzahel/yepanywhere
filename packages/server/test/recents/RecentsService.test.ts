@@ -20,7 +20,7 @@ describe("RecentsService", () => {
 
   const ids = () => service.getRecents().map((e) => e.sessionId);
 
-  it("notifies readers after visits, remaps and clears are saved", async () => {
+  it("notifies readers after visits and clears are saved", async () => {
     const observed: string[][] = [];
     service = new RecentsService({
       dataDir,
@@ -28,29 +28,8 @@ describe("RecentsService", () => {
     });
     await service.initialize();
     await service.recordVisit("provisional", "proj-1");
-    await service.remapSession("provisional", "real");
     await service.clear();
-    expect(observed).toEqual([["provisional"], ["real"], []]);
-  });
-
-  it("renames a provisional visit to the real session id", async () => {
-    await service.recordVisit("other", "proj-1");
-    await service.recordVisit("provisional", "proj-1");
-    await service.remapSession("provisional", "real");
-    expect(ids()).toEqual(["real", "other"]);
-  });
-
-  it("drops the provisional visit when the real id is already listed", async () => {
-    await service.recordVisit("real", "proj-1");
-    await service.recordVisit("provisional", "proj-1");
-    await service.remapSession("provisional", "real");
-    expect(ids()).toEqual(["real"]);
-  });
-
-  it("records a visit arriving after the remap under the real id", async () => {
-    await service.remapSession("provisional", "real");
-    await service.recordVisit("provisional", "proj-1");
-    expect(ids()).toEqual(["real"]);
+    expect(observed).toEqual([["provisional"], []]);
   });
 
   it("prunes unresolved visits but keeps fresh ones", async () => {

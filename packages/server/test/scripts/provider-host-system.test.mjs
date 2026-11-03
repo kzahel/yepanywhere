@@ -103,11 +103,15 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
       try {
         await waitFor(() => api("/version"));
         const project = await api("/projects", { path: projectPath });
-        const session = await api(`/projects/${project.project.id}/sessions`, {
-          message: "hold",
-          provider: "claude",
-          mode: "bypassPermissions",
-        });
+        const session = await api(
+          `/projects/${project.project.id}/session-creations`,
+          {
+            requestId: crypto.randomUUID(),
+            message: "hold",
+            provider: "claude",
+            mode: "bypassPermissions",
+          },
+        );
         await waitFor(async () =>
           (await barriers()).find((e) => e.type === "turn-started"),
         );
@@ -168,8 +172,9 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           providerSessionId: session.sessionId,
         });
         const pendingSession = await api(
-          `/projects/${project.project.id}/sessions`,
+          `/projects/${project.project.id}/session-creations`,
           {
+            requestId: crypto.randomUUID(),
             message: "defer-confirmation",
             provider: "claude",
             mode: "bypassPermissions",

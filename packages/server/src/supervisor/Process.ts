@@ -1049,9 +1049,11 @@ export interface ProcessConstructorOptions extends ProcessOptions {
   toolResultMediaStore?: ToolResultMediaStore;
 }
 
+class NativeSessionBindingError extends Error {}
+
 export class Process {
   readonly id: string;
-  private _sessionId: string;
+  private readonly _sessionId: string;
   readonly projectPath: string;
   readonly projectId: UrlProjectId;
   private readonly projectDisplayName: ProjectDisplayNameResolver;
@@ -1226,10 +1228,7 @@ export class Process {
     | ((sessionId: string) => void | Promise<void>)
     | null;
   private readonly providerStartsOnFirstMessage: boolean;
-
-  /** Resolvers waiting for the real session ID */
-  private sessionIdResolvers: Array<(id: string) => void> = [];
-  private sessionIdResolved = false;
+  private nativeSessionIdResolved = false;
   private readonly managedIdentity: ManagedProcessIdentity | undefined;
   private nativeSessionId: NativeSessionId | undefined;
   private readonly providerSessionIdSettlement: Promise<string>;
@@ -1434,12 +1433,8 @@ export class Process {
     });
     void this.providerSessionIdSettlement.catch(() => undefined);
     if (options.initializedSessionId) {
-      if (this.managedIdentity) {
-        this.bindManagedNativeId(options.initializedSessionId);
-      } else {
-        this._sessionId = options.initializedSessionId;
-      }
-      this.sessionIdResolved = true;
+      this.bindNativeId(options.initializedSessionId);
+      this.nativeSessionIdResolved = true;
       this.resolveProviderSessionId(options.initializedSessionId);
     }
 
@@ -2675,7 +2670,7 @@ export class Process {
 
   /** Whether the provider has reported the canonical session id for this run. */
   get providerSessionIdSettled(): boolean {
-    return this.sessionIdResolved;
+    return this.nativeSessionIdResolved;
   }
 
   /**
@@ -2684,7 +2679,7 @@ export class Process {
    * be dispatched out of band ahead of that delivery.
    */
   get awaitingFirstMessageToStart(): boolean {
-    return this.providerStartsOnFirstMessage && !this.sessionIdResolved;
+    return this.providerStartsOnFirstMessage && !this.nativeSessionIdResolved;
   }
 
   async appendConversationContext(
@@ -3012,29 +3007,6 @@ export class Process {
     );
     this.setState({ type: "terminated", reason, error: failure });
     this.emit({ type: "terminated", reason, error: failure });
-  }
-
-  /**
-   * Wait for the real session ID from the SDK's init message.
-   * Returns immediately if already received, or waits with a timeout.
-   */
-  waitForSessionId(timeoutMs = 5000): Promise<string> {
-    if (this.sessionIdResolved) {
-      return Promise.resolve(this._sessionId);
-    }
-
-    return new Promise((resolve) => {
-      this.sessionIdResolvers.push(resolve);
-
-      // Timeout fallback - resolve with current ID even if not updated
-      setTimeout(() => {
-        const index = this.sessionIdResolvers.indexOf(resolve);
-        if (index >= 0) {
-          this.sessionIdResolvers.splice(index, 1);
-          resolve(this._sessionId);
-        }
-      }, timeoutMs);
-    });
   }
 
   /**
@@ -3840,7 +3812,7 @@ export class Process {
     }
     // Message-driven providers may report false before their first input
     // creates the child. Require an established owner before using that signal.
-    if (this.sessionIdResolved && this.isProcessAlive === false) {
+    if (this.nativeSessionIdResolved && this.isProcessAlive === false) {
       return "Process terminated: provider process is no longer alive";
     }
     if (this.transportFailed) {
@@ -5265,14 +5237,23 @@ export class Process {
     this.listeners.clear();
   }
 
-  private bindManagedNativeId(value: string): void {
-    const nativeId = parseNativeSessionId(value);
+  private bindNativeId(value: string): void {
+    let nativeId: NativeSessionId;
+    try {
+      nativeId = parseNativeSessionId(value);
+    } catch {
+      throw new NativeSessionBindingError(
+        "Provider reported an invalid native session id",
+      );
+    }
     if (this.nativeSessionId && this.nativeSessionId !== nativeId) {
-      throw new Error("Provider changed an established native session id");
+      throw new NativeSessionBindingError(
+        "Provider changed an established native session id",
+      );
     }
     // A repeated init still crosses the attempt fence; it must not revive a
     // deleted/retried session. No control-store call occurs on token deltas.
-    this.managedIdentity!.bindNative(nativeId);
+    this.managedIdentity?.bindNative(nativeId);
     this.nativeSessionId = nativeId;
   }
 
@@ -5284,7 +5265,7 @@ export class Process {
 
         if (result.done) {
           this.iteratorDone = true;
-          if (!this.sessionIdResolved) {
+          if (!this.nativeSessionIdResolved) {
             this.rejectProviderSessionId(
               new Error(
                 "Provider session completed before reporting a session id",
@@ -5313,37 +5294,38 @@ export class Process {
           this.transportFailed = true;
           this.viewerLifecycle.beginTeardownVerification();
         }
-        if (this.managedIdentity) {
-          if (
-            message.session_id &&
-            (!this.nativeSessionId ||
-              (message.type === "system" && message.subtype === "init"))
-          ) {
-            this.bindManagedNativeId(message.session_id);
-          }
-          if (message.session_id) {
-            if (message.session_id !== this.nativeSessionId) {
-              throw new Error(
-                "Provider output does not match its native binding",
-              );
-            }
-            message = { ...message, session_id: this._sessionId };
-          }
-          if (
-            message.type === "user" &&
-            message.uuid &&
-            !this.nativeSessionId
-          ) {
-            throw new Error("Provider input arrived before native binding");
-          }
-          if (this.nativeSessionId) {
-            observeProviderInputIds(
-              message,
-              isClaudeProviderName(this.provider),
-              (id) => this.managedIdentity!.observeProviderInput(id),
+
+        if (
+          message.session_id &&
+          (!this.nativeSessionId ||
+            (message.type === "system" && message.subtype === "init"))
+        ) {
+          this.bindNativeId(message.session_id);
+        }
+        if (message.session_id) {
+          if (message.session_id !== this.nativeSessionId) {
+            throw new NativeSessionBindingError(
+              "Provider output does not match its native binding",
             );
           }
+          message = { ...message, session_id: this._sessionId };
         }
+        if (
+          this.managedIdentity &&
+          message.type === "user" &&
+          message.uuid &&
+          !this.nativeSessionId
+        ) {
+          throw new Error("Provider input arrived before native binding");
+        }
+        if (this.managedIdentity && this.nativeSessionId) {
+          observeProviderInputIds(
+            message,
+            isClaudeProviderName(this.provider),
+            (id) => this.managedIdentity!.observeProviderInput(id),
+          );
+        }
+
         if (this.toolResultMediaMaterializer) {
           message =
             await this.toolResultMediaMaterializer.materializeMessage(message);
@@ -5408,9 +5390,7 @@ export class Process {
           message.session_id
         ) {
           const log = getLogger();
-          const oldSessionId = this._sessionId;
-          if (!this.managedIdentity) this._sessionId = message.session_id;
-          this.sessionIdResolved = true;
+          this.nativeSessionIdResolved = true;
           this.resolveProviderSessionId(
             this.nativeSessionId ?? this._sessionId,
           );
@@ -5419,7 +5399,7 @@ export class Process {
             {
               event: "session_id_received",
               sessionId: this._sessionId,
-              previousTempId: oldSessionId,
+              nativeSessionId: this.nativeSessionId,
               processId: this.id,
               projectId: this.projectId,
             },
@@ -5427,22 +5407,6 @@ export class Process {
           );
 
           this.publishAgentctlSessionId(this._sessionId);
-
-          // Emit session-id-changed event so Supervisor can update its mapping
-          // This is critical for ExternalSessionTracker to correctly identify owned sessions
-          if (oldSessionId !== this._sessionId) {
-            this.emit({
-              type: "session-id-changed",
-              oldSessionId,
-              newSessionId: this._sessionId,
-            });
-          }
-
-          // Resolve any waiters
-          for (const resolve of this.sessionIdResolvers) {
-            resolve(this._sessionId);
-          }
-          this.sessionIdResolvers = [];
         }
 
         // The served model, as each main-thread reply names it. A subagent's
@@ -5571,10 +5535,13 @@ export class Process {
 
       // Listeners run synchronously and may submit input from the error event.
       // Close admission before publishing it or awaiting the failure notice.
+      const verifyOwnership =
+        Boolean(this.managedIdentity) ||
+        err instanceof NativeSessionBindingError;
       const providerTerminated =
-        Boolean(this.managedIdentity) || this.isProcessTerminationError(err);
+        verifyOwnership || this.isProcessTerminationError(err);
       if (providerTerminated) this.transportFailed = true;
-      if (this.managedIdentity) {
+      if (verifyOwnership) {
         // Close replacement ownership before synchronous error listeners run.
         this.viewerLifecycle.beginTeardownVerification();
       }
@@ -5592,12 +5559,12 @@ export class Process {
         this.markTerminated("underlying process terminated", err, {
           failureNotice,
         });
-        if (this.managedIdentity) {
+        if (verifyOwnership) {
           // terminateAndWait retains/logs failed verification. Do not await here:
           // no-liveness adapters verify this same iterator's exit promise.
-          void this.terminateAndWait("managed provider stream failed").catch(
-            () => undefined,
-          );
+          void this.terminateAndWait(
+            "provider identity or managed stream failed",
+          ).catch(() => undefined);
         }
         return;
       }

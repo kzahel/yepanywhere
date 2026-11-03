@@ -259,14 +259,14 @@ describe("review response ingestion", () => {
     );
   });
 
-  it("persists independent windows, remaps them, and refreshes late", async () => {
+  it("persists independent windows under one public id and refreshes late", async () => {
     const svc = service();
-    const first = await accept(svc, dir, "submission-a", "temporary", 2);
-    await accept(svc, dir, "submission-b", "temporary", 3);
-    await svc.observeAssistantTurn(dir, "temporary");
+    const first = await accept(svc, dir, "submission-a", "public-session", 2);
+    await accept(svc, dir, "submission-b", "public-session", 3);
+    await svc.observeAssistantTurn(dir, "public-session");
 
     const restarted = service();
-    await restarted.observeAssistantTurn(dir, "temporary");
+    await restarted.observeAssistantTurn(dir, "public-session");
     expect(
       (await restarted.getStoreFile(dir)).submissions.map((item) => [
         item.id,
@@ -278,10 +278,9 @@ describe("review response ingestion", () => {
     ]);
 
     expect(
-      await restarted.remapSubmissionSession(dir, "temporary", "canonical"),
-    ).toBe(2);
-    expect(await restarted.observeAssistantTurn(dir, "temporary")).toEqual([]);
-    await restarted.observeAssistantTurn(dir, "canonical");
+      await restarted.observeAssistantTurn(dir, "unknown-session"),
+    ).toEqual([]);
+    await restarted.observeAssistantTurn(dir, "public-session");
     expect(
       (await restarted.getStoreFile(dir)).submissions.map((item) => [
         item.id,
@@ -304,7 +303,9 @@ describe("review response ingestion", () => {
         },
       ],
     });
-    expect(await restarted.observeAssistantTurn(dir, "canonical")).toEqual([]);
+    expect(await restarted.observeAssistantTurn(dir, "public-session")).toEqual(
+      [],
+    );
     expect(await restarted.refreshSubmissionResponse(dir, "submission-a")).toBe(
       "ingested",
     );
@@ -316,6 +317,6 @@ describe("review response ingestion", () => {
     const persisted = JSON.parse(
       await readFile(restarted.filePathFor(dir), "utf-8"),
     );
-    expect(persisted.submissions[0].targetSessionId).toBe("canonical");
+    expect(persisted.submissions[0].targetSessionId).toBe("public-session");
   });
 });

@@ -255,7 +255,9 @@ describe("a session start that waits for a worker", () => {
       const f = nativeRoutes(false);
       // Intentional HTTP startup failure: the saved control record must survive.
       const response = await f.routes.request(
-        route === "project" ? `/projects/${projectId}/sessions` : "/sessions",
+        route === "project"
+          ? `/projects/${projectId}/session-creations`
+          : "/session-creations",
         {
           method: "POST",
           headers: {
@@ -264,6 +266,7 @@ describe("a session start that waits for a worker", () => {
             "X-Yep-Client-Version": "owned-test",
           },
           body: JSON.stringify({
+            requestId: crypto.randomUUID(),
             message: "  saved exact prompt\n",
             tempId: "original-client-input",
             model: "sonnet",
@@ -277,7 +280,7 @@ describe("a session start that waits for a worker", () => {
           }),
         },
       );
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(202);
       const [projection] = metadata.creations.listProjections();
       expect(projection?.creation).toMatchObject({
         state: "failed",
@@ -315,25 +318,29 @@ describe("a session start that waits for a worker", () => {
     });
   }
 
-  it("keeps the completed HTTP shape and optimistic-input metadata on durable native launch", async () => {
+  it("returns acceptance and retains optimistic-input metadata on durable native launch", async () => {
     const f = nativeRoutes();
-    const pending = f.routes.request(`/projects/${projectId}/sessions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Yep-Client-Version": "owned-test",
-      },
-      body: JSON.stringify({
-        message: "exact native prompt",
-        tempId: "optimistic-input",
-        model: "sonnet",
-        mode: "default",
-        messageMetadata: {
-          turnEffort: "fast",
-          sourceSessionId: "other-public-session",
+    const pending = f.routes.request(
+      `/projects/${projectId}/session-creations`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Yep-Client-Version": "owned-test",
         },
-      }),
-    });
+        body: JSON.stringify({
+          requestId: crypto.randomUUID(),
+          message: "exact native prompt",
+          tempId: "optimistic-input",
+          model: "sonnet",
+          mode: "default",
+          messageMetadata: {
+            turnEffort: "fast",
+            sourceSessionId: "other-public-session",
+          },
+        }),
+      },
+    );
     await waitFor(() => expect(f.owners).toHaveLength(1));
     const owner = f.owners[0]!;
     const initial = await owner.queue[Symbol.asyncIterator]().next();
@@ -347,13 +354,16 @@ describe("a session start that waits for a worker", () => {
       session_id: owner.sessionId,
     });
     const response = await pending;
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     expect(await response.json()).toMatchObject({
       sessionId: owner.sessionId,
       projectId,
-      processId: expect.any(String),
-      permissionMode: "default",
+      requestId: saved.requestId,
+      creation: { state: "saved" },
     });
+    await waitFor(() =>
+      expect(f.supervisor.getProcessForSession(owner.sessionId)).toBeDefined(),
+    );
     const process = f.supervisor.getProcessForSession(owner.sessionId)!;
     expect(
       process.getMessageHistory().find((m) => m.uuid === saved.initialInputId),
@@ -375,13 +385,18 @@ describe("a session start that waits for a worker", () => {
   it("saves queued HTTP intent at admission and rehydrates it with its original source on promotion", async () => {
     const f = nativeRoutes(true, 1);
     const start = (text: string, surface: string) =>
-      f.routes.request(`/projects/${projectId}/sessions`, {
+      f.routes.request(`/projects/${projectId}/session-creations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Yep-Client-Surface": surface,
         },
-        body: JSON.stringify({ message: text, tempId: text, model: "sonnet" }),
+        body: JSON.stringify({
+          requestId: crypto.randomUUID(),
+          message: text,
+          tempId: text,
+          model: "sonnet",
+        }),
       });
     const first = start("occupy", "web");
     await waitFor(() => expect(f.owners).toHaveLength(1));
@@ -392,7 +407,7 @@ describe("a session start that waits for a worker", () => {
       subtype: "init",
       session_id: owner.sessionId,
     });
-    expect((await first).status).toBe(200);
+    expect((await first).status).toBe(202);
     owner.push({
       type: "assistant",
       session_id: owner.sessionId,
@@ -402,14 +417,17 @@ describe("a session start that waits for a worker", () => {
     const queued = await start("exact queued prompt", "desktop");
     expect(queued.status).toBe(202);
     expect(await queued.json()).toMatchObject({
-      queued: true,
-      queueId: expect.any(String),
-      position: 1,
+      sessionId: expect.any(String),
+      creation: { state: "saved" },
     });
     const projection = metadata.creations
       .listProjections()
       .find((p) => p.sessionId !== owner.sessionId)!;
-    expect(projection.creation.state).toBe("queued");
+    await waitFor(() =>
+      expect(
+        metadata.creations.getForSession(projection.sessionId)?.attempt.state,
+      ).toBe("queued"),
+    );
     const saved = metadata.creations.getForSession(projection.sessionId)!;
     expect(saved.context.source).toMatchObject({
       kind: "request",
@@ -438,10 +456,15 @@ describe("a session start that waits for a worker", () => {
   it("preserves idle-worker preemption for an admitted ordinary text request", async () => {
     const f = nativeRoutes(true, 1);
     const start = (message: string) =>
-      f.routes.request(`/projects/${projectId}/sessions`, {
+      f.routes.request(`/projects/${projectId}/session-creations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "claude", message, model: "sonnet" }),
+        body: JSON.stringify({
+          requestId: crypto.randomUUID(),
+          provider: "claude",
+          message,
+          model: "sonnet",
+        }),
       });
     const first = start("first native prompt");
     await waitFor(() => expect(f.owners).toHaveLength(1));
@@ -452,7 +475,7 @@ describe("a session start that waits for a worker", () => {
       subtype: "init",
       session_id: original.sessionId,
     });
-    expect((await first).status).toBe(200);
+    expect((await first).status).toBe(202);
     original.push({
       type: "result",
       subtype: "success",
@@ -473,7 +496,7 @@ describe("a session start that waits for a worker", () => {
       subtype: "init",
       session_id: replacement.sessionId,
     });
-    expect((await next).status).toBe(200);
+    expect((await next).status).toBe(202);
     expect(
       f.supervisor.getProcessForSession(original.sessionId),
     ).toBeUndefined();

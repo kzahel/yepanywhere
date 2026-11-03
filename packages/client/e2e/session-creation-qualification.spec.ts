@@ -9,7 +9,6 @@ import {
   unregisterProcess,
 } from "./support/process-registry.js";
 import { expect, test, type Browser } from "@playwright/test";
-import { SERVER_CAPABILITIES } from "../../shared/src/index.js";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
 import { createTestViteServer } from "./support/vite-server.js";
 
@@ -350,88 +349,6 @@ test("independent browser draft handoff survives another device's creation ackno
   }
 });
 
-test("missing durable-creation capability uses the established start endpoint", async ({
-  browser,
-}) => {
-  const owned = await fixture(browser);
-  const page = await owned.context.newPage();
-  let durablePosts = 0,
-    starts = 0;
-  try {
-    const absent = [
-      SERVER_CAPABILITIES.sessionCreationAdmission,
-      SERVER_CAPABILITIES.claudeTextCreation,
-      SERVER_CAPABILITIES.codexTextCreation,
-    ];
-    const strip = (version: {
-      capabilities?: string[];
-      capabilityBits?: [number, number][];
-    }) => {
-      version.capabilities = version.capabilities?.filter(
-        (name) => !absent.some((cap) => cap.name === name),
-      );
-      version.capabilityBits = version.capabilityBits?.map(([word, bits]) => [
-        word,
-        absent.reduce(
-          (value, cap) =>
-            Math.floor(cap.id / 32) === word
-              ? value & ~(2 ** (cap.id % 32))
-              : value,
-          bits,
-        ) >>> 0,
-      ]);
-      return version;
-    };
-    await page.route("**/api/version**", async (route) => {
-      const response = await route.fetch();
-      await route.fulfill({ response, json: strip(await response.json()) });
-    });
-    await page.route("**/api/settings?bootstrap=*", async (route) => {
-      const response = await route.fetch();
-      const body = (await response.text())
-        .split("\n")
-        .map((line) => {
-          if (!line.startsWith("data: ")) return line;
-          const frame = JSON.parse(line.slice(6));
-          if (frame.part === "version") strip(frame.body);
-          return `data: ${JSON.stringify(frame)}`;
-        })
-        .join("\n");
-      await route.fulfill({ response, body });
-    });
-    page.on("request", (request) => {
-      if (request.method() !== "POST") return;
-      const path = new URL(request.url()).pathname;
-      if (path.endsWith("/session-creations")) durablePosts++;
-      if (
-        path === `/api/projects/${owned.projectId}/sessions` ||
-        path === "/api/sessions"
-      )
-        starts++;
-    });
-    await owned.releaseAck();
-    await owned.releaseReply();
-    await page.goto(owned.formUrl);
-    await page
-      .locator("textarea.new-session-form-textarea")
-      .pressSequentially("OWNED_COMPATIBILITY_START");
-    await page
-      .getByRole("button", { name: "Start session", exact: true })
-      .click();
-    await expect(
-      page.getByText("OWNED_CODEX_CREATION_REPLY", { exact: true }).first(),
-    ).toBeVisible();
-    expect(starts).toBe(1);
-    expect(durablePosts).toBe(0);
-    await page.reload();
-    await expect(
-      page.getByText("OWNED_CODEX_CREATION_REPLY", { exact: true }).first(),
-    ).toBeVisible();
-  } finally {
-    await owned.close();
-  }
-});
-
 test("switching acting account during acceptance keeps the new account's draft separate", async ({
   browser,
 }) => {
@@ -439,7 +356,8 @@ test("switching acting account during acceptance keeps the new account's draft s
   const page = await owned.context.newPage();
   let release!: () => void,
     saved!: () => void,
-    acceptedId = "";
+    acceptedId = "",
+    acceptedRequestId = "";
   const barrier = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -467,6 +385,7 @@ test("switching acting account during acceptance keeps the new account's draft s
       .locator("textarea.new-session-form-textarea")
       .pressSequentially("OWNED_OWNER_ONLY_PROMPT");
     await page.route("**/session-creations", async (route) => {
+      acceptedRequestId = route.request().postDataJSON().requestId;
       const response = await route.fetch();
       acceptedId = (await response.json()).sessionId;
       saved();
@@ -477,6 +396,11 @@ test("switching acting account during acceptance keeps the new account's draft s
       .getByRole("button", { name: "Start session", exact: true })
       .click();
     await admitted;
+    const ownerReceipt = await page.request.get(
+      `${owned.origin}/api/session-creations/${acceptedRequestId}`,
+    );
+    expect(ownerReceipt.status()).toBe(200);
+    expect((await ownerReceipt.json()).sessionId).toBe(acceptedId);
     const switched = await page.request.post(
       `${owned.origin}/api/users/switch`,
       { data: { username: "alice" }, headers: { "X-Yep-Anywhere": "true" } },
@@ -500,10 +424,10 @@ test("switching acting account during acceptance keeps the new account's draft s
     expect(
       (
         await page.request.get(
-          `${owned.origin}/api/session-creations/owner-private-request`,
+          `${owned.origin}/api/session-creations/${acceptedRequestId}`,
         )
       ).status(),
-    ).toBe(403);
+    ).toBe(404);
     await composer.blur();
     await page.reload();
     await expect(composer).toHaveValue("OWNED_ALICE_UNSENT");

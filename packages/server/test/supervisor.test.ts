@@ -57,9 +57,6 @@ function createLaunchSettingsMetadata(
     setSessionSandbox: vi.fn<SessionMetadataService["setSessionSandbox"]>(
       async () => undefined,
     ),
-    remapSessionId: vi.fn<SessionMetadataService["remapSessionId"]>(
-      async () => undefined,
-    ),
     flushPendingWrites: vi.fn<SessionMetadataService["flushPendingWrites"]>(
       async () => undefined,
     ),
@@ -187,8 +184,6 @@ describe("Supervisor", () => {
         text: "hi",
       });
       if (!("sessionId" in started)) throw new Error("expected a process");
-      const created = await idSupervisor.createSession("/tmp/test");
-      if (!("sessionId" in created)) throw new Error("expected a process");
       const resumed = await idSupervisor.resumeSession(
         "existing-session",
         "/tmp/test",
@@ -197,13 +192,14 @@ describe("Supervisor", () => {
       if (!("sessionId" in resumed)) throw new Error("expected a process");
 
       expect(launches[0]?.newSessionId).toBe(started.sessionId);
-      expect(launches[1]?.newSessionId).toBe(created.sessionId);
-      expect(launches[2]).toMatchObject({
+      expect(launches[1]).toMatchObject({
         resumeSessionId: "existing-session",
       });
-      expect(launches[2]?.newSessionId).toBeUndefined();
+      expect(launches[1]?.newSessionId).toBeUndefined();
       expect(
-        events.filter((event) => event.type === "session-id-remapped"),
+        events.filter(
+          (event) => (event.type as string) === "session-id-remapped",
+        ),
       ).toEqual([]);
     });
 
@@ -271,15 +267,7 @@ describe("Supervisor", () => {
       ).rejects.toThrow(
         'Claude Gateway no longer advertises model "gateway-model"',
       );
-      await expect(
-        gatewaySupervisor.createSession("/tmp/test", undefined, {
-          model: "gateway-model",
-          providerName: "claude-gateway",
-        }),
-      ).rejects.toThrow(
-        'Claude Gateway no longer advertises model "gateway-model"',
-      );
-      expect(getAvailableModels).toHaveBeenCalledTimes(3);
+      expect(getAvailableModels).toHaveBeenCalledTimes(2);
       expect(startSession).toHaveBeenCalledTimes(1);
     });
 
@@ -366,7 +354,11 @@ describe("Supervisor", () => {
         { requireProviderSessionId: true },
       );
 
-      expect(process).toMatchObject({ sessionId: "provider-session-id" });
+      if (!("sessionId" in process)) throw new Error("expected a process");
+      expect(process.sessionId).not.toBe("provider-session-id");
+      expect(await process.waitForProviderSessionId()).toBe(
+        "provider-session-id",
+      );
       expect(consumedMessages).toHaveLength(1);
       expect(providerSupervisor.getAllProcesses()).toEqual([process]);
     });
@@ -555,7 +547,9 @@ describe("Supervisor", () => {
         { requireProviderSessionId: true },
       );
 
-      expect(process).toMatchObject({ sessionId: "goal-session" });
+      if (!("sessionId" in process)) throw new Error("expected a process");
+      expect(process.sessionId).not.toBe("goal-session");
+      expect(await process.waitForProviderSessionId()).toBe("goal-session");
       expect(prompts).toEqual(["/goal ship it"]);
       expect(runProviderCommand).not.toHaveBeenCalled();
       await providerSupervisor.abortProcess(process.id);
@@ -600,28 +594,12 @@ describe("Supervisor", () => {
         { requireProviderSessionId: true },
       );
 
-      expect(process).toMatchObject({ sessionId: "compact-session" });
+      if (!("sessionId" in process)) throw new Error("expected a process");
+      expect(process.sessionId).not.toBe("compact-session");
+      expect(await process.waitForProviderSessionId()).toBe("compact-session");
       expect(runProviderCommand).toHaveBeenCalledWith("compact", "");
       expect(prompts).toEqual([]);
       await providerSupervisor.abortProcess(process.id);
-    });
-
-    it("classifies create-only provider startup rejection as retryable", async () => {
-      const provider = testProvider(async () => {
-        throw new Error("Provider rejected this launch");
-      });
-      const providerSupervisor = new Supervisor({ provider });
-
-      await expect(
-        providerSupervisor.createSession("/tmp/test", undefined, undefined, {
-          retryProviderStartupFailure: true,
-        }),
-      ).rejects.toEqual(
-        expect.objectContaining({
-          name: RetryableSessionLaunchError.name,
-          message: expect.stringContaining("Provider rejected this launch"),
-        }),
-      );
     });
 
     it("encodes projectId correctly", async () => {
@@ -655,7 +633,6 @@ describe("Supervisor", () => {
         getMetadata: vi.fn(() => undefined),
         getGoalCommand: vi.fn(() => undefined),
         recordEffectiveLaunchSettings: vi.fn(async () => undefined),
-        remapSessionId: vi.fn(async () => {}),
         setProvider: vi.fn(async () => {}),
       };
       const supervisorWithEligibility = new Supervisor({
@@ -734,8 +711,9 @@ describe("Supervisor", () => {
           undefined,
           selected,
         );
-        const withoutMessage = await launchSupervisor.createSession(
+        const withoutMessage = await launchSupervisor.reactivateSession(
           "/tmp/test",
+          "installed-existing",
           undefined,
           selected,
         );
@@ -764,9 +742,14 @@ describe("Supervisor", () => {
                   undefined,
                   { computerControl: true },
                 )
-              : launchSupervisor.createSession("/tmp/test", undefined, {
-                  computerControl: true,
-                });
+              : launchSupervisor.reactivateSession(
+                  "/tmp/test",
+                  "installed-existing",
+                  undefined,
+                  {
+                    computerControl: true,
+                  },
+                );
           await expect(launched).rejects.toThrow("legacy component is retired");
           expect(start).not.toHaveBeenCalled();
         } finally {
@@ -5518,7 +5501,6 @@ describe("Supervisor", () => {
           effort: null,
         }),
         getRecapMessages: () => [...persistedRecaps],
-        remapSessionId: async () => {},
         updateMetadata: async () => {},
         setProvider: async () => {},
         setExecutor: async () => {},
@@ -5651,7 +5633,7 @@ describe("Supervisor", () => {
           sessionId: "since-last-recap-fork",
           title: "Recap generator",
           archived: true,
-          forkedFromSessionId: "since-last-recap",
+          forkedFromSessionId: process.sessionId,
         }),
       );
 
@@ -5801,7 +5783,7 @@ describe("Supervisor", () => {
           expect(command).toHaveBeenCalledWith("goal", "Keep working");
           expect(result.state.type).toBe("idle");
           expect(addLocalCommandMessage).toHaveBeenCalledWith(
-            "goal-session",
+            result.sessionId,
             expect.objectContaining({
               subtype: "local_command",
               details: ["Keep working", "Goal set"],
@@ -6762,9 +6744,11 @@ describe("Supervisor", () => {
       expect(created?.session.projectName).toBe("test");
       expect(created?.session.createdAt).toEqual(expect.any(String));
       expect(created?.session.updatedAt).toEqual(expect.any(String));
-      expect(events.some((event) => event.type === "session-id-remapped")).toBe(
-        false,
-      );
+      expect(
+        events.some(
+          (event) => (event.type as string) === "session-id-remapped",
+        ),
+      ).toBe(false);
     });
 
     it("names a new session's project by its chosen name, following a rename", async () => {
@@ -6817,14 +6801,13 @@ describe("Supervisor", () => {
       }
     });
 
-    it("emits a public remap when init follows the provisional ID timeout", async () => {
+    it("retains its public id when native init follows the startup wait", async () => {
       vi.useFakeTimers();
       try {
         const controller = createControllableIterator();
         const eventBus = new EventBus();
         const events: BusEvent[] = [];
         eventBus.subscribe((event) => events.push(event));
-        const remapSessionId = vi.fn(async () => {});
         const sessionMetadataService = {
           getMetadata: () => undefined,
           recordEffectiveLaunchSettings: async () => ({
@@ -6836,7 +6819,6 @@ describe("Supervisor", () => {
             thinking: null,
             effort: null,
           }),
-          remapSessionId,
         } as unknown as ConstructorParameters<
           typeof Supervisor
         >[0]["sessionMetadataService"];
@@ -6878,26 +6860,21 @@ describe("Supervisor", () => {
         });
         await vi.advanceTimersByTimeAsync(0);
 
-        expect(
-          events.find((event) => event.type === "session-id-remapped"),
-        ).toMatchObject({
-          type: "session-id-remapped",
-          oldSessionId: provisionalSessionId,
-          newSessionId: "canonical-session",
-          projectId: encodeProjectId("/tmp/test"),
-          processId: process.id,
-          provider: "claude",
-        });
+        expect(process.sessionId).toBe(provisionalSessionId);
+        expect(await process.waitForProviderSessionId()).toBe(
+          "canonical-session",
+        );
         expect(
           supervisorWithBus.getProcessForSession(provisionalSessionId),
         ).toBe(process);
         expect(
           supervisorWithBus.getProcessForSession("canonical-session"),
-        ).toBe(process);
-        expect(remapSessionId).toHaveBeenCalledWith(
-          provisionalSessionId,
-          "canonical-session",
-        );
+        ).toBeUndefined();
+        expect(
+          events.filter(
+            (event) => (event.type as string) === "session-id-remapped",
+          ),
+        ).toEqual([]);
 
         controller.finish();
         await vi.advanceTimersByTimeAsync(0);
@@ -6954,7 +6931,7 @@ describe("Supervisor", () => {
           onSessionSummary,
         });
 
-        await supervisorWithBus.startSession("/tmp/test", {
+        const process = await supervisorWithBus.startSession("/tmp/test", {
           text: "Seed title",
         });
 
@@ -6967,7 +6944,7 @@ describe("Supervisor", () => {
         const updated = events.find(
           (event): event is Extract<BusEvent, { type: "session-updated" }> =>
             event.type === "session-updated" &&
-            event.sessionId === "reconcile-session-1",
+            event.sessionId === process.sessionId,
         );
         expect(updated).toBeDefined();
         expect(updated?.title).toBe("Reconciled title");
@@ -6988,14 +6965,21 @@ describe("Supervisor", () => {
       const events: BusEvent[] = [];
       eventBus.subscribe((event) => events.push(event));
 
+      let publicId: string | undefined;
+      let fail!: () => void;
+      const failure = new Promise<void>((resolve) => {
+        fail = resolve;
+      });
       const realSdk: Pick<AgentProvider, "startSession"> = {
-        startSession: async () => {
+        startSession: async (options) => {
+          publicId = options.newSessionId;
           async function* iterator() {
             yield {
               type: "system",
               subtype: "init",
               session_id: "terminated-session-1",
             };
+            await failure;
             throw new Error("process exited");
           }
 
@@ -7013,11 +6997,11 @@ describe("Supervisor", () => {
         eventBus,
       });
 
-      await expect(
-        supervisorWithBus.startSession("/tmp/test", {
-          text: "Trigger failure",
-        }),
-      ).rejects.toThrow(/Process terminated|Failed to queue initial message/);
+      const process = await supervisorWithBus.startSession("/tmp/test", {
+        text: "Trigger failure",
+      });
+      expect(process.sessionId).toBe(publicId);
+      fail();
 
       await vi.waitFor(() => {
         expect(
@@ -7031,24 +7015,24 @@ describe("Supervisor", () => {
       );
       expect(terminated).toMatchObject({
         type: "process-terminated",
-        sessionId: "terminated-session-1",
+        sessionId: publicId,
         reason: "underlying process terminated",
       });
       expect(errorLog).toHaveBeenCalledWith(
         expect.objectContaining({
           event: "process_error",
-          sessionId: "terminated-session-1",
+          sessionId: publicId,
           errorMessage: "process exited",
         }),
-        "Process error: terminated-session-1 - process exited",
+        `Process error: ${publicId} - process exited`,
       );
       expect(warn).toHaveBeenCalledWith(
         expect.objectContaining({
           event: "process_terminated",
-          sessionId: "terminated-session-1",
+          sessionId: publicId,
           reason: "underlying process terminated",
         }),
-        "Process terminated: terminated-session-1 - underlying process terminated",
+        `Process terminated: ${publicId} - underlying process terminated`,
       );
       errorLog.mockRestore();
       warn.mockRestore();
@@ -7111,22 +7095,20 @@ describe("Supervisor", () => {
 
         expect(process.hasUnverifiedProviderOwnership).toBe(true);
         expect(
-          supervisorWithAliveProcess.getProcessForSession(
-            "idle-alive-session-1",
-          ),
+          supervisorWithAliveProcess.getProcessForSession(process.sessionId),
         ).toBe(process);
         expect(
           events.some(
             (event) =>
               event.type === "session-status-changed" &&
-              event.sessionId === "idle-alive-session-1" &&
+              event.sessionId === process.sessionId &&
               event.ownership.owner === "none",
           ),
         ).toBe(false);
         await expect(
           supervisorWithAliveProcess.reactivateSession(
             "/tmp/test",
-            "idle-alive-session-1",
+            process.sessionId,
           ),
         ).rejects.toThrow(
           /prior provider teardown is in progress or unverified/,
@@ -7137,19 +7119,17 @@ describe("Supervisor", () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(
-          supervisorWithAliveProcess.getProcessForSession(
-            "idle-alive-session-1",
-          ),
+          supervisorWithAliveProcess.getProcessForSession(process.sessionId),
         ).toBeUndefined();
         const abortedIndex = events.findIndex(
           (event) =>
             event.type === "session-aborted" &&
-            event.sessionId === "idle-alive-session-1",
+            event.sessionId === process.sessionId,
         );
         const releasedIndex = events.findIndex(
           (event) =>
             event.type === "session-status-changed" &&
-            event.sessionId === "idle-alive-session-1" &&
+            event.sessionId === process.sessionId &&
             event.ownership.owner === "none",
         );
         expect(abortedIndex).toBeGreaterThanOrEqual(0);
@@ -7223,22 +7203,20 @@ describe("Supervisor", () => {
           reason: "idle reap provider teardown failed",
         });
         expect(
-          supervisorWithFailedAbort.getProcessForSession(
-            "idle-failed-abort-session",
-          ),
+          supervisorWithFailedAbort.getProcessForSession(process.sessionId),
         ).toBe(process);
         expect(
           events.some(
             (event) =>
               event.type === "session-status-changed" &&
-              event.sessionId === "idle-failed-abort-session" &&
+              event.sessionId === process.sessionId &&
               event.ownership.owner === "none",
           ),
         ).toBe(false);
         await expect(
           supervisorWithFailedAbort.reactivateSession(
             "/tmp/test",
-            "idle-failed-abort-session",
+            process.sessionId,
           ),
         ).rejects.toThrow(
           /prior provider teardown is in progress or unverified/,
@@ -7255,26 +7233,24 @@ describe("Supervisor", () => {
 
         expect(abort).toHaveBeenCalledTimes(2);
         expect(
-          supervisorWithFailedAbort.getProcessForSession(
-            "idle-failed-abort-session",
-          ),
+          supervisorWithFailedAbort.getProcessForSession(process.sessionId),
         ).toBeUndefined();
         expect(
           events.filter(
             (event) =>
               event.type === "session-status-changed" &&
-              event.sessionId === "idle-failed-abort-session" &&
+              event.sessionId === process.sessionId &&
               event.ownership.owner === "none",
           ),
         ).toHaveLength(1);
         expect(errorLog).toHaveBeenCalledWith(
           expect.objectContaining({
             event: "lifecycle_teardown_failed",
-            sessionId: "idle-failed-abort-session",
+            sessionId: process.sessionId,
             reason: "idle reap provider teardown failed",
             errorMessage: "provider refused shutdown",
           }),
-          "Provider teardown remains unverified: idle-failed-abort-session",
+          `Provider teardown remains unverified: ${process.sessionId}`,
         );
       } finally {
         errorLog.mockRestore();
@@ -7349,7 +7325,10 @@ describe("Supervisor", () => {
           }),
         });
 
-        const created = await supervisorWithProvider.createSession("/tmp/test");
+        const created = await supervisorWithProvider.reactivateSession(
+          "/tmp/test",
+          "keepalive-existing",
+        );
         if ("queued" in created || "error" in created) {
           throw new Error("Expected process");
         }
@@ -7435,7 +7414,10 @@ describe("Supervisor", () => {
           }),
         });
 
-        const created = await supervisorWithProvider.createSession("/tmp/test");
+        const created = await supervisorWithProvider.reactivateSession(
+          "/tmp/test",
+          "keepalive-existing",
+        );
         if ("queued" in created || "error" in created) {
           throw new Error("Expected process");
         }
@@ -7659,9 +7641,7 @@ describe("Supervisor", () => {
 
         expect(process.state.type).toBe("in-turn");
         expect(
-          supervisorWithUnknownLiveness.getProcessForSession(
-            "silent-unknown-liveness-session",
-          ),
+          supervisorWithUnknownLiveness.getProcessForSession(process.sessionId),
         ).toBe(process);
         expect(aborted).toBe(false);
 

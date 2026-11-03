@@ -584,6 +584,8 @@ export async function measureOwnedProviderLifecycle({
       IDLE_TIMEOUT: "-1",
       LOG_LEVEL: logLevel,
       USE_MOCK_SDK: "false",
+      ANTHROPIC_API_KEY: "perf-simulated-provider-only",
+      YEP_PROVIDER_HOST_ENABLED: "true",
       YEP_PERF_TRANSCRIPT_DIR: path.dirname(fixture.sessionFiles[0].file),
       YEP_PERF_SIM_STREAM_CHUNKS: String(scenario.streamChunks),
       YEP_PERF_SIM_STREAM_CHUNK_BYTES: String(scenario.streamChunkBytes),
@@ -602,12 +604,16 @@ export async function measureOwnedProviderLifecycle({
   let socket = null;
   try {
     const target = selectedFixtureTarget(server, fixture, scenario);
+    const creationRequestId = crypto.randomUUID();
     const createResponse = await requestJson(
       `${server.baseUrl}/api/projects/${encodeURIComponent(
         target.detail.projectId,
-      )}/sessions/create`,
+      )}/session-creations`,
       {
         json: {
+          requestId: creationRequestId,
+          message: "",
+          intent: "prepare",
           provider: "claude",
           model: "perf-simulated-thinking-model",
           // Match the browser's canonical setting. Leaving this unspecified
@@ -619,11 +625,32 @@ export async function measureOwnedProviderLifecycle({
       },
     );
     const sessionId = createResponse.body?.sessionId;
-    if (typeof sessionId !== "string" || !sessionId.startsWith("perf-sim-")) {
+    if (
+      typeof sessionId !== "string" ||
+      createResponse.body?.requestId !== creationRequestId ||
+      createResponse.body?.creation?.initialInputExpected !== false
+    ) {
       throw new Error(
-        `simulated provider did not publish its session identity: ${JSON.stringify(createResponse.body)}`,
+        `simulated session preparation was not accepted: ${JSON.stringify(createResponse.body)}`,
       );
     }
+
+    await waitForJson(
+      `${server.baseUrl}/api/session-creations/${creationRequestId}`,
+      (body) => body?.creation?.state === "bound",
+      {
+        timeoutMs: config.server.requestTimeoutMs,
+        description: "simulated preparation binding",
+      },
+    );
+    await waitForJson(
+      `${server.baseUrl}/api/sessions/${sessionId}/process`,
+      (body) => body?.process?.state === "idle",
+      {
+        timeoutMs: config.server.requestTimeoutMs,
+        description: "simulated prepared owner registration",
+      },
+    );
 
     socket = await connectEventSocket(
       server.baseUrl,

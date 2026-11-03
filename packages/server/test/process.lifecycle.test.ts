@@ -14,7 +14,7 @@ describe("Process", () => {
       const process = new Process(controller.iterator, {
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
-        sessionId: "sess-1",
+        sessionId: "retained-public",
         provider: "codex",
         initialState: "idle",
         idleTimeoutMs: 20,
@@ -25,7 +25,7 @@ describe("Process", () => {
       await expect(process.waitForProviderSessionId(50)).resolves.toBe(
         "sess-1",
       );
-      await expect(process.waitForSessionId(50)).resolves.toBe("sess-1");
+      expect(process.sessionId).toBe("retained-public");
       await process.abort();
     });
 

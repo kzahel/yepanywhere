@@ -363,9 +363,6 @@ export class PeerAccessManager {
   setRetirementHandler(handler: (grantId: string) => Promise<void>) {
     this.onPeerAccessRevoked = handler;
   }
-  remap(oldId: string, newId: string) {
-    this.outbound?.remap(oldId, newId);
-  }
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer) {
     return (
       this.isEnabled() &&

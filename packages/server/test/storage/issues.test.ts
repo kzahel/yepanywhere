@@ -334,20 +334,6 @@ describe("durable issue evidence", () => {
     store.title(item.id, "#7");
     expect(store.list()[0]?.title).toBe("#7");
   });
-  it("unions remapped sessions and preserves the latest decision", () => {
-    const { store } = fixture();
-    for (const sessionId of ["temp", "saved"])
-      store.capture(
-        { sessionId, projectId: "p" },
-        { id: sessionId, text: "https://github.com/a/b/pull/1" },
-      );
-    const id = store.list()[0]!.id;
-    store.decide(id, "temp", "dismissed");
-    store.remap("temp", "saved");
-    expect(store.list()).toHaveLength(0);
-    expect(store.evidence(id)).toHaveLength(2);
-    expect(store.evidence(id).every((e) => e.sessionId === "saved")).toBe(true);
-  });
 });
 
 describe("append-only discovery migrations", () => {

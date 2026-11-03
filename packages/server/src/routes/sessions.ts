@@ -6,8 +6,8 @@ import {
   creationStatusForSession,
 } from "../sessions/session-creation-view.js";
 import {
-  textCreationReceipt,
-  textCreationSubmissionHash,
+  sessionCreationReceipt,
+  sessionCreationSubmissionHash,
 } from "../sessions/session-creation-acceptance.js";
 import {
   SessionCreationConflict,
@@ -2088,20 +2088,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
     };
   };
-  // The new routes opt into durable acceptance. Legacy starts still wait for
-  // their established process/queue response and never receive a receipt.
-  const textAcceptance = (
+  const creationAcceptance = (
     c: Context,
     body: StartSessionBody,
     projectId: string,
   ) => {
-    if (!c.req.path.endsWith("/session-creations"))
-      return body.stagedAttachments !== undefined
-        ? c.json(
-            { error: "Staged creation attachments require session-creations" },
-            400,
-          )
-        : undefined;
     const context = creationForRequest(c, body.creationProvenance);
     if (
       typeof body.requestId !== "string" ||
@@ -2111,7 +2102,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const store = deps.sessionMetadataService?.creations;
     if (!store)
       return c.json({ error: "Durable session storage is unavailable" }, 503);
-    const submissionHash = textCreationSubmissionHash(body, projectId);
+    const submissionHash = sessionCreationSubmissionHash(body, projectId);
     const existing = store.get(context.context.owner, body.requestId);
     if (existing) {
       if (existing.deleted)
@@ -2121,7 +2112,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           { error: "Creation request conflicts with saved input" },
           409,
         );
-      return c.json(textCreationReceipt(existing), 202);
+      return c.json(sessionCreationReceipt(existing), 202);
     }
     if (
       (body.provider !== undefined && !ALL_PROVIDERS.includes(body.provider)) ||
@@ -2144,7 +2135,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     )
       return c.json(
         {
-          error: "This request is outside the supported durable text workflow",
+          error:
+            "This request is outside the supported session creation workflow",
           reason: "creation-not-accepted",
         },
         400,
@@ -2168,7 +2160,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             { error: "Creation request conflicts with saved input" },
             409,
           );
-        return c.json(textCreationReceipt(saved), 202);
+        return c.json(sessionCreationReceipt(saved), 202);
       },
       creation: {
         ...context,
@@ -2193,7 +2185,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
               { error: "Creation request conflicts with saved input" },
               409,
             );
-          return c.json(textCreationReceipt(saved), 202);
+          return c.json(sessionCreationReceipt(saved), 202);
         }
         if (error instanceof SessionCreationConflict)
           return c.json(
@@ -2230,7 +2222,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     if (!saved) return c.json({ error: "Creation request not found" }, 404);
     if (saved.deleted)
       return c.json({ error: "Session creation was deleted" }, 410);
-    return c.json(textCreationReceipt(saved));
+    return c.json(sessionCreationReceipt(saved));
   });
   const boundSessionReads = new BoundSessionReads({
     readerFactory: deps.readerFactory,
@@ -4250,7 +4242,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     });
   });
 
-  // POST /api/projects/:projectId/sessions - Start new session
+  // POST /api/projects/:projectId/session-creations — accept initial input.
   const startProjectSession = async (c: Context) => {
     const projectId = c.req.param("projectId") ?? "";
 
@@ -4261,17 +4253,15 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     let body: StartSessionBody;
     try {
-      body = c.req.path.endsWith("/session-creations")
-        ? ((await readLimitedJsonObject(
-            c.req.raw,
-            256 * 1024,
-          )) as unknown as StartSessionBody)
-        : await c.req.json<StartSessionBody>();
+      body = (await readLimitedJsonObject(
+        c.req.raw,
+        256 * 1024,
+      )) as unknown as StartSessionBody;
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
 
-    const acceptance = textAcceptance(c, body, projectId);
+    const acceptance = creationAcceptance(c, body, projectId);
     if (acceptance instanceof Response) return acceptance;
     const project = await deps.scanner.getOrCreateProject(projectId);
     if (!project)
@@ -4290,10 +4280,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: modeError }, 400);
     }
 
-    if (
-      !hasSessionMessageContent(body) &&
-      !(acceptance && body.intent === "prepare")
-    ) {
+    if (!hasSessionMessageContent(body) && body.intent !== "prepare") {
       return c.json({ error: "Message is required" }, 400);
     }
     const { executor, error: executorError } = parseOptionalExecutor(
@@ -4361,7 +4348,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       serviceTier,
     });
 
-    const replay = acceptance?.replay();
+    const replay = acceptance.replay();
     if (replay) return replay;
     const operation = deps.supervisor.startSession(
       project.path,
@@ -4399,218 +4386,36 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
       {
         projectId: project.id,
-        creation:
-          acceptance?.creation ??
-          creationForRequest(c, body.creationProvenance),
+        creation: acceptance.creation,
       },
     );
 
-    if (acceptance) {
-      void operation.then(acceptance.finished, acceptance.failed);
-      const saved = await acceptance.promise.catch(acceptance.refused);
-      if (saved instanceof Response) return saved;
-      void deps.userUsageService?.recordSession(actingUsername(c));
-      if (body.intent !== "prepare")
-        void deps.userUsageService?.recordTurn(
-          actingUsername(c),
-          userMessage.text,
-        );
-      return c.json(textCreationReceipt(saved), 202);
-    }
-    const result = await operation;
-
-    // Check if queue is full
-    if (isQueueFullResponse(result)) {
-      return c.json(
-        { error: "Queue is full", maxQueueSize: result.maxQueueSize },
-        503,
-      );
-    }
-
-    // Accepted, whether it starts now or waits for a worker.
+    void operation.then(acceptance.finished, acceptance.failed);
+    const saved = await acceptance.promise.catch(acceptance.refused);
+    if (saved instanceof Response) return saved;
     void deps.userUsageService?.recordSession(actingUsername(c));
-    void deps.userUsageService?.recordTurn(actingUsername(c), userMessage.text);
-
-    // Check if request was queued
-    if (isQueuedResponse(result)) {
-      return c.json({ ...result, serverTimestamp }, 202); // 202 Accepted - queued for processing
-    }
-
-    return c.json({
-      sessionId: result.sessionId,
-      processId: result.id,
-      projectId: result.projectId,
-      permissionMode: result.permissionMode,
-      appliedPermissionMode: result.appliedPermissionMode,
-      modeVersion: result.modeVersion,
-      recapAfterSeconds: result.recapAfterSeconds,
-      sandboxEnforcement: result.sandboxEnforcement,
-      serverTimestamp,
-    });
+    if (body.intent !== "prepare")
+      void deps.userUsageService?.recordTurn(
+        actingUsername(c),
+        userMessage.text,
+      );
+    return c.json(sessionCreationReceipt(saved), 202);
   };
-  routes.post("/projects/:projectId/sessions", startProjectSession);
   routes.post("/projects/:projectId/session-creations", startProjectSession);
 
-  // POST /api/projects/:projectId/sessions/create - Create session without starting agent
-  // Used for two-phase flow: create session first, upload files, then send first message
-  routes.post("/projects/:projectId/sessions/create", async (c) => {
-    const projectId = c.req.param("projectId");
-
-    // Validate projectId format at API boundary
-    if (!isUrlProjectId(projectId)) {
-      return c.json({ error: "Invalid project ID format" }, 400);
-    }
-
-    // Use getOrCreateProject to allow starting sessions in new directories
-    const project = await deps.scanner.getOrCreateProject(projectId);
-    if (!project) {
-      return c.json({ error: "Project not found or path does not exist" }, 404);
-    }
-
-    let body: CreateSessionBody = {};
-    try {
-      body = await c.req.json<CreateSessionBody>();
-    } catch {
-      // Body is optional for this endpoint
-    }
-
-    if (
-      body.machineControl !== undefined &&
-      typeof body.machineControl !== "boolean"
-    )
-      return c.json({ error: "machineControl must be a boolean" }, 400);
-    if (body.computerControl)
-      return c.json({ error: RETIRED_COMPUTER_CONTROL_ERROR }, 400);
-
-    const modeError = permissionModeError(body.mode);
-    if (modeError) {
-      return c.json({ error: modeError }, 400);
-    }
-
-    const { executor, error: executorError } = parseOptionalExecutor(
-      body.executor,
-    );
-    if (executorError) {
-      return c.json({ error: executorError }, 400);
-    }
-    // A limited user's session is sandboxed and obeys their lock, decided
-    // here rather than in the form (topics/limited-users.md § Delivery v1).
-    const limitedLaunch = applyLimitedLaunchPolicy(c, body);
-    if (limitedLaunch.kind === "error") {
-      return c.json({ error: limitedLaunch.error }, 403);
-    }
-    const sandboxSelection = parseSessionSandboxLevel(
-      body.sandboxLevel,
-      body.sandboxNetworkFirewall,
-    );
-    if ("error" in sandboxSelection) {
-      return c.json({ error: sandboxSelection.error }, 400);
-    }
-    const helperSettings = parseHelperSettings(body);
-    if (helperSettings.error) {
-      return c.json({ error: helperSettings.error }, 400);
-    }
-    const sandboxSettingsError = getSessionSandboxSettingsError(
-      sandboxSelection.sandboxLevel,
-      helperSettings.recapMode,
-    );
-    if (sandboxSettingsError) {
-      return c.json({ error: sandboxSettingsError }, 400);
-    }
-    if (body.workstreamId !== undefined) {
-      return c.json({ error: "Managed checkout lanes have been removed" }, 410);
-    }
-
-    const { thinking, effort } = buildThinkingOptions(body);
-
-    // Convert model option (undefined or "default" means use CLI default)
-    const model =
-      body.model && body.model !== "default" ? body.model : undefined;
-    const serviceTier = normalizeOptionalServiceTier(body.serviceTier);
-
-    const result = await deps.supervisor.createSession(
-      project.path,
-      body.mode,
-      {
-        model,
-        requestedModel: body.model,
-        serviceTier,
-        thinking,
-        effort,
-        providerName: body.provider,
-        routerAccountId: body.routerAccountId,
-        routerPoolId: body.routerPoolId,
-        routerPolicy: body.routerPolicy,
-        computerControl: body.computerControl,
-        machineControl: body.machineControl,
-        desktopControlOrigin:
-          body.machineControl === true ? desktopControlOrigin(c) : undefined,
-        executor,
-        sandboxLevel: sandboxSelection.sandboxLevel,
-        sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,
-        instructionUsername: actingUsername(c),
-        globalInstructions: getGlobalInstructions(),
-        permissions: body.permissions,
-        recapMode: helperSettings.recapMode,
-        recapAfterSeconds: helperSettings.recapAfterSeconds,
-        promptSuggestionMode: helperSettings.promptSuggestionMode,
-        helperSideModel: helperSettings.helperSideModel,
-        ...resolveCompactModelSettings(deps, {
-          provider: body.provider,
-          yaModelId: body.model,
-          modelCandidates: [body.model, model],
-        }),
-      },
-      {
-        projectId: project.id,
-        creation: creationForRequest(c, body.creationProvenance),
-      },
-    );
-
-    // Check if queue is full
-    if (isQueueFullResponse(result)) {
-      return c.json(
-        { error: "Queue is full", maxQueueSize: result.maxQueueSize },
-        503,
-      );
-    }
-
-    // Accepted, whether it starts now or waits for a worker.
-    void deps.userUsageService?.recordSession(actingUsername(c));
-
-    // Check if request was queued
-    if (isQueuedResponse(result)) {
-      return c.json({ ...result, serverTimestamp: Date.now() }, 202); // 202 Accepted - queued for processing
-    }
-
-    return c.json({
-      sessionId: result.sessionId,
-      processId: result.id,
-      projectId: result.projectId,
-      permissionMode: result.permissionMode,
-      appliedPermissionMode: result.appliedPermissionMode,
-      modeVersion: result.modeVersion,
-      recapAfterSeconds: result.recapAfterSeconds,
-      sandboxEnforcement: result.sandboxEnforcement,
-      serverTimestamp: Date.now(),
-    });
-  });
-
-  // POST /api/sessions - Start a detached new session under the hidden No Project workspace
+  // POST /api/session-creations — accept a detached session.
   const startDetachedSession = async (c: Context) => {
     let body: StartSessionBody;
     try {
-      body = c.req.path.endsWith("/session-creations")
-        ? ((await readLimitedJsonObject(
-            c.req.raw,
-            256 * 1024,
-          )) as unknown as StartSessionBody)
-        : await c.req.json<StartSessionBody>();
+      body = (await readLimitedJsonObject(
+        c.req.raw,
+        256 * 1024,
+      )) as unknown as StartSessionBody;
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
 
-    const acceptance = textAcceptance(c, body, "detached");
+    const acceptance = creationAcceptance(c, body, "detached");
     if (acceptance instanceof Response) return acceptance;
 
     if (
@@ -4630,10 +4435,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: modeError }, 400);
     }
 
-    if (
-      !hasSessionMessageContent(body) &&
-      !(acceptance && body.intent === "prepare")
-    ) {
+    if (!hasSessionMessageContent(body) && body.intent !== "prepare") {
       return c.json({ error: "Message is required" }, 400);
     }
     const { executor, error: executorError } = parseOptionalExecutor(
@@ -4686,7 +4488,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       body.model && body.model !== "default" ? body.model : undefined;
     const serviceTier = normalizeOptionalServiceTier(body.serviceTier);
 
-    const replay = acceptance?.replay();
+    const replay = acceptance.replay();
     if (replay) return replay;
     const operation = deps.supervisor.startSession(
       projectPath,
@@ -4718,175 +4520,22 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         helperSideModel: helperSettings.helperSideModel,
       },
       {
-        creation:
-          acceptance?.creation ??
-          creationForRequest(c, body.creationProvenance),
+        creation: acceptance.creation,
       },
     );
 
-    if (acceptance) {
-      void operation.then(acceptance.finished, acceptance.failed);
-      const saved = await acceptance.promise.catch(acceptance.refused);
-      if (saved instanceof Response) return saved;
-      void deps.userUsageService?.recordSession(actingUsername(c));
-      if (body.intent !== "prepare")
-        void deps.userUsageService?.recordTurn(
-          actingUsername(c),
-          userMessage.text,
-        );
-      return c.json(textCreationReceipt(saved), 202);
-    }
-    const result = await operation;
-
-    if (isQueueFullResponse(result)) {
-      return c.json(
-        { error: "Queue is full", maxQueueSize: result.maxQueueSize },
-        503,
-      );
-    }
-
-    // Accepted, whether it starts now or waits for a worker.
+    void operation.then(acceptance.finished, acceptance.failed);
+    const saved = await acceptance.promise.catch(acceptance.refused);
+    if (saved instanceof Response) return saved;
     void deps.userUsageService?.recordSession(actingUsername(c));
-    void deps.userUsageService?.recordTurn(actingUsername(c), userMessage.text);
-
-    if (isQueuedResponse(result)) {
-      return c.json({ ...result, serverTimestamp: Date.now() }, 202);
-    }
-
-    return c.json({
-      sessionId: result.sessionId,
-      processId: result.id,
-      projectId: result.projectId,
-      permissionMode: result.permissionMode,
-      appliedPermissionMode: result.appliedPermissionMode,
-      modeVersion: result.modeVersion,
-      recapAfterSeconds: result.recapAfterSeconds,
-      sandboxEnforcement: result.sandboxEnforcement,
-      serverTimestamp,
-    });
+    if (body.intent !== "prepare")
+      void deps.userUsageService?.recordTurn(
+        actingUsername(c),
+        userMessage.text,
+      );
+    return c.json(sessionCreationReceipt(saved), 202);
   };
-  routes.post("/sessions", startDetachedSession);
   routes.post("/session-creations", startDetachedSession);
-
-  // POST /api/sessions/create - Create a detached session without sending an initial message
-  routes.post("/sessions/create", async (c) => {
-    let body: CreateSessionBody = {};
-    try {
-      body = await c.req.json<CreateSessionBody>();
-    } catch {
-      // Body is optional for this endpoint
-    }
-
-    if (
-      body.machineControl !== undefined &&
-      typeof body.machineControl !== "boolean"
-    )
-      return c.json({ error: "machineControl must be a boolean" }, 400);
-    if (body.computerControl)
-      return c.json({ error: RETIRED_COMPUTER_CONTROL_ERROR }, 400);
-
-    const limitedLaunch = applyLimitedLaunchPolicy(c, body);
-    if (limitedLaunch.kind === "error")
-      return c.json({ error: limitedLaunch.error }, 403);
-
-    const modeError = permissionModeError(body.mode);
-    if (modeError) {
-      return c.json({ error: modeError }, 400);
-    }
-
-    const { executor, error: executorError } = parseOptionalExecutor(
-      body.executor,
-    );
-    if (executorError) {
-      return c.json({ error: executorError }, 400);
-    }
-    const sandboxSelection = parseSessionSandboxLevel(
-      body.sandboxLevel,
-      body.sandboxNetworkFirewall,
-    );
-    if ("error" in sandboxSelection) {
-      return c.json({ error: sandboxSelection.error }, 400);
-    }
-    const helperSettings = parseHelperSettings(body);
-    if (helperSettings.error) {
-      return c.json({ error: helperSettings.error }, 400);
-    }
-    const sandboxSettingsError = getSessionSandboxSettingsError(
-      sandboxSelection.sandboxLevel,
-      helperSettings.recapMode,
-    );
-    if (sandboxSettingsError) {
-      return c.json({ error: sandboxSettingsError }, 400);
-    }
-
-    const projectPath = await ensureDetachedProjectPath(
-      executor,
-      actingUsername(c),
-    );
-    const { thinking, effort } = buildThinkingOptions(body);
-    const model =
-      body.model && body.model !== "default" ? body.model : undefined;
-    const serviceTier = normalizeOptionalServiceTier(body.serviceTier);
-
-    const result = await deps.supervisor.createSession(
-      projectPath,
-      body.mode,
-      {
-        model,
-        requestedModel: body.model,
-        serviceTier,
-        thinking,
-        effort,
-        providerName: body.provider,
-        routerAccountId: body.routerAccountId,
-        routerPoolId: body.routerPoolId,
-        routerPolicy: body.routerPolicy,
-        computerControl: body.computerControl,
-        machineControl: body.machineControl,
-        desktopControlOrigin:
-          body.machineControl === true ? desktopControlOrigin(c) : undefined,
-        executor,
-        sandboxLevel: sandboxSelection.sandboxLevel,
-        sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,
-        globalInstructions: getGlobalInstructions(),
-        instructionUsername: actingUsername(c),
-        permissions: body.permissions,
-        recapMode: helperSettings.recapMode,
-        recapAfterSeconds: helperSettings.recapAfterSeconds,
-        promptSuggestionMode: helperSettings.promptSuggestionMode,
-        helperSideModel: helperSettings.helperSideModel,
-      },
-      {
-        creation: creationForRequest(c, body.creationProvenance),
-      },
-    );
-
-    if (isQueueFullResponse(result)) {
-      return c.json(
-        { error: "Queue is full", maxQueueSize: result.maxQueueSize },
-        503,
-      );
-    }
-
-    // Accepted, whether it starts now or waits for a worker.
-    void deps.userUsageService?.recordSession(actingUsername(c));
-
-    if (isQueuedResponse(result)) {
-      return c.json({ ...result, serverTimestamp: Date.now() }, 202);
-    }
-
-    return c.json({
-      sessionId: result.sessionId,
-      processId: result.id,
-      projectId: result.projectId,
-      permissionMode: result.permissionMode,
-      appliedPermissionMode: result.appliedPermissionMode,
-      modeVersion: result.modeVersion,
-      recapAfterSeconds: result.recapAfterSeconds,
-      sandboxEnforcement: result.sandboxEnforcement,
-      serverTimestamp: Date.now(),
-    });
-  });
 
   // POST /api/projects/:projectId/sessions/:sessionId/resume - Resume session
   routes.post("/projects/:projectId/sessions/:sessionId/resume", async (c) => {

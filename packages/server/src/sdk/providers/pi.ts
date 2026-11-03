@@ -580,7 +580,7 @@ export class PiProvider implements AgentProvider {
     const client = new PiRpcClient(proc);
 
     // Resolve the pi session id synchronously (relative to Supervisor startup)
-    // so waitForSessionId() resolves on the first init yield.
+    // so the first init yield carries the native binding.
     let sessionId: string;
     try {
       const state = await client.request({ type: "get_state" }, 10000);

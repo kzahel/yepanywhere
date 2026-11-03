@@ -176,11 +176,16 @@ describe("Supervisor settled session sandbox", () => {
 
   it("resolves new-session instructions before ownership metadata exists", async () => {
     await expect(
-      supervisor.createSession("/srv/new-project", undefined, {
-        providerName: "claude",
-        sandboxLevel: "project-write",
-        instructionUsername: "bobby",
-      }),
+      supervisor.startSession(
+        "/srv/new-project",
+        { text: "new initial request" },
+        undefined,
+        {
+          providerName: "claude",
+          sandboxLevel: "project-write",
+          instructionUsername: "bobby",
+        },
+      ),
     ).rejects.toThrow("sandboxed-launch");
     expect(sandboxRequests[0]?.instructions).toEqual({
       startFromDefault: false,

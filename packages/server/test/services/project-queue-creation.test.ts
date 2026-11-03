@@ -674,12 +674,14 @@ it.each(["claude", "codex"] as const)(
   "prepares one %s public resource without an initial turn and admits the first turn only to its incumbent",
   async (name) => {
     const f = await fixture(name);
-    const created = await f.supervisor.createSession(
+    const created = await f.supervisor.startSession(
       f.project,
+      { text: "" },
       undefined,
       { providerName: name },
       {
         creation: {
+          intent: "prepare",
           requestId: "owned-prepare-session",
           context: {
             owner: { kind: "superuser" },
@@ -809,12 +811,14 @@ it.each(["claude", "codex"] as const)(
     f.available = false;
     let publicId: string | undefined;
     await expect(
-      f.supervisor.createSession(
+      f.supervisor.startSession(
         f.project,
+        { text: "" },
         "bypassPermissions",
         { providerName: name, model: "saved-model" },
         {
           creation: {
+            intent: "prepare",
             requestId: "owned-failed-preparation",
             context: {
               owner: { kind: "superuser" },

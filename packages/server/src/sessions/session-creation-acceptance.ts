@@ -3,7 +3,7 @@ import type { SessionCreationReceipt } from "@yep-anywhere/shared";
 import type { SavedSessionCreation } from "./SessionCreationStore.js";
 
 /** Fingerprint submitted choices before defaults, availability or routing change. */
-export function textCreationSubmissionHash(
+export function sessionCreationSubmissionHash(
   body: unknown,
   projectId: string,
 ): string {
@@ -19,7 +19,7 @@ export function textCreationSubmissionHash(
   return createHash("sha256").update(wire).digest("hex");
 }
 
-export function textCreationReceipt(
+export function sessionCreationReceipt(
   saved: SavedSessionCreation,
 ): SessionCreationReceipt {
   if (!saved.request || saved.deleted)

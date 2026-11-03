@@ -1,3 +1,16 @@
+import { randomUUID } from "node:crypto";
+import { Supervisor } from "../../src/supervisor/Supervisor.js";
+import { MockServerClaudeProvider } from "../../src/sdk/mock.js";
+import { MessageQueue } from "../../src/sdk/messageQueue.js";
+import { encodeProjectId } from "../../src/supervisor/types.js";
+import {
+  createControllableIterator,
+  waitFor,
+} from "../process.test-support.js";
+import {
+  createTestSessionMetadataService,
+  closeTestDiscoveryDatabases,
+} from "../utils/session-metadata-database.js";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -9,7 +22,6 @@ import {
   createSessionsRoutes,
 } from "../../src/routes/sessions.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
-import type { Process } from "../../src/supervisor/Process.js";
 import type { Project } from "../../src/supervisor/types.js";
 
 /**
@@ -33,20 +45,9 @@ function createProject(): Project {
   };
 }
 
-function createProcess(sessionId: string): Process {
-  return {
-    id: `process-${sessionId}`,
-    sessionId,
-    projectId,
-    permissionMode: "default",
-    modeVersion: 0,
-    promptSuggestionMode: "off",
-    recapAfterSeconds: 300,
-  } as unknown as Process;
-}
-
 describe("Usage records on the session routes", () => {
   let dir: string;
+  const owners: Supervisor[] = [];
   let userUsageService: UserUsageService;
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
@@ -57,6 +58,11 @@ describe("Usage records on the session routes", () => {
   });
 
   afterEach(async () => {
+    for (const supervisor of owners.splice(0)) {
+      await supervisor.stopBackgroundTasks();
+      for (const process of supervisor.getAllProcesses()) await process.abort();
+    }
+    closeTestDiscoveryDatabases();
     consoleLogSpy.mockRestore();
     await fs.rm(dir, { recursive: true, force: true });
   });
@@ -111,54 +117,105 @@ describe("Usage records on the session routes", () => {
     return report.users.find((user) => user.username === null)?.total;
   }
 
-  it("counts a session started without a project, and its first turn", async () => {
-    const routes = createRoutes({
-      startSession: vi.fn(async () => createProcess("detached")),
+  async function admittedRoutes() {
+    const metadata = createTestSessionMetadataService(dir);
+    await metadata.initialize();
+    const cwd = await fs.realpath(dir);
+    const project = { ...createProject(), path: cwd, id: encodeProjectId(cwd) };
+    const provider = new MockServerClaudeProvider();
+    vi.spyOn(provider, "startSession").mockImplementation(async (options) => {
+      const control = createControllableIterator();
+      control.push({
+        type: "system",
+        subtype: "init",
+        session_id: options.newSessionId!,
+      });
+      return {
+        iterator: control.iterator,
+        queue: new MessageQueue(),
+        abort: control.finish,
+      };
     });
+    const supervisor = new Supervisor({
+      provider,
+      sessionMetadataService: metadata,
+      maxWorkers: 1,
+    });
+    owners.push(supervisor);
+    return {
+      supervisor,
+      project,
+      metadata,
+      routes: createSessionsRoutes({
+        supervisor,
+        sessionMetadataService: metadata,
+        userUsageService,
+        scanner: {
+          getOrCreateProject: async () => project,
+        } as unknown as SessionsDeps["scanner"],
+        readerFactory: () => ({}) as ISessionReader,
+      }),
+    };
+  }
 
-    const response = await post(routes, "/sessions", {
+  it("counts accepted detached intent and its first turn", async () => {
+    const f = await admittedRoutes();
+    const response = await post(f.routes, "/session-creations", {
+      requestId: randomUUID(),
       message: "two words",
     });
-
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     expect(await superuserTotals()).toMatchObject({
       sessions: 1,
       turns: 1,
       words: 2,
     });
+    await waitFor(() => expect(f.supervisor.getAllProcesses()).toHaveLength(1));
   });
 
-  it("counts a session created without a project", async () => {
-    const routes = createRoutes({
-      createSession: vi.fn(async () => createProcess("detached")),
+  it("counts empty preparation without a phantom usage turn", async () => {
+    const f = await admittedRoutes();
+    const response = await post(f.routes, "/session-creations", {
+      requestId: randomUUID(),
+      message: "",
+      intent: "prepare",
     });
-
-    const response = await post(routes, "/sessions/create", {});
-
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     expect(await superuserTotals()).toMatchObject({ sessions: 1, turns: 0 });
+    await waitFor(() => expect(f.supervisor.getAllProcesses()).toHaveLength(1));
   });
 
-  it("counts a start the supervisor queues for a worker, not one it refuses", async () => {
-    const startSession = vi
-      .fn()
-      .mockResolvedValueOnce({ queued: true, queueId: "q-1", position: 1 })
-      .mockResolvedValueOnce({ error: "queue_full", maxQueueSize: 1 });
-    const routes = createRoutes({ startSession });
-
-    const queued = await post(routes, `/projects/${projectId}/sessions`, {
-      message: "wait your turn",
-    });
-    const refused = await post(routes, `/projects/${projectId}/sessions`, {
-      message: "no room",
-    });
-
-    expect(queued.status).toBe(202);
-    expect(refused.status).toBe(503);
+  it("counts saved queued input but no pre-admission refusal", async () => {
+    const f = await admittedRoutes();
+    const url = `/projects/${f.project.id}/session-creations`;
+    expect(
+      (
+        await post(f.routes, url, {
+          requestId: randomUUID(),
+          message: "occupy worker",
+        })
+      ).status,
+    ).toBe(202);
+    await waitFor(() => expect(f.supervisor.getAllProcesses()).toHaveLength(1));
+    const requestId = randomUUID();
+    expect(
+      (await post(f.routes, url, { requestId, message: "wait your turn" }))
+        .status,
+    ).toBe(202);
+    await waitFor(() =>
+      expect(
+        f.metadata.creations.get({ kind: "superuser" }, requestId)?.attempt
+          .state,
+      ).toBe("queued"),
+    );
+    expect(
+      (await post(f.routes, url, { requestId: randomUUID(), message: "" }))
+        .status,
+    ).toBe(400);
     expect(await superuserTotals()).toMatchObject({
-      sessions: 1,
-      turns: 1,
-      words: 3,
+      sessions: 2,
+      turns: 2,
+      words: 5,
     });
   });
 

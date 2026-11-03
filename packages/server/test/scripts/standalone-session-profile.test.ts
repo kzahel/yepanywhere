@@ -251,7 +251,7 @@ it("owns standalone creation, native history, profile restart and process cleanu
     expect(server.registryFile).toBe(join(server.tempDir, "process.json"));
     const projectId = toUrlProjectId(projectPath);
     const created = await fetch(
-      `${server.baseUrl}/api/projects/${projectId}/sessions`,
+      `${server.baseUrl}/api/projects/${projectId}/session-creations`,
       {
         method: "POST",
         headers: {
@@ -259,12 +259,13 @@ it("owns standalone creation, native history, profile restart and process cleanu
           "X-Yep-Anywhere": "true",
         },
         body: JSON.stringify({
+          requestId: crypto.randomUUID(),
           message: "standalone owned baseline",
           mode: "default",
         }),
       },
     );
-    expect(created.status, await created.clone().text()).toBe(200);
+    expect(created.status, await created.clone().text()).toBe(202);
     expect((await created.json()).sessionId).toBeTruthy();
     const nativeUrl = `/api/projects/${projectId}/sessions/${nativeId}`;
     const first = await fetch(server.baseUrl + nativeUrl);

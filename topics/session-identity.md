@@ -230,18 +230,14 @@ check, and records dispatch before invoking the provider. Worker deferral keeps
 the existing worker queue and re-reads the saved request at promotion; cancellation
 records a safe failure before acknowledgement. It does not reconstruct live
 desktop credentials or silently downgrade router, sandbox or hosted choices.
-The qualified path is superuser-owned unsandboxed Claude text, including selected
-router accounts/pools and supported local/hosted ownership; other choices refuse
-before effects until their later rollout slices.
-The existing project/detached creation routes use it for superuser text requests
-resolved through the Claude AgentProvider adapter, without attachments, slash
-commands, runtime-only input authority, project-write sandbox or machine control.
-Hosting additionally requires the negotiated private owner contract described
-below. Other shapes retain their existing path during rollout.
-The legacy Claude SDK bridge now resolves the same configured adapter when
-provider is omitted; explicit overrides and unnamed independent SDKs retain
-their existing behavior. Completed/queued/error response shapes and advertised
-capabilities are unchanged; the broader creation-receipts contract remains unadvertised.
+The initial rollout qualified superuser-owned unsandboxed Claude text, selected
+router accounts/pools and local/hosted ownership. Subsequent slices extended
+that owner to configured providers, restricted starts, staged files, preparation
+and copies. Full browser admission is now advertised separately as bit 147;
+earlier narrow bits retain their historical meaning for older servers.
+The deprecated SDK bridge and completed-process/queue browser URLs were removed;
+configured AgentProvider resolution owns execution. The broader creation-receipts
+contract remains unadvertised.
 
 Before provider availability checks, the qualified route commits the exact
 prompt, trusted creator and request source. Failure leaves a readable failed
@@ -641,6 +637,32 @@ server corpus remains v0.8.0–v0.11.0; clients send only established writes the
 Old extension clients are not a blocker for subsequent removal of new-server
 aliases and SDK execution scaffolding. Existing native history/resume remains
 independent of this client/server protocol cleanup.
+
+## Retired Browser Routes And Public-ID Replacement
+
+New servers accept browser creation only through project-scoped or detached
+`POST /session-creations`, returning HTTP 202 with the saved operation identity.
+The four former `POST /projects/:id/sessions`, `/sessions`, and their `/create`
+variants are unregistered (404 for an authorized owner). GET session collections,
+existing-session inputs/resume, native v0 and peer command schemas remain their
+own supported interfaces. Empty preparation uses explicit `intent: prepare` on
+admission, without a phantom turn; no public Supervisor create-only method or
+second browser create/upload/send choreography remains on the server.
+
+A receipt proves saved intent. Native binding and live owner registration are
+later observations, so tooling that needs a live process waits for it explicitly.
+Public Process identity is immutable even when native init arrives later.
+Provider frames and agentctl publication use the public ID; private native
+settlement supplies the provider ID. A changed or invalid established native
+identity closes input before synchronous error listeners, verifies teardown and
+retains the ownership fence if teardown fails, including retained runtimes.
+Public identity has no provisional-ID wait or timeout. Empty preparation exposes
+its incumbent without waiting for a first turn; operations requiring native
+identity/input evidence retain their explicit native settlement wait.
+No server remap event, temporary lookup alias or metadata/association moving
+callback is produced. Historical imported identities and persisted old receipt
+aliases remain readable. [Older-server client reconciliation](session-id-remap.md)
+and the isolated older-server creation adapter remain supported.
 
 ## Provider-only runtime execution
 

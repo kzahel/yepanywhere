@@ -14,7 +14,6 @@ import type {
   ProjectCodeNameChangedEvent,
   ProjectQueueChangedEvent,
   ProjectsChangedEvent,
-  ProviderName,
   SessionCreationProvenance,
   ProviderRuntimeStatus,
   PromptSuggestionMode,
@@ -66,18 +65,6 @@ export interface SessionStatusEvent {
 export interface SessionCreatedEvent {
   type: "session-created";
   session: SessionSummary;
-  timestamp: string;
-}
-
-/** Event emitted when a temporary public session ID becomes canonical. */
-export interface SessionIdRemappedEvent {
-  type: "session-id-remapped";
-  oldSessionId: string;
-  newSessionId: string;
-  /** Base64url-encoded project path (UrlProjectId format) */
-  projectId: UrlProjectId;
-  processId: string;
-  provider: ProviderName;
   timestamp: string;
 }
 
@@ -361,7 +348,6 @@ export type BusEvent =
   | FileChangeEvent
   | SessionStatusEvent
   | SessionCreatedEvent
-  | SessionIdRemappedEvent
   | SourceChangeEvent
   | BackendReloadedEvent
   | SessionSeenEvent

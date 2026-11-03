@@ -337,7 +337,6 @@ export type ProcessEvent =
     }
   /** The served model changed, e.g. a reply named the model behind an alias. */
   | { type: "model-resolved"; model: string }
-  | { type: "session-id-changed"; oldSessionId: string; newSessionId: string }
   | {
       type: "context-window-observed";
       model: string;

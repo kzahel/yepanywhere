@@ -72,7 +72,41 @@ cases (128.65 seconds), shared 967, relay 139 and push 45; lint/format/types pas
 The existing [unowned jsdom diagnostics](../../gaps/client-unit-navigation-diagnostics.md)
 and upstream SQLite notices remain separately tracked. The review process was
 retired with verified provider teardown. Server-alias/public-remap retirement
-follows.
+is completed below.
+
+The final retirement slice is implemented: old browser POST registrations,
+public create-only Supervisor entry and public-ID remap producers/observers are
+removed. Current tooling uses acceptance and observes live owner registration
+separately. Raw provider lifecycle fixtures retain the same execution engine;
+production creation still requires admitted context. Old emission/writer/wiring
+assertions are retired, while meaningful input/approval/share tests seed an
+existing runtime and native/peer legacy alias fixtures preserve upgrade reads.
+The mocked limited-launch wiring case is superseded by real admission policy
+coverage in No project app tests and the limited-user browser smoke. Native v0
+and peer schemas remain unchanged. A real npm 0.11.0 server passes current-client
+fallback, one legacy start, reply and history reload after wire isolation.
+
+The sole final Sol review found a retained-runtime native-conflict input fence
+bug, stale Codex preparation assertions and an accidentally removed account-switch
+race. Corrections close input before synchronous listeners and verify/fence
+teardown, test both init/output conflicts with successful/failed abort, migrate
+local/hosted preparation to receipt/readiness checks, and restore account-switch
+coverage using the actual accepted owner request key. Focused runtime checks
+pass 214 cases in 3.85 seconds; Claude preparation plus local/hosted Codex and
+account-switch browser checks pass without increasing timeouts. The obsolete
+five-second public-ID wait is removed; explicit native-evidence waits remain.
+The review process was retired with verified provider teardown; no second review
+round was launched. Actual owned performance-harness launch, protocol-2 attach,
+preparation, one streamed turn and native persistence pass; this is behavioral
+qualification, not a benchmark result. Final workspace gates pass: 6,901 server
+cases (146.92 seconds), 7,070 client cases (131.17 seconds), shared 967, relay 139
+and push 45; root lint/format/types and explicit new-file checks are clean.
+Twelve targeted browser cases pass across focused runs, including routed Claude,
+local/hosted Codex copy and preparation, delayed replies and account renewal;
+prior first-slice lost-reply draft recovery remains qualified. Existing SQLite,
+negative-path log, console-budget and [jsdom navigation diagnostics](../../gaps/client-unit-navigation-diagnostics.md)
+retain their documented owners. No timeout/retry increases or account/platform
+qualification expansion were used to complete retirement.
 
 ## Completion target — one creation contract, retired legacy implementations
 

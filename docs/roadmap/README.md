@@ -598,12 +598,17 @@ host rather than adding another core runtime. These are recommendations, not
 newly selected implementation work or a decision to replace provider-native
 history.
 
-The maintainer's selected follow-up is [current-client convergence and legacy
-removal](../tactical/171-durable-session-identity-and-creation.md#selected-cleanup--current-clients-and-legacy-removal):
-move all current creation forms/actions onto full admission, delete SDK-only
-execution scaffolding, then retire unused new-server URLs and provisional-ID
-remapping. Old extension clients are not a retirement blocker. New-client support
-for stable older servers remains isolated in the client adapter.
+[Current-client convergence and legacy retirement](../tactical/171-durable-session-identity-and-creation.md#selected-cleanup--current-clients-and-legacy-removal)
+is complete: bit 147 covers combined prompt/files/options and explicit empty
+preparation, all runtime execution uses AgentProvider, and the four old browser
+POST creation URLs and provisional public-ID replacement are removed. Public
+identity is final before native startup; native conflicts close input and retain
+ownership until verified teardown. Current clients preserve supported older-server
+writes and remap handling in explicit compatibility boundaries. Native history
+and persisted old receipt-alias reads remain supported. One Sol review per slice,
+focused Claude/Codex browser checks, actual npm 0.11.0 compatibility, owned profile/
+performance-harness smokes and full workspace gates pass; broader account/platform
+qualification is not claimed by this cleanup.
 
 Current consolidation status (November 3): all production native creation
 callers now share permanent-public-ID admission, including restricted starts,

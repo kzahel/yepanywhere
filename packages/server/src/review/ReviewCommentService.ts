@@ -658,36 +658,6 @@ export class ReviewCommentService
     });
   }
 
-  /** Move persisted delivery associations from a provisional YA id. */
-  async remapSubmissionSession(
-    projectPath: string,
-    oldSessionId: string,
-    newSessionId: string,
-  ): Promise<number> {
-    return this.withMutation(projectPath, async (store) => {
-      let changed = 0;
-      const remappedSubmissionIds = new Set<string>();
-      for (const submission of store.state.submissions) {
-        if (submission.targetSessionId !== oldSessionId) continue;
-        submission.targetSessionId = newSessionId;
-        remappedSubmissionIds.add(submission.id);
-        changed++;
-      }
-      for (const site of store.state.sites) {
-        for (const outcome of site.outcomes) {
-          if (
-            outcome.sessionId === oldSessionId &&
-            remappedSubmissionIds.has(outcome.submissionId)
-          ) {
-            outcome.sessionId = newSessionId;
-          }
-        }
-      }
-      if (changed > 0) await store.save();
-      return changed;
-    });
-  }
-
   /** Create a fresh active entry at an existing discussion site. */
   async addFollowUp(
     projectPath: string,

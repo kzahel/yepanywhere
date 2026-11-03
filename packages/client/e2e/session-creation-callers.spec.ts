@@ -18,7 +18,7 @@ const headers = {
 };
 
 for (const hosted of [false, true])
-  test(`compatibility create-only ${hosted ? "hosted" : "local"} preserves one public resource and permits its first turn`, async ({
+  test(`explicit Codex preparation ${hosted ? "hosted" : "local"} preserves one public resource and permits its first turn`, async ({
     browser,
   }) => {
     const owned = await createCodexCreationFixture(hosted);
@@ -29,12 +29,38 @@ for (const hosted of [false, true])
     let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
     try {
       const response = await owned.request(
-        `/projects/${owned.projectId}/sessions/create`,
-        { provider: "codex", model: "gpt-6.1-sol" },
+        `/projects/${owned.projectId}/session-creations`,
+        {
+          requestId: crypto.randomUUID(),
+          message: "",
+          intent: "prepare",
+          provider: "codex",
+          model: "gpt-6.1-sol",
+        },
       );
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(202);
       const prepared = await response.json();
-      expect(prepared.processId).toBeTruthy();
+      expect(prepared.creation.initialInputExpected).toBe(false);
+      await expect
+        .poll(
+          async () =>
+            (
+              await (
+                await owned.request(`/session-creations/${prepared.requestId}`)
+              ).json()
+            ).creation.state,
+        )
+        .toBe("bound");
+      await expect
+        .poll(
+          async () =>
+            (
+              await (
+                await owned.request(`/sessions/${prepared.sessionId}/process`)
+              ).json()
+            ).process?.state,
+        )
+        .toBe("idle");
       expect(prepared.sessionId).not.toBe(
         "019a0000-cccc-7ccc-8ccc-cccccccccccc",
       );
@@ -290,7 +316,8 @@ for (const hosted of [false, true])
       await owned.releaseAck();
       await owned.releaseReply();
       const parent = await (
-        await owned.request(`/projects/${owned.projectId}/sessions`, {
+        await owned.request(`/projects/${owned.projectId}/session-creations`, {
+          requestId: crypto.randomUUID(),
           provider: "codex",
           model: "gpt-6.1-sol",
           message: "OWNED_COPY_PARENT",

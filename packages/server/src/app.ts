@@ -835,7 +835,6 @@ export function createApp(options: AppOptions): AppResult {
   let agentApiController: { read: ApiReadPort } | undefined;
   let apiCommands: SessionCommands | undefined;
   let apiReceipts: ApiReceiptStore | undefined;
-  let releaseApiRemaps: (() => void) | undefined;
   try {
     publicServerId = readServerIdentity(discoverySqlite.getDatabase());
   } catch (error) {
@@ -1705,7 +1704,6 @@ export function createApp(options: AppOptions): AppResult {
       externalTracker?.dispose();
       await options.peerAccess?.close();
       apiCommands?.close();
-      releaseApiRemaps?.();
       apiReceipts?.close();
       await supervisor.stopBackgroundTasks();
       await rendezCompose?.close();
@@ -3552,10 +3550,6 @@ export function createApp(options: AppOptions): AppResult {
           indexer.configure();
       }),
     );
-    const unmap = supervisor.observeSessionIdRemaps?.((oldId, newId) =>
-      indexer.remap(oldId, newId),
-    );
-    if (unmap) issueDisposers.push(unmap);
     const unsubscribe = options.eventBus?.subscribe((event) => {
       if (event.type === "session-catalog-updated" && !event.catalog.refreshing)
         indexer.refresh(event.catalog);
@@ -3729,10 +3723,6 @@ export function createApp(options: AppOptions): AppResult {
         "Agent API command outcome persistence failed",
       ),
   );
-  releaseApiRemaps = supervisor.observeSessionIdRemaps?.((oldId, newId) => {
-    apiReceipts?.remap(oldId, newId);
-    options.peerAccess?.remap(oldId, newId);
-  });
   const coreSources: CoreApiSources = {
     peerAuthentication: () => !!options.peerAccess,
     serverMetadata: () =>
@@ -4009,23 +3999,6 @@ export function createApp(options: AppOptions): AppResult {
     if (event.type === "process-terminated") {
       reviewResponseObserver.forget(event.processId);
       return;
-    }
-    if (event.type === "session-id-remapped") {
-      const activeProcess = supervisor.getProcessForSession(event.newSessionId);
-      if (activeProcess) {
-        void reviewCommentService
-          .remapSubmissionSession(
-            activeProcess.projectPath,
-            event.oldSessionId,
-            event.newSessionId,
-          )
-          .catch((error) => {
-            console.warn(
-              `[sourceReviewResponseTurns] Could not remap review submissions from ${event.oldSessionId}:`,
-              error,
-            );
-          });
-      }
     }
   });
   app.route(

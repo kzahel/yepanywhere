@@ -53,10 +53,7 @@ export class RetainedSessionCollections {
       this.initialized = true;
       if (this.controller.signal.aborted) return;
       this.unsubscribe = this.options.eventBus?.subscribe((event) => {
-        if (
-          event.type === "session-created" ||
-          event.type === "session-id-remapped"
-        ) {
+        if (event.type === "session-created") {
           this.invalidate();
         } else if (
           event.type === "file-change" &&
