@@ -52,6 +52,7 @@ import {
   ensureProviderRuntimeHost,
   initializeProviderRuntimeHost,
   assertHostedCreationSupport,
+  ProviderHostOutdated,
   startHostedProviderSession,
   getProviderHostInventory,
   revokeHostedAgentApiAccess,
@@ -2078,12 +2079,13 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     process.env.YEP_SERVER_GENERATION = "old-api";
     try {
       expect(await initializeProviderRuntimeHost()).toBe(true);
-      await expect(assertHostedCreationSupport("pi")).rejects.toThrow(
-        "update the host",
-      );
-      await expect(assertHostedCreationSupport("opencode")).rejects.toThrow(
-        "update the host",
-      );
+      await expect(assertHostedCreationSupport("pi")).rejects.toMatchObject({
+        name: "ProviderHostOutdated",
+        missingFeatures: ["session-creation-pi-v1"],
+      });
+      await expect(
+        assertHostedCreationSupport("opencode"),
+      ).rejects.toBeInstanceOf(ProviderHostOutdated);
       for (const provider of ["pi", "gemini", "codex"] as const) {
         const session = await startHostedProviderSession(
           provider,

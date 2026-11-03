@@ -27,6 +27,7 @@ import {
   isProviderRuntimeHostAvailable,
   assertHostedCreationSupport,
   listHostedProviderRuntimes,
+  ProviderHostOutdated,
 } from "../sdk/providers/provider-runtime-host.js";
 import {
   parseCreationRuntimeIdentity,
@@ -1520,7 +1521,12 @@ export class Supervisor {
       try {
         const current = store.assertCurrent(currentFence);
         if (["saved", "queued"].includes(current.attempt.state))
-          store.failBeforeEffects(currentFence, "launch-refused");
+          store.failBeforeEffects(
+            currentFence,
+            error instanceof ProviderHostOutdated
+              ? "provider-host-outdated"
+              : "launch-refused",
+          );
         else if (
           error instanceof RouterRefusedBeforeProvider &&
           current.attempt.state === "dispatching"

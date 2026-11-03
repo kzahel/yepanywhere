@@ -2202,7 +2202,22 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         );
       },
       failed(error: unknown) {
-        if (!accepted) reject(error);
+        if (!accepted) {
+          reject(error);
+          return;
+        }
+        // The receipt already went out, so this log line and the saved
+        // failure code are the only record of why startup failed.
+        getLogger().warn(
+          {
+            event: "session_creation_failed",
+            requestId: body.requestId,
+            projectId,
+            provider: body.provider,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          "Accepted session creation failed to start",
+        );
       },
       finished() {
         if (!accepted) reject(new Error("Creation was not durably accepted"));

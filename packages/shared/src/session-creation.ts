@@ -21,13 +21,17 @@ export interface SessionCreationStatus {
    * Safe outcome codes. The `router-*` codes mean Agent Auth Router refused
    * the session's account before any provider started (2026-11), so nothing
    * was sent; older clients show their generic failure for them.
+   * `provider-host-outdated` means the long-lived provider host lacks a
+   * feature this server requires and must be restarted (2026-11); older
+   * clients likewise show the generic failure.
    */
   failure?:
     | "startup-unavailable"
     | "launch-refused"
     | "cancelled"
     | "router-login-required"
-    | "router-refused";
+    | "router-refused"
+    | "provider-host-outdated";
 }
 
 /** Durable creation acceptance; provider startup and delivery are separate facts. */

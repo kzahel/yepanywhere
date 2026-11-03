@@ -260,7 +260,12 @@ prompt, trusted creator and request source. Failure leaves a readable failed
 session even when no process/native transcript exists. A router refusal after
 dispatch but before any provider start, while the native claim is still the
 attempt's, is a known failure (`router-login-required` or `router-refused`),
-not uncertainty: it releases the claim, sends nothing and remains retryable. Deferral retains the
+not uncertainty: it releases the claim, sends nothing and remains retryable.
+A hosted creation whose long-lived provider host lacks a required
+`session-creation-*` feature fails before dispatch as
+`provider-host-outdated`, telling the user to restart the host; any failure
+after the receipt is returned logs `session_creation_failed` with the error,
+since the saved code is otherwise its only record. Deferral retains the
 initial client temp id, per-turn mode, descriptive origin, one-turn effort,
 composition/speech and receive-time metadata through an allowlisted versioned
 input snapshot under the existing payload budget. Actor, receipt, hidden-turn

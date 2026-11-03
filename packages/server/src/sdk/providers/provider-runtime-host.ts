@@ -627,36 +627,43 @@ function providerHostHasFeature(
   return Array.isArray(status.features) && status.features.includes(feature);
 }
 
+/**
+ * The running provider host predates a feature this server requires. The
+ * dev wrapper keeps the host alive across backend reloads, so it can run
+ * weeks-old code; only a host restart clears this.
+ */
+export class ProviderHostOutdated extends Error {
+  constructor(readonly missingFeatures: readonly string[]) {
+    super(
+      `The running provider host predates this server (missing ${missingFeatures.join(", ")}); restart the provider host before starting this session`,
+    );
+    this.name = "ProviderHostOutdated";
+  }
+}
+
 export async function assertHostedCreationSupport(
   providerName = "claude",
   options: { sandbox?: boolean } = {},
 ): Promise<void> {
-  const status = isProviderRuntimeHostAvailable()
-    ? await getProviderHostStatus()
-    : undefined;
-  if (
-    !status ||
-    !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.creationOwner) ||
-    (options.sandbox &&
-      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.sandboxCreation)) ||
-    (!["claude", "codex", "opencode", "pi"].includes(providerName) &&
-      !providerHostHasFeature(
-        status,
-        PROVIDER_HOST_FEATURE.adaptersCreation,
-      )) ||
-    (providerName === "codex" &&
-      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.codexCreation)) ||
-    (providerName === "opencode" &&
-      !providerHostHasFeature(
-        status,
-        PROVIDER_HOST_FEATURE.opencodeCreation,
-      )) ||
-    (providerName === "pi" &&
-      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.piCreation))
-  )
-    throw new Error(
-      "This provider host cannot own saved creation; update the host before starting this session",
-    );
+  if (!isProviderRuntimeHostAvailable())
+    throw new Error("Provider runtime host is unavailable");
+  const status = await getProviderHostStatus();
+  const required = [
+    PROVIDER_HOST_FEATURE.creationOwner,
+    ...(options.sandbox ? [PROVIDER_HOST_FEATURE.sandboxCreation] : []),
+    ...(!["claude", "codex", "opencode", "pi"].includes(providerName)
+      ? [PROVIDER_HOST_FEATURE.adaptersCreation]
+      : []),
+    ...(providerName === "codex" ? [PROVIDER_HOST_FEATURE.codexCreation] : []),
+    ...(providerName === "opencode"
+      ? [PROVIDER_HOST_FEATURE.opencodeCreation]
+      : []),
+    ...(providerName === "pi" ? [PROVIDER_HOST_FEATURE.piCreation] : []),
+  ];
+  const missing = required.filter(
+    (feature) => !providerHostHasFeature(status, feature),
+  );
+  if (missing.length) throw new ProviderHostOutdated(missing);
 }
 
 function boundRuntimeIdentity(

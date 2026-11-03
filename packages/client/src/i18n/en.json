@@ -4980,6 +4980,7 @@
   "sessionCreationFailed": "The session could not start. Your prompt is saved.",
   "sessionCreationRouterLoginRequired": "This session's router account needs to sign in again in AAR. Nothing was sent, and your prompt is saved.",
   "sessionCreationRouterRefused": "Agent Auth Router refused this session's account, so nothing was sent. Check the account in AAR or Settings → Providers. Your prompt is saved.",
+  "sessionCreationProviderHostOutdated": "The running provider host is older than this YA server and cannot start new sessions. Restart the provider host (a full YA restart), then send again. Nothing was sent, and your prompt is saved.",
   "sessionCreationUncertain": "Startup was interrupted. Your prompt is saved, but delivery is unconfirmed. Check the session before submitting it again.",
   "sessionCreationSavedPrompt": "Saved prompt",
   "sessionCreationCopyPrompt": "Copy prompt",

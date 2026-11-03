@@ -127,17 +127,19 @@ export function SessionCreationNotice({
       ? "sessionCreationRouterLoginRequired"
       : state === "failed" && creation.failure === "router-refused"
         ? "sessionCreationRouterRefused"
-        : state === "failed"
-          ? creation.initialInputExpected === false
-            ? "sessionPreparationFailed"
-            : "sessionCreationFailed"
-          : state === "uncertain"
+        : state === "failed" && creation.failure === "provider-host-outdated"
+          ? "sessionCreationProviderHostOutdated"
+          : state === "failed"
             ? creation.initialInputExpected === false
-              ? "sessionPreparationUncertain"
-              : "sessionCreationUncertain"
-            : state === "queued"
-              ? "sessionCreationQueued"
-              : "sessionCreationStarting";
+              ? "sessionPreparationFailed"
+              : "sessionCreationFailed"
+            : state === "uncertain"
+              ? creation.initialInputExpected === false
+                ? "sessionPreparationUncertain"
+                : "sessionCreationUncertain"
+              : state === "queued"
+                ? "sessionCreationQueued"
+                : "sessionCreationStarting";
   return (
     <section className={styles.notice} aria-label={t("sessionCreationLabel")}>
       <p role="status">{t(label)}</p>

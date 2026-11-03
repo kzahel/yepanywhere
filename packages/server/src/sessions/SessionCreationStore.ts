@@ -1015,7 +1015,12 @@ export class SessionCreationStore {
     failure: NonNullable<CreationAttempt["failure"]>,
   ): CreationAttempt {
     if (
-      !["startup-unavailable", "launch-refused", "cancelled"].includes(failure)
+      ![
+        "startup-unavailable",
+        "launch-refused",
+        "cancelled",
+        "provider-host-outdated",
+      ].includes(failure)
     )
       throw new Error("Invalid safe creation failure");
     return this.transaction(() => {
