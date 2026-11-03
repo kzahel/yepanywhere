@@ -95,6 +95,56 @@ minutes.
   that resolution commits. It neither consumes a patient/regular queue
   position nor exposes provider-queue edit, steer, or cancel actions.
 
+## Explicit queued compaction
+
+On a server advertising `queued-session-compaction`, Queueing `/compact`
+creates one separately identified operation for an existing Claude or Codex
+session. It follows the selected regular or patient boundary. Earlier regular
+work keeps its order; waiting patient work retains its existing readiness
+policy. Native Codex compaction uses its RPC, while Claude receives its exact
+command and optional instructions. The command never joins prose batches,
+steers into an active turn, or becomes text on an interrupt-drain batch.
+Queue the follow-up as a separate message.
+
+Compaction waits for provider-retained background work to end. Claude's
+fallback also ignores results until its exact command input has been consumed.
+After compact reserves execution, later input is held in YA, including an
+ordinary Send; sending cannot restart the compacting provider. The composer keeps Queue
+available while compaction is running. A compact boundary alone is insufficient:
+YA waits for provider turn completion and a successful compact observation
+before releasing later work. A delayed dispatch reply also holds the reservation.
+Pending commands can be cancelled. Dispatched commands cannot be edited,
+steered or cancelled as though provider execution were undone; Stop/Kill remains
+a verified process-stop action and never automatically replays compaction.
+
+A definitive native refusal becomes an idle, cancellable failed operation;
+a lost transport reply remains unconfirmed until actual completion or Stop.
+Retrying provider errors do not fail an operation that subsequently succeeds.
+A failure retains the command with **Compaction failed; waiting**, its reason,
+and all following work. The user can cancel a failed command after its provider
+turn settles to continue without it. The three-minute observation deadline
+reports **Compaction outcome unconfirmed; waiting**; it neither retries nor
+releases input. Later successful completion releases work normally. If the
+provider never settles, Stop/Kill ends that owner. Failed operation recovery
+never means sending `/compact` as a model prompt.
+
+Regular entries retain their process-local lifetime. Pending patient compact
+commands use the existing patient persistence and resume paused after restart.
+Hard-abort recovery reactivates the existing conversation without using a
+compact as its launch prompt, then restores and dispatches the ordered queue.
+Before provider dispatch, YA removes their replayable durable entry; a command
+already handed to the provider is never silently replayed on restart. This does
+not add durable regular queues, receipts for compaction, or automatic recovery
+of uncertain operations. A retained worker may finish after its controller
+leaves; an old callback cannot dispatch into a departed controller.
+
+The additive queue summary marks `operation: "compact"` and publishes
+`cancellable: false` while execution is unconfirmed. Older clients can render
+the existing content/status fields. New clients without scheduling support
+refuse Queue `/compact` locally and preserve the draft, while retaining idle
+manual Compact. No unsupported delayed command is sent to an older server.
+Project Queue's separate compact restriction is unchanged.
+
 ## Canonical queue projection
 
 Every complete wire snapshot is produced by `sessionQueueSummaries()`. It

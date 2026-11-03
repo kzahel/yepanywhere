@@ -1,4 +1,8 @@
 {
+  "queuedCompactUnconfirmed": "Compaction outcome unconfirmed; waiting",
+  "queuedCompactRunning": "Compacting",
+  "queuedCompactRequiresUpdate": "Update this server to queue compaction. Manual Compact is still available when idle.",
+  "queuedCompactSeparateAttachments": "Queue /compact separately from attachments.",
   "diagramViewerOpen": "Expand diagram",
   "diagramViewerTitle": "Diagram",
   "sshExecutorsRemoved": "SSH executors have been removed. Open a local project to start a new session.",

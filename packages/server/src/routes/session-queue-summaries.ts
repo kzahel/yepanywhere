@@ -31,6 +31,7 @@ export function persistedPatientQueueSummary(
     id: item.id,
     ...(tempId ? { tempId } : {}),
     content: item.message.text,
+    ...(item.message.queuedCompact ? { operation: "compact" as const } : {}),
     timestamp: item.queuedAt,
     ...(item.message.attachments?.length
       ? { attachments: item.message.attachments }

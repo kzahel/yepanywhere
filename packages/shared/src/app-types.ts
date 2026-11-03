@@ -820,11 +820,12 @@ export type SessionQueuedMessageStatus = "queued" | "paused-after-restart";
 
 /**
  * `compacting`: YA started compaction and holds the item until it completes.
- * `failed`: compaction did not complete; the item stays queued until the user
- * sends it without compacting, steers it, or cancels it.
+ * `failed`: terminal failure; a compact operation stays until safe cancellation.
+ * Patient compact-first messages retain their existing skip/steer choices.
+ * `unconfirmed`: the observation deadline elapsed; execution still holds input.
  */
 export interface SessionQueuedCompactionGate {
-  state: "compacting" | "failed";
+  state: "compacting" | "failed" | "unconfirmed";
   reason?: string;
 }
 
@@ -835,6 +836,10 @@ export interface SessionQueuedCompactionGate {
  * restart-paused entries additionally use durable `id` for delete/resume APIs.
  */
 export interface SessionQueuedMessageSummary {
+  /** Explicit server-scheduled provider operation, separate from turn text. */
+  operation?: "compact";
+  /** False while a dispatched compact still has an unconfirmed outcome. */
+  cancellable?: boolean;
   id?: string;
   tempId?: string;
   content: string;

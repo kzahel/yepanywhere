@@ -2027,6 +2027,8 @@ export class Supervisor {
     // awaited preparation. Speculative idle work must yield as soon as input
     // arrives, even while the process still reports `idle`.
     process.noteInputIntent();
+    if (message.queuedCompact || process.queuedCompactionBlocksInput)
+      return process.deferMessage(message);
     await process.primeSupportedCommandsForMessage(message);
     const command = parseSlashCommandSubmission(message.text);
     if (command) {
@@ -5300,6 +5302,10 @@ export class Supervisor {
   ): Promise<{ success: boolean; supported: boolean; hardAborted?: boolean }> {
     const process = this.processes.get(processId);
     if (!process) return { success: false, supported: false };
+    // Never turn a compact refusal into interrupt-fallback abort/replay.
+    // Explicit Stop/Kill still uses verified process termination.
+    if (process.queuedCompactionBlocksInput)
+      return { success: false, supported: true };
 
     if (process.supportsInterrupt) {
       this.emitSessionStopRequested(process.sessionId, process.projectId);
@@ -5532,21 +5538,32 @@ export class Supervisor {
 
     const providerName = sourceProcess.provider;
 
-    const result = await this.resumeSession(
-      sourceProcess.sessionId,
-      sourceProcess.projectPath,
-      firstMessage,
-      firstMessage.mode ?? sourceProcess.permissionMode,
-      {
-        model: sourceProcess.resolvedModel ?? sourceProcess.model,
-        thinking: sourceProcess.thinking,
-        effort: sourceProcess.effort,
-        providerName,
-        executor: sourceProcess.executor,
-        permissions: sourceProcess.permissions,
-        recapAfterSeconds: sourceProcess.recapAfterSeconds,
-      },
-    );
+    const settings: ModelSettings = {
+      model: sourceProcess.resolvedModel ?? sourceProcess.model,
+      thinking: sourceProcess.thinking,
+      effort: sourceProcess.effort,
+      providerName,
+      executor: sourceProcess.executor,
+      permissions: sourceProcess.permissions,
+      recapAfterSeconds: sourceProcess.recapAfterSeconds,
+    };
+    // A queued compact is never a cold launch prompt. Reattach without input,
+    // restore the ordered queue, then let its ordinary boundary dispatch it.
+    const compactFirst = !!firstMessage.queuedCompact;
+    const result = compactFirst
+      ? await this.reactivateSession(
+          sourceProcess.projectPath,
+          sourceProcess.sessionId,
+          firstMessage.mode ?? sourceProcess.permissionMode,
+          settings,
+        )
+      : await this.resumeSession(
+          sourceProcess.sessionId,
+          sourceProcess.projectPath,
+          firstMessage,
+          firstMessage.mode ?? sourceProcess.permissionMode,
+          settings,
+        );
 
     const log = getLogger();
     if (!("id" in result)) {
@@ -5563,7 +5580,7 @@ export class Supervisor {
       return;
     }
 
-    for (const message of remainingMessages) {
+    for (const message of compactFirst ? deferredMessages : remainingMessages) {
       if (message.mode) {
         result.setPermissionMode(message.mode);
       }
@@ -5583,6 +5600,7 @@ export class Supervisor {
         );
       }
     }
+    if (compactFirst) result.promoteDeferredAfterCompactionGate();
   }
 
   private emitSessionForked(
@@ -6460,6 +6478,7 @@ export class Supervisor {
       this.emitProcessActivity(process);
       if (!process.isRetainingProviderWork()) {
         void this.finalizePendingDone(process);
+        process.promoteDeferredAfterCompactionGate();
         void this.maybeCompactAfterIdle(process);
         void this.maybePostCompactAction(process);
       }
@@ -6468,6 +6487,7 @@ export class Supervisor {
 
   private processHasActiveWork(process: Process): boolean {
     if (
+      process.queuedCompactionBlocksInput ||
       process.state.type === "in-turn" ||
       process.state.type === "waiting-input"
     ) {

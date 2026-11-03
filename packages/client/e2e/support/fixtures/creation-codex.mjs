@@ -78,6 +78,23 @@ async function handle(message) {
         cli_version: "0.166.0",
         source: "cli",
       });
+      for (
+        let index = 0;
+        index < Number(process.env.YEP_E2E_CREATION_HISTORY_ROWS ?? 0);
+        index++
+      ) {
+        row("response_item", {
+          type: "message",
+          id: `history-${index}`,
+          role: index % 2 ? "assistant" : "user",
+          content: [
+            {
+              type: index % 2 ? "output_text" : "input_text",
+              text: `Historical context ${index}: bounded transcript with real queued compaction.`,
+            },
+          ],
+        });
+      }
       respond(id, {
         thread: {
           id: native,
@@ -143,6 +160,28 @@ async function handle(message) {
         reasoningEffort: "high",
       });
       break;
+    case "thread/compact/start": {
+      respond(id, {});
+      const turn = {
+        id: `compact-${id}`,
+        status: "inProgress",
+        items: [],
+        error: null,
+      };
+      notify("turn/started", { threadId: native, turn });
+      const item = { id: `boundary-${id}`, type: "contextCompaction" };
+      notify("item/started", { threadId: native, turnId: turn.id, item });
+      while (!existsSync(`${gate}.compact-boundary`))
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      notify("item/completed", { threadId: native, turnId: turn.id, item });
+      while (!existsSync(`${gate}.compact-completion`))
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      notify("turn/completed", {
+        threadId: native,
+        turn: { ...turn, status: "completed" },
+      });
+      break;
+    }
     case "turn/start": {
       if (params.threadId !== native)
         throw new Error("Public id reached native input");

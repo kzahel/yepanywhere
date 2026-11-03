@@ -114,6 +114,10 @@ type ClaudeSessionState = "idle" | "running" | "requires_action";
 type DeferredQueueEntry = {
   message: UserMessage;
   timestamp: string;
+  compact?: {
+    state: "pending" | "compacting" | "failed" | "unconfirmed";
+    reason?: string;
+  };
   /**
    * Needle of the assistant output the composer had last seen, captured
    * at enqueue (composition context is a queue-time fact, unlike elapsed
@@ -1299,6 +1303,28 @@ export class Process {
   private _inputIntentVersion = 0;
   /** Monotonic marker for accepted real user turns. */
   private _userTurnVersion = 0;
+  private queuedCompaction: {
+    entry: DeferredQueueEntry;
+    started: boolean;
+    fallback: boolean;
+    inputYielded: boolean;
+    dispatched: boolean;
+    boundary: boolean;
+    ready: boolean;
+    failed?: string;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
+
+  /** Reservation includes failed work until the user cancels it safely. */
+  get queuedCompactionBlocksInput(): boolean {
+    return (
+      this.queuedCompaction !== null ||
+      this.deferredQueue.some(
+        (entry) => entry.compact && entry.compact.state !== "pending",
+      )
+    );
+  }
+
   private _compactAtContextPercent: number | undefined;
   private _compactAtContextWindow: number | undefined;
   private _forceYaOrchestratedCompaction: boolean;
@@ -1462,6 +1488,14 @@ export class Process {
 
     this.unsubscribeMessageQueueYielded = this.messageQueue?.subscribeYielded?.(
       (messages) => {
+        const compact = this.queuedCompaction;
+        if (
+          compact?.fallback &&
+          messages.some(
+            (message) => message.uuid === compact.entry.message.uuid,
+          )
+        )
+          compact.inputYielded = true;
         const external = [...messages]
           .reverse()
           .find(
@@ -1730,6 +1764,7 @@ export class Process {
     return this.deferredQueue.some(
       (entry) =>
         usesPatientDeliveryPath(entry, this.provider) ||
+        !!entry.compact ||
         !isCompactionGateOpen(entry),
     );
   }
@@ -2305,6 +2340,7 @@ export class Process {
       `Interrupting process: ${this._sessionId}`,
     );
 
+    if (this.queuedCompactionBlocksInput) return false;
     const interrupted = await this.interruptFn();
 
     if (interrupted !== false) {
@@ -2339,10 +2375,14 @@ export class Process {
       if (all.length > 0) {
         // Effort overrides own a whole turn, including after an interrupt.
         // Retain order without merging their text into another turn's effort.
-        if (all.some((message) => message.metadata?.turnEffort)) {
+        if (
+          all.some(
+            (message) => message.metadata?.turnEffort || message.queuedCompact,
+          )
+        ) {
           for (const [index, message] of all.entries()) {
             this.deferMessage(
-              index === 0
+              index === 0 && !message.queuedCompact
                 ? this.concatMessages([message], {
                     interrupted: true,
                     preamble: options?.preamble,
@@ -2587,6 +2627,12 @@ export class Process {
     }
     if (!this.runProviderCommandFn) {
       return { handled: false };
+    }
+    if (this.queuedCompactionBlocksInput) {
+      return {
+        handled: true,
+        error: "Queued compaction must settle before another command",
+      };
     }
     const result = await this.runProviderCommandFn(command, argument);
     if (result.handled && result.output) {
@@ -2971,6 +3017,10 @@ export class Process {
     });
 
     this.setState({ type: "terminated", reason, error });
+    this.failQueuedCompaction(
+      "Provider ended before queued compaction completed",
+    );
+    this.releaseQueuedCompaction();
     this.emit({
       type: "terminated",
       reason,
@@ -4051,6 +4101,9 @@ export class Process {
     position?: number;
     error?: string;
   } {
+    if (message.queuedCompact || this.queuedCompactionBlocksInput) {
+      return this.deferMessage(message);
+    }
     if (message.metadata?.turnEffort && this._state.type !== "idle") {
       return this.deferMessage({
         ...message,
@@ -4174,7 +4227,12 @@ export class Process {
       return 0;
     }
 
-    const entries = this.deferredQueue.filter(hasPatientQueueIntent);
+    if (this.queuedCompactionBlocksInput) return 0;
+    const entries = this.deferredQueue.filter(
+      (entry) =>
+        hasPatientQueueIntent(entry) &&
+        (!entry.compact || entry.compact.state === "pending"),
+    );
     if (entries.length === 0) {
       return 0;
     }
@@ -4256,6 +4314,8 @@ export class Process {
       return { success: false, deferred: false, error: inputError };
     }
     const acceptedMessage = this.acceptRecapResumeSignal(message);
+    if (acceptedMessage.queuedCompact)
+      acceptedMessage.tempId ??= `compact-${randomUUID()}`;
     const canPromoteIfReady = !!(
       options?.promoteIfReady &&
       this.messageQueue &&
@@ -4268,6 +4328,8 @@ export class Process {
       ) &&
       // A compact-first item must reach its delivery boundary through the
       // queue so the Supervisor can evaluate usage before it is sent.
+      !acceptedMessage.queuedCompact &&
+      !this.queuedCompactionBlocksInput &&
       !compactionGateFor(acceptedMessage) &&
       this._state.type === "idle"
     );
@@ -4316,10 +4378,20 @@ export class Process {
         ? { persistedQueueId: options.persistedQueueId }
         : {}),
       ...(compactionGate ? { compactionGate } : {}),
+      ...(acceptedMessage.queuedCompact
+        ? { compact: { state: "pending" as const } }
+        : {}),
     };
     this.deferredQueue.push(entry);
     this.persistPatientDeferredEntry(entry);
     this.emitDeferredQueueChange("queued", acceptedMessage.tempId);
+    if (
+      acceptedMessage.queuedCompact &&
+      options?.promoteIfReady !== false &&
+      this._state.type === "idle"
+    ) {
+      this.promoteDeferredAfterCompactionGate();
+    }
     return { success: true, deferred: true };
   }
 
@@ -4428,11 +4500,15 @@ export class Process {
       (entry) => entry.message.tempId === tempId,
     );
     if (index === -1) return false;
+    const entry = this.deferredQueue[index]!;
+    if (this.queuedCompaction?.entry === entry) return false;
     const [removed] = this.deferredQueue.splice(index, 1);
     if (removed) {
       this.deletePersistedPatientDeferredEntries([removed], "cancelled");
     }
     this.emitDeferredQueueChange("cancelled", tempId);
+    if (removed?.compact && this._state.type === "idle")
+      void this.transitionToIdle();
     return true;
   }
 
@@ -4526,6 +4602,22 @@ export class Process {
         (entry.message.documents?.length ?? 0);
 
       return {
+        ...(entry.compact
+          ? {
+              operation: "compact" as const,
+              cancellable: this.queuedCompaction?.entry !== entry,
+              ...(entry.compact.state !== "pending"
+                ? {
+                    compactionGate: {
+                      state: entry.compact.state,
+                      ...(entry.compact.reason
+                        ? { reason: entry.compact.reason }
+                        : {}),
+                    },
+                  }
+                : {}),
+            }
+          : {}),
         ...(entry.persistedQueueId
           ? {
               id: entry.persistedQueueId,
@@ -4577,7 +4669,9 @@ export class Process {
     }
 
     const drainedEntries = this.deferredQueue;
-    const drained = drainedEntries.map((entry) => entry.message);
+    const drained = drainedEntries
+      .filter((entry) => !entry.compact || entry.compact.state === "pending")
+      .map((entry) => entry.message);
     const firstTempId = drained[0]?.tempId;
     this.deferredQueue = [];
     this.deletePersistedPatientDeferredEntries(drainedEntries, reason);
@@ -5429,6 +5523,7 @@ export class Process {
           this.emit({ type: "model-resolved", model: this._resolvedModel });
         }
 
+        this.observeQueuedCompaction(message);
         this.promoteIdleForProviderWork(message, receivedAt);
 
         // Emit to SSE subscribers
@@ -5589,6 +5684,10 @@ export class Process {
         }
       }
     } finally {
+      this.failQueuedCompaction(
+        "Provider stream ended before compaction was confirmed",
+      );
+      this.releaseQueuedCompaction();
       try {
         this.managedIdentity?.ownerExited?.();
       } catch (error) {
@@ -5708,6 +5807,10 @@ export class Process {
   }): Promise<void> | void {
     this.viewerLifecycle.suspendIdleDeadline();
     this.clearRetryingProviderRuntimeStatus();
+    if (this.queuedCompactionBlocksInput) {
+      this.setState({ type: "idle", since: new Date() });
+      return;
+    }
 
     // A provider turn boundary ends the special steering-retention window.
     // Move any aged-out echoes back into the ordinary replay window to cover
@@ -5889,7 +5992,11 @@ export class Process {
    * consecutively-composed turns into one `--------`-separated provider turn.
    */
   private promoteEligibleDeferredAfterTurn(): boolean {
-    if (this.deferredQueue.length === 0 || !this.messageQueue) {
+    if (
+      this.queuedCompactionBlocksInput ||
+      this.deferredQueue.length === 0 ||
+      !this.messageQueue
+    ) {
       return false;
     }
 
@@ -5904,7 +6011,12 @@ export class Process {
     }
 
     const { joinWindowSeconds } = this.resolveDeferredDelivery();
-    const group = this.leadingJoinGroup(eligible, joinWindowSeconds);
+    if (eligible[0]?.compact) return this.startQueuedCompaction(eligible[0]);
+    const compactIndex = eligible.findIndex((entry) => entry.compact);
+    const group = this.leadingJoinGroup(
+      compactIndex < 0 ? eligible : eligible.slice(0, compactIndex),
+      joinWindowSeconds,
+    );
     const anchors = this.deferredComposeAnchors(group);
     const providerMessages = group.map((entry, index) =>
       this.prepareProviderMessage(entry.message, anchors[index]),
@@ -5932,6 +6044,168 @@ export class Process {
       group.length === 1 ? group[0]!.message.tempId : undefined,
     );
     return true;
+  }
+
+  private startQueuedCompaction(entry: DeferredQueueEntry): boolean {
+    if (
+      this.queueDepth > 0 ||
+      this.getProviderRetentionSnapshot().retained ||
+      this.queuedCompactionBlocksInput ||
+      this.inputRejectionError()
+    )
+      return false;
+    entry.compact = { state: "compacting" };
+    // A patient command stops being replayable before any provider effect.
+    const timer = setTimeout(() => {
+      if (this.queuedCompaction?.entry !== entry) return;
+      entry.compact = {
+        state: "unconfirmed",
+        reason:
+          "Compaction outcome unconfirmed after 180s; wait for completion or stop the session",
+      };
+      this.emitDeferredQueueChange("queued", entry.message.tempId);
+    }, 180_000);
+    timer.unref?.();
+    const operation = {
+      entry,
+      started: false,
+      fallback: false,
+      inputYielded: false,
+      dispatched: false,
+      boundary: false,
+      ready: false,
+      timer,
+    };
+    this.queuedCompaction = operation;
+    this.setState({ type: "in-turn" });
+    this.emitDeferredQueueChange("queued", entry.message.tempId);
+    void this.dispatchQueuedCompaction(operation);
+    return true;
+  }
+
+  private async dispatchQueuedCompaction(
+    operation: NonNullable<Process["queuedCompaction"]>,
+  ): Promise<void> {
+    try {
+      await this.waitForPatientQueuePersistenceIdle();
+      if (this.queuedCompaction !== operation || this.inputRejectionError())
+        return;
+      if (operation.entry.persistedQueueId) {
+        await this.sessionQueuePersistenceService?.deleteItem(
+          operation.entry.persistedQueueId,
+        );
+        if (this.queuedCompaction !== operation || this.inputRejectionError())
+          return;
+      }
+      const command = operation.entry.message.queuedCompact!;
+      operation.started = true;
+      const result = this.runProviderCommandFn
+        ? await this.runProviderCommandFn(command.command, command.argument)
+        : { handled: false };
+      if (this.queuedCompaction !== operation || this.inputRejectionError())
+        return;
+      if (result.handled && result.error) {
+        operation.dispatched = true;
+        if (!result.uncertain) operation.ready = true;
+        this.failQueuedCompaction(result.error);
+        this.completeQueuedCompactionIfReady();
+        if (!result.uncertain && !this.inputRejectionError())
+          void this.transitionToIdle();
+        return;
+      }
+      if (!result.handled) {
+        if (!this.messageQueue?.subscribeYielded)
+          throw new Error("Provider cannot confirm queued compact input");
+        operation.fallback = true;
+        operation.entry.message.uuid ??= randomUUID();
+        const queued = this.queuePreparedMessage(
+          {
+            ...operation.entry.message,
+            queuedCompact: undefined,
+            metadata: { ...operation.entry.message.metadata, hidden: true },
+          },
+          { allowSteer: false },
+        );
+        if (!queued.success) {
+          this.failQueuedCompaction(queued.error ?? "Compact dispatch failed");
+          this.releaseQueuedCompaction();
+          return;
+        }
+      }
+      operation.dispatched = true;
+      this.completeQueuedCompactionIfReady();
+    } catch (error) {
+      if (this.queuedCompaction === operation) {
+        operation.dispatched = true;
+        if (!operation.started) operation.ready = true;
+        this.failQueuedCompaction(
+          error instanceof Error ? error.message : String(error),
+        );
+        this.completeQueuedCompactionIfReady();
+        if (!operation.started && !this.inputRejectionError())
+          this.transitionToIdle();
+      }
+    }
+  }
+
+  private failQueuedCompaction(reason: string): void {
+    const operation = this.queuedCompaction;
+    if (!operation) return;
+    operation.failed = reason;
+    operation.entry.compact = { state: "failed", reason };
+    clearTimeout(operation.timer);
+    this.emitDeferredQueueChange("queued", operation.entry.message.tempId);
+  }
+
+  private releaseQueuedCompaction(): void {
+    if (this.queuedCompaction) clearTimeout(this.queuedCompaction.timer);
+    this.queuedCompaction = null;
+  }
+
+  private observeQueuedCompaction(message: SDKMessage): void {
+    const operation = this.queuedCompaction;
+    if (!operation?.started || (operation.fallback && !operation.inputYielded))
+      return;
+    if (
+      message.type === "system" &&
+      (message.subtype === "compact_boundary" ||
+        message.compact_result === "success")
+    )
+      operation.boundary = true;
+    if (
+      (message.type === "error" && message.codexWillRetry !== true) ||
+      message.is_error ||
+      message.compact_result === "failed"
+    ) {
+      this.failQueuedCompaction(
+        typeof message.compact_error === "string"
+          ? message.compact_error
+          : typeof message.error === "string"
+            ? message.error
+            : "Provider compaction failed",
+      );
+    }
+    if (message.type === "result") {
+      operation.ready = true;
+      this.completeQueuedCompactionIfReady();
+    }
+  }
+
+  private completeQueuedCompactionIfReady(): void {
+    const operation = this.queuedCompaction;
+    if (!operation?.ready || !operation.dispatched) return;
+    if (!operation.boundary && !operation.failed)
+      this.failQueuedCompaction("Provider ended without confirming compaction");
+    this.releaseQueuedCompaction();
+    if (!operation.failed) {
+      this.deferredQueue = this.deferredQueue.filter(
+        (entry) => entry !== operation.entry,
+      );
+      this.emitDeferredQueueChange("promoted", operation.entry.message.tempId);
+    } else
+      this.emitDeferredQueueChange("queued", operation.entry.message.tempId);
+    if (this._state.type === "idle" && !operation.failed)
+      this.transitionToIdle();
   }
 
   private noteDueCompactionGate(held: DeferredQueueEntry | null): void {
@@ -6010,6 +6284,7 @@ export class Process {
     now?: number;
   }): { promoted: boolean; nextPatienceMsRemaining: number | null } {
     if (
+      this.queuedCompactionBlocksInput ||
       this.deferredQueue.length === 0 ||
       !this.messageQueue ||
       this._state.type !== "idle"
@@ -6053,7 +6328,16 @@ export class Process {
     // re-arms this check on the fresh idle boundary (observeProcessEvents). That
     // is what makes "fully done" + "never batch" pop one message at a time.
     const { joinWindowSeconds } = this.resolveDeferredDelivery();
-    const group = this.leadingJoinGroup(eligible, joinWindowSeconds);
+    if (eligible[0]?.compact)
+      return {
+        promoted: this.startQueuedCompaction(eligible[0]),
+        nextPatienceMsRemaining,
+      };
+    const compactIndex = eligible.findIndex((entry) => entry.compact);
+    const group = this.leadingJoinGroup(
+      compactIndex < 0 ? eligible : eligible.slice(0, compactIndex),
+      joinWindowSeconds,
+    );
     const anchors = this.deferredComposeAnchors(group);
     const providerMessages = group.map((entry, index) =>
       this.prepareProviderMessage(entry.message, anchors[index]),
@@ -6125,10 +6409,17 @@ export class Process {
     const group = this.deferredQueue
       .slice(0, targetIndex + 1)
       .filter((entry) => entry.message.metadata?.deliveryIntent === "patient");
-    if (group.some((entry) => entry.message.metadata?.turnEffort)) {
+    if (
+      this.queuedCompactionBlocksInput ||
+      group.some((entry) => entry.message.metadata?.turnEffort || entry.compact)
+    ) {
       return {
         success: false,
-        error: "Effort modifiers require a new turn and remain queued",
+        error:
+          group.some((entry) => entry.compact) ||
+          this.queuedCompactionBlocksInput
+            ? "Queued compaction cannot be steered; wait for it to settle"
+            : "Effort modifiers require a new turn and remain queued",
       };
     }
     const anchors = this.deferredComposeAnchors(group);

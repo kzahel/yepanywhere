@@ -322,6 +322,28 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  queuedSessionCompaction: {
+    id: CAPABILITY_ID_ALLOCATIONS.queuedSessionCompaction.id,
+    name: "queued-session-compaction",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.11.1",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Queue explicit Claude/Codex compaction before later session input.",
+    clientFallback:
+      "Keep manual Compact. Refuse delayed /compact locally without sending a request.",
+    serverContract: {
+      routes: ["POST /api/sessions/:sessionId/messages"],
+      requestFields: ["message", "deferred"],
+      responseFields: ["deferredMessages"],
+      events: ["deferred-queue"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason: "Hide delayed compact on servers without scheduling support.",
+    },
+  },
   sessionCreationAdmission: {
     id: CAPABILITY_ID_ALLOCATIONS.sessionCreationAdmission.id,
     name: "session-creation-admission-v1",

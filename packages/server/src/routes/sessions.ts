@@ -8179,9 +8179,45 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // model would never interpret. Claude's `/compact` reports handled:false and
     // falls through to normal delivery so the SDK handles it as a regular turn
     // (and any trailing focus instructions reach the SDK verbatim). Native
-    // controls are out-of-band even when the composer requests deferred send.
+    // controls stay out-of-band except explicitly queued compaction, which
+    // must retain its selected delivery boundary.
     const parsed = parseSlashCommandSubmission(body.message);
-    if (parsed) {
+    if (parsed?.name === "compact" && body.deferred) {
+      if (
+        process.provider !== "codex" &&
+        !isClaudeSdkProviderName(process.provider)
+      )
+        return c.json(
+          { error: "Queued compaction is unavailable for this provider" },
+          409,
+        );
+      if (
+        userMessage.attachments?.length ||
+        userMessage.images?.length ||
+        userMessage.documents?.length
+      )
+        return c.json(
+          { error: "Queue compaction separately from attachments" },
+          400,
+        );
+      const commands = await process.supportedCommands();
+      if (
+        !commands?.some(
+          (command) => command.name.replace(/^\//, "") === "compact",
+        )
+      )
+        return c.json(
+          { error: "This session does not advertise compaction" },
+          409,
+        );
+      if (userMessage.metadata)
+        userMessage.metadata.compactAboveContextPercent = undefined;
+      userMessage.queuedCompact = {
+        command: "compact",
+        argument: parsed.argument,
+      };
+    }
+    if (parsed && !userMessage.queuedCompact) {
       const providerResult = await dispatchProviderCommand(
         process,
         parsed,
@@ -8211,6 +8247,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // boundary. If the process is already idle, Process can accept them now.
     if (
       body.deferred ||
+      process.queuedCompactionBlocksInput ||
       (userMessage.metadata?.turnEffort && process.state.type !== "idle")
     ) {
       if (body.mode) {

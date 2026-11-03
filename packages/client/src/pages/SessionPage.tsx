@@ -2108,10 +2108,28 @@ function SessionPageContent({
       status.owner,
     ],
   );
-  const canStopOwnedProcess = sessionActivityUi.canStopOwnedProcess;
-  const shouldDeferMessages = sessionActivityUi.shouldDeferMessages;
+  const canStopOwnedProcess =
+    sessionActivityUi.canStopOwnedProcess ||
+    (status.owner === "self" &&
+      deferredMessages.some(
+        (entry) => entry.operation === "compact" && entry.cancellable === false,
+      ));
+  const hasQueuedCompaction = deferredMessages.some(
+    (entry) => entry.operation === "compact",
+  );
+  const shouldDeferMessages =
+    sessionActivityUi.shouldDeferMessages ||
+    hasQueuedCompaction ||
+    (isCompacting &&
+      serverHasCapability(
+        versionInfo,
+        SERVER_CAPABILITIES.queuedSessionCompaction,
+      ));
   const primaryComposerAction =
-    shouldDeferMessages && generallySupportsSteering
+    shouldDeferMessages &&
+    generallySupportsSteering &&
+    !hasQueuedCompaction &&
+    !isCompacting
       ? "steer"
       : shouldDeferMessages
         ? "queue"
@@ -2491,6 +2509,7 @@ function SessionPageContent({
 
   const prepareComposerSubmission = (
     text: string,
+    queueIntent = false,
   ): PreparedComposerSubmission | null => {
     // Recalling a turn and editing its slash command means "issue this command
     // again", not "correct my last sentence". Correction framing prepends a
@@ -2518,6 +2537,28 @@ function SessionPageContent({
       rewindSupported: supportsRewind,
     });
     if (slashTurn.kind === "custom") {
+      if (
+        queueIntent &&
+        slashTurn.command === "compact" &&
+        supportsManualCompact
+      ) {
+        if (
+          !serverHasCapability(
+            versionInfo,
+            SERVER_CAPABILITIES.queuedSessionCompaction,
+          )
+        ) {
+          draftControlsRef.current?.setDraft(text);
+          showToast(t("queuedCompactRequiresUpdate"), "error");
+          return null;
+        }
+        if (attachmentsRef.current.length || pendingUploadsRef.current.size) {
+          draftControlsRef.current?.setDraft(text);
+          showToast(t("queuedCompactSeparateAttachments"), "error");
+          return null;
+        }
+        return { outgoingText: text, queuedCompact: true };
+      }
       const sessionOperation = resolveComposerSessionOperation({
         text,
         routesToFocusedAside: false,
@@ -3458,7 +3499,7 @@ function SessionPageContent({
     text: string,
     metadata?: MessageSubmissionMetadata,
   ): Promise<boolean> => {
-    const prepared = prepareComposerSubmission(text);
+    const prepared = prepareComposerSubmission(text, true);
     if (!prepared) {
       return false;
     }
@@ -3603,7 +3644,7 @@ function SessionPageContent({
           (err as Error & { status?: number }).status === 410 ||
           err.message.includes("No active process") ||
           err.message.includes("Process terminated"));
-      if (isProcessUnavailable) {
+      if (isProcessUnavailable && !prepared.queuedCompact) {
         try {
           const result = await api.resumeSession(
             projectId,

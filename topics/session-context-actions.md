@@ -248,8 +248,12 @@ the provider's reason in the response's primary `error` field (and retains
 `reason`), so clients show why the action failed instead of a generic command
 failure.
 
-Native slash commands use the same provider dispatch for live sends, deferred
-sends, and session startup or resume. YA waits for provider initialization
+Native slash commands use the same provider dispatch for live sends and
+session startup or resume. Explicit deferred `/compact` on a server advertising
+`queued-session-compaction` instead follows the separately identified
+[session queue operation](queued-messages.md#explicit-queued-compaction),
+including its completion, failure and cancellation rules. Other native controls
+retain out-of-band dispatch. YA waits for provider initialization
 before dispatching a startup command, but only where the provider can
 initialize on its own. Claude Code starts a session only when a prompt arrives,
 so no session id can exist while YA holds the command back; for such a provider
@@ -284,7 +288,9 @@ The session menu disables Compact with a visible turn-active label. Submitting
 the command directly shows the same explanation without sending a request.
 These controls become available again when the turn becomes idle. The server
 still checks availability to handle stale clients and state changes in flight;
-neither path interrupts work or queues a later compaction automatically.
+neither manual path interrupts work or queues a later compaction automatically.
+The explicit Queue submission schedules it at the selected delivery boundary
+when the server advertises queued-compaction support.
 
 ## Synthetic done, archive, and terminate
 

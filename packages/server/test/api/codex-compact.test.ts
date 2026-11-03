@@ -10,8 +10,9 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { encodeProjectId } from "../../src/projects/paths.js";
+import { getLogger } from "../../src/logging/logger.js";
 import { CodexProvider } from "../../src/sdk/providers/codex.js";
 import { createApp } from "../setup/create-app.js";
 
@@ -75,6 +76,7 @@ describe("Codex native compaction delivery", () => {
       await process.abort();
     await server.disposeSessionReaders();
     await rm(root, { recursive: true });
+    vi.restoreAllMocks();
   });
 
   async function requests() {
@@ -318,7 +320,7 @@ describe("Codex native compaction delivery", () => {
     },
   );
 
-  it.each(["resume", "direct", "deferred"] as const)(
+  it.each(["resume", "direct"] as const)(
     "rejects %s compaction during a turn without replacing the process",
     async (path) => {
       expect((await resume("hold")).status).toBe(200);
@@ -348,4 +350,172 @@ describe("Codex native compaction delivery", () => {
       ).toHaveLength(1);
     },
   );
+  async function control(path: string) {
+    const port = await readFile(join(root, "control-port"), "utf8");
+    const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+      method: "POST",
+    });
+    expect(response.status).toBe(200);
+  }
+  async function message(text: string, deferred = true, extra = {}) {
+    return server.app.request(`/api/sessions/${sessionId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Yep-Anywhere": "true" },
+      body: JSON.stringify({ message: text, deferred, tempId: text, ...extra }),
+    });
+  }
+
+  it("queues native compaction behind current work and holds later settings/input past its boundary", async () => {
+    await writeFile(join(root, "hold-compaction"), "true");
+    expect((await resume("hold")).status).toBe(200);
+    const process = server.supervisor.getProcessForSession(sessionId)!;
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "turn/start").length,
+      )
+      .toBe(1);
+    const accepted = await message("/compact");
+    expect(accepted.status).toBe(200);
+    expect(await accepted.json()).toMatchObject({
+      deferred: true,
+      deferredMessages: [{ operation: "compact", content: "/compact" }],
+    });
+    expect((await message("NEXT")).status).toBe(200);
+    expect(
+      (await requests()).filter((r) => r.method === "thread/compact/start"),
+    ).toHaveLength(0);
+    await control("/turn/finish");
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "thread/compact/start")
+            .length,
+      )
+      .toBe(1);
+    expect((await message("DURING", false, { thinking: "off" })).status).toBe(
+      200,
+    );
+    expect(server.supervisor.getProcessForSession(sessionId)).toBe(process);
+    await control("/compact/boundary");
+    await expect
+      .poll(() =>
+        process
+          .getMessageHistory()
+          .some((m) => m.subtype === "compact_boundary"),
+      )
+      .toBe(true);
+    expect(
+      (await requests()).filter((r) => r.method === "turn/start"),
+    ).toHaveLength(1);
+    expect(
+      process.getDeferredQueueSummary().map((entry) => entry.content),
+    ).toEqual(["/compact", "NEXT", "DURING"]);
+    await control("/compact/finish");
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "turn/start").length,
+      )
+      .toBe(3);
+    await expect.poll(() => process.getDeferredQueueSummary()).toEqual([]);
+    const starts = (await requests()).filter((r) => r.method === "turn/start");
+    expect(starts.map((r) => r.params.input[0].text)).toEqual([
+      "hold",
+      "NEXT",
+      "DURING",
+    ]);
+    expect(
+      (await requests()).filter((r) => r.method === "thread/compact/start"),
+    ).toHaveLength(1);
+  });
+
+  it("keeps failed native compaction visible and releases later work only after cancel", async () => {
+    await writeFile(join(root, "hold-compaction"), "true");
+    expect((await resume("hold")).status).toBe(200);
+    const process = server.supervisor.getProcessForSession(sessionId)!;
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "turn/start").length,
+      )
+      .toBe(1);
+    expect((await message("/compact")).status).toBe(200);
+    expect((await message("AFTER_FAILURE")).status).toBe(200);
+    await control("/turn/finish");
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "thread/compact/start")
+            .length,
+      )
+      .toBe(1);
+    await control("/compact/fail");
+    await expect
+      .poll(() => process.getDeferredQueueSummary()[0])
+      .toMatchObject({
+        operation: "compact",
+        cancellable: true,
+        compactionGate: { state: "failed" },
+      });
+    expect(
+      (await requests()).filter((r) => r.method === "turn/start"),
+    ).toHaveLength(1);
+    expect(process.cancelDeferredMessage("/compact")).toBe(true);
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "turn/start").length,
+      )
+      .toBe(2);
+    expect(
+      (await requests()).filter((r) => r.method === "thread/compact/start"),
+    ).toHaveLength(1);
+  });
+  it("a native RPC refusal leaves a cancellable failed operation without launching another turn", async () => {
+    const warn = vi
+      .spyOn(getLogger(), "warn")
+      .mockImplementation(() => undefined);
+    await writeFile(join(root, "refuse-compaction"), "true");
+    expect((await resume("hold")).status).toBe(200);
+    const process = server.supervisor.getProcessForSession(sessionId)!;
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "turn/start").length,
+      )
+      .toBe(1);
+    expect((await message("/compact")).status).toBe(200);
+    expect((await message("AFTER_REFUSAL")).status).toBe(200);
+    await control("/turn/finish");
+    await expect
+      .poll(() => process.getDeferredQueueSummary()[0])
+      .toMatchObject({
+        operation: "compact",
+        cancellable: true,
+        compactionGate: {
+          state: "failed",
+          reason: "Controlled compact refusal",
+        },
+      });
+    expect(process.state.type).toBe("idle");
+    expect(
+      (await requests()).filter((r) => r.method === "turn/start"),
+    ).toHaveLength(1);
+    expect(process.cancelDeferredMessage("/compact")).toBe(true);
+    await expect
+      .poll(
+        async () =>
+          (await requests()).filter((r) => r.method === "turn/start").length,
+      )
+      .toBe(2);
+    expect(
+      (await requests()).filter((r) => r.method === "thread/compact/start"),
+    ).toHaveLength(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ error: "Controlled compact refusal" }),
+      "Codex thread/compact/start failed",
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
 });

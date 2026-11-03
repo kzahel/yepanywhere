@@ -314,9 +314,14 @@ this decision ledger and roadmap as behavior actually changes; leave unresolved
 defects open until their remaining complaint is gone.
 
 The intended follow-on core outcome is queued `/compact` followed by reliable
-message delivery. Select a reduced plan around that observable result after
-cleanup; implementation remains paused until that plan is chosen. Do not
-restore the archived architecture or require Gemini/AGY qualification to begin.
+message delivery. The maintainer selected
+[queued compaction delivery](../docs/tactical/173-queued-compact-delivery.md)
+on November 3: existing regular/patient session queues, native dispatch,
+completion/readiness and the composer workflow, with one implementation review.
+That bounded plan is implemented and independently accepted, with local
+Claude, controlled Codex and owned-browser evidence. The archived general core
+stays paused.
+Do not restore the archived architecture or require Gemini/AGY qualification to begin.
 API delegation stays a separate future project.
 
 ## Scope control

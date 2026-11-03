@@ -576,9 +576,12 @@ survive without the legacy runtime. See the
 Rows 1, 2, 3 and 11 are the completed removal set. The independent review
 closed direct-fork and background-candidate SSH boundaries; plan 161 records
 the verification. The purpose is a smaller local core that can reliably run
-queued `/compact` followed by message delivery. Choose a reduced plan for
-that outcome; the archived refactor remains paused. Neither Gemini upkeep nor
-shipping AGY is a prerequisite, and API delegation is separate work. Other
+queued `/compact` followed by message delivery. The maintainer selected
+[the bounded session-queue plan](../tactical/173-queued-compact-delivery.md)
+on November 3. Regular/patient compact operations and their composer workflow
+are implemented, qualified locally and accepted by the requested Opus 5.5 High
+review after bounded repairs. The archived general core remains paused. Neither Gemini
+upkeep nor shipping AGY is a prerequisite, and API delegation is separate work. Other
 Kyle-led candidates remain follow-ups; graehl-led work is outside this pass.
 Release-delivery work remains independently required; local sessions,
 same-host provider ownership, ordinary queues, direct/relay access and native

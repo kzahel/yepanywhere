@@ -2889,7 +2889,16 @@ export class CodexProvider implements AgentProvider {
             { threadId: runtimeState.threadId, error: message },
             "Codex thread/compact/start failed",
           );
-          return { handled: true, error: message };
+          // The pinned compact RPC has no effects on a JSON-RPC refusal.
+          // A broken transport can lose an accepted reply; never call that a refusal.
+          const definitive =
+            typeof (error as { jsonRpcCode?: unknown })?.jsonRpcCode ===
+            "number";
+          return {
+            handled: true,
+            error: message,
+            ...(!definitive ? { uncertain: true as const } : {}),
+          };
         }
       },
     };

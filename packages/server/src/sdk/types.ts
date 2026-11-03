@@ -100,6 +100,8 @@ export type TimestampedSDKMessage<T extends SDKMessage = SDKMessage> = T & {
 };
 
 export interface UserMessage {
+  /** Server-owned queue control; never accepted from client message JSON. */
+  queuedCompact?: { command: "compact"; argument: string };
   text: string;
   /** YA-internal automatic-turn source; never treated as fresh user intent. */
   automaticSource?: "project-queue" | "wake" | "instruction-restoration";
@@ -196,6 +198,8 @@ export interface ProviderCommandResult {
   handled: boolean;
   /** Set when `handled` is true but the native dispatch failed. */
   error?: string;
+  /** Dispatch transport failed without a definitive provider refusal. */
+  uncertain?: true;
   /** Optional YA-local result to publish without creating a provider turn. */
   output?: ProviderCommandOutput;
 }

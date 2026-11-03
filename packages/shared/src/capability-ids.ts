@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  queuedSessionCompaction: {
+    id: 148,
+    direction: "server",
+    name: "queued-session-compaction",
+    introducedIn: "0.11.1",
+  },
   voiceInput: {
     id: 0,
     direction: "server",

@@ -5408,15 +5408,21 @@ export const MessageList = memo(function MessageList({
                 : tailRow.isYaCommand
                   ? t("sessionQueuedYaCommandAfterTurn")
                   : deferred.compactionGate?.state === "compacting"
-                    ? t("sessionQueuedCompactingFirst")
-                    : deferred.compactionGate?.state === "failed"
-                      ? t("sessionQueuedCompactionFailed")
-                      : getDeferredMessageStatus({
-                          isPatient: tailRow.isPatient,
-                          lanePosition: tailRow.lanePosition,
-                          timestampMs,
-                          nowMs,
-                        });
+                    ? t(
+                        deferred.operation === "compact"
+                          ? "queuedCompactRunning"
+                          : "sessionQueuedCompactingFirst",
+                      )
+                    : deferred.compactionGate?.state === "unconfirmed"
+                      ? t("queuedCompactUnconfirmed")
+                      : deferred.compactionGate?.state === "failed"
+                        ? t("sessionQueuedCompactionFailed")
+                        : getDeferredMessageStatus({
+                            isPatient: tailRow.isPatient,
+                            lanePosition: tailRow.lanePosition,
+                            timestampMs,
+                            nowMs,
+                          });
             const earlierPatientCount = tailRow.lanePosition?.patientIndex ?? 0;
             const steerQueuedLabel =
               earlierPatientCount > 0
@@ -5529,7 +5535,8 @@ export const MessageList = memo(function MessageList({
                         />
                         {recoveredQueueId &&
                         onSteerRecoveredDeferred &&
-                        !deferred.metadata?.turnEffort ? (
+                        !deferred.metadata?.turnEffort &&
+                        deferred.operation !== "compact" ? (
                           <button
                             type="button"
                             className="deferred-message-action deferred-message-action-steer"
@@ -5582,7 +5589,8 @@ export const MessageList = memo(function MessageList({
                       </div>
                     ) : (
                       <>
-                        {deferred.compactionGate?.state === "failed" &&
+                        {deferred.operation !== "compact" &&
+                        deferred.compactionGate?.state === "failed" &&
                         deferred.tempId &&
                         onDeliverDeferredWithoutCompaction ? (
                           <button
@@ -5609,6 +5617,7 @@ export const MessageList = memo(function MessageList({
                           }
                           onEdit={
                             !tailRow.isYaCommand &&
+                            deferred.operation !== "compact" &&
                             deferred.tempId &&
                             onEditDeferred
                               ? () => onEditDeferred(deferred.tempId as string)
@@ -5618,13 +5627,16 @@ export const MessageList = memo(function MessageList({
                             tailRow.isPatient &&
                             deferred.tempId &&
                             onSteerDeferred &&
-                            !deferred.metadata?.turnEffort
+                            !deferred.metadata?.turnEffort &&
+                            deferred.operation !== "compact"
                               ? () => onSteerDeferred(deferred.tempId as string)
                               : undefined
                           }
                           steerLabel={steerQueuedLabel}
                           onCancel={
-                            tailRow.allowsDeferredCancel && onCancelDeferred
+                            tailRow.allowsDeferredCancel &&
+                            deferred.cancellable !== false &&
+                            onCancelDeferred
                               ? () =>
                                   onCancelDeferred(deferred.tempId as string)
                               : isClearloop && onCancelClearloop

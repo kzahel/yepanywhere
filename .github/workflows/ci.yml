@@ -126,6 +126,9 @@ jobs:
           test/scripts/e2e-offline-runtime.test.ts
           test/sdk/providers/provider-runtime-host.test.ts
           test/sdk/providers/provider-host-status.test.ts
+          test/api/codex-compact.test.ts
+          test/process.queued-compaction.test.ts
+          test/supervisor/queued-compaction.test.ts
           --maxWorkers=1 --testTimeout=20000
       - name: Managed controller retirement preserves its worker
         run: >-

@@ -23,6 +23,8 @@ import { generateUUID } from "./uuid";
 
 export interface PreparedComposerSubmission {
   outgoingText: string;
+  /** Queued provider control must never fall back to a fresh resume turn. */
+  queuedCompact?: true;
   thinking?: ThinkingOption;
   slashCommand?: TurnEffort | "run";
   turnEffort?: TurnEffort;
