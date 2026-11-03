@@ -15,7 +15,17 @@ export interface SessionCreationStatus {
   attemptId: string;
   updatedAt: string;
   delivery: "not-admitted" | "uncertain" | "consumed";
-  failure?: "startup-unavailable" | "launch-refused" | "cancelled";
+  /**
+   * Safe outcome codes. The `router-*` codes mean Agent Auth Router refused
+   * the session's account before any provider started (2026-11), so nothing
+   * was sent; older clients show their generic failure for them.
+   */
+  failure?:
+    | "startup-unavailable"
+    | "launch-refused"
+    | "cancelled"
+    | "router-login-required"
+    | "router-refused";
 }
 
 /** Durable creation acceptance; provider startup and delivery are separate facts. */

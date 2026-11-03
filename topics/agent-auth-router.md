@@ -72,8 +72,11 @@ scrubs of secrets and paths.
   with "The pinned router account (name) needs to sign in again" and keep the
   pin. Sign the same account in again in AAR and retry. The send-failure toast
   shows that message; only a resume refused with `recovery: handoff-required`
-  shows handoff guidance. Every router refusal is logged as
-  `agent_auth_router_refused`.
+  shows handoff guidance. A new session refused at its router step, before
+  any provider starts, ends as a failed creation with failure
+  `router-login-required` (any other router refusal: `router-refused`); the
+  notice says nothing was sent, and the creation can be retried. Every router
+  refusal is logged as `agent_auth_router_refused`.
 - **Failed-launch cleanup pending:** The count survives restart. **Retry
   failed-launch cleanup** sends only recorded cancellations, starts no provider
   process, and does not allocate or change an account. Failed acknowledgements

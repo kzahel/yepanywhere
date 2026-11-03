@@ -7,6 +7,7 @@ import type {
 } from "../sessions/creation-attachments.js";
 import {
   type AgentAuthRouter,
+  RouterRefusedBeforeProvider,
   RouterUnavailable,
 } from "../services/AgentAuthRouter.js";
 import { randomUUID } from "node:crypto";
@@ -1521,6 +1522,25 @@ export class Supervisor {
         if (["saved", "queued"].includes(current.attempt.state))
           store.failBeforeEffects(currentFence, "launch-refused");
         else if (
+          error instanceof RouterRefusedBeforeProvider &&
+          current.attempt.state === "dispatching"
+        ) {
+          store.failBeforeProvider(
+            currentFence,
+            error.loginRequired ? "router-login-required" : "router-refused",
+          );
+          getLogger().warn(
+            {
+              event: "agent_auth_router_refused",
+              sessionId: current.sessionId,
+              routerStatus: error.status,
+              code: error.code,
+              loginRequired: error.loginRequired,
+              error: error.message,
+            },
+            "Agent Auth Router refused a new session before provider start",
+          );
+        } else if (
           ["dispatching", "bound"].includes(current.attempt.state) &&
           current.attempt.delivery !== "consumed" &&
           !(current.request?.intent && current.attempt.state === "bound")
@@ -2860,15 +2880,21 @@ export class Supervisor {
       throw new Error("Invalid router policy");
     if (routed && !this.agentAuthRouter)
       throw new Error("Router integration unavailable");
-    const routerLaunch = await this.agentAuthRouter?.launch(
-      tempSessionId,
-      activeProvider.name,
-      modelSettings?.model,
-      modelSettings?.routerAccountId,
-      modelSettings?.routerPoolId,
-      modelSettings?.routerPolicy,
-      modelSettings,
-    );
+    const routerLaunch = await this.agentAuthRouter
+      ?.launch(
+        tempSessionId,
+        activeProvider.name,
+        modelSettings?.model,
+        modelSettings?.routerAccountId,
+        modelSettings?.routerPoolId,
+        modelSettings?.routerPolicy,
+        modelSettings,
+      )
+      .catch((error: unknown) => {
+        throw error instanceof RouterUnavailable
+          ? new RouterRefusedBeforeProvider(error)
+          : error;
+      });
     let startedProviderAbort: (() => void | Promise<void>) | undefined;
     try {
       const agentApiEpoch = this.agentApiEpoch;

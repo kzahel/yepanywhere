@@ -241,7 +241,10 @@ contract remains unadvertised.
 
 Before provider availability checks, the qualified route commits the exact
 prompt, trusted creator and request source. Failure leaves a readable failed
-session even when no process/native transcript exists. Deferral retains the
+session even when no process/native transcript exists. A router refusal after
+dispatch but before any provider start, while the native claim is still the
+attempt's, is a known failure (`router-login-required` or `router-refused`),
+not uncertainty: it releases the claim, sends nothing and remains retryable. Deferral retains the
 initial client temp id, per-turn mode, descriptive origin, one-turn effort,
 composition/speech and receive-time metadata through an allowlisted versioned
 input snapshot under the existing payload budget. Actor, receipt, hidden-turn

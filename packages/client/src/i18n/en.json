@@ -4971,6 +4971,8 @@
   "sessionPreparationFailed": "The session could not start. Its settings are saved.",
   "sessionPreparationUncertain": "Startup was interrupted. Session settings are saved. Check the session before trying again.",
   "sessionCreationFailed": "The session could not start. Your prompt is saved.",
+  "sessionCreationRouterLoginRequired": "This session's router account needs to sign in again in AAR. Nothing was sent, and your prompt is saved.",
+  "sessionCreationRouterRefused": "Agent Auth Router refused this session's account, so nothing was sent. Check the account in AAR or Settings → Providers. Your prompt is saved.",
   "sessionCreationUncertain": "Startup was interrupted. Your prompt is saved, but delivery is unconfirmed. Check the session before submitting it again.",
   "sessionCreationSavedPrompt": "Saved prompt",
   "sessionCreationCopyPrompt": "Copy prompt",

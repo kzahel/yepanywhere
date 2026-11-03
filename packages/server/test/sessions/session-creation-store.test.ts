@@ -363,6 +363,41 @@ it("fences generations, binding, delivery, uncertain recovery and stale cleanup 
   ).toMatchObject({ sessionId: a.sessionId, deleted: true, request: null });
   expect(metadata.identities.resolveYa(a.sessionId)?.native).toEqual(native);
 });
+it("fails a router refusal before provider start as retryable, never once a native session is bound", async () => {
+  const { store, database } = await fixture();
+  const native = nativeSessionRef(
+    "claude",
+    "/native/project",
+    parseNativeSessionId("native_00002"),
+  );
+  const saved = store.admit({ requestId: "request_0003", context, request });
+  expect(() =>
+    store.failBeforeProvider(saved.attempt, "router-login-required"),
+  ).toThrow(SessionCreationConflict);
+  const dispatching = store.beginDispatch(saved.attempt, native);
+  expect(
+    store.failBeforeProvider(dispatching, "router-login-required"),
+  ).toMatchObject({
+    state: "failed",
+    delivery: "not-admitted",
+    failure: "router-login-required",
+  });
+  expect(rows(database, "SELECT * FROM native_session_allocations")).toEqual(
+    [],
+  );
+  const retry = store.retry(
+    context.owner,
+    saved.requestId,
+    "retry_00002",
+    dispatching.attemptId,
+  );
+  const redispatched = store.beginDispatch(retry, native);
+  store.bindNative(redispatched, native);
+  expect(() =>
+    store.failBeforeProvider(redispatched, "router-refused"),
+  ).toThrow(SessionCreationConflict);
+});
+
 it("replays retries before mutable checks, retains historical results, and refuses stale or over-capacity recovery", async () => {
   const { store, database } = await fixture();
   const a = store.admit({ requestId: "request_0001", context, request });

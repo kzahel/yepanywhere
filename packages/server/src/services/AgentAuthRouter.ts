@@ -92,6 +92,15 @@ export class RouterUnavailable extends Error {
     super(message);
   }
 }
+/**
+ * A refusal from the launch's router step, which precedes any provider
+ * start. Creation records it as a known failure, not uncertain delivery.
+ */
+export class RouterRefusedBeforeProvider extends RouterUnavailable {
+  constructor(cause: RouterUnavailable) {
+    super(cause.status, cause.message, cause.code, cause.loginRequired);
+  }
+}
 /** The account itself is fine; only its owner can restore its login. */
 function routerLoginRequired(accountName?: string): RouterUnavailable {
   return new RouterUnavailable(

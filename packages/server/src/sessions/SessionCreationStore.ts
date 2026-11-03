@@ -114,7 +114,7 @@ export interface CreationAttempt extends CreationAttemptFence {
   readonly state: CreationState;
   readonly delivery: CreationDelivery;
   readonly updatedAt: string;
-  readonly failure?: "startup-unavailable" | "launch-refused" | "cancelled";
+  readonly failure?: SessionCreationStatus["failure"];
 }
 export interface SavedSessionCreation {
   readonly id: string;
@@ -968,6 +968,37 @@ export class SessionCreationStore {
       const current = this.assertCurrent(fence);
       if (!["saved", "queued"].includes(current.attempt.state))
         throw new SessionCreationConflict();
+      return this.update(fence, "failed", "not-admitted", failure);
+    });
+  }
+  /**
+   * The router refused the session's account after dispatch began but before
+   * any provider started. The native claim is still this attempt's, so no
+   * native session was bound and no input sent: release the claim and record
+   * a known, retryable failure rather than uncertainty.
+   */
+  failBeforeProvider(
+    fence: CreationAttemptFence,
+    failure: "router-login-required" | "router-refused",
+  ): CreationAttempt {
+    return this.database.transaction(() => {
+      const current = this.assertCurrent(fence);
+      const claim = this.statements.nativeClaim.get<{
+        attempt_id: string;
+        generation: number;
+      }>(fence.creationId);
+      if (
+        current.attempt.state !== "dispatching" ||
+        current.attempt.delivery !== "not-admitted" ||
+        claim?.attempt_id !== fence.attemptId ||
+        claim.generation !== fence.generation
+      )
+        throw new SessionCreationConflict();
+      this.statements.releaseNativeClaim.run(
+        fence.creationId,
+        fence.attemptId,
+        fence.generation,
+      );
       return this.update(fence, "failed", "not-admitted", failure);
     });
   }
