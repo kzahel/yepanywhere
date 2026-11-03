@@ -101,6 +101,7 @@ export async function createCodexCreationFixture(
         .filter(Boolean)
         .map((line) => JSON.parse(line));
     },
+    releaseFork: () => writeFile(`${gate}.fork`, "release"),
     releaseAck: () => writeFile(`${gate}.ack`, "release"),
     releaseReply: () => writeFile(`${gate}.reply`, "release"),
     async crashServer() {

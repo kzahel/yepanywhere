@@ -18,6 +18,19 @@ Status: corrected in current source after `0.7.0`; no stable npm release
 contains the storage-location setting yet. The release history below explains
 the missing-capability warning for older servers.
 
+## Initial-session admission
+
+[Durable creation](session-identity.md#creation-consolidation--november-3) seals
+staged or retained raw initial files and inline images before accepting the
+session. Accepted claims outlive draft/Queue cleanup and materialize beneath the
+permanent YA id before native dispatch. Limited raw paths must belong to that
+account's staged draft. Inline images are bounded to 32 MiB decoded in total,
+ordinary files to 64 MiB each, and the combined selection to 64; the existing
+2 GiB/profile claim bound applies. Unsupported native inline-image adapters
+save failure before effects. Literal document references retain text semantics.
+Template preparation uses this same claim owner. Older-server client fallback
+and public staged capability 146 keep their existing restricted meanings.
+
 ## Why Attachments Are Stored
 
 Pre-session drafts are isolated by acting account. Limited-user draft uploads,

@@ -612,6 +612,7 @@ const PROVIDER_HOST_FEATURE = {
   opencodeCreation: "session-creation-opencode-v1",
   piCreation: "session-creation-pi-v1",
   adaptersCreation: "session-creation-adapters-v1",
+  sandboxCreation: "session-creation-sandbox-v1",
   nativeBinding: BOUND_RUNTIME_FEATURE,
   agentApiRevocation: "agent-api-revocation",
   agentApiManagement: "agent-api-management",
@@ -627,6 +628,7 @@ function providerHostHasFeature(
 
 export async function assertHostedCreationSupport(
   providerName = "claude",
+  options: { sandbox?: boolean } = {},
 ): Promise<void> {
   const status = isProviderRuntimeHostAvailable()
     ? await getProviderHostStatus()
@@ -634,6 +636,8 @@ export async function assertHostedCreationSupport(
   if (
     !status ||
     !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.creationOwner) ||
+    (options.sandbox &&
+      !providerHostHasFeature(status, PROVIDER_HOST_FEATURE.sandboxCreation)) ||
     (!["claude", "codex", "opencode", "pi"].includes(providerName) &&
       !providerHostHasFeature(
         status,
@@ -890,7 +894,9 @@ export async function startHostedProviderSession(
     options.assertResumeAdmission?.();
   }
   if (creation) {
-    await assertHostedCreationSupport(providerName);
+    await assertHostedCreationSupport(providerName, {
+      sandbox: options.sessionSandboxOptions?.level === "project-write",
+    });
     await creation.authorize();
   }
   if (options.agentApi && !agentApiEligible(providerName, options))

@@ -119,6 +119,7 @@ async function main(): Promise<void> {
           "session-creation-opencode-v1",
           "session-creation-pi-v1",
           "session-creation-adapters-v1",
+          "session-creation-sandbox-v1",
           BOUND_RUNTIME_FEATURE,
         ],
       });
@@ -163,19 +164,6 @@ async function main(): Promise<void> {
       const provider = getRawProvider(request.providerName);
       if (!provider)
         throw new Error(`Unknown provider ${request.providerName}`);
-      if (creation) {
-        const namespace = await provider.getNewSessionNamespace?.(
-          providerOptions.cwd,
-        );
-        if (
-          !namespace ||
-          namespace.family !== creation.nativeNamespace.family ||
-          namespace.storageScope !== creation.nativeNamespace.storageScope
-        )
-          throw new Error(
-            "Creation native namespace does not match this worker",
-          );
-      }
       const sandboxOptions = providerOptions.sessionSandboxOptions;
       if (
         sandboxOptions &&
@@ -192,6 +180,20 @@ async function main(): Promise<void> {
       const sessionSandbox = sandboxOptions
         ? await prepareSessionSandbox(sandboxOptions)
         : undefined;
+      if (creation) {
+        const namespace = await provider.getNewSessionNamespace?.(
+          providerOptions.cwd,
+          sessionSandbox,
+        );
+        if (
+          !namespace ||
+          namespace.family !== creation.nativeNamespace.family ||
+          namespace.storageScope !== creation.nativeNamespace.storageScope
+        )
+          throw new Error(
+            "Creation native namespace does not match this worker",
+          );
+      }
       if (request.providerName === "claude-gateway") {
         await (provider as ClaudeGatewayProvider).validateNativeResumeSource({
           ...providerOptions,

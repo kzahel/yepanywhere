@@ -287,6 +287,7 @@ export class OpenCodeProvider implements AgentProvider {
   readonly name = "opencode" as const;
   readonly displayName = "OpenCode";
   readonly supportsNativeResumeSource = true;
+  readonly supportsInlineImages = true;
   readonly supportsPermissionMode = false; // OpenCode has its own permission model
   // OpenCode exposes per-model reasoning effort via model "variants"
   // (low/medium/high/xhigh/max); the effort selector is gated per-model by

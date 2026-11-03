@@ -17,6 +17,15 @@ environments exclude YA operator credentials. Other providers,
 remote executors, and non-Linux hosts still fail an enabled launch before
 provider work begins.
 
+[Durable creation](session-identity.md#creation-consolidation--november-3)
+saves requested sandbox policy before preparation; unsupported or unavailable
+enforcement leaves a saved failed session without native launch. The actual
+prepared private transcript root supplies the native namespace. The private
+`session-creation-sandbox-v1` host/worker gate refuses older loaded owners
+without an unconfined fallback. Copy admission retains its inherited exact
+source/state root. This changes identity/startup ownership, not the supported
+Linux enforcement matrix or the threat model below.
+
 **Pending limited-user extension:** the approved
 [personal workspace direction](limited-users.md#approved-workspace-direction-2026-09-21-not-implemented)
 uses a limited user's configured Create in directory (default `~/username`)

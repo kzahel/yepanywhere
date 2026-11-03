@@ -58,12 +58,16 @@ identity, fresh project path, name, intent and session settings. The operation
 retains its validated bytes, allocates the directory exclusively, executes setup
 as argv with bounded output, verifies the built starter, initializes Git using
 the existing project-creation identity policy, and calls the normal project and
-session routes. The selected provider/model and launch policies therefore use
+session routes. Preparation now uses one deterministic keyed
+[durable admission](session-identity.md#creation-consolidation--november-3) with
+the full composed prompt and staged files before native startup. It retains a
+public session id when queued or failed; there is no create/upload/send engine.
+The selected provider/model and launch policies therefore use
 the normal session boundary, and those routes act as the creating login: a
 limited user's preparation session is sandboxed with its network firewall on,
 held to their lock, and recorded as a session they started (`createdByUser`),
-while the superuser's records no creator. Local execution without attachments
-is the current creation boundary; the form explains incompatible selections
+while the superuser's records no creator. Local execution with bounded
+account-owned staged attachments is the current creation boundary; the form explains incompatible selections
 before submission.
 
 Operations persist beneath `dataDir/project-template-operations`. Repeating an
@@ -71,9 +75,10 @@ identical UUID returns its existing outcome; changing its request is refused.
 The tab retains its pending request across reloads. Existing and partial
 directories are never overwritten. A server restart reports unfinished work as
 interrupted rather than replaying side effects. Graceful shutdown stops owned
-setup process trees. `started` means the preparation session was dispatched,
-not that the agent finished successfully. Live preparation, queue reconciliation
-and abrupt-crash process cleanup still need the broader acceptance work.
+setup process trees. `started` means preparation was durably accepted with a
+public session id; native startup and completion are visible independently on
+that session. Live preparation, project-operation association recovery and
+abrupt-crash setup cleanup still need the broader acceptance work.
 
 ## Current contract — config-driven templates
 

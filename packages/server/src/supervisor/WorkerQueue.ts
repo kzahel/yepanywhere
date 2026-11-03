@@ -1,3 +1,4 @@
+import type { AuthorizeSessionCreation } from "../sessions/session-creation-authority.js";
 import { randomUUID } from "node:crypto";
 import type {
   SessionCreationProvenance,
@@ -8,10 +9,7 @@ import type { PermissionMode, UserMessage } from "../sdk/types.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import type { Process } from "./Process.js";
 import type { ModelSettings } from "./Supervisor.js";
-import type {
-  CreationAttemptFence,
-  SavedSessionCreation,
-} from "../sessions/SessionCreationStore.js";
+import type { CreationAttemptFence } from "../sessions/SessionCreationStore.js";
 
 /**
  * One-shot hook once a launch, immediate or queued, has its canonical YA id.
@@ -54,7 +52,7 @@ export interface QueuedRequest {
   requireProviderSessionId?: boolean;
   creationProvenance?: SessionCreationProvenance;
   creationFence?: CreationAttemptFence;
-  authorizeCreation?: (saved: SavedSessionCreation) => Promise<void>;
+  authorizeCreation?: AuthorizeSessionCreation;
   /** Resolver to call when request is processed or cancelled */
   resolve: (result: QueuedRequestResult) => void;
 }
@@ -132,7 +130,7 @@ export class WorkerQueue {
     requireProviderSessionId?: boolean;
     creationProvenance?: SessionCreationProvenance;
     creationFence?: CreationAttemptFence;
-    authorizeCreation?: (saved: SavedSessionCreation) => Promise<void>;
+    authorizeCreation?: AuthorizeSessionCreation;
   }): EnqueueResult {
     // Check queue size limit
     if (this.maxQueueSize > 0 && this.queue.length >= this.maxQueueSize) {

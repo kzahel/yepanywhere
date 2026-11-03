@@ -20,7 +20,7 @@ import {
   type Principal,
 } from "../../src/auth/principal.js";
 import { createApp } from "../setup/create-app.js";
-import { MockClaudeSDK } from "../../src/sdk/mock.js";
+import { MockServerClaudeProvider } from "../../src/sdk/mock.js";
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
 import { LimitedUsersService } from "../../src/auth/LimitedUsersService.js";
 import { probeSessionSandboxAvailability } from "../../src/session-sandbox.js";
@@ -261,7 +261,7 @@ it("serves ready choices and creates through HTTP without accepting a forged sou
   });
   expect(dispatched).toEqual([
     "/api/projects",
-    "/api/projects/created/sessions",
+    "/api/projects/created/session-creations",
     "/api/sessions/prepared/metadata",
   ]);
 });
@@ -538,7 +538,7 @@ it("wires the production creation route through project registration and session
   });
   await projectMetadataService.initialize();
   const instance = createApp({
-    sdk: new MockClaudeSDK(),
+    provider: new MockServerClaudeProvider(),
     projectMetadataService,
     sessionMetadataService,
     dataDir: join(root, "data"),
@@ -579,6 +579,17 @@ it("wires the production creation route through project registration and session
       })
       .toBe("started");
     expect(result.sessionId).toBeTypeOf("string");
+    const saved = sessionMetadataService.creations.get(
+      { kind: "superuser" },
+      `template-${request.operationId}`,
+    )!;
+    expect(saved.sessionId).toBe(result.sessionId);
+    expect(saved.request?.message).toContain(request.intent);
+    expect(saved.context.source).toMatchObject({
+      kind: "request",
+      provenance: { surface: "api" },
+    });
+    expect(sessionMetadataService.creations.listProjections()).toHaveLength(1);
     const project = await (
       await instance.app.request(`/api/projects/${result.projectId}`)
     ).json();

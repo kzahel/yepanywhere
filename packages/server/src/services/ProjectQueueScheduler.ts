@@ -1,3 +1,4 @@
+import { savedLimitedCreationError } from "../auth/limitedLaunchPolicy.js";
 import type {
   SessionCreationStore,
   SavedSessionCreation,
@@ -124,26 +125,9 @@ export interface ProjectQueueSupervisor extends ProjectWorkSupervisor {
     modelSettings?: ModelSettings,
     launchOptions?: SessionLaunchOptions,
   ): Promise<ProjectQueueDispatchResult>;
-  supportsDurableSessionCreation?(
-    message: UserMessage,
-    settings: ModelSettings,
-    options?: {
-      owner?: CreationContext["owner"];
-      stagedAttachments?: boolean;
-      nativeReceiptId?: string;
-      intent?: "prepare";
-    },
-  ): boolean;
   startSavedSession?(
     fence: SavedSessionCreation["attempt"],
     authorize: (saved: SavedSessionCreation) => Promise<void>,
-    onStarted?: SessionLaunchOptions["onStarted"],
-  ): Promise<ProjectQueueDispatchResult>;
-  createSession(
-    projectPath: string,
-    permissionMode?: PermissionMode,
-    modelSettings?: ModelSettings,
-    launchOptions?: SessionLaunchOptions,
   ): Promise<ProjectQueueDispatchResult>;
   resumeSession(
     sessionId: string,
@@ -237,10 +221,6 @@ export interface ProjectQueueSchedulerOptions {
     sessionId: string,
     grants: LimitedUserGrants,
   ) => Promise<boolean>;
-  onSessionStarted?: (args: {
-    item: ProjectQueueItem;
-    process: ProjectQueueProcessSnapshot;
-  }) => void | Promise<void>;
 }
 
 function errorMessage(error: unknown): string {
@@ -263,12 +243,6 @@ function isYaCommandResult(
   result: ProjectQueueDispatchOutcome,
 ): result is { yaCommand: true } {
   return "yaCommand" in result && result.yaCommand === true;
-}
-
-function isAdmittedResult(
-  result: ProjectQueueDispatchOutcome,
-): result is { admitted: true; sessionId: string } {
-  return "admitted" in result;
 }
 
 function isRecoveredPatientQueueItem(
@@ -961,15 +935,9 @@ export class ProjectQueueScheduler {
       };
     } catch (error) {
       const message = errorMessage(error);
-      const durable =
-        item &&
-        !item.createdByUser &&
-        this.options.creations?.get(
-          { kind: "superuser" },
-          projectQueueCreationRequestId(item.id),
-        );
       const retryable =
-        error instanceof RetryableSessionLaunchError && !durable;
+        error instanceof RetryableSessionLaunchError &&
+        item?.target.type === "existing-session";
       let retryScheduled = false;
       if (item && retryable) {
         const updated =
@@ -1082,13 +1050,6 @@ export class ProjectQueueScheduler {
       throw new Error(`Worker queue is full (${result.maxQueueSize})`);
     }
 
-    if (
-      !isQueuedResult(result) &&
-      !isYaCommandResult(result) &&
-      !isAdmittedResult(result)
-    ) {
-      await this.options.onSessionStarted?.({ item, process: result });
-    }
     return result;
   }
 
@@ -1208,100 +1169,22 @@ export class ProjectQueueScheduler {
     modelSettings: ModelSettings,
   ): Promise<ProjectQueueDispatchOutcome> {
     const creationKey = projectQueueCreationRequestId(item.id);
-    const saved = !item.createdByUser
-      ? this.options.creations?.get({ kind: "superuser" }, creationKey)
-      : undefined;
+    const owner: CreationContext["owner"] = item.createdByUser
+      ? { kind: "limited", username: item.createdByUser }
+      : { kind: "superuser" };
+    const saved = this.options.creations?.get(owner, creationKey);
     if (item.creationSessionId && !saved)
       throw new Error(
         "The admitted Queue session is unavailable; refusing a replacement launch",
       );
-    if (
-      saved ||
-      (!item.createdByUser &&
-        this.options.creations &&
-        this.supervisor.supportsDurableSessionCreation?.(
-          this.toUserMessage(item),
-          modelSettings,
-          {
-            owner: { kind: "superuser" },
-            stagedAttachments: Boolean(item.message.stagedAttachments),
-          },
-        ))
-    ) {
-      return this.dispatchDurableNewSession(
-        item,
-        permissionMode,
-        modelSettings,
-        creationKey,
-        saved,
-      );
-    }
-    if (!item.message.stagedAttachments) {
-      let deferred = false;
-      const result = await this.supervisor.startSession(
-        item.projectPath,
-        this.toUserMessage(item),
-        permissionMode,
-        modelSettings,
-        {
-          creationProvenance: item.creationProvenance,
-          onStarted: async (sessionId) => {
-            if (!deferred) return;
-            await this.completeDeferredNewSessionDispatch(item, sessionId);
-          },
-          onFailed: async (reason) => {
-            if (!deferred) return;
-            await this.projectQueueService.failDispatch(
-              item.projectId,
-              item.id,
-              reason,
-            );
-          },
-          onRetryableFailure: async (reason) => {
-            if (!deferred) return;
-            await this.projectQueueService.recordRetryableStartupFailure(
-              item.projectId,
-              item.id,
-              reason,
-            );
-          },
-          retryProviderStartupFailure: true,
-          requireProviderSessionId: true,
-        },
-      );
-      deferred = isQueuedResult(result);
-      return result;
-    }
-
-    const created = await this.supervisor.createSession(
-      item.projectPath,
-      permissionMode,
-      modelSettings,
-      {
-        retryProviderStartupFailure: true,
-        creationProvenance: item.creationProvenance,
-      },
-    );
-    if (isQueueFullResult(created)) {
-      return created;
-    }
-    if (isQueuedResult(created)) {
-      throw new Error(
-        "Worker queue deferred a create-only session before staged attachments could be materialized",
-      );
-    }
-
-    const stagedAttachments = await this.materializeStagedAttachments(
+    if (!this.options.creations)
+      throw new Error("Project Queue new sessions require durable admission");
+    return this.dispatchDurableNewSession(
       item,
-      created.sessionId,
-    );
-    return this.supervisor.resumeSession(
-      created.sessionId,
-      item.projectPath,
-      this.toUserMessage(item, stagedAttachments),
       permissionMode,
       modelSettings,
-      { requireProviderSessionId: true },
+      creationKey,
+      saved,
     );
   }
 
@@ -1314,12 +1197,19 @@ export class ProjectQueueScheduler {
   ): Promise<ProjectQueueDispatchOutcome> {
     let saved = previous;
     const authorize = async (current: SavedSessionCreation) => {
-      if (
-        current.deleted ||
-        current.context.owner.kind !== "superuser" ||
-        current.request?.projectId !== item.projectId
-      )
+      if (current.deleted || current.request?.projectId !== item.projectId)
         throw new Error("Queue creation no longer has its admitted authority");
+      if (current.context.owner.kind === "limited") {
+        if (current.context.owner.username !== item.createdByUser)
+          throw new Error("Queue creation owner changed");
+        const refused = savedLimitedCreationError(
+          current,
+          this.options.getLimitedUserGrants?.(current.context.owner.username) ??
+            null,
+        );
+        if (refused) throw new Error(refused);
+      } else if (item.createdByUser)
+        throw new Error("Queue creation owner changed");
     };
     const associate = async (current: SavedSessionCreation) => {
       saved = current;
@@ -1329,14 +1219,6 @@ export class ProjectQueueScheduler {
         item.id,
         current.sessionId,
       );
-    };
-    const onStarted: NonNullable<SessionLaunchOptions["onStarted"]> = async (
-      sessionId,
-    ) => {
-      const process = this.supervisor
-        .getAllProcesses()
-        .find((p) => p.sessionId === sessionId);
-      if (process) await this.options.onSessionStarted?.({ item, process });
     };
     let result: ProjectQueueDispatchResult;
     if (saved) {
@@ -1357,11 +1239,7 @@ export class ProjectQueueScheduler {
         );
         if (!this.supervisor.startSavedSession)
           throw new Error("Durable creation dispatcher is unavailable");
-        result = await this.supervisor.startSavedSession(
-          fence,
-          authorize,
-          onStarted,
-        );
+        result = await this.supervisor.startSavedSession(fence, authorize);
       } else if (state.state === "failed" || state.state === "uncertain") {
         throw new Error(
           `Saved session ${saved.sessionId} requires recovery; input will not be replayed`,
@@ -1372,7 +1250,9 @@ export class ProjectQueueScheduler {
       }
     } else {
       const context: CreationContext = {
-        owner: { kind: "superuser" },
+        owner: item.createdByUser
+          ? { kind: "limited", username: item.createdByUser }
+          : { kind: "superuser" },
         source: item.creationProvenance
           ? { kind: "request", provenance: item.creationProvenance }
           : { kind: "unknown", reason: "legacy-project-queue" },
@@ -1395,49 +1275,12 @@ export class ProjectQueueScheduler {
                 }
               : undefined,
           },
-          onStarted,
         },
       );
     }
     if (isQueueFullResult(result)) return result;
     if (!saved) throw new Error("Queue creation was not durably admitted");
     return { admitted: true, sessionId: saved.sessionId };
-  }
-
-  private async completeDeferredNewSessionDispatch(
-    item: ProjectQueueItem,
-    sessionId: string,
-  ): Promise<void> {
-    const process = this.supervisor
-      .getAllProcesses()
-      .find((candidate) => candidate.sessionId === sessionId);
-    if (process) {
-      try {
-        await this.options.onSessionStarted?.({ item, process });
-      } catch (error) {
-        getLogger().warn(
-          {
-            event: "project_queue_deferred_session_callback_failed",
-            projectId: item.projectId,
-            itemId: item.id,
-            sessionId,
-            error: errorMessage(error),
-          },
-          "Deferred Project Queue session started but its association callback failed",
-        );
-      }
-    } else {
-      getLogger().warn(
-        {
-          event: "project_queue_deferred_session_missing",
-          projectId: item.projectId,
-          itemId: item.id,
-          sessionId,
-        },
-        "Deferred Project Queue session started without a registered process",
-      );
-    }
-    await this.projectQueueService.completeDispatch(item.projectId, item.id);
   }
 
   private async materializeStagedAttachments(

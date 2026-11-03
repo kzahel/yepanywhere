@@ -150,7 +150,7 @@ it("commits exact text, immutable source and creator beside an unbound identity,
   expect(admitted.request?.input?.metadata).not.toHaveProperty(
     "apiSubmissionId",
   );
-  expect(admitted.request?.input?.metadata).not.toHaveProperty("hidden");
+  expect(admitted.request?.input?.metadata).toHaveProperty("hidden", true);
   input.metadata.speech.transcriptionIds[0] = "caller mutation";
   input.metadata.composition.submittedAt = "2026-11-02T00:00:00.000Z";
   launch.permissions.allow[0] = "caller mutation";

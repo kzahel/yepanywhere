@@ -136,12 +136,14 @@ describe("Codex clone route", () => {
       sessionId: "native-fork",
       messageCount: Number.MAX_SAFE_INTEGER,
     });
-    expect(forkSession).toHaveBeenCalledWith({
-      sessionId: "source-session",
-      projectPath,
-      providerName: "codex",
-      title: "Quick answer: why?",
-    });
+    expect(forkSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "source-session",
+        projectPath,
+        providerName: "codex",
+        title: "Quick answer: why?",
+      }),
+    );
     expect(getSessionFilePath).not.toHaveBeenCalled();
     expect(getSession).not.toHaveBeenCalled();
   });

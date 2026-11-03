@@ -2,20 +2,27 @@
 
 Topic: ya-owned-session-ids
 
-Status: the November 2 ordinary Claude/Codex text milestone is implemented in
-three larger slices, with one Sol 6.1 High review per slice and focused corrections.
-Claude, Codex and recovery qualification have passing end-to-end evidence. All
-three sole reviews completed; material findings were corrected and verified with
-focused checks, without repeat-review cycles. Broader provider,
-attachment, caller and release qualification below remains a separate backlog.
-The original November 1 plan/schema/identity and read/discovery/watch foundations
-were independently accepted; their historical review records remain below.
+Status: the native session-creation consolidation target is **implemented and
+independently accepted** (2026-11-03). Every production native new-session
+caller shares durable admission and permanent public identity; duplicate
+creation engines are retired. Final lint, format, typecheck and complete
+workspace tests pass: **6,924 server / 7,067 client** cases. Focused owned-profile
+local/hosted browser, Bun and actual Claude CLI checks pass. Each coherent slice
+received one Sol 6.1 High review; no repeat review cycle was used. Broader
+receipts advertisement, optional background UX, native-copy result-loss
+reconciliation and wider OS/external qualification remain explicit limits.
+
+The November 1 foundation and November 2 Claude/Codex milestone history below
+remain evidence for their respective boundaries; the current ledger governs
+completion of the subsequently selected consolidation target.
 
 The maintainer subsequently requested incorporation of the separate
 [creation-provenance admission notes](../../topics/session-creation-provenance.sketches.md).
 The coordination requirements and coverage ledger below extend this plan;
 Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
-The common caller rollout is partial; the provenance defect remains open.
+The November 3 consolidation below completes the common caller rollout. The
+provenance audit is narrowed to lost native-copy result correlation; it no
+longer lists missing ordinary caller source writes.
 
 ## Completion target — one creation contract, retired legacy implementations
 
@@ -50,7 +57,8 @@ only compatibility behavior with a named supported consumer and explicit owner.
 An unsupported retained provider or input shape needs a concrete migration or
 retirement decision; an indefinite bypass cannot satisfy completion.
 
-Recommended remaining sequence, keeping the larger-slice/single-review cadence:
+Selected consolidation sequence, keeping the larger-slice/single-review cadence
+(the ledger below records the resulting implementation):
 
 1. **Project Queue on Claude/Codex.** Carry queued creation through the common
    identity/admission owner, define idempotent promotion and restart recovery,
@@ -70,8 +78,8 @@ implementations, preserved supported API/skew behavior, and focused evidence
 for caller-specific failure/restart/duplicate-delivery boundaries. Advertise the
 broad receipts contract only after its complete guarantees hold. Optional
 background UX and automatic retry policy remain separate feature decisions.
-This section selects the consolidation target and sequence; it does not claim
-these remaining migrations are already implemented.
+This target governs the final ingress audit; historical implementation phases
+below are retained as evidence, not a second current backlog.
 
 ## Consolidation progress ledger
 
@@ -83,8 +91,8 @@ these remaining migrations are already implemented.
 | Qualified owner native API/peer, keyed review, maintenance and text successors | Implemented in current slice | Review starts recover from the canonical store; its successful-start cache is removed; native input UUID comes from its trusted receipt; caller adapters use saved dispatch | 143 focused integration cases; four local/hosted native/browser cases, real Claude CLI and three Bun cases pass |
 | Qualified owner create-only routes | Implemented as empty preparation adapters | No separate qualified empty-provider creation engine; no invented initial turn | Local/hosted native/browser first-turn/restart checks pass |
 | Retained provider adapters | Implemented in current slice | Grok, frozen Gemini ACP, Codex OSS and Claude wrappers use adapter namespaces; review successful-start fallback cache removed | Six real stdio/SQLite cold-continuation and lost-proof cases pass; 69 focused cases pass; sole Sol review accepts with a ledger correction |
-| New fork/clone resources and remaining restricted/input shapes | Pending | Remaining creation engines/bypasses must retire | Next consolidation cut |
-| Remaining provider/input shapes and final bypass audit | Pending | Retained compatibility/exception inventory required | Final consolidation closure |
+| New fork/clone resources and restricted/input shapes | Implemented | Saved copy P precedes effects; limited/sandbox/desktop and legacy first inputs use the same attempt/attachment owner | SQLite/native race, authority revocation, copy failure/cold recovery and local/hosted browser checks |
+| Template preparation and final bypass audit | Implemented and independently accepted | Template create/upload/send replaced; duplicate Supervisor create bodies, Queue new-session engine and creation-source callbacks removed | Authenticated owner-keyed recovery and original locks; standalone profile regression; ingress inventory below |
 
 Queue admission uses a deterministic operation key from the durable queue item,
 commits its public association before native effects and delegates worker
@@ -189,6 +197,91 @@ failure; this passing sample does not close its intermittent gap. No second
 review. Evidence is retained under ignored `providers-*` / `provider-admission-*`
 and `reviews/provider-admission.md`. New hosted coverage for every added adapter,
 external model-account smokes and Linux/Windows remain unclaimed.
+
+## Final consolidation slice — November 3
+
+The [current identity contract](../../topics/session-identity.md#creation-consolidation--november-3)
+owns the final semantics. This cut moves limited/sandbox/desktop-control starts,
+legacy files/images/documents and all new fork/clone resources through the
+existing admission/attempt owner, then deletes their duplicate implementations.
+A final source inventory found template preparation's in-process create/upload/send;
+it now submits one deterministic keyed prompt/files admission. Auth/session
+cookie creation calls are unrelated authentication resources and excluded.
+
+| Retained production ingress | Admission/effect boundary |
+| --- | --- |
+| Project/detached start and create-only HTTP URLs | Thin policy/response adapters; common input or explicit preparation intent |
+| Project Queue immediate/worker-delayed/staged starts | Original enqueue owner/source; deterministic item key and current grants |
+| Source Review, native v0/peer and maintenance | Existing trusted caller context and input receipts, common saved dispatch |
+| Text restart/stale handoff | Original successor request context and immutable first input |
+| Ordinary fork, restart-fork, recap/retitle/fork-summary helper and target, Claude full clone | Exact native source, permanent saved P before copy, actual returned N binding |
+| Template preparation | Existing project operation plus `template-${operationId}` common admission; no separate native creation engine |
+| Mock backend | Explicit namespace/controlled acceptance for standalone fixture; not real-provider qualification |
+| Existing-session activation and external history | Resume/adoption only; cannot allocate a replacement for unbound saved startup |
+
+The production native I/O guard refuses missing admission before native effects.
+The remaining `createProviderSession`/`createRealSession` names are small wrappers
+for existing resume and stateless SDK scaffolding; their duplicate creation
+bodies are gone. Legacy public HTTP responses/URLs, authenticated native receipts
+and supported older-server client fallback stay supported. No public capability
+meaning broadens; broad receipts remain unadvertised.
+
+Focused evidence now includes concurrent copy coalescing while its generation
+advances, observer mutation resistance, helper failure/restart, common-key
+fork-summary association recovery, retained restart-fork continuation failure,
+real Claude JSONL/Pi copy, native warm-reader discovery for Claude/Codex/Pi,
+account-private multi-batch file sealing, deletion of raw originals before safe
+retry, current limited-grant/lock revocation, and live desktop credential proof.
+Unsupported sandbox platforms save failure without a native launch. The local/
+hosted Codex browser cases gate native fork return, expose the saved copy first,
+restart/reopen it and type sequentially into exactly one continuation on copied N.
+Linux kernel enforcement and Windows native qualification remain external to this
+Mac run; no ambient account or primary-profile process is used.
+
+Removed four Queue tests for the superseded create/materialize/resume and
+callback retry engine, and three route tests asserting post-start metadata
+writes through mocks. Surviving real SQLite/native delayed-admission and
+limited-revocation checks exercise those regressions at their new owner.
+The account-private multi-batch and source/header/reopen tests retain their
+unique security/persistence boundaries; their fixtures model acceptance without
+claiming native consumption or OS confinement. The Queue scheduling file passes
+40 cases in 23.64 seconds; core authority/copy tests pass 48 cases in 4.60 seconds.
+The first full diagnostic run exposed 26 legacy-fixture/metadata regressions;
+fixes include real admission-time working-project/standing-preference metadata
+and an explicit mock-backend namespace. The sole actual localhost:3400 Sol 6.1 High review **ACCEPTs** this slice with
+no material P1/P2 findings. Effective model, High effort and bypass permissions
+were verified; its owned process was retired with HTTP 200/`verifiedStopped`.
+No repeat review. The report is retained under ignored
+`tasks/session-identity/reviews/final-creation-consolidation.md`.
+
+Six final local/hosted browser cases pass in 40.3 seconds with one worker and
+no retries. The deliberate-restart websocket reset was removed by joining the
+browser context before stopping its owned backend; the final two fork cases
+pass cleanly in 18.6 seconds. Three standalone Bun cases pass in 12.4 seconds;
+the actual pinned Claude CLI routed and empty-preparation cases pass in
+18.5 seconds against the owned local model endpoint. Desktop/phone copy and
+preparation captures were inspected at 1000×600 and 375×812: saved copy state,
+disabled pending composer, editable preparation, wrapping and no overflow.
+Console budgets remain unchanged and CSS ownership checks pass.
+
+The first post-review aggregate passes 6,922 server/7,067 client cases but finds
+two template fixtures still using the old endpoint/SDK-only launch. They now
+exercise canonical HTTP acceptance with the explicit mock backend and assert
+one saved public id, original source and prompt; all nine template cases pass
+in 3.73 seconds. No production change or second review was required. The wider
+[template operation recovery gap](../../gaps/project-template-standup.md) remains
+separate from native admission. The corrected complete workspace run passes: **6,924 server / 7,067 client**,
+plus 966 shared, 139 relay and 45 push-broker cases and the root Node checks.
+Server duration is 138.44 seconds. Warning-free lint, format, root typecheck
+(including browser specs), and the corrected server fixture typecheck pass.
+This run includes the tracked Rendez case; its intermittent gap is not closed.
+The staged new authority interface received a type-only lint cleanup; final
+root typecheck and 143 affected route/copy cases pass in 1.71 seconds.
+No final test timeout, retry, console budget or production logging suppression
+was added. Ignored `consolidation-*` evidence retains initial failures as well
+as corrected results. The native-ingress audit found no retained production
+new-session bypass; this completes the selected consolidation endpoint, not the
+separate full workspace/lineage redesign or broader receipts guarantee.
 
 ## Active milestone — Claude and Codex creation, November 2
 
@@ -1171,7 +1264,9 @@ separate scope.
   7,064 client; 129.82 s server run). General Claude alias-history migration,
   cold resume/prompt-cache touches, durable helper admission/provenance and
   released-client qualification remain outside this cut.
-- Phases 4–9: pending; no global creation capability is advertised.
+- Historical foundation checkpoint: phases 4–9 were pending here. The current
+  consolidation ledger above supersedes this checkpoint; broad receipts remain
+  unadvertised.
 
 The reviewer ran through localhost:3400 with effective `gpt-6.1-sol`, High
 effort and bypass permissions verified in session metadata. Initial/revised

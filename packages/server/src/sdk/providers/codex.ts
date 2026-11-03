@@ -1,3 +1,4 @@
+import { nativeStorageScope } from "./native-storage-scope.js";
 import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
 import { assertProviderForkSource } from "./types.js";
@@ -1390,6 +1391,7 @@ export class CodexProvider implements AgentProvider {
   readonly name = "codex" as const;
   readonly displayName = "Codex";
   readonly supportsNativeResumeSource = true;
+  readonly supportsInlineImages = true;
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle = true;
   readonly supportsSlashCommands = true;
@@ -1487,7 +1489,18 @@ export class CodexProvider implements AgentProvider {
     );
   }
 
-  async getNewSessionNamespace(cwd: string) {
+  async getNewSessionNamespace(
+    cwd: string,
+    sandbox?: Pick<
+      import("../../session-sandbox.js").SessionSandboxRuntime,
+      "transcriptDir"
+    >,
+  ) {
+    if (sandbox)
+      return {
+        family: "codex" as const,
+        storageScope: await nativeStorageScope(sandbox.transcriptDir),
+      };
     const physicalCwd = await realpath(cwd);
     const env = this.getCodexEnv();
     let root = resolve(

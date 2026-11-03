@@ -2,16 +2,17 @@
 
 Status: implemented.
 
-This owns the retained provisional-id reconciliation behavior, not the future
-session ownership model. Since plan 150's October 11 change, ordinary new
-Claude sessions accept YA's chosen id; the remap path remains for providers and
-legacy launch paths that assign a different id. On November 1 the maintainer
-selected [permanent YA session identity](session-identity.md), with provider ids
-stored separately and saved/failed sessions surviving without a transcript,
-as the foundation for [session creation](session-creation.sketches.md).
-That migration is pending; preserve this contract until its paths and supported
-older servers no longer need it. Historical Claude incidents below predate the
-caller-chosen-id change.
+This owns retained provisional-id reconciliation and supported older-server
+client behavior. [Permanent YA identity and common creation admission](session-identity.md#creation-consolidation--november-3)
+now govern every production native new-session path, including copies: native
+allocation binds N to permanent public P and does not remap P. The superseded
+new-session route/Queue remap and metadata-writer duties are removed.
+
+Retain application remap observers for existing legacy histories, receipt/peer
+and Source Review associations, SDK test scaffolding, and supported older-server
+events. Removing those consumers is a separate compatibility decision, not a
+reason to reintroduce public remapping on new admission. Historical Claude
+incidents below predate chosen-id and permanent-identity migration.
 
 ## Problem
 

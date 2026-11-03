@@ -1,10 +1,31 @@
+import { Hono } from "hono";
+import {
+  desktopControlOrigin,
+  isDesktopControlOrigin,
+} from "../../src/desktop/machine-control.js";
+import {
+  DesktopBootstrapService,
+  DESKTOP_SESSION_COOKIE_NAME,
+} from "../../src/desktop/DesktopBootstrapService.js";
+import { createAuthMiddleware } from "../../src/middleware/auth.js";
+import type { AuthService } from "../../src/auth/AuthService.js";
+import { PRINCIPAL_VARIABLE } from "../../src/auth/principal.js";
+import type { UserMessage } from "../../src/sdk/types.js";
+import type { LimitedUserGrants } from "@yep-anywhere/shared";
 import { createSupervisorReviewLauncher } from "../../src/review/reviewSessionLauncher.js";
 import { CreationAttachments } from "../../src/sessions/creation-attachments.js";
 import { AttachmentStagingService } from "../../src/uploads/AttachmentStagingService.js";
 import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
 import type { UploadedFile } from "@yep-anywhere/shared";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, realpath } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  realpath,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -79,11 +100,13 @@ async function fixture(providerName: "claude" | "codex" | "grok") {
     inputId: string;
     source: string | undefined;
     attachments?: UploadedFile[];
+    input?: UserMessage;
   }> = [];
   let available = true,
     fail = false;
   const provider: AgentProvider = {
     name: providerName,
+    supportsInlineImages: true,
     acceptsChosenSessionId: providerName === "claude",
     displayName: "Owned native",
     supportsPermissionMode: true,
@@ -143,6 +166,7 @@ async function fixture(providerName: "claude" | "codex" | "grok") {
       const queue = new MessageQueue(),
         push = queue.push.bind(queue);
       queue.push = (message) => {
+        starts.at(-1)!.input = message;
         starts.at(-1)!.inputId = message.uuid!;
         starts.at(-1)!.attachments = message.attachments;
         for (const file of message.attachments ?? [])
@@ -169,7 +193,11 @@ async function fixture(providerName: "claude" | "codex" | "grok") {
     for (const p of supervisor.getAllProcesses()) await p.abort();
     await supervisor.stopBackgroundTasks();
   });
-  const scheduler = () => {
+  const scheduler = (
+    options: Partial<
+      ConstructorParameters<typeof ProjectQueueScheduler>[0]
+    > = {},
+  ) => {
     const s = new ProjectQueueScheduler({
       projectQueueService: service,
       creations: metadata.creations,
@@ -177,6 +205,7 @@ async function fixture(providerName: "claude" | "codex" | "grok") {
       supervisor,
       eventBus: bus,
       idleGraceMs: 60000,
+      ...options,
     });
     cleanup.push(() => s.dispose());
     return s;
@@ -885,3 +914,275 @@ it("propagates an unkeyed review startup failure rather than inventing queue acc
     { creation: { state: "failed", delivery: "not-admitted" } },
   ]);
 });
+
+it("retains legacy uploaded bytes, inline images and complete initial input through a safe explicit retry", async () => {
+  const f = await fixture("claude"),
+    file = join(f.root, "original.txt");
+  await writeFile(file, "SEALED_UPLOAD");
+  const image =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const context = {
+    owner: { kind: "superuser" as const },
+    source: {
+      kind: "request" as const,
+      provenance: { surface: "api" as const },
+    },
+  };
+  f.available = false;
+  await expect(
+    f.supervisor.startSession(
+      f.project,
+      {
+        text: "QUEUE_INPUT",
+        images: [image],
+        documents: ["literal document reference"],
+        tempIds: ["first", "second"],
+        priority: "next",
+        attachments: [
+          {
+            id: "legacy-file",
+            name: "original.txt",
+            originalName: "original.txt",
+            mimeType: "text/plain",
+            size: 13,
+            path: file,
+          },
+        ],
+      },
+      undefined,
+      { recapAfterSeconds: 45, promptSuggestionMode: "off" },
+      {
+        creation: {
+          requestId: "legacy-sealed-input",
+          context,
+          authorize: async () => {},
+        },
+      },
+    ),
+  ).rejects.toThrow("unavailable");
+  const saved = f.metadata.creations.get(context.owner, "legacy-sealed-input")!;
+  expect(saved.request?.attachments?.files).toHaveLength(2);
+  expect(f.metadata.getMetadata(saved.sessionId)).toMatchObject({
+    recapAfterSeconds: 45,
+    promptSuggestionMode: "off",
+    creationProvenance: { surface: "api" },
+  });
+  await rm(file);
+  f.available = true;
+  const fence = f.metadata.creations.retry(
+    context.owner,
+    saved.requestId,
+    "retry-sealed-legacy",
+    saved.attempt.attemptId,
+  );
+  await f.supervisor.startSavedSession(fence, async () => {});
+  expect(f.starts).toHaveLength(1);
+  const input = f.starts[0]!.input!;
+  expect(input).toMatchObject({
+    documents: ["literal document reference"],
+    tempIds: ["first", "second"],
+    priority: "next",
+  });
+  expect(input.images?.[0]?.replace(/^data:image\/png;base64,/, "")).toBe(
+    image,
+  );
+  expect(await readFile(input.attachments![0]!.path, "utf8")).toBe(
+    "SEALED_UPLOAD",
+  );
+});
+
+it.each(["revoked", "changed-lock"])(
+  "rechecks the original limited Queue owner before deferred effects: %s",
+  async (reason) => {
+    const f = await fixture("claude");
+    const blocker = await f.supervisor.startSession(
+      f.project,
+      { text: "QUEUE_INPUT" },
+      undefined,
+      undefined,
+      {
+        creation: {
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "request", provenance: { surface: "api" } },
+          },
+          authorize: async () => {},
+        },
+      },
+    );
+    if ("queued" in blocker || "error" in blocker)
+      throw Error("Missing blocker");
+    let grants: LimitedUserGrants | null = {
+      newSessionProjects: [f.projectId],
+      joinProjects: [],
+      viewProjects: [],
+      joinStaleOffsetMinutes: 0,
+      lock: { provider: "claude" },
+    };
+    const scheduler = f.scheduler({ getLimitedUserGrants: () => grants });
+    const item = await f.service.createItem({
+      projectId: f.projectId,
+      projectPath: f.project,
+      createdByUser: "alice",
+      creationProvenance: { surface: "web" },
+      request: {
+        target: { type: "new-session", provider: "claude" },
+        message: { text: "QUEUE_INPUT" },
+      },
+    });
+    const result = await scheduler.promoteNow(f.projectId, {
+      itemId: item.id,
+      force: true,
+    });
+    expect(result.promoted).toBe(true);
+    const saved = f.metadata.creations.get(
+      { kind: "limited", username: "alice" },
+      `project-queue-${item.id}`,
+    )!;
+    expect(saved.attempt.state).toBe("queued");
+    expect(f.metadata.getMetadata(saved.sessionId)).toMatchObject({
+      createdByUser: "alice",
+      creationProvenance: { surface: "web" },
+    });
+    grants =
+      reason === "revoked"
+        ? null
+        : {
+            ...grants!,
+            lock: { provider: "claude", model: "different-model" },
+          };
+    await blocker.abort();
+    await vi.waitFor(() =>
+      expect(
+        f.metadata.creations.getForSession(saved.sessionId)?.attempt,
+      ).toMatchObject({ state: "failed", delivery: "not-admitted" }),
+    );
+    expect(f.starts).toHaveLength(1);
+    expect(
+      f.metadata.creations.getForSession(saved.sessionId)?.request?.settings
+        .requestedModel,
+    ).toBeNull();
+  },
+);
+
+it("keeps live desktop credential proof out of saved intent and requires fresh proof on retry", async () => {
+  const bootstrap = new DesktopBootstrapService({
+      masterSecret: "a".repeat(64),
+    }),
+    code = bootstrap.mintCode(),
+    cookie = bootstrap.consumeCode(code.code);
+  const app = new Hono();
+  let origin: ReturnType<typeof desktopControlOrigin>;
+  app.use(
+    "*",
+    createAuthMiddleware({
+      authService: {
+        isLocalhostOpen: () => false,
+        isEnabled: () => false,
+      } as AuthService,
+      desktopBootstrapService: bootstrap,
+    }),
+  );
+  app.get("/proof", (c) => {
+    c.set(PRINCIPAL_VARIABLE, { kind: "superuser" });
+    origin = desktopControlOrigin(c);
+    return c.json({ ok: true });
+  });
+  await app.request("/proof", {
+    headers: { cookie: `${DESKTOP_SESSION_COOKIE_NAME}=${cookie}` },
+  });
+  expect(isDesktopControlOrigin(origin)).toBe(true);
+  const f = await fixture("claude");
+  f.available = false;
+  const context = {
+    owner: { kind: "superuser" as const },
+    source: {
+      kind: "request" as const,
+      provenance: { surface: "desktop" as const },
+    },
+  };
+  await expect(
+    f.supervisor.startSession(
+      f.project,
+      { text: "QUEUE_INPUT" },
+      undefined,
+      { machineControl: true, desktopControlOrigin: origin },
+      {
+        creation: {
+          requestId: "desktop-proof-owned",
+          context,
+          authorize: async () => ({ desktopControlOrigin: origin }),
+        },
+      },
+    ),
+  ).rejects.toThrow("unavailable");
+  const saved = f.metadata.creations.get(context.owner, "desktop-proof-owned")!;
+  expect(saved.request?.launch).toMatchObject({
+    machineControl: true,
+    requiresDesktopControlOrigin: true,
+  });
+  expect(saved.request?.launch).not.toHaveProperty("desktopControlOrigin");
+  f.available = true;
+  const fence = f.metadata.creations.retry(
+    context.owner,
+    saved.requestId,
+    "missing-proof-retry",
+    saved.attempt.attemptId,
+  );
+  await expect(
+    f.supervisor.startSavedSession(fence, async () => {}),
+  ).rejects.toThrow("fresh owner credential proof");
+  expect(f.starts).toHaveLength(0);
+  const current = f.metadata.creations.getForSession(saved.sessionId)!;
+  const retry = f.metadata.creations.retry(
+    context.owner,
+    saved.requestId,
+    "fresh-proof-retry",
+    current.attempt.attemptId,
+  );
+  const native = vi.spyOn(f.provider, "startSession");
+  await f.supervisor.startSavedSession(retry, async () => ({
+    desktopControlOrigin: origin,
+  }));
+  expect(native.mock.calls[0]?.[0].desktopControlOrigin).toBe(origin);
+  expect(f.starts).toHaveLength(1);
+});
+
+it.skipIf(process.platform === "linux")(
+  "saves sandboxed owner intent before refusing an unsupported native platform",
+  async () => {
+    const f = await fixture("claude");
+    const context = {
+      owner: { kind: "superuser" as const },
+      source: {
+        kind: "request" as const,
+        provenance: { surface: "web" as const },
+      },
+    };
+    await expect(
+      f.supervisor.startSession(
+        f.project,
+        { text: "QUEUE_INPUT" },
+        undefined,
+        { sandboxLevel: "project-write", sandboxNetworkFirewall: true },
+        {
+          creation: {
+            requestId: "unsupported-sandbox",
+            context,
+            authorize: async () => {},
+          },
+        },
+      ),
+    ).rejects.toThrow("Linux and Bubblewrap");
+    expect(f.starts).toHaveLength(0);
+    const saved = f.metadata.creations.get(
+      context.owner,
+      "unsupported-sandbox",
+    )!;
+    expect(saved.attempt).toMatchObject({
+      state: "failed",
+      delivery: "not-admitted",
+    });
+    expect(f.metadata.identities.resolveYa(saved.sessionId)?.native).toBeNull();
+  },
+);

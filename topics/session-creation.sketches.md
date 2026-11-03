@@ -21,8 +21,10 @@ refresh. Safe acknowledgement preserves newer drafts. Claude accepts a chosen id
 Codex's native thread id is an explicit binding. [Plan 171's active milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2)
 records the three larger implementation slices and focused/browser qualification.
 
-Attachments, automated retry, remaining provider/caller rollout and the optional
-background action/shortcut remain later work. The broader proposal below is
+The [November 3 consolidation](session-identity.md#creation-consolidation--november-3)
+now includes attachments, retained providers/callers, restricted launches and
+fork/clone admission. Automated uncertain retry and the optional background
+action/shortcut remain later work. The broader proposal below is
 retained as direction; it is not a prerequisite to deliver this first milestone.
 Use a narrowly gated text-creation contract without claiming the complete
 `session-creation-receipts` guarantee. Existing-server fallback remains required.

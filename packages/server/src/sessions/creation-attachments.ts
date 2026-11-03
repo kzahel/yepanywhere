@@ -9,8 +9,9 @@ import {
   rename,
   rm,
   writeFile,
+  realpath,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import type { StagedAttachmentRef, UploadedFile } from "@yep-anywhere/shared";
 import type { AttachmentStagingService } from "../uploads/AttachmentStagingService.js";
 import {
@@ -27,7 +28,14 @@ export type CreationAttachmentSource = {
   owner: { type: "draft" } | { type: "project-queue"; queueItemId: string };
   refs: readonly StagedAttachmentRef[];
 };
-type SavedFile = Omit<UploadedFile, "path"> & { sha256: string };
+type SavedFile = Omit<UploadedFile, "path"> & {
+  sha256: string;
+  inlineImage?: true;
+};
+export interface CreationLegacyFiles {
+  files?: readonly UploadedFile[];
+  images?: readonly string[];
+}
 export interface CreationAttachmentSnapshot {
   groupId: string;
   files: SavedFile[];
@@ -55,6 +63,7 @@ export function snapshotCreationAttachments(
       typeof f.mimeType !== "string" ||
       !Number.isSafeInteger(f.size) ||
       f.size < 0 ||
+      (f.inlineImage !== undefined && f.inlineImage !== true) ||
       !hashPattern.test(f.sha256)
     )
       throw new Error("Invalid saved creation attachment");
@@ -69,6 +78,7 @@ export function snapshotCreationAttachments(
       size: f.size,
       mimeType: f.mimeType,
       sha256: f.sha256,
+      ...(f.inlineImage ? { inlineImage: true as const } : {}),
       ...(f.width !== undefined ? { width: f.width } : {}),
       ...(f.height !== undefined ? { height: f.height } : {}),
     };
@@ -104,22 +114,22 @@ export class CreationAttachments {
   async seal(
     owner: CreationOwner,
     requestId: string,
-    source: CreationAttachmentSource,
+    source: CreationAttachmentSource | undefined,
+    legacy?: CreationLegacyFiles,
   ): Promise<CreationAttachmentSnapshot> {
     this.cleanupPromise ??= this.cleanup();
     await this.cleanupPromise;
-    if (
-      !source ||
-      !Array.isArray(source.refs) ||
-      !source.refs.length ||
-      source.refs.length > 64
-    )
+    const count =
+      (source?.refs.length ?? 0) +
+      (legacy?.files?.length ?? 0) +
+      (legacy?.images?.length ?? 0);
+    if (!count || count > 64)
       throw new Error("Invalid creation attachment references");
     const staging = this.staging.forUser(
       owner.kind === "limited" ? owner.username : null,
     );
-    const refs =
-      source.owner.type === "draft"
+    const refs = source
+      ? source.owner.type === "draft"
         ? (
             await Promise.all(
               source.refs.map((ref) =>
@@ -127,20 +137,55 @@ export class CreationAttachments {
               ),
             )
           ).flat()
-        : await staging.validateQueueRefs(
-            source.owner.queueItemId,
-            source.refs,
+        : await staging.validateQueueRefs(source.owner.queueItemId, source.refs)
+      : [];
+    const records: UploadedFile[] = refs.map((ref) => {
+      const record = staging.getRecord(ref.id);
+      if (!record) throw new Error("Staged attachment is unavailable");
+      return record;
+    });
+    for (const submitted of legacy?.files ?? []) {
+      if (
+        !submitted ||
+        typeof submitted.path !== "string" ||
+        !isAbsolute(submitted.path)
+      )
+        throw new Error("Invalid initial uploaded file");
+      let file = submitted;
+      if (owner.kind === "limited") {
+        const record = staging.getRecord(submitted.id);
+        if (!record || record.path !== submitted.path)
+          throw new Error(
+            "Initial files require this user's staged attachment",
           );
+        if (record.owner.type !== "draft")
+          throw new Error("Initial files require this user's draft staging");
+        await staging.validateDraftRefs(record.owner.batchId, [record]);
+        file = record;
+      }
+      const path = await realpath(file.path),
+        stat = await lstat(path);
+      if (
+        !stat.isFile() ||
+        stat.size !== file.size ||
+        stat.size > 64 * 1024 * 1024
+      )
+        throw new Error("Initial uploaded file is missing or changed");
+      records.push({ ...file, path });
+    }
     this.store.assertAttachmentCapacity(
-      refs.reduce((sum, ref) => sum + ref.size, 0),
+      records.reduce((sum, ref) => sum + ref.size, 0),
     );
     const temp = join(this.root, `${randomUUID()}.partial`);
     await mkdir(temp, { recursive: true });
     try {
       const files: SavedFile[] = [];
-      for (const ref of refs) {
-        const record = staging.getRecord(ref.id);
-        if (!record) throw new Error("Staged attachment is unavailable");
+      for (const record of records) {
+        if (
+          !isSafeUploadPathSegment(record.name) ||
+          !isSafeUploadPathSegment(record.id)
+        )
+          throw new Error("Invalid initial upload name");
         const path = join(temp, record.name);
         await copyFile(record.path, path);
         const f: SavedFile = {
@@ -156,6 +201,48 @@ export class CreationAttachments {
         await verify(path, f);
         files.push(f);
       }
+      let inlineImageBytes = 0;
+      for (const [index, image] of (legacy?.images ?? []).entries()) {
+        if (typeof image !== "string" || image.length > 48 * 1024 * 1024)
+          throw new Error("Invalid initial image size");
+        const raw = image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+        if (!/^[A-Za-z0-9+/]+={0,2}$/.test(raw))
+          throw new Error(
+            "Initial images require base64 bytes; use uploads for file paths",
+          );
+        const bytes = Buffer.from(raw, "base64"),
+          sha256 = createHash("sha256").update(bytes).digest("hex");
+        inlineImageBytes += bytes.length;
+        if (!bytes.length || inlineImageBytes > 32 * 1024 * 1024)
+          throw new Error("Invalid initial image size");
+        const ext = bytes.subarray(0, 4).equals(Buffer.from([137, 80, 78, 71]))
+          ? "png"
+          : bytes[0] === 255 && bytes[1] === 216
+            ? "jpeg"
+            : bytes.subarray(0, 3).toString() === "GIF"
+              ? "gif"
+              : bytes.subarray(0, 4).toString() === "RIFF" &&
+                  bytes.subarray(8, 12).toString() === "WEBP"
+                ? "webp"
+                : undefined;
+        if (!ext) throw new Error("Unsupported initial image bytes");
+        const id = `image-${index}-${sha256.slice(0, 32)}`,
+          name = `${id}.${ext}`;
+        const file: SavedFile = {
+          id,
+          name,
+          originalName: name,
+          mimeType: `image/${ext}`,
+          size: bytes.length,
+          sha256,
+          inlineImage: true,
+        };
+        await writeFile(join(temp, name), bytes);
+        files.push(file);
+      }
+      this.store.assertAttachmentCapacity(
+        files.reduce((sum, file) => sum + file.size, 0),
+      );
       const groupId = createHash("sha256")
         .update(JSON.stringify({ owner, requestId, files }))
         .digest("hex");
@@ -186,14 +273,14 @@ export class CreationAttachments {
     value: CreationAttachmentSnapshot,
     projectPath: string,
     sessionId: string,
-  ): Promise<UploadedFile[]> {
+  ): Promise<Array<UploadedFile & { inlineImage?: true }>> {
     const snapshot = snapshotCreationAttachments(value);
     const dir = await getProjectAttachmentUploadDir(
       projectPath,
       sessionId,
       this.policy,
     );
-    const result: UploadedFile[] = [];
+    const result: Array<UploadedFile & { inlineImage?: true }> = [];
     for (const file of snapshot.files) {
       const source = join(this.root, snapshot.groupId, file.name);
       await verify(source, file);

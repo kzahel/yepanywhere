@@ -34,9 +34,8 @@ export function textCreationReceipt(
       attemptId: saved.attempt.attemptId,
       updatedAt: saved.attempt.updatedAt,
       delivery: saved.attempt.delivery,
-      ...(saved.request.intent === "prepare"
-        ? { initialInputExpected: false as const }
-        : {}),
+      ...(saved.attempt.kind ? { kind: saved.attempt.kind } : {}),
+      ...(saved.request.intent ? { initialInputExpected: false as const } : {}),
       ...(saved.attempt.failure ? { failure: saved.attempt.failure } : {}),
     },
     serverTimestamp: Date.now(),

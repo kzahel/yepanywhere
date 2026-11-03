@@ -1,3 +1,7 @@
+import type {
+  ProviderForkSource,
+  ProviderForkBoundary,
+} from "../sdk/providers/types.js";
 import {
   snapshotCreationAttachments,
   type CreationAttachmentSnapshot,
@@ -19,6 +23,8 @@ import {
   assertUrlProjectId,
   parseYaSessionId,
   nativeSessionFamily,
+  nativeSessionRef,
+  parseNativeSessionId,
   type NativeSessionRef,
   type SessionCreationStatus,
   type ProviderName,
@@ -47,6 +53,14 @@ export type CreationContext = {
     | { kind: "unknown"; reason: "legacy-project-queue" }
     | { kind: "internal"; reason: "recap" | "retitle" | "fork-summary" };
 };
+export interface CreationCopySnapshot {
+  kind: "fork" | "clone";
+  sourceSessionId: string;
+  source: ProviderForkSource;
+  upToMessageId?: string;
+  boundary?: ProviderForkBoundary;
+  title?: string;
+}
 export interface SavedCreationRequest {
   /** Hash of the submitted wire request, before mutable launch defaults. */
   submissionHash?: string;
@@ -54,7 +68,8 @@ export interface SavedCreationRequest {
   projectId: UrlProjectId;
   projectPath: string;
   message: string;
-  intent?: "prepare";
+  intent?: "prepare" | "copy";
+  copy?: CreationCopySnapshot;
   settings: EffectiveSessionLaunchSettingsValue;
   /** Absent only on storage-foundation/legacy records with no runtime launch. */
   launch?: CreationLaunchSnapshot;
@@ -95,6 +110,7 @@ export interface CreationAttemptFence {
   readonly generation: number;
 }
 export interface CreationAttempt extends CreationAttemptFence {
+  readonly kind?: "copy";
   readonly state: CreationState;
   readonly delivery: CreationDelivery;
   readonly updatedAt: string;
@@ -244,12 +260,68 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
     throw new Error("Invalid creation submission hash");
   if (
     request?.intent !== undefined &&
-    (request.intent !== "prepare" ||
-      request.message !== "" ||
+    (!["prepare", "copy"].includes(request.intent) ||
+      (request.intent === "prepare" && request.message !== "") ||
       request.attachments !== undefined ||
-      request.input?.nativeReceiptId)
+      request.input?.nativeReceiptId ||
+      (request.intent === "copy") !== Boolean(request.copy))
   )
-    throw new Error("Invalid empty session intent");
+    throw new Error("Invalid non-input session intent");
+  if (request?.copy && request.intent !== "copy")
+    throw new Error("Copy intent is required");
+  let copy: CreationCopySnapshot | undefined;
+  if (request?.copy) {
+    const c = request.copy,
+      source = c.source;
+    if (
+      !["fork", "clone"].includes(c.kind) ||
+      !source ||
+      !isAbsolute(source.filePath) ||
+      !source.native ||
+      source.native.family !== nativeSessionFamily(request.provider)
+    )
+      throw new Error("Invalid saved copy source");
+    assertUrlProjectId(source.projectId);
+    const native = nativeSessionRef(
+      source.native.family,
+      source.native.storageScope,
+      parseNativeSessionId(source.native.id),
+    );
+    validateNativeSessionNamespace(native);
+    const sourceSessionId = bounded(c.sourceSessionId, 128);
+    if (!sourceSessionId) throw new Error("Copy requires its logical source");
+    let boundary: ProviderForkBoundary | undefined;
+    if (c.boundary) {
+      const b = c.boundary;
+      if (b.provider !== request.provider)
+        throw new Error("Copy boundary provider mismatch");
+      if (b.kind === "message" && bounded(b.messageId, 256))
+        boundary = {
+          kind: b.kind,
+          provider: b.provider,
+          messageId: b.messageId,
+        };
+      else if (b.kind === "turn" && bounded(b.turnId, 256))
+        boundary = { kind: b.kind, provider: b.provider, turnId: b.turnId };
+      else if (b.kind === "entry" && bounded(b.entryId, 256))
+        boundary = { kind: b.kind, provider: b.provider, entryId: b.entryId };
+      else throw new Error("Invalid copy boundary");
+    }
+    copy = {
+      kind: c.kind,
+      sourceSessionId,
+      source: {
+        native,
+        filePath: source.filePath,
+        projectId: source.projectId,
+      },
+      ...(boundary ? { boundary } : {}),
+      ...(c.upToMessageId
+        ? { upToMessageId: bounded(c.upToMessageId, 256) }
+        : {}),
+      ...(c.title ? { title: bounded(c.title, 4096) } : {}),
+    };
+  }
   if (
     !request ||
     !ALL_PROVIDERS.includes(request.provider) ||
@@ -308,7 +380,8 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
     projectId: request.projectId,
     projectPath: request.projectPath,
     message: request.message,
-    ...(request.intent === "prepare" ? { intent: "prepare" as const } : {}),
+    ...(request.intent ? { intent: request.intent } : {}),
+    ...(copy ? { copy } : {}),
     ...(request.launch !== undefined
       ? { launch: snapshotCreationLaunch(request.launch) }
       : {}),
@@ -494,9 +567,8 @@ export class SessionCreationStore {
   listProjections(): SessionCreationProjection[] {
     return this.statements.projections.all<ProjectionRow>().map((row) => {
       assertUrlProjectId(row.project_id);
-      const detail: Pick<SessionCreationStatus, "failure"> = JSON.parse(
-        row.detail_json,
-      );
+      const detail: Pick<SessionCreationStatus, "failure" | "kind"> =
+        JSON.parse(row.detail_json);
       return {
         sessionId: parseYaSessionId(row.session_id),
         projectId: row.project_id,
@@ -513,6 +585,7 @@ export class SessionCreationStore {
           ...(row.input_expected === 0
             ? { initialInputExpected: false as const }
             : {}),
+          ...(detail.kind === "copy" ? { kind: "copy" as const } : {}),
           ...(detail.failure ? { failure: detail.failure } : {}),
         },
       };
@@ -534,6 +607,7 @@ export class SessionCreationStore {
       ...(row.input_expected === 0
         ? { initialInputExpected: false as const }
         : {}),
+      ...(attempt.kind ? { kind: attempt.kind } : {}),
       ...(attempt.failure ? { failure: attempt.failure } : {}),
     };
   }
@@ -541,7 +615,7 @@ export class SessionCreationStore {
   private readAttempt(id: string): CreationAttempt {
     const row = this.statements.attempt.get<AttemptRow>(id);
     if (!row) throw new Error("Missing saved creation attempt");
-    const detail: Pick<CreationAttempt, "failure"> = JSON.parse(
+    const detail: Pick<CreationAttempt, "failure" | "kind"> = JSON.parse(
       row.detail_json,
     );
     return {
@@ -551,6 +625,7 @@ export class SessionCreationStore {
       state: row.state,
       delivery: row.delivery,
       updatedAt: row.updated_at,
+      ...(detail.kind === "copy" ? { kind: "copy" as const } : {}),
       ...(detail.failure ? { failure: detail.failure } : {}),
     };
   }
@@ -672,7 +747,10 @@ export class SessionCreationStore {
       attempt = randomUUID(),
       initialInputId = request.input?.nativeReceiptId ?? randomUUID(),
       now = new Date().toISOString();
-    const detail = JSON.stringify({ controllerPid: process.pid });
+    const detail = JSON.stringify({
+      controllerPid: process.pid,
+      ...(request.intent === "copy" ? { kind: "copy" } : {}),
+    });
     const detailBytes = Buffer.byteLength(detail);
     try {
       this.metadata.commitNewSession(
@@ -681,11 +759,48 @@ export class SessionCreationStore {
         {
           provider: request.provider,
           initialPrompt: request.message,
+          workingProjectId: request.projectId,
+          sandboxLevel: request.launch?.sandboxLevel ?? "none",
+          ...(request.launch?.sandboxLevel === "project-write"
+            ? {
+                sandboxNetworkFirewall:
+                  request.launch.sandboxNetworkFirewall !== false,
+                sandboxProjectPath: request.projectPath,
+                ...(request.launch.sandboxStateKey
+                  ? { sandboxStateKey: request.launch.sandboxStateKey }
+                  : {}),
+              }
+            : {}),
+          ...(request.settings.requestedModel
+            ? { requestedModel: request.settings.requestedModel }
+            : {}),
+          ...(request.launch?.promptSuggestionMode !== undefined
+            ? { promptSuggestionMode: request.launch.promptSuggestionMode }
+            : {}),
+          ...(request.launch?.recapAfterSeconds !== undefined
+            ? { recapAfterSeconds: request.launch.recapAfterSeconds }
+            : {}),
+          ...(request.launch?.recapMode !== undefined
+            ? { recapMode: request.launch.recapMode }
+            : {}),
+          ...(request.copy
+            ? {
+                forkedFromSessionId: request.copy.sourceSessionId,
+                ...(request.copy.source.projectId !== request.projectId
+                  ? {
+                      workingProjectId: request.projectId,
+                      transcriptProjectId: request.copy.source.projectId,
+                    }
+                  : {}),
+              }
+            : {}),
+          ...(request.copy?.title ? { customTitle: request.copy.title } : {}),
           effectiveLaunchSettings: {
             schemaVersion: 1,
             revision: 1,
             ...request.settings,
           },
+          ...(context.source.kind === "internal" ? { isArchived: true } : {}),
           ...(context.owner.kind === "limited"
             ? { createdByUser: context.owner.username }
             : {}),
@@ -705,7 +820,7 @@ export class SessionCreationStore {
           this.metadata.identities.allocateWithinTransaction({
             sessionId,
             provider: request.provider,
-            projectId: request.projectId,
+            projectId: request.copy?.source.projectId ?? request.projectId,
             createdAt: now,
           });
           this.statements.insert.run(
@@ -720,7 +835,7 @@ export class SessionCreationStore {
             attempt,
             now,
             initialInputId,
-            request.intent === "prepare" ? 0 : 1,
+            request.intent ? 0 : 1,
           );
           this.statements.insertAttempt.run(
             attempt,
@@ -776,9 +891,11 @@ export class SessionCreationStore {
     const retained: {
       nativeNamespace?: NativeSessionNamespace;
       controllerPid?: number;
+      kind?: "copy";
     } = JSON.parse(previous.detail_json);
     const nativeNamespace = namespace ?? retained.nativeNamespace;
     const detail = JSON.stringify({
+        ...(retained.kind === "copy" ? { kind: "copy" } : {}),
         ...(retained.controllerPid !== undefined
           ? { controllerPid: retained.controllerPid }
           : {}),
@@ -1020,7 +1137,10 @@ export class SessionCreationStore {
         throw new SessionCreationConflict();
       if (row.attempt_count >= MAX_ATTEMPTS)
         throw new SessionCreationCapacityError();
-      const detail = JSON.stringify({ controllerPid: process.pid });
+      const detail = JSON.stringify({
+        controllerPid: process.pid,
+        ...(current.request?.intent === "copy" ? { kind: "copy" } : {}),
+      });
       const detailBytes = Buffer.byteLength(detail);
       this.reserve(0, 0, detailBytes);
       const attempt = randomUUID();

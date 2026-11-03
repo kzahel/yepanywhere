@@ -510,10 +510,24 @@ export class SessionMetadataService {
   }
 
   getTranscriptDisplayObjects(sessionId: string): TranscriptDisplayObject[] {
-    return [
-      ...(this.state.sessions[this.resolveSessionId(sessionId)]
-        ?.transcriptDisplayObjects ?? []),
-    ];
+    return (
+      this.state.sessions[this.resolveSessionId(sessionId)]
+        ?.transcriptDisplayObjects ?? []
+    ).map((object) => {
+      if (
+        object.kind !== "fork-summary" ||
+        object.targetSessionId ||
+        !/^[A-Za-z0-9_-]{1,100}$/.test(object.id)
+      )
+        return object;
+      // Recover the projection if admission committed before its association.
+      // Indexed, compact point lookup; no prompt decoding or background loop.
+      const sessionId = this.creations.getPublicSessionId(
+        { kind: "superuser" },
+        `fork-summary-target-${object.id}`,
+      );
+      return sessionId ? { ...object, targetSessionId: sessionId } : object;
+    });
   }
 
   getRecapMessages(sessionId: string): DurableRecapMessage[] {

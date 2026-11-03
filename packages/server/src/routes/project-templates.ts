@@ -183,27 +183,18 @@ export function createProjectTemplateRoutes(
         },
         prepare: async (projectId, message, settings) => {
           const result = await call(
-            `/api/projects/${encodeURIComponent(projectId)}/sessions${staged?.refs.length ? "/create" : ""}`,
-            { ...settings, ...(staged?.refs.length ? {} : { message }) },
+            `/api/projects/${encodeURIComponent(projectId)}/session-creations`,
+            {
+              ...settings,
+              message,
+              requestId: `template-${parsed.data.operationId}`,
+              ...(staged?.refs.length
+                ? { stagedAttachments: staged.refs }
+                : {}),
+            },
           );
           if (typeof result.sessionId !== "string")
-            throw new Error(
-              "Preparation was queued without a session ID. Inspect the session queue; do not repeat creation.",
-            );
-          if (staged?.refs.length) {
-            const materialized = await call(
-              `/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(result.sessionId)}/attachments/staging/materialize`,
-              staged,
-            );
-            await call(
-              `/api/sessions/${encodeURIComponent(result.sessionId)}/messages`,
-              {
-                ...settings,
-                message,
-                attachments: materialized.files,
-              },
-            );
-          }
+            throw new Error("Preparation was not durably accepted");
           await call(
             `/api/sessions/${encodeURIComponent(result.sessionId)}/metadata`,
             { title: truncateSessionTitle(parsed.data.intent) },

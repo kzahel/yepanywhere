@@ -19,30 +19,27 @@ version) and `X-Yep-Client-Surface: web | desktop`; either header marks the
 session as that UI (`web` when only the version is present), keeping the
 version. A request with neither is `api`. A UI action therefore needs no
 per-call provenance, and an agent needs no cooperation to be told apart.
-Server-internal launches that do not arrive as an HTTP request, such as helper
-side sessions and routines, remain unmarked. Project Queue retains the original
+Internal helpers retain an explicit bounded creation reason without a public
+request surface. Existing unmarked history is not backfilled. Project Queue retains the original
 enqueue request source as described below.
 
-The [launch-path provenance audit](../gaps/session-creation-source-missing-launch-paths.md)
-records remaining omissions beyond that boundary: UI-requested review
-sessions, the final fork-after-summary target,
-maintenance diagnostic creation, and retained forks after a failed restart
-continuation. The HTTP coverage statement above describes the intended contract;
-the remaining paths do not yet satisfy it.
+Creation source and trusted owner now commit with the permanent public session
+at [shared admission](session-identity.md#creation-consolidation--november-3),
+before native effects. The six audited launch-path omissions are repaired:
+Queue, review, native/peer, maintenance, fork-summary target and failed
+restart-fork continuation. Templates use that same owner. A fork's source is its
+creating request, not its parent's; helper generators choose an explicit
+internal reason and are archived at admission. Existing-session follow-ups never
+relabel their source. Source-less old Queue/history rows remain unknown.
 
-The [admission ownership recommendation](session-creation-provenance.sketches.md)
-explains the shared cause, required creation context and coordination with the
-durable session identity/startup work. It is a proposal, not current behavior.
-[Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#creation-source-admission-and-coverage)
-now incorporates that recommendation into admission, startup, caller migration
-and qualification. It requires explicit source decisions and preserves legacy
-unknown records; the remaining omissions above stay open until implemented and verified.
-
-Qualified ordinary Claude/Codex text admission, including routed launches, persists
-source with the saved logical session before provider startup or worker deferral.
-The narrow [text acceptance contract](session-identity.md#qualified-claude-text-acceptance--november-2)
-returns that identity even when startup fails. This does not close the six-path
-audit or migrate attachment/other-provider creation.
+The [audit gap](../gaps/session-creation-source-missing-launch-paths.md) is narrowed
+to a crash after native copy but before its exact result reaches SQLite. The
+saved P already has source; the uncorrelated physical orphan is quarantined,
+not guessed or replayed. [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#final-consolidation-slice--november-3)
+records the ingress inventory and qualification. The
+[original admission recommendation](session-creation-provenance.sketches.md)
+is now implemented at this boundary; later-turn receipts and broad public
+capability/release guarantees remain separate.
 
 ## Native v0 and peer creation
 

@@ -26,13 +26,19 @@ export type CreationLaunchSnapshot = Pick<
   | "claudeAutoCompactPercentOverride"
   | "sandboxLevel"
   | "sandboxNetworkFirewall"
-> & { schemaVersion: 1; runtimeOwner?: "local" | "host" };
+  | "sandboxStateKey"
+> & {
+  schemaVersion: 1;
+  runtimeOwner?: "local" | "host";
+  requiresDesktopControlOrigin?: boolean;
+};
 
 /** Rebuild an allowlist rather than serializing runtime/provider option objects. */
 export function snapshotCreationLaunch(
   input: ModelSettings & {
     schemaVersion?: number;
     runtimeOwner?: "local" | "host";
+    requiresDesktopControlOrigin?: boolean;
   },
 ): CreationLaunchSnapshot {
   if (
@@ -66,15 +72,22 @@ export function snapshotCreationLaunch(
     "routerPolicy",
     "helperSideModel",
     "globalInstructions",
+    "sandboxStateKey",
   ] as const) {
     const value = input[key];
     if (value === undefined) continue;
     if (typeof value !== "string")
       throw new Error("Invalid saved launch text option");
+    if (
+      key === "sandboxStateKey" &&
+      !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(value)
+    )
+      throw new Error("Invalid saved sandbox state key");
     result[key] = value;
   }
   for (const key of [
     "machineControl",
+    "requiresDesktopControlOrigin",
     "forceYaOrchestratedCompaction",
     "sandboxNetworkFirewall",
   ] as const) {

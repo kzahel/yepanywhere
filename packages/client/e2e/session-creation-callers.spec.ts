@@ -274,3 +274,141 @@ test("keyed source review saves its web origin and association before startup an
     await owned.close();
   }
 });
+
+for (const hosted of [false, true])
+  test(`admitted Codex fork ${hosted ? "hosted" : "local"} is visible before copying and cold-continues under its public id`, async ({
+    browser,
+  }) => {
+    const owned = await createCodexCreationFixture(hosted);
+    let context = await browser.newContext({
+      serviceWorkers: "block",
+      viewport: { width: 1000, height: 600 },
+    });
+    let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
+    let copying: Promise<Response> | undefined;
+    try {
+      await owned.releaseAck();
+      await owned.releaseReply();
+      const parent = await (
+        await owned.request(`/projects/${owned.projectId}/sessions`, {
+          provider: "codex",
+          model: "gpt-6.1-sol",
+          message: "OWNED_COPY_PARENT",
+        })
+      ).json();
+      expect(parent.sessionId).toBeTruthy();
+      const detail = async (id: string) =>
+        await (
+          await owned.request(`/projects/${owned.projectId}/sessions/${id}`)
+        ).json();
+      await expect
+        .poll(async () =>
+          JSON.stringify((await detail(parent.sessionId)).messages),
+        )
+        .toContain("OWNED_CODEX_CREATION_REPLY");
+      copying = owned.request(
+        `/projects/${owned.projectId}/sessions/${parent.sessionId}/fork`,
+        { creationProvenance: { surface: "web" } },
+      );
+      await expect
+        .poll(
+          async () =>
+            (await owned.requests()).filter((r) => r.method === "thread/fork")
+              .length,
+        )
+        .toBe(1);
+      const rows = await (
+        await owned.request(`/projects/${owned.projectId}/sessions`)
+      ).json();
+      const child = rows.sessions.find(
+        (row: { creation?: { kind?: string } }) =>
+          row.creation?.kind === "copy",
+      );
+      expect(child?.id).toBeTruthy();
+      expect(child.id).not.toBe(parent.sessionId);
+      expect((await detail(child.id)).session).toMatchObject({
+        id: child.id,
+        creation: {
+          kind: "copy",
+          state: "dispatching",
+          initialInputExpected: false,
+        },
+        creationProvenance: { surface: "web" },
+        forkedFromSessionId: parent.sessionId,
+      });
+      vite = await createTestViteServer({
+        configFile: resolve("vite.config.ts"),
+        root: process.cwd(),
+        server: {
+          host: "127.0.0.1",
+          hmr: false,
+          proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
+        },
+      });
+      await vite.listen();
+      const address = vite.httpServer!.address();
+      if (!address || typeof address === "string")
+        throw Error("Missing owned listener");
+      let page = await context.newPage();
+      const path = `/projects/${owned.projectId}/sessions/${child.id}`;
+      await page.goto(`http://127.0.0.1:${address.port}${path}`);
+      await expect(
+        page.getByRole("region", { name: "Session startup" }),
+      ).toBeVisible();
+      let composer = page.locator("textarea[data-composer-input]").first();
+      await expect(composer).not.toBeEditable();
+      if (!hosted) {
+        await recordUiCapture(page, "admitted-copy-before-native-desktop");
+        await page.setViewportSize({ width: 375, height: 812 });
+        await recordUiCapture(page, "admitted-copy-before-native-phone");
+      }
+      await owned.releaseFork();
+      const response = await copying;
+      expect(response.status, await response.clone().text()).toBe(200);
+      expect((await response.json()).sessionId).toBe(child.id);
+      await expect
+        .poll(async () => (await detail(child.id)).session.creation.state)
+        .toBe("bound");
+      const viewport = page.viewportSize();
+      await context.close();
+      await owned.restart();
+      context = await browser.newContext({ serviceWorkers: "block", viewport });
+      page = await context.newPage();
+      await page.goto(`http://127.0.0.1:${address.port}${path}`);
+      composer = page.locator("textarea[data-composer-input]").first();
+      await expect(composer).toBeEditable();
+      let input = "";
+      for (const c of "OWNED_COPY_CONTINUATION") {
+        await composer.pressSequentially(c);
+        input += c;
+        await expect(composer).toHaveValue(input, { timeout: 100 });
+      }
+      await composer.press("Enter");
+      await expect
+        .poll(
+          async () =>
+            (await owned.requests()).filter((r) => r.method === "turn/start")
+              .length,
+        )
+        .toBe(2);
+      const calls = await owned.requests(),
+        fork = calls.find((r) => r.method === "thread/fork"),
+        resume = calls.find((r) => r.method === "thread/resume");
+      expect(fork.params.threadId).not.toBe(parent.sessionId);
+      expect(resume.params.threadId).not.toBe(child.id);
+      expect(resume.params.threadId).not.toBe(fork.params.threadId);
+      expect(resume.params.path).toContain(resume.params.threadId);
+      expect(calls.filter((r) => r.method === "thread/start")).toHaveLength(1);
+      expect(calls.filter((r) => r.method === "thread/fork")).toHaveLength(1);
+      expect((await detail(child.id)).session).toMatchObject({
+        id: child.id,
+        creationProvenance: { surface: "web" },
+      });
+    } finally {
+      await context.close();
+      await owned.releaseFork();
+      await copying?.catch(() => {});
+      await vite?.close();
+      await owned.close();
+    }
+  });

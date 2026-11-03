@@ -1,27 +1,22 @@
 # Make creation provenance part of session admission
 
-Status: recommended solution shape, recorded 2026-11-01 at the maintainer's
-request for coordination with session creation/lifecycle work, and incorporated
-into [plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#creation-source-admission-and-coverage)
-at the maintainer's subsequent request. This sketch retains the broader caller
-rollout direction; the implemented ordinary Claude/Codex text contract is linked
-below, and uncovered callers remain follow-ups.
+Status: original admission recommendation recorded 2026-11-01 at the
+maintainer's request and incorporated into
+[plan 171](../docs/tactical/171-durable-session-identity-and-creation.md#creation-source-admission-and-coverage).
+The shared-owner recommendation is implemented by the
+[November 3 caller consolidation](session-identity.md#creation-consolidation--november-3).
+[Current provenance](session-creation-provenance.md) owns the implemented
+surface/owner rules. The [six-path audit](../gaps/session-creation-source-missing-launch-paths.md)
+is repaired and narrowed to native-copy result-loss correlation. The historical
+reasoning below explains why a post-start metadata writer was insufficient;
+it is not a second open migration plan. Public client capability and wider
+release/OS qualification remain separately bounded by the identity contract.
 
-The recommendation is to require an explicit creation context and persist its
+The recommendation is to require explicit creation context and persist its
 source with the logical YA session before provider side effects. A caller
-should not be able to create a session successfully while forgetting a second
-metadata write.
-
-The November 2 implementation focus is the [Claude/Codex text milestone](../docs/tactical/171-durable-session-identity-and-creation.md#active-milestone--claude-and-codex-creation-november-2).
-It now retains required source at ordinary Claude/Codex text admission;
-[the identity contract](session-identity.md#qualified-claude-text-acceptance--november-2)
-owns the implemented scope and capability gates. The subsequent
-[Queue provenance repair](session-creation-provenance.md#project-queue-origin)
-covers source on existing queue launch paths. The subsequent
-[native v0/peer source repair](session-creation-provenance.md#native-v0-and-peer-creation)
-covers that entry point; four other audited omissions remain
-an explicit later rollout. Queue durable identity/receipt migration remains
-separate, so the complete provenance gap is still open.
+cannot create a native session while forgetting a second metadata write.
+Queue promotion, review, native/peer, maintenance, templates and new copy
+resources now use that owner. Legacy unknown records remain unknown.
 
 ## Background and evidence
 

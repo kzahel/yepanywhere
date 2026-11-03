@@ -64,7 +64,7 @@ export function creationProcessIdentity(
         if (
           current.attempt.delivery !== "consumed" &&
           !(
-            current.request?.intent === "prepare" &&
+            Boolean(current.request?.intent) &&
             current.attempt.state === "bound"
           ) &&
           ["dispatching", "bound"].includes(current.attempt.state)

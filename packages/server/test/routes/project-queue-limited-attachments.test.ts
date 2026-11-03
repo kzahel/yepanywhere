@@ -16,6 +16,18 @@ import {
 } from "../../src/auth/principal.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { createProjectQueueRoutes } from "../../src/routes/project-queue.js";
+import { CreationAttachments } from "../../src/sessions/creation-attachments.js";
+import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
+import { snapshotCreationLaunch } from "../../src/sessions/session-creation-launch.js";
+import type { SessionCreationStore } from "../../src/sessions/SessionCreationStore.js";
+import type {
+  ModelSettings,
+  SessionLaunchOptions,
+} from "../../src/supervisor/Supervisor.js";
+import {
+  closeTestDiscoveryDatabases,
+  createTestSessionMetadataService,
+} from "../utils/session-metadata-database.js";
 import type { UserMessage } from "../../src/sdk/types.js";
 import {
   type ProjectQueueDispatchResult,
@@ -92,9 +104,13 @@ function stagedMessage(
 
 class RecordingSupervisor implements ProjectQueueSupervisor {
   processes: ProjectQueueProcessSnapshot[] = [];
-  resumeCalls: { sessionId: string; message: UserMessage }[] = [];
+  acceptedInputs: { sessionId: string; message: UserMessage }[] = [];
 
-  constructor(private projectId: UrlProjectId) {}
+  constructor(
+    private projectId: UrlProjectId,
+    private creations: SessionCreationStore,
+    private files: CreationAttachments,
+  ) {}
 
   getAllProcesses(): ProjectQueueProcessSnapshot[] {
     return this.processes;
@@ -104,8 +120,52 @@ class RecordingSupervisor implements ProjectQueueSupervisor {
     return [];
   }
 
-  async startSession(): Promise<ProjectQueueDispatchResult> {
-    throw new Error("a staged-attachment item creates, then resumes");
+  async startSession(
+    projectPath: string,
+    message: UserMessage,
+    _mode?: import("@yep-anywhere/shared").PermissionMode,
+    settings?: ModelSettings,
+    options?: SessionLaunchOptions,
+  ): Promise<ProjectQueueDispatchResult> {
+    const creation = options!.creation!;
+    const attachments = await this.files.seal(
+      creation.context.owner,
+      creation.requestId!,
+      creation.attachments,
+    );
+    const saved = this.creations.admit({
+      requestId: creation.requestId!,
+      context: creation.context,
+      request: {
+        provider: "claude",
+        projectId: this.projectId,
+        projectPath,
+        message: message.text,
+        attachments,
+        launch: snapshotCreationLaunch(settings ?? {}),
+        settings: {
+          permissionMode: "default",
+          requestedModel: settings?.model ?? null,
+          serviceTier: null,
+          thinking: null,
+          effort: null,
+        },
+      },
+    });
+    await creation.authorize(saved);
+    await creation.onAccepted?.(saved);
+    this.acceptedInputs.push({
+      sessionId: saved.sessionId,
+      message: {
+        ...message,
+        attachments: await this.files.materialize(
+          attachments,
+          projectPath,
+          saved.sessionId,
+        ),
+      },
+    });
+    return this.process(saved.sessionId);
   }
 
   async createSession(): Promise<ProjectQueueDispatchResult> {
@@ -117,7 +177,7 @@ class RecordingSupervisor implements ProjectQueueSupervisor {
     _projectPath: string,
     message: UserMessage,
   ): Promise<ProjectQueueDispatchResult> {
-    this.resumeCalls.push({ sessionId, message });
+    void message;
     return this.process(sessionId);
   }
 
@@ -189,6 +249,7 @@ describe("Project Queue attachments of limited users", () => {
   });
 
   afterEach(async () => {
+    closeTestDiscoveryDatabases();
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
@@ -273,10 +334,24 @@ describe("Project Queue attachments of limited users", () => {
         { id: item.id, createdByUser: "alice", status: "queued" },
       ]);
 
-      const supervisor = new RecordingSupervisor(projectId);
+      const dataDir = path.join(testDir, "data");
+      const metadata = createTestSessionMetadataService(dataDir);
+      await metadata.initialize();
+      const files = new CreationAttachments(
+        path.join(dataDir, "creation-files"),
+        staging,
+        new ProjectStoragePolicy({ dataDir, getMode: () => "app-data" }),
+        metadata.creations,
+      );
+      const supervisor = new RecordingSupervisor(
+        projectId,
+        metadata.creations,
+        files,
+      );
       const scheduler = new ProjectQueueScheduler({
         projectQueueService: queue,
         supervisor,
+        creations: metadata.creations,
         eventBus: new EventBus(),
         attachmentStagingService: staging,
         getLimitedUserGrants: (username) =>
@@ -289,22 +364,28 @@ describe("Project Queue attachments of limited users", () => {
         expect(queue.isDispatchPaused()).toBe(true);
         const promoted = await scheduler.promoteNow(projectId, { force: true });
         expect(promoted).toMatchObject({ promoted: true });
-        expect(supervisor.resumeCalls).toHaveLength(1);
-        const [attachment] = supervisor.resumeCalls[0]!.message.attachments!;
+        expect(supervisor.acceptedInputs).toHaveLength(1);
+        const [attachment] = supervisor.acceptedInputs[0]!.message.attachments!;
         expect(attachment).toMatchObject({ id: ref.id, name: ref.name });
         await expect(fs.readFile(attachment!.path, "utf-8")).resolves.toBe(
           "from alice",
         );
-        const attachments = supervisor.resumeCalls[0]!.message.attachments!;
+        const attachments = supervisor.acceptedInputs[0]!.message.attachments!;
         expect(attachments.map((file) => file.id)).toEqual([ref.id, second.id]);
         expect(
           await Promise.all(
             attachments.map((file) => fs.readFile(file.path, "utf-8")),
           ),
         ).toEqual(["from alice", "more from alice"]);
-        expect(supervisor.resumeCalls[0]!.message.metadata).toMatchObject({
+        expect(supervisor.acceptedInputs[0]!.message.metadata).toMatchObject({
           sentByUser: "alice",
         });
+        expect(
+          metadata.creations.getForSession(
+            supervisor.acceptedInputs[0]!
+              .sessionId as import("@yep-anywhere/shared").YaSessionId,
+          )?.request?.attachments?.files,
+        ).toHaveLength(2);
         // Settling the item removes its staged copy from alice's store.
         await waitFor(async () => {
           expect(queue.listProject(projectId).items).toEqual([]);

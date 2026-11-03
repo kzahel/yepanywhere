@@ -1,8 +1,14 @@
 import {
+  createTestSessionMetadataService,
+  closeTestDiscoveryDatabases,
+} from "../utils/session-metadata-database.js";
+import type { SessionCreationStore } from "../../src/sessions/SessionCreationStore.js";
+import { snapshotCreationLaunch } from "../../src/sessions/session-creation-launch.js";
+let admittedCreations: SessionCreationStore;
+import {
   type LimitedUserGrants,
   type PermissionMode,
   type SessionClearloopJob,
-  type StagedAttachmentRef,
   toUrlProjectId,
   type UrlProjectId,
 } from "@yep-anywhere/shared";
@@ -12,14 +18,12 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLogger } from "../../src/logging/logger.js";
 import type { SessionMetadataService } from "../../src/metadata/index.js";
-import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
 import type { UserMessage } from "../../src/sdk/types.js";
 import { ClearloopService } from "../../src/services/ClearloopService.js";
-import {
-  RetryableSessionLaunchError,
-  type ModelSettings,
-  type SessionLaunchOptions,
-  type Supervisor,
+import type {
+  ModelSettings,
+  SessionLaunchOptions,
+  Supervisor,
 } from "../../src/supervisor/Supervisor.js";
 import {
   ProjectQueueScheduler,
@@ -31,7 +35,6 @@ import {
 } from "../../src/services/ProjectQueueScheduler.js";
 import { ProjectQueueService } from "../../src/services/ProjectQueueService.js";
 import { SessionQueuePersistenceService } from "../../src/services/SessionQueuePersistenceService.js";
-import { AttachmentStagingService } from "../../src/uploads/index.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
 
 const PROJECT_PATH = "/tmp/project-queue-scheduler";
@@ -56,21 +59,6 @@ async function waitFor(
     }
   }
   if (lastError) throw lastError;
-}
-
-async function completeDraftUpload(
-  service: AttachmentStagingService,
-  content: Buffer,
-): Promise<{ batchId: string; ref: StagedAttachmentRef }> {
-  const started = await service.startDraftUpload({
-    batchId: "batch-a",
-    originalName: "queued.txt",
-    size: content.length,
-    mimeType: "text/plain",
-  });
-  await service.writeChunk(started.uploadId, content);
-  const ref = await service.completeUpload(started.uploadId);
-  return { batchId: started.batchId, ref };
 }
 
 function createProcess(
@@ -142,14 +130,43 @@ class FakeSupervisor implements ProjectQueueSupervisor {
     this.startModelSettings.push(modelSettings);
     this.startLaunchOptions = launchOptions;
     if (this.startError) throw this.startError;
+    const creation = launchOptions?.creation;
+    if (!creation)
+      throw new Error("Fixture expected trusted admission context");
+    // Model the accepted-result boundary only. Real Supervisor/SQLite/native
+    // integration owns dispatch, uncertainty and attachment regression coverage.
+    const saved = admittedCreations.admit({
+      requestId: creation.requestId!,
+      context: creation.context,
+      request: {
+        provider: modelSettings?.providerName ?? "claude",
+        projectPath,
+        projectId: this.projectId,
+        message: message.text,
+        settings: {
+          permissionMode: _permissionMode ?? "default",
+          requestedModel:
+            modelSettings?.requestedModel ?? modelSettings?.model ?? null,
+          serviceTier: modelSettings?.serviceTier ?? null,
+          thinking: modelSettings?.thinking ?? null,
+          effort: modelSettings?.effort ?? null,
+        },
+        launch: snapshotCreationLaunch({ ...modelSettings }),
+      },
+    });
+    await creation.onAccepted?.(saved);
     if (this.queueNextStart) {
       return { queued: true, queueId: "worker-queue-1", position: 1 };
     }
     const process = createProcess(this.projectId, {
       id: `started-${this.startCalls.length}`,
-      sessionId: `new-session-${this.startCalls.length}`,
+      sessionId: saved.sessionId,
     });
     this.processes.push(process);
+    await launchOptions?.onStarted?.(
+      process.sessionId,
+      process as unknown as import("../../src/supervisor/Process.js").Process,
+    );
     return process;
   }
 
@@ -217,11 +234,15 @@ describe("ProjectQueueScheduler", () => {
       path.join(os.tmpdir(), "project-queue-scheduler-"),
     );
     projectId = toUrlProjectId(PROJECT_PATH);
+    const metadata = createTestSessionMetadataService(testDir);
+    await metadata.initialize();
+    admittedCreations = metadata.creations;
     eventBus = new EventBus();
     service = new ProjectQueueService({ dataDir: testDir, eventBus });
     await service.initialize();
     supervisor = new FakeSupervisor(projectId);
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -233,6 +254,7 @@ describe("ProjectQueueScheduler", () => {
   afterEach(async () => {
     await scheduler.dispose();
     vi.restoreAllMocks();
+    closeTestDiscoveryDatabases();
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
@@ -244,6 +266,7 @@ describe("ProjectQueueScheduler", () => {
     const probes = path.join(testDir, "probes");
     await fs.writeFile(gate, "occupied");
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -295,6 +318,7 @@ describe("ProjectQueueScheduler", () => {
     projectId = toUrlProjectId(testDir);
     supervisor = new FakeSupervisor(projectId);
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -337,6 +361,7 @@ describe("ProjectQueueScheduler", () => {
       ],
     };
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -379,6 +404,7 @@ describe("ProjectQueueScheduler", () => {
       args: ["-e", "console.log('Outside editor'); process.exitCode = 1"],
     };
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -507,6 +533,7 @@ describe("ProjectQueueScheduler", () => {
     await service.initialize();
     await service.resumeDispatch();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -564,6 +591,7 @@ describe("ProjectQueueScheduler", () => {
   it("holds automatic existing-session work behind a done boundary", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -594,6 +622,7 @@ describe("ProjectQueueScheduler", () => {
   it("waits for the configured project quiet window before promoting", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -619,6 +648,7 @@ describe("ProjectQueueScheduler", () => {
   it("blocks promotion while an admitted user session start is unresolved", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -685,6 +715,7 @@ describe("ProjectQueueScheduler", () => {
   it("restarts the project quiet window after session activity", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -715,41 +746,10 @@ describe("ProjectQueueScheduler", () => {
     await waitFor(() => expect(supervisor.resumeCalls).toHaveLength(1), 400);
   });
 
-  it("keeps a deferred new-session item until worker launch settles", async () => {
-    supervisor.queueNextStart = true;
-    await service.createItem({
-      creationProvenance: { surface: "api" },
-      projectId,
-      projectPath: PROJECT_PATH,
-      request: {
-        target: { type: "new-session", provider: "claude-gateway" },
-        message: { text: "start when a worker is free" },
-      },
-    });
-
-    await waitFor(() => expect(supervisor.startCalls).toHaveLength(1));
-    expect(service.listProject(projectId).items).toEqual([
-      expect.objectContaining({ status: "dispatching" }),
-    ]);
-    expect(supervisor.startLaunchOptions?.onFailed).toBeTypeOf("function");
-
-    await supervisor.startLaunchOptions?.onFailed?.(
-      'Claude Gateway no longer advertises model "old-model"',
-    );
-
-    await waitFor(() =>
-      expect(service.listProject(projectId).items).toEqual([
-        expect.objectContaining({
-          status: "failed",
-          lastError: 'Claude Gateway no longer advertises model "old-model"',
-        }),
-      ]),
-    );
-  });
-
   it("resumes a sandboxed session inside its sandbox for a queued turn", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -798,6 +798,7 @@ describe("ProjectQueueScheduler", () => {
     ) {
       await scheduler.dispose();
       scheduler = new ProjectQueueScheduler({
+        creations: admittedCreations,
         projectQueueService: service,
         supervisor,
         eventBus,
@@ -1016,199 +1017,6 @@ describe("ProjectQueueScheduler", () => {
     });
   });
 
-  it("requeues a deferred new session after transient provider startup failure", async () => {
-    supervisor.queueNextStart = true;
-    await service.createItem({
-      creationProvenance: { surface: "api" },
-      projectId,
-      projectPath: PROJECT_PATH,
-      request: {
-        target: { type: "new-session", provider: "codex" },
-        message: { text: "retry after Codex starts" },
-      },
-    });
-
-    await waitFor(() => expect(supervisor.startCalls).toHaveLength(1));
-    expect(supervisor.startLaunchOptions).toMatchObject({
-      retryProviderStartupFailure: true,
-      requireProviderSessionId: true,
-    });
-    await scheduler.dispose();
-
-    await supervisor.startLaunchOptions?.onRetryableFailure?.(
-      "Codex app-server socket timed out",
-    );
-
-    expect(service.listProject(projectId).items).toEqual([
-      expect.objectContaining({
-        status: "queued",
-        messagePreview: "retry after Codex starts",
-      }),
-    ]);
-  });
-
-  it("requeues immediate startup failures and pauses the third attempt", async () => {
-    const warn = vi
-      .spyOn(getLogger(), "warn")
-      .mockImplementation(() => undefined);
-    await scheduler.dispose();
-    scheduler = new ProjectQueueScheduler({
-      projectQueueService: service,
-      supervisor,
-      eventBus,
-      idleGraceMs: 10_000,
-      blockedRetryMs: 10_000,
-    });
-    supervisor.startError = new RetryableSessionLaunchError(
-      new Error("Codex app-server socket timed out"),
-    );
-    const item = await service.createItem({
-      creationProvenance: { surface: "api" },
-      projectId,
-      projectPath: PROJECT_PATH,
-      request: {
-        target: { type: "new-session", provider: "codex" },
-        message: { text: "keep this prompt durable" },
-      },
-    });
-
-    const firstResult = await scheduler.promoteNow(projectId, {
-      itemId: item.id,
-      force: true,
-    });
-
-    expect(firstResult).toMatchObject({
-      promoted: false,
-      reason: "blocked",
-      itemId: item.id,
-    });
-    expect(supervisor.startLaunchOptions).toMatchObject({
-      retryProviderStartupFailure: true,
-      requireProviderSessionId: true,
-    });
-    expect(service.listProject(projectId).items).toEqual([
-      expect.objectContaining({
-        id: item.id,
-        status: "queued",
-        messagePreview: "keep this prompt durable",
-      }),
-    ]);
-
-    await expect(
-      scheduler.promoteNow(projectId, { itemId: item.id, force: true }),
-    ).resolves.toMatchObject({ promoted: false, reason: "blocked" });
-    await expect(
-      scheduler.promoteNow(projectId, { itemId: item.id, force: true }),
-    ).resolves.toMatchObject({ promoted: false, reason: "failed" });
-    expect(service.listProject(projectId).items).toEqual([
-      expect.objectContaining({
-        id: item.id,
-        status: "failed",
-        lastError: expect.stringContaining("Codex app-server socket timed out"),
-      }),
-    ]);
-    expect(warn).toHaveBeenCalledOnce();
-    expect(warn).toHaveBeenCalledWith(
-      {
-        event: "project_queue_dispatch_retry_exhausted",
-        projectId,
-        error:
-          "Provider session startup did not settle: Codex app-server socket timed out",
-      },
-      "Project queue item paused after repeated provider startup failures",
-    );
-  });
-
-  it("materializes staged attachments before promoting a queued new session", async () => {
-    await scheduler.dispose();
-    const projectPath = path.join(testDir, "project");
-    await fs.mkdir(projectPath, { recursive: true });
-    const storagePolicy = new ProjectStoragePolicy({
-      dataDir: path.join(testDir, "data"),
-      getMode: () => "project",
-    });
-    const stagingService = new AttachmentStagingService({
-      stagingRoot: path.join(testDir, "staging"),
-      storagePolicy,
-    });
-    service.setAttachmentStagingService(stagingService);
-    scheduler = new ProjectQueueScheduler({
-      projectQueueService: service,
-      supervisor,
-      eventBus,
-      attachmentStagingService: stagingService,
-      idleGraceMs: 1,
-    });
-    const { batchId, ref } = await completeDraftUpload(
-      stagingService,
-      Buffer.from("queued attachment"),
-    );
-
-    await service.createItem({
-      creationProvenance: { surface: "api" },
-      projectId,
-      projectPath,
-      request: {
-        target: { type: "new-session", provider: "claude" },
-        message: {
-          text: "start later with file",
-          stagedAttachments: {
-            batchId,
-            refs: [ref],
-            updatedAt: "2026-06-28T00:00:00.000Z",
-          },
-        },
-      },
-    });
-
-    await waitFor(() => expect(supervisor.resumeCalls).toHaveLength(1));
-
-    expect(supervisor.startCalls).toHaveLength(0);
-    expect(supervisor.createCalls).toEqual([{ projectPath }]);
-    expect(supervisor.createLaunchOptions).toMatchObject({
-      retryProviderStartupFailure: true,
-    });
-    expect(supervisor.resumeLaunchOptions).toMatchObject({
-      requireProviderSessionId: true,
-    });
-    expect(supervisor.resumeCalls[0]).toMatchObject({
-      sessionId: "created-session-1",
-      projectPath,
-      message: {
-        text: "start later with file",
-        attachments: [
-          {
-            id: ref.id,
-            originalName: "queued.txt",
-            path: path.join(
-              projectPath,
-              ".yep",
-              "attachments",
-              "created-session-1",
-              ref.name,
-            ),
-          },
-        ],
-      },
-    });
-    await expect(
-      fs.readFile(
-        path.join(
-          projectPath,
-          ".yep",
-          "attachments",
-          "created-session-1",
-          ref.name,
-        ),
-        "utf-8",
-      ),
-    ).resolves.toBe("queued attachment");
-    await waitFor(() => {
-      expect(service.listProject(projectId).items).toEqual([]);
-      expect(stagingService.getRecord(ref.id)).toBeNull();
-    });
-  });
-
   it("waits for an active owned process to become verified idle", async () => {
     const process = createProcess(projectId, { state: { type: "in-turn" } });
     supervisor.processes = [process];
@@ -1245,6 +1053,7 @@ describe("ProjectQueueScheduler", () => {
     supervisor.processes = [process];
     let effectiveProjectId = destinationProjectId;
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -1291,6 +1100,7 @@ describe("ProjectQueueScheduler", () => {
     const process = createProcess(projectId, { state: { type: "in-turn" } });
     supervisor.processes = [process];
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -1339,6 +1149,7 @@ describe("ProjectQueueScheduler", () => {
   it("promoteNow skips the quiet timer but preserves idle blockers", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -1419,6 +1230,7 @@ describe("ProjectQueueScheduler", () => {
   it("resumes paused dispatch before force-promoting a queued item", async () => {
     await scheduler.dispose();
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -1482,6 +1294,7 @@ describe("ProjectQueueScheduler", () => {
       },
     ]);
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -1598,6 +1411,7 @@ describe("ProjectQueueScheduler", () => {
     const externalTracker = new FakeExternalTracker();
     externalTracker.sessions.set("external-session", projectId);
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -1644,6 +1458,7 @@ describe("ProjectQueueScheduler", () => {
     await service.pauseDispatch();
 
     scheduler = new ProjectQueueScheduler({
+      creations: admittedCreations,
       projectQueueService: service,
       supervisor,
       eventBus,
@@ -1714,6 +1529,7 @@ describe("ProjectQueueScheduler", () => {
     ): Promise<void> {
       await scheduler.dispose();
       scheduler = new ProjectQueueScheduler({
+        creations: admittedCreations,
         projectQueueService: service,
         supervisor,
         eventBus,

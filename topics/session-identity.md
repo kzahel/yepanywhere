@@ -643,8 +643,7 @@ receipt semantics. A keyed saved failure remains linked to that original resourc
 review failures still propagate as errors and leave comments pending; they are
 not reported as a queued delivery without an associated operation.
 
-The older create-only endpoints are compatibility adapters for qualified owner
-providers. They admit an explicit empty preparation intent before native startup
+The older create-only endpoints are compatibility adapters into common admission. They admit an explicit empty preparation intent before native startup
 and return their existing process/deferred/error shape. No initial turn is sent.
 An additive `creation.initialInputExpected: false` distinguishes that resource
 from an unconfirmed submitted prompt; its first turn may enter its live incumbent
@@ -654,8 +653,8 @@ scoped continuation retains its native identity. Collections project the flag
 from a compact column without reading saved prompts. Old servers omit it; no new
 request is sent to learn it. Published older clients ignore the additive field.
 The text/attachment capability meanings and global receipts advertisement remain
-unchanged. Restricted/sandbox launches and forks/clones are
-tracked in the consolidation ledger until their migration closes.
+unchanged. Restricted/sandbox launches and new forks/clones now share that same
+owner as described below.
 
 ### Retained native provider admission
 
@@ -678,6 +677,66 @@ silently falling back. Existing workers retain their original loaded contract.
 Public text bits 142–145, staged bit 146 and the unadvertised broad receipts
 contract keep their meanings. Additional internal adapter coverage does not
 change requests sent to older servers or broaden those client capabilities.
+
+### Creation consolidation — November 3
+
+Every production native new-session ingress now requires trusted admission.
+Project/detached start and create-only URLs, Project Queue, Source Review,
+native/peer API, maintenance, text successors, template preparation and
+fork/clone helpers converge on `SessionCreationStore` and Supervisor's saved
+attempt lifecycle. The native I/O guard refuses a fresh launch without that
+attempt before effects. Separate empty-provider creation bodies, Queue's
+create/materialize/resume engine, its startup metadata callback and route
+creation-source writers are removed. The explicitly simulated mock backend
+supplies its own namespace/acceptance; stateless SDK test scaffolding is not a
+production fallback. Resume and external-history adoption remain separate.
+
+The permanent public P, original owner/source, prompt, resolved launch choices,
+working project, requested sandbox policy and operation identity commit before
+native allocation. Current authority is rechecked at dispatch, worker promotion
+and retry: limited users retain the original accepted lock or fail safely after
+revocation; they cannot downgrade confinement or change owners. Desktop-control
+credentials are opaque live objects, never serialized. A saved requirement flag
+requires a freshly authorized credential on retry. Prepared sandbox transcript
+roots supply the native namespace; private `session-creation-sandbox-v1` gates
+both loaded host and worker support. An old owner refuses without receiving
+launch input or being restarted.
+
+Legacy raw files and inline images are sealed by the same immutable digest/claim
+owner as staged attachments. Inline images have a 32 MiB combined decoded limit;
+64 files/images per operation and 64 MiB per ordinary file remain bounded by
+the existing 2 GiB profile claim budget. Limited raw paths must resolve to that
+account's staged draft. Literal document references retain their original text
+semantics. Native adapters that cannot carry inline images save a failed
+resource before effects instead of dropping them. The initial native input
+bypasses YA command emulation; a slash-only command without native receipt
+proof stays unconfirmed. This does not strengthen later-turn delivery.
+
+Forks and full Claude clones admit a public P **before** native/file copy I/O.
+Saved copy intent freezes the exact native source, parent, settings, cut and any
+planned continuation. `creation.kind: copy` distinguishes a pending copy from
+an empty preparation: its composer stays disabled until native binding. Copy
+sends no first turn and makes no claim that a later continuation was delivered.
+The actual returned N binds to P; failure, busy continuation and restart retain
+that P and original source. Internal recap/retitle/fork-summary generators are
+archived at admission with explicit internal reasons. The final fork-summary
+target uses the original request source and deterministic operation key;
+parent-display association recovers through the indexed common key after a
+SQLite/metadata publication gap. No second creation journal is introduced.
+Concurrent copy calls share the admitted attempt; uncertain copies never replay.
+Filesystem/native effects and SQLite are not one transaction. Lost native result
+correlation remains quarantined and requires evidence-based reconciliation; see
+the [narrowed gap](../gaps/session-creation-source-missing-launch-paths.md).
+
+Template preparation uses one keyed canonical acceptance with its full prompt
+and staged files, replacing create/upload/send. The server's canonical route
+supports this broader authenticated internal workflow, including limited users;
+owner-keyed recovery reads cannot expose another account's operation. Public
+client bits 142–146 keep their narrower existing meanings, the supported
+older-server client fallback remains, and broad `session-creation-receipts`
+stays unadvertised. Existing HTTP URLs remain thin response/policy adapters.
+No full workspace/lineage redesign, automatic uncertain retry or optional
+background/shortcut UX is implied by consolidation.
 
 ## Compatibility research — 2026-11-01
 
@@ -959,28 +1018,13 @@ it, claim equal ids or take over a worker with an in-process replacement. Hono
 detachment retains host evidence; full owner loss becomes uncertain. Preserve
 the supported platform/runtime matrix and macOS default-off host behavior.
 
-**Retained native fork/source bridge.** Ordinary creation rows require a YA
-session id before effects. An explicitly tagged `retained-fork` operation may
-temporarily have no resulting session id: it stores its bounded operation key,
-parent YA/native reference, normalized target request source, ownership and
-saved fork intent before native fork I/O. It consumes the same operation,
-payload and attempt budgets in the common creation owner, not a separate queue
-or journal. The archived generator records its own explicit internal reason;
-it never supplies the target's source. No child public-id redesign is selected.
-
-When native fork returns a child id, atomically adopt that existing-style public
-child id, bind it to the operation and persist its original source/ownership
-before resume or another fallible continuation. Worker refusal/cancellation and
-resume exceptions therefore leave the retained child marked correctly. Repeated
-requests recover the same operation. A crash before unique child evidence is
-retained leaves the fork operation uncertain and must not call fork again.
-Only authoritative captured result/owner evidence can reconcile the child;
-parentage, title and provider-origin guesses cannot. A discovered child lacking
-unique operation association remains unknown. That precise lost-native-result
-crash window remains an explicit provenance-gap remainder until qualified
-native correlation can close it; ordinary successes do not claim its closure.
-This exception does not advertise fork support under the new ordinary creation
-capability or relax new ordinary sessions' pre-effect identity requirement.
+**Native fork/source admission.** The November 3 consolidation supersedes the
+intermediate retained-fork bridge: copies now save their permanent public id
+before effects and bind actual native results through the ordinary attempt
+owner. Archived generators and final user targets have separate explicit source
+decisions. Lost-result uncertainty retains that public resource and quarantines
+unknown native discovery; it never guesses parent/title association or replays.
+This does not advertise the broader receipts guarantee.
 
 **Standalone qualification.** Use existing owned server/protocol fixtures with
 configuration scrub followed by explicit HOME/USERPROFILE, XDG, temp, provider
@@ -1072,8 +1116,8 @@ writes do not advance it. Collection conditionals and cached stats observe this
 revision alongside native/runtime publications. Collections read compact current
 attempt projections rather than decoding retained request payloads.
 
-Public creation, actual durable launching, the remaining callers and capability
-advertisement remain gated by the rest of plan 171.
+The later sections record the original foundation sequencing. Current caller
+consolidation is described above; broader receipts advertisement remains gated.
 
 ### Native allocation and discovery quarantine
 
@@ -1104,15 +1148,14 @@ the claim across restart; deleting a saved payload does not prove absence of
 native effects. Explicit evidence-based reconciliation remains required before
 that uncertainty can be cleared.
 
-Retained native fork/copy adapters may import their known successful owned copy
-through the explicitly named copied-native boundary. It preserves their existing
-child id and conflict checks; it does not infer which unknown discovery belongs
-to an unresolved startup. The remaining pre-effect fork/provenance admission
-work in plan 171 is unchanged.
+The copied-native adoption API remains an explicit boundary for legacy imports
+and SDK scaffolding; production new copies now save P before effects and bind
+N through the common attempt owner. Neither import nor copy may infer which
+unknown discovery belongs to unresolved startup.
 
-This prerequisite does not enable durable launch routes or advertise a creation
-capability. Actual dispatch, owner/host reconciliation and caller rollout still
-require the remaining phase 4–9 implementation and qualification.
+These paragraphs record migration 20's quarantine prerequisite. Actual launch,
+owner/host reconciliation and caller consolidation are now implemented as
+recorded in the current sections above; broad receipts remain unadvertised.
 
 ### Saved launch choices and initial input identity
 

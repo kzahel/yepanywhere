@@ -2820,45 +2820,6 @@ export function createApp(options: AppOptions): AppResult {
           })
         );
       },
-      onSessionStarted: async ({ item, process }) => {
-        if (item.target.type !== "new-session") return;
-        const metadata = options.sessionMetadataService;
-        if (!metadata) return;
-
-        if (item.createdByUser) {
-          // A limited user's queued session is theirs, like one they start
-          // directly (topics/limited-users.md § Delivery v1).
-          await metadata.recordSessionCreator(
-            process.sessionId,
-            item.createdByUser,
-          );
-        }
-
-        const provider = item.target.provider ?? process.provider;
-        if (provider) {
-          await metadata.setProvider(process.sessionId, provider);
-        }
-        if (item.target.executor) {
-          await metadata.setExecutor(process.sessionId, item.target.executor);
-        }
-        if (item.message.text.trim()) {
-          await metadata.setInitialPrompt(process.sessionId, item.message.text);
-        }
-        if (item.target.model) {
-          await metadata.setRequestedModel(
-            process.sessionId,
-            item.target.model,
-          );
-        }
-        await metadata.updateMetadata(process.sessionId, {
-          ...(process.promptSuggestionMode !== undefined
-            ? { promptSuggestionMode: process.promptSuggestionMode }
-            : {}),
-          ...(process.recapAfterSeconds !== undefined
-            ? { recapAfterSeconds: process.recapAfterSeconds }
-            : {}),
-        });
-      },
     });
   }
 
@@ -3237,6 +3198,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api",
     createSessionsRoutes({
+      getLimitedUserGrants: getActiveLimitedGrants,
       signal: sessionReadLifetime.signal,
       onIssueWindow: (source, messages) =>
         issueIndexer?.observe(source, messages),

@@ -12,6 +12,10 @@ export interface CreationInputSnapshot {
   /** Server receipt identity only, never taken from composer metadata. */
   nativeReceiptId?: string;
   tempId?: string;
+  documents?: string[];
+  tempIds?: string[];
+  priority?: "now" | "next" | "later";
+  recapResumeHandled?: true;
   mode?: PermissionMode;
   metadata?: UserMessageMetadata;
 }
@@ -29,7 +33,7 @@ function timestamp(value: unknown): string | undefined {
   return result;
 }
 
-/** Fresh-message choices only; actor/receipt/hidden-input authority stays separate. */
+/** Trusted initial-message choices; HTTP callers strip actor/receipt/hidden authority first. */
 export function snapshotCreationInput(
   input: CreationInputSnapshot,
 ): CreationInputSnapshot {
@@ -40,6 +44,29 @@ export function snapshotCreationInput(
     schemaVersion: 1,
     ...(tempId !== undefined ? { tempId } : {}),
   };
+  for (const field of ["documents", "tempIds"] as const) {
+    const values = input[field];
+    if (values === undefined) continue;
+    if (
+      !Array.isArray(values) ||
+      values.length > 64 ||
+      !values.every(
+        (value) => typeof value === "string" && value.length <= 32768,
+      )
+    )
+      throw new Error("Invalid saved input list");
+    result[field] = [...values];
+  }
+  if (input.priority !== undefined) {
+    if (!["now", "next", "later"].includes(input.priority))
+      throw new Error("Invalid saved input priority");
+    result.priority = input.priority;
+  }
+  if (input.recapResumeHandled !== undefined) {
+    if (input.recapResumeHandled !== true)
+      throw new Error("Invalid input recovery guard");
+    result.recapResumeHandled = true;
+  }
   if (input.automaticSource !== undefined) {
     if (input.automaticSource !== "project-queue")
       throw new Error("Invalid saved automatic input source");
@@ -63,6 +90,21 @@ export function snapshotCreationInput(
   if (!m || typeof m !== "object" || Array.isArray(m))
     throw new Error("Invalid saved input metadata");
   const metadata: UserMessageMetadata = {};
+  if (m.hidden !== undefined) {
+    if (typeof m.hidden !== "boolean") throw new Error("Invalid hidden input");
+    metadata.hidden = m.hidden;
+  }
+  if (m.apiSubmissionIds !== undefined) {
+    if (
+      !Array.isArray(m.apiSubmissionIds) ||
+      m.apiSubmissionIds.length > 1024 ||
+      !m.apiSubmissionIds.every(
+        (id) => typeof id === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(id),
+      )
+    )
+      throw new Error("Invalid saved API input identities");
+    metadata.apiSubmissionIds = [...m.apiSubmissionIds];
+  }
   if (m.origin !== undefined) {
     if (
       !["user", "coordination", "rendezvous", "automation"].includes(m.origin)

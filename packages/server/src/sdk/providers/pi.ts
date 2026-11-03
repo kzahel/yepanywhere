@@ -287,6 +287,7 @@ export class PiProvider implements AgentProvider {
   readonly name = "pi" as const;
   readonly displayName = "pi";
   readonly supportsNativeResumeSource = true;
+  readonly supportsInlineImages = true;
   // pi runs tools autonomously; the YA approval bridge (tool_execution_start
   // "can block" hook over extension_ui_request) is a documented follow-up, so
   // YA permission modes do not yet gate pi tools.

@@ -1,6 +1,10 @@
-import { parseNativeSessionId } from "@yep-anywhere/shared";
+import {
+  nativeSessionRef,
+  parseYaSessionId,
+  parseNativeSessionId,
+} from "@yep-anywhere/shared";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -24,6 +28,7 @@ import {
 const directories: string[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   closeTestDiscoveryDatabases();
   await Promise.all(
     directories
@@ -35,9 +40,12 @@ afterEach(async () => {
 describe("fork discovery before immediate navigation", () => {
   for (const providerName of ["codex", "pi", "claude"] as const) {
     it(`${providerName}: opens the child through the real route with warm readers`, async () => {
-      const dir = await mkdtemp(join(tmpdir(), "fork-discovery-route-"));
+      const dir = await realpath(
+        await mkdtemp(join(tmpdir(), "fork-discovery-route-")),
+      );
       directories.push(dir);
       const sessionsDir = join(dir, "sessions");
+      if (providerName === "pi") vi.stubEnv("PI_CODING_AGENT_DIR", dir);
       const projectPath = join(dir, "project");
       await mkdir(projectPath);
       const bucket =
@@ -116,7 +124,7 @@ describe("fork discovery before immediate navigation", () => {
         );
         return filePath;
       };
-      await writeSession(sourceId);
+      const sourceFile = await writeSession(sourceId);
       const makeReader = () =>
         providerName === "codex"
           ? new CodexSessionReader({ sessionsDir, projectPath })
@@ -137,9 +145,15 @@ describe("fork discovery before immediate navigation", () => {
           const sessionId = randomUUID();
           const filePath = await writeSession(sessionId);
           // Claude has no discovery hint: its reader probes the filename directly.
-          return providerName === "claude"
-            ? { nativeSessionId: parseNativeSessionId(sessionId) }
-            : { nativeSessionId: parseNativeSessionId(sessionId), filePath };
+          return {
+            nativeSessionId: parseNativeSessionId(sessionId),
+            filePath,
+            native: nativeSessionRef(
+              providerName,
+              sessionsDir,
+              parseNativeSessionId(sessionId),
+            ),
+          };
         },
       );
       const metadata = createTestSessionMetadataService(join(dir, "metadata"));
@@ -155,6 +169,17 @@ describe("fork discovery before immediate navigation", () => {
       const sourceMetadata = metadata.getMetadata(sourceId);
       const supervisor = new Supervisor({
         sessionMetadataService: metadata,
+        resolveNativeSessionSource: async (id) => ({
+          native:
+            metadata.identities.resolveYa(parseYaSessionId(id))?.native ??
+            nativeSessionRef(
+              providerName,
+              sessionsDir,
+              parseNativeSessionId(id),
+            ),
+          filePath: sourceFile,
+          projectId: project.id,
+        }),
         provider: {
           name: providerName,
           forkSession,
@@ -217,8 +242,12 @@ describe("fork discovery before immediate navigation", () => {
       expect(metadataResponse.status).toBe(200);
       // A warm reader and a reader created after the fork both find it without
       // any watcher, timeout, cache invalidation, or second provider request.
+      const nativeChild = metadata.identities.resolveYa(
+        parseYaSessionId(fork.sessionId),
+      )!.native!.id;
+      expect(nativeChild).not.toBe(fork.sessionId);
       for (const reader of [primary, secondary, makeReader()]) {
-        expect(await reader.getSessionFilePath?.(fork.sessionId)).toBeTruthy();
+        expect(await reader.getSessionFilePath?.(nativeChild)).toBeTruthy();
       }
       expect(forkSession).toHaveBeenCalledTimes(1);
       expect(resume).not.toHaveBeenCalled();

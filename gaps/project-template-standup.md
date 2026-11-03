@@ -30,6 +30,16 @@ list, pins fetched revisions, relocates retrieved repository aliases and
 validates the combined inventory. Local overlays are read directly.
 See tactical 132's current checkpoint for verification and exact remaining work.
 
+Preparation now uses [common keyed session admission](../topics/session-identity.md#creation-consolidation--november-3)
+with prompt and staged files before native startup; worker deferral returns a
+saved public id rather than leaving create/upload/send work to the project
+operation. The wider project-operation recovery boundary remains: a title
+metadata failure or owner loss after acceptance but before operation publication
+can leave the saved session without `operation.sessionId`. Recovery should look
+up `template-${operationId}` through the common owner, preserve the existing
+project and never resend preparation. This is project-operation reconciliation,
+not a remaining native creation bypass or reason for a second creation journal.
+
 ## What a user sees today
 
 User-directed placement revision (2026-09-28): New project always shows template

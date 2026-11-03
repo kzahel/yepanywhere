@@ -179,13 +179,22 @@ it("forks and clones the native Claude source while keeping public lineage and d
           expect(childId).not.toBe(nativeId);
           expect(childId).not.toBe(publicId);
           children.push(childId);
+          expect(
+            metadata.creations.getForSession(parseYaSessionId(childId)),
+          ).toMatchObject({
+            request: {
+              intent: "copy",
+              copy: { kind: action, sourceSessionId: publicId },
+            },
+            attempt: { state: "bound" },
+          });
           const identity = metadata.identities.resolveYa(
             parseYaSessionId(childId),
           );
           expect(identity).toMatchObject({
             projectId: sourceProjectId,
             provider: "claude",
-            native: { id: childId, storageScope: nativeRoot },
+            native: { id: expect.any(String), storageScope: nativeRoot },
           });
           expect(metadata.getMetadata(childId)).toMatchObject({
             forkedFromSessionId: publicId,
@@ -193,7 +202,10 @@ it("forks and clones the native Claude source while keeping public lineage and d
             transcriptProjectId: sourceProjectId,
           });
           expect(
-            await readFile(join(nativeRoot, `${childId}.jsonl`), "utf8"),
+            await readFile(
+              join(nativeRoot, `${identity!.native!.id}.jsonl`),
+              "utf8",
+            ),
           ).toContain("correct private parent history");
         }
         const unsupported = storage
@@ -286,7 +298,7 @@ it("forks and clones the native Claude source while keeping public lineage and d
           },
         });
         expect(fork.mock.calls[0]?.[0]).not.toHaveProperty("sessionId");
-        const adoption = vi.spyOn(metadata.identities, "adoptCopiedNative");
+        const adoption = vi.spyOn(metadata.creations, "bindNative");
         adoption.mockImplementationOnce(() => {
           throw new Error("injected identity save failure");
         });
@@ -295,6 +307,13 @@ it("forks and clones the native Claude source while keeping public lineage and d
             sessionId: publicId,
             projectPath: workingPath,
             providerName: "claude",
+            creation: {
+              context: {
+                owner: { kind: "superuser" },
+                source: { kind: "request", provenance: { surface: "api" } },
+              },
+              authorize: async () => {},
+            },
           }),
         ).rejects.toMatchObject({
           name: "ForkSettingsPersistenceError",
@@ -306,6 +325,41 @@ it("forks and clones the native Claude source while keeping public lineage and d
           "correct private parent history",
         );
         adoption.mockRestore();
+        const resume = vi
+          .spyOn(app.supervisor, "resumeSession")
+          .mockRejectedValueOnce(new Error("owned continuation failure"));
+        const failed = await app.app.request(
+          `/api/projects/${workingProjectId}/sessions/${publicId}/restart`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Yep-Anywhere": "true",
+            },
+            body: JSON.stringify({
+              restartMode: "fork",
+              reason: "SAVED_RESTART_CONTINUATION",
+              creationProvenance: { surface: "desktop" },
+            }),
+          },
+        );
+        expect(failed.status, await failed.clone().text()).toBe(500);
+        const retained = await failed.json();
+        expect(retained.sessionId).toEqual(expect.any(String));
+        const savedRestart = metadata.creations.getForSession(
+          parseYaSessionId(retained.sessionId),
+        );
+        expect(savedRestart).toMatchObject({
+          request: { intent: "copy", message: "SAVED_RESTART_CONTINUATION" },
+          attempt: { kind: "copy", state: "bound" },
+        });
+        expect(
+          metadata.getMetadata(retained.sessionId)?.creationProvenance,
+        ).toEqual({ surface: "desktop" });
+        expect(
+          metadata.getMetadata(publicId)?.creationProvenance,
+        ).toBeUndefined();
+        resume.mockRestore();
       }
       for (const childId of children) {
         const response = await app.app.request(
@@ -431,6 +485,13 @@ it("reads a retained Pi fork through the recorded native root after profile reop
             sessionId: publicId,
             projectPath,
             providerName: "pi",
+            creation: {
+              context: {
+                owner: { kind: "superuser" },
+                source: { kind: "request", provenance: { surface: "api" } },
+              },
+              authorize: async () => {},
+            },
           }),
         ).rejects.toThrow("scoped resume is not qualified");
         expect(await readdir(join(nativeRoot, "--fixture--"))).toHaveLength(1);
@@ -439,11 +500,20 @@ it("reads a retained Pi fork through the recorded native root after profile reop
           sessionId: publicId,
           projectPath,
           providerName: "pi",
+          creation: {
+            context: {
+              owner: { kind: "superuser" },
+              source: { kind: "request", provenance: { surface: "api" } },
+            },
+            authorize: async () => {},
+          },
         });
         childId = child.sessionId;
         expect(
           metadata.identities.resolveYa(parseYaSessionId(childId)),
-        ).toMatchObject({ native: { storageScope: nativeRoot, id: childId } });
+        ).toMatchObject({
+          native: { storageScope: nativeRoot, id: expect.any(String) },
+        });
         expect(childId).not.toBe(parseNativeSessionId(nativeId));
       }
       const response = await app.app.request(

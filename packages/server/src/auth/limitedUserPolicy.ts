@@ -405,6 +405,9 @@ export function decideLimitedRoute(
     return { kind: "allow" };
   }
 
+  // The receipt handler looks up only this authenticated principal's key.
+  if (isRead && /^\/api\/session-creations\/[^/]+$/.test(path))
+    return { kind: "allow" };
   const projectScoped = path.match(/^\/api\/projects\/([^/]+)(\/.*)?$/);
   if (projectScoped) {
     const projectId = decodeSegment(projectScoped[1] as string);
@@ -418,7 +421,11 @@ export function decideLimitedRoute(
     // project directory, which the copy route enforces.
     if (rest === "/copy" && method === "POST")
       return { kind: "project", projectId, required: "view" };
-    if (rest === "/sessions" || rest === "/sessions/create") {
+    if (
+      rest === "/sessions" ||
+      rest === "/sessions/create" ||
+      rest === "/session-creations"
+    ) {
       // Creating a session in this project. Checked before the session-scoped
       // match below, whose `[^/]+` would otherwise read "create" as an id.
       return isRead
@@ -463,7 +470,9 @@ export function decideLimitedRoute(
 
   if (
     method === "POST" &&
-    (path === "/api/sessions" || path === "/api/sessions/create")
+    (path === "/api/sessions" ||
+      path === "/api/sessions/create" ||
+      path === "/api/session-creations")
   ) {
     return { kind: "detached-create" };
   }

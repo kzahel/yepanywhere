@@ -8,7 +8,9 @@ export interface SessionCreationStatus {
     | "failed"
     | "uncertain"
     | "deleted";
-  /** False only for an explicitly prepared empty session; no initial turn was submitted. */
+  /** Copying history is an admitted operation with no initial user turn. */
+  kind?: "copy";
+  /** False for preparation and transcript copies; no initial turn was submitted. */
   initialInputExpected?: false;
   attemptId: string;
   updatedAt: string;
@@ -35,7 +37,8 @@ export function isSessionCreationPending(
       creation.delivery !== "consumed" &&
       !(
         creation.initialInputExpected === false &&
-        ["dispatching", "bound"].includes(creation.state)
+        (creation.state === "bound" ||
+          (creation.state === "dispatching" && creation.kind !== "copy"))
       ),
   );
 }

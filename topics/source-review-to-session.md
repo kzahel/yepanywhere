@@ -389,7 +389,8 @@ reserves the included pending entries, writes and fsyncs the frozen
 turn carrying that same key. Acceptance archives the reserved entries even
 when a queued new session has no session id yet. Mutable server state later
 associates the submission with the canonical YA session id. Qualified owner
-new-session launches now use [common durable admission](session-identity.md#retained-caller-consolidation):
+new-session launches now use [common durable admission](session-identity.md#retained-caller-consolidation)
+across registry providers, sharing the [completed caller consolidation](session-identity.md#creation-consolidation--november-3):
 the public association is known and saved before provider startup, and native
 allocation cannot replace it. Their retry identity survives launcher restart;
 qualified starts no longer use the old in-memory successful-start cache. All

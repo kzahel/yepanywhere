@@ -1131,6 +1131,15 @@ grant exists, in keeping with [[settings-ui-placement]] and
 
 ## Execution boundary
 
+[Durable session admission](session-identity.md#creation-consolidation--november-3)
+saves the original limited owner, source, locked intent and required sandbox
+policy before native effects. Worker promotion and explicit safe retry recheck
+current grants/locks without rewriting that intent; revocation fails the saved
+resource before launch. Canonical creation/recovery URLs use the same account
+boundary, including templates and private No project sessions. A recovery key
+cannot expose another account's operation. This does not broaden confinement.
+
+
 The [[session-sandboxing]] Linux mechanism is the enforcement floor: a
 limited user's session is confined to its project tree with the sandbox's
 fixed private roots, and cannot be launched unsandboxed or on a non-Linux

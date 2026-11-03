@@ -1,3 +1,4 @@
+import { nativeStorageScope } from "./native-storage-scope.js";
 import { fromUrlProjectId, parseNativeSessionId } from "@yep-anywhere/shared";
 import { assertClaudeCopyRoot } from "../../sessions/fork.js";
 import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
@@ -1125,6 +1126,7 @@ export class ClaudeProvider implements AgentProvider {
   readonly name: ProviderName = "claude";
   readonly displayName: string = "Claude";
   readonly supportsNativeResumeSource = true;
+  readonly supportsInlineImages = true;
   readonly acceptsChosenSessionId = true;
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle: boolean = true;
@@ -1223,7 +1225,18 @@ export class ClaudeProvider implements AgentProvider {
     return this.isClaudeCliInstalled();
   }
 
-  async getNewSessionNamespace(cwd: string) {
+  async getNewSessionNamespace(
+    cwd: string,
+    sandbox?: Pick<
+      import("../../session-sandbox.js").SessionSandboxRuntime,
+      "transcriptDir"
+    >,
+  ) {
+    if (sandbox)
+      return {
+        family: "claude" as const,
+        storageScope: await nativeStorageScope(sandbox.transcriptDir),
+      };
     // The CLI resolves cwd before selecting its conventional project key.
     const physicalCwd = await realpath(cwd);
     const project = claudeCwdProjectDirectory(physicalCwd);

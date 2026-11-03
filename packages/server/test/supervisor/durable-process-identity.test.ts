@@ -794,9 +794,13 @@ it.each(["survives", "lost"])(
   "preserves hosted ownership through deferred resume promotion (%s)",
   async (outcome) => {
     const f = await retainedHostFixture(1);
-    const blocker = await f.supervisor.startSession(f.root, {
-      text: "busy blocker",
-    });
+    const blocker = await f.supervisor.resumeSession(
+      "unrelated-capacity-blocker",
+      f.root,
+      {
+        text: "busy blocker",
+      },
+    );
     expect(blocker).toBeInstanceOf(Process);
     const queued = await f.supervisor.resumeSession(f.saved.sessionId, f.root, {
       text: "accepted retained turn",

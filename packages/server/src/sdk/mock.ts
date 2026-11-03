@@ -1,3 +1,4 @@
+import { claudeProvider } from "./providers/claude.js";
 import type { ModelInfo } from "@yep-anywhere/shared";
 import { MessageQueue } from "./messageQueue.js";
 import type {
@@ -28,6 +29,7 @@ export interface MockScenario {
 export class MockRealClaudeSDK implements RealClaudeSDKInterface {
   async startSession(
     options: StartSessionOptions,
+    onInput?: (nativeId: string, inputId: string) => void,
   ): Promise<StartSessionResult> {
     const queue = new MessageQueue();
     const input = queue[Symbol.asyncIterator]();
@@ -42,6 +44,9 @@ export class MockRealClaudeSDK implements RealClaudeSDKInterface {
       while (running) {
         const next = await input.next();
         if (next.done || !running) break;
+        // This is the explicit fake backend itself, not SDK queue evidence
+        // used to qualify a real external provider.
+        if (next.value.uuid) onInput?.(sessionId, next.value.uuid);
         yield {
           type: "assistant",
           session_id: sessionId,
@@ -67,6 +72,10 @@ export class MockRealClaudeSDK implements RealClaudeSDKInterface {
 }
 
 export class MockServerClaudeProvider implements AgentProvider {
+  readonly acceptsChosenSessionId = true;
+  getNewSessionNamespace(cwd: string) {
+    return claudeProvider.getNewSessionNamespace(cwd);
+  }
   readonly name = "claude";
   readonly displayName = "Claude";
   readonly supportsPermissionMode = true;
@@ -93,7 +102,13 @@ export class MockServerClaudeProvider implements AgentProvider {
   async startSession(
     options: ProviderStartSessionOptions,
   ): Promise<AgentSession> {
-    const session = await new MockRealClaudeSDK().startSession(options);
+    const session = await new MockRealClaudeSDK().startSession(
+      {
+        ...options,
+        resumeSessionId: options.resumeSessionId ?? options.newSessionId,
+      },
+      options.onNativeInputConsumed,
+    );
     return {
       ...session,
       sessionId: options.resumeSessionId,

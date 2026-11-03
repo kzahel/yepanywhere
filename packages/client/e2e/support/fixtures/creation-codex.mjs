@@ -1,6 +1,13 @@
 // Controlled pinned app-server peer, with native on-disk history and explicit
 // acknowledgement/reply barriers. No model traffic or inherited credentials.
-import { appendFileSync, existsSync, openSync, closeSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  openSync,
+  closeSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 
@@ -83,6 +90,39 @@ async function handle(message) {
         reasoningEffort: "high",
       });
       break;
+    case "thread/fork": {
+      if (
+        params.path !== join(store, `rollout-${params.threadId}.jsonl`) ||
+        !existsSync(params.path)
+      )
+        throw new Error("Wrong native copy address");
+      while (!existsSync(`${gate}.fork`))
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      native = randomUUID();
+      file = join(store, `rollout-${native}.jsonl`);
+      const rows = readFileSync(params.path, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      for (const entry of rows)
+        if (entry.type === "session_meta") entry.payload.id = native;
+      writeFileSync(
+        file,
+        rows.map((row) => JSON.stringify(row)).join("\n") + "\n",
+      );
+      respond(id, {
+        thread: {
+          id: native,
+          cwd,
+          turns: [],
+          status: { type: "idle" },
+          path: file,
+        },
+        model: model.id,
+        reasoningEffort: "high",
+      });
+      break;
+    }
     case "thread/resume":
       if (
         params.path !== join(store, `rollout-${params.threadId}.jsonl`) ||

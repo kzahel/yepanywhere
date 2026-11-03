@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +20,7 @@ import { AttachmentStagingService } from "../../src/uploads/AttachmentStagingSer
 import type { AgentProvider } from "../../src/sdk/providers/types.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
+import { CreationAttachments } from "../../src/sessions/creation-attachments.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
 import {
   createControllableIterator,
@@ -69,6 +69,11 @@ async function fixture() {
   }> = [];
   const provider: AgentProvider = {
     name: "claude",
+    acceptsChosenSessionId: true,
+    getNewSessionNamespace: async () => ({
+      family: "claude",
+      storageScope: join(root, "sessions"),
+    }),
     displayName: "Controlled Claude",
     supportsPermissionMode: true,
     supportsThinkingToggle: false,
@@ -84,7 +89,7 @@ async function fixture() {
     getAvailableModels: async () => [],
     startSession: async (options) => {
       const initialId = options.newSessionId!;
-      const nativeId = options.resumeSessionId ?? randomUUID();
+      const nativeId = options.resumeSessionId ?? options.newSessionId!;
       // A separate SQLite connection observes the committed source before native start.
       const disk = createTestSessionMetadataService(dataDir);
       await disk.initialize();
@@ -92,16 +97,43 @@ async function fixture() {
       starts.push({ initialId, nativeId, provenance });
       const source = createControllableIterator();
       source.push({ type: "system", subtype: "init", session_id: nativeId });
+      const queue = new MessageQueue();
+      const input = queue.generator();
+      void input.next().then(async (turn) => {
+        if (!turn.done) {
+          source.push({
+            type: "assistant",
+            session_id: nativeId,
+            user_message_uuid: turn.value.uuid,
+            message: { role: "assistant", content: "accepted" },
+          });
+          source.push({
+            type: "result",
+            subtype: "success",
+            session_id: nativeId,
+          });
+        }
+        await input.return();
+      });
       return {
         iterator: source.iterator,
-        queue: new MessageQueue(),
-        abort: source.finish,
+        queue,
+        abort: async () => {
+          source.finish();
+          await input.return();
+        },
       };
     },
   };
   const supervisor = new Supervisor({
     provider,
     sessionMetadataService: metadata,
+    creationAttachments: new CreationAttachments(
+      join(dataDir, "creation-files"),
+      staging,
+      new ProjectStoragePolicy({ dataDir, getMode: () => "app-data" }),
+      metadata.creations,
+    ),
     maxWorkers: 1,
     idlePreemptThresholdMs: Infinity,
     eventBus,
@@ -152,7 +184,7 @@ async function fixture() {
 
 it.each([
   {
-    name: "UI enqueue and immediate native remap",
+    name: "UI enqueue and immediate admission",
     surface: "web" as const,
     variant: "immediate",
   },
@@ -256,11 +288,26 @@ it.each([
       ).toBeDefined();
     let blocker: Awaited<ReturnType<Supervisor["startSession"]>> | undefined;
     if (variant === "deferred")
-      blocker = await f.supervisor.startSession(f.projectPath, {
-        text: "occupy worker",
-      });
+      blocker = await f.supervisor.startSession(
+        f.projectPath,
+        {
+          text: "occupy worker",
+        },
+        undefined,
+        undefined,
+        {
+          creation: {
+            context: {
+              owner: { kind: "superuser" },
+              source: { kind: "request", provenance: { surface: "api" } },
+            },
+            authorize: async () => {},
+          },
+        },
+      );
     const scheduler = new ProjectQueueScheduler({
       projectQueueService: f.service,
+      creations: f.metadata.creations,
       supervisor: f.supervisor,
       eventBus: f.eventBus,
       attachmentStagingService: f.staging,
@@ -323,20 +370,34 @@ it("refuses missing enqueue provenance and failed metadata persistence before an
       },
     } as Parameters<ProjectQueueService["createItem"]>[0]),
   ).rejects.toThrow("provenance is required");
-  vi.spyOn(f.metadata, "recordCreationProvenance").mockRejectedValue(
+  vi.spyOn(f.metadata.creations, "admit").mockRejectedValue(
     new Error("controlled storage refusal"),
   );
   for (const createOnly of [false, true]) {
     const pending = createOnly
       ? f.supervisor.createSession(f.projectPath, undefined, undefined, {
-          creationProvenance: { surface: "api" },
+          creation: {
+            context: {
+              owner: { kind: "superuser" },
+              source: { kind: "request", provenance: { surface: "api" } },
+            },
+            authorize: async () => {},
+          },
         })
       : f.supervisor.startSession(
           f.projectPath,
           { text: "must not launch" },
           undefined,
           undefined,
-          { creationProvenance: { surface: "api" } },
+          {
+            creation: {
+              context: {
+                owner: { kind: "superuser" },
+                source: { kind: "request", provenance: { surface: "api" } },
+              },
+              authorize: async () => {},
+            },
+          },
         );
     await expect(pending).rejects.toThrow("controlled storage refusal");
   }
@@ -350,10 +411,25 @@ it("does not relabel an existing session when an API-queued follow-up runs", asy
     { text: "original UI turn" },
     undefined,
     undefined,
-    { creationProvenance: { surface: "web" } },
+    {
+      creation: {
+        context: {
+          owner: { kind: "superuser" },
+          source: { kind: "request", provenance: { surface: "web" } },
+        },
+        authorize: async () => {},
+      },
+    },
   );
   expect("sessionId" in original).toBe(true);
   const id = f.starts[0]!.nativeId;
+  await waitFor(() =>
+    expect(
+      f.metadata.creations.getForSession(
+        id as import("@yep-anywhere/shared").YaSessionId,
+      )?.attempt.delivery,
+    ).toBe("consumed"),
+  );
   await waitFor(() =>
     expect(f.metadata.getMetadata(id)?.creationProvenance).toEqual({
       surface: "web",
@@ -372,6 +448,7 @@ it("does not relabel an existing session when an API-queued follow-up runs", asy
   expect(item.creationProvenance).toEqual({ surface: "api" });
   const scheduler = new ProjectQueueScheduler({
     projectQueueService: f.service,
+    creations: f.metadata.creations,
     supervisor: f.supervisor,
     eventBus: f.eventBus,
     idleGraceMs: 60000,

@@ -1,8 +1,6 @@
-import { getSessionTextCreationCapability } from "@yep-anywhere/shared";
-import {
-  creationProvenanceForHeaders,
-  parseCreationProvenance,
-} from "../sessions/creation-provenance.js";
+import { savedLimitedCreationError } from "../auth/limitedLaunchPolicy.js";
+import { ALL_PROVIDERS } from "@yep-anywhere/shared";
+import { creationProvenanceForHeaders } from "../sessions/creation-provenance.js";
 import {
   savedCreationView,
   creationStatusForSession,
@@ -48,9 +46,6 @@ import {
   isThinkingOption,
   isUrlProjectId,
   isYaSessionId,
-  parseNativeSessionId,
-  parseYaSessionId,
-  nativeSessionRef,
   type NativeSessionId,
   truncateSessionTitle,
   readQueuedYaCommand,
@@ -67,8 +62,7 @@ import {
   type ClearloopService,
 } from "../services/ClearloopService.js";
 import { turnIndexOf } from "../sessions/turn-index.js";
-import { mkdir, realpath, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir } from "node:fs/promises";
 import { hostname } from "node:os";
 import { performance } from "node:perf_hooks";
 import { type Context, Hono } from "hono";
@@ -108,7 +102,6 @@ import { describeQueuedYaCommandProblem } from "../services/ProjectQueueService.
 import type { ServerSettingsService } from "../services/ServerSettingsService.js";
 import type { SessionQueuePersistenceService } from "../services/SessionQueuePersistenceService.js";
 import { CodexSessionReader } from "../sessions/codex-reader.js";
-import { assertClaudeCopyRoot, cloneClaudeSession } from "../sessions/fork.js";
 import type { GeminiSessionReader } from "../sessions/gemini-reader.js";
 import { GrokSessionReader } from "../sessions/grok-reader.js";
 import type { PiSessionReader } from "../sessions/pi-reader.js";
@@ -320,6 +313,9 @@ function isQueueFullResponse(
 }
 
 export interface SessionsDeps {
+  getLimitedUserGrants?: (
+    username: string,
+  ) => import("@yep-anywhere/shared").LimitedUserGrants | null;
   signal?: AbortSignal;
   onIssueWindow?: (
     source: { sessionId: string; projectId: string },
@@ -2057,6 +2053,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     declared: unknown,
   ): NonNullable<SessionLaunchOptions["creation"]> => {
     const principal = principalFor(c);
+    const liveDesktopOrigin = desktopControlOrigin(c);
     const context = {
       owner:
         principal.kind === "limited"
@@ -2070,18 +2067,23 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     return {
       context,
       async authorize(saved) {
-        // Accepted owner work survives its HTTP request/cookie. Superuser has
-        // no mutable project grant; limited grants require the later sandbox cut.
         if (deps.signal?.aborted)
           throw new Error("Session owner is shutting down");
         if (
-          context.owner.kind !== "superuser" ||
-          saved.context.owner.kind !== "superuser"
-        ) {
-          throw new Error(
-            "This creation requires current limited-user launch policy",
+          saved.context.owner.kind !== context.owner.kind ||
+          (saved.context.owner.kind === "limited" &&
+            (context.owner.kind !== "limited" ||
+              saved.context.owner.username !== context.owner.username))
+        )
+          throw new Error("Creation owner changed");
+        if (saved.context.owner.kind === "limited") {
+          const refused = savedLimitedCreationError(
+            saved,
+            deps.getLimitedUserGrants?.(saved.context.owner.username) ?? null,
           );
+          if (refused) throw new Error(refused);
         }
+        return { desktopControlOrigin: liveDesktopOrigin };
       },
     };
   };
@@ -2100,11 +2102,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           )
         : undefined;
     const context = creationForRequest(c, body.creationProvenance);
-    if (context.context.owner.kind !== "superuser")
-      return c.json(
-        { error: "Durable text creation requires the server owner" },
-        403,
-      );
     if (
       typeof body.requestId !== "string" ||
       !/^[A-Za-z0-9_-]{8,128}$/.test(body.requestId)
@@ -2126,21 +2123,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json(textCreationReceipt(existing), 202);
     }
     if (
-      !getSessionTextCreationCapability(body.provider) ||
+      (body.provider !== undefined && !ALL_PROVIDERS.includes(body.provider)) ||
       typeof body.message !== "string" ||
       (!body.message.trim() && !body.stagedAttachments?.length) ||
       (body.stagedAttachments !== undefined &&
         (!Array.isArray(body.stagedAttachments) ||
           !body.stagedAttachments.length ||
-          body.stagedAttachments.length > 64 ||
-          !["claude", "codex"].includes(body.provider ?? ""))) ||
+          body.stagedAttachments.length > 64)) ||
       body.images !== undefined ||
       body.documents !== undefined ||
       body.attachments !== undefined ||
-      body.machineControl ||
-      body.executor ||
-      body.sandboxLevel === "project-write" ||
-      body.message?.trimStart().startsWith("/")
+      body.executor
     )
       return c.json(
         {
@@ -2218,15 +2211,14 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   };
   routes.get("/session-creations/:requestId", (c) => {
     const principal = principalFor(c);
-    if (principal.kind !== "superuser")
-      return c.json({ error: "Forbidden" }, 403);
+    const owner =
+      principal.kind === "limited"
+        ? { kind: "limited" as const, username: principal.username }
+        : { kind: "superuser" as const };
     const requestId = c.req.param("requestId");
     if (!/^[A-Za-z0-9_-]{8,128}$/.test(requestId))
       return c.json({ error: "Invalid creation request id" }, 400);
-    const saved = deps.sessionMetadataService?.creations.get(
-      { kind: "superuser" },
-      requestId,
-    );
+    const saved = deps.sessionMetadataService?.creations.get(owner, requestId);
     if (!saved) return c.json({ error: "Creation request not found" }, 404);
     if (saved.deleted)
       return c.json({ error: "Session creation was deleted" }, 410);
@@ -2266,23 +2258,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     Boolean(
       deps.sessionMetadataService?.getMetadata?.(sessionId)?.routerBinding,
     );
-  const recordCreationProvenance = async (
-    sessionId: string,
-    value: unknown,
-  ): Promise<void> => {
-    const provenance = parseCreationProvenance(value);
-    if (!provenance || !deps.sessionMetadataService) return;
-    await deps.sessionMetadataService.recordCreationProvenance?.(
-      sessionId,
-      provenance,
-    );
-    deps.eventBus?.emit({
-      type: "session-metadata-changed",
-      sessionId,
-      creationProvenance: provenance,
-      timestamp: new Date().toISOString(),
-    });
-  };
   const activeForkSummaryJobs = new Map<
     string,
     { objectId: string; abortController: AbortController }
@@ -2628,64 +2603,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       await deps.sessionMetadataService.setSessionSandbox?.(sessionId, sandbox);
     }
   };
-
-  /**
-   * Everything a new session's launch records once it has an id: client
-   * provenance, the limited user who
-   * started it, and the launch metadata, sandbox included. The session-create
-   * routes run it as their `onStarted`, so a start that waited for a free
-   * worker records exactly what one that started at once does.
-   */
-  const recordNewSessionLaunch = async (
-    process: Process,
-    launch: {
-      creationProvenance: unknown;
-      /** The limited user who started it; absent for the superuser. */
-      createdByUser?: string;
-      provider: ProviderName | undefined;
-      executor: string | undefined;
-      initialPrompt?: string;
-      requestedModel?: string;
-      recapAfterSeconds?: number;
-      sandbox: { level: SessionSandboxLevel; networkFirewall: boolean };
-    },
-  ): Promise<void> => {
-    const { sessionId } = process;
-    await recordCreationProvenance(sessionId, launch.creationProvenance);
-    if (launch.createdByUser) {
-      // Ownership survives a later grant change: a limited user can always
-      // read a session they started (topics/limited-users.md § Delivery v1).
-      await deps.sessionMetadataService?.recordSessionCreator(
-        sessionId,
-        launch.createdByUser,
-      );
-    }
-    await persistLaunchMetadata(
-      sessionId,
-      launch.provider,
-      launch.executor,
-      launch.initialPrompt,
-      launch.requestedModel,
-      process.promptSuggestionMode,
-      launch.recapAfterSeconds,
-      {
-        level: launch.sandbox.level,
-        networkFirewall: launch.sandbox.networkFirewall,
-        stateKey: process.sandboxStateKey,
-        projectPath: process.sandboxProjectPath ?? process.projectPath,
-        projectId: process.projectId,
-      },
-    );
-  };
-
-  // Deferred starts retain only these copied launch values, never the request
-  // context or its complete JSON body (including unrelated oversized fields).
-  const newSessionLaunchCallback =
-    (
-      launch: Parameters<typeof recordNewSessionLaunch>[1],
-    ): NonNullable<SessionLaunchOptions["onStarted"]> =>
-    (_sessionId, process) =>
-      recordNewSessionLaunch(process, launch);
 
   const loadProviderSession = async (
     project: Project,
@@ -4474,25 +4391,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         creation:
           acceptance?.creation ??
           creationForRequest(c, body.creationProvenance),
-        onStarted: newSessionLaunchCallback({
-          creationProvenance: requestCreationProvenance(
-            c,
-            body.creationProvenance,
-          ),
-          createdByUser:
-            limitedLaunch.kind === "applied"
-              ? limitedLaunch.username
-              : undefined,
-          provider: body.provider,
-          executor,
-          initialPrompt: body.message,
-          requestedModel: body.model,
-          recapAfterSeconds: helperSettings.recapAfterSeconds,
-          sandbox: {
-            level: sandboxSelection.sandboxLevel,
-            networkFirewall: sandboxSelection.sandboxNetworkFirewall,
-          },
-        }),
       },
     );
 
@@ -4654,25 +4552,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       {
         projectId: project.id,
         creation: creationForRequest(c, body.creationProvenance),
-        onStarted: (_sessionId, process) =>
-          recordNewSessionLaunch(process, {
-            creationProvenance: requestCreationProvenance(
-              c,
-              body.creationProvenance,
-            ),
-            createdByUser:
-              limitedLaunch.kind === "applied"
-                ? limitedLaunch.username
-                : undefined,
-            provider: body.provider,
-            executor,
-            requestedModel: body.model,
-            recapAfterSeconds: helperSettings.recapAfterSeconds,
-            sandbox: {
-              level: sandboxSelection.sandboxLevel,
-              networkFirewall: sandboxSelection.sandboxNetworkFirewall,
-            },
-          }),
       },
     );
 
@@ -4827,22 +4706,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         creation:
           acceptance?.creation ??
           creationForRequest(c, body.creationProvenance),
-        onStarted: newSessionLaunchCallback({
-          creationProvenance: requestCreationProvenance(
-            c,
-            body.creationProvenance,
-          ),
-          createdByUser: actingUsername(c),
-          provider: body.provider,
-          executor,
-          initialPrompt: body.message,
-          requestedModel: body.model,
-          recapAfterSeconds: helperSettings.recapAfterSeconds,
-          sandbox: {
-            level: sandboxSelection.sandboxLevel,
-            networkFirewall: sandboxSelection.sandboxNetworkFirewall,
-          },
-        }),
       },
     );
 
@@ -4979,22 +4842,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
       {
         creation: creationForRequest(c, body.creationProvenance),
-        onStarted: (_sessionId, process) =>
-          recordNewSessionLaunch(process, {
-            creationProvenance: requestCreationProvenance(
-              c,
-              body.creationProvenance,
-            ),
-            createdByUser: actingUsername(c),
-            provider: body.provider,
-            executor,
-            requestedModel: body.model,
-            recapAfterSeconds: helperSettings.recapAfterSeconds,
-            sandbox: {
-              level: sandboxSelection.sandboxLevel,
-              networkFirewall: sandboxSelection.sandboxNetworkFirewall,
-            },
-          }),
       },
     );
 
@@ -6109,10 +5956,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       let fork: Awaited<ReturnType<Supervisor["forkSession"]>>;
       try {
         fork = await deps.supervisor.forkSession({
+          creation: creationForRequest(c, body.creationProvenance),
           sessionId,
           projectPath: restartProjectPath,
           providerName: sourceProvider,
           upToMessageId: body.forkUpToMessageId,
+          initialPrompt:
+            body.reason?.trim() || "Continue from this fork point.",
           title: forkTitle,
           launchOverrides: {
             requestedModel,
@@ -6142,6 +5992,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           },
           "Transcript fork failed",
         );
+        if (error instanceof ForkSettingsPersistenceError)
+          return c.json(
+            { error: error.message, sessionId: error.sessionId, projectId },
+            error.status as 409 | 500,
+          );
         return c.json(
           {
             error:
@@ -6153,50 +6008,70 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
       const forkMessage =
         body.reason?.trim() || "Continue from this fork point.";
-      const result = await deps.supervisor.resumeSession(
-        fork.sessionId,
-        restartProjectPath,
-        { text: forkMessage, mode: restartPermissionMode },
-        restartPermissionMode,
-        {
-          model,
-          requestedModel: requestedModel ?? undefined,
-          serviceTier,
-          thinking,
-          effort,
-          providerName: sourceProvider,
-          executor,
-          sandboxLevel: restartSandboxLevel,
-          sandboxNetworkFirewall: restartSandboxNetworkFirewall,
-          sandboxStateKey:
-            fork.sandboxStateKey ?? originalMetadata?.sandboxStateKey,
-          globalInstructions: getGlobalInstructions(),
-          permissions: body.permissions,
-          recapMode: helperSettings.recapMode,
-          recapAfterSeconds:
-            helperSettings.recapAfterSeconds ??
-            originalMetadata?.recapAfterSeconds,
-          // Inherit the source session's preference unless the body overrides.
-          promptSuggestionMode:
-            helperSettings.promptSuggestionMode ??
-            originalMetadata?.promptSuggestionMode,
-          helperSideModel: helperSettings.helperSideModel,
-          ...resolveCompactModelSettings(deps, {
-            provider: sourceProvider,
-            yaModelId: requestedModel ?? undefined,
-            modelCandidates: [
-              body.model,
-              model,
-              oldProcess?.resolvedModel,
-              sourceSession.model,
-            ],
-          }),
-        },
-      );
+      let result: Awaited<ReturnType<Supervisor["resumeSession"]>>;
+      try {
+        result = await deps.supervisor.resumeSession(
+          fork.sessionId,
+          restartProjectPath,
+          { text: forkMessage, mode: restartPermissionMode },
+          restartPermissionMode,
+          {
+            model,
+            requestedModel: requestedModel ?? undefined,
+            serviceTier,
+            thinking,
+            effort,
+            providerName: sourceProvider,
+            executor,
+            sandboxLevel: restartSandboxLevel,
+            sandboxNetworkFirewall: restartSandboxNetworkFirewall,
+            sandboxStateKey:
+              fork.sandboxStateKey ?? originalMetadata?.sandboxStateKey,
+            globalInstructions: getGlobalInstructions(),
+            permissions: body.permissions,
+            recapMode: helperSettings.recapMode,
+            recapAfterSeconds:
+              helperSettings.recapAfterSeconds ??
+              originalMetadata?.recapAfterSeconds,
+            // Inherit the source session's preference unless the body overrides.
+            promptSuggestionMode:
+              helperSettings.promptSuggestionMode ??
+              originalMetadata?.promptSuggestionMode,
+            helperSideModel: helperSettings.helperSideModel,
+            ...resolveCompactModelSettings(deps, {
+              provider: sourceProvider,
+              yaModelId: requestedModel ?? undefined,
+              modelCandidates: [
+                body.model,
+                model,
+                oldProcess?.resolvedModel,
+                sourceSession.model,
+              ],
+            }),
+          },
+        );
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Fork continuation failed",
+            sessionId: fork.sessionId,
+            projectId,
+          },
+          500,
+        );
+      }
 
       if (isQueueFullResponse(result)) {
         return c.json(
-          { error: "Queue is full", maxQueueSize: result.maxQueueSize },
+          {
+            error: "Queue is full",
+            maxQueueSize: result.maxQueueSize,
+            sessionId: fork.sessionId,
+            projectId,
+          },
           503,
         );
       }
@@ -6206,16 +6081,14 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           {
             error:
               "Fork could not start immediately; old process was left running",
+            sessionId: fork.sessionId,
+            projectId,
           },
           503,
         );
       }
 
       void deps.userUsageService?.recordSession(actingUsername(c));
-      await recordCreationProvenance(
-        result.sessionId,
-        requestCreationProvenance(c, body.creationProvenance),
-      );
       await persistLaunchMetadata(
         result.sessionId,
         sourceProvider,
@@ -6357,10 +6230,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     }
 
     void deps.userUsageService?.recordSession(actingUsername(c));
-    await recordCreationProvenance(
-      result.sessionId,
-      requestCreationProvenance(c, body.creationProvenance),
-    );
     await persistLaunchMetadata(
       result.sessionId,
       providerName,
@@ -6587,20 +6456,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         {
           projectId: project.id,
           creation: creationForRequest(c, body.creationProvenance),
-          onStarted: (_sessionId, process) =>
-            recordNewSessionLaunch(process, {
-              creationProvenance: requestCreationProvenance(
-                c,
-                body.creationProvenance,
-              ),
-              createdByUser: limited ? limitedLaunch.username : undefined,
-              provider: providerName,
-              executor,
-              initialPrompt: body.message,
-              requestedModel: requestedModel ?? undefined,
-              recapAfterSeconds: originalMetadata?.recapAfterSeconds,
-              sandbox,
-            }),
         },
       );
       if (isQueueFullResponse(result)) {
@@ -7585,6 +7440,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     let fork: Awaited<ReturnType<Supervisor["forkSession"]>>;
     try {
       fork = await deps.supervisor.forkSession({
+        creation: creationForRequest(c, body.creationProvenance),
         sessionId,
         projectPath: forkProjectPath,
         providerName,
@@ -7614,6 +7470,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         },
         "Transcript fork failed",
       );
+      if (error instanceof ForkSettingsPersistenceError)
+        return c.json(
+          { error: error.message, sessionId: error.sessionId, projectId },
+          error.status as 409 | 500,
+        );
       // A copy of a pinned session that could not keep its account.
       if (error instanceof RouterUnavailable) {
         return c.json({ error: error.message }, 409);
@@ -7677,10 +7538,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         projectId:
           originalMetadata?.workingProjectId ?? (projectId as UrlProjectId),
       },
-    );
-    await recordCreationProvenance(
-      fork.sessionId,
-      requestCreationProvenance(c, body.creationProvenance),
     );
     const forkCreator = actingUsername(c);
     if (forkCreator) {
@@ -7865,6 +7722,16 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       }
 
       const generator = await deps.supervisor.forkSession({
+        creation: {
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "internal", reason: "retitle" },
+          },
+          authorize: async () => {
+            if (deps.signal?.aborted || abortController.signal.aborted)
+              throw new Error("Summary job was cancelled");
+          },
+        },
         sessionId,
         projectPath: sourceProjectPath,
         providerName,
@@ -8117,6 +7984,16 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         let completed = false;
         try {
           const generator = await deps.supervisor.forkSession({
+            creation: {
+              context: {
+                owner: { kind: "superuser" },
+                source: { kind: "internal", reason: "fork-summary" },
+              },
+              authorize: async () => {
+                if (deps.signal?.aborted || abortController.signal.aborted)
+                  throw new Error("Summary job was cancelled");
+              },
+            },
             sessionId,
             projectPath: sourceProjectPath,
             providerName,
@@ -8180,7 +8057,30 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             ? truncateSessionTitle(summaryTitle)
             : ((await fallbackTitle()) ?? "Forked session");
           targetTitle = title;
+          const targetCreation = creationForRequest(c, undefined);
           const target = await deps.supervisor.forkSession({
+            initialPrompt: generated.text,
+            creation: {
+              ...targetCreation,
+              requestId: `fork-summary-target-${displayObject.id}`,
+              authorize: async (saved) => {
+                if (abortController.signal.aborted)
+                  throw new Error("Fork summary was cancelled");
+                return (await targetCreation.authorize(saved)) ?? undefined;
+              },
+              onAccepted: async (saved) => {
+                targetSessionId = saved.sessionId;
+                await deps.sessionMetadataService!.updateTranscriptDisplayObject(
+                  sessionId,
+                  displayObject.id,
+                  (object) =>
+                    object.kind !== "fork-summary"
+                      ? object
+                      : { ...object, targetSessionId: saved.sessionId },
+                );
+                emitTranscriptDisplayObjects(sessionId);
+              },
+            },
             sessionId,
             launchSettings: generator.launchSettings,
             launchOverrides:
@@ -9464,8 +9364,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         (await originalResolution?.source.reader.getNativeSessionRef?.(
           originalResolution.nativeSessionId,
         ));
-      const sourceNativeId =
-        originalResolution?.nativeSessionId ?? parseNativeSessionId(sessionId);
       if (originalNative?.family === "claude")
         sessionDir = originalNative.storageScope;
       const originalSession = originalResolution?.summary ?? null;
@@ -9507,6 +9405,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             ? (originalMetadata.sandboxProjectPath ?? project.path)
             : project.path;
         const fork = await deps.supervisor.forkSession({
+          creation: creationForRequest(c, undefined),
           sessionId,
           projectPath: forkProjectPath,
           providerName: cloneProvider,
@@ -9529,135 +9428,20 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           // arrives. A conservative bound hides inherited text without a scan.
           entries: Number.MAX_SAFE_INTEGER,
         };
-      } else if (originalMetadata?.sandboxLevel === "project-write") {
-        // A sandboxed source's transcript lives in its project's private
-        // provider root, and a clone for the same canonical project shares
-        // that root and its settled sandbox (topics/session-sandboxing.md
-        // § Session Lifetime), so the copy is read from and written there.
-        const stateKey = originalMetadata.sandboxStateKey;
-        if (!stateKey) {
-          return c.json(
-            {
-              error:
-                "This sandboxed session records no private state, so its transcript cannot be cloned",
-            },
-            409,
-          );
-        }
-        const sandboxProjectPath =
-          originalMetadata.sandboxProjectPath ?? project.path;
-        const transcriptDirectory =
-          await deps.supervisor.openClaudeSandboxTranscriptDirectory({
-            stateKey,
-            projectPath: sandboxProjectPath,
-          });
-        try {
-          if (
-            originalNative &&
-            (await realpath(`/proc/self/fd/${transcriptDirectory.fd}`)) !==
-              originalNative.storageScope
-          )
-            throw new Error(
-              "Private clone source does not match its native binding",
-            );
-          result = await cloneClaudeSession(
-            `/proc/self/fd/${transcriptDirectory.fd}`,
-            sourceNativeId,
-          );
-        } finally {
-          await transcriptDirectory.close();
-        }
-        await deps.sessionMetadataService?.setSessionSandbox(
-          result.newSessionId,
-          {
-            level: "project-write",
-            networkFirewall: persistedSandboxNetworkFirewall(originalMetadata),
-            stateKey,
-            projectPath: sandboxProjectPath,
-            projectId:
-              originalMetadata.workingProjectId ?? (projectId as UrlProjectId),
-            // The sandbox transcript readers find a session by its provider.
-            provider: cloneProvider,
-          },
-        );
       } else {
-        if (originalNative) await assertClaudeCopyRoot(sessionDir);
-        result = await cloneClaudeSession(sessionDir, sourceNativeId);
-      }
-      // The Codex path forks through the Supervisor, which already did this.
-      if (!shouldCloneFromCodex) {
-        const nativeCopyId = parseNativeSessionId(result.newSessionId);
-        const birthProjectId = originalSession?.projectId ?? projectId;
-        const identities = deps.sessionMetadataService?.identities;
-        const nativeCopy = nativeSessionRef(
-          "claude",
-          originalNative?.storageScope ?? (await realpath(sessionDir)),
-          nativeCopyId,
-        );
-        const copyId =
-          identities?.lookupNative(nativeCopy)?.sessionId ??
-          parseYaSessionId(nativeCopyId);
-        result = { ...result, newSessionId: copyId };
-        await deps.supervisor.inheritRouterBinding(
+        const clone = await deps.supervisor.cloneSession({
           sessionId,
-          copyId,
-          async () => {
-            if (
-              originalMetadata?.sandboxLevel === "project-write" &&
-              originalMetadata.sandboxStateKey
-            ) {
-              const directory =
-                await deps.supervisor.openClaudeSandboxTranscriptDirectory({
-                  stateKey: originalMetadata.sandboxStateKey,
-                  projectPath:
-                    originalMetadata.sandboxProjectPath ?? project.path,
-                });
-              try {
-                await rm(
-                  join(
-                    `/proc/self/fd/${directory.fd}`,
-                    nativeCopyId + ".jsonl",
-                  ),
-                  { force: true },
-                );
-              } finally {
-                await directory.close();
-              }
-            } else {
-              await rm(join(sessionDir, nativeCopyId + ".jsonl"), {
-                force: true,
-              });
-            }
-          },
-        );
-        try {
-          const child = identities?.adoptCopiedNative({
-            native: nativeCopy,
-            provider: cloneProvider,
-            projectId: birthProjectId,
-            createdAt: new Date().toISOString(),
-          });
-          if (child && child.sessionId !== copyId)
-            throw new Error(
-              "Clone child identity changed during account inheritance",
-            );
-          const workingProjectId =
-            originalMetadata?.workingProjectId ?? projectId;
-          if (birthProjectId !== workingProjectId)
-            await deps.sessionMetadataService?.setWorkingProject(
-              copyId,
-              workingProjectId,
-              birthProjectId,
-            );
-        } catch (error) {
-          throw new ForkSettingsPersistenceError(copyId, error);
-        }
-      }
-      if (cloneSettings) {
-        await deps.supervisor.recordForkLaunchSettings(
-          result.newSessionId,
-          cloneSettings,
-        );
+          projectPath: originalMetadata?.sandboxProjectPath ?? project.path,
+          providerName: cloneProvider,
+          title: cloneTitle,
+          launchSettings: cloneSettings,
+          creation: creationForRequest(c, body.creationProvenance),
+          ...inheritedSandboxSettings(originalMetadata),
+        });
+        result = {
+          newSessionId: clone.sessionId,
+          entries: clone.entries ?? Number.MAX_SAFE_INTEGER,
+        };
       }
       if (!shouldCloneFromCodex) {
         // The verbatim copy keeps every uuid, so the source's rewound groups
@@ -9679,10 +9463,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         );
       }
       void deps.userUsageService?.recordSession(cloneCreator);
-      await recordCreationProvenance(
-        result.newSessionId,
-        requestCreationProvenance(c, body.creationProvenance),
-      );
       // Set clone metadata. /btw asides pass parentSessionId so the child
       // can jump back into the parent viewport.
       if (deps.sessionMetadataService) {
@@ -9704,8 +9484,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       const message =
         error instanceof Error ? error.message : "Failed to clone session";
       return c.json(
-        { error: message },
-        error instanceof RouterUnavailable ? 409 : 500,
+        {
+          error: message,
+          ...(error instanceof ForkSettingsPersistenceError
+            ? { sessionId: error.sessionId, projectId }
+            : {}),
+        },
+        error instanceof ForkSettingsPersistenceError
+          ? (error.status as 409 | 500)
+          : error instanceof RouterUnavailable
+            ? 409
+            : 500,
       );
     }
   });

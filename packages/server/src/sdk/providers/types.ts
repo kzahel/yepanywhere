@@ -100,7 +100,7 @@ export interface ProviderForkOptions {
 }
 
 export interface ProviderForkResult {
-  /** Retained native child allocation; Supervisor adopts its existing public spelling. */
+  /** Native child allocation; Supervisor binds it to the admitted public identity. */
   nativeSessionId: NativeSessionId;
   filePath?: string;
   native?: NativeSessionRef;
@@ -676,10 +676,13 @@ export interface AgentProvider {
 
   /** Native allocation accepts YA's chosen spelling; otherwise it returns N. */
   readonly acceptsChosenSessionId?: boolean;
+  /** Adapter forwards native image blocks rather than extracting text only. */
+  readonly supportsInlineImages?: boolean;
 
   /** Actual new-session store, resolved before native allocation (no effects). */
   getNewSessionNamespace?(
     cwd: string,
+    sandbox?: Pick<SessionSandboxRuntime, "transcriptDir">,
   ): Promise<Pick<NativeSessionRef, "family" | "storageScope">>;
 
   /**

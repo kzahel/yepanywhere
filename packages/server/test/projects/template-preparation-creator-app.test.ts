@@ -16,6 +16,7 @@ import {
 } from "../../src/projects/paths.js";
 import { levelFor } from "../../src/auth/limitedUserPolicy.js";
 import { TemplateSourceService } from "../../src/projects/TemplateSourceService.js";
+import { snapshotCreationLaunch } from "../../src/sessions/session-creation-launch.js";
 import { MockClaudeSDK } from "../../src/sdk/mock.js";
 import { probeSessionSandboxAvailability } from "../../src/session-sandbox.js";
 import { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
@@ -87,21 +88,42 @@ beforeEach(async () => {
     sessionMetadataService,
   });
   // The mock SDK cannot run a provider in the sandbox, so the launch stops at
-  // the Supervisor: it starts at once and runs onStarted, as the real one
-  // does, with the process a sandboxed launch reports.
+  // the Supervisor: commit actual admission and invoke acceptance, without
+  // claiming native dispatch or Linux sandbox enforcement.
   launches = [];
   vi.spyOn(instance.supervisor, "startSession").mockImplementation(
     async (
       projectPath: string,
-      _message: unknown,
+      message: { text: string },
       _mode: unknown,
       settings?: ModelSettings,
       options?: SessionLaunchOptions,
     ) => {
       launches.push(settings ?? {});
+      const creation = options!.creation!;
+      const saved = sessionMetadataService.creations.admit({
+        requestId: creation.requestId ?? randomUUID(),
+        context: creation.context,
+        request: {
+          submissionHash: creation.submissionHash,
+          provider: settings?.providerName ?? "claude",
+          projectPath,
+          projectId: encodeProjectId(projectPath),
+          message: message.text,
+          launch: snapshotCreationLaunch(settings ?? {}),
+          settings: {
+            permissionMode: "default",
+            requestedModel: settings?.model ?? null,
+            serviceTier: null,
+            thinking: null,
+            effort: null,
+          },
+        },
+      });
+      await creation.onAccepted?.(saved);
       const process = {
         id: "prep-process",
-        sessionId: randomUUID(),
+        sessionId: saved.sessionId,
         projectId: encodeProjectId(projectPath),
         projectPath,
         permissionMode: "default",
@@ -299,6 +321,55 @@ it("admits private No project creation only by permission, with the normal launc
     403,
   );
   expect(levelFor(users.getActiveGrants("archer")!, own)).toBe("join");
+});
+
+it("keeps canonical admission owner-scoped across grant revocation and preserves locked intent", async () => {
+  const cookie = `${SESSION_COOKIE_NAME}=${await authService.createSession("archer", "archer")}`;
+  const submit = (body: object) =>
+    instance.app.request("/api/session-creations", {
+      method: "POST",
+      headers: {
+        Cookie: cookie,
+        "X-Yep-Anywhere": "true",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  const body = {
+    requestId: "owned_template_workflow",
+    message: "Keep accepted intent",
+  };
+  expect((await submit(body)).status).toBe(403);
+  await users.update("archer", {
+    allowNoProjectSessions: true,
+    lock: { provider: "claude", model: "locked-model" },
+  });
+  expect((await submit({ ...body, model: "escape" })).status).toBe(403);
+  const accepted = await submit(body);
+  expect(accepted.status, await accepted.clone().text()).toBe(202);
+  const result = await accepted.json();
+  const saved = sessionMetadataService.creations.get(
+    { kind: "limited", username: "archer" },
+    body.requestId,
+  )!;
+  expect(saved.request).toMatchObject({
+    message: body.message,
+    settings: { requestedModel: "locked-model" },
+    launch: { sandboxLevel: "project-write", sandboxNetworkFirewall: true },
+  });
+  expect((await (await submit(body)).json()).sessionId).toBe(result.sessionId);
+  expect(launches).toHaveLength(1);
+  await users.update("archer", { allowNoProjectSessions: false });
+  const get = (authCookie: string) =>
+    instance.app.request(`/api/session-creations/${body.requestId}`, {
+      headers: { Cookie: authCookie },
+    });
+  expect((await get(cookie)).status).toBe(200);
+  const ownerCookie = `${SESSION_COOKIE_NAME}=${await authService.createSession("superuser")}`;
+  expect((await get(ownerCookie)).status).toBe(404);
+  expect(
+    (await submit({ ...body, requestId: "revoked_template_workflow" })).status,
+  ).toBe(403);
 });
 
 it("records no creator on the superuser's preparation session", async () => {
