@@ -590,9 +590,10 @@ open. See the
 legacy Gemini execution retirement to consolidate shared native-store catalog,
 project contribution and exact reader-resolution paths. Preserve read-only
 Gemini history. The [discussion scope](../../topics/antigravity.md#discovery-and-cleanup-scope--discussion-2026-11-03)
-extends plan 093. Its first discovery slice is implemented; per-project reader
-migration and source lookups remain, with Grok/Antigravity ACP transport sharing
-assessed separately. The remaining sequence is still under discussion; this
+extends plan 093. Shared discovery, exact child/vocabulary reader selection and
+catalog-backed queue titles are implemented. Broader reader migration and
+owner-aware focused observation remain; Grok/Antigravity ACP transport sharing
+is assessed separately. The remaining sequence is still under discussion; this
 does not reopen the archived core or select a new transcript store.
 
 Rows 1, 2, 3 and 11 are the completed removal set. The independent review

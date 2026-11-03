@@ -449,6 +449,52 @@ describe("useProjectQueues", () => {
     expect(second.result.current.items.map((item) => item.id)).toEqual(["2"]);
   });
 
+  it("shares catalog and custom-title revalidation across mounted queue consumers", async () => {
+    apiMock.getProjectQueueItems
+      .mockResolvedValueOnce({ items: [makeItem("1")] })
+      .mockResolvedValueOnce({
+        items: [{ ...makeItem("1"), targetTitle: "Published title" }],
+      })
+      .mockResolvedValueOnce({
+        items: [{ ...makeItem("1"), targetTitle: "Custom title" }],
+      });
+    const first = renderHook(() => useProjectQueues(["project-1"]));
+    const second = renderHook(() => useProjectQueues(["project-1"]));
+    await waitFor(() => expect(first.result.current.items).toHaveLength(1));
+    act(() =>
+      busMock.emit("session-catalog-updated", {
+        type: "session-catalog-updated",
+        catalog: {
+          catalogEpoch: "catalog",
+          catalogGeneration: 2,
+          complete: true,
+          refreshing: false,
+        },
+        timestamp: "2026-11-03T00:00:00.000Z",
+      }),
+    );
+    await waitFor(() =>
+      expect(second.result.current.items[0]?.targetTitle).toBe(
+        "Published title",
+      ),
+    );
+    expect(first.result.current.items[0]?.targetTitle).toBe("Published title");
+    expect(apiMock.getProjectQueueItems).toHaveBeenCalledTimes(2);
+    act(() =>
+      busMock.emit("session-metadata-changed", {
+        type: "session-metadata-changed",
+        sessionId: "session-1",
+        title: "Custom title",
+        timestamp: "2026-11-03T00:00:00.000Z",
+      }),
+    );
+    await waitFor(() =>
+      expect(second.result.current.items[0]?.targetTitle).toBe("Custom title"),
+    );
+    expect(first.result.current.items[0]?.targetTitle).toBe("Custom title");
+    expect(apiMock.getProjectQueueItems).toHaveBeenCalledTimes(3);
+  });
+
   it("updates a project queue from activity events", async () => {
     apiMock.getProjectQueueItems.mockResolvedValue({
       items: [makeItem("1")],

@@ -826,3 +826,19 @@ relocated session visibly grouped under its former project.
   is needed to trigger it.
 - Loss/eviction of browser persistence changes only cold-fetch cost, not visible
   correctness or the ability to reconnect.
+
+
+## Accepted session point lookups
+
+Collection consumers may restore one project's accepted catalog rows without
+starting reconciliation, summary enrichment or native history loading. The
+existing source-versioned project-shard owner coalesces concurrent reads and
+retains unchanged shard content across generations. Point lookups neither adopt
+identities nor reset an unreadable generation into provider discovery. A bad
+shard leaves the title unknown; normal collection reconciliation owns recovery. A known public identity requires its exact family, original scope
+and native ID, and validates any working-project assignment. Unbound legacy
+lookups require unique project/provider membership and honor pending native
+allocation quarantine; same-string rows in other stores cannot stand in for a
+known binding. Missing or ambiguous facts remain unknown, not authority to
+invoke another reader. Project Queue uses this path for target and named
+blocker titles, preserving custom-title precedence and nullable unknown titles.

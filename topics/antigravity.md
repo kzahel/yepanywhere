@@ -169,10 +169,18 @@ registered native store refresh that store without rescanning file-provider
 projects. Project notifications follow changed project facts, rather than title
 changes alone. There is no new polling loop or watcher per project.
 
-This slice does not unify all per-project readers, queue/title lookups, focused
-history watches or process-to-session correlation. Grok and OpenCode do not gain
+The next cleanup slice shares exact reader selection for child sessions and
+vocabulary, and Project Queue title lookups read accepted catalog facts without
+provider work. This does not unify all per-project readers, focused history
+watches or process-to-session correlation. Grok and OpenCode do not gain
 a new root watcher here; their existing invalidation and explicit catalog refresh
 behavior remains. Legacy Gemini execution and historical readers remain intact.
+Focused Antigravity observation remains unavailable. Database/WAL notifications
+alone do not authorize automatic `session/load`, which can update native
+continuation metadata. The next slice needs owner-aware history acquisition,
+a process budget shared across readers, and WAL-aware source versions before
+turning those notifications into automatic history refresh. The local owner
+map and per-reader limits do not establish those install-wide guarantees.
 The remaining sequence below still applies; this is not Gemini retirement.
 
 ## Discovery and cleanup scope — discussion, 2026-11-03

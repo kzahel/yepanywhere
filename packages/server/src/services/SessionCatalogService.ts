@@ -651,12 +651,16 @@ export class SessionCatalogService {
 
   async readProjectRows(
     projectIdentityKey: string,
+    options: { recoverUnreadable?: boolean } = {},
   ): Promise<SessionCatalogProjectRows> {
     this.projectReadRequests += 1;
     // A generation published between admission and completion retargets the
     // read. The bound keeps a pathological publish rate from recursing freely.
     for (let attempt = 0; attempt < MAX_PROJECT_READ_RETARGETS; attempt += 1) {
-      const attempted = await this.readProjectRowsOnce(projectIdentityKey);
+      const attempted = await this.readProjectRowsOnce(
+        projectIdentityKey,
+        options,
+      );
       if (attempted) return attempted;
     }
     throw new Error(
@@ -666,6 +670,7 @@ export class SessionCatalogService {
 
   private async readProjectRowsOnce(
     projectIdentityKey: string,
+    options: { recoverUnreadable?: boolean },
   ): Promise<SessionCatalogProjectRows | null> {
     this.ensureRunning();
     const manifest = this.requireManifest();
@@ -700,7 +705,11 @@ export class SessionCatalogService {
           this.currentShardContentHash(token.bucket) === candidate,
       });
     } catch (error) {
-      if (await this.resetUnreadableGeneration(manifest, error)) return null;
+      if (
+        options.recoverUnreadable !== false &&
+        (await this.resetUnreadableGeneration(manifest, error))
+      )
+        return null;
       throw error;
     }
     if (result.status === "stale") {

@@ -15,19 +15,24 @@ import {
   type Principal,
 } from "../../src/auth/principal.js";
 import { UserUsageService } from "../../src/auth/UserUsageService.js";
-import type { ProjectScanner } from "../../src/projects/scanner.js";
+import { claudeCwdProjectDirectory } from "../../src/projects/claude-project-directory.js";
+import { ProjectScanner } from "../../src/projects/scanner.js";
 import {
   createGlobalProjectQueueRoutes,
   createProjectQueueRoutes,
 } from "../../src/routes/project-queue.js";
-import type { ISessionIndexService } from "../../src/indexes/types.js";
+import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
+import {
+  catalogAdaptersForRows,
+  buildCatalogRow,
+} from "../../src/sessions/catalog-adapters/row.js";
 import { ProjectQueueService } from "../../src/services/ProjectQueueService.js";
 import {
   type PersistedSessionQueuedMessage,
   SessionQueuePersistenceService,
 } from "../../src/services/SessionQueuePersistenceService.js";
-import type { ISessionReader } from "../../src/sessions/types.js";
-import type { Project, SessionSummary } from "../../src/supervisor/types.js";
+import type { Project } from "../../src/supervisor/types.js";
 import type { SessionMetadataService } from "../../src/metadata/index.js";
 
 describe("Project Queue Routes", () => {
@@ -35,6 +40,7 @@ describe("Project Queue Routes", () => {
   let projectId: UrlProjectId;
   let project: Project;
   let service: ProjectQueueService;
+  const catalogs: RetainedSessionCollections[] = [];
 
   beforeEach(async () => {
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), "project-queue-route-"));
@@ -55,6 +61,7 @@ describe("Project Queue Routes", () => {
   });
 
   afterEach(async () => {
+    await Promise.all(catalogs.splice(0).map((catalog) => catalog.dispose()));
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
@@ -376,89 +383,135 @@ describe("Project Queue Routes", () => {
     expect(getMetadata).not.toHaveBeenCalledWith("session-3");
   });
 
-  it("enriches existing-session targets with cached session titles", async () => {
-    await service.createItem({
-      creationProvenance: { surface: "api" },
-      projectId,
-      projectPath: project.path,
-      request: {
-        target: { type: "existing-session", sessionId: "session-1" },
-        message: { text: "first queued item" },
-      },
+  it("reuses retained project identity after its inventory TTL expires", async () => {
+    const store = path.join(testDir, "claude");
+    async function seed(name: string) {
+      const cwd = path.join(testDir, name);
+      const directory = path.join(store, claudeCwdProjectDirectory(cwd));
+      await fs.mkdir(cwd, { recursive: true });
+      await fs.mkdir(directory, { recursive: true });
+      await fs.writeFile(
+        path.join(directory, `${name}.jsonl`),
+        JSON.stringify({
+          type: "user",
+          cwd,
+          sessionId: name,
+          uuid: "human",
+          message: { role: "user", content: "Native project" },
+          timestamp: new Date().toISOString(),
+        }) + "\n",
+      );
+      return cwd;
+    }
+    const first = await seed("first");
+    const scanner = new ProjectScanner({
+      projectsDir: store,
+      enableCodex: false,
+      enableGemini: false,
+      cacheTtlMs: 0,
     });
-    const reader = makeReader();
-    const summary = makeSessionSummary("session-1", "Target session title");
-    const sessionIndexService = makeSessionIndexService(summary);
-    const readerFactory = vi.fn(() => reader);
-
-    const projectRoutes = createRoutes({
-      readerFactory,
-      sessionIndexService,
-    });
-    const projectResponse = await projectRoutes.request(`/${projectId}/queue`);
-
-    expect(projectResponse.status).toBe(200);
-    const projectBody = await projectResponse.json();
-    expect(projectBody.items[0]).toMatchObject({
-      targetTitle: "Target session title",
-      targetFullTitle: "Full Target session title",
-    });
-    expect(sessionIndexService.getSessionSummaryWithCache).toHaveBeenCalledWith(
-      project.sessionDir,
-      project.id,
-      "session-1",
-      reader,
-    );
-
-    const globalRoutes = createGlobalRoutes({
-      scanner: {
-        getOrCreateProject: vi.fn(async (id) =>
-          id === projectId ? project : null,
-        ),
-      } as unknown as ProjectScanner,
-      readerFactory,
-      sessionIndexService,
-    });
-    const globalResponse = await globalRoutes.request("/");
-
-    expect(globalResponse.status).toBe(200);
-    const globalBody = await globalResponse.json();
-    expect(globalBody.items[0]).toMatchObject({
-      projectId,
-      targetTitle: "Target session title",
-      targetFullTitle: "Full Target session title",
-    });
+    try {
+      expect(await scanner.listProjects()).toHaveLength(1);
+      await seed("second");
+      const routes = createProjectQueueRoutes({
+        scanner,
+        projectQueueService: service,
+      });
+      for (let count = 0; count < 5; count++)
+        expect(
+          (await routes.request(`/${toUrlProjectId(first)}/queue`)).status,
+        ).toBe(200);
+      expect(scanner.cachedProjects()).toHaveLength(1);
+      expect(await scanner.listProjects()).toHaveLength(2);
+    } finally {
+      await scanner.dispose();
+    }
   });
 
-  it("uses typed list projections for direct existing-session target titles", async () => {
+  it("restores accepted catalog titles for project/global queues and never acquires providers", async () => {
     await service.createItem({
       creationProvenance: { surface: "api" },
       projectId,
       projectPath: project.path,
       request: {
         target: { type: "existing-session", sessionId: "session-1" },
-        message: { text: "first queued item" },
+        message: { text: "queued item" },
       },
     });
-    const summary = makeSessionSummary("session-1", "Target session title");
-    const getSessionSummary = vi.fn(async () => summary);
-    const reader = {
-      ...makeReader(),
-      getSessionSummary,
-    };
-
-    const routes = createRoutes({
-      readerFactory: vi.fn(() => reader),
+    const directory = path.join(testDir, "catalog");
+    const published = new SessionCatalogService({ dataDir: directory });
+    await published.initialize();
+    const title = "A long accepted native title ".repeat(12);
+    await published.reconcile(
+      catalogAdaptersForRows([
+        buildCatalogRow({
+          catalogFamily: "claude",
+          storeKey: project.sessionDir,
+          sessionId: "session-1",
+          projectPath: project.path,
+          updatedAtMs: Date.now(),
+          title,
+          fidelity: "head",
+          sourceVersion: "one",
+          location: { kind: "file", path: "not-readable-by-a-provider" },
+        }),
+      ]),
+    );
+    await published.stop();
+    const acquire = vi.fn(async () => {
+      throw new Error("Queue reads must not acquire native providers");
     });
-    const response = await routes.request(`/${projectId}/queue`);
-
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.items[0]).toMatchObject({
-      targetTitle: "Target session title",
-      targetFullTitle: "Full Target session title",
+    const catalog = new RetainedSessionCollections({
+      dataDir: directory,
+      adapters: acquire,
     });
-    expect(getSessionSummary).toHaveBeenCalledWith("session-1", project.id);
+    catalogs.push(catalog);
+    const projectRoutes = createRoutes({ retainedCollections: catalog });
+    const global = createGlobalRoutes({ retainedCollections: catalog });
+    for (let request = 0; request < 12; request++) {
+      const response =
+        request % 2
+          ? await projectRoutes.request(`/${projectId}/queue`)
+          : await global.request("/");
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.items[0].targetFullTitle).toBe(title);
+      expect(body.items[0].targetTitle.length).toBeLessThan(title.length);
+    }
+    expect(acquire).not.toHaveBeenCalled();
+    await catalog.dispose();
+    const manifest = JSON.parse(
+      await fs.readFile(
+        path.join(directory, "session-catalog", "manifest.json"),
+        "utf8",
+      ),
+    );
+    await fs.writeFile(
+      path.join(
+        directory,
+        "session-catalog",
+        "generations",
+        manifest.generationDirectory,
+        manifest.shards[0].file,
+      ),
+      "broken accepted shard\n",
+    );
+    const damaged = new RetainedSessionCollections({
+      dataDir: directory,
+      adapters: acquire,
+    });
+    catalogs.push(damaged);
+    vi.useFakeTimers();
+    try {
+      const body = await (
+        await createGlobalRoutes({ retainedCollections: damaged }).request("/")
+      ).json();
+      expect(body.items[0].targetTitle).toBeNull();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(acquire).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("prefers custom titles for existing-session targets", async () => {
@@ -471,10 +524,6 @@ describe("Project Queue Routes", () => {
         message: { text: "first queued item" },
       },
     });
-    const reader = makeReader();
-    const summary = makeSessionSummary("session-1", "Target session title");
-    const sessionIndexService = makeSessionIndexService(summary);
-    const readerFactory = vi.fn(() => reader);
     const sessionMetadataService = {
       getMetadata: vi.fn((sessionId: string) =>
         sessionId === "session-1"
@@ -484,8 +533,6 @@ describe("Project Queue Routes", () => {
     } as unknown as SessionMetadataService;
 
     const projectRoutes = createRoutes({
-      readerFactory,
-      sessionIndexService,
       sessionMetadataService,
     });
     const projectResponse = await projectRoutes.request(`/${projectId}/queue`);
@@ -503,8 +550,6 @@ describe("Project Queue Routes", () => {
           id === projectId ? project : null,
         ),
       } as unknown as ProjectScanner,
-      readerFactory,
-      sessionIndexService,
       sessionMetadataService,
     });
     const globalResponse = await globalRoutes.request("/");
@@ -871,42 +916,3 @@ describe("Project Queue Routes", () => {
     });
   });
 });
-
-function makeSessionSummary(sessionId: string, title: string): SessionSummary {
-  return {
-    id: sessionId,
-    projectId: toUrlProjectId("/tmp/project-queue-route"),
-    title,
-    fullTitle: `Full ${title}`,
-    createdAt: "2026-06-01T00:00:00.000Z",
-    updatedAt: "2026-06-01T00:01:00.000Z",
-    messageCount: 2,
-    ownership: { owner: "none" },
-    provider: "claude",
-  };
-}
-
-function makeReader(): ISessionReader {
-  return {
-    listSessions: vi.fn(async () => []),
-    getSessionSummary: vi.fn(async () => null),
-    getSession: vi.fn(async () => null),
-    getSessionSummaryIfChanged: vi.fn(async () => null),
-    getAgentMappings: vi.fn(async () => []),
-    getAgentSession: vi.fn(async () => null),
-  };
-}
-
-function makeSessionIndexService(
-  summary: SessionSummary | null,
-): ISessionIndexService {
-  return {
-    initialize: vi.fn(async () => {}),
-    getSessionsWithCache: vi.fn(async () => (summary ? [summary] : [])),
-    getSessionSummaryWithCache: vi.fn(async () => summary),
-    getCachedSessionSummary: vi.fn(async () => summary),
-    getSessionTitle: vi.fn(async () => summary?.title ?? null),
-    invalidateSession: vi.fn(),
-    clearCache: vi.fn(),
-  };
-}

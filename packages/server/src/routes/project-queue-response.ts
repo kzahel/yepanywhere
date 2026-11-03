@@ -7,6 +7,7 @@ import {
   type ProjectQueueRecoveredSessionQueueSummary,
   type ProjectQueueResponse,
   getSessionDisplayTitle,
+  truncateSessionTitle,
   isUrlProjectId,
   parseProjectQueueBlocker,
 } from "@yep-anywhere/shared";
@@ -19,16 +20,19 @@ import type {
   PersistedSessionQueuedMessage,
   SessionQueuePersistenceService,
 } from "../services/SessionQueuePersistenceService.js";
-import {
-  findSessionListSummaryAcrossProviders,
-  type ProviderResolutionDeps,
-} from "../sessions/provider-resolution.js";
+import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
+import { createCatalogSessionLookup } from "../sessions/catalog-session-lookup.js";
 import type { Project } from "../supervisor/types.js";
 
-interface ProjectQueueTitleDeps extends Partial<ProviderResolutionDeps> {
-  scanner?: ProjectScanner;
+interface ProjectQueueTitleDeps {
   sessionMetadataService?: SessionMetadataService;
+  retainedCollections?: Pick<
+    RetainedSessionCollections,
+    "readPublishedProjectRows"
+  >;
 }
+
+type TitleLookup = ReturnType<typeof createCatalogSessionLookup>;
 
 export interface ProjectQueueRoutesDeps extends ProjectQueueTitleDeps {
   scanner: ProjectScanner;
@@ -104,17 +108,6 @@ function listRecoveredSessionQueues(
     );
 }
 
-function hasTitleResolutionDeps(
-  deps: ProjectQueueTitleDeps,
-): deps is ProjectQueueTitleDeps &
-  Pick<ProviderResolutionDeps, "readerFactory"> {
-  return typeof deps.readerFactory === "function";
-}
-
-function hasDisplayMetadataDeps(deps: ProjectQueueTitleDeps): boolean {
-  return !!deps.sessionMetadataService || hasTitleResolutionDeps(deps);
-}
-
 function resolveTargetTitles(
   sessionId: string,
   summary: { title?: string | null; fullTitle?: string | null } | null,
@@ -132,165 +125,60 @@ function resolveTargetTitles(
   };
 }
 
-function buildProviderResolutionDeps(
-  deps: ProjectQueueTitleDeps & Pick<ProviderResolutionDeps, "readerFactory">,
-): ProviderResolutionDeps {
-  const resolutionDeps: ProviderResolutionDeps = {
-    readerFactory: deps.readerFactory,
-    identities: deps.sessionMetadataService?.identities,
-    getRecordedProvider: (id) => deps.sessionMetadataService?.getProvider?.(id),
-  };
-  if (deps.sessionIndexService) {
-    resolutionDeps.sessionIndexService = deps.sessionIndexService;
-  }
-  if (deps.codexSessionsDir) {
-    resolutionDeps.codexSessionsDir = deps.codexSessionsDir;
-  }
-  if (deps.codexReaderFactory) {
-    resolutionDeps.codexReaderFactory = deps.codexReaderFactory;
-  }
-  if (deps.geminiSessionsDir) {
-    resolutionDeps.geminiSessionsDir = deps.geminiSessionsDir;
-  }
-  if (deps.geminiReaderFactory) {
-    resolutionDeps.geminiReaderFactory = deps.geminiReaderFactory;
-  }
-  if (deps.geminiHashToCwd) {
-    resolutionDeps.geminiHashToCwd = deps.geminiHashToCwd;
-  }
-  if (deps.grokSessionsDir) {
-    resolutionDeps.grokSessionsDir = deps.grokSessionsDir;
-  }
-  if (deps.grokReaderFactory) {
-    resolutionDeps.grokReaderFactory = deps.grokReaderFactory;
-  }
-  if (deps.piSessionsDir) {
-    resolutionDeps.piSessionsDir = deps.piSessionsDir;
-  }
-  if (deps.piReaderFactory) {
-    resolutionDeps.piReaderFactory = deps.piReaderFactory;
-  }
-  return resolutionDeps;
-}
-
 async function enrichProjectQueueItem(
-  project: Project | null,
   item: ProjectQueueItemSummary,
   deps: ProjectQueueTitleDeps,
+  lookup: TitleLookup,
 ): Promise<ProjectQueueItemSummary> {
-  if (
-    item.target.type !== "existing-session" ||
-    !hasDisplayMetadataDeps(deps)
-  ) {
-    return item;
-  }
-
-  if (!project || !hasTitleResolutionDeps(deps)) {
-    const titles = resolveTargetTitles(item.target.sessionId, null, deps);
-    return titles.targetTitle !== null || titles.targetFullTitle !== null
-      ? { ...item, ...titles }
-      : item;
-  }
-
-  try {
-    const resolved = await findSessionListSummaryAcrossProviders(
-      project,
+  if (item.target.type !== "existing-session") return item;
+  return {
+    ...item,
+    ...(await catalogTargetTitles(
+      item.projectId,
       item.target.sessionId,
-      project.id,
-      buildProviderResolutionDeps(deps),
+      deps,
+      lookup,
       item.target.provider,
+    )),
+  };
+}
+
+async function catalogTargetTitles(
+  projectId: Project["id"],
+  sessionId: string,
+  deps: ProjectQueueTitleDeps,
+  lookup: TitleLookup,
+  provider?: Parameters<TitleLookup>[2],
+) {
+  try {
+    const row = await lookup(projectId, sessionId, provider);
+    return resolveTargetTitles(
+      sessionId,
+      row
+        ? {
+            title: row.title == null ? null : truncateSessionTitle(row.title),
+            fullTitle: row.title,
+          }
+        : null,
+      deps,
     );
-    return {
-      ...item,
-      ...resolveTargetTitles(
-        item.target.sessionId,
-        resolved?.summary ?? null,
-        deps,
-      ),
-    };
   } catch {
-    return {
-      ...item,
-      ...resolveTargetTitles(item.target.sessionId, null, deps),
-    };
+    // Unreadable or cold catalog facts never trigger a provider reader.
+    return resolveTargetTitles(sessionId, null, deps);
   }
-}
-
-async function enrichProjectQueueItems(
-  project: Project,
-  items: ProjectQueueItemSummary[],
-  deps: ProjectQueueTitleDeps,
-): Promise<ProjectQueueItemSummary[]> {
-  if (!hasDisplayMetadataDeps(deps)) {
-    return items;
-  }
-  return Promise.all(
-    items.map((item) => enrichProjectQueueItem(project, item, deps)),
-  );
-}
-
-async function resolveProjectForQueueItem(
-  item: ProjectQueueItemSummary,
-  deps: GlobalProjectQueueRoutesDeps,
-  projectCache: Map<string, Promise<Project | null>>,
-): Promise<Project | null> {
-  if (!deps.scanner) return null;
-  let projectPromise = projectCache.get(item.projectId);
-  if (!projectPromise) {
-    projectPromise = deps.scanner
-      .getOrCreateProject(item.projectId)
-      .catch(() => null);
-    projectCache.set(item.projectId, projectPromise);
-  }
-  return projectPromise;
-}
-
-async function resolveProjectById(
-  projectId: string,
-  deps: ProjectQueueTitleDeps,
-  projectCache: Map<string, Promise<Project | null>>,
-): Promise<Project | null> {
-  if (!deps.scanner) return null;
-  let projectPromise = projectCache.get(projectId);
-  if (!projectPromise) {
-    projectPromise = isUrlProjectId(projectId)
-      ? deps.scanner.getOrCreateProject(projectId).catch(() => null)
-      : Promise.resolve(null);
-    projectCache.set(projectId, projectPromise);
-  }
-  return projectPromise;
-}
-
-async function enrichGlobalProjectQueueItems(
-  items: ProjectQueueItemSummary[],
-  deps: GlobalProjectQueueRoutesDeps,
-): Promise<ProjectQueueItemSummary[]> {
-  if (!hasDisplayMetadataDeps(deps)) {
-    return items;
-  }
-  const projectCache = new Map<string, Promise<Project | null>>();
-  return Promise.all(
-    items.map(async (item) => {
-      const project =
-        deps.scanner && hasTitleResolutionDeps(deps)
-          ? await resolveProjectForQueueItem(item, deps, projectCache)
-          : null;
-      return enrichProjectQueueItem(project, item, deps);
-    }),
-  );
 }
 
 async function projectStatusesForIds(
   projectIds: Iterable<string>,
   deps: GlobalProjectQueueRoutesDeps | ProjectQueueRoutesDeps,
+  lookup: TitleLookup,
 ): Promise<Record<string, ProjectQueueProjectStatus> | undefined> {
   const scheduler = deps.projectQueueScheduler;
   if (!scheduler) return undefined;
-  const projectCache = new Map<string, Promise<Project | null>>();
   const resolved = await Promise.all(
     [...new Set(projectIds)].filter(isUrlProjectId).map(async (projectId) => {
       const status = await scheduler.getProjectStatus(projectId);
-      await addBlockerSessionTitles(status, deps, projectCache);
+      await addBlockerSessionTitles(status, deps, lookup);
       return status;
     }),
   );
@@ -314,37 +202,16 @@ function namedBlockerSessionIds(blockers: readonly string[]): Set<string> {
 async function addBlockerSessionTitles(
   status: ProjectQueueProjectStatus,
   deps: GlobalProjectQueueRoutesDeps | ProjectQueueRoutesDeps,
-  projectCache: Map<string, Promise<Project | null>>,
+  lookup: TitleLookup,
 ): Promise<void> {
   const sessionIds = namedBlockerSessionIds(status.blockers);
-  if (sessionIds.size === 0 || !hasDisplayMetadataDeps(deps)) return;
-  const project =
-    deps.scanner && hasTitleResolutionDeps(deps)
-      ? await resolveProjectById(status.projectId, deps, projectCache)
-      : null;
+  if (sessionIds.size === 0) return;
   const blockerSessionTitles: Record<string, string> = {};
   await Promise.all(
     [...sessionIds].map(async (sessionId) => {
-      let summary: {
-        title?: string | null;
-        fullTitle?: string | null;
-      } | null = null;
-      if (project && hasTitleResolutionDeps(deps)) {
-        try {
-          summary =
-            (
-              await findSessionListSummaryAcrossProviders(
-                project,
-                sessionId,
-                project.id,
-                buildProviderResolutionDeps(deps),
-              )
-            )?.summary ?? null;
-        } catch {
-          // Persisted custom titles still provide a useful fallback.
-        }
-      }
-      const title = resolveTargetTitles(sessionId, summary, deps).targetTitle;
+      const title = (
+        await catalogTargetTitles(status.projectId, sessionId, deps, lookup)
+      ).targetTitle;
       if (title) {
         blockerSessionTitles[sessionId] = title;
       }
@@ -360,10 +227,20 @@ export async function projectQueueResponse(
   deps: ProjectQueueRoutesDeps,
 ): Promise<ProjectQueueResponse> {
   const queue = deps.projectQueueService.listProject(project.id);
-  const projectStatuses = await projectStatusesForIds([project.id], deps);
+  const lookup = createCatalogSessionLookup(
+    deps.retainedCollections,
+    deps.sessionMetadataService,
+  );
+  const projectStatuses = await projectStatusesForIds(
+    [project.id],
+    deps,
+    lookup,
+  );
   return {
     ...queue,
-    items: await enrichProjectQueueItems(project, queue.items, deps),
+    items: await Promise.all(
+      queue.items.map((item) => enrichProjectQueueItem(item, deps, lookup)),
+    ),
     projectStatuses,
   };
 }
@@ -391,15 +268,22 @@ export async function globalQueueResponse(
   const recoveredSessionQueues = listRecoveredSessionQueues(deps).filter(
     (item) => isVisible(item.projectId),
   );
+  const lookup = createCatalogSessionLookup(
+    deps.retainedCollections,
+    deps.sessionMetadataService,
+  );
   const projectStatuses = await projectStatusesForIds(
     [
       ...items.map((item) => item.projectId),
       ...recoveredSessionQueues.map((item) => item.projectId),
     ],
     deps,
+    lookup,
   );
   return {
-    items: await enrichGlobalProjectQueueItems(items, deps),
+    items: await Promise.all(
+      items.map((item) => enrichProjectQueueItem(item, deps, lookup)),
+    ),
     dispatchState,
     recoveredSessionQueues,
     projectStatuses,

@@ -13,6 +13,7 @@ import { toUrlProjectId } from "@yep-anywhere/shared";
 import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
 import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
 import { AntigravitySessionCatalogAdapter } from "../../../src/sessions/catalog-adapters/antigravity-catalog-adapter.js";
+import { createCatalogSessionLookup } from "../../../src/sessions/catalog-session-lookup.js";
 import { projectCatalogIdentities } from "../../../src/sessions/catalog-identity.js";
 import { AntigravitySessionReader } from "../../../src/sessions/antigravity-reader.js";
 import type { SDKMessage } from "../../../src/sdk/types.js";
@@ -168,6 +169,33 @@ describe("Antigravity native process boundary", () => {
           await projectCatalogIdentities(nativeCatalog.rows, metadata),
         ).toEqual(publicRows);
 
+        const row = nativeCatalog.rows[0]!;
+        const lookup = createCatalogSessionLookup(
+          {
+            readPublishedProjectRows: async () => [
+              {
+                ...row,
+                nativeStorageScope: `${row.nativeStorageScope}-foreign`,
+                title: "Wrong store",
+              },
+              { ...row, title: "Exact native title" },
+            ],
+          },
+          metadata,
+        );
+        expect((await lookup(projectId, receipt.sessionId))?.title).toBe(
+          "Exact native title",
+        );
+        expect(
+          await lookup(projectId, receipt.sessionId, "codex"),
+        ).toBeUndefined();
+        expect(
+          await lookup(
+            toUrlProjectId(join(directory, "foreign-project")),
+            receipt.sessionId,
+          ),
+        ).toBeUndefined();
+        expect(metadata.identities.resolveYa(nativeId)).toBeUndefined();
         const reader = new AntigravitySessionReader({ projectPath: directory });
         try {
           expect(

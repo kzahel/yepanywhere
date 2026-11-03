@@ -3163,19 +3163,12 @@ export function createApp(options: AppOptions): AppResult {
     app.route(
       "/api/project-queue",
       createGlobalProjectQueueRoutes({
-        scanner,
-        readerFactory,
+        retainedCollections: {
+          readPublishedProjectRows: (id) =>
+            retainedCollections!.readPublishedProjectRows(id),
+        },
         projectQueueService: options.projectQueueService,
         projectQueueScheduler,
-        sessionIndexService: options.sessionIndexService,
-        codexSessionsDir,
-        codexReaderFactory,
-        geminiSessionsDir,
-        geminiReaderFactory,
-        grokSessionsDir,
-        grokReaderFactory,
-        piSessionsDir,
-        piReaderFactory,
         sessionMetadataService: options.sessionMetadataService,
         sessionQueuePersistenceService: options.sessionQueuePersistenceService,
       }),
@@ -3184,18 +3177,12 @@ export function createApp(options: AppOptions): AppResult {
       "/api/projects",
       createProjectQueueRoutes({
         scanner,
-        readerFactory,
+        retainedCollections: {
+          readPublishedProjectRows: (id) =>
+            retainedCollections!.readPublishedProjectRows(id),
+        },
         projectQueueService: options.projectQueueService,
         projectQueueScheduler,
-        sessionIndexService: options.sessionIndexService,
-        codexSessionsDir,
-        codexReaderFactory,
-        geminiSessionsDir,
-        geminiReaderFactory,
-        grokSessionsDir,
-        grokReaderFactory,
-        piSessionsDir,
-        piReaderFactory,
         sessionMetadataService: options.sessionMetadataService,
         userUsageService: options.userUsageService,
       }),

@@ -1346,11 +1346,12 @@ export class ProjectScanner {
   async getOrCreateProject(
     projectId: string,
     preferredProvider?: "claude" | "codex" | "gemini",
+    options?: GetProjectOptions,
   ): Promise<Project | null> {
     let resolvedProjectId = projectId;
 
     // First check if project already exists
-    const existing = await this.getProject(resolvedProjectId);
+    const existing = await this.getProject(resolvedProjectId, options);
     if (existing) return existing;
 
     // Decode the projectId to get the path
@@ -1364,7 +1365,7 @@ export class ProjectScanner {
     const canonicalProjectPath = canonicalizeProjectPath(projectPath);
     if (canonicalProjectPath !== projectPath) {
       const canonicalId = encodeProjectId(canonicalProjectPath);
-      const canonicalProject = await this.getProject(canonicalId);
+      const canonicalProject = await this.getProject(canonicalId, options);
       if (canonicalProject) {
         return canonicalProject;
       }

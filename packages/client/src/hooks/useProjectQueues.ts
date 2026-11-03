@@ -79,6 +79,8 @@ const PROJECT_QUEUE_REVALIDATE_EVENTS = [
   "refresh",
   "reconnect",
   "project-queue-changed",
+  "session-catalog-updated",
+  "session-metadata-changed",
   "session-queue-persistence-changed",
 ] as const;
 

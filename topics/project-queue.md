@@ -163,8 +163,15 @@ the Project Queue inert forever.
 Queue collection reads are retained projections, not provider discovery
 triggers. Existing-session titles come from the
 [`compact session catalog`](session-catalog-observation.md) plus immediate YA
-metadata; unresolved titles remain nullable while one exact background repair
-runs. Repeated queue reads with unchanged state perform no provider,
+metadata. Project and global queue reads share the catalog's accepted project
+shard read, including after restart; concurrent requests join its source-versioned
+read owner. A public session ID selects its exact native binding and original
+project, with the working project checked against the queue's project. Legacy
+lookups require unambiguous project/provider membership. No match means unknown
+rather than confirmed absence: titles remain nullable until normal catalog
+reconciliation supplies them. Queue reads do not initiate provider discovery,
+native replay, identity adoption or title enrichment. Immediate custom metadata
+still takes precedence. Repeated queue reads with unchanged state perform no provider,
 session-index miss, transcript, or all-project work.
 
 A limited user's global queue collection and promote-now response project
@@ -179,7 +186,12 @@ transitions update one server-owned project-status projection and publish a
 versioned delta. Client components share one source/query revalidation owner.
 They render countdowns from server timestamps and may arm one exact
 source-level deadline or capability-gated legacy poll; they never each start a
-fixed interval. An event that lacks title fields must merge as a partial patch
+fixed interval. Existing catalog publications and user-set session metadata
+changes revalidate that same shared source/query owner, so newly published or
+renamed titles reach all mounted queue consumers. These are optional existing
+events: older servers retain the normal refresh/reconnect/queue-event path;
+no new wire field, action or capability meaning is required.
+An event that lacks title fields must merge as a partial patch
 and cannot erase a known catalog-backed title.
 
 The configurable range is 0-300 seconds, default 30 seconds. A value of 0 means

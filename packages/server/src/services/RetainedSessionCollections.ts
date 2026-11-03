@@ -1,5 +1,10 @@
+import { getProjectIdentityKey } from "../projects/paths.js";
 import { stat } from "node:fs/promises";
-import type { RetainedSessionCollectionState } from "@yep-anywhere/shared";
+import {
+  fromUrlProjectId,
+  type UrlProjectId,
+  type RetainedSessionCollectionState,
+} from "@yep-anywhere/shared";
 import {
   catalogAdaptersForRows,
   catalogFileVersion,
@@ -116,6 +121,21 @@ export class RetainedSessionCollections {
     return this.initialized
       ? this.catalog.readRows({ recoverUnreadable: false })
       : { rows: [] };
+  }
+
+  /** Restore one accepted project shard without discovery, enrichment or adoption. */
+  async readPublishedProjectRows(
+    projectId: UrlProjectId,
+  ): Promise<readonly Readonly<SessionCatalogRow>[]> {
+    this.controller.signal.throwIfAborted();
+    await this.initialize();
+    this.controller.signal.throwIfAborted();
+    const accepted = await this.catalog.readProjectRows(
+      getProjectIdentityKey(fromUrlProjectId(projectId)),
+      { recoverUnreadable: false },
+    );
+    this.controller.signal.throwIfAborted();
+    return accepted.rows;
   }
 
   async read() {
