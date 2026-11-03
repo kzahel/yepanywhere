@@ -26,6 +26,7 @@ import {
   useAttachmentUploadQuality,
 } from "../../hooks/useAttachmentUploadQuality";
 import { useKeepMobileKeyboardOpenAfterDelivery } from "../../hooks/useKeepMobileKeyboardOpenAfterDelivery";
+import { useBackgroundSessionCreation } from "../../hooks/useBackgroundSessionCreation";
 import { useQuestionAsideSetting } from "../../hooks/useQuestionAsideSetting";
 import { api } from "../../api/client";
 import { useProjects } from "../../hooks/useProjects";
@@ -162,6 +163,7 @@ interface MessageDeliveryBaseline {
   projectQueueCtrlEnterEnabled: boolean;
   keepMobileKeyboardOpenAfterDelivery: boolean;
   questionAsidesEnabled: boolean;
+  backgroundSessionCreation: boolean;
   attachmentQuality: AttachmentUploadQuality;
   rendez: RendezSettingsValue;
 }
@@ -255,6 +257,8 @@ export function MessageDeliverySettings() {
     keepMobileKeyboardOpenAfterDelivery,
     setKeepMobileKeyboardOpenAfterDelivery,
   } = useKeepMobileKeyboardOpenAfterDelivery();
+  const { backgroundSessionCreation, setBackgroundSessionCreation } =
+    useBackgroundSessionCreation();
   const { questionAsidesEnabled, setQuestionAsidesEnabled } =
     useQuestionAsideSetting();
   const [attachmentQuality, setAttachmentQuality] =
@@ -361,6 +365,7 @@ export function MessageDeliverySettings() {
           DEFAULT_PROJECT_QUEUE_CTRL_ENTER_ENABLED,
         keepMobileKeyboardOpenAfterDelivery,
         questionAsidesEnabled,
+        backgroundSessionCreation,
         attachmentQuality,
         rendez: settings.rendez ?? RENDEZ_OFF,
       };
@@ -369,6 +374,7 @@ export function MessageDeliverySettings() {
     attachmentQuality,
     keepMobileKeyboardOpenAfterDelivery,
     questionAsidesEnabled,
+    backgroundSessionCreation,
     settings,
   ]);
 
@@ -544,6 +550,7 @@ export function MessageDeliverySettings() {
       keepMobileKeyboardOpenAfterDelivery !==
         baseline.keepMobileKeyboardOpenAfterDelivery ||
       questionAsidesEnabled !== baseline.questionAsidesEnabled ||
+      backgroundSessionCreation !== baseline.backgroundSessionCreation ||
       attachmentQuality !== baseline.attachmentQuality ||
       (supportsRendez && !sameRendezChoices(shownRendez, baseline.rendez)));
 
@@ -551,6 +558,7 @@ export function MessageDeliverySettings() {
     const snapshot = baselineRef.current;
     if (!snapshot) return;
     setQuestionAsidesEnabled(snapshot.questionAsidesEnabled);
+    setBackgroundSessionCreation(snapshot.backgroundSessionCreation);
     setAttachmentQuality(snapshot.attachmentQuality);
     setDraftJoinWindow(null);
     setDraftProjectQueueQuiet(null);
@@ -609,6 +617,7 @@ export function MessageDeliverySettings() {
     setAttachmentQuality,
     setKeepMobileKeyboardOpenAfterDelivery,
     setQuestionAsidesEnabled,
+    setBackgroundSessionCreation,
     supportsClearloop,
     supportsReadinessCheck,
     supportsRendez,
@@ -870,6 +879,21 @@ export function MessageDeliverySettings() {
               {t("messageDeliveryTurnTimestampsAfter")}
             </option>
           </select>
+        </SettingsItem>
+
+        <SettingsItem
+          as="label"
+          label={t("sessionCreationBackgroundSettingTitle")}
+          description={t("sessionCreationBackgroundSettingDescription")}
+        >
+          <input
+            type="checkbox"
+            checked={backgroundSessionCreation}
+            onChange={(event) =>
+              setBackgroundSessionCreation(event.target.checked)
+            }
+            aria-label={t("sessionCreationBackgroundSettingTitle")}
+          />
         </SettingsItem>
 
         <SettingsItem

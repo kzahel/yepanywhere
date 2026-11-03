@@ -75,6 +75,7 @@ export const UI_KEYS = {
   keepMobileKeyboardOpenAfterDelivery:
     "yep-anywhere-keep-mobile-keyboard-open-after-delivery",
   questionAsides: "yep-anywhere-question-asides",
+  backgroundSessionCreation: "yep-anywhere-background-session-creation",
   questionReminderTurns: "yep-anywhere-question-reminder-turns",
   developerMode: "yep-anywhere-developer-mode",
   conversationView: "yep-anywhere-conversation-view-enabled",

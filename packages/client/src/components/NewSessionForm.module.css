@@ -538,3 +538,29 @@
 .creationRecovery button {
   min-height: 2.75rem;
 }
+
+.backgroundActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+}
+
+.backgroundButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.backgroundButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

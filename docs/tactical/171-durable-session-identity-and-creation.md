@@ -9,7 +9,7 @@ creation engines are retired. Final lint, format, typecheck and complete
 workspace tests pass: **6,924 server / 7,067 client** cases. Focused owned-profile
 local/hosted browser, Bun and actual Claude CLI checks pass. Each coherent slice
 received one Sol 6.1 High review; no repeat review cycle was used. Broader
-receipts advertisement, optional background UX, native-copy result-loss
+receipts advertisement, native-copy result-loss
 reconciliation and wider OS/external qualification remain explicit limits.
 
 The November 1 foundation and November 2 Claude/Codex milestone history below
@@ -23,6 +23,47 @@ Sol 6.1 High separately accepted this documentation addition on 2026-11-01.
 The November 3 consolidation below completes the common caller rollout. The
 provenance audit is narrowed to lost native-copy result correlation; it no
 longer lists missing ordinary caller source writes.
+
+## Optional background New Session — November 3
+
+The next selected product slice implements the
+[background action contract](../../topics/session-creation.sketches.md#implemented-optional-background-creation--november-3)
+on the completed admission foundation. Message Delivery has one browser-local,
+default-off setting with Undo. Ordinary New Session gains the visible action
+and Command-Enter, retains settings and newer drafts, acknowledges captured
+text/files and offers Open for startup status without automatic navigation or
+another poller. Old servers retain ordinary creation; no server contract changes.
+
+Focused checks pass: 124 form/settings/recovery unit cases (5.98 seconds), three
+owned browser cases (19.6 seconds, one worker/no retries), including routed
+Claude with 200 saved sessions and sequential typing within 100 ms under
+concurrent updates; Codex attachment acknowledgement, button/shortcut creates,
+distinct operations and both eventual consumed inputs; and lost acceptance/read
+replies across reload with newer work and no duplicate create. Actual npm 0.11.0
+keeps the action hidden even with the preference enabled and still completes
+ordinary creation/history reload. Desktop 1000×600 and phone 375×812 captures
+are inspected and archived at
+`.artifacts/ui-testing/2026-11-03-background-creation-final/` through the shared capture
+facility. New styles use the existing component module; coupled legacy CSS
+extraction is deferred by the touched-owner report.
+
+The single localhost:3400 Sol review uses verified `gpt-6.1-sol`, High and
+`bypassPermissions`. It requested a speech-finalization correction and the
+existing speech-prefix disclosure on the action. Both are corrected: a final
+spoken send waits behind the pending manual background intent, with one
+submission after successful settlement; the button shares Start's cue/tooltip/
+accessible disclosure. The focused component regression checks the captured
+payload, preserved newer dictation, one acceptance, background confirmation and
+no navigation. The reviewer is verified stopped; there is no second review.
+Root lint, format, typecheck
+and workspace tests pass after the corrections: 6,901 server cases (142.16
+seconds), 7,074 client cases (128.15 seconds), 967 shared, 139 relay and 45 push-broker cases. Console scan
+remains at its existing 108-site budget. Existing upstream SQLite/negative-path
+diagnostics and the two unowned jsdom navigation diagnostics remain recorded in
+[the tooling gap](../../gaps/runtime-cutover-tooling-warnings.md) and
+[the navigation gap](../../gaps/client-unit-navigation-diagnostics.md); the
+focused touched-area checks add none.
+This slice adds no wider external-account or Linux/Windows qualification.
 
 ## Selected cleanup — current clients and legacy removal
 

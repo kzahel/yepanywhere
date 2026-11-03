@@ -477,3 +477,184 @@ for (const boundary of ["POST", "GET"] as const)
       await f.dispose();
     }
   });
+
+test("background creation keeps options, clears captured files, and supports the next Command-Enter request", async ({
+  browser,
+}) => {
+  const f = await fixture(browser);
+  try {
+    const page = await f.context.newPage();
+    const formUrl = `${f.origin}/new-session?projectId=${f.projectId}&provider=codex&model=gpt-6.1-sol`;
+    await page.goto(formUrl);
+    await expect(
+      page.getByRole("button", { name: "Create in background", exact: true }),
+    ).toHaveCount(0);
+    await page.goto(`${f.origin}/settings/message-delivery`);
+    await page
+      .getByRole("checkbox", {
+        name: "Create sessions in background",
+        exact: true,
+      })
+      .check();
+    await page.goto(formUrl);
+    const input = page.locator("textarea.new-session-form-textarea");
+    await input.pressSequentially("Review the session creation changes");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "context.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("owned background attachment"),
+    });
+    const posts: Record<string, unknown>[] = [];
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        new URL(request.url()).pathname.endsWith("/session-creations")
+      )
+        posts.push(request.postDataJSON());
+    });
+    const accepted = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname.endsWith("/session-creations"),
+    );
+    await page
+      .getByRole("button", { name: "Create in background", exact: true })
+      .click();
+    const response = await accepted;
+    expect(response.status()).toBe(202);
+    const receipt = await response.json();
+    await expect(input).toHaveValue("");
+    await expect(input).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "Remove context.txt", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "Session saved. Ready for your next draft. Open for startup status.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    expect(page.url()).toBe(formUrl);
+    expect(posts[0]).toMatchObject({
+      provider: "codex",
+      model: "gpt-6.1-sol",
+      message: "Review the session creation changes",
+      stagedAttachments: [
+        expect.objectContaining({ originalName: "context.txt" }),
+      ],
+    });
+    await input.pressSequentially("Check the draft recovery behavior next");
+    // A composing Enter and a shortcut in a different control must not submit.
+    await input.dispatchEvent("keydown", {
+      key: "Enter",
+      metaKey: true,
+      isComposing: true,
+    });
+    expect(posts).toHaveLength(1);
+    await page
+      .getByRole("button", { name: "Open saved session", exact: true })
+      .focus();
+    await page.keyboard.press("Meta+Enter");
+    expect(posts).toHaveLength(1);
+    for (const [name, viewport] of [
+      ["desktop", { width: 1000, height: 600 }],
+      ["phone", { width: 375, height: 812 }],
+    ] as const) {
+      await page.setViewportSize(viewport);
+      await recordUiCapture(page, `background-creation-${name}`);
+    }
+    await input.focus();
+    const second = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname.endsWith("/session-creations"),
+    );
+    await input.press("Meta+Enter");
+    const secondResponse = await second;
+    expect(secondResponse.status()).toBe(202);
+    const secondReceipt = await secondResponse.json();
+    await expect(input).toHaveValue("");
+    expect(posts).toHaveLength(2);
+    expect(posts[1]).toMatchObject({
+      provider: "codex",
+      model: "gpt-6.1-sol",
+      message: "Check the draft recovery behavior next",
+    });
+    expect(posts[1]!.requestId).not.toBe(posts[0]!.requestId);
+    expect(page.url()).toBe(formUrl);
+    // The first accepted attempt remains independently readable while startup is held.
+    expect(
+      (await f.owned.request(`/session-creations/${receipt.requestId}`)).status,
+    ).toBe(200);
+    await f.owned.releaseAck();
+    await f.owned.releaseReply();
+    for (const saved of [receipt, secondReceipt]) {
+      await expect
+        .poll(
+          async () =>
+            (
+              await (
+                await f.owned.request(`/session-creations/${saved.requestId}`)
+              ).json()
+            ).creation.delivery,
+        )
+        .toBe("consumed");
+    }
+    expect(page.url()).toBe(formUrl);
+    await page.reload();
+    await expect(input).toHaveValue("");
+    await expect(
+      page.getByRole("button", { name: "Create in background", exact: true }),
+    ).toBeDisabled();
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("background lost acknowledgement reloads into explicit recovery without duplicate creation", async ({
+  browser,
+}) => {
+  const f = await fixture(browser);
+  let loseRead = true,
+    posts = 0;
+  try {
+    const page = await f.context.newPage();
+    await page.addInitScript(() =>
+      localStorage.setItem("yep-anywhere-background-session-creation", "true"),
+    );
+    const formUrl = `${f.origin}/new-session?projectId=${f.projectId}&provider=codex&model=gpt-6.1-sol`;
+    await page.goto(formUrl);
+    const input = page.locator("textarea.new-session-form-textarea");
+    await input.pressSequentially("Keep my unconfirmed request recoverable");
+    await page.route("**/api/session-creations/*", (route) =>
+      loseRead ? route.abort("failed") : route.continue(),
+    );
+    await page.route("**/session-creations", async (route) => {
+      posts++;
+      expect((await route.fetch()).status()).toBe(202);
+      await route.abort("failed");
+    });
+    await page
+      .getByRole("button", { name: "Create in background", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Check saved session", exact: true }),
+    ).toBeVisible();
+    await expect(input).toHaveValue("Keep my unconfirmed request recoverable");
+    await page.reload();
+    await expect(input).toHaveValue("Keep my unconfirmed request recoverable");
+    await input.pressSequentially(" with newer notes");
+    loseRead = false;
+    await page
+      .getByRole("button", { name: "Check saved session", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/sessions\/[^/]+$/);
+    await page.goto(formUrl);
+    await expect(input).toHaveValue(
+      "Keep my unconfirmed request recoverable with newer notes",
+    );
+    expect(posts).toBe(1);
+  } finally {
+    await f.dispose();
+  }
+});

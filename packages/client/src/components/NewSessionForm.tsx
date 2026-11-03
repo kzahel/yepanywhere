@@ -82,6 +82,7 @@ import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useToastContext } from "../contexts/ToastContext";
 import { useBrowserXaiSttApiKey } from "../hooks/useBrowserXaiSttApiKey";
 import { useDraftPersistence } from "../hooks/useDraftPersistence";
+import { useBackgroundSessionCreation } from "../hooks/useBackgroundSessionCreation";
 import { useProjectFileCompletion } from "../hooks/useProjectFileCompletion";
 import { ProjectFileCompletionMenu } from "./ProjectFileCompletionMenu";
 import { createNewSessionDraftKey } from "../hooks/useDrafts";
@@ -299,7 +300,10 @@ interface PendingSpeechFinal {
   metadata?: SpeechTranscriptionResultMetadata;
 }
 
-type PendingNewSessionSpeechDeliveryIntent = "start" | "project-queue";
+type PendingNewSessionSpeechDeliveryIntent =
+  | "start"
+  | "background"
+  | "project-queue";
 
 interface PendingNewSessionSpeechDelivery {
   kind: PendingNewSessionSpeechDeliveryIntent;
@@ -566,6 +570,8 @@ export function NewSessionForm({
   const [acceptedCreation, setAcceptedCreation] = useState<
     | (import("@yep-anywhere/shared").SessionCreationReceipt & {
         sourceKey: string;
+        accountKey: string | null;
+        background: boolean;
       })
     | null
   >(null);
@@ -685,6 +691,7 @@ export function NewSessionForm({
   // form reads them so it stops presenting a choice that would be refused.
   // See topics/limited-users.md § Delivery v1.
   const { principal, resolved: principalResolved } = useActingPrincipal();
+  const { backgroundSessionCreation } = useBackgroundSessionCreation();
   creationViewOwner.current.accountKey = principal.username;
   const pendingCreation = useMemo(
     () =>
@@ -759,6 +766,14 @@ export function NewSessionForm({
   const allowProjectQueue = launch?.allowProjectQueue ?? true;
   const fixedProject = launch?.fixedProject ?? fixedProjectProp;
   const composerMuted = launch?.composer === "muted";
+  const canCreateInBackground =
+    backgroundSessionCreation &&
+    !launch &&
+    !composerMuted &&
+    serverHasCapability(
+      versionInfo,
+      SERVER_CAPABILITIES.sessionCreationAdmission.name,
+    );
   const showProviderAndModel = !(launch?.fixedProviderModel ?? false);
   // A locked field is stated in the fixed-launch caption instead of offered.
   const showProviderPicker = showProviderAndModel && !launchLock.provider;
@@ -2859,10 +2874,15 @@ export function NewSessionForm({
       messageOverride?: unknown,
       speechTriggered = false,
       propagateFailure = false,
+      background = false,
     ) => {
       const override =
         typeof messageOverride === "string" ? messageOverride : undefined;
-      if (override === undefined && deferSpeechDelivery("start")) {
+      if (background && !canCreateInBackground) return;
+      if (
+        override === undefined &&
+        deferSpeechDelivery(background ? "background" : "start")
+      ) {
         return;
       }
 
@@ -3226,11 +3246,14 @@ export function NewSessionForm({
             );
           setIsStarting(false);
           setAcceptingText(false);
-          if (!cleared) {
+          if (background || !cleared) {
             setAcceptedCreation({
               ...receipt,
               sourceKey: clientSummarySourceKey,
+              accountKey: principal.username,
+              background,
             });
+            if (background) textareaRef.current?.focus();
             return true;
           }
           navigate(
@@ -3353,6 +3376,7 @@ export function NewSessionForm({
     },
     [
       basePath,
+      canCreateInBackground,
       newSessionDraftKey,
       principal.username,
       principalResolved,
@@ -3590,7 +3614,12 @@ export function NewSessionForm({
         void handleQueueProjectSession(pending.visibleTextSnapshot);
         return;
       }
-      void handleStartSession(pending.visibleTextSnapshot);
+      void handleStartSession(
+        pending.visibleTextSnapshot,
+        false,
+        false,
+        pending.kind === "background",
+      );
     } finally {
       dispatchingSettledSpeechDeliveryRef.current = false;
     }
@@ -3601,6 +3630,19 @@ export function NewSessionForm({
   }, []);
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (
+      e.key === "Enter" &&
+      e.metaKey &&
+      !e.ctrlKey &&
+      !e.shiftKey &&
+      !e.altKey &&
+      !e.nativeEvent.isComposing &&
+      canCreateInBackground
+    ) {
+      e.preventDefault();
+      void handleStartSession(undefined, false, false, true);
+      return;
+    }
     if (fileCompletion.onKeyDown(e)) return;
     if (isFullPaneComposerShortcut(e)) {
       e.preventDefault();
@@ -3864,6 +3906,11 @@ export function NewSessionForm({
           onSpeechTargetChanged: () =>
             setSpeechPreviewRevision((revision) => revision + 1),
           onSmartTurnSend: (text) => {
+            // A deliberate background submission already owns the captured
+            // draft. Let finalization settle it instead of starting a second,
+            // foreground submission from the transcription's spoken command.
+            if (pendingSpeechDeliveryRef.current?.kind === "background")
+              return false;
             voiceButtonRef.current?.continueAfterSpeechSend();
             void handleStartSession(text, true);
           },
@@ -4464,6 +4511,35 @@ export function NewSessionForm({
             </button>
           </div>
         </div>
+        {canCreateInBackground && (
+          <div className={styles.backgroundActions}>
+            <button
+              type="button"
+              className={styles.backgroundButton}
+              onClick={() =>
+                void handleStartSession(undefined, false, false, true)
+              }
+              disabled={
+                isStarting ||
+                creatingTemplateProject ||
+                templateProjectBusy ||
+                !canStart
+              }
+              title={describePrefixedTooltip(
+                t("sessionCreationBackgroundShortcut"),
+              )}
+              aria-label={describePrefixedDelivery(
+                t("sessionCreationBackgroundAction"),
+              )}
+            >
+              {t("sessionCreationBackgroundAction")}
+              {manualDeliverySpeechPrefix && (
+                <SpeechPrefixActionCue prefix={manualDeliverySpeechPrefix} />
+              )}
+              <kbd>⌘↵</kbd>
+            </button>
+          </div>
+        )}
         {pendingFiles.length > 0 && (
           <div className={styles.pendingFilesList}>
             {pendingFiles.map((pf) => {
@@ -5435,9 +5511,16 @@ export function NewSessionForm({
   const creationRecovery = (
     <>
       {acceptedCreation &&
-        acceptedCreation.sourceKey === clientSummarySourceKey && (
+        acceptedCreation.sourceKey === clientSummarySourceKey &&
+        acceptedCreation.accountKey === principal.username && (
           <div role="status" className={styles.creationRecovery}>
-            <span>{t("sessionCreationNewerDraft")}</span>
+            <span>
+              {t(
+                acceptedCreation.background
+                  ? "sessionCreationBackgroundSaved"
+                  : "sessionCreationNewerDraft",
+              )}
+            </span>
             <button
               type="button"
               onClick={() =>

@@ -73,6 +73,7 @@ describe("MessageDeliverySettings", () => {
     mockUpdateSettings.mockResolvedValue(undefined);
     window.localStorage.clear();
     invalidateLocalStorageValues(UI_KEYS.keepMobileKeyboardOpenAfterDelivery);
+    invalidateLocalStorageValues(UI_KEYS.backgroundSessionCreation);
   });
 
   afterEach(() => {
@@ -311,6 +312,14 @@ describe("MessageDeliverySettings", () => {
 
     // Untouched pane registers no undo.
     expect(holder.registration).toBeNull();
+    const background = screen.getByLabelText(
+      "sessionCreationBackgroundSettingTitle",
+    );
+    expect((background as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(background);
+    expect(localStorage.getItem(UI_KEYS.backgroundSessionCreation)).toBe(
+      "true",
+    );
 
     fireEvent.click(
       screen.getByLabelText("messageDeliveryComposeAnchorsTitle"),
@@ -321,6 +330,10 @@ describe("MessageDeliverySettings", () => {
     await act(async () => {
       await holder.registration?.undo();
     });
+    expect((background as HTMLInputElement).checked).toBe(false);
+    expect(localStorage.getItem(UI_KEYS.backgroundSessionCreation)).toBe(
+      "false",
+    );
     expect(mockUpdateSettings).toHaveBeenLastCalledWith({
       deferredJoinWindowSeconds: 20,
       projectQueueQuietSeconds: DEFAULT_PROJECT_QUEUE_QUIET_SECONDS,

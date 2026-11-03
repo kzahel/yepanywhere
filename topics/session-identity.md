@@ -666,6 +666,11 @@ and the isolated older-server creation adapter remain supported.
 
 ## Provider-only runtime execution
 
+The optional [background New Session action](session-creation.sketches.md#implemented-optional-background-creation--november-3)
+uses this same admission/recovery contract. Its default-off browser preference
+changes navigation and acknowledgement presentation, not public/native identity,
+provider dispatch or the meaning of a saved receipt.
+
 Production bootstrap and Supervisor use `AgentProvider` for every launch,
 empty preparation, activation, resume and worker-queue dispatch. There is no
 independent SDK launch engine or SDK constructor option. Explicit `null`

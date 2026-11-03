@@ -610,6 +610,13 @@ focused Claude/Codex browser checks, actual npm 0.11.0 compatibility, owned prof
 performance-harness smokes and full workspace gates pass; broader account/platform
 qualification is not claimed by this cleanup.
 
+The next product slice, optional [background New Session creation](../../topics/session-creation.sketches.md#implemented-optional-background-creation--november-3),
+uses that shared contract: a default-off browser setting enables a visible action
+and Command-Enter, keeps the form after acceptance and preserves newer drafts.
+The latest confirmation opens the saved session for startup status. It adds no
+provider lifecycle or status polling path. Focused Claude/Codex qualification,
+desktop/phone captures and one Sol review are recorded in plan 171.
+
 Current consolidation status (November 3): all production native creation
 callers now share permanent-public-ID admission, including restricted starts,
 legacy initial inputs, forks/clones and template preparation. Duplicate

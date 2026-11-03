@@ -34,6 +34,7 @@ import {
 } from "../../lib/speechProviders/methods";
 import { api } from "../../api/client";
 import { UI_KEYS } from "../../lib/storageKeys";
+import { invalidateLocalStorageValues } from "../../lib/localStorageValue";
 import {
   ConnectionReconnectingError,
   WebSocketCloseError,
@@ -4635,6 +4636,70 @@ describe("NewSessionForm", () => {
     });
     expect(mockStartSession.mock.calls[0]?.[1]).not.toContain(
       "backend final words",
+    );
+  });
+
+  it("keeps a pending background action authoritative over a final spoken send", async () => {
+    localStorage.setItem(UI_KEYS.backgroundSessionCreation, "true");
+    localStorage.setItem(UI_KEYS.speechAsrAttributionMs, "500");
+    invalidateLocalStorageValues(UI_KEYS.backgroundSessionCreation);
+    versionState.version = {
+      capabilities: [SERVER_CAPABILITIES.sessionCreationAdmission.name],
+    };
+    mockConnectionFetch.mockResolvedValue({
+      requestId: "background-speech",
+      sessionId: "saved-background",
+      projectId: "project-1",
+    });
+    render(
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />,
+    );
+    const textarea = screen.getByPlaceholderText("newSessionPlaceholder");
+    fireEvent.change(textarea, {
+      target: { value: "Captured background request" },
+    });
+    act(() => {
+      voicePropsState.current?.onPendingSpeechChange?.("transcribing");
+      voicePropsState.current?.onInterimTranscript?.("provisional speech");
+    });
+    const background = screen.getByRole("button", {
+      name: "sessionCreationBackgroundAction. Prepends [ASR].",
+    });
+    expect((background as HTMLButtonElement).disabled).toBe(false);
+    expect(background.textContent).toContain("ASR");
+    expect(background.getAttribute("title")).toContain("Prepends [ASR]");
+    fireEvent.click(background);
+    expect(mockConnectionFetch).not.toHaveBeenCalled();
+    act(() =>
+      voicePropsState.current?.onTranscript?.("newer dictated notes", {
+        smartTurnCommand: "send",
+      }),
+    );
+    expect(mockVoiceContinueAfterSpeechSend).not.toHaveBeenCalled();
+    expect(mockConnectionFetch).not.toHaveBeenCalled();
+    act(() =>
+      voicePropsState.current?.onPendingSpeechChange?.(null, "completed"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText("sessionCreationBackgroundSaved"),
+      ).not.toBeNull(),
+    );
+    expect(mockConnectionFetch).toHaveBeenCalledOnce();
+    const [, request] = mockConnectionFetch.mock.calls[0]!;
+    expect(JSON.parse(request.body).message).toContain(
+      "[ASR] Captured background request",
+    );
+    expect(JSON.parse(request.body).message).not.toContain(
+      "newer dictated notes",
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect((textarea as HTMLTextAreaElement).value).toContain(
+      "newer dictated notes",
     );
   });
 

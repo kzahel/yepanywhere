@@ -544,7 +544,7 @@ test("retiring the form before acceptance preserves recovery and never creates t
   }
 });
 
-test("typing during delayed acceptance stays responsive with 200 saved sessions and preserves the newer draft", async ({
+test("background typing during delayed acceptance stays responsive with 200 saved sessions and preserves the newer draft", async ({
   browser,
 }) => {
   const owned = await fixture(false, 200);
@@ -560,6 +560,9 @@ test("typing during delayed acceptance stays responsive with 200 saved sessions 
   let receipt!: { sessionId: string; projectId: string };
   try {
     const formUrl = `${owned.origin}/new-session?projectId=${owned.projectId}&provider=claude&model=sonnet`;
+    await page.addInitScript(() =>
+      localStorage.setItem("yep-anywhere-background-session-creation", "true"),
+    );
     await page.goto(formUrl);
     const composer = page.locator("textarea.new-session-form-textarea");
     await composer.pressSequentially(prompt);
@@ -571,7 +574,7 @@ test("typing during delayed acceptance stays responsive with 200 saved sessions 
       await route.fulfill({ response });
     });
     await page
-      .getByRole("button", { name: "Start session", exact: true })
+      .getByRole("button", { name: "Create in background", exact: true })
       .click();
     await admitted;
     await expect.poll(() => owned.modelRequests.length).toBe(1);
