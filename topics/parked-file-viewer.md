@@ -213,6 +213,10 @@ synthetic click replay would lose browser user activation.
 
 ## Controller ownership
 
+Shared React publication and subscription requirements live in
+[React state patterns](react-state-patterns.md); the viewer-specific ownership
+and lifetime requirements follow here.
+
 Viewer headers share `ViewerWindowActions`: an unboxed chain-link followed by
 boxed move to new tab, minimize and close controls. File viewers keep the
 chain-link in their file toolbar while the three window controls can move to

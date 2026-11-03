@@ -11,6 +11,9 @@ as a normal turn.
 
 Topic: ui-architecture
 
+For React state ownership, effect-driven publication, external-store snapshots,
+and subscription boundaries, read [React state patterns](react-state-patterns.md).
+
 ## Render Boundary Principle
 
 When two views present the same model data, prefer to share the component,

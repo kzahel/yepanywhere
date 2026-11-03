@@ -11,6 +11,9 @@ or interaction, read [UI design](../../topics/ui-design.md); for UI tweaks and
 browser verification, read [UI testing](../../topics/ui-testing.md). These
 topics own the detailed procedures, including user-owned visual verification.
 
+For React state ownership, effects that publish state, external-store snapshots,
+or subscriptions, read [React state patterns](../../topics/react-state-patterns.md).
+
 ## Settings Documentation Links
 
 When adding or changing a setting whose effect is not evident from its title
