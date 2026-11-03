@@ -121,6 +121,10 @@ import { PeerChannelBudget } from "../../src/peer-api/srp-protocol.js";
 import { PeerDirectory } from "../../src/peer-api/directory.js";
 import { createRelayServer } from "../../../relay/src/server.js";
 
+// Two protected profiles plus real SRP refresh, access/receipt calls and
+// revocation: CI completed in 3.656/3.194 s, then exhausted 5 s for both
+// transports in run 41630518547. Allow 4x the observed limit for these I/O
+// integration cases; their subject is authentication, not elapsed time.
 it.each(["direct", "relay"] as const)(
   "refreshes over real %s SRP and uses access credentials for session creation, messaging and reads",
   async (kind) => {
@@ -217,6 +221,7 @@ it.each(["direct", "relay"] as const)(
       status: 401,
     });
   },
+  20_000,
 );
 
 it("recovers a target-accepted lost refresh reply from the durable source candidate", async () => {
