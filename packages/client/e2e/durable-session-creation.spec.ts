@@ -573,9 +573,7 @@ test("background typing during delayed acceptance stays responsive with 200 save
       await barrier;
       await route.fulfill({ response });
     });
-    await page
-      .getByRole("button", { name: "Create in background", exact: true })
-      .click();
+    await composer.press("Meta+Enter");
     await admitted;
     await expect.poll(() => owned.modelRequests.length).toBe(1);
     await expect(composer).toBeEnabled();

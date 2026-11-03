@@ -65,6 +65,28 @@ diagnostics and the two unowned jsdom navigation diagnostics remain recorded in
 focused touched-area checks add none.
 This slice adds no wider external-account or Linux/Windows qualification.
 
+The maintainer then selected a smaller presentation: background creation is
+shortcut-only, with no extra button or row. A compact **?** in the existing
+New Session toolbar discloses Command-Enter and full-pane editing, following
+Toolbar → Keyboard shortcuts visibility without disabling the shortcut when
+hidden. Native disclosure handles click/keyboard activation; blur and Escape
+close it. Existing admission, captured acknowledgement and speech ownership
+are unchanged. The focused speech regression now submits with Command-Enter.
+One verified Sol 6.1 High/bypass review found phone clipping when Project Queue
+also appears. The panel is now anchored to the toolbar action boundary, and
+375px checks assert that both the panel and its keys remain in the viewport
+with Queue visible. The reviewer is verified stopped; there is no second cycle.
+The three migrated Claude/Codex browser cases pass (18.7 seconds); the final
+owned built-client layout/capture case passes (6.9 seconds, plus a 7-second
+build). Desktop/phone closed/open captures are inspected at
+`.artifacts/ui-testing/2026-11-03-background-shortcut-final/`. All 109 form unit
+cases pass (6.18 seconds), including shortcut-only pending speech ownership;
+a focused hidden-help/working-shortcut check also passes. Root lint, formatting,
+typecheck and workspace tests pass (6,901 server / 7,074 client cases); the
+post-review layout correction passes focused browser, CSS/lint and type checks.
+Console budget is unchanged. Concurrent fixture changes remain outside this UI
+commit.
+
 ## Selected cleanup — current clients and legacy removal
 
 The maintainer authorized the following three implementation slices after the

@@ -93,10 +93,13 @@ Existing work to preserve and extend:
 
 Settings → Message Delivery → **Create sessions in background** is a
 browser-local preference, default off, with the pane's normal Undo behavior.
-When enabled, ordinary New Session shows **Create in background** and accepts
-Command-Enter from its composer. Both require `session-creation-admission-v1`
+When enabled, ordinary New Session accepts Command-Enter from its composer.
+There is no separate creation button. A small **?** in the existing toolbar
+shows Command-Enter and the full-pane editing shortcut; its visibility follows
+**Toolbar → Keyboard shortcuts**, including the existing phone default. Hiding
+help does not disable Command-Enter. The shortcut requires `session-creation-admission-v1`
 (bit 147); supported older servers keep ordinary creation with no background
-action or new request. This uses the existing admission payload and source/
+shortcut/help or new request. This uses the existing admission payload and source/
 principal-scoped recovery identity; there is no new endpoint or launch engine.
 Launch dialogs, Project Queue and existing-session delivery keep their own
 interaction contracts.
@@ -115,8 +118,8 @@ Ordinary submit/Enter, Ctrl-Enter and full-pane editing retain their behavior.
 Command-Enter respects IME composition, applies only in the composer and carries
 the background intent through pending speech finalization. A final spoken send
 cannot override that pending manual intent or
-send before successful settlement. The action uses the same visible, tooltip
-and accessible speech-prefix disclosure as ordinary Start. Failure keeps input
+send before successful settlement. Shortcut help discloses the current speech
+prefix, and ordinary Start retains its existing prefix cue. Failure keeps input
 recoverable. Lost acknowledgement retains the original operation across reload;
 **Check saved session** is explicit read-only recovery/open, with conditional
 draft settlement and no duplicate create.
@@ -132,7 +135,8 @@ Separate durable request acceptance, provider startup and navigation.
 | Command-Enter | Invoke Create in background when that option is enabled. |
 | Ordinary submit | Retain the existing intent to open the created session, including existing Enter/newline preferences. |
 
-Provide a visible button/menu alternative for touch and keyboard discovery.
+The maintainer selected shortcut-only background creation on November 3; the
+optional **?** is discovery/help, not another creation action.
 Keep background creation configurable and default-off under
 [vanilla defaults](vanilla-defaults.md) unless a later product decision
 explicitly changes that default. The maintainer's requested shortcut is

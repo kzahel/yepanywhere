@@ -539,28 +539,68 @@
   min-height: 2.75rem;
 }
 
-.backgroundActions {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 0.5rem;
-}
-
-.backgroundButton {
+.toolbarActions {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
 }
 
-.backgroundButton:disabled {
-  opacity: 0.5;
-  cursor: default;
+.shortcutsHelp {
+  flex-shrink: 0;
+}
+
+.shortcutsTrigger {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.shortcutsTrigger::-webkit-details-marker {
+  display: none;
+}
+
+.shortcutsQuestion {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.shortcutsTrigger:hover,
+.shortcutsTrigger:focus-visible {
+  color: var(--text-primary);
+}
+
+.shortcutsPopover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  display: grid;
+  gap: var(--space-2);
+  width: min(300px, calc(100dvw - 32px));
+  padding: var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.28);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.shortcutsRow {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.shortcutsRow kbd {
+  font-family: var(--font-mono);
 }

@@ -4666,13 +4666,8 @@ describe("NewSessionForm", () => {
       voicePropsState.current?.onPendingSpeechChange?.("transcribing");
       voicePropsState.current?.onInterimTranscript?.("provisional speech");
     });
-    const background = screen.getByRole("button", {
-      name: "sessionCreationBackgroundAction. Prepends [ASR].",
-    });
-    expect((background as HTMLButtonElement).disabled).toBe(false);
-    expect(background.textContent).toContain("ASR");
-    expect(background.getAttribute("title")).toContain("Prepends [ASR]");
-    fireEvent.click(background);
+    expect(screen.queryByLabelText("newSessionKeyboardShortcuts")).toBeNull();
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
     expect(mockConnectionFetch).not.toHaveBeenCalled();
     act(() =>
       voicePropsState.current?.onTranscript?.("newer dictated notes", {

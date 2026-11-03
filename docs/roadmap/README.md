@@ -611,8 +611,9 @@ performance-harness smokes and full workspace gates pass; broader account/platfo
 qualification is not claimed by this cleanup.
 
 The next product slice, optional [background New Session creation](../../topics/session-creation.sketches.md#implemented-optional-background-creation--november-3),
-uses that shared contract: a default-off browser setting enables a visible action
-and Command-Enter, keeps the form after acceptance and preserves newer drafts.
+uses that shared contract: a default-off browser setting enables Command-Enter,
+keeps the form after acceptance and preserves newer drafts. The optional **?**
+shares Toolbar shortcut-help visibility; there is no separate creation button.
 The latest confirmation opens the saved session for startup status. It adds no
 provider lifecycle or status polling path. Focused Claude/Codex qualification,
 desktop/phone captures and one Sol review are recorded in plan 171.

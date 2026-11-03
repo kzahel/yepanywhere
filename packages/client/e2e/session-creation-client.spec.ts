@@ -484,10 +484,16 @@ test("background creation keeps options, clears captured files, and supports the
   const f = await fixture(browser);
   try {
     const page = await f.context.newPage();
+    await page.addInitScript(() =>
+      localStorage.setItem(
+        "yep-anywhere-session-toolbar-presence",
+        JSON.stringify({ shortcutsHelp: "pin", projectQueue: "pin" }),
+      ),
+    );
     const formUrl = `${f.origin}/new-session?projectId=${f.projectId}&provider=codex&model=gpt-6.1-sol`;
     await page.goto(formUrl);
     await expect(
-      page.getByRole("button", { name: "Create in background", exact: true }),
+      page.getByLabel("New session keyboard shortcuts", { exact: true }),
     ).toHaveCount(0);
     await page.goto(`${f.origin}/settings/message-delivery`);
     await page
@@ -498,6 +504,16 @@ test("background creation keeps options, clears captured files, and supports the
       .check();
     await page.goto(formUrl);
     const input = page.locator("textarea.new-session-form-textarea");
+    const help = page.getByLabel("New session keyboard shortcuts", {
+      exact: true,
+    });
+    await help.click();
+    await expect(page.getByText("⌘ Enter", { exact: true })).toBeVisible();
+    await help.press("Escape");
+    await expect(page.getByText("⌘ Enter", { exact: true })).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Create in background", exact: true }),
+    ).toHaveCount(0);
     await input.pressSequentially("Review the session creation changes");
     await page.locator('input[type="file"]').setInputFiles({
       name: "context.txt",
@@ -517,9 +533,7 @@ test("background creation keeps options, clears captured files, and supports the
         response.request().method() === "POST" &&
         new URL(response.url()).pathname.endsWith("/session-creations"),
     );
-    await page
-      .getByRole("button", { name: "Create in background", exact: true })
-      .click();
+    await input.press("Meta+Enter");
     const response = await accepted;
     expect(response.status()).toBe(202);
     const receipt = await response.json();
@@ -544,6 +558,9 @@ test("background creation keeps options, clears captured files, and supports the
       ],
     });
     await input.pressSequentially("Check the draft recovery behavior next");
+    await expect(
+      page.locator("button.new-session-project-queue-button"),
+    ).toBeVisible();
     // A composing Enter and a shortcut in a different control must not submit.
     await input.dispatchEvent("keydown", {
       key: "Enter",
@@ -561,7 +578,23 @@ test("background creation keeps options, clears captured files, and supports the
       ["phone", { width: 375, height: 812 }],
     ] as const) {
       await page.setViewportSize(viewport);
-      await recordUiCapture(page, `background-creation-${name}`);
+      await recordUiCapture(page, `background-shortcut-${name}`);
+      await help.click();
+      await expect(page.getByText("⌘ Enter", { exact: true })).toBeVisible();
+      const panel = await page
+        .getByText("New session keyboard shortcuts", { exact: true })
+        .locator("..")
+        .boundingBox();
+      const keys = await page
+        .getByText("⌘ Enter", { exact: true })
+        .boundingBox();
+      for (const bounds of [panel, keys]) {
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+      }
+      await recordUiCapture(page, `background-shortcut-help-${name}`);
+      await help.press("Escape");
     }
     await input.focus();
     const second = page.waitForResponse(
@@ -605,7 +638,7 @@ test("background creation keeps options, clears captured files, and supports the
     await expect(input).toHaveValue("");
     await expect(
       page.getByRole("button", { name: "Create in background", exact: true }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
   } finally {
     await f.dispose();
   }
@@ -634,9 +667,13 @@ test("background lost acknowledgement reloads into explicit recovery without dup
       expect((await route.fetch()).status()).toBe(202);
       await route.abort("failed");
     });
-    await page
-      .getByRole("button", { name: "Create in background", exact: true })
-      .click();
+    await expect(
+      page.getByLabel("New session keyboard shortcuts", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Start session", exact: true }),
+    ).toBeEnabled();
+    await input.press("Meta+Enter");
     await expect(
       page.getByRole("button", { name: "Check saved session", exact: true }),
     ).toBeVisible();

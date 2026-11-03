@@ -4446,7 +4446,57 @@ export function NewSessionForm({
               />
             )}
           </div>
-          <div className="new-session-form-toolbar-actions">
+          <div
+            className={`new-session-form-toolbar-actions ${styles.toolbarActions}`}
+          >
+            {canCreateInBackground && toolbarVisibility.shortcutsHelp && (
+              <details
+                className={styles.shortcutsHelp}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget))
+                    event.currentTarget.open = false;
+                }}
+              >
+                <summary
+                  role="button"
+                  className={styles.shortcutsTrigger}
+                  aria-label={t("newSessionKeyboardShortcuts")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      const details = event.currentTarget
+                        .parentElement as HTMLDetailsElement;
+                      details.open = false;
+                    }
+                  }}
+                >
+                  <span className={styles.shortcutsQuestion}>?</span>
+                </summary>
+                <div className={styles.shortcutsPopover}>
+                  <strong>{t("newSessionKeyboardShortcuts")}</strong>
+                  <div className={styles.shortcutsRow}>
+                    <kbd>⌘ Enter</kbd>
+                    <span>
+                      {describePrefixedDelivery(
+                        t("sessionCreationBackgroundAction"),
+                      )}
+                    </span>
+                  </div>
+                  {!compact && (
+                    <div className={styles.shortcutsRow}>
+                      <kbd>Ctrl U</kbd>
+                      <span>
+                        {t(
+                          fullPane
+                            ? "composerFullPaneRestore"
+                            : "composerFullPaneExpand",
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </details>
+            )}
             {toolbarVisibility.projectQueue && showProjectQueueAction && (
               <button
                 type="button"
@@ -4511,35 +4561,6 @@ export function NewSessionForm({
             </button>
           </div>
         </div>
-        {canCreateInBackground && (
-          <div className={styles.backgroundActions}>
-            <button
-              type="button"
-              className={styles.backgroundButton}
-              onClick={() =>
-                void handleStartSession(undefined, false, false, true)
-              }
-              disabled={
-                isStarting ||
-                creatingTemplateProject ||
-                templateProjectBusy ||
-                !canStart
-              }
-              title={describePrefixedTooltip(
-                t("sessionCreationBackgroundShortcut"),
-              )}
-              aria-label={describePrefixedDelivery(
-                t("sessionCreationBackgroundAction"),
-              )}
-            >
-              {t("sessionCreationBackgroundAction")}
-              {manualDeliverySpeechPrefix && (
-                <SpeechPrefixActionCue prefix={manualDeliverySpeechPrefix} />
-              )}
-              <kbd>⌘↵</kbd>
-            </button>
-          </div>
-        )}
         {pendingFiles.length > 0 && (
           <div className={styles.pendingFilesList}>
             {pendingFiles.map((pf) => {
