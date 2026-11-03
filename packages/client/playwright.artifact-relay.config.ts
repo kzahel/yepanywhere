@@ -11,6 +11,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     browserName: "chromium",
+    launchOptions: { chromiumSandbox: true },
     actionTimeout: 10000,
     screenshot: "only-on-failure",
     // The test's private HTTPS gateway uses a disposable self-signed certificate.

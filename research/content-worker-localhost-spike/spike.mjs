@@ -353,7 +353,9 @@ try {
       ? webkit
       : chromium
     ).launchPersistentContext(profile, {
-      ...(scenario.engine === "webkit" ? {} : { channel: "chromium" }),
+      ...(scenario.engine === "webkit"
+        ? {}
+        : { channel: "chromium", chromiumSandbox: true }),
       headless: !process.argv.includes("--headed"),
       viewport: { width: 1000, height: 600 },
     });

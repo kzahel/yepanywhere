@@ -51,7 +51,10 @@ if (location.pathname === '/page') document.querySelector('button').click();`,
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(new Response());
       await server.listen();
-      browser = await chromium.launch({ headless: true });
+      browser = await chromium.launch({
+        chromiumSandbox: true,
+        headless: true,
+      });
       const page = await browser.newPage();
       await page.addInitScript(() => {
         sessionStorage.setItem(

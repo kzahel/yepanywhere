@@ -102,7 +102,7 @@ describe("Markdown preview rich-text copy", () => {
     });
     const { port } = server.address() as AddressInfo;
 
-    browser = await chromium.launch();
+    browser = await chromium.launch({ chromiumSandbox: true });
     context = await browser.newContext({
       permissions: ["clipboard-read", "clipboard-write"],
     });

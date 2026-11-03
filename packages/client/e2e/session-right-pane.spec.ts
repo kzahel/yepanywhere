@@ -14,7 +14,10 @@ const sessionId = "mock-session-001";
 test.use({
   serviceWorkers: "block",
   // Chromium headless otherwise hides native scrollbars from captures.
-  launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] },
+  launchOptions: {
+    chromiumSandbox: true,
+    ignoreDefaultArgs: ["--hide-scrollbars"],
+  },
 });
 
 test("right pane discovers tool apps, resizes, parks and preserves typing", async ({

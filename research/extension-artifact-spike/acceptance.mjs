@@ -307,6 +307,7 @@ try {
   const extension = join(repo, "packages/browser-extension/dist");
   context = await chromium.launchPersistentContext(join(temp, "chromium"), {
     channel: "chromium",
+    chromiumSandbox: true,
     headless: !process.argv.includes("--headed"),
     ignoreDefaultArgs: ["--disable-extensions"],
     viewport: { width: 1000, height: 600 },
@@ -563,6 +564,7 @@ try {
       join(temp, "chromium-" + name),
       {
         channel: "chromium",
+        chromiumSandbox: true,
         headless: true,
         ignoreDefaultArgs: ["--disable-extensions"],
         args: [

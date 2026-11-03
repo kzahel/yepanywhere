@@ -38,7 +38,7 @@ async function measureSteerAtWidth(width: number): Promise<{
 describe("mobile keyboard Steer sizing", () => {
   beforeAll(async () => {
     const css = await readFile(stylesheetUrl, "utf8");
-    browser = await chromium.launch();
+    browser = await chromium.launch({ chromiumSandbox: true });
     page = await browser.newPage();
     await page.setContent(`<!doctype html>
       <style>${css}</style>

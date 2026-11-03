@@ -443,7 +443,7 @@ try {
         await device("shell", "dumpsys", "package", "com.android.chrome")
       ).stdout.match(/versionName=(.*)/)?.[1];
     } else {
-      browser = await chromium.launch();
+      browser = await chromium.launch({ chromiumSandbox: true });
       result.browserVersion = browser.version();
       context = await browser.newContext({
         viewport: { width: 375, height: 812 },

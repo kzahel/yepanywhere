@@ -586,6 +586,7 @@ async function run(options) {
   const manifest = validateManifest(await readJson(options.manifestPath));
   await mkdir(options.outDir, { recursive: true });
   const browser = await chromium.launch({
+    chromiumSandbox: true,
     args: ["--ignore-certificate-errors"],
     headless: !options.headed,
   });

@@ -724,6 +724,7 @@ try {
   } else {
     context = await chromium.launchPersistentContext(profile, {
       channel: "chromium",
+      chromiumSandbox: true,
       headless: !process.argv.includes("--headed"),
       viewport: { width: 1000, height: 600 },
     });

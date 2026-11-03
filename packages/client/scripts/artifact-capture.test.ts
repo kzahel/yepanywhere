@@ -302,7 +302,7 @@ describe("portable artifact capture", { timeout: 45000 }, () => {
 
   it("packages an existing driven page without replacing its screenshots or owning its browser", async () => {
     const files = await fixture();
-    const browser = await chromium.launch();
+    const browser = await chromium.launch({ chromiumSandbox: true });
     try {
       const page = await browser.newPage({
         viewport: { width: 375, height: 812 },

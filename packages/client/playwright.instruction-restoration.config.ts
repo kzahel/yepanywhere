@@ -6,5 +6,5 @@ export default defineConfig({
   workers: 1,
   timeout: 15_000,
   reporter: "list",
-  use: { browserName: "chromium" },
+  use: { launchOptions: { chromiumSandbox: true }, browserName: "chromium" },
 });

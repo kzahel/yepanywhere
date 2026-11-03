@@ -244,7 +244,13 @@ export async function captureArtifact(options: CaptureOptions) {
   await mkdir(output);
   // Before the browser starts, so emoji in the page render as themselves.
   const emojiFont = await ensureColorEmojiFont();
-  const browser = await chromium.launch();
+  // Agent-authored pages are untrusted, so they render in the system's
+  // auto-updated Chrome rather than Playwright's pinned build, which lags
+  // Chrome security fixes, and inside Chrome's sandbox.
+  const browser = await chromium.launch({
+    channel: "chrome",
+    chromiumSandbox: true,
+  });
   const screenshots: {
     name: string;
     width: number;

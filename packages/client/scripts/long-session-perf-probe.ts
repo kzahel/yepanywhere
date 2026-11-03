@@ -1355,6 +1355,7 @@ async function main(): Promise<void> {
   );
 
   const browser = await chromium.launch({
+    chromiumSandbox: true,
     headless: config.headless,
     args: ["--js-flags=--expose-gc"],
   });

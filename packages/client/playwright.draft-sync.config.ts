@@ -7,5 +7,5 @@ export default defineConfig({
   // Handoff includes real 3s debounce intervals; measured 16s locally.
   timeout: 60000,
   reporter: "list",
-  use: { headless: true },
+  use: { launchOptions: { chromiumSandbox: true }, headless: true },
 });

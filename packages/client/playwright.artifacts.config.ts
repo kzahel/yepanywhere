@@ -8,6 +8,7 @@ export default defineConfig({
   workers: 1,
   timeout: 45000,
   reporter: "list",
+  use: { launchOptions: { chromiumSandbox: true } },
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "webkit", use: { browserName: "webkit" } },

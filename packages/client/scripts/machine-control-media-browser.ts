@@ -46,6 +46,7 @@ export async function createMachineControlMediaBrowser(
       url = `http://127.0.0.1:${address.port}`;
     }
     browser = await chromium.launch({
+      chromiumSandbox: true,
       headless: true,
       executablePath: options.executablePath,
     });

@@ -9,6 +9,7 @@ import { routeWithDrain } from "./support/managed-routes";
 test.use({
   serviceWorkers: "block",
   launchOptions: {
+    chromiumSandbox: true,
     args: [
       "--use-fake-device-for-media-stream",
       "--use-fake-ui-for-media-stream",

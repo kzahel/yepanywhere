@@ -228,7 +228,10 @@ function printTextSummary(summary) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const origin = new URL(options.url).origin;
-  const browser = await chromium.launch({ headless: options.headless });
+  const browser = await chromium.launch({
+    chromiumSandbox: true,
+    headless: options.headless,
+  });
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);

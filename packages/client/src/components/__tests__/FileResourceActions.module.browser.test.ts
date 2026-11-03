@@ -36,7 +36,7 @@ beforeAll(async () => {
       );
     </script>`,
   );
-  browser = await chromium.launch();
+  browser = await chromium.launch({ chromiumSandbox: true });
   // CI 36665933364 measured a 6.6s cold Vite fixture boot; allow 4x that
   // observed startup without making initialization order a timing assertion.
 }, 30_000);

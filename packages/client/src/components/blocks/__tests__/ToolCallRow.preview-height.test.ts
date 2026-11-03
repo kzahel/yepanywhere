@@ -114,7 +114,7 @@ describe("deferred Bash preview height estimator", () => {
         "utf8",
       ),
     ]);
-    browser = await chromium.launch();
+    browser = await chromium.launch({ chromiumSandbox: true });
     page = await browser.newPage();
   });
 

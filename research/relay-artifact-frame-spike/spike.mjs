@@ -493,6 +493,7 @@ for (const [mode, prefs] of Object.entries(MODES)) {
     profileWithPrefs(prefs),
     {
       channel: "chrome",
+      chromiumSandbox: true,
       headless,
       args: chromeArgs,
     },
@@ -514,6 +515,7 @@ if (
   // Playwright's default (off-the-record) browser context.
   const browser = await chromium.launch({
     channel: "chrome",
+    chromiumSandbox: true,
     headless,
     args: chromeArgs,
   });

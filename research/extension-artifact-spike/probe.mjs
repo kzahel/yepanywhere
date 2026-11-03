@@ -135,6 +135,7 @@ for (const war of ["none", "shell", "all"]) {
       join(temp, `${war}-profile`),
       {
         channel: "chromium",
+        chromiumSandbox: true,
         headless: !process.argv.includes("--headed"),
         ignoreDefaultArgs: ["--disable-extensions"],
         args: [

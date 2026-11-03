@@ -62,7 +62,7 @@ describe("browser debug evaluation under the served-page CSP", () => {
       server.listen(0, "127.0.0.1", resolve),
     );
     const address = server.address() as AddressInfo;
-    browser = await chromium.launch();
+    browser = await chromium.launch({ chromiumSandbox: true });
     page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}/`);
   });

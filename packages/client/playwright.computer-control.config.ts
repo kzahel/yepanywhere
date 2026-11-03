@@ -8,5 +8,10 @@ export default defineConfig({
   globalTeardown: "./e2e/global-teardown.ts",
   workers: 1,
   reporter: "list",
-  use: { browserName: "chromium", locale: "en-US", trace: "retain-on-failure" },
+  use: {
+    launchOptions: { chromiumSandbox: true },
+    browserName: "chromium",
+    locale: "en-US",
+    trace: "retain-on-failure",
+  },
 });

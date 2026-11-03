@@ -7,5 +7,9 @@ export default defineConfig({
   // The focused cold run takes about 5s including Vite startup.
   timeout: 15_000,
   reporter: "list",
-  use: { browserName: "chromium", serviceWorkers: "block" },
+  use: {
+    launchOptions: { chromiumSandbox: true },
+    browserName: "chromium",
+    serviceWorkers: "block",
+  },
 });

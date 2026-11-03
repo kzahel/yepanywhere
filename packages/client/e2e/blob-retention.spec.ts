@@ -70,7 +70,9 @@ test.beforeAll(async () => {
   }
   base = `http://127.0.0.1:${address.port}`;
   profileDir = await mkdtemp(join(tmpdir(), "ya-blob-retention-"));
-  context = await chromium.launchPersistentContext(profileDir);
+  context = await chromium.launchPersistentContext(profileDir, {
+    chromiumSandbox: true,
+  });
 });
 
 test.afterAll(async () => {

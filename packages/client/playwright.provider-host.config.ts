@@ -7,5 +7,9 @@ export default defineConfig({
   testMatch: "provider-host-live.spec.ts",
   timeout: 180_000,
   workers: 1,
-  use: { browserName: "chromium", viewport: { width: 1000, height: 600 } },
+  use: {
+    launchOptions: { chromiumSandbox: true },
+    browserName: "chromium",
+    viewport: { width: 1000, height: 600 },
+  },
 });

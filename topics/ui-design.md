@@ -91,13 +91,18 @@ For an already-built HTML entry or an existing HTTP(S) artifact URL, use the
 committed command from the checkout root:
 
 ```bash
-pnpm --filter @yep-anywhere/client exec playwright install chromium
+pnpm --filter @yep-anywhere/client exec playwright install chrome
 pnpm -s artifact:capture path/to/index.html --json
 pnpm -s artifact:capture path/to/index.html --out .artifacts/captures/review-1 --json
 ```
 
 The first command is one-time browser setup after the normal `pnpm install`
-or `pnpm setup:core`. No private dotfiles, `~/agents` checkout, Python, relay
+or `pnpm setup:core`; skip it where Google Chrome is already installed. The
+capture renders agent-authored pages, so it runs them in the system's Google
+Chrome, which the OS keeps current with security fixes, rather than in
+Playwright's pinned Chromium build, which lags them; and, like every Chromium
+launch in this repository, inside Chrome's sandbox. `pnpm lint` rejects a
+launch that omits `chromiumSandbox: true`. No private dotfiles, `~/agents` checkout, Python, relay
 installation, running YA server, or configured artifact hostname is required.
 The helper uses the existing Node/tsx, Playwright, shared capability code, and
 server MIME table. It is development tooling and is not imported by the app.

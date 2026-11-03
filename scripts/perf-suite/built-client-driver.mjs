@@ -78,6 +78,7 @@ export async function measureBuiltClientColdReadiness({
   );
   const { chromium } = await import(pathToFileURL(playwrightPath).href);
   const browser = await chromium.launch({
+    chromiumSandbox: true,
     env: { ...process.env, PERF_RUN_ID: runMarker },
     headless: true,
   });

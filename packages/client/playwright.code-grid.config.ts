@@ -8,5 +8,5 @@ export default defineConfig({
   workers: 1,
   timeout: 30000,
   reporter: "list",
-  use: { headless: true },
+  use: { launchOptions: { chromiumSandbox: true }, headless: true },
 });

@@ -11,6 +11,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     browserName: "chromium",
+    launchOptions: { chromiumSandbox: true },
     locale: "en-US",
     contextOptions: { reducedMotion: "reduce" },
   },

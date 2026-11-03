@@ -297,6 +297,11 @@ When reviewing a security PR or making a requested upgrade:
   The held release also cannot install browsers on Ubuntu 26.04, so jobs that
   run `playwright install` use `ubuntu-24.04`. Lift the runner hold and return
   those jobs to `ubuntu-latest` together after qualifying the new Node floor.
+  The hold also pins the bundled Chromium (148 at 1.60), which lags Chrome
+  security fixes. Every Chromium launch therefore passes
+  `chromiumSandbox: true` (enforced by `scripts/check-chromium-sandbox.mjs`
+  in `pnpm lint`), and `artifact:capture`, which renders agent-authored
+  pages, uses the system's Google Chrome instead of the bundled build.
 - Provider SDK changes follow the [provider refresh](../../topics/provider-refresh.md)
   audit, including the Claude SDK version marker. The optional pixi STT
   environment retains its known-good snapshot and separate inference
