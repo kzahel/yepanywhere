@@ -1,11 +1,80 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { buildSync } from "esbuild";
 import {
   emitCapturePreview,
   writeCapturePreview,
 } from "../scripts/artifact-capture.js";
 import { e2ePaths, expect, test } from "./fixtures.js";
+
+// One owned browser fixture bundle; the production UI retains its own CSP.
+const nativeFixtureBundle = buildSync({
+  entryPoints: [
+    resolve("src/lib/transport/__tests__/nativeTransportFixture.ts"),
+  ],
+  bundle: true,
+  write: false,
+  platform: "browser",
+  format: "iife",
+  globalName: "yaNativeFixtureModule",
+  conditions: ["source"],
+}).outputFiles[0]!.text;
+
+function installNativeBridge() {
+  const queued: (string | ArrayBuffer)[] = [];
+  const channel = {
+    onmessage: null as ((event: { data: string | ArrayBuffer }) => void) | null,
+    postMessage: (message: string | ArrayBuffer) => {
+      queued.push(message);
+    },
+  };
+  Object.assign(window, { yaNativeTransport: channel });
+  const { NativeTransportFixture } = (
+    window as unknown as {
+      yaNativeFixtureModule: typeof import("../src/lib/transport/__tests__/nativeTransportFixture");
+    }
+  ).yaNativeFixtureModule;
+  let available = !location.search.includes("nativeOffline");
+  const host = new NativeTransportFixture(
+    true,
+    available ? "CONNECTED" : "FAILED",
+  );
+  Object.assign(window, {
+    restoreNativeSource: () => {
+      available = true;
+      window.dispatchEvent(new Event("online"));
+    },
+  });
+  host.channel.onmessage = (event: { data: string | ArrayBuffer }) =>
+    channel.onmessage?.(event);
+  channel.postMessage = (message) => host.channel.postMessage(message);
+  host.handler = (command: Record<string, unknown>) => {
+    if (!available) throw new Error("Native connection unavailable");
+    if (command.method === "reconnect") {
+      void host.emit({ type: "state", phase: "CONNECTED" });
+      return {};
+    }
+    if (command.method === "request")
+      return (
+        window as unknown as {
+          nativeRequest: (command: unknown) => Promise<unknown>;
+        }
+      ).nativeRequest(command);
+    if (command.method === "subscribe") {
+      void host.emit({
+        type: "event",
+        subscriptionId: (command.params as { subscriptionId: string })
+          .subscriptionId,
+        eventType: "connected",
+        data: {},
+      });
+    }
+    return {};
+  };
+  Object.assign(window, { nativeFixture: host });
+  for (const message of queued) host.channel.postMessage(message);
+}
 
 for (const viewport of [
   { name: "desktop", width: 1000, height: 600 },
@@ -14,7 +83,7 @@ for (const viewport of [
   test(`native source opens the full app and acknowledges typing at ${viewport.name}`, async ({
     page,
     baseURL,
-    remoteClientURL,
+    remotePreviewURL,
   }, testInfo) => {
     // Cold Projects + session recovery, draft typing and captures measured
     // 9 s; asynchronous fixture compilation separately exceeded 5 s under load.
@@ -51,71 +120,23 @@ for (const viewport of [
         return { status: response.status, headers, body };
       },
     );
-    await page.addInitScript(
-      ({ moduleUrl }) => {
-        const queued: (string | ArrayBuffer)[] = [];
-        const channel = {
-          onmessage: null as
-            | ((event: { data: string | ArrayBuffer }) => void)
-            | null,
-          postMessage: (message: string | ArrayBuffer) => {
-            queued.push(message);
-          },
-        };
-        Object.assign(window, { yaNativeTransport: channel });
-        void import(moduleUrl).then(({ NativeTransportFixture }) => {
-          let available = !location.search.includes("nativeOffline");
-          const host = new NativeTransportFixture(
-            true,
-            available ? "CONNECTED" : "FAILED",
-          );
-          Object.assign(window, {
-            restoreNativeSource: () => {
-              available = true;
-              window.dispatchEvent(new Event("online"));
-            },
-          });
-          host.channel.onmessage = (event: { data: string | ArrayBuffer }) =>
-            channel.onmessage?.(event);
-          channel.postMessage = (message) => host.channel.postMessage(message);
-          host.handler = (command: Record<string, unknown>) => {
-            if (!available) throw new Error("Native connection unavailable");
-            if (command.method === "reconnect") {
-              void host.emit({ type: "state", phase: "CONNECTED" });
-              return {};
-            }
-            if (command.method === "request")
-              return (
-                window as unknown as {
-                  nativeRequest: (command: unknown) => Promise<unknown>;
-                }
-              ).nativeRequest(command);
-            if (command.method === "subscribe") {
-              void host.emit({
-                type: "event",
-                subscriptionId: (command.params as { subscriptionId: string })
-                  .subscriptionId,
-                eventType: "connected",
-                data: {},
-              });
-            }
-            return {};
-          };
-          Object.assign(window, { nativeFixture: host });
-          for (const message of queued) host.channel.postMessage(message);
-        });
-      },
-      {
-        moduleUrl: `${remoteClientURL}/src/lib/transport/__tests__/nativeTransportFixture.ts`,
-      },
-    );
+    await page.addInitScript({
+      content: `${nativeFixtureBundle}
+window.yaNativeFixtureModule = yaNativeFixtureModule;
+(${installNativeBridge.toString()})();`,
+    });
 
     // The document and navigation are available before its first native
     // connection. Recovery must revalidate failed initial reads without reload.
-    await page.goto(`${remoteClientURL}/projects?nativeOffline`);
-    // The dev fixture is imported asynchronously; wait for its local bridge
-    // before asserting application behavior (cold compilation exceeded 5 s).
-    await page.waitForFunction(() => "nativeFixture" in window);
+    // Exercise the shipped UI with the prebundled bridge fixture, without
+    // cold Vite route transforms consuming application assertions.
+    await page.goto(`${remotePreviewURL}/projects?nativeOffline`);
+    // Native attachment is a prerequisite for application recovery.
+    await page
+      .waitForFunction(() => "nativeFixture" in window)
+      .catch((error) => {
+        throw new Error(`${error.message}\n${errors.join("\n")}`);
+      });
     await expect(
       page.locator("header").getByText("Projects", { exact: true }),
     ).toBeVisible();
@@ -148,10 +169,14 @@ for (const viewport of [
       join(e2ePaths.tempDir, "mockproject"),
     ).toString("base64url");
     await page.goto(
-      `${remoteClientURL}/projects/${projectId}/sessions/transcript-specimen-001?nativeOffline`,
+      `${remotePreviewURL}/projects/${projectId}/sessions/transcript-specimen-001?nativeOffline`,
     );
     // Each navigation imports and initializes the local bridge anew.
-    await page.waitForFunction(() => "nativeFixture" in window);
+    await page
+      .waitForFunction(() => "nativeFixture" in window)
+      .catch((error) => {
+        throw new Error(`${error.message}\n${errors.join("\n")}`);
+      });
     const skip = page.locator(".onboarding-skip-all");
     if (await skip.isVisible().catch(() => false)) await skip.click();
     const composer = page.locator("textarea[data-composer-input]");

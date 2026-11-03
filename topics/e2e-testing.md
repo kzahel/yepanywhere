@@ -221,6 +221,13 @@ real application but does not import source modules or depend on development
 behavior. Retain Vite for source-entry/component and dev-server contracts.
 Remote relay, frozen-share layout and artifact gateway fixtures likewise use
 the invocation's `remotePreviewURL` when they require no source imports or HMR.
+The native-webview check prebundles its test host and installs it before the
+built UI starts. A test-only bridge does not require serving the entire app
+through Vite. Keep that bridge in test tooling; production CSP still applies
+to the UI and must not be relaxed for a cross-origin fixture import.
+Creation fixtures register their owned project before exercising launch, so
+project admission does not depend on a transient discovery/virtual-project
+cache entry or on source compilation delaying the first interaction.
 The in-process Project App fixture also serves the invocation's built client;
 only its project's live-preview process needs Vite/HMR. It mounts real auth and
 server-settings services so principal resolution can admit the Apps settings

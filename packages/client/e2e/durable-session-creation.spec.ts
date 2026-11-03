@@ -10,14 +10,13 @@ import {
   unlink,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { resolveClaudeSdkNativeExecutable } from "../../server/src/sdk/providers/claude.js";
 import { DiscoverySqliteService } from "../../server/src/storage/discovery-sqlite.js";
 import { SessionMetadataService } from "../../server/src/metadata/SessionMetadataService.js";
 import { InstallService } from "../../server/src/services/InstallService.js";
 import { toUrlProjectId } from "../../shared/src/index.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import {
   startYaServerProcess,
   restartYaServerProcess,
@@ -44,10 +43,10 @@ async function fixture(
   routerUnavailable = false,
 ) {
   let server: Awaited<ReturnType<typeof startYaServerProcess>> | undefined;
-  let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
   let router: ReturnType<typeof createServer> | undefined;
   let routerRoot = "",
     projectId = "",
+    projectPath = "",
     ownedCli = "";
   let release: (() => void) | undefined;
   const modelRequests: { path: string; credential?: string }[] = [];
@@ -113,7 +112,6 @@ async function fixture(
   });
   const close = async () => {
     release?.();
-    await vite?.close();
     if (server) await disposeYaServerProcess(server);
     for (const listener of [router, model]) {
       if (!listener) continue;
@@ -143,11 +141,13 @@ async function fixture(
     server = await startYaServerProcess({
       label: "durable Claude creation",
       standalone: {},
+      serveBuiltClient: true,
       env,
       async setupProfile(paths) {
         const project = join(paths.profileDir, "project");
         await mkdir(project);
-        projectId = toUrlProjectId(await realpath(project));
+        projectPath = await realpath(project);
+        projectId = toUrlProjectId(projectPath);
         if (savedSessions) {
           const storage = new DiscoverySqliteService({
             dataDir: paths.dataDir,
@@ -214,6 +214,7 @@ async function fixture(
       );
       return response.json();
     };
+    await request("/projects", { path: projectPath });
     if (!missingExecutable) {
       routerRoot = await mkdtemp(join(tmpdir(), "ya-owned-router-"));
       const socket = join(routerRoot, "control.sock");
@@ -301,24 +302,8 @@ async function fixture(
         "PUT",
       );
     }
-    vite = await createTestViteServer({
-      configFile: resolve("vite.config.ts"),
-      root: process.cwd(),
-      server: {
-        host: "127.0.0.1",
-        hmr: false,
-        proxy: {
-          "/api": { target: server.baseUrl, ws: true },
-          "/ws": { target: server.baseUrl, ws: true },
-        },
-      },
-    });
-    await vite.listen();
-    const viteAddress = vite.httpServer!.address();
-    if (!viteAddress || typeof viteAddress === "string")
-      throw new Error("Missing owned Vite listener");
     return {
-      origin: `http://127.0.0.1:${viteAddress.port}`,
+      origin: server.baseUrl,
       projectId,
       ownedCli,
       request,
@@ -573,6 +558,12 @@ test("background typing during delayed acceptance stays responsive with 200 save
       await barrier;
       await route.fulfill({ response });
     });
+    await expect(
+      page.getByLabel("New session keyboard shortcuts", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Start session", exact: true }),
+    ).toBeEnabled();
     await composer.press("Meta+Enter");
     await admitted;
     await expect.poll(() => owned.modelRequests.length).toBe(1);
