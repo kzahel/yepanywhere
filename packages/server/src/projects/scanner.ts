@@ -1,3 +1,4 @@
+import { claudeCwdProjectDirectory } from "./claude-project-directory.js";
 import type { Dirent } from "node:fs";
 import {
   mkdir,
@@ -65,7 +66,7 @@ export interface GetProjectOptions {
 
 const CLAUDE_PROJECT_SCAN_BATCH_SIZE = 16;
 const CWD_SCAN_BATCH_SIZE = 8;
-const PROJECT_SCAN_CACHE_VERSION = 5;
+const PROJECT_SCAN_CACHE_VERSION = 6;
 
 interface ProjectScanSourceState {
   projectsDir: string;
@@ -300,7 +301,7 @@ export class ProjectScanner {
       name: getProjectName(path),
       sessionCount: 0,
       sessionCountsByProvider: { claude: 0 },
-      sessionDir: join(this.projectsDir, path.replace(/[/\\:]/g, "-")),
+      sessionDir: join(this.projectsDir, claudeCwdProjectDirectory(path)),
       hasCodexSessions: false,
       hasGeminiSessions: false,
       activeOwnedCount: 0,
@@ -1169,7 +1170,7 @@ export class ProjectScanner {
     // home directory so sessions can always be created even if detection is broken
     if (projects.length === 0) {
       const home = homedir();
-      const encodedPath = home.replace(/[/\\:]/g, "-");
+      const encodedPath = claudeCwdProjectDirectory(home);
       projects.push({
         id: encodeProjectId(home),
         path: home,
@@ -1315,7 +1316,7 @@ export class ProjectScanner {
 
     // Create a virtual project entry
     // The session directory will be created by the SDK when the first session starts
-    const encodedPath = projectPath.replace(/[/\\:]/g, "-");
+    const encodedPath = claudeCwdProjectDirectory(projectPath);
 
     // Determine the session directory based on provider
     let sessionDir: string;
@@ -1478,8 +1479,10 @@ export class ProjectScanner {
       const dirStat = await stat(projectDirPath);
       const lastActivity = new Date(dirStat.mtimeMs).toISOString();
 
-      // Read cwd from session files in small batches and return early on first match.
-      // Most project dirs have a session file with cwd near the top of the first file.
+      // A launch folder can also hold --worktree transcripts. Prefer its
+      // native key over whichever transcript enumeration happens to return first.
+      const nativeDirectory = basename(projectDirPath);
+      let firstCwd: string | null = null;
       const regularSessionFiles = jsonlFiles.filter(
         (f) => !f.startsWith("agent-"),
       );
@@ -1500,13 +1503,16 @@ export class ProjectScanner {
         );
 
         for (const cwd of batchCwds) {
-          if (cwd) {
+          if (cwd && claudeCwdProjectDirectory(cwd) === nativeDirectory) {
             return { projectPath: cwd, sessionCount, lastActivity };
           }
+          firstCwd ??= cwd || null;
         }
       }
 
-      return null;
+      return firstCwd
+        ? { projectPath: firstCwd, sessionCount, lastActivity }
+        : null;
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code === "ENOENT" || code === "ENOTDIR") return null;

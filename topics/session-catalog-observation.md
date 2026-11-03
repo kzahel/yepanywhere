@@ -226,6 +226,18 @@ sessions; a collection request failure also permits that independent lookup.
 Browser display snapshots remain non-authoritative and cannot enable launch.
 
 Claude discovery retains the unmerged result for each native project directory.
+When a launch folder also contains `claude --worktree` transcripts, its owner is
+the transcript cwd whose Claude native directory key matches the folder name,
+regardless of transcript enumeration order or which cwd appears most often.
+Discovery searches bounded batches until it finds that match. If none matches,
+the first readable cwd remains the fallback, with regular sessions preferred
+over agent transcripts. A folder key is lossy and is never decoded into a path.
+Discovery, registered/virtual projects and Claude copy operations use the same
+native encoding, including punctuation, macOS Unicode normalization and the
+pinned provider's long-path hash suffix. Older disk project snapshots are
+invalidated on upgrade so an incorrect mapping is rebuilt without manual cache
+deletion; transcripts and YA session identities remain intact.
+
 File events reconcile only their owning directory, including nested agent files,
 then rerun the existing in-memory identity/workstream merge. Creating or removing
 the last session can add or remove a directory contribution; changing its native

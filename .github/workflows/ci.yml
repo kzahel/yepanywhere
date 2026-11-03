@@ -92,6 +92,7 @@ jobs:
           test/routes/settings.test.ts
           test/routes/settings-persistence.test.ts
           test/projects/projectStoragePolicy.test.ts
+          test/projects/scanner-directory.test.ts
           test/review/ReviewCaptureService.test.ts
           test/review/ReviewCommentService.test.ts
           test/review/ReviewStorageTransition.test.ts

@@ -16,7 +16,7 @@
  *
  * ## 2. Directory Names (in ~/.claude/projects/)
  *
- * Session files are stored in directories with **slash-to-hyphen** encoding.
+ * Session files are stored in directories with **non-alphanumeric-to-hyphen** encoding.
  * Example: `/home/user/my-project` → `-home-user-my-project`
  *
  * The directory structure is:
@@ -31,7 +31,7 @@
  *
  * ## Why Two Encodings?
  *
- * The slash-to-hyphen encoding is **LOSSY** - you cannot reliably decode it
+ * The native directory encoding is **LOSSY** - you cannot reliably decode it
  * back to the original path because hyphens in the original path create
  * ambiguity:
  *
@@ -46,7 +46,8 @@
  * the `cwd` field in session JSONL files. This is reliable because the Claude
  * SDK writes the working directory to session files when they're created.
  *
- * See `ProjectScanner.getProjectPathFromSessions()` for the implementation.
+ * `ProjectScanner.getProjectDirInfo()` prefers a cwd whose native encoding
+ * matches the folder, retaining the first readable cwd as a fallback.
  *
  * ## Best Practices
  *

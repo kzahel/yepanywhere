@@ -11,7 +11,7 @@ import { encodeProjectId, type Project } from "../../src/supervisor/types.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
 
 function encodePath(path: string): string {
-  return path.replace(/[/\\:]/g, "-");
+  return path.replace(/[^a-zA-Z0-9]/g, "-");
 }
 
 async function createClaudeProject(
@@ -25,7 +25,7 @@ async function createClaudeProject(
   await mkdir(sessionDir, { recursive: true });
   await writeFile(
     join(sessionDir, `${sessionId}.jsonl`),
-    `{"type":"user","cwd":"${projectPath}","message":{"content":"hello"}}\n`,
+    `${JSON.stringify({ type: "user", cwd: projectPath, message: { content: "hello" } })}\n`,
   );
   return join(host, encodedPath).replace(/\\/g, "/");
 }
