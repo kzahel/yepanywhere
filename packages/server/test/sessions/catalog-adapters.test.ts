@@ -1,10 +1,19 @@
-import { mkdtemp, mkdir, rm, utimes, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  realpath,
+  rm,
+  symlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
 import { GrokSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/grok-catalog-adapter.js";
 import { OpenCodeSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/opencode-catalog-adapter.js";
+import { AntigravitySessionCatalogAdapter } from "../../src/sessions/catalog-adapters/antigravity-catalog-adapter.js";
 import { PiSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/pi-catalog-adapter.js";
 import type {
   NativeSessionCatalogAdapter,
@@ -412,5 +421,68 @@ describe("OpenCodeSessionCatalogAdapter", () => {
       }),
     );
     expect(rows.map((row) => row.sessionId)).toEqual(["ses-legacy"]);
+  });
+});
+
+describe("AntigravitySessionCatalogAdapter", () => {
+  const id = "11111111-2222-3333-4444-555555555555";
+  async function seed(directory = join(root, "agy")) {
+    await mkdir(directory, { recursive: true });
+    await writeJson(join(directory, `${id}.meta`), { cwd: "/work/agy-only" });
+    // Deliberately not a SQLite database: discovery must never open history.
+    await writeFile(join(directory, `${id}.db`), "opaque native bytes");
+    return directory;
+  }
+
+  it("discovers native identity without a runtime and versions WAL writes", async () => {
+    const directory = await seed();
+    const adapter = new AntigravitySessionCatalogAdapter({
+      sessionsDir: directory,
+    });
+    const first = await collect(adapter);
+    expect(first.rows).toHaveLength(1);
+    expect(first.rows[0]).toMatchObject({
+      sessionId: id,
+      projectPath: "/work/agy-only",
+      fidelity: "identity",
+      nativeStorageScope: await realpath(directory),
+    });
+    expect(first.rows[0]?.title).toBeUndefined();
+    await writeFile(join(directory, `${id}.db-wal`), "new native activity");
+    const next = await collect(adapter);
+    expect(next.rows[0]?.sourceVersion).not.toBe(first.rows[0]?.sourceVersion);
+  });
+
+  it("keeps accepted rows on malformed acquisition and rejects out-of-store aliases", async () => {
+    const directory = await seed();
+    const adapter = new AntigravitySessionCatalogAdapter({
+      sessionsDir: directory,
+    });
+    const catalog = new SessionCatalogService({
+      dataDir: join(root, "catalog"),
+    });
+    await catalog.initialize();
+    await catalog.reconcile([adapter]);
+    const before = await catalog.readRows();
+    await writeFile(join(directory, `${id}.meta`), "{");
+    await expect(catalog.reconcile([adapter])).rejects.toThrow();
+    expect((await catalog.readRows()).rows).toEqual(before.rows);
+    await writeJson(join(directory, `${id}.meta`), { cwd: "/work/agy-only" });
+    await rm(join(directory, `${id}.db`));
+    const outside = join(root, "outside.db");
+    await writeFile(outside, "opaque");
+    await symlink(outside, join(directory, `${id}.db`));
+    await expect(collect(adapter)).rejects.toThrow("escapes");
+    await catalog.stop();
+  });
+
+  it("treats a missing store as empty, but not a root that is a file", async () => {
+    const directory = join(root, "not-a-directory");
+    const adapter = new AntigravitySessionCatalogAdapter({
+      sessionsDir: directory,
+    });
+    expect((await collect(adapter)).rows).toEqual([]);
+    await writeFile(directory, "wrong type");
+    await expect(collect(adapter)).rejects.toThrow();
   });
 });

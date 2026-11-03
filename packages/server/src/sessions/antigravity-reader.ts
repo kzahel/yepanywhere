@@ -1,5 +1,5 @@
-import { readFile, readdir, realpath, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { realpath } from "node:fs/promises";
+
 import {
   nativeSessionRef,
   parseNativeSessionId,
@@ -17,70 +17,14 @@ import {
   ownAntigravitySession,
 } from "../sdk/providers/antigravity-runtime.js";
 import { AntigravityTranscript } from "../sdk/providers/antigravity-transcript.js";
+import { readAntigravityMetadata } from "./antigravity-metadata.js";
+import { AntigravitySessionCatalogAdapter } from "./catalog-adapters/antigravity-catalog-adapter.js";
 import type { ISessionReader, LoadedSession } from "./types.js";
 
 interface NativeListEntry {
   sessionId: string;
   title?: string;
   updatedAt?: string;
-}
-
-// At most four native roots / 2,000 metadata rows each. Reads coalesce on demand;
-// there is no timer, watcher, transcript scan or subprocess for unrelated projects.
-const projectInventories = new Map<
-  string,
-  {
-    expiresAt: number;
-    projects: Promise<Set<string>>;
-  }
->();
-
-async function nativeProjects(directory: string): Promise<Set<string>> {
-  const cached = projectInventories.get(directory);
-  if (cached && Date.now() < cached.expiresAt) return cached.projects;
-  const projects = (async () => {
-    const files = (
-      await readdir(directory).catch((error: NodeJS.ErrnoException) => {
-        if (error.code === "ENOENT") return [];
-        throw error;
-      })
-    ).filter((file) => /^[0-9a-f-]{36}\.meta$/i.test(file));
-    if (files.length > 2_000)
-      throw new Error(
-        "Antigravity native store exceeds the experimental session limit",
-      );
-    const result = new Set<string>();
-    for (let offset = 0; offset < files.length; offset += 8) {
-      await Promise.all(
-        files.slice(offset, offset + 8).map(async (file) => {
-          const path = join(directory, file);
-          if ((await stat(path)).size > 16_384) return;
-          const meta = JSON.parse(await readFile(path, "utf8")) as {
-            cwd?: unknown;
-          };
-          if (typeof meta.cwd === "string") {
-            const physical = await realpath(meta.cwd).catch(() => null);
-            if (physical) result.add(physical);
-          }
-        }),
-      );
-    }
-    return result;
-  })();
-  projectInventories.delete(directory);
-  projectInventories.set(directory, {
-    expiresAt: Date.now() + 5_000,
-    projects,
-  });
-  while (projectInventories.size > 4)
-    projectInventories.delete(projectInventories.keys().next().value!);
-  try {
-    return await projects;
-  } catch (error) {
-    if (projectInventories.get(directory)?.projects === projects)
-      projectInventories.delete(directory);
-    throw error;
-  }
 }
 
 /** Read Google's native ACP store through its own replay API, never a YA transcript.
@@ -102,31 +46,12 @@ export class AntigravitySessionReader implements ISessionReader {
   }
 
   private async metadata(id: string) {
-    if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id)) return null;
-    const base = join(this.directory, id);
     try {
-      const [scope, metaPath, dbPath, info] = await Promise.all([
-        realpath(this.directory),
-        realpath(`${base}.meta`),
-        realpath(`${base}.db`),
-        stat(`${base}.db`),
-      ]);
-      if (
-        dirname(metaPath) !== scope ||
-        dirname(dbPath) !== scope ||
-        !info.isFile()
-      )
-        return null;
-      if ((await stat(metaPath)).size > 16_384) return null;
-      const metadata = JSON.parse(await readFile(metaPath, "utf8")) as {
-        cwd?: unknown;
-      };
-      if (
-        typeof metadata.cwd !== "string" ||
-        (await realpath(metadata.cwd)) !== (await realpath(this.projectPath))
-      )
-        return null;
-      return { scope, cwd: metadata.cwd, path: dbPath, info };
+      const metadata = await readAntigravityMetadata(this.directory, id);
+      return metadata &&
+        (await realpath(metadata.cwd)) === (await realpath(this.projectPath))
+        ? metadata
+        : null;
     } catch {
       return null;
     }
@@ -174,17 +99,20 @@ export class AntigravitySessionReader implements ISessionReader {
   }
 
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
-    // An absent native store is cheap and must not start a process for every project.
-    if (
-      !(await nativeProjects(this.directory)).has(
-        await realpath(this.projectPath),
-      )
-    )
-      return [];
-    const rows = await this.nativeList();
+    const scan = await new AntigravitySessionCatalogAdapter({
+      sessionsDir: this.directory,
+    }).scan({
+      catalogEpoch: "reader",
+      targetGeneration: 0,
+      mode: { kind: "complete" },
+      signal: new AbortController().signal,
+    });
+    const physical = await realpath(this.projectPath);
     const summaries: SessionSummary[] = [];
-    for (const row of rows) {
-      const summary = await this.summary(row.sessionId, projectId, row);
+    for (const row of scan.rows) {
+      if ((await realpath(row.projectPath).catch(() => null)) !== physical)
+        continue;
+      const summary = await this.summary(row.sessionId, projectId);
       if (summary) summaries.push(summary);
     }
     return summaries;
