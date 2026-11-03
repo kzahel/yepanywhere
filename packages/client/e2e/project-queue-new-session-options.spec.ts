@@ -1,3 +1,5 @@
+import type { StagedAttachmentRef } from "@yep-anywhere/shared";
+import { AttachmentStagingService } from "../../server/src/uploads/AttachmentStagingService";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
@@ -291,31 +293,34 @@ test("right-click queues the draft as a new session in another project", async (
   await page.setViewportSize({ width: 375, height: 812 });
   await recordUiCapture(page, "green-phone", { width: 375, height: 812 });
   await page.setViewportSize({ width: 1000, height: 600 });
-  let started: Record<string, unknown> | undefined;
-  await page.route(
-    `**/api/projects/${otherProjectId}/sessions/create`,
-    (route) => {
-      started = route.request().postDataJSON() as Record<string, unknown>;
-      return route.fulfill({
-        json: {
-          sessionId: "destination-first-turn",
-          projectId: otherProjectId,
-          processId: "new-process",
-          permissionMode: "default",
-          modeVersion: 1,
-        },
-      });
-    },
-  );
-  let firstTurn:
-    | { message: string; attachments: { path: string }[] }
+  let started:
+    | {
+        provider: string;
+        model: string;
+        message: string;
+        stagedAttachments: StagedAttachmentRef[];
+      }
     | undefined;
   await page.route(
-    "**/api/sessions/destination-first-turn/messages",
+    `**/api/projects/${otherProjectId}/session-creations`,
     (route) => {
-      firstTurn = route.request().postDataJSON();
+      const body = route.request().postDataJSON();
+      started = body;
       return route.fulfill({
-        json: { queued: true, serverTimestamp: Date.now() },
+        status: 202,
+        json: {
+          requestId: body.requestId,
+          sessionId: "019a0000-bbbb-7bbb-8bbb-bbbbbbbbbbbb",
+          projectId: otherProjectId,
+          provider: "codex",
+          creation: {
+            state: "saved",
+            attemptId: "queue-attempt",
+            delivery: "not-admitted",
+            updatedAt: new Date().toISOString(),
+          },
+          serverTimestamp: Date.now(),
+        },
       });
     },
   );
@@ -328,12 +333,13 @@ test("right-click queues the draft as a new session in another project", async (
       model: "gpt-test",
     });
   expect(queued).toBeUndefined();
-  await expect.poll(() => firstTurn).toBeDefined();
-  expect(firstTurn!.message).toBe("Start immediately");
-  expect(firstTurn!.attachments).toHaveLength(1);
-  const path = firstTurn!.attachments[0]!.path;
-  expect(path).toContain("/destination-first-turn/");
-  expect(await readFile(path, "utf8")).toBe(
+  expect(started!.message).toBe("Start immediately");
+  expect(started!.stagedAttachments).toHaveLength(1);
+  const staging = new AttachmentStagingService({ dataDir: e2ePaths.dataDir });
+  await staging.initialize();
+  const staged = staging.getRecord(started!.stagedAttachments[0]!.id);
+  expect(staged).not.toBeNull();
+  expect(await readFile(staged!.path, "utf8")).toBe(
     "Bytes for the destination first turn",
   );
 });

@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import { recordUiCapture, presentUiCaptures } from "./support/ui-capture.js";
 
 // Owned startup/restart qualification observed 22.8 s; allow approximately 4x.
@@ -21,12 +19,16 @@ for (const hosted of [false, true])
   test(`explicit Codex preparation ${hosted ? "hosted" : "local"} preserves one public resource and permits its first turn`, async ({
     browser,
   }) => {
-    const owned = await createCodexCreationFixture(hosted);
+    const owned = await createCodexCreationFixture(
+      hosted,
+      false,
+      {},
+      { serveBuiltClient: true },
+    );
     const context = await browser.newContext({
       serviceWorkers: "block",
       viewport: { width: 1000, height: 600 },
     });
-    let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
     try {
       const response = await owned.request(
         `/projects/${owned.projectId}/session-creations`,
@@ -74,20 +76,7 @@ for (const hosted of [false, true])
         initialInputExpected: false,
         delivery: "not-admitted",
       });
-      vite = await createTestViteServer({
-        configFile: resolve("vite.config.ts"),
-        root: process.cwd(),
-        server: {
-          host: "127.0.0.1",
-          hmr: false,
-          proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-        },
-      });
-      await vite.listen();
-      const address = vite.httpServer!.address();
-      if (!address || typeof address === "string")
-        throw Error("Missing owned listener");
-      const origin = `http://127.0.0.1:${address.port}`;
+      const origin = owned.server.baseUrl;
       const page = await context.newPage();
       await page.goto(origin + path);
       const composer = page.locator("textarea[data-composer-input]").first();
@@ -127,7 +116,6 @@ for (const hosted of [false, true])
       ).toHaveLength(1);
     } finally {
       await context.close();
-      await vite?.close();
       await owned.close();
     }
   });
@@ -305,12 +293,16 @@ for (const hosted of [false, true])
   test(`admitted Codex fork ${hosted ? "hosted" : "local"} is visible before copying and cold-continues under its public id`, async ({
     browser,
   }) => {
-    const owned = await createCodexCreationFixture(hosted);
+    const owned = await createCodexCreationFixture(
+      hosted,
+      false,
+      {},
+      { serveBuiltClient: true },
+    );
     let context = await browser.newContext({
       serviceWorkers: "block",
       viewport: { width: 1000, height: 600 },
     });
-    let vite: Awaited<ReturnType<typeof createTestViteServer>> | undefined;
     let copying: Promise<Response> | undefined;
     try {
       await owned.releaseAck();
@@ -363,22 +355,9 @@ for (const hosted of [false, true])
         creationProvenance: { surface: "web" },
         forkedFromSessionId: parent.sessionId,
       });
-      vite = await createTestViteServer({
-        configFile: resolve("vite.config.ts"),
-        root: process.cwd(),
-        server: {
-          host: "127.0.0.1",
-          hmr: false,
-          proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-        },
-      });
-      await vite.listen();
-      const address = vite.httpServer!.address();
-      if (!address || typeof address === "string")
-        throw Error("Missing owned listener");
       let page = await context.newPage();
       const path = `/projects/${owned.projectId}/sessions/${child.id}`;
-      await page.goto(`http://127.0.0.1:${address.port}${path}`);
+      await page.goto(`${owned.server.baseUrl}${path}`);
       await expect(
         page.getByRole("region", { name: "Session startup" }),
       ).toBeVisible();
@@ -401,7 +380,7 @@ for (const hosted of [false, true])
       await owned.restart();
       context = await browser.newContext({ serviceWorkers: "block", viewport });
       page = await context.newPage();
-      await page.goto(`http://127.0.0.1:${address.port}${path}`);
+      await page.goto(`${owned.server.baseUrl}${path}`);
       composer = page.locator("textarea[data-composer-input]").first();
       await expect(composer).toBeEditable();
       let input = "";
@@ -435,7 +414,6 @@ for (const hosted of [false, true])
       await context.close();
       await owned.releaseFork();
       await copying?.catch(() => {});
-      await vite?.close();
       await owned.close();
     }
   });

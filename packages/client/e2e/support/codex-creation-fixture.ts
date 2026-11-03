@@ -9,6 +9,7 @@ import {
   startYaServerProcess,
   restartYaServerProcess,
   disposeYaServerProcess,
+  type StartYaServerProcessOptions,
 } from "./ya-server-process.js";
 
 /** Own every server, provider process and storage root used for fault injection. */
@@ -16,6 +17,7 @@ export async function createCodexCreationFixture(
   hosted: boolean,
   independentHost = false,
   inputs: NodeJS.ProcessEnv = {},
+  options: Pick<StartYaServerProcessOptions, "serveBuiltClient"> = {},
 ) {
   let projectId = "",
     gate = "",
@@ -28,6 +30,7 @@ export async function createCodexCreationFixture(
   };
   let server = await startYaServerProcess({
     label: "owned creation recovery",
+    serveBuiltClient: options.serveBuiltClient,
     standalone: { providerHostEnabled: hosted && !independentHost },
     serverExecutable: process.env.YA_STANDALONE_TEST_RUNTIME,
     env,

@@ -132,6 +132,19 @@ beforeEach(async () => {
           ? { sandboxStateKey: "project-prep", sandboxProjectPath: projectPath }
           : {}),
       } as unknown as Process;
+      // Supervisor owns settled sandbox metadata now; onStarted observes it.
+      // Model that boundary explicitly instead of expecting the route callback
+      // to copy the fixture process's sandbox fields into storage.
+      if (settings?.sandboxLevel === "project-write") {
+        await sessionMetadataService.setSessionSandbox(saved.sessionId, {
+          level: "project-write",
+          networkFirewall: settings.sandboxNetworkFirewall,
+          stateKey: process.sandboxStateKey!,
+          projectPath,
+          projectId: encodeProjectId(projectPath),
+          provider: settings.providerName ?? "claude",
+        });
+      }
       await options?.onStarted?.(process.sessionId, process);
       return process;
     },
@@ -231,7 +244,9 @@ async function createFromTemplate(cookie: string, path: string) {
       { timeout: 20_000 },
     )
     .toMatch(/started|failed/);
-  expect(result, String(result.error)).toMatchObject({ phase: "started" });
+  expect(result, `${result.error}\n${result.log}`).toMatchObject({
+    phase: "started",
+  });
   return sessionMetadataService.getMetadata(result.sessionId as string);
 }
 

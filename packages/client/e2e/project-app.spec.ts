@@ -357,6 +357,10 @@ test("app inventory sits below port forwards and manages addresses inline", asyn
 test("serving a stopped process app starts it first, and a served stopped app warns", async ({
   page,
 }) => {
+  test.skip(
+    process.platform !== "linux",
+    "Process apps require the Linux project-write sandbox",
+  );
   test.setTimeout(60_000);
   instance.artifactServer.config.vhostPublicRoot = "apps.example";
   const warning = /visitors to server-garden\.apps\.example see/;
@@ -645,10 +649,16 @@ test("project App fills the pane and retains canvas and composer across phone sw
     .locator("textarea:visible")
     .first()
     .fill("Help me refine this canvas");
+  const accepted = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname.endsWith("/session-creations"),
+  );
   await page
     .getByRole("button", { name: "Start session", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/sessions\/mock-session-/);
+  const receipt = await (await accepted).json();
+  await expect(page).toHaveURL(new RegExp(`/sessions/${receipt.sessionId}$`));
   const sessionApp = page.getByRole("region", { name: "Project App" });
   await expect(sessionApp.locator("iframe")).toBeVisible();
   await expect(

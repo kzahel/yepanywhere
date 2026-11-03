@@ -100,6 +100,7 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           .map(JSON.parse);
       let worker;
       let pendingWorker;
+      let lastPendingStatus;
       try {
         await waitFor(() => api("/version"));
         const project = await api("/projects", { path: projectPath });
@@ -234,6 +235,7 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           const status = await api(
             `/projects/${project.project.id}/sessions/${pendingSession.sessionId}`,
           );
+          lastPendingStatus = status;
           return status.session.creation?.delivery === "consumed";
         });
         await waitFor(async () => {
@@ -292,7 +294,9 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           ).length,
         ).toBeGreaterThanOrEqual(2);
       } catch (error) {
-        throw new Error(`${error.stack}\n${output.slice(-16000)}`);
+        throw new Error(
+          `${error.stack}\n${JSON.stringify({ lastPendingStatus, barriers: await barriers() }, null, 2)}\n${output.slice(-16000)}`,
+        );
       } finally {
         wrapper.kill("SIGTERM");
         await waitFor(

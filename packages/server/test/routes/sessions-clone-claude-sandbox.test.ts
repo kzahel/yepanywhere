@@ -9,7 +9,11 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { UrlProjectId } from "@yep-anywhere/shared";
+import {
+  nativeSessionRef,
+  parseNativeSessionId,
+  type UrlProjectId,
+} from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
@@ -107,6 +111,16 @@ describe.skipIf(process.platform !== "linux")(
         supervisor: new Supervisor({
           provider: new ScriptedClaudeProvider(),
           sandboxStateRoot: join(dataDir, "session-sandboxes"),
+          sessionMetadataService: metadata,
+          resolveNativeSessionSource: async (id) => ({
+            native: nativeSessionRef(
+              "claude",
+              sandboxDir,
+              parseNativeSessionId(id),
+            ),
+            projectId,
+            filePath: join(sandboxDir, `${id}.jsonl`),
+          }),
         }),
         scanner: {
           getOrCreateProject: async () => project,

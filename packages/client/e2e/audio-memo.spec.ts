@@ -1,3 +1,5 @@
+import type { StagedAttachmentRef } from "@yep-anywhere/shared";
+import { AttachmentStagingService } from "../../server/src/uploads/AttachmentStagingService";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { e2ePaths, expect, test } from "./fixtures";
@@ -55,26 +57,31 @@ test("new-session attachment panel records a memo, preserves cancellation and se
     sessionStorage.setItem("yep-anywhere-audio-memo-transcript", "false"),
   );
   let submitted:
-    | { message: string; attachments: { path: string; mimeType: string }[] }
+    | { message: string; stagedAttachments: StagedAttachmentRef[] }
     | undefined;
-  await page.route(`**/api/projects/${projectId}/sessions/create`, (route) =>
-    route.fulfill({
-      json: {
-        sessionId: "memo-new-session",
-        projectId,
-        processId: "memo-process",
-        permissionMode: "default",
-        modeVersion: 1,
-        serverTimestamp: Date.now(),
-      },
-    }),
+  await page.route(
+    `**/api/projects/${projectId}/session-creations`,
+    (route) => {
+      const body = route.request().postDataJSON();
+      submitted = body;
+      return route.fulfill({
+        status: 202,
+        json: {
+          requestId: body.requestId,
+          sessionId: "019a0000-aaaa-7aaa-8aaa-aaaaaaaaaaaa",
+          projectId,
+          provider: "claude",
+          creation: {
+            state: "saved",
+            attemptId: "memo-attempt",
+            delivery: "not-admitted",
+            updatedAt: new Date().toISOString(),
+          },
+          serverTimestamp: Date.now(),
+        },
+      });
+    },
   );
-  await page.route("**/api/sessions/memo-new-session/messages", (route) => {
-    submitted = route.request().postDataJSON();
-    return route.fulfill({
-      json: { queued: true, serverTimestamp: Date.now() },
-    });
-  });
   await page.setViewportSize({ width: 1000, height: 600 });
   await page.goto(`${baseURL}/new-session?projectId=${projectId}`);
   const input = page.locator("textarea.new-session-form-textarea");
@@ -111,11 +118,16 @@ test("new-session attachment panel records a memo, preserves cancellation and se
   await stop.click();
   await expect.poll(() => submitted).toBeDefined();
   expect(submitted!.message).toBe("Listen to this memo.");
-  expect(submitted!.attachments).toHaveLength(1);
-  const attachment = submitted!.attachments[0]!;
-  expect(attachment.path).toContain("/memo-new-session/");
+  expect(submitted!.stagedAttachments).toHaveLength(1);
+  const attachment = submitted!.stagedAttachments[0]!;
   expect(attachment.mimeType).toBe("audio/wav");
-  const wav = await readFile(attachment.path);
+  // Creation submits staged bytes atomically with the prompt. Destination
+  // materialization is owned by the server, covered in creation attachment tests.
+  const staging = new AttachmentStagingService({ dataDir: e2ePaths.dataDir });
+  await staging.initialize();
+  const staged = staging.getRecord(attachment.id);
+  expect(staged).toMatchObject({ id: attachment.id, mimeType: "audio/wav" });
+  const wav = await readFile(staged!.path);
   expect(wav.toString("ascii", 0, 4)).toBe("RIFF");
   expect(wav.length).toBeGreaterThan(44);
   expect(

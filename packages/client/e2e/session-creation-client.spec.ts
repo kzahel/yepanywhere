@@ -1,7 +1,5 @@
-import { resolve } from "node:path";
 import { expect, test, type Browser } from "@playwright/test";
 import { createCodexCreationFixture } from "./support/codex-creation-fixture.js";
-import { createTestViteServer } from "./support/vite-server.js";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
 
 test.setTimeout(90000);
@@ -11,32 +9,23 @@ test.skip(
 );
 test.afterAll(() => presentUiCaptures());
 async function fixture(browser: Browser) {
-  const owned = await createCodexCreationFixture(false);
+  const owned = await createCodexCreationFixture(
+    false,
+    false,
+    {},
+    { serveBuiltClient: true },
+  );
   const context = await browser.newContext({
     serviceWorkers: "block",
     viewport: { width: 1000, height: 600 },
   });
-  const vite = await createTestViteServer({
-    configFile: resolve("vite.config.ts"),
-    root: process.cwd(),
-    server: {
-      host: "127.0.0.1",
-      hmr: false,
-      proxy: { "/api": { target: owned.server.baseUrl, ws: true } },
-    },
-  });
-  await vite.listen();
-  const address = vite.httpServer!.address();
-  if (!address || typeof address === "string")
-    throw new Error("Missing owned listener");
   return {
     ...owned,
     owned,
     context,
-    origin: `http://127.0.0.1:${address.port}`,
+    origin: owned.server.baseUrl,
     async dispose() {
       await context.close();
-      await vite.close();
       await owned.close();
     },
   };

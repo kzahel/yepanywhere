@@ -144,3 +144,14 @@ Evidence is retained under ignored `tasks/session-identity/pi-full-test.log` and
 The final full run passed the assembled case and all 6,896 server/7,067 client
 cases (server 143.14 seconds). That passing run does not establish a fix for the
 first run's retained-approval ordering failure.
+
+2026-11-03: CI recovery again exposed the assembled host case on macOS/Node
+24.22.1, now at the delayed initial input's post-replacement `consumed` barrier.
+One full run and an isolated rerun exhausted the unchanged 60 s barrier;
+subsequent isolated Node 26.7.0 and Node 24.22.1 runs passed in 9.13 and 9.26 s.
+This does not establish a runtime-specific cause or close the retained-owner
+ordering finding. Failure diagnostics now retain the last creation response
+and provider barrier events, alongside the existing wrapper output, to expose
+whether native confirmation arrived and which projection remained uncertain.
+Evidence is in ignored `tasks/ci-recovery-2026-11-03/provider-host-*.log` and
+`unit.log`. No production provider behavior or timeout changed in this repair.
