@@ -1,0 +1,83 @@
+/* Task notification — SDK-injected background-task lifecycle chip */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 14px;
+  margin: 8px 0;
+  background: var(--bg-tertiary, #2a2a2a);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-secondary, #6b7280);
+  font-family: var(--output-prose-font-family);
+  font-size: var(--output-prose-font-size);
+  line-height: var(--output-prose-line-height);
+  color: var(--text-muted);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.icon {
+  font-size: 1.05em;
+  opacity: 0.8;
+}
+
+.summary {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+.output {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.event {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg-code);
+  border-radius: 4px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.82em;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.progress {
+  border-left-color: var(--accent-primary);
+}
+
+.completed {
+  border-left-color: var(--success-color, #10b981);
+  color: var(--text-primary);
+}
+
+.completed .icon {
+  color: var(--success-color, #10b981);
+  opacity: 1;
+  font-weight: 700;
+}
+
+.failed {
+  border-left-color: var(--error-color, #ef4444);
+  color: var(--text-primary);
+}
+
+.failed .icon {
+  color: var(--error-color, #ef4444);
+  opacity: 1;
+  font-weight: 700;
+}
+
+.cancelled {
+  border-left-color: var(--text-dimmed, #6b7280);
+}

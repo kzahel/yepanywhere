@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { getFilename } from "../../lib/parseUserPrompt";
 import type { TaskNotificationItem } from "@yep-anywhere/shared/transcript/items";
+import styles from "./TaskNotificationBlock.module.css";
 
 interface Props {
   item: TaskNotificationItem;
@@ -8,21 +9,21 @@ interface Props {
 
 /** Map a task status to a chip variant + leading glyph. */
 function statusPresentation(status: string | undefined): {
-  variant: string;
+  variant: string | undefined;
   icon: string;
 } {
   switch (status) {
     case "completed":
-      return { variant: "task-notification-completed", icon: "✓" };
+      return { variant: styles.completed, icon: "✓" };
     case "failed":
     case "error":
-      return { variant: "task-notification-failed", icon: "!" };
+      return { variant: styles.failed, icon: "!" };
     case "cancelled":
     case "canceled":
-      return { variant: "task-notification-cancelled", icon: "⊘" };
+      return { variant: styles.cancelled, icon: "⊘" };
     default:
       // No terminal status (e.g. a streaming Monitor progress event).
-      return { variant: "task-notification-progress", icon: "⟳" };
+      return { variant: styles.progress, icon: "⟳" };
   }
 }
 
@@ -39,21 +40,19 @@ export const TaskNotificationBlock = memo(function TaskNotificationBlock({
   const label = item.summary ?? item.raw.trim();
 
   return (
-    <div className={`task-notification ${variant}`.trim()}>
-      <div className="task-notification-head">
-        <span className="task-notification-icon" aria-hidden="true">
+    <div className={`${styles.root} ${variant ?? ""}`.trim()}>
+      <div className={styles.head}>
+        <span className={styles.icon} aria-hidden="true">
           {icon}
         </span>
-        <span className="task-notification-summary">{label}</span>
+        <span className={styles.summary}>{label}</span>
         {item.outputFile && (
-          <span className="task-notification-output" title={item.outputFile}>
+          <span className={styles.output} title={item.outputFile}>
             {getFilename(item.outputFile)}
           </span>
         )}
       </div>
-      {item.event && (
-        <pre className="task-notification-event">{item.event.trim()}</pre>
-      )}
+      {item.event && <pre className={styles.event}>{item.event.trim()}</pre>}
     </div>
   );
 });
