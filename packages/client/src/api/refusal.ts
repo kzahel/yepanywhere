@@ -13,14 +13,17 @@ export interface ApiRefusalFields {
    * handoff (topics/limited-users.md § Freshness).
    */
   staleRedirect?: "stale-handoff";
+  /** How to continue, e.g. `handoff-required` when the transcript cannot resume. */
+  recovery?: string;
 }
 
 export function refusalFields(body: unknown): ApiRefusalFields {
   if (!body || typeof body !== "object") return {};
-  const { reason, staleRedirect } = body as Record<string, unknown>;
+  const { reason, staleRedirect, recovery } = body as Record<string, unknown>;
   return {
     ...(typeof reason === "string" ? { reason } : {}),
     ...(staleRedirect === "stale-handoff" ? { staleRedirect } : {}),
+    ...(typeof recovery === "string" ? { recovery } : {}),
   };
 }
 
@@ -31,4 +34,17 @@ export function isStaleSessionRedirect(error: unknown): boolean {
     fields?.reason === "stale-session" &&
     fields.staleRedirect === "stale-handoff"
   );
+}
+
+/**
+ * Whether a resume was refused because the transcript itself cannot continue
+ * and needs a handoff. Other 409s, such as a router account refusal, carry
+ * their own remedy. Servers since 2026-05-31 send both the field and the text.
+ */
+export function isHandoffRequiredRefusal(error: unknown): boolean {
+  const refused = error as (ApiRefusalFields & { status?: number }) | null;
+  if (refused?.status !== 409) return false;
+  if (refused.recovery === "handoff-required") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Start a handoff session");
 }

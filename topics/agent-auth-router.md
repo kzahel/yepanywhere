@@ -66,6 +66,14 @@ scrubs of secrets and paths.
   session selector retains the selected account on failure; disabled choices
   cannot be selected. Enable the same account in AAR to resume its sessions,
   or deliberately select an available account for a new session.
+- **Account login lapsed:** A Claude login lasts a fixed time from sign-in, and
+  renewals do not extend it. AAR (2026-11 and later) refuses a lapsed or
+  cleared login with a 409 `login_required` code; launch and resume then fail
+  with "The pinned router account (name) needs to sign in again" and keep the
+  pin. Sign the same account in again in AAR and retry. The send-failure toast
+  shows that message; only a resume refused with `recovery: handoff-required`
+  shows handoff guidance. Every router refusal is logged as
+  `agent_auth_router_refused`.
 - **Failed-launch cleanup pending:** The count survives restart. **Retry
   failed-launch cleanup** sends only recorded cancellations, starts no provider
   process, and does not allocate or change an account. Failed acknowledgements

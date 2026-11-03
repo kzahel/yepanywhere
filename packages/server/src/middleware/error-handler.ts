@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { getLogger } from "../logging/logger.js";
 import { RouterUnavailable } from "../services/AgentAuthRouter.js";
 
 /**
@@ -38,6 +39,18 @@ export function structuredErrorHandler(error: Error, c: Context): Response {
   // quote a short plain-text 4xx reason from the verified router socket or
   // the session's saved account label.
   if (error instanceof RouterUnavailable) {
+    getLogger().warn(
+      {
+        event: "agent_auth_router_refused",
+        method: c.req.method,
+        path: redactRequestPath(c.req.path),
+        routerStatus: error.status,
+        code: error.code,
+        loginRequired: error.loginRequired,
+        error: error.message,
+      },
+      "Agent Auth Router refused the request",
+    );
     return c.json({ error: error.message }, 409);
   }
   if (error instanceof HTTPException) {

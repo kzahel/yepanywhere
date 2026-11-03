@@ -53,6 +53,7 @@
       "bindingCount": 0,
       "revision": 0,
       "renewal": "unverified",
+      "loginExpiresAt": null,
       "quota": {
         "accountId": "work",
         "provider": "claude",

@@ -60,7 +60,8 @@ async function fixture(
     poolName: string | undefined,
     overviewAccounts: unknown[] = [],
     cliModels = false,
-    serviceTiers = false;
+    serviceTiers = false,
+    loginLapsed = false;
   const server = http.createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -98,6 +99,18 @@ async function fixture(
     if (revoked) {
       res.statusCode = 401;
       return res.end("{}");
+    }
+    if (req.url === "/v1/catalog" && loginLapsed) {
+      res.statusCode = 409;
+      return res.end(
+        JSON.stringify({
+          error:
+            "Account login expired or was cleared; sign in to this account again in AAR",
+          code: "login_required",
+          accountId: "account",
+          loginExpiresAt: "2026-11-03T04:11:58.985Z",
+        }),
+      );
     }
     if (req.url === "/v1/pools/prepare" && rejectPrepare !== false) {
       res.statusCode = 409;
@@ -218,6 +231,9 @@ async function fixture(
     },
     disableAccount: () => {
       enabled = false;
+    },
+    lapseLogin: () => {
+      loginLapsed = true;
     },
     name: (account: string, pool?: string) => {
       accountName = account;
@@ -663,6 +679,26 @@ describe.skipIf(process.platform === "win32")(
         issue: { code: "unavailable" },
       });
       expect(result.issue?.message).not.toContain(f.root);
+    });
+    it("names the pinned account whose AAR login lapsed instead of a generic refusal", async () => {
+      const f = await fixture();
+      await f.connector.connect(f.socketPath);
+      f.name("kyle");
+      await f.connector.launch("session", "codex", "fixture-model", "account");
+      f.lapseLogin();
+      const app = new Hono();
+      app.onError(structuredErrorHandler);
+      app.post("/resume", async (c) =>
+        c.json(await f.connector.launch("session", "codex", undefined)),
+      );
+      const response = await app.request("/resume", { method: "POST" });
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toBe(
+        "The pinned router account (kyle) needs to sign in again: its login in AAR expired or was cleared. Sign that account in again in AAR, then retry. This session's pin will not change.",
+      );
+      expect(f.metadata.getMetadata("session")?.routerBinding?.accountId).toBe(
+        "account",
+      );
     });
   },
 );

@@ -70,7 +70,10 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { isStaleSessionRedirect } from "../api/refusal";
+import {
+  isHandoffRequiredRefusal,
+  isStaleSessionRedirect,
+} from "../api/refusal";
 import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
 import { createSessionApi } from "../api/sessionClient";
 import type { BangCommandHandlers } from "../components/BangCommandDisplayObject";
@@ -421,17 +424,7 @@ function requiresHandoffAfterClaudeResumeError(
   error: unknown,
   provider: ProviderName | undefined,
 ): boolean {
-  if ((error as { status?: number } | null)?.status !== 409) {
-    return false;
-  }
-  if (!isClaudeProviderName(provider)) {
-    return false;
-  }
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes("Start a handoff session") ||
-    message.includes("API error: 409")
-  );
+  return isClaudeProviderName(provider) && isHandoffRequiredRefusal(error);
 }
 
 function parsePositiveIntegerParam(value: string | null): number | undefined {

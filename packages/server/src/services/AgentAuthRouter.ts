@@ -86,9 +86,20 @@ export class RouterUnavailable extends Error {
     readonly status: number,
     message: string,
     readonly code: AgentAuthRouterIssueCode = "operation-rejected",
+    /** AAR refused because the account's login expired or was cleared. */
+    readonly loginRequired = false,
   ) {
     super(message);
   }
+}
+/** The account itself is fine; only its owner can restore its login. */
+function routerLoginRequired(accountName?: string): RouterUnavailable {
+  return new RouterUnavailable(
+    409,
+    `The pinned router account${accountName ? ` (${accountName})` : ""} needs to sign in again: its login in AAR expired or was cleared. Sign that account in again in AAR, then retry. This session's pin will not change.`,
+    "account-unavailable",
+    true,
+  );
 }
 const hash = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -185,6 +196,16 @@ function rejectionReason(
   }
   return undefined;
 }
+/** AAR 2026-11 refuses a lapsed or cleared login with a 409 code. */
+function rejectedForLogin(status: number | undefined, body: Buffer): boolean {
+  if (status !== 409) return false;
+  try {
+    const { code } = JSON.parse(body.toString()) as { code?: unknown };
+    return code === "login_required" || code === "not_enrolled";
+  } catch {
+    return false;
+  }
+}
 /**
  * Account and pool names are display labels the session keeps after AAR is
  * down or the account is gone, so recovery can name what to re-enable.
@@ -227,6 +248,8 @@ export async function routerRequest<T>(
         response.on("error", () => reject(routerOffline()));
         response.on("end", () => {
           if (response.statusCode !== 200) {
+            if (rejectedForLogin(response.statusCode, Buffer.concat(chunks)))
+              return reject(routerLoginRequired());
             const reason = rejectionReason(
               response.statusCode,
               Buffer.concat(chunks),
@@ -1058,6 +1081,10 @@ export class AgentAuthRouter {
             /* Durable cleanup remains available in Settings. */
           }
         }
+        if (error instanceof RouterUnavailable && error.loginRequired)
+          throw routerLoginRequired(
+            accountName(allocation.accountId) ?? existing?.accountDisplayName,
+          );
         throw error;
       }
       return {
