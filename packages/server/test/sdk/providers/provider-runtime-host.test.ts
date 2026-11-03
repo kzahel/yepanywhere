@@ -2108,6 +2108,9 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     }
   });
 
+  // Three real workers, controller replacement and HTTP/receipt round trips:
+  // CI completed in 4.124 s and exhausted 5 s in run 41626829224. Budget 4x
+  // that observed limit; this case asserts routing, not startup performance.
   it("routes real agent HTTP reads through the worker socket across controller replacement", async () => {
     const runtimeRoot = await mkdtemp(join(runtimeTmpDir, "api-host-"));
     temporaryPaths.push(runtimeRoot);
@@ -2429,7 +2432,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
       database.close();
       await host.shutdown("agent HTTP test complete");
     }
-  });
+  }, 20_000);
 
   it("reattaches the AgentSession proxy to the same worker", async () => {
     const runtimeRoot = await mkdtemp(
