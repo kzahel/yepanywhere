@@ -1,6 +1,7 @@
 import type { ModelInfo, ProviderInfo } from "@yep-anywhere/shared";
 import { describe, expect, it, vi } from "vitest";
 import { createProvidersRoutes } from "../../src/routes/providers.js";
+import { getRawProvider } from "../../src/sdk/providers/index.js";
 import type {
   AgentProvider,
   AuthStatus,
@@ -44,6 +45,20 @@ function deferred<T>(): {
 }
 
 describe("Providers Routes", () => {
+  it("keeps Gemini alias discovery and launch on the retained ACP adapter", async () => {
+    for (const name of ["gemini", "gemini-acp"] as const) {
+      const routes = createProvidersRoutes({ enabledProviders: [name] });
+      expect(await (await routes.request("/descriptors")).json()).toEqual({
+        providers: [
+          { name, displayName: name === "gemini" ? "Gemini" : "Gemini (ACP)" },
+        ],
+      });
+    }
+    const provider = getRawProvider("gemini-acp");
+    expect(provider).not.toBeNull();
+    expect(getRawProvider("gemini")).toBe(provider);
+  });
+
   it("publishes model-aware image preparation through provider discovery", async () => {
     const routes = createProvidersRoutes({
       providers: [

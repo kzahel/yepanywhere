@@ -19,6 +19,13 @@ these deterministic conversion-method tests. Paid sessions are not required
 to close these gaps; extend injected adapter/reader cases and add sanitized
 shapes as specimens become available.
 
+2026-11-03: the deprecated Gemini stream-JSON execution adapter is removed.
+Its constructed live-event conversion assertions are retired; the historical
+session normalization/compiler/display assertions remain as durable-only cases.
+They do not establish Gemini ACP parity or storage-reader coverage, and the
+ACP input/result gaps above remain open. No replacement ACP behavior is invented
+to preserve the old test pairing.
+
 The bounded correction fixes demonstrated regressions and improves the highest
 value seams. It deliberately does not claim complete native-path coverage or
 turn every provider's transport into a new integration project. Delete this

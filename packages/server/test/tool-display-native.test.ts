@@ -80,31 +80,14 @@ it("keeps child call ordering separate and recovers the parent launch link from 
 });
 for (const fixture of nativeDisplayCases)
   describe(fixture.id, () => {
-    it("converges through native adapters, durable normalization, compilation and display preparation", async () => {
-      const { live, durable } = await runNativeDisplayCase(fixture);
-      const liveCalls = live.renderItems.filter(
-        (item) => item.type === "tool_call",
-      );
-      const durableCalls = durable.renderItems.filter(
-        (item) => item.type === "tool_call",
-      );
-      expect(liveCalls).toHaveLength(1);
-      expect(durableCalls).toHaveLength(1);
-      const liveCall = liveCalls[0];
-      const durableCall = durableCalls[0];
-      if (!liveCall || !durableCall)
-        throw new Error("Missing paired tool call");
-      expect(liveCall.toolName).toBe(fixture.tool);
-      expect(durableCall.toolName).toBe(fixture.tool);
-      expect(liveCall.id).toBe(durableCall.id);
-      expect(liveCall.status).toBe(fixture.isError ? "error" : "complete");
-      expect(liveCall.toolResult?.isError).toBe(!!fixture.isError);
-      expect(liveCall.isSubagent).toBe(durableCall.isSubagent);
-      expect(preparedNativeRecord(liveCall)).toEqual(
-        preparedNativeRecord(durableCall),
-      );
-      expect(preparedNativeRecord(liveCall).kind).toBe(
-        fixture.expectedKind ??
+    it(
+      fixture.provider === "gemini"
+        ? "preserves historical tool normalization, compilation and display preparation"
+        : "converges through native adapters, durable normalization, compilation and display preparation",
+      async () => {
+        const { live, durable } = await runNativeDisplayCase(fixture);
+        const expectedKind =
+          fixture.expectedKind ??
           (fixture.isError
             ? "raw"
             : (fixture.id.endsWith("plain-text") &&
@@ -113,32 +96,68 @@ for (const fixture of nativeDisplayCases)
                 fixture.id === "codex/Edit/patch" ||
                 fixture.id === "pi/Grep/native"
               ? "partial"
-              : "rich"),
-      );
-      // Deliberate non-display metadata exceptions; never erase result facts
-      // or a display classification to obtain parity.
-      const comparableLive = liveCalls.map((call) => ({
-        ...call,
-        toolResult: call.toolResult ? { ...call.toolResult } : undefined,
-      }));
-      const comparableDurable = durableCalls.map((call) => ({
-        ...call,
-        toolInput: { ...Object(call.toolInput) },
-      }));
-      if (fixture.provider === "grok") {
-        expect(comparableDurable[0]?.toolInput.status).toBe("completed");
-        delete comparableDurable[0]?.toolInput.status;
-      }
-      if (fixture.id === "codex/Write/command-item") {
-        expect(liveCall.toolResult?.content).toBe("(no output)");
-        expect(durableCall.toolResult?.content).toBe("");
-        const result = comparableLive[0]?.toolResult;
-        if (result) result.content = "";
-      }
-      expect(normalizeRenderItemsForComparison(comparableLive)).toEqual(
-        normalizeRenderItemsForComparison(comparableDurable),
-      );
-    });
+              : "rich");
+        if (!live) {
+          expect(fixture.provider).toBe("gemini");
+          const calls = durable.renderItems.filter(
+            (item) => item.type === "tool_call",
+          );
+          expect(calls).toHaveLength(1);
+          const call = calls[0];
+          if (!call) throw new Error("Missing historical tool call");
+          expect(call.toolName).toBe(fixture.tool);
+          expect(call.status).toBe(fixture.isError ? "error" : "complete");
+          expect(call.toolResult?.isError).toBe(!!fixture.isError);
+          expect(preparedNativeRecord(call).kind).toBe(expectedKind);
+          return;
+        }
+        const liveCalls = live.renderItems.filter(
+          (item) => item.type === "tool_call",
+        );
+        const durableCalls = durable.renderItems.filter(
+          (item) => item.type === "tool_call",
+        );
+        expect(liveCalls).toHaveLength(1);
+        expect(durableCalls).toHaveLength(1);
+        const liveCall = liveCalls[0];
+        const durableCall = durableCalls[0];
+        if (!liveCall || !durableCall)
+          throw new Error("Missing paired tool call");
+        expect(liveCall.toolName).toBe(fixture.tool);
+        expect(durableCall.toolName).toBe(fixture.tool);
+        expect(liveCall.id).toBe(durableCall.id);
+        expect(liveCall.status).toBe(fixture.isError ? "error" : "complete");
+        expect(liveCall.toolResult?.isError).toBe(!!fixture.isError);
+        expect(liveCall.isSubagent).toBe(durableCall.isSubagent);
+        expect(preparedNativeRecord(liveCall)).toEqual(
+          preparedNativeRecord(durableCall),
+        );
+        expect(preparedNativeRecord(liveCall).kind).toBe(expectedKind);
+        // Deliberate non-display metadata exceptions; never erase result facts
+        // or a display classification to obtain parity.
+        const comparableLive = liveCalls.map((call) => ({
+          ...call,
+          toolResult: call.toolResult ? { ...call.toolResult } : undefined,
+        }));
+        const comparableDurable = durableCalls.map((call) => ({
+          ...call,
+          toolInput: { ...Object(call.toolInput) },
+        }));
+        if (fixture.provider === "grok") {
+          expect(comparableDurable[0]?.toolInput.status).toBe("completed");
+          delete comparableDurable[0]?.toolInput.status;
+        }
+        if (fixture.id === "codex/Write/command-item") {
+          expect(liveCall.toolResult?.content).toBe("(no output)");
+          expect(durableCall.toolResult?.content).toBe("");
+          const result = comparableLive[0]?.toolResult;
+          if (result) result.content = "";
+        }
+        expect(normalizeRenderItemsForComparison(comparableLive)).toEqual(
+          normalizeRenderItemsForComparison(comparableDurable),
+        );
+      },
+    );
   });
 
 import { displayFixtures } from "../../client/src/components/renderers/tools/__fixtures__/displayFixtures.js";

@@ -1289,19 +1289,6 @@ export {
   parseCodexSessionEntry,
 } from "./codex-schema/session.js";
 
-// Gemini SDK schema types
-export type {
-  GeminiStats,
-  GeminiInitEvent,
-  GeminiMessageEvent,
-  GeminiToolUseEvent,
-  GeminiToolResultEvent,
-  GeminiResultEvent,
-  GeminiErrorEvent,
-  GeminiEvent,
-} from "./gemini-schema/types.js";
-export { parseGeminiEvent } from "./gemini-schema/events.js";
-
 // Gemini session file types (for reading ~/.gemini/tmp/<hash>/chats/)
 export type {
   GeminiFunctionResponse,

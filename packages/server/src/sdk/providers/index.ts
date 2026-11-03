@@ -58,14 +58,6 @@ export {
   type CodexProviderConfig,
 } from "./codex.js";
 
-// Gemini provider (uses gemini CLI)
-import { geminiProvider } from "./gemini.js";
-export {
-  GeminiProvider,
-  geminiProvider,
-  type GeminiProviderConfig,
-} from "./gemini.js";
-
 // Gemini ACP provider (uses gemini CLI with --experimental-acp)
 import { geminiACPProvider } from "./gemini-acp.js";
 export {
@@ -73,6 +65,17 @@ export {
   geminiACPProvider,
   type GeminiACPProviderConfig,
 } from "./gemini-acp.js";
+
+// Keep saved/configured `gemini` selections discoverable through the same ACP
+// adapter used for launch. This alias owns no separate transport or state.
+const geminiAliasProvider = new Proxy(geminiACPProvider, {
+  get(target, property) {
+    if (property === "name") return "gemini";
+    if (property === "displayName") return "Gemini";
+    const value = Reflect.get(target, property, target) as unknown;
+    return typeof value === "function" ? value.bind(target) : value;
+  },
+});
 
 // Grok Build ACP provider (uses `grok agent stdio`)
 // Phase 1 isolated addition per topics/grok.md. Gated by ENABLED_PROVIDERS=grok.
@@ -297,7 +300,7 @@ export function getAllProviders(): AgentProvider[] {
     ...(isClaudeOllamaVisible() ? [claudeOllamaProvider] : []),
     codexProvider,
     codexOSSProvider,
-    geminiProvider,
+    geminiAliasProvider,
     geminiACPProvider,
     grokACPProvider, // Phase 1: additive only (see grok-acp.ts header + topics/grok.md)
     opencodeProvider,
@@ -308,9 +311,8 @@ export function getAllProviders(): AgentProvider[] {
 /**
  * Get a provider by name.
  *
- * Note: "gemini" maps to geminiACPProvider (ACP mode) since it's the better
- * implementation with proper permission handling. The non-ACP stream-json
- * provider is deprecated and will be removed.
+ * Both Gemini names select the retained ACP adapter. Discovery keeps the old
+ * name as an alias, without a separate stream-JSON execution path.
  *
  * "grok" added (additive, isolated). When ENABLED_PROVIDERS does not include "grok",
  * getProvider("grok") is never reached from normal flows.

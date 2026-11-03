@@ -113,9 +113,10 @@ it("mounts both independently read child calls while retaining their parent laun
   }
 });
 for (const fixture of nativeDisplayCases)
-  it(`mounts native live and durable ${fixture.id}`, async () => {
+  it(`mounts ${fixture.provider === "gemini" ? "historical" : "native live and durable"} ${fixture.id}`, async () => {
     const pair = await runNativeDisplayCase(fixture);
-    for (const output of [pair.live, pair.durable]) {
+    const outputs = pair.live ? [pair.live, pair.durable] : [pair.durable];
+    for (const output of outputs) {
       const call = output.renderItems.find((item) => item.type === "tool_call");
       if (call?.type !== "tool_call")
         throw new Error("Missing native tool call");

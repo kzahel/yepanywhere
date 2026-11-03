@@ -1,5 +1,0 @@
-{"type":"init","timestamp":"2026-01-03T18:14:05.433Z","session_id":"17d22fde-70e4-4369-ae8f-786093c80ace","model":"auto-gemini-2.5"}
-{"type":"message","timestamp":"2026-01-03T18:14:05.433Z","role":"user","content":"Say \"Hello, I am ready to help\\!\" and nothing else."}
-{"type":"message","timestamp":"2026-01-03T18:14:07.223Z","role":"assistant","content":"Hello, I am ready to","delta":true}
-{"type":"message","timestamp":"2026-01-03T18:14:07.241Z","role":"assistant","content":" help!","delta":true}
-{"type":"result","timestamp":"2026-01-03T18:14:07.248Z","status":"success","stats":{"total_tokens":6462,"input_tokens":6293,"output_tokens":66,"cached":4699,"input":1594,"duration_ms":1815,"tool_calls":0}}

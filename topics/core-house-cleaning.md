@@ -124,7 +124,11 @@ The maintainer selected this direction on **2026-10-27**:
 - **Freeze legacy Gemini.** Keep its current execution mapping for now; no
   feature work, CLI/SDK refresh or protocol expansion is required for the core
   refactor. Both `gemini` and `gemini-acp` currently select the same ACP
-  adapter. The older stream-JSON adapter is deprecated. Freeze does not certify
+  adapter. The older stream-JSON adapter and its exclusive event parser/tests
+  are removed as of 2026-11-03. Discovery retains `gemini` as an alias of the
+  same ACP adapter, including `ENABLED_PROVIDERS=gemini`; it no longer probes a
+  different implementation from the one used for launch. Historical session
+  readers and their normalization remain. Freeze does not certify
   current compatibility. Failed or unsupported ACP resume now fails explicitly
   without issuing `session/new` or sending input to a fresh conversation; a
   controlled failed-resume peer verifies this ownership boundary. Scoped cold

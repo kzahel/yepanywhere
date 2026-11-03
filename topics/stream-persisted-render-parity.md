@@ -415,8 +415,9 @@ field.
 `server/test/utils/native-tool-display-corpus.ts` feeds deterministic native
 messages into production adapters before the existing parity harness. Server
 checks compare compiled records and data-only prepared values/classification;
-`client/.../tools/__tests__/displayNative.test.tsx` runs the same pairs and mounts
-both outputs with semantic content expectations. A safe raw fallback is a test
+`packages/client/test/tool-display-native.test.tsx` runs the same pairs and mounts
+both outputs with semantic content expectations. Retired Gemini stream-JSON
+cases retain historical output only, with no live-pair claim. A safe raw fallback is a test
 failure for a declared rich/partial specimen. No CLI, credentials, or paid
 provider session is required. The persisted harness includes the production
 TaskList snapshot pass before rich augments.
@@ -428,7 +429,7 @@ Coverage ownership (invented values; evidence classes distinguished below):
 | Claude SDK `convertMessage` / actual JSONL reader and normalization | Read text/dedup/image/PDF/text-only; Write file/ack/rejection; Edit replacement/text-only; Bash; Glob; Grep files/content/count/text-only; TodoWrite; Task complete/async/text-only; search/fetch; questions; plan exit; background shell/task output; kill; task create/update events |
 | Codex app-server raw-response notifications / rollout response items | goals, plan, stdin, image, spawn; multi-call Exec; custom apply_patch; code-mode Web; shell-recognized Read/Grep/heredoc Write/Bash |
 | Codex commandExecution notifications / durable shell calls | Read, Grep and heredoc Write; structured bodies, status and checked values agree |
-| Gemini CLI native events / session JSON | read_file, replace, write_file (including rejection), glob, search_file_content, run_shell_command |
+| Gemini historical session JSON only | read_file, replace, write_file (including rejection), glob, search_file_content, run_shell_command; retained normalization/display checks, no live-pair claim after stream-JSON adapter retirement |
 | OpenCode SSE parts / stored message parts | read, edit, write, glob, grep, bash, todowrite, task, webfetch, websearch, question, apply_patch |
 | Pi AgentSession events / native message-node reader | read, write, edit replacements, bash, grep; both sides use pi-tools normalization |
 | Grok ACP updates / updates-JSONL reader | Write/SearchReplace, ReadFile, and Bash results; both sides use the shared Grok normalizer |

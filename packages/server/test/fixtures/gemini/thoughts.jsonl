@@ -1,4 +1,0 @@
-{"type":"system","subtype":"init","session_id":"gemini-fixture-003","model":"gemini-2.0-flash-thinking","cwd":"/test"}
-{"type":"assistant","session_id":"gemini-fixture-003","message":{"role":"assistant","content":"<thinking>\n[Analysis] Let me break this down...\n[Planning] I'll approach this systematically...\n</thinking>"}}
-{"type":"assistant","session_id":"gemini-fixture-003","message":{"role":"assistant","content":"Based on my analysis, here's my response..."}}
-{"type":"result","session_id":"gemini-fixture-003","usage":{"input_tokens":60,"output_tokens":80}}

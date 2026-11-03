@@ -218,7 +218,7 @@ export async function runNativeDisplayCase(fixture: NativeDisplayCase) {
       durable: await readClaudeDisplayEntries(entries),
     };
   }
-  if (fixture.provider === "gemini") return runGeminiPair(fixture);
+  if (fixture.provider === "gemini") return runGeminiHistory(fixture);
   if (fixture.provider === "opencode") return runOpenCodePair(fixture);
   if (fixture.provider === "grok") return runGrokPair(fixture);
   if (fixture.provider === "pi") return runPiPair(fixture);
@@ -353,7 +353,6 @@ export function preparedNativeRecord(item: ToolCallItem) {
   };
 }
 
-import { GeminiProvider } from "../../src/sdk/providers/gemini.js";
 import { OpenCodeProvider } from "../../src/sdk/providers/opencode.js";
 import { GrokACPProvider } from "../../src/sdk/providers/grok-acp.js";
 import { GrokSessionReader } from "../../src/sessions/grok-reader.js";
@@ -480,36 +479,11 @@ for (const [tool, nativeName, input] of [
     text: "Contract text output",
   });
 
-async function runGeminiPair(fixture: NativeDisplayCase) {
+async function runGeminiHistory(fixture: NativeDisplayCase) {
   const callId = `display-${fixture.id}`;
-  const provider = new GeminiProvider();
   const nativeName = fixture.nativeName ?? fixture.tool;
   const input = z.record(z.string(), z.unknown()).parse(fixture.input);
   const output = z.string().parse(fixture.result);
-  const messages = [
-    provider["convertEventToSDKMessage"](
-      {
-        type: "tool_use",
-        timestamp,
-        tool_name: nativeName,
-        tool_id: callId,
-        parameters: input,
-      },
-      "display-corpus",
-    ),
-    provider["convertEventToSDKMessage"](
-      {
-        type: "tool_result",
-        timestamp,
-        tool_id: callId,
-        status: fixture.isError ? "error" : "success",
-        output,
-        ...(fixture.isError ? { error: output } : {}),
-      },
-      "display-corpus",
-    ),
-  ].filter((message) => message !== null);
-  const live = await runStreamPipeline(messages);
   const durable = await runPersistedPipeline(
     loaded({
       provider: "gemini",
@@ -546,7 +520,7 @@ async function runGeminiPair(fixture: NativeDisplayCase) {
       },
     }),
   );
-  return { live, durable };
+  return { live: null, durable };
 }
 async function runOpenCodePair(fixture: NativeDisplayCase) {
   const callId = `display-${fixture.id}`;

@@ -23,6 +23,17 @@ layout change was made for this report.
 
 ## Investigation and closure
 
+2026-11-03: the owned `queued-compaction.spec.ts` run captured a similar
+left-clipped pane after resizing from 1000×600 to 375×812 during compaction,
+then hovering the message list and wheeling to its tail. The phone capture
+clips the transcript, queued entries and composer together; the browser test's
+`toBeInViewport()` checks still pass because part of each entry intersects the
+viewport. This does not establish the original report's cause or an effect of
+the backend-only compatibility removal under test. No layout source changed.
+Evidence: `.artifacts/ui-testing/2026-11-03-legacy-path-retirement/queued-compact-phone.png`
+and ignored `tasks/legacy-path-retirement/final-browser.log`. This narrows an
+investigation sequence but is not geometry tracing or a demonstrated repair.
+
 The violated expectation is that the transcript, activity controls and composer
 share the correct session-pane geometry through sidebar/pane changes and
 reconnects. Inspect their common layout ancestor and viewport/scroll state

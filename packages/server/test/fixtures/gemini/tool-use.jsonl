@@ -1,5 +1,0 @@
-{"type":"system","subtype":"init","session_id":"gemini-fixture-002","model":"gemini-2.0-flash","cwd":"/test"}
-{"type":"assistant","session_id":"gemini-fixture-002","message":{"role":"assistant","content":[{"type":"text","text":"I'll read the file for you."},{"type":"tool_use","id":"call-gemini-123","name":"Read","input":{"file_path":"/test/file.txt"}}]}}
-{"type":"user","session_id":"gemini-fixture-002","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call-gemini-123","content":"Hello from the file!"}]}}
-{"type":"assistant","session_id":"gemini-fixture-002","message":{"role":"assistant","content":"The file contains: Hello from the file!"}}
-{"type":"result","session_id":"gemini-fixture-002","usage":{"input_tokens":80,"output_tokens":40}}

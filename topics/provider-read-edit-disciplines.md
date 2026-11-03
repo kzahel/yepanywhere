@@ -133,8 +133,9 @@ reloaded history agree:
   `normalizeGeminiTool` maps the non-ACP `gemini` CLI's `read_file`→`Read`,
   `replace`→`Edit` (`old_content`/`new_content`→`old_string`/`new_string`),
   `write_file`→`Write`, `glob`→`Glob`, `search_file_content`→`Grep`,
-  `run_shell_command`→`Bash`. Used by both `gemini.ts` (live) and
-  `normalization.ts` `convertGeminiMessages` (durable). `write_todos` /
+  `run_shell_command`→`Bash`. Retained by `normalization.ts`
+  `convertGeminiMessages` for durable history after removal of the deprecated
+  stream-JSON execution adapter. `write_todos` /
   `delegate_to_agent` / `save_memory` stay unmapped (honest raw fallback — their
   field shapes don't match a canonical renderer). The ACP gemini/grok path
   instead canonicalizes via `toolCall.kind`→`mapKindToToolName`.
