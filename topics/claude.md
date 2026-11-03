@@ -17,6 +17,12 @@ shell-startup and test-hermeticity rules for the local `BASH_ENV` bridge.
 
 ## Contracts
 
+- Requested native shutdown is clean cancellation when YA's abort signal is
+  set and the SDK classifies the error as `errorClass: "aborted"`, even when
+  its name is not `AbortError`. That classification without YA's requested
+  abort, and unrelated SDK errors during shutdown, still surface as failures.
+  [Real executable-backed scenarios](native-provider-testing.md) assert joined
+  shutdown without a spurious Process error.
 - Concurrent local Claude authentication reads share one pending CLI status
   command per provider instance, including the status and model-discovery
   branches of a catalog request. Completion or failure releases that command;

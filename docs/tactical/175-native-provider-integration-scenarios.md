@@ -1,6 +1,10 @@
 # Native provider integration scenarios
 
-Status: selected for implementation, 2026-11-03.
+Status: Claude/Codex foundation implemented, 2026-11-03. All-provider
+qualification and expanded identity/compaction/recovery scenarios remain open.
+
+The durable contract, commands and qualification matrix now live in
+[native provider testing](../../topics/native-provider-testing.md).
 
 ## Outcome and standing direction
 
@@ -80,3 +84,58 @@ the version tested; optional additional versions belong in isolated test roots.
 Keep the roadmap explicit about implemented coverage and remaining cells.
 Run required workspace/static checks, retain meaningful regressions, and commit
 the foundation and qualification findings without absorbing concurrent work.
+
+## Implementation and verification, 2026-11-03
+
+Steps 1 and 2 are implemented in `packages/server/test/native-provider/`:
+real SDK-bundled Claude 2.1.312 / SDK 0.3.312 and test-pinned Codex 0.166.0,
+shared controlled Messages/Responses exchanges, standalone roots/environment,
+actual YA Process scheduling and joined native/listener cleanup. Four scenarios
+per provider cover separate queued A/B turns and durable UUIDs, actual tool
+execution, native-acknowledged gentle steering and response-cancelling immediate
+steering. They assert YA output, native requests/history and clean shutdown.
+No paid inference, primary CLI upgrades or UI changes are involved.
+
+The suite exposed Claude's requested cancellation being reported as an SDK
+`errorClass: "aborted"` error instead of an `AbortError`. The narrow repair
+requires YA's abort signal as well as that classification. The shutdown assertion
+fails before the repair and passes after it; unrelated SDK failures remain errors.
+The stronger steering output assertion also exposed a fixture race: previous-turn
+idle is not completion of the correction. The test now waits for correction
+output before final idle, and for actual streamed output/native receipt before
+finishing the original gentle-steer response.
+
+Step 3's family audit is recorded in the owning topic's matrix. Pi and OpenCode
+have existing real-executable/local-model precedents but are not installed on
+this host. Grok local endpoint routing, Gemini ACP local auth/GenAI exchanges and
+Antigravity local model routing remain unqualified. Claude variants and Codex
+OSS need their own launch-path cases; shared executable ancestry is not proof.
+Step 4's documentation, root command, strict helper typecheck and ordinary CI
+suite integration are implemented. Linux/Windows execution remains CI acceptance,
+not a claimed local pass.
+
+Focused eight-case runs pass without warnings/errors; initial samples cost
+1.75–4.16 seconds of test work and 2.56–5.82 seconds including Vitest startup.
+The Codex-only selector passes four cases; selecting unqualified Pi fails clearly
+before any native model scenario. Lint, formatting and root typechecking pass.
+The corrected workspace run passes: 6,941 server and 7,092 client tests,
+plus shared/relay/other workspace checks (server 143.46 seconds). The native
+suite also passes after moving Codex into a private test-tool dependency so
+its CLI bin cannot shadow the normal development PATH; frozen install passes.
+The earlier full run caught the known independent Rendez restart delivery gap,
+reproduced in isolation. That red result remains recorded in
+[the watcher gap](../../gaps/rendez-nested-watch-event-after-restart.md); the
+later passing run does not close it. Existing intentional fault-fixture logs
+remain tracked in [suite diagnostic debt](../../gaps/full-suite-timing-and-diagnostics.md).
+No broad logging suppression, watcher fix or timeout increase is bundled here.
+
+## Remaining sequence
+
+1. Add native multi-input identity/batching and queued `/compact` followed by
+   A/B scenarios, then use the evidence to decide removal of implicit YA text
+   concatenation. Do not infer a product decision from this fixture foundation.
+2. Add cancellation/resume and controlled error/retry scenarios. Retain fake-peer
+   fault injection only where the real executable cannot expose that boundary.
+3. Qualify Pi/OpenCode and the alternate Claude/Codex launch paths, then establish
+   supported local routing for the remaining ACP families. Preserve explicit
+   capability/platform gaps rather than widening product policy for a test.

@@ -9,6 +9,17 @@ Read the applicable [provider refresh](../../topics/provider-refresh.md)
 sections for provider-specific sources, probes, and refresh evidence. This
 guide owns the shared contributor procedures and Codex audit approval rule.
 
+## Native behavior qualification
+
+Before provider or shared scheduling refactors, establish the relevant behavior
+with [native provider scenarios](../../topics/native-provider-testing.md).
+`pnpm test:providers` runs real executables with scripted local model responses,
+without inference. Extend shared actions/assertions where semantics match and
+keep provider-specific capabilities explicit. Missing local routing or binaries
+must remain an explicit qualification gap, not a successful fake/paid fallback.
+Run applicable scenarios when upgrading a qualified executable and keep its
+test pin aligned with the audited target.
+
 ## Codex Version Bump Audit
 
 Treat `package.json` `yepAnywhere.codexCli.expectedVersion` as the repo's

@@ -256,3 +256,17 @@ project-owner corrections, the final full run passed all 6,910 server cases
 (153.86 seconds) and 7,080 client cases. Evidence:
 `tasks/session-identity/queue-draft-tests-reviewed.log`. This later green run
 does not close the intermittent watcher defect or erase the first red result.
+
+
+2026-11-03: native provider integration's first workspace run on macOS /
+Node 24.22.1 missed the second nested delivery at line 364 (1 observed, 2
+expected). An isolated rerun reproduced it: three passed, one failed, one
+skipped in 12.98 seconds. Evidence is retained in ignored
+`tasks/batching-investigation/native-workspace-tests.log` and
+`rendez-focused.log`. That workspace run also loaded an intermediate version
+of the new native steering fixture that incorrectly awaited Codex text as a
+Claude-style event; that separate fixture predicate was corrected. The new
+full run passed 6,941 server / 7,092 client cases (143.46 seconds server),
+recorded in `native-workspace-final.log`. The passing result does not resolve
+the watcher defect or replace the red evidence. No Rendez code, assertion,
+timeout or retry setting changed.

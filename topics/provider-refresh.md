@@ -61,6 +61,10 @@ its runtime leases, verification, and cache-generation contract.
    section below. Capture the exact version, relevant `--help`
    output, model list, generated protocol check, and a small session/export
    sample when schema drift is the risk.
+   For qualified families, run the applicable [native provider scenarios](native-provider-testing.md)
+   against the actual target executable, record its version, and align test
+   pins with the audited target. Scripted local model APIs cost no inference;
+   replayed outputs alone do not qualify the new runtime.
 3. Diff YA-visible shape, not raw prose. Prefer normalized fingerprints:
    model ids plus metadata fields YA uses; flag names and accepted positions;
    generated file add/remove/change list; event or part-type coverage counts;

@@ -135,6 +135,14 @@ description, then perform real taps/long presses. Hosted run `37223303403`
 exposed the external anchor only as a content description; the external VIEW
 intent, unchanged document identity and tab count remain required assertions.
 
+Actual provider executables against scripted loopback model APIs are the primary
+integration evidence for native scheduling, tools and persistence. Run
+`pnpm test:providers`; these inference-free scenarios also run in the ordinary
+server suite/CI. [Native provider testing](../../topics/native-provider-testing.md)
+owns the action/assertion recipe, executable pins, isolation, capability matrix
+and current qualification limits. Replay and fake peers do not replace that
+current-native evidence.
+
 Captured provider regressions run offline in the normal server suite:
 `pnpm --dir packages/server exec vitest run test/captured-provider.test.ts`.
 The [corpus README](../../packages/server/test/fixtures/captured/README.md)

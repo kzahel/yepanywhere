@@ -188,3 +188,14 @@ regressions and assembled callback/HTTP success paths are checked separately
 without those fault-path diagnostics. Auditing each older negative case's log
 expectations spans binding, failed abort and native API error contracts; it is
 not safely replaced by a logger-wide suppression in this ownership fix.
+
+
+2026-11-03: the native provider integration foundation's corrected workspace
+run passes 6,941 server / 7,092 client cases (143.46 seconds server), retaining
+the existing deliberate fault-path Process/ACP/queue/clearloop/voice warnings
+and jsdom navigation errors. The eight new real-executable scenarios pass
+without warnings or errors and assert clean native shutdown. Their only
+production change handles an explicitly requested Claude SDK classified abort;
+blanket interception of independent fixtures would hide their real failures.
+Evidence: ignored `tasks/batching-investigation/native-workspace-final.log`
+and `native-nested-final.log`. No unrelated diagnostics were suppressed.

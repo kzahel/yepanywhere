@@ -623,6 +623,15 @@ Claude/Codex trials verify generation interruption and continued cache hits,
 with incomplete aborted-generation usage explicitly recorded. Grok advertises
 its existing gentle interjection; Pi/Antigravity audits do not enable speculative
 urgency controls. This does not restart the archived general core program.
+The maintainer selected [native provider integration scenarios](../tactical/175-native-provider-integration-scenarios.md)
+as the evidence base for further provider refactors. Eight shared queue,
+real-tool and gentle/immediate steering cases now pass against real Claude
+2.1.312 and Codex 0.166.0 with scripted local model APIs, no inference, owned
+profiles and joined teardown; they run in the ordinary server suite/CI. The
+[qualification matrix](../../topics/native-provider-testing.md#all-provider-adoption-matrix)
+keeps other families and Linux/Windows qualification explicit. Next: extend
+native identity/batching, queued compact and recovery scenarios, then use that
+evidence to simplify scheduling; all-provider coverage is not yet complete.
 Release-delivery work remains independently required; local sessions,
 same-host provider ownership, ordinary queues, direct/relay access and native
 client transport remain retained foundations.

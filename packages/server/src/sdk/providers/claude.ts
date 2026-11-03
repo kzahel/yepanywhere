@@ -2664,6 +2664,7 @@ export class ClaudeProvider implements AgentProvider {
 
     // Wrap the iterator to convert SDK message types to our internal types
     const wrappedIterator = this.wrapIterator(sdkQuery, {
+      signal: abortController.signal,
       providerRetention,
       goalTracker,
       getCommandInventory: buildCommandInventory,
@@ -2840,6 +2841,7 @@ export class ClaudeProvider implements AgentProvider {
   private async *wrapIterator(
     iterator: AsyncIterable<AgentSDKMessage>,
     observation?: {
+      signal?: AbortSignal;
       providerRetention?: ClaudeProviderRetentionTracker;
       goalTracker?: ClaudeGoalTracker;
       /** Current inventory, already carrying goal state, for goal updates. */
@@ -2871,6 +2873,14 @@ export class ClaudeProvider implements AgentProvider {
         if (goalUpdate) yield goalUpdate;
       }
     } catch (error) {
+      // The native SDK can classify requested cancellation without naming it AbortError.
+      if (
+        observation?.signal?.aborted &&
+        error instanceof Error &&
+        "errorClass" in error &&
+        error.errorClass === "aborted"
+      )
+        return;
       // Handle abort errors gracefully
       if (error instanceof Error && error.name === "AbortError") {
         return;

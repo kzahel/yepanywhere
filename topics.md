@@ -476,3 +476,5 @@
 - managed-viewer-publication - Separate viewer content from lifecycle updates.
 
 - antigravity-discovery — native ACP provider and shared catalog/project discovery.
+
+- native-provider-integration — actual provider executables with scripted local model APIs.
