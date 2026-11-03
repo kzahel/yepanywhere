@@ -233,6 +233,17 @@ test("sends the final ASR wording with its prefix when Send is pressed", async (
   page,
   baseURL,
 }) => {
+  // Observe the speech finalization/send boundary directly. Native provider
+  // resume is covered separately; this fixture's hostname store is imported
+  // history, not a provider launch store.
+  let submitted: { message: string } | undefined;
+  await page.route("**/api/projects/*/sessions/*/resume", (route) => {
+    expect(route.request().method()).toBe("POST");
+    submitted = route.request().postDataJSON();
+    return route.fulfill({
+      json: { processId: "speech-send-fixture", permissionMode: "default" },
+    });
+  });
   const textarea = await openBrowserSpeechComposer(
     page,
     baseURL,
@@ -255,11 +266,10 @@ test("sends the final ASR wording with its prefix when Send is pressed", async (
   });
   await page.getByRole("button", { name: /^Send/ }).click();
 
-  await expect(
-    page.getByRole("main").getByText("🎤 final wording alpha omega", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect
+    .poll(() => submitted?.message)
+    .toBe("🎤 final wording alpha omega");
+  await expect(textarea).toHaveValue("");
 });
 
 test("commits the interim text visible when Stop is pressed", async ({
