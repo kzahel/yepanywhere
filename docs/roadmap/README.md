@@ -593,7 +593,7 @@ normalization/display coverage remain. Both changes pass workspace/static
 checks. This does not raise provider-version floors or expand frozen Gemini.
 The maintainer's next bounded architecture slice,
 [shared steering and native urgency](../tactical/174-shared-steering-and-native-urgency.md),
-uses provider capability facts and adapter-owned translation. Claude retains
+is implemented with provider capability facts and adapter-owned translation. Claude retains
 per-message Now; Codex adds an opt-in launch-scoped Immediate experiment with
 gentle as the default and native configuration authoritative. Real standalone
 Claude/Codex trials verify generation interruption and continued cache hits,
