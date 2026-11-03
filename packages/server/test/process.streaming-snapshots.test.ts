@@ -7,10 +7,12 @@ import {
   type SDKMessage,
   type UrlProjectId,
 } from "./process.test-support.js";
+import { MessageQueue } from "../src/sdk/messageQueue.js";
 
 it("keeps one current snapshot for late subscribers and clears it on completion", async () => {
   const controller = createControllableIterator();
   const process = new Process(controller.iterator, {
+    queue: new MessageQueue(),
     projectPath: "/test",
     projectId: "proj-1" as UrlProjectId,
     sessionId: "sess-1",
@@ -52,6 +54,7 @@ it("keeps one current snapshot for late subscribers and clears it on completion"
 it("publishes and keeps a burst's latest snapshot, not every delta", async () => {
   const controller = createControllableIterator();
   const process = new Process(controller.iterator, {
+    queue: new MessageQueue(),
     projectPath: "/test",
     projectId: "proj-1" as UrlProjectId,
     sessionId: "sess-1",

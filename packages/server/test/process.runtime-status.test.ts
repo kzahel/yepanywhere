@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "./process.test-support.js";
 import type { ProcessEvent, UrlProjectId } from "./process.test-support.js";
+import { MessageQueue } from "../src/sdk/messageQueue.js";
 
 describe("Process", () => {
   afterEach(() => {
@@ -16,6 +17,7 @@ describe("Process", () => {
     it("records Claude api_retry status in process info", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -68,6 +70,7 @@ describe("Process", () => {
       vi.spyOn(getLogger(), "warn").mockImplementation(() => undefined);
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -110,6 +113,7 @@ describe("Process", () => {
     it("detects Claude Gateway quota exhaustion from compact command stderr", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -142,6 +146,7 @@ describe("Process", () => {
     it("emits provider runtime status changes", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -192,6 +197,7 @@ describe("Process", () => {
     it("updates Claude api_retry status without resetting the incident start", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -253,6 +259,7 @@ describe("Process", () => {
     it("ignores Claude-shaped api_retry messages for non-Claude providers", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -278,6 +285,7 @@ describe("Process", () => {
     it("records terminal Codex errors until the next user turn", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -329,6 +337,7 @@ describe("Process", () => {
     it("normalizes Codex policyCapacityUnavailable to the overloaded reason", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -361,6 +370,7 @@ describe("Process", () => {
       async (codexErrorInfo) => {
         const controller = createControllableIterator();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -398,6 +408,7 @@ describe("Process", () => {
     it("records automatic Codex retries until provider progress resumes", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -464,6 +475,7 @@ describe("Process", () => {
     it("distinguishes Codex app-server process exits from failed turns", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -498,6 +510,7 @@ describe("Process", () => {
     it("restores a retained terminal status into a reactivated process", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -526,6 +539,7 @@ describe("Process", () => {
     it("clears retry status when assistant progress resumes", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -560,6 +574,7 @@ describe("Process", () => {
     it("clears retry status when the turn ends", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -602,6 +617,7 @@ describe("Process", () => {
         return true;
       });
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -642,6 +658,7 @@ describe("Process", () => {
       const setModelFn = vi.fn(async () => {});
       const interruptFn = vi.fn(async () => false);
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -679,6 +696,7 @@ describe("Process", () => {
       const setModelFn = vi.fn(async () => {});
       const interruptFn = vi.fn(async () => true);
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -699,6 +717,7 @@ describe("Process", () => {
     it("clears retry status when aborted", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",

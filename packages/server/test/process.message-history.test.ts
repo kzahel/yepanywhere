@@ -9,7 +9,7 @@ import type { SDKMessage, UrlProjectId } from "./process.test-support.js";
 
 describe("Process", () => {
   describe("messageHistory", () => {
-    it("should add user messages to history for real SDK sessions (with queue)", async () => {
+    it("adds queued user messages to replay history", async () => {
       const iterator = createMockIterator([
         { type: "system", subtype: "init", session_id: "sess-1" },
       ]);
@@ -21,7 +21,7 @@ describe("Process", () => {
         sessionId: "sess-1",
         provider: "claude",
         idleTimeoutMs: 100,
-        queue, // Real SDK provides queue
+        queue,
       });
 
       // Queue a user message
@@ -30,31 +30,6 @@ describe("Process", () => {
       // User message SHOULD be in history for replay to late-joining clients.
       // Client-side deduplication (mergeStreamMessage, mergeJSONLMessages) handles
       // any duplicates when JSONL is eventually fetched.
-      const userMessages = process
-        .getMessageHistory()
-        .filter((m) => m.type === "user");
-      expect(userMessages).toHaveLength(1);
-      expect(userMessages[0]?.message?.content).toBe("test message");
-    });
-
-    it("should add user messages to history for mock SDK sessions (no queue)", async () => {
-      const iterator = createMockIterator([
-        { type: "system", subtype: "init", session_id: "sess-1" },
-      ]);
-
-      const process = new Process(iterator, {
-        projectPath: "/test",
-        projectId: "proj-1" as UrlProjectId,
-        sessionId: "sess-1",
-        provider: "claude",
-        idleTimeoutMs: 100,
-        // No queue = mock SDK
-      });
-
-      // Queue a user message
-      process.queueMessage({ text: "test message" });
-
-      // User message SHOULD be in history (mock SDK needs replay)
       const userMessages = process
         .getMessageHistory()
         .filter((m) => m.type === "user");

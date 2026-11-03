@@ -24,6 +24,7 @@ describe("Process", () => {
       ]);
 
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -50,6 +51,7 @@ describe("Process", () => {
       }
 
       const process = new Process(failingIterator(), {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -193,6 +195,7 @@ describe("Process", () => {
         .spyOn(getLogger(), "warn")
         .mockImplementation(() => undefined);
       const process = new Process(pendingIterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "pending-session",
@@ -227,6 +230,7 @@ describe("Process", () => {
           { type: "system", subtype: "init", session_id: "sess-reload" },
         ]),
         {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-reload",
@@ -263,6 +267,7 @@ describe("Process", () => {
             { type: "system", subtype: "init", session_id: "sess-reload" },
           ]),
           {
+            queue: new MessageQueue(),
             projectPath: "/test",
             projectId: "proj-1" as UrlProjectId,
             sessionId: "sess-reload",
@@ -317,6 +322,7 @@ describe("Process", () => {
       }
 
       const process = new Process(failingIterator(), {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -373,6 +379,7 @@ describe("Process", () => {
         },
       };
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -422,6 +429,7 @@ describe("Process", () => {
         },
       };
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -481,6 +489,7 @@ describe("Process", () => {
       }
 
       const process = new Process(refusingIterator(), {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -515,6 +524,7 @@ describe("Process", () => {
           { type: "system", subtype: "init", session_id: "sess-1" },
         ]),
         {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -555,6 +565,7 @@ describe("Process", () => {
       }
 
       const process = new Process(failingIterator(), {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -607,6 +618,7 @@ describe("Process", () => {
       }
 
       const process = new Process(failingIterator(), {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -654,6 +666,7 @@ describe("Process", () => {
       const abortFn = vi.fn();
       const iterator = createMockIterator([apiError]);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -722,6 +735,7 @@ describe("Process", () => {
         { type: "result", session_id: "sess-1" },
       ]);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -750,6 +764,7 @@ describe("Process", () => {
           { type: "system", subtype: "init", session_id: "sess-verified" },
         ]),
         {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-verified",
@@ -777,6 +792,7 @@ describe("Process", () => {
           { type: "system", subtype: "init", session_id: "sess-still-live" },
         ]),
         {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-still-live",

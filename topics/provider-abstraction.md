@@ -33,6 +33,15 @@ migrate them when they next hit a trigger below.
   settings, but "default" is subscription-dependent and resolvable only at
   runtime).
 
+### Provider input queues
+
+Every provider session supplies its input queue, including scripted/mock
+providers and provider-host proxies. `Process` uses that queue for submission,
+depth, cancellation, draining and consumption observations; it has no separate
+mock-only input scheduler. Provider consumption, rather than an artificial
+Process transition, owns delivery observations. Test fixtures must supply the
+same queue surface as production sessions.
+
 ### Legacy SDK delegation
 
 The compatibility Claude SDK bridge declares its canonical `providerName`.

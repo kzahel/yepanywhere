@@ -5,6 +5,7 @@ import {
   waitFor,
 } from "./process.test-support.js";
 import type { ProcessEvent, UrlProjectId } from "./process.test-support.js";
+import { MessageQueue } from "../src/sdk/messageQueue.js";
 
 /**
  * A session reports the model the provider serves, not the alias it was
@@ -22,6 +23,7 @@ const resolve = (model: string | undefined) =>
 function processFor(model: string) {
   const controller = createControllableIterator();
   const process = new Process(controller.iterator, {
+    queue: new MessageQueue(),
     projectPath: "/test",
     projectId: "proj-1" as UrlProjectId,
     sessionId: "sess-1",

@@ -12,6 +12,7 @@ describe("Process", () => {
     it("settles provider identity from a reattached runtime's reported id", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "retained-public",
@@ -32,6 +33,7 @@ describe("Process", () => {
     it("keeps waiting for init when no owner reported provider identity", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -58,6 +60,7 @@ describe("Process", () => {
         });
         const events: string[] = [];
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -98,6 +101,7 @@ describe("Process", () => {
           controller.finish();
         });
         new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -135,6 +139,7 @@ describe("Process", () => {
           controller.finish();
         });
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -170,6 +175,7 @@ describe("Process", () => {
         const abortFn = vi.fn(() => abortGate);
         const events: string[] = [];
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -223,6 +229,7 @@ describe("Process", () => {
           });
         const events: string[] = [];
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -268,6 +275,7 @@ describe("Process", () => {
         const abortFn = vi.fn();
         const setRuntimeViewerPresenceFn = vi.fn(async () => {});
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -311,6 +319,7 @@ describe("Process", () => {
           .mockRejectedValueOnce(new Error("host unavailable"))
           .mockResolvedValue(undefined);
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -344,6 +353,7 @@ describe("Process", () => {
           .mockRejectedValueOnce(new Error("host unavailable"))
           .mockResolvedValue(undefined);
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -385,6 +395,7 @@ describe("Process", () => {
           .mockImplementationOnce(() => firstPublication)
           .mockResolvedValue(undefined);
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -422,6 +433,7 @@ describe("Process", () => {
           .fn<(hasViewers: boolean) => Promise<void>>()
           .mockImplementation(() => publication);
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -455,6 +467,7 @@ describe("Process", () => {
           unviewedController.finish();
         });
         const viewedProcess = new Process(viewedController.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "viewed-session",
@@ -464,6 +477,7 @@ describe("Process", () => {
           abortFn: viewedAbort,
         });
         new Process(unviewedController.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "unviewed-session",
@@ -500,6 +514,7 @@ describe("Process", () => {
         const controller = createControllableIterator();
         const abortFn = vi.fn();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -533,6 +548,7 @@ describe("Process", () => {
         const controller = createControllableIterator();
         const abortFn = vi.fn();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -556,6 +572,7 @@ describe("Process", () => {
         const abortFn = vi.fn();
         let retained = true;
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -590,6 +607,7 @@ describe("Process", () => {
         const abortFn = vi.fn();
         let retained = true;
         new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -619,6 +637,7 @@ describe("Process", () => {
         const controller = createControllableIterator();
         const abortFn = vi.fn();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -644,6 +663,7 @@ describe("Process", () => {
     it("returns process info", async () => {
       const iterator = createMockIterator([]);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test/path",
         projectId: "proj-123" as UrlProjectId,
         sessionId: "sess-456",
@@ -667,6 +687,7 @@ describe("Process", () => {
     it("emits complete event on abort", async () => {
       const iterator = createMockIterator([]);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -689,6 +710,7 @@ describe("Process", () => {
     it("clears listeners after abort", async () => {
       const iterator = createMockIterator([]);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -715,6 +737,7 @@ describe("Process", () => {
       const controller = createControllableIterator();
       const interruptFn = vi.fn(async () => false);
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -840,6 +863,7 @@ describe("Process", () => {
 
       const iterator = createMockIterator(messages);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -860,6 +884,7 @@ describe("Process", () => {
     it("applies pending Edit and Bypass modes to mock harness requests", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",

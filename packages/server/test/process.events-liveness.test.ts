@@ -13,6 +13,7 @@ import type {
   SDKMessage,
   UrlProjectId,
 } from "./process.test-support.js";
+import { MessageQueue } from "../src/sdk/messageQueue.js";
 
 describe("Process", () => {
   describe("event subscription", () => {
@@ -25,6 +26,7 @@ describe("Process", () => {
 
       const iterator = createMockIterator(messages);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -53,6 +55,7 @@ describe("Process", () => {
         { type: "system", subtype: "init", session_id: "sess-1" },
       ]);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -99,6 +102,7 @@ describe("Process", () => {
 
       const iterator = createMockIterator(messages);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -140,6 +144,7 @@ describe("Process", () => {
 
       const iterator = createMockIterator(messages);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -155,6 +160,7 @@ describe("Process", () => {
     it("does not manufacture provider recency before the first message", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -189,6 +195,7 @@ describe("Process", () => {
       const controller = createControllableIterator();
       const onCommandsObserved = vi.fn();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -265,6 +272,7 @@ describe("Process", () => {
       ]);
 
       new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "temp-session",
@@ -286,6 +294,7 @@ describe("Process", () => {
 
       const iterator = createMockIterator(messages);
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -314,6 +323,7 @@ describe("Process", () => {
     it("uses Claude session_state_changed idle as a turn boundary", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -340,6 +350,7 @@ describe("Process", () => {
     it("treats Claude requires_action as non-idle evidence without fabricating input", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -390,6 +401,7 @@ describe("Process", () => {
         const abortFn = vi.fn();
         const controller = createControllableIterator();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -450,6 +462,7 @@ describe("Process", () => {
         const abortFn = vi.fn();
         const controller = createControllableIterator();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -501,6 +514,7 @@ describe("Process", () => {
         };
         const controller = createControllableIterator();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -546,6 +560,7 @@ describe("Process", () => {
         const abortFn = vi.fn();
         const controller = createControllableIterator();
         const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/test",
           projectId: "proj-1" as UrlProjectId,
           sessionId: "sess-1",
@@ -604,6 +619,7 @@ describe("Process", () => {
     it("does not wake a finished idle process on a prompt_suggestion message", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -637,6 +653,7 @@ describe("Process", () => {
     it("does not wake a finished idle process on unmodeled bookkeeping messages", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -676,6 +693,7 @@ describe("Process", () => {
     it("wakes a finished idle process on assistant turn content", async () => {
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -720,6 +738,7 @@ describe("Process", () => {
       };
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -756,6 +775,7 @@ describe("Process", () => {
         .mockImplementation(() => undefined);
       const controller = createControllableIterator();
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",

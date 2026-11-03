@@ -7,6 +7,7 @@ import {
   type SDKMessage,
   type UrlProjectId,
 } from "./process.test-support.js";
+import { MessageQueue } from "../src/sdk/messageQueue.js";
 
 interface Frame {
   eventType: string;
@@ -54,6 +55,7 @@ describe("session subscription resume from lastEventId", () => {
   function startProcess() {
     const controller = createControllableIterator();
     const process = new Process(controller.iterator, {
+      queue: new MessageQueue(),
       projectPath: "/test",
       projectId: "proj-1" as UrlProjectId,
       sessionId: "sess-1",

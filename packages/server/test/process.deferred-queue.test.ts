@@ -65,6 +65,7 @@ describe("Process", () => {
       const controller = createControllableIterator();
       const setEffort = vi.fn(async () => {});
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "active-effort-session",
@@ -336,6 +337,7 @@ describe("Process", () => {
       ]);
 
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -384,6 +386,7 @@ describe("Process", () => {
       ]);
 
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -420,11 +423,10 @@ describe("Process", () => {
 
     it("persists only patient queue entries and deletes them on cancel", async () => {
       await withSessionQueuePersistence(async ({ service, projectId }) => {
-        const iterator = createMockIterator([
-          { type: "system", session_id: "sess-1" },
-        ]);
+        const controller = createControllableIterator();
 
-        const process = new Process(iterator, {
+        const process = new Process(controller.iterator, {
+          queue: new MessageQueue(),
           projectPath: "/tmp/process-session-queue",
           projectId,
           sessionId: "sess-1",
@@ -433,54 +435,59 @@ describe("Process", () => {
           sessionQueuePersistenceService: service,
         });
 
-        process.deferMessage({
-          text: "short deferred",
-          tempId: "temp-deferred",
-          metadata: { deliveryIntent: "deferred" },
-        });
-        process.deferMessage({
-          text: "patient follow-up",
-          tempId: "temp-patient",
-          metadata: {
-            deliveryIntent: "patient",
-            serverReceivedAt: "2026-06-30T10:00:00.000Z",
-          },
-        });
-        await process.waitForPatientQueuePersistenceIdle();
-
-        expect(service.list()).toMatchObject([
-          {
-            sessionId: "sess-1",
-            projectId,
-            kind: "patient",
-            status: "queued",
-            message: {
-              text: "patient follow-up",
-              tempId: "temp-patient",
-              metadata: {
-                deliveryIntent: "patient",
-                serverReceivedAt: "2026-06-30T10:00:00.000Z",
-              },
-            },
-            source: { tempId: "temp-patient" },
-            createdAt: "2026-06-30T10:00:00.000Z",
-          },
-        ]);
-        expect(process.getDeferredQueueSummary()).toMatchObject([
-          { tempId: "temp-deferred", content: "short deferred" },
-          {
-            id: service.list()[0]?.id,
+        try {
+          process.deferMessage({
+            text: "short deferred",
+            tempId: "temp-deferred",
+            metadata: { deliveryIntent: "deferred" },
+          });
+          process.deferMessage({
+            text: "patient follow-up",
             tempId: "temp-patient",
-            content: "patient follow-up",
-            kind: "patient",
-            status: "queued",
-          },
-        ]);
+            metadata: {
+              deliveryIntent: "patient",
+              serverReceivedAt: "2026-06-30T10:00:00.000Z",
+            },
+          });
+          await process.waitForPatientQueuePersistenceIdle();
 
-        expect(process.cancelDeferredMessage("temp-patient")).toBe(true);
-        await process.waitForPatientQueuePersistenceIdle();
+          expect(service.list()).toMatchObject([
+            {
+              sessionId: "sess-1",
+              projectId,
+              kind: "patient",
+              status: "queued",
+              message: {
+                text: "patient follow-up",
+                tempId: "temp-patient",
+                metadata: {
+                  deliveryIntent: "patient",
+                  serverReceivedAt: "2026-06-30T10:00:00.000Z",
+                },
+              },
+              source: { tempId: "temp-patient" },
+              createdAt: "2026-06-30T10:00:00.000Z",
+            },
+          ]);
+          expect(process.getDeferredQueueSummary()).toMatchObject([
+            { tempId: "temp-deferred", content: "short deferred" },
+            {
+              id: service.list()[0]?.id,
+              tempId: "temp-patient",
+              content: "patient follow-up",
+              kind: "patient",
+              status: "queued",
+            },
+          ]);
 
-        expect(service.list()).toEqual([]);
+          expect(process.cancelDeferredMessage("temp-patient")).toBe(true);
+          await process.waitForPatientQueuePersistenceIdle();
+
+          expect(service.list()).toEqual([]);
+        } finally {
+          controller.finish();
+          await process.abort();
+        }
       });
     });
 
@@ -643,6 +650,7 @@ describe("Process", () => {
           { type: "system", session_id: "sess-1" },
         ]);
         const process = new Process(iterator, {
+          queue: new MessageQueue(),
           projectPath: "/tmp/process-session-queue",
           projectId,
           sessionId: "sess-1",
@@ -694,6 +702,7 @@ describe("Process", () => {
       ]);
 
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",

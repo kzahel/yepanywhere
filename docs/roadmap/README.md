@@ -583,6 +583,12 @@ are implemented, qualified locally and accepted by the requested Opus 5.5 High
 review after bounded repairs. The archived general core remains paused. Neither Gemini
 upkeep nor shipping AGY is a prerequisite, and API delegation is separate work. Other
 Kyle-led candidates remain follow-ups; graehl-led work is outside this pass.
+The November 3 compatibility audit selected two bounded removals: the
+mock-only Process input scheduler and the deprecated Gemini stream-JSON
+adapter. Provider queues are now required for both production and scripted
+sessions; the separate test-only scheduling path is removed. Gemini ACP
+execution and historical readers remain retained while its old adapter is
+retired separately. This does not raise provider-version floors.
 Release-delivery work remains independently required; local sessions,
 same-host provider ownership, ordinary queues, direct/relay access and native
 client transport remain retained foundations.

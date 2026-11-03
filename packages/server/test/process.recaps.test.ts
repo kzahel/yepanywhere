@@ -7,12 +7,14 @@ import {
   waitFor,
 } from "./process.test-support.js";
 import type { SDKMessage, UrlProjectId } from "./process.test-support.js";
+import { MessageQueue } from "../src/sdk/messageQueue.js";
 
 describe("Process", () => {
   describe("recaps", () => {
     it("keeps simulated recaps disabled by default", async () => {
       const generateSummary = vi.fn(async () => ({ text: "summary" }));
       const process = new Process(createMockIterator([]), {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -35,6 +37,7 @@ describe("Process", () => {
     it("does not run the simulated recap generator in native mode", async () => {
       const generateSummary = vi.fn(async () => ({ text: "summary" }));
       const process = new Process(createMockIterator([]), {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -63,6 +66,7 @@ describe("Process", () => {
         text: "synthetic summary",
       }));
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -115,6 +119,7 @@ describe("Process", () => {
             : "",
       }));
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -178,6 +183,7 @@ describe("Process", () => {
             : "",
       }));
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -237,6 +243,7 @@ describe("Process", () => {
       const controller = createControllableIterator();
       const generateSummary = vi.fn(async () => ({ text: "summary" }));
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -310,6 +317,7 @@ describe("Process", () => {
           }),
       );
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -352,6 +360,7 @@ describe("Process", () => {
       const controller = createControllableIterator();
       const generateSummary = vi.fn(async () => ({ text: "summary" }));
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -390,6 +399,7 @@ describe("Process", () => {
             : "",
       }));
       const process = new Process(controller.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",

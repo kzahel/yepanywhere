@@ -1,5 +1,20 @@
 # Full server suite has timing failures and unasserted diagnostics
 
+2026-11-03: retiring the mock-only Process queue passes the full workspace
+(6,926 server / 7,081 client; server 142.36 s). The comparable Process group
+passes without warnings before and after removal: 207 cases / 1.69 s before,
+205 cases / 1.59 s after, with two retired-path assertions removed. These are
+single local samples, not a CI performance claim. The expanded 263-case group
+also includes native identity/media/resume fixtures that log `Process terminated`
+for finite iterators and intentional termination/API-error paths. Evidence is in
+ignored `tasks/legacy-path-retirement/` under `process-before.log`,
+`process-after-comparable.log`, `queue-focused.log` and `queue-workspace.log`.
+Asserting each intentional diagnostic or changing iterator lifecycle belongs to
+those individual fixtures; blanket interception in the shared fixture would
+hide unexpected failures. No logger or production warning policy is changed by
+the queue retirement. The full run retains the independent negative-fixture
+diagnostics recorded below.
+
 During issue #121 validation, `pnpm test` on macOS completed the server suite
 with 4,689 passing, 53 skipped, and three failing tests:
 

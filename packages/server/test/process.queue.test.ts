@@ -61,6 +61,14 @@ describe("Process", () => {
         });
         expect(process.cancelDeferredMessage("cancelled")).toBe(true);
         expect(deliveries).not.toHaveBeenCalled();
+        process.queueMessage({
+          text: "cancel this direct input",
+          tempId: "cancelled-direct",
+          metadata: { sourceSessionId: "sender" },
+        });
+        expect(process.cancelUnconfirmedSteerMessage("cancelled-direct")).toBe(
+          true,
+        );
         process.queueMessage({ text: "human" });
         process.queueMessage({
           text: "external",
@@ -68,53 +76,14 @@ describe("Process", () => {
         });
         expect(deliveries).not.toHaveBeenCalled();
         const delivered = await queue[Symbol.asyncIterator]().next();
+        expect(delivered.value?.message.content).not.toContain("cancel this");
+        expect(deliveries).toHaveBeenCalledTimes(1);
         expect(deliveries).toHaveBeenCalledWith(
           expect.objectContaining({
             messageId: delivered.value?.uuid,
             sourceSessionId: "sender",
           }),
         );
-      } finally {
-        controlled.finish();
-        await process.abort();
-      }
-    });
-
-    it("raises legacy-queue delivery attention at consumption, not at enqueue", async () => {
-      const controlled = createControllableIterator();
-      const process = new Process(controlled.iterator, {
-        projectPath: "/test",
-        projectId: "proj-1" as UrlProjectId,
-        sessionId: "receiver",
-        provider: "claude",
-        idleTimeoutMs: 100,
-      });
-      const deliveries = vi.fn();
-      process.subscribe((event) => {
-        if (event.type === "non-human-user-turn") deliveries(event.turn);
-      });
-      try {
-        process.queueMessage({
-          text: "cancel this",
-          tempId: "cancelled",
-          metadata: { sourceSessionId: "sender" },
-        });
-        expect(process.cancelUnconfirmedSteerMessage("cancelled")).toBe(true);
-        process.queueMessage({
-          text: "external",
-          metadata: { sourceSessionId: "sender" },
-        });
-        expect(deliveries).not.toHaveBeenCalled();
-        controlled.push({
-          type: "result",
-          session_id: "receiver",
-        } as SDKMessage);
-        await waitFor(() =>
-          expect(deliveries).toHaveBeenCalledWith(
-            expect.objectContaining({ sourceSessionId: "sender" }),
-          ),
-        );
-        expect(deliveries).toHaveBeenCalledTimes(1);
       } finally {
         controlled.finish();
         await process.abort();
@@ -203,6 +172,7 @@ describe("Process", () => {
       ]);
 
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -225,6 +195,7 @@ describe("Process", () => {
       ]);
 
       const process = new Process(iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
@@ -670,6 +641,7 @@ describe("Process", () => {
       });
       const onCommandsObserved = vi.fn(async () => saving);
       const process = new Process(controlled.iterator, {
+        queue: new MessageQueue(),
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",

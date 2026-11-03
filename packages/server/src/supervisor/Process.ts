@@ -938,8 +938,8 @@ export interface ManagedProcessIdentity {
 export interface ProcessConstructorOptions extends ProcessOptions {
   /** Opt-in permanent YA identity. Retained callers keep their remap contract. */
   managedIdentity?: ManagedProcessIdentity;
-  /** Provider message queue, undefined for mock SDK */
-  queue?: AgentMessageQueue;
+  /** Provider-owned message queue, shared by real and scripted providers. */
+  queue: AgentMessageQueue;
   /** Abort function from real SDK */
   abortFn?: () => void | Promise<void>;
   /** Release a reload-safe proxy without terminating its provider session. */
@@ -1077,8 +1077,7 @@ export class Process {
    */
   appliedRewindRecordId: string | undefined;
 
-  private legacyQueue: UserMessage[] = [];
-  private messageQueue: AgentMessageQueue | null;
+  private readonly messageQueue: AgentMessageQueue;
   private unsubscribeMessageQueueYielded: (() => void) | undefined;
   private deferredDeliveryOverrides: DeferredDeliveryOptions | undefined;
   private sessionQueuePersistenceService:
@@ -1372,8 +1371,7 @@ export class Process {
         ? { type: "idle", since: this.startedAt }
         : { type: "in-turn" };
 
-    // Real SDK provides these, mock SDK doesn't
-    this.messageQueue = options.queue ?? null;
+    this.messageQueue = options.queue;
     this.deferredDeliveryOverrides = options.deferredDelivery;
     this.sessionQueuePersistenceService =
       options.sessionQueuePersistenceService;
@@ -1486,7 +1484,7 @@ export class Process {
     // Start bucket swap timer for bounded message history
     this.startBucketSwapTimer();
 
-    this.unsubscribeMessageQueueYielded = this.messageQueue?.subscribeYielded?.(
+    this.unsubscribeMessageQueueYielded = this.messageQueue.subscribeYielded?.(
       (messages) => {
         const compact = this.queuedCompaction;
         if (
@@ -1748,10 +1746,7 @@ export class Process {
   }
 
   get queueDepth(): number {
-    if (this.messageQueue) {
-      return this.messageQueue.depth;
-    }
-    return this.legacyQueue.length;
+    return this.messageQueue.depth;
   }
 
   private get deferredQueueDepth(): number {
@@ -2357,7 +2352,7 @@ export class Process {
     // After interrupt, drain all queued messages (direct + deferred) and deliver
     // as a single concatenated batch with the interrupt preamble so the agent
     // knows to treat prior work as resumable.
-    if (interrupted !== false && this.messageQueue) {
+    if (interrupted !== false) {
       const directDrained = this.messageQueue.drainAsync
         ? await this.messageQueue.drainAsync()
         : this.messageQueue.drain();
@@ -3991,70 +3986,59 @@ export class Process {
       });
     }
 
-    if (this.messageQueue) {
-      // If provider supports in-turn steering, prefer that over queue-after-turn behavior.
-      if (
-        this._state.type === "in-turn" &&
-        this.steerFn &&
-        options?.allowSteer !== false
-      ) {
-        if (!hidden && shouldEmitMessage(sdkMessage)) {
-          this.activeSteerEchoes.set(uuid, sdkMessage);
-        }
-        const steerMessage: UserMessage = {
-          ...messageWithUuid,
-          // Mirror MessageQueue's attachment expansion for steer payloads.
-          text: content,
-          attachments: undefined,
-        };
-        void this.steerFn(steerMessage)
-          .then((steered) => {
-            if (!steered) {
-              this.messageQueue?.push(messageWithUuid);
-            } else if (!this.steerUsesMessageQueue) {
-              this.emitNonHumanUserTurn(messageWithUuid, uuid);
-            }
-          })
-          .catch((error) => {
-            const log = getLogger();
-            log.warn(
-              {
-                event: "process_steer_failed",
-                sessionId: this._sessionId,
-                processId: this.id,
-                provider: this.provider,
-                error: error instanceof Error ? error.message : String(error),
-              },
-              "Steer failed; falling back to queued message",
-            );
-            this.messageQueue?.push(messageWithUuid);
-          });
-        return { success: true, position: 0 };
+    // If provider supports in-turn steering, prefer that over queue-after-turn behavior.
+    if (
+      this._state.type === "in-turn" &&
+      this.steerFn &&
+      options?.allowSteer !== false
+    ) {
+      if (!hidden && shouldEmitMessage(sdkMessage)) {
+        this.activeSteerEchoes.set(uuid, sdkMessage);
       }
-
-      // Transition to running if we were idle
-      if (this._state.type === "idle") {
-        this.transitionToInTurnForWake("user-message");
-      }
-      // Pass message with UUID so SDK uses the same UUID we emitted via SSE
-      const position = this.messageQueue.push(messageWithUuid);
-      this.recordApiInput(messageWithUuid, uuid);
-      return { success: true, position };
+      const steerMessage: UserMessage = {
+        ...messageWithUuid,
+        // Mirror MessageQueue's attachment expansion for steer payloads.
+        text: content,
+        attachments: undefined,
+      };
+      void this.steerFn(steerMessage)
+        .then((steered) => {
+          if (!steered) {
+            this.messageQueue.push(messageWithUuid);
+          } else if (!this.steerUsesMessageQueue) {
+            this.emitNonHumanUserTurn(messageWithUuid, uuid);
+          }
+        })
+        .catch((error) => {
+          const log = getLogger();
+          log.warn(
+            {
+              event: "process_steer_failed",
+              sessionId: this._sessionId,
+              processId: this.id,
+              provider: this.provider,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            "Steer failed; falling back to queued message",
+          );
+          this.messageQueue.push(messageWithUuid);
+        });
+      return { success: true, position: 0 };
     }
 
-    // Legacy behavior for mock SDK
-    this.legacyQueue.push(messageWithUuid);
-    this.recordApiInput(messageWithUuid, uuid);
+    // Transition to running if we were idle
     if (this._state.type === "idle") {
-      this.processNextInQueue();
+      this.transitionToInTurnForWake("user-message");
     }
-    return { success: true, position: this.legacyQueue.length };
+    // Pass message with UUID so SDK uses the same UUID we emitted via SSE
+    const position = this.messageQueue.push(messageWithUuid);
+    this.recordApiInput(messageWithUuid, uuid);
+    return { success: true, position };
   }
 
   /**
    * Queue a message to be sent to the SDK.
-   * For real SDK, pushes to MessageQueue.
-   * For mock SDK, uses legacy queue behavior.
+   * Pushes to the provider-owned message queue.
    *
    * @returns Object with success status and queue position or error
    */
@@ -4081,11 +4065,11 @@ export class Process {
   }
   /** Native input consumption, distinct from YA's optimistic user echo. */
   hasConsumedApiInput(id: string): boolean {
-    return this.messageQueue?.hasYieldedApiInput?.(id) ?? false;
+    return this.messageQueue.hasYieldedApiInput?.(id) ?? false;
   }
   observeApiInputConsumed(listener: (id: string) => void): () => void {
     return (
-      this.messageQueue?.subscribeYielded?.((messages) => {
+      this.messageQueue.subscribeYielded?.((messages) => {
         for (const message of messages) {
           for (const id of apiInputIds(message)) listener(id);
         }
@@ -4318,7 +4302,6 @@ export class Process {
       acceptedMessage.tempId ??= `compact-${randomUUID()}`;
     const canPromoteIfReady = !!(
       options?.promoteIfReady &&
-      this.messageQueue &&
       // Only Claude waits for the verified-idle patient delivery path;
       // elsewhere durable patient intent uses ordinary deferred timing and
       // promotes immediately like any other deferred turn.
@@ -4517,15 +4500,7 @@ export class Process {
    * has not consumed yet.
    */
   cancelUnconfirmedSteerMessage(tempId: string): boolean {
-    const removed = [
-      ...(this.messageQueue?.removeByTempId(tempId) ?? []),
-      ...this.legacyQueue.filter((message) =>
-        this.userMessageMatchesTempId(message, tempId),
-      ),
-    ];
-    this.legacyQueue = this.legacyQueue.filter(
-      (message) => !this.userMessageMatchesTempId(message, tempId),
-    );
+    const removed = this.messageQueue.removeByTempId(tempId);
     if (!removed.length) return false;
     for (const id of removed.flatMap(apiInputIds)) {
       this.acceptedApiInputs.delete(id);
@@ -4540,15 +4515,6 @@ export class Process {
 
     this.removeBufferedEchoByTempId(tempId);
     return true;
-  }
-
-  private userMessageMatchesTempId(
-    message: UserMessage,
-    tempId: string,
-  ): boolean {
-    return (
-      message.tempId === tempId || message.tempIds?.includes(tempId) === true
-    );
   }
 
   private sdkMessageMatchesTempId(
@@ -4687,11 +4653,9 @@ export class Process {
   async drainPendingUserMessages(
     reason: "cancelled" | "promoted" = "promoted",
   ): Promise<UserMessage[]> {
-    const queuedMessages = this.messageQueue
-      ? this.messageQueue.drainAsync
-        ? await this.messageQueue.drainAsync()
-        : this.messageQueue.drain()
-      : [];
+    const queuedMessages = this.messageQueue.drainAsync
+      ? await this.messageQueue.drainAsync()
+      : this.messageQueue.drain();
     return [...queuedMessages, ...this.drainDeferredMessages(reason)];
   }
 
@@ -5871,7 +5835,6 @@ export class Process {
       this.setState({ type: "idle", since: new Date() });
     }
     this.flushPendingRecapRequest();
-    this.processNextInQueue();
   }
 
   private flushPendingRecapRequest(): void {
@@ -5992,11 +5955,7 @@ export class Process {
    * consecutively-composed turns into one `--------`-separated provider turn.
    */
   private promoteEligibleDeferredAfterTurn(): boolean {
-    if (
-      this.queuedCompactionBlocksInput ||
-      this.deferredQueue.length === 0 ||
-      !this.messageQueue
-    ) {
+    if (this.queuedCompactionBlocksInput || this.deferredQueue.length === 0) {
       return false;
     }
 
@@ -6114,7 +6073,7 @@ export class Process {
         return;
       }
       if (!result.handled) {
-        if (!this.messageQueue?.subscribeYielded)
+        if (!this.messageQueue.subscribeYielded)
           throw new Error("Provider cannot confirm queued compact input");
         operation.fallback = true;
         operation.entry.message.uuid ??= randomUUID();
@@ -6286,7 +6245,6 @@ export class Process {
     if (
       this.queuedCompactionBlocksInput ||
       this.deferredQueue.length === 0 ||
-      !this.messageQueue ||
       this._state.type !== "idle"
     ) {
       return { promoted: false, nextPatienceMsRemaining: null };
@@ -6463,25 +6421,6 @@ export class Process {
       steered === 1 ? group[0]!.message.tempId : undefined,
     );
     return { success: true, steered };
-  }
-
-  /**
-   * Process next message in legacy queue (for mock SDK).
-   */
-  private processNextInQueue(): void {
-    if (this.legacyQueue.length === 0) return;
-
-    const nextMessage = this.legacyQueue.shift();
-    if (nextMessage) {
-      // The delivery receipt belongs to consumption, not to enqueue, so a
-      // cancelled entry leaves none.
-      if (nextMessage.uuid) {
-        this.emitNonHumanUserTurn(nextMessage, nextMessage.uuid);
-      }
-      // In real implementation with MessageQueue, this happens automatically
-      // For mock SDK, we just transition back to running
-      this.transitionToInTurnForWake("user-message");
-    }
   }
 
   /**

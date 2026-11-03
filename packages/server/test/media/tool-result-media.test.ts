@@ -36,6 +36,7 @@ import { Process } from "../../src/supervisor/Process.js";
 import { encodeProjectId, type Project } from "../../src/supervisor/types.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
+import { MessageQueue } from "../../src/sdk/messageQueue.js";
 
 const execFileAsync = promisify(execFile);
 const PNG_BASE64 =
@@ -836,6 +837,7 @@ describe("tool-result media storage", () => {
     }
 
     const process = new Process(messages(), {
+      queue: new MessageQueue(),
       projectId: encodeProjectId(projectDir),
       projectPath: projectDir,
       provider: "opencode",
