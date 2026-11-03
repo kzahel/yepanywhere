@@ -55,4 +55,5 @@ export type UnifiedSession =
   | { provider: "gemini"; session: GeminiSessionFile }
   | { provider: "grok"; session: GrokSessionContent }
   | { provider: "pi"; session: PiSessionContent }
+  | { provider: "antigravity"; session: PiSessionContent }
   | { provider: "opencode"; session: OpenCodeSessionContent };

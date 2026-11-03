@@ -58,6 +58,7 @@ export {
   type CodexProviderConfig,
 } from "./codex.js";
 
+import { antigravityProvider } from "./antigravity.js";
 // Gemini ACP provider (uses gemini CLI with --experimental-acp)
 import { geminiACPProvider } from "./gemini-acp.js";
 export {
@@ -272,7 +273,7 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
 export { isProviderRuntimeHostAvailable };
 
 function runtimeProvider(rawProvider: AgentProvider): AgentProvider {
-  if (!isProviderRuntimeHostAvailable())
+  if (rawProvider.name === "antigravity" || !isProviderRuntimeHostAvailable())
     return new Proxy(rawProvider, {
       get(target, property) {
         if (property === "runtimeOwner") return "local";
@@ -306,6 +307,9 @@ export function getAllProviders(): AgentProvider[] {
     codexOSSProvider,
     geminiAliasProvider,
     geminiACPProvider,
+    ...(process.env.ENABLED_PROVIDERS?.split(",").includes("antigravity")
+      ? [antigravityProvider]
+      : []),
     grokACPProvider, // Phase 1: additive only (see grok-acp.ts header + topics/grok.md)
     opencodeProvider,
     piProvider,
@@ -337,6 +341,8 @@ export function getRawProvider(name: ProviderName): AgentProvider | null {
     case "gemini-acp":
       // Both map to ACP provider - "gemini" is legacy name for backward compatibility
       return geminiACPProvider;
+    case "antigravity":
+      return antigravityProvider;
     case "grok":
       return grokACPProvider; // Phase 1 Grok Build (ACP)
     case "opencode":

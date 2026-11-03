@@ -30,6 +30,7 @@ import {
 import type { Project, SessionSummary } from "../supervisor/types.js";
 import { CodexSessionReader } from "./codex-reader.js";
 import { GeminiSessionReader } from "./gemini-reader.js";
+import { antigravitySessionsDir } from "../sdk/providers/antigravity-runtime.js";
 import { GrokSessionReader } from "./grok-reader.js";
 import { OPENCODE_STORAGE_DIR } from "./opencode-reader.js";
 import { PiSessionReader } from "./pi-reader.js";
@@ -43,7 +44,14 @@ import {
   toSessionListSummary,
 } from "./types.js";
 
-type ProviderGroup = "claude" | "codex" | "gemini" | "opencode" | "grok" | "pi";
+type ProviderGroup =
+  | "claude"
+  | "codex"
+  | "gemini"
+  | "opencode"
+  | "grok"
+  | "pi"
+  | "antigravity";
 const SESSION_LIST_READ_BATCH_SIZE = 8;
 
 export interface ProviderProjectCatalog {
@@ -76,7 +84,14 @@ export interface SessionSource {
   provider: ProviderName;
   reader: ISessionReader;
   sessionDir: string;
-  kind: "primary" | "codex" | "gemini" | "opencode" | "grok" | "pi";
+  kind:
+    | "primary"
+    | "codex"
+    | "gemini"
+    | "opencode"
+    | "grok"
+    | "pi"
+    | "antigravity";
 }
 
 export interface ResolvedSessionSource {
@@ -226,6 +241,7 @@ async function publicSessionSummaries<T extends SessionListSummary>(
       ((source.provider === "opencode" ||
         source.provider === "pi" ||
         source.provider === "grok" ||
+        source.provider === "antigravity" ||
         source.provider === "gemini" ||
         source.provider === "gemini-acp") &&
         source.reader.getNativeSessionRef !== undefined)
@@ -319,6 +335,7 @@ function normalizeProviderGroup(
   if (provider === "opencode") return "opencode";
   if (isClaudeProviderName(provider)) return "claude";
   if (provider === "grok" || provider === "grok-acp") return "grok";
+  if (provider === "antigravity") return "antigravity";
   if (provider === "pi") return "pi";
   return null;
 }
@@ -540,6 +557,8 @@ function buildCandidateGroups(
 
   pushGroup(preferredGroup);
   pushGroup(projectGroup);
+  if (process.env.ENABLED_PROVIDERS?.split(",").includes("antigravity"))
+    pushGroup("antigravity");
 
   if (mayHaveCodexSessions(project, catalog)) {
     pushGroup("codex");
@@ -567,6 +586,13 @@ function getSourceForGroup(
   catalog?: ProviderProjectCatalog,
 ): SessionSource | null {
   switch (group) {
+    case "antigravity":
+      return {
+        provider: "antigravity",
+        kind: "antigravity",
+        sessionDir: antigravitySessionsDir(),
+        reader: deps.readerFactory({ ...project, provider: "antigravity" }),
+      };
     case "claude":
       return createClaudeSource(project, deps);
     case "opencode":

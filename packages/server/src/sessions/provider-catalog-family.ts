@@ -7,6 +7,7 @@ export const PROVIDER_CATALOG_FAMILIES = [
   "grok",
   "opencode",
   "pi",
+  "antigravity",
 ] as const;
 
 export type ProviderCatalogFamily = (typeof PROVIDER_CATALOG_FAMILIES)[number];
@@ -29,6 +30,8 @@ export function providerCatalogFamily(
       return "grok";
     case "opencode":
       return "opencode";
+    case "antigravity":
+      return "antigravity";
     case "pi":
       return "pi";
   }

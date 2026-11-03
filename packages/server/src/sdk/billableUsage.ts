@@ -55,6 +55,7 @@ const USAGE_SOURCE_BY_PROVIDER: Readonly<
   "codex-oss": { frame: "turn-complete", cachedReadsInInput: true },
   gemini: { frame: "result", cachedReadsInInput: true },
   "gemini-acp": { frame: "none", cachedReadsInInput: true },
+  antigravity: { frame: "none", cachedReadsInInput: true },
   grok: { frame: "none", cachedReadsInInput: false },
   opencode: { frame: "result", cachedReadsInInput: false },
   pi: { frame: "result", cachedReadsInInput: false },

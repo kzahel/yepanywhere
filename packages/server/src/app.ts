@@ -410,6 +410,7 @@ import { createSpeechVocabularyRoutes } from "./routes/speech-vocabulary.js";
 import { CodexSessionReader } from "./sessions/codex-reader.js";
 import { createCodexSessionDiscoveryIndex } from "./sessions/codex-discovery.js";
 import { GeminiSessionReader } from "./sessions/gemini-reader.js";
+import { AntigravitySessionReader } from "./sessions/antigravity-reader.js";
 import { GrokSessionReader } from "./sessions/grok-reader.js";
 import { MergedSessionReader } from "./sessions/merged-reader.js";
 import { OpenCodeSessionReader } from "./sessions/opencode-reader.js";
@@ -1841,6 +1842,15 @@ export function createApp(options: AppOptions): AppResult {
                   ),
               }),
           );
+        case "antigravity":
+          return getOrCreateReader(
+            `antigravity-bound::${native.storageScope}::${project.path}`,
+            () =>
+              new AntigravitySessionReader({
+                projectPath: project.path,
+                sessionsDir: native.storageScope,
+              }),
+          );
         case "grok":
           return getOrCreateReader(
             JSON.stringify(["grok-bound", native.storageScope, project.path]),
@@ -1996,6 +2006,11 @@ export function createApp(options: AppOptions): AppResult {
             new OpenCodeSessionReader({
               projectPath: project.path,
             }),
+        );
+      case "antigravity":
+        return getOrCreateReader(
+          `antigravity::${project.path}`,
+          () => new AntigravitySessionReader({ projectPath: project.path }),
         );
       case "grok":
         return getOrCreateReader(

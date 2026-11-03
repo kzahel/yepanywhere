@@ -2,7 +2,15 @@ import { isAbsolute } from "node:path";
 
 // Private protocol 1 uses the existing opaque-id/family limits. Keep this
 // decoder plain ESM: the headless host starts without a TypeScript loader.
-const families = ["claude", "codex", "gemini", "opencode", "pi", "grok"];
+const families = [
+  "claude",
+  "codex",
+  "gemini",
+  "opencode",
+  "pi",
+  "grok",
+  "antigravity",
+];
 function hasControlCharacters(value) {
   for (const character of value) {
     const code = character.charCodeAt(0);

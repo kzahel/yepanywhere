@@ -1,4 +1,5 @@
 import { ClaudeOllamaProvider } from "./implementations/ClaudeOllamaProvider";
+import { AntigravityProvider } from "./implementations/AntigravityProvider";
 import { ClaudeProvider } from "./implementations/ClaudeProvider";
 import { ClaudeGatewayProvider } from "./implementations/ClaudeGatewayProvider";
 import {
@@ -20,6 +21,7 @@ const providers: Record<string, Provider> = {
   "claude-ollama": new ClaudeOllamaProvider(),
   gemini: new GeminiProvider(),
   "gemini-acp": new GeminiACPProvider(),
+  antigravity: new AntigravityProvider(),
   grok: new GrokProvider(),
   "codex-oss": new CodexOssProvider(),
   opencode: new OpenCodeProvider(),

@@ -5,6 +5,17 @@ import {
 } from "../modelIndicatorText";
 
 describe("getModelIndicatorModelLabel", () => {
+  it.each([
+    ["gemini-3.8-flash-high", "Gem 3.8F"],
+    ["gemini-3.8-flash-medium", "Gem 3.8F"],
+    ["gemini-3.1-pro", "Gem 3.1P"],
+    ["gemini-3.8-flash-lite-low", "Gem 3.8FL"],
+    ["claude-opus-5-5", "Cl ◐ 5.5"],
+    ["gpt-6.1-sol", "Cd So 6.1"],
+    ["future-model", "Agy future-model"],
+  ])("shows Antigravity's actual model family for %s", (model, label) => {
+    expect(getModelIndicatorModelLabel("antigravity", model)).toBe(label);
+  });
   describe("claude models", () => {
     it("sonnet", () => {
       expect(getModelIndicatorModelLabel("claude", "claude-sonnet-4-6")).toBe(

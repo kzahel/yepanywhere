@@ -131,15 +131,18 @@ ownership/teardown guarantees for the pinned SDK, not an ACP protocol refresh.
 
 ### Provider-wide session and process discovery
 
-Accepted 2026-08-05; the successful-use eligibility boundary and gated watcher
-owner are implemented, while provider catalog/process adapters and the retained
-coordinator remain pending. The implementation handoff is
+Accepted 2026-08-05; successful-use eligibility, the gated watcher owner, the
+retained catalog coordinator and Pi/Grok/OpenCode native catalog adapters are
+implemented. Project-discovery convergence, remaining focused observation and
+exact external-process reconciliation are still incomplete. The implementation handoff is
 [`docs/tactical/093-provider-session-reconciliation.md`](../docs/tactical/093-provider-session-reconciliation.md).
 Generic collection and boot code knows too much about provider storage. Host
 process command recognition is now its own module,
 `services/providerProcessClassifier.ts`, reusable without the host process
 inventory, but it is still a fixed table of names and package paths rather than
-a provider capability, and it recognizes no native session id.
+a provider capability. Its native PID-record lookup currently correlates Claude
+sessions; other families still need exact native evidence before process roots
+can be joined to particular sessions.
 
 These are two separate provider-owned projections:
 

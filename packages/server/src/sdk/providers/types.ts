@@ -51,6 +51,7 @@ export type ProviderName =
   | "codex-oss"
   | "gemini"
   | "gemini-acp"
+  | "antigravity"
   | "grok"
   | "opencode"
   | "pi";

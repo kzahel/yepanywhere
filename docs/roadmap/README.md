@@ -573,6 +573,24 @@ across genuinely different implementations. Useful controlled regressions may
 survive without the legacy runtime. See the
 [freeze and retention criteria](../../topics/core-house-cleaning.md#frozen-gemini-and-future-antigravity-support).
 
+**Antigravity checkpoint, 2026-11-03:** a separate opt-in local ACP provider
+reuses Google's saved native login without YA authentication management.
+macOS arm64 live tests established native creation, text streaming, stable YA
+identity and cold continuation on the existing account plan. Controlled child
+tests cover approvals, cancellation, native replay and refused continuation.
+This is a preview; Linux/Windows qualification, native project/catalog discovery,
+larger histories, shared-host ownership and the broader tool/media matrix remain open. See the
+[provider contract](../../topics/antigravity.md). Legacy Gemini remains frozen.
+
+**Scoping direction, 2026-11-03:** use Antigravity discovery and eventual
+legacy Gemini execution retirement to consolidate shared native-store catalog,
+project contribution and exact reader-resolution paths. Preserve read-only
+Gemini history. The [discussion scope](../../topics/antigravity.md#discovery-and-cleanup-scope--discussion-2026-11-03)
+extends plan 093; it proposes discovery/source lookup first and separately
+assesses Grok/Antigravity ACP transport sharing. The detailed sequence remains
+under discussion; this does not reopen the archived core or select a new
+transcript store.
+
 Rows 1, 2, 3 and 11 are the completed removal set. The independent review
 closed direct-fork and background-candidate SSH boundaries; plan 161 records
 the verification. The purpose is a smaller local core that can reliably run

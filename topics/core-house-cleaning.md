@@ -153,6 +153,9 @@ The maintainer selected this direction on **2026-10-27**:
   integration. Prove create/resume, approvals, cancellation and identity in
   that slice. Neither shipping AGY nor refreshing shared ACP infrastructure is
   a prerequisite for cleanup or reliable queued compact/message delivery.
+  The [2026-11-03 opt-in preview](antigravity.md) establishes local macOS
+  creation and cold resume using native credentials; broader qualification
+  remains separate from cleanup.
 - **Keep retirement and migration explicit.** Preserve readable histories and
   refuse unsupported execution if Gemini is later removed. Never silently
   resume a Gemini record as a fresh session, another provider or Antigravity.

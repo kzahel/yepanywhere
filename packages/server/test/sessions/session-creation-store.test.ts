@@ -76,6 +76,38 @@ function rows(database: SqliteDatabase, sql: string) {
     s.finalize();
   }
 }
+it("preserves unresolved allocations when upgrading to Antigravity admission", async () => {
+  const database = openSqliteOrThrow(":memory:");
+  databases.push(database);
+  migrateDiscoveryDatabase(database, discoveryMigrationPrefix(23));
+  const root = await mkdtemp(join(tmpdir(), "ya-agy-migration-"));
+  roots.push(root);
+  const metadata = new SessionMetadataService({ database, dataDir: root });
+  await metadata.initialize();
+  const store = new SessionCreationStore(database, metadata);
+  const saved = store.admit({ requestId: "existing-claim", context, request });
+  store.beginDispatch(saved.attempt, {
+    family: "claude",
+    storageScope: "/native/existing",
+  });
+  const before = rows(database, "SELECT * FROM native_session_allocations");
+  migrateDiscoveryDatabase(database);
+  expect(rows(database, "SELECT * FROM native_session_allocations")).toEqual(
+    before,
+  );
+  const preview = store.admit({
+    requestId: "agy-claim",
+    context,
+    request: { ...request, provider: "antigravity" },
+  });
+  expect(
+    store.beginDispatch(preview.attempt, {
+      family: "antigravity",
+      storageScope: "/native/agy",
+    }),
+  ).toMatchObject({ state: "dispatching" });
+  expect(rows(database, "PRAGMA foreign_key_check")).toEqual([]);
+});
 it("commits exact text, immutable source and creator beside an unbound identity, replaying across reopen", async () => {
   const root = await mkdtemp(join(tmpdir(), "ya-creation-reopen-"));
   roots.push(root);

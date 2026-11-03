@@ -77,6 +77,7 @@ highlightable but looked like only the thinking-colored status dot.
 | `codex-oss`    | `Cd↓`  | `--provider-codex`     | OSS / local |
 | `gemini`       | `✦`    | `--provider-gemini`    | Keep brand mark |
 | `gemini-acp`   | `✦↓`   | `--provider-gemini`    | ACP = local transport |
+| `antigravity`  | `Agy`  | `--provider-gemini`    | Unknown model only; known models show their own family |
 | `grok`         | `Gk`   | `--provider-grok`      | xAI Grok |
 | `opencode`     | `OC`   | `--provider-opencode`  | OpenCode purple |
 
@@ -108,6 +109,13 @@ Model sub-family abbreviations (appended after provider abbrev):
 | grok-4.6     | `4.6` | `Gk 4.6`                  |
 | grok-4.5     | `4.5` | `Gk 4.5`                  |
 | grok-build   | —     | `Gk`                      |
+| Antigravity / gemini-3.8-flash-high | `Gem 3.8F` | Same model label in normal and condensed headers |
+
+Antigravity names the agent runtime, so its known-model pill identifies the
+model family instead: `Gem 3.8F`, `Gem 3.1P`, or the existing Claude/GPT model
+abbreviation. The full native model ID and Antigravity remain in the tooltip
+and accessible label. Before the runtime reports a model, the fallback is
+`Agy`; YA does not guess which model a native default will select.
 
 The pattern is: provider abbrev + space + model short. Fits in ~6–8 chars
 for all common cases. Tooltip shows the raw full model ID (already wired).

@@ -117,7 +117,7 @@ function mergePersistedMessagesForProvider(
 ): Message[] {
   const result = mergeJSONLMessages(baseMessages, taggedMessages, {
     skipDagOrdering: !getProvider(provider).capabilities.supportsDag,
-    preserveIncomingOrder: provider === "codex",
+    preserveIncomingOrder: provider === "codex" || provider === "antigravity",
   });
   return maybeReconcileApprox(result.messages, provider);
 }

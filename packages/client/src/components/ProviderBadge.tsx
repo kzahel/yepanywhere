@@ -16,6 +16,7 @@ const PROVIDER_COLORS: Record<ProviderName, string> = {
   "codex-oss": "var(--provider-codex)", // OpenAI green (same as codex)
   gemini: "var(--provider-gemini)", // Google blue
   "gemini-acp": "var(--provider-gemini)", // Google blue (same as gemini)
+  antigravity: "var(--provider-gemini)",
   grok: "var(--provider-grok)", // xAI Grok
   opencode: "var(--provider-opencode)", // OpenCode purple
   pi: "var(--provider-pi)", // pi teal
@@ -29,6 +30,7 @@ const PROVIDER_LABELS: Record<ProviderName, string> = {
   "codex-oss": "CodexOSS",
   gemini: "Gemini",
   "gemini-acp": "Gemini ACP",
+  antigravity: "Antigravity",
   grok: "Grok",
   opencode: "OpenCode",
   pi: "pi",
@@ -114,7 +116,11 @@ export function ProviderBadge({
   const modelColorStyle =
     modelColor && modelColor !== color ? { color: modelColor } : undefined;
 
-  const fullTitle = effectiveModel ? displayModelId(effectiveModel) : label;
+  const fullTitle = effectiveModel
+    ? provider === "antigravity"
+      ? `${label} · ${displayModelId(effectiveModel)}`
+      : displayModelId(effectiveModel)
+    : label;
   const accessibleTitle = effortLabel
     ? `${fullTitle} · ${t("providerBadgeEffort", { effort: effortLabel })}`
     : fullTitle;
@@ -130,8 +136,18 @@ export function ProviderBadge({
       }[effortTone]
     : null;
   const condensedModel = modelParts
-    ? modelParts.modelLabel || modelParts.providerGlyph
-    : label;
+    ? provider === "antigravity"
+      ? [
+          modelParts.providerGlyph,
+          modelParts.subProvider,
+          modelParts.modelLabel,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : modelParts.modelLabel || modelParts.providerGlyph
+    : provider === "antigravity"
+      ? "Agy"
+      : label;
 
   if (compact) {
     return (
@@ -183,6 +199,8 @@ export function ProviderBadge({
               </span>
             ) : null}
           </>
+        ) : provider === "antigravity" ? (
+          "Agy"
         ) : (
           label
         )}

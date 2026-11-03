@@ -1275,6 +1275,7 @@ export function NewSessionForm({
     "codex-oss": t("newSessionProviderDescriptionCodexOss"),
     gemini: t("newSessionProviderDescriptionGemini"),
     "gemini-acp": t("newSessionProviderDescriptionGeminiAcp"),
+    antigravity: t("newSessionProviderDescriptionAntigravity"),
     grok: t("newSessionProviderDescriptionGrok"),
     opencode: t("newSessionProviderDescriptionOpenCode"),
     pi: t("newSessionProviderDescriptionPi"),

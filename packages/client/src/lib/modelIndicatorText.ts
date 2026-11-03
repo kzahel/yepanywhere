@@ -8,6 +8,7 @@ const providerGlyphMap: Record<string, string> = {
   "codex-oss": "Cd↓",
   gemini: "✦",
   "gemini-acp": "✦",
+  antigravity: "Agy",
   grok: "Gk",
   opencode: "OC",
   pi: "pi",
@@ -323,6 +324,25 @@ export function getModelIndicatorModelParts(
   const providerKey = normalizeProviderKey(provider);
   const providerGlyph = providerGlyphMap[providerKey] ?? DEFAULT_PROVIDER_GLYPH;
   const normalizedModel = normalizeForModelGlyphMatching(trimmedModel);
+
+  // Antigravity is the agent runtime; its header identifies the model family.
+  // Keep legacy Gemini providers' frozen presentation unchanged.
+  if (providerKey === "antigravity" && !trimmedModel.includes("/")) {
+    const familyKey = inferModelFamilyProviderKey(trimmedModel) ?? providerKey;
+    const gemini = trimmedModel.match(
+      /^gemini-(\d+(?:\.\d+)*)-(flash-lite|flash|pro)(?:-(?:low|medium|high|extra|max))?$/iu,
+    );
+    const model = formatModelGlyphOnly(familyKey, trimmedModel);
+    return {
+      providerGlyph:
+        familyKey === "gemini" ? "Gem" : (providerGlyphMap[familyKey] ?? "Agy"),
+      modelLabel: gemini
+        ? `${gemini[1]}${gemini[2]?.toLowerCase() === "pro" ? "P" : gemini[2]?.toLowerCase() === "flash-lite" ? "FL" : "F"}`
+        : model.label,
+      modelAccent: model.accent,
+      modelFamilyKey: familyKey,
+    };
+  }
 
   // Sub-provider namespaced model (e.g. "github-copilot/claude-opus-4.8"):
   // three parts — provider abbrev (OC), sub-provider abbrev (copilot), and the

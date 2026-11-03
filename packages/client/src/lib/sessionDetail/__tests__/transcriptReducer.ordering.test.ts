@@ -30,6 +30,30 @@ function message(uuid: string, role: "user" | "assistant"): Message {
 }
 
 describe("Codex durable catch-up order", () => {
+  it("keeps native Antigravity history before a live tail that arrived first", () => {
+    const initial = message("native-user", "user");
+    const reply = message("native-reply", "assistant");
+    const next = message("next-turn", "user");
+    for (const entry of [initial, reply, next]) entry.timestamp = undefined;
+    let state = reduceSessionDetailState(createInitialSessionDetailState(), {
+      type: "loadPersistedTranscript",
+      session: { ...session, provider: "antigravity" },
+      messages: [],
+    });
+    state = reduceSessionDetailState(state, {
+      type: "applyStreamMessage",
+      message: next,
+    });
+    state = reduceSessionDetailState(state, {
+      type: "applyCatchupMessages",
+      messages: [initial, reply, next],
+    });
+    expect(state.messages.map((entry) => entry.uuid)).toEqual([
+      "native-user",
+      "native-reply",
+      "next-turn",
+    ]);
+  });
   it("preserves durable rows omitted from an overlapping refresh", () => {
     const messages = [
       message("prefix", "user"),

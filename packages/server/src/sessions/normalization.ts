@@ -430,6 +430,7 @@ export function normalizeSession(
         ...summary,
         messages: stampTurnIndexes(data.session.messages as Message[]),
       };
+    case "antigravity":
     case "pi":
       // pi messages are already normalized YA messages (PiSessionReader maps
       // the v3 JSONL tree), like grok — pass through.

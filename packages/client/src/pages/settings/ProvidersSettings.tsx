@@ -1275,7 +1275,11 @@ export function ProvidersSettings() {
     const serverInfo = serverProviders.find(
       (p) => p.name === clientProvider.id,
     );
-    if (clientProvider.id === "claude-ollama" && !serverInfo) {
+    if (
+      (clientProvider.id === "claude-ollama" ||
+        clientProvider.id === "antigravity") &&
+      !serverInfo
+    ) {
       return [];
     }
 
