@@ -1,10 +1,13 @@
-import { getSessionTextCreationCapability } from "@yep-anywhere/shared";
 import {
-  acceptTextCreation,
-  getTextCreation,
-  settleTextCreation,
-  pendingTextCreation,
-} from "../lib/textSessionCreation";
+  createLegacySession,
+  supportsSessionCreation,
+} from "../lib/legacySessionCreation";
+import {
+  acceptSessionCreation,
+  getSessionCreation,
+  settleSessionCreation,
+  pendingSessionCreation,
+} from "../lib/sessionCreation";
 import { useRouterDiscovery } from "../hooks/useRouterDiscovery";
 import {
   RouterPoolSelector,
@@ -216,8 +219,6 @@ import { makeAttachmentFileNamesUnique } from "../lib/attachmentFileNames";
 import {
   getEstimatedServerOffsetMs,
   getServerClockTimestamp,
-  measureServerLatencyMs,
-  recordServerClockSample,
 } from "../lib/serverClock";
 import { createSessionNavigationState } from "../lib/sessionNavigationState";
 import {
@@ -563,7 +564,7 @@ export function NewSessionForm({
   const [isStarting, setIsStarting] = useState(false);
   const [acceptingText, setAcceptingText] = useState(false);
   const [acceptedCreation, setAcceptedCreation] = useState<
-    | (import("@yep-anywhere/shared").TextSessionCreationReceipt & {
+    | (import("@yep-anywhere/shared").SessionCreationReceipt & {
         sourceKey: string;
       })
     | null
@@ -689,7 +690,7 @@ export function NewSessionForm({
     () =>
       isStarting
         ? null
-        : pendingTextCreation(
+        : pendingSessionCreation(
             `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
           ),
     [
@@ -2881,7 +2882,8 @@ export function NewSessionForm({
       }
       const finalMessage = (override ?? draftControls.getDraft()).trimEnd();
 
-      const submissionFiles = pendingFilesRef.current;
+      let submissionFiles = pendingFilesRef.current;
+      const submissionUploads = new Map(pendingStagedUploadsRef.current);
       const hasContent = finalMessage.trim() || submissionFiles.length > 0;
       // A muted composer composes its own first turn, so an empty message is
       // not a reason to refuse the start.
@@ -2948,36 +2950,30 @@ export function NewSessionForm({
       const actionAtMs = Date.now();
       const clientTimestamp = getServerClockTimestamp(actionAtMs);
 
-      const textCreationCapability =
-        getSessionTextCreationCapability(selectedProvider);
-      const stagedCreationRefs = submissionFiles.every(isPendingStagedFile)
-        ? submissionFiles
-            .filter(isPendingStagedFile)
-            .map(toPersistedStagedAttachmentRef)
-        : [];
-      const durableAttachments =
-        submissionFiles.length > 0 &&
-        stagedCreationRefs.length === submissionFiles.length &&
-        ["claude", "codex"].includes(selectedProvider ?? "") &&
-        serverHasCapability(
-          versionInfo,
-          SERVER_CAPABILITIES.stagedSessionCreation.name,
-        );
+      const fullAdmission = serverHasCapability(
+        versionInfo,
+        SERVER_CAPABILITIES.sessionCreationAdmission.name,
+      );
+      let stagedCreationRefs = submissionFiles
+        .filter(isPendingStagedFile)
+        .map(toPersistedStagedAttachmentRef);
       const durableText =
         !launch &&
         principalResolved &&
-        !launchLock.limited &&
-        textCreationCapability !== undefined &&
-        serverHasCapability(versionInfo, textCreationCapability.name) &&
-        (submissionFiles.length === 0 || durableAttachments) &&
-        (trimmedMessage.length > 0 || durableAttachments) &&
-        !command &&
-        effectiveSandboxLevel === "none" &&
-        !machineControlSelected;
-      const capturedAttachmentState = JSON.stringify(
+        supportsSessionCreation(versionInfo, {
+          provider: selectedProvider,
+          limited: launchLock.limited,
+          sandbox: effectiveSandboxLevel,
+          machineControl: machineControlSelected,
+          command: Boolean(command),
+          fileCount: submissionFiles.length,
+          stagedCount: stagedCreationRefs.length,
+        }) &&
+        (Boolean(trimmedMessage.trim()) || submissionFiles.length > 0);
+      let capturedAttachmentState = JSON.stringify(
         draftControls.getAttachmentState(),
       );
-      const capturedSubmission = durableText
+      let capturedSubmission = durableText
         ? draftControls.captureSubmission?.()
         : undefined;
       setAcceptingText(durableText);
@@ -2999,13 +2995,7 @@ export function NewSessionForm({
           throw new Error("Choose a project to start a session.");
         }
 
-        let sessionId: string;
-        let processId: string;
         const sessionMode = effectivePermissionMode;
-        let initialPermissionMode: PermissionMode = sessionMode;
-        let initialAppliedPermissionMode: PermissionMode | undefined;
-        let initialModeVersion = 0;
-        const uploadedFiles: UploadedFile[] = [];
 
         // Get model and thinking settings
         const thinking = toThinkingOption(
@@ -3112,7 +3102,85 @@ export function NewSessionForm({
         }
 
         if (durableText) {
-          const receipt = await acceptTextCreation(
+          if (
+            fullAdmission &&
+            submissionFiles.some((file) => !isPendingStagedFile(file))
+          ) {
+            const batchId = ensureDraftAttachmentBatchId();
+            submissionFiles = await Promise.all(
+              submissionFiles.map(async (file): Promise<PendingStagedFile> => {
+                if (isPendingStagedFile(file)) return file;
+                if (file.kind === "uploading") {
+                  const result = await submissionUploads.get(file.id);
+                  if (!result)
+                    throw new Error(t("sessionDraftAttachmentsUnavailable"));
+                  return result;
+                }
+                const prepared = file.file.type.startsWith("image/")
+                  ? await prepareImageUpload(
+                      file.file,
+                      getAttachmentUploadProfile(
+                        attachmentQuality,
+                        selectedProviderInfo,
+                        selectedModel,
+                      ),
+                    )
+                  : { file: file.file };
+                const ref = await sourceTransport.uploadStagedAttachment(
+                  prepared.file,
+                  {
+                    batchId,
+                    ...(prepared.width !== undefined &&
+                    prepared.height !== undefined
+                      ? {
+                          imageDimensions: {
+                            width: prepared.width,
+                            height: prepared.height,
+                          },
+                        }
+                      : {}),
+                  },
+                );
+                const result = {
+                  ...ref,
+                  kind: "staged" as const,
+                  ...(file.previewUrl ? { previewUrl: file.previewUrl } : {}),
+                };
+                if (
+                  !pendingFilesRef.current.some(
+                    (current) => current.id === file.id,
+                  )
+                )
+                  throw new Error(t("sessionDraftAttachmentsUnavailable"));
+                setPendingFiles((current) =>
+                  current.map((item) => (item.id === file.id ? result : item)),
+                );
+                return result;
+              }),
+            );
+            stagedCreationRefs = submissionFiles
+              .filter(isPendingStagedFile)
+              .map(toPersistedStagedAttachmentRef);
+            if (
+              draftControls.getDraft() === capturedSubmission?.text &&
+              pendingFilesRef.current.length === submissionFiles.length &&
+              pendingFilesRef.current.every(
+                (file, index) => file.id === submissionFiles[index]?.id,
+              )
+            ) {
+              capturedSubmission = draftControls.captureSubmission?.();
+              capturedAttachmentState = JSON.stringify(
+                draftControls.getAttachmentState(),
+              );
+            }
+          }
+          if (
+            !creationViewOwner.current.active ||
+            creationViewOwner.current.sourceKey !== clientSummarySourceKey ||
+            creationViewOwner.current.accountKey !== principal.username
+          )
+            return;
+          const receipt = await acceptSessionCreation(
             sourceTransport,
             `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
             resolvedProjectId ?? undefined,
@@ -3121,7 +3189,7 @@ export function NewSessionForm({
             clientTimestamp,
             messageMetadata,
             capturedSubmission?.text,
-            durableAttachments ? stagedCreationRefs : undefined,
+            stagedCreationRefs.length ? stagedCreationRefs : undefined,
             capturedAttachmentState,
             submissionFiles.map((file) => file.id),
           );
@@ -3152,7 +3220,7 @@ export function NewSessionForm({
                 JSON.stringify(draftControls.getAttachmentState()) !==
                   capturedAttachmentState))
           )
-            settleTextCreation(
+            settleSessionCreation(
               `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
               receipt.requestId,
             );
@@ -3178,131 +3246,26 @@ export function NewSessionForm({
           return true;
         }
 
-        if (submissionFiles.length > 0) {
-          // Two-phase flow: create session first, then upload to real session folder
-          // Step 1: Create the session without sending a message
-          const createRequestSentAtMs = Date.now();
-          const createResult = resolvedProjectId
-            ? await api.createSession(resolvedProjectId, sessionOptions)
-            : await api.createDetachedSession(sessionOptions);
-          const createResponseReceivedAtMs = Date.now();
-          const createTiming = recordServerClockSample({
-            clientRequestStartMs: createRequestSentAtMs,
-            clientResponseEndMs: createResponseReceivedAtMs,
-            serverTimestamp: createResult.serverTimestamp,
-          });
-          const activeProjectId = createResult.projectId;
-          sessionId = createResult.sessionId;
-          processId = createResult.processId;
-          initialPermissionMode = createResult.permissionMode;
-          initialAppliedPermissionMode = createResult.appliedPermissionMode;
-          initialModeVersion = createResult.modeVersion;
-          resolvedProjectId = activeProjectId;
-          logSessionUiTrace("new-session-created", {
-            sessionId,
-            processId,
-            projectId: resolvedProjectId,
-            thinking,
-            mode: sessionMode,
-            serverTimestamp: createResult.serverTimestamp,
-            requestRttMs: createTiming?.roundTripMs ?? null,
-            estimatedServerOffsetMs: createTiming?.serverOffsetMs ?? null,
-          });
-
-          // Step 2: Materialize staged draft refs, or use the legacy final
-          // session upload fallback for files selected before capability support
-          // was known.
-          uploadedFiles.push(
-            ...(await resolvePendingAttachmentsForSession(
-              activeProjectId,
-              sessionId,
-            )),
-          );
-
-          // Step 3: Send the first message with attachments
-          const queueRequestSentAtMs = Date.now();
-          const queueResult = await api.queueMessage(
-            sessionId,
-            trimmedMessage,
-            sessionMode,
-            uploadedFiles.length > 0 ? uploadedFiles : undefined,
-            undefined, // tempId
-            thinking, // Pass the captured thinking setting to avoid process restart
-            undefined, // deferred
-            clientTimestamp,
-            messageMetadata,
-            undefined, // serviceTier
-            showThinking,
-          );
-          const queueResponseReceivedAtMs = Date.now();
-          const queueTiming = recordServerClockSample({
-            clientRequestStartMs: queueRequestSentAtMs,
-            clientResponseEndMs: queueResponseReceivedAtMs,
-            serverTimestamp: queueResult.serverTimestamp,
-          });
-          logSessionUiTrace("new-session-queued", {
-            sessionId,
-            processId,
-            projectId: resolvedProjectId,
-            clientTimestamp,
-            serverTimestamp: queueResult.serverTimestamp,
-            uploadWaitMs: queueRequestSentAtMs - actionAtMs,
-            requestRttMs: queueTiming?.roundTripMs ?? null,
-            estimatedServerOffsetMs: queueTiming?.serverOffsetMs ?? null,
-            clientToServerLatencyMs: measureServerLatencyMs(
-              clientTimestamp,
-              queueResult.serverTimestamp,
-            ),
-          });
-        } else {
-          // No files - use single-step flow for efficiency
-          const startRequestSentAtMs = Date.now();
-          const result = resolvedProjectId
-            ? await api.startSession(
-                resolvedProjectId,
-                trimmedMessage,
-                sessionOptions,
-                undefined,
-                clientTimestamp,
-                messageMetadata,
-              )
-            : await api.startDetachedSession(
-                trimmedMessage,
-                sessionOptions,
-                undefined,
-                clientTimestamp,
-                messageMetadata,
-              );
-          const startResponseReceivedAtMs = Date.now();
-          const startTiming = recordServerClockSample({
-            clientRequestStartMs: startRequestSentAtMs,
-            clientResponseEndMs: startResponseReceivedAtMs,
-            serverTimestamp: result.serverTimestamp,
-          });
-          sessionId = result.sessionId;
-          processId = result.processId;
-          initialPermissionMode = result.permissionMode;
-          initialAppliedPermissionMode = result.appliedPermissionMode;
-          initialModeVersion = result.modeVersion;
-          resolvedProjectId = result.projectId;
-          logSessionUiTrace("new-session-started", {
-            sessionId,
-            processId,
-            projectId: resolvedProjectId,
-            thinking,
-            mode: sessionMode,
-            provider: selectedProvider ?? null,
-            model: selectedModel ?? null,
-            clientTimestamp,
-            serverTimestamp: result.serverTimestamp,
-            requestRttMs: startTiming?.roundTripMs ?? null,
-            estimatedServerOffsetMs: startTiming?.serverOffsetMs ?? null,
-            clientToServerLatencyMs: measureServerLatencyMs(
-              clientTimestamp,
-              result.serverTimestamp,
-            ),
-          });
-        }
+        const started = await createLegacySession({
+          version: versionInfo,
+          api,
+          projectId: resolvedProjectId ?? undefined,
+          message: trimmedMessage,
+          options: sessionOptions,
+          clientTimestamp,
+          metadata: messageMetadata,
+          materialize: submissionFiles.length
+            ? resolvePendingAttachmentsForSession
+            : undefined,
+        });
+        const {
+          sessionId,
+          processId,
+          permissionMode: initialPermissionMode,
+          appliedPermissionMode: initialAppliedPermissionMode,
+          modeVersion: initialModeVersion,
+        } = started;
+        resolvedProjectId = started.projectId;
 
         if (!resolvedProjectId) {
           throw new Error("Missing project ID for new session");
@@ -3431,6 +3394,8 @@ export function NewSessionForm({
       effectiveSandboxLevel,
       effectiveSandboxNetworkFirewall,
       resolvePendingAttachmentsForSession,
+      ensureDraftAttachmentBatchId,
+      attachmentQuality,
       resolveProjectIdForSubmission,
       selectedModel,
       selectedPromptSuggestionMode,
@@ -5498,10 +5463,10 @@ export function NewSessionForm({
             type="button"
             onClick={async () => {
               const key = `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`;
-              const pending = pendingTextCreation(key);
+              const pending = pendingSessionCreation(key);
               if (!pending) return;
               try {
-                const receipt = await getTextCreation(
+                const receipt = await getSessionCreation(
                   sourceTransport,
                   pending.requestId,
                 );
@@ -5530,7 +5495,7 @@ export function NewSessionForm({
                       JSON.stringify(draftControls.getAttachmentState()) !==
                         (pending.draftAttachments ?? "null")))
                 )
-                  settleTextCreation(key, receipt.requestId);
+                  settleSessionCreation(key, receipt.requestId);
                 navigate(
                   `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
                 );

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { TextSessionCreationReceipt } from "@yep-anywhere/shared";
+import type { SessionCreationReceipt } from "@yep-anywhere/shared";
 import type { SavedSessionCreation } from "./SessionCreationStore.js";
 
 /** Fingerprint submitted choices before defaults, availability or routing change. */
@@ -21,7 +21,7 @@ export function textCreationSubmissionHash(
 
 export function textCreationReceipt(
   saved: SavedSessionCreation,
-): TextSessionCreationReceipt {
+): SessionCreationReceipt {
   if (!saved.request || saved.deleted)
     throw new Error("Saved creation was deleted");
   return {

@@ -479,4 +479,42 @@ describe("a session start that waits for a worker", () => {
     ).toBeUndefined();
     expect(f.supervisor.getQueueInfo()).toEqual([]);
   });
+  it("admits explicit empty preparation on the canonical route without a phantom input", async () => {
+    const f = nativeRoutes();
+    const submit = (body: object) =>
+      f.routes.request(`/projects/${projectId}/session-creations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    const body = {
+      requestId: "canonical_empty_preparation",
+      message: "",
+      intent: "prepare",
+      provider: "claude",
+    };
+    const accepted = await submit(body);
+    expect(accepted.status).toBe(202);
+    const result = await accepted.json();
+    await waitFor(() => expect(f.owners).toHaveLength(1));
+    expect(f.owners[0]!.queue.depth).toBe(0);
+    const saved = metadata.creations.getForSession(
+      parseYaSessionId(result.sessionId),
+    )!;
+    expect(saved.request).toMatchObject({ intent: "prepare", message: "" });
+    expect(result.creation.initialInputExpected).toBe(false);
+    expect((await (await submit(body)).json()).sessionId).toBe(
+      result.sessionId,
+    );
+    expect(
+      (
+        await submit({
+          ...body,
+          requestId: "invalid_prepare_input",
+          message: "must not disappear",
+        })
+      ).status,
+    ).toBe(400);
+    expect(f.owners).toHaveLength(1);
+  });
 });

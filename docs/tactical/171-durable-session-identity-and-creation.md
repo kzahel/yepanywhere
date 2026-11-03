@@ -24,6 +24,45 @@ The November 3 consolidation below completes the common caller rollout. The
 provenance audit is narrowed to lost native-copy result correlation; it no
 longer lists missing ordinary caller source writes.
 
+## Selected cleanup — current clients and legacy removal
+
+The maintainer authorized the following three implementation slices after the
+server admission consolidation. Older Chrome extension clients do not block
+retirement on new servers; current clients must still support the stable
+v0.8.0–v0.11.0 server corpus through a client-only compatibility adapter.
+
+1. **Current-client convergence.** Advertise a distinct full-admission bit;
+   submit prompt/staged files/options together from New Session and Session-page
+   actions, including limited/sandbox/Machine Control choices. Keep old-server
+   writes in one explicit adapter. Empty preparation is an explicit intent.
+2. **Retire SDK execution scaffolding.** Bootstrap and tests use AgentProvider;
+   delete the deprecated RealClaudeSDK wrapper and Supervisor SDK fallback
+   engines, queue payloads and duplicate provenance plumbing.
+3. **Retire unused server interfaces and provisional remapping.** Move remaining
+   current tooling/API consumers, remove obsolete new-server creation URLs and
+   temporary public-ID replacement. Keep current-client old-server event/input
+   compatibility and existing native-history import/resume at explicit boundaries.
+
+One actual localhost:3400 Sol 6.1 High/bypassPermissions review per slice, focused
+corrections and commits as work lands. This is implementation/removal work;
+additional account or Chrome extension qualification is not its blocking gate.
+New admission bit 147 does not broaden bits 142–146 or advertise broad receipts.
+Existing ownership, current-grant checks and live Machine Control credentials
+remain authoritative. Wider native-copy/template recovery remains separate.
+
+Current-client slice implemented: bit 147 gates the combined prompt/files/options
+contract and explicit empty preparation. The sole Sol review identified five
+recovery/lifetime defects; corrections retain files through refusal, acknowledge
+only the captured draft, freeze retry metadata and fence parked-page replies.
+Owned browser checks cover limited admission, sequential newer typing,
+unchanged-file acknowledgement, lost-reply reload/recovery and parked POST/GET
+completion (six cases, 33.3 seconds). Focused draft/collector/navigation checks
+pass (51 cases, 4.52 seconds). Full workspace checks pass: 6,925 server
+checks (147.51 seconds), 7,070 client checks (130.58 seconds), shared 967,
+relay 139 and push 45; lint/format/types and CSS pass. Existing upstream SQLite
+notices and expected negative-path diagnostics retain their documented owners.
+SDK and server-alias retirement remain next.
+
 ## Completion target — one creation contract, retired legacy implementations
 
 The maintainer clarified that the endpoint of this refactor is one stable

@@ -33,6 +33,34 @@ import {
 } from "../index.js";
 
 describe("server capability advertisements", () => {
+  it("does not infer full admission from older text or attachment contracts", () => {
+    const name = CAPABILITY_ID_ALLOCATIONS.sessionCreationAdmission.name;
+    for (const current of [
+      "0.8.0",
+      "0.8.1",
+      "0.9.0",
+      "0.9.1",
+      "0.9.2",
+      "0.10.0",
+      "0.10.1",
+      "0.10.2",
+      "0.11.0",
+      "0.11.1",
+    ])
+      expect(serverHasCapability({ current }, name)).toBe(false);
+    expect(
+      serverHasCapability(
+        {
+          capabilities: [
+            "session-creation-claude-text",
+            "session-creation-staged-attachments",
+          ],
+        },
+        name,
+      ),
+    ).toBe(false);
+    expect(serverHasCapability({ capabilities: [name] }, name)).toBe(true);
+  });
   it("keeps attachment acceptance independent of text support across the creation release corpus", () => {
     const name = CAPABILITY_ID_ALLOCATIONS.stagedSessionCreation.name;
     for (const current of [

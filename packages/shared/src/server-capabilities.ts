@@ -15,6 +15,11 @@ import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 export type ServerCapabilityKind = "permanent" | "transitional";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  sessionCreationAdmission: {
+    name: "session-creation-admission-v1",
+    index: CAPABILITY_ID_ALLOCATIONS.sessionCreationAdmission.id,
+    introducedIn: "0.11.1",
+  },
   stagedSessionCreation: {
     name: "session-creation-staged-attachments",
     index: CAPABILITY_ID_ALLOCATIONS.stagedSessionCreation.id,
@@ -317,6 +322,47 @@ export interface ServerCapabilityDefinition {
 }
 
 export const SERVER_CAPABILITIES = {
+  sessionCreationAdmission: {
+    id: CAPABILITY_ID_ALLOCATIONS.sessionCreationAdmission.id,
+    name: "session-creation-admission-v1",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.11.1",
+    advertisement: {
+      kind: "optional-bit",
+      index: CAPABILITY_ID_ALLOCATIONS.sessionCreationAdmission.id,
+    },
+    description:
+      "Keyed durable session admission for configured providers, owner and limited principals, sandbox/Machine Control options, staged initial files and explicit empty preparation.",
+    clientFallback:
+      "Use the isolated established start/create-and-send adapter only when this bit is absent. Never probe an unsupported creation write.",
+    serverContract: {
+      routes: [
+        "POST /api/projects/:projectId/session-creations",
+        "POST /api/session-creations",
+        "GET /api/session-creations/:requestId",
+      ],
+      requestFields: [
+        "requestId",
+        "provider",
+        "message",
+        "stagedAttachments",
+        "intent",
+      ],
+      responseFields: [
+        "requestId",
+        "sessionId",
+        "projectId",
+        "provider",
+        "creation",
+      ],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Admission support is distinct from the stronger unadvertised broad delivery/receipts guarantee.",
+    },
+  },
   stagedSessionCreation: {
     id: CAPABILITY_ID_ALLOCATIONS.stagedSessionCreation.id,
     name: "session-creation-staged-attachments",

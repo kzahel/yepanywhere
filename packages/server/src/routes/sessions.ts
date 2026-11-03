@@ -490,6 +490,7 @@ async function resolveSessionReader({
 }
 
 interface StartSessionBody {
+  intent?: "prepare";
   requestId?: string;
   stagedAttachments?: StagedAttachmentRef[];
   routerAccountId?: string;
@@ -2125,7 +2126,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     if (
       (body.provider !== undefined && !ALL_PROVIDERS.includes(body.provider)) ||
       typeof body.message !== "string" ||
-      (!body.message.trim() && !body.stagedAttachments?.length) ||
+      (!body.message.trim() &&
+        !body.stagedAttachments?.length &&
+        body.intent !== "prepare") ||
+      (body.intent !== undefined &&
+        (body.intent !== "prepare" ||
+          Boolean(body.message) ||
+          Boolean(body.stagedAttachments?.length))) ||
       (body.stagedAttachments !== undefined &&
         (!Array.isArray(body.stagedAttachments) ||
           !body.stagedAttachments.length ||
@@ -2165,6 +2172,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       },
       creation: {
         ...context,
+        intent: body.intent,
         requestId: body.requestId,
         attachments: body.stagedAttachments
           ? { owner: { type: "draft" as const }, refs: body.stagedAttachments }
@@ -4282,7 +4290,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: modeError }, 400);
     }
 
-    if (!hasSessionMessageContent(body)) {
+    if (
+      !hasSessionMessageContent(body) &&
+      !(acceptance && body.intent === "prepare")
+    ) {
       return c.json({ error: "Message is required" }, 400);
     }
     const { executor, error: executorError } = parseOptionalExecutor(
@@ -4399,10 +4410,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       const saved = await acceptance.promise.catch(acceptance.refused);
       if (saved instanceof Response) return saved;
       void deps.userUsageService?.recordSession(actingUsername(c));
-      void deps.userUsageService?.recordTurn(
-        actingUsername(c),
-        userMessage.text,
-      );
+      if (body.intent !== "prepare")
+        void deps.userUsageService?.recordTurn(
+          actingUsername(c),
+          userMessage.text,
+        );
       return c.json(textCreationReceipt(saved), 202);
     }
     const result = await operation;
@@ -4618,7 +4630,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       return c.json({ error: modeError }, 400);
     }
 
-    if (!hasSessionMessageContent(body)) {
+    if (
+      !hasSessionMessageContent(body) &&
+      !(acceptance && body.intent === "prepare")
+    ) {
       return c.json({ error: "Message is required" }, 400);
     }
     const { executor, error: executorError } = parseOptionalExecutor(
@@ -4714,10 +4729,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       const saved = await acceptance.promise.catch(acceptance.refused);
       if (saved instanceof Response) return saved;
       void deps.userUsageService?.recordSession(actingUsername(c));
-      void deps.userUsageService?.recordTurn(
-        actingUsername(c),
-        userMessage.text,
-      );
+      if (body.intent !== "prepare")
+        void deps.userUsageService?.recordTurn(
+          actingUsername(c),
+          userMessage.text,
+        );
       return c.json(textCreationReceipt(saved), 202);
     }
     const result = await operation;

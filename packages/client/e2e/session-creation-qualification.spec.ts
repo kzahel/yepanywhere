@@ -359,6 +359,7 @@ test("missing durable-creation capability uses the established start endpoint", 
     starts = 0;
   try {
     const absent = [
+      SERVER_CAPABILITIES.sessionCreationAdmission,
       SERVER_CAPABILITIES.claudeTextCreation,
       SERVER_CAPABILITIES.codexTextCreation,
     ];

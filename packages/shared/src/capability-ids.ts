@@ -870,6 +870,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "peer-connections",
     introducedIn: "0.11.1",
   },
+  sessionCreationAdmission: {
+    id: 147,
+    direction: "server",
+    name: "session-creation-admission-v1",
+    introducedIn: "0.11.1",
+  },
   stagedSessionCreation: {
     id: 146,
     direction: "server",

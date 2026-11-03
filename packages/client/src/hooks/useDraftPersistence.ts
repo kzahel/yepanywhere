@@ -65,6 +65,7 @@ export interface DraftControls {
   /** Capture this exact slot/value before asynchronous creation work. */
   captureSubmission?: () => {
     text: string;
+    draftText?: string;
     confirm: () => boolean;
     cancel: () => void;
   };
@@ -595,6 +596,9 @@ export function useDraftPersistence(
     const capturedValue = draftStorage.getItem(capturedKey);
     return {
       text: capturedText,
+      draftText: readDraftPendingSendValue(capturedValue)
+        ? readDraftTextValue(capturedValue)
+        : capturedText,
       confirm() {
         const ownsInput =
           keyRef.current === capturedKey && valueRef.current === capturedText;

@@ -1,6 +1,6 @@
 export type {
   SessionCreationStatus,
-  TextSessionCreationReceipt,
+  SessionCreationReceipt,
 } from "./session-creation.js";
 export type {
   ArtifactVhost,

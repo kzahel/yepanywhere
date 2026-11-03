@@ -612,6 +612,36 @@ over more provider-prefix guessing, repeated deep translations, ad-hoc SQL or a
 second mapping cache. [Plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 owns migration order and slice acceptance evidence.
 
+## Current-client creation and compatibility cleanup
+
+The maintainer selected current-client convergence after the server owner
+migration. New servers advertise `session-creation-admission-v1` (bit 147):
+configured-provider creation, limited/owner authority, sandbox/Machine Control
+options, staged initial files and explicit empty `intent: prepare`. Prompt,
+files, source and settings are accepted together. Preparation requires empty
+message/no attachments and sends no phantom turn. This bit does not promise
+automatic uncertain replay or the separate broad receipts guarantee.
+
+New Session and Session-page Start now use that full contract. Current form
+restrictions are no longer reasons for selecting an older request sequence.
+Selected files finish staging before acceptance; newer text/files and retired
+source/account views cannot be cleared or navigated by a delayed reply. The
+Session-page recovery link can read an earlier operation without a second write.
+It clears the saved original draft only while its text and file references
+still match; attachment hydration timestamps do not imply a new selection.
+A failed response retains the submitted files. Retry reuses the original wire
+payload and request identity, and a parked page cannot navigate on completion.
+Client recovery helpers/types now name session creation, rather than text-only
+creation. Existing saved local recovery keys retain their spelling.
+
+`legacySessionCreation.ts` owns the older-server create/materialize/send
+sequence and the earlier narrow text/attachment eligibility rules. A server
+advertising full admission cannot enter that adapter. The maintained older
+server corpus remains v0.8.0–v0.11.0; clients send only established writes there.
+Old extension clients are not a blocker for subsequent removal of new-server
+aliases and SDK execution scaffolding. Existing native history/resume remains
+independent of this client/server protocol cleanup.
+
 ## Retained caller consolidation
 
 Qualified ordinary owner launch shapes use the same admission owner from native

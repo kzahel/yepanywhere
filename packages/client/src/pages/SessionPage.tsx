@@ -1,3 +1,11 @@
+import { useActingPrincipal } from "../hooks/useActingPrincipal";
+import { createLegacySession } from "../lib/legacySessionCreation";
+import {
+  acceptSessionCreation,
+  getSessionCreation,
+  pendingSessionCreation,
+  settleSessionCreation,
+} from "../lib/sessionCreation";
 import { isSessionCreationPending } from "@yep-anywhere/shared";
 import { SessionCreationNotice } from "../components/SessionCreationNotice";
 import { RoutedSessionContext } from "../contexts/RoutedSessionContext";
@@ -458,6 +466,7 @@ export interface SessionPageProps {
   isDomLingerParked?: boolean;
   progressiveRenderPauseSignal?: {
     readonly current: boolean;
+    readonly activationVersion?: number;
     supportsCompaction?: boolean;
   };
 }
@@ -539,7 +548,10 @@ function SessionPageContent({
   sessionId: string;
   routeLocation?: SessionPageRouteLocation;
   isDomLingerParked: boolean;
-  progressiveRenderPauseSignal?: { readonly current: boolean };
+  progressiveRenderPauseSignal?: {
+    readonly current: boolean;
+    readonly activationVersion?: number;
+  };
 }) {
   const { t } = useI18n();
   const { showToast } = useToastContext();
@@ -572,6 +584,49 @@ function SessionPageContent({
     [sessionDraftReference],
   );
   const { version: versionInfo } = useVersion();
+  const { principal: creationPrincipal, resolved: creationPrincipalResolved } =
+    useActingPrincipal();
+  const creationKey = `ya-session-creation:${clientSummarySourceKey}:${creationPrincipal.username}:${sessionDraftKey}`;
+  const creationOwner = useRef({ active: true, key: creationKey });
+  creationOwner.current.key = creationKey;
+  const captureCreationView = () => ({
+    key: creationKey,
+    href: window.location.href,
+    historyKey: window.history.state?.key,
+    activation: progressiveRenderPauseSignal?.activationVersion,
+  });
+  const ownsCreationView = (token: ReturnType<typeof captureCreationView>) =>
+    creationOwner.current.active &&
+    creationOwner.current.key === token.key &&
+    !progressiveRenderPauseSignal?.current &&
+    progressiveRenderPauseSignal?.activationVersion === token.activation &&
+    window.location.href === token.href &&
+    window.history.state?.key === token.historyKey;
+
+  useEffect(() => {
+    creationOwner.current.active = true;
+    return () => {
+      creationOwner.current.active = false;
+    };
+  }, []);
+  const [creationRecovery, setCreationRecovery] = useState<{
+    key: string;
+    requestId: string;
+    accepted?: boolean;
+  } | null>(null);
+  useEffect(() => {
+    const pending = pendingSessionCreation(creationKey);
+    setCreationRecovery(
+      pending
+        ? {
+            key: creationKey,
+            requestId: pending.requestId,
+            accepted: Boolean(pending.receipt),
+          }
+        : null,
+    );
+  }, [creationKey]);
+
   const { presence: toolbarPresence } = useSessionToolbarPresence();
   const syntheticDoneEnabled = toolbarPresence.syntheticDone !== "off";
   const supportsSyntheticDone = serverHasCapability(
@@ -2608,7 +2663,7 @@ function SessionPageContent({
   });
 
   const collectComposerAttachmentsForSubmission = useCallback(
-    async (options?: { pendingMessageId?: string }) => {
+    async (options?: { pendingMessageId?: string; detach?: boolean }) => {
       const collectRendez =
         !mainComposerForAside &&
         (attachmentsRef.current.some(
@@ -2621,6 +2676,7 @@ function SessionPageContent({
             false));
       return collectComposerAttachmentsForSubmissionHelper({
         currentAttachments: attachmentsRef.current,
+        detach: options?.detach,
         pendingUploads: [...pendingUploadsRef.current.values()],
         setComposerAttachments,
         pendingMessageId: options?.pendingMessageId,
@@ -3774,18 +3830,65 @@ function SessionPageContent({
       newSessionTarget?.model ??
       (keepsProvider ? (session?.model ?? getModelSetting()) : undefined);
 
-    let currentAttachments = [...attachmentsRef.current];
+    const canonicalCreation =
+      targetType === "new-session" &&
+      newSessionTarget?.delivery === "now" &&
+      serverHasCapability(
+        versionInfo,
+        SERVER_CAPABILITIES.sessionCreationAdmission.name,
+      );
+    if (canonicalCreation && !creationPrincipalResolved) {
+      draftControlsRef.current?.restoreFromStorage();
+      return;
+    }
+    const creationView = captureCreationView();
+    let acceptedInput = canonicalCreation
+      ? draftControlsRef.current?.captureSubmission?.()
+      : undefined;
+    const originalAttachments = [...attachmentsRef.current];
+    let currentAttachments = [...originalAttachments];
+    let submittedFileIds = originalAttachments.map((file) => file.id);
+    let submittedAttachmentState = JSON.stringify(
+      draftControlsRef.current?.getAttachmentState()?.refs ?? [],
+    );
     let uploadedAttachments: UploadedFile[] = [];
     let stagedAttachments: ProjectQueueStagedAttachments | undefined;
 
     try {
-      currentAttachments = await collectComposerAttachmentsForSubmission();
+      currentAttachments = await collectComposerAttachmentsForSubmission({
+        detach: !canonicalCreation,
+      });
+      if (canonicalCreation && !ownsCreationView(creationView)) return;
       if (targetType === "new-session") {
+        const selected = currentAttachments;
         currentAttachments = await stageComposerAttachmentsForNewSession({
           attachments: currentAttachments,
           sourceTransport,
           sourceProjectId: projectId,
         });
+        if (canonicalCreation) {
+          if (!ownsCreationView(creationView)) return;
+          const replacements = new Map(
+            selected.map((file, index) => [
+              file.id,
+              currentAttachments[index]!,
+            ]),
+          );
+          setComposerAttachments((current) =>
+            current.map((file) => replacements.get(file.id) ?? file),
+          );
+          submittedFileIds = currentAttachments.map((file) => file.id);
+          submittedAttachmentState = JSON.stringify(
+            draftControlsRef.current?.getAttachmentState()?.refs ?? [],
+          );
+          if (
+            !pendingUploadsRef.current.size &&
+            draftControlsRef.current?.getDraft() === acceptedInput?.text &&
+            attachmentsRef.current.map((file) => file.id).join("\0") ===
+              submittedFileIds.join("\0")
+          )
+            acceptedInput = draftControlsRef.current?.captureSubmission?.();
+        }
       }
       if (
         targetType === "new-session" &&
@@ -3802,41 +3905,71 @@ function SessionPageContent({
         const messageMetadata = {
           ...metadata,
           deliveryIntent: "direct" as const,
-          clientTimestamp,
         };
-        const started =
-          currentAttachments.length > 0
-            ? await api.createSession(queueProjectId, options)
-            : await api.startSession(
-                queueProjectId,
-                outgoingText,
-                options,
-                undefined,
-                clientTimestamp,
-                messageMetadata,
-              );
-        if (currentAttachments.length > 0) {
-          const files = await materializeComposerAttachmentsForSubmission({
-            attachments: currentAttachments,
-            sourceTransport,
-            projectId: started.projectId,
-            sessionId: started.sessionId,
-          });
-          await api.queueMessage(
-            started.sessionId,
-            outgoingText,
-            permissionMode,
-            files,
-            undefined,
-            options.thinking,
-            undefined,
-            clientTimestamp,
-            messageMetadata,
-            undefined,
-            showThinking,
-          );
-        }
-        draftControlsRef.current?.confirmInputClear();
+        if (canonicalCreation && !ownsCreationView(creationView)) return;
+        const started = canonicalCreation
+          ? await acceptSessionCreation(
+              sourceTransport,
+              creationKey,
+              queueProjectId,
+              outgoingText,
+              options,
+              clientTimestamp,
+              { ...messageMetadata, deliveryIntent: "direct" },
+              acceptedInput?.draftText ?? text,
+              currentAttachments.length
+                ? currentAttachments.map((file) => {
+                    if (!isComposerStagedAttachment(file))
+                      throw new Error(
+                        "New session files must be staged before admission",
+                      );
+                    return toPersistedStagedAttachmentRef(file);
+                  })
+                : undefined,
+              submittedAttachmentState,
+              submittedFileIds,
+            )
+          : await createLegacySession({
+              version: versionInfo,
+              api,
+              projectId: queueProjectId,
+              message: outgoingText,
+              options,
+              clientTimestamp,
+              metadata: { ...messageMetadata, deliveryIntent: "direct" },
+              materialize: currentAttachments.length
+                ? (projectId, sessionId) =>
+                    materializeComposerAttachmentsForSubmission({
+                      attachments: currentAttachments,
+                      sourceTransport,
+                      projectId,
+                      sessionId,
+                    })
+                : undefined,
+            });
+        if (canonicalCreation) {
+          if (!ownsCreationView(creationView)) return;
+          const unchangedAttachments =
+            !pendingUploadsRef.current.size &&
+            attachmentsRef.current.map((file) => file.id).join("\0") ===
+              submittedFileIds.join("\0");
+          const cleared =
+            unchangedAttachments && (acceptedInput?.confirm() ?? false);
+          if ("requestId" in started) {
+            if (cleared) {
+              settleSessionCreation(creationKey, started.requestId);
+              setComposerAttachments([], { persistDraft: false });
+            }
+            if (!cleared) {
+              setCreationRecovery({
+                key: creationKey,
+                requestId: started.requestId,
+                accepted: true,
+              });
+              return;
+            }
+          }
+        } else draftControlsRef.current?.confirmInputClear();
         revokeAttachmentPreviewUrls(currentAttachments);
         setCorrectionDraft(null);
         clearQuoteAnchors();
@@ -3844,13 +3977,16 @@ function SessionPageContent({
           `${basePath}/projects/${started.projectId}/sessions/${started.sessionId}`,
           {
             state: createSessionNavigationState({
-              initialStatus: {
-                owner: "self",
-                processId: started.processId,
-                permissionMode: started.permissionMode,
-                appliedPermissionMode: started.appliedPermissionMode,
-                modeVersion: started.modeVersion,
-              },
+              initialStatus:
+                "processId" in started
+                  ? {
+                      owner: "self",
+                      processId: started.processId,
+                      permissionMode: started.permissionMode,
+                      appliedPermissionMode: started.appliedPermissionMode,
+                      modeVersion: started.modeVersion,
+                    }
+                  : undefined,
               initialTitle: outgoingText,
               initialModel: newSessionModel,
               initialProvider: newSessionProvider,
@@ -3957,8 +4093,20 @@ function SessionPageContent({
         targetType,
         message: err instanceof Error ? err.message : String(err),
       });
-      draftControlsRef.current?.restoreFromStorage();
-      setComposerAttachments(currentAttachments, { persistDraft: false });
+      if (canonicalCreation) {
+        if (!ownsCreationView(creationView)) return;
+        const pending = pendingSessionCreation(creationKey);
+        if (pending)
+          setCreationRecovery({
+            key: creationKey,
+            requestId: pending.requestId,
+          });
+        if (!draftControlsRef.current?.getDraft())
+          draftControlsRef.current?.restoreFromStorage();
+      } else {
+        draftControlsRef.current?.restoreFromStorage();
+        setComposerAttachments(currentAttachments, { persistDraft: false });
+      }
       const errorMsg = err instanceof Error ? err.message : String(err);
       showToast(
         newSessionTarget?.delivery === "now"
@@ -7021,6 +7169,78 @@ function SessionPageContent({
           )}
 
           <footer className={`${styles.input} session-input`}>
+            {creationRecovery?.key === creationKey && (
+              <div role="status" className={styles.creationRecovery}>
+                <span>
+                  {t(
+                    creationRecovery.accepted
+                      ? "sessionCreationSavedWhileAway"
+                      : "sessionCreationUnconfirmedRequest",
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const view = captureCreationView();
+                    const pending = pendingSessionCreation(creationKey);
+                    if (!pending) return;
+                    const controls = draftControlsRef.current;
+                    const filesMatch =
+                      !pendingUploadsRef.current.size &&
+                      attachmentsRef.current
+                        .map((file) => file.id)
+                        .join("\0") === (pending.draftFileIds ?? []).join("\0");
+                    const draftMatches =
+                      filesMatch &&
+                      controls?.getDraft() === pending.draftText &&
+                      JSON.stringify(
+                        controls?.getAttachmentState()?.refs ?? [],
+                      ) === (pending.draftAttachments ?? "[]");
+                    const captured = draftMatches
+                      ? controls?.captureSubmission?.()
+                      : undefined;
+                    try {
+                      const receipt = await getSessionCreation(
+                        sourceTransport,
+                        creationRecovery.requestId,
+                      );
+                      if (!ownsCreationView(view)) return;
+                      const stillMatches =
+                        !pendingUploadsRef.current.size &&
+                        attachmentsRef.current
+                          .map((file) => file.id)
+                          .join("\0") ===
+                          (pending.draftFileIds ?? []).join("\0") &&
+                        controls?.getDraft() === pending.draftText &&
+                        JSON.stringify(
+                          controls?.getAttachmentState()?.refs ?? [],
+                        ) === (pending.draftAttachments ?? "[]");
+                      const cleared =
+                        stillMatches && (captured?.confirm() ?? false);
+                      if (cleared)
+                        setComposerAttachments([], {
+                          persistDraft: false,
+                          revokeRemovedPreviewUrls: true,
+                        });
+                      if (cleared || !stillMatches) {
+                        settleSessionCreation(creationKey, receipt.requestId);
+                        setCreationRecovery(null);
+                      }
+                      navigate(
+                        `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
+                      );
+                    } catch (error) {
+                      showToast(
+                        error instanceof Error ? error.message : String(error),
+                        "error",
+                      );
+                    }
+                  }}
+                >
+                  {t("sessionCreationOpenSaved")}
+                </button>
+              </div>
+            )}
             <div
               className={`session-connection-bar session-connection-${sessionConnectionStatus}`}
             />

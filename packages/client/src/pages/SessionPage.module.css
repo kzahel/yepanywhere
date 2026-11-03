@@ -91,3 +91,14 @@
     grid-template-columns: minmax(0, 1fr) 28px;
   }
 }
+
+.creationRecovery {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+.creationRecovery button {
+  min-height: 36px;
+}

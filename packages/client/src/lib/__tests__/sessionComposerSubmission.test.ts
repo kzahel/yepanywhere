@@ -224,6 +224,38 @@ describe("session composer submission helpers", () => {
     });
   });
 
+  it("keeps canonical collected files attached through mixed upload failure and newer selections", async () => {
+    const successful = { ...stagedRef, id: "successful" };
+    const newer = { ...stagedRef, id: "newer" };
+    let live: ComposerAttachment[] = [uploadedFile];
+    const detach = vi.fn(
+      (
+        updater:
+          | ComposerAttachment[]
+          | ((previous: readonly ComposerAttachment[]) => ComposerAttachment[]),
+      ) => {
+        live = typeof updater === "function" ? updater(live) : updater;
+      },
+    );
+    let finish!: (value: null) => void;
+    const pending = new Promise<null>((resolve) => {
+      finish = resolve;
+    });
+    const result = collectComposerAttachmentsForSubmission({
+      detach: false,
+      currentAttachments: live,
+      pendingUploads: [Promise.resolve(successful), pending],
+      setComposerAttachments: detach,
+    }).catch((error) => error);
+    live = [...live, successful, newer];
+    finish(null);
+    const failure = await result;
+    expect(failure).toBeInstanceOf(ComposerAttachmentUploadError);
+    expect(failure.attachments).toEqual([uploadedFile, successful]);
+    expect(live).toEqual([uploadedFile, successful, newer]);
+    expect(detach).not.toHaveBeenCalled();
+  });
+
   it("refuses partial delivery when a pending upload fails, retaining successful attachments for recovery", async () => {
     const pending = { ...stagedRef, id: "successful-pending" };
     const failure = await collectComposerAttachmentsForSubmission({

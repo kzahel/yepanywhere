@@ -257,7 +257,9 @@ export async function collectComposerAttachmentsForSubmission({
   uploadingStatus,
   uploadFailureMessage = "An attachment failed to upload. Attach it again before sending.",
   collectSyncedAttachments,
+  detach = true,
 }: {
+  detach?: boolean;
   currentAttachments: readonly ComposerAttachment[];
   pendingUploads: readonly Promise<ComposerAttachment | null>[];
   setComposerAttachments: (
@@ -295,6 +297,7 @@ export async function collectComposerAttachmentsForSubmission({
       }
     }
     const removeCollected = () => {
+      if (!detach) return;
       const sentIds = new Set(collectedAttachments.map((a) => a.id));
       setComposerAttachments(
         (prev) => prev.filter((attachment) => !sentIds.has(attachment.id)),

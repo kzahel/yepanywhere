@@ -18,8 +18,8 @@ export interface SessionCreationStatus {
   failure?: "startup-unavailable" | "launch-refused" | "cancelled";
 }
 
-/** Durable text acceptance; provider startup and delivery are separate facts. */
-export interface TextSessionCreationReceipt {
+/** Durable creation acceptance; provider startup and delivery are separate facts. */
+export interface SessionCreationReceipt {
   requestId: string;
   sessionId: string;
   projectId: string;

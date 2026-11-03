@@ -1,5 +1,5 @@
 import type {
-  TextSessionCreationReceipt,
+  SessionCreationReceipt,
   StagedAttachmentRef,
   UserMessageMetadata,
 } from "@yep-anywhere/shared";
@@ -7,11 +7,11 @@ import { generateUUID } from "./uuid";
 import type { SourceTransport } from "./transport/types";
 import type { SessionOptions } from "../api/client";
 
-export function getTextCreation(
+export function getSessionCreation(
   transport: Pick<SourceTransport, "fetch">,
   requestId: string,
 ) {
-  return transport.fetch<TextSessionCreationReceipt>(
+  return transport.fetch<SessionCreationReceipt>(
     `/session-creations/${encodeURIComponent(requestId)}`,
   );
 }
@@ -22,22 +22,22 @@ interface PendingCreation {
   draftText?: string;
   draftAttachments?: string;
   draftFileIds?: string[];
-  receipt?: TextSessionCreationReceipt;
+  receipt?: SessionCreationReceipt;
 }
-export function settleTextCreation(key: string, requestId: string): void {
-  if (pendingTextCreation(key)?.requestId === requestId)
+export function settleSessionCreation(key: string, requestId: string): void {
+  if (pendingSessionCreation(key)?.requestId === requestId)
     localStorage.removeItem(key);
 }
 function rememberReceipt(
   key: string,
   pending: PendingCreation,
-  receipt: TextSessionCreationReceipt,
+  receipt: SessionCreationReceipt,
 ) {
-  if (pendingTextCreation(key)?.requestId === pending.requestId)
+  if (pendingSessionCreation(key)?.requestId === pending.requestId)
     localStorage.setItem(key, JSON.stringify({ ...pending, receipt }));
   return receipt;
 }
-export function pendingTextCreation(key: string): PendingCreation | null {
+export function pendingSessionCreation(key: string): PendingCreation | null {
   try {
     const value = JSON.parse(localStorage.getItem(key) ?? "null");
     return value &&
@@ -50,7 +50,19 @@ export function pendingTextCreation(key: string): PendingCreation | null {
     return null;
   }
 }
-export async function acceptTextCreation(
+function creationIntent(payload: string): string {
+  const request = JSON.parse(payload);
+  const {
+    clientTimestamp: _client,
+    serverReceivedAt: _server,
+    composition: _composition,
+    speech: _speech,
+    ...choices
+  } = request.metadata ?? {};
+  return JSON.stringify({ ...request, metadata: choices });
+}
+
+export async function acceptSessionCreation(
   transport: Pick<SourceTransport, "fetch">,
   key: string,
   projectId: string | undefined,
@@ -62,7 +74,7 @@ export async function acceptTextCreation(
   stagedAttachments?: StagedAttachmentRef[],
   draftAttachments?: string,
   draftFileIds?: string[],
-): Promise<TextSessionCreationReceipt> {
+): Promise<SessionCreationReceipt> {
   const payload = JSON.stringify({
     projectId,
     message,
@@ -70,8 +82,8 @@ export async function acceptTextCreation(
     metadata,
     stagedAttachments,
   });
-  const previous = pendingTextCreation(key);
-  if (previous && previous.payload !== payload)
+  const previous = pendingSessionCreation(key);
+  if (previous && creationIntent(previous.payload) !== creationIntent(payload))
     throw new Error(
       "Check the earlier unconfirmed creation before submitting another request.",
     );
@@ -89,22 +101,28 @@ export async function acceptTextCreation(
     return rememberReceipt(
       key,
       pending,
-      await getTextCreation(transport, pending.requestId),
+      await getSessionCreation(transport, pending.requestId),
     );
+  const frozen = JSON.parse(pending.payload) as {
+    message: string;
+    options: SessionOptions;
+    metadata?: UserMessageMetadata;
+    stagedAttachments?: StagedAttachmentRef[];
+  };
   try {
-    const receipt = await transport.fetch<TextSessionCreationReceipt>(
+    const receipt = await transport.fetch<SessionCreationReceipt>(
       projectId
         ? `/projects/${projectId}/session-creations`
         : "/session-creations",
       {
         method: "POST",
         body: JSON.stringify({
-          ...options,
+          ...frozen.options,
           requestId: pending.requestId,
-          message,
+          message: frozen.message,
           clientTimestamp: pending.clientTimestamp,
-          messageMetadata: metadata,
-          stagedAttachments,
+          messageMetadata: frozen.metadata,
+          stagedAttachments: frozen.stagedAttachments,
         }),
       },
     );
@@ -112,12 +130,12 @@ export async function acceptTextCreation(
   } catch (error) {
     const refusal = error as { status?: number; reason?: string } | null;
     if (refusal?.status === 400 && refusal.reason === "creation-not-accepted") {
-      settleTextCreation(key, pending.requestId);
+      settleSessionCreation(key, pending.requestId);
       throw error;
     }
     // A failed HTTP reply does not establish whether the server saved input.
     try {
-      const receipt = await getTextCreation(transport, pending.requestId);
+      const receipt = await getSessionCreation(transport, pending.requestId);
       return rememberReceipt(key, pending, receipt);
     } catch {
       throw error;

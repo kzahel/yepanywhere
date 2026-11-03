@@ -598,6 +598,13 @@ host rather than adding another core runtime. These are recommendations, not
 newly selected implementation work or a decision to replace provider-native
 history.
 
+The maintainer's selected follow-up is [current-client convergence and legacy
+removal](../tactical/171-durable-session-identity-and-creation.md#selected-cleanup--current-clients-and-legacy-removal):
+move all current creation forms/actions onto full admission, delete SDK-only
+execution scaffolding, then retire unused new-server URLs and provisional-ID
+remapping. Old extension clients are not a retirement blocker. New-client support
+for stable older servers remains isolated in the client adapter.
+
 Current consolidation status (November 3): all production native creation
 callers now share permanent-public-ID admission, including restricted starts,
 legacy initial inputs, forks/clones and template preparation. Duplicate

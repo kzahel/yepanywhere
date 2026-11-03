@@ -54,6 +54,7 @@ interface PendingSessionDomLingerSwap {
 
 export interface SessionDomLingerRenderSignal {
   current: boolean;
+  activationVersion?: number;
   supportsCompaction: boolean;
 }
 
@@ -119,7 +120,10 @@ function SessionDomLingerLayer({
   const [progressiveRenderPauseSignal] = useState(() => ({
     current: parked,
     supportsCompaction: false,
+    activationVersion: 0,
   }));
+  if (progressiveRenderPauseSignal.current !== parked)
+    progressiveRenderPauseSignal.activationVersion++;
   progressiveRenderPauseSignal.current = parked;
   const [committedSubtreeParked, setCommittedSubtreeParked] =
     useState(subtreeParked);
@@ -477,6 +481,9 @@ export function SessionDomLingerHost({
       for (const [key, layer] of sessionLayerRefs.current) {
         const active = key === targetKey;
         const { element, progressiveRenderPauseSignal } = layer;
+        if (progressiveRenderPauseSignal.current !== !active)
+          progressiveRenderPauseSignal.activationVersion =
+            (progressiveRenderPauseSignal.activationVersion ?? 0) + 1;
         progressiveRenderPauseSignal.current = !active;
         element.classList.toggle("is-active", active);
         element.classList.toggle("is-parked", !active);
