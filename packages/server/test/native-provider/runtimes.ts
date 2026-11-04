@@ -26,7 +26,7 @@ export const expectedVersions: Record<NativeProvider, string> = {
   antigravity: "1.4.5",
   pi: "1.5.0",
   opencode: "1.18.9",
-  grok: "1.0.67",
+  grok: "1.0.70",
 };
 export const isClaude = (provider: NativeProvider) =>
   provider.startsWith("claude");

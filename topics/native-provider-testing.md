@@ -62,7 +62,7 @@ The executable sources are deterministic test dependencies:
   The executable package is an explicit workspace so the full pnpm audit
   includes its dependency graph. Gemini CLI is no longer installed or tested;
   Antigravity owns the maintained Google CLI path.
-- Antigravity ACP 1.4.5 and Grok 1.0.67: official immutable artifacts in
+- Antigravity ACP 1.4.5 and Grok 1.0.70: official immutable artifacts in
   `test/native-provider/executables/artifacts.json`. The explicit installer
   verifies SHA-256 before extracting into `node_modules/.cache/ya-native-provider-tests`.
   Runtime tests still check the executable version. No primary install is changed.
@@ -351,7 +351,7 @@ production adapters and readers in private standalone profiles.
 | Codex OSS | Same CLI, distinct new/resumed exec JSONL path; owned service catalog. | Separate first-exec tool coverage. |
 | Pi | Pinned 1.5.0 RPC; private models.json, Chat Completions. | Real RPC lifecycle and native JSONL reader. |
 | OpenCode | Pinned 1.18.9 server; private custom provider, Chat Completions. | Actual server tool execution and production SQLite/export reader. |
-| Grok ACP | Official 1.0.67; private TOML Responses endpoint. | Gentle interject; title, title refresh and dashboard requests explicitly recorded/scripted. Compatibility imports of other apps' rules/config are disabled in the owned fixture. |
+| Grok ACP | Official 1.0.70; private TOML Responses endpoint. | Gentle interject; title, title refresh and dashboard requests explicitly recorded/scripted. Compatibility imports of other apps' rules/config are disabled in the owned fixture. |
 | Antigravity ACP | Official 1.4.5; private API-key settings, GenAI override. | Native view_file and actual ACP history load via production reader. |
 
 These scenarios do not qualify provider discovery/subscription authentication,

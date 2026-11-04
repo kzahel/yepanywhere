@@ -22,16 +22,16 @@
     }
   },
   "grok": {
-    "version": "1.0.67",
+    "version": "1.0.70",
     "source": "https://x.ai/cli/install.sh",
     "platforms": {
       "darwin-arm64": {
-        "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.67-macos-aarch64.gz",
-        "sha256": "ef4350900e9c6e83df8eebeebd765ed666ef6fbedb5269a3cdc47fa0d5c3773d"
+        "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.70-macos-aarch64.gz",
+        "sha256": "9c83a2b8b28064574b65e1fa50e8342dd5d797d81c5c724c1d60bb0ad35e3199"
       },
       "linux-x64": {
-        "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.67-linux-x86_64.gz",
-        "sha256": "6bbea96cde807c13e4c66d9583d8acdd155e446d93131c2820999cf5523ed5a5"
+        "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.70-linux-x86_64.gz",
+        "sha256": "11d27a30adfb75c4b9b180072ab27412a1916f054ff5497ab70fb9a77d304bcc"
       }
     }
   }

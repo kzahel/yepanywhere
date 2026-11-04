@@ -34,7 +34,7 @@ installation still wins before PATH, and explicit `grokPath` remains
 authoritative. This is discovery compatibility, not support for unrelated npm
 Grok packages.
 
-**Default model is `grok-4.7`** (Grok 1.0.67), alongside
+**Default model is `grok-4.7`** (Grok 1.0.70), alongside
 `grok-4.7-build-fast`, `grok-4.6` and `grok-4.5`, each defaulting to `high`
 effort. `getAvailableModels()` follows `grok models` (`*` / `-` rows) and
 enriches from `GROK_HOME/models_cache.json`. It hardcodes no model, so an
@@ -252,7 +252,7 @@ agent-loop reference; compare its package version and `SOURCE_REV`
 against `grok --version` before treating a source finding as evidence
 for the installed patch.
 
-<!-- epistemic status: installed 1.0.67 binary + no-token ACP
-initialize/session/new/session/load (grok-4.7 default, high) as of
-2026-10-23; public xai-org/grok-build 1.0.45 source last checked 2026-10-16;
-no live prompt on 1.0.67; provider remains gated -->
+<!-- epistemic status: installed 1.0.70 binary + no-token ACP
+initialize/session/new/session/load (grok-4.7 default, high) and the five
+native scenarios as of 2026-11-04; public xai-org/grok-build 1.0.45 source
+last checked 2026-11-04; no live prompt on 1.0.70; provider remains gated -->

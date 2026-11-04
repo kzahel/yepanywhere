@@ -2104,7 +2104,37 @@ Difference detectors:
 - `@agentclientprotocol/sdk` changes enough to alter `ACPClient` request,
   notification, or permission typings.
 
-Current compatibility audit, 2026-10-23 (1.0.67, no adapter change):
+Current compatibility audit, 2026-11-04 (1.0.70, no adapter change):
+
+- Installed Grok is `grok 1.0.70 (f50904eaee6c) [stable]`, already the
+  latest stable per `grok update --check`; ACP `initialize` reports agent
+  1.0.70, protocol 1. Public `xai-org/grok-build` is unchanged since
+  2026-10-16 (git `2bdd1d6a`, crate 1.0.45) and now trails by 25 patches.
+  Release notes for 1.0.68–1.0.70 were not retrieved.
+- `grok models`, `models_cache.json` and a no-token `session/new` list the
+  same four models, default `grok-4.7`, every model at `high`; cache fields
+  YA reads are unchanged. `--help` for top-level, `agent` and `agent stdio`
+  differs from 1.0.67 only in two help strings.
+- Side-by-side no-token probes of the 1.0.67 and 1.0.70 binaries
+  (`initialize`, `session/new`, `session/load` with `_meta.noReplay`) match:
+  capabilities, `configOptions`, slash-command metadata keys and
+  notification methods. No reverse requests were sent.
+- Grok answers a skill-directory reload with an unsolicited JSON-RPC
+  response (`id: "skills-reload"`); ACP SDK 0.12.0 logs "Got response to
+  unknown request" and drops it. The string is in 1.0.67 too, so this is
+  not new, and it is harmless.
+- Local doc changes cover terminal keys, update-channel and version pins,
+  experiments, daemon-route MCP for workflows, and `mkdir`/`touch`
+  auto-approval; none touches the `--no-leader stdio` path. Every tool
+  name `grok-tool-normalization.ts` matches still occurs in the binary.
+- Native test pins move to 1.0.70 (`artifacts.json` SHA-256s;
+  the Linux artifact is byte-identical to the installed binary). The five
+  native Grok scenarios pass against it: queued turn with a real tool,
+  gentle interject, rate-limit retry, cancel and continue, cold resume.
+  The five Grok provider/reader test files (81 tests) pass. No paid model
+  turn ran.
+
+Previous compatibility audit, 2026-10-23 (1.0.67, no adapter change):
 
 - Installed Grok is `grok 1.0.67 (2fe064390d07) [stable]`; ACP
   `initialize` reports agent 1.0.67, protocol 1. Public `xai-org/grok-build`
@@ -2123,7 +2153,7 @@ Current compatibility audit, 2026-10-23 (1.0.67, no adapter change):
 - The four Grok provider/reader test files (73 tests) pass. No live prompt
   ran; the probe left two empty sessions under `~/.grok/sessions/`.
 
-Previous compatibility audit, 2026-10-16 (1.0.60, no adapter change):
+Earlier compatibility audit, 2026-10-16 (1.0.60, no adapter change):
 
 - Installed Grok is `grok 1.0.60 (01a8e1c591c0) [stable]`; ACP `initialize`
   reports agent 1.0.60, protocol 1. Public `xai-org/grok-build` is git
@@ -2170,8 +2200,9 @@ official agent SDKs inject into spawned non-leader agents, against
 `session/set_config_option` for mid-session model/effort and `session/close`
 for shutdown.
 
-Status: Grok ACP is current through installed 1.0.67, subject to the
-live-prompt coverage gap. Root `compatibleThroughVersion` records `1.0.67`.
+Status: Grok ACP is current through installed 1.0.70; scripted native
+scenarios cover the agent loop, but no live paid prompt has run. Root
+`compatibleThroughVersion` records `1.0.70`.
 
 Previous source refresh, 2026-08-16:
 

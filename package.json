@@ -106,7 +106,7 @@
       "compatibleThroughVersion": "1.4.0"
     },
     "grokCli": {
-      "compatibleThroughVersion": "1.0.67"
+      "compatibleThroughVersion": "1.0.70"
     }
   },
   "dependencies": {
