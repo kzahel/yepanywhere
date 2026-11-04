@@ -203,6 +203,7 @@ describe("CodexOSS gateway services", () => {
       "resume",
       "thread-1",
       "go",
+      "--json",
       "-c",
       'model_providers.ya_vllm.name="DeepSeek V4 Flash"',
       "-c",

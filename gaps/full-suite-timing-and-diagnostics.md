@@ -1,5 +1,14 @@
 # Full server suite has timing failures and unasserted diagnostics
 
+2026-11-04: native-provider expansion passes the full workspace (6,939 server
+cases, 140.99 s). The 22-case Codex OSS services/cold-resume group passes in
+3.38 s but retains existing negative-fixture diagnostics: `Codex exited with
+error` for exit 7 / `controlled exec failure`, and `Process terminated` for a
+finite provider iterator. Native executable scenarios pass without these
+warnings. Assert diagnostics in their owning negative fixtures; suppressing the
+shared logger would hide unrelated provider failures. Evidence is in ignored
+`tasks/native-provider-implementation/{oss-focused,workspace-core}.log`.
+
 2026-11-03: retiring the mock-only Process queue passes the full workspace
 (6,926 server / 7,081 client; server 142.36 s). The comparable Process group
 passes without warnings before and after removal: 207 cases / 1.69 s before,

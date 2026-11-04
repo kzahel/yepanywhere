@@ -91,7 +91,12 @@ find it. The rename is reversible and the content untouched; see
 
 ## Scoped Codex OSS continuation
 
-Codex OSS retains its existing per-turn `codex exec` transport. A scoped cold
+Codex OSS uses `--json` for both new `codex exec` turns and subsequent
+`codex exec resume` turns. Native JSONL item and turn events determine assistant
+output, tools and completion; human-readable headings do not delimit responses.
+This keeps queued follow-up output visible with the audited CLI.
+
+A scoped cold
 continuation requires a native UUID, the actual canonical `CODEX_HOME/sessions`
 (or native home default), a physical descendant rollout and a matching bounded
 `session_meta` id/original-project header. Reader-only directory overrides do

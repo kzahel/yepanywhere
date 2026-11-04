@@ -74,7 +74,7 @@ if(process.env.CODEX_OSS_FIXTURE_FAIL==='wrong-native'){console.log(JSON.stringi
 if(process.env.CODEX_OSS_FIXTURE_FAIL){console.error('controlled exec failure');process.exit(7);}
 appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:'2026-11-01T00:00:02Z',payload:{type:'user_message',message:argv[3]}})+'\\n');
 appendFileSync(file,JSON.stringify({type:'response_item',timestamp:'2026-11-01T00:00:03Z',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:'OWNED_OSS_REPLY'}]}})+'\\n');
-console.log('codex');console.log('OWNED_OSS_REPLY');
+console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:'owned-reply',text:'OWNED_OSS_REPLY'}}));
 `,
       { mode: 0o755 },
     );

@@ -1033,15 +1033,10 @@ export class CodexOSSProvider implements AgentProvider {
           stderr += chunk.toString();
         });
 
-        // For resume turns (no JSON), we need to parse text output
-        // The format is: header lines, then "codex" line, then response text
-        let inCodexResponse = false;
-        const textResponseLines: string[] = [];
-
         for await (const line of rl) {
           if (signal.aborted) break;
 
-          // First try JSON parsing (works for first turn with --json)
+          // Both new and resumed exec turns use the native JSONL event protocol.
           const event = this.parseEvent(line);
           if (event) {
             // Update session ID from thread.started (only on first turn)
@@ -1146,46 +1141,6 @@ export class CodexOSSProvider implements AgentProvider {
             for (const msg of messages) {
               yield msg;
             }
-            continue;
-          }
-
-          // Text output parsing for resume turns (no JSON)
-          // Format: header, "codex", response lines, duplicate of response
-          if (line === "codex") {
-            inCodexResponse = true;
-            continue;
-          }
-
-          if (inCodexResponse) {
-            // Accumulate response lines
-            textResponseLines.push(line);
-            // Emit progressive updates
-            accumulatedText = textResponseLines.join("\n");
-            yield {
-              type: "assistant",
-              session_id: currentSessionId,
-              uuid: `response-turn${turnNumber}`,
-              message: { role: "assistant", content: accumulatedText },
-            } as SDKMessage;
-          }
-        }
-
-        // For text output, deduplicate the response (it appears twice)
-        if (!isFirstTurn && textResponseLines.length > 0) {
-          // The response is duplicated, so take first half
-          const halfLen = Math.floor(textResponseLines.length / 2);
-          if (
-            halfLen > 0 &&
-            textResponseLines.slice(0, halfLen).join("\n") ===
-              textResponseLines.slice(halfLen).join("\n")
-          ) {
-            accumulatedText = textResponseLines.slice(0, halfLen).join("\n");
-            yield {
-              type: "assistant",
-              session_id: currentSessionId,
-              uuid: `response-turn${turnNumber}`,
-              message: { role: "assistant", content: accumulatedText },
-            } as SDKMessage;
           }
         }
 
@@ -1254,8 +1209,9 @@ export class CodexOSSProvider implements AgentProvider {
   /**
    * Build CLI arguments for subsequent turns: `codex exec resume <session_id> <prompt> -c ...`
    *
-   * Note: The resume subcommand doesn't support --oss or --json flags directly.
-   * We must use -c config overrides to specify the model provider and model.
+   * The audited CLI accepts global --json on resume. Keep every turn on the
+   * same event protocol; human-readable headings are not a response boundary.
+   * Provider selection still uses -c because resume has no --oss option.
    */
   private buildResumeTurnArgs(
     options: StartSessionOptions,
@@ -1269,6 +1225,7 @@ export class CodexOSSProvider implements AgentProvider {
       "resume",
       sessionId,
       prompt,
+      "--json",
       ...(service
         ? this.serviceLaunchArgs(service)
         : ["-c", `model_provider=${tomlString(this.localProvider)}`]),
