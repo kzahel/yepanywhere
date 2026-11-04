@@ -1201,6 +1201,23 @@ in current clients. None broadens a published Source Control capability. See
 [server capabilities](server-capabilities.md) and
 [`063-source-control-hosted-compatibility.md`](../docs/tactical/063-source-control-hosted-compatibility.md).
 
+### Status freshness
+
+Git status outside Source Control may be up to about three seconds old.
+`GET /:projectId/git` shares one status read per project and untracked
+mode across sidebars, file views, other tabs and activity refreshes for that
+window. The Source Control view sends `?fresh` and always reads current
+status. A finished check-remote, pull or push drops the shared read, so the
+status after an operation is current. Only the request that performed a read
+reconciles dirty-file editors authoritatively (§ Dirty-file last editor): an
+older shared read must not clear an editor recorded after it began.
+
+Checks that only prove a cache current read HEAD from the repository's ref
+files rather than starting `git`: blame's per-file validator (file mtime and
+size plus HEAD), the author palette, and the file-projection manifest's HEAD.
+An unchanged file and an unchanged HEAD therefore cost no git process. The
+manifest's `HEAD^1` is memoized per HEAD commit.
+
 ## Dirty-file last editor
 
 The selected dirty file links to the **last YA session observed editing
