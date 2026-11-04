@@ -5,7 +5,7 @@ delete process.env.NO_COLOR;
 process.env.YEP_NATIVE_APP_RESULTS_DIR ??= `test-results/native-app-${randomUUID()}`;
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "native-app-reload.spec.ts",
+  testMatch: ["native-app-reload.spec.ts", "native-input-identity.spec.ts"],
   outputDir: process.env.YEP_NATIVE_APP_RESULTS_DIR,
   workers: 1,
   forbidOnly: !!process.env.CI,

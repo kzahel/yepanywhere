@@ -29,6 +29,8 @@ export interface Message {
   id?: string;
   /** SDK message identifier (prefer this for lookups) */
   uuid?: string;
+  /** Authoritative user-input identities represented by this row, including its primary ID. */
+  inputMessageIds?: string[];
   /** Entry type - use for discrimination (user/assistant/system/summary/etc.) */
   type?: string;
   /** Legacy role field (use type instead) */
@@ -76,6 +78,38 @@ export interface Message {
 /** Canonical normalized record identity; callers decide how to handle absence. */
 export function getMessageId(message: Message): string {
   return message.uuid ?? message.id ?? "";
+}
+
+const MAX_INPUT_MESSAGE_IDS = 1024;
+
+/** Canonical row identity plus bounded, server-normalized contributing user IDs. */
+export function getMessageIds(message: Message): string[] {
+  const primary = getMessageId(message);
+  const ids = new Set(primary ? [primary] : []);
+  if (message.type === "user" && Array.isArray(message.inputMessageIds)) {
+    for (const id of message.inputMessageIds.slice(0, MAX_INPUT_MESSAGE_IDS)) {
+      if (typeof id === "string" && id.length > 0 && id.length <= 128)
+        ids.add(id);
+      if (ids.size >= MAX_INPUT_MESSAGE_IDS) break;
+    }
+  }
+  return [...ids];
+}
+
+/** Lookups retain the canonical row ID while accepting proven contributing inputs. */
+export function messageHasId(message: Message, id: string): boolean {
+  if (!id) return false;
+  if (getMessageId(message) === id) return true;
+  if (message.type !== "user" || !Array.isArray(message.inputMessageIds))
+    return false;
+  for (
+    let i = 0;
+    i < Math.min(message.inputMessageIds.length, MAX_INPUT_MESSAGE_IDS);
+    i++
+  ) {
+    if (message.inputMessageIds[i] === id && id.length <= 128) return true;
+  }
+  return false;
 }
 
 /** Collapse message snapshots by identity, retaining the first position and latest value. */

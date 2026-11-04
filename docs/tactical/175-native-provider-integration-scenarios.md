@@ -1,8 +1,8 @@
 # Native provider integration scenarios
 
 Status: foundation and first app-continuity slices implemented, 2026-11-04.
-Retained coverage is 60 native cases across ten production launch paths, plus
-four Claude/Codex full-app API cases and two browser scenarios (three local
+Retained coverage is 65 native cases across ten production launch paths, plus
+four Claude/Codex full-app API cases and three browser scenarios (three local
 repetitions per provider). Pi successful queued compaction is implemented.
 Hosted platform acceptance and the opportunities below remain open; this is
 not a completed comprehensive-coverage plan.
@@ -33,8 +33,9 @@ Exact versions, costs, platform limits and commands stay in the owning topic.
 ### Recommended next selections
 
 1. **Resolve input identity and manual batching.** The [November 4 investigation](#input-batching-investigation-and-recommendation)
-   recommends removing automatic transport concatenation and using native
-   grouped-input identities; implementation remains proposed. Queue A/B through YA and
+   led to FIFO transport and native grouped-input identity reconciliation.
+   Explicit join/interrupt provenance and Pi durable mapping remain open.
+   Queue A/B through YA and
    steer A/B natively at controlled model/tool boundaries. Inspect actual native
    requests, authoritative receipts, reopened history and one browser echo case.
    Demonstrate where YA concatenates independently of native grouping. Then
@@ -100,10 +101,10 @@ on every change.
 
 ## Input batching investigation and recommendation
 
-Investigated 2026-11-04; **recommendation, not implemented**. This is the bounded
-next slice from opportunity 1, not a new scheduling/identity architecture.
+Investigated and implemented 2026-11-04 within the selection below. This is the
+bounded next slice from opportunity 1, not a new scheduling/identity architecture.
 
-### What currently happens
+### Investigation baseline before the repair
 
 Three policies are separate:
 
@@ -121,7 +122,7 @@ Three policies are separate:
   limit grouping but do not make it an explicit user decision. Whether the
   consumer has already read A changes whether A/B become one input.
 
-Current real-executable probes used owned profiles, synthetic credentials and
+The initial real-executable probes used owned profiles, synthetic credentials and
 scripted model responses: Claude 2.1.312, Codex 0.166.0 and Pi 1.4.0. The five
 native probes pass in 3.23 s including runner startup (2.07 s test work). They
 hold initial output, submit A/B before the next controlled boundary, inspect
@@ -148,17 +149,19 @@ Private reproduction source/results live under ignored
 `tasks/input-batching-review/`; current-native acceptance belongs in retained
 scenarios when implementing the repair.
 
-### Recommended bounded change
+### Selected bounded change
 
 1. Make ordinary `MessageQueue` consumption FIFO, **one supplied message per
    yield**, preserving formatting, cancellation, depth and authoritative input
    consumption observations. Let providers group independent inputs according
    to their own native rules. This removes transport-owned prompt rewriting,
-   timing-dependent UUID loss and transport-owned cross-input priority escalation. It does not
+   timing-dependent UUID loss and transport-owned cross-input priority escalation.
+   It does not
    promise one model call per message or replace YA deferred/patient scheduling.
 2. Normalize authoritative contributing-input IDs for transcript reconciliation.
    Claude's `mergedSendUuids` already survives the reader/normalizer's raw-field
-   spread, but no reconciliation code consumes it. Validate/map it at the
+   spread; reconciliation now consumes it as normalized `inputMessageIds`.
+   Validate/map it at the
    provider boundary into a common optional identity list; Codex already has
    native per-input client IDs. Keep primary row IDs stable. A shared identity
    matcher can consume contributing echoes and resolve their original links to
@@ -663,3 +666,52 @@ Claude 2.1.312, Codex 0.166.0. The manual workflow adds Linux/macOS app jobs;
 those hosted platform passes remain pending. Commands and remaining boundaries
 are in the owning native testing and reload-safe runtime topics. The historical
 macOS interruption gap stays open and its default remains off.
+
+### Input-boundary implementation and compatibility selection
+
+Ordinary queue yields are FIFO and retain original input priority/UUID. Explicit
+join/interrupt operations keep their existing semantics. Native grouped input
+IDs are validated at the Claude live/history boundaries and normalized into a
+shared optional list; the UI consumes contributing echoes, preserves canonical
+row IDs and resolves original-input links through the common identity matcher.
+Late replay and stale tail replacement cannot resurrect individual copies or
+overwrite a grouped row. Unrelated identical text remains independent.
+
+The maintainer approved this bounded implementation and asked to exclude old
+extension/frontend against new-server qualification. Current-client/older-server
+absence behavior remains unchanged; no required request/response field, route,
+capability bit or compatibility-floor change is introduced. The reviewed core
+corpus is 0.8.1 through 0.11.0's retained releases plus the 0.8.0 base; the owning
+native testing topic records the precise set and optional-field behavior.
+
+Five retained native scenarios fail-before/protect FIFO/native identity, and
+client regressions cover catch-up, stale tail, late replay, duplicate text and
+original-input navigation. A new standalone real-browser scenario verifies
+native grouped delivery and cold original-input links, draft retention and
+sequential typing under streamed updates with longer history. Native Pi mapping
+and explicit interrupt/configured-join identities remain separate open work;
+this implementation does not complete the whole opportunity backlog.
+
+The stronger browser navigation oracle also exposed a cold-layout race: an
+explicit jump's own scroll event released its retained anchor while renderer
+heights were still settling, clipping the target. The existing scroll owner
+now distinguishes that programmatic scroll and retains the target until user
+scroll input. Full-bubble visibility is required at desktop and phone sizes;
+no new windowing interface, polling loop or screenshot-only scroll is used.
+CSS ownership extraction is deferred for this logic-only change: MessageList's
+44 reviewed edges include coupled/generated vocabulary across two legacy
+stylesheets, outside the bounded identity/navigation surface.
+
+Two adjacent findings remain separately recorded: [Antigravity cold load under
+concurrent suite load](../../gaps/antigravity-native-cold-resume-under-concurrent-load.md)
+and [Claude's optional background-Bash yield observer](../../gaps/claude-steer-yield-reference-mismatch.md).
+Neither is hidden by broader retries or represented as a repaired behavior.
+
+Final local macOS arm64 / Node 24.22.1 acceptance: all 65 native scenarios
+pass in 52.68 s; the four full-app API cases pass in 26.78 s. All three browser
+cases pass in 48.6 s, and the stricter grouped-input case passes three further
+repetitions in 41.9 s without retries. Desktop and phone captures were reviewed
+sequentially. The workspace passes 950 shared, 7,103 client and 6,956 server
+cases (78 server skips), plus relay/broker suites. Lint, formatting, type checks
+and the client console budget pass. These are local acceptance results; they
+do not qualify other operating systems or measure inference/cache efficiency.

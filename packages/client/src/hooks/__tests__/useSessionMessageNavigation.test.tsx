@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import type { Message } from "../../types";
+
 import {
   act,
   cleanup,
@@ -16,17 +18,17 @@ vi.mock("../../lib/clientSummaryStore", () => ({
   useClientSummarySourceKey: () => "host:test",
 }));
 
-interface Turn {
+interface Turn extends Message {
   uuid: string;
 }
 
 /** A message list that reports every scan the navigation decision makes. */
 function countingMessages(turns: Turn[], scanned: () => void): Turn[] {
   const messages = [...turns];
-  Object.defineProperty(messages, "some", {
+  Object.defineProperty(messages, "find", {
     value(this: Turn[], predicate: (turn: Turn) => boolean) {
       scanned();
-      return Array.prototype.some.call(this, predicate);
+      return Array.prototype.find.call(this, predicate);
     },
   });
   return messages;
@@ -143,4 +145,25 @@ it("gives up once a page lands without the target", async () => {
     delivered();
   });
   expect(onError).toHaveBeenCalledWith("unavailable");
+});
+
+it("resolves an original input to its grouped row without paging for a missing turn", () => {
+  const jump = vi.fn();
+  const loadOlder = vi.fn(async () => {});
+  const onError = vi.fn();
+  renderNavigation({
+    messages: [
+      {
+        uuid: "native-group",
+        type: "user",
+        inputMessageIds: ["native-group", "turn-9"],
+      },
+    ],
+    jump,
+    loadOlder,
+    onError,
+  });
+  expect(jump).toHaveBeenCalledWith("native-group", expect.any(Function));
+  expect(loadOlder).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
 });

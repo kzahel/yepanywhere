@@ -3595,6 +3595,8 @@ export const MessageList = memo(function MessageList({
         return;
       }
       pendingInitialScrollRestoreRef.current = null;
+      // Explicit navigation supersedes even a first-load restore arriving later.
+      isInitialLoadRef.current = false;
       shouldAutoScrollRef.current = false;
       setIsScrolledToBottom(false);
       const scrollMountedRow = (withMotionCue: boolean): boolean => {
@@ -3617,6 +3619,19 @@ export const MessageList = memo(function MessageList({
           0,
           currentContainer.scrollTop + rowRect.top - scrollRect.top - offset,
         );
+        // Keep the explicit target anchored while cold renderers settle their
+        // heights. The existing resize owner restores it; user scroll releases it.
+        if (!questionId) {
+          pendingInitialScrollRestoreRef.current = {
+            atBottom: false,
+            following: false,
+            scrollTop: nextTop,
+            scrollHeight: currentContainer.scrollHeight,
+            clientHeight: currentContainer.clientHeight,
+            anchor: { id, topOffset: offset },
+            updatedAtMs: Date.now(),
+          };
+        }
         // Question jumps run from frames and layout retries, not a key or
         // click, so they leave an embedded app's focus alone.
         if (Math.abs(nextTop - currentContainer.scrollTop) < 1) {
@@ -3631,6 +3646,14 @@ export const MessageList = memo(function MessageList({
             nextTop < currentContainer.scrollTop ? "up" : "down",
           );
         }
+        clearProgrammaticScrollRelease();
+        isProgrammaticScrollRef.current = true;
+        programmaticScrollReleaseFrameRef.current = requestAnimationFrame(
+          () => {
+            programmaticScrollReleaseFrameRef.current = null;
+            isProgrammaticScrollRef.current = false;
+          },
+        );
         if (typeof currentContainer.scrollTo === "function") {
           currentContainer.scrollTo({ top: nextTop, behavior });
         } else {
@@ -3685,6 +3708,7 @@ export const MessageList = memo(function MessageList({
       settleRevealedRow();
     },
     [
+      clearProgrammaticScrollRelease,
       showNavMotionCue,
       transcriptRenderWindow.discardPendingAnchor,
       transcriptRenderWindow.getRenderIdTop,

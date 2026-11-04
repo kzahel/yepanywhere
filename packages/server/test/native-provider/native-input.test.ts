@@ -75,6 +75,10 @@ for (const provider of providers.filter((p) =>
         (m) => m.type === "user" && JSON.stringify(m).includes("BOUNDARY_"),
       );
       expect(rows).toHaveLength(provider === "claude" ? 1 : 2);
+      if (provider === "claude")
+        expect(rows[0]?.inputMessageIds).toEqual(
+          expect.arrayContaining([alphaId, bravoId]),
+        );
       expect(JSON.stringify(rows)).not.toContain("--------");
       if (provider !== "pi") {
         expect(JSON.stringify(rows)).toContain(alphaId);
@@ -123,6 +127,10 @@ for (const provider of providers.filter((p) =>
             JSON.stringify(m).includes("IDENTICAL_NATIVE_INPUT"),
         );
         expect(rows).toHaveLength(provider === "claude" ? 1 : 2);
+        if (provider === "claude")
+          expect(rows[0]?.inputMessageIds).toEqual(
+            expect.arrayContaining([alphaId, bravoId]),
+          );
         expect(JSON.stringify(rows)).toContain(alphaId);
         expect(JSON.stringify(rows)).toContain(bravoId);
         expect(f.model.failures).toEqual([]);

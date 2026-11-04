@@ -646,7 +646,7 @@ Claude/Codex baseline; an explicit all-provider command exercises the full set.
 Native Codex OSS coverage exposed and repaired resumed-turn output parsing.
 The [qualification matrix](../../topics/native-provider-testing.md#all-provider-adoption-matrix)
 and [plan](../tactical/175-native-provider-integration-scenarios.md) track depth
-and platform acceptance. The retained depth now passes 60 cases in 51.80 s
+and platform acceptance. The retained depth now passes 65 cases in 52.68 s
 locally: actual-tool cold resume, cancellation/continuation, model restoration,
 all-provider rate-limit recovery and Claude/Codex/Pi queued compact. Pi now
 validates synchronous native completion/persistence; refusal, model failure
@@ -664,11 +664,11 @@ keeps the unlocked testing/refactor candidates in one place. Suggested next
 selections are native input identity/manual batching, wrapper/host terminal
 faults and reviewed platform/upgrade gates; authenticated/relay recovery and
 other depth remain candidates. The [input investigation](../tactical/175-native-provider-integration-scenarios.md#input-batching-investigation-and-recommendation)
-reproduces hidden transport joining with real Claude/Codex/Pi and recommends
-FIFO transport plus native grouped-input identity reconciliation. That repair
-is proposed, not implemented; explicit join/interrupt policy and Pi's durable
-mapping remain separate. Linux/macOS app jobs join the explicit manual
-acceptance workflow; promote reviewed platform passes to change gates. The historical
+reproduced hidden transport joining with real Claude/Codex/Pi and led to
+implemented FIFO transport plus native grouped-input identity reconciliation.
+The UI resolves original-input links to the native grouped row; explicit
+join/interrupt provenance and Pi's durable mapping remain separate. Linux/macOS
+app jobs join the explicit manual acceptance workflow; promote reviewed platform passes to change gates. The historical
 macOS interruption gap stays open and hosting stays opt-in. Linux/Windows
 acceptance and remaining ownership/fault interleavings remain explicit;
 the comprehensive matrix does not select new UI controls or thaw legacy Gemini.

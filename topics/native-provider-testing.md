@@ -80,7 +80,7 @@ are absent. Runtime support/version policy remains owned by
 ```bash
 pnpm test:providers:app             # Four real API/socket lifecycle cases
 pnpm --filter @yep-anywhere/client exec playwright install chromium
-pnpm test:providers:app --browser   # Two real browser lifecycle cases
+pnpm test:providers:app --browser   # Three real browser scenarios
 pnpm test:providers:app --browser --repeat-each=3
 ```
 
@@ -249,8 +249,8 @@ is still pending; artifact availability does not imply execution qualification.
 
 ## Retained lifecycle and recovery depth — 2026-11-04
 
-The complete suite now passes **60 cases** across the same ten launch paths,
-in four scenario files. The ordinary Claude/Codex baseline is **16 cases**;
+The complete suite now passes **65 cases** across the same ten launch paths,
+in five scenario files. The ordinary Claude/Codex baseline is **20 cases**;
 the selector and all-provider command run the same assertions. Native state is
 always created by the executable, then reopened through production readers.
 
@@ -263,7 +263,7 @@ always created by the executable, then reopened through production readers.
 | Queued compact followed by A/B | Claude, Codex and Pi actually compact through their native model request before delivering A and B separately. Claude/Codex publish a compact boundary; Pi validates its synchronous native RPC completion and persisted summary. All preserve following input/output. |
 | Failed queued compact | Pi's real small-session refusal and model error hold later input until explicit cancellation. Aborting a held native summary closes the model connection and leaves its outcome uncertain; following input never runs on guessed success. |
 
-The combined 60-case local macOS arm64 run takes **51.80 seconds wall time**,
+Before the input-boundary slice, the combined 60-case local macOS arm64 run took **51.80 seconds wall time**,
 (107.87 seconds summed test work), without unexpected warnings/errors. Pi completion adds three retained cases to
 the previous 57-case run; these samples are not a measured speedup. The
 standalone 16-case Claude/Codex baseline passes in 3.88 seconds wall time
@@ -294,6 +294,40 @@ denial, wrapper/host terminal faults and retry exhaustion, wrapper settings/
 effort, authenticated/relay recovery and platform qualification. The separate
 Claude/Codex full-app cases cover only the listed ownership/reconnect schedules.
 These distinct boundaries do not establish full code coverage.
+
+## Input boundary and identity qualification — 2026-11-04
+
+Five additional native cases cover buffered direct inputs with Claude/Codex/Pi
+and independently acknowledged duplicate-text Claude/Codex steers. They execute
+a real tool, assert one original identity per queue yield, inspect actual model
+input without YA separator joining, then reopen production readers. Claude may
+natively combine the two inputs and records both through normalized
+`inputMessageIds`; Codex preserves separate user items. Pi preserves separate
+text turns, while its native node-ID mapping gap remains open. A shared queue
+change must run the all-provider suite as well as these distinct launch shapes.
+
+The added `native-input-identity.spec.ts` runs in the separate full-app browser
+configuration and stays out of the ordinary mock browser matrix. It uses the
+real server setting for gentle steering, actual composer submissions and native
+queued receipts. It proves grouped echo reconciliation, draft retention and
+cold-page navigation to an original contributing input. Typing is sequential
+under concurrent output with a 100 ms limit and 200-line history/reply fixtures.
+The final all-provider run passes 65 cases in 52.68 s locally on macOS arm64.
+All three browser cases pass in 48.6 s; three additional repetitions of the
+strict grouped-input case pass in 41.9 s without retries. The separate API suite
+passes four cases in 26.78 s. The full workspace and static checks also pass;
+[plan 175](../docs/tactical/175-native-provider-integration-scenarios.md#input-boundary-implementation-and-compatibility-selection)
+records the final counts. Capture and platform limitations remain the same as
+the source-app suite above.
+
+Current-client behavior on supported older servers is unchanged when the new
+optional field is absent; no new route/write or capability bit is required.
+The reviewed core release corpus is 0.8.1, 0.9.0, 0.9.1, 0.9.2, 0.10.0,
+0.10.1, 0.10.2 and 0.11.0, plus the existing 0.8.0 base. Their normalizers pass
+native fields through but do not emit `inputMessageIds`. The maintainer approved
+preserving existing absent-field behavior and excluding old-extension/frontend
+qualification against new servers. These choices do not withdraw current-client
+support for older servers or change queue defaults.
 
 ## All-provider adoption matrix
 

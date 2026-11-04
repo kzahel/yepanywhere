@@ -1,6 +1,9 @@
 import { claudeCwdProjectDirectory } from "../../projects/claude-project-directory.js";
 import { nativeStorageScope } from "./native-storage-scope.js";
-import { prepareClaudeInput } from "./claude-delivery.js";
+import {
+  prepareClaudeInput,
+  claudeInputMessageIds,
+} from "./claude-delivery.js";
 import { fromUrlProjectId, parseNativeSessionId } from "@yep-anywhere/shared";
 import { assertClaudeCopyRoot } from "../../sessions/fork.js";
 import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
@@ -2946,7 +2949,11 @@ export class ClaudeProvider implements AgentProvider {
     goal?: ClaudeGoalSnapshot,
   ): SDKMessage {
     // Pass through all fields, only normalize content blocks
-    const sdkMessage = message as unknown as SDKMessage;
+    const rawMessage = message as unknown as SDKMessage;
+    const sdkMessage =
+      rawMessage.type === "user"
+        ? { ...rawMessage, inputMessageIds: claudeInputMessageIds(rawMessage) }
+        : rawMessage;
     const withGoal = (commands: SlashCommand[]): SlashCommand[] =>
       goal ? withClaudeGoalDetails(commands, goal) : commands;
     if (

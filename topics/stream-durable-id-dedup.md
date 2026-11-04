@@ -92,7 +92,35 @@ all five calls and eliminate the warnings without disabling diagnostics.
    contract: the rendered transcript still must not show two adjacent copies of
    the same visible first user turn while startup is settling.
 
-## Claude (busy-path sends)
+## Current native grouped-input identity
+
+Ordinary YA provider queues preserve one supplied input per yield. Native
+providers can still group inputs into one inference step or saved user row.
+Claude 2.1.312 saves grouped input with a primary UUID and `mergedSendUuids` for
+other contributing inputs; YA normalizes that evidence into optional
+`inputMessageIds` in live/history user rows. Codex keeps individual native
+client-input IDs. Canonical row IDs do not change.
+
+Shared reconciliation consumes only the named user-input echoes, preserves the
+grouped row's delivery position and confirmation source, and rejects late
+individual replay. Original-input links resolve to the canonical grouped row.
+An unrelated input remains distinct even if its text equals the grouped text.
+Existing narrower fallbacks remain for older servers/history without this
+native evidence. They do not supersede a row's explicit input IDs. The provider
+boundary, limits and absent-field behavior are owned by
+[provider abstraction](provider-abstraction.md#grouped-user-input-identity).
+
+The real browser scenario uses an owned Claude session, separately acknowledged
+gentle steers, streamed output and saved-history reload. It checks one grouped
+bubble and cold navigation using the original input ID, with sequential typing
+below 100 ms under concurrent output and longer history. Explicit YA batching/
+interrupt assembly and Pi's durable node-ID mapping are separate obligations.
+
+## Claude (historical busy-path sends)
+
+The following describes older native delivery shapes and the retained fallback;
+it is not a claim that current native grouped rows always lack input identity.
+
 
 Claude dedups by id for ordinary traffic — direct sends round-trip YA's queue
 uuid into the durable user row — but **busy-path sends do not**. Verified on a

@@ -85,6 +85,8 @@ export type CodexUserTurnMessageProvenance =
   | "legacy-response";
 
 export interface AppMessageExtensions {
+  /** Authoritative identities of user inputs represented by this transcript row. */
+  inputMessageIds?: string[];
   /**
    * Message identifier - copied from uuid by SessionReader.
    * Fallback: "msg-{index}" when uuid is not available.

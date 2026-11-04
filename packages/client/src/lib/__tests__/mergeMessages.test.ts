@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../types";
-import { getMessageId } from "@yep-anywhere/shared/transcript/message";
+import {
+  getMessageId,
+  getMessageIds,
+} from "@yep-anywhere/shared/transcript/message";
 import {
   findMessageIndexById,
   getMessageContent,
@@ -678,4 +681,78 @@ describe("mergeStreamMessage", () => {
       expect(result.messages[0]?.content).toBe("new");
     });
   });
+});
+
+describe("authoritative grouped input identities", () => {
+  const alpha: Message = {
+    type: "user",
+    uuid: "input-a",
+    tempId: "temp-a",
+    message: { role: "user", content: "repeat" },
+  };
+  const bravo: Message = {
+    type: "user",
+    uuid: "input-b",
+    tempId: "temp-b",
+    message: { role: "user", content: "repeat" },
+  };
+  const grouped: Message = {
+    type: "user",
+    uuid: "input-b",
+    inputMessageIds: ["input-b", "input-a"],
+    message: { role: "user", content: "repeat\nrepeat" },
+  };
+  it("consumes named echoes, retains unrelated identical text and resolves the original IDs", () => {
+    const unrelated = { ...alpha, uuid: "input-c", tempId: "temp-c" };
+    const merged = mergeJSONLMessages([alpha, bravo, unrelated], [grouped], {
+      skipDagOrdering: true,
+    }).messages;
+    expect(merged.map(getMessageId)).toEqual(["input-b", "input-c"]);
+    expect(merged[0]?._source).toBe("jsonl");
+    expect(findMessageIndexById(merged, "input-a")).toBe(0);
+    expect(findMessageIndexById(merged, "input-b")).toBe(0);
+    expect(findMessageIndexById(merged, "input-c")).toBe(1);
+  });
+  it("keeps the native delivery position and rejects late individual replay", () => {
+    const interrupted: Message = { type: "system", uuid: "interrupt" };
+    const merged = mergeJSONLMessages([alpha, interrupted], [grouped], {
+      skipDagOrdering: true,
+    }).messages;
+    expect(merged.map(getMessageId)).toEqual(["interrupt", "input-b"]);
+    expect(
+      mergeStreamMessage(merged, { ...alpha, isReplay: true }).messages,
+    ).toBe(merged);
+    const live = mergeStreamMessage([alpha, bravo], grouped).messages;
+    expect(live).toHaveLength(1);
+    expect(live[0]?.tempId).toBe("temp-b");
+    expect(
+      mergeStreamMessage(live, { ...bravo, isReplay: true }).messages,
+    ).toBe(live);
+    expect(
+      mergeStreamMessage(live, { ...alpha, isReplay: true }).messages,
+    ).toBe(live);
+  });
+  it("does not accept aliases from other roles or malformed identities", () => {
+    const assistant: Message = { ...grouped, type: "assistant" };
+    expect(findMessageIndexById([assistant], "input-a")).toBe(-1);
+    const invalid: Message = {
+      ...grouped,
+      inputMessageIds: ["", "x".repeat(129)],
+    };
+    expect(findMessageIndexById([invalid], "x".repeat(129))).toBe(-1);
+    expect(mergeJSONLMessages([alpha], [invalid]).messages).toHaveLength(2);
+  });
+});
+
+it("keeps bounded contributing identity normalization idempotent across server/client use", () => {
+  const message: Message = {
+    type: "user",
+    uuid: "native-group",
+    inputMessageIds: Array.from({ length: 1025 }, (_, i) => `input-${i}`),
+  };
+  const ids = getMessageIds(message);
+  expect(ids).toHaveLength(1024);
+  const normalized = { ...message, inputMessageIds: ids };
+  expect(getMessageIds(normalized)).toEqual(ids);
+  expect(findMessageIndexById([normalized], ids.at(-1)!)).toBe(0);
 });

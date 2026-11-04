@@ -14,7 +14,10 @@ const outputDir = process.env.YEP_E2E_RESULTS_DIR;
 export default defineConfig({
   testDir: "./e2e",
   // Real native app qualification has its own configuration and cost budget.
-  testIgnore: "**/native-app-reload.spec.ts",
+  testIgnore: [
+    "**/native-app-reload.spec.ts",
+    "**/native-input-identity.spec.ts",
+  ],
   outputDir,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

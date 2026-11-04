@@ -1370,3 +1370,55 @@ describe("codex steer identity", () => {
     ]);
   });
 });
+
+it("uses native input IDs across catch-up, stale tail replacement and late replay without consuming identical unrelated text", () => {
+  const timestamp = "2026-11-04T10:00:00.000Z";
+  const alpha = {
+    ...userMessage("input-a", "repeat", timestamp),
+    tempId: "a",
+    messageMetadata: { deliveryIntent: "steer" },
+  };
+  const bravo = {
+    ...userMessage("input-b", "repeat", timestamp),
+    tempId: "b",
+    messageMetadata: { deliveryIntent: "steer" },
+  };
+  const unrelated = {
+    ...userMessage("input-c", "repeat\nrepeat", timestamp),
+    tempId: "c",
+    messageMetadata: { deliveryIntent: "steer" },
+  };
+  const grouped = {
+    ...userMessage("input-b", "repeat\nrepeat", timestamp),
+    inputMessageIds: ["input-b", "input-a"],
+  };
+  let state = reduceSessionDetailState(createInitialSessionDetailState(), {
+    type: "loadPersistedTranscript",
+    session: sessionMetadata(),
+    messages: [],
+  });
+  for (const message of [alpha, bravo, unrelated])
+    state = reduceSessionDetailState(state, {
+      type: "applyStreamMessage",
+      message,
+    });
+  state = reduceSessionDetailState(state, {
+    type: "applyCatchupMessages",
+    messages: [grouped],
+  });
+  expect(state.messages.map((m) => m.uuid)).toEqual(["input-b", "input-c"]);
+  expect(state.messages[0]?._source).toBe("jsonl");
+  state = reduceSessionDetailState(state, {
+    type: "replaceTailWindow",
+    session: sessionMetadata(),
+    pagination: pagination(),
+    messages: [grouped],
+  });
+  for (const message of [alpha, bravo])
+    state = reduceSessionDetailState(state, {
+      type: "applyStreamMessage",
+      message: { ...message, isReplay: true },
+    });
+  expect(state.messages.map((m) => m.uuid)).toEqual(["input-b", "input-c"]);
+  expect(state.messages[0]?.message?.content).toEqual(grouped.message?.content);
+});

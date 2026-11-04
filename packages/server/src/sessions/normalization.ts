@@ -1,3 +1,4 @@
+import { claudeInputMessageIds } from "../sdk/providers/claude-delivery.js";
 import type {
   ClaudeSessionEntry,
   SessionRewindRecord,
@@ -500,6 +501,7 @@ function convertClaudeMessage(
   const rawAny = raw as Record<string, unknown>;
   const message: Message = {
     ...rawAny,
+    inputMessageIds: claudeInputMessageIds(raw),
     // Include normalized content if message had content
     ...(isConversationEntry(raw) && {
       message: {

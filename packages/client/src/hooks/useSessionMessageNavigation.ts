@@ -1,3 +1,8 @@
+import {
+  getMessageId,
+  messageHasId,
+  type Message,
+} from "@yep-anywhere/shared/transcript/message";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useClientSummarySourceKey } from "../lib/clientSummaryStore";
@@ -7,7 +12,7 @@ export interface MessageNavigationOptions {
   enabled: boolean;
   onResolved?(target: string): Promise<void>;
   sessionId: string | undefined;
-  messages: readonly { id?: string; uuid?: string }[];
+  messages: readonly Message[];
   loading: boolean;
   loadingOlder: boolean;
   hasOlder: boolean;
@@ -61,11 +66,10 @@ export function useSessionMessageNavigation(options: MessageNavigationOptions) {
       !options.enabled
     )
       return;
-    if (
-      !options.messages.some(
-        (message) => (message.uuid ?? message.id) === target,
-      )
-    ) {
+    const message = options.messages.find((message) =>
+      messageHasId(message, target),
+    );
+    if (!message) {
       // A page still on its way answers nothing yet. One that landed without
       // adding the target is the give-up signal, whether or not it changed
       // the message array or the cursor, so the decision reads the landing
@@ -95,7 +99,7 @@ export function useSessionMessageNavigation(options: MessageNavigationOptions) {
       return;
     }
     handled.current = key;
-    latest.current.jump(target, (found) => {
+    latest.current.jump(getMessageId(message), (found) => {
       if (currentKey.current !== key) return;
       if (!found) {
         latest.current.onError("unavailable");

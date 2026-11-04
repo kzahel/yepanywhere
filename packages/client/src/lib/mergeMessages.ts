@@ -1,7 +1,11 @@
 import { orderByParentChain } from "@yep-anywhere/shared";
 import type { Message } from "../types";
 
-import { getMessageId } from "@yep-anywhere/shared/transcript/message";
+import {
+  getMessageId,
+  getMessageIds,
+  messageHasId,
+} from "@yep-anywhere/shared/transcript/message";
 import { parseTimestampMs } from "./messageAge";
 
 export function findMessageIndexById(
@@ -10,18 +14,55 @@ export function findMessageIndexById(
 ): number {
   const lastIndex = messages.length - 1;
   const lastMessage = messages[lastIndex];
-  if (lastMessage && getMessageId(lastMessage) === messageId) {
+  if (lastMessage && messageHasId(lastMessage, messageId)) {
     return lastIndex;
   }
 
   for (let index = lastIndex - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message && getMessageId(message) === messageId) {
+    if (message && messageHasId(message, messageId)) {
       return index;
     }
   }
 
   return -1;
+}
+
+/** Remove contributing echoes only when a native grouped row names their IDs. */
+function reconcileInputMessageIds(messages: Message[]): Message[] {
+  const owners = new Map<string, number>();
+  for (const [index, message] of messages.entries()) {
+    if (!message.inputMessageIds?.length) continue;
+    const primary = getMessageId(message);
+    for (const id of getMessageIds(message)) {
+      if (id !== primary) owners.set(id, index);
+    }
+  }
+  if (owners.size === 0) return messages;
+  let result = messages;
+  const removed = new Set<number>();
+  for (const [index, message] of messages.entries()) {
+    if (message.type !== "user") continue;
+    const owner = owners.get(getMessageId(message));
+    if (owner === undefined || owner === index) continue;
+    if (result === messages) result = [...messages];
+    const grouped = result[owner]!;
+    // Preserve transient self-send evidence until the grouped row is persisted.
+    result[owner] = {
+      ...grouped,
+      ...(grouped.tempId === undefined && message.tempId !== undefined
+        ? { tempId: message.tempId }
+        : {}),
+      ...(grouped.messageMetadata === undefined &&
+      message.messageMetadata !== undefined
+        ? { messageMetadata: message.messageMetadata }
+        : {}),
+    };
+    removed.add(index);
+  }
+  return removed.size
+    ? result.filter((_, index) => !removed.has(index))
+    : messages;
 }
 
 /**
@@ -275,7 +316,9 @@ export function mergeJSONLMessages(
     }
   }
 
-  const reconciled = pruneSupersededSdkSiblings(result, incoming);
+  const reconciled = reconcileInputMessageIds(
+    pruneSupersededSdkSiblings(result, incoming),
+  );
 
   // Reorder messages by parentUuid chain to fix race conditions
   // where stream messages arrived before their parent (e.g., agent response before user message)
@@ -301,7 +344,7 @@ export interface MergeStreamResult {
  * Note: Temp message replacement is no longer needed since pending messages
  * are tracked separately via tempId echoed from stream.
  */
-export function mergeStreamMessage(
+function mergeStreamMessageSnapshot(
   existing: Message[],
   incoming: Message,
 ): MergeStreamResult {
@@ -322,6 +365,16 @@ export function mergeStreamMessage(
   if (existingIdx >= 0) {
     // Merge with existing message
     const existingMsg = existing[existingIdx];
+    // A delayed replay of one contributing input cannot replace its grouped row.
+    if (
+      existingMsg &&
+      (getMessageId(existingMsg) !== incomingId ||
+        (existingMsg.inputMessageIds?.length &&
+          getMessageIds(existingMsg).length > 1 &&
+          getMessageIds(incoming).length <= 1))
+    ) {
+      return { messages: existing, index: existingIdx };
+    }
     const merged = mergeMessage(existingMsg, incoming, "sdk");
 
     // Only update if actually different
@@ -348,4 +401,20 @@ export function mergeStreamMessage(
     messages: [...existing, { ...incoming, _source: "sdk" }],
     index: existing.length,
   };
+}
+
+export function mergeStreamMessage(
+  existing: Message[],
+  incoming: Message,
+): MergeStreamResult {
+  const result = mergeStreamMessageSnapshot(existing, incoming);
+  if (incoming.type !== "user" || !incoming.inputMessageIds?.length)
+    return result;
+  const messages = reconcileInputMessageIds(result.messages);
+  return messages === result.messages
+    ? result
+    : {
+        messages,
+        index: findMessageIndexById(messages, getMessageId(incoming)),
+      };
 }

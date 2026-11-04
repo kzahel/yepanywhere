@@ -67,6 +67,26 @@ mock-only input scheduler. Provider consumption, rather than an artificial
 Process transition, owns delivery observations. Test fixtures must supply the
 same queue surface as production sessions.
 
+### Grouped user-input identity
+
+Normalized user rows may carry optional `inputMessageIds`: authoritative native
+input identities represented by that row, including its primary ID. The primary
+`uuid`/`id` remains the row's identity. Claude maps native `mergedSendUuids` at
+its adapter/history boundary; Codex already preserves independent client IDs.
+The shared UI reconciles named input echoes and resolves their original links
+to the grouped row without interpreting provider-specific fields. Identical
+text is not identity evidence. Late individual replay cannot downgrade a known
+grouped row, and text-based legacy reconciliation must not claim other inputs
+for a row with explicit native identities.
+
+The list is deduplicated and bounded to 1,024 identities including the
+primary ID; invalid, empty or oversized aliases are ignored. It is optional:
+current clients use existing reconciliation when older servers/history provide
+no such evidence, and send the same requests. No capability or compatibility
+floor changes are needed. The selected qualification scope excludes old browser
+extension/frontends against new servers per maintainer direction. Native Pi
+node-ID mapping and explicit YA join/interrupt identity remain separate gaps.
+
 ### Legacy SDK delegation
 
 The compatibility Claude SDK bridge declares its canonical `providerName`.

@@ -168,6 +168,16 @@ Consequences:
   This topic is the YA-side elaboration of the *anchor target* that invariant
   leaves unquantified.
 
+## Explicit message navigation during layout settling
+
+A message link or recall jump owns its target position through cold renderer
+height changes. The jump retires any pending first-load restoration, records
+the target in the existing retained-anchor owner and marks its own scroll as
+programmatic. That scroll event must not look like user input and release the
+anchor before asynchronous layout settles. Genuine user scrolling still
+releases it through the existing wheel/touch/pointer/key ownership paths.
+No polling or separate navigation retry loop is added.
+
 ## Contracts / invariants
 
 - **Keyboard pagination acceptance** — with observer loading disabled, PageUp

@@ -1,3 +1,4 @@
+import { getMessageIds } from "@yep-anywhere/shared/transcript/message";
 import type { Message } from "../types";
 import { isUnconfirmedSelfSend } from "./deliveryState";
 import { getMessageContent, mergeMessage } from "./mergeMessages";
@@ -518,6 +519,7 @@ function reconcileQueueOperationRows(messages: Message[]): Message[] {
 
 function isDurableDeliveredUserRow(message: Message): boolean {
   return (
+    (!message.inputMessageIds || getMessageIds(message).length <= 1) &&
     (message._source ?? "sdk") === "jsonl" &&
     (message as { deferredSource?: unknown }).deferredSource === undefined &&
     isPlainUserTurn(message)
