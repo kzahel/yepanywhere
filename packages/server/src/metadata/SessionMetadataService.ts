@@ -282,6 +282,7 @@ export class SessionMetadataService {
       return value;
     });
     this.state.sessions[sessionId] = snapshot;
+    this.revision += 1;
     this.persisted.set(sessionId, text);
     return result;
   }
@@ -302,6 +303,8 @@ export class SessionMetadataService {
   private unsavedGoalObservations = new Set<string>();
   private metadataSaver = createCoalescingSaver(() => this.doSave());
   private save = this.metadataSaver.flush;
+  /** Advances on every change to `state.sessions`; see `getRevision`. */
+  private revision = 0;
 
   constructor(options: SessionMetadataServiceOptions) {
     this.dataDir =
@@ -386,6 +389,7 @@ export class SessionMetadataService {
         changed = true;
       }
     }
+    this.revision += 1;
     if (changed) {
       await this.save();
     }
@@ -460,6 +464,14 @@ export class SessionMetadataService {
    */
   getAllMetadata(): Record<string, SessionMetadata> {
     return { ...this.state.sessions };
+  }
+
+  /**
+   * Changes whenever session metadata does, so callers can memoize
+   * projections of `getAllMetadata` instead of rescanning every session.
+   */
+  getRevision(): number {
+    return this.revision;
   }
 
   /** Distinct providers persisted by prior successful YA session boundaries. */
@@ -1329,6 +1341,7 @@ export class SessionMetadataService {
     const resolvedSessionId = sessionId;
     const existing = this.state.sessions[resolvedSessionId] ?? {};
     const updated = updater(existing);
+    this.revision += 1;
 
     // Remove undefined values and check if entry should be deleted
     const cleaned: SessionMetadata = {};
@@ -1459,6 +1472,7 @@ export class SessionMetadataService {
     if (this.state.sessions[resolvedSessionId]) {
       const { [resolvedSessionId]: _, ...rest } = this.state.sessions;
       this.state.sessions = rest;
+      this.revision += 1;
       await this.save();
     }
   }

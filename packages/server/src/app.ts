@@ -1214,7 +1214,26 @@ export function createApp(options: AppOptions): AppResult {
   // Sandboxed Claude sessions write their transcripts under the project's
   // private provider root (topics/session-sandboxing.md); every reader and
   // list of a project must include those directories.
-  const claudeSandboxSessionDirs = (): Map<string, string[]> => {
+  // Every project lookup asks, so the scan over all session metadata runs
+  // once per metadata revision.
+  let sandboxSessionDirsMemo:
+    | {
+        revision: number;
+        byProject: ReadonlyMap<string, readonly string[]>;
+      }
+    | undefined;
+  const claudeSandboxSessionDirs = (): ReadonlyMap<
+    string,
+    readonly string[]
+  > => {
+    const revision = options.sessionMetadataService?.getRevision() ?? 0;
+    if (sandboxSessionDirsMemo?.revision === revision)
+      return sandboxSessionDirsMemo.byProject;
+    const byProject = scanClaudeSandboxSessionDirs();
+    sandboxSessionDirsMemo = { revision, byProject };
+    return byProject;
+  };
+  const scanClaudeSandboxSessionDirs = (): Map<string, string[]> => {
     const byProject = new Map<string, string[]>();
     for (const metadata of Object.values(
       options.sessionMetadataService?.getAllMetadata() ?? {},
