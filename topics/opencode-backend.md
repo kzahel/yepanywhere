@@ -35,8 +35,10 @@ Process, events and public collections keep the original YA id across restart.
 New ordinary text launches use the durable acceptance contract below; other
 launch shapes retain their existing flow.
 
-Scoped owners choose an unused loopback port unless an explicit internal
-`basePort` is supplied, and use a fresh spawn-only HTTP Basic credential. The
+All launches choose an unused loopback port unless an explicit internal
+`basePort` is supplied. Independent YA processes must not start their default
+servers on the same fixed port. Scoped owners additionally use a fresh
+spawn-only HTTP Basic credential. The
 endpoint must reject an invalid credential before accepting the real one; an
 open or unrelated port cannot establish readiness. Credentials stay outside
 metadata, snapshots and public facts. This uses OpenCode's documented

@@ -3586,7 +3586,14 @@ export class CodexProvider implements AgentProvider {
             provider.describeNotificationForFailureTrace(notification),
           );
 
-          if (observedTurnId && observedTurnId !== runtimeState.activeTurnId) {
+          // Resume replays token usage for the last persisted turn, possibly
+          // after turn/start's receipt barrier. Usage attribution is not an
+          // active-turn announcement; adopting its id retargets live controls.
+          if (
+            observedTurnId &&
+            observedTurnId !== runtimeState.activeTurnId &&
+            notification.method !== "thread/tokenUsage/updated"
+          ) {
             log.warn(
               {
                 sessionId,

@@ -88,7 +88,11 @@ import type {
   SDKMessage,
   ToolApprovalResult,
 } from "../types.js";
-import { ACPClient, acpErrorMessage } from "./acp/client.js";
+import {
+  ACPClient,
+  acpErrorMessage,
+  isRequestedACPClosure,
+} from "./acp/client.js";
 import {
   copyAgentctlBashEnvInto,
   createAgentctlSessionEnvBridge,
@@ -848,7 +852,7 @@ export class GrokACPProvider implements AgentProvider {
           sessionId,
           userText,
           runtime,
-          { recordError: true },
+          { recordError: true, signal },
         );
         void promptPromise.catch(() => undefined);
 
@@ -875,6 +879,7 @@ export class GrokACPProvider implements AgentProvider {
         } as SDKMessage;
       }
     } catch (err) {
+      if (isRequestedACPClosure(err, signal)) return;
       this.log.error({ err }, "Grok ACP session error");
       yield {
         type: "error",
@@ -1448,13 +1453,16 @@ export class GrokACPProvider implements AgentProvider {
     sessionId: string,
     text: string,
     runtime: GrokPromptRuntime,
-    options: { recordError?: boolean } = {},
+    options: { recordError?: boolean; signal?: AbortSignal } = {},
   ): Promise<unknown> {
     runtime.activePromptCount++;
     try {
       return await client.prompt(sessionId, text);
     } catch (err) {
-      if (options.recordError) {
+      if (
+        options.recordError &&
+        !(options.signal && isRequestedACPClosure(err, options.signal))
+      ) {
         runtime.promptError = err;
         this.log.error({ err }, "Grok prompt error");
       }

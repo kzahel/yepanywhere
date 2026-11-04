@@ -14,6 +14,15 @@ Candidate designs that are not current behavior, including YA-supplied web
 search/fetch tools for pi, live in
 [`pi-provider.sketches.md`](pi-provider.sketches.md).
 
+## Live model selection acknowledgement
+
+YA applies a live model selection only after native RPC `set_model` returns
+`success: true`. A native refusal or transport failure propagates to the caller;
+YA retains the previous requested/resolved selection. An unavailable model must
+not be reported as successfully applied. The native integration scenario proves
+invalid-selection refusal, a valid change in the next actual model request and
+reapplication on cold launch. It does not add a new provider/model route.
+
 ## Durable ordinary text creation
 
 The optional `session-creation-pi-text` capability (global id 145) selects the

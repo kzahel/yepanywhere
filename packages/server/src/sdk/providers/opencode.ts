@@ -108,9 +108,6 @@ export interface OpenCodeProviderConfig {
   basePort?: number;
 }
 
-/** Port counter for unique port assignment */
-let nextPort = 14100;
-
 interface OpenCodeRuntimeState {
   baseUrl: string;
   /** Spawn-only local server credential; never metadata or public session facts. */
@@ -200,13 +197,6 @@ interface OpenCodeFilePartInput {
   mime: string;
   url: string;
   filename?: string;
-}
-
-/**
- * Get next available port for OpenCode server.
- */
-function getNextPort(): number {
-  return nextPort++;
 }
 
 async function availableLoopbackPort(): Promise<number> {
@@ -514,9 +504,7 @@ export class OpenCodeProvider implements AgentProvider {
     );
     const port =
       this.nextConfiguredPort === undefined
-        ? protectedRuntime
-          ? await availableLoopbackPort()
-          : getNextPort()
+        ? await availableLoopbackPort()
         : this.nextConfiguredPort++;
     if (port > 65535) throw new Error("OpenCode port range exhausted");
     const baseUrl = `http://127.0.0.1:${port}`;

@@ -470,3 +470,13 @@ leaf, including when a different cold reader receives a delayed old-file event.
 Exact point evidence before enumeration has no scan timestamp; it cannot certify
 a complete/fresh store listing. The existing rollout-selection policy and history-reference parser stay
 authoritative; public YA identity and lineage keys are unchanged.
+
+### Replayed usage and active turn ownership
+
+App-server resume can replay `thread/tokenUsage/updated` for the last persisted
+turn after a new `turn/start` receipt barrier. YA retains the usage's original
+turn attribution without adopting that id as the active control target. Usage
+replay alone cannot retarget steer/interrupt or cause a pair of spurious turn-id
+resynchronizations. Live turn notifications retain their existing id-race repair.
+The pinned native cold-resume scenario covers this ordering without replay
+fixtures or paid inference.

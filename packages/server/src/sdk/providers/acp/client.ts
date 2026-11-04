@@ -23,6 +23,24 @@ import {
 } from "@agentclientprotocol/sdk";
 import { getLogger } from "../../../logging/logger.js";
 import { stripYaControlPlaneCredentials } from "../env-filter.js";
+import {
+  processTreeSpawnOptions,
+  signalProcessTree,
+} from "../../../utils/processTree.js";
+
+class ACPConnectionClosedError extends Error {
+  constructor() {
+    super("ACP connection closed");
+  }
+}
+
+/** Only our own closed-transport rejection is normal during requested abort. */
+export function isRequestedACPClosure(
+  error: unknown,
+  signal: AbortSignal,
+): boolean {
+  return signal.aborted && error instanceof ACPConnectionClosedError;
+}
 
 /** The ACP SDK can reject with a JSON-RPC error object rather than Error. */
 export function acpErrorMessage(error: unknown): string {
@@ -102,6 +120,7 @@ export class ACPClient {
   private log = getLogger();
   private disposed = false;
   private processExit: Promise<void> = Promise.resolve();
+  private processClosed = true;
   private readonly pending = new Set<(error: Error) => void>();
   private resolveClosed!: () => void;
   /** Conversation teardown, independently of actual OS child exit. */
@@ -115,11 +134,8 @@ export class ACPClient {
   }
 
   get isProcessAlive(): boolean {
-    return (
-      !!this.process?.pid &&
-      this.process.exitCode === null &&
-      this.process.signalCode === null
-    );
+    // A launcher can exit before its agent child closes the inherited pipes.
+    return !!this.process?.pid && !this.processClosed;
   }
   private onSessionUpdate: SessionUpdateCallback | null = null;
   private onPermissionRequest: PermissionRequestCallback | null = null;
@@ -177,9 +193,14 @@ export class ACPClient {
       stdio: ["pipe", "pipe", "pipe"],
       env: childEnv,
       shell: process.platform === "win32",
+      ...processTreeSpawnOptions,
     });
+    this.processClosed = false;
     this.processExit = new Promise<void>((resolve) => {
-      this.process!.once("close", () => resolve());
+      this.process!.once("close", () => {
+        this.processClosed = true;
+        resolve();
+      });
     });
 
     this.process.stderr?.on("data", (data: Buffer) => {
@@ -457,12 +478,20 @@ export class ACPClient {
   close(): Promise<void> {
     if (this.disposed) return this.processExit;
     this.disposed = true;
-    for (const reject of this.pending)
-      reject(new Error("ACP connection closed"));
+    for (const reject of this.pending) reject(new ACPConnectionClosedError());
     this.pending.clear();
     if (this.isProcessAlive) {
       this.log.debug("Closing ACP client");
-      this.process?.kill("SIGTERM");
+      const child = this.process!;
+      signalProcessTree(child, "SIGTERM");
+      // Native launchers may respawn or leave a worker holding stdio/model
+      // connections. Bound shutdown of the owned tree, not only its leader.
+      const escalation = setTimeout(
+        () => signalProcessTree(child, "SIGKILL"),
+        2_000,
+      );
+      escalation.unref();
+      void this.processExit.then(() => clearTimeout(escalation));
     }
     // Keep the actual handle/PID until exit can be observed by the owner.
     this.connection = null;

@@ -34,7 +34,11 @@ import type {
   SDKMessage,
   ToolApprovalResult,
 } from "../types.js";
-import { ACPClient, acpErrorMessage } from "./acp/client.js";
+import {
+  ACPClient,
+  acpErrorMessage,
+  isRequestedACPClosure,
+} from "./acp/client.js";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
 import type {
   AgentProvider,
@@ -497,6 +501,7 @@ export class GeminiACPProvider implements AgentProvider {
         } as SDKMessage;
       }
     } catch (err) {
+      if (isRequestedACPClosure(err, signal)) return;
       this.log.error({ err }, "Gemini ACP session error");
       yield {
         type: "error",
@@ -689,7 +694,8 @@ export class GeminiACPProvider implements AgentProvider {
       })
       .catch((err) => {
         promptDone = true;
-        this.log.error({ err }, "Prompt error");
+        if (!isRequestedACPClosure(err, signal))
+          this.log.error({ err }, "Prompt error");
       });
 
     // Track text content for assistant messages

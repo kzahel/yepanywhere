@@ -687,13 +687,13 @@ export class PiProvider implements AgentProvider {
       setModel: async (model?: string) => {
         const sel = parsePiModelSelection(model);
         if (!sel) return;
-        await client
-          .request({
-            type: "set_model",
-            provider: sel.provider,
-            modelId: sel.modelId,
-          })
-          .catch(() => {});
+        const response = await client.request({
+          type: "set_model",
+          provider: sel.provider,
+          modelId: sel.modelId,
+        });
+        if (!response.success)
+          throw new Error(response.error ?? "Pi rejected the model selection");
       },
       runProviderCommand: (command, argument) =>
         this.runProviderCommand(client, command, argument),

@@ -122,6 +122,12 @@ plain object. Grok's native RPC id is separate from YA's tool-environment id,
 including shells started after native attachment.
 
 The shared client retains its actual child handle after requesting termination.
+Its owned POSIX process group (Windows process tree) is terminated together;
+launcher exit alone does not certify closure of a respawned native worker.
+Shutdown escalates after two seconds and joins inherited stdio closure. The
+native Gemini cancellation scenario exercises a real launcher/worker and held
+model connection. A typed, locally generated closed-transport rejection during
+requested abort is normal shutdown; other errors remain failures.
 Logical connection closure cancels pending requests and idle input waits; it
 does not certify OS process death. Abort/iterator cleanup waits for actual child
 closure, and liveness follows the child's exit evidence. Closing before startup
