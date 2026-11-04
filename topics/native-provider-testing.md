@@ -328,10 +328,9 @@ all child exits before deleting roots; Pi abort itself only requests termination
    whole-provider compatibility audit. Investigate drift against upstream
    protocol/source before changing the stub or expectations.
 
-Next priorities are native multi-input identity/batching, wrapper/host terminal
-fault recovery and authenticated/relay app ownership.
-Queued compact, cancellation/resume and controlled rate-limit retry now have
-the retained coverage above. This evidence does not change queue defaults or
-justify removing implicit YA concatenation without identity/policy qualification.
-The implementation sequence and remaining work live in
-[plan 175](../docs/tactical/175-native-provider-integration-scenarios.md).
+The single [opportunity backlog and suggested next selections](../docs/tactical/175-native-provider-integration-scenarios.md#opportunity-backlog-and-recommended-next-work)
+records remaining work and the architecture/testing improvements this harness
+unlocks. It distinguishes implemented evidence from proposed depth; this topic
+owns current contracts and qualification. The evidence does not change queue
+defaults or justify removing implicit YA concatenation without identity/policy
+qualification.

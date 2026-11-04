@@ -1,12 +1,100 @@
 # Native provider integration scenarios
 
-Status: all-provider foundation implemented, 2026-11-04: 20 retained native
-scenarios across ten production launch paths. Depth now passes 57 cases including lifecycle, cancellation, settings, retry
-and queued compact. Remaining ownership/identity/approval depth and platform
-acceptance stay explicit in the owning matrix.
+Status: foundation and first app-continuity slices implemented, 2026-11-04.
+Retained coverage is 60 native cases across ten production launch paths, plus
+four Claude/Codex full-app API cases and two browser scenarios (three local
+repetitions per provider). Pi successful queued compaction is implemented.
+Hosted platform acceptance and the opportunities below remain open; this is
+not a completed comprehensive-coverage plan.
 
-The durable contract, commands and qualification matrix now live in
-[native provider testing](../../topics/native-provider-testing.md).
+The durable contract, commands and qualification matrix live in
+[native provider testing](../../topics/native-provider-testing.md). This plan's
+[opportunity backlog](#opportunity-backlog-and-recommended-next-work) is the
+single entry point for the follow-ups unlocked by that infrastructure. The
+[roadmap](../roadmap/README.md) still owns product priority; individual linked
+gaps own concrete defects. Ignored `tasks/` logs are supporting evidence,
+not the durable backlog.
+
+## Opportunity backlog and recommended next work
+
+Updated 2026-11-04. These are candidates, not authorization to implement every
+row or reopen the general core refactor. Keep one inventory here instead of
+copying it into the topic and roadmap. Mark a row implemented only when its
+own boundary has evidence; recheck linked gaps against current source before
+starting, since adjacent work may already have repaired them.
+
+Already delivered: actual pinned executables and four scripted model wires;
+queue/tool/history scenarios for all ten paths; cancellation/continuation,
+model restoration and rate-limit recovery; Claude/Codex/Pi queued compact;
+and the bounded Claude/Codex app reload/approval/tool/browser schedules.
+The app slice also exposed and repaired Codex's empty started-snapshot race.
+Exact versions, costs, platform limits and commands stay in the owning topic.
+
+### Recommended next selections
+
+1. **Resolve input identity and manual batching.** Queue A/B through YA and
+   steer A/B natively at controlled model/tool boundaries. Inspect actual native
+   requests, authoritative receipts, reopened history and one browser echo case.
+   Demonstrate where YA concatenates independently of native grouping. Then
+   decide whether each manual join has a justified consumer; remove unsupported
+   joins or preserve every input's provenance. Keep explicit YA Queue ordering
+   and native steering distinct. This returns to the original product question,
+   rather than making infrastructure expansion the end in itself. Owners:
+   [merged echoes](../../gaps/merged-queued-turn-orphans-chunk-echoes.md),
+   [durable input identity](../../gaps/provider-user-turn-durable-identity.md),
+   [delivery intent](../../topics/message-control-steer-queue-btw-later-interrupt.md).
+2. **Qualify loss of the runtime owner.** Existing app tests replace Hono while
+   its host/worker survives. Next kill the wrapper, host or worker independently,
+   cut control during approval/tool execution, and cover terminal signals.
+   Place faults before and after admission/receipt; assert bounded teardown,
+   no second writer or automatic duplicate submission, and honest recovery from
+   persisted state. Do not promise continuous turns after their owner dies or
+   persistence of volatile queues. Include the dense-output macOS schedule and
+   correlate identities/logs before reconsidering its default. Owners:
+   [reload runtime](../../topics/reload-safe-provider-runtimes.md),
+   [macOS interruption](../../gaps/macos-provider-host-turn-interruptions.md).
+3. **Make reviewed platform runs and upgrades routine.** Obtain and review the
+   existing manual Linux/macOS acceptance runs before promoting scoped jobs to
+   gates. Run unchanged semantic scenarios for provider upgrades; pin/check real
+   executables and keep unsupported/missing cells explicit. Track provisioning,
+   scenario, teardown, retries and runner cost separately. A local macOS pass
+   is not Linux/Windows acceptance. Owners:
+   [qualification](../../topics/native-provider-testing.md),
+   [provider refresh](../../topics/provider-refresh.md).
+
+### Further opportunities unlocked by the same harness
+
+| Opportunity | Concrete next evidence and benefit |
+| --- | --- |
+| Admission and retry ambiguity | Cut model/control connections before acceptance, after acceptance and during output; inject terminal errors, retry exhaustion and truncated streams. Establish which input ran, what can safely retry, and which outcomes stay uncertain. Fake control peers complement real executables for faults native CLIs cannot emit. |
+| Durable live-to-history identity | Extend beyond providers that retain supplied UUIDs. Verify authoritative native receipt mappings survive reload/cold resume, exact-turn links resolve and identical text does not conflate inputs. Reuse the identity gaps above; text matching alone is insufficient. |
+| Settings and permission truth | Exercise effort/model/permission changes, approval denial, tool cancellation, launch-only controls and explicit unsupported/restart-required outcomes. Check the actual next request and tool effect, including refused writes in an owned project. Audit native-only steering/urgency affordances before exposing them; do not require every provider to expose the same controls. |
+| Remaining compact/activation paths | Exercise supported automatic compaction, compacted cold resume and restart/handoff native dispatch without sending commands as ordinary prompt text. Recheck the [restart compact gap](../../gaps/restart-compaction-codex-literal-text.md) and [start-window coverage](../../gaps/codex-compact-start-window-untested.md) before selecting a repair. Keep this below the frequently used input path. |
+| Concurrent session isolation | Run two real sessions through Supervisor/host. Cancel, compact, change a setting or reload one while the other streams; assert separate identities, histories, queues and callbacks. Add browser coverage only for a distinct UI boundary. |
+| Unwanted background calls | Inventory title, recap, suggestion and subagent requests with options off/on. Prove applied versus unsupported controls and zero unexpected model requests; turn the [side-effect audit](../../gaps/provider-session-side-effect-controls.md) from belief into native evidence. |
+| Authenticated and relay recovery | Reuse existing owned auth/relay fixtures with a real native session. Disconnect/rejoin during a turn, expire or revoke access and verify scoped replay and no duplicate submission. Keep credential/transport tests separate from inference quality. |
+| Tools, media and saved rendering | Feed real native file/edit/tool results and fixture media through production readers/compiler; compare live and reopened presentation. Close the remaining [native display coverage](../../gaps/tool-display-native-provider-coverage.md) cells selectively, instead of duplicating every browser case for every provider. |
+| Provider unification and deletion | Start with two concrete Claude/Codex paths. Write common assertions for admission, consumption, cancellation, command completion and readiness; keep native translation in adapters. If duplicate policy really has the same contract, consolidate it and delete the old branches under unchanged scenarios. Keep gentle/immediate scope differences explicit. No new provider superclass, scheduler or conversation store is selected. |
+| Reproducible race exploration | Generate a bounded set of input/steer/compact/cancel/reload schedules around held real model/tool barriers. Record the failing schedule and version, then minimize it into a regression. This is proposed depth, not an existing exhaustive or property-testing engine. |
+| Retention and responsiveness | Use dense output and larger saved histories to check bounded replay/memory, backpressure, process/listener cleanup and sequential typing. Keep measured platform-specific budgets; no-inference tests do not establish paid-service latency or cache efficiency. |
+| Packaging and release parity | Reuse the same model/tool actions through built or installed artifacts and current release acceptance. Coordinate with the [release work](../development/releasing.md); do not create a competing package-smoke framework or claim source-wrapper checks qualify shipped artifacts. |
+| Diagnostics and test simplification | Retain bounded phase/request/identity evidence for failures and an independent expected-capability inventory. Replace shallow mocks or stale trace expectations only when surviving native scenarios protect their useful contract; keep protocol-fault and old-history regressions. |
+
+### Keep the thread durable
+
+When selecting a row, add its bounded next scenario and acceptance here, then
+record current behavior/results in the owning topic and product status in the
+roadmap. Link or remove the corresponding concrete gap when actually resolved.
+Keep completed evidence separate from proposed opportunities. The next session
+should be able to start from this section without reconstructing the chat or
+reading private `tasks/` output.
+
+The native harness qualifies scheduling, protocol, tools, persistence and app
+behavior against controlled model replies. Real subscription/auth setup,
+provider service behavior, model quality, billing/cache efficiency and sustained
+OS lifecycle still need their appropriate live/platform evidence. This backlog
+is neither a full-code-coverage claim nor a requirement to run every combination
+on every change.
 
 ## Outcome and standing direction
 

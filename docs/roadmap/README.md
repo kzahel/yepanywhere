@@ -646,9 +646,12 @@ dense-tool continuity, volatile queue blockers and native owner identity. Four
 API cases and six browser cases (three repetitions per provider, no retries)
 pass on macOS arm64, including draft retention, sequential typing and history
 after refresh. It also repaired a Codex started-snapshot enrichment race.
-Next: wrapper/host terminal faults, native batched identity and authenticated/
-relay recovery. Linux/macOS app jobs join the explicit manual acceptance
-workflow; promote reviewed platform passes to change gates. The historical
+The [opportunity backlog](../tactical/175-native-provider-integration-scenarios.md#opportunity-backlog-and-recommended-next-work)
+keeps the unlocked testing/refactor candidates in one place. Suggested next
+selections are native input identity/manual batching, wrapper/host terminal
+faults and reviewed platform/upgrade gates; authenticated/relay recovery and
+other depth remain candidates. Linux/macOS app jobs join the explicit manual
+acceptance workflow; promote reviewed platform passes to change gates. The historical
 macOS interruption gap stays open and hosting stays opt-in. Linux/Windows
 acceptance and remaining ownership/fault interleavings remain explicit;
 the comprehensive matrix does not select new UI controls or thaw legacy Gemini.
