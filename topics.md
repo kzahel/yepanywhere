@@ -478,3 +478,5 @@
 - antigravity-discovery — native ACP provider and shared catalog/project discovery.
 
 - native-provider-integration — actual provider executables with scripted local model APIs.
+
+- session-relationships — Durable typed session relationships, producer evidence and nonblocking native-child discovery.

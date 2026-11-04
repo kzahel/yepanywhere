@@ -20,6 +20,80 @@ const { DiscoverySqliteService, migrateDiscoveryDatabase } = await import(
 const { loadSqliteDriver } = await import(
   pathToFileURL(resolve(storageDir, "sqlite.js")).href
 );
+const { SessionRelationshipStore } = await import(
+  pathToFileURL(resolve(storageDir, "../sessions/SessionRelationshipStore.js"))
+    .href
+);
+
+// This must execute on both engines: Bun includes trigger writes in changes,
+// while Node reports only the direct row. A migration-only probe misses that.
+function relationshipContract(database) {
+  const store = new SessionRelationshipStore(database);
+  const parent = {
+    kind: "session",
+    serverId: "owned-runtime",
+    sessionId: "parent",
+  };
+  const observation = (version) => ({
+    producer: "runtime-contract",
+    sourceKey: "parent",
+    sourceVersion: version,
+    extractorVersion: 1,
+    observedAt: "2026-11-04T00:00:00.000Z",
+  });
+  const fact = (id) => ({
+    type: "provider_child",
+    source: parent,
+    target: { ...parent, sessionId: id },
+    recordKey: id,
+    trust: "provider-observed",
+  });
+  const publish = (version, expectedRevision, state, facts) =>
+    store.publish({
+      observation: observation(version),
+      expectedRevision,
+      facts,
+      progress: { state, cursor: "{}" },
+      replaceSource: true,
+    });
+  const children = () =>
+    store
+      .list({ resource: parent })
+      .edges.map((edge) => edge.target.sessionId)
+      .sort();
+  try {
+    store.record(observation("v1"), [fact("one")]);
+    store.record(observation("v1"), [fact("one")]);
+    assert.deepEqual(children(), ["one"]);
+    assert.throws(
+      () =>
+        store.record(observation("v1"), [
+          { ...fact("one"), trust: "local-authenticated" },
+        ]),
+      /trust/,
+    );
+    assert.equal(
+      publish("v1", null, "complete", [
+        fact("one"),
+        fact("two"),
+        fact("three"),
+      ]),
+      true,
+    );
+    assert.equal(publish("v2", 1, "partial", [fact("one")]), true);
+    assert.deepEqual(children(), ["one", "three", "two"]);
+    assert.equal(publish("v2", 2, "complete", [fact("two")]), true);
+    assert.deepEqual(children(), ["one", "two"]);
+    store.record(observation("v1"), [fact("three")]);
+    assert.deepEqual(children(), ["one", "two"]);
+    assert.equal(publish("stale", 2, "complete", []), false);
+    assert.equal(publish("v3", 3, "complete", [fact("three")]), true);
+    assert.deepEqual(children(), ["three"]);
+    assert.equal(store.checkpoint("runtime-contract", "parent").revision, 4);
+  } finally {
+    store.dispose();
+  }
+}
 const temporary = mkdtempSync(join(tmpdir(), "ya-sqlite-contract-"));
 const connections = [];
 function openService(dataDir, extra = {}) {
@@ -28,6 +102,10 @@ function openService(dataDir, extra = {}) {
   return service;
 }
 try {
+  const relationships = openService(join(temporary, "relationships"));
+  relationshipContract(relationships.getDatabase());
+  relationships.close();
+
   const unsupportedDir = join(temporary, "unsupported");
   assert.throws(
     () => openService(unsupportedDir, { loadDriver: () => undefined }),

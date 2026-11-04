@@ -1,3 +1,4 @@
+import { SESSION_RELATIONSHIPS_SCHEMA } from "./migrations/026-session-relationships.js";
 import { ANTIGRAVITY_NATIVE_ALLOCATIONS_SCHEMA } from "./migrations/024-antigravity-native-allocations.js";
 import { SESSION_SUMMARY_INDEX_SCHEMA } from "./migrations/025-session-summary-index.js";
 import { CREATION_INPUT_EXPECTATION_SCHEMA } from "./migrations/023-creation-input-expectation.js";
@@ -70,6 +71,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 23, sql: CREATION_INPUT_EXPECTATION_SCHEMA },
   { version: 24, sql: ANTIGRAVITY_NATIVE_ALLOCATIONS_SCHEMA },
   { version: 25, sql: SESSION_SUMMARY_INDEX_SCHEMA },
+  { version: 26, sql: SESSION_RELATIONSHIPS_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

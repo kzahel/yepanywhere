@@ -1,8 +1,10 @@
 # Durable session relationships
 
-Status: proposed shared design, requested 2026-11-04. No relationship schema,
-wire contract, provider capability, or implementation is introduced by this
-document. This direction replaces a Codex-only child-cache proposal with one
+Status: implementation authorized 2026-11-04;
+[plan 176](../docs/tactical/176-durable-session-relationships.md) tracks delivery
+and qualification. This document owns the design; completed runtime slices are
+recorded in that plan. No new wire contract or provider capability is implied.
+This direction replaces a Codex-only child-cache proposal with one
 provider-neutral relationship read model. It does not select a new scheduler,
 delegation framework, authorization system, or transcript store.
 
@@ -116,7 +118,11 @@ portable Node/Bun adapter. The logical storage has three responsibilities:
    endpoint ids in another server, native family or root cannot collide.
 2. Evidence identifying the producer, source record/receipt and observation
    version. Replaying an observation is idempotent. Multiple observations can
-   support one logical edge without erasing each other's evidence.
+   support one logical edge without erasing each other's evidence. Keep one
+   row per distinct producer/source/record/edge, updating its last-observed
+   version during fenced reconciliation, rather than retaining a new row for
+   every unchanged re-observation. Superseded records retain their last known
+   supporting version; this is structural history, not a version event log.
 3. Per-source checkpoints with source identity, extractor version and durable
    progress through complete records. Store pending launch identifiers when a
    call and its result are separated; no fabricated child edge precedes a
@@ -239,6 +245,86 @@ rewrite it. Unknown or inaccessible endpoints remain undisclosed under the
 existing policy, and relationship traversal never bypasses project grants.
 
 ## Delivery and qualification
+
+### Native harness and independent evidence
+
+Use [native provider scenarios](native-provider-testing.md) and
+[plan 175](../docs/tactical/175-native-provider-integration-scenarios.md) as the
+primary acquisition test boundary. Real provider executables execute scripted
+tool calls against owned loopback model APIs. Script parent delegation and
+child replies explicitly; no model inference is intrinsically required to
+exercise the provider's child-session machinery or its durable records.
+
+Current coverage is a foundation, not complete relationship qualification:
+
+| Boundary | Existing evidence | Required relationship extension |
+| --- | --- | --- |
+| Native execution | Actual launch, tools, queue/control, history and resume scenarios across qualified launch paths | Actual child-tool invocation, child model exchanges, returned native id, parent/child files or DB rows, and independent reopen through the production reader. |
+| Child extraction | Constructed Claude/Codex/Grok/OpenCode persistence, scoped readers and route tests | Native-generated specimens for the exact qualified versions; independent expectations from native tool results and raw storage, not the same parser on both sides of an assertion. |
+| YA/v0 creation | Real admission/SQLite, retry, creator, peer, remap and restart checks; some boundaries use scripted provider peers | A real parent executable's tool invokes the owned API, creates a real child executable, and verifies its trusted launch attribution and public/native bindings after restart. Exercise every retained admission ingress independently at its cheapest meaningful boundary. |
+| UI and latency | Existing real Claude/Codex source-app/browser harness | Block relationship acquisition while the transcript loads, publish relationships later, and prove stable navigation/scroll and sequential typing under concurrent updates. |
+
+A child request must remain on the owned model endpoint with synthetic
+credentials, including child-specific model selection and nested child
+launches. Verify the executable's actual tool inventory/configuration rather
+than assuming a tool exists or that the parent's endpoint override propagates.
+The general fixture disables some background features; relationship scenarios
+must explicitly enable only the native behavior they intend to qualify.
+Missing routing, unsupported native tools or unexpected external requests fail
+the selected qualification; they do not silently switch to paid inference or
+manufactured child files.
+
+Live inference is a separate, small optional smoke boundary for real model
+tool selection, subscription authentication, or a provider's child path that
+cannot actually target a local model API. It is not the default regression
+oracle and is not needed to test SQL transactions, scopes, checkpoints,
+receipt outcomes or authorization. Until such a native path is demonstrated,
+mark it unqualified rather than claiming that a constructed fixture proves it.
+
+Before claiming current-native coverage, align executable pins, the root
+compatibility markers and the versions actually exercised. The November 4
+source review found the full-app fixture's Claude expectation at 2.1.312 while
+the root declares 2.1.318 / SDK 0.3.318; the Process-level fixture already uses
+the root marker. The app-fixture mismatch is tracked in the
+[pin-drift gap](../gaps/native-provider-claude-version-pin-drift.md).
+The captured corpus explicitly lacks child sidecars/subagent scenarios and
+contains older baseline versions; keep it for historical parser regressions,
+not as proof of current native spawning. OpenCode 1.x qualification does not
+qualify its explicitly unsupported 2.x implementation.
+
+Keep a provider × ingress × relationship-kind qualification matrix. Cover
+distinct execution/storage mechanisms and deliberate unsupported cells;
+avoid duplicating every UI scenario for every provider variant. Record
+scenario/startup/cleanup cost and platform/version evidence. Current
+macOS/limited Linux results do not establish the entire Windows or mobile
+lifecycle matrix.
+
+### Capabilities and compatibility
+
+Internal SQL persistence/query changes need no client capability by themselves.
+A normalized relationship resource, unknown/partial/complete status or a new
+update event does need an explicit contract and a support/fallback review.
+Existing `providerChildren` and creator receipts must not silently acquire new
+required meanings. The provider observation capability remains independent
+from YA/v0 creation, native fork, child control and transcript-tree support.
+
+Maintainer decision, 2026-11-04: old Chrome-extension frontend against a newer
+server is excluded from qualification for this relationship work. Do not build
+or retain an extension-specific compatibility implementation for that case.
+This does not waive current hosted/mobile clients against supported older
+servers. They must use the existing supported projection or omit the new
+relationship view when its contract is absent, without issuing unsupported
+requests. Other persisted/native-mobile and client/server skew obligations
+remain under [server capabilities](server-capabilities.md) and
+[hosted compatibility](remote-hosted-compatibility.md).
+
+Keep the SQL migration additive and existing authoritative records recoverable
+through the migration. Provider extractor/checkpoint versions and historical
+fixture formats have their own compatibility tests; a UI gate cannot repair an
+incorrect native parser. Server downgrade to a database schema it cannot read
+retains the existing explicit refusal/recovery policy.
+
+### Implementation sequence
 
 1. **Introduce the shared read model and source adapters.** Define the typed
    resources/predicates/evidence, SQL indexes, bounded queries and checkpoint
