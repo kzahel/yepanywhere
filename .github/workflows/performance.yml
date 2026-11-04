@@ -74,6 +74,9 @@ jobs:
         if: matrix.driver != 'server'
         run: pnpm -F @yep-anywhere/client exec playwright install chromium
 
+      - if: matrix.driver != 'server'
+        uses: ./.github/actions/allow-chromium-sandbox
+
       - name: Run capacity-keyed ${{ matrix.summary }} ratchet
         env:
           YA_PERF_SWEEP: ${{ github.workspace }}/.perf-tools/agents/scripts/perf-sweep

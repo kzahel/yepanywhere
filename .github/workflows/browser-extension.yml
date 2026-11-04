@@ -62,6 +62,7 @@ jobs:
         run: pnpm --filter @yep-anywhere/browser-extension typecheck:acceptance
       - name: Install test Chromium
         run: pnpm --filter @yep-anywhere/client exec playwright install --with-deps chromium
+      - uses: ./.github/actions/allow-chromium-sandbox
       - name: Extract the actual upload candidate
         run: |
           python3 -m zipfile -e "packages/browser-extension/release/yep-anywhere-chrome-${{ steps.version.outputs.version }}.zip" /tmp/ya-extension-candidate

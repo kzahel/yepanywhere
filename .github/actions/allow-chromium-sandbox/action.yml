@@ -1,0 +1,18 @@
+name: Allow the Chromium sandbox
+description: >-
+  Ubuntu 23.10+ runner images restrict unprivileged user namespaces through
+  AppArmor. Chromium's sandbox needs them, and every Playwright launch here
+  sets chromiumSandbox: true (scripts/check-chromium-sandbox.mjs), so without
+  this step each Linux browser launch fails with "No usable sandbox". The
+  bubblewrap network helper in the live-preview e2e test needs the same
+  namespaces. The runner is disposable; tests still run fully sandboxed.
+runs:
+  using: composite
+  steps:
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        # Images without the AppArmor restriction lack this sysctl entirely.
+        if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        fi

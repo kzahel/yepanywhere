@@ -45,6 +45,8 @@ jobs:
         timeout-minutes: 10
         run: pnpm -F @yep-anywhere/client exec playwright install chromium
 
+      - uses: ./.github/actions/allow-chromium-sandbox
+
       - name: Run tests
         run: pnpm test
 

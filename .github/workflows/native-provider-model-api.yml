@@ -45,6 +45,7 @@ jobs:
       - run: pnpm --filter @yep-anywhere/shared build
       - run: pnpm test:providers:app
       - run: pnpm --filter @yep-anywhere/client exec playwright install --with-deps chromium
+      - uses: ./.github/actions/allow-chromium-sandbox
       - run: pnpm test:providers:app --browser
       - name: Preserve native app browser failure evidence
         if: failure()

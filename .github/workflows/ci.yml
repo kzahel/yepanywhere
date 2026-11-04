@@ -54,6 +54,7 @@ jobs:
           test/scripts/e2e-process-lifecycle-windows.test.mjs
           test/scripts/wait-for-port-file.test.mjs
       - run: pnpm --filter @yep-anywhere/client exec playwright install chromium
+      - uses: ./.github/actions/allow-chromium-sandbox
       - run: pnpm --filter @yep-anywhere/client exec playwright test --config playwright.computer-control.config.ts
       - name: Preserve computer-control browser evidence
         if: always()
@@ -276,9 +277,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bubblewrap slirp4netns iproute2 util-linux
-          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
+      - uses: ./.github/actions/allow-chromium-sandbox
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -309,6 +308,7 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
       - run: pnpm -F @yep-anywhere/client exec playwright install chromium
+      - uses: ./.github/actions/allow-chromium-sandbox
       - name: Run retained sidebar switch ratchet
         env:
           YA_PERF_SWEEP: ${{ github.workspace }}/.perf-tools/agents/scripts/perf-sweep
@@ -384,11 +384,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bubblewrap slirp4netns util-linux iproute2
-          # This disposable runner must permit the network helper's user
-          # namespace. The test still uses the real bwrap/network sandbox.
-          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
+      - uses: ./.github/actions/allow-chromium-sandbox
       - name: Run isolated browser workers
         env:
           YEP_E2E_SERVER_SCOPE: ${{ inputs.e2e_scope || 'worker' }}
