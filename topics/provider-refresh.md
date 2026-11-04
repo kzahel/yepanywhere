@@ -2350,6 +2350,52 @@ four multi-turn scenarios failed only at their 5/10-second time limits
 on a host at load ~51 (16 cores), so they neither qualify nor fault
 1.19.5.
 
+OpenCode 2 evaluation, 2026-11-04 (`@opencode/cli` 2.2.5, Linux x64):
+**unsupported; the current adapter cannot start a session.** It was
+installed side by side under a scratch npm prefix, leaving the user's
+official-installer 1.19.5 in place, and probed in isolated
+`HOME`/`XDG_*` roots. `serve` is now "the v2 API": every v1 route YA
+calls is gone (`POST /session` and `/session/{id}/message|abort`
+answer 405; `GET /session`, `/session/status` and `/event` fall
+through to the web app's HTML). The replacement surface lives under
+`/api/`: `POST /api/session`, an asynchronous
+`POST /api/session/{id}/prompt` that returns an inbox receipt at once,
+`/interrupt`, `/api/session/active`, `/api/event`,
+`/api/session/{id}/permission/{requestID}/reply` and forms in place
+of questions. The served `/openapi.json` (OpenAPI 3.1, 139 paths)
+leaves event payloads untyped. A live capture and the binary's event
+names show a new vocabulary: `session.inbox.*`, `session.execution.*`,
+`session.step.*`, `session.text|reasoning.{started,delta,ended}`,
+`session.tool.*`, `permission.asked/replied` and `form.*`. Nothing
+YA consumes survives (`message.updated`, `message.part.*`,
+`session.status`, `session.idle`, `question.asked`). `serve` always
+requires HTTP Basic authentication and generates a password when none
+is supplied.
+
+Driving YA's production `OpenCodeProvider` against 2.2.5 fails both
+launch shapes. An unprotected launch reports `Failed to create
+session: 405`; a protected launch reports `OpenCode server failed to
+start`, because its invalid-credential readiness probe receives the web
+app's HTML with status 200 instead of a 401. The same driver
+against 1.19.5 creates a native session in both shapes. Other CLI
+breaks: `models --verbose` is refused, so effort variants are lost
+and only plain ids remain, and top-level `export` moved to `session
+export`. Plain CLI commands run through a background service: YA's own
+`opencode models` call left a detached `opencode serve --service`
+daemon running after it returned. The DB stays at
+`opencode/opencode.db`. 2.2.5 migrates a 1.x DB in place on first
+open: the legacy `session`/`message`/`part` rows remain. The probe's one
+session and two messages were copied into the new `session_v2` and
+`session_message` tables, and `session_part` stayed empty. New 2.x
+sessions are stored in those new tables. 1.19.5 still opens the migrated DB, lists and
+reads pre-upgrade sessions, and creates new ones. Whether 1.x sees
+2.x-created sessions was not checked. The only model turn tried used
+the free `opencode/big-pickle`, which returned a free-usage-limit 429,
+so no assistant text, tool or permission event was observed. The
+native scenarios pin `opencode-ai` 1.18.9 with no path override and
+were not run against 2.2.5. Blockers and the proposed path are in
+[the OpenCode 2 gap](../gaps/opencode-2-unsupported.md).
+
 Previous read-only audit, 2026-06-05:
 
 - Installed OpenCode is still `1.15.13`, matching the existing
@@ -2359,10 +2405,13 @@ Previous read-only audit, 2026-06-05:
   runtime data and the provider already queries it dynamically.
 - `opencode acp --help` exists, but YA still uses `opencode serve`.
 
-Status: no source refresh is due on the 1.x line. OpenCode 2 is a
-design-refresh candidate, as is the ACP backend in place of the current
-HTTP/SSE backend. Moving the native-scenario pin from 1.18.9 to 1.19.5
-waits for a quieter host to rerun those scenarios.
+Status: no source refresh is due on the 1.x line, which remains the
+only supported OpenCode release line. OpenCode 2 needs a design refresh:
+a second adapter for the v2 API, event model and storage tables (see
+the 2026-11-04 evaluation above). The ACP backend in place of the
+current HTTP/SSE backend is the other design-refresh candidate. Moving
+the native-scenario pin from 1.18.9 to 1.19.5 waits for a quieter host
+to rerun those scenarios.
 
 ## Package Cross-Checks
 

@@ -122,6 +122,21 @@ probe used OpenCode 1.18.18, selected the packaged executable, completed the
 version probe, and returned the verbose model catalog. Session discovery from
 durable storage remains independent of whether the executable is installed.
 
+### Supported release line: 1.x only
+
+This backend speaks OpenCode 1.x's server API. OpenCode 2 (`@opencode/cli`,
+2.2.5 evaluated 2026-11-04) replaces that API, its event vocabulary, the
+`models --verbose` catalog and the session tables. The current adapter cannot
+start a 2.x session. Unprotected launches fail with `Failed to create
+session: 405`. Protected launches fail with `OpenCode server failed to start`.
+Neither error names the version. YA has no OpenCode updater or update notice
+and therefore never offers `opencode upgrade --major`. A user who upgrades
+loses YA OpenCode sessions until a v2 adapter exists. Pre-upgrade history
+stays readable: 2.x keeps the legacy rows when it migrates `opencode.db`.
+The probe record is in [provider refresh](provider-refresh.md#opencode); the
+blockers and proposed adapter path are in
+[the OpenCode 2 gap](../gaps/opencode-2-unsupported.md).
+
 ## Capability Comparison
 
 | Capability | Claude | Codex | OpenCode status |
@@ -635,6 +650,8 @@ the later 1.18.9 refresh govern current behavior; the explicitly dated
     (incl. TUI/externally-owned) session renders the full transcript with no
     subprocess. Export (file-fd) + file-tree remain fallbacks for old installs /
     Node < 22.5. See *Direct SQLite reader (Gap #11)*.
+12. **Open.** OpenCode 2 support: a second adapter for the v2 `/api/` server,
+    event model and `session_v2` tables. See *Supported release line*.
 
 ## Verification Shape
 
