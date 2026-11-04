@@ -1,10 +1,12 @@
 import { once } from "node:events";
-import { createServer, type Server } from "node:http";
+import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { createAdaptorServer } from "@hono/node-server";
 import { afterEach, expect, it } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
 import { ArtifactServer } from "../../src/artifacts/ArtifactServer.js";
 import { createLocalResourcePathPolicy } from "../../src/routes/local-resource-policy.js";
+import { attachUnifiedUpgradeHandler } from "../../src/frontend/proxy.js";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -35,10 +37,15 @@ async function setup() {
     }),
   );
   await artifacts.ready;
-  const listener = createServer();
-  listener.on("upgrade", (req, socket, head) =>
-    artifacts.handleUpgrade(req, socket, head),
-  );
+  const listener = createAdaptorServer({
+    fetch: () => new Response(null, { status: 404 }),
+    websocket: { server: new WebSocketServer({ noServer: true }) },
+  });
+  attachUnifiedUpgradeHandler(listener, {
+    isApiPath: (path) => path.startsWith("/api"),
+    appUpgrade: (req, socket, head) =>
+      artifacts.handleUpgrade(req, socket, head),
+  });
   await new Promise<void>((resolve) =>
     listener.listen(0, "127.0.0.1", resolve),
   );
@@ -47,7 +54,7 @@ async function setup() {
     for (const client of wss.clients) client.terminate();
     await Promise.all(
       [upstream, listener].map(
-        (server: Server) =>
+        (server) =>
           new Promise<void>((resolve) => server.close(() => resolve())),
       ),
     );

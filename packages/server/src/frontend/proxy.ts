@@ -17,6 +17,7 @@ import { isProxyDebugEnabled } from "../maintenance/index.js";
 import {
   isArtifactHost,
   isArtifactOrigin,
+  isVhostHost,
 } from "../middleware/allowed-hosts.js";
 
 /** Counter for tracking connections */
@@ -323,14 +324,13 @@ export function attachUnifiedUpgradeHandler(
   server.removeListener("upgrade", honoUpgrade);
 
   server.on("upgrade", (req, socket, head) => {
-    if (isArtifactHost(req.headers.host) && options.appUpgrade) {
+    const appHost =
+      isArtifactHost(req.headers.host) || isVhostHost(req.headers.host);
+    if (appHost && options.appUpgrade) {
       options.appUpgrade(req, socket, head);
       return;
     }
-    if (
-      isArtifactHost(req.headers.host) ||
-      isArtifactOrigin(req.headers.origin)
-    ) {
+    if (appHost || isArtifactOrigin(req.headers.origin)) {
       socket.end(
         "HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
       );
