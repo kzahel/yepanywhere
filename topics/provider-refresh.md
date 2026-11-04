@@ -257,6 +257,9 @@ older installs may continue to work when YA does not need newer protocol fields,
 and version-sensitive behavior should be capability- or version-gated where
 possible ([provider-version-support](provider-version-support.md)).
 
+Recheck, 2026-11-04: installed Codex is still `0.166.0`, npm `latest`, and
+`pnpm codex:protocol:check` reports no drift. Nothing to refresh.
+
 Current source refresh, 2026-10-29 (0.166.0):
 
 - Installed Codex is `codex-cli 0.166.0`, which is npm `latest`; the
@@ -1336,7 +1339,41 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-10-28 (Claude Code 2.1.312 / SDK 0.3.312):
+Current source refresh, 2026-11-04 (Claude Code 2.1.318 / SDK 0.3.318):
+
+- The SDK and matching native packages advance from 0.3.312 to 0.3.318;
+  the bundled Linux executable reports Claude Code 2.1.318, ahead of the
+  standalone 2.1.314 install. Compatibility markers advance together.
+- The declaration delta is additive for YA: a `system/session_writes_lost`
+  message (transcript or `~/.claude.json` writes lost to ENOSPC/EDQUOT,
+  sent once at exit), `pending_elicitation_requests` on initialize,
+  `onFailure: 'continue' | 'block'` on hook matchers with an initialize
+  `hook_on_failure_supported` flag, `credential_expires_at` on results,
+  `lossy` on file reads, startup failure reasons
+  `sandbox_required_unavailable`, `initialize_not_first` and
+  `config_file_invalid`, `blockWritesOutsideWorkingDirectories` and
+  related permission settings, and a `prewarm` export from `core`.
+  `still_queued` now also lists messages read but not yet queued. YA's
+  only hook is a `Stop` callback, where `onFailure` is ignored.
+- The Read tool output drops its `file_unchanged` variant, and the
+  2.1.318 executable no longer contains the string. YA's Read renderer
+  keeps accepting it for older transcripts. Other tool-output additions
+  (`timedOut` on Glob/Grep, task `description`, artifact paging) are
+  unused.
+- YA's system-message projection skips unknown subtypes, so
+  `session_writes_lost` is currently not shown. Surfacing it as a warning
+  is an open product decision.
+- A no-turn handshake against each bundled executable returns the same 13
+  model rows, with identical names and efforts, and the same 55 commands
+  for 0.3.312 and 0.3.318. `/goal` and `/loop` remain native. The 14
+  Claude provider test files (150 tests), transcript-schema tests (26),
+  and server type checking pass.
+- No assistant turn ran and no 2.1.318 transcript exists locally, so
+  authenticated generation and persisted-schema coverage are not
+  established. Existing provider-host workers must restart to adopt the
+  update.
+
+Previous source refresh, 2026-10-28 (Claude Code 2.1.312 / SDK 0.3.312):
 
 - The SDK and matching native packages advance from 0.3.309 to 0.3.312;
   the bundled Linux executable and the standalone install both report
@@ -2262,9 +2299,9 @@ The server package currently pins provider-adjacent packages as follows:
 
 | package | current/wanted | latest observed | role |
 |---|---:|---:|---|
-| `@anthropic-ai/claude-agent-sdk` | `0.3.306` | `0.3.306` | Active Claude provider dependency |
+| `@anthropic-ai/claude-agent-sdk` | `0.3.318` | `0.3.318` | Active Claude provider dependency |
 | `@agentclientprotocol/sdk` | `0.12.0` | `1.9.0` | Active ACP client dependency for Grok/Gemini |
 
-Claude SDK observed 2026-10-21; ACP SDK observed 2026-10-16.
+Claude SDK observed 2026-11-04; ACP SDK observed 2026-10-16.
 
 Treat both rows as provider-refresh inputs.
