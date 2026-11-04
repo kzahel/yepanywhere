@@ -245,6 +245,34 @@ function systemLocalCommandDetails(msg: Message): string[] | undefined {
   return text.length > 0 ? text : undefined;
 }
 
+/** Claude Code's exit notice that writes failed (ENOSPC/EDQUOT). `lost` and
+ * `error_code` are open sets upstream, so unknown values are named as-is. */
+function sessionWritesLostContent(msg: Message): string {
+  const { error_code: code, lost } = msg as {
+    error_code?: unknown;
+    lost?: unknown;
+  };
+  const reason =
+    code === "ENOSPC"
+      ? "the disk was full"
+      : code === "EDQUOT"
+        ? "the disk quota was used up"
+        : typeof code === "string"
+          ? code
+          : "a write error";
+  const parts = (Array.isArray(lost) ? lost : []).map((item) =>
+    item === "transcript"
+      ? "Part of the session transcript was not saved, so resuming may miss part of the conversation."
+      : item === "global_config"
+        ? "Settings changes to ~/.claude.json were not saved."
+        : `${String(item)} was not saved.`,
+  );
+  return [
+    `Claude Code could not write to disk: ${reason}.`,
+    ...(parts.length > 0 ? parts : ["Session data was not saved."]),
+  ].join(" ");
+}
+
 function compactMetadataDetail(msg: Message): string | null {
   const metadata = (msg as { compactMetadata?: unknown }).compactMetadata;
   if (!isRecord(metadata)) {
@@ -455,6 +483,17 @@ function processMessage(
           isSubagent: msg.isSubagent,
         });
       }
+      return;
+    }
+    if (subtype === "session_writes_lost") {
+      items.push({
+        type: "system",
+        id: msgId,
+        subtype: "warning",
+        content: sessionWritesLostContent(msg),
+        sourceMessages: [msg],
+        isSubagent: msg.isSubagent,
+      });
       return;
     }
     if (subtype === "local_command") {

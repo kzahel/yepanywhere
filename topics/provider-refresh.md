@@ -1379,9 +1379,9 @@ Current source refresh, 2026-11-04 (Claude Code 2.1.318 / SDK 0.3.318):
   keeps accepting it for older transcripts. Other tool-output additions
   (`timedOut` on Glob/Grep, task `description`, artifact paging) are
   unused.
-- YA's system-message projection skips unknown subtypes, so
-  `session_writes_lost` is currently not shown. Surfacing it as a warning
-  is an open product decision.
+- YA projects `session_writes_lost` as a warning row naming the cause
+  and what was not saved (user direction, 2026-11-04); other unknown
+  system subtypes are still skipped.
 - A no-turn handshake against each bundled executable returns the same 13
   model rows, with identical names and efforts, and the same 55 commands
   for 0.3.312 and 0.3.318. `/goal` and `/loop` remain native. The 14
