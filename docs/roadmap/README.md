@@ -176,8 +176,10 @@ publication: credential-free production startup, real Claude/Codex tool and
 stream round trips against local scripted models, and history after a server
 restart. It publishes the exact accepted tarball with a checked version/hash;
 the reusable job also covers relevant PRs. Local macOS full-gate and Linux
-startup-regression checks pass; hosted Linux provider acceptance awaits its
-first workflow run. See
+startup-regression checks pass. The first complete
+[hosted Linux x64 acceptance](https://github.com/kzahel/yepanywhere/actions/runs/41796036263)
+passes on `1e2371350`, including both real CLI paths and archive verification.
+See
 [the acceptance contract](../../topics/native-provider-testing.md#installed-npm-package-acceptance)
 for its qualification limits. Visual release goldens remain separate follow-up
 work.

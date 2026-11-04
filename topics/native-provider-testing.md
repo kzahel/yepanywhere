@@ -180,8 +180,14 @@ Node 24.22.1, npm-resolved Claude SDK 0.3.318 / CLI 2.1.318 and pinned Codex
 and build. A separate Linux arm64 / Node 24.22.1 clean-install startup check
 accepts the same candidate and rejects published 0.9.2 specifically for
 `providerHostDegraded: true`; no owned server/Node process remains after either
-case. Full hosted Linux x64 provider acceptance awaits the first workflow run;
-these local results do not establish that platform's native pass.
+case. The complete hosted Linux x64 gate also passes in
+[acceptance run 41796036263](https://github.com/kzahel/yepanywhere/actions/runs/41796036263)
+on source `1e2371350`, Node 22.23.4, the same Claude SDK/CLI versions and
+Codex 0.166.0. Its job takes 2m49s including setup/build/install; the production
+startup and provider scenarios take 9.44 seconds. The retained tarball's version,
+source revision and SHA-256 were independently verified after download. This
+qualifies the installed-package scenarios above, not the full all-provider
+native matrix or paid inference.
 
 ## Isolation and lifecycle
 
