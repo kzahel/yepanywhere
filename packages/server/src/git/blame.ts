@@ -6,6 +6,7 @@ import { createLruMap, refreshLruMap } from "../lib/lruCollections.js";
 import type { ProjectStoragePolicy } from "../projects/projectStoragePolicy.js";
 import { getGitAuthorIdentity, getGitAuthorPalette } from "./authorPalette.js";
 import { GIT_DECODE_PATHS_ARGS, runGit } from "./gitExec.js";
+import { readHeadSha } from "./headSha.js";
 
 /**
  * Whole-file `git blame` for the all-files provenance browser (topic:
@@ -20,8 +21,8 @@ import { GIT_DECODE_PATHS_ARGS, runGit } from "./gitExec.js";
  * file is instant (first view pays git blame + highlight, 50-500ms measured).
  * A blame of an explicit commit is a pure function of (commit, path) and needs
  * no validation; a working-tree blame drifts, so its entry is validated by
- * (file mtime, size, HEAD sha) — one stat + one rev-parse per hit — and any
- * commit or file edit invalidates it naturally. Entries hold the *final*
+ * (file mtime, size, HEAD sha) — a stat plus a few ref-file reads per hit, no
+ * git process (`readHeadSha`) — and any commit or file edit invalidates it. Entries hold the *final*
  * result (truncated lines + highlight), so the cache, not the raw parse,
  * bounds memory.
  */
@@ -156,12 +157,11 @@ async function worktreeValidator(
   path: string,
 ): Promise<string | null> {
   try {
-    const [fileStat, head] = await Promise.all([
+    const [fileStat, headSha] = await Promise.all([
       stat(join(cwd, path)),
-      runGit(cwd, ["rev-parse", "HEAD"]),
+      readHeadSha(cwd),
     ]);
-    const headSha = head.stdout.trim();
-    if (!/^[0-9a-f]{40,64}$/i.test(headSha)) return null;
+    if (!headSha) return null;
     return `${fileStat.mtimeMs}:${fileStat.size}:${headSha}`;
   } catch {
     return null;

@@ -17,6 +17,7 @@ import {
 } from "../git/diffPreviewGuards.js";
 import { readGitDiffFileChanges } from "../git/fileChanges.js";
 import { GIT_DECODE_PATHS_ARGS, runGit, runGitBytes } from "../git/gitExec.js";
+import { readHeadSha } from "../git/headSha.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import {
   repositoryFilePathIfExists,
@@ -331,7 +332,33 @@ async function showAt(
   return stdout;
 }
 
-async function resolveCommit(cwd: string, revision: string) {
+/** A commit's first parent never changes; bounded by distinct HEADs seen. */
+const firstParentByHead = new Map<string, Promise<string | null>>();
+const FIRST_PARENT_CACHE_MAX = 256;
+
+async function resolveCommit(
+  cwd: string,
+  revision: string,
+): Promise<string | null> {
+  // The manifest asks for HEAD and HEAD^1 on every read; neither needs a
+  // git process while HEAD stays put.
+  if (revision === "HEAD" || revision === "HEAD^1") {
+    const head = await readHeadSha(cwd).catch(() => null);
+    if (!head || revision === "HEAD") return head;
+    const key = `${cwd}\0${head}`;
+    let parent = firstParentByHead.get(key);
+    if (!parent) {
+      parent = resolveCommitWithGit(cwd, `${head}^1`);
+      if (firstParentByHead.size >= FIRST_PARENT_CACHE_MAX)
+        firstParentByHead.delete(firstParentByHead.keys().next().value ?? "");
+      firstParentByHead.set(key, parent);
+    }
+    return parent;
+  }
+  return resolveCommitWithGit(cwd, revision);
+}
+
+async function resolveCommitWithGit(cwd: string, revision: string) {
   try {
     const { stdout } = await runGit(cwd, [
       "rev-parse",

@@ -2,6 +2,7 @@ import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { getDataDir } from "../config.js";
 import { ProjectStoragePolicy } from "../projects/projectStoragePolicy.js";
 import { runGit } from "./gitExec.js";
+import { readHeadSha } from "./headSha.js";
 
 const PALETTE_VERSION = 1;
 const GIT_AUTHOR_PALETTE_FILE = "git-author-palette.json";
@@ -55,10 +56,20 @@ export function getGitAuthorPalette(
   return refresh;
 }
 
+/**
+ * Load a project's palette ahead of its first blame. Project reads call this
+ * on every poll, so once a palette is loaded the warm does nothing: blame's
+ * own `getGitAuthorPalette` call still advances it to the current HEAD.
+ */
 export async function warmGitAuthorPalette(
   projectPath: string,
   storagePolicy: ProjectStoragePolicy = defaultStoragePolicy,
 ): Promise<void> {
+  const cacheKey = storagePolicy.writePath(
+    projectPath,
+    GIT_AUTHOR_PALETTE_FILE,
+  );
+  if (loaded.has(cacheKey)) return;
   await getGitAuthorPalette(projectPath, storagePolicy);
 }
 
@@ -68,7 +79,7 @@ export async function warmGitAuthorPalette(
  */
 export async function settleGitAuthorPaletteRefreshes(): Promise<void> {
   while (inFlight.size > 0) {
-    await Promise.allSettled([...inFlight.values()]);
+    await Promise.allSettled(inFlight.values());
   }
 }
 
@@ -254,15 +265,8 @@ export function chooseAuthorColorSeed(
 }
 
 async function getHead(projectPath: string): Promise<string> {
-  const { stdout } = await runGit(
-    projectPath,
-    ["rev-parse", "--verify", "HEAD"],
-    { timeout: AUTHOR_LOG_TIMEOUT_MS },
-  );
-  const head = stdout.trim();
-  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(head)) {
-    throw new Error("Git HEAD did not resolve to a full commit id");
-  }
+  const head = await readHeadSha(projectPath);
+  if (!head) throw new Error("Git HEAD did not resolve to a commit");
   return head;
 }
 
