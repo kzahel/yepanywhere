@@ -12,9 +12,14 @@ describe.each(providers)("native retry: %s", (provider) => {
   // GenAI backoff and Grok startup/retry hit 5s locally (Grok under the
   // full-workspace/all-provider run); retain 2x that observed bound.
   it("retries original input after a controlled rate limit and persists the reply", {
-    timeout: ["antigravity", "gemini-acp", "grok"].includes(provider)
-      ? 10_000
-      : 5_000,
+    // Antigravity's real GenAI retry/backoff plus startup exhausted 10s in
+    // the concurrent workspace/native run (2026-11-04); retain 2x that bound.
+    timeout:
+      provider === "antigravity"
+        ? 20_000
+        : ["gemini-acp", "grok"].includes(provider)
+          ? 10_000
+          : 5_000,
   }, async () => {
     const f = await nativeFixture(provider);
     fixture = f;

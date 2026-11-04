@@ -3522,6 +3522,9 @@ export class CodexProvider implements AgentProvider {
             observedTurnId !== currentActiveTurnId &&
             queuedBeforeTurnStart
           ) {
+            // thread/resume normally replays the last turn's usage. It is not
+            // stale live activity and needs no warning or active-id repair.
+            if (notification.method === "thread/tokenUsage/updated") continue;
             const queueAgeMs = Math.max(
               0,
               Date.now() - notificationReceipt.receivedAtMs,
