@@ -76,6 +76,7 @@ import {
 import { ProjectGlossarySubscriptionManager } from "./projects/projectGlossarySubscriptionManager.js";
 import { ProjectWorktreeSubscriptionManager } from "./projects/projectWorktreeSubscriptionManager.js";
 import { projectPathCacheDiagnostics } from "./projects/projectPathIndex.js";
+import { GROK_SESSIONS_DIR } from "./projects/paths.js";
 import { ProjectStoragePolicy } from "./projects/projectStoragePolicy.js";
 import { PushService, getOrCreateVapidKeys } from "./push/index.js";
 import { RecentsService } from "./recents/index.js";
@@ -610,6 +611,13 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
       watchDir: config.piSessionsDir,
       provider: "pi",
       debounceMs: 200,
+    },
+    {
+      family: "grok",
+      provider: "grok",
+      watchDir: GROK_SESSIONS_DIR,
+      debounceMs: 200,
+      internalOnly: true,
     },
   ],
 });
@@ -1191,6 +1199,8 @@ async function startServer() {
     // Note: uploadeWebSocket not passed yet - will be added below
     subscribeProviderObservationReady: (listener) =>
       providerSessionWatchers.subscribeReady(listener),
+    subscribeNativeProviderFileChanges: (listener) =>
+      providerSessionWatchers.subscribeNativeChanges(listener),
     notificationService,
     sessionMetadataService,
     onSuccessfulProviderSession: async (_sessionId, provider) => {

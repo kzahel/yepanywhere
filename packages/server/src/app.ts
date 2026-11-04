@@ -470,6 +470,9 @@ export interface AppOptions {
   subscribeProviderObservationReady?: (
     listener: (family: ProviderCatalogFamily) => void,
   ) => () => void;
+  subscribeNativeProviderFileChanges?: (
+    listener: (event: import("./watcher/EventBus.js").FileChangeEvent) => void,
+  ) => () => void;
   /** WebSocket upgrader from @hono/node-server (optional) */
   upgradeWebSocket?: UploadDeps["upgradeWebSocket"];
   /** NotificationService for tracking session read state */
@@ -1649,6 +1652,10 @@ export function createApp(options: AppOptions): AppResult {
     options.subscribeProviderObservationReady?.((family) =>
       providerChildRelationships.observationReady(family),
     );
+  const unsubscribeNativeProviderFileChanges =
+    options.subscribeNativeProviderFileChanges?.((event) =>
+      providerChildRelationships.notifyNativeFileChange(event),
+    );
   const projectFileCompletion = new ProjectFileCompletion(effectiveDataDir, {
     eventBus: options.eventBus,
   });
@@ -1811,6 +1818,7 @@ export function createApp(options: AppOptions): AppResult {
       sessionReadLifetime.abort();
       unsubscribeProviderChildChanges?.();
       unsubscribeProviderObservationReady?.();
+      unsubscribeNativeProviderFileChanges?.();
       await providerChildRelationships.close();
       await relationshipReconciliation;
       unsubscribeCreationStatus?.();

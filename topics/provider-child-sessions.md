@@ -14,7 +14,7 @@ Related topics: [provider-session-tree](provider-session-tree.md),
 The [durable relationship contract](session-relationships.md) selects a shared
 SQL model coordinating native children, trusted v0 creator links, forks,
 `/btw` and other relationships. [Plan 176](../docs/tactical/176-durable-session-relationships.md)
-tracks migrated sources and remaining qualification. Claude and Codex application reads
+tracks migrated sources and remaining qualification. Claude, Codex and Grok application reads
 use this durable model; retained provider paths are described below.
 
 ## Identity contract
@@ -78,6 +78,14 @@ directory under the same encoded cwd. `child_session_id` equals `subagent_id`.
 `getAgentSession` replays the child's `updates.jsonl`. Those child ids are
 excluded from Grok top-level `listSessions` / `listSessionFiles`. Fork
 `parent_session_id` on `summary.json` is not a subagent link.
+
+Grok application enrichment uses the durable SQL source. Its explicit sidecar
+parent/child ids must agree with the physical parent's canonical native header;
+failed, oversized or copied mismatching metadata never establishes an empty
+set or a new parent. The [Grok owner](grok.md#native-source-identity-and-observation)
+defines its bounded acquisition and internal watcher channel. Existing legacy
+top-level child exclusion still has its native metadata reader; migrating that
+consumer is separate from nonblocking enrichment.
 
 ## Presentation contract
 
@@ -158,7 +166,7 @@ parse. Child creation may invalidate the bounded child projection. An append
 with no child lifecycle record must cost at most incremental append inspection,
 not a replay from byte zero.
 
-Claude and Codex application detail, metadata, incremental catch-up and older pagination
+Claude, Codex and Grok application detail, metadata, incremental catch-up and older pagination
 read accepted profile SQLite facts without awaiting native acquisition. Unknown
 or partial-empty observations omit enrichment; an accepted empty observation
 returns `[]`. Known facts survive restart, missing native files and failed

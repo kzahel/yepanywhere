@@ -34,6 +34,7 @@ export type WatchProvider =
   | "gemini"
   | "codex"
   | "pi"
+  | "grok"
   | "antigravity";
 
 export interface FileChangeEvent {

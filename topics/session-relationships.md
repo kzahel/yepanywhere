@@ -23,7 +23,7 @@ Related owners:
 Retained provider adapters wait for fresh child discovery before returning
 messages. A compact-tail bound cannot bound that independent work. The former
 Codex process-local projection also lost facts on restart and could consult the
-broader listing to find a selected parent. Claude and Codex application reads now use the
+broader listing to find a selected parent. Claude, Codex and Grok application reads now use the
 durable nonblocking path below; plan 176 tracks the remaining adapters.
 
 Meanwhile, durable relationships already have several owners:

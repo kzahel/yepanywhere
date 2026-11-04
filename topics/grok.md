@@ -15,10 +15,11 @@ and architecture-mandates.md.
 Dated probes, version-by-version refresh notes, and implementation chronology
 live in [`grok.evidence.md`](grok.evidence.md).
 
-## Current contract (1.0.4)
+## Current contract
 
-Installed `grok 1.0.4` is the current local target.
-`yepAnywhere.grokCli.compatibleThroughVersion` records that version.
+The audited-through target is Grok 1.0.70, recorded by
+`yepAnywhere.grokCli.compatibleThroughVersion` and the native fixture pin.
+Older dated probes remain evidence for their explicitly named versions.
 
 **ACP is the embedding path.** YA launches
 `grok agent [--effort] [-m] --no-leader stdio` through the existing
@@ -149,6 +150,42 @@ Parent-scoped child reads require the parent's native subagent metadata and
 matching parent/child handles. A proven child created after discovery was
 cached may be read by one exact sibling lookup; an arbitrary same-project
 session is not a child. Child handles retain the existing nested route shape.
+
+Application child enrichment reads accepted profile SQLite facts immediately,
+independently of native acquisition. The native source checks the exact physical
+root, parent summary identity/project and each sidecar's explicit parent/child
+ids. A directory spelling alone cannot substitute another canonical id.
+Copied sidecars naming a different parent are partial evidence, not children of
+the fork. Missing sources and failed reads preserve previously accepted facts.
+An existing proved parent without a subagents directory can establish emptiness.
+Self-referential sidecars stay partial without blocking valid siblings; ordinary
+non-directory files are ignored. Older sidecars missing a structural id or
+naming only a legacy parent-directory spelling remain partial. The retained
+inline reader has its older tolerant behavior; this source qualifies 1.0.70.
+
+Acquisition reads bounded parent summaries and sidecars, never transcript
+bodies. Each JSON record has a 1 MiB limit; larger, unreadable or malformed
+records remain unavailable/partial, with known facts retained. Grok's sidecar
+contains the entire delegated prompt. SQL retains only structural ids and
+bounded descriptions/types, excluding the prompt, attempt id and child cwd.
+Child resources use the canonical global native sessions root, matching Grok's
+existing binding; they are not promoted into top-level YA sessions.
+
+One eligible global watcher feeds the bounded relationship coordinator through
+an internal registry channel. Raw Grok file events do not extend the client
+activity wire. The existing optional child projection and metadata-change event
+carry accepted updates. Watcher baseline handover closes deferred-start gaps;
+file/root aliases are re-proved before use. Child body changes stat activity
+without replay, structural SQL writes or metadata broadcasts. Relative or
+escaped child locations do not grant an activity read outside the native store.
+Explicit detail demand also reconciles roots outside the configured watcher.
+A failed first header observation owns a lexical event candidate, so later
+native persistence can recover it without another request. The candidate grants
+no proof. Metadata-corrected child locations replace activity locators even when
+the new file is backdated; invalid locations retain known facts and historical
+timestamps while dropping the stale locator.
+Other legacy catalog/child-exclusion readers remain tracked in
+[plan 176](../docs/tactical/176-durable-session-relationships.md).
 
 Image/video source permission follows the bound native session's actual
 `images/` and `videos/` directories. It does not reconstruct a path from the YA

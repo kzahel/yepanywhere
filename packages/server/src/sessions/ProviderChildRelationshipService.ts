@@ -456,7 +456,10 @@ export class ProviderChildRelationshipService {
           const promise = Promise.resolve()
             .then(async () => {
               let event = pending.event;
-              if (event.provider === "claude" && event.nativeStorageScope) {
+              if (
+                ["claude", "grok"].includes(event.provider) &&
+                event.nativeStorageScope
+              ) {
                 const suffix = relative(event.nativeStorageScope, event.path);
                 if (
                   suffix === ".." ||
@@ -469,6 +472,8 @@ export class ProviderChildRelationshipService {
                 );
                 if (
                   !root ||
+                  (event.provider === "grok" &&
+                    root !== work.native.storageScope) ||
                   this.retired ||
                   this.sources.get(pending.key)?.source !== pending.source
                 )

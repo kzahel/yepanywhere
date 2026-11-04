@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
 import { FileWatcher, type FileWatcherOptions } from "./FileWatcher.js";
+import { EventBus, type FileChangeEvent } from "./EventBus.js";
 
 type ManagedFileWatcher = Pick<FileWatcher, "start" | "stop"> &
   Partial<
@@ -10,6 +11,8 @@ type ManagedFileWatcher = Pick<FileWatcher, "start" | "stop"> &
 export interface ProviderSessionWatcherSpec
   extends Omit<FileWatcherOptions, "eventBus" | "onInitialBaseline"> {
   family: ProviderCatalogFamily;
+  /** New native acquisition sources need not extend the client activity wire. */
+  internalOnly?: boolean;
 }
 
 export interface ProviderSessionWatcherRegistryMetrics {
@@ -37,6 +40,7 @@ export interface ProviderSessionWatcherRegistryOptions {
  */
 export class ProviderSessionWatcherRegistry {
   private readonly eventBus: FileWatcherOptions["eventBus"];
+  private readonly nativeEvents = new EventBus();
   private readonly specs = new Map<
     ProviderCatalogFamily,
     ProviderSessionWatcherSpec
@@ -95,6 +99,14 @@ export class ProviderSessionWatcherRegistry {
     };
   }
 
+  subscribeNativeChanges(
+    listener: (event: FileChangeEvent) => void,
+  ): () => void {
+    return this.nativeEvents.subscribe((event) => {
+      if (event.type === "file-change") listener(event);
+    });
+  }
+
   requestActivation(families: Iterable<ProviderCatalogFamily>): void {
     this.activationQueueRequests += 1;
     for (const family of families) {
@@ -117,11 +129,11 @@ export class ProviderSessionWatcherRegistry {
       return;
     }
 
-    const { family: _family, ...watcherOptions } = spec;
+    const { family: _family, internalOnly, ...watcherOptions } = spec;
     const generation = this.generation;
     const watcher = this.createWatcher({
       ...watcherOptions,
-      eventBus: this.eventBus,
+      eventBus: internalOnly ? this.nativeEvents : this.eventBus,
       onInitialBaseline: () => {
         if (
           generation !== this.generation ||

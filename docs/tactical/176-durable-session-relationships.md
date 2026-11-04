@@ -62,6 +62,31 @@ no wire capability and changes no access grants.
 
 ## Progress
 
+- Grok child SQL integration is implemented and independently reviewed.
+  The source proves canonical parent identity, project/root and explicit native
+  sidecar links without reading transcript bodies. Native JSON records are
+  bounded to 1 MiB; malformed/oversized data is partial and preserves accepted
+  facts. SQL whitelists structural/display fields and excludes delegated prompts,
+  child cwd and attempt ids. The existing reader cache supplies only a locator;
+  missing locators use a direct native-id path or finite bounded-header legacy
+  lookup outside requests. An internal global watcher channel avoids new wire
+  events and shares the existing bounded acquisition coordinator. Actual Grok
+  1.0.70 spawn, independent native metadata/child identity, production child
+  content and SQL reopen pass without inference. Seven real filesystem/SQLite
+  cases cover source loss, partial/mismatching data, legacy directory spellings,
+  root rebinds, corrected locators, activity and private watcher delivery. Node
+  and Bun desktop/phone late updates and sequential typing pass locally (under
+  22 ms), preserving messages/DOM/draft. Opus accepts the corrected source,
+  including corrupt self-reference isolation and late-first-persistence recovery.
+  Final root gates pass: 7,026 server tests, 7,110 client tests and 952 shared
+  tests. Seven filesystem/SQL cases take approximately 0.33 seconds; the six
+  actual native child launch variants pass in 8.24 seconds test work / 11.81
+  seconds wall time while the workspace suite runs. Node 22/24 and Bun 1.3.14
+  qualify 206-child SQL/reopen, a real private watcher and activity without SQL,
+  Unicode cwd and prompt omission under the 64-statement ceiling. Cross-cwd
+  native child navigation/exclusion and retained native catalog consumers are
+  not qualified by the default-cwd scenario.
+
 - Claude native-child SQL integration is implemented and independently reviewed.
   Exact physical parent directories and bounded sidecars establish structure;
   missing enrichment preserves known anchors, source failure preserves history,
@@ -302,3 +327,11 @@ deleted, took 8.8–10.5 ms. These are full child projections, not generic
 100-edge page timings. Automatic host samples recorded up to 1.15 load per
 effective CPU while the workspace suite ran; CPU/swap counters were unavailable.
 They are local diagnostics, not portable performance gates.
+
+Grok source diagnostics use 205 initial sidecars with 112,500 bytes of delegated
+prompt each (about 22 MiB of prompt data), plus one late child. The prompts
+are transient parse input and do not enter SQL. On this macOS host, final
+Node 22/24 and Bun runs acquire the first 205 children in 40–77 ms;
+full 206-child SQL projections take 5.9–7.2 ms median of 25 reads. SQL reopen
+with native files deleted takes 6.5–8.2 ms. Automatic host evidence is retained
+with the ignored raw results; these local observations are not portable ceilings.

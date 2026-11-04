@@ -559,7 +559,7 @@ export class FileWatcher {
       provider: this.provider,
       path: fullPath,
       relativePath,
-      ...(["claude", "codex"].includes(this.provider)
+      ...(["claude", "codex", "grok"].includes(this.provider)
         ? { nativeStorageScope: this.watchDir }
         : {}),
       changeType,
@@ -885,6 +885,18 @@ export class FileWatcher {
         return this.parseCodexFileType(relativePath);
       case "pi":
         return this.parsePiFileType(relativePath);
+      case "grok": {
+        const parts = relativePath.split(path.sep);
+        if (parts.includes("subagents")) return "agent-session";
+        return [
+          "summary.json",
+          "updates.jsonl",
+          "chat_history.jsonl",
+          "events.jsonl",
+        ].includes(path.basename(relativePath))
+          ? "session"
+          : "other";
+      }
       case "antigravity":
         return /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(?:meta|db(?:-wal)?)$/i.test(
           relativePath,

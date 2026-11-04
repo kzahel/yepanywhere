@@ -43,6 +43,8 @@ import type {
   LoadedSession,
 } from "./types.js";
 import { sortProviderChildSessions } from "./types.js";
+import { createGrokChildSource } from "./grok-child-source.js";
+import type { NativeSessionRef } from "@yep-anywhere/shared";
 import {
   GROK_SESSIONS_DIR,
   canonicalizeProjectPath,
@@ -103,6 +105,7 @@ interface GrokStoredSummary {
 
 export class GrokSessionReader implements ISessionReader {
   private closed = false;
+  private readonly retirementListeners = new Set<() => void>();
   private sessionsDir: string;
   private projectPath?: string;
   private projectIdentityKey?: string;
@@ -847,6 +850,24 @@ export class GrokSessionReader implements ISessionReader {
     );
   }
 
+  getProviderChildSource(parent: NativeSessionRef) {
+    if (parent.family !== "grok") return undefined;
+    return createGrokChildSource({
+      owner: this,
+      parent,
+      root: this.sessionsDir,
+      projectPath: this.projectPath,
+      knownParentPath: () => this.sessionCache.get(parent.id)?.summaryPath,
+      isRetired: () => this.closed,
+      onRetire: (listener) => {
+        this.retirementListeners.add(listener);
+        return () => {
+          this.retirementListeners.delete(listener);
+        };
+      },
+    });
+  }
+
   async getSessionFilePath(sessionId: string): Promise<string | null> {
     const info = this.findSessionInfo(await this.scanSessions(), sessionId);
     if (this.closed || !info) return null;
@@ -907,6 +928,8 @@ export class GrokSessionReader implements ISessionReader {
 
   close(): void {
     this.closed = true;
+    for (const listener of this.retirementListeners) listener();
+    this.retirementListeners.clear();
     this.sessionCache.clear();
   }
 
