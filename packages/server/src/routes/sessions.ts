@@ -2694,7 +2694,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         options?.tailCompactions !== undefined &&
         source.provider === "codex" &&
         deps.sessionIndexService
-          ? await deps.sessionIndexService.getCachedSessionSummary(
+          ? ((await deps.sessionIndexService.getCachedSessionSummary(
               source.sessionDir,
               projectId,
               legacy.nativeSessionId,
@@ -2705,7 +2705,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
               // and normalizing the whole file. The reader takes only
               // head-derived fields from this hint and reads the tail itself.
               { acceptAppendedFile: true },
-            )
+            )) ??
+            (await deps.sessionIndexService.getSessionSummaryWithCache?.(
+              source.sessionDir,
+              projectId,
+              legacy.nativeSessionId,
+              source.reader,
+            )))
           : null;
       const loaded = await source.reader.getSession(
         legacy.nativeSessionId,

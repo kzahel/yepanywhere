@@ -663,6 +663,7 @@ const sessionQueuePersistenceService = new SessionQueuePersistenceService({
 });
 const sessionDiscoveryIndexRegistry = new SessionDiscoveryIndexRegistry();
 const sessionIndexService = new SessionIndexService({
+  database: discoverySqlite.getDatabase(),
   projectsDir: config.claudeProjectsDir,
   dataDir: path.join(config.dataDir, "indexes"),
   fullValidationIntervalMs: config.sessionIndexFullValidationMs,

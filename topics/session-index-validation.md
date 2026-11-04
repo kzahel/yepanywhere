@@ -21,8 +21,27 @@ See also:
 
 ## Validation paths
 
-`SessionIndexService` keeps one persisted index per (provider, project) scope
-(`{dataDir}/indexes/*.json`) and revalidates it two ways:
+`SessionIndexService` persists provider summaries in the required
+`{dataDir}/discovery.sqlite`, keyed by native store/project scope and native
+session id. Summaries survive restarts without a retention TTL. Existing
+`{dataDir}/indexes/*.json` scopes import lazily and atomically on first use;
+already-imported scopes never read those legacy files again. Import does not
+delete or rewrite the legacy file, preserving a rollback copy. No transcript
+scan or fleet-wide backfill runs inside schema migration or at startup.
+
+Selected-session cached-summary reads use an indexed SQL row lookup without
+loading other summaries in that scope into RAM. Complete scope/list consumers
+still share one bounded in-memory index owner. A publication writes only changed
+rows and deletes removed rows in one transaction; empty scopes persist too.
+A single-summary refresh updates only that row and does not scan or serialize
+the other stored summaries.
+
+A first Codex compact-tail open with no reusable durable summary establishes
+the complete summary once through the existing indexed-summary owner. Later
+opens and append-only updates reuse that persisted prefix rather than repeatedly
+falling back to the complete transcript because no summary was ever saved.
+
+The index revalidates changing transcript facts two ways:
 
 - **Incremental** (watcher-driven): dirty sessions go through the reader's
   `getSessionSummaryIfChanged(sessionId, projectId, cachedMtime, cachedSize)`.
@@ -43,7 +62,7 @@ next applicable validation instead of being erased by the older completion.
 The TTL walk is a consistency backstop for missed watcher events, so a
 request must not pay for it in-line. When full validation is due only
 because the TTL lapsed and the scope has a usable index — validated earlier
-this run, or loaded from the persisted `{dataDir}/indexes/*.json` — the
+this run, or loaded from its durable SQL scope — the
 request is served from that index immediately (watcher-flagged dirty
 sessions still get their cheap row-level refresh first) and the walk runs
 in the background. Background walks are deduped per (scope, options)

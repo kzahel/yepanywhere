@@ -44,7 +44,8 @@ export class BoundSessionReads {
       sessionIndexService?: Pick<
         ISessionIndexService,
         "getCachedSessionSummary"
-      >;
+      > &
+        Partial<Pick<ISessionIndexService, "getSessionSummaryWithCache">>;
     },
   ) {}
 
@@ -57,13 +58,19 @@ export class BoundSessionReads {
       input.native.family === "codex" &&
       input.options?.tailCompactions !== undefined &&
       this.deps.sessionIndexService
-        ? await this.deps.sessionIndexService.getCachedSessionSummary(
+        ? ((await this.deps.sessionIndexService.getCachedSessionSummary(
             input.native.storageScope,
             input.projectId,
             input.native.id,
             reader,
             { acceptAppendedFile: true },
-          )
+          )) ??
+          (await this.deps.sessionIndexService.getSessionSummaryWithCache?.(
+            input.native.storageScope,
+            input.projectId,
+            input.native.id,
+            reader,
+          )))
         : null;
     const options = summaryHint
       ? { ...input.options, summaryHint }

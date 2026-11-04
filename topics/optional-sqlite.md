@@ -216,6 +216,12 @@ GitHub status facts and retry timestamps, keyed to existing issue identities.
 It performs no network access or transcript acquisition; rows fill only when
 viewed with the relevant feature enabled.
 
+Version 25 adds provider session-summary scopes and per-session summary rows.
+These cross-session indexes share the required database. Legacy JSON scopes
+import on demand, preserving their files for rollback; migration initialization
+creates only the tables. Indexed selected-session reads do not load the scope's
+other summaries. See [session index validation](session-index-validation.md).
+
 One statically registered, consecutive migration sequence owns `user_version`.
 Historical SQL lives in frozen named modules; released migrations are append-only.
 Do not edit, renumber or reuse them, or import mutable current feature schemas.

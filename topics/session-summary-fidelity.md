@@ -102,6 +102,15 @@ The persisted session-summary index remains a complete-summary cache:
 - serving a lightweight collection must not clear watcher dirty state needed
   by a later complete-summary consumer.
 
+Complete summaries are durable rows in the server's required SQLite database.
+Their retention does not expire. For compact-tail detail reads only, an indexed
+prefix may supply head-derived facts even while a watcher has marked the row
+dirty, provided stat validation proves the file is unchanged or has grown under
+the existing append-only rule. That permission does not clear dirty state,
+advance complete-summary freshness, or publish old counts as newly observed.
+A shrunk file or a same-size file with a changed mtime cannot supply this hint.
+Tail-derived model/context facts are refreshed from the requested source window.
+
 In retained collection mode, acquiring a Codex base row explicitly defers the
 question projection. The catalog publishes base rows first, then reads optional
 previews for non-archived sessions. Exact retained rows need no repeated head

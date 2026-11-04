@@ -9,6 +9,8 @@ import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
+import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
+import { EventBus } from "../../src/watcher/EventBus.js";
 
 describe("session detail compact-tail pagination", () => {
   const projectPath = "/home/user/myproject";
@@ -154,7 +156,13 @@ describe("session detail compact-tail pagination", () => {
         .map((entry) => JSON.stringify(entry))
         .join("\n")}\n`,
     );
+    const database = new DiscoverySqliteService({
+      dataDir: join(testDir, "summary-data"),
+    });
+    const eventBus = new EventBus();
     const index = new SessionIndexService({
+      database: database.getDatabase(),
+      eventBus,
       dataDir: join(testDir, "indexes"),
       projectsDir: testDir,
     });
@@ -170,12 +178,6 @@ describe("session detail compact-tail pagination", () => {
       const reader = readerFactory(project);
       expect(reader).toBeInstanceOf(CodexSessionReader);
       const codex = reader as CodexSessionReader;
-      await index.getSessionSummaryWithCache(
-        codexSessionsDir,
-        projectId,
-        sessionId,
-        codex,
-      );
       const reads = vi.spyOn(
         CodexSessionReader.prototype as unknown as {
           readFileRange(
@@ -196,15 +198,41 @@ describe("session detail compact-tail pagination", () => {
         expect(response.status).toBe(200);
         return response.json();
       };
+      const initial = await request("tailCompactions=2");
+      expect(initial.messages.map((m: { uuid: string }) => m.uuid)).toContain(
+        "msg-3",
+      );
+      expect(
+        await index.getCachedSessionSummary(
+          codexSessionsDir,
+          projectId,
+          sessionId,
+          codex,
+        ),
+      ).not.toBeNull();
+      reads.mockClear();
       const current = await request("afterMessageId=msg-3");
       expect(current.messages).toEqual([]);
       expect(reads.mock.calls.length).toBeGreaterThan(0);
       expect(reads.mock.calls.every(([, start]) => start > 0)).toBe(true);
       await appendFile(sessionPath, `${JSON.stringify(row("appended"))}\n`);
+      eventBus.emit({
+        type: "file-change",
+        provider: "codex",
+        fileType: "session",
+        changeType: "modify",
+        relativePath: `rollout-${sessionId}.jsonl`,
+        path: sessionPath,
+        nativeStorageScope: codexSessionsDir,
+        timestamp: new Date().toISOString(),
+      });
+      reads.mockClear();
       const appended = await request("afterMessageId=msg-3&tailCompactions=1");
       expect(appended.messages.map((m: { uuid: string }) => m.uuid)).toEqual([
         "appended",
       ]);
+      expect(reads.mock.calls.length).toBeGreaterThan(0);
+      expect(reads.mock.calls.every(([, start]) => start > 0)).toBe(true);
       const old = await request("afterMessageId=old");
       expect(old.messages.map((m: { uuid: string }) => m.uuid)).toContain(
         "msg-1",
@@ -217,6 +245,8 @@ describe("session detail compact-tail pagination", () => {
     } finally {
       vi.restoreAllMocks();
       await disposeSessionReaders();
+      index.dispose();
+      database.close();
     }
   });
 

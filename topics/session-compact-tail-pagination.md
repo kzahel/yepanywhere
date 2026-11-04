@@ -100,6 +100,13 @@ seconds, and state how many failures were suppressed.
 
 ### Provider-bounded source windows
 
+For a plain Codex rollout with a durable summary of an unchanged or append-only
+prefix, watcher dirty state alone must not disable the bounded tail read. The
+selected summary is retrieved by its scoped SQL key; serving the detail does
+not require loading the project's other summaries. Source replacement, rewind,
+and reference-backed history retain their existing validation and fallback
+rules.
+
 A provider may omit a known-hidden source prefix before normalization when it
 can preserve a source-backed older-history cursor. A compact-boundary start uses
 the boundary's stable message id. If a turn selector narrows the visible window

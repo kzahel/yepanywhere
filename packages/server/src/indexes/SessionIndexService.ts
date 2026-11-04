@@ -2,8 +2,7 @@
  * SessionIndexService caches session summaries to avoid re-parsing session files.
  * Uses mtime/size for cache invalidation - only re-parses when files change.
  *
- * State is persisted to JSON files for durability across server restarts.
- * Each project's session directory gets its own index file.
+ * Production summaries live in SQLite. Existing JSON scopes are imported lazily.
  *
  * Supports any provider whose reader implements ISessionReader. For providers
  * where session IDs can't be derived from filenames (e.g., Gemini), the reader
@@ -38,6 +37,8 @@ import {
   type SessionDiscoveryIndex,
 } from "./SessionDiscoveryIndex.js";
 import type { ISessionIndexService, SessionIndexListOptions } from "./types.js";
+import type { SqliteDatabase } from "../storage/sqlite.js";
+import { SqliteSessionSummaryIndex } from "./SqliteSessionSummaryIndex.js";
 
 const LOG_CACHE_PERF = process.env.SESSION_INDEX_LOG_PERF === "true";
 const DEFAULT_SUMMARY_PARSE_CONCURRENCY = 1;
@@ -237,6 +238,8 @@ interface SummaryParseTask {
 }
 
 export interface SessionIndexServiceOptions {
+  /** Shared required server database. Standalone index fixtures may use legacy files. */
+  database?: SqliteDatabase;
   /** Directory to store index files (defaults to ~/.yep-anywhere/indexes) */
   dataDir?: string;
   /** Claude projects directory (defaults to ~/.claude/projects) */
@@ -262,14 +265,9 @@ export interface SessionIndexServiceOptions {
   sessionDiscoveryIndexRegistry?: SessionDiscoveryIndexRegistry;
 }
 
-/**
- * Claude-specific session index service.
- *
- * Caches session summaries for Claude Code JSONL files to avoid
- * re-parsing on every request. Currently works with Claude's
- * ~/.claude/projects/ directory structure.
- */
+/** Provider summary validation, durable selected-row reads, and bounded hot scopes. */
 export class SessionIndexService implements ISessionIndexService {
+  private readonly summaryStore?: SqliteSessionSummaryIndex;
   private dataDir: string;
   private projectsDir: string;
   /** Least recently used first; bounded by `maxCacheSize` scopes. */
@@ -327,6 +325,8 @@ export class SessionIndexService implements ISessionIndexService {
   private eventBus: EventBus | null = null;
 
   constructor(options: SessionIndexServiceOptions = {}) {
+    if (options.database)
+      this.summaryStore = new SqliteSessionSummaryIndex(options.database);
     const home = process.env.HOME ?? process.env.USERPROFILE ?? ".";
     this.dataDir =
       options.dataDir ?? path.join(home, ".yep-anywhere", "indexes");
@@ -469,6 +469,16 @@ export class SessionIndexService implements ISessionIndexService {
     projectId: UrlProjectId,
     reader?: ISessionReader,
   ): Promise<SessionIndexState> {
+    const index = await this.loadPersistedIndex(sessionDir, projectId, reader);
+    this.summaryStore?.save(this.getScopeKey(sessionDir, reader), index);
+    return index;
+  }
+
+  private async loadPersistedIndex(
+    sessionDir: string,
+    projectId: UrlProjectId,
+    reader?: ISessionReader,
+  ): Promise<SessionIndexState> {
     const scopeKey = this.getScopeKey(sessionDir, reader);
     const indexPath = this.getIndexPath(sessionDir, reader);
     const cacheKey = scopeKey;
@@ -489,9 +499,13 @@ export class SessionIndexService implements ISessionIndexService {
     );
     */
 
+    const stored = this.summaryStore?.read(scopeKey);
     try {
-      const content = await fs.readFile(indexPath, "utf-8");
-      const parsed = JSON.parse(content) as PersistedSessionIndexState;
+      const parsed =
+        stored ??
+        (JSON.parse(
+          await fs.readFile(indexPath, "utf-8"),
+        ) as PersistedSessionIndexState);
 
       // Validate version and projectId
       if (
@@ -553,6 +567,7 @@ export class SessionIndexService implements ISessionIndexService {
   private async saveIndex(
     sessionDir: string,
     reader?: ISessionReader,
+    sessionId?: string,
   ): Promise<void> {
     const cacheKey = this.getScopeKey(sessionDir, reader);
 
@@ -562,7 +577,7 @@ export class SessionIndexService implements ISessionIndexService {
       return;
     }
 
-    const promise = this.doSaveIndex(sessionDir, reader);
+    const promise = this.doSaveIndex(sessionDir, reader, sessionId);
     this.savePromises.set(cacheKey, promise);
 
     try {
@@ -581,10 +596,27 @@ export class SessionIndexService implements ISessionIndexService {
   private async doSaveIndex(
     sessionDir: string,
     reader?: ISessionReader,
+    sessionId?: string,
   ): Promise<void> {
     const scopeKey = this.getScopeKey(sessionDir, reader);
     const index = this.indexCache.get(scopeKey);
     if (!index) return;
+
+    if (this.summaryStore) {
+      try {
+        if (sessionId !== undefined)
+          this.summaryStore.saveSummary(scopeKey, index, sessionId);
+        else this.summaryStore.save(scopeKey, index);
+        this.persistedIndexScopes.add(scopeKey);
+      } catch (error) {
+        getLogger().error(
+          { err: error },
+          `[SessionIndexService] Failed to save SQL index for ${scopeKey}`,
+        );
+        throw error;
+      }
+      return;
+    }
 
     const indexPath = this.getIndexPath(sessionDir, reader);
     const lockPath = `${indexPath}.lock`;
@@ -2225,7 +2257,7 @@ export class SessionIndexService implements ISessionIndexService {
 
       if (cached) {
         delete index.sessions[sessionId];
-        await this.saveIndex(sessionDir, reader).catch(() => {
+        await this.saveIndex(sessionDir, reader, sessionId).catch(() => {
           // Save failures are already logged by saveIndex.
         });
       }
@@ -2274,7 +2306,7 @@ export class SessionIndexService implements ISessionIndexService {
           reader,
           observedDirtyRevision,
         );
-        await this.saveIndex(sessionDir, reader);
+        await this.saveIndex(sessionDir, reader, sessionId);
         return summary;
       }
 
@@ -2285,7 +2317,7 @@ export class SessionIndexService implements ISessionIndexService {
         reader,
         observedDirtyRevision,
       );
-      await this.saveIndex(sessionDir, reader);
+      await this.saveIndex(sessionDir, reader, sessionId);
     } catch {
       // Reader errors should not break callers that only need display metadata.
     }
@@ -2308,14 +2340,24 @@ export class SessionIndexService implements ISessionIndexService {
     options?: { acceptAppendedFile?: boolean },
   ): Promise<SessionSummary | null> {
     const scopeKey = this.getScopeKey(sessionDir, reader);
-    const index = await this.loadIndex(sessionDir, projectId, reader);
-    const cached = index.sessions[sessionId];
+    const stored = this.summaryStore?.get(
+      scopeKey,
+      projectId,
+      sessionId,
+      CURRENT_VERSION,
+    );
+    const cached =
+      stored === undefined
+        ? (await this.loadIndex(sessionDir, projectId, reader)).sessions[
+            sessionId
+          ]
+        : stored;
     if (!cached || cached.isEmpty) {
       return null;
     }
 
     const dirtySessions = this.dirtySessionsByDir.get(scopeKey);
-    if (dirtySessions?.has(sessionId)) {
+    if (dirtySessions?.has(sessionId) && !options?.acceptAppendedFile) {
       return null;
     }
 
@@ -2401,5 +2443,6 @@ export class SessionIndexService implements ISessionIndexService {
     this.stopWarmupProgressTimer();
     this.unsubscribeEventBus?.();
     this.unsubscribeEventBus = null;
+    this.summaryStore?.dispose();
   }
 }

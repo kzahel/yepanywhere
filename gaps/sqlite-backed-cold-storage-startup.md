@@ -1,5 +1,14 @@
 # Large JSON stores delay server readiness and retain cold data in RAM
 
+Progress, 2026-11-04: production provider summaries now persist in the required
+SQLite database. Legacy per-scope JSON indexes import lazily and atomically;
+selected-session summary reads query one row instead of loading the scope.
+Append-only tail reads can reuse the durable indexed prefix while watcher
+invalidation remains pending. See
+[session index validation](../topics/session-index-validation.md).
+This closes that selected-session storage path, not the broader cold catalog,
+retained metadata, or startup/memory investigation below.
+
 The maintainer reports that loading huge JSON stores into memory gates YA
 startup before the server becomes usable. Kyle has approved requiring Node
 22.16+, so built-in SQLite on supported Node and Bun is now an available

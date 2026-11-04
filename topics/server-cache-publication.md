@@ -68,6 +68,13 @@ All list, title, cached-summary, and single-summary APIs for one index scope
 join one cold `SessionIndexState` load. They cannot publish separate mutable
 objects from the same disk revision.
 
+The server persists summary scopes and per-session rows atomically in SQLite.
+Selected-session reads may query one durable row without hydrating a mutable
+scope. They do not clear dirty revisions or advance complete-summary freshness.
+Legacy JSON scope imports publish their marker and rows in the same transaction;
+an interrupted publication leaves the previous SQL scope intact. Normal writes
+touch only changed rows instead of rewriting the scope's JSON file.
+
 Every watcher or explicit invalidation advances the scope's dirty revision,
 including repeated invalidation of an already-dirty session. Incremental,
 full, and single-summary validation capture that revision before async work.
