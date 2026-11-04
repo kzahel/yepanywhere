@@ -4,52 +4,123 @@ import {
   type SessionCreationStatus,
 } from "@yep-anywhere/shared";
 import { useI18n } from "../i18n";
+import type { SourceTransportStatus } from "../lib/transport/types";
 import styles from "./SessionCreationNotice.module.css";
 
 export function SessionCreationNotice({
   creation,
   prompt,
   onRefresh,
+  paused = false,
+  transportStatus,
 }: {
   creation?: SessionCreationStatus;
   prompt?: string;
   onRefresh: () => Promise<void>;
+  paused?: boolean;
+  transportStatus?: SourceTransportStatus;
 }) {
   const { t } = useI18n();
   const refresh = useRef(onRefresh);
   refresh.current = onRefresh;
   const [copyFailed, setCopyFailed] = useState(false);
+  const [checksExhausted, setChecksExhausted] = useState(false);
+  const attemptId = creation?.attemptId;
+  const currentAttempt = useRef(attemptId);
+  currentAttempt.current = attemptId;
+  const pending =
+    !!creation &&
+    isSessionCreationPending(creation) &&
+    creation.state !== "deleted";
   const active =
     !!creation &&
     ["saved", "queued", "dispatching", "bound"].includes(creation.state) &&
     isSessionCreationPending(creation);
   useEffect(() => {
-    if (!active) return;
+    setChecksExhausted(false);
+    if (!pending || paused) return;
     let stopped = false;
+    let running = false;
+    let resumeRequested = false;
     let checks = 0;
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const check = async () => {
-      if (stopped || document.visibilityState === "hidden") return;
+      if (
+        stopped ||
+        currentAttempt.current !== attemptId ||
+        document.visibilityState === "hidden"
+      )
+        return;
+      if (running) {
+        resumeRequested = true;
+        return;
+      }
+      running = true;
       try {
         await refresh.current();
       } catch {
         /* Explicit refresh remains available. */
       }
-      // Temporary view-owned startup reconciliation: no idle per-session loop.
-      if (!stopped && ++checks < 15) timer = setTimeout(check, 2000);
+      running = false;
+      if (stopped || currentAttempt.current !== attemptId) return;
+      if (resumeRequested) {
+        resumeRequested = false;
+        void check();
+      } else if (active && ++checks < 15) {
+        timer = setTimeout(check, 2000);
+      } else if (active) {
+        setChecksExhausted(true);
+      }
     };
-    timer = setTimeout(check, 500);
+    const resume = () => {
+      if (document.visibilityState === "hidden") return;
+      clearTimeout(timer);
+      checks = 0;
+      setChecksExhausted(false);
+      void check();
+    };
+    // A suspended check has no timer. Foregrounding explicitly renews its
+    // bounded budget; closed/parked views retain neither listeners nor polls.
+    document.addEventListener("visibilitychange", resume);
+    let previous = transportStatus?.getSnapshot();
+    const unsubscribe = transportStatus?.subscribe(() => {
+      const next = transportStatus.getSnapshot();
+      const restored =
+        next.state === "ready" &&
+        (previous?.state !== "ready" ||
+          next.channels.some(
+            (channel) =>
+              channel.state === "connected" &&
+              previous?.channels.find((old) => old.name === channel.name)
+                ?.state !== "connected",
+          ));
+      previous = next;
+      if (restored) resume();
+    });
+    if (active) timer = setTimeout(check, 500);
     return () => {
       stopped = true;
       clearTimeout(timer);
+      unsubscribe?.();
+      document.removeEventListener("visibilitychange", resume);
     };
-  }, [active]);
-  if (
-    !creation ||
-    !isSessionCreationPending(creation) ||
-    creation.state === "deleted"
-  )
-    return null;
+  }, [active, pending, paused, transportStatus, attemptId]);
+  if (!pending || !creation || paused) return null;
+  if (active && !checksExhausted)
+    return (
+      <section
+        className={styles.progress}
+        aria-label={t("sessionCreationLabel")}
+      >
+        <span role="status">
+          {t(
+            creation.state === "queued"
+              ? "sessionCreationQueueProgress"
+              : "sessionCreationProgress",
+          )}
+        </span>
+      </section>
+    );
   const state = creation.state;
   const label =
     state === "failed" && creation.failure === "router-login-required"

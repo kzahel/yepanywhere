@@ -21,6 +21,58 @@ function sessionMetadata(provider = "claude"): SessionMetadata {
   } as SessionMetadata;
 }
 
+it("keeps a live delivery confirmation through stale metadata and transcript replies, but admits a newer attempt", () => {
+  const confirmed = {
+    ...sessionMetadata(),
+    creation: {
+      state: "bound" as const,
+      delivery: "consumed" as const,
+      attemptId: "first",
+      updatedAt: "2026-11-04T00:00:00.000Z",
+      revision: 10,
+    },
+  };
+  const stale = {
+    ...confirmed,
+    creation: {
+      ...confirmed.creation,
+      delivery: "not-admitted" as const,
+      revision: 9,
+    },
+  };
+  let state = reduceSessionDetailState(createInitialSessionDetailState(), {
+    type: "setSessionMetadata",
+    session: confirmed,
+  });
+  state = reduceSessionDetailState(state, {
+    type: "setSessionMetadata",
+    session: stale,
+  });
+  expect(state.session?.creation).toEqual(confirmed.creation);
+  state = reduceSessionDetailState(state, {
+    type: "replaceTailWindow",
+    session: stale,
+    messages: [],
+    pagination: pagination(),
+  });
+  expect(state.session?.creation).toEqual(confirmed.creation);
+  const retry = {
+    ...confirmed,
+    creation: {
+      ...confirmed.creation,
+      state: "saved" as const,
+      delivery: "not-admitted" as const,
+      attemptId: "second",
+      revision: 11,
+    },
+  };
+  state = reduceSessionDetailState(state, {
+    type: "setSessionMetadata",
+    session: retry,
+  });
+  expect(state.session?.creation).toEqual(retry.creation);
+});
+
 function pagination(overrides: Partial<PaginationInfo> = {}): PaginationInfo {
   return {
     hasOlderMessages: false,

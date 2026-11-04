@@ -1,5 +1,15 @@
 # Full server suite has timing failures and unasserted diagnostics
 
+2026-11-04: New Session startup/draft freshness passes the full Node 22.23.3
+macOS workspace (6,950 server / 7,097 client; 150.34 s server, 134.49 s client).
+The same two jsdom `Not implemented: navigation (except hash changes)` errors
+and the existing negative-fixture provider/worker diagnostics recur. Focused
+creation-store/view, draft acknowledgement and startup-notice checks emit no
+runtime warnings. Navigation fixture attribution remains unqualified; changing
+global navigation or logger behavior here would hide unrelated failures. The
+diagnostic-fixture audit stays separate from startup state publication.
+Evidence: ignored `tasks/sidebar-draft-investigation/fix-tests-verified.log`.
+
 2026-11-04: native-provider expansion passes the full workspace (6,939 server
 cases, 140.99 s). The 22-case Codex OSS services/cold-resume group passes in
 3.38 s but retains existing negative-fixture diagnostics: `Codex exited with

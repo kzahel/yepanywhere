@@ -4971,6 +4971,8 @@
   "connectionsPairedServers": "Paired servers",
   "connectionsPasswordChangesHint": "Changing your Remote Access name or password keeps paired servers connected. Revoke their incoming control separately in Server Connections.",
   "sessionCreationLabel": "Session startup",
+  "sessionCreationProgress": "Starting session…",
+  "sessionCreationQueueProgress": "Waiting for an available worker…",
   "sessionCreationStarting": "Your request is saved. Starting the session…",
   "sessionCreationQueued": "Your request is saved and waiting for an available worker.",
   "sessionPreparationFailed": "The session could not start. Its settings are saved.",

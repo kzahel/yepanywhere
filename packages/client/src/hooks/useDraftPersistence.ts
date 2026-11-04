@@ -613,6 +613,11 @@ export function useDraftPersistence(
         )
           return false;
         updateStoredSessionDraftIndex(capturedSession);
+        if (!capturedSession && hasDraftContentValue(capturedValue))
+          publishDraftPresenceChange({
+            storageKey: capturedKey,
+            hasContent: false,
+          });
         if (!ownsInput) return false;
         valueRef.current = "";
         pendingSendRef.current = false;

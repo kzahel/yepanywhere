@@ -1675,6 +1675,17 @@ export function createApp(options: AppOptions): AppResult {
   let vocabularyLearning: VocabularyLearning | undefined;
   let vocabularyKeyterms: VocabularyKeyterms | undefined;
   let unsubscribeVocabulary: (() => void) | undefined;
+  const unsubscribeCreationStatus = options.eventBus
+    ? options.sessionMetadataService?.creations.subscribeChanges(
+        (sessionId, creation) =>
+          options.eventBus!.emit({
+            type: "session-metadata-changed",
+            sessionId,
+            creation,
+            timestamp: creation.updatedAt,
+          }),
+      )
+    : undefined;
   let sessionReadersDisposal: Promise<void> | undefined;
   const rendezCompose =
     draftStore && options.serverSettingsService && process.platform !== "win32"
@@ -1727,6 +1738,7 @@ export function createApp(options: AppOptions): AppResult {
     // Cache the promise before asynchronous cleanup can close shared services.
     sessionReadersDisposal ??= (async () => {
       sessionReadLifetime.abort();
+      unsubscribeCreationStatus?.();
       hostAgentProcessService?.close();
       externalTracker?.dispose();
       await options.peerAccess?.close();

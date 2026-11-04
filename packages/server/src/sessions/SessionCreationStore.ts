@@ -414,6 +414,50 @@ function controllerAlive(pid: number): boolean {
 
 /** Profile-owned synchronous control state. Fixed statements, no timers or caches. */
 export class SessionCreationStore {
+  /** App-owned subscribers are released at app disposal, not retained per session. */
+  private readonly listeners = new Set<
+    (sessionId: YaSessionId, creation: SessionCreationStatus) => void
+  >();
+  /** Exists only during one synchronous transaction, bounded by creation capacity. */
+  private transactionChanges?: Set<string>;
+
+  subscribeChanges(
+    listener: (sessionId: YaSessionId, creation: SessionCreationStatus) => void,
+  ): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private publishChange(creationId: string): void {
+    if (!this.listeners.size) return;
+    const row = this.statements.byId.get<OperationRow>(creationId);
+    if (!row) return;
+    const sessionId = parseYaSessionId(row.session_id);
+    const status = this.statusForSession(sessionId)!;
+    for (const listener of this.listeners) {
+      try {
+        listener(sessionId, status);
+      } catch (error) {
+        // A failed observer must not turn a committed creation into a refusal.
+        console.error("[SessionCreationStore] Status listener failed", error);
+      }
+    }
+  }
+
+  private transaction<T>(operation: () => T): T {
+    const changes = new Set<string>();
+    const result = this.database.transaction(() => {
+      this.transactionChanges = changes;
+      try {
+        return operation();
+      } finally {
+        this.transactionChanges = undefined;
+      }
+    });
+    // Failed writes/COMMITs never publish, and observers may safely read SQLite.
+    for (const id of changes) this.publishChange(id);
+    return result;
+  }
   private readonly statements: Record<
     | "claimNative"
     | "nativeClaim"
@@ -512,7 +556,7 @@ export class SessionCreationStore {
   recoverOwnerLoss(
     isControllerAlive: (pid: number) => boolean = controllerAlive,
   ): void {
-    this.database.transaction(() => {
+    this.transaction(() => {
       const liveness = new Map<number, boolean>();
       for (const row of this.statements.projections.all<ProjectionRow>()) {
         const { controllerPid } = JSON.parse(row.detail_json) as {
@@ -600,6 +644,7 @@ export class SessionCreationStore {
     if (!row) return;
     const attempt = this.readAttempt(row.current_attempt);
     return {
+      revision: this.generation,
       state: attempt.state,
       attemptId: attempt.attemptId,
       updatedAt: attempt.updatedAt,
@@ -856,7 +901,9 @@ export class SessionCreationStore {
       if (!raced || raced.request_hash !== hash) throw error;
       return this.read(raced);
     }
-    return this.get(context.owner, requestId)!;
+    const saved = this.get(context.owner, requestId)!;
+    this.publishChange(saved.id);
+    return saved;
   }
   /** Every callback/effect rechecks this fence; possession of an old reference is insufficient. */
   assertCurrent(fence: CreationAttemptFence): SavedSessionCreation {
@@ -917,10 +964,17 @@ export class SessionCreationStore {
       fence.attemptId,
     );
     this.statements.advanceGeneration.run();
+    if (
+      previous.state !== state ||
+      previous.delivery !== delivery ||
+      previous.generation !== generation ||
+      previous.detail_json !== detail
+    )
+      this.transactionChanges?.add(fence.creationId);
     return this.readAttempt(fence.attemptId);
   }
   markQueued(fence: CreationAttemptFence): CreationAttempt {
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       if (current.attempt.state !== "saved")
         throw new SessionCreationConflict();
@@ -933,7 +987,7 @@ export class SessionCreationStore {
     namespace: NativeSessionNamespace,
   ): CreationAttempt {
     const selected = validateNativeSessionNamespace(namespace);
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       if (!["saved", "queued"].includes(current.attempt.state))
         throw new SessionCreationConflict();
@@ -964,7 +1018,7 @@ export class SessionCreationStore {
       !["startup-unavailable", "launch-refused", "cancelled"].includes(failure)
     )
       throw new Error("Invalid safe creation failure");
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       if (!["saved", "queued"].includes(current.attempt.state))
         throw new SessionCreationConflict();
@@ -981,7 +1035,7 @@ export class SessionCreationStore {
     fence: CreationAttemptFence,
     failure: "router-login-required" | "router-refused",
   ): CreationAttempt {
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       const claim = this.statements.nativeClaim.get<{
         attempt_id: string;
@@ -1006,7 +1060,7 @@ export class SessionCreationStore {
     fence: CreationAttemptFence,
     native: NativeSessionRef,
   ): CreationAttempt {
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       if (
         !["dispatching", "bound", "uncertain"].includes(current.attempt.state)
@@ -1056,7 +1110,7 @@ export class SessionCreationStore {
     native: NativeSessionRef,
     initialInputId: string,
   ): CreationAttempt {
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       if (
         current.initialInputId !== initialInputId ||
@@ -1114,7 +1168,7 @@ export class SessionCreationStore {
   ): CreationAttempt {
     if (delivery !== "uncertain" && delivery !== "consumed")
       throw new Error("Invalid delivery evidence");
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       if (
         current.attempt.state !== "bound" ||
@@ -1125,7 +1179,7 @@ export class SessionCreationStore {
     });
   }
   markUncertain(fence: CreationAttemptFence): CreationAttempt {
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const current = this.assertCurrent(fence);
       if (
         !["dispatching", "bound", "uncertain"].includes(current.attempt.state)
@@ -1146,7 +1200,7 @@ export class SessionCreationStore {
   ): CreationAttempt {
     key(retryId);
     key(failedAttemptId);
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const row = this.statements.byKey.get<OperationRow>(
         ownerKey(owner),
         key(requestId),
@@ -1183,6 +1237,7 @@ export class SessionCreationStore {
         new Date().toISOString(),
       );
       this.statements.current.run(attempt, row.id);
+      this.transactionChanges?.add(row.id);
       this.statements.insertRetry.run(
         row.id,
         retryId,
@@ -1195,7 +1250,7 @@ export class SessionCreationStore {
   }
   /** Tombstones retain request/hash and retry results; replay can never relaunch. */
   delete(fence: CreationAttemptFence): void {
-    this.database.transaction(() => {
+    this.transaction(() => {
       const current = this.assertCurrent(fence),
         row = this.statements.byId.get<OperationRow>(current.id)!;
       this.update(
@@ -1220,6 +1275,7 @@ export class SessionCreationStore {
     });
   }
   close(): void {
+    this.listeners.clear();
     for (const statement of Object.values(this.statements))
       statement.finalize();
   }

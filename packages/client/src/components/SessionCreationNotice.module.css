@@ -1,3 +1,10 @@
+.progress {
+  margin: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
 .notice {
   margin: 0.75rem;
   padding: 1rem;

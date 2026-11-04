@@ -15,6 +15,7 @@ import type {
   ProjectQueueChangedEvent,
   ProjectsChangedEvent,
   SessionCreationProvenance,
+  SessionCreationStatus,
   ProviderRuntimeStatus,
   PromptSuggestionMode,
   SafeRestartChangedEvent,
@@ -189,6 +190,8 @@ export interface SessionQueuePersistenceChangedEvent {
 
 /** Event emitted when session metadata changes (title, archived, starred) */
 export interface SessionMetadataChangedEvent {
+  /** Committed startup state; absence leaves the existing status unchanged. */
+  creation?: SessionCreationStatus;
   nonHumanUserTurn?: NonHumanUserTurn | null;
   creationProvenance?: SessionCreationProvenance;
   type: "session-metadata-changed";

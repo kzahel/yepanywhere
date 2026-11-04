@@ -68,11 +68,27 @@ The recovery identity and accepted receipt remain stored until the owning view
 settles its captured draft; returning after retirement recovers the same session.
 Draft acknowledgement checks the physical account-scoped storage value through
 the sync coordinator, including when a sibling storage event has not arrived.
-Saved/startup/failure/uncertainty presentation exposes the saved prompt and
-Copy/Refresh. Follow-up
-submission waits for proved native first-input consumption. Startup reconciliation
-is temporary and view-owned, bounded to fifteen checks with explicit refresh
-afterward; it adds no server per-session poller.
+Normal startup shows compact progress; failed, uncertain or still-unconfirmed
+startup after the bounded check window exposes the saved prompt and Copy/Refresh.
+Follow-up submission waits for proved native first-input consumption. Committed
+creation transitions publish optional `creation` on the existing
+`session-metadata-changed` activity event, so confirmation removes startup UI and
+unlocks the composer without a transcript change or manual refresh. No event is
+published for a rolled-back transition. Optional profile `creation.revision`
+orders activity state against in-flight REST and retained route snapshots; an
+older snapshot cannot reverse confirmation or overwrite a newer attempt.
+
+Recovery reads only session metadata, applies only startup status, coalesces
+concurrent requests and stops publishing after its source/view retires. It does
+not replace live title, ownership or provider-runtime observations. Checks are
+view-owned and bounded to
+fifteen; foregrounding or a restored connection renews the budget and checks
+immediately. Parked/closed views release checks and listeners. There is no server
+per-session poller. Older servers may omit both optional fields: existing bounded
+metadata checks, foreground/reconnect recovery and explicit refresh remain, with
+no unsupported route or write. Older clients ignore the additive event fields.
+The reviewed core corpus is v0.8.0, v0.8.1, v0.9.0, v0.9.1, v0.9.2, v0.10.0,
+v0.10.1, v0.10.2 and v0.11.0; released creation capabilities are not broadened.
 
 ### Codex text acceptance — November 2
 

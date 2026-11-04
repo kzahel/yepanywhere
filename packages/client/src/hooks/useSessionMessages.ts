@@ -202,7 +202,7 @@ export interface UseSessionMessagesResult {
   removeUnconfirmedSelfSend: (tempId: string) => void;
   /** Fetch new messages incrementally (for file change events) */
   fetchNewMessages: (trigger?: IncrementalFetchTrigger) => Promise<void>;
-  /** Fetch session metadata only */
+  /** Refresh startup status without replacing live runtime/title metadata. */
   fetchSessionMetadata: () => Promise<void>;
   /** Pagination info from compact-boundary-based loading */
   pagination: PaginationInfo | undefined;
@@ -364,6 +364,20 @@ export function useSessionMessages(
     [runtime, snapshotKey],
   );
   const sourceApi = coordinator.api;
+  const metadataRefresh = useMemo(
+    () => ({
+      coordinator,
+      active: true,
+      request: null as Promise<void> | null,
+    }),
+    [coordinator],
+  );
+  useEffect(() => {
+    metadataRefresh.active = true;
+    return () => {
+      metadataRefresh.active = false;
+    };
+  }, [metadataRefresh]);
   const snapshotKeyString = coordinator.entryKeyString;
   const scrollMemoryReference = useMemo(
     () => ({ sourceKey, projectId, sessionId }),
@@ -1622,35 +1636,32 @@ export function useSessionMessages(
     [coordinator],
   );
 
-  // Fetch session metadata only
+  // Startup recovery reads metadata, but only owns the creation field. An
+  // older reply must not replace live title, ownership or runtime observations.
   const fetchSessionMetadata = useCallback(async () => {
+    if (!metadataRefresh.active) return;
+    if (metadataRefresh.request) return metadataRefresh.request;
+    const request = (async () => {
+      try {
+        const data = await sourceApi.getSessionMetadata({
+          projectId,
+          sessionId,
+        });
+        if (!metadataRefresh.active) return;
+        const creation = data.session.creation;
+        if (creation !== undefined)
+          updateSession((prev) => (prev ? { ...prev, creation } : prev));
+      } catch {
+        // Silent fail for metadata updates
+      }
+    })();
+    metadataRefresh.request = request;
     try {
-      const data = await sourceApi.getSessionMetadata({
-        projectId,
-        sessionId,
-      });
-      sourceSummary.reportProviderRuntimeStatusSnapshot(
-        coordinator.buildProviderRuntimeStatusSnapshot(data),
-      );
-      const metadataSession = {
-        ...data.session,
-        ownership: data.ownership,
-      };
-      // For new sessions, prev may be null if JSONL didn't exist on initial load
-      updateSession((prev) =>
-        prev ? { ...prev, ...metadataSession } : metadataSession,
-      );
-    } catch {
-      // Silent fail for metadata updates
+      await request;
+    } finally {
+      if (metadataRefresh.request === request) metadataRefresh.request = null;
     }
-  }, [
-    coordinator,
-    projectId,
-    sessionId,
-    sourceApi,
-    sourceSummary,
-    updateSession,
-  ]);
+  }, [projectId, sessionId, sourceApi, updateSession, metadataRefresh]);
   const selectedInitialScrollSnapshot = shouldRetainSessionScrollMemory(
     getSessionScrollBehaviorMode(),
   )

@@ -14,6 +14,7 @@ import {
 import { useDraftPersistence } from "../useDraftPersistence";
 import {
   createClientSummaryHostSourceKey,
+  LOCAL_CLIENT_SUMMARY_SOURCE_KEY,
   resetClientSummaryStoreForTests,
   setCurrentClientSummarySourceKey,
 } from "../../lib/clientSummaryStore";
@@ -226,6 +227,36 @@ describe("useNewSessionDraft", () => {
       persisted.result.current[2].clearDraft();
     });
     expect(observed.result.current).toBe(false);
+  });
+
+  it("acknowledges captured creation drafts without a reload and preserves newer drafts", () => {
+    const key = createNewSessionDraftKey(LOCAL_CLIENT_SUMMARY_SOURCE_KEY);
+    const observed = renderHook(() => useNewSessionDraft());
+    const editor = renderHook(() => useDraftPersistence(key));
+    act(() => editor.result.current[1]("Submitted request"));
+    let captured!: ReturnType<
+      NonNullable<(typeof editor.result.current)[2]["captureSubmission"]>
+    >;
+    act(() => {
+      captured = editor.result.current[2].captureSubmission!();
+    });
+    expect(observed.result.current).toBe(true);
+    act(() => {
+      expect(captured.confirm()).toBe(true);
+    });
+    expect(observed.result.current).toBe(false);
+    expect(editor.result.current[0]).toBe("");
+
+    act(() => editor.result.current[1]("Another submitted request"));
+    act(() => {
+      captured = editor.result.current[2].captureSubmission!();
+    });
+    act(() => editor.result.current[1]("Newer unsent work"));
+    act(() => {
+      expect(captured.confirm()).toBe(false);
+    });
+    expect(observed.result.current).toBe(true);
+    expect(editor.result.current[0]).toBe("Newer unsent work");
   });
 });
 

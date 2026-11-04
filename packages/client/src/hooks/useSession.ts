@@ -1192,6 +1192,7 @@ export function useSession(
     updateActiveWindowFollowingBottom,
     restoredFromSnapshot,
     refreshTranscriptTail,
+    fetchSessionMetadata,
   } = useSessionMessages({
     projectId,
     sessionId,
@@ -1676,6 +1677,7 @@ export function useSession(
         if (!prev) return prev;
         return {
           ...prev,
+          ...(event.creation !== undefined && { creation: event.creation }),
           ...(event.title !== undefined && { customTitle: event.title }),
           ...(event.archived !== undefined && { isArchived: event.archived }),
           ...(event.starred !== undefined && { isStarred: event.starred }),
@@ -2719,6 +2721,7 @@ export function useSession(
     setSessionModel,
     /** Replace the loaded window with the server's projection of the tail. */
     refreshTranscriptTail,
+    refreshSessionMetadata: fetchSessionMetadata,
     messages,
     agentContent, // Subagent messages keyed by agentId (for Task tool)
     mergeLoadedAgentContent,

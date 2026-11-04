@@ -186,8 +186,11 @@ async function handle(message) {
     case "turn/start": {
       if (params.threadId !== native)
         throw new Error("Public id reached native input");
-      while (!existsSync(`${gate}.ack`))
-        await new Promise((resolve) => setTimeout(resolve, 20));
+      const persistBeforeAck =
+        process.env.YEP_E2E_CREATION_PERSIST_BEFORE_ACK === "true";
+      if (!persistBeforeAck)
+        while (!existsSync(`${gate}.ack`))
+          await new Promise((resolve) => setTimeout(resolve, 20));
       const text = params.input
         .filter((item) => item.type === "text")
         .map((item) => item.text)
@@ -204,6 +207,9 @@ async function handle(message) {
         message: text,
         client_id: inputId,
       });
+      if (persistBeforeAck)
+        while (!existsSync(`${gate}.ack`))
+          await new Promise((resolve) => setTimeout(resolve, 20));
       const turn = {
         id: `turn-${inputId}`,
         status: "inProgress",

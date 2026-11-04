@@ -1,5 +1,7 @@
 /** YA startup evidence is separate from native history and provider liveness. */
 export interface SessionCreationStatus {
+  /** Optional profile revision orders live status against in-flight snapshots. */
+  revision?: number;
   state:
     | "saved"
     | "queued"

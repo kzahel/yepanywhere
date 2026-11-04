@@ -76,6 +76,56 @@ function rows(database: SqliteDatabase, sql: string) {
     s.finalize();
   }
 }
+it("publishes committed startup and delivery states, with no event for rollback or duplicate evidence", async () => {
+  const { database, store } = await fixture();
+  const notifications: Array<{ sessionId: string; status: unknown }> = [];
+  const unsubscribe = store.subscribeChanges((sessionId, status) => {
+    // A new transaction is legal only after the mutation has committed.
+    const committed = database.transaction(() =>
+      store.statusForSession(sessionId),
+    );
+    expect(status).toEqual(committed);
+    notifications.push({ sessionId, status });
+  });
+  const saved = store.admit({
+    requestId: "committed-status",
+    context,
+    request,
+  });
+  expect(notifications).toHaveLength(1);
+  const transaction = database.transaction.bind(database);
+  vi.spyOn(database, "transaction").mockImplementationOnce((operation) =>
+    transaction(() => {
+      operation();
+      throw new Error("Owned commit failure");
+    }),
+  );
+  expect(() => store.markQueued(saved.attempt)).toThrow("Owned commit failure");
+  expect(store.statusForSession(saved.sessionId)?.state).toBe("saved");
+  expect(notifications).toHaveLength(1);
+  const native = nativeSessionRef(
+    "claude",
+    "/native/project",
+    parseNativeSessionId("committed_native"),
+  );
+  const dispatched = store.beginDispatch(saved.attempt, native);
+  store.bindNative(dispatched, native);
+  const before = store.statusForSession(saved.sessionId)!.revision!;
+  store.confirmOwnedInput(dispatched, native, saved.initialInputId!);
+  expect(notifications.at(-1)).toMatchObject({
+    sessionId: saved.sessionId,
+    status: { state: "bound", delivery: "consumed" },
+  });
+  expect(store.statusForSession(saved.sessionId)!.revision).toBeGreaterThan(
+    before,
+  );
+  const count = notifications.length;
+  store.confirmOwnedInput(dispatched, native, saved.initialInputId!);
+  expect(notifications).toHaveLength(count);
+  unsubscribe();
+  store.markUncertain(dispatched);
+  expect(notifications).toHaveLength(count);
+});
 it("preserves unresolved allocations when upgrading to Antigravity admission", async () => {
   const database = openSqliteOrThrow(":memory:");
   databases.push(database);

@@ -774,6 +774,7 @@ function SessionPageContent({
     session,
     updateSession,
     refreshTranscriptTail,
+    refreshSessionMetadata,
     messages,
     agentContent,
     mergeLoadedAgentContent,
@@ -6957,7 +6958,9 @@ function SessionPageContent({
             <SessionCreationNotice
               creation={session?.creation}
               prompt={session?.initialPrompt}
-              onRefresh={refreshTranscriptTail}
+              onRefresh={refreshSessionMetadata}
+              paused={isDomLingerParked}
+              transportStatus={sourceTransport.status}
             />
             {error && (
               <div role="status">
@@ -7458,7 +7461,14 @@ function SessionPageContent({
                   disabled={isSessionCreationPending(session?.creation)}
                   placeholder={
                     isSessionCreationPending(session?.creation)
-                      ? t("sessionCreationBlocked")
+                      ? t(
+                          session?.creation?.state === "failed" ||
+                            session?.creation?.state === "uncertain"
+                            ? "sessionCreationBlocked"
+                            : session?.creation?.state === "queued"
+                              ? "sessionCreationQueueProgress"
+                              : "sessionCreationProgress",
+                        )
                       : mainComposerForAside
                         ? "/btw follow-up"
                         : status.owner === "external"

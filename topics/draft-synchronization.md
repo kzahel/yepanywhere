@@ -219,6 +219,12 @@ copy alongside any newer text. A crash during an unresolved send requires
 explicit recovery rather than treating the submitted text as a fresh unsent
 edit automatically.
 
+Successful captured New Session acknowledgement updates same-tab draft presence
+immediately, including when the editor has retired after navigation. The sidebar
+removes its Draft badge without a reload; a newer physical draft is preserved and
+keeps its badge. Presence publication does not enumerate browser storage on each
+keystroke.
+
 The dedicated New Session Project Queue action uses this captured confirmation
 for text and staged files. Accepted queued work removes only its submitted
 selection; newer edits and uploads survive. Captured cancellation checks the

@@ -576,7 +576,7 @@ function reconcileMarkdownAugmentMessageIds(
   return nextAugments;
 }
 
-export function reduceSessionDetailState(
+function reduceSessionDetailStateUnchecked(
   state: SessionDetailState,
   action: SessionDetailAction,
 ): SessionDetailState {
@@ -813,6 +813,35 @@ export function reduceSessionDetailState(
       };
     }
   }
+}
+
+/** A late REST/route snapshot cannot relock input after a newer startup event. */
+export function reduceSessionDetailState(
+  state: SessionDetailState,
+  action: SessionDetailAction,
+): SessionDetailState {
+  const next = reduceSessionDetailStateUnchecked(state, action);
+  if (
+    !state.session ||
+    !next.session ||
+    state.session === next.session ||
+    state.session.id !== next.session.id
+  )
+    return next;
+  const current = state.session.creation;
+  const incoming = next.session.creation;
+  if (
+    current &&
+    (incoming === undefined ||
+      (current.revision !== undefined &&
+        (incoming.revision === undefined ||
+          incoming.revision < current.revision)) ||
+      (current.attemptId === incoming.attemptId &&
+        current.delivery === "consumed" &&
+        incoming.delivery !== "consumed"))
+  )
+    return { ...next, session: { ...next.session, creation: current } };
+  return next;
 }
 
 export function reduceSessionDetailActions(

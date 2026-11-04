@@ -12,6 +12,7 @@ import type {
   ProjectsChangedEvent,
   ProviderName,
   SessionCreationProvenance,
+  SessionCreationStatus,
   ProviderRuntimeStatus,
   PromptSuggestionMode,
   SafeRestartChangedEvent,
@@ -116,6 +117,8 @@ export interface ProviderRuntimeStatusChangedEvent {
 }
 
 export interface SessionMetadataChangedEvent {
+  /** Optional on older servers; ordinary startup recovery remains available. */
+  creation?: SessionCreationStatus;
   nonHumanUserTurn?: NonHumanUserTurn | null;
   creationProvenance?: SessionCreationProvenance;
   type: "session-metadata-changed";
