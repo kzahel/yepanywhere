@@ -2,9 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { tmpdir } from "node:os";
 import type { Client } from "@agentclientprotocol/sdk";
 import { ACPClient } from "../../../src/sdk/providers/acp/client.js";
+import { getLogger } from "../../../src/logging/logger.js";
 
 describe("ACPClient owned process teardown", () => {
   it("rejects a real spawn failure and retains truthful process evidence", async () => {
+    const errorLog = vi
+      .spyOn(getLogger(), "error")
+      .mockImplementation(() => undefined);
     const client = new ACPClient();
     try {
       await client.connect({
@@ -14,8 +18,13 @@ describe("ACPClient owned process teardown", () => {
       await expect(client.initialize({})).rejects.toBeDefined();
       await client.close();
       expect(client.isProcessAlive).toBe(false);
+      expect(errorLog).toHaveBeenCalledExactlyOnceWith(
+        { err: expect.objectContaining({ code: "ENOENT" }) },
+        "ACP agent process error",
+      );
     } finally {
       await client.close();
+      errorLog.mockRestore();
     }
   });
 

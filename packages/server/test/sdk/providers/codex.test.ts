@@ -3614,6 +3614,9 @@ import { appendFileSync } from "node:fs";`,
   it.each([false, true])(
     "cold native continuation keeps child authority public (mismatch=%s)",
     async (mismatch) => {
+      const errorLog = vi
+        .spyOn(getLogger(), "error")
+        .mockImplementation(() => undefined);
       const root = mkdtempSync(join(tmpdir(), "codex-native-resume-"));
       const home = join(root, "home"),
         sessions = join(home, "sessions"),
@@ -3690,8 +3693,20 @@ import { appendFileSync } from "node:fs";`,
             (r) => r.method === "thread/start" || r.method === "turn/start",
           ),
         ).toBe(false);
+        expect(errorLog).toHaveBeenCalledTimes(mismatch ? 1 : 0);
+        if (mismatch)
+          expect(errorLog).toHaveBeenCalledWith(
+            expect.objectContaining({
+              component: "codex-provider",
+              error: expect.objectContaining({
+                message: "Codex resumed a different native thread",
+              }),
+            }),
+            "Error in codex app-server session",
+          );
       } finally {
         await session?.abort();
+        errorLog.mockRestore();
         rmSync(root, { recursive: true, force: true });
       }
     },
