@@ -3,7 +3,8 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { serve, type HttpBindings } from "@hono/node-server";
 import { Hono } from "hono";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { upgradeWebSocket } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import { createApp } from "../src/app.js";
 import { AuthService } from "../src/auth/AuthService.js";
 import { attachUnifiedUpgradeHandler } from "../src/frontend/index.js";
@@ -176,7 +177,7 @@ await Promise.all([
 // Use the same upgrade function for the full HTTP app and the native socket.
 // createApp mounts staging validation/materialization with its upload routes.
 const app = new Hono<{ Bindings: HttpBindings }>();
-const { upgradeWebSocket, wss } = createNodeWebSocket({ app });
+const wss = new WebSocketServer({ noServer: true });
 const {
   app: yaApp,
   supervisor,
@@ -407,6 +408,7 @@ await new Promise<void>((resolveReady) => {
   server = serve(
     {
       fetch: app.fetch,
+      websocket: { server: wss },
       hostname: "127.0.0.1",
       port: requestedPort,
     },
@@ -418,8 +420,6 @@ await new Promise<void>((resolveReady) => {
 attachUnifiedUpgradeHandler(server!, {
   frontendProxy: undefined,
   isApiPath: (path) => path.startsWith("/api"),
-  app,
-  wss,
 });
 
 // The fixture runner already bounds startup. A listening HTTP port alone does

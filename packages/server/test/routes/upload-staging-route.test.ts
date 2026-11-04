@@ -3,7 +3,8 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { upgradeWebSocket } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import type {
   StagedAttachmentRef,
   UploadServerMessage,
@@ -60,7 +61,7 @@ describe("staged upload direct route", () => {
     });
 
     const app = new Hono();
-    const { upgradeWebSocket, wss } = createNodeWebSocket({ app });
+    const wss = new WebSocketServer({ noServer: true });
     app.route(
       "/api",
       createUploadRoutes({
@@ -86,14 +87,15 @@ describe("staged upload direct route", () => {
       }),
     );
 
-    server = serve({ fetch: app.fetch, port: 0 }, (info) => {
-      port = info.port;
-    });
+    server = serve(
+      { fetch: app.fetch, websocket: { server: wss }, port: 0 },
+      (info) => {
+        port = info.port;
+      },
+    );
     attachUnifiedUpgradeHandler(server, {
       frontendProxy: undefined,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
-      app,
-      wss,
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
   });

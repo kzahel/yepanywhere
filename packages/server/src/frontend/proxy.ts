@@ -8,6 +8,7 @@
  * - WebSocket connections for both HMR and file uploads
  */
 import * as http from "node:http";
+import type { EventEmitter } from "node:events";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as net from "node:net";
 import type { Duplex } from "node:stream";
@@ -264,7 +265,8 @@ export function createFrontendProxy(
 }
 
 /** Server type that supports the 'upgrade' event for WebSocket handling */
-interface UpgradeableServer {
+interface UpgradeableServer
+  extends Pick<EventEmitter, "listeners" | "removeListener"> {
   on(
     event: "upgrade",
     listener: (
@@ -273,26 +275,6 @@ interface UpgradeableServer {
       head: Buffer,
     ) => void,
   ): this;
-}
-
-/** WebSocketServer from the 'ws' package */
-interface WebSocketServerLike {
-  handleUpgrade(
-    request: IncomingMessage,
-    socket: Duplex,
-    head: Buffer,
-    callback: (ws: unknown) => void,
-  ): void;
-  emit(event: string, ...args: unknown[]): boolean;
-}
-
-/** Hono app type for routing */
-interface HonoAppLike {
-  request(
-    url: URL,
-    init: { headers: Headers },
-    env: Record<string | symbol, unknown>,
-  ): Response | Promise<Response>;
 }
 
 /** Options for the unified upgrade handler */
@@ -307,10 +289,6 @@ export interface UnifiedUpgradeOptions {
   frontendProxy?: FrontendProxy;
   /** Function to check if a path is an API path */
   isApiPath: (path: string) => boolean;
-  /** The Hono app for routing API WebSocket requests */
-  app: HonoAppLike;
-  /** The WebSocketServer from @hono/node-ws */
-  wss: WebSocketServerLike;
 }
 
 /** Timeout for API WebSocket upgrade routing (ms) */
@@ -319,11 +297,11 @@ const UPGRADE_TIMEOUT_MS = 10000;
 /**
  * Create a unified WebSocket upgrade handler.
  *
- * This replaces both `attachFrontendProxyUpgrade` and `injectWebSocket` to avoid
- * conflicts where both handlers try to process the same upgrade request.
+ * Call immediately after creating the server with Hono's websocket option.
+ * Wrap its sole upgrade listener so exactly one owner handles each socket.
  *
  * For non-API paths (like Vite HMR): proxies to Vite
- * For API paths: routes through Hono and handles with @hono/node-ws
+ * For API paths: delegates the complete handshake to Hono's Node adapter.
  *
  * @param server - The HTTP server instance
  * @param options - Configuration options
@@ -332,7 +310,17 @@ export function attachUnifiedUpgradeHandler(
   server: UpgradeableServer,
   options: UnifiedUpgradeOptions,
 ) {
-  const { frontendProxy, isApiPath, app, wss } = options;
+  const { frontendProxy, isApiPath } = options;
+  const listeners = server.listeners("upgrade");
+  if (listeners.length !== 1) {
+    throw new Error("Expected exactly one Hono WebSocket upgrade listener");
+  }
+  const honoUpgrade = listeners[0] as (
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ) => Promise<void>;
+  server.removeListener("upgrade", honoUpgrade);
 
   server.on("upgrade", (req, socket, head) => {
     if (isArtifactHost(req.headers.host) && options.appUpgrade) {
@@ -391,94 +379,26 @@ export function attachUnifiedUpgradeHandler(
       return;
     }
 
-    // For API paths: route through Hono (replicate @hono/node-ws logic)
-    // This is async, so we need to handle it carefully
+    // Hono owns request construction, authentication, response headers and the
+    // handshake. No private adapter state is inspected here.
     debugLog("Upgrade", `[${connId}] Routing API WebSocket through Hono`);
-
-    const url = new URL(urlPath, "http://localhost");
-    const headers = new Headers();
-    for (const key in req.headers) {
-      const value = req.headers[key];
-      if (value !== undefined) {
-        const headerValue = Array.isArray(value) ? value[0] : value;
-        if (headerValue !== undefined) {
-          headers.append(key, headerValue);
-        }
-      }
-    }
-
-    const env: Record<string | symbol, unknown> = {
-      incoming: req,
-      outgoing: undefined,
-    };
-
-    // Track symbol properties before routing
-    const symbolsBefore = Object.getOwnPropertySymbols(env);
-
-    // Set up timeout to prevent hanging forever
     const timeoutId = setTimeout(() => {
-      if (!handled && !socketClosed) {
-        debugLog("Upgrade", `[${connId}] Timeout waiting for route handler`);
-        closeSocket(
-          "HTTP/1.1 504 Gateway Timeout\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
-          "timeout",
-        );
-      }
+      // Destroy rather than half-close: an eventual route result must never
+      // upgrade this timed-out socket. Hono reclaims its waiter on close.
+      debugLog("Upgrade", `[${connId}] Timeout waiting for route handler`);
+      socket.destroy();
     }, UPGRADE_TIMEOUT_MS);
-
-    // Route through Hono - this will call upgradeWebSocket if matched
-    // Use Promise handling instead of async/await to avoid potential issues
-    Promise.resolve(app.request(url, { headers }, env))
-      .then(() => {
-        clearTimeout(timeoutId);
-
-        // Check if socket closed during async routing
-        if (socketClosed) {
-          debugLog(
-            "Upgrade",
-            `[${connId}] Socket closed during routing, aborting`,
-          );
-          return;
-        }
-
-        // Check if a WebSocket handler matched by checking if @hono/node-ws
-        // added its connection symbol to env. Since their symbol is private,
-        // we check if any new symbols were added.
-        const symbolsAfter = Object.getOwnPropertySymbols(env);
-        const hasNewSymbols = symbolsAfter.length > symbolsBefore.length;
-
-        if (!hasNewSymbols) {
-          debugLog("Upgrade", `[${connId}] No WebSocket handler matched`);
-          closeSocket(
-            "HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
-            "no handler matched",
-          );
-          return;
-        }
-
-        // Final check before handling upgrade
-        if (socketClosed) {
-          debugLog("Upgrade", `[${connId}] Socket closed before handleUpgrade`);
-          return;
-        }
-
-        debugLog("Upgrade", `[${connId}] Handling WebSocket upgrade`);
-        handled = true;
-
-        // Handle the upgrade with the ws library
-        wss.handleUpgrade(req, socket, head, (ws) => {
-          debugLog("Upgrade", `[${connId}] WebSocket upgrade complete`);
-          wss.emit("connection", ws, req);
-        });
-      })
+    socket.once("close", () => clearTimeout(timeoutId));
+    honoUpgrade
+      .call(server, req, socket, head)
       .catch((err) => {
-        clearTimeout(timeoutId);
         debugLog("Upgrade", `[${connId}] Route error`, { error: String(err) });
         closeSocket(
           "HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
           "route error",
         );
-      });
+      })
+      .finally(() => clearTimeout(timeoutId));
   });
 }
 

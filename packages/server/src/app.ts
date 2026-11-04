@@ -463,7 +463,7 @@ export interface AppOptions {
   defaultPermissionMode?: PermissionMode;
   /** EventBus for file change events */
   eventBus?: EventBus;
-  /** WebSocket upgrader from @hono/node-ws (optional) */
+  /** WebSocket upgrader from @hono/node-server (optional) */
   upgradeWebSocket?: UploadDeps["upgradeWebSocket"];
   /** NotificationService for tracking session read state */
   notificationService?: NotificationService;

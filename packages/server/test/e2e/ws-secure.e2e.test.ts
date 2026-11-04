@@ -8,7 +8,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { upgradeWebSocket } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import type {
   RelayEvent,
   RelayRequest,
@@ -162,7 +163,7 @@ describe("Secure WebSocket Transport E2E", () => {
     });
 
     // Add WebSocket support
-    const { upgradeWebSocket, wss } = createNodeWebSocket({ app });
+    const wss = new WebSocketServer({ noServer: true });
 
     // Add WebSocket relay route with remote access enabled
     const baseUrl = "http://localhost:0";
@@ -182,19 +183,20 @@ describe("Secure WebSocket Transport E2E", () => {
     app.get("/api/ws", wsRelayHandler);
 
     // Start server on random port
-    server = serve({ fetch: app.fetch, port: 0 }, (info) => {
-      serverPort = info.port;
-      console.log(
-        `[WS Secure Test] Server running on port ${serverPort} with remote access enabled`,
-      );
-    });
+    server = serve(
+      { fetch: app.fetch, websocket: { server: wss }, port: 0 },
+      (info) => {
+        serverPort = info.port;
+        console.log(
+          `[WS Secure Test] Server running on port ${serverPort} with remote access enabled`,
+        );
+      },
+    );
 
     // Attach the unified upgrade handler
     attachUnifiedUpgradeHandler(server, {
       frontendProxy: undefined,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
-      app,
-      wss,
     });
 
     // Wait for server to be ready

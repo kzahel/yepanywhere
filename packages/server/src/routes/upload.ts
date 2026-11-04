@@ -31,7 +31,7 @@ import type { RendezDraftDelivery } from "../services/RendezDraftDelivery.js";
 /** Progress update interval in bytes (64KB) */
 const PROGRESS_INTERVAL_BYTES = 64 * 1024;
 
-// biome-ignore lint/suspicious/noExplicitAny: Complex third-party type from @hono/node-ws
+// biome-ignore lint/suspicious/noExplicitAny: Complex third-party type from @hono/node-server
 type UpgradeWebSocketFn = (createEvents: (c: Context) => WSEvents) => any;
 
 export interface UploadDeps {
@@ -121,7 +121,7 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
     let lastProgressSent = 0;
 
     // Validation promise - we need to await this before processing messages
-    // because onOpen can be async but @hono/node-ws doesn't wait for it
+    // because onOpen can be async but Hono's Node adapter doesn't wait for it
     let validationPromise: Promise<boolean> | null = null;
     let validationResult: boolean | null = null;
 
@@ -145,10 +145,7 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
         return;
       }
 
-      // When using the unified upgrade handler with wss.handleUpgrade,
-      // the 'ws' library delivers ALL messages as Buffer by default,
-      // bypassing @hono/node-ws's text/binary conversion.
-      // We need to handle both Buffer and string data types.
+      // Accept both text and binary payloads from the WebSocket adapter.
 
       // Convert Buffer/ArrayBuffer to string for potential JSON parsing
       let stringData: string | null = null;
@@ -283,7 +280,7 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
 
     return {
       onOpen(_evt, ws) {
-        // Start validation (don't await - @hono/node-ws doesn't support async onOpen)
+        // Start validation; Hono's Node adapter does not await onOpen.
         validationPromise = validate();
         validationPromise.then((result) => {
           validationResult = result;

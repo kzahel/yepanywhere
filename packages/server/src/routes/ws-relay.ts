@@ -42,7 +42,7 @@ import {
   handleMessage,
 } from "./ws-relay-handlers.js";
 
-// biome-ignore lint/suspicious/noExplicitAny: Complex third-party type from @hono/node-ws
+// biome-ignore lint/suspicious/noExplicitAny: Complex third-party type from @hono/node-server
 type UpgradeWebSocketFn = (createEvents: (c: Context) => WSEvents) => any;
 
 export interface WsRelayDeps {

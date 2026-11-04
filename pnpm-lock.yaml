@@ -181,8 +181,8 @@ importers:
   packages/push-broker:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.19.17
-        version: 1.19.17(hono@4.13.12)
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.12)
       '@yep-anywhere/shared':
         specifier: workspace:*
         version: link:../shared
@@ -212,8 +212,8 @@ importers:
   packages/relay:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.19.17
-        version: 1.19.17(hono@4.13.12)
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.12)
       '@yep-anywhere/shared':
         specifier: workspace:*
         version: link:../shared
@@ -258,11 +258,8 @@ importers:
         specifier: 0.100.1
         version: 0.100.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))
       '@hono/node-server':
-        specifier: ^1.19.17
-        version: 1.19.17(hono@4.13.12)
-      '@hono/node-ws':
-        specifier: ^1.2.0
-        version: 1.3.0(@hono/node-server@1.19.17(hono@4.13.12))(hono@4.13.12)
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.12)
       '@mdit/plugin-katex':
         specifier: 1.1.0
         version: 1.1.0(markdown-it@15.0.3)
@@ -1450,19 +1447,11 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@hono/node-server@1.19.17':
-    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
-    engines: {node: '>=18.14.1'}
+  '@hono/node-server@2.1.6':
+    resolution: {integrity: sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==}
+    engines: {node: '>=20'}
     peerDependencies:
-      hono: ^4
-
-  '@hono/node-ws@1.3.0':
-    resolution: {integrity: sha512-ju25YbbvLuXdqBCmLZLqnNYu1nbHIQjoyUqA8ApZOeL1k4skuiTcw5SW77/5SUYo2Xi2NVBJoVlfQurnKEp03Q==}
-    engines: {node: '>=18.14.1'}
-    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
-    peerDependencies:
-      '@hono/node-server': ^1.19.2
-      hono: ^4.6.0
+      hono: ^4 || ^5.0.0-0
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -5898,18 +5887,9 @@ snapshots:
       yargs: 17.7.3
     optional: true
 
-  '@hono/node-server@1.19.17(hono@4.13.12)':
+  '@hono/node-server@2.1.6(hono@4.13.12)':
     dependencies:
       hono: 4.13.12
-
-  '@hono/node-ws@1.3.0(@hono/node-server@1.19.17(hono@4.13.12))(hono@4.13.12)':
-    dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.12)
-      hono: 4.13.12
-      ws: 8.21.3
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -6109,7 +6089,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.32.1(zod@4.6.7(patch_hash=7fe82375cbd25fac1d9fea1564f2b1fc1e6e62965fbf4b37ee86b677bac03b38))':
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.12)
+      '@hono/node-server': 2.1.6(hono@4.13.12)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       content-type: 1.0.5

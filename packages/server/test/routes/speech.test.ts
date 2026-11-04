@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { upgradeWebSocket } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import { Hono } from "hono";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
@@ -39,7 +40,7 @@ async function createSpeechApp(
   options?: Partial<SpeechSessionDeps>,
 ) {
   const app = new Hono();
-  const { upgradeWebSocket, wss } = createNodeWebSocket({ app });
+  const wss = new WebSocketServer({ noServer: true });
   const registry =
     speechBackendRegistry ??
     (await initSpeechBackendRegistry({
@@ -525,14 +526,15 @@ describe("speech routes", () => {
   it("transcribes buffered WebSocket audio through the dummy backend", async () => {
     const { app, wss } = await createSpeechApp();
     let serverPort = 0;
-    server = serve({ fetch: app.fetch, port: 0 }, (info) => {
-      serverPort = info.port;
-    });
+    server = serve(
+      { fetch: app.fetch, websocket: { server: wss }, port: 0 },
+      (info) => {
+        serverPort = info.port;
+      },
+    );
     attachUnifiedUpgradeHandler(server, {
       frontendProxy: undefined,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
-      app,
-      wss,
     });
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -567,14 +569,15 @@ describe("speech routes", () => {
     tempDirs.push(dataDir);
     const { app, wss } = await createSpeechApp(dataDir);
     let serverPort = 0;
-    server = serve({ fetch: app.fetch, port: 0 }, (info) => {
-      serverPort = info.port;
-    });
+    server = serve(
+      { fetch: app.fetch, websocket: { server: wss }, port: 0 },
+      (info) => {
+        serverPort = info.port;
+      },
+    );
     attachUnifiedUpgradeHandler(server, {
       frontendProxy: undefined,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
-      app,
-      wss,
     });
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -628,14 +631,15 @@ describe("speech routes", () => {
     await registry.register(backend);
     const { app, wss } = await createSpeechApp(dataDir, registry);
     let serverPort = 0;
-    server = serve({ fetch: app.fetch, port: 0 }, (info) => {
-      serverPort = info.port;
-    });
+    server = serve(
+      { fetch: app.fetch, websocket: { server: wss }, port: 0 },
+      (info) => {
+        serverPort = info.port;
+      },
+    );
     attachUnifiedUpgradeHandler(server, {
       frontendProxy: undefined,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
-      app,
-      wss,
     });
     await new Promise((resolve) => setTimeout(resolve, 100));
 

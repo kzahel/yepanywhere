@@ -1,7 +1,7 @@
 # Dependency audit retains documented unreachable advisories
 
 CI now audits the complete pnpm workspace graph, including native provider test
-executables. Four advisory exceptions remain; the canonical table linked below
+executables. Three advisory exceptions remain; the canonical table linked below
 owns their current paths and revisit triggers.
 
 - moderate, `glob` and `minimatch`, GHSA-3g3m-2fjr-6pw4 and
@@ -10,13 +10,6 @@ owns their current paths and revisit triggers.
 - moderate, transitive `uuid@9.0.1`, GHSA-w5hq-g745-h8pq. The affected API is
   caller-provided buffers for name-based UUID generation; YA does not call the
   transitive package directly.
-- moderate, `@hono/node-server@1.19.17`, GHSA-rmxm-3fg6-px4f. The affected
-  `serveStatic` middleware is not imported or called by YA or its installed
-  `@hono/node-ws` adapter. The server, artifact server, relay and push broker
-  use the HTTP adapter without that helper; file routes own their authorization
-  and serving. Revisit before adopting the helper, when a 1.x backport lands,
-  or when qualifying the 2.x adapter migration. Published in the advisory
-  database on 2026-10-28; it blocked the unchanged upstream CI on October 29.
 Re-audit the exact consuming paths when their triggers fire, then update the
 corresponding dependencies with their own compatibility tests.
 `pnpm-workspace.yaml` `auditConfig.ignoreGhsas` and
@@ -32,6 +25,8 @@ production renderer dependency graph.
 
 2026-11-04: React Router 7.18.2 includes the advisory backport, so its exception
 is removed. Vite and Pi are patched; Gemini CLI is removed from installation.
+The separate Hono Node adapter 2.1.6 migration removes GHSA-rmxm-3fg6-px4f
+and the deprecated WebSocket adapter.
 Contributing-model: 6-astra
 
 2026-09-30: four newly reported, non-ignored findings blocked the unchanged

@@ -3,7 +3,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { upgradeWebSocket } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import type {
   RelayRequest,
   RelayResponse,
@@ -58,7 +59,7 @@ describe("WebSocket Loopback Policy E2E", () => {
       eventBus,
     });
 
-    const { upgradeWebSocket, wss } = createNodeWebSocket({ app });
+    const wss = new WebSocketServer({ noServer: true });
     const uploadManager = new UploadManager({
       uploadsDir: join(testDir, "uploads"),
     });
@@ -73,14 +74,15 @@ describe("WebSocket Loopback Policy E2E", () => {
     });
     app.get("/api/ws", wsRelayHandler);
 
-    server = serve({ fetch: app.fetch, port: 0 }, (info) => {
-      serverPort = info.port;
-    });
+    server = serve(
+      { fetch: app.fetch, websocket: { server: wss }, port: 0 },
+      (info) => {
+        serverPort = info.port;
+      },
+    );
     attachUnifiedUpgradeHandler(server, {
       frontendProxy: undefined,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
-      app,
-      wss,
     });
 
     await new Promise<void>((resolve) => setTimeout(resolve, 100));

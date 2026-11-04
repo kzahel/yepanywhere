@@ -10,9 +10,9 @@ import { createServer as createHttpsServer } from "node:https";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { serve } from "@hono/node-server";
+import { serve, upgradeWebSocket } from "@hono/node-server";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { WebSocketServer } from "ws";
 import {
   SPEECH_RELAY_CHANNEL,
   idleReapHoursToMs,
@@ -1404,14 +1404,6 @@ async function startServer() {
     },
   });
 
-  // Create WebSocket support with the main app
-  // This must use the same app instance that has the routes
-  // We get wss for the unified upgrade handler (instead of using injectWebSocket)
-  const { wss, upgradeWebSocket } = createNodeWebSocket({ app });
-  // Upload and speech payloads are already chunked; reject an oversized message
-  // in ws before the relay handlers buffer or parse it.
-  configureInboundWebSocketMessageLimit(wss);
-
   // Add upload routes with WebSocket support
   // These must be added BEFORE the frontend proxy catch-all
   const uploadRoutes = createUploadRoutes({
@@ -1659,10 +1651,15 @@ async function startServer() {
     options?: { fatalOnError?: boolean },
   ): ReturnType<typeof serve> {
     const { fatalOnError = false } = options ?? {};
+    // Each listener owns its WebSocket server: closing an old network binding
+    // must not close admission on another listener's sockets.
+    const wss = new WebSocketServer({ noServer: true });
+    configureInboundWebSocketMessageLimit(wss);
     const server = tlsOptions
       ? serve(
           {
             fetch: app.fetch,
+            websocket: { server: wss },
             port,
             hostname,
             createServer: createHttpsServer,
@@ -1670,7 +1667,10 @@ async function startServer() {
           },
           onReady,
         )
-      : serve({ fetch: app.fetch, port, hostname }, onReady);
+      : serve(
+          { fetch: app.fetch, websocket: { server: wss }, port, hostname },
+          onReady,
+        );
 
     server.on("error", (error: unknown) => {
       const err = error as NodeJS.ErrnoException;
@@ -1695,8 +1695,6 @@ async function startServer() {
         artifactServer.handleUpgrade(request, socket, head),
       frontendProxy,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
-      app,
-      wss,
     });
     return server;
   }

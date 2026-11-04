@@ -3,7 +3,8 @@ import { SRPClientSession, SRPRoutines, SRPParameters } from "tssrp6a";
 import { afterEach, expect, it, vi } from "vitest";
 import { once } from "node:events";
 import { serve } from "@hono/node-server";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { upgradeWebSocket } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
 import { Hono } from "hono";
 
@@ -81,12 +82,15 @@ async function ownerProfile(runtimeControl?: { envOverride?: boolean }) {
     ) as Parameters<typeof createAcceptRelayConnection>[0]["supervisor"],
   };
   const accept = createAcceptRelayConnection(deps);
-  const { upgradeWebSocket, wss } = createNodeWebSocket({ app });
+  const wss = new WebSocketServer({ noServer: true });
   app.get("/api/ws", createWsRelayRoutes({ ...deps, upgradeWebSocket }));
-  const server = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" });
+  const server = serve({
+    fetch: app.fetch,
+    websocket: { server: wss },
+    port: 0,
+    hostname: "127.0.0.1",
+  });
   attachUnifiedUpgradeHandler(server, {
-    app,
-    wss,
     isApiPath: (path) => path.startsWith("/api"),
     peerUpgrade: (req, socket, head) =>
       profile.manager.handleUpgrade(req, socket, head),

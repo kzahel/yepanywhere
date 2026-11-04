@@ -4,7 +4,8 @@ import { EventBus } from "../src/watcher/index.js";
 import { createWsRelayRoutes } from "../src/routes/ws-relay.js";
 import { UploadManager } from "../src/uploads/manager.js";
 import { serve } from "@hono/node-server";
-import { createNodeWebSocket } from "@hono/node-ws";
+import { upgradeWebSocket } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import { createMachineControlMediaBrowser } from "../../client/scripts/machine-control-media-browser.js";
 import type { MachineControlMediaBrowser } from "../../client/scripts/machine-control-media-browser.js";
 import type { AppResult } from "../src/app.js";
@@ -112,9 +113,7 @@ async function closeBackend() {
 async function bindBrowserBackend(port = 0) {
   assert(full);
   const supervisor = full.supervisor;
-  const { upgradeWebSocket, injectWebSocket, wss } = createNodeWebSocket({
-    app: full.app,
-  });
+  const wss = new WebSocketServer({ noServer: true });
   disposeSockets = async () => {
     for (const client of wss.clients) client.close(1000);
     await new Promise<void>((resolve) => wss.close(() => resolve()));
@@ -140,12 +139,16 @@ async function bindBrowserBackend(port = 0) {
       "/",
       createStaticRoutes({ distPath: values["client-dist"] }),
     );
-  server = serve({ fetch: full.app.fetch, port, hostname: "127.0.0.1" });
+  server = serve({
+    fetch: full.app.fetch,
+    websocket: { server: wss },
+    port,
+    hostname: "127.0.0.1",
+  });
   await new Promise<void>((resolve, reject) => {
     server?.once("listening", () => resolve());
     server?.once("error", reject);
   });
-  injectWebSocket(server);
   const address = server.address();
   assert(
     address && typeof address !== "string",
