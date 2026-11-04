@@ -163,6 +163,16 @@ runtime version mismatch.
 
 ## Verification
 
+npm publication additionally requires the
+[installed-package acceptance gate](native-provider-testing.md#installed-npm-package-acceptance)
+on Linux. It launches the packed CLI outside the checkout with an isolated
+home and normal provider-host discovery, then verifies real Claude/Codex
+API/tool/stream/history paths against local scripted model APIs. Publishing
+uses the same accepted tarball and checks its version and SHA-256; a successful
+mock-SDK startup alone cannot qualify a release. The
+[release guide](../docs/development/releasing.md#releasing-to-npm) owns commands
+and retained evidence.
+
 The Server Runtime And SQLite workflow tests patched Node 22.23.4, 24.22.1
 and 26.12.1 on Linux, macOS and Windows. It checks the generated engine
 range, CLI/direct-entry rejection, clean npm installation, storage contracts,

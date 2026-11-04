@@ -94,7 +94,7 @@ Assistant invocation/context is a compelling optional direction, but
 remains research/docs only: no device investigation or implementation spike is
 authorized. The companion remains a separate release.
 
-Last updated: 2026-11-01.
+Last updated: 2026-11-04.
 
 This is Yep Anywhere's canonical product-priority overview. Keep initiative
 status, the next action, and major blockers here; keep implementation steps in
@@ -170,6 +170,17 @@ common source, and all four release workflows passed. Android public-beta
 promotion remains a separate delivery step.
 
 ## 1. Publish the desktop and mobile apps with continuous delivery
+
+The npm release workflow now requires clean installed-package acceptance before
+publication: credential-free production startup, real Claude/Codex tool and
+stream round trips against local scripted models, and history after a server
+restart. It publishes the exact accepted tarball with a checked version/hash;
+the reusable job also covers relevant PRs. Local macOS full-gate and Linux
+startup-regression checks pass; hosted Linux provider acceptance awaits its
+first workflow run. See
+[the acceptance contract](../../topics/native-provider-testing.md#installed-npm-package-acceptance)
+for its qualification limits. Visual release goldens remain separate follow-up
+work.
 
 **Highest priority.** Make Yep Anywhere available as supported public releases
 on desktop, iOS, and Android, with CI covering every distribution and a

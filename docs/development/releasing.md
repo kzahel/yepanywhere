@@ -32,7 +32,35 @@ The package is published to npm as `yepanywhere` using GitHub Actions with OIDC 
 
 The CI workflow verifies the changelog contains an entry for the version being released. If missing, the release will fail with instructions to update the changelog.
 
-The workflow runs lint, typecheck, and tests, then builds with `pnpm build:bundle` and publishes with `--provenance` for supply chain attestation. It also creates a GitHub Release with auto-generated notes.
+The workflow requires lint, formatting, typecheck and tests, then calls
+[npm package acceptance](../../.github/workflows/npm-package.yml). That job
+builds the tagged version, packs it once, installs it outside the checkout and
+requires production startup plus real Claude/Codex API, tool, WebSocket and
+restart/history scenarios against scripted local model APIs. No paid inference
+or provider account is used. The same job runs on relevant pull requests and
+can be dispatched manually.
+
+Publication downloads the accepted archive, verifies its version and SHA-256
+against `acceptance.json`, and publishes that exact `candidate.tgz` through
+trusted publishing with automatic provenance. It does not rebuild or repack
+after acceptance. The workflow
+retains the candidate, acceptance record and server diagnostics as the
+`npm-package-acceptance` artifact, and creates a GitHub Release with changelog
+notes. A failed acceptance job prevents publication.
+
+To exercise the same gate locally:
+
+```bash
+pnpm build:bundle
+pnpm test:package
+# Check an existing candidate without rebuilding or repacking it:
+pnpm test:package --tarball=/absolute/path/candidate.tgz --expected-version=0.11.0
+```
+
+Outputs live in `dist/npm-release/`. Required executables fail explicitly when
+missing; the check never substitutes a fake CLI or a paid endpoint. See
+[native provider testing](../../topics/native-provider-testing.md#installed-npm-package-acceptance)
+for the precise boundary, isolation and qualification limits.
 
 ## Releasing the Website
 

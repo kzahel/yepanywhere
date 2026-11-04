@@ -1,0 +1,72 @@
+name: npm package acceptance
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        type: string
+        default: ''
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/npm-package.yml'
+      - '.github/workflows/publish.yml'
+      - 'scripts/agent-self*'
+      - 'scripts/build-bundle.ts'
+      - 'scripts/rewrite-shared-imports*'
+      - 'scripts/copy-server-assets.mjs'
+      - 'scripts/verify-npm-acceptance.mjs'
+      - 'packages/server/**'
+      - 'packages/shared/**'
+      - 'packages/client/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.23.4'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Select candidate version
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          if [ -z "$version" ]; then
+            version="$(node -p 'require("./package.json").version')"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Build candidate
+        run: pnpm build:bundle
+        env:
+          NPM_VERSION: ${{ steps.version.outputs.version }}
+      - name: Install packed candidate, start production server and exercise real providers
+        run: pnpm test:package --expected-version="$EXPECTED_VERSION"
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+      - name: Verify accepted archive
+        run: node scripts/verify-npm-acceptance.mjs dist/npm-release "$EXPECTED_VERSION"
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+      - name: Retain candidate and acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: npm-package-acceptance
+          path: dist/npm-release/
+          if-no-files-found: ignore

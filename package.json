@@ -50,6 +50,7 @@
     "typecheck": "pnpm --filter shared build && pnpm -r --filter=!@yep-anywhere/android --filter=!@yep-anywhere/browser-extension exec tsc --noEmit && pnpm tools:typecheck && pnpm e2e:typecheck",
     "test": "node --test artifact-host/host.test.mjs packages/mobile-core/scripts/sodium.test.mjs packages/client/e2e/lifecycle-study/network-gate.checks.mjs packages/client/e2e/lifecycle-study/acceptance.checks.mjs packages/android-host/test/profile.test.mjs && pnpm -r --filter=!@yep-anywhere/android test",
     "test:providers": "pnpm --filter @yep-anywhere/server test test/native-provider",
+    "test:package": "node scripts/agent-self-package-smoke.mjs --release --artifact-dir=dist/npm-release",
     "test:e2e": "pnpm --filter client test:e2e",
     "test:e2e:ui": "pnpm --filter client test:e2e",
     "test:e2e:android": "pnpm --filter client test:e2e:android",

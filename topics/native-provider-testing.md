@@ -125,6 +125,64 @@ stays opt-in there. These scenarios do not cover wrapper/host crashes, all
 signal ladders, authenticated/relay routes, browser offline recovery or real
 inference/cache efficiency. Existing fault-peer and live checks remain useful.
 
+## Installed npm package acceptance
+
+`pnpm build:bundle && pnpm test:package` adds a separate distribution boundary:
+clean npm installation → published CLI entry point → HTTP session creation →
+production adapter → real executable → scripted loopback model API, with live
+WebSocket output and a native-history read after a server restart. It reuses
+this suite's model server and real file-tool actions. Both Claude and Codex
+must pass; no selected executable can skip or fall back to inference.
+
+The first launch has no provider credentials and exercises normal provider-host
+discovery with neither `USE_MOCK_SDK` nor a host-disable override. It must expose
+the expected version, responsive HTTP/WebSocket, ready SQLite and no degraded
+host or host-script import failure. Each provider then reads an owned file
+through its actual native tool; those bytes must reach the next model request.
+A held streamed reply must reach the session WebSocket before model completion.
+After restarting the server with the same private profile, the original public
+session URL must return the input, reply and tool result without new inference.
+
+The harness scrubs inherited authority, owns home/config/history/data/project
+roots and process groups, and joins identity-checked process-tree shutdown
+before removing fixtures on success or failure. Synthetic keys and loopback
+model endpoints use the same deny proxy as the native suite. The update lookup
+alone receives the existing offline no-update fixture. This is configuration
+isolation, not an OS egress sandbox. Authentication is disabled only on the
+private loopback YA listener; login, relay, browser rendering, provider-host
+reload and real model quality remain outside this gate.
+
+Claude uses the runtime bundled with the **cleanly installed** SDK dependency,
+so its SDK/CLI versions are recorded even when npm's published range resolves
+newer than the source lockfile. Codex uses the pinned private test executable
+with the same exact-version check as the native suite. This smoke does not
+advance either provider's audited-through marker or replace the pinned depth
+suite. Missing binaries and scenario failures fail the command.
+
+`--tarball=/absolute/path/candidate.tgz` tests existing bytes;
+`--expected-version=VERSION` checks the intended release version. The narrower
+`node scripts/agent-self-package-smoke.mjs --production-startup --tarball=PATH`
+checks historical startup artifacts without requiring newer session APIs.
+The original `--startup` SQLite/mock matrix remains independent.
+
+Release acceptance retains `candidate.tgz`, its SHA-256, version/runtime/provider
+results and server diagnostics in `dist/npm-release/`. A receipt is written only
+after all required checks and cleanup succeed; rerunning removes an earlier
+receipt first. Publication must verify the receipt and archive, then publish
+those exact bytes. The reusable Linux workflow runs on relevant pull requests,
+manual dispatch and as a mandatory dependency of npm publication. These checks
+require no browser or paid model service. Cross-platform runtime checks retain
+their existing workflow; this release gate does not qualify every provider/OS.
+
+Qualification on 2026-11-04: the complete gate passes on macOS arm64 with
+Node 24.22.1, npm-resolved Claude SDK 0.3.318 / CLI 2.1.318 and pinned Codex
+0.166.0. The final scenario run takes 6.70 seconds, excluding package installation
+and build. A separate Linux arm64 / Node 24.22.1 clean-install startup check
+accepts the same candidate and rejects published 0.9.2 specifically for
+`providerHostDegraded: true`; no owned server/Node process remains after either
+case. Full hosted Linux x64 provider acceptance awaits the first workflow run;
+these local results do not establish that platform's native pass.
+
 ## Isolation and lifecycle
 
 Fixtures reuse the standalone environment scrubber with private project, home,
