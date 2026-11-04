@@ -15,6 +15,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   use: {
+    launchOptions: { chromiumSandbox: true },
     browserName: "chromium",
     viewport: { width: 1000, height: 600 },
     serviceWorkers: "block",
