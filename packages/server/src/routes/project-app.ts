@@ -25,6 +25,7 @@ import {
   readAppDeclaration,
   projectServiceStaticStamp,
   projectServiceStaticApp,
+  writeProjectStartCommand,
   type ProjectServices,
 } from "../projects/ProjectServiceManager.js";
 import type { ProjectScanner } from "../projects/scanner.js";
@@ -327,6 +328,38 @@ export function createProjectAppRoutes(deps: {
     );
     deps.autoStart?.reset(project.id);
     return c.json({ started: true });
+  });
+  // Editing what the app runs needs the same execution authority as stopping
+  // it; a session with that grant could edit the file itself.
+  routes.put("/projects/:projectId/app/start-command", async (c) => {
+    const parsed = z
+      .strictObject({
+        expected: z.array(z.string()).min(1).max(64),
+        argv: z.array(z.string()).min(1).max(64),
+      })
+      .safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success)
+      return c.json({ error: "Expected expected and argv string arrays" }, 400);
+    const project = await authorize(c, "new-session");
+    const result = await writeProjectStartCommand(
+      project.path,
+      parsed.data.expected,
+      parsed.data.argv,
+    );
+    if (result.kind === "invalid")
+      return c.json({ error: result.message }, 400);
+    if (result.kind === "conflict")
+      return c.json(
+        {
+          error:
+            result.argv === null
+              ? "The project no longer declares a process app"
+              : "The start command changed since it was loaded",
+          argv: result.argv,
+        },
+        409,
+      );
+    return c.json(await appInfo(project, principalFor(c)));
   });
   routes.post("/projects/:projectId/app/stop", async (c) => {
     const project = await authorize(c, "new-session");

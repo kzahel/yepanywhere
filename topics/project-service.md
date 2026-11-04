@@ -55,6 +55,25 @@ dialog, alongside sharing and session defaults. Opening settings does not
 open an app frame or mint a viewing grant. Wide dialogs use two columns;
 phones retain one scrolling column and visible save controls.
 
+**Start command editing** (user-directed 2026-11-04). The App details show the
+start command the project's `.project-template/app.json` declares, which is
+what the next start runs; a running app launched with a different one shows
+the existing declaration-changed notice until it is stopped and started. A
+principal with execution authority (the authority Stop needs) can **Edit** a
+process app's command, one argument per line, and **Save** writes only
+`service.start.argv` back to that file, keeping every other field, including
+ones this server does not know. It is a user-requested project write, not
+YA-managed storage ([project directory storage](project-directory-storage.md)).
+The save carries the command the editor loaded and is refused with 409 when
+the file declares another one (an agent or another tab changed it) or no
+longer declares a process app; an argument vector the declaration schema
+rejects is refused with 400 and nothing is written. Saving never starts,
+stops, or restarts the app. `project-app-start-command` (permanent ID 150,
+version-implied from 0.11.1) owns PUT
+`/api/projects/:projectId/app/start-command`; older servers lack it, so
+clients show the command read-only and send nothing. Standing maintainer
+compatibility approval applies.
+
 Resolve the default target on entry in this order:
 
 1. A declared project service or static app. A stopped or failed service shows

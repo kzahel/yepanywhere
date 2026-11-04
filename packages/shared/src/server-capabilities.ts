@@ -2708,6 +2708,27 @@ export const SERVER_CAPABILITIES = {
       reason: "Older servers do not report .rendez observer status.",
     },
   },
+  projectAppStartCommand: {
+    id: CAPABILITY_ID_ALLOCATIONS.projectAppStartCommand.id,
+    name: "project-app-start-command",
+    kind: "permanent",
+    area: "settings",
+    introducedIn: "0.11.1",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Replaces a process app's start command in the project's .project-template/app.json at the request of a principal with execution rights, only while the file still declares the command the editor loaded.",
+    clientFallback:
+      "Show the start command read-only and make no edit request; it can still be changed in app.json.",
+    serverContract: {
+      routes: ["PUT /api/projects/:projectId/app/start-command"],
+      requestFields: ["expected", "argv"],
+      responseFields: ["declaration", "restartRequired"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason: "Older servers have no start-command route.",
+    },
+  },
   fileFolderListing: {
     id: CAPABILITY_ID_ALLOCATIONS.fileFolderListing.id,
     name: "file-folder-listing",

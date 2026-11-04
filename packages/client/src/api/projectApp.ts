@@ -31,6 +31,12 @@ export const projectAppApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  /** Requires `project-app-start-command`; 409 when the file changed meanwhile. */
+  setStartCommand: (id: string, expected: string[], argv: string[]) =>
+    fetchJSON<ProjectAppInfo>(`${path(id)}/start-command`, {
+      method: "PUT",
+      body: JSON.stringify({ expected, argv }),
+    }),
   addresses: (id: string) =>
     fetchJSON<ProjectAppAddresses>(`${path(id)}/address`),
   addressAction: (

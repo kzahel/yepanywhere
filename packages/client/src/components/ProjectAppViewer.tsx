@@ -208,6 +208,12 @@ export function ProjectAppViewer({
     version,
     SERVER_CAPABILITIES.projectLivePreview.name,
   );
+  const startCommandEditable = serverHasCapability(
+    version,
+    SERVER_CAPABILITIES.projectAppStartCommand.name,
+  );
+  // The start command being edited, one argument per line; null when not editing.
+  const [commandDraft, setCommandDraft] = useState<string | null>(null);
   const [target, setTarget] = useState<ProjectAppTarget | undefined>(
     initialTarget,
   );
@@ -505,10 +511,24 @@ export function ProjectAppViewer({
     }
     return framePageLink(base ?? view.url, view.url, frameLocation);
   };
-  const command =
-    declaration && "start" in declaration
-      ? declaration.start.argv.join(" ")
+  // The file's command is what the next start runs; a changed one is flagged
+  // as needing a restart above.
+  const declaredArgv =
+    info?.declaration && "start" in info.declaration
+      ? info.declaration.start.argv
       : undefined;
+  const command = (
+    declaredArgv ??
+    (declaration && "start" in declaration ? declaration.start.argv : undefined)
+  )?.join(" ");
+  const canEditCommand =
+    startCommandEditable && !!declaredArgv && !!info?.canExecute;
+  const saveCommand = (expected: string[], draft: string) =>
+    perform(async () => {
+      const argv = draft.split("\n").filter((line) => line.length > 0);
+      setInfo(await projectAppApi.setStartCommand(projectId, expected, argv));
+      setCommandDraft(null);
+    });
   // A served address reaches a process app only while it runs; a static app
   // is served from its files with no process.
   const processAppStopped =
@@ -1010,7 +1030,61 @@ export function ProjectAppViewer({
                       <>
                         <dt>{t("projectAppCommand")}</dt>
                         <dd>
-                          <code>{command}</code>
+                          {commandDraft === null || !declaredArgv ? (
+                            <>
+                              <code>{command}</code>
+                              {canEditCommand && (
+                                <button
+                                  type="button"
+                                  className={styles.commandEdit}
+                                  disabled={busy}
+                                  onClick={() =>
+                                    setCommandDraft(declaredArgv!.join("\n"))
+                                  }
+                                >
+                                  {t("projectAppCommandEdit")}
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <form
+                              className={styles.commandEditor}
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void saveCommand(declaredArgv, commandDraft);
+                              }}
+                            >
+                              <label>
+                                {t("projectAppCommandHint")}
+                                <textarea
+                                  value={commandDraft}
+                                  rows={Math.min(
+                                    12,
+                                    commandDraft.split("\n").length + 1,
+                                  )}
+                                  spellCheck={false}
+                                  onChange={(event) =>
+                                    setCommandDraft(event.target.value)
+                                  }
+                                />
+                              </label>
+                              <div>
+                                <button
+                                  type="submit"
+                                  disabled={busy || !commandDraft.trim()}
+                                >
+                                  {t("projectAppCommandSave")}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => setCommandDraft(null)}
+                                >
+                                  {t("projectAppCommandCancel")}
+                                </button>
+                              </div>
+                            </form>
+                          )}
                         </dd>
                       </>
                     )}

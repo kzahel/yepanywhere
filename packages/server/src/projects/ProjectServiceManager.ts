@@ -127,6 +127,51 @@ export async function readAppDeclaration(
   }
 }
 
+export type StartCommandEdit =
+  | { kind: "written" }
+  | { kind: "conflict"; argv: string[] | null }
+  | { kind: "invalid"; message: string };
+
+/**
+ * Replace a process app's `service.start.argv` in the project's own
+ * declaration at a user's explicit request, keeping every other field. The
+ * edit applies only while the file still declares `expected`, so a
+ * concurrent writer (an agent, or another Settings tab) is never overwritten.
+ * The running app keeps its launch-time command until restarted.
+ */
+export async function writeProjectStartCommand(
+  projectPath: string,
+  expected: string[],
+  argv: string[],
+): Promise<StartCommandEdit> {
+  // Reading first also checks containment, size and that a file exists.
+  const declared = await readAppDeclaration(projectPath);
+  const service = declared?.service;
+  if (!service || !("start" in service))
+    return { kind: "conflict", argv: null };
+  const file = await realpath(
+    join(await realpath(projectPath), ".project-template/app.json"),
+  );
+  if (JSON.stringify(service.start.argv) !== JSON.stringify(expected))
+    return { kind: "conflict", argv: service.start.argv };
+  // Edit the file's own JSON, not the parsed declaration, so fields this
+  // server does not know survive.
+  const raw = JSON.parse(await readFile(file, "utf8")) as {
+    service: { start: { argv: string[] } };
+  };
+  raw.service.start.argv = argv;
+  const parsed = projectServiceSchema.safeParse(raw.service);
+  if (!parsed.success)
+    return {
+      kind: "invalid",
+      message: parsed.error.issues.map((issue) => issue.message).join("; "),
+    };
+  await writeFileAtomically(file, `${JSON.stringify(raw, null, 2)}\n`, {
+    mode: (await stat(file)).mode & 0o777,
+  });
+  return { kind: "written" };
+}
+
 /** One bounded, sandboxed launch per project, with restart-safe observed state. */
 export class ProjectServiceManager {
   private readonly live = new Map<string, LiveService>();

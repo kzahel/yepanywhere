@@ -547,6 +547,62 @@ it("requires execution authority for live preview and rejects invalid start opti
   );
 });
 
+it("edits only a process app's start command, with execution authority and against the loaded command", async () => {
+  const file = join(projectPath, ".project-template/app.json");
+  const put = (body: unknown) =>
+    app.request(`/api/projects/${projectId}/app/start-command`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  grants.newSessionProjects = [projectId];
+  // A static app has no command to edit.
+  expect((await put({ expected: ["x"], argv: ["y"] })).status).toBe(409);
+  await writeFile(
+    file,
+    JSON.stringify({
+      viewAudience: "public",
+      futureField: { kept: true },
+      service: {
+        version: 1,
+        where: { kind: "process", cwd: ".", entry: "/" },
+        start: { argv: ["python3", "serve.py"], portEnv: "PORT" },
+        status: {
+          probe: "http",
+          path: "/",
+          readyStatus: 200,
+          startupTimeoutMs: 1000,
+        },
+        stop: { signal: "SIGTERM", graceMs: 1000 },
+        serving: { target: "sandbox-loopback", protocol: "http" },
+      },
+    }),
+  );
+  grants.newSessionProjects = [];
+  expect(
+    (await put({ expected: ["python3", "serve.py"], argv: ["x"] })).status,
+  ).toBe(403);
+  grants.newSessionProjects = [projectId];
+  expect((await put({ expected: ["stale"], argv: ["x"] })).status).toBe(409);
+  expect(
+    (await put({ expected: ["python3", "serve.py"], argv: [""] })).status,
+  ).toBe(400);
+  const saved = await put({
+    expected: ["python3", "serve.py"],
+    argv: ["python3", "serve.py", "--rebuild", "two words"],
+  });
+  expect(saved.status).toBe(200);
+  expect((await saved.json()).declaration.start.argv).toEqual([
+    "python3",
+    "serve.py",
+    "--rebuild",
+    "two words",
+  ]);
+  const written = JSON.parse(await readFile(file, "utf8"));
+  expect(written.futureField).toEqual({ kept: true });
+  expect(written.viewAudience).toBe("public");
+});
+
 it("reports static entry changes and omits the stamp when the entry is missing", async () => {
   const entry = join(projectPath, "dist/index.html");
   const info = async () =>

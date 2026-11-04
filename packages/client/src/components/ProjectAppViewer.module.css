@@ -173,6 +173,33 @@
 .details dd {
   margin: 4px 0 12px;
 }
+/* Edit sits after the command text, level with it. */
+.details button.commandEdit {
+  margin-inline-start: 8px;
+  min-height: 28px;
+  padding: 2px 10px;
+}
+.commandEditor label {
+  margin-block: 4px;
+  color: var(--text-secondary);
+}
+.commandEditor textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  resize: vertical;
+}
+.commandEditor > div button:first-child {
+  margin-inline-start: 0;
+}
 .inlineSettings {
   min-width: 0;
 }
