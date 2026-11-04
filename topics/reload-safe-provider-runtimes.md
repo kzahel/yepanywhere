@@ -1171,6 +1171,27 @@ one real Codex run for integration confidence. Upstream's own rejoin tests are
 historical evidence for the retired app-server path but do not cover the shared
 worker's YA identity, normalization, fan-out, sandboxing, or teardown.
 
+## Real executable app qualification — 2026-11-04
+
+[Native provider testing](native-provider-testing.md#full-source-app-and-dev-reload-qualification)
+owns the separate `pnpm test:providers:app` and `--browser` scenarios. They use
+actual Claude/Codex executables against scripted model APIs through the real
+source wrapper, Hono, Vite and production provider host/worker. They complement
+the lower-level deterministic fault peers and paid/live acceptance.
+
+Local macOS arm64 acceptance covers requested API/frontend replacement and
+unexpected Hono loss during held output, a pending native approval, an actual
+running tool emitting dense output, volatile-queue safe-restart blockers,
+browser draft/typing/reconnect, subsequent turns and persisted history after
+refresh. Worker/native identities survive; owned processes are reaped afterward.
+Four API cases pass; six browser cases (three repetitions per provider) pass
+without retries. The separate manual workflow retains Linux/macOS acceptance.
+
+This bounded schedule did not reproduce or explain the historical macOS owner
+exit. Keep that gap open and keep macOS hosting opt-in. Wrapper/host death,
+terminal signal ladders, authenticated relay recovery and sustained real-world
+inference remain separate evidence; do not infer them from Hono replacement.
+
 ## Rejected Or Deferred Alternatives
 
 ### Raw provider PID adoption — reject

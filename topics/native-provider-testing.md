@@ -38,11 +38,12 @@ The same cases run in the ordinary server suite through `pnpm test`, including
 the existing CI unit-test job. No browser or extra CI service is needed.
 Root `pnpm typecheck` checks the native test helpers as well as production code.
 
-The current boundary is YA `Process` → production provider adapter → actual
+The native suite's boundary is YA `Process` → production provider adapter → actual
 native executable → local model API, plus the native transcript it writes.
-It does not cover HTTP/WebSocket admission, browser rendering, provider-host
-reload, authenticated subscription routing or real model quality/cache billing.
-Those retain their separate integration/live checks. Scripted usage fields
+The separate full-app qualification below covers HTTP/WebSocket admission,
+browser rendering and provider-host reload with Claude/Codex. Authenticated
+subscription routing and real model quality/cache billing retain their own
+integration/live checks. Scripted usage fields
 must never be reported as measured cache efficiency or actual token cost.
 
 The executable sources are deterministic test dependencies:
@@ -73,6 +74,56 @@ An owned executable may be selected with `YEP_NATIVE_TEST_ANTIGRAVITY_PATH` or
 Do not use the primary CLI as an implicit fallback when optional dependencies
 are absent. Runtime support/version policy remains owned by
 [provider version support](provider-version-support.md).
+
+## Full source app and dev reload qualification
+
+```bash
+pnpm test:providers:app             # Four real API/socket lifecycle cases
+pnpm --filter @yep-anywhere/client exec playwright install chromium
+pnpm test:providers:app --browser   # Two real browser lifecycle cases
+pnpm test:providers:app --browser --repeat-each=3
+```
+
+This separate suite runs the actual `scripts/dev.js` wrapper, Hono, Vite,
+provider host/worker, production adapter and pinned Claude/Codex executable.
+Only the model API and unrelated update lookup are scripted. It owns standalone
+home/config/history/project/data/host roots and synthetic credentials, scrubs
+checkout dotenv authority, requires the current Vite client, and joins teardown
+with PID/start-identity checks. Failed cases print bounded wrapper/server logs;
+browser failures also retain Playwright traces. This is configuration isolation,
+not an OS egress sandbox. It never uses an installed primary browser.
+
+The four API cases prove requested API/frontend replacement, abrupt Hono loss,
+pending native approval, a real tool's dense output during replacement,
+volatile queue blockers/cancellation, streamed socket output, persisted history
+and the next input delivered exactly once. Worker/native process identities
+remain stable while API/frontend generations change. Approval continues on the
+original native callback and the real tool executes once.
+
+The two browser cases additionally prove actual composer submission, visible
+interim/final output, draft retention across server replacement, sequential
+keystroke acknowledgement under concurrent output (each below 100 ms), one
+user bubble, transcript convergence after page refresh and another submission
+on the same worker. The isolated browser config has no retries; the ordinary
+mock browser suite excludes these scenarios. The API group is opt-in separately
+from the inexpensive native Process baseline and ordinary workspace tests.
+
+Qualification on 2026-11-04: macOS arm64, Node 24.22.1, Claude 2.1.312 and Codex
+0.166.0. Four API cases pass in 18.48 s wall time / 35.11 s summed test work;
+a concurrent workspace run passes in 21.46 s / 39.95 s. Three browser repetitions
+per provider pass without retries (six cases, 1.7 min, 16.3–17.7 s per case).
+Desktop/phone captures use the repository artifact capture facility. The
+browser scenario exposed and repaired a Codex normalization defect: an empty
+`item/started` assistant was finalized asynchronously, and its delayed same-id
+update could erase newer live text. Started messages now remain streaming.
+
+The manual native qualification workflow includes Linux x64 and macOS arm64 app
+jobs. Hosted platform acceptance still awaits those runs; local macOS evidence
+is not Linux acceptance. The [historical macOS owner-interruption
+gap](../gaps/macos-provider-host-turn-interruptions.md) remains open and the host
+stays opt-in there. These scenarios do not cover wrapper/host crashes, all
+signal ladders, authenticated/relay routes, browser offline recovery or real
+inference/cache efficiency. Existing fault-peer and live checks remain useful.
 
 ## Isolation and lifecycle
 
@@ -134,7 +185,7 @@ is still pending; artifact availability does not imply execution qualification.
 
 ## Retained lifecycle and recovery depth — 2026-11-04
 
-The complete suite now passes **57 cases** across the same ten launch paths,
+The complete suite now passes **60 cases** across the same ten launch paths,
 in four scenario files. The ordinary Claude/Codex baseline is **16 cases**;
 the selector and all-provider command run the same assertions. Native state is
 always created by the executable, then reopened through production readers.
@@ -145,16 +196,17 @@ always created by the executable, then reopened through production readers.
 | Cancellation and continuation | Claude variants, Codex, Pi, OpenCode and Antigravity cancel a held real model response and continue on the existing owner. Grok and Codex OSS hard-stop and cold-resume the same native history. Gemini hard-stop joins its real launcher/worker and closes the held model connection; continuation explicitly refuses as above. |
 | Model change and restoration | Claude, Codex and Pi change the actual next model request and reapply the selection on cold launch. Pi invalid-model refusal leaves YA's requested selection unchanged. Antigravity cold-load explicitly reapplies a different selected model instead of accepting the runtime's default reset. Wrapper model-selection matrices and effort/permission changes remain separate work. |
 | Rate-limit recovery | Every path receives a controlled HTTP 429, retries the original input and produces a persisted final reply. Codex app-server and exec publish an explicitly asserted recoverable Reconnecting event; no unexplained diagnostics are accepted. |
-| Queued compact followed by A/B | Claude and Codex actually compact through their native model request before delivering A and B separately. Both publish a compact boundary and preserve following input/output. Claude's scripted summary satisfies its native summary-tag contract. |
-| Failed queued compact | Pi's real small-session refusal holds later input; explicitly cancelling the failed compact releases that input. [Successful Pi compaction remains unqualified](../gaps/pi-queued-compaction-native-completion.md): its adapter returns the RPC result but has no normalized compact boundary/terminal path for the shared gate. Do not infer success from this refusal case. |
+| Queued compact followed by A/B | Claude, Codex and Pi actually compact through their native model request before delivering A and B separately. Claude/Codex publish a compact boundary; Pi validates its synchronous native RPC completion and persisted summary. All preserve following input/output. |
+| Failed queued compact | Pi's real small-session refusal and model error hold later input until explicit cancellation. Aborting a held native summary closes the model connection and leaves its outcome uncertain; following input never runs on guessed success. |
 
-The combined 57-case local macOS arm64 run takes **50.23 seconds wall time**
-(105.58 seconds summed test work across parallel files), without unexpected
-warnings/errors. The standalone 16-case Claude/Codex baseline passes in 3.88 seconds wall time
+The combined 60-case local macOS arm64 run takes **51.80 seconds wall time**,
+(107.87 seconds summed test work), without unexpected warnings/errors. Pi completion adds three retained cases to
+the previous 57-case run; these samples are not a measured speedup. The
+standalone 16-case Claude/Codex baseline passes in 3.88 seconds wall time
 (7.21 seconds summed work), retaining the inexpensive ordinary CI path.
 The separate focused provider group passes 192 cases in
 24.01 seconds, with its intentional fault diagnostics explicitly asserted.
-The full workspace passes (6,949 server / 7,097 client cases; server 147.15 s).
+The full workspace passes (6,950 server / 7,097 client cases; server 149.28 s).
 Static checks, frozen install and client console budgets pass. These are local
 samples, not a CI or cross-platform performance claim. Native retry backoff,
 real startup and reader/teardown costs remain part of the measured workload;
@@ -173,11 +225,11 @@ acceptance job until its first Linux run is reviewed; the normal CI server suite
 continues to gate the Claude/Codex baseline. Promote the complete job to relevant
 change gates after that acceptance. No Linux or Windows pass is claimed here.
 
-Remaining depth includes native multi-input/batched identity, successful Pi
-compact completion, approvals and tool denial, terminal faults and retry
-exhaustion, wrapper settings/effort, public identity and Supervisor ownership,
-provider-host/server restart, browser echo/reconnect and platform qualification.
-Those are distinct boundaries; these 57 cases do not establish full code coverage.
+Remaining depth includes native multi-input/batched identity, broader tool
+denial, wrapper/host terminal faults and retry exhaustion, wrapper settings/
+effort, authenticated/relay recovery and platform qualification. The separate
+Claude/Codex full-app cases cover only the listed ownership/reconnect schedules.
+These distinct boundaries do not establish full code coverage.
 
 ## All-provider adoption matrix
 
@@ -276,8 +328,8 @@ all child exits before deleting roots; Pi abort itself only requests termination
    whole-provider compatibility audit. Investigate drift against upstream
    protocol/source before changing the stub or expectations.
 
-Next priorities are successful Pi compact completion, native multi-input
-identity/batching, approval/terminal fault recovery and app-level ownership.
+Next priorities are native multi-input identity/batching, wrapper/host terminal
+fault recovery and authenticated/relay app ownership.
 Queued compact, cancellation/resume and controlled rate-limit retry now have
 the retained coverage above. This evidence does not change queue defaults or
 justify removing implicit YA concatenation without identity/policy qualification.

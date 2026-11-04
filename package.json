@@ -73,7 +73,8 @@
     "simple-client:generate": "node scripts/generate-simple-client.mjs",
     "simple-client:check": "node --test scripts/simple-client-schema.test.mjs && node scripts/generate-simple-client.mjs --check",
     "test:providers:install": "node scripts/install-native-provider-tests.mjs",
-    "test:providers:all": "node scripts/run-native-provider-tests.mjs"
+    "test:providers:all": "node scripts/run-native-provider-tests.mjs",
+    "test:providers:app": "node scripts/run-native-app-tests.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

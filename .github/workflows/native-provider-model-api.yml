@@ -25,3 +25,30 @@ jobs:
         run: pnpm test:providers:install
       - name: Real executables, owned profiles and scripted loopback models
         run: pnpm test:providers:all
+
+  native-app-reload:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The held Playwright supports this Ubuntu image, not 26.04.
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.23.4
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @yep-anywhere/shared build
+      - run: pnpm test:providers:app
+      - run: pnpm --filter @yep-anywhere/client exec playwright install --with-deps chromium
+      - run: pnpm test:providers:app --browser
+      - name: Preserve native app browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-app-${{ matrix.os }}-${{ github.run_attempt }}
+          path: packages/client/test-results/native-app-*/**

@@ -462,3 +462,29 @@ hard abort pass together with existing Claude/Codex and gate tests (22 cases,
 4.12 s local). Full workspace passes (6,950 server cases, 151.50 s), with existing
 negative-fixture diagnostic debt retained separately. No public capability or
 macOS default changes are involved.
+
+### Full app implementation evidence
+
+The retained source-app fixture now runs the real wrapper, Hono, Vite, host,
+worker and pinned Claude/Codex executable against the existing loopback model
+server. Four API/socket cases cover requested API/frontend replacement, abrupt
+Hono loss, pending native approvals, an actual tool's dense output, volatile
+queue blockers and exactly-once continuation/history. Private dotenv/profile
+isolation and PID/start-identity teardown remain mandatory.
+
+The thin real-browser scenario submits through the composer, observes partial
+output, preserves a typed draft across API replacement, follows up, refreshes
+history and sends again on the same worker. It exposed a Codex started-message
+normalization defect: asynchronous enrichment of an empty started snapshot
+could erase later live text. Marking started assistant messages streaming
+repairs the boundary. The original browser assertion failed before this fix;
+six cases (three repetitions per provider) pass afterward without retries,
+including each keystroke below 100 ms under concurrent output.
+
+API qualification takes 18.48 s wall time / 35.11 s summed work locally (four
+cases); a concurrent workspace run takes 21.46 s / 39.95 s. Browser repetition
+takes 1.7 min total, 16.3–17.7 s per case. Versions: macOS arm64, Node 24.22.1,
+Claude 2.1.312, Codex 0.166.0. The manual workflow adds Linux/macOS app jobs;
+those hosted platform passes remain pending. Commands and remaining boundaries
+are in the owning native testing and reload-safe runtime topics. The historical
+macOS interruption gap stays open and its default remains off.

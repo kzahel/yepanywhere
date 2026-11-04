@@ -633,15 +633,24 @@ Claude/Codex baseline; an explicit all-provider command exercises the full set.
 Native Codex OSS coverage exposed and repaired resumed-turn output parsing.
 The [qualification matrix](../../topics/native-provider-testing.md#all-provider-adoption-matrix)
 and [plan](../tactical/175-native-provider-integration-scenarios.md) track depth
-and platform acceptance. The retained depth now passes 57 cases in 50.23 s
+and platform acceptance. The retained depth now passes 60 cases in 51.80 s
 locally: actual-tool cold resume, cancellation/continuation, model restoration,
-all-provider rate-limit recovery, Claude/Codex queued compact and Pi's native
-compact refusal. It drove narrow fixes for Codex usage/control identity, Pi
+all-provider rate-limit recovery and Claude/Codex/Pi queued compact. Pi now
+validates synchronous native completion/persistence; refusal, model failure
+and abort retain the queue until success or explicit cancellation. It drove
+narrow fixes for Codex usage/control identity, Pi
 model acknowledgement, OpenCode port collision and ACP worker-tree teardown.
-Next: successful Pi compact, approvals/terminal faults, native batched identity
-and Supervisor/provider-host restart ownership. Linux x64 has an explicit manual
-acceptance workflow; promote it to change gates after its first reviewed pass.
-App ownership/fault interleavings and Linux/Windows acceptance remain explicit;
+A separate real source-app suite now proves Claude/Codex HTTP/WebSocket
+admission, requested API/frontend replacement, abrupt Hono loss, approval and
+dense-tool continuity, volatile queue blockers and native owner identity. Four
+API cases and six browser cases (three repetitions per provider, no retries)
+pass on macOS arm64, including draft retention, sequential typing and history
+after refresh. It also repaired a Codex started-snapshot enrichment race.
+Next: wrapper/host terminal faults, native batched identity and authenticated/
+relay recovery. Linux/macOS app jobs join the explicit manual acceptance
+workflow; promote reviewed platform passes to change gates. The historical
+macOS interruption gap stays open and hosting stays opt-in. Linux/Windows
+acceptance and remaining ownership/fault interleavings remain explicit;
 the comprehensive matrix does not select new UI controls or thaw legacy Gemini.
 Release-delivery work remains independently required; local sessions,
 same-host provider ownership, ordinary queues, direct/relay access and native

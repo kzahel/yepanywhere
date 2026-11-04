@@ -16,5 +16,16 @@ correlate the reload request, safe-restart blocker decision, host/worker
 detach-or-exit records, app-server lifetime, and tool-runner completion before
 re-enabling the host by default.
 
+Qualification update, 2026-11-04: the real source wrapper/Hono/Vite/host and
+pinned Claude/Codex executables now have retained scripted-model API and browser
+scenarios. Requested reload, abrupt Hono loss, approval reattachment and a real
+tool's dense-output burst pass on macOS arm64; three browser repetitions per
+provider pass without retries. Owned logs and PID/start identities are captured
+on failures. Commands and limits are in
+[native provider testing](../topics/native-provider-testing.md#full-source-app-and-dev-reload-qualification).
+This does not reproduce the historical owner exit or close this gap. Wrapper/
+host loss, sustained runs and terminal signal schedules remain separate work;
+macOS stays opt-in.
+
 Found 2026-09-20 while investigating repeated active-turn interruptions during
 test execution on the localhost development server.

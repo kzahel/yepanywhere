@@ -7515,6 +7515,9 @@ export class CodexProvider implements AgentProvider {
             type: "assistant",
             session_id: sessionId,
             uuid,
+            // item/started is a live snapshot, not a final message. Otherwise
+            // delayed same-id enrichment can overwrite newer streamed text.
+            ...(!isComplete ? { _isStreaming: true } : {}),
             message: {
               role: "assistant",
               content: item.text,

@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.test.json",
-  "include": ["test/native-provider/**/*.ts"],
+  "include": ["test/native-provider/**/*.ts", "test/native-app/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
