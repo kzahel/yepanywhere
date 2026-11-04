@@ -99,7 +99,26 @@ matching upstream release tags when the version changed; the real zero-token
 probe covers the production model-discovery command but intentionally does not
 exercise authenticated assistant events or persisted sessions.
 
-Current refresh, 2026-10-23 (Pi 1.4.0): the installed binary passes the
+Current refresh, 2026-11-04 (Pi 1.5.0): `pi update --self` moves the
+managed install from 1.4.0 to 1.5.0; `PI_EXECUTABLE` names that managed
+launcher, not a fork. The installed binary passes the zero-token RPC
+contract and the local-server effort-retry integration test, and the
+pinned 1.5.0 native scenarios pass 9/9 on Linux x64. Against the
+installed 1.4.0 release, `dist/modes/rpc` is unchanged, sessions stay
+format v3 with the same entry types, and `dist/cli.js` remains beside
+the `dist/bundle/cli.js` bin. Agent-core changes only tool-schema
+typing: tool arguments now validate through `@earendil-works/pi-schema`
+instead of TypeBox, which YA's extension never reaches because it
+registers a command and no tools. The extension calls YA makes
+(`registerCommand`, `appendEntry`, `navigateTree`, session-manager reads)
+are unchanged apart from added keybinding hints. Assistant messages may
+carry `responseModel` and usage may carry `cost.totalFromProvider`; both
+are additive and ignored. `--model` now accepts provider ids containing
+slashes. No adapter change is needed; root compatibility advances to
+1.5.0. No authenticated turn ran; the evidence is the installed `dist`
+diff, the package changelog and the scripted native scenarios.
+
+Previous refresh, 2026-10-23 (Pi 1.4.0): the installed binary passes the
 zero-token RPC contract and the local-server effort-retry integration test
 with `PI_EXECUTABLE` set explicitly to the managed launcher. Against the
 installed 1.3.0 release, `dist/modes/rpc` and the session manager are
@@ -2310,7 +2329,28 @@ Difference detectors:
   [provider-model-glyphs](provider-model-glyphs.md), not necessarily the
   provider runtime.
 
-Current read-only audit, 2026-06-05:
+Current refresh, 2026-11-04 (OpenCode 1.19.5): `opencode upgrade` moves
+the official-installer binary from 1.18.31 to 1.19.5. The OpenAPI
+documents served by isolated `opencode serve` instances of both releases
+have the same paths; every route YA calls (`/session`,
+`/session/{id}/message`, `/session/{id}/abort`, `/session/status`,
+`/event`, permission reply, question reply/reject) and every event,
+message and part schema is identical. Only `Config`/`ProviderConfig`
+change: model `reasoning_options` (1.19.3) generate the `variants` map
+that `opencode models --verbose` still reports in the same field shape,
+which YA reads for effort levels. A fresh `opencode.db` has an identical
+SQLite schema, and `serve`, `export` and `acp` help are unchanged. The
+1.18.32–1.19.5 notes otherwise cover provider fixes, discontinued
+session sharing (1.19.1) and a bundled Bun 1.4.4. No adapter change is
+needed. OpenCode 2 ships separately as `@opencode/cli` (2.2.5) and is
+reached only through `opencode upgrade --major`; 1.x update checks stay
+on npm `opencode-ai`, so 1.19.5 is the current 1.x release. No model
+turn ran. The pinned native-scenario executable remains 1.18.9; its
+four multi-turn scenarios failed only at their 5/10-second time limits
+on a host at load ~51 (16 cores), so they neither qualify nor fault
+1.19.5.
+
+Previous read-only audit, 2026-06-05:
 
 - Installed OpenCode is still `1.15.13`, matching the existing
   [opencode-backend](opencode-backend.md) local sample version.
@@ -2319,10 +2359,10 @@ Current read-only audit, 2026-06-05:
   runtime data and the provider already queries it dynamically.
 - `opencode acp --help` exists, but YA still uses `opencode serve`.
 
-Status: OpenCode is not due for a routine version refresh from the local binary
-state. It has a design-refresh candidate if YA wants to evaluate the ACP backend
-instead of the current HTTP/SSE backend, and the dynamic model catalog may
-justify a separate glyph/UI polish pass.
+Status: no source refresh is due on the 1.x line. OpenCode 2 is a
+design-refresh candidate, as is the ACP backend in place of the current
+HTTP/SSE backend. Moving the native-scenario pin from 1.18.9 to 1.19.5
+waits for a quieter host to rerun those scenarios.
 
 ## Package Cross-Checks
 
