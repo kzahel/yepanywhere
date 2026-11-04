@@ -130,7 +130,8 @@ export function defineTool<
         />
       );
       const partial = () =>
-        partialResult?.success ? (
+        partialResult?.success &&
+        !callbacks.omitPartialResult?.(partialResult.data) ? (
           <pre className={styles.partial} data-tool-display="partial">
             <ToolOutputText text={partialResult.data} />
           </pre>
@@ -361,6 +362,11 @@ interface ToolCallbacks<TInput, TResult> {
     input: TInput,
     status: "pending" | "complete" | "error" | "aborted" | "incomplete",
   ) => string | undefined;
+  /**
+   * Whether a plain-text result only restates what the row already shows,
+   * so its text block is left out. The input display still renders.
+   */
+  omitPartialResult?: (text: string) => boolean;
   /** Render the tool_use block (what Claude wants to do) */
   renderToolUse: (input: TInput, context: ToolDisplayContext) => ReactNode;
   /** Render the tool_result block (what happened) */

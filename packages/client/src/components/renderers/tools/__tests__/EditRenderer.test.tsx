@@ -144,6 +144,22 @@ describe("EditRenderer collapsed preview fallback", () => {
     expect(screen.getByText(/\*\*\* Begin Patch/)).toBeDefined();
   });
 
+  it("renders a raw patch when a plain-text result arrives as undefined", () => {
+    render(
+      <div>
+        {renderCollapsedPreview(
+          { _rawPatch: "export const added = true;" } as never,
+          undefined,
+          false,
+          renderContext,
+        )}
+      </div>,
+    );
+
+    expect(screen.queryByText("Computing diff...")).toBeNull();
+    expect(screen.getByText(/export const added/)).toBeDefined();
+  });
+
   it("keeps pending classic Edit rows on Computing diff...", () => {
     const input = {
       file_path: "src/example.ts",

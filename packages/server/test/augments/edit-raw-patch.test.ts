@@ -134,6 +134,30 @@ describe("extractRawPatchFromEditInput", () => {
     expect(extracted).toContain("+d");
   });
 
+  it("renders Codex added-file content as a new-file hunk", () => {
+    const extracted = extractRawPatchFromEditInput({
+      file_path: "/repo/new.ts",
+      changes: [
+        {
+          path: "/repo/new.ts",
+          kind: "add",
+          diff: "  indented();\nplain\n",
+        },
+      ],
+    });
+
+    expect(extracted).toBe("@@ -0,0 +1,2 @@\n+  indented();\n+plain");
+    expect(parseRawEditPatch(extracted ?? "")?.structuredPatch).toEqual([
+      {
+        oldStart: 0,
+        oldLines: 0,
+        newStart: 1,
+        newLines: 2,
+        lines: ["+  indented();", "+plain"],
+      },
+    ]);
+  });
+
   it("extracts Codex patch_apply_end unified diffs", () => {
     expect(
       extractRawPatchFromEditInput({

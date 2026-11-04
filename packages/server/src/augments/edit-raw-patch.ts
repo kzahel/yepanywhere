@@ -76,6 +76,25 @@ function countNewLines(lines: string[]): number {
   return count;
 }
 
+function changeKind(change: Record<string, unknown>): string | undefined {
+  const kind = change.kind ?? change.type;
+  if (typeof kind === "string") return kind;
+  if (isRecord(kind) && typeof kind.type === "string") return kind.type;
+  return undefined;
+}
+
+/**
+ * Codex reports an added or deleted file's whole content in `diff`, not a
+ * unified diff; render it as the single hunk that creates or removes it.
+ */
+function wholeFileHunk(content: string, kind: "add" | "delete"): string {
+  const lines = content.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n");
+  const marker = kind === "add" ? "+" : "-";
+  const range =
+    kind === "add" ? `-0,0 +1,${lines.length}` : `-1,${lines.length} +0,0`;
+  return [`@@ ${range} @@`, ...lines.map((line) => marker + line)].join("\n");
+}
+
 function extractRawPatchFromChanges(changes: unknown): string | undefined {
   if (!Array.isArray(changes)) {
     return undefined;
@@ -86,6 +105,10 @@ function extractRawPatchFromChanges(changes: unknown): string | undefined {
       if (!isRecord(change)) return null;
       const diff = change.diff ?? change.unified_diff;
       if (typeof diff !== "string") return null;
+      const kind = changeKind(change);
+      if ((kind === "add" || kind === "delete") && diff) {
+        return wholeFileHunk(diff, kind);
+      }
       const trimmed = diff.trim();
       return trimmed ? trimmed : null;
     })

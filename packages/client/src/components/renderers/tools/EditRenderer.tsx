@@ -1222,16 +1222,9 @@ function EditCollapsedPreview({
     );
   }
 
-  // Pending edit without augment data yet
+  // A plain-text result reaches this preview as `undefined`, so an absent
+  // result does not mean pending; show any raw patch before waiting on one.
   if (structuredPatch.length === 0) {
-    if (result === undefined) {
-      return (
-        <div className="edit-collapsed-preview">
-          <div className="edit-loading">Computing diff...</div>
-        </div>
-      );
-    }
-
     if (rawPatch) {
       return (
         <>
@@ -1262,6 +1255,14 @@ function EditCollapsedPreview({
             </EditDetailModal>
           )}
         </>
+      );
+    }
+
+    if (result === undefined) {
+      return (
+        <div className="edit-collapsed-preview">
+          <div className="edit-loading">Computing diff...</div>
+        </div>
       );
     }
 
@@ -1772,6 +1773,12 @@ function EditToolResult({
 export const editRenderer = defineTool(toolDisplayContracts.Edit, {
   tool: "Edit",
   displayName: "Edit",
+
+  // Codex's success text lists `kind: path` per file, which the header and
+  // its tooltip already name.
+  omitPartialResult(text) {
+    return text.startsWith("File changes applied:\n");
+  },
 
   renderToolUse(input) {
     return <EditToolUse input={input} />;
