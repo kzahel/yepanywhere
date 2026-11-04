@@ -1,3 +1,4 @@
+import { FileDropZone } from "../components/FileDropZone";
 import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { createLegacySession } from "../lib/legacySessionCreation";
 import {
@@ -6152,7 +6153,18 @@ function SessionPageContent({
       isWideScreen={isWideScreen}
       innerClassName={`${styles.workspace} ${rightPane.expanded || (projectAppEnabled && projectAppOpen) ? styles.rightPane : ""}`}
     >
-      <div className={styles.sessionColumn}>
+      <FileDropZone
+        className={styles.sessionColumn}
+        enabled={
+          !!projectId &&
+          !!sessionId &&
+          !isDomLingerParked &&
+          !mainComposerForAside &&
+          !isSessionCreationPending(session?.creation)
+        }
+        onFiles={handleAttach}
+        ownerKey={creationKey}
+      >
         <header
           ref={headerRef}
           data-session-read-scope={sessionId}
@@ -7631,7 +7643,7 @@ function SessionPageContent({
             </div>
           </footer>
         </div>
-      </div>
+      </FileDropZone>
       <SessionRightPane
         voice={projectAppVoice}
         pane={rightPane}

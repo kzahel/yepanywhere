@@ -1,3 +1,4 @@
+import { FileDropZone } from "./FileDropZone";
 import {
   createLegacySession,
   supportsSessionCreation,
@@ -5690,20 +5691,28 @@ export function NewSessionForm({
   // Compact mode: just the input area, no header or mode selector
   if (compact) {
     return (
-      <div
+      <FileDropZone
+        enabled={allowAttachments && !composerMuted && !isStarting}
+        onFiles={addPendingFiles}
+        ownerKey={`${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`}
+        newSession
         className="new-session-form new-session-form-compact"
         onKeyDownCapture={handleComposerKeyDown}
       >
         {creationRecovery}
         {displayDefaultsError}
         {inputArea}
-      </div>
+      </FileDropZone>
     );
   }
 
   // Full mode: form with header, input area, and mode selector
   return (
-    <div
+    <FileDropZone
+      enabled={allowAttachments && !composerMuted && !isStarting}
+      onFiles={addPendingFiles}
+      ownerKey={`${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`}
+      newSession
       className={`new-session-form new-session-container${
         fullPane ? ` ${styles.fullPane}` : ""
       }${fullPaneWide ? ` ${styles.fullPaneWide}` : ""}`}
@@ -5970,6 +5979,6 @@ export function NewSessionForm({
           />
         </div>
       </div>
-    </div>
+    </FileDropZone>
   );
 }

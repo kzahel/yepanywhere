@@ -1,4 +1,10 @@
 {
+  "attachmentDropTitle": "Drop files to attach",
+  "attachmentDropNewSession": "Add them to your new session",
+  "attachmentDropSession": "Add them to this session",
+  "attachmentDropNewSessionHint": "Files stay in your draft until you start the session.",
+  "attachmentDropSessionHint": "Files stay in your draft until you send a message.",
+  "attachmentDropFolderError": "Folders cannot be attached. Choose individual files instead.",
   "queuedCompactUnconfirmed": "Compaction outcome unconfirmed; waiting",
   "queuedCompactRunning": "Compacting",
   "queuedCompactRequiresUpdate": "Update this server to queue compaction. Manual Compact is still available when idle.",

@@ -6,7 +6,7 @@
 
 Topic: attachment-intake
 
-Status: desktop paste, installed-PWA image share, and session audio memo
+Status: desktop file drop, desktop paste, installed-PWA image share, and session audio memo
 attachment paths are implemented.
 
 See also:
@@ -19,6 +19,23 @@ See also:
   and retrieval after intake.
 
 ## Product contract
+
+Desktop file drops on New Session forms and existing session content use the
+same attachment pipeline as the file chooser and paste. A dashed accent border
+and “Drop files to attach” overlay appear only while files are dragged over the
+target. The overlay follows the visible content bounds and clears on leaving,
+drop, Escape, window blur, or owner retirement. It does not take keyboard focus.
+Text and link dragging retain their ordinary browser behavior.
+
+Multiple files become ordinary removable draft attachments with the existing
+image preparation, upload progress and error handling. Dropping never starts a
+session or sends a message. Folder drops reject the whole selection with an
+error; directories are not traversed. Disabled/read-only creation forms,
+pending session creation, parked sessions and the text-only /btw composer do
+not accept file drops. File drops over a disabled target still prevent browser
+navigation to the dropped file. No new server route or capability is required.
+This established, explicitly invoked attachment affordance is always available;
+it adds no idle UI and does not modify submitted text.
 
 Desktop clipboard paste reads file items from the existing textarea paste
 event and hands them to the normal pending-attachment pipeline. It does not
