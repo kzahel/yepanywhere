@@ -137,6 +137,7 @@ import {
 import { SpeechBackendInstallService } from "./services/voice/speechBackendInstall.js";
 import { claudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { codexEntryCacheBudget } from "./sessions/codex-entry-cache-budget.js";
+import { observeCodexRolloutTree } from "./sessions/codex-reader.js";
 import { providerCatalogFamily } from "./sessions/provider-catalog-family.js";
 import {
   boundSessionSource,
@@ -613,6 +614,13 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
   ],
 });
 providerSessionWatchersForShutdown = providerSessionWatchers;
+// While the Codex watcher observes the sessions tree, cached enumerations stay
+// current between its reports instead of re-walking cold history on a timer.
+observeCodexRolloutTree({
+  sessionsDir: config.codexSessionsDir,
+  eventBus,
+  epoch: () => providerSessionWatchers.getObservationEpoch("codex"),
+});
 
 // When running without tsx watch (NO_BACKEND_RELOAD=true), start source watcher
 // to notify the UI when server code changes and needs manual reload

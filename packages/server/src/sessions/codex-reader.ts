@@ -17,7 +17,15 @@ import {
 
 import { randomUUID } from "node:crypto";
 import { open, readdir, realpath, stat } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import {
   type CodexSessionEntry,
   type NativeSessionRef,
@@ -48,14 +56,23 @@ import type {
 } from "../supervisor/types.js";
 import {
   codexRolloutRepresentation,
+  findCodexRolloutRepresentation,
   getCodexRolloutActivityTimeMs,
   getCodexRolloutFileIdentity,
   getCodexRolloutId,
   isCompressedCodexRolloutPath,
   isCodexRolloutFileName,
+  plainCodexRolloutPath,
   preferPlainCodexRollouts,
 } from "../utils/codexRolloutFiles.js";
 import { iterateJsonlLines, readJsonlLines } from "../utils/jsonl.js";
+import type { EventBus } from "../watcher/EventBus.js";
+import {
+  type CodexRolloutTreeEpoch,
+  getCodexRolloutTreeEpoch,
+  isCodexRolloutTreeEnumerationTrusted,
+  registerCodexRolloutTreeObserver,
+} from "./codex-rollout-tree-observation.js";
 import {
   type CodexProviderChildProjection,
   codexProviderChildProjections,
@@ -191,9 +208,16 @@ interface CodexScanOptions {
 interface CodexSharedScanCacheEntry {
   /** Absent for exact point evidence before any complete enumeration. */
   timestamp?: number;
+  /** Watcher epoch the enumeration began under; see tree observation. */
+  epoch?: number | null;
   sessions: Map<string, CodexSessionFile>;
   activeAfterMs?: number;
   inFlight?: Promise<CodexSessionFile[]>;
+  /** Plain rollout paths the watcher reported since the enumeration began. */
+  changedPaths: Set<string>;
+  applyingChanges?: Promise<void>;
+  /** A reported deletion left this enumeration unable to stand in for a walk. */
+  needsEnumeration?: boolean;
 }
 
 /**
@@ -205,6 +229,44 @@ const codexSharedScanCache = new Map<
   string,
   Map<string, CodexSharedScanCacheEntry>
 >();
+
+/**
+ * While `epoch` reports a live watcher over `sessionsDir`, cached
+ * enumerations of it stay current between that watcher's reports instead of
+ * re-walking cold history on a timer. Returns the teardown.
+ */
+export function observeCodexRolloutTree(options: {
+  sessionsDir: string;
+  eventBus: Pick<EventBus, "subscribe">;
+  epoch: CodexRolloutTreeEpoch;
+}): () => void {
+  const unregister = registerCodexRolloutTreeObserver(
+    options.sessionsDir,
+    options.epoch,
+  );
+  const unsubscribe = options.eventBus.subscribe((event) => {
+    if (event.type === "file-change" && event.provider === "codex")
+      noteCodexRolloutChanged(options.sessionsDir, event.path);
+  });
+  return () => {
+    unsubscribe();
+    unregister();
+  };
+}
+
+/**
+ * Record a watcher-reported rollout change so cached enumerations of that
+ * tree re-read just this file instead of re-walking the whole tree.
+ */
+function noteCodexRolloutChanged(sessionsDir: string, filePath: string): void {
+  if (!isCodexRolloutFileName(filePath)) return;
+  const plainPath = plainCodexRolloutPath(filePath);
+  const root = resolve(sessionsDir);
+  for (const [dir, rootCache] of codexSharedScanCache) {
+    if (resolve(dir) !== root) continue;
+    for (const entry of rootCache.values()) entry.changedPaths.add(plainPath);
+  }
+}
 
 interface CodexFullSummaryCacheEntry {
   promise: Promise<SessionSummary | null>;
@@ -1441,7 +1503,11 @@ export class CodexSessionReader implements ISessionReader {
       cached &&
       (cached.inFlight ||
         (cached.timestamp !== undefined &&
-          now - cached.timestamp < CODEX_SCAN_CACHE_TTL_MS))
+          (isCodexRolloutTreeEnumerationTrusted(
+            this.sessionsDir,
+            cached.epoch,
+          ) ||
+            now - cached.timestamp < CODEX_SCAN_CACHE_TTL_MS)))
     ) {
       const metrics = createCodexSessionReaderScanMetrics({
         sessionsDir: this.sessionsDir,
@@ -1461,6 +1527,12 @@ export class CodexSessionReader implements ISessionReader {
         metrics.durationMs = Date.now() - startedAt;
         this.recordScanMetrics(metrics);
         return visibleSessions;
+      }
+      if (!(await this.applyObservedRolloutChanges(cached, metrics))) {
+        // A reported deletion may have hidden another file for the same
+        // session; only a fresh enumeration can say which one remains.
+        if (rootCache.get(cacheKey) === cached) rootCache.delete(cacheKey);
+        return this.scanSessions(options);
       }
       this.hydrateSessionFileCache([...cached.sessions.values()]);
       const visibleSessions = this.filterVisibleSessionsForScanMetrics(
@@ -1482,8 +1554,12 @@ export class CodexSessionReader implements ISessionReader {
     const startedAt = Date.now();
     const entry: CodexSharedScanCacheEntry = {
       timestamp: now,
+      // Read before walking: the walk proves only what the watcher could
+      // have reported from its start.
+      epoch: getCodexRolloutTreeEpoch(this.sessionsDir),
       sessions: new Map(),
       activeAfterMs: options?.activeAfterMs,
+      changedPaths: new Set(),
     };
     const inFlight = this.scanSessionsUncached(options, metrics).then(
       (sessions) => {
@@ -1538,6 +1614,64 @@ export class CodexSessionReader implements ISessionReader {
         rootCache?.delete(key);
       }
     }
+  }
+
+  /**
+   * Fold watcher-reported rollout changes into a settled enumeration by
+   * re-reading only those files. False when a reported deletion removed a
+   * session, which leaves the enumeration unable to stand in for a walk.
+   */
+  private async applyObservedRolloutChanges(
+    entry: CodexSharedScanCacheEntry,
+    metrics: CodexSessionReaderScanMetrics,
+  ): Promise<boolean> {
+    while (entry.changedPaths.size > 0 || entry.applyingChanges) {
+      if (entry.applyingChanges) {
+        await entry.applyingChanges;
+        continue;
+      }
+      const changed = [...entry.changedPaths];
+      entry.changedPaths.clear();
+      const apply = (async () => {
+        for (const plainPath of changed) {
+          let removed = false;
+          for (const [id, session] of entry.sessions) {
+            if (plainCodexRolloutPath(session.filePath) !== plainPath) continue;
+            entry.sessions.delete(id);
+            removed = true;
+          }
+          const filePath = await findCodexRolloutRepresentation(plainPath);
+          if (!filePath) {
+            if (removed) entry.needsEnumeration = true;
+            continue;
+          }
+          metrics.rolloutFilesFound += 1;
+          this.cacheRolloutPath(filePath);
+          const session = await this.readSessionMeta(
+            filePath,
+            entry.activeAfterMs === undefined
+              ? undefined
+              : { activeAfterMs: entry.activeAfterMs },
+            metrics,
+          );
+          if (!session) continue;
+          const current = entry.sessions.get(session.id);
+          if (!current || isNewerCodexSessionFile(session, current))
+            entry.sessions.set(session.id, session);
+        }
+        await this.discoveryIndex?.flush();
+      })();
+      entry.applyingChanges = apply;
+      try {
+        await apply;
+      } catch (error) {
+        for (const plainPath of changed) entry.changedPaths.add(plainPath);
+        throw error;
+      } finally {
+        if (entry.applyingChanges === apply) entry.applyingChanges = undefined;
+      }
+    }
+    return !entry.needsEnumeration;
   }
 
   private getSharedScanCacheKey(options?: CodexScanOptions): string {
@@ -1595,7 +1729,10 @@ export class CodexSessionReader implements ISessionReader {
     const unfiltered = this.getSharedScanCacheKey();
     if (!rootCache.has(unfiltered)) {
       // Exact native point evidence is shared without certifying enumeration.
-      rootCache.set(unfiltered, { sessions: new Map() });
+      rootCache.set(unfiltered, {
+        sessions: new Map(),
+        changedPaths: new Set(),
+      });
     }
     // A cold reader must honor newer native evidence another reader accepted.
     // Reconcile the existing root caches before admitting the observed path.

@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import * as path from "node:path";
 
 export type CodexRolloutRepresentation = "plain" | "zstd";
@@ -96,6 +97,23 @@ export function preferPlainCodexRollouts(filePaths: string[]): string[] {
     if (!isCompressedCodexRolloutPath(filePath)) return true;
     return !plainPaths.has(plainCodexRolloutPath(filePath));
   });
+}
+
+/**
+ * The existing file for one logical rollout, honoring the same plain-first
+ * precedence as `preferPlainCodexRollouts`; null when neither exists.
+ */
+export async function findCodexRolloutRepresentation(
+  plainPath: string,
+): Promise<string | null> {
+  for (const filePath of [plainPath, `${plainPath}.zst`]) {
+    try {
+      if ((await stat(filePath)).isFile()) return filePath;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+  return null;
 }
 
 export function codexRolloutRepresentation(

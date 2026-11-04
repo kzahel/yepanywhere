@@ -103,8 +103,12 @@ const PERIODIC_RESCAN_BACKOFF_RATIO = 0.5;
 const PERIODIC_RESCAN_RECOVERY_RATIO = 0.1;
 const PERIODIC_RESCAN_DEFAULT_MAX_BACKOFF_MS = 60 * 60 * 1000;
 
+/** Process-unique, so no two watcher lifetimes share an observation epoch. */
+let lastObservationEpoch = 0;
+
 export class FileWatcher {
   private observationError: string | null = null;
+  private observationEpoch = 0;
   private watchDir: string;
   private provider: WatchProvider;
   private eventBus: EventBus;
@@ -162,6 +166,7 @@ export class FileWatcher {
     }
 
     this.observationError = null;
+    this.observationEpoch = ++lastObservationEpoch;
     try {
       const lifecycleGeneration = ++this.lifecycleGeneration;
       this.watcher = watchSharedDirectory(
@@ -242,6 +247,17 @@ export class FileWatcher {
    */
   get isWatching(): boolean {
     return this.watcher !== null && this.observationError === null;
+  }
+
+  /**
+   * Identifies one uninterrupted observation of the tree, or null when events
+   * may be missing: before the baseline, after an error, or once stopped.
+   * Evidence gathered under an epoch stays current while that epoch holds.
+   */
+  getObservationEpoch(): number | null {
+    return this.isWatching && this.initialBaselineState === "complete"
+      ? this.observationEpoch
+      : null;
   }
 
   getObservationDiagnostics() {

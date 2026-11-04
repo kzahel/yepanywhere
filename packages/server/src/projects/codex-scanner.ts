@@ -17,6 +17,10 @@ import { basename, isAbsolute, join, relative, sep } from "node:path";
 import type { SessionDiscoveryIndex } from "../indexes/SessionDiscoveryIndex.js";
 import { getLogger } from "../logging/logger.js";
 import {
+  getCodexRolloutTreeEpoch,
+  isCodexRolloutTreeEnumerationTrusted,
+} from "../sessions/codex-rollout-tree-observation.js";
+import {
   type CodexRolloutDiscoveryStats,
   createCodexSessionDiscoveryIndex,
   createCodexRolloutDiscoveryStats,
@@ -25,6 +29,7 @@ import {
 import type { Project } from "../supervisor/types.js";
 import {
   codexRolloutRepresentation,
+  findCodexRolloutRepresentation,
   isCodexRolloutFileName,
   plainCodexRolloutPath,
   preferPlainCodexRollouts,
@@ -112,8 +117,12 @@ export class CodexSessionScanner {
   private sessionsDir: string;
   private discoveryIndex?: SessionDiscoveryIndex;
   private slowLogThresholdMs: number;
-  private cachedScan: { result: CodexSessionInfo[]; timestamp: number } | null =
-    null;
+  private cachedScan: {
+    result: CodexSessionInfo[];
+    timestamp: number;
+    /** Watcher epoch the enumeration began under; see tree observation. */
+    epoch: number | null;
+  } | null = null;
   private lastScanMetrics: CodexScannerMetrics | null = null;
   private changedFiles = new Set<string>();
   private scanEpoch = 0;
@@ -281,6 +290,10 @@ export class CodexSessionScanner {
       this.cachedScan &&
       this.changedFiles.size === 0 &&
       (allowStaleSnapshot ||
+        isCodexRolloutTreeEnumerationTrusted(
+          this.sessionsDir,
+          this.cachedScan.epoch,
+        ) ||
         Date.now() - this.cachedScan.timestamp < SCAN_CACHE_TTL)
     ) {
       return this.cachedScan.result;
@@ -290,9 +303,14 @@ export class CodexSessionScanner {
     const changed = [...this.changedFiles];
     this.changedFiles.clear();
     const accepted = this.cachedScan;
+    const incremental = accepted !== null && changed.length > 0;
+    // A rescan proves only what the watcher could have reported from its
+    // start, so read the epoch before walking.
+    const observationEpoch = incremental
+      ? accepted.epoch
+      : getCodexRolloutTreeEpoch(this.sessionsDir);
     const scan = (async () => {
       try {
-        const incremental = accepted && changed.length > 0;
         const updates = await this.scanFiles(incremental ? changed : null);
         let result = updates;
         if (incremental) {
@@ -308,7 +326,11 @@ export class CodexSessionScanner {
           result = [...sessions.values()];
         }
         if (epoch === this.scanEpoch)
-          this.cachedScan = { result, timestamp: Date.now() };
+          this.cachedScan = {
+            result,
+            timestamp: Date.now(),
+            epoch: observationEpoch,
+          };
         return result;
       } catch (error) {
         if (epoch === this.scanEpoch) {
@@ -351,19 +373,13 @@ export class CodexSessionScanner {
       : await this.findJsonlFiles(this.sessionsDir, metrics);
     if (changed) {
       for (const plainPath of changed) {
-        for (const filePath of [plainPath, `${plainPath}.zst`]) {
-          try {
-            if (!(await stat(filePath)).isFile()) continue;
-            files.push(filePath);
-            metrics.rolloutFilesFound += 1;
-            if (codexRolloutRepresentation(filePath) === "zstd")
-              metrics.compressedRolloutFiles += 1;
-            else metrics.plainRolloutFiles += 1;
-            break;
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-          }
-        }
+        const filePath = await findCodexRolloutRepresentation(plainPath);
+        if (!filePath) continue;
+        files.push(filePath);
+        metrics.rolloutFilesFound += 1;
+        if (codexRolloutRepresentation(filePath) === "zstd")
+          metrics.compressedRolloutFiles += 1;
+        else metrics.plainRolloutFiles += 1;
       }
       metrics.rolloutFilesAfterPrecedence = files.length;
     }

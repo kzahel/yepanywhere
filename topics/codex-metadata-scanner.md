@@ -39,8 +39,9 @@ Current Codex discovery uses layered caches plus a provider-neutral discovery
 index:
 
 - `CodexSessionScanner` recursively finds rollout files, reads first-line
-  `session_meta`, groups by cwd, and caches the result for 5 seconds.
-- `CodexSessionReader` has a shared 5-second scan cache keyed by sessions
+  `session_meta`, groups by cwd, and caches the result; see
+  [Watcher-trusted enumeration](#watcher-trusted-enumeration) for how long.
+- `CodexSessionReader` has a shared scan cache keyed by sessions
   directory and active-window scope. Reader scans now record cache status,
   duration, directories walked, rollout counts, plain/zstd precedence
   filtering, discovery-index behavior, first-line reads by representation,
@@ -93,6 +94,35 @@ provider files first and then consult the cache only for those observed files.
 A missing provider file is hidden immediately even if its discovery record
 still exists on disk.
 
+## Watcher-trusted enumeration
+
+While the server's Codex `FileWatcher` observes the sessions tree, an
+enumeration of that tree stays current until the watcher reports a change.
+With no Codex activity, list, Inbox, and project reads perform no directory
+walks and no rollout `stat`s, however much history exists. Without that
+observation, a cached enumeration expires after 5 seconds, which bounds
+duplicate walks within one request burst and nothing more.
+
+- **Observation epoch.** `FileWatcher.getObservationEpoch()` names one
+  uninterrupted observation: it is null until the watcher's initial baseline
+  completes, and becomes null again after a watcher error or stop. An
+  enumeration is trusted only under the epoch read before its walk began, so
+  changes made before the watcher started, or across a failure, can never be
+  hidden by a trusted cache.
+- **Reported changes.** A reported rollout path is re-read on the next read of
+  the cache (the scanner via `ProjectScanner`'s file events, the reader's
+  shared cache via `observeCodexRolloutTree`), not by a new walk. A reported
+  deletion that removes a cached session forces one fresh enumeration, since
+  another file may still carry that session.
+- **Platforms.** On Linux, Node's recursive watch registers new date
+  directories and reports files created in them immediately. On macOS and
+  Windows the watcher's periodic rescan reports what native events miss, and
+  trusted caches see those reports like any other.
+
+Inactive rollouts stay in the enumeration because the session lists show all
+Codex history (no hidden sessions by default; see Non-Goals). The cost
+removed is re-proving that unchanged history is unchanged.
+
 ## Compression Gate
 
 Codex may compress older rollouts to `.jsonl.zst`. YA should support those
@@ -136,6 +166,11 @@ scans.
 
 Known gaps:
 
+- the macOS/Windows periodic rescan runs whether or not any Codex process
+  could be writing rollouts; gating it on a live Codex process would stop the
+  remaining idle walks there;
+- `CodexSessionReader.findRolloutPathById` still walks the tree when a lineage
+  ancestor's rollout id is not yet cached;
 - no scan budget or time slicing;
 - no date-bucket high-water mark for routine active-list discovery;
 - no per-scope dirty precision for Codex project lists;

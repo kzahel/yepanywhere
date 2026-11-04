@@ -3,7 +3,9 @@ import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.
 import { FileWatcher, type FileWatcherOptions } from "./FileWatcher.js";
 
 type ManagedFileWatcher = Pick<FileWatcher, "start" | "stop"> &
-  Partial<Pick<FileWatcher, "getObservationDiagnostics">>;
+  Partial<
+    Pick<FileWatcher, "getObservationDiagnostics" | "getObservationEpoch">
+  >;
 
 export interface ProviderSessionWatcherSpec
   extends Omit<FileWatcherOptions, "eventBus"> {
@@ -129,6 +131,11 @@ export class ProviderSessionWatcherRegistry {
       activeWatchers: this.watchers.size,
       pendingActivations: this.pendingFamilies.size,
     };
+  }
+
+  /** See `FileWatcher.getObservationEpoch`; null for an unwatched family. */
+  getObservationEpoch(family: ProviderCatalogFamily): number | null {
+    return this.watchers.get(family)?.getObservationEpoch?.() ?? null;
   }
 
   /** Fixed-cost observation state; reading it never activates or probes stores. */
