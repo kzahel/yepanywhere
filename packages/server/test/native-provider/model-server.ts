@@ -445,6 +445,21 @@ export async function modelServer(
               : /\/models\/[^/]+:streamGenerateContent$/.test(path)
                 ? "gemini"
                 : undefined;
+      const key =
+        req.headers["x-api-key"] ??
+        req.headers["x-goog-api-key"] ??
+        req.headers.authorization?.replace(/^Bearer /, "") ??
+        parsed.searchParams.get("key");
+      if (
+        actualWire &&
+        !(options.authOptional && !key) &&
+        ![syntheticKey, ...(options.syntheticKeys ?? [])].includes(String(key))
+      ) {
+        fail("Native request did not use the synthetic credential");
+        res.writeHead(401);
+        res.end();
+        return;
+      }
       if (helper) {
         auxiliaryRequests.push({ kind: helper, body });
         if (actualWire)
@@ -464,20 +479,6 @@ export async function modelServer(
       if (req.method !== "POST" || actualWire !== wire) {
         fail(`Unexpected native request: ${req.method} ${path}`);
         res.writeHead(400);
-        res.end();
-        return;
-      }
-      const key =
-        req.headers["x-api-key"] ??
-        req.headers["x-goog-api-key"] ??
-        req.headers.authorization?.replace(/^Bearer /, "") ??
-        parsed.searchParams.get("key");
-      if (
-        !(options.authOptional && !key) &&
-        ![syntheticKey, ...(options.syntheticKeys ?? [])].includes(String(key))
-      ) {
-        fail("Native request did not use the synthetic credential");
-        res.writeHead(401);
         res.end();
         return;
       }

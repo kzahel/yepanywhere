@@ -132,6 +132,53 @@ the external macOS artifacts download about 170 MB combined on a cold cache.
 Keep CI costs visible when expanding coverage. Linux/Windows native acceptance
 is still pending; artifact availability does not imply execution qualification.
 
+## Retained lifecycle and recovery depth — 2026-11-04
+
+The complete suite now passes **57 cases** across the same ten launch paths,
+in four scenario files. The ordinary Claude/Codex baseline is **16 cases**;
+the selector and all-provider command run the same assertions. Native state is
+always created by the executable, then reopened through production readers.
+
+| Behavior | Passing native coverage / explicit limits |
+| --- | --- |
+| Cold resume after a real tool | Nine paths preserve native id, earlier input/reply and actual file bytes in a new process's model request and reopened history. OpenCode additionally runs the same workflow outside Git. Frozen Gemini 0.36 refuses its retained unsupported session/resume method, without a new session or model request. |
+| Cancellation and continuation | Claude variants, Codex, Pi, OpenCode and Antigravity cancel a held real model response and continue on the existing owner. Grok and Codex OSS hard-stop and cold-resume the same native history. Gemini hard-stop joins its real launcher/worker and closes the held model connection; continuation explicitly refuses as above. |
+| Model change and restoration | Claude, Codex and Pi change the actual next model request and reapply the selection on cold launch. Pi invalid-model refusal leaves YA's requested selection unchanged. Antigravity cold-load explicitly reapplies a different selected model instead of accepting the runtime's default reset. Wrapper model-selection matrices and effort/permission changes remain separate work. |
+| Rate-limit recovery | Every path receives a controlled HTTP 429, retries the original input and produces a persisted final reply. Codex app-server and exec publish an explicitly asserted recoverable Reconnecting event; no unexplained diagnostics are accepted. |
+| Queued compact followed by A/B | Claude and Codex actually compact through their native model request before delivering A and B separately. Both publish a compact boundary and preserve following input/output. Claude's scripted summary satisfies its native summary-tag contract. |
+| Failed queued compact | Pi's real small-session refusal holds later input; explicitly cancelling the failed compact releases that input. [Successful Pi compaction remains unqualified](../gaps/pi-queued-compaction-native-completion.md): its adapter returns the RPC result but has no normalized compact boundary/terminal path for the shared gate. Do not infer success from this refusal case. |
+
+The combined 57-case local macOS arm64 run takes **50.23 seconds wall time**
+(105.58 seconds summed test work across parallel files), without unexpected
+warnings/errors. The standalone 16-case Claude/Codex baseline passes in 3.88 seconds wall time
+(7.21 seconds summed work), retaining the inexpensive ordinary CI path.
+The separate focused provider group passes 192 cases in
+24.01 seconds, with its intentional fault diagnostics explicitly asserted.
+The full workspace passes (6,949 server / 7,097 client cases; server 147.15 s).
+Static checks, frozen install and client console budgets pass. These are local
+samples, not a CI or cross-platform performance claim. Native retry backoff,
+real startup and reader/teardown costs remain part of the measured workload;
+budget comments identify initial 5-second limits and the affected paths only.
+
+The suite found and repaired five production defects: lost resumed Codex OSS
+output, replayed Codex usage retargeting the active turn, rejected Pi model
+selection reported as success, default OpenCode ports colliding across YA
+processes, and ACP launcher-only shutdown leaving a native worker/model request
+alive. Requested ACP transport closure is classified narrowly; unrelated native
+errors remain errors. No new UI capabilities or queue policy changes follow.
+
+The manual `Native provider model API qualification` workflow provisions and runs
+the full set on Linux x64 at the supported Node floor. It is deliberately an
+acceptance job until its first Linux run is reviewed; the normal CI server suite
+continues to gate the Claude/Codex baseline. Promote the complete job to relevant
+change gates after that acceptance. No Linux or Windows pass is claimed here.
+
+Remaining depth includes native multi-input/batched identity, successful Pi
+compact completion, approvals and tool denial, terminal faults and retry
+exhaustion, wrapper settings/effort, public identity and Supervisor ownership,
+provider-host/server restart, browser echo/reconnect and platform qualification.
+Those are distinct boundaries; these 57 cases do not establish full code coverage.
+
 ## All-provider adoption matrix
 
 Qualification is per executable, production launch path, capability and platform.
@@ -229,9 +276,10 @@ all child exits before deleting roots; Pi abort itself only requests termination
    whole-provider compatibility audit. Investigate drift against upstream
    protocol/source before changing the stub or expectations.
 
-Next scenario priorities are native multi-input identity/batching, queued
-`/compact` followed by A/B, resume after cancellation and controlled failure/
-retry. They should supply evidence for removing implicit YA concatenation;
-this foundation does not change queue defaults or claim those cases are covered.
+Next priorities are successful Pi compact completion, native multi-input
+identity/batching, approval/terminal fault recovery and app-level ownership.
+Queued compact, cancellation/resume and controlled rate-limit retry now have
+the retained coverage above. This evidence does not change queue defaults or
+justify removing implicit YA concatenation without identity/policy qualification.
 The implementation sequence and remaining work live in
 [plan 175](../docs/tactical/175-native-provider-integration-scenarios.md).

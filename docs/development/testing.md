@@ -137,8 +137,10 @@ intent, unchanged document identity and tab count remain required assertions.
 
 Actual provider executables against scripted loopback model APIs are the primary
 integration evidence for native scheduling, tools and persistence. Run
-`pnpm test:providers`; these inference-free scenarios also run in the ordinary
-server suite/CI. [Native provider testing](../../topics/native-provider-testing.md)
+`pnpm test:providers` for the ordinary Claude/Codex baseline; install the
+checksum-verified external test artifacts with `pnpm test:providers:install`,
+then run `pnpm test:providers:all` for the complete matrix. The baseline also
+runs in the ordinary server suite/CI. [Native provider testing](../../topics/native-provider-testing.md)
 owns the action/assertion recipe, executable pins, isolation, capability matrix
 and current qualification limits. Replay and fake peers do not replace that
 current-native evidence.

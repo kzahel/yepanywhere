@@ -633,8 +633,14 @@ Claude/Codex baseline; an explicit all-provider command exercises the full set.
 Native Codex OSS coverage exposed and repaired resumed-turn output parsing.
 The [qualification matrix](../../topics/native-provider-testing.md#all-provider-adoption-matrix)
 and [plan](../tactical/175-native-provider-integration-scenarios.md) track depth
-and platform acceptance. Next: qualify cancellation/settings/persistence/resume,
-then protect identity/batching and queued compact before simplifying scheduling.
+and platform acceptance. The retained depth now passes 57 cases in 50.23 s
+locally: actual-tool cold resume, cancellation/continuation, model restoration,
+all-provider rate-limit recovery, Claude/Codex queued compact and Pi's native
+compact refusal. It drove narrow fixes for Codex usage/control identity, Pi
+model acknowledgement, OpenCode port collision and ACP worker-tree teardown.
+Next: successful Pi compact, approvals/terminal faults, native batched identity
+and Supervisor/provider-host restart ownership. Linux x64 has an explicit manual
+acceptance workflow; promote it to change gates after its first reviewed pass.
 App ownership/fault interleavings and Linux/Windows acceptance remain explicit;
 the comprehensive matrix does not select new UI controls or thaw legacy Gemini.
 Release-delivery work remains independently required; local sessions,

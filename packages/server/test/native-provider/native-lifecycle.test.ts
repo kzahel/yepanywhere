@@ -35,7 +35,8 @@ afterEach(async (context) => {
 describe.each(providers)("native lifecycle: %s", (provider) => {
   if (["claude", "codex", "pi"].includes(provider))
     it("live model selection changes the actual next request and cold launch", async () => {
-      const f = (fixture = await nativeFixture(provider));
+      const f = await nativeFixture(provider);
+      fixture = f;
       const initial = await f.model.next();
       initial.finish("BEFORE_MODEL_CHANGE");
       await f.output("BEFORE_MODEL_CHANGE");
@@ -93,7 +94,8 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       ? 10_000
       : 5_000,
   }, async () => {
-    const f = (fixture = await nativeFixture(provider));
+    const f = await nativeFixture(provider);
+    fixture = f;
     const initial = await f.model.next();
     initial.finish("BEFORE_CANCELLATION");
     await f.output("BEFORE_CANCELLATION");
@@ -164,9 +166,10 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
         : 5_000,
     },
     async (gitProject) => {
-      const f = (fixture = await nativeFixture(provider, "gentle", {
+      const f = await nativeFixture(provider, "gentle", {
         gitProject,
-      }));
+      });
+      fixture = f;
       const initial = await f.model.next();
       readOwnedFile(provider, f.project, initial);
       const afterTool = await f.model.next();

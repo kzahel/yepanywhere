@@ -9,6 +9,14 @@ warnings. Assert diagnostics in their owning negative fixtures; suppressing the
 shared logger would hide unrelated provider failures. Evidence is in ignored
 `tasks/native-provider-implementation/{oss-focused,workspace-core}.log`.
 
+The later depth run passes 6,949 server / 7,097 client cases (server 147.01 s).
+The 192-case provider group now asserts its exact intentional ACP spawn failure
+and Codex wrong-native-thread error, passing without warning/error output in
+24.01 s. Native cold-resume also reproduces and fixes the previously recorded
+Codex usage-replay turn-id resynchronizations: replayed usage is no longer
+active-control identity evidence. Other negative-fixture diagnostic debt below
+remains; no shared logger suppression was added.
+
 2026-11-03: retiring the mock-only Process queue passes the full workspace
 (6,926 server / 7,081 client; server 142.36 s). The comparable Process group
 passes without warnings before and after removal: 207 cases / 1.69 s before,

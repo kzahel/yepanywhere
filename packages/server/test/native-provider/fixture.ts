@@ -109,7 +109,7 @@ export async function nativeFixture(
     syntheticKeys:
       provider === "claude-ollama"
         ? ["ollama"]
-        : provider === "claude-gateway"
+        : configuredService
           ? ["dummy"]
           : [],
     blockedHosts: [

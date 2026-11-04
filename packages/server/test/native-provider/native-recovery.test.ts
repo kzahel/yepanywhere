@@ -1,0 +1,51 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { nativeFixture } from "./fixture.js";
+import { providers } from "./selection.js";
+
+let fixture: Awaited<ReturnType<typeof nativeFixture>> | undefined;
+afterEach(async () => {
+  await fixture?.close();
+  fixture = undefined;
+});
+
+describe.each(providers)("native retry: %s", (provider) => {
+  // GenAI backoff and Grok startup/retry hit 5s locally (Grok under the
+  // full-workspace/all-provider run); retain 2x that observed bound.
+  it("retries original input after a controlled rate limit and persists the reply", {
+    timeout: ["antigravity", "gemini-acp", "grok"].includes(provider)
+      ? 10_000
+      : 5_000,
+  }, async () => {
+    const f = await nativeFixture(provider);
+    fixture = f;
+    const refused = await f.model.next();
+    refused.fail(429, "OWNED_TRANSIENT_RATE_LIMIT", { "retry-after": "0" });
+    const retried = await f.model.next();
+    expect(JSON.stringify(retried.body).includes("INITIAL_NATIVE_INPUT")).toBe(
+      true,
+    );
+    retried.finish("RATE_LIMIT_RECOVERED");
+    await f.output("RATE_LIMIT_RECOVERED");
+    await f.idle();
+    expect(f.model.requests).toHaveLength(2);
+    await f.stop();
+    expect(
+      JSON.stringify(await f.history()).includes("RATE_LIMIT_RECOVERED"),
+    ).toBe(true);
+    await f.close();
+    expect(f.errors).toEqual([]);
+    const errors = f.events.filter((m) => m.type === "error");
+    if (provider === "codex") {
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({
+        codexWillRetry: true,
+        error: "Reconnecting... 1/5",
+      });
+    } else if (provider === "codex-oss") {
+      expect(errors).toHaveLength(1);
+      expect(errors[0]?.error).toContain("Reconnecting... 1/5");
+    } else expect(errors).toEqual([]);
+    expect(f.diagnostics).toEqual([]);
+    expect(f.model.failures).toEqual([]);
+  });
+});

@@ -1,8 +1,9 @@
 # Native provider integration scenarios
 
 Status: all-provider foundation implemented, 2026-11-04: 20 retained native
-scenarios across ten production launch paths. Deeper lifecycle, cancellation,
-settings and retry scenarios are being qualified; platform acceptance remains.
+scenarios across ten production launch paths. Depth now passes 57 cases including lifecycle, cancellation, settings, retry
+and queued compact. Remaining ownership/identity/approval depth and platform
+acceptance stay explicit in the owning matrix.
 
 The durable contract, commands and qualification matrix now live in
 [native provider testing](../../topics/native-provider-testing.md).
@@ -145,6 +146,38 @@ New/resumed exec turns now both request native JSONL, removing the old text and
 duplicate-half parser. Existing 22-case service/resume checks and the full
 workspace suite pass. The expanded native cases assert production reader
 history, clean owned teardown and no unexpected diagnostics/model requests.
+
+## Retained depth implementation, 2026-11-04
+
+The owning topic records 57 passing cases across ten paths, including actual
+file-tool cold resume, native id/context/history preservation, graceful and
+hard-stop continuation, OpenCode non-Git continuation, live/cold model selection,
+Antigravity cold-load model reapplication, and all-provider controlled 429
+recovery. Claude/Codex queued compact actually finishes before separate A/B;
+Pi's native too-small refusal holds following input until explicit cancellation.
+Successful Pi compact boundary/terminal publication remains unqualified.
+Frozen Gemini preserves its explicit unsupported-resume refusal; no protocol,
+authentication or UI expansion was made.
+
+Native tests drove narrow production repairs for Codex replayed usage/control
+ownership, Pi false-positive model acknowledgement, cross-process OpenCode port
+collision and ACP worker-tree teardown. The latter also classifies requested
+transport closure narrowly, preserving unexpected native errors. The earlier
+Codex OSS output repair is committed separately. YA warning/error logs, including child loggers,
+are captured and asserted; existing intentional unit-fault logs were cleaned up
+in their own tests rather than suppressed globally.
+
+The complete run passes in 50.23 s wall time locally; 192 focused provider cases
+pass in 24.01 s. Full workspace and static checks pass. A manual Linux x64
+acceptance workflow runs the complete set with verified artifacts; it must pass
+and be reviewed before becoming a change gate. Baseline Claude/Codex cases
+continue to run in ordinary CI. Linux/Windows are not locally qualified.
+
+Steps 5–7 now have substantial retained coverage, not complete acceptance.
+Next are successful Pi compact, approvals and terminal failures, native batched
+identities, wrapper settings and Supervisor/provider-host restart ownership.
+Steps 8–9 and the remaining platform matrix stay open; this is not full code
+coverage or completion of the comprehensive program.
 
 ## Comprehensive expansion — maintainer direction, 2026-11-03
 
