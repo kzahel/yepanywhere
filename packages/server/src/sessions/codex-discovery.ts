@@ -24,6 +24,10 @@ export interface CodexRolloutDiscoveryMetadata {
   isSubagent: boolean;
   /** Verified immediate native parent; session_id can instead name the root. */
   parentThreadId?: string | null;
+  childMetadataVersion?: number;
+  agentNickname?: string;
+  agentRole?: string;
+  spawnDepth?: number;
 }
 
 export interface CodexDiscoveredSession {
@@ -36,6 +40,10 @@ export interface CodexDiscoveredSession {
   isSubagent: boolean;
   /** Verified immediate native parent; session_id can instead name the root. */
   parentThreadId?: string | null;
+  childMetadataVersion?: number;
+  agentNickname?: string;
+  agentRole?: string;
+  spawnDepth?: number;
 }
 
 export interface CodexRolloutDiscoveryStats {
@@ -301,6 +309,10 @@ function toDiscoveredSession(
     size: stats.size,
     isSubagent: metadata.isSubagent,
     parentThreadId: metadata.parentThreadId ?? null,
+    childMetadataVersion: metadata.childMetadataVersion,
+    agentNickname: metadata.agentNickname,
+    agentRole: metadata.agentRole,
+    spawnDepth: metadata.spawnDepth,
   };
 }
 
@@ -333,12 +345,55 @@ function parseCodexSessionMeta(
         : new Date(stats.mtimeMs).toISOString(),
     isSubagent: isSubagentSessionMeta(meta),
     parentThreadId: nativeParentThreadId(meta),
+    childMetadataVersion: 2,
+    ...childDisplayMetadata(meta),
+  };
+}
+
+function childDisplayMetadata(meta: Partial<CodexSessionMetaEntry["payload"]>) {
+  const spawn =
+    typeof meta.source === "object"
+      ? meta.source?.subagent?.thread_spawn
+      : undefined;
+  const nickname = meta.agent_nickname ?? spawn?.agent_nickname;
+  const role =
+    meta.agent_role ??
+    ("agent_type" in meta ? meta.agent_type : undefined) ??
+    spawn?.agent_role ??
+    spawn?.agent_type;
+  const depth = spawn?.depth;
+  return {
+    ...(typeof nickname === "string"
+      ? { agentNickname: nickname.slice(0, 256) }
+      : {}),
+    ...(typeof role === "string" ? { agentRole: role.slice(0, 256) } : {}),
+    ...(typeof depth === "number" && Number.isSafeInteger(depth) && depth >= 0
+      ? { spawnDepth: depth }
+      : {}),
   };
 }
 
 function nativeParentThreadId(
   meta: Partial<CodexSessionMetaEntry["payload"]>,
 ): string | null {
+  // The qualified navigation path is native thread spawning. Review/compact
+  // and internal delegate histories need their own persistence qualification;
+  // they were not exposed by the previous launch-correlated materializer.
+  const sourceValue: unknown = meta.source;
+  if (
+    isObjectRecord(sourceValue) &&
+    (sourceValue.internal !== undefined ||
+      (sourceValue.subagent !== undefined &&
+        (!isObjectRecord(sourceValue.subagent) ||
+          !isObjectRecord(sourceValue.subagent.thread_spawn))))
+  )
+    return null;
+  if (
+    typeof sourceValue === "string" &&
+    /^subagent[_-]/i.test(sourceValue) &&
+    !/thread[_-]?spawn/i.test(sourceValue)
+  )
+    return null;
   const direct = hasNonEmptyString(meta.parent_thread_id)
     ? meta.parent_thread_id
     : null;
@@ -409,8 +464,9 @@ function isCodexRolloutDiscoveryMetadata(
     typeof value.isSubagent === "boolean" &&
     // Older cached child headers lack this proof; refresh those headers once.
     (!value.isSubagent ||
-      value.parentThreadId === null ||
-      typeof value.parentThreadId === "string")
+      (value.childMetadataVersion === 2 &&
+        (value.parentThreadId === null ||
+          typeof value.parentThreadId === "string")))
   );
 }
 

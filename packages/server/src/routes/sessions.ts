@@ -1,3 +1,5 @@
+import type { NativeSessionRef } from "@yep-anywhere/shared";
+import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import { savedLimitedCreationError } from "../auth/limitedLaunchPolicy.js";
 import { ALL_PROVIDERS } from "@yep-anywhere/shared";
 import { creationProvenanceForHeaders } from "../sessions/creation-provenance.js";
@@ -313,6 +315,7 @@ function isQueueFullResponse(
 }
 
 export interface SessionsDeps {
+  providerChildRelationships?: ProviderChildRelationshipService;
   getLimitedUserGrants?: (
     username: string,
   ) => import("@yep-anywhere/shared").LimitedUserGrants | null;
@@ -2632,7 +2635,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   ): Promise<{
     session: LoadedSession | null;
     identity?: SessionIdentity;
-    nativeSource?: { reader: ISessionReader; nativeSessionId: string };
+    nativeSource?: {
+      reader: ISessionReader;
+      nativeSessionId: string;
+      native?: NativeSessionRef;
+    };
   }> => {
     if (deps.signal?.aborted) return { session: null };
     const identity =
@@ -2659,6 +2666,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
                 resolved.native,
               ),
               nativeSessionId: resolved.native.id,
+              native: resolved.native,
             }
           : undefined,
         session: resolved?.native
@@ -2725,6 +2733,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           nativeSource: {
             reader: source.reader,
             nativeSessionId: legacy.nativeSessionId,
+            native: legacy.native,
           },
         };
       }
@@ -3175,6 +3184,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         sessionSummaryResult?.source.reader,
         sessionSummaryResult?.nativeSessionId ?? sessionId,
         "fresh",
+        deps.providerChildRelationships && sessionSummaryResult?.native
+          ? {
+              service: deps.providerChildRelationships,
+              native: sessionSummaryResult.native,
+              publicSessionId: sessionId,
+            }
+          : undefined,
       ),
       sessionId,
     );
@@ -3673,6 +3689,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         nativeSource?.reader,
         nativeSource?.nativeSessionId ?? sessionId,
         "fresh",
+        deps.providerChildRelationships && nativeSource?.native
+          ? {
+              service: deps.providerChildRelationships,
+              native: nativeSource.native,
+              publicSessionId: sessionId,
+            }
+          : undefined,
       ),
       sessionId,
     );

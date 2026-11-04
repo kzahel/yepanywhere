@@ -11,11 +11,11 @@ Related topics: [provider-session-tree](provider-session-tree.md),
 [vanilla-defaults](vanilla-defaults.md),
 [codex-sessions](codex-sessions.md)
 
-The [durable relationship design](session-relationships.md) proposes a shared
+The [durable relationship contract](session-relationships.md) selects a shared
 SQL model coordinating native children, trusted v0 creator links, forks,
-`/btw` and other session relationships. It preserves the identity distinctions
-below and proposes removing fresh child acquisition from transcript delivery.
-It is a design proposal; the current freshness paths documented here remain.
+`/btw` and other relationships. [Plan 176](../docs/tactical/176-durable-session-relationships.md)
+tracks migrated sources and remaining qualification. Codex application reads
+use this durable model; retained provider paths are described below.
 
 ## Identity contract
 
@@ -48,11 +48,13 @@ The older project-level `subagents/` and `agent-*.jsonl` layouts remain readable
 for inline transcript compatibility, but do not provide enough parent scope for
 the navigation summary contract.
 
-Codex stores a child as a separate rollout. The parent rollout's `spawn_agent`
-function call/output pair supplies the launch tool-call ID, child thread ID,
-role/prompt, and optional nickname; the child rollout supplies its durable
-content and timestamp. Child rollouts remain excluded from top-level session
-and project counts.
+Codex stores a child as a separate rollout. Its own immediate-parent header
+proves structure, with bounded nickname/role/depth metadata. Current v2 native
+`SubAgentActivity` start records correlate the launch call with the child id;
+older `spawn_agent` outputs also carry a native id. Review/compaction and
+internal delegates remain outside the qualified navigation source. Those records enrich launch
+anchors, but copied fork history alone cannot establish parenting. Child
+rollouts remain excluded from top-level session and project counts.
 
 Grok stores `SubagentMeta` at
 `<parent session dir>/subagents/<id>/meta.json` and a sibling child session
@@ -141,48 +143,39 @@ parse. Child creation may invalidate the bounded child projection. An append
 with no child lifecycle record must cost at most incremental append inspection,
 not a replay from byte zero.
 
-The Codex implementation uses a source-versioned child projection shared across
-reader instances. The projection retains launch and child facts, its byte
-offset, and an incomplete final line, but never the full entry array. Exact
-unchanged versions are cache hits; concurrent readers join one build; plain
-JSONL growth inspects only the appended range; truncation, replacement, and
-compressed-file changes rebuild from byte zero. Published work is re-statted
-against device, inode, size, mtime, and ctime, and a late completion cannot
-replace accepted state for another source version. The retained projections
-share an 8 MiB process-wide byte budget.
+Codex application detail, metadata, incremental catch-up and older pagination
+read accepted profile SQLite facts without awaiting native acquisition. Unknown
+or partial-empty observations omit enrichment; an accepted empty observation
+returns `[]`. Known facts survive restart, missing native files and failed
+reads. A later metadata event patches children without replacing messages,
+scroll memory or the composer draft. Process and collection projections consume
+the same SQL facts through the stored scoped native binding.
 
-The process-list route consumes the latest accepted projection and starts
-refresh in the background. An unpublished cold miss returns `undefined` and
-omits child enrichment; a published empty projection returns `[]`. Neither
-value may start a parent-rollout parse. A later snapshot attaches children
-after publication. Direct reader callers retain fresh-by-default semantics,
-retry one source race, and fall back to the last accepted projection if the
-source keeps changing.
+One profile coordinator owns a bounded source queue and finite coalesced work,
+with no per-session timer. Explicit detail demand and native file observations
+schedule acquisition outside request context. The Codex adapter reuses the
+shared header catalog instead of reading the parent body. Source validation
+checks the catalog identity, logical child version, watcher epoch and pending
+changes; another reader consuming an invalidation cannot make stale proof
+current. Incomplete enumeration stays partial across cache hits. Child facts
+and discovery progress commit together in bounded SQL transactions. Ordinary
+child mtime changes overlay activity from the catalog without SQL commits or
+metadata broadcasts; only structural changes publish. File changes coalesce by
+scope and target the proved current/previous parents. First list-only reads
+register finite acquisition, including revalidation after restart; subsequent
+accepted reads do not repeat it. An explicit
+corrected native parent supersedes that child's older structural observation;
+absence from a later enumeration does not erase historical facts.
 
-This replaces the prior violation: `createProcessesRoutes` enriched every
-active and recently terminated row by awaiting
-`listProviderChildSessions`, while `CodexSessionReader` called `readEntries`
-with `cache: false` and parsed the complete parent rollout on every process
-snapshot. The 2026-08-04 investigation in
-[`docs/tactical/089-main-thread-startup-cpu-investigation.md`](../docs/tactical/089-main-thread-startup-cpu-investigation.md)
-demonstrated sustained multi-core CPU and hundreds of logical GiB of repeated
-input from that path.
-
-The reproducible server benchmark uses a 6,289,985-byte synthetic parent
-rollout and 20 simultaneous callers. It measured 20 legacy full parses versus
-one projection build, 125,799,700 versus 6,289,985 logical source bytes (95.00%
-avoided), and 183.08 ms versus 9.07 ms median wall time across five samples
-(20.18x). Cold latest-accepted lookup returned in 0.535 ms. The accepted value
-retained 611 estimated bytes and populated zero full-entry-cache sessions. Run
-`pnpm --filter @yep-anywhere/server benchmark:codex-child-projection` to repeat
-the measurement.
-
-A regression for this boundary issues repeated process refreshes against one
-unchanged large parent rollout. After at most one initial child-projection
-build, it observes zero full-entry parses. Appending ordinary non-child records
-does not rebuild from byte zero; appending a spawn/lifecycle record updates the
-child summary without retaining the complete entry array. Truncation removes
-children that are no longer in the source.
+The older source-versioned direct-reader projection remains for retained raw
+reader callers while adapters migrate. It incrementally inspects parent
+launch records under an 8 MiB process budget; it is not the Codex application
+read authority. Its pre-SQL benchmark remains available as
+`pnpm --filter @yep-anywhere/server benchmark:codex-child-projection`. The
+historical [startup investigation](../docs/tactical/089-main-thread-startup-cpu-investigation.md)
+records why repeatedly parsing complete parents from process snapshots was
+unacceptable. Current diagnostic detail scaling and restart evidence are in
+plan 176; the old benchmark is not evidence of SQL publication/read latency.
 
 Inline content follows the heavier session-detail path. Current Claude streams
 route content by the provider child ID and map a parent tool call only when that
@@ -192,11 +185,11 @@ parent ID into the reader, which makes current-layout discovery parent-scoped.
 The Agents projection still comes from the process snapshot. Project and
 global session lists attach children for idle parents too: Claude uses the
 cheap `subagents/` readdir already owned by `listProviderChildSessions`;
-Codex uses only the accepted child projection and never starts a cold parent
-rollout parse for a list read. Session metadata and session-detail attach a
-fresh listing for the one open parent. `providerChildren` is optional on those
-existing payloads; older servers omit it and the client treats absence as no
-children. The nested child page uses the existing agent-session GET and does
+Codex uses accepted SQL child facts and never starts a cold parent rollout
+parse for a list read. Codex metadata/detail attach accepted SQL facts and
+schedule acquisition independently; retained adapters still request a fresh
+listing for the open parent. `providerChildren` is optional on those existing
+payloads; an omitted metadata field preserves any already accepted children. The nested child page uses the existing agent-session GET and does
 not add a capability. A later indexed historical projection may replace the
 per-parent readdir, but list reads must not parse child or parent JSONL.
 
@@ -204,8 +197,8 @@ per-parent readdir, but list reads must not parse child or parent JSONL.
 
 Claude is the first provider with header control + managed detail + nested
 page + idle-list summaries. Codex child rollouts already feed those surfaces:
-list attach uses the accepted projection, session metadata and child detail use
-a fresh listing plus `getAgentSession(childThreadId)`, and an unpublished cold
+list attach and session metadata use durable SQL facts, child content uses
+`getAgentSession(childThreadId)`, and an unpublished cold
 miss stays distinct from a published empty projection. Optionally overlaying
 live `subagent_activity` text onto child detail while the parent is in-turn
 remains open. Grok nested child discovery is landed: parent

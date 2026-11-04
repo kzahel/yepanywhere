@@ -1,3 +1,4 @@
+import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import {
   isClaudeProviderName,
   type ClaudeProviderName,
@@ -16,6 +17,7 @@ import type {
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 
 export interface SessionProviderResolutionDeps {
+  providerChildRelationships?: ProviderChildRelationshipService;
   signal?: AbortSignal;
   sessionMetadataService?: Pick<
     SessionMetadataService,
@@ -53,6 +55,7 @@ export function providerResolutionDeps(
   deps: SessionProviderResolutionDeps,
 ): ProviderResolutionDeps {
   return {
+    providerChildRelationships: deps.providerChildRelationships,
     signal: deps.signal,
     identities: deps.sessionMetadataService?.identities,
     getRecordedProvider: (sessionId) =>

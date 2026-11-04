@@ -20,11 +20,11 @@ Related owners:
 
 ## Problem and selected boundaries
 
-Session detail currently waits for fresh provider-child discovery before
-returning its messages. Its compact-tail bound does not bound that independent
-discovery. Codex's process-local child projection survives ordinary appends but
-not a server restart, and refreshing it can consult the broader session listing
-to find an already-selected parent.
+Retained provider adapters wait for fresh child discovery before returning
+messages. A compact-tail bound cannot bound that independent work. The former
+Codex process-local projection also lost facts on restart and could consult the
+broader listing to find a selected parent. Codex application reads now use the
+durable nonblocking path below; plan 176 tracks the remaining adapters.
 
 Meanwhile, durable relationships already have several owners:
 
@@ -177,7 +177,7 @@ progress. Providers are not forced through a JSONL byte-cursor interface.
 | Provider/source | Existing evidence | Appropriate observation path |
 | --- | --- | --- |
 | Claude SDK family | Parent-scoped `subagents/agent-*` JSONL and metadata sidecars | Exact parent directory events and bounded sidecar reconciliation; retain native tool-call/type/depth facts. |
-| Codex family | Parent rollout `spawn_agent` call/output pairs | Exact known parent source; persisted complete-record cursor and pending launch ids; append inspection rather than repeated full replay. |
+| Codex family | Each child rollout's own immediate-parent metadata; correlated native start records / older `spawn_agent` outputs enrich anchors | Reuse the shared scoped header catalog and its source invalidation. Persist structural observations without replaying the parent body. Optional tool-call enrichment must not gate a structural link. Never accept copied fork history without the child's own parent proof. |
 | OpenCode | Native SQL `session.parent_id`, legacy file `parentID`, task parts | Bounded native row queries with logical DB/WAL versioning; task parts enrich launch anchors when available. A main-file mtime alone is insufficient. |
 | Grok | Parent `subagents/*/meta.json` and child session records | Exact parent metadata directory observation; fork `parent_session_id` remains a different predicate. |
 | Pi | Explicit YA creation/fork evidence; native within-transcript parent links | Import proved session-to-session operations only. `parentId` entry links are not native child-session evidence. |
@@ -207,6 +207,43 @@ partially indexed and caught-up-to-a-specific-source-version. A failed source
 read can return last-known facts with an error/freshness indication; it cannot
 publish a false empty list. New events or reads delivering relationship changes
 must not reset the transcript, scroll position or composer.
+
+The Codex integration uses the existing `session-metadata-changed` activity
+event to invalidate the existing session metadata route. Metadata replies patch
+only fields they actually contain; an omitted optional `providerChildren` does
+not erase accepted children. Hold invalidations received during initial/warm
+transcript loading until that load applies, coalesce in-flight reads with one
+follow-up, and discard replies from retired routes/sources. Same-value replies
+must converge without rebuilding the transcript. The event does not imply
+that native discovery is complete or that messages need refetching. Only
+structural changes publish durable facts and metadata events. Ordinary child
+activity overlays timestamps from the already available native catalog, without
+SQL writes or another global invalidation. A list-only first observation (also
+after process restart or retired-reader replacement) registers finite background
+acquisition within a 128-source capacity; background demand refuses eviction
+when full, so large lists cannot evict a viewed parent or restart 128 catalog
+observations on every refresh. Subsequent accepted registered reads do not
+restart acquisition. Global enrichment follows pagination, retaining original
+row order. Native file events reconcile configured aliases with canonical
+storage scopes internally, including macOS `/var` and `/private/var`. Alias
+resolution is bounded and tied to the watcher epoch; it runs on explicit
+acquisition or real file events, without probing idle/ineligible stores. Both
+lexical and canonical reader caches receive each invalidation once. A recovered
+watcher epoch requires a new enumeration before complete publication; raw event
+payloads remain unchanged. Qualified legacy Codex references batch their catalog/root lookup;
+unmigrated providers keep their previous single-reader list path. Native changes
+are coalesced per scope and changed child, then target proved current/previous
+parents instead of every previously viewed session.
+
+The qualified Codex navigation source covers native thread spawning. Explicit
+review, compaction and internal/guardian delegates remain excluded until their
+separate transcript formats and read-only navigation are qualified; a native
+parent field alone does not expand this UI capability. Older `agent_type` aliases
+remain valid display metadata. New clients retain old-server projections and
+do not re-fetch metadata for field-bearing rename/star/archive events. Clients
+released before this slice can show an unpublished parent without children until
+reload when paired with a new server; they retain messages and existing child
+routes. No extension-specific fallback is added.
 
 The query service supports paginated incoming/outgoing edges and type filters,
 plus bounded evidence references. No default transitive graph expansion or

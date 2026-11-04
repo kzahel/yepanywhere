@@ -1,4 +1,4 @@
-import type { UrlProjectId } from "@yep-anywhere/shared";
+import { toUrlProjectId, type UrlProjectId } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -839,6 +839,38 @@ describe("Global Sessions Routes", () => {
   });
 
   describe("pagination", () => {
+    it("enriches only the returned page and preserves order across projects", async () => {
+      const a = toUrlProjectId("/owned/a"),
+        b = toUrlProjectId("/owned/b");
+      const projects = [
+        createProject(a, "a", "/sessions/a"),
+        createProject(b, "b", "/sessions/b"),
+      ];
+      vi.mocked(mockScanner.listProjects).mockResolvedValue(projects);
+      const rows = Array.from({ length: 150 }, (_, index) =>
+        createSession(`paged-${index}`, index % 2 ? b : a, minutesAgo(index)),
+      );
+      const childReads = vi.fn(async (_id: string) => []);
+      mockReaderFactory = (project) =>
+        ({
+          listSessions: async () =>
+            rows.filter((row) => row.projectId === project.id),
+          listProviderChildSessions: childReads,
+        }) as unknown as ISessionReader;
+      const result = await makeRequest("?limit=3&includeStats=false");
+      expect(result.sessions.map((row) => row.id)).toEqual([
+        "paged-0",
+        "paged-1",
+        "paged-2",
+      ]);
+      expect(result.hasMore).toBe(true);
+      expect(childReads.mock.calls.map(([id]) => id).sort()).toEqual([
+        "paged-0",
+        "paged-1",
+        "paged-2",
+      ]);
+    });
+
     it("limits results to specified limit", async () => {
       const project = createProject("proj1", "project", "/sessions/proj1");
       const sessions = Array.from({ length: 5 }, (_, i) =>

@@ -1,3 +1,4 @@
+import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import {
   HELPER_SIDE_MODEL_CHEAPEST,
   HELPER_SIDE_MODEL_SAME_AS_MAIN,
@@ -39,6 +40,7 @@ import type { AgentAuthRouter } from "../services/AgentAuthRouter.js";
 import type { ClearloopBadgeResolver } from "../services/ClearloopService.js";
 
 export interface ProcessesDeps {
+  providerChildRelationships?: ProviderChildRelationshipService;
   supervisor: Supervisor;
   scanner: ProjectScanner;
   readerFactory: SessionReaderFactory;
@@ -182,8 +184,19 @@ async function enrichProcessInfo(
       reader,
       nativeSessionId,
       "accepted-or-cheap",
+      deps.providerChildRelationships && bound?.native
+        ? {
+            service: deps.providerChildRelationships,
+            native: bound.native,
+            publicSessionId: process.sessionId,
+          }
+        : undefined,
     );
-    if (providerChildren?.length)
+    if (
+      providerChildren &&
+      (providerChildren.length > 0 ||
+        (bound?.native && reader.getProviderChildSource?.(bound.native)))
+    )
       enriched.providerChildren = projectProviderChildren(
         providerChildren,
         process.sessionId,

@@ -1,4 +1,5 @@
 import { mergeCreationGlobalItems } from "./creation-session-collections.js";
+import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import { creationCollectionRows } from "../sessions/session-creation-view.js";
 /**
  * Global sessions route - returns all sessions across all projects.
@@ -69,6 +70,7 @@ import {
 import type { ClearloopBadgeResolver } from "../services/ClearloopService.js";
 
 export interface GlobalSessionsDeps {
+  providerChildRelationships?: ProviderChildRelationshipService;
   signal?: AbortSignal;
   retainedCollections?: RetainedSessionCollections;
   scanner: ProjectScanner;
@@ -872,9 +874,24 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
         projectOptions.push({ id: item.projectId, name: item.projectName });
       }
     projectOptions.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort by updatedAt descending (most recent first)
+    allSessions.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+
+    // Apply cursor pagination
+    const filteredSessions = allSessions.filter((s) =>
+      isBeforeCursor(s.updatedAt, afterCursor),
+    );
+
+    // Get one extra to determine hasMore
+    const sessionsWithExtra = filteredSessions.slice(0, limit + 1);
+    const hasMore = sessionsWithExtra.length > limit;
+    const pageSessions = sessionsWithExtra.slice(0, limit);
     const resolutionDeps = providerResolutionDeps(deps);
     const sessionsByProject = new Map<string, GlobalSessionItem[]>();
-    for (const session of allSessions) {
+    for (const session of pageSessions) {
       const existing = sessionsByProject.get(session.projectId);
       if (existing) {
         existing.push(session);
@@ -901,24 +918,16 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
         )),
       );
     }
-    allSessions.length = 0;
-    allSessions.push(...sessionsWithChildren);
-
-    // Sort by updatedAt descending (most recent first)
-    allSessions.sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    const enriched = new Map(
+      sessionsWithChildren.map((row) => [
+        JSON.stringify([row.projectId, row.id]),
+        row,
+      ]),
+    );
+    const sessions = pageSessions.map(
+      (row) => enriched.get(JSON.stringify([row.projectId, row.id])) ?? row,
     );
 
-    // Apply cursor pagination
-    const filteredSessions = allSessions.filter((s) =>
-      isBeforeCursor(s.updatedAt, afterCursor),
-    );
-
-    // Get one extra to determine hasMore
-    const sessionsWithExtra = filteredSessions.slice(0, limit + 1);
-    const hasMore = sessionsWithExtra.length > limit;
-    const sessions = sessionsWithExtra.slice(0, limit);
     const stats =
       includeStats && !filterProjectId
         ? await getCachedGlobalStats(accessibleProjectIds)

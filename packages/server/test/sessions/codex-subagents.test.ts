@@ -1,8 +1,20 @@
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir, rm, stat, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdir,
+  realpath,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { UrlProjectId } from "@yep-anywhere/shared";
+import {
+  nativeSessionRef,
+  parseNativeSessionId,
+  type UrlProjectId,
+} from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
@@ -11,6 +23,8 @@ import {
   observeCodexRolloutTree,
 } from "../../src/sessions/codex-reader.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
+import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
+import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 
 const PROJECT_PATH = "/test/project";
 
@@ -58,6 +72,300 @@ describe("Codex subagent sessions", () => {
 
   afterEach(async () => {
     await rm(sessionsDir, { recursive: true, force: true });
+  });
+
+  it("fences structural snapshots even when another reader consumes the native invalidation", async () => {
+    const now = "2026-11-04T00:00:00.000Z";
+    const events = new EventBus();
+    using _observation = {
+      [Symbol.dispose]: observeCodexRolloutTree({
+        sessionsDir,
+        eventBus: events,
+        epoch: () => 1,
+      }),
+    };
+    await writeRollout(sessionsDir, "source-parent", [
+      sessionMeta("source-parent", now),
+    ]);
+    await writeRollout(sessionsDir, "other-parent", [
+      sessionMeta("other-parent", now),
+    ]);
+    const childPath = await writeRollout(sessionsDir, "source-child", [
+      sessionMeta("source-child", now, {
+        parent_thread_id: "source-parent",
+        source: {
+          subagent: { thread_spawn: { parent_thread_id: "source-parent" } },
+        },
+      }),
+    ]);
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    const another = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    try {
+      const scope = await realpath(sessionsDir);
+      const source = reader.getProviderChildSource(
+        nativeSessionRef("codex", scope, parseNativeSessionId("source-parent")),
+      )!;
+      const first = await source.observe(new AbortController().signal);
+      expect(first.state).toBe("complete");
+      expect(first.children.map((c) => c.native.id)).toEqual(["source-child"]);
+      expect(await source.isCurrent(first.version)).toBe(true);
+      // A restored/backdated file must supersede the current native proof, even
+      // though the reader's separate historical best-file cache retains it.
+      await writeFile(
+        childPath,
+        sessionMeta("source-child", now, {
+          parent_thread_id: "other-parent",
+          source: {
+            subagent: { thread_spawn: { parent_thread_id: "other-parent" } },
+          },
+        }) + "\n",
+      );
+      await utimes(childPath, new Date("2020-01-01"), new Date("2020-01-01"));
+      events.emit({
+        type: "file-change",
+        provider: "codex",
+        path: childPath,
+        relativePath: childPath,
+        changeType: "modify",
+        timestamp: now,
+        fileType: "session",
+      });
+      await another.listSessions(encodeProjectId(PROJECT_PATH));
+      expect(await source.isCurrent(first.version)).toBe(false);
+      const current = await source.observe(new AbortController().signal);
+      expect(current.children).toEqual([]);
+      const moved = another.getProviderChildSource(
+        nativeSessionRef("codex", scope, parseNativeSessionId("other-parent")),
+      )!;
+      expect(
+        (await moved.observe(new AbortController().signal)).children.map(
+          (c) => c.native.id,
+        ),
+      ).toEqual(["source-child"]);
+    } finally {
+      await reader.close();
+      await another.close();
+    }
+  });
+
+  it("retains partial catalog evidence across shared cache hits instead of publishing false empty", async () => {
+    const now = "2026-11-04T00:00:00.000Z";
+    await writeRollout(sessionsDir, "partial-parent", [
+      sessionMeta("partial-parent", now),
+    ]);
+    const failedPath = await writeRollout(sessionsDir, "unreadable-child", [
+      "{incomplete native header",
+    ]);
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    const events = new EventBus();
+    using _observation = {
+      [Symbol.dispose]: observeCodexRolloutTree({
+        sessionsDir,
+        eventBus: events,
+        epoch: () => 1,
+      }),
+    };
+    try {
+      const native = nativeSessionRef(
+        "codex",
+        await realpath(sessionsDir),
+        parseNativeSessionId("partial-parent"),
+      );
+      const source = reader.getProviderChildSource(native)!;
+      for (let i = 0; i < 2; i++) {
+        const observation = await source.observe(new AbortController().signal);
+        expect(observation.state).toBe("partial");
+        expect(observation.children).toEqual([]);
+      }
+      await writeFile(failedPath, sessionMeta("unreadable-child", now) + "\n");
+      events.emit({
+        type: "file-change",
+        provider: "codex",
+        path: failedPath,
+        relativePath: failedPath,
+        changeType: "modify",
+        timestamp: now,
+        fileType: "session",
+      });
+      expect((await source.observe(new AbortController().signal)).state).toBe(
+        "complete",
+      );
+    } finally {
+      await reader.close();
+    }
+  });
+
+  it("overlays native activity without SQL commits/events for unchanged child structure", async () => {
+    const now = "2026-11-04T00:00:00.000Z";
+    await writeRollout(sessionsDir, "bd97b7b1-7d0e-41aa-9c70-340a581dcdb1", [
+      sessionMeta("bd97b7b1-7d0e-41aa-9c70-340a581dcdb1", now),
+    ]);
+    const path = await writeRollout(
+      sessionsDir,
+      "823e2da4-5fc7-405b-a5be-ddd3eea35ab3",
+      [
+        sessionMeta("823e2da4-5fc7-405b-a5be-ddd3eea35ab3", now, {
+          parent_thread_id: "bd97b7b1-7d0e-41aa-9c70-340a581dcdb1",
+          agent_type: "legacy-reviewer",
+          source: {
+            subagent: {
+              thread_spawn: {
+                parent_thread_id: "bd97b7b1-7d0e-41aa-9c70-340a581dcdb1",
+              },
+            },
+          },
+        }),
+      ],
+    );
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    const db = new DiscoverySqliteService({
+      dataDir: join(sessionsDir, "ya"),
+      probeNetworkFilesystem: () => undefined,
+    });
+    let committed!: () => void;
+    const firstCommit = new Promise<void>((resolve) => {
+      committed = resolve;
+    });
+    let commits = 0;
+    const service = new ProviderChildRelationshipService(
+      db.getDatabase(),
+      "local",
+      () => {
+        commits++;
+        committed();
+      },
+    );
+    const events = new EventBus();
+    using _observation = {
+      [Symbol.dispose]: observeCodexRolloutTree({
+        sessionsDir,
+        eventBus: events,
+        epoch: () => 1,
+      }),
+    };
+    const unsubscribe = events.subscribe((event) => {
+      if (event.type === "file-change") service.notifyNativeFileChange(event);
+    });
+    try {
+      const parent = nativeSessionRef(
+        "codex",
+        await realpath(sessionsDir),
+        parseNativeSessionId("bd97b7b1-7d0e-41aa-9c70-340a581dcdb1"),
+      );
+      const source = reader.getProviderChildSource(parent)!;
+      let observed!: () => void;
+      const observe = source.observe;
+      source.observe = async (signal) => {
+        const value = await observe(signal);
+        observed?.();
+        return value;
+      };
+      service.demand(parent, { sessionId: "public-parent" }, source);
+      await firstCommit;
+      const original = service.accepted(parent, "public-parent")!;
+      expect(original[0]?.agentType).toBe("legacy-reviewer");
+      for (let i = 1; i <= 3; i++) {
+        const next = new Promise<void>((resolve) => {
+          observed = resolve;
+        });
+        await appendFile(
+          path,
+          line(
+            "event_msg",
+            { type: "agent_message", message: "Ordinary child activity" },
+            now,
+          ) + "\n",
+        );
+        await utimes(path, new Date(), new Date(Date.now() + i * 1000));
+        events.emit({
+          type: "file-change",
+          provider: "codex",
+          path,
+          relativePath: path,
+          changeType: "modify",
+          timestamp: now,
+          fileType: "session",
+        });
+        await next;
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      expect(commits).toBe(1);
+      expect(service.accepted(parent, "public-parent")).toEqual(original);
+      expect(source.overlayActivity!(original)[0]!.updatedAt).not.toBe(
+        original[0]!.updatedAt,
+      );
+      await reader.close();
+      expect(service.hasSource(parent)).toBe(false);
+      expect(service.accepted(parent, "public-parent")).toEqual(original);
+    } finally {
+      unsubscribe();
+      await service.close();
+      db.close();
+      await reader.close();
+    }
+  });
+
+  it("keeps review/internal delegates outside the qualified thread-spawn navigation source", async () => {
+    const now = "2026-11-04T00:00:00.000Z";
+    await writeRollout(sessionsDir, "delegate-parent", [
+      sessionMeta("delegate-parent", now),
+    ]);
+    await writeRollout(sessionsDir, "review-delegate", [
+      sessionMeta("review-delegate", now, {
+        parent_thread_id: "delegate-parent",
+        source: { subagent: "review" },
+      }),
+    ]);
+    await writeRollout(sessionsDir, "guardian-delegate", [
+      sessionMeta("guardian-delegate", now, {
+        parent_thread_id: "delegate-parent",
+        source: { internal: "guardian" },
+      }),
+    ]);
+    await writeRollout(sessionsDir, "spawn-delegate", [
+      sessionMeta("spawn-delegate", now, {
+        parent_thread_id: "delegate-parent",
+        source: {
+          subagent: {
+            thread_spawn: {
+              parent_thread_id: "delegate-parent",
+              agent_type: "legacy-spawn-role",
+            },
+          },
+        },
+      }),
+    ]);
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    try {
+      const parent = nativeSessionRef(
+        "codex",
+        await realpath(sessionsDir),
+        parseNativeSessionId("delegate-parent"),
+      );
+      const observation = await reader
+        .getProviderChildSource(parent)!
+        .observe(new AbortController().signal);
+      expect(observation.children.map((child) => child.summary)).toMatchObject([
+        { id: "spawn-delegate", agentType: "legacy-spawn-role" },
+      ]);
+    } finally {
+      await reader.close();
+    }
   });
 
   it("maps spawn_agent calls to child rollout sessions", async () => {

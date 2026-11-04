@@ -96,6 +96,14 @@ still exists on disk.
 
 ## Watcher-trusted enumeration
 
+Configured filesystem aliases and canonical native identity roots share the
+same observation epoch after internal reconciliation. Resolution occurs only
+on explicit child acquisition or real native events and is bounded per epoch;
+it does not probe never-used stores at startup. File events invalidate lexical
+and canonical reader caches once each, while their wire payload remains
+unchanged. A watcher recovery cannot certify the physical alias until its
+configured root is revalidated.
+
 While the server's Codex `FileWatcher` observes the sessions tree, an
 enumeration of that tree stays current until the watcher reports a change.
 With no Codex activity, list, Inbox, and project reads perform no directory

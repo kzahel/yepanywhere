@@ -1,3 +1,5 @@
+import type { NativeSessionRef } from "@yep-anywhere/shared";
+import type { ProviderChildRelationshipService } from "./ProviderChildRelationshipService.js";
 import type {
   ProviderChildSessionSummary,
   ProviderName,
@@ -6,6 +8,8 @@ import type { Project } from "../supervisor/types.js";
 import {
   boundSessionSource,
   getSessionSourceForProvider,
+  resolveLegacySessionSource,
+  type SessionSource,
   type ProviderProjectCatalog,
   type ProviderResolutionDeps,
 } from "./provider-resolution.js";
@@ -17,14 +21,38 @@ export async function resolveProviderChildSessions(
   reader:
     | Pick<
         ISessionReader,
-        "listProviderChildSessions" | "listAcceptedProviderChildSessions"
+        | "listProviderChildSessions"
+        | "listAcceptedProviderChildSessions"
+        | "getProviderChildSource"
       >
     | undefined,
   nativeParentSessionId: string,
   mode: ProviderChildLookupMode,
+  indexed?: {
+    service: ProviderChildRelationshipService;
+    native: NativeSessionRef;
+    publicSessionId: string;
+  },
 ): Promise<ProviderChildSessionSummary[] | undefined> {
   if (!reader) {
     return undefined;
+  }
+  const source = indexed && reader.getProviderChildSource?.(indexed.native);
+  if (indexed && source) {
+    const children = indexed.service.accepted(
+      indexed.native,
+      indexed.publicSessionId,
+    );
+    if (mode === "fresh" || !indexed.service.hasSource(indexed.native))
+      indexed.service.demand(
+        indexed.native,
+        { sessionId: indexed.publicSessionId },
+        source,
+        mode === "fresh" ? "foreground" : "background",
+      );
+    return children && source.overlayActivity
+      ? source.overlayActivity(children)
+      : children;
   }
   if (
     mode === "accepted-or-cheap" &&
@@ -88,28 +116,71 @@ export async function attachProviderChildSessions<
   const attached = [...sessions];
   await Promise.all(
     [...sessionsByProvider].map(async ([provider, providerSessions]) => {
-      let legacyReader: ISessionReader | undefined;
+      let legacySource: SessionSource | undefined;
+      let nativeRefs: ReadonlyMap<string, NativeSessionRef> | undefined;
       for (const { index, session } of providerSessions) {
         const bound = boundSessionSource(project, session.id, deps);
         if (bound === null) continue;
-        if (!bound && !legacyReader) {
-          legacyReader = readerForProviderChildren(
-            project,
-            deps,
-            provider,
-            catalog,
-          );
+        if (!bound && !legacySource) {
+          legacySource =
+            getSessionSourceForProvider(project, deps, provider, catalog) ??
+            undefined;
+          if (
+            deps.identities &&
+            deps.providerChildRelationships &&
+            legacySource?.reader.getProviderChildSource &&
+            legacySource.reader.getNativeSessionRefs
+          ) {
+            nativeRefs = await legacySource.reader.getNativeSessionRefs(
+              providerSessions.map(({ session }) => session.id),
+            );
+          }
         }
-        const reader = bound?.source.reader ?? legacyReader;
+        const legacy =
+          !bound &&
+          legacySource &&
+          legacySource.reader.getProviderChildSource &&
+          deps.providerChildRelationships
+            ? await resolveLegacySessionSource(
+                legacySource,
+                session.id,
+                project,
+                deps,
+                nativeRefs
+                  ? { nativeRef: nativeRefs.get(session.id) ?? null }
+                  : undefined,
+              )
+            : legacySource
+              ? {
+                  source: legacySource,
+                  nativeSessionId: session.id,
+                  native: undefined,
+                }
+              : undefined;
+        if (legacy === null) continue;
+        const resolved = bound ?? legacy;
+        const reader = resolved?.source.reader;
         const children = projectProviderChildren(
           await resolveProviderChildSessions(
             reader,
-            bound?.nativeSessionId ?? session.id,
+            resolved?.nativeSessionId ?? session.id,
             mode,
+            deps.providerChildRelationships && resolved?.native
+              ? {
+                  service: deps.providerChildRelationships,
+                  native: resolved.native,
+                  publicSessionId: session.id,
+                }
+              : undefined,
           ),
           session.id,
         );
-        if (children?.length) {
+        if (
+          children?.length ||
+          (deps.providerChildRelationships &&
+            resolved?.native &&
+            children !== undefined)
+        ) {
           attached[index] = { ...session, providerChildren: children };
         }
       }

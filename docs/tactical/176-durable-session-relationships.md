@@ -73,7 +73,7 @@ no wire capability and changes no access grants.
   must preserve their own established display order. Full evidence-history
   cursor navigation remains a query-adapter concern.
 - Design and native qualification strategy recorded. Existing provider-child
-  discovery still blocks detail until the read-integration slice lands.
+  discovery still blocks detail for adapters not yet migrated below.
 
 - Native child acquisition (part 1) qualifies actual Claude/Codex spawning without inference,
   independently verifies native ids/anchors and reopens parent-scoped readers.
@@ -83,3 +83,108 @@ no wire capability and changes no access grants.
   metadata must agree, so copied fork history cannot invent parenting. The
   existing four full-app reload cases pass against the declared runtimes. Remaining launch variants, providers and SQL
   publication are not claimed qualified by this slice.
+
+- Native child acquisition/read integration (part 2, Codex) adds one bounded
+  profile-owned acquisition coordinator and SQL projection. Detail, metadata,
+  incremental catch-up and history requests read accepted facts immediately;
+  acquisition cannot block them. Structural proof comes from each child's own
+  header through the shared scoped catalog, without replaying the parent body.
+  Accepted empty, unknown and partial remain distinct; source failure/deletion
+  cannot erase history. Source changes fence stale publication; child facts and
+  parent progress commit together in bounded transactions. Native handles do
+  not become public top-level sessions. Real Codex child creation now qualifies
+  SQL publication and restart, alongside the independent native-id oracle.
+  Late metadata updates preserve transcript identity and scroll memory; route
+  retirement and initial-load ordering have focused race coverage.
+- This slice reuses existing optional `providerChildren`, the metadata route
+  and metadata-change event. A release-corpus audit of every supported core
+  tag from v0.8.0 through v0.11.0 finds all three. Older servers retain their
+  initial child projection, and omitted optional fields retain accepted data;
+  no new route, wire field or capability is required. Pre-slice clients on a new
+  server may need a reload to show initially unpublished children. Metadata
+  field-bearing events do not induce fresh discovery on supported older servers.
+  The audit evidence is
+  retained under the ignored task directory. Other providers, authoritative
+  YA/v0 writers, generic queries and removal of remaining legacy discovery
+  owners and retained collection-feed joins are still outstanding.
+- Opus review found activity-triggered SQL/event churn and missing list-only
+  acquisition. The fixes split structural versions from catalog activity
+  overlays, coalesce scope/child invalidations, register finite list acquisition
+  and route ordinary global-list enrichment through the same SQL owner. Follow-up
+  coverage includes unchanged-structure appends, partial-batch resume, ambiguous
+  parenting, repaired failed headers and nonblocking retirement. Explicit review
+  and internal Codex delegates remain unqualified/excluded from child navigation.
+  Their truthful native parent fields alone do not expand the UI source.
+- Follow-up review caught large-list registry churn. Background demand now
+  refuses eviction at capacity, and a 150-parent persisted/reopened test proves
+  zero observations on the second pass while retaining the viewed parent.
+  Global enrichment runs only on the requested page and preserves cross-project
+  order. Legacy Codex references resolve in one catalog/root batch per source;
+  other providers retain their old list path. Failed change batches invalidate
+  bounded live scope owners, and reader retirement removes subscriptions while
+  preserving the existing leased-read completion contract.
+- Final review accepts the slice after the registered-unknown R1 correction;
+  the 150-parent regression covers published and partial-empty rows, zero
+  second-pass observations and an explicit foreground retry. A final real
+  hook/cache test reproduced and fixed a fast warm-HTTP/hydration ordering race.
+  Metadata cannot apply until both HTTP settlement and warm hydration finish.
+  Opus re-reviewed and accepted that lifecycle correction without new findings.
+- The actual frozen 1,718-message browser qualification exposed a configured
+  versus canonical root alias mismatch in native file invalidation. Internal
+  normalization now coordinates both reader caches and SQL source scheduling,
+  with bounded epoch-fenced alias resolution, synchronous original-root
+  invalidation and no duplicate file reads. A real aliased directory watcher
+  regression covers late child publication, physical paths and epoch recovery.
+  This changes no configured path, startup eligibility or wire event payload.
+
+### Codex read-integration verification
+
+The November 4 isolated Node 24 probe used a frozen real long transcript and
+duplicated only the history preceding its last two compactions. All three
+variants returned the same 1,718 messages / approximately 4.5 MB response from
+a 19.9 MiB native tail. This is a local diagnostic, not a portable performance
+ceiling or a Wi-Fi/browser measurement:
+
+| Total history | Fresh profile detail | Warm detail median (5 reads) | Detail after process restart |
+| --- | --- | --- | --- |
+| 112.1 MiB | 0.99 s | 0.36 s | 0.45 s |
+| 204.3 MiB | 1.25 s | 0.37 s | 0.45 s |
+| 388.7 MiB | 1.69 s | 0.37 s | 0.45 s |
+
+Warm route metadata work was 0.2 ms and post-restart work approximately 1 ms.
+Complete `/metadata` HTTP requests had 1.09–1.13 ms medians across these
+variants (15 reads each, including after restart). A separate synthetic
+3,700-thread installation returned the same 50-row global page in 78–86 ms
+for five forced warm collection walks; first-profile indexing took 1.85 s.
+These requests used different future cursors to bypass result-cache reuse.
+The first profile still constructs its summary; subsequent reads/restarts use
+SQL. Tail read, normalization and rich-content augmentation remain separate
+costs. No quadratic dependence on preceding history appeared in this sample.
+The Apple M4 Pro host had 14 logical CPUs, at least 23 GiB available RAM, maximum
+one-minute load per CPU 0.744, and unchanged 435.6 MiB swap usage. Darwin's
+generic CPU-busy/pressure counters were unavailable; source identity, capacity
+key, start/end host samples and raw clocks stay in the ignored task evidence.
+Every standalone server was disposed without touching the live port 3400.
+
+The retained desktop/phone browser case loads 160 messages and publishes
+repeated metadata changes during sequential typing. It verifies the late child
+button, retained draft, original transcript DOM and no publication-induced
+transcript request, with each input acknowledgement below 100 ms. Final
+1000×600 / 375×812 captures show the count in the existing compact header and
+the intact composer, without overflow. Unit tests additionally cover initial
+load deferral, in-flight coalescing, older optional replies, route retirement
+and scroll-memory retention.
+
+Actual long-session browser qualification uses a fresh Chromium context with
+a warmed standalone server and the frozen 1,718-message response. Desktop and
+phone became readable in 1.34 / 1.33 seconds. Creating synthetic native child
+headers during sequential typing exercised the real watcher → SQL → metadata
+event → client path. Maximum input acknowledgement was 20.9 / 14.3 ms; both
+drafts and the existing transcript DOM were preserved. This is a local
+qualification sample, not a network or low-end-device latency guarantee.
+
+The same real-data late-child/typing qualification also passes with the pinned
+Bun 1.3.14 server under a Node fixture coordinator: 1.34 / 1.33 seconds readable
+and maximum input acknowledgement 22.9 / 14.8 ms on desktop / phone. The final
+Node run under concurrent workspace verification remained below 32 ms per key.
+All owned browser/server processes were disposed after each run.

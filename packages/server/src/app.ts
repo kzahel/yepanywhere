@@ -1,3 +1,4 @@
+import { ProviderChildRelationshipService } from "./sessions/ProviderChildRelationshipService.js";
 import { CreationAttachments } from "./sessions/creation-attachments.js";
 import { localPeerHost } from "./peer-api/connection-contracts.js";
 import {
@@ -1598,6 +1599,27 @@ export function createApp(options: AppOptions): AppResult {
   /** Least recently used first; bounded by `maxReaderCacheSize`. */
   const readerCache = createLruMap<string, ISessionReader>();
   const sessionReadLifetime = new AbortController();
+  const providerChildRelationships = new ProviderChildRelationshipService(
+    discoverySqlite.getDatabase(),
+    publicServerId,
+    ({ sessionId }) =>
+      options.eventBus?.emit({
+        type: "session-metadata-changed",
+        sessionId,
+        timestamp: new Date().toISOString(),
+      }),
+    (error) =>
+      getLogger().debug(
+        { event: "provider_child_observation_failed", error },
+        "Provider child observation unavailable",
+      ),
+  );
+  const unsubscribeProviderChildChanges = options.eventBus?.subscribe(
+    (event) => {
+      if (event.type === "file-change")
+        providerChildRelationships.notifyNativeFileChange(event);
+    },
+  );
   const projectFileCompletion = new ProjectFileCompletion(effectiveDataDir, {
     eventBus: options.eventBus,
   });
@@ -1758,6 +1780,8 @@ export function createApp(options: AppOptions): AppResult {
     // Cache the promise before asynchronous cleanup can close shared services.
     sessionReadersDisposal ??= (async () => {
       sessionReadLifetime.abort();
+      unsubscribeProviderChildChanges?.();
+      await providerChildRelationships.close();
       unsubscribeCreationStatus?.();
       hostAgentProcessService?.close();
       externalTracker?.dispose();
@@ -3145,6 +3169,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/projects",
     createProjectsRoutes({
+      providerChildRelationships,
       readNativeSessionInventory: async () => {
         if (
           sessionReadLifetime.signal.aborted ||
@@ -3253,6 +3278,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api",
     createSessionsRoutes({
+      providerChildRelationships,
       getLimitedUserGrants: getActiveLimitedGrants,
       signal: sessionReadLifetime.signal,
       onIssueWindow: (source, messages) =>
@@ -3330,6 +3356,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/processes",
     createProcessesRoutes({
+      providerChildRelationships,
       agentAuthRouter,
       supervisor,
       scanner,
@@ -3905,6 +3932,7 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/sessions",
     createGlobalSessionsRoutes({
+      providerChildRelationships,
       signal: sessionReadLifetime.signal,
       retainedCollections,
       scanner,

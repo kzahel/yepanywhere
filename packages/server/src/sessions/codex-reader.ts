@@ -1,3 +1,7 @@
+import type {
+  ProviderChildSource,
+  ProviderChildObservation,
+} from "./ProviderChildRelationshipService.js";
 import {
   readIssueTextBatch,
   type IssueReadOptions,
@@ -15,7 +19,7 @@ import {
  * Unlike Claude's DAG structure, Codex sessions are linear.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { open, readdir, realpath, stat } from "node:fs/promises";
 import {
   basename,
@@ -38,6 +42,8 @@ import {
   type UrlProjectId,
   getModelContextWindow,
   parseCodexSessionEntry,
+  nativeSessionRef,
+  parseNativeSessionId,
   truncateSessionTitle,
 } from "@yep-anywhere/shared";
 import type { SessionDiscoveryIndex } from "../indexes/SessionDiscoveryIndex.js";
@@ -69,9 +75,12 @@ import { iterateJsonlLines, readJsonlLines } from "../utils/jsonl.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import {
   type CodexRolloutTreeEpoch,
+  canonicalCodexChange,
   getCodexRolloutTreeEpoch,
   isCodexRolloutTreeEnumerationTrusted,
   registerCodexRolloutTreeObserver,
+  observedCodexRoot,
+  reconcileCodexRootObservation,
 } from "./codex-rollout-tree-observation.js";
 import {
   type CodexProviderChildProjection,
@@ -166,6 +175,9 @@ interface CodexSessionFile {
   size: number;
   isSubagent: boolean;
   parentThreadId?: string | null;
+  agentNickname?: string;
+  agentRole?: string;
+  spawnDepth?: number;
 }
 
 function isNewerCodexSessionFile(
@@ -219,6 +231,10 @@ interface CodexSharedScanCacheEntry {
   applyingChanges?: Promise<void>;
   /** A reported deletion left this enumeration unable to stand in for a walk. */
   needsEnumeration?: boolean;
+  /** A cache hit cannot upgrade an incomplete enumeration to known empty. */
+  incomplete?: boolean;
+  failedPaths?: Set<string>;
+  directoryReadErrors?: boolean;
 }
 
 /**
@@ -241,15 +257,35 @@ export function observeCodexRolloutTree(options: {
   eventBus: Pick<EventBus, "subscribe">;
   epoch: CodexRolloutTreeEpoch;
 }): () => void {
+  let retired = false;
   const unregister = registerCodexRolloutTreeObserver(
     options.sessionsDir,
     options.epoch,
   );
   const unsubscribe = options.eventBus.subscribe((event) => {
-    if (event.type === "file-change" && event.provider === "codex")
-      noteCodexRolloutChanged(options.sessionsDir, event.path);
+    if (event.type !== "file-change" || event.provider !== "codex") return;
+    // Preserve synchronous invalidation of the configured root. Canonical
+    // aliases are folded in asynchronously without delaying the raw event.
+    let touched: ReadonlySet<string> | undefined;
+    if (
+      !event.nativeStorageScope ||
+      resolve(event.nativeStorageScope) === resolve(options.sessionsDir)
+    )
+      touched = noteCodexRolloutChanged(options.sessionsDir, event.path);
+    if (!event.nativeStorageScope) {
+      return;
+    }
+    void canonicalCodexChange(event, options.sessionsDir)
+      .then((change) => {
+        if (change && !retired)
+          noteCodexRolloutChanged(change.scope, change.path, touched);
+      })
+      .catch(() => {
+        /* Source unavailable; retain accepted observations. */
+      });
   });
   return () => {
+    retired = true;
     unsubscribe();
     unregister();
   };
@@ -259,14 +295,30 @@ export function observeCodexRolloutTree(options: {
  * Record a watcher-reported rollout change so cached enumerations of that
  * tree re-read just this file instead of re-walking the whole tree.
  */
-function noteCodexRolloutChanged(sessionsDir: string, filePath: string): void {
-  if (!isCodexRolloutFileName(filePath)) return;
+function noteCodexRolloutChanged(
+  sessionsDir: string,
+  filePath: string,
+  except?: ReadonlySet<string>,
+): Set<string> {
+  const touched = new Set<string>();
+  if (!isCodexRolloutFileName(filePath)) return touched;
   const plainPath = plainCodexRolloutPath(filePath);
-  const root = resolve(sessionsDir);
+  const root = observedCodexRoot(sessionsDir);
+  const outside = (suffix: string) =>
+    !suffix ||
+    suffix === ".." ||
+    suffix.startsWith(`..${sep}`) ||
+    isAbsolute(suffix);
+  let suffix = relative(sessionsDir, plainPath);
+  if (outside(suffix)) suffix = relative(root, plainPath);
+  if (outside(suffix)) return touched;
   for (const [dir, rootCache] of codexSharedScanCache) {
-    if (resolve(dir) !== root) continue;
-    for (const entry of rootCache.values()) entry.changedPaths.add(plainPath);
+    if (except?.has(dir) || observedCodexRoot(dir) !== root) continue;
+    touched.add(dir);
+    const scopedPath = join(dir, suffix);
+    for (const entry of rootCache.values()) entry.changedPaths.add(scopedPath);
   }
+  return touched;
 }
 
 interface CodexFullSummaryCacheEntry {
@@ -683,6 +735,7 @@ export class CodexSessionReader implements ISessionReader {
   private entryReadOwners: Map<string, CodexEntryReadOwner> = new Map();
   private entryCacheRevision = 0;
   private retired = false;
+  private readonly retirementListeners = new Set<() => void>();
   private readonly entryCacheBudget: CodexEntryCacheBudget;
   private agentMappingCache: Map<string, CodexAgentMappingCache> = new Map();
   private rolloutPathById: Map<string, string> = new Map();
@@ -714,11 +767,18 @@ export class CodexSessionReader implements ISessionReader {
 
   async close(): Promise<void> {
     this.retired = true;
+    for (const listener of [...this.retirementListeners]) listener();
+    this.retirementListeners.clear();
     this.entryCacheRevision += 1;
     for (const cached of this.entryCache.values()) {
       this.entryCacheBudget.release(cached);
     }
     this.entryCache.clear();
+    // Existing leases may finish reads from retained native metadata after
+    // retirement. Background relationship sources release this reader above.
+    this.agentMappingCache.clear();
+    this.rolloutPathById.clear();
+    this.providerChildProjectionKeys.clear();
     const client = this.summaryParserClient;
     this.summaryParserClient = undefined;
     await client?.close();
@@ -1319,6 +1379,176 @@ export class CodexSessionReader implements ISessionReader {
     };
   }
 
+  getProviderChildSource(
+    parent: NativeSessionRef,
+  ): ProviderChildSource | undefined {
+    if (parent.family !== "codex") return undefined;
+    let lastVersion: string | undefined;
+    let lastEntry: CodexSharedScanCacheEntry | undefined;
+    let lastEpoch: number | null = null;
+    const snapshot = (entry: CodexSharedScanCacheEntry) => {
+      const children: ProviderChildObservation["children"][number][] = [];
+      for (const child of entry.sessions.values()) {
+        if (child.parentThreadId !== parent.id) continue;
+        children.push({
+          native: nativeSessionRef(
+            "codex",
+            parent.storageScope,
+            parseNativeSessionId(child.id),
+          ),
+          summary: {
+            id: child.id,
+            parentSessionId: parent.id,
+            ...(child.agentNickname ? { title: child.agentNickname } : {}),
+            ...(child.agentRole ? { agentType: child.agentRole } : {}),
+            ...(child.spawnDepth !== undefined
+              ? { spawnDepth: child.spawnDepth }
+              : {}),
+            updatedAt: new Date(child.mtime).toISOString(),
+          },
+        });
+      }
+      children.sort((a, b) => a.native.id.localeCompare(b.native.id));
+      const state = entry.incomplete
+        ? ("partial" as const)
+        : ("complete" as const);
+      return {
+        state,
+        children,
+        version: createHash("sha256")
+          .update(
+            JSON.stringify({
+              state,
+              children: children.map(
+                ({
+                  native,
+                  summary: { updatedAt: _activity, ...summary },
+                }) => ({ native, summary }),
+              ),
+            }),
+          )
+          .digest("hex"),
+      };
+    };
+    return {
+      isRetired: () => this.retired,
+      onRetire: (listener) => {
+        this.retirementListeners.add(listener);
+        return () => this.retirementListeners.delete(listener);
+      },
+      ownsFileChange: (event) =>
+        [this.sessionsDir, parent.storageScope].some((root) => {
+          const suffix = relative(root, event.path);
+          return (
+            suffix !== ".." &&
+            !suffix.startsWith(`..${sep}`) &&
+            !isAbsolute(suffix)
+          );
+        }),
+      parentsForChanges: async (ids, signal) => {
+        if (signal.aborted || this.retired)
+          throw new Error("Codex child observation retired");
+        await this.scanSessions();
+        // A cold/in-flight walk can finish with watcher reports still pending.
+        // Fold those through the shared cache before addressing new children.
+        if (
+          codexSharedScanCache
+            .get(this.sessionsDir)
+            ?.get(this.getSharedScanCacheKey())?.changedPaths.size
+        )
+          await this.scanSessions();
+        if (signal.aborted || this.retired)
+          throw new Error("Codex child observation retired");
+        const catalog = codexSharedScanCache
+          .get(this.sessionsDir)
+          ?.get(this.getSharedScanCacheKey());
+        return ids.flatMap((id) => {
+          const parentId = catalog?.sessions.get(id)?.parentThreadId;
+          return parentId ? [parentId] : [];
+        });
+      },
+      overlayActivity: (children) => {
+        const catalog = this.retired
+          ? undefined
+          : codexSharedScanCache
+              .get(this.sessionsDir)
+              ?.get(this.getSharedScanCacheKey());
+        return children
+          .map((child) => {
+            const native = catalog?.sessions.get(child.id);
+            return native?.parentThreadId === parent.id
+              ? { ...child, updatedAt: new Date(native.mtime).toISOString() }
+              : child;
+          })
+          .sort(
+            (a, b) =>
+              b.updatedAt.localeCompare(a.updatedAt) ||
+              a.id.localeCompare(b.id),
+          );
+      },
+      observe: async (signal) => {
+        if (signal.aborted || this.retired)
+          throw new Error("Codex child observation retired");
+        if ((await realpath(this.sessionsDir)) !== parent.storageScope)
+          throw new Error("Codex child observation scope mismatch");
+        await reconcileCodexRootObservation(this.sessionsDir);
+        await this.scanSessions();
+        let entry = codexSharedScanCache
+          .get(this.sessionsDir)
+          ?.get(this.getSharedScanCacheKey());
+        if (
+          entry &&
+          entry.epoch !== getCodexRolloutTreeEpoch(this.sessionsDir)
+        ) {
+          // Enumeration from before watcher start/recovery cannot certify the
+          // new epoch. Rebuild once, rather than laundering its old empty set.
+          codexSharedScanCache
+            .get(this.sessionsDir)
+            ?.delete(this.getSharedScanCacheKey());
+          await this.scanSessions();
+          entry = codexSharedScanCache
+            .get(this.sessionsDir)
+            ?.get(this.getSharedScanCacheKey());
+        } else if (entry?.inFlight) {
+          await this.scanSessions();
+          entry = codexSharedScanCache
+            .get(this.sessionsDir)
+            ?.get(this.getSharedScanCacheKey());
+        }
+        if (signal.aborted || this.retired || !entry?.sessions.has(parent.id))
+          throw new Error("Codex parent metadata unavailable");
+        // Structure comes from each child's native parent proof. A long parent
+        // transcript is irrelevant to enumerating its children (including none).
+        // Use the current catalog, not the reader's historical best-file cache:
+        // that cache intentionally retains deleted/backdated native records.
+        const observation = snapshot(entry);
+        lastEntry = entry;
+        lastEpoch = getCodexRolloutTreeEpoch(this.sessionsDir);
+        lastVersion = observation.version;
+        return observation;
+      },
+      isCurrent: async (version) => {
+        const current = codexSharedScanCache
+          .get(this.sessionsDir)
+          ?.get(this.getSharedScanCacheKey());
+        return (
+          !this.retired &&
+          !!current &&
+          current === lastEntry &&
+          version === lastVersion &&
+          getCodexRolloutTreeEpoch(this.sessionsDir) === lastEpoch &&
+          (current.epoch ?? null) === lastEpoch &&
+          current.sessions.has(parent.id) &&
+          !current.needsEnumeration &&
+          !current.inFlight &&
+          !current.applyingChanges &&
+          !current.changedPaths.size &&
+          snapshot(current).version === version
+        );
+      },
+    };
+  }
+
   async listProviderChildSessions(
     parentSessionId: string,
   ): Promise<ProviderChildSessionSummary[]> {
@@ -1565,17 +1795,23 @@ export class CodexSessionReader implements ISessionReader {
       sessions: new Map(),
       activeAfterMs: options?.activeAfterMs,
       changedPaths: new Set(),
+      failedPaths: new Set(),
     };
-    const inFlight = this.scanSessionsUncached(options, metrics).then(
-      (sessions) => {
-        for (const session of sessions) {
-          const current = entry.sessions.get(session.id);
-          if (!current || isNewerCodexSessionFile(session, current))
-            entry.sessions.set(session.id, session);
-        }
-        return [...entry.sessions.values()];
-      },
-    );
+    const inFlight = this.scanSessionsUncached(
+      options,
+      metrics,
+      entry.failedPaths,
+    ).then((sessions) => {
+      entry.directoryReadErrors = metrics.directoryReadErrors > 0;
+      entry.incomplete =
+        metrics.failedFiles > 0 || metrics.directoryReadErrors > 0;
+      for (const session of sessions) {
+        const current = entry.sessions.get(session.id);
+        if (!current || isNewerCodexSessionFile(session, current))
+          entry.sessions.set(session.id, session);
+      }
+      return [...entry.sessions.values()];
+    });
     entry.inFlight = inFlight;
     rootCache.set(cacheKey, entry);
 
@@ -1647,6 +1883,9 @@ export class CodexSessionReader implements ISessionReader {
           }
           const filePath = await findCodexRolloutRepresentation(plainPath);
           if (!filePath) {
+            entry.failedPaths?.delete(plainPath);
+            entry.incomplete =
+              !!entry.failedPaths?.size || !!entry.directoryReadErrors;
             if (removed) entry.needsEnumeration = true;
             continue;
           }
@@ -1659,7 +1898,16 @@ export class CodexSessionReader implements ISessionReader {
               : { activeAfterMs: entry.activeAfterMs },
             metrics,
           );
-          if (!session) continue;
+          if (!session) {
+            metrics.failedFiles++;
+            entry.failedPaths ??= new Set();
+            entry.failedPaths.add(plainPath);
+            entry.incomplete = true;
+            continue;
+          }
+          entry.failedPaths?.delete(plainPath);
+          entry.incomplete =
+            !!entry.failedPaths?.size || !!entry.directoryReadErrors;
           const current = entry.sessions.get(session.id);
           if (!current || isNewerCodexSessionFile(session, current))
             entry.sessions.set(session.id, session);
@@ -1851,6 +2099,7 @@ export class CodexSessionReader implements ISessionReader {
   private async scanSessionsUncached(
     options?: CodexScanOptions,
     metrics?: CodexSessionReaderScanMetrics,
+    failedPaths?: Set<string>,
   ): Promise<CodexSessionFile[]> {
     const sessionsById = new Map<string, CodexSessionFile>();
     try {
@@ -1876,6 +2125,7 @@ export class CodexSessionReader implements ISessionReader {
         metrics.discovery.activeWindowSkips === activeWindowSkipsBefore
       ) {
         metrics.failedFiles += 1;
+        failedPaths?.add(plainCodexRolloutPath(filePath));
       }
     }
     await this.discoveryIndex?.flush();
@@ -1903,6 +2153,28 @@ export class CodexSessionReader implements ISessionReader {
   async getSessionProjectPath(sessionId: string): Promise<string | null> {
     const sessionFile = await this.findSessionFile(sessionId);
     return sessionFile ? canonicalizeProjectPath(sessionFile.cwd) : null;
+  }
+
+  async getNativeSessionRefs(
+    ids: readonly string[],
+  ): Promise<ReadonlyMap<string, NativeSessionRef>> {
+    const files = await this.scanSessions();
+    const scope = await realpath(this.sessionsDir).catch(() => null);
+    const requested = new Set(ids),
+      refs = new Map<string, NativeSessionRef>();
+    if (!scope || this.retired) return refs;
+    for (const file of files)
+      if (
+        requested.has(file.id) &&
+        (!this.projectIdentityKey ||
+          getProjectIdentityKey(file.cwd) === this.projectIdentityKey)
+      ) {
+        refs.set(
+          file.id,
+          nativeSessionRef("codex", scope, parseNativeSessionId(file.id)),
+        );
+      }
+    return refs;
   }
 
   getIndexScopeKey(sessionDir: string): string {
@@ -3256,6 +3528,9 @@ export class CodexSessionReader implements ISessionReader {
         size: session.size,
         isSubagent: session.isSubagent,
         parentThreadId: session.parentThreadId ?? null,
+        agentNickname: session.agentNickname,
+        agentRole: session.agentRole,
+        spawnDepth: session.spawnDepth,
       };
     } catch {
       return null;

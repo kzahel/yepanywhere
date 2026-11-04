@@ -1,3 +1,4 @@
+import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import {
   mergeCreationProjectCards,
   type CreationNativeInventoryItem,
@@ -83,6 +84,7 @@ function normalizeAddedProjectPath(typed: string): string {
 }
 
 export interface ProjectsDeps {
+  providerChildRelationships?: ProviderChildRelationshipService;
   signal?: AbortSignal;
   readNativeSessionInventory?: () => Promise<
     readonly CreationNativeInventoryItem[]

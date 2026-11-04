@@ -270,3 +270,23 @@ full run passed 6,941 server / 7,092 client cases (143.46 seconds server),
 recorded in `native-workspace-final.log`. The passing result does not resolve
 the watcher defect or replace the red evidence. No Rendez code, assertion,
 timeout or retry setting changed.
+
+
+2026-11-04: the durable relationship integration workspace run on macOS /
+Node 24.22.1 missed the first nested delivery at line 353 (0 observed, 1
+expected). Evidence: ignored `tasks/session-relationships/slice-3-final-unit.log`
+(153.36 seconds server). Its separate Codex leased-reader retirement regression
+was fixed in scope; an isolated three-file rerun then passed 24 cases with one
+skip in 5.87 seconds (`slice-3-final-lease-rendez.log`). The isolated pass does
+not close this watcher defect or replace the red full-run evidence. No Rendez
+source, assertion, timeout or retry setting changed.
+
+The accepted frozen-tree workspace run subsequently passed all 6,999 server
+cases (151.95 seconds) and 7,110 client cases, recorded in
+`tasks/session-relationships/slice-3-accepted-unit.log`. The known watcher
+condition remains open; its source, assertions and budget are unchanged.
+
+After the canonical watcher-alias qualification and optional hardening, the
+final frozen workspace run also passed all 7,001 server cases (150.13 seconds)
+and 7,110 client cases (`slice-3-hardened-unit.log`). This is validation of the
+relationship slice, not a repair of the open watcher condition.

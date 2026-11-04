@@ -4061,6 +4061,172 @@ describe("useSessionMessages cache", () => {
     });
   });
 
+  it("defers discovery metadata until initial load and preserves transcript identity across coalesced updates", async () => {
+    enableSessionTranscriptCache();
+    window.localStorage.setItem(
+      UI_KEYS.sessionScrollBehavior,
+      "remember-place",
+    );
+    invalidateLocalStorageValues(UI_KEYS.sessionScrollBehavior);
+    let releaseInitial!: (value: GetSessionResult) => void;
+    apiMocks.getSession.mockImplementationOnce(
+      () =>
+        new Promise<GetSessionResult>((resolve) => {
+          releaseInitial = resolve;
+        }),
+    );
+    let releaseMetadata!: (value: unknown) => void;
+    apiMocks.getSessionMetadata.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseMetadata = resolve;
+        }),
+    );
+    const child = {
+      id: "native-child",
+      parentSessionId: "sess-1",
+      title: "Reviewer",
+      updatedAt: "2026-11-04T00:00:00.000Z",
+    };
+    apiMocks.getSessionMetadata.mockResolvedValueOnce({
+      session: { providerChildren: [child] },
+    });
+    const { result } = renderHook(() =>
+      useSessionMessages({ projectId: "proj-1", sessionId: "sess-1" }),
+    );
+    await act(async () => {
+      await result.current.fetchSessionMetadata();
+    });
+    expect(apiMocks.getSessionMetadata).not.toHaveBeenCalled();
+    await act(async () => {
+      releaseInitial(sessionResponse("original-message"));
+    });
+    await waitFor(() =>
+      expect(apiMocks.getSessionMetadata).toHaveBeenCalledTimes(1),
+    );
+    const messages = result.current.messages;
+    const scroll = scrollSnapshot();
+    act(() => result.current.updateRouteScrollSnapshot(scroll));
+    // More commits while a reply is in flight require one later read, since the
+    // first reply can predate those commits. They do not refetch the transcript.
+    let refresh!: Promise<void>;
+    act(() => {
+      refresh = result.current.fetchSessionMetadata();
+    });
+    await act(async () => {
+      releaseMetadata({ session: { providerChildren: [] } });
+      await refresh;
+    });
+    await waitFor(() =>
+      expect(result.current.session?.providerChildren).toEqual([child]),
+    );
+    expect(apiMocks.getSessionMetadata).toHaveBeenCalledTimes(2);
+    expect(apiMocks.getSession).toHaveBeenCalledTimes(1);
+    expect(result.current.messages).toBe(messages);
+    expect(
+      defaultSessionDetailMemoryCache.readScrollSnapshot(
+        defaultStoreEntryKey(),
+      ),
+    ).toEqual(scroll);
+    const acceptedSession = result.current.session;
+    apiMocks.getSessionMetadata.mockResolvedValueOnce({
+      session: { providerChildren: [{ ...child }] },
+    });
+    await act(async () => {
+      await result.current.fetchSessionMetadata();
+    });
+    expect(result.current.session).toBe(acceptedSession);
+    // An older server omitting the optional projection cannot erase known data.
+    apiMocks.getSessionMetadata.mockResolvedValueOnce({ session: {} });
+    await act(async () => {
+      await result.current.fetchSessionMetadata();
+    });
+    expect(result.current.session).toBe(acceptedSession);
+  });
+
+  it("does not publish a retired source's discovery reply after navigation", async () => {
+    apiMocks.getSession.mockResolvedValueOnce(sessionResponse("first-message"));
+    const rendered = renderHook(
+      ({ sessionId }) => useSessionMessages({ projectId: "proj-1", sessionId }),
+      { initialProps: { sessionId: "sess-1" } },
+    );
+    await waitFor(() => expect(rendered.result.current.loading).toBe(false));
+    let release!: (value: unknown) => void;
+    apiMocks.getSessionMetadata.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    let pending!: Promise<void>;
+    act(() => {
+      pending = rendered.result.current.fetchSessionMetadata();
+    });
+    const next = sessionResponse("next-message");
+    next.session.id = "sess-2";
+    apiMocks.getSession.mockResolvedValueOnce(next);
+    rendered.rerender({ sessionId: "sess-2" });
+    await waitFor(() =>
+      expect(rendered.result.current.session?.id).toBe("sess-2"),
+    );
+    await act(async () => {
+      release({ session: { providerChildren: [] } });
+      await pending;
+    });
+    expect(rendered.result.current.session?.providerChildren).toBeUndefined();
+    expect(rendered.result.current.messages[0]?.uuid).toBe("next-message");
+  });
+
+  it("holds metadata after a fast warm HTTP reply until cached hydration applies", async () => {
+    enableSessionTranscriptCache();
+    apiMocks.getSession.mockResolvedValueOnce(
+      sessionResponse("cached-message"),
+    );
+    const first = renderHook(() =>
+      useSessionMessages({ projectId: "proj-1", sessionId: "sess-1" }),
+    );
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    first.unmount();
+    const reply = sessionResponse("cached-message");
+    reply.session.providerChildren = [];
+    apiMocks.getSession.mockResolvedValueOnce(reply);
+    apiMocks.getSessionMetadata.mockReset();
+    const children = [
+      {
+        id: "new-child",
+        parentSessionId: "sess-1",
+        updatedAt: "2026-11-04T00:00:00.000Z",
+      },
+    ];
+    apiMocks.getSessionMetadata.mockResolvedValue({
+      session: { providerChildren: children },
+    });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const warm = renderHook(() =>
+        useSessionMessages({ projectId: "proj-1", sessionId: "sess-1" }),
+      );
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(warm.result.current.loading).toBe(true);
+      await act(async () => {
+        await warm.result.current.fetchSessionMetadata();
+      });
+      expect(apiMocks.getSessionMetadata).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+      });
+      expect(warm.result.current.loading).toBe(false);
+      expect(warm.result.current.session?.providerChildren).toEqual(children);
+      expect(
+        warm.result.current.messages.map((message) => message.uuid),
+      ).toEqual(["cached-message"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("mirrors loaded subagent content from the session detail store", async () => {
     apiMocks.getSession.mockResolvedValueOnce({
       session: {

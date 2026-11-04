@@ -1674,7 +1674,24 @@ export function useSession(
       if (event.sessionId !== sessionId) return;
 
       updateSession((prev) => {
-        if (!prev) return prev;
+        if (
+          !prev ||
+          ![
+            event.creation,
+            event.title,
+            event.archived,
+            event.starred,
+            event.parentSessionId,
+            event.parentSessionKind,
+            event.forkedFromSessionId,
+            event.promptSuggestionMode,
+            event.recapAfterSeconds,
+            event.transcriptDisplayObjects,
+            event.projectId,
+            event.transcriptProjectId,
+          ].some((value) => value !== undefined)
+        )
+          return prev;
         return {
           ...prev,
           ...(event.creation !== undefined && { creation: event.creation }),
@@ -1709,6 +1726,12 @@ export function useSession(
           }),
         };
       });
+      if (
+        Object.keys(event).every((key) =>
+          ["type", "sessionId", "timestamp"].includes(key),
+        )
+      )
+        void fetchSessionMetadata();
       if (event.recapAfterSeconds !== undefined) {
         setStatus((prev) =>
           prev.owner === "self"
@@ -1722,7 +1745,7 @@ export function useSession(
         );
       }
     },
-    [sessionId, updateSession],
+    [sessionId, updateSession, fetchSessionMetadata],
   );
 
   // Listen for session status changes via stream

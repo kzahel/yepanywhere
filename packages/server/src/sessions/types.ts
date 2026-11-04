@@ -1,3 +1,4 @@
+import type { ProviderChildSource } from "./ProviderChildRelationshipService.js";
 /**
  * Session reader interface for provider-agnostic session reading.
  *
@@ -299,6 +300,11 @@ export interface ISessionReader {
     parentSessionId?: string,
   ): Promise<{ messages: Message[]; status: string } | null>;
 
+  /** Profile-index input; acquisition is scheduled outside transcript requests. */
+  getProviderChildSource?(
+    nativeParent: NativeSessionRef,
+  ): ProviderChildSource | undefined;
+
   /**
    * List provider-native child work attached to one canonical YA session,
    * most recently active first (see `sortProviderChildSessions`).
@@ -330,6 +336,10 @@ export interface ISessionReader {
   getNativeSessionRef?(
     sessionId: import("@yep-anywhere/shared").NativeSessionId,
   ): Promise<NativeSessionRef | null>;
+  /** Batch discovery proof for list enrichment; canonicalize shared roots once. */
+  getNativeSessionRefs?(
+    ids: readonly string[],
+  ): Promise<ReadonlyMap<string, NativeSessionRef>>;
 
   /** Resolve the provider-native project path recorded by this session. */
   getSessionProjectPath?(sessionId: string): Promise<string | null>;

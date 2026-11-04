@@ -79,6 +79,29 @@ import {
   writeSessionScrollMemory,
 } from "../lib/sessionScrollMemoryStorage";
 
+function sameProviderChildren(
+  left: SessionMetadata["providerChildren"],
+  right: NonNullable<SessionMetadata["providerChildren"]>,
+): boolean {
+  return (
+    left === right ||
+    (!!left &&
+      left.length === right.length &&
+      left.every((child, index) => {
+        const next = right[index]!;
+        return (
+          child.id === next.id &&
+          child.parentSessionId === next.parentSessionId &&
+          child.title === next.title &&
+          child.agentType === next.agentType &&
+          child.toolUseId === next.toolUseId &&
+          child.spawnDepth === next.spawnDepth &&
+          child.updatedAt === next.updatedAt
+        );
+      }))
+  );
+}
+
 /** Result from initial session load */
 export type SessionLoadResult = SessionDetailLoadCompleteResult;
 export type { AgentContent, AgentContentMap } from "../lib/sessionDetail/types";
@@ -369,6 +392,9 @@ export function useSessionMessages(
       coordinator,
       active: true,
       request: null as Promise<void> | null,
+      initialRequestSettled: false,
+      pendingRequested: false,
+      loadGeneration: 0,
     }),
     [coordinator],
   );
@@ -608,6 +634,79 @@ export function useSessionMessages(
     [dispatchSessionDetailAction, readStoreSession, reportStoreDivergence],
   );
 
+  // Metadata recovery owns creation and accepted children only. It cannot
+  // replace messages, title, scroll or runtime state. Serialize replies and
+  // defer events received during initial/warm catch-up until that data applies.
+  const fetchSessionMetadata = useCallback(async (): Promise<void> => {
+    if (!metadataRefresh.active) return;
+    if (!metadataRefresh.initialRequestSettled || !readStoreSession()) {
+      metadataRefresh.pendingRequested = true;
+      return;
+    }
+    if (metadataRefresh.request) {
+      metadataRefresh.pendingRequested = true;
+      return metadataRefresh.request;
+    }
+    metadataRefresh.pendingRequested = false;
+    const generation = metadataRefresh.loadGeneration;
+    const request = (async () => {
+      try {
+        const data = await sourceApi.getSessionMetadata({
+          projectId,
+          sessionId,
+        });
+        if (!metadataRefresh.active) return;
+        if (
+          generation !== metadataRefresh.loadGeneration ||
+          !metadataRefresh.initialRequestSettled
+        ) {
+          metadataRefresh.pendingRequested = true;
+          return;
+        }
+        const { creation, providerChildren } = data.session;
+        updateSession((prev) => {
+          if (!prev) return prev;
+          const creationChanged =
+            creation !== undefined &&
+            JSON.stringify(creation) !== JSON.stringify(prev.creation);
+          const childrenChanged =
+            providerChildren !== undefined &&
+            !sameProviderChildren(prev.providerChildren, providerChildren);
+          return creationChanged || childrenChanged
+            ? {
+                ...prev,
+                ...(creationChanged ? { creation } : {}),
+                ...(childrenChanged ? { providerChildren } : {}),
+              }
+            : prev;
+        });
+      } catch {
+        // Retain accepted fields on unavailable/older server responses.
+      }
+    })();
+    metadataRefresh.request = request;
+    try {
+      await request;
+    } finally {
+      if (metadataRefresh.request === request) {
+        metadataRefresh.request = null;
+        if (
+          metadataRefresh.active &&
+          metadataRefresh.initialRequestSettled &&
+          metadataRefresh.pendingRequested
+        )
+          await fetchSessionMetadata();
+      }
+    }
+  }, [
+    projectId,
+    sessionId,
+    sourceApi,
+    updateSession,
+    metadataRefresh,
+    readStoreSession,
+  ]);
+
   const warnSessionDetailStore = useCallback(
     (payload: Record<string, unknown>) => {
       if (!import.meta.env.DEV) {
@@ -720,8 +819,11 @@ export function useSessionMessages(
   // replacing the cached transcript.
   useEffect(() => {
     let cancelled = false;
+    metadataRefresh.loadGeneration++;
+    metadataRefresh.initialRequestSettled = false;
     initialLoadFailedRef.current = false;
     let warmHydrated = false;
+    let historyRequestSettled = false;
     let pendingWarmData: GetSessionResult | null = null;
     let pendingWarmError: Error | null = null;
     let initialAfterMessageId: string | undefined;
@@ -746,6 +848,17 @@ export function useSessionMessages(
     const initialLoad = coordinator.beginInitialLoad({
       warmSnapshot: warmLoad,
     });
+    const flushPendingMetadata = () => {
+      if (
+        cancelled ||
+        !metadataRefresh.active ||
+        !historyRequestSettled ||
+        (warmLoad && !warmHydrated)
+      )
+        return;
+      metadataRefresh.initialRequestSettled = true;
+      if (metadataRefresh.pendingRequested) void fetchSessionMetadata();
+    };
 
     const notifyLoadComplete = (
       data: GetSessionResult,
@@ -756,6 +869,7 @@ export function useSessionMessages(
       );
       notifyTranscriptReconciled(data, appliedRowCount);
       onLoadComplete?.(coordinator.buildLoadCompleteResult(data));
+      flushPendingMetadata();
     };
 
     const readRevealSnapshotAfterStoreUpdate = (
@@ -827,6 +941,7 @@ export function useSessionMessages(
         "session_initial_load_complete",
         completion.loadCompletePerfDetail,
       );
+      flushPendingMetadata();
     };
 
     const finishWarmHydration = (options: {
@@ -1068,6 +1183,11 @@ export function useSessionMessages(
         initialLoadFailedRef.current = true;
         setLoading(false);
         onLoadError?.(err);
+      })
+      .finally(() => {
+        if (cancelled || !metadataRefresh.active) return;
+        historyRequestSettled = true;
+        flushPendingMetadata();
       });
     return () => {
       cancelled = true;
@@ -1093,6 +1213,8 @@ export function useSessionMessages(
     sourceApi,
     warnSessionDetailStore,
     sourceSummary,
+    metadataRefresh,
+    fetchSessionMetadata,
   ]);
 
   // Handle streaming content updates (from useStreamingContent)
@@ -1636,32 +1758,6 @@ export function useSessionMessages(
     [coordinator],
   );
 
-  // Startup recovery reads metadata, but only owns the creation field. An
-  // older reply must not replace live title, ownership or runtime observations.
-  const fetchSessionMetadata = useCallback(async () => {
-    if (!metadataRefresh.active) return;
-    if (metadataRefresh.request) return metadataRefresh.request;
-    const request = (async () => {
-      try {
-        const data = await sourceApi.getSessionMetadata({
-          projectId,
-          sessionId,
-        });
-        if (!metadataRefresh.active) return;
-        const creation = data.session.creation;
-        if (creation !== undefined)
-          updateSession((prev) => (prev ? { ...prev, creation } : prev));
-      } catch {
-        // Silent fail for metadata updates
-      }
-    })();
-    metadataRefresh.request = request;
-    try {
-      await request;
-    } finally {
-      if (metadataRefresh.request === request) metadataRefresh.request = null;
-    }
-  }, [projectId, sessionId, sourceApi, updateSession, metadataRefresh]);
   const selectedInitialScrollSnapshot = shouldRetainSessionScrollMemory(
     getSessionScrollBehaviorMode(),
   )

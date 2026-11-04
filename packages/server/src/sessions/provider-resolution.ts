@@ -1,3 +1,4 @@
+import type { ProviderChildRelationshipService } from "./ProviderChildRelationshipService.js";
 import { realpath } from "node:fs/promises";
 import { basename } from "node:path";
 import {
@@ -61,6 +62,7 @@ export interface ProviderProjectCatalog {
 }
 
 export interface ProviderResolutionDeps {
+  providerChildRelationships?: ProviderChildRelationshipService;
   signal?: AbortSignal;
   identities?: SessionIdentityStore;
   getRecordedProvider?: (sessionId: string) => ProviderName | undefined;
@@ -114,14 +116,19 @@ export async function resolveLegacySessionSource(
   sessionId: string,
   project: Project,
   deps: ProviderResolutionDeps,
-  options?: { allowMissingNativeProof: boolean },
+  options?: {
+    allowMissingNativeProof?: boolean;
+    nativeRef?: NativeSessionRef | null;
+  },
 ): Promise<ResolvedSessionSource | null> {
   if (deps.signal?.aborted) return null;
   const nativeSessionId = parseNativeSessionId(sessionId);
   // Unmigrated reader shapes retain their existing legacy boundary. Qualified
   // native readers expose their actual scope, including merged private roots.
   const native = deps.identities
-    ? await source.reader.getNativeSessionRef?.(nativeSessionId)
+    ? options && "nativeRef" in options
+      ? options.nativeRef
+      : await source.reader.getNativeSessionRef?.(nativeSessionId)
     : undefined;
   if (deps.signal?.aborted) return null;
   if (

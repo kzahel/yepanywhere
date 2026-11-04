@@ -1,5 +1,7 @@
+import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+import { createProjectsRoutes } from "../../src/routes/projects.js";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +13,12 @@ import {
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import type { Project } from "../../src/supervisor/types.js";
+import { nativeSessionRef, parseNativeSessionId } from "@yep-anywhere/shared";
+import {
+  ProviderChildRelationshipService,
+  type ProviderChildObservation,
+} from "../../src/sessions/ProviderChildRelationshipService.js";
+import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 
 const PROJECT_PATH = "/test/codex-provider-children";
 
@@ -164,12 +172,14 @@ describe("Codex provider child route contract", () => {
     const routes = createSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
+        wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getProject: vi.fn(async () => project),
         getOrCreateProject: vi.fn(async () => project),
       } as unknown as SessionsDeps["scanner"],
-      readerFactory: () => emptyReader(),
+      readerFactory: (selected) =>
+        selected.provider === "codex" ? reader : emptyReader(),
       codexSessionsDir: sessionsDir,
       codexReaderFactory: () => reader,
       grokSessionsDir: isolatedProviderDir,
@@ -214,5 +224,200 @@ describe("Codex provider child route contract", () => {
         }),
       ],
     });
+  });
+
+  it("delivers detail, history and metadata while discovery is held, then serves durable child facts after reopen", async () => {
+    const now = "2026-11-04T12:00:00.000Z";
+    const parentId = "nonblocking-parent",
+      childId = "durable-child";
+    await writeRollout(sessionsDir, parentId, [
+      sessionMeta(parentId, now),
+      line(
+        "response_item",
+        {
+          type: "message",
+          id: "first",
+          role: "user",
+          content: [{ type: "input_text", text: "Parent transcript" }],
+        },
+        now,
+      ),
+      line(
+        "response_item",
+        {
+          type: "message",
+          id: "last",
+          role: "assistant",
+          content: [{ type: "output_text", text: "Parent reply" }],
+        },
+        now,
+      ),
+    ]);
+    const projectId = encodeProjectId(PROJECT_PATH);
+    const project: Project = {
+      id: projectId,
+      path: PROJECT_PATH,
+      name: "nonblocking",
+      sessionCount: 1,
+      sessionDir: sessionsDir,
+      activeOwnedCount: 0,
+      activeExternalCount: 0,
+      lastActivity: null,
+      provider: "codex",
+    };
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    let release!: (value: ProviderChildObservation) => void;
+    let started!: () => void;
+    const startedPromise = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const held = new Promise<ProviderChildObservation>((resolve) => {
+      release = resolve;
+    });
+    const source = {
+      observe: vi.fn(async () => {
+        started();
+        return held;
+      }),
+      isCurrent: async () => true,
+    };
+    vi.spyOn(reader, "getProviderChildSource").mockReturnValue(source);
+    const legacyDiscovery = vi.spyOn(reader, "listProviderChildSessions");
+    const dbDir = join(isolatedProviderDir, "profile");
+    let database = new DiscoverySqliteService({
+      dataDir: dbDir,
+      probeNetworkFilesystem: () => undefined,
+    });
+    const owners: string[] = [];
+    let committed!: () => void;
+    const committedPromise = new Promise<void>((resolve) => {
+      committed = resolve;
+    });
+    let service = new ProviderChildRelationshipService(
+      database.getDatabase(),
+      "local",
+      (owner) => {
+        owners.push(owner.sessionId);
+        committed();
+      },
+    );
+    let metadata = new SessionMetadataService({
+      dataDir: dbDir,
+      database: database.getDatabase(),
+    });
+    const routes = () =>
+      createSessionsRoutes({
+        supervisor: {
+          getProcessForSession: vi.fn(() => null),
+          wasEverOwned: vi.fn(() => false),
+        } as unknown as SessionsDeps["supervisor"],
+        scanner: {
+          getProject: vi.fn(async () => project),
+          getOrCreateProject: vi.fn(async () => project),
+        } as unknown as SessionsDeps["scanner"],
+        readerFactory: (selected) =>
+          selected.provider === "codex" ? reader : emptyReader(),
+        codexSessionsDir: sessionsDir,
+        codexReaderFactory: () => reader,
+        grokSessionsDir: isolatedProviderDir,
+        piSessionsDir: isolatedProviderDir,
+        providerChildRelationships: service,
+        sessionMetadataService: metadata,
+      });
+    try {
+      const list = createProjectsRoutes({
+        scanner: {
+          getOrCreateProject: async () => project,
+        } as unknown as SessionsDeps["scanner"],
+        readerFactory: (selected) =>
+          selected.provider === "codex" ? reader : emptyReader(),
+        codexSessionsDir: sessionsDir,
+        codexReaderFactory: () => reader,
+        grokSessionsDir: isolatedProviderDir,
+        piSessionsDir: isolatedProviderDir,
+        providerChildRelationships: service,
+        sessionMetadataService: metadata,
+      });
+      const unpublished = await list.request(`/${projectId}/sessions`);
+      expect(unpublished.status).toBe(200);
+      expect(
+        (await unpublished.json()).sessions[0].providerChildren,
+      ).toBeUndefined();
+      // List-only navigation must itself initiate finite background acquisition.
+      await startedPromise;
+      const app = routes();
+      const url = `/projects/${projectId}/sessions/${parentId}`;
+      // Completion before release, rather than a timing threshold, proves the
+      // transcript/pagination/metadata routes do not await native discovery.
+      for (const suffix of [
+        "?tailCompactions=2",
+        "?afterMessageId=first",
+        "?beforeMessageId=last",
+        "/metadata",
+      ]) {
+        const response = await app.request(url + suffix);
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.session.providerChildren).toBeUndefined();
+        if (suffix.startsWith("?tail"))
+          expect(JSON.stringify(body.messages)).toContain("Parent reply");
+      }
+      await startedPromise;
+      const scope = await realpath(sessionsDir);
+      release({
+        version: "owned-v1",
+        state: "complete",
+        children: [
+          {
+            native: nativeSessionRef(
+              "codex",
+              scope,
+              parseNativeSessionId(childId),
+            ),
+            summary: {
+              id: childId,
+              parentSessionId: parentId,
+              title: "Durable child",
+              updatedAt: now,
+            },
+          },
+        ],
+      });
+      await committedPromise;
+      expect(owners).toContain(parentId);
+      const published = await list.request(`/${projectId}/sessions`);
+      expect(
+        (await published.json()).sessions[0].providerChildren,
+      ).toMatchObject([{ id: childId }]);
+      await service.close();
+      database.close();
+      database = new DiscoverySqliteService({
+        dataDir: dbDir,
+        probeNetworkFilesystem: () => undefined,
+      });
+      metadata = new SessionMetadataService({
+        dataDir: dbDir,
+        database: database.getDatabase(),
+      });
+      service = new ProviderChildRelationshipService(
+        database.getDatabase(),
+        "local",
+        () => {},
+      );
+      const reopened = await routes().request(`${url}/metadata`);
+      expect(await reopened.json()).toMatchObject({
+        session: {
+          providerChildren: [{ id: childId, parentSessionId: parentId }],
+        },
+      });
+      expect(legacyDiscovery).not.toHaveBeenCalled();
+    } finally {
+      await service.close();
+      database.close();
+      await reader.close();
+    }
   });
 });

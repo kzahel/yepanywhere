@@ -1,4 +1,12 @@
-import { toUrlProjectId } from "@yep-anywhere/shared";
+import {
+  nativeSessionRef,
+  parseNativeSessionId,
+  toUrlProjectId,
+} from "@yep-anywhere/shared";
+import { realpath } from "node:fs/promises";
+import { join } from "node:path";
+import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
+import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { nativeFixture } from "./fixture.js";
 import { historyReader } from "./history.js";
@@ -144,6 +152,52 @@ describe.each(providers.filter((p) => p === "claude" || p === "codex"))(
         expect(
           JSON.stringify(await reader.getAgentSession(childId, f.nativeId())),
         ).toContain("CHILD_RELATIONSHIP_REPLY");
+        if (provider === "codex") {
+          const parent = nativeSessionRef(
+            "codex",
+            await realpath(f.environment.CODEX_SESSIONS_DIR!),
+            parseNativeSessionId(f.nativeId()),
+          );
+          const source = reader.getProviderChildSource!(parent)!;
+          const dataDir = join(f.root, "relationship-reopen");
+          let db = new DiscoverySqliteService({
+            dataDir,
+            probeNetworkFilesystem: () => undefined,
+          });
+          let done!: () => void;
+          const committed = new Promise<void>((resolve) => {
+            done = resolve;
+          });
+          let index = new ProviderChildRelationshipService(
+            db.getDatabase(),
+            "native-test",
+            () => done(),
+          );
+          try {
+            index.demand(parent, { sessionId: "canonical-parent" }, source);
+            await committed;
+            expect(index.accepted(parent, "canonical-parent")).toMatchObject([
+              { id: childId, parentSessionId: "canonical-parent" },
+            ]);
+            await index.close();
+            db.close();
+            db = new DiscoverySqliteService({
+              dataDir,
+              probeNetworkFilesystem: () => undefined,
+            });
+            index = new ProviderChildRelationshipService(
+              db.getDatabase(),
+              "native-test",
+              () => {},
+            );
+            expect(index.accepted(parent, "canonical-parent")).toMatchObject([
+              { id: childId, parentSessionId: "canonical-parent" },
+            ]);
+          } finally {
+            await index.close();
+            db.close();
+          }
+        }
       } finally {
         await reader.close?.();
       }

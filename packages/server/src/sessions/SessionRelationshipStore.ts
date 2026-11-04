@@ -39,6 +39,7 @@ export interface RelationshipMetadata {
   receiptId?: string;
   launchId?: string;
   boundaryId?: string;
+  nativeUpdatedAt?: string;
 }
 export interface RelationshipFact {
   type: SessionRelationshipType;
@@ -146,6 +147,7 @@ function metadataJson(metadata: RelationshipMetadata = {}): string {
     "receiptId",
     "launchId",
     "boundaryId",
+    "nativeUpdatedAt",
   ] as const) {
     const value = metadata[field];
     if (value !== undefined) {
@@ -317,39 +319,50 @@ export class SessionRelationshipStore {
     progress: Pick<RelationshipCheckpoint, "state" | "cursor">;
     replaceSource?: boolean;
   }): boolean {
-    return this.database.transaction(() => {
-      const { observation, progress } = input;
-      const previous = this.checkpoint(
+    return this.database.transaction(() =>
+      this.publishWithinTransaction(input),
+    );
+  }
+
+  /** Synchronous participant in an existing profile owner transaction. */
+  publishWithinTransaction(input: {
+    observation: RelationshipObservation;
+    expectedRevision: number | null;
+    facts: readonly RelationshipFact[];
+    progress: Pick<RelationshipCheckpoint, "state" | "cursor">;
+    replaceSource?: boolean;
+  }): boolean {
+    const { observation, progress } = input;
+    const previous = this.checkpoint(
+      observation.producer,
+      observation.sourceKey,
+    );
+    if ((previous?.revision ?? null) !== input.expectedRevision) return false;
+    if (
+      progress.cursor.length > 65536 ||
+      !["partial", "complete"].includes(progress.state)
+    )
+      throw new Error("Invalid relationship progress");
+    this.writeFacts(observation, input.facts, true);
+    // A partial replacement retains the previous accepted set. Re-observed
+    // records are marked with this version; completion sweeps only the rest.
+    if (input.replaceSource && progress.state === "complete")
+      this.retireSource.run(
         observation.producer,
         observation.sourceKey,
-      );
-      if ((previous?.revision ?? null) !== input.expectedRevision) return false;
-      if (
-        progress.cursor.length > 65536 ||
-        !["partial", "complete"].includes(progress.state)
-      )
-        throw new Error("Invalid relationship progress");
-      this.writeFacts(observation, input.facts, true);
-      // A partial replacement retains the previous accepted set. Re-observed
-      // records are marked with this version; completion sweeps only the rest.
-      if (input.replaceSource && progress.state === "complete")
-        this.retireSource.run(
-          observation.producer,
-          observation.sourceKey,
-          observation.sourceVersion,
-          observation.extractorVersion,
-        );
-      this.writeCheckpoint.run(
-        observation.producer,
-        observation.sourceKey,
-        (previous?.revision ?? 0) + 1,
         observation.sourceVersion,
         observation.extractorVersion,
-        progress.state,
-        progress.cursor,
       );
-      return true;
-    });
+    this.writeCheckpoint.run(
+      observation.producer,
+      observation.sourceKey,
+      (previous?.revision ?? 0) + 1,
+      observation.sourceVersion,
+      observation.extractorVersion,
+      progress.state,
+      progress.cursor,
+    );
+    return true;
   }
 
   list(input: {
