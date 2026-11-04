@@ -115,6 +115,13 @@ sessions, durable history, tools, models, thinking, compaction, and fork support
 while stating that its tools currently run without a Yep Anywhere approval
 bridge.
 
+Antigravity is a shipped, explicitly opt-in experimental ACP provider. The
+catalog and provider guide state its text, file-reference, approval, streaming
+and native-history support, with macOS live qualification, unqualified Linux
+and unavailable Windows. Both Gemini runtime aliases use the retained ACP
+adapter; public copy and source references must not imply a separate direct
+stream-JSON execution path.
+
 Subscription-plan access is a stable Claude Code and Codex capability. The
 feature registry and provider guide state that the official provider process
 owns authentication and billing. Yep Anywhere may show normalized usage windows

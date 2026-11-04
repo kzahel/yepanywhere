@@ -85,7 +85,7 @@ test("full workers expose queued sessions, promote once and resolve lost pre-dis
       .toBe("queued");
     await expect(
       page.getByRole("region", { name: "Session startup" }),
-    ).toContainText("waiting");
+    ).toContainText("Waiting for an available worker");
     expect(
       (await owned.requests()).filter((r) => r.method === "thread/start"),
     ).toHaveLength(1);

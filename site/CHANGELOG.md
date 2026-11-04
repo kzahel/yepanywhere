@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Include the opt-in Antigravity integration in the provider catalog and guide,
+  with its platform qualification limits.
+- Describe the retained Gemini ACP integration and remove references to its
+  retired direct execution adapter so website validation succeeds.
+
 ## [site-v1.13.0] - 2026-10-26
 
 ### Added
