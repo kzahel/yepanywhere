@@ -75,8 +75,11 @@ describe("Process", () => {
           metadata: { sourceSessionId: "sender" },
         });
         expect(deliveries).not.toHaveBeenCalled();
-        const delivered = await queue[Symbol.asyncIterator]().next();
-        expect(delivered.value?.message.content).not.toContain("cancel this");
+        const input = queue[Symbol.asyncIterator]();
+        expect((await input.next()).value?.message.content).toBe("human");
+        expect(deliveries).not.toHaveBeenCalled();
+        const delivered = await input.next();
+        expect(delivered.value?.message.content).toBe("external");
         expect(deliveries).toHaveBeenCalledTimes(1);
         expect(deliveries).toHaveBeenCalledWith(
           expect.objectContaining({

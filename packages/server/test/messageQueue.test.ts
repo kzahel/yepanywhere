@@ -72,7 +72,7 @@ describe("concatUserMessages", () => {
 });
 
 describe("MessageQueue", () => {
-  it("translates Claude intent before batching without losing cancellation or consumption identities", async () => {
+  it("preserves each Claude priority and consumption identity through cancellation", async () => {
     const queue = new MessageQueue(prepareClaudeInput);
     const consumed: UserMessage[][] = [];
     queue.subscribeYielded((messages) => consumed.push(messages));
@@ -90,10 +90,18 @@ describe("MessageQueue", () => {
     });
     expect(queue.removeByTempId("cancel")).toHaveLength(1);
     const iterator = queue[Symbol.asyncIterator]();
-    const gentleBatch = (await iterator.next()).value!;
-    expect(gentleBatch).toMatchObject({ priority: "next" });
-    expect(gentleBatch.message.content).toBe("patient\n\n--------\n\ngentle");
-    expect(consumed[0]?.map((message) => message.tempId)).toEqual(["p", "g"]);
+    expect((await iterator.next()).value).toMatchObject({
+      priority: "later",
+      message: { content: "patient" },
+    });
+    expect(queue.depth).toBe(1);
+    expect(consumed.map((messages) => messages.map((m) => m.tempId))).toEqual([
+      ["p"],
+    ]);
+    expect((await iterator.next()).value).toMatchObject({
+      priority: "next",
+      message: { content: "gentle" },
+    });
     queue.push({
       ...msg("patient again", "p2"),
       metadata: { deliveryIntent: "deferred" },
@@ -102,8 +110,14 @@ describe("MessageQueue", () => {
       ...msg("immediate", "i"),
       metadata: { deliveryIntent: "steer", steerNow: true },
     });
+    expect((await iterator.next()).value).toMatchObject({ priority: "later" });
     expect((await iterator.next()).value).toMatchObject({ priority: "now" });
-    expect(consumed[1]?.map((message) => message.tempId)).toEqual(["p2", "i"]);
+    expect(consumed.map((messages) => messages.map((m) => m.tempId))).toEqual([
+      ["p"],
+      ["g"],
+      ["p2"],
+      ["i"],
+    ]);
     await iterator.return();
   });
 

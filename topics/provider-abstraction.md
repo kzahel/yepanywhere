@@ -36,7 +36,10 @@ migrate them when they next hit a trigger below.
 ### Provider input queues
 
 Shared delivery metadata expresses user intent; native urgency belongs at the
-adapter ingress, before batching can combine messages. Claude's
+adapter ingress. Ordinary queue consumption yields one supplied input at a
+time; it never concatenates buffered text or combines priorities based on
+consumer timing. Providers may group those independent native inputs themselves.
+Explicit deferred join settings and interrupt assembly remain separate policies. Claude's
 `prepareClaudeInput` maps steer/Now to `next`/`now` and deferred/patient to
 `later`; generic `Process` does not choose Claude priorities. Preserve each
 input's identity and authoritative consumption evidence through that mapping.

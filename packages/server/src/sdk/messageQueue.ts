@@ -208,9 +208,8 @@ function detectImageMediaType(base64Data: string): string {
  * MessageQueue holds user messages and exposes two interfaces:
  *
  * 1. AsyncIterable — consumed by the SDK's `query()` loop. Each `.next()`
- *    drains all accumulated messages, concatenates them, and yields one
- *    combined SDKUserMessage. This ensures the provider never receives
- *    queued messages serially.
+ *    yields one supplied message per `.next()`, preserving its input identity
+ *    and delivery priority. Native providers may group inputs themselves.
  *
  * 2. concatDrain() — synchronous drain for stop/interrupt paths. Consumed
  *    by Process to deliver queued messages with an interruption preamble.
@@ -333,11 +332,12 @@ export class MessageQueue
             continue;
           }
 
-          // Drain all accumulated and concatenate.
-          const combined = this.concatDrainInternal();
-          if (!combined) continue;
-
-          return { done: false, value: this.toSDKMessage(combined) };
+          const message = this.queue.shift();
+          if (!message) continue;
+          this.emitYielded([message]);
+          this.emitRemoved([message]);
+          this.emitDepth();
+          return { done: false, value: this.toSDKMessage(message) };
         }
 
         return { done: true, value: undefined };
@@ -366,29 +366,6 @@ export class MessageQueue
     const resolve = this.waiting;
     this.waiting = null;
     resolve();
-  }
-
-  /** Internal drain without the drainedByExternal flag (used by iterator) */
-  private concatDrainInternal(): UserMessage | null {
-    const first = this.queue[0];
-    if (!first) return null;
-    const firstMode = first.mode;
-    let end = 1;
-    while (
-      end < this.queue.length &&
-      this.queue[end]?.mode === firstMode &&
-      !first.metadata?.turnEffort &&
-      !this.queue[end]?.metadata?.turnEffort
-    ) {
-      end += 1;
-    }
-    const drained = this.queue.splice(0, end);
-    if (drained.length === 0) return null;
-    this.emitYielded(drained);
-    this.emitRemoved(drained);
-    this.emitDepth();
-
-    return concatUserMessages(drained);
   }
 
   /* ------------------------------------------------------------------ */
