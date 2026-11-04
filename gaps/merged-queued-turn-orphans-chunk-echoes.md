@@ -27,4 +27,17 @@ message as queued instead of "sent" until the provider consumes it. A
 regression should queue two id-only messages during a turn, drain at turn end,
 and assert one rendered user turn.
 
+Investigation update, 2026-11-04: real owned Claude 2.1.312, Codex 0.166.0
+and Pi 1.4.0 runs reproduce the implicit `MessageQueue` join before the native
+request. Actual captured echoes/history replayed through the client transcript
+reducer retain B beside combined A+B for Claude/Codex, and A/B beside the native
+combined row for Pi. This is native/reducer evidence, not a new browser pass.
+Separately acknowledged native steers show Codex retaining both supplied IDs;
+Claude writes a grouped row with B's UUID and `mergedSendUuids: [A]`. The field
+survives normalization but is not used by reconciliation.
+[Plan 175's recommendation](../docs/tactical/175-native-provider-integration-scenarios.md#input-batching-investigation-and-recommendation)
+is ordinary FIFO transport plus authoritative native identity reconciliation.
+Explicit opt-in/interrupt grouping and Pi's durable mapping remain separate
+obligations. No production repair is included in this investigation.
+
 Found 2026-10-21 while diagnosing batched rendez uploads.

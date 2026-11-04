@@ -32,7 +32,9 @@ Exact versions, costs, platform limits and commands stay in the owning topic.
 
 ### Recommended next selections
 
-1. **Resolve input identity and manual batching.** Queue A/B through YA and
+1. **Resolve input identity and manual batching.** The [November 4 investigation](#input-batching-investigation-and-recommendation)
+   recommends removing automatic transport concatenation and using native
+   grouped-input identities; implementation remains proposed. Queue A/B through YA and
    steer A/B natively at controlled model/tool boundaries. Inspect actual native
    requests, authoritative receipts, reopened history and one browser echo case.
    Demonstrate where YA concatenates independently of native grouping. Then
@@ -95,6 +97,91 @@ provider service behavior, model quality, billing/cache efficiency and sustained
 OS lifecycle still need their appropriate live/platform evidence. This backlog
 is neither a full-code-coverage claim nor a requirement to run every combination
 on every change.
+
+## Input batching investigation and recommendation
+
+Investigated 2026-11-04; **recommendation, not implemented**. This is the bounded
+next slice from opportunity 1, not a new scheduling/identity architecture.
+
+### What currently happens
+
+Three policies are separate:
+
+- **YA deferred/patient Queue:** default join window zero delivers A and B on
+  separate completed-turn boundaries. Existing native coverage already proves
+  this for all ten launch paths. No repair to that default ordering is needed.
+- **Explicit grouping:** a nonzero deferred join window and the interrupt/drain
+  operation deliberately assemble a provider turn in `Process.concatMessages`.
+  These have distinct product semantics; do not remove them accidentally while
+  changing transport consumption. Their remaining identity obligations stay open.
+- **Hidden transport grouping:** `MessageQueue.concatDrainInternal` drains a
+  same-mode run whenever the provider requests its next input. It adds
+  `\n\n--------\n\n`, keeps only the first UUID and most first-entry metadata,
+  and chooses the most urgent Claude priority. Different effort/mode checks
+  limit grouping but do not make it an explicit user decision. Whether the
+  consumer has already read A changes whether A/B become one input.
+
+Current real-executable probes used owned profiles, synthetic credentials and
+scripted model responses: Claude 2.1.312, Codex 0.166.0 and Pi 1.4.0. The five
+native probes pass in 3.23 s including runner startup (2.07 s test work). They
+hold initial output, submit A/B before the next controlled boundary, inspect
+actual model input and reopen production history. No paid model calls occur.
+
+| Observed path | Actual native input/history |
+| --- | --- |
+| Direct queue backlog, Claude | YA supplies one separator-joined input. Saved user row has A's UUID; B's UUID is lost. |
+| Direct queue backlog, Codex | The same YA join and A-only UUID occur, independent of Codex's native steer support. |
+| Direct queue backlog, Pi | YA joins before RPC; the saved row has a native Pi node ID, with neither supplied UUID retained. |
+| Two separately acknowledged native steers, Claude | Both reach the native command queue separately. Claude itself joins their text with a newline, saves B's UUID and **`mergedSendUuids: [A]`**. |
+| Two separately acknowledged native steers, Codex | Both reach the same next model request as separate user items; saved native client IDs preserve A and B separately. |
+
+Thus one model request need not mean one logical input or one saved user row.
+There is no demonstrated need for YA's separator join to let either native
+provider receive both steers together. These probes do not measure inference
+cost, cache efficiency or every tool/urgency interleaving.
+
+A further replay of the actual direct-backlog captures through the production
+client transcript reducer reproduces the orphan: Claude/Codex retain combined
+A+B plus standalone B; Pi retains standalone A, standalone B and combined A+B.
+This is reducer evidence, not new full-browser qualification.
+Private reproduction source/results live under ignored
+`tasks/input-batching-review/`; current-native acceptance belongs in retained
+scenarios when implementing the repair.
+
+### Recommended bounded change
+
+1. Make ordinary `MessageQueue` consumption FIFO, **one supplied message per
+   yield**, preserving formatting, cancellation, depth and authoritative input
+   consumption observations. Let providers group independent inputs according
+   to their own native rules. This removes transport-owned prompt rewriting,
+   timing-dependent UUID loss and transport-owned cross-input priority escalation. It does not
+   promise one model call per message or replace YA deferred/patient scheduling.
+2. Normalize authoritative contributing-input IDs for transcript reconciliation.
+   Claude's `mergedSendUuids` already survives the reader/normalizer's raw-field
+   spread, but no reconciliation code consumes it. Validate/map it at the
+   provider boundary into a common optional identity list; Codex already has
+   native per-input client IDs. Keep primary row IDs stable. A shared identity
+   matcher can consume contributing echoes and resolve their original links to
+   the grouped row without a provider-specific UI branch or text matching.
+3. Keep explicit opt-in joins and interrupt assembly unchanged in the first
+   patch; retain their gap until contributing identities are actually preserved
+   at every required boundary. Keep narrow older-history fallbacks for records
+   without native evidence. Pi's separate live-to-saved node-ID mapping gap is
+   not solved by removing concatenation and must not become a prerequisite for
+   the Claude/Codex repair. No new conversation store or mapping database is
+   justified by the evidence found here.
+
+Implement as two reviewable commits under the same bounded feature: shared
+FIFO consumption first, then native identity reconciliation. Before claiming
+completion retain native scenarios for simultaneous and receipt-separated A/B,
+real tool boundaries, gentle/immediate steering, duplicate text, cancellation
+before consumption and consumed receipts. Preserve existing default Queue A/B,
+queued compact and explicit grouping/interrupt contracts. Add one focused
+browser check for no stale sent copy after live-to-saved catch-up/reload and
+original-input navigation, including sequential typing under concurrent output.
+Run the all-provider native suite for the shared queue change; do not create a
+browser/provider Cartesian matrix. The original merged-input and durable-user
+identity gaps remain acceptance inputs, not automatically closed by this plan.
 
 ## Outcome and standing direction
 

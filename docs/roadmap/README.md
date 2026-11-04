@@ -650,7 +650,11 @@ The [opportunity backlog](../tactical/175-native-provider-integration-scenarios.
 keeps the unlocked testing/refactor candidates in one place. Suggested next
 selections are native input identity/manual batching, wrapper/host terminal
 faults and reviewed platform/upgrade gates; authenticated/relay recovery and
-other depth remain candidates. Linux/macOS app jobs join the explicit manual
+other depth remain candidates. The [input investigation](../tactical/175-native-provider-integration-scenarios.md#input-batching-investigation-and-recommendation)
+reproduces hidden transport joining with real Claude/Codex/Pi and recommends
+FIFO transport plus native grouped-input identity reconciliation. That repair
+is proposed, not implemented; explicit join/interrupt policy and Pi's durable
+mapping remain separate. Linux/macOS app jobs join the explicit manual
 acceptance workflow; promote reviewed platform passes to change gates. The historical
 macOS interruption gap stays open and hosting stays opt-in. Linux/Windows
 acceptance and remaining ownership/fault interleavings remain explicit;
