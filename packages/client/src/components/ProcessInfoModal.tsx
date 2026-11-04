@@ -495,6 +495,14 @@ export function ProcessInfoBody({
             mono
           />
           <InfoRow
+            label={t("processInfoLabelRouterClaudeAiConnectors")}
+            value={
+              routerBinding.claudeAiConnectors
+                ? t("processInfoRouterClaudeAiConnectorsOn")
+                : undefined
+            }
+          />
+          <InfoRow
             label={t("processInfoLabelRouterPolicy")}
             value={routerBinding.policyLabel ?? routerBinding.policy}
           />

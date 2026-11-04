@@ -28,6 +28,8 @@ export interface ModelSettings {
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
+  /** Keep claude.ai connectors in a routed Claude session. */
+  routerClaudeAiConnectors?: boolean;
   /** Explicit installed CLI advertisement for this provider launch. */
   machineControl?: boolean;
   /** Private credential proof; never accepted from JSON or restored settings. */

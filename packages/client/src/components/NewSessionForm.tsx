@@ -19,6 +19,7 @@ import {
 } from "./RouterPoolSelector";
 import { resolveRouterModel, routerAliasTargets } from "@yep-anywhere/shared";
 import type { RouterSelection } from "./RouterPoolSelector";
+import { RouterClaudeAiConnectorsSelection } from "./RouterClaudeAiConnectorsSelection";
 import { DraftSyncNotice } from "./DraftSyncNotice";
 import { DRAFT_STORAGE_EVENT, draftStorage } from "../lib/draftSyncStorage";
 import { useRendezCompose } from "../hooks/useRendezCompose";
@@ -528,11 +529,16 @@ export function NewSessionForm({
     useState<RouterSelection | null>(null);
   const [routerSelectionCustomized, setRouterSelectionCustomized] =
     useState(false);
+  // Null follows the saved New Session default until changed in this form.
+  const [routerConnectorsChoice, setRouterConnectorsChoice] = useState<
+    boolean | null
+  >(null);
   useEffect(() => {
     setRouterPreference((selection) =>
       selection?.sourceKey === clientSummarySourceKey ? selection : null,
     );
     setRouterSelectionCustomized(false);
+    setRouterConnectorsChoice(null);
   }, [clientSummarySourceKey]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [selectedServiceTier, setSelectedServiceTier] = useState<string | null>(
@@ -1478,6 +1484,17 @@ export function NewSessionForm({
       ? compatibleMembers[0]?.id
       : undefined);
   const routerPolicy = routerAccountId ? "manual" : routerSelection?.policy;
+  const claudeAiConnectorsSupport =
+    selectedProvider === "claude" && routerSelection && !routerDiscovery.error
+      ? routerDiscovery.data?.claudeAiConnectors
+      : undefined;
+  const savedClaudeAiConnectors =
+    getProviderSessionDefaults(settings?.newSessionDefaults, "claude")
+      .routerClaudeAiConnectors === true;
+  const preferClaudeAiConnectors =
+    routerConnectorsChoice ?? savedClaudeAiConnectors;
+  const routerClaudeAiConnectors =
+    preferClaudeAiConnectors && !!claudeAiConnectorsSupport?.login;
   const selectedProviderRuntime = selectedProviderQuery.fresh
     ? selectedProviderQuery.row
     : !providersStale
@@ -2637,6 +2654,10 @@ export function NewSessionForm({
             routerPoolId: currentRouterPreference?.poolId,
             routerAccountId: currentRouterPreference?.accountId || undefined,
             routerPolicy: currentRouterPreference?.policy,
+            routerClaudeAiConnectors:
+              selectedProvider === "claude" && preferClaudeAiConnectors
+                ? true
+                : undefined,
             thinkingMode: selectedThinkingMode,
             effortLevel: selectedEffortLevel,
             helperSideModel,
@@ -2658,6 +2679,7 @@ export function NewSessionForm({
     selectedModel,
     selectedServiceTier,
     currentRouterPreference,
+    preferClaudeAiConnectors,
     selectedEffortLevel,
     selectedProvider,
     selectedPromptSuggestionMode,
@@ -3064,6 +3086,9 @@ export function NewSessionForm({
                       ...(routerPolicy ? { routerPolicy } : {}),
                     }
                   : {}),
+                ...(routerClaudeAiConnectors
+                  ? { routerClaudeAiConnectors: true }
+                  : {}),
               }
             : {}),
           thinking: routerSelection ? routerThinking : thinking,
@@ -3392,6 +3417,7 @@ export function NewSessionForm({
       routedModel,
       routerAccountId,
       routerPolicy,
+      routerClaudeAiConnectors,
       routerThinking,
       clientSummarySourceKey,
       supportsInstalledMachineControl,
@@ -5557,6 +5583,7 @@ export function NewSessionForm({
     machineControlSelected && machineControlEligible
       ? t("newSessionMachineControlTitle")
       : null,
+    routerClaudeAiConnectors ? t("newSessionClaudeAiConnectorsTitle") : null,
   ].filter((label): label is string => label !== null);
 
   const creationRecovery = (
@@ -5915,6 +5942,18 @@ export function NewSessionForm({
                 showCaption={showOptionCaptions}
               />
             )}
+          {!launchLock.limited && effectiveSandboxLevel === "none" && (
+            <RouterClaudeAiConnectorsSelection
+              support={claudeAiConnectorsSupport}
+              selected={routerClaudeAiConnectors}
+              onChange={(value) => {
+                hasUserCustomizedDefaultsRef.current = true;
+                setRouterConnectorsChoice(value);
+              }}
+              disabled={isStarting}
+              showCaption={showOptionCaptions}
+            />
+          )}
           {permissionSection}
           {serviceTierSection}
           {showThinkingSection}

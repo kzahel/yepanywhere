@@ -719,6 +719,8 @@ export interface ProviderSessionDefaults {
   routerAccountId?: string;
   /** Policy override; absent uses the pool's current default. */
   routerPolicy?: string;
+  /** Routed Claude sessions keep claude.ai connectors; absent means off. */
+  routerClaudeAiConnectors?: boolean;
   /** Provider-work thinking mode for new sessions on this provider. */
   thinkingMode?: ThinkingMode;
   /** Provider-local effort level for new sessions on this provider. */

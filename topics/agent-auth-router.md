@@ -244,10 +244,59 @@ Routed Claude sets `ENABLE_TOOL_SEARCH=true`. Claude Code otherwise disables
 tool search for any non-Anthropic `ANTHROPIC_BASE_URL` and sends every tool
 definition in full. AAR forwards the request body and `anthropic-*` headers, and
 a live pool session on 2026-10-06 deferred and loaded MCP tools through it.
-claude.ai connectors never load in routed sessions: the flag settings set
-`disableClaudeAiConnectors`, and Claude Code also skips them whenever the routed
-auth token takes precedence over the claude.ai login. User-scope MCP servers in
-the native `~/.claude.json` do load.
+By default claude.ai connectors do not load in routed sessions: the flag
+settings set `disableClaudeAiConnectors`, and Claude Code also skips them
+whenever the routed auth token takes precedence over the claude.ai login. A
+Claude session can opt in; see
+[claude.ai connectors](#claudeai-connectors-in-routed-claude-sessions).
+User-scope MCP servers in the native `~/.claude.json` load either way.
+
+### claude.ai connectors in routed Claude sessions
+
+A routed Claude session can keep this computer's claude.ai connectors (Claude
+Docs, Drive and the rest) while its pool account runs inference. The connector
+account is the claude.ai login Claude Code uses for YA's sessions, the one
+`claude auth status` reports in YA's `CLAUDE_CONFIG_DIR`; the inference account
+is still the pin. They can be different accounts.
+
+- **Availability.** Claude discovery (`POST /api/agent-auth-router/selection`)
+  adds `claudeAiConnectors: { login }` when AAR advertises
+  `gateway-token-header-v1`. `login` holds the login's email, or is null when
+  `claude auth status` reports no claude.ai login. Absent means unsupported,
+  and New Session then shows no control.
+- **Choice.** Advanced options show **claude.ai connectors** under Pool for a
+  Claude pool selection: Off, or On as the login's email (disabled without a
+  login). It defaults to Off, and an explicit choice is saved per host as
+  `newSessionDefaults.providers.claude.routerClaudeAiConnectors` with the pool.
+  Creation sends `routerClaudeAiConnectors: true` only when on; only the
+  owner may send it, only with a pool or account, and only for Claude.
+  Continuation refuses it like the other router fields.
+- **Launch.** The allocation records the choice, so resume, restart and
+  copies keep it, and the binding shows it in Process Info. At each launch,
+  if AAR still advertises the capability and a claude.ai login exists, the
+  gateway token travels in `ANTHROPIC_CUSTOM_HEADERS` as `x-aar-gateway-token`
+  (after any custom headers the launch environment already sets),
+  `ANTHROPIC_AUTH_TOKEN` is empty and the flag settings omit
+  `disableClaudeAiConnectors`. Claude Code without a claude.ai login refuses to
+  start in that mode, so otherwise the launch uses the token-only transport
+  without connectors. Inference still never falls back to the direct login.
+- **Traffic.** Claude Code fetches the connector list and calls connectors
+  directly at Anthropic with the login's own token, outside AAR. On inference
+  requests it also sends that token to AAR, which ignores it for
+  authentication, never forwards it and never logs it. Claude Code may refresh
+  the login as it does for any session using it.
+- **Compatibility.** The control depends on a response field older servers
+  never send, so it needs no capability bit. Older servers ignore the request
+  field and settings key, keeping the token-only transport.
+- **Verification (2026-11-04).** Claude Code 2.1.312 (Agent SDK 0.3.312) with
+  AAR's `gateway-token-header-v1`, run directly and through a disposable YA
+  profile: with a work and a personal claude.ai account swapped between
+  inference and connectors, each session read only the private Claude Doc its
+  connector account owns; AAR attributed every request to the pinned account,
+  and the same YA session with the option off had no Claude Docs connector.
+  Claude Code loads these connectors in the background, so a session's first
+  turn can in principle start before they are ready; the verified YA sessions
+  found them on their first turn.
 
 The private Unix socket is the owner bootstrap boundary. Its directory/socket
 must be private, owned by the YA user and not symlinks. AAR control is separate

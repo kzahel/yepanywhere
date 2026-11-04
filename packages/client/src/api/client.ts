@@ -288,6 +288,8 @@ export interface SessionOptions {
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
+  /** Sent only when router discovery reports claude.ai connector support. */
+  routerClaudeAiConnectors?: boolean;
   creationProvenance?: SessionCreationProvenance;
   /** @deprecated Old selection is rejected; use machineControl. */
   computerControl?: boolean;

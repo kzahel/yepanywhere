@@ -1,12 +1,40 @@
 import type { RouterLaunch } from "../../services/AgentAuthRouter.js";
 
-/** Transport-only overrides. Never mutate native homes or ambient process.env. */
+const GATEWAY_TOKEN_HEADER = "x-aar-gateway-token";
+
+/**
+ * Transport-only overrides. Never mutate native homes or ambient process.env.
+ *
+ * With `claudeAiConnectors` the token travels in AAR's dedicated header and
+ * `ANTHROPIC_AUTH_TOKEN` stays empty: an auth token would take precedence over
+ * this computer's claude.ai login and switch its connectors off. Claude Code
+ * still sends that login's bearer token; AAR drops it and never forwards it.
+ * `customHeaders` keeps headers the launch environment already sets.
+ */
 export function claudeRouterEnvironment(
   route: RouterLaunch,
+  customHeaders?: string,
 ): Record<string, string> {
   return {
     ANTHROPIC_BASE_URL: route.baseUrl,
-    ANTHROPIC_AUTH_TOKEN: route.token,
+    ...(route.claudeAiConnectors
+      ? {
+          ANTHROPIC_AUTH_TOKEN: "",
+          ANTHROPIC_CUSTOM_HEADERS: [
+            ...(customHeaders ?? "")
+              .split("\n")
+              .filter(
+                (line) =>
+                  line.trim() &&
+                  !line
+                    .trimStart()
+                    .toLowerCase()
+                    .startsWith(`${GATEWAY_TOKEN_HEADER}:`),
+              ),
+            `${GATEWAY_TOKEN_HEADER}: ${route.token}`,
+          ].join("\n"),
+        }
+      : { ANTHROPIC_AUTH_TOKEN: route.token }),
     ANTHROPIC_API_KEY: "",
     CLAUDE_CODE_OAUTH_TOKEN: "",
     CLAUDE_CODE_USE_BEDROCK: "0",

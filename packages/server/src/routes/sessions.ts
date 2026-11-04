@@ -496,6 +496,7 @@ interface StartSessionBody {
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
+  routerClaudeAiConnectors?: boolean;
   creationProvenance?: SessionCreationProvenance;
   computerControl?: boolean;
   machineControl?: boolean;
@@ -552,6 +553,7 @@ interface CreateSessionBody {
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
+  routerClaudeAiConnectors?: boolean;
   creationProvenance?: SessionCreationProvenance;
   computerControl?: boolean;
   machineControl?: boolean;
@@ -4379,6 +4381,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         routerAccountId: body.routerAccountId,
         routerPoolId: body.routerPoolId,
         routerPolicy: body.routerPolicy,
+        routerClaudeAiConnectors: body.routerClaudeAiConnectors,
         computerControl: body.computerControl,
         machineControl: body.machineControl,
         desktopControlOrigin:
@@ -4519,6 +4522,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         routerAccountId: body.routerAccountId,
         routerPoolId: body.routerPoolId,
         routerPolicy: body.routerPolicy,
+        routerClaudeAiConnectors: body.routerClaudeAiConnectors,
         computerControl: body.computerControl,
         machineControl: body.machineControl,
         desktopControlOrigin:
@@ -4577,7 +4581,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     if (
       body.routerAccountId !== undefined ||
       body.routerPoolId !== undefined ||
-      body.routerPolicy !== undefined
+      body.routerPolicy !== undefined ||
+      body.routerClaudeAiConnectors !== undefined
     ) {
       return c.json(
         {
@@ -8123,7 +8128,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     if (
       body.routerAccountId !== undefined ||
       body.routerPoolId !== undefined ||
-      body.routerPolicy !== undefined
+      body.routerPolicy !== undefined ||
+      body.routerClaudeAiConnectors !== undefined
     ) {
       return c.json(
         {

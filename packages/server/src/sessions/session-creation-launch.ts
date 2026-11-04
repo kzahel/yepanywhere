@@ -13,6 +13,7 @@ export type CreationLaunchSnapshot = Pick<
   | "routerAccountId"
   | "routerPoolId"
   | "routerPolicy"
+  | "routerClaudeAiConnectors"
   | "machineControl"
   | "globalInstructions"
   | "permissions"
@@ -87,6 +88,7 @@ export function snapshotCreationLaunch(
   }
   for (const key of [
     "machineControl",
+    "routerClaudeAiConnectors",
     "requiresDesktopControlOrigin",
     "forceYaOrchestratedCompaction",
     "sandboxNetworkFirewall",

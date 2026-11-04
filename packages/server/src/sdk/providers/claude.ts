@@ -514,6 +514,40 @@ function resolveLocalClaudeCodeExecutable(): string | undefined {
   return executable;
 }
 
+/**
+ * This computer's claude.ai login as a routed Claude launch would see it, with
+ * the credential variables that launch clears removed; null when Claude Code
+ * would use no claude.ai login. Reads `claude auth status`, never a token.
+ */
+export async function readClaudeAiLogin(): Promise<{ email?: string } | null> {
+  const executable = resolveLocalClaudeCodeExecutable();
+  if (!executable) return null;
+  const env = { ...process.env };
+  for (const name of [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+  ])
+    delete env[name];
+  try {
+    const { stdout } = await execFileAsync(executable, ["auth", "status"], {
+      encoding: "utf-8",
+      timeout: 5000,
+      env,
+    });
+    const status = JSON.parse(stdout) as {
+      loggedIn?: unknown;
+      authMethod?: unknown;
+      email?: unknown;
+    };
+    if (status.loggedIn !== true || status.authMethod !== "claude.ai")
+      return null;
+    return typeof status.email === "string" ? { email: status.email } : {};
+  } catch {
+    return null;
+  }
+}
+
 function numericField(source: unknown, field: string): number | undefined {
   if (!source || typeof source !== "object") {
     return undefined;
@@ -2301,7 +2335,10 @@ export class ClaudeProvider implements AgentProvider {
     if (options.routerLaunch)
       Object.assign(
         baseClaudeEnv,
-        claudeRouterEnvironment(options.routerLaunch),
+        claudeRouterEnvironment(
+          options.routerLaunch,
+          baseClaudeEnv.ANTHROPIC_CUSTOM_HEADERS,
+        ),
       );
     if (options.nativeResumeSource) {
       if (!options.resumeSessionId)
@@ -2599,8 +2636,13 @@ export class ClaudeProvider implements AgentProvider {
                 settings: {
                   ...this.getSettings(options.model),
                   apiKeyHelper: "",
-                  disableClaudeAiConnectors: true,
-                  env: claudeRouterEnvironment(options.routerLaunch),
+                  ...(options.routerLaunch.claudeAiConnectors
+                    ? {}
+                    : { disableClaudeAiConnectors: true }),
+                  env: claudeRouterEnvironment(
+                    options.routerLaunch,
+                    claudeEnv.ANTHROPIC_CUSTOM_HEADERS,
+                  ),
                 },
               }
             : {}),

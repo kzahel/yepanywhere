@@ -700,6 +700,8 @@ export interface AppSessionSummary {
     policyLabel?: string;
     reason?: string;
     observedAt?: string;
+    /** Asked for claude.ai connectors from this computer's Claude login. */
+    claudeAiConnectors?: boolean;
     id: string;
     routerId: string;
     accountId: string;

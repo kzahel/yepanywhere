@@ -230,9 +230,16 @@ function parseProviderSessionDefaults(
     if (value === null) return null;
     if (value) parsed[key] = value;
   }
+  if ("routerClaudeAiConnectors" in raw) {
+    const value = raw.routerClaudeAiConnectors;
+    if (value !== undefined && value !== null && typeof value !== "boolean")
+      return null;
+    if (value === true) parsed.routerClaudeAiConnectors = true;
+  }
   if (!parsed.routerPoolId) {
     delete parsed.routerAccountId;
     delete parsed.routerPolicy;
+    delete parsed.routerClaudeAiConnectors;
   }
   if ("thinkingMode" in raw) {
     if (

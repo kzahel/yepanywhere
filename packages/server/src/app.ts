@@ -33,6 +33,7 @@ import { productionApiSources } from "./core-api/production-sources.js";
 import { createV0Routes } from "./routes/v0/index.js";
 import { PRINCIPAL_VARIABLE, SUPERUSER } from "./auth/principal.js";
 import { AgentAuthRouter } from "./services/AgentAuthRouter.js";
+import { readClaudeAiLogin } from "./sdk/providers/claude.js";
 import { createAgentAuthRouterRoutes } from "./routes/agent-auth-router.js";
 import { DraftStore } from "./drafts/DraftStore.js";
 import { createDraftRoutes } from "./routes/drafts.js";
@@ -2375,6 +2376,7 @@ export function createApp(options: AppOptions): AppResult {
   const agentAuthRouter = new AgentAuthRouter(
     effectiveDataDir,
     options.sessionMetadataService,
+    readClaudeAiLogin,
   );
   app.route("/api", createAgentAuthRouterRoutes(agentAuthRouter));
 

@@ -28,9 +28,17 @@ import type {
 import { mapClaudeCliModels } from "../sdk/providers/claude.js";
 import { writeFileAtomically } from "../utils/writeFileAtomically.js";
 
+/** AAR accepts the gateway token in `x-aar-gateway-token`. */
+const GATEWAY_TOKEN_HEADER = "gateway-token-header-v1";
+
 export interface RouterLaunch {
   models?: ModelInfo[];
   serviceTierSelection?: boolean;
+  /**
+   * Present the gateway token in AAR's dedicated header so Claude Code keeps
+   * this computer's claude.ai login, and with it claude.ai connectors.
+   */
+  claudeAiConnectors?: boolean;
   bindingId: string;
   accountId: string;
   baseUrl: string;
@@ -49,6 +57,7 @@ interface Allocation {
   poolId?: string;
   policy?: AgentAuthRouterPoolPolicy;
   requestedAccountId?: string;
+  claudeAiConnectors?: boolean;
   cancelled?: boolean;
   cancellationAcknowledged?: boolean;
   id: string;
@@ -304,6 +313,8 @@ export class AgentAuthRouter {
   constructor(
     dataDir: string,
     private readonly metadata?: SessionMetadataService,
+    /** This computer's claude.ai login, read without inference; null without one. */
+    private readonly claudeAiLogin?: () => Promise<{ email?: string } | null>,
   ) {
     this.directory = join(dataDir, "agent-auth-router");
     this.file = join(this.directory, "private.json");
@@ -636,6 +647,15 @@ export class AgentAuthRouter {
         );
         if (this.connection().id !== c.id)
           throw new RouterUnavailable(409, "Router connection changed");
+        if (
+          provider === "claude" &&
+          this.claudeAiLogin &&
+          info.capabilities.includes(GATEWAY_TOKEN_HEADER)
+        )
+          return {
+            ...withCliModels(result, info),
+            claudeAiConnectors: { login: await this.claudeAiLogin() },
+          };
         return withCliModels(result, info);
       })().finally(() => this.discoveryJobs.delete(key));
       this.discoveryJobs.set(key, job);
@@ -742,6 +762,7 @@ export class AgentAuthRouter {
                 policy: "manual",
               }
             : {}),
+          ...(parent.claudeAiConnectors ? { claudeAiConnectors: true } : {}),
           reason: "Inherited from the copied session's account",
         },
       });
@@ -767,6 +788,7 @@ export class AgentAuthRouter {
             serviceTier:
               this.metadata.getMetadata(childSessionId)?.effectiveLaunchSettings
                 ?.serviceTier ?? undefined,
+            ...(source.claudeAiConnectors ? { claudeAiConnectors: true } : {}),
             token: token("aar_"),
           },
         },
@@ -841,6 +863,7 @@ export class AgentAuthRouter {
       thinking?: ThinkingConfig;
       effort?: EffortLevel;
       serviceTier?: string;
+      routerClaudeAiConnectors?: boolean;
     },
   ): Promise<RouterLaunch | undefined> {
     return this.serialize(async () => {
@@ -948,6 +971,9 @@ export class AgentAuthRouter {
           ...(settings?.serviceTier
             ? { serviceTier: settings.serviceTier }
             : {}),
+          ...(provider === "claude" && settings?.routerClaudeAiConnectors
+            ? { claudeAiConnectors: true }
+            : {}),
           token: token("aar_"),
         };
         await this.save({
@@ -965,6 +991,9 @@ export class AgentAuthRouter {
             ...(poolId
               ? { poolId, policy }
               : { accountDisplayName: accountName(accountId) }),
+            ...(allocation.claudeAiConnectors
+              ? { claudeAiConnectors: true }
+              : {}),
             provider,
           },
         });
@@ -1040,6 +1069,9 @@ export class AgentAuthRouter {
               ),
               reason: selected.reason,
               observedAt: selected.observedAt,
+              ...(allocation.claudeAiConnectors
+                ? { claudeAiConnectors: true }
+                : {}),
             },
           });
         }
@@ -1096,9 +1128,16 @@ export class AgentAuthRouter {
           );
         throw error;
       }
+      // Header mode needs a claude.ai login: without one Claude Code refuses
+      // to start, so such a launch keeps the token-only transport instead.
+      const claudeAiConnectors =
+        allocation.claudeAiConnectors === true &&
+        info.capabilities.includes(GATEWAY_TOKEN_HEADER) &&
+        (await this.claudeAiLogin?.()) != null;
       return {
         models: accountModels,
         serviceTierSelection: info.capabilities.includes("service-tiers-v1"),
+        ...(claudeAiConnectors ? { claudeAiConnectors } : {}),
         bindingId: allocation.id,
         accountId: allocation.accountId,
         baseUrl: `${info.inferenceOrigin}/${provider}`,

@@ -46,6 +46,7 @@ export interface LimitedLaunchBody {
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
+  routerClaudeAiConnectors?: boolean;
 }
 
 /** What a request asked for, as distinct from what the launch will use. */
@@ -86,11 +87,13 @@ function hostEscapeError(options: {
   routerAccountId?: string;
   routerPoolId?: string;
   routerPolicy?: string;
+  routerClaudeAiConnectors?: boolean;
 }): string | null {
   if (
     options.routerAccountId !== undefined ||
     options.routerPoolId !== undefined ||
-    options.routerPolicy !== undefined
+    options.routerPolicy !== undefined ||
+    options.routerClaudeAiConnectors !== undefined
   )
     return "Router account and pool selection requires the server owner";
   if (options.executor) {

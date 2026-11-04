@@ -61,7 +61,9 @@ async function fixture(
     overviewAccounts: unknown[] = [],
     cliModels = false,
     serviceTiers = false,
-    loginLapsed = false;
+    loginLapsed = false,
+    accountProvider = "codex",
+    gatewayTokenHeader = false;
   const server = http.createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -87,6 +89,7 @@ async function fixture(
               : []),
             ...(ownerManaged ? ["router-owned-pools-v1"] : []),
             ...(cliModels ? ["catalog-cli-models-v1"] : []),
+            ...(gatewayTokenHeader ? ["gateway-token-header-v1"] : []),
           ],
           ...(policyList
             ? {
@@ -182,7 +185,7 @@ async function fixture(
         accounts: [
           {
             id: "account",
-            provider: "codex",
+            provider: accountProvider,
             enabled,
             renewal: "manual",
             ...(accountName ? { displayName: accountName } : {}),
@@ -234,6 +237,12 @@ async function fixture(
     },
     lapseLogin: () => {
       loginLapsed = true;
+    },
+    claudeAccount: () => {
+      accountProvider = "claude";
+    },
+    gatewayTokenHeader: (supported = true) => {
+      gatewayTokenHeader = supported;
     },
     name: (account: string, pool?: string) => {
       accountName = account;
@@ -1169,3 +1178,103 @@ describe.skipIf(process.platform === "win32")("router CLI model rows", () => {
     );
   });
 });
+
+describe.skipIf(process.platform === "win32")(
+  "claude.ai connectors in routed sessions",
+  () => {
+    const pool = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    it("keeps the login only with router support and a claude.ai login, for resumes and copies", async () => {
+      const f = await fixture(true);
+      f.claudeAccount();
+      f.gatewayTokenHeader();
+      await f.connector.connect(f.socketPath);
+      let login: { email?: string } | null = { email: "me@example.test" };
+      const connector = new AgentAuthRouter(
+        f.root,
+        f.metadata,
+        async () => login,
+      );
+      expect((await connector.selection("claude"))?.claudeAiConnectors).toEqual(
+        { login: { email: "me@example.test" } },
+      );
+      expect(
+        (await connector.selection("codex"))?.claudeAiConnectors,
+      ).toBeUndefined();
+
+      const routed = await connector.launch(
+        "routed",
+        "claude",
+        "fixture-model",
+        undefined,
+        pool,
+        "round-robin",
+        { routerClaudeAiConnectors: true },
+      );
+      expect(routed?.claudeAiConnectors).toBe(true);
+      expect(
+        f.metadata.getMetadata("routed")?.routerBinding?.claudeAiConnectors,
+      ).toBe(true);
+      const env = claudeRouterEnvironment(
+        routed!,
+        `x-team: blue\nx-aar-gateway-token: stale`,
+      );
+      expect(env.ANTHROPIC_AUTH_TOKEN).toBe("");
+      expect(env.ANTHROPIC_CUSTOM_HEADERS).toBe(
+        `x-team: blue\nx-aar-gateway-token: ${routed!.token}`,
+      );
+      expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBe("");
+
+      // No login: the resumed pin keeps its token-only transport.
+      login = null;
+      expect((await connector.selection("claude"))?.claudeAiConnectors).toEqual(
+        { login: null },
+      );
+      const withoutLogin = await connector.launch(
+        "routed",
+        "claude",
+        "fixture-model",
+      );
+      expect(withoutLogin?.token).toBe(routed?.token);
+      expect(withoutLogin).not.toHaveProperty("claudeAiConnectors");
+      expect(claudeRouterEnvironment(withoutLogin!)).toMatchObject({
+        ANTHROPIC_AUTH_TOKEN: routed!.token,
+      });
+      expect(claudeRouterEnvironment(withoutLogin!)).not.toHaveProperty(
+        "ANTHROPIC_CUSTOM_HEADERS",
+      );
+
+      // An older router never receives the header.
+      login = { email: "me@example.test" };
+      f.gatewayTokenHeader(false);
+      expect(
+        (await connector.selection("claude"))?.claudeAiConnectors,
+      ).toBeUndefined();
+      expect(
+        await connector.launch("routed", "claude", "fixture-model"),
+      ).not.toHaveProperty("claudeAiConnectors");
+
+      f.gatewayTokenHeader();
+      await connector.inheritBinding("routed", "copy");
+      expect(
+        f.metadata.getMetadata("copy")?.routerBinding?.claudeAiConnectors,
+      ).toBe(true);
+      expect(
+        (await connector.launch("copy", "claude", "fixture-model"))
+          ?.claudeAiConnectors,
+      ).toBe(true);
+
+      const plain = await connector.launch(
+        "plain",
+        "claude",
+        "fixture-model",
+        undefined,
+        pool,
+        "round-robin",
+      );
+      expect(plain).not.toHaveProperty("claudeAiConnectors");
+      expect(f.metadata.getMetadata("plain")?.routerBinding).not.toHaveProperty(
+        "claudeAiConnectors",
+      );
+    });
+  },
+);

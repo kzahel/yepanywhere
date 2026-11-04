@@ -58,6 +58,7 @@ export interface SessionMetadata {
     policyLabel?: string;
     reason?: string;
     observedAt?: string;
+    claudeAiConnectors?: boolean;
     id: string;
     routerId: string;
     accountId: string;

@@ -69,6 +69,12 @@ export interface AgentAuthRouterOverview {
   admissionRefresh?: boolean;
   /** YA and AAR both validate tier-aware account selection. Absent means unavailable. */
   serviceTierSelection?: boolean;
+  /**
+   * Claude discovery when YA and AAR (`gateway-token-header-v1`) can keep
+   * claude.ai connectors in a routed session. `login` is this computer's
+   * claude.ai login, null without one. Absent means unavailable.
+   */
+  claudeAiConnectors?: { login: { email?: string } | null };
   observedAt: string;
   quotaFreshSeconds: number;
   pools: AgentAuthRouterPool[];

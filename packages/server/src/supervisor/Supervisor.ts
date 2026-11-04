@@ -2886,6 +2886,13 @@ export class Supervisor {
         !/^[a-z0-9-]{1,40}$/.test(modelSettings.routerPolicy))
     )
       throw new Error("Invalid router policy");
+    if (
+      modelSettings?.routerClaudeAiConnectors !== undefined &&
+      (typeof modelSettings.routerClaudeAiConnectors !== "boolean" ||
+        !(modelSettings.routerAccountId || modelSettings.routerPoolId) ||
+        activeProvider.name !== "claude")
+    )
+      throw new Error("Invalid router connector option");
     if (routed && !this.agentAuthRouter)
       throw new Error("Router integration unavailable");
     const routerLaunch = await this.agentAuthRouter

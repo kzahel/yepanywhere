@@ -2038,6 +2038,8 @@ describe("Settings Routes", () => {
             providers: {
               claude: {
                 model: "opus",
+                routerPoolId: "work",
+                routerClaudeAiConnectors: true,
                 thinkingMode: "on",
                 effortLevel: "high",
                 helperSideModel: "haiku",
@@ -2068,6 +2070,8 @@ describe("Settings Routes", () => {
           providers: {
             claude: {
               model: "opus",
+              routerPoolId: "work",
+              routerClaudeAiConnectors: true,
               thinkingMode: "on",
               effortLevel: "high",
               helperSideModel: "haiku",
