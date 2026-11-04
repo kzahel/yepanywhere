@@ -27,16 +27,19 @@ import { fetchJSON } from "./sourceApiFetch";
 export const gitApi = {
   getGitStatus: (
     projectId: string,
-    options: { omitUntracked?: boolean; useUntrackedCache?: boolean } = {},
+    options: {
+      omitUntracked?: boolean;
+      useUntrackedCache?: boolean;
+      /** Skip the server's few-second shared read; older servers ignore it. */
+      fresh?: boolean;
+    } = {},
   ) => {
-    const untrackedMode = options.useUntrackedCache
-      ? "cache"
-      : options.omitUntracked
-        ? "none"
-        : null;
-    return fetchJSON<GitStatusInfo>(
-      `/projects/${projectId}/git${untrackedMode ? `?untracked=${untrackedMode}` : ""}`,
-    );
+    const query = new URLSearchParams();
+    if (options.useUntrackedCache) query.set("untracked", "cache");
+    else if (options.omitUntracked) query.set("untracked", "none");
+    if (options.fresh) query.set("fresh", "1");
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+    return fetchJSON<GitStatusInfo>(`/projects/${projectId}/git${suffix}`);
   },
 
   getGitUntrackedFolder: (projectId: string, path: string) =>

@@ -110,6 +110,29 @@ describe("git-status routes", () => {
     return repoDir;
   }
 
+  it("shares one status read across polls until fresh or an operation", async () => {
+    const repoDir = await createRepoWithUpstream();
+    const { projectId, routes } = createRoutesForProject(repoDir);
+    const dirtyFiles = async (query = "") =>
+      (
+        (await (
+          await routes.request(`/${projectId}/git${query}`)
+        ).json()) as GitStatusInfo
+      ).files.map((file) => file.path);
+
+    expect(await dirtyFiles()).toEqual([]);
+    await writeFile(join(repoDir, "README.md"), "edited\n");
+    // Ordinary polls within the window reuse the earlier read...
+    expect(await dirtyFiles()).toEqual([]);
+    // ...the Source Control view's fresh read sees the edit...
+    expect(await dirtyFiles("?fresh=1")).toEqual(["README.md"]);
+    await writeFile(join(repoDir, "OTHER.md"), "new\n");
+    expect(await dirtyFiles()).toEqual(["README.md"]);
+    // ...and a finished git operation forgets the shared read.
+    await routes.request(`/${projectId}/git/push`, { method: "POST" });
+    expect((await dirtyFiles()).sort()).toEqual(["OTHER.md", "README.md"]);
+  });
+
   it("reports up-to-date when push has nothing to send", async () => {
     const repoDir = await createRepoWithUpstream();
     const { projectId, routes } = createRoutesForProject(repoDir);

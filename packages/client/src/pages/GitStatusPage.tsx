@@ -674,6 +674,7 @@ export function GitStatusPage() {
   } = useGitStatus(effectiveProjectId, {
     omitUntracked: supportsWorkingTreeSections,
     useUntrackedCache: !supportsWorkingTreeSections,
+    fresh: true,
   });
   const liveWorktreeEnabled = Boolean(
     effectiveProjectId &&

@@ -54,6 +54,8 @@ const NOT_A_GIT_REPO: GitStatusInfo = {
 };
 
 const remoteCheckedAtByProjectPath = new Map<string, string>();
+/** How long ordinary status polls may share one git status read. */
+const SHARED_GIT_STATUS_MS = 3_000;
 const gitOperationsByProjectPath = new Set<string>();
 const UNTRACKED_FOLDER_FILE_LIMIT = 500;
 
@@ -131,6 +133,51 @@ export function createGitStatusRoutes(deps: GitStatusDeps): Hono {
     return enrichStatus(projectPath, snapshot.status, snapshot.authoritative);
   };
 
+  /**
+   * Status polls from sidebars, file views, tabs and activity refreshes all
+   * share one read per project for a few seconds; `?fresh` (the Source
+   * Control view) always reads. Only the request that performed a read may
+   * reconcile dirty-file editors authoritatively: a shared read predates
+   * edits recorded since, and must not clear them.
+   */
+  const sharedStatusReads = new Map<
+    string,
+    { startedAt: number; read: Promise<GitStatusInfo> }
+  >();
+  const forgetSharedStatus = (projectPath: string) => {
+    for (const includeUntracked of [true, false])
+      sharedStatusReads.delete(`${includeUntracked}\0${projectPath}`);
+  };
+  const getSharedGitStatus = async (
+    projectPath: string,
+    includeUntracked: boolean,
+    fresh: boolean,
+  ) => {
+    const key = `${includeUntracked}\0${projectPath}`;
+    const shared = sharedStatusReads.get(key);
+    if (
+      !fresh &&
+      shared &&
+      Date.now() - shared.startedAt < SHARED_GIT_STATUS_MS
+    ) {
+      return enrichStatus(projectPath, await shared.read, false);
+    }
+    const read = readGitStatusWithRemoteCheckTime(
+      projectPath,
+      includeUntracked,
+    );
+    sharedStatusReads.set(key, { startedAt: Date.now(), read });
+    read.catch(() => {
+      if (sharedStatusReads.get(key)?.read === read)
+        sharedStatusReads.delete(key);
+    });
+    return enrichStatus(projectPath, await read, includeUntracked);
+  };
+  const finishGitOperation = (projectPath: string) => {
+    gitOperationsByProjectPath.delete(projectPath);
+    forgetSharedStatus(projectPath);
+  };
+
   routes.get("/:projectId/git", async (c) => {
     const projectId = c.req.param("projectId");
 
@@ -146,9 +193,10 @@ export function createGitStatusRoutes(deps: GitStatusDeps): Hono {
     }
 
     try {
-      const result = await getGitStatusWithRemoteCheckTime(
+      const result = await getSharedGitStatus(
         project.path,
         c.req.query("untracked") === undefined,
+        c.req.query("fresh") !== undefined,
       );
       return c.json(result);
     } catch (err) {
@@ -262,7 +310,7 @@ export function createGitStatusRoutes(deps: GitStatusDeps): Hono {
       };
       return c.json(result);
     } finally {
-      gitOperationsByProjectPath.delete(project.path);
+      finishGitOperation(project.path);
     }
   });
 
@@ -414,7 +462,7 @@ export function createGitStatusRoutes(deps: GitStatusDeps): Hono {
       };
       return c.json(result);
     } finally {
-      gitOperationsByProjectPath.delete(project.path);
+      finishGitOperation(project.path);
     }
   });
 
@@ -502,7 +550,7 @@ export function createGitStatusRoutes(deps: GitStatusDeps): Hono {
       };
       return c.json(result);
     } finally {
-      gitOperationsByProjectPath.delete(project.path);
+      finishGitOperation(project.path);
     }
   });
 

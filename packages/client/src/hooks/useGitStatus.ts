@@ -108,8 +108,11 @@ export function useGitStatus(
     omitUntracked?: boolean;
     poll?: boolean;
     useUntrackedCache?: boolean;
+    /** Source Control reads exact status; other views accept seconds-old. */
+    fresh?: boolean;
   } = {},
 ) {
+  const fresh = options.fresh === true;
   const sourceKey = useClientSummarySourceKey();
   const ready = useRemoteReady();
   const useUntrackedCache = options.useUntrackedCache === true;
@@ -317,6 +320,7 @@ export function useGitStatus(
         return api.getGitStatus(requestProjectId, {
           ...(omitUntracked ? { omitUntracked: true } : {}),
           ...(useUntrackedCache ? { useUntrackedCache: true } : {}),
+          ...(fresh ? { fresh: true } : {}),
         });
       };
 
@@ -351,7 +355,15 @@ export function useGitStatus(
         }
       }
     },
-    [omitUntracked, projectId, queryKey, ready, sourceKey, useUntrackedCache],
+    [
+      fresh,
+      omitUntracked,
+      projectId,
+      queryKey,
+      ready,
+      sourceKey,
+      useUntrackedCache,
+    ],
   );
 
   useEffect(() => {
