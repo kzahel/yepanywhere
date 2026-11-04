@@ -27,7 +27,7 @@ export interface SessionProviderResolutionDeps {
   codexSessionsDir?: string;
   codexReaderFactory?: (projectPath: string) => ISessionReader;
   geminiScanner?: {
-    getHashToCwd(): Promise<Map<string, string>>;
+    getHashToCwd(): Promise<ReadonlyMap<string, string>>;
   };
   geminiSessionsDir?: string;
   geminiReaderFactory?: (projectPath: string) => GeminiSessionReader;

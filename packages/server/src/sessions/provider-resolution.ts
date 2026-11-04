@@ -57,7 +57,7 @@ const SESSION_LIST_READ_BATCH_SIZE = 8;
 export interface ProviderProjectCatalog {
   codexPaths: Set<string>;
   geminiPaths: Set<string>;
-  geminiHashToCwd?: Promise<Map<string, string>>;
+  geminiHashToCwd?: Promise<ReadonlyMap<string, string>>;
 }
 
 export interface ProviderResolutionDeps {
@@ -71,7 +71,7 @@ export interface ProviderResolutionDeps {
   codexReaderFactory?: (projectPath: string) => ISessionReader;
   geminiSessionsDir?: string;
   geminiReaderFactory?: (projectPath: string) => GeminiSessionReader;
-  geminiHashToCwd?: Promise<Map<string, string>>;
+  geminiHashToCwd?: Promise<ReadonlyMap<string, string>>;
   grokSessionsDir?: string;
   grokReaderFactory?: (projectPath: string) => GrokSessionReader;
   piSessionsDir?: string;

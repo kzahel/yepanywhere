@@ -109,16 +109,14 @@ export class GeminiSessionScanner {
    * Call this with paths from Claude/Codex projects to enable cwd lookup.
    */
   async registerKnownPaths(paths: string[]): Promise<void> {
-    for (const path of paths) {
-      await geminiProjectMap.register(path);
-    }
+    await geminiProjectMap.registerAll(paths);
   }
 
   /**
    * Get the hash-to-cwd mapping for use by readers.
    * Note: This is now async as it loads from disk.
    */
-  async getHashToCwd(): Promise<Map<string, string>> {
+  async getHashToCwd(): Promise<ReadonlyMap<string, string>> {
     return geminiProjectMap.getAll();
   }
 

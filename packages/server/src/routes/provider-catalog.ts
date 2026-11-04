@@ -12,7 +12,7 @@ export interface ProviderCatalogDeps {
 export interface ProviderProjectCatalog {
   codexPaths: Set<string>;
   geminiPaths: Set<string>;
-  geminiHashToCwd?: Promise<Map<string, string>>;
+  geminiHashToCwd?: Promise<ReadonlyMap<string, string>>;
 }
 
 /**

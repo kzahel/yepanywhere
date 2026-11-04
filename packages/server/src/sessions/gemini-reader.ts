@@ -56,7 +56,9 @@ export interface GeminiSessionReaderOptions {
    * If not provided, all sessions will be listed.
    * Can be a Map or a Promise that resolves to a Map.
    */
-  hashToCwd?: Map<string, string> | Promise<Map<string, string>>;
+  hashToCwd?:
+    | ReadonlyMap<string, string>
+    | Promise<ReadonlyMap<string, string>>;
 }
 
 interface GeminiSessionCacheEntry {
@@ -78,7 +80,9 @@ export class GeminiSessionReader implements ISessionReader {
   private sessionsDir: string;
   private projectPath?: string;
   private projectIdentityKey?: string;
-  private hashToCwd?: Map<string, string> | Promise<Map<string, string>>;
+  private hashToCwd?:
+    | ReadonlyMap<string, string>
+    | Promise<ReadonlyMap<string, string>>;
 
   // Cache of session ID -> file info for quick lookups. Small metadata,
   // bounded by the Gemini session files on disk.

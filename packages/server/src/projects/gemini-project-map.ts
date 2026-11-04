@@ -30,6 +30,12 @@ export interface ProjectMapData {
 }
 
 export class GeminiProjectMap {
+  /**
+   * Never mutated in place: a mutation builds a candidate and swaps it in, so
+   * readers may hold this map without copying it. It mirrors every known
+   * project path, which reaches tens of thousands of entries on hosts whose
+   * tests create temporary projects.
+   */
   private map: Map<string, string> = new Map();
   private loaded = false;
   private loadPromise: Promise<void> | null = null;
@@ -140,10 +146,28 @@ export class GeminiProjectMap {
    * Set CWD for a project hash and save.
    */
   async set(hash: string, cwd: string): Promise<void> {
+    await this.setAll([[hash, cwd]]);
+  }
+
+  /**
+   * Set many entries as one mutation. Entries already present cost a lookup,
+   * not a copy of the whole map.
+   */
+  async setAll(entries: Iterable<readonly [string, string]>): Promise<void> {
+    await this.load();
+    await this.mutationTail;
+    const changed = [...entries].filter(
+      ([hash, cwd]) => this.map.get(hash) !== cwd,
+    );
+    if (changed.length === 0) return;
     await this.enqueueMutation((candidate) => {
-      if (candidate.get(hash) === cwd) return false;
-      candidate.set(hash, cwd);
-      return true;
+      let mutated = false;
+      for (const [hash, cwd] of changed) {
+        if (candidate.get(hash) === cwd) continue;
+        candidate.set(hash, cwd);
+        mutated = true;
+      }
+      return mutated;
     });
   }
 
@@ -164,10 +188,10 @@ export class GeminiProjectMap {
   /**
    * Get all entries.
    */
-  async getAll(): Promise<Map<string, string>> {
+  async getAll(): Promise<ReadonlyMap<string, string>> {
     await this.load();
     await this.mutationTail;
-    return new Map(this.map);
+    return this.map;
   }
 
   /**
@@ -192,6 +216,12 @@ export class GeminiProjectMap {
     const hash = hashProjectPath(cwd);
     await this.set(hash, cwd);
     return hash;
+  }
+
+  async registerAll(cwds: Iterable<string>): Promise<void> {
+    await this.setAll(
+      Array.from(cwds, (cwd) => [hashProjectPath(cwd), cwd] as const),
+    );
   }
 }
 
