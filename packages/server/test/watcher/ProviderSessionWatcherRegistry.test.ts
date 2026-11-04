@@ -8,15 +8,19 @@ describe("ProviderSessionWatcherRegistry", () => {
     let baselineState = "scheduled" as "scheduled" | "complete" | "failed";
     let watching = true;
     let error: string | null = null;
+    let onBaseline: (() => void) | undefined;
     const registry = new ProviderSessionWatcherRegistry({
       eventBus: new EventBus(),
       specs: [{ family: "claude", provider: "claude", watchDir: "/claude" }],
       directoryExists,
-      createWatcher: () => ({
-        start: vi.fn(),
-        stop: vi.fn(),
-        getObservationDiagnostics: () => ({ watching, baselineState, error }),
-      }),
+      createWatcher: (options) => {
+        onBaseline = options.onInitialBaseline;
+        return {
+          start: vi.fn(),
+          stop: vi.fn(),
+          getObservationDiagnostics: () => ({ watching, baselineState, error }),
+        };
+      },
     });
     expect(registry.getDiagnostics().families).toEqual([
       {
@@ -34,6 +38,10 @@ describe("ProviderSessionWatcherRegistry", () => {
       baselineState: "scheduled",
     });
     baselineState = "complete";
+    onBaseline!();
+    const ready = vi.fn();
+    const release = registry.subscribeReady(ready);
+    expect(ready).toHaveBeenCalledExactlyOnceWith("claude");
     expect(registry.getDiagnostics().families[0]).toMatchObject({
       watching: true,
       baselineState: "complete",
@@ -48,6 +56,9 @@ describe("ProviderSessionWatcherRegistry", () => {
     expect(registry.getDiagnostics().families[0]?.baselineState).toBe("failed");
     expect(directoryExists).toHaveBeenCalledTimes(1);
     registry.stop();
+    onBaseline!();
+    expect(ready).toHaveBeenCalledTimes(1);
+    release();
   });
   it("does not probe storage for ineligible families", () => {
     const directoryExists = vi.fn(() => true);
@@ -148,6 +159,7 @@ describe("ProviderSessionWatcherRegistry", () => {
       provider: "codex",
       watchDir: "/codex",
       periodicRescanMs: 30_000,
+      onInitialBaseline: expect.any(Function),
       eventBus: expect.any(EventBus),
     });
     expect(watcher.start).toHaveBeenCalledTimes(1);

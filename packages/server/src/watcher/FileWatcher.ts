@@ -19,6 +19,8 @@ export interface FileWatcherOptions {
   eventBus: EventBus;
   /** Debounce delay in ms (default: 200) */
   debounceMs?: number;
+  /** Internal finite handover; never emitted onto the client activity stream. */
+  onInitialBaseline?: () => void;
   /**
    * Optional periodic full-tree rescan interval (ms).
    * Useful on platforms where fs.watch may miss deep file writes.
@@ -113,6 +115,7 @@ export class FileWatcher {
   private provider: WatchProvider;
   private eventBus: EventBus;
   private debounceMs: number;
+  private readonly onInitialBaseline?: () => void;
   private periodicRescanMs: number;
   private periodicRescanCurrentMs: number;
   private periodicRescanMaxBackoffMs: number;
@@ -141,6 +144,7 @@ export class FileWatcher {
     this.provider = options.provider;
     this.eventBus = options.eventBus;
     this.debounceMs = options.debounceMs ?? 200;
+    this.onInitialBaseline = options.onInitialBaseline;
     this.periodicRescanMs = options.periodicRescanMs ?? 0;
     this.periodicRescanCurrentMs = this.periodicRescanMs;
     this.periodicRescanMaxBackoffMs = Math.max(
@@ -349,6 +353,7 @@ export class FileWatcher {
         { event: "file_watcher_initial_baseline", ...metrics },
         "FILE_WATCHER: initial baseline complete",
       );
+      this.onInitialBaseline?.();
       return { ...metrics };
     } catch (error) {
       if (this.isCurrentLifecycle(lifecycleGeneration)) {
@@ -554,7 +559,7 @@ export class FileWatcher {
       provider: this.provider,
       path: fullPath,
       relativePath,
-      ...(this.provider === "codex"
+      ...(["claude", "codex"].includes(this.provider)
         ? { nativeStorageScope: this.watchDir }
         : {}),
       changeType,

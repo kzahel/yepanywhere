@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { nativeSessionRef, parseNativeSessionId } from "@yep-anywhere/shared";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ProviderChildRelationshipService,
   type ProviderChildObservation,
@@ -90,6 +90,80 @@ const source = (value: ProviderChildObservation): ProviderChildSource => ({
 const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 describe("profile-owned provider child facts", () => {
+  it("bounds native event pressure, preserves creation across appends and lets acquisition progress", async () => {
+    const f = fixture();
+    const held = [deferred<void>(), deferred<void>()];
+    const bothStarted = deferred<void>();
+    const refreshStarted = deferred<void>();
+    const publishRefresh = deferred<void>();
+    const events: Array<{ path: string; changeType: string }> = [];
+    let active = 0;
+    let maximumActive = 0;
+    let observation = snapshot(null);
+    const acquisition: ProviderChildSource = {
+      observe: async () => {
+        const value = observation;
+        if (value.version === "v2") {
+          refreshStarted.resolve();
+          await publishRefresh.promise;
+        }
+        return value;
+      },
+      isCurrent: async () => true,
+      ownsFileChange: () => true,
+      async handleFileChange(event) {
+        const index = events.length;
+        events.push(event);
+        maximumActive = Math.max(maximumActive, ++active);
+        if (index === 1) bothStarted.resolve();
+        if (index < 2) await held[index]!.promise;
+        active--;
+        return false;
+      },
+    };
+    f.service.demand(native("parent"), owner, acquisition);
+    await f.committed.promise;
+    await nextTurn();
+    const event = (name: string, changeType: "create" | "modify" = "modify") =>
+      f.service.notifyNativeFileChange({
+        type: "file-change",
+        provider: "claude",
+        path: `/owned/parent/subagents/agent-${name}.jsonl`,
+        relativePath: "unused",
+        changeType,
+        timestamp: "2026-11-04T00:00:00.000Z",
+        fileType: "agent-session",
+      });
+    event("held-0");
+    event("held-1");
+    await bothStarted.promise;
+    event("coalesced", "create");
+    event("coalesced");
+    observation = snapshot("child", "v2");
+    for (let i = 0; i < 200; i++) event(`overflow-${i}`);
+    held[0]!.resolve();
+    await refreshStarted.promise;
+    for (let i = 200; i < 400; i++) event(`overflow-${i}`);
+    publishRefresh.resolve();
+    // With one event still held, overflow must refresh truth rather than let
+    // the queued event stream starve the bounded acquisition worker.
+    await vi.waitFor(() =>
+      expect(
+        f.service.accepted(native("parent"), owner.sessionId)?.[0]?.id,
+      ).toBe("child"),
+    );
+    held[1]!.resolve();
+    await vi.waitFor(() => expect(events.length).toBe(130));
+    expect(maximumActive).toBe(2);
+    expect(
+      events.find((entry) => entry.path.includes("coalesced"))?.changeType,
+    ).toBe("create");
+    await f.service.close();
+    event("after-close", "create");
+    await nextTurn();
+    expect(events).toHaveLength(130);
+  });
+
   it("returns known SQL immediately while acquisition is held, publishes outside request context and reopens without discovery", async () => {
     const f = fixture();
     const held = deferred<ProviderChildObservation>(),

@@ -23,7 +23,7 @@ Related owners:
 Retained provider adapters wait for fresh child discovery before returning
 messages. A compact-tail bound cannot bound that independent work. The former
 Codex process-local projection also lost facts on restart and could consult the
-broader listing to find a selected parent. Codex application reads now use the
+broader listing to find a selected parent. Claude and Codex application reads now use the
 durable nonblocking path below; plan 176 tracks the remaining adapters.
 
 Meanwhile, durable relationships already have several owners:
@@ -392,8 +392,12 @@ production reader. Codex's v2 output names a task path; its persisted correlated
 `SubAgentActivity` start item identifies the native child id, and the child's
 own immediate-parent metadata must agree before accepting the link. Copied
 fork history is not evidence that the fork created an inherited child. Legacy call/output
-pairs remain supported. Shared SQL provider publication, other native child
-sources and alias launch paths remain qualification work.
+pairs remain supported. Both families qualify SQL publication and reopen.
+The inference-free child scenario also exercises Claude Gateway, Claude Ollama
+and Codex OSS through their actual launch adapters. Gateway explicitly enables
+its default-disabled Agent for the fixture; remote child-model availability
+remains outside this local-routing qualification. Other native child sources
+and deeper actor nesting remain qualification work.
 The captured corpus explicitly lacks child sidecars/subagent scenarios and
 contains older baseline versions; keep it for historical parser regressions,
 not as proof of current native spawning. OpenCode 1.x qualification does not

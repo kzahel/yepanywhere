@@ -39,10 +39,14 @@ export async function resolveProviderChildSessions(
   }
   const source = indexed && reader.getProviderChildSource?.(indexed.native);
   if (indexed && source) {
-    const children = indexed.service.accepted(
+    const accepted = indexed.service.accepted(
       indexed.native,
       indexed.publicSessionId,
     );
+    const children =
+      accepted && !indexed.service.hasSource(indexed.native)
+        ? (source.overlayActivity?.(accepted) ?? accepted)
+        : accepted;
     if (mode === "fresh" || !indexed.service.hasSource(indexed.native))
       indexed.service.demand(
         indexed.native,
@@ -50,9 +54,7 @@ export async function resolveProviderChildSessions(
         source,
         mode === "fresh" ? "foreground" : "background",
       );
-    return children && source.overlayActivity
-      ? source.overlayActivity(children)
-      : children;
+    return children;
   }
   if (
     mode === "accepted-or-cheap" &&

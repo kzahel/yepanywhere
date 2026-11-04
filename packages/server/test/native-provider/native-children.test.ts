@@ -4,13 +4,14 @@ import {
   toUrlProjectId,
 } from "@yep-anywhere/shared";
 import { realpath } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { nativeFixture } from "./fixture.js";
-import { historyReader } from "./history.js";
+import { historyReader, findNativeFile } from "./history.js";
 import { providers } from "./selection.js";
+import { isClaude, isCodex } from "./runtimes.js";
 
 const fixtures: Awaited<ReturnType<typeof nativeFixture>>[] = [];
 afterEach(async () => {
@@ -36,15 +37,17 @@ interface NativeRow {
 
 // Real native spawn/persistence is the oracle. Reopening production readers
 // must agree with native ids, not ids manufactured by the extractor under test.
-describe.each(providers.filter((p) => p === "claude" || p === "codex"))(
+describe.each(providers.filter((p) => isClaude(p) || isCodex(p)))(
   "real native children: %s",
   (provider) => {
     it("spawns a child on the owned endpoint and reopens its native transcript", async () => {
-      const f = await nativeFixture(provider);
+      const f = await nativeFixture(provider, "gentle", {
+        gatewayAgentEnabled: provider === "claude-gateway",
+      });
       fixtures.push(f);
       const first = await f.model.next();
       const callId = `call_${first.id}`;
-      if (provider === "claude") {
+      if (isClaude(provider)) {
         expect(first.body.tools).toEqual(
           expect.arrayContaining([expect.objectContaining({ name: "Agent" })]),
         );
@@ -101,7 +104,7 @@ describe.each(providers.filter((p) => p === "claude" || p === "codex"))(
       await f.stop();
       const rows = (await f.nativeRows()) as NativeRow[];
       let childId: string;
-      if (provider === "claude") {
+      if (isClaude(provider)) {
         childId =
           rows.find((r) => !r.isSidechain && r.toolUseResult?.agentId)
             ?.toolUseResult?.agentId ?? "";
@@ -152,10 +155,19 @@ describe.each(providers.filter((p) => p === "claude" || p === "codex"))(
         expect(
           JSON.stringify(await reader.getAgentSession(childId, f.nativeId())),
         ).toContain("CHILD_RELATIONSHIP_REPLY");
-        if (provider === "codex") {
+        {
           const parent = nativeSessionRef(
-            "codex",
-            await realpath(f.environment.CODEX_SESSIONS_DIR!),
+            isClaude(provider) ? "claude" : "codex",
+            isCodex(provider)
+              ? await realpath(f.environment.CODEX_SESSIONS_DIR!)
+              : await realpath(
+                  dirname(
+                    (await findNativeFile(
+                      join(f.environment.CLAUDE_CONFIG_DIR!, "projects"),
+                      (name) => name === `${f.nativeId()}.jsonl`,
+                    ))!,
+                  ),
+                ),
             parseNativeSessionId(f.nativeId()),
           );
           const source = reader.getProviderChildSource!(parent)!;

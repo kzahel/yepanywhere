@@ -1,5 +1,6 @@
 import type {
   ProviderChildSessionSummary,
+  NativeSessionRef,
   UrlProjectId,
 } from "@yep-anywhere/shared";
 import type { Message, SessionSummary } from "../supervisor/types.js";
@@ -12,6 +13,9 @@ import type {
   SessionListSummary,
 } from "./types.js";
 import { sortProviderChildSessions } from "./types.js";
+import type { ProviderChildSource } from "./ProviderChildRelationshipService.js";
+import { relationshipResourceKey } from "./SessionRelationshipStore.js";
+import { parseNativeSessionId } from "@yep-anywhere/shared";
 
 /**
  * One logical provider reader backed by multiple authoritative session roots.
@@ -21,10 +25,81 @@ import { sortProviderChildSessions } from "./types.js";
  * provider state participate in ordinary YA routes without copying live JSONL.
  */
 export class MergedSessionReader implements ISessionReader {
+  readonly getProviderChildSource?: NonNullable<
+    ISessionReader["getProviderChildSource"]
+  >;
   constructor(private readonly readers: readonly ISessionReader[]) {
     if (readers.length === 0) {
       throw new Error("MergedSessionReader requires at least one reader");
     }
+    if (readers.some((reader) => reader.getProviderChildSource))
+      this.getProviderChildSource = (parent) => this.childSource(parent);
+  }
+
+  private childSource(
+    parent: NativeSessionRef,
+  ): ProviderChildSource | undefined {
+    const candidates = this.readers.flatMap((reader) => {
+      const source = reader.getProviderChildSource?.(parent);
+      return source ? [{ reader, source }] : [];
+    });
+    if (!candidates.length) return undefined;
+    let selected: ProviderChildSource | undefined;
+    const key = (native: NativeSessionRef) =>
+      relationshipResourceKey({ kind: "native", serverId: "local", native });
+    const findSource = async () => {
+      for (const { reader, source } of candidates) {
+        if (source.isRetired?.()) continue;
+        if (source.ownsNativeScope) {
+          if (await source.ownsNativeScope()) return source;
+        } else {
+          const native = await reader.getNativeSessionRef?.(parent.id);
+          if (native && key(native) === key(parent)) return source;
+        }
+      }
+      return undefined;
+    };
+    return {
+      owner: this,
+      ownsNativeScope: async () => !!(await findSource()),
+      isRetired: () =>
+        selected?.isRetired?.() ??
+        candidates.every(({ source }) => source.isRetired?.()),
+      onRetire: (listener) => {
+        const releases = candidates.flatMap(({ source }) =>
+          source.onRetire ? [source.onRetire(listener)] : [],
+        );
+        return () => {
+          for (const release of releases) release();
+        };
+      },
+      ownsFileChange: (event) => selected?.ownsFileChange?.(event) ?? false,
+      ...(candidates.some(({ source }) => source.handleFileChange)
+        ? {
+            handleFileChange: (
+              event: import("../watcher/EventBus.js").FileChangeEvent,
+            ) => selected?.handleFileChange?.(event) ?? false,
+          }
+        : {}),
+      overlayActivity: (children) =>
+        selected?.overlayActivity?.(children) ?? children,
+      parentsForChanges: (ids, signal) =>
+        selected?.parentsForChanges?.(ids, signal) ?? Promise.resolve([]),
+      releaseObservation: () => selected?.releaseObservation?.(),
+      async observe(signal) {
+        if (signal.aborted) throw new Error("Merged child source retired");
+        selected = await findSource();
+        if (signal.aborted) throw new Error("Merged child source retired");
+        if (selected) {
+          // A matching authority that fails cannot fall through to another
+          // same-string native id in another physical namespace.
+          return selected.observe(signal);
+        }
+        throw new Error("Merged child source does not own the native scope");
+      },
+      isCurrent: (version) =>
+        selected?.isCurrent(version) ?? Promise.resolve(false),
+    };
   }
 
   async readIssueTextBatch(
@@ -226,6 +301,28 @@ export class MergedSessionReader implements ISessionReader {
       if (native) return native;
     }
     return null;
+  }
+
+  async getNativeSessionRefs(
+    ids: readonly string[],
+  ): Promise<ReadonlyMap<string, NativeSessionRef>> {
+    const selected = new Map<string, NativeSessionRef>();
+    for (const reader of this.readers) {
+      const remaining = ids.filter((id) => !selected.has(id));
+      if (!remaining.length) break;
+      if (reader.getNativeSessionRefs) {
+        for (const [id, native] of await reader.getNativeSessionRefs(remaining))
+          if (!selected.has(id)) selected.set(id, native);
+      } else {
+        for (const id of remaining) {
+          const native = await reader.getNativeSessionRef?.(
+            parseNativeSessionId(id),
+          );
+          if (native) selected.set(id, native);
+        }
+      }
+    }
+    return selected;
   }
 
   async listSessionFiles(

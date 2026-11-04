@@ -1432,6 +1432,10 @@ export class CodexSessionReader implements ISessionReader {
     };
     return {
       isRetired: () => this.retired,
+      owner: this,
+      ownsNativeScope: async () =>
+        (await realpath(this.sessionsDir).catch(() => undefined)) ===
+        parent.storageScope,
       onRetire: (listener) => {
         this.retirementListeners.add(listener);
         return () => this.retirementListeners.delete(listener);

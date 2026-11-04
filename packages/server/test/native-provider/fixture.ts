@@ -67,6 +67,7 @@ interface FixtureOptions {
   onToolApproval?: StartSessionOptions["onToolApproval"];
   gitProject?: boolean;
   piKeepRecentTokens?: number;
+  gatewayAgentEnabled?: boolean;
 }
 
 export async function nativeFixture(
@@ -460,7 +461,10 @@ export async function nativeFixture(
       ClaudeOllamaProvider.setOllamaUrl(model.url);
       adapter = new ClaudeOllamaProvider();
     } else if (provider === "claude-gateway") {
-      await ClaudeGatewayProvider.configureGateway({ url: model.url });
+      await ClaudeGatewayProvider.configureGateway({
+        url: model.url,
+        disableAgent: options.gatewayAgentEnabled !== true,
+      });
       adapter = new ClaudeGatewayProvider();
       await adapter.getAvailableModels();
     } else if (provider === "codex") {

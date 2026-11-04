@@ -14,7 +14,7 @@ Related topics: [provider-session-tree](provider-session-tree.md),
 The [durable relationship contract](session-relationships.md) selects a shared
 SQL model coordinating native children, trusted v0 creator links, forks,
 `/btw` and other relationships. [Plan 176](../docs/tactical/176-durable-session-relationships.md)
-tracks migrated sources and remaining qualification. Codex application reads
+tracks migrated sources and remaining qualification. Claude and Codex application reads
 use this durable model; retained provider paths are described below.
 
 ## Identity contract
@@ -47,6 +47,21 @@ is authoritative for `toolUseId`, description, agent type, and spawn depth.
 The older project-level `subagents/` and `agent-*.jsonl` layouts remain readable
 for inline transcript compatibility, but do not provide enough parent scope for
 the navigation summary contract.
+
+Claude's SQL acquisition reads only the exact physical parent's directory and
+bounded metadata sidecars (64 KiB each), never the parent or child JSONL body.
+Native children keep the physical `subagents` directory as their identity
+scope. A failed or missing parent is unavailable, while an existing parent
+without child files can establish an empty observation. Missing or malformed
+optional metadata makes the observation partial and preserves previously
+accepted titles and launch anchors. Scope ownership must survive merged
+readers, including nested merges; a failure in the selected scope cannot fall
+through to another root containing the same native id.
+
+This directory proves ownership by the native session. `spawnDepth` is display
+metadata; it does not by itself prove which internal agent launched another
+agent. Deeper actor-to-actor nesting needs independent native evidence and
+remains unqualified by the direct-child scenario.
 
 Codex stores a child as a separate rollout. Its own immediate-parent header
 proves structure, with bounded nickname/role/depth metadata. Current v2 native
@@ -143,7 +158,7 @@ parse. Child creation may invalidate the bounded child projection. An append
 with no child lifecycle record must cost at most incremental append inspection,
 not a replay from byte zero.
 
-Codex application detail, metadata, incremental catch-up and older pagination
+Claude and Codex application detail, metadata, incremental catch-up and older pagination
 read accepted profile SQLite facts without awaiting native acquisition. Unknown
 or partial-empty observations omit enrichment; an accepted empty observation
 returns `[]`. Known facts survive restart, missing native files and failed
@@ -167,6 +182,26 @@ accepted reads do not repeat it. An explicit
 corrected native parent supersedes that child's older structural observation;
 absence from a later enumeration does not erase historical facts.
 
+Claude reuses the existing provider FileWatcher and its native-root hint.
+Aliased watch roots must resolve to the bound physical scope before accepting
+events. Child creation/deletion and sidecar changes schedule reconciliation;
+an event naming only the exact parent or `subagents` directory does too. Some
+native watchers collapse a newly created subtree to that directory event.
+Ordinary child appends update a bounded activity overlay without SQL writes or
+metadata broadcasts. The coordinator retains at most 128 pending native events
+and shares two workers with acquisition. Overflow requests a finite source
+refresh, and pending acquisition can progress during sustained event traffic.
+Fresh requests share the registered reader lifecycle and its activity overlay;
+they do not replace it with an empty factory instance or overlap acquisitions.
+The watcher's initial baseline hands over once to registered source acquisition,
+so a child created between a first read and deferred watcher activation is
+reconciled without waiting for another native change. This is an internal
+notification, not a client wire event or recurring scan.
+Retiring a reader fences later batches and releases its source registration;
+durable progress resumes after the last committed batch. Root locations outside
+the configured provider watcher still reconcile on explicit detail demand;
+continuous observation of those private roots remains separate qualification.
+
 The older source-versioned direct-reader projection remains for retained raw
 reader callers while adapters migrate. It incrementally inspects parent
 launch records under an 8 MiB process budget; it is not the Codex application
@@ -183,10 +218,9 @@ ID is actually present. Reload and lazy-load endpoints pass the canonical
 parent ID into the reader, which makes current-layout discovery parent-scoped.
 
 The Agents projection still comes from the process snapshot. Project and
-global session lists attach children for idle parents too: Claude uses the
-cheap `subagents/` readdir already owned by `listProviderChildSessions`;
-Codex uses accepted SQL child facts and never starts a cold parent rollout
-parse for a list read. Codex metadata/detail attach accepted SQL facts and
+global session lists attach children for idle parents too: Claude and Codex use
+accepted SQL child facts and never start a cold parent rollout
+parse for a list read. Claude and Codex metadata/detail attach accepted SQL facts and
 schedule acquisition independently; retained adapters still request a fresh
 listing for the open parent. `providerChildren` is optional on those existing
 payloads; an omitted metadata field preserves any already accepted children. The nested child page uses the existing agent-session GET and does

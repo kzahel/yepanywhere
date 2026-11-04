@@ -8,7 +8,7 @@ type ManagedFileWatcher = Pick<FileWatcher, "start" | "stop"> &
   >;
 
 export interface ProviderSessionWatcherSpec
-  extends Omit<FileWatcherOptions, "eventBus"> {
+  extends Omit<FileWatcherOptions, "eventBus" | "onInitialBaseline"> {
   family: ProviderCatalogFamily;
 }
 
@@ -58,6 +58,11 @@ export class ProviderSessionWatcherRegistry {
   private readonly activationYieldMs: number;
   private readonly pendingFamilies = new Set<ProviderCatalogFamily>();
   private activationTimer: NodeJS.Timeout | null = null;
+  private generation = 0;
+  private readonly ready = new Set<ProviderCatalogFamily>();
+  private readonly readySubscribers = new Set<
+    (family: ProviderCatalogFamily) => void
+  >();
 
   constructor(options: ProviderSessionWatcherRegistryOptions) {
     this.eventBus = options.eventBus;
@@ -77,6 +82,17 @@ export class ProviderSessionWatcherRegistry {
 
   activate(families: Iterable<ProviderCatalogFamily>): void {
     for (const family of new Set(families)) this.activateFamily(family);
+  }
+
+  /** Internal startup handover, replayed for a late application subscriber. */
+  subscribeReady(
+    listener: (family: ProviderCatalogFamily) => void,
+  ): () => void {
+    this.readySubscribers.add(listener);
+    for (const family of this.ready) listener(family);
+    return () => {
+      this.readySubscribers.delete(listener);
+    };
   }
 
   requestActivation(families: Iterable<ProviderCatalogFamily>): void {
@@ -102,9 +118,19 @@ export class ProviderSessionWatcherRegistry {
     }
 
     const { family: _family, ...watcherOptions } = spec;
+    const generation = this.generation;
     const watcher = this.createWatcher({
       ...watcherOptions,
       eventBus: this.eventBus,
+      onInitialBaseline: () => {
+        if (
+          generation !== this.generation ||
+          this.watchers.get(family) !== watcher
+        )
+          return;
+        this.ready.add(family);
+        for (const listener of this.readySubscribers) listener(family);
+      },
     });
     watcher.start();
     this.watchers.set(family, watcher);
@@ -112,6 +138,8 @@ export class ProviderSessionWatcherRegistry {
   }
 
   stop(): void {
+    this.generation++;
+    this.ready.clear();
     if (this.activationTimer) {
       clearTimeout(this.activationTimer);
       this.activationTimer = null;

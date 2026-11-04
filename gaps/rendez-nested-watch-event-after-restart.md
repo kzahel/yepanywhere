@@ -290,3 +290,19 @@ After the canonical watcher-alias qualification and optional hardening, the
 final frozen workspace run also passed all 7,001 server cases (150.13 seconds)
 and 7,110 client cases (`slice-3-hardened-unit.log`). This is validation of the
 relationship slice, not a repair of the open watcher condition.
+
+
+2026-11-04: Claude SQL child integration's final macOS / Node 24.22.1
+workspace run again missed the second nested delivery at line 364 (1 observed,
+2 expected): 7,018 server cases and all 7,110 client cases passed. The immediate
+isolated file rerun passed four cases with one Linux-only skip in 5.92 seconds.
+Evidence remains in ignored `tasks/session-relationships/slice-5-final-unit.log`
+and `slice-5-rendez-isolated.log`. The slice changes the provider FileWatcher's
+internal initial-baseline handover but does not change the shared native watcher,
+Rendez observer/source, fixture, assertion or timeout. The isolated pass does not
+close this restart/event-registration defect or erase the full-run failure.
+
+The accepted frozen-tree workspace rerun subsequently passed all 7,019 server
+cases (143.18 seconds) and 7,110 client cases. Evidence:
+`tasks/session-relationships/slice-5-qualified-final-unit.log`. This validates
+the relationship slice while retaining the earlier failure and open watcher gap.

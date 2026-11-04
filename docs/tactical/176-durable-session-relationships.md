@@ -62,6 +62,38 @@ no wire capability and changes no access grants.
 
 ## Progress
 
+- Claude native-child SQL integration is implemented and independently reviewed.
+  Exact physical parent directories and bounded sidecars establish structure;
+  missing enrichment preserves known anchors, source failure preserves history,
+  and native appends overlay activity without structural SQL churn. Existing
+  provider watcher events feed the same bounded coordinator. Merged readers
+  forward exact scope ownership across nested merges without same-id fallback.
+  A real 205-child interruption case resumes at the committed 100-child frontier.
+  Native inference-free child spawning, independent native-id checks, SQL
+  publication and reopen pass for Claude, Claude Gateway, Claude Ollama, Codex
+  and Codex OSS. Gateway's fixture explicitly enables its default-disabled
+  Agent tool; this does not alter production defaults or qualify availability
+  of a particular remote child model. Node 22/24 and Bun 1.3.14 source/205-child
+  SQL/reopen probes pass, including malformed enrichment and deleted native
+  files. Node and Bun desktop/phone checks retain transcript DOM and draft while
+  actual watcher events publish late children; every sequential key acknowledges
+  within 28 ms locally. A 2,000-message fixture uses its normal 40-message tail.
+  These local observations are diagnostics, not portable latency ceilings.
+  Opus reproduced per-request activity loss; stable source lifecycle ownership
+  and coalesced fresh demand repair it. Bun browser qualification exposed a
+  directory-only native notification, now accepted by the exact scoped source.
+  A separate delayed-watcher regression establishes initial-baseline handover.
+  Sustained overflow requests follow-up acquisition without canceling every
+  running batch; sidecar opens reject symlinks and cannot block on a POSIX FIFO.
+  Opus accepts the corrective delta. All root gates pass: 7,019 server tests,
+  7,110 client tests and 952 shared tests (143.18 / 120.96 seconds server/client).
+  The retained 50-case source/coordinator/watcher group takes 0.81 seconds; five
+  native child launch variants take 2.99 seconds of test work / 4.85 seconds wall
+  time. The earlier full run hit the documented Rendez restart-event flake; its
+  red evidence and isolated passing rerun remain recorded in the owning gap.
+  Continuous private-root observation and deeper native
+  agent nesting remain explicit follow-ups rather than claimed coverage.
+
 - Slice 1 implements additive schema v26 and the internal shared store: scoped
   typed resources, independently supported edges, immutable owner replay, fenced
   reconciliation, bounded last-observed evidence, atomic checkpoints and indexed
@@ -261,4 +293,12 @@ and swap counters were unavailable. Raw host/source evidence stays ignored.
 Remaining work includes generic authorized graph projections, other provider
 child adapters and qualification, retained collection-feed joins, bounded
 nested-harness reverse indexing, and migration of remaining legacy consumers.
-The full design is not complete with these writers.
+The full design is not complete with these writers and child adapters.
+
+Claude relationship projection diagnostics on the same macOS host read all
+205 children in approximately 7.2 ms on Node 22/24 and 7.7 ms on Bun 1.3.14
+(median of 25 reads). The first read after SQL reopen, with native files
+deleted, took 8.8–10.5 ms. These are full child projections, not generic
+100-edge page timings. Automatic host samples recorded up to 1.15 load per
+effective CPU while the workspace suite ran; CPU/swap counters were unavailable.
+They are local diagnostics, not portable performance gates.

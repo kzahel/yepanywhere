@@ -6,6 +6,8 @@ import { randomUUID } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
+import { createClaudeChildSource } from "./claude-child-source.js";
+import type { NativeSessionRef } from "@yep-anywhere/shared";
 import {
   type AgentStatus,
   type ClaudeProviderName,
@@ -122,6 +124,8 @@ interface AgentMeta {
  * agent sessions, orphaned tool detection, and context window tracking.
  */
 export class ClaudeSessionReader implements ISessionReader {
+  private retired = false;
+  private retirementListeners = new Set<() => void>();
   private allSessionDirs: string[];
   private resolveContextWindow: (
     model: string | undefined,
@@ -142,6 +146,11 @@ export class ClaudeSessionReader implements ISessionReader {
   }
 
   async close(): Promise<void> {
+    if (!this.retired) {
+      this.retired = true;
+      for (const listener of this.retirementListeners) listener();
+      this.retirementListeners.clear();
+    }
     const client = this.summaryParserClient;
     this.summaryParserClient = undefined;
     await client?.close();
@@ -582,6 +591,20 @@ export class ClaudeSessionReader implements ISessionReader {
     }
 
     return sortProviderChildSessions(children);
+  }
+
+  getProviderChildSource(parent: NativeSessionRef) {
+    if (parent.family !== "claude") return undefined;
+    return createClaudeChildSource({
+      owner: this,
+      parent,
+      roots: this.allSessionDirs,
+      isRetired: () => this.retired,
+      onRetire: (listener) => {
+        this.retirementListeners.add(listener);
+        return () => this.retirementListeners.delete(listener);
+      },
+    });
   }
 
   /**

@@ -94,8 +94,12 @@ older native-id call/output format. A focused append test covers partial records
 unrelated interactions and deduplication across persisted event envelopes.
 
 These are regenerated native specimens, not constructed reader fixtures or
-paid inference. They qualify the two baseline launch paths on the exercised
-platform. Gateway/OSS variants, other providers, nested descendants and trusted
+paid inference. The relationship scenario also qualifies Claude Gateway,
+Claude Ollama and Codex OSS, including production-reader SQL publication and
+reopen, on macOS arm64. Gateway explicitly enables its default-disabled Agent
+tool for this scenario; production defaults and remote child-model availability
+are not changed or qualified. Both parent and child stay on the owned model
+endpoint with synthetic credentials. Other providers, nested descendants and trusted
 YA/v0 child creation remain separate relationship qualification work in
 [plan 176](../docs/tactical/176-durable-session-relationships.md). Process and
 full-app version guards now use the same root compatibility markers through

@@ -1,4 +1,6 @@
 import { getCodexRolloutSessionId } from "../utils/codexRolloutFiles.js";
+import { realpath } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { canonicalCodexChange } from "./codex-rollout-tree-observation.js";
 import type { FileChangeEvent } from "../watcher/EventBus.js";
 import {
@@ -21,6 +23,8 @@ import {
 export interface ObservedProviderChild {
   native: NativeSessionRef;
   summary: ProviderChildSessionSummary;
+  /** Missing/unreadable optional enrichment cannot erase last-known anchors. */
+  metadataAvailable?: boolean;
 }
 export interface ProviderChildObservation {
   version: string;
@@ -28,6 +32,10 @@ export interface ProviderChildObservation {
   children: readonly ObservedProviderChild[];
 }
 export interface ProviderChildSource {
+  /** Stable reader lifecycle, not a cache of native facts. */
+  owner?: object;
+  /** Scope ownership only; unavailable content is not an authoritative empty. */
+  ownsNativeScope?(): Promise<boolean>;
   /** Must distinguish failure/unavailable from an accepted empty observation. */
   observe(signal: AbortSignal): Promise<ProviderChildObservation>;
   /** Close the native source-version race before publishing profile facts. */
@@ -39,6 +47,10 @@ export interface ProviderChildSource {
   isRetired?(): boolean;
   onRetire?(listener: () => void): () => void;
   ownsFileChange?(event: FileChangeEvent): boolean;
+  /** Existing native events may overlay activity without structural SQL work. */
+  handleFileChange?(event: FileChangeEvent): boolean | Promise<boolean>;
+  /** Release transient source-version proof after a finite acquisition. */
+  releaseObservation?(): void;
   /** One shared catalog refresh per scope/change batch, not per viewed parent. */
   parentsForChanges?(
     ids: readonly string[],
@@ -74,6 +86,11 @@ export class ProviderChildRelationshipService {
   private store: SessionRelationshipStore | undefined;
   private readonly sources = new Map<string, Work>();
   private readonly inFlight = new Set<Promise<void>>(); // at most MAX_CONCURRENT
+  private readonly nativeEvents = new Map<
+    string,
+    { key: string; source: ProviderChildSource; event: FileChangeEvent }
+  >();
+  private nativeEventsRunning = 0;
   private readonly changes = new Map<
     string,
     { source: ProviderChildSource; ids: Set<string>; overflow: boolean }
@@ -161,7 +178,12 @@ export class ProviderChildRelationshipService {
       (a, b) =>
         b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id),
     );
-    if (children.length) return children;
+    if (children.length)
+      return (
+        this.sources
+          .get(this.key(native))
+          ?.source.overlayActivity?.(children) ?? children
+      );
     if (filtered) return undefined;
     const checkpoint = this.index.checkpoint(
       SNAPSHOT_PRODUCER,
@@ -183,7 +205,10 @@ export class ProviderChildRelationshipService {
     const work = this.sources.get(key);
     if (!work || (source && work.source !== source)) return;
     work.release?.();
+    work.generation++;
     this.sources.delete(key);
+    for (const [eventKey, pending] of this.nativeEvents)
+      if (pending.key === key) this.nativeEvents.delete(eventKey);
   }
 
   /** Register explicit demand; native acquisition begins outside the request. */
@@ -198,12 +223,19 @@ export class ProviderChildRelationshipService {
     const existing = this.sources.get(key);
     if (existing) {
       existing.owner = owner;
-      existing.release?.();
-      existing.source = source;
-      existing.release = source.onRetire?.(() => this.forget(key, source));
+      const replace =
+        !source.owner ||
+        existing.source.isRetired?.() ||
+        existing.source.owner !== source.owner;
+      if (replace) {
+        existing.release?.();
+        existing.source = source;
+        existing.release = source.onRetire?.(() => this.forget(key, source));
+      }
       existing.staleRetries = 0;
-      if (existing.running) existing.dirty = true;
-      else existing.queued = true;
+      if (existing.running) {
+        if (replace) existing.dirty = true;
+      } else existing.queued = true;
       this.sources.delete(key);
       this.sources.set(key, existing);
     } else {
@@ -245,9 +277,53 @@ export class ProviderChildRelationshipService {
     this.schedule();
   }
 
+  /** One finite handover after a native watcher's initial baseline. */
+  observationReady(family: string): void {
+    for (const work of this.sources.values())
+      if (work.native.family === family) this.invalidate(work.native);
+  }
+
   notifyNativeFileChange(event: FileChangeEvent): void {
-    if (this.retired || event.provider !== "codex" || !this.sources.size)
-      return;
+    if (this.retired || !this.sources.size) return;
+    for (const [key, work] of this.sources) {
+      const possibleAliasedParent =
+        event.provider === "claude" &&
+        !!event.nativeStorageScope &&
+        work.native.family === "claude" &&
+        ((basename(dirname(event.path)) === "subagents" &&
+          basename(dirname(dirname(event.path))) === work.native.id) ||
+          basename(event.path) === work.native.id ||
+          (basename(event.path) === "subagents" &&
+            basename(dirname(event.path)) === work.native.id));
+      if (
+        !work.source.handleFileChange ||
+        (!possibleAliasedParent && !work.source.ownsFileChange?.(event))
+      )
+        continue;
+      const eventKey = JSON.stringify([key, event.path]);
+      const previous = this.nativeEvents.get(eventKey);
+      if (!previous && this.nativeEvents.size >= MAX_SOURCES) {
+        // Lost event detail needs a follow-up read, not cancellation of every
+        // running read during sustained pressure. The source revalidates proof.
+        if (work.running) work.dirty = true;
+        else work.queued = true;
+        this.schedule();
+        continue;
+      }
+      this.nativeEvents.set(eventKey, {
+        key,
+        source: work.source,
+        event: {
+          ...event,
+          changeType:
+            event.changeType === "modify"
+              ? (previous?.event.changeType ?? event.changeType)
+              : event.changeType,
+        },
+      });
+    }
+    if (this.nativeEvents.size) this.schedule();
+    if (event.provider !== "codex") return;
     if (event.nativeStorageScope) {
       runOutsideRequestContext(() => {
         void canonicalCodexChange(event)
@@ -359,6 +435,75 @@ export class ProviderChildRelationshipService {
             });
           this.inFlight.add(promise);
         }
+        const acquisitionWaiting = [...this.sources.values()].some(
+          (work) => work.queued && !work.running,
+        );
+        for (const [eventKey, pending] of this.nativeEvents) {
+          if (
+            this.inFlight.size >= MAX_CONCURRENT ||
+            (acquisitionWaiting && this.nativeEventsRunning >= 1)
+          )
+            break;
+          this.nativeEvents.delete(eventKey);
+          const work = this.sources.get(pending.key);
+          if (
+            !work ||
+            work.source !== pending.source ||
+            pending.source.isRetired?.()
+          )
+            continue;
+          this.nativeEventsRunning++;
+          const promise = Promise.resolve()
+            .then(async () => {
+              let event = pending.event;
+              if (event.provider === "claude" && event.nativeStorageScope) {
+                const suffix = relative(event.nativeStorageScope, event.path);
+                if (
+                  suffix === ".." ||
+                  suffix.startsWith(`..${sep}`) ||
+                  isAbsolute(suffix)
+                )
+                  return false;
+                const root = await realpath(event.nativeStorageScope).catch(
+                  () => undefined,
+                );
+                if (
+                  !root ||
+                  this.retired ||
+                  this.sources.get(pending.key)?.source !== pending.source
+                )
+                  return false;
+                event = {
+                  ...event,
+                  path: join(root, suffix),
+                  nativeStorageScope: root,
+                };
+              }
+              if (!pending.source.ownsFileChange?.(event)) return false;
+              return pending.source.handleFileChange!(event);
+            })
+            .then((changed) => {
+              if (
+                changed &&
+                !this.retired &&
+                this.sources.get(pending.key)?.source === pending.source
+              )
+                this.invalidate(work.native);
+            })
+            .catch((error) => {
+              if (!this.retired) {
+                this.onError(error);
+                if (this.sources.get(pending.key)?.source === pending.source)
+                  this.invalidate(work.native);
+              }
+            })
+            .finally(() => {
+              this.nativeEventsRunning--;
+              this.inFlight.delete(promise);
+              this.schedule();
+            });
+          this.inFlight.add(promise);
+        }
         for (const [key, work] of this.sources) {
           if (this.inFlight.size >= MAX_CONCURRENT) break;
           if (work.source.isRetired?.()) {
@@ -381,6 +526,7 @@ export class ProviderChildRelationshipService {
               this.inFlight.delete(promise);
               if (
                 this.changes.size ||
+                this.nativeEvents.size ||
                 [...this.sources.values()].some((entry) => entry.queued)
               )
                 this.schedule();
@@ -392,8 +538,20 @@ export class ProviderChildRelationshipService {
   }
 
   private async acquire(key: string, work: Work): Promise<void> {
-    const generation = work.generation;
     const source = work.source;
+    try {
+      await this.acquireObservation(key, work, source);
+    } finally {
+      source.releaseObservation?.();
+    }
+  }
+
+  private async acquireObservation(
+    key: string,
+    work: Work,
+    source: ProviderChildSource,
+  ): Promise<void> {
+    const generation = work.generation;
     const previous = this.index.checkpoint(SNAPSHOT_PRODUCER, key);
     const observation = await source.observe(this.lifetime.signal);
     if (this.retired || generation !== work.generation) return;
@@ -413,18 +571,23 @@ export class ProviderChildRelationshipService {
     const owners = new Map([[work.owner.sessionId, work.owner]]);
     let expectedRevision = previous?.revision ?? null;
     const now = new Date().toISOString();
+    const through =
+      previous?.sourceVersion === observation.version
+        ? readThrough(previous.cursor)
+        : 0;
     // Each commit is bounded; an interrupted backfill retains prior accepted facts.
     try {
       for (
-        let start =
-          previous?.sourceVersion === observation.version &&
-          previous.state === observation.state
-            ? readThrough(previous.cursor)
-            : 0;
-        start < Math.max(1, observation.children.length);
+        let start = through;
+        start < Math.max(through + 1, observation.children.length);
         start += COMMIT_BATCH
       ) {
-        if (this.retired || generation !== work.generation) return;
+        if (
+          this.retired ||
+          source.isRetired?.() ||
+          generation !== work.generation
+        )
+          return;
         const batch = observation.children.slice(start, start + COMMIT_BATCH);
         const previousParents: string[] = [];
         const state =
@@ -499,14 +662,28 @@ export class ProviderChildRelationshipService {
     );
     const producer = `provider-child/${parent.family}`;
     const sourceKey = this.key(target);
-    const previousParents = this.index
-      .list({
-        resource: this.resource(target),
-        direction: "incoming",
-        type: "provider_child",
-        limit: 2,
-      })
-      .edges.filter(
+    const parentEdges = this.index.list({
+      resource: this.resource(target),
+      direction: "incoming",
+      type: "provider_child",
+      limit: 2,
+    }).edges;
+    const previousMetadata =
+      child.metadataAvailable === false
+        ? parentEdges
+            .filter(
+              (edge) =>
+                relationshipResourceKey(edge.source) === this.key(parent),
+            )
+            .flatMap((edge) => this.index.evidence(edge.id))
+            .find(
+              (evidence) =>
+                evidence.producer === producer &&
+                evidence.sourceKey === sourceKey,
+            )?.metadata
+        : undefined;
+    const previousParents = parentEdges
+      .filter(
         (edge) => relationshipResourceKey(edge.source) !== this.key(parent),
       )
       .map((edge) => relationshipResourceKey(edge.source));
@@ -518,6 +695,7 @@ export class ProviderChildRelationshipService {
       recordKey: "native-parent",
       trust: "provider-observed",
       metadata: {
+        ...previousMetadata,
         ...(s.title ? { title: truncateSessionTitle(s.title) } : {}),
         ...(s.agentType ? { agentType: s.agentType.slice(0, 256) } : {}),
         ...(s.toolUseId ? { toolUseId: s.toolUseId } : {}),
@@ -549,6 +727,7 @@ export class ProviderChildRelationshipService {
     this.wake = undefined;
     for (const key of this.sources.keys()) this.forget(key);
     this.changes.clear();
+    this.nativeEvents.clear();
     // Every continuation checks retirement before touching SQL. Do not make
     // shutdown wait for a filesystem operation that cannot honor cancellation.
     if (!this.sharedIndex) this.store?.dispose();

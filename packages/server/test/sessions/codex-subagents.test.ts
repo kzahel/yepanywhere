@@ -302,7 +302,9 @@ describe("Codex subagent sessions", () => {
         await new Promise<void>((resolve) => setImmediate(resolve));
       }
       expect(commits).toBe(1);
-      expect(service.accepted(parent, "public-parent")).toEqual(original);
+      expect(service.accepted(parent, "public-parent")).toEqual(
+        source.overlayActivity!(original),
+      );
       expect(source.overlayActivity!(original)[0]!.updatedAt).not.toBe(
         original[0]!.updatedAt,
       );

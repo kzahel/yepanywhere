@@ -466,6 +466,10 @@ export interface AppOptions {
   defaultPermissionMode?: PermissionMode;
   /** EventBus for file change events */
   eventBus?: EventBus;
+  /** Provider observer startup handover; internal, independent of wire events. */
+  subscribeProviderObservationReady?: (
+    listener: (family: ProviderCatalogFamily) => void,
+  ) => () => void;
   /** WebSocket upgrader from @hono/node-server (optional) */
   upgradeWebSocket?: UploadDeps["upgradeWebSocket"];
   /** NotificationService for tracking session read state */
@@ -1641,6 +1645,10 @@ export function createApp(options: AppOptions): AppResult {
         providerChildRelationships.notifyNativeFileChange(event);
     },
   );
+  const unsubscribeProviderObservationReady =
+    options.subscribeProviderObservationReady?.((family) =>
+      providerChildRelationships.observationReady(family),
+    );
   const projectFileCompletion = new ProjectFileCompletion(effectiveDataDir, {
     eventBus: options.eventBus,
   });
@@ -1802,6 +1810,7 @@ export function createApp(options: AppOptions): AppResult {
     sessionReadersDisposal ??= (async () => {
       sessionReadLifetime.abort();
       unsubscribeProviderChildChanges?.();
+      unsubscribeProviderObservationReady?.();
       await providerChildRelationships.close();
       await relationshipReconciliation;
       unsubscribeCreationStatus?.();

@@ -1189,6 +1189,8 @@ async function startServer() {
     defaultPermissionMode: config.defaultPermissionMode,
     eventBus,
     // Note: uploadeWebSocket not passed yet - will be added below
+    subscribeProviderObservationReady: (listener) =>
+      providerSessionWatchers.subscribeReady(listener),
     notificationService,
     sessionMetadataService,
     onSuccessfulProviderSession: async (_sessionId, provider) => {

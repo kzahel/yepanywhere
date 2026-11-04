@@ -42,7 +42,7 @@ export interface FileChangeEvent {
   provider: WatchProvider;
   path: string;
   relativePath: string;
-  /** Physical native store reported by the emitting watcher, never a YA id. */
+  /** Native watch root; graph consumers canonicalize it, never a YA id. */
   nativeStorageScope?: string;
   changeType: FileChangeType;
   timestamp: string;
