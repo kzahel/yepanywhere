@@ -75,7 +75,10 @@ describe("Codex native compaction delivery", () => {
     for (const process of server.supervisor.getAllProcesses())
       await process.abort();
     await server.disposeSessionReaders();
-    await rm(root, { recursive: true });
+    // Windows CI 41790867363 reported EBUSY on the child's cwd after the
+    // verified abort and app disposal. Retry transient filesystem locks;
+    // a directory that remains held must still fail fixture cleanup.
+    await rm(root, { recursive: true, maxRetries: 6, retryDelay: 100 });
     vi.restoreAllMocks();
   });
 
