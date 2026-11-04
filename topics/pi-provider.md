@@ -14,6 +14,25 @@ Candidate designs that are not current behavior, including YA-supplied web
 search/fetch tools for pi, live in
 [`pi-provider.sketches.md`](pi-provider.sketches.md).
 
+## Queued native compaction completion
+
+A successful Pi `compact` RPC is completion evidence: Pi writes the native
+compaction entry and clears manual-compaction state before replying. YA validates
+the returned summary, retained-entry identity and token count, then reports
+`completion: "completed"` to the shared command owner. A dispatch acknowledgement
+alone never releases following queued input. Claude/Codex keep their existing
+native boundary plus terminal-event path.
+
+Queued compact holds later A/B until confirmed completion, then submits them as
+separate turns. Native refusal leaves the failed compact visible and later input
+held until explicit cancellation. Transport loss, timeout or malformed success
+is uncertain and cannot release later input on guessed success. Hard shutdown
+joins native abort; it does not turn an interrupted compact into success.
+The native suite proves persisted compaction, its summary in the next request,
+separate following turns, controlled model refusal and abort while summarizing.
+Existing hosted workers adopt these provider changes only after worker restart;
+this does not add a public Pi command inventory or new UI control.
+
 ## Live model selection acknowledgement
 
 YA applies a live model selection only after native RPC `set_model` returns

@@ -200,6 +200,10 @@ export interface ProviderCommandResult {
   error?: string;
   /** Dispatch transport failed without a definitive provider refusal. */
   uncertain?: true;
+  /** Native work and persistence are confirmed complete and subsequent input is safe.
+   * Omit for dispatch acknowledgements whose completion arrives on the event stream.
+   */
+  completion?: "completed";
   /** Optional YA-local result to publish without creating a provider turn. */
   output?: ProviderCommandOutput;
 }

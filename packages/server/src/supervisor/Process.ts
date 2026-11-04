@@ -6084,8 +6084,18 @@ export class Process {
           return;
         }
       }
+      const completed =
+        result.handled &&
+        result.completion === "completed" &&
+        !result.uncertain;
+      if (completed) {
+        operation.boundary = true;
+        operation.ready = true;
+      }
       operation.dispatched = true;
       this.completeQueuedCompactionIfReady();
+      if (completed && !this.inputRejectionError())
+        await this.transitionToIdle();
     } catch (error) {
       if (this.queuedCompaction === operation) {
         operation.dispatched = true;

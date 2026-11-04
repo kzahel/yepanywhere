@@ -82,6 +82,19 @@ capability or a new provider-specific lifecycle framework. See
 [session identity](session-identity.md#managed-dispatch-boundary) for rollout
 limits; routing, sandbox, hosting and remaining input shapes stay gated there.
 
+### Native command completion
+
+`ProviderCommandResult.handled` is dispatch ownership, not proof of completion.
+An adapter may additionally return `completion: "completed"` only when native
+work and persistence are confirmed finished and following input is safe. The
+shared queued-compact gate accepts that explicit synchronous evidence or its
+existing native compact-boundary plus terminal events. It never infers completion
+from a summary response, timeout, optimistic echo or an ordinary dispatch reply.
+An explicit refusal stays failed; lost/malformed completion stays uncertain.
+Pi's compact RPC uses synchronous evidence. Claude/Codex retain asynchronous
+native completion. This optional internal result crosses the existing host RPC;
+it adds no browser capability and older workers do not acquire new behavior.
+
 ### Scoped native continuation
 
 `ProviderSessionSource` carries one proven native reference, physical transcript

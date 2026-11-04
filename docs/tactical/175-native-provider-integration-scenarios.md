@@ -449,3 +449,16 @@ successful native and shared ownership checks establish the repaired contract.
 Measure retained startup, scenarios and teardown costs, and keep full-app
 qualification separate from the fast Process-level baseline. Record exact
 platform results and remaining failure schedules in the owning topic docs.
+
+### Pi completion implementation evidence
+
+The pinned Pi 1.4.0 executable persisted a real compaction summary and returned
+its successful RPC result while YA still held compact/A/B. The unchanged native
+scenario failed before the repair. The adapter now validates native completion
+metadata and returns an explicit synchronous-completion fact; the shared gate
+uses it without fabricating a provider event. Lost/invalid RPC evidence stays
+uncertain. Successful compact, native refusal, controlled model failure and
+hard abort pass together with existing Claude/Codex and gate tests (22 cases,
+4.12 s local). Full workspace passes (6,950 server cases, 151.50 s), with existing
+negative-fixture diagnostic debt retained separately. No public capability or
+macOS default changes are involved.

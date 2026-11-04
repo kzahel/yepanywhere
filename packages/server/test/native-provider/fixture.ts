@@ -34,7 +34,7 @@ import type {
   AgentSession,
   StartSessionOptions,
 } from "../../src/sdk/providers/types.js";
-import type { SDKMessage } from "../../src/sdk/types.js";
+import type { SDKMessage, ProviderCommandResult } from "../../src/sdk/types.js";
 import { Process } from "../../src/supervisor/Process.js";
 import * as logging from "../../src/logging/logger.js";
 import pino from "pino";
@@ -70,6 +70,7 @@ interface FixtureOptions {
   permissionMode?: StartSessionOptions["permissionMode"];
   onToolApproval?: StartSessionOptions["onToolApproval"];
   gitProject?: boolean;
+  piKeepRecentTokens?: number;
 }
 
 export async function nativeFixture(
@@ -223,6 +224,10 @@ export async function nativeFixture(
   );
   const loggerSpy = vi.spyOn(logging, "getLogger").mockReturnValue(logger);
   let resolveSteer!: (accepted: boolean) => void;
+  let resolveCommand!: (result: ProviderCommandResult) => void;
+  let commandResult = new Promise<ProviderCommandResult>((resolve) => {
+    resolveCommand = resolve;
+  });
   let steerAccepted = new Promise<boolean>((resolve) => {
     resolveSteer = resolve;
   });
@@ -252,6 +257,9 @@ export async function nativeFixture(
     stopping = undefined;
     steerAccepted = new Promise((resolve) => {
       resolveSteer = resolve;
+    });
+    commandResult = new Promise((resolve) => {
+      resolveCommand = resolve;
     });
     session = await adapter.startSession({
       cwd: project,
@@ -301,7 +309,16 @@ export async function nativeFixture(
       steerUsesMessageQueue: nativeSession.steerUsesMessageQueue,
       setModelFn: nativeSession.setModel,
       setEffortFn: nativeSession.setEffort,
-      runProviderCommandFn: nativeSession.runProviderCommand,
+      runProviderCommandFn: nativeSession.runProviderCommand
+        ? async (command, argument) => {
+            const result = await nativeSession.runProviderCommand!(
+              command,
+              argument,
+            );
+            resolveCommand(result);
+            return result;
+          }
+        : undefined,
       isProcessAlive: nativeSession.isProcessAlive,
       probeLivenessFn: nativeSession.probeLiveness,
       deferredDelivery: {
@@ -392,6 +409,16 @@ export async function nativeFixture(
         },
       }),
     );
+    if (options.piKeepRecentTokens !== undefined)
+      await writeFile(
+        join(environment.PI_CODING_AGENT_DIR!, "settings.json"),
+        JSON.stringify({
+          compaction: {
+            enabled: false,
+            keepRecentTokens: options.piKeepRecentTokens,
+          },
+        }),
+      );
     await writeFile(
       environment.OPENCODE_CONFIG!,
       JSON.stringify({
@@ -506,6 +533,9 @@ export async function nativeFixture(
       },
       get steerAccepted() {
         return steerAccepted;
+      },
+      get commandResult() {
+        return commandResult;
       },
       nativeId: id,
       message: waitForMessage,

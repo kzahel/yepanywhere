@@ -778,13 +778,31 @@ export class PiProvider implements AgentProvider {
         },
         120000,
       );
-      return r.success
-        ? { handled: true }
-        : { handled: true, error: r.error ?? "compact failed" };
+      if (!r.success)
+        return { handled: true, error: r.error ?? "compact failed" };
+      const data = r.data as Record<string, unknown> | undefined;
+      if (
+        !data ||
+        typeof data.summary !== "string" ||
+        !data.summary.trim() ||
+        typeof data.firstKeptEntryId !== "string" ||
+        !data.firstKeptEntryId ||
+        typeof data.tokensBefore !== "number" ||
+        !Number.isFinite(data.tokensBefore) ||
+        data.tokensBefore < 0
+      )
+        return {
+          handled: true,
+          error: "Pi compact returned invalid completion evidence",
+          uncertain: true,
+        };
+      // Pi persists the compaction and clears its busy state before replying.
+      return { handled: true, completion: "completed" };
     } catch (error) {
       return {
         handled: true,
         error: error instanceof Error ? error.message : String(error),
+        uncertain: true,
       };
     }
   }
