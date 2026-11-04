@@ -68,10 +68,11 @@ no wire capability and changes no access grants.
   incoming/outgoing reads. Partial replacement preserves last-known facts until
   completion. Real-SQL tests cover upgrade/reopen, rollback, stale/replayed work,
   scopes, repeated reconciliation and mixed-direction pagination. Node 22/24 and
-  pinned Bun probes exercise the portable SQL boundary. There are no writers or
-  wire changes yet. Ordering is stable hash/key order; provider-child projections
+  pinned Bun probes exercise the portable SQL boundary. That foundation added
+  no writers or wire changes. Ordering is stable hash/key order; provider-child projections
   must preserve their own established display order. Full evidence-history
-  cursor navigation remains a query-adapter concern.
+  cursor navigation remains a query-adapter concern. Writers arrived in the
+  authoritative owner slice below; this foundation alone did not add them.
 - Design and native qualification strategy recorded. Existing provider-child
   discovery still blocks detail for adapters not yet migrated below.
 
@@ -105,8 +106,8 @@ no wire capability and changes no access grants.
   field-bearing events do not induce fresh discovery on supported older servers.
   The audit evidence is
   retained under the ignored task directory. Other providers, authoritative
-  YA/v0 writers, generic queries and removal of remaining legacy discovery
-  owners and retained collection-feed joins are still outstanding.
+  generic queries and removal of remaining legacy discovery owners and retained
+  collection-feed joins remain outstanding. YA/v0 writers follow below.
 - Opus review found activity-triggered SQL/event churn and missing list-only
   acquisition. The fixes split structural versions from catalog activity
   overlays, coalesce scope/child invalidations, register finite list acquisition
@@ -188,3 +189,76 @@ Bun 1.3.14 server under a Node fixture coordinator: 1.34 / 1.33 seconds readable
 and maximum input acknowledgement 22.9 / 14.8 ms on desktop / phone. The final
 Node run under concurrent workspace verification remained below 32 ms per key.
 All owned browser/server processes were disposed after each run.
+
+### Authoritative creation and receipt writers
+
+Common admission now commits exact copy, aside and successor relationships
+with its identity/operation/metadata transaction. Restart-fork preserves both
+continuation and copy meaning; the existing clone route records the actual
+typed provider copy operation. Legacy metadata yields `derived_from` only when
+the exact subtype is unavailable. Content deletion and saved-payload retention
+do not erase historical facts or weaken an exact copy into ambiguous lineage.
+
+V0 creator publication joins the existing trusted receipt and exact admitted
+input correlation before provider effects, closing the admission-to-callback
+crash window without adding a launch journal. Later receipt and confirmed
+outbound-peer changes commit their graph updates atomically; observers run
+after commit. Pending identities remain absent, and an outcome becoming
+uncertain never resends work or erases a proved creation. Incoming peer
+attestation and source-side authenticated intent retain distinct trust and
+both server ids. Operator-only calls and existing-session sends create no
+session-to-session creator edge.
+
+A finite SQL-only reconciliation imports existing owners in 100-row pages,
+with atomic progress, restart and cancellation. It selects structural fields
+rather than prompts, credentials, proofs or native source paths. A
+profile-connection owner shares the lazy graph statements across all writers
+and native acquisition. Existing alias resolution remains with the receipt
+owner. There is no new wire contract or authorization behavior.
+
+Qualification passes: real SQLite admission/receipt/outbound rollback,
+reopen, corrected targets, peer namespaces, missing attestation, exact native
+receipt correlation, interrupted 205-row import and source/payload deletion.
+Existing native admission checks now inspect creation edges before provider
+startup; the retained restart-fork integration checks both predicates after a
+failed continuation. The portable runtime contract exercises atomic admission,
+correlated backfill and reopen on Node 22/24 and pinned Bun 1.3.14. The final
+root checks pass: lint has zero warnings, formatting and types pass, and
+7,010 server / 7,110 client tests pass (148.24 / 127.02 seconds locally).
+The existing negative-fixture and asynchronous client navigation diagnostic
+debt remains under its existing gaps; focused writer/admission checks are clean.
+
+Opus review found two authority/projection defects. Caller-provided clone
+parents now become immutable aside intent only when equal to the authorized
+clone source; other pointers stay descriptive metadata. Explicitly clearing
+metadata lineage now retires that producer while preserving independently
+admitted facts. Real clone-route cases cover matched, unrelated and legacy
+invalid parent syntax; real-SQL cases cover clear/re-point/delete and independent
+evidence. Optional review notes on importer-version completion, retained
+conflicts and local intent versus peer-reported outcomes are explicit in the
+owning contract. Opus re-reviewed and accepted both corrections.
+
+A further reproduced import defect mixed JS UTF-16 order with SQLite UTF-8
+binary order for opaque Unicode ids at a full-page boundary. SQL now owns all
+ordering/range comparisons; the page terminates only on a short page or exact
+high-key equality. Both a real-SQL regression and the Node 22/24/Bun contract
+exercise the formerly skipped astral id. The v23 migration test now seeds frozen
+historical owner/allocation rows before upgrading, then uses current writers;
+it no longer invokes today's writer against a schema missing its tables.
+Opus reviewed that delta and accepted it. Nine new SQL integration cases take
+approximately 0.1 seconds; the expanded 26-case owner/admission group passes.
+
+The local M4 Pro diagnostic imported 1,000 synthetic admitted sessions, each
+with a 100 KB prompt in both saved intent and metadata (approximately 200 MB
+of source bodies), in 0.20 seconds on Node 24 and 0.26 seconds on Bun 1.3.14.
+It yielded through 22 transactions; the maximum transaction was 19.4 / 28.8 ms.
+A 100-edge indexed page had a 0.12 / 0.095 ms median across 15 reads.
+These are diagnostics during concurrent workspace verification, not portable
+ceilings or HTTP timings. Automatic host samples reported up to 2.13 load per
+effective CPU and at least 2.6 GiB available memory; generic Darwin CPU-busy
+and swap counters were unavailable. Raw host/source evidence stays ignored.
+
+Remaining work includes generic authorized graph projections, other provider
+child adapters and qualification, retained collection-feed joins, bounded
+nested-harness reverse indexing, and migration of remaining legacy consumers.
+The full design is not complete with these writers.

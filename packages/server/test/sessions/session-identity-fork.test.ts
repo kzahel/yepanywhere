@@ -206,6 +206,43 @@ it("forks and clones the native Claude source while keeping public lineage and d
             ),
           ).toContain("correct private parent history");
         }
+        // Only the actual clone source can become immutable server-owned
+        // aside intent. Other caller pointers retain their descriptive metadata
+        // behavior, including legacy values outside current identity syntax.
+        for (const parentSessionId of [
+          publicId,
+          "unrelated-private-session",
+          "legacy/parent",
+        ]) {
+          const response = await app.app.request(
+            `/api/projects/${workingProjectId}/sessions/${publicId}/clone`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Yep-Anywhere": "true",
+              },
+              body: JSON.stringify({ parentSessionId }),
+            },
+          );
+          expect(response.status, await response.clone().text()).toBe(200);
+          const { sessionId: childId } = await response.json();
+          children.push(childId);
+          expect(metadata.getMetadata(childId)?.parentSessionId).toBe(
+            parentSessionId,
+          );
+          const aside = metadata.relationships.index.list({
+            resource: metadata.relationships.session(childId),
+            direction: "outgoing",
+            type: "aside_of",
+          }).edges;
+          const trusted = aside.filter((edge) =>
+            metadata.relationships.index
+              .evidence(edge.id)
+              .some((evidence) => evidence.producer === "ya-creation-v1"),
+          );
+          expect(trusted).toHaveLength(parentSessionId === publicId ? 1 : 0);
+        }
         const unsupported = storage
           .getDatabase()
           .prepare(
@@ -348,9 +385,22 @@ it("forks and clones the native Claude source while keeping public lineage and d
           parseYaSessionId(retained.sessionId),
         );
         expect(savedRestart).toMatchObject({
-          request: { intent: "copy", message: "SAVED_RESTART_CONTINUATION" },
+          request: {
+            intent: "copy",
+            message: "SAVED_RESTART_CONTINUATION",
+            lineage: { continuedFrom: publicId },
+          },
           attempt: { kind: "copy", state: "bound" },
         });
+        expect(
+          metadata.relationships.index
+            .list({
+              resource: metadata.relationships.session(retained.sessionId),
+              direction: "outgoing",
+            })
+            .edges.map((edge) => edge.type)
+            .sort(),
+        ).toEqual(["continued_from", "forked_from"]);
         expect(
           metadata.getMetadata(retained.sessionId)?.creationProvenance,
         ).toEqual({ surface: "desktop" });

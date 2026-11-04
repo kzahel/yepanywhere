@@ -437,6 +437,7 @@ export interface SessionLaunchOptions {
     attachments?: CreationAttachmentSource;
     intent?: "prepare";
     nativeReceiptId?: string;
+    lineage?: import("../sessions/SessionRelationshipWriter.js").CreationLineage;
     onAccepted?: (saved: SavedSessionCreation) => void | Promise<void>;
     authorize: AuthorizeSessionCreation;
   };
@@ -1637,6 +1638,7 @@ export class Supervisor {
       const creation = launchOptions.creation;
       const request = {
         submissionHash: launchOptions.creation.submissionHash,
+        lineage: creation.lineage,
         projectId,
         projectPath,
         provider: provider.name,
@@ -3647,6 +3649,7 @@ export class Supervisor {
                 boundary: options.boundary,
                 title: options.title,
               },
+              lineage: options.creation.lineage,
             },
           })
         : undefined;

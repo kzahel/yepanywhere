@@ -6,6 +6,7 @@ import {
   type ApiReceipt,
 } from "../core-api/command-contracts.js";
 import { CoreApiError } from "../core-api/errors.js";
+import { profileSessionRelationships } from "../sessions/SessionRelationshipWriter.js";
 
 /** Durable intent before network I/O. Stores hashes and outcomes, never prompt bodies. */
 export class PeerOutboundStore {
@@ -27,7 +28,12 @@ export class PeerOutboundStore {
         };
       });
   }
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(
+    private readonly database: SqliteDatabase,
+    readonly relationships = profileSessionRelationships(database),
+  ) {
+    relationships.assertProfileConnection(database);
+  }
   private statement(sql: string) {
     let statement = this.statements.get(sql);
     if (!statement) {
@@ -98,6 +104,11 @@ export class PeerOutboundStore {
     });
   }
   confirm(record: ApiOutbound, receipt: ApiReceipt) {
+    return this.database.transaction(() =>
+      this.confirmWithinTransaction(record, receipt),
+    );
+  }
+  private confirmWithinTransaction(record: ApiOutbound, receipt: ApiReceipt) {
     const row = this.statement(
       "SELECT record_json FROM peer_api_outbound WHERE id = ?",
     ).get<{ record_json: string }>(record.id);
@@ -108,18 +119,29 @@ export class PeerOutboundStore {
         404,
       );
     const current = outboundSchema.parse(JSON.parse(row.record_json));
+    if (
+      receipt.destinationServerId !== current.destinationServerId ||
+      receipt.creator.serverId !== current.sourceServerId ||
+      receipt.creator.principal.kind !== "peer" ||
+      receipt.creator.sessionId !== current.attestedSessionId ||
+      receipt.requestId !== current.requestId ||
+      receipt.kind !== current.operation
+    )
+      throw new CoreApiError(
+        "peer_identity_mismatch",
+        "Observed peer receipt attribution does not match",
+        502,
+      );
+    const next: ApiOutbound = {
+      ...current,
+      state: "confirmed",
+      receipt,
+      destinationSessionId: receipt.sessionId ?? current.destinationSessionId,
+    };
     this.statement(
       "UPDATE peer_api_outbound SET record_json = ?, remote_receipt_id = ? WHERE id = ?",
-    ).run(
-      JSON.stringify({
-        ...current,
-        state: "confirmed",
-        receipt,
-        destinationSessionId: receipt.sessionId ?? current.destinationSessionId,
-      }),
-      receipt.id,
-      record.id,
-    );
+    ).run(JSON.stringify(next), receipt.id, record.id);
+    this.relationships.outboundWithinTransaction(next);
   }
   /** Only an already correlated receipt can enrich its source-side binding. */
   observe(serverId: string, receipt: ApiReceipt) {
@@ -142,7 +164,7 @@ export class PeerOutboundStore {
             "Observed peer receipt attribution does not match",
             502,
           );
-        this.confirm(record, receipt);
+        this.confirmWithinTransaction(record, receipt);
       }
     });
   }

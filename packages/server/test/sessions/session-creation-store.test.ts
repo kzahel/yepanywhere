@@ -132,19 +132,36 @@ it("preserves unresolved allocations when upgrading to Antigravity admission", a
   migrateDiscoveryDatabase(database, discoveryMigrationPrefix(23));
   const root = await mkdtemp(join(tmpdir(), "ya-agy-migration-"));
   roots.push(root);
-  const metadata = new SessionMetadataService({ database, dataDir: root });
-  await metadata.initialize();
-  const store = new SessionCreationStore(database, metadata);
-  const saved = store.admit({ requestId: "existing-claim", context, request });
-  store.beginDispatch(saved.attempt, {
-    family: "claude",
-    storageScope: "/native/existing",
-  });
+  // Frozen v23 owner rows, not current writers against a pre-migration schema.
+  // The payload has already been pruned; the unresolved native allocation is
+  // independent durable control state and must survive the additive upgrade.
+  const time = "2026-11-01T00:00:00.000Z";
+  const identity = database.prepare(
+    "INSERT INTO session_identities (session_id, provider, project_id, created_at) VALUES (?, 'claude', ?, ?)",
+  );
+  const operation = database.prepare(
+    "INSERT INTO session_creations (id, owner_key, request_key, request_hash, session_id, payload_json, payload_bytes, context_json, current_attempt, attempt_count, created_at, initial_input_id) VALUES ('existing-operation', 'limited:alice', 'existing-claim', ?, 'existing-public', NULL, 0, ?, 'existing-attempt', 1, ?, 'existing-input')",
+  );
+  try {
+    database.transaction(() => {
+      identity.run("existing-public", request.projectId, time);
+      operation.run("f".repeat(64), JSON.stringify(context), time);
+      database.exec(`INSERT INTO session_creation_attempts (id, creation_id, generation, state, delivery, detail_json, detail_bytes, updated_at) VALUES ('existing-attempt', 'existing-operation', 1, 'dispatching', 'uncertain', '{}', 2, '${time}');
+        INSERT INTO native_session_allocations VALUES ('existing-operation', 'existing-attempt', 1, 'claude', '/native/existing');
+        UPDATE session_creation_capacity SET operations = 1, attempt_bytes = 2, generation = 2 WHERE id = 1;`);
+    });
+  } finally {
+    identity.finalize();
+    operation.finalize();
+  }
   const before = rows(database, "SELECT * FROM native_session_allocations");
   migrateDiscoveryDatabase(database);
   expect(rows(database, "SELECT * FROM native_session_allocations")).toEqual(
     before,
   );
+  const metadata = new SessionMetadataService({ database, dataDir: root });
+  await metadata.initialize();
+  const store = new SessionCreationStore(database, metadata);
   const preview = store.admit({
     requestId: "agy-claim",
     context,

@@ -234,7 +234,10 @@ export class PeerAccessManager {
       );
     this.projects = projects;
     this.receipts = receipts;
-    this.outbound = new PeerOutboundStore(database);
+    this.outbound = new PeerOutboundStore(
+      database,
+      receipts.relationshipWriter,
+    );
     this.router = new PeerApiRouter(
       core,
       this.outbound,

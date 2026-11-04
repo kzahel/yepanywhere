@@ -23,3 +23,10 @@ identity/storage and native detail reads, and its 79 focused checks are clean.
 The diagnostic still cannot be attributed from its timer-only stack; no global
 link behavior or jsdom suppression was introduced. Evidence: ignored
 `tasks/session-identity/phase-2-test.log`.
+
+2026-11-04: the relationship-writer workspace run repeats the same two
+timer-only navigation diagnostics while all 7,110 client tests pass. The slice
+changes SQL ownership and server admission only; its focused writer/admission
+checks are clean. Attribution still requires a separate client fixture audit,
+so no global navigation or jsdom suppression was added. Evidence: ignored
+`tasks/session-relationships/slice-4-qualified-unit.log`.

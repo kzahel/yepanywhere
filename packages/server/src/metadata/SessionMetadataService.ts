@@ -34,6 +34,10 @@ import {
 import { createCoalescingSaver } from "../lib/coalescingSaver.js";
 import { SessionCreationStore } from "../sessions/SessionCreationStore.js";
 import { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
+import {
+  profileSessionRelationships,
+  type SessionRelationshipWriter,
+} from "../sessions/SessionRelationshipWriter.js";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
 
 export type { EffectiveSessionLaunchSettings } from "@yep-anywhere/shared";
@@ -235,6 +239,13 @@ export function goalCommandOf(
 export class SessionMetadataService {
   private identityStore?: SessionIdentityStore;
   private creationStore?: SessionCreationStore;
+  private relationshipWriter?: SessionRelationshipWriter;
+
+  /** Admission, receipts and native acquisition share one profile SQL index. */
+  get relationships(): SessionRelationshipWriter {
+    this.relationshipWriter ??= profileSessionRelationships(this.database);
+    return this.relationshipWriter;
+  }
 
   /** One durable creation owner on the same profile connection as metadata. */
   get creations(): SessionCreationStore {
@@ -270,6 +281,7 @@ export class SessionMetadataService {
       throw new Error("Creation cannot replace existing session metadata");
     const text = JSON.stringify(metadata);
     const snapshot: SessionMetadata = JSON.parse(text);
+    const relationships = this.relationships;
     const result = this.database.transaction(() => {
       const value = write();
       if (
@@ -279,6 +291,7 @@ export class SessionMetadataService {
       )
         throw new Error("Creation transaction requires synchronous writes");
       this.statements.upsert.run(sessionId, text);
+      relationships.metadataWithinTransaction(sessionId, snapshot);
       return value;
     });
     this.state.sessions[sessionId] = snapshot;
@@ -1488,9 +1501,11 @@ export class SessionMetadataService {
     );
     if (changed.size === 0 && removed.length === 0) return;
     try {
+      const relationships = this.relationships;
       this.database.transaction(() => {
         for (const [sessionId, text] of changed) {
           this.statements.upsert.run(sessionId, text);
+          relationships.metadataWithinTransaction(sessionId, JSON.parse(text));
         }
         for (const sessionId of removed) {
           this.statements.remove.run(sessionId);

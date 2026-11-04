@@ -49,6 +49,7 @@ it.each(["superuser", "peer"] as const)(
     const consumed: string[] = [];
     const deliveredText: string[] = [];
     const provenanceCountsAtStart: number[] = [];
+    const creatorCountsAtStart: number[] = [];
     let releaseFirst!: () => void;
     const firstTurn = new Promise<void>((resolve) => (releaseFirst = resolve));
     let firstConsumed!: () => void;
@@ -73,6 +74,17 @@ it.each(["superuser", "peer"] as const)(
       }),
       async startSession(request: StartSessionOptions) {
         starts++;
+        creatorCountsAtStart.push(
+          metadata.relationships.index.list({
+            resource: {
+              kind: "session",
+              serverId: "A",
+              sessionId: request.publicSessionId!,
+            },
+            direction: "incoming",
+            type: "created_session",
+          }).edges.length,
+        );
         provenanceCountsAtStart.push(
           Object.values(metadata.getAllMetadata()).filter(
             (m) => m.creationProvenance?.surface === "api",
@@ -309,6 +321,7 @@ it.each(["superuser", "peer"] as const)(
       expect(starts).toBe(2);
       // Assert outside the expected failure path: no swallowed provider assertion.
       expect(provenanceCountsAtStart).toEqual([1, 2]);
+      expect(creatorCountsAtStart).toEqual([1, 1]);
     } finally {
       releaseFirst();
       commands.close();

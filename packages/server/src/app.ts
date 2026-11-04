@@ -16,6 +16,8 @@ import { createPeerOwnerBinding } from "./peer-api/owner-proof.js";
 import { createPeerManagementRoutes } from "./peer-api/routes.js";
 import { API_OWNER_VARIABLE } from "./core-api/contracts.js";
 import { ApiReceiptStore } from "./core-api/receipt-store.js";
+import { profileSessionRelationships } from "./sessions/SessionRelationshipWriter.js";
+import { reconcileSessionRelationships } from "./sessions/session-relationship-reconciliation.js";
 import { SessionCommands } from "./core-api/session-commands.js";
 import { nativeSessionCommandOwner } from "./core-api/native-session-commands.js";
 import type { MiddlewareHandler, Context } from "hono";
@@ -848,6 +850,13 @@ export function createApp(options: AppOptions): AppResult {
     throw error;
   }
   let draftStore: DraftStore | undefined;
+  // Embedders can supply metadata on another connection to this same profile.
+  // Share statements by exact connection; each source's graph write remains in
+  // its own transaction, while both connections read the same committed SQL.
+  const sessionRelationships = profileSessionRelationships(
+    discoverySqlite.getDatabase(),
+    publicServerId,
+  );
   try {
     draftStore = new DraftStore(discoverySqlite.getDatabase());
   } catch (error) {
@@ -1599,6 +1608,17 @@ export function createApp(options: AppOptions): AppResult {
   /** Least recently used first; bounded by `maxReaderCacheSize`. */
   const readerCache = createLruMap<string, ISessionReader>();
   const sessionReadLifetime = new AbortController();
+  const relationshipReconciliation = reconcileSessionRelationships(
+    discoverySqlite.getDatabase(),
+    sessionRelationships,
+    sessionReadLifetime.signal,
+    (id) => apiReceipts!.resolveId(id),
+  ).catch((error) => {
+    getLogger().error(
+      { event: "session_relationship_reconciliation_failed", error },
+      "Session relationship reconciliation stopped; retained progress will resume on restart",
+    );
+  });
   const providerChildRelationships = new ProviderChildRelationshipService(
     discoverySqlite.getDatabase(),
     publicServerId,
@@ -1613,6 +1633,7 @@ export function createApp(options: AppOptions): AppResult {
         { event: "provider_child_observation_failed", error },
         "Provider child observation unavailable",
       ),
+    () => sessionRelationships.index,
   );
   const unsubscribeProviderChildChanges = options.eventBus?.subscribe(
     (event) => {
@@ -1782,6 +1803,7 @@ export function createApp(options: AppOptions): AppResult {
       sessionReadLifetime.abort();
       unsubscribeProviderChildChanges?.();
       await providerChildRelationships.close();
+      await relationshipReconciliation;
       unsubscribeCreationStatus?.();
       hostAgentProcessService?.close();
       externalTracker?.dispose();
@@ -3794,7 +3816,10 @@ export function createApp(options: AppOptions): AppResult {
     }),
   );
 
-  apiReceipts = new ApiReceiptStore(discoverySqlite.getDatabase());
+  apiReceipts = new ApiReceiptStore(
+    discoverySqlite.getDatabase(),
+    sessionRelationships,
+  );
   apiCommands = new SessionCommands(
     publicServerId,
     apiReceipts,

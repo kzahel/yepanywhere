@@ -2057,6 +2057,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   const creationForRequest = (
     c: Context,
     declared: unknown,
+    lineage?: import("../sessions/SessionRelationshipWriter.js").CreationLineage,
   ): NonNullable<SessionLaunchOptions["creation"]> => {
     const principal = principalFor(c);
     const liveDesktopOrigin = desktopControlOrigin(c);
@@ -2072,6 +2073,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     };
     return {
       context,
+      lineage,
       async authorize(saved) {
         if (deps.signal?.aborted)
           throw new Error("Session owner is shutting down");
@@ -5670,7 +5672,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       let fork: Awaited<ReturnType<Supervisor["forkSession"]>>;
       try {
         fork = await deps.supervisor.forkSession({
-          creation: creationForRequest(c, body.creationProvenance),
+          creation: creationForRequest(c, body.creationProvenance, {
+            continuedFrom: sessionId,
+          }),
           sessionId,
           projectPath: restartProjectPath,
           providerName: sourceProvider,
@@ -5922,7 +5926,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             : [body.model, model],
         }),
       },
-      { creation: creationForRequest(c, body.creationProvenance) },
+      {
+        creation: creationForRequest(c, body.creationProvenance, {
+          continuedFrom: sessionId,
+        }),
+      },
     );
 
     if (isQueueFullResponse(result)) {
@@ -6169,7 +6177,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         },
         {
           projectId: project.id,
-          creation: creationForRequest(c, body.creationProvenance),
+          creation: creationForRequest(c, body.creationProvenance, {
+            continuedFrom: sessionId,
+          }),
         },
       );
       if (isQueueFullResponse(result)) {
@@ -9157,7 +9167,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             ? (originalMetadata.sandboxProjectPath ?? project.path)
             : project.path;
         const fork = await deps.supervisor.forkSession({
-          creation: creationForRequest(c, undefined),
+          creation: creationForRequest(c, undefined, {
+            asideOf: parentSessionId === sessionId ? sessionId : undefined,
+          }),
           sessionId,
           projectPath: forkProjectPath,
           providerName: cloneProvider,
@@ -9187,7 +9199,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           providerName: cloneProvider,
           title: cloneTitle,
           launchSettings: cloneSettings,
-          creation: creationForRequest(c, body.creationProvenance),
+          creation: creationForRequest(c, body.creationProvenance, {
+            asideOf: parentSessionId === sessionId ? sessionId : undefined,
+          }),
           ...inheritedSandboxSettings(originalMetadata),
         });
         result = {

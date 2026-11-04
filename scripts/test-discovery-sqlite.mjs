@@ -24,6 +24,18 @@ const { SessionRelationshipStore } = await import(
   pathToFileURL(resolve(storageDir, "../sessions/SessionRelationshipStore.js"))
     .href
 );
+const { SessionMetadataService } = await import(
+  pathToFileURL(resolve(storageDir, "../metadata/SessionMetadataService.js"))
+    .href
+);
+const { ApiReceiptStore } = await import(
+  pathToFileURL(resolve(storageDir, "../core-api/receipt-store.js")).href
+);
+const { reconcileSessionRelationships } = await import(
+  pathToFileURL(
+    resolve(storageDir, "../sessions/session-relationship-reconciliation.js"),
+  ).href
+);
 
 // This must execute on both engines: Bun includes trigger writes in changes,
 // while Node reports only the direct row. A migration-only probe misses that.
@@ -101,10 +113,138 @@ function openService(dataDir, extra = {}) {
   connections.push(service);
   return service;
 }
+async function relationshipWriterContract(dataDir) {
+  const service = openService(dataDir),
+    database = service.getDatabase();
+  const metadata = new SessionMetadataService({ dataDir, database });
+  await metadata.initialize();
+  const receipts = new ApiReceiptStore(database);
+  assert.equal(receipts.relationshipWriter, metadata.relationships);
+  const serverId = metadata.relationships.serverId;
+  const { receipt } = receipts.reserve({
+    requestId: "runtime-create-0001",
+    kind: "createSession",
+    projectId: "fixture",
+    sessionId: null,
+    creator: {
+      serverId,
+      sessionId: "initiator",
+      launchId: "launch",
+      principal: { kind: "superuser" },
+    },
+    destinationServerId: serverId,
+    payload: { message: "private prompt" },
+  });
+  const projectPath = join(dataDir, "project");
+  const input = {
+    requestId: receipt.id,
+    context: {
+      owner: { kind: "superuser" },
+      source: { kind: "request", provenance: { surface: "api" } },
+    },
+    request: {
+      provider: "claude",
+      projectId: Buffer.from(projectPath).toString("base64url"),
+      projectPath,
+      message: "private prompt",
+      settings: {
+        permissionMode: "default",
+        requestedModel: null,
+        serviceTier: null,
+        thinking: null,
+        effort: null,
+      },
+      lineage: { continuedFrom: "previous" },
+      input: { schemaVersion: 1, nativeReceiptId: receipt.id },
+    },
+  };
+  database.exec(
+    "CREATE TRIGGER fail_relationship BEFORE INSERT ON session_relationship_evidence BEGIN SELECT RAISE(ABORT, 'atomic projection failure'); END;",
+  );
+  assert.throws(
+    () => metadata.creations.admit(input),
+    /atomic projection failure/,
+  );
+  assert.deepEqual(metadata.getAllMetadata(), {});
+  assert.equal(
+    metadata.creations.get({ kind: "superuser" }, receipt.id),
+    undefined,
+  );
+  database.exec("DROP TRIGGER fail_relationship");
+  const saved = metadata.creations.admit(input);
+  const read = () =>
+    metadata.relationships.index.list({
+      resource: metadata.relationships.session(saved.sessionId),
+    }).edges;
+  assert.deepEqual(
+    read()
+      .map((edge) => edge.type)
+      .sort(),
+    ["continued_from", "created_session"],
+  );
+  assert.equal(receipts.get(receipt.id).sessionId, null);
+  const legacy = database.prepare(
+    "INSERT INTO session_metadata(session_id, metadata) VALUES (?, ?)",
+  );
+  try {
+    database.transaction(() => {
+      for (const id of [
+        ...Array.from(
+          { length: 98 },
+          (_, i) => `ascii-${String(i).padStart(3, "0")}`,
+        ),
+        "\uE000",
+        "\u{10000}",
+      ])
+        legacy.run(id, '{"forkedFromSessionId":"origin"}');
+    });
+  } finally {
+    legacy.finalize();
+  }
+  // Rebuild from the existing owners and their exact correlation, without
+  // changing the receipt's unresolved outcome or dispatching any provider.
+  database.exec(
+    "DELETE FROM session_relationship_evidence; DELETE FROM session_relationship_edges; DELETE FROM session_relationship_checkpoints;",
+  );
+  await reconcileSessionRelationships(
+    database,
+    metadata.relationships,
+    new AbortController().signal,
+  );
+  assert.equal(read().length, 2);
+  assert.equal(
+    metadata.relationships.index.list({
+      resource: metadata.relationships.session("\u{10000}"),
+    }).edges.length,
+    1,
+  );
+  receipts.update(receipt.id, {
+    sessionId: saved.sessionId,
+    state: "accepted",
+  });
+  assert.equal(metadata.creations.admit(input).sessionId, saved.sessionId);
+  receipts.close();
+  service.close();
+  const reopened = openService(dataDir);
+  const next = new SessionMetadataService({
+    dataDir,
+    database: reopened.getDatabase(),
+  });
+  await next.initialize();
+  assert.equal(next.relationships.serverId, serverId);
+  assert.equal(
+    next.relationships.index.list({
+      resource: next.relationships.session(saved.sessionId),
+    }).edges.length,
+    2,
+  );
+  reopened.close();
+}
 try {
   const relationships = openService(join(temporary, "relationships"));
   relationshipContract(relationships.getDatabase());
   relationships.close();
+  await relationshipWriterContract(join(temporary, "relationship-writers"));
 
   const unsupportedDir = join(temporary, "unsupported");
   assert.throws(

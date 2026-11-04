@@ -41,6 +41,7 @@ import {
   type NativeSessionNamespace,
 } from "./SessionIdentityStore.js";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
+import type { CreationLineage } from "./SessionRelationshipWriter.js";
 
 /** Trusted ownership, separate from descriptive client hints. Never stores grants. */
 export type CreationOwner =
@@ -70,6 +71,8 @@ export interface SavedCreationRequest {
   message: string;
   intent?: "prepare" | "copy";
   copy?: CreationCopySnapshot;
+  /** Trusted server-side operation context; never a submitted provenance hint. */
+  lineage?: CreationLineage;
   settings: EffectiveSessionLaunchSettingsValue;
   /** Absent only on storage-foundation/legacy records with no runtime launch. */
   launch?: CreationLaunchSnapshot;
@@ -374,6 +377,22 @@ function requestSnapshot(request: SavedCreationRequest): SavedCreationRequest {
           };
   return {
     provider: request.provider,
+    ...(request.lineage
+      ? {
+          lineage: {
+            ...(request.lineage.asideOf
+              ? { asideOf: parseYaSessionId(request.lineage.asideOf) }
+              : {}),
+            ...(request.lineage.continuedFrom
+              ? {
+                  continuedFrom: parseYaSessionId(
+                    request.lineage.continuedFrom,
+                  ),
+                }
+              : {}),
+          },
+        }
+      : {}),
     ...(request.submissionHash
       ? { submissionHash: request.submissionHash }
       : {}),
@@ -840,6 +859,12 @@ export class SessionCreationStore {
               }
             : {}),
           ...(request.copy?.title ? { customTitle: request.copy.title } : {}),
+          ...(request.lineage?.asideOf
+            ? {
+                parentSessionId: request.lineage.asideOf,
+                parentSessionKind: "btw-aside" as const,
+              }
+            : {}),
           effectiveLaunchSettings: {
             schemaVersion: 1,
             revision: 1,
@@ -890,6 +915,19 @@ export class SessionCreationStore {
             now,
           );
           this.statements.advanceGeneration.run();
+          this.metadata.relationships.creationWithinTransaction({
+            id,
+            sessionId,
+            createdAt: now,
+            copy: request.copy,
+            lineage: request.lineage,
+            nativeReceiptId:
+              context.owner.kind === "superuser" &&
+              requestId === initialInputId &&
+              request.input?.nativeReceiptId === requestId
+                ? requestId
+                : undefined,
+          });
         },
       );
     } catch (error) {

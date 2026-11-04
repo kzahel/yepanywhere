@@ -46,7 +46,10 @@ capability/release guarantees remain separate.
 The [durable relationship design](session-relationships.md) coordinates trusted
 receipt creator links with provider children and YA lineage. It keeps this
 descriptive surface metadata separate from authenticated creator evidence,
-ownership and grants, and introduces no new v0 behavior by itself.
+ownership and grants. Common admission and v0/peer owners now publish their
+proved structural facts into that shared SQL index in source transactions.
+Descriptive `surface` remains insufficient creator proof, and existing v0
+receipt responses and grants retain their contracts.
 
 Native v0 creation explicitly records `{ surface: "api" }` through Supervisor's
 pre-launch metadata boundary, including worker deferral and incoming peer

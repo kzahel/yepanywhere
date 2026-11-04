@@ -87,10 +87,12 @@ export class ProviderChildRelationshipService {
     private readonly serverId: string,
     private readonly onCommitted: (owner: ProviderChildOwner) => void,
     private readonly onError: (error: unknown) => void = () => {},
+    private readonly sharedIndex?: () => SessionRelationshipStore,
   ) {}
 
   private get index(): SessionRelationshipStore {
-    this.store ??= new SessionRelationshipStore(this.database);
+    this.store ??=
+      this.sharedIndex?.() ?? new SessionRelationshipStore(this.database);
     return this.store;
   }
   private resource(native: NativeSessionRef): RelationshipResource {
@@ -549,7 +551,7 @@ export class ProviderChildRelationshipService {
     this.changes.clear();
     // Every continuation checks retirement before touching SQL. Do not make
     // shutdown wait for a filesystem operation that cannot honor cancellation.
-    this.store?.dispose();
+    if (!this.sharedIndex) this.store?.dispose();
   }
 }
 

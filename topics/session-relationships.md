@@ -155,6 +155,69 @@ index projection never causes a provider command to be replayed. Existing
 receipt capacity, retention, payload conflict and retry contracts stay owned
 by the receipt store. The relationship index grants no extra idempotency window.
 
+### Authoritative SQL writers
+
+Common admission now records exact fork/clone and server-owned aside/successor
+intent in its transaction with the permanent YA identity, saved operation and
+metadata. Restart-by-fork can have both `forked_from` and `continued_from`;
+neither predicate replaces the other. `/btw` records immutable aside intent at
+copy admission only when the requested Mother is the authorized clone source.
+Other caller pointers keep their existing descriptive metadata semantics and
+cannot become immutable server-owned intent. The operation's typed copy intent determines
+fork versus clone, including a provider implementation that uses native fork
+for the existing clone endpoint. A known native cutoff remains an evidence
+anchor. Descriptive provenance and limited-user ownership retain their existing
+SQL owners and do not establish a session creator.
+
+Legacy metadata imports explicit aside links and ambiguous copy links as
+`derived_from`. A precise accepted copy prevents a later metadata save or
+payload pruning from weakening it into an ambiguous relation. Metadata changes
+reconcile only their own producer: explicitly clearing a lineage field retires
+that producer's fact, while independent admitted intent remains. Deleting the
+metadata row or losing content does not erase accepted historical lineage.
+The metadata producer describes editable pointers, not authenticated source
+session identity or server-owned creation intent. Reflexive or unrepresentable legacy
+session references produce no graph fact and do not block unrelated metadata.
+
+V0 materializes `created_session` when its trusted receipt has a known
+destination, including common admission's exact server-owned receipt/input
+correlation before the later receipt callback. The admission and graph commit
+together; subsequent receipt/graph updates also share their source transaction.
+Notifications follow commit. Operator calls without a source session and sends
+to existing sessions retain receipts without acquiring creator edges. Incoming
+peer evidence preserves its source-attested trust and both server namespaces;
+source-side intent gains a graph destination only after a correlated confirmed
+peer result. Its local trust describes the authenticated source-side intent;
+the remote target is a peer-reported outcome, not locally verified content.
+An uncertain/pending operation without a known target does not
+invent one. Once proved, creation remains known even if delivery later becomes
+uncertain. Projection recovery neither changes that outcome nor dispatches work.
+
+Existing SQL owners are reconciled once in finite primary-key pages of at most
+100 rows per transaction, yielding between batches outside request context.
+Each batch reads current source fields and commits its durable checkpoint in
+the same synchronous transaction. New writes already participate in their
+owner transaction, so a frozen per-table key frontier does not miss concurrent
+admissions. Interruption resumes the saved frontier on restart; completion
+ends the job. Only relationship fields are selected, excluding prompts,
+credential ids, peer proof payloads and native file paths. Historical local API
+aliases resolve through the existing receipt owner, never against a peer's
+session namespace. Required database connection ownership shares one lazy SQL
+index across admission, receipts, peer outcomes and native acquisition.
+
+A conflicting owner record or malformed authoritative source stops the batch,
+retains its prior frontier and logs the failure. Reconciliation resumes after
+source repair and restart; it never silently skips conflicting proof. Completion
+belongs to this extractor version. A changed importer must version its producer
+or explicitly rebuild progress. This is not a recurring detector for writes
+by older binaries to a concurrently shared profile; downgrade does not add a
+new reconciliation/replay guarantee.
+
+This slice adds no public graph route, field, event or capability. Existing v0
+relationship replies continue to report their authorized receipt/command
+history. Generic authorized graph projection and the remaining legacy
+consumers are separate follow-ups; the store itself is an internal interface.
+
 Keep the evidence classes distinct: authenticated local launch, authenticated
 immediate peer with source-attested session, provider-observed structural fact,
 and descriptive command observation. Provider observation can authoritatively
