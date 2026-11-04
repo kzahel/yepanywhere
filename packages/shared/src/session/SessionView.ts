@@ -46,8 +46,28 @@ export function sanitizeSessionTitle(title: string): string {
     .trim();
 }
 
+/**
+ * Titles are often whole first prompts, and list routes truncate one per row
+ * on every read, so sanitize only a prefix when that already decides the
+ * result. Sanitizing is local (per character, whitespace runs, NFC), so a
+ * prefix and the whole title agree except within a few characters of the
+ * prefix's end; a prefix comfortably longer than the limit after
+ * sanitizing therefore yields the same truncation.
+ */
+const TITLE_PREFIX_LENGTH = SESSION_TITLE_MAX_LENGTH * 2 + 64;
+
 export function truncateSessionTitle(title: string): string {
-  const sanitized = sanitizeSessionTitle(title);
+  let sanitized =
+    title.length > TITLE_PREFIX_LENGTH
+      ? sanitizeSessionTitle(title.slice(0, TITLE_PREFIX_LENGTH))
+      : sanitizeSessionTitle(title);
+  if (
+    title.length > TITLE_PREFIX_LENGTH &&
+    sanitized.length <= SESSION_TITLE_MAX_LENGTH + 16
+  ) {
+    // The prefix collapsed (long whitespace or control runs): read it all.
+    sanitized = sanitizeSessionTitle(title);
+  }
   if (sanitized.length <= SESSION_TITLE_MAX_LENGTH) return sanitized;
   return `${sanitized.slice(0, SESSION_TITLE_MAX_LENGTH - 3).trimEnd()}...`;
 }

@@ -393,4 +393,26 @@ describe("session title sanitization", () => {
     expect(truncateSessionTitle(title)).toHaveLength(SESSION_TITLE_MAX_LENGTH);
     expect(truncateSessionTitle(title)).toBe(`${"x".repeat(117)}...`);
   });
+
+  it("truncates long titles exactly as sanitizing the whole title would", () => {
+    const wholeTitle = (title: string) => {
+      const sanitized = sanitizeSessionTitle(title);
+      return sanitized.length <= SESSION_TITLE_MAX_LENGTH
+        ? sanitized
+        : `${sanitized.slice(0, SESSION_TITLE_MAX_LENGTH - 3).trimEnd()}...`;
+    };
+    const pieces = ["word", " ", "\n\t  ", "​", "‮", "é", "é"];
+    let seed = 7;
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31;
+      return seed;
+    };
+    for (let i = 0; i < 400; i += 1) {
+      const length = 50 + (next() % 3000);
+      let title = "";
+      while (title.length < length) title += pieces[next() % pieces.length];
+      if (i % 5 === 0) title = `${" ".repeat(next() % 600)}${title}`;
+      expect(truncateSessionTitle(title)).toBe(wholeTitle(title));
+    }
+  });
 });
