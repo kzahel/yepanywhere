@@ -414,3 +414,38 @@ and untested platform. CI must never summarize those all as “covered”.
 - Real service authentication, inference quality/cost/cache efficiency and real
   OS/browser presentation keep their separate acceptance. No “full code coverage”
   claim is made for native proprietary internals or these external boundaries.
+
+## Selected next slices — 2026-11-04
+
+The maintainer approved both full-app lifecycle/macOS dev-reload qualification
+and successful Pi queued compaction, with incremental commits. Reuse existing
+provider-host, standalone process and browser facilities; keep macOS hosting
+opt-in and leave runtime/version targets and UI capabilities unchanged.
+
+### 10 — qualify real app reload with Claude and Codex
+
+Combine actual dev wrapper, Hono, provider host/worker, production adapter,
+real pinned executable and scripted model API in owned standalone profiles.
+First retain an API/socket lifecycle case, then a thin browser case proving
+submission, reconnect and transcript convergence. Verify API/frontend generation
+replacement with stable host/worker/native identity, held model/tool continuity,
+exactly one subsequent input, persisted history and identity-checked teardown.
+Exercise long-running tools with dense output on macOS, pending approval,
+volatile queued-input blockers and unexpected Hono loss as distinct schedules.
+Native and application acceptance are separate evidence. A short passing run
+does not close the historical macOS interruption gap or enable its default.
+
+### 11 — confirm Pi compact completion at the provider boundary
+
+Create sufficient real native history in an owned Pi profile and demonstrate
+successful compact RPC plus persisted native summary while the YA queue remains
+held. Introduce narrowly typed completion evidence for a synchronous completed
+command, distinct from asynchronous dispatch acknowledgement. Require native
+proof before releasing queued A/B; preserve Claude/Codex boundary plus terminal
+behavior. Cover native refusal, model failure and abort/lost outcome without
+releasing following input on guessed success. Remove the Pi gap only after
+successful native and shared ownership checks establish the repaired contract.
+
+Measure retained startup, scenarios and teardown costs, and keep full-app
+qualification separate from the fast Process-level baseline. Record exact
+platform results and remaining failure schedules in the owning topic docs.
