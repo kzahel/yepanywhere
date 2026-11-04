@@ -12,8 +12,9 @@ owners remain authoritative. It follows [plan 171](171-durable-session-identity-
 and uses [plan 175](175-native-provider-integration-scenarios.md) for native
 qualification. The [nested-harness reverse-link defect](../../gaps/nested-harness-session-not-linked-to-launcher.md)
 is an acceptance input; a command that names a resumed harness proves launch,
-not creation. The native fixture's Claude pin drift must be repaired before
-claiming full-app qualification of the declared runtime.
+not creation. The native fixture's Claude pin drift is repaired and its full-app scenarios
+qualified against the declared runtime; broader child-source coverage remains
+explicit below.
 
 ## Substantial delivery slices
 
@@ -73,3 +74,12 @@ no wire capability and changes no access grants.
   cursor navigation remains a query-adapter concern.
 - Design and native qualification strategy recorded. Existing provider-child
   discovery still blocks detail until the read-integration slice lands.
+
+- Native child acquisition (part 1) qualifies actual Claude/Codex spawning without inference,
+  independently verifies native ids/anchors and reopens parent-scoped readers.
+  It fixes v2 Codex child discovery, whose task-path-only spawn output was
+  insufficient for the old extractor, and centralizes native runtime pins.
+  Correlated native start evidence and the child's own immediate-parent
+  metadata must agree, so copied fork history cannot invent parenting. The
+  existing four full-app reload cases pass against the declared runtimes. Remaining launch variants, providers and SQL
+  publication are not claimed qualified by this slice.

@@ -283,10 +283,17 @@ mark it unqualified rather than claiming that a constructed fixture proves it.
 
 Before claiming current-native coverage, align executable pins, the root
 compatibility markers and the versions actually exercised. The November 4
-source review found the full-app fixture's Claude expectation at 2.1.312 while
-the root declares 2.1.318 / SDK 0.3.318; the Process-level fixture already uses
-the root marker. The app-fixture mismatch is tracked in the
-[pin-drift gap](../gaps/native-provider-claude-version-pin-drift.md).
+full-app Claude pin drift is repaired: Process and app fixtures now share
+expectations derived from the root markers; four real full-app reload scenarios
+passed against Claude 2.1.318 and Codex 0.166.0 at qualification. Native child scenarios exercise
+Claude's actual `Agent` tool and Codex's v2 `collaboration.spawn_agent`, route
+child replies locally, inspect raw native ids independently and reopen the
+production reader. Codex's v2 output names a task path; its persisted correlated
+`SubAgentActivity` start item identifies the native child id, and the child's
+own immediate-parent metadata must agree before accepting the link. Copied
+fork history is not evidence that the fork created an inherited child. Legacy call/output
+pairs remain supported. Shared SQL provider publication, other native child
+sources and alias launch paths remain qualification work.
 The captured corpus explicitly lacks child sidecars/subagent scenarios and
 contains older baseline versions; keep it for historical parser regressions,
 not as proof of current native spawning. OpenCode 1.x qualification does not

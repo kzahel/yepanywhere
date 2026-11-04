@@ -22,6 +22,8 @@ export interface CodexRolloutDiscoveryMetadata {
   cwd: string;
   timestamp: string;
   isSubagent: boolean;
+  /** Verified immediate native parent; session_id can instead name the root. */
+  parentThreadId?: string | null;
 }
 
 export interface CodexDiscoveredSession {
@@ -32,6 +34,8 @@ export interface CodexDiscoveredSession {
   mtime: number;
   size: number;
   isSubagent: boolean;
+  /** Verified immediate native parent; session_id can instead name the root. */
+  parentThreadId?: string | null;
 }
 
 export interface CodexRolloutDiscoveryStats {
@@ -296,6 +300,7 @@ function toDiscoveredSession(
     mtime: getCodexRolloutActivityTimeMs(filePath, stats),
     size: stats.size,
     isSubagent: metadata.isSubagent,
+    parentThreadId: metadata.parentThreadId ?? null,
   };
 }
 
@@ -327,7 +332,23 @@ function parseCodexSessionMeta(
         ? meta.timestamp
         : new Date(stats.mtimeMs).toISOString(),
     isSubagent: isSubagentSessionMeta(meta),
+    parentThreadId: nativeParentThreadId(meta),
   };
+}
+
+function nativeParentThreadId(
+  meta: Partial<CodexSessionMetaEntry["payload"]>,
+): string | null {
+  const direct = hasNonEmptyString(meta.parent_thread_id)
+    ? meta.parent_thread_id
+    : null;
+  const source =
+    typeof meta.source === "object"
+      ? meta.source?.subagent?.thread_spawn?.parent_thread_id
+      : undefined;
+  const nested = hasNonEmptyString(source) ? source : null;
+  // Conflicting native claims remain unresolved; never use the root session_id.
+  return direct && nested && direct !== nested ? null : (direct ?? nested);
 }
 
 export function isSubagentSessionMeta(
@@ -385,7 +406,11 @@ function isCodexRolloutDiscoveryMetadata(
     typeof value.id === "string" &&
     typeof value.cwd === "string" &&
     typeof value.timestamp === "string" &&
-    typeof value.isSubagent === "boolean"
+    typeof value.isSubagent === "boolean" &&
+    // Older cached child headers lack this proof; refresh those headers once.
+    (!value.isSubagent ||
+      value.parentThreadId === null ||
+      typeof value.parentThreadId === "string")
   );
 }
 

@@ -263,7 +263,11 @@ export class Exchange {
     this.end();
   }
 
-  tool(name: string, args: Record<string, unknown> | string) {
+  tool(
+    name: string,
+    args: Record<string, unknown> | string,
+    namespace?: string,
+  ) {
     this.start();
     if (this.wire === "anthropic") {
       this.event("content_block_start", {
@@ -301,6 +305,7 @@ export class Exchange {
               call_id: `call_${this.id}`,
               name,
               arguments: JSON.stringify(args),
+              ...(namespace ? { namespace } : {}),
               status: "completed",
             };
       this.event("response.output_item.done", { output_index: 0, item });

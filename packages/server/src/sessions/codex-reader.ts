@@ -165,6 +165,7 @@ interface CodexSessionFile {
   mtime: number;
   size: number;
   isSubagent: boolean;
+  parentThreadId?: string | null;
 }
 
 function isNewerCodexSessionFile(
@@ -1369,9 +1370,10 @@ export class CodexSessionReader implements ISessionReader {
     this.providerChildProjectionKeys.add(key);
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const parentSession = (await this.scanSessions()).find(
-        (session) => session.id === parentSessionId,
-      );
+      await this.scanSessions();
+      // Native children can be parents too; the public listing hides them,
+      // while the scoped file catalog retains their exact native metadata.
+      const parentSession = this.getCachedSessionFile(parentSessionId);
       if (!parentSession) {
         codexProviderChildProjections.invalidate(key);
         return undefined;
@@ -1451,7 +1453,10 @@ export class CodexSessionReader implements ISessionReader {
     const children: ProviderChildSessionSummary[] = [];
     for (const child of projection.children.values()) {
       const launch = projection.launches.get(child.toolUseId);
-      if (!launch) continue;
+      const childFile = this.getCachedSessionFile(child.id);
+      // Forked transcripts may copy someone else's spawn records. Only the
+      // child's own immediate-parent claim can anchor this structural link.
+      if (!launch || childFile?.parentThreadId !== parentSessionId) continue;
       children.push({
         id: child.id,
         parentSessionId,
@@ -3250,6 +3255,7 @@ export class CodexSessionReader implements ISessionReader {
         mtime: session.mtime,
         size: session.size,
         isSubagent: session.isSubagent,
+        parentThreadId: session.parentThreadId ?? null,
       };
     } catch {
       return null;

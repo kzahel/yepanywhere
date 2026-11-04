@@ -42,10 +42,13 @@ afterEach(async (context) => {
 // remains separate. Keep per-provider measured budgets below.
 describe.each(providers)("real native provider: %s", (provider) => {
   // Native startup plus three turns hit the runner's 5s bound for Antigravity
-  // and OpenCode on the capture Mac (2026-11-04); use 2x that observed limit.
+  // and OpenCode on the capture Mac (2026-11-04). Grok also hit 5s in
+  // the full native matrix; its measured isolated work was 1.27s plus 2.01s
+  // native stop. Keep semantic assertions; use 2x the observed 5s limit.
   it("YA Queue holds B through A’s real tool and persists separate turns", {
-    timeout:
-      provider === "antigravity" || provider === "opencode" ? 10_000 : 5_000,
+    timeout: ["antigravity", "opencode", "grok"].includes(provider)
+      ? 10_000
+      : 5_000,
   }, async () => {
     const f = await nativeFixture(provider);
     fixtures.push(f);

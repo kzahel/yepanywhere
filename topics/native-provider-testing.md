@@ -78,6 +78,30 @@ Do not use the primary CLI as an implicit fallback when optional dependencies
 are absent. Runtime support/version policy remains owned by
 [provider version support](provider-version-support.md).
 
+## Native child evidence
+
+The baseline `native-children.test.ts` executes actual native child tools. The
+November 4 qualification exercised Claude 2.1.318's `Agent` and Codex 0.166.0's
+namespaced v2 `collaboration.spawn_agent`. Parent and
+child use owned scripted model APIs with synthetic credentials. The test
+compares raw native child identity and parent launch anchors with a separately
+opened production reader, including the child's actual reply. Codex request
+classification uses native `client_metadata.thread_id`: parent and child may
+share a prompt-cache key. Its v2 spawn result returns a task path, so discovery
+uses the correlated persisted `SubAgentActivity` start record plus the child's
+own native immediate-parent metadata, retaining the
+older native-id call/output format. A focused append test covers partial records,
+unrelated interactions and deduplication across persisted event envelopes.
+
+These are regenerated native specimens, not constructed reader fixtures or
+paid inference. They qualify the two baseline launch paths on the exercised
+platform. Gateway/OSS variants, other providers, nested descendants and trusted
+YA/v0 child creation remain separate relationship qualification work in
+[plan 176](../docs/tactical/176-durable-session-relationships.md). Process and
+full-app version guards now use the same root compatibility markers through
+`runtimes.ts`; stale fixture tables cannot independently select an older Claude
+or Codex runtime.
+
 ## Full source app and dev reload qualification
 
 ```bash

@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolveClaudeSdkNativeExecutable } from "../../src/sdk/providers/claude.js";
 
 export const nativeProviders = [
@@ -17,12 +17,18 @@ export const nativeProviders = [
 ] as const;
 export type NativeProvider = (typeof nativeProviders)[number];
 export const baselineProviders: NativeProvider[] = ["claude", "codex"];
+const repoPackage = JSON.parse(
+  readFileSync(new URL("../../../../package.json", import.meta.url), "utf8"),
+);
+const claudeVersion: string =
+  repoPackage.yepAnywhere.claudeCode.compatibleThroughVersion;
+const codexVersion: string = repoPackage.yepAnywhere.codexCli.expectedVersion;
 export const expectedVersions: Record<NativeProvider, string> = {
-  claude: "2.1.312",
-  "claude-gateway": "2.1.312",
-  "claude-ollama": "2.1.312",
-  codex: "0.166.0",
-  "codex-oss": "0.166.0",
+  claude: claudeVersion,
+  "claude-gateway": claudeVersion,
+  "claude-ollama": claudeVersion,
+  codex: codexVersion,
+  "codex-oss": codexVersion,
   antigravity: "1.4.5",
   pi: "1.5.0",
   opencode: "1.18.9",

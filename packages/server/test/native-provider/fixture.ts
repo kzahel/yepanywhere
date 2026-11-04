@@ -53,9 +53,6 @@ export {
 } from "./runtimes.js";
 
 const exec = promisify(execFile);
-const repoPackage = JSON.parse(
-  await readFile(new URL("../../../../package.json", import.meta.url), "utf8"),
-);
 const wireFor = (provider: NativeProvider): ModelWire =>
   isClaude(provider)
     ? "anthropic"
@@ -453,11 +450,7 @@ export async function nativeFixture(
         { cwd: project, env: environment, timeout: 5000 },
       )
     ).stdout.trim();
-    const expected = isClaude(provider)
-      ? repoPackage.yepAnywhere.claudeCode.compatibleThroughVersion
-      : isCodex(provider)
-        ? repoPackage.yepAnywhere.codexCli.expectedVersion
-        : expectedVersions[provider];
+    const expected = expectedVersions[provider];
     if (!version.split(/\s+/).includes(expected))
       throw Error(
         `Native ${provider} version mismatch: expected ${expected}; got ${version}`,

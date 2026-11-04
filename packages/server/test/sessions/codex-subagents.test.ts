@@ -6,7 +6,11 @@ import type { UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
-import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
+import {
+  CodexSessionReader,
+  observeCodexRolloutTree,
+} from "../../src/sessions/codex-reader.js";
+import { EventBus } from "../../src/watcher/EventBus.js";
 
 const PROJECT_PATH = "/test/project";
 
@@ -207,7 +211,223 @@ describe("Codex subagent sessions", () => {
     });
   });
 
+  it.each(["item_completed", "sub_agent_activity"] as const)(
+    "accepts only correlated %s v2 starts across a partial append",
+    async (envelope) => {
+      const now = "2026-11-04T12:00:00.000Z";
+      const parentId = "parent-v2",
+        callId = "spawn-v2",
+        childId = "child-v2";
+      for (const id of [childId, "not-created", "not-correlated"])
+        await writeRollout(sessionsDir, id, [
+          sessionMeta(id, now, { parent_thread_id: parentId }),
+        ]);
+      const file = await writeRollout(sessionsDir, parentId, [
+        sessionMeta(parentId, now),
+        line(
+          "response_item",
+          {
+            type: "function_call",
+            name: "spawn_agent",
+            namespace: "collaboration",
+            call_id: callId,
+            arguments: JSON.stringify({
+              task_name: "child",
+              message: "Inspect v2 work",
+            }),
+          },
+          now,
+        ),
+        line(
+          "response_item",
+          {
+            type: "function_call_output",
+            call_id: callId,
+            output: '{"task_name":"/root/child"}',
+          },
+          now,
+        ),
+      ]);
+      const activity = (
+        kind: string,
+        id: string,
+        child: string,
+        format = envelope,
+      ) =>
+        line(
+          "event_msg",
+          format === "item_completed"
+            ? {
+                type: format,
+                item: {
+                  type: "SubAgentActivity",
+                  kind,
+                  id,
+                  agent_thread_id: child,
+                },
+              }
+            : {
+                type: format,
+                kind,
+                event_id: id,
+                agent_thread_id: child,
+                agent_path: "/root/child",
+              },
+          now,
+        );
+      const reader = new CodexSessionReader({
+        sessionsDir,
+        projectPath: PROJECT_PATH,
+      });
+      try {
+        expect(await reader.listProviderChildSessions(parentId)).toEqual([]);
+        await appendFile(
+          file,
+          activity("interacted", callId, "not-created") +
+            "\n" +
+            activity("started", "unrelated-call", "not-correlated") +
+            "\n",
+        );
+        const started = activity("started", callId, childId);
+        const split = Math.floor(started.length / 2);
+        await appendFile(file, started.slice(0, split));
+        expect(await reader.listProviderChildSessions(parentId)).toEqual([]);
+        await appendFile(file, started.slice(split) + "\n");
+        expect(await reader.listProviderChildSessions(parentId)).toEqual([
+          expect.objectContaining({
+            id: childId,
+            parentSessionId: parentId,
+            toolUseId: callId,
+            title: "Inspect v2 work",
+          }),
+        ]);
+        await appendFile(
+          file,
+          activity(
+            "started",
+            callId,
+            childId,
+            envelope === "item_completed"
+              ? "sub_agent_activity"
+              : "item_completed",
+          ) +
+            "\n" +
+            JSON.stringify({ type: "event_msg", marker: "SubAgentActivity" }) +
+            "\n",
+        );
+        expect(await reader.listProviderChildSessions(parentId)).toHaveLength(
+          1,
+        );
+      } finally {
+        await reader.close();
+      }
+    },
+  );
+
+  it.each(["v1", "v2"])(
+    "does not attribute fork-copied %s launches to the fork",
+    async (version) => {
+      const now = "2026-11-04T12:00:00.000Z";
+      const parent = "original",
+        fork = "copied-fork",
+        child = "original-child",
+        ownChild = "fork-child",
+        nested = "native-fork",
+        grandchild = "native-grandchild";
+      const spawn = (id: string, call: string) => [
+        line(
+          "response_item",
+          {
+            type: "function_call",
+            name: "spawn_agent",
+            call_id: call,
+            arguments: '{"message":"Inspect work"}',
+          },
+          now,
+        ),
+        version === "v1"
+          ? line(
+              "response_item",
+              {
+                type: "function_call_output",
+                call_id: call,
+                output: JSON.stringify({ agent_id: id }),
+              },
+              now,
+            )
+          : line(
+              "event_msg",
+              {
+                type: "sub_agent_activity",
+                event_id: call,
+                kind: "started",
+                agent_thread_id: id,
+                agent_path: "/root/child",
+              },
+              now,
+            ),
+      ];
+      await writeRollout(sessionsDir, child, [
+        sessionMeta(child, now, { parent_thread_id: parent }),
+      ]);
+      await writeRollout(sessionsDir, ownChild, [
+        sessionMeta(ownChild, now, {
+          source: { subagent: { thread_spawn: { parent_thread_id: fork } } },
+        }),
+      ]);
+      await writeRollout(sessionsDir, parent, [
+        sessionMeta(parent, now),
+        ...spawn(child, "inherited"),
+      ]);
+      await writeRollout(sessionsDir, fork, [
+        sessionMeta(fork, now, {
+          forked_from_id: parent,
+          history_mode: "legacy",
+        }),
+        ...spawn(child, "inherited"),
+        ...spawn(ownChild, "own"),
+      ]);
+      await writeRollout(sessionsDir, grandchild, [
+        sessionMeta(grandchild, now, { parent_thread_id: nested }),
+      ]);
+      await writeRollout(sessionsDir, nested, [
+        sessionMeta(nested, now, {
+          parent_thread_id: parent,
+          forked_from_id: parent,
+          history_mode: "legacy",
+        }),
+        ...spawn(child, "inherited"),
+        ...spawn(grandchild, "nested-own"),
+      ]);
+      const reader = new CodexSessionReader({
+        sessionsDir,
+        projectPath: PROJECT_PATH,
+      });
+      try {
+        expect(
+          (await reader.listProviderChildSessions(nested)).map((c) => c.id),
+        ).toEqual([grandchild]);
+        expect(
+          (await reader.listProviderChildSessions(parent)).map((c) => c.id),
+        ).toEqual([child]);
+        expect(
+          (await reader.listProviderChildSessions(fork)).map((c) => c.id),
+        ).toEqual([ownChild]);
+      } finally {
+        await reader.close();
+      }
+    },
+  );
+
   it("coalesces and incrementally refreshes bounded child projections", async () => {
+    const events = new EventBus();
+    using _observation = {
+      [Symbol.dispose]: observeCodexRolloutTree({
+        sessionsDir,
+        eventBus: events,
+        epoch: () => 1,
+      }),
+    };
     const now = "2026-06-25T12:00:00.000Z";
     const parentId = "projection-parent";
     const firstChildId = "projection-child-1";
@@ -312,12 +532,22 @@ describe("Codex subagent sessions", () => {
       childCount: 1,
     });
 
-    await writeRollout(sessionsDir, secondChildId, [
+    const secondChildPath = await writeRollout(sessionsDir, secondChildId, [
       sessionMeta(secondChildId, now, {
         parent_thread_id: parentId,
         source: { subagent: { thread_spawn: { parent_thread_id: parentId } } },
       }),
     ]);
+    events.emit({
+      type: "file-change",
+      provider: "codex",
+      path: secondChildPath,
+      relativePath: secondChildPath,
+      nativeStorageScope: sessionsDir,
+      changeType: "create",
+      timestamp: now,
+      fileType: "session",
+    });
     const spawnAppend = line(
       "response_item",
       {

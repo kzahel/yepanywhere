@@ -64,12 +64,35 @@ class CodexProviderChildProjectionCollector {
   addLine(line: string): boolean {
     if (!this.acceptsLine(line)) return false;
     const entry = parseCodexSessionEntry(line);
-    if (entry?.type !== "response_item") return false;
+    if (entry?.type === "event_msg" && isRecord(entry.payload)) {
+      const payload = entry.payload;
+      const activity =
+        payload.type === "item_completed" &&
+        isRecord(payload.item) &&
+        payload.item.type === "SubAgentActivity"
+          ? payload.item
+          : payload.type === "sub_agent_activity"
+            ? payload
+            : null;
+      if (activity?.kind !== "started") return true;
+      const callId =
+        stringField(activity, "id") ?? stringField(activity, "event_id");
+      const childId = stringField(activity, "agent_thread_id");
+      // v2 tool output deliberately exposes only task_name. The provider's
+      // persisted start item carries the native id and original spawn call id.
+      // Interactions/completions and unrelated activity are not new children.
+      if (callId && childId && this.launches.has(callId))
+        this.children.set(callId, { id: childId, toolUseId: callId });
+      return true;
+    }
+    if (entry?.type !== "response_item" || !isRecord(entry.payload))
+      return false;
 
     const payload = entry.payload;
     if (payload.type === "function_call" && payload.name === "spawn_agent") {
       const args = parseJsonRecord(payload.arguments);
-      const prompt = stringField(args, "prompt");
+      const prompt =
+        stringField(args, "prompt") ?? stringField(args, "message");
       const agentType =
         stringField(args, "role") ?? stringField(args, "agent_type");
       this.launches.set(payload.call_id, {
@@ -110,9 +133,13 @@ class CodexProviderChildProjectionCollector {
 
   private acceptsLine(line: string): boolean {
     if (line.includes('"spawn_agent"')) return true;
-    if (this.launches.size === 0 || !line.includes('"function_call_output"')) {
-      return false;
-    }
+    if (this.launches.size === 0) return false;
+    if (
+      line.includes('"SubAgentActivity"') ||
+      line.includes('"sub_agent_activity"')
+    )
+      return true;
+    if (!line.includes('"function_call_output"')) return false;
     for (const callId of this.launches.keys()) {
       if (line.includes(callId)) return true;
     }
