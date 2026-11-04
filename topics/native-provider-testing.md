@@ -25,7 +25,9 @@ current-native qualification.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm test:providers
+pnpm test:providers                 # Claude/Codex baseline
+pnpm test:providers:install         # Verified Antigravity/Grok artifacts
+pnpm test:providers:all             # All ten launch paths
 YEP_NATIVE_TEST_PROVIDERS=codex pnpm test:providers
 ```
 
@@ -54,6 +56,20 @@ The executable sources are deterministic test dependencies:
   stays off YA's ordinary development PATH. This pin does not upgrade or select
   the user's installed Codex runtime.
 
+- Pi 1.4.0, OpenCode 1.18.9 and Gemini CLI 0.36.0: exact nested npm
+  test dependencies, including platform-native optional binaries where needed.
+- Antigravity ACP 1.4.5 and Grok 1.0.67: official immutable artifacts in
+  `test/native-provider/executables/artifacts.json`. The explicit installer
+  verifies SHA-256 before extracting into `node_modules/.cache/ya-native-provider-tests`.
+  Runtime tests still check the executable version. No primary install is changed.
+
+The complete artifact set is currently pinned for macOS arm64 and Linux x64.
+Antigravity additionally has verified artifact entries for macOS x64/Linux arm64;
+Grok's other platforms remain unqualified. Unsupported selected platforms fail
+installation explicitly. Antigravity's production Windows exclusion remains.
+An owned executable may be selected with `YEP_NATIVE_TEST_ANTIGRAVITY_PATH` or
+`YEP_NATIVE_TEST_GROK_PATH`; the same version checks still apply.
+
 Do not use the primary CLI as an implicit fallback when optional dependencies
 are absent. Runtime support/version policy remains owned by
 [provider version support](provider-version-support.md).
@@ -65,9 +81,10 @@ XDG, Windows app-data, provider histories and YA roots. They remove inherited
 provider/account/agent authority and shell startup configuration. Model auth
 uses only a synthetic key, and the listener checks it. The model listener rejects
 unexpected routes, credentials and oversized requests; failures reject pending
-scenario gates. It emits minimal Anthropic Messages or OpenAI Responses SSE.
+scenario gates. It emits valid Messages, Responses, Chat Completions and GenAI responses,
+including streamed text/tool events and explicit non-streamed probes.
 
-Both native endpoints point at loopback. A deny proxy rejects external CONNECT
+All configured native endpoints point at loopback. A deny proxy rejects external CONNECT
 requests. Codex's observed optional startup catalog destinations (`chatgpt.com`,
 `github.com`, `api.github.com`) are recorded and denied without failing the
 model scenario; unexpected destinations fail. This is process configuration,
@@ -88,59 +105,57 @@ contract](claude.md#contracts), including the SDK's classified abort errors.
 
 ## Qualified scenarios and current evidence
 
-On macOS arm64, 2026-11-03, real Claude 2.1.312 (SDK 0.3.312) and Codex
-0.166.0 pass the same four scenarios each:
+On macOS arm64, 2026-11-04, the retained foundation passes 20 scenarios across
+ten production launch paths. The baseline Claude/Codex group has six cases;
+tool execution is folded into the queue scenario to avoid another native startup.
 
 | Scenario | Assertions |
 | --- | --- |
-| YA Queue A then B | Three distinct model turns, A excludes B, deferred rows drain, assistant output reaches YA, both texts and input UUIDs persist natively. |
-| Actual tool round trip | Native Claude Read / Codex code-mode shell reads an owned file; its previously unknown content reaches the next model request and native history; final output reaches YA. |
-| Gentle steering | Wait for native input receipt while a streamed response is open; correction reaches the next native request, YA output and native history. |
-| Immediate steering | The open response is cancelled before the correction request; correction reaches YA output and native history. |
+| YA Queue A/tool/B, all ten paths | Original turn, A alone, actual native file tool inside A, A's final response, then B alone. B stays deferred through the tool. Native history is read through YA's production reader after joined native shutdown. |
+| First Codex OSS exec tool | New exec and resumed exec are different native launches; the first also proves the real code-mode file tool and persisted result. |
+| Gentle steering | Claude, Gateway, Ollama, Codex and Grok acknowledge native receipt before the held original response completes; correction reaches actual model input, YA output and native history. |
+| Immediate steering | Claude, Gateway, Ollama and Codex cancel the held model response before delivering the correction. |
 
-Every case joins shutdown and asserts no Process errors or unexpected model
-requests. Eight cases took 1.97–4.16 seconds of test work, 2.87–5.82 seconds
-including Vitest startup in initial local samples. These are local diagnostic
-measurements, not a CI performance claim. Keep the runner default budget until
-slower CI evidence justifies an override under [test time budgets](test-time-budgets.md).
-Linux/Windows native qualification is still pending CI; their platform packages
-are selected explicitly and missing packages fail. No platform pass is implied
-by the macOS sample.
+Claude variants and app-server Codex additionally retain A/B's supplied input
+UUIDs in native JSONL. Other native identity guarantees remain separately gated;
+passing text/history assertions does not close the
+[durable input identity gap](../gaps/provider-user-turn-durable-identity.md).
+Grok buffers ACP assistant text until its native item completes; its held model
+request and native interject acknowledgement establish the busy boundary instead.
+
+The 20-case foundation takes 21.17 seconds of test work / 22.21 seconds including
+Vitest startup locally. These are diagnostic samples, not CI performance claims.
+Antigravity/OpenCode's multi-turn scenarios hit the initial 5-second budget;
+their adjacent comments record the observed bound and derived 10-second ceiling.
+Executable provisioning cost is separate: a warm frozen install takes 0.85 s;
+the external macOS artifacts download about 170 MB combined on a cold cache.
+Keep CI costs visible when expanding coverage. Linux/Windows native acceptance
+is still pending; artifact availability does not imply execution qualification.
 
 ## All-provider adoption matrix
 
 Qualification is per executable, production launch path, capability and platform.
-The November 3 expansion audit proved local-model routing with the real
-production adapters listed below. Those exploratory probes are feasibility
-evidence, **not additional retained CI scenarios**. The ordinary suite still
-contains only the eight Claude/Codex cases above.
+All rows below now have retained queue/tool/history scenarios, using actual
+production adapters and readers in private standalone profiles.
 
-| Retained family/path | Local model route / executable evidence | Retained coverage / next qualification |
+| Family/path | Executable / local model route | Additional retained foundation |
 | --- | --- | --- |
-| Claude | SDK-bundled 2.1.312; Anthropic Messages via `ANTHROPIC_BASE_URL`. | Four retained scenarios pass; expand lifecycle, persistence and faults. |
-| Claude Gateway | Same bundled executable; actual Gateway adapter configured with an owned service URL; local catalog/probe and Messages round trip pass. | Promote the distinct launch, routing, catalog and option behavior into scenarios. |
-| Claude Ollama | Same bundled executable; actual Ollama adapter URL setter routes Messages to the local stub. | Promote launch behavior; this proves the Claude launch path, not a real Ollama server. |
-| Codex | Pinned 0.166.0; custom Responses endpoint through app-server. | Four retained scenarios pass; expand lifecycle, persistence and faults. |
-| Codex OSS | Same pinned CLI, **different `codex exec --json` adapter**; a configured service reaches local Responses and returns assistant output. | Promote the distinct exec lifecycle, controls and history. Native Ollama discovery remains separate. |
-| Pi | Test-only 1.4.0; private `models.json` with `baseUrl` / `openai-completions`; production RPC adapter returns the local reply. | Promote route and existing effort-retry precedent, then queue/tool/lifecycle/history cases. |
-| OpenCode | Test-only 1.18.9; `options.baseURL`, custom OpenAI-compatible model and private `OPENCODE_CONFIG`/XDG roots; production server adapter returns local Chat Completions output. | Promote server ownership, queue/tool/cancel/history; explicitly cover Git and non-Git projects. |
-| Grok ACP | Test-only 1.0.67; private TOML `model.<id>.base_url`, `api_backend = "responses"`, synthetic `env_key`; production ACP adapter returns local output. | Promote receipt/steer, tools, cancellation and history. Native title/summary model calls also reach the local stub and need named expectations. |
-| Gemini / Gemini ACP | Installed 0.36.0; both YA names use ACP. Private settings select API-key mode, `GOOGLE_GEMINI_BASE_URL` routes GenAI to localhost; direct ACP and production adapter round trips pass. | Promote a bounded retained baseline while preserving frozen product policy; no steering or auth/UI expansion follows from this probe. |
-| Antigravity ACP | Installed official 1.4.5; API-key mode plus `GOOGLE_GEMINI_BASE_URL`; production YA adapter returns local GenAI output. Native ACP tool/cancel/model-change/cold-load probes also pass below. | Promote through YA Process/reader/Supervisor, preserving preview and platform limits. |
+| Claude | Bundled 2.1.312 / SDK 0.3.312; Messages override. | Gentle and immediate steering; durable input UUIDs. |
+| Claude Gateway | Same bundled CLI; real Gateway service/catalog/effort probe. | Gentle and immediate steering; actual launch/routing path, not a real upstream Gateway service. |
+| Claude Ollama | Same bundled CLI; adapter URL setter routes Messages locally. | Gentle and immediate steering; qualifies Claude launch, not an actual Ollama server. |
+| Codex | Pinned 0.166.0 app-server; custom Responses endpoint. | Gentle and immediate steering; durable input UUIDs. |
+| Codex OSS | Same CLI, distinct new/resumed exec JSONL path; owned service catalog. | Separate first-exec tool coverage. |
+| Pi | Pinned 1.4.0 RPC; private models.json, Chat Completions. | Real RPC lifecycle and native JSONL reader. |
+| OpenCode | Pinned 1.18.9 server; private custom provider, Chat Completions. | Actual server tool execution and production SQLite/export reader. |
+| Grok ACP | Official 1.0.67; private TOML Responses endpoint. | Gentle interject; title, title refresh and dashboard requests explicitly recorded/scripted. Compatibility imports of other apps' rules/config are disabled in the owned fixture. |
+| Gemini / Gemini ACP | Pinned 0.36.0; both names use ACP; private API-key settings, GenAI override. | Bounded frozen-path regression coverage; no auth/UI/protocol expansion. |
+| Antigravity ACP | Official 1.4.5; private API-key settings, GenAI override. | Native view_file and actual ACP history load via production reader. |
 
-Pi, OpenCode and Grok were provisioned only under an ignored test-tools root;
-primary installations and PATH were unchanged. Tested versions match the
-existing audited targets where recorded. Their primary endpoint controls are
-documented by [Pi](https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/docs/models.md),
-[OpenCode](https://opencode.ai/docs/providers) and
-[Grok](https://docs.x.ai/build/settings). Actual executable probes, rather than
-those documents alone, establish the table's local-routing findings.
-
-Do not claim all-provider scenario coverage while those cells remain exploratory.
-A passing adapter turn also does not establish YA provider-discovery/authentication
-admission: a private API-key transport is different from subscription readiness.
-No real account was used by these probes. Distinguish unavailable installations,
-unsupported operations, actual defects and untested paths.
+These scenarios do not qualify provider discovery/subscription authentication,
+OS sandbox policy or all native controls. No real account is supplied. Native
+auxiliary traffic is named and recorded; unexplained model requests fail rather
+than receiving a generic canned answer. Root diagnostics are captured and
+asserted, including child logger warnings/errors, rather than globally silenced.
 
 ## Antigravity endpoint and depth evidence — 2026-11-03
 

@@ -1,8 +1,8 @@
 # Native provider integration scenarios
 
-Status: Claude/Codex foundation implemented; comprehensive expansion selected
-and endpoint feasibility investigated, 2026-11-03. Retained all-provider
-qualification and the deeper lifecycle scenarios remain implementation work.
+Status: all-provider foundation implemented, 2026-11-04: 20 retained native
+scenarios across ten production launch paths. Deeper lifecycle, cancellation,
+settings and retry scenarios are being qualified; platform acceptance remains.
 
 The durable contract, commands and qualification matrix now live in
 [native provider testing](../../topics/native-provider-testing.md).
@@ -129,6 +129,23 @@ later passing run does not close it. Existing intentional fault-fixture logs
 remain tracked in [suite diagnostic debt](../../gaps/full-suite-timing-and-diagnostics.md).
 No broad logging suppression, watcher fix or timeout increase is bundled here.
 
+## Retained breadth implementation, 2026-11-04
+
+The owning matrix supersedes the eight-case baseline below: 20 retained cases
+now exercise all ten launch paths, sharing a queue/tool/history workflow and
+native steering only where exposed. Claude/Codex retain six baseline cases
+because the tool round trip is folded into A's queued turn. All selected
+executables are exact test dependencies or official checksum-verified artifacts;
+missing runtime/version/platform fails explicitly. The all-provider command
+passes in 22.21 s locally, including runner startup. Primary installations,
+provider targets, UI and queue defaults are unchanged.
+
+Real Codex OSS resume lost assistant output because it parsed human headings.
+New/resumed exec turns now both request native JSONL, removing the old text and
+duplicate-half parser. Existing 22-case service/resume checks and the full
+workspace suite pass. The expanded native cases assert production reader
+history, clean owned teardown and no unexpected diagnostics/model requests.
+
 ## Comprehensive expansion — maintainer direction, 2026-11-03
 
 The maintainer wants this to become comprehensive integration assurance across
@@ -152,7 +169,7 @@ and Antigravity ACP 1.4.5. Claude Gateway/Ollama also reached local Messages
 through their actual launch paths. Codex OSS's distinct exec path reached local
 Responses; using known native model metadata removed the exploratory
 unknown-model diagnostic, with no error events in the corrected route probe.
-Claude/Codex's existing eight retained scenarios remain the CI baseline.
+The November 4 retained breadth milestone above supersedes this initial audit.
 
 The real Antigravity ACP runtime additionally read an owned file, delivered its
 result to the next model request, changed model, cancelled an open response,

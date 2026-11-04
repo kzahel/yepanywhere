@@ -624,18 +624,17 @@ with incomplete aborted-generation usage explicitly recorded. Grok advertises
 its existing gentle interjection; Pi/Antigravity audits do not enable speculative
 urgency controls. This does not restart the archived general core program.
 The maintainer selected [native provider integration scenarios](../tactical/175-native-provider-integration-scenarios.md)
-as the evidence base for further provider refactors. Eight shared queue,
-real-tool and gentle/immediate steering cases pass against real Claude 2.1.312
-and Codex 0.166.0 with scripted local model APIs, no inference, owned profiles
-and joined teardown; they run in the ordinary server suite/CI. The November 3
-expansion investigation demonstrated local endpoint routing through the real
-Pi, OpenCode, Grok, Gemini ACP, Antigravity, Claude Gateway/Ollama and Codex OSS
-adapters. Antigravity's native tool/cancel/model-change/cold-load probes also
-passed. These are feasibility findings, not retained all-provider CI coverage.
+as the evidence base for further provider refactors. The November 4 foundation
+passes 20 native queue/tool/history/steering cases across ten production launch
+paths: Claude, Gateway, Ollama, Codex app-server/exec, Pi, OpenCode, Grok,
+Gemini ACP and Antigravity. Exact test-only runtimes use scripted loopback model
+APIs and private roots, with no inference. The ordinary suite retains the fast
+Claude/Codex baseline; an explicit all-provider command exercises the full set.
+Native Codex OSS coverage exposed and repaired resumed-turn output parsing.
 The [qualification matrix](../../topics/native-provider-testing.md#all-provider-adoption-matrix)
-and expanded plan distinguish those states. Next: promote Antigravity and the
-other proven routes, deepen cancellation/settings/persistence/resume, then
-protect identity/batching and queued compact before simplifying scheduling.
+and [plan](../tactical/175-native-provider-integration-scenarios.md) track depth
+and platform acceptance. Next: qualify cancellation/settings/persistence/resume,
+then protect identity/batching and queued compact before simplifying scheduling.
 App ownership/fault interleavings and Linux/Windows acceptance remain explicit;
 the comprehensive matrix does not select new UI controls or thaw legacy Gemini.
 Release-delivery work remains independently required; local sessions,

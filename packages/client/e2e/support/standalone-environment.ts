@@ -32,7 +32,7 @@ export function standaloneYaEnvironment(
       return (
         !configNames.has(name) &&
         !controlPlane(name) &&
-        !/^(ANTHROPIC_|CLAUDE_|CODEX_|OPENAI_|GEMINI_|GOOGLE_|GROK_|XAI_|PI_|OPENCODE_)/.test(
+        !/^(ANTHROPIC_|CLAUDE_|CODEX_|OPENAI_|GEMINI_|ANTIGRAVITY_|GOOGLE_|GROK_|XAI_|PI_|OPENCODE_)/.test(
           name,
         ) &&
         !/(?:_API_KEY|_TOKEN|_SECRET|_PASSWORD)$/.test(name)
@@ -64,6 +64,7 @@ export function standaloneYaEnvironment(
     CODEX_SESSIONS_DIR: paths.codexSessionsDir,
     GEMINI_SESSIONS_DIR: paths.geminiSessionsDir,
     GEMINI_CLI_HOME: home,
+    GEMINI_HOME: join(home, ".gemini"),
     PI_CODING_AGENT_DIR: join(home, "pi"),
     PI_SESSIONS_DIR: directory(home, "pi", "sessions"),
     GROK_HOME: join(home, "grok"),

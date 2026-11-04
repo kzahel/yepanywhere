@@ -60,6 +60,8 @@ it("confines actual config/native/host resolution despite poisoned parent enviro
       "TEMP",
       "PI_CODING_AGENT_DIR",
       "GEMINI_CLI_HOME",
+      "GEMINI_HOME",
+      "ANTIGRAVITY_ACP_PATH",
       "GROK_HOME",
       "YEP_PROVIDER_RUNTIME_SOCKET",
       "YEP_PROVIDER_RUNTIME_TOKEN",
@@ -112,6 +114,7 @@ it("confines actual config/native/host resolution despite poisoned parent enviro
     for (const name of Object.keys(env)) {
       if (
         [
+          "ANTIGRAVITY_ACP_PATH",
           "AGENT_SERVER_TOKEN",
           "YEP_PROVIDER_RUNTIME_SOCKET",
           "YEP_PROVIDER_WORKER_TOKEN",

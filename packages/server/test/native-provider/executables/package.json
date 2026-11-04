@@ -4,6 +4,9 @@
   "private": true,
   "description": "Keep pinned native test tools off the application development PATH.",
   "dependencies": {
-    "@openai/codex": "0.166.0"
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@google/gemini-cli": "0.36.0",
+    "@openai/codex": "0.166.0",
+    "opencode-ai": "1.18.9"
   }
 }

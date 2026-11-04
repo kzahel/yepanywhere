@@ -1,0 +1,38 @@
+{
+  "antigravity": {
+    "version": "1.4.5",
+    "source": "https://raw.githubusercontent.com/agentclientprotocol/registry/main/antigravity-acp/agent.json",
+    "platforms": {
+      "darwin-arm64": {
+        "url": "https://dl.google.com/agy-extensions/releases/macos/agy-acp-server-1.4.5-darwin-arm64.zip",
+        "sha256": "886fff7767d08994ca39eb02c3d01a7532c7325a94aa33aaf52d52068733284f"
+      },
+      "darwin-x64": {
+        "url": "https://dl.google.com/agy-extensions/releases/macos/agy-acp-server-1.4.5-darwin-x86_64.zip",
+        "sha256": "b39f3573c03b9acb9df028853f647527f1f3133f32bd77e78b796e48a205114a"
+      },
+      "linux-x64": {
+        "url": "https://dl.google.com/agy-extensions/releases/linux/agy-acp-server-1.4.5-linux-x86_64.zip",
+        "sha256": "923923a0d7dc8073f66cc6f78647a3107e3a7ee2b7e1a24df8b3927b5188013b"
+      },
+      "linux-arm64": {
+        "url": "https://dl.google.com/agy-extensions/releases/linux/agy-acp-server-1.4.5-linux-arm64.zip",
+        "sha256": "7d64246633ae094f67e3bbcd2d679e89048f91346d5339313336e7483f40f056"
+      }
+    }
+  },
+  "grok": {
+    "version": "1.0.67",
+    "source": "https://x.ai/cli/install.sh",
+    "platforms": {
+      "darwin-arm64": {
+        "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.67-macos-aarch64.gz",
+        "sha256": "ef4350900e9c6e83df8eebeebd765ed666ef6fbedb5269a3cdc47fa0d5c3773d"
+      },
+      "linux-x64": {
+        "url": "https://storage.googleapis.com/grok-build-public-artifacts/cli/grok-1.0.67-linux-x86_64.gz",
+        "sha256": "6bbea96cde807c13e4c66d9583d8acdd155e446d93131c2820999cf5523ed5a5"
+      }
+    }
+  }
+}
