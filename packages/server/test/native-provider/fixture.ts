@@ -28,7 +28,6 @@ import { AntigravityProvider } from "../../src/sdk/providers/antigravity.js";
 import { PiProvider } from "../../src/sdk/providers/pi.js";
 import { OpenCodeProvider } from "../../src/sdk/providers/opencode.js";
 import { GrokACPProvider } from "../../src/sdk/providers/grok-acp.js";
-import { GeminiACPProvider } from "../../src/sdk/providers/gemini-acp.js";
 import type {
   AgentProvider,
   AgentSession,
@@ -62,7 +61,7 @@ const wireFor = (provider: NativeProvider): ModelWire =>
     ? "anthropic"
     : isCodex(provider) || provider === "grok"
       ? "responses"
-      : provider === "antigravity" || provider === "gemini-acp"
+      : provider === "antigravity"
         ? "gemini"
         : "chat";
 
@@ -97,13 +96,11 @@ export async function nativeFixture(
     provider === "claude-gateway" || provider === "codex-oss";
   const modelId = isCodex(provider)
     ? "gpt-6.1-sol"
-    : provider === "gemini-acp"
-      ? "gemini-2.5-flash"
-      : provider === "antigravity"
-        ? "gemini-3.8-flash-high"
-        : isClaude(provider)
-          ? "claude-haiku-5-5"
-          : "owned/m1";
+    : provider === "antigravity"
+      ? "gemini-3.8-flash-high"
+      : isClaude(provider)
+        ? "claude-haiku-5-5"
+        : "owned/m1";
   const model = await modelServer(wireFor(provider), {
     ...(configuredService ? { catalogModel: modelId } : {}),
     authOptional: provider === "codex-oss",
@@ -119,7 +116,6 @@ export async function nativeFixture(
       "api.github.com:443",
       "ab.chatgpt.com:443",
       ...(provider === "opencode" ? ["registry.npmjs.org:443"] : []),
-      ...(provider === "gemini-acp" ? ["play.googleapis.com:443"] : []),
     ],
     auxiliary(body, path) {
       if (
@@ -446,17 +442,10 @@ export async function nativeFixture(
       `[models]\ndefault = "owned"\n[model.owned]\nmodel = "m1"\nname = "Owned stub"\nbase_url = "${model.url}/v1"\nenv_key = "FIXTURE_MODEL_KEY"\napi_backend = "responses"\n[compat.cursor]\nagents = false\nrules = false\nskills = false\nhooks = false\nmcps = false\nsessions = false\n[compat.claude]\nagents = false\nrules = false\nskills = false\nhooks = false\nmcps = false\nsessions = false\n[compat.codex]\nhooks = false\nskills = false\nsessions = false\n`,
     );
     await writeFile(
-      join(environment.GEMINI_HOME!, "settings.json"),
-      JSON.stringify({
-        security: { auth: { selectedType: "gemini-api-key" } },
-        telemetry: { enabled: false },
-      }),
-    );
-    await writeFile(
       join(environment.GEMINI_HOME!, "antigravity-acp", "settings.json"),
       JSON.stringify({ auth: { type: "gemini-api-key" } }),
     );
-    const script = provider === "pi" || provider === "gemini-acp";
+    const script = provider === "pi";
     const version = (
       await exec(
         script ? process.execPath : executable,
@@ -510,9 +499,7 @@ export async function nativeFixture(
       adapter = new PiProvider({ sessionsDir: environment.PI_SESSIONS_DIR });
     else if (provider === "opencode")
       adapter = new OpenCodeProvider({ opencodePath: executable });
-    else if (provider === "grok")
-      adapter = new GrokACPProvider({ grokPath: executable });
-    else adapter = new GeminiACPProvider({ geminiPath: executable });
+    else adapter = new GrokACPProvider({ grokPath: executable });
     await start();
     return {
       provider,

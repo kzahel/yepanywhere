@@ -6,7 +6,6 @@ import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.
 import { PiSessionReader } from "../../src/sessions/pi-reader.js";
 import { OpenCodeSessionReader } from "../../src/sessions/opencode-reader.js";
 import { GrokSessionReader } from "../../src/sessions/grok-reader.js";
-import { GeminiSessionReader } from "../../src/sessions/gemini-reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import { isClaude, isCodex, type NativeProvider } from "./runtimes.js";
 
@@ -63,11 +62,6 @@ export async function historyReader(
   if (provider === "grok")
     return new GrokSessionReader({
       sessionsDir: env.GROK_SESSIONS_DIR!,
-      projectPath: project,
-    });
-  if (provider === "gemini-acp")
-    return new GeminiSessionReader({
-      sessionsDir: env.GEMINI_SESSIONS_DIR!,
       projectPath: project,
     });
   const root = join(env.XDG_DATA_HOME!, "opencode");

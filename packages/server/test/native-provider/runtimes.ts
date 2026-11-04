@@ -11,7 +11,6 @@ export const nativeProviders = [
   "pi",
   "opencode",
   "grok",
-  "gemini-acp",
   "claude-gateway",
   "claude-ollama",
   "codex-oss",
@@ -25,10 +24,9 @@ export const expectedVersions: Record<NativeProvider, string> = {
   codex: "0.166.0",
   "codex-oss": "0.166.0",
   antigravity: "1.4.5",
-  pi: "1.4.0",
+  pi: "1.5.0",
   opencode: "1.18.9",
   grok: "1.0.67",
-  "gemini-acp": "0.36.0",
 };
 export const isClaude = (provider: NativeProvider) =>
   provider.startsWith("claude");
@@ -91,12 +89,6 @@ export function nativeExecutable(provider: NativeProvider): string {
       "dist",
       "bundle",
       "cli.js",
-    );
-  } else if (provider === "gemini-acp") {
-    path = join(
-      dirname(testTools.resolve("@google/gemini-cli/package.json")),
-      "bundle",
-      "gemini.js",
     );
   } else if (provider === "opencode") {
     const fromOpenCode = createRequire(

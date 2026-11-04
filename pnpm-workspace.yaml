@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
+  - "packages/server/test/native-provider/executables"
 
 # scripts/biome.cjs intentionally uses Biome's static musl binary on Linux so
 # lint and formatting also work on hosts with an older glibc. pnpm otherwise
@@ -35,7 +36,6 @@ ignoredBuiltDependencies:
 
 auditConfig:
   ignoreGhsas:
-    - GHSA-qwww-vcr4-c8h2
     - GHSA-w5hq-g745-h8pq
     - GHSA-rmxm-3fg6-px4f
     - GHSA-g3hv-75wg-m249

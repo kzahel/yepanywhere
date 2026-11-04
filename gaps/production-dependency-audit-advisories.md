@@ -1,10 +1,12 @@
-# Production dependency audit has three documented suppressions
+# Dependency audit retains documented unreachable advisories
 
-`pnpm audit --prod` currently reports three ignored advisories:
+CI now audits the complete pnpm workspace graph, including native provider test
+executables. Four advisory exceptions remain; the canonical table linked below
+owns their current paths and revisit triggers.
 
-- high, `react-router@7.18.0`, GHSA-qwww-vcr4-c8h2. The affected behavior is
-  React Server Components action handling; YA uses client-side
-  `BrowserRouter`, not RSC mode.
+- moderate, `glob` and `minimatch`, GHSA-3g3m-2fjr-6pw4 and
+  GHSA-g3hv-75wg-m249. Production reaches unused GAX cleanup tooling;
+  Pi's development-only minimatch calls use default optimization options.
 - moderate, transitive `uuid@9.0.1`, GHSA-w5hq-g745-h8pq. The affected API is
   caller-provided buffers for name-based UUID generation; YA does not call the
   transitive package directly.
@@ -27,6 +29,10 @@ dependency owns the renderer's output boundary.
 
 Found 2026-08-02 while replacing Marked with markdown-it and auditing the
 production renderer dependency graph.
+
+2026-11-04: React Router 7.18.2 includes the advisory backport, so its exception
+is removed. Vite and Pi are patched; Gemini CLI is removed from installation.
+Contributing-model: 6-astra
 
 2026-09-30: four newly reported, non-ignored findings blocked the unchanged
 CI campaign lockfile. Compatible patches move `fast-uri` 3.1.7 to 3.1.8 and

@@ -17,7 +17,7 @@ describe.each(providers)("native retry: %s", (provider) => {
     timeout:
       provider === "antigravity"
         ? 20_000
-        : ["gemini-acp", "grok"].includes(provider)
+        : provider === "grok"
           ? 10_000
           : 5_000,
   }, async () => {

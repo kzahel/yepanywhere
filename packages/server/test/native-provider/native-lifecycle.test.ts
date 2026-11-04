@@ -85,14 +85,10 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       expect(f.model.failures).toEqual([]);
     });
 
-  // Antigravity native reader teardown and Grok/Gemini restart hit the
+  // Antigravity native reader teardown and Grok restart hit the
   // initial 5s bound locally; use 2x that observed bound.
-  it(provider === "gemini-acp"
-    ? "hard stop joins the native worker and unsupported continuation refuses explicitly"
-    : "cancels an active native request and continues with saved context", {
-    timeout: ["antigravity", "grok", "gemini-acp"].includes(provider)
-      ? 10_000
-      : 5_000,
+  it("cancels an active native request and continues with saved context", {
+    timeout: ["antigravity", "grok"].includes(provider) ? 10_000 : 5_000,
   }, async () => {
     const f = await nativeFixture(provider);
     fixture = f;
@@ -123,18 +119,6 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
         nativeResumeSource: source,
         initialMessage: { text: "CONTINUE_AFTER_CANCEL" },
       });
-      if (provider === "gemini-acp") {
-        await f.message((m) => m.type === "error");
-        expect(JSON.stringify(f.events.at(-1))).toContain("session/resume");
-        await f.close();
-        expect(f.diagnostics.map((d) => d.msg)).toEqual([
-          "Gemini ACP session error",
-        ]);
-        expect(f.model.requests).toHaveLength(2);
-        expect(f.errors).toEqual([]);
-        expect(f.model.failures).toEqual([]);
-        return;
-      }
     }
     const continuation = await f.model.next();
     const body = JSON.stringify(continuation.body);
@@ -157,9 +141,7 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
   // Antigravity, Grok and OpenCode hit the runner's 5s limit during cold start/load.
   // Two real launches plus native reader teardown get 2x that observed bound.
   it.each(provider === "opencode" ? [true, false] : [true])(
-    provider === "gemini-acp"
-      ? "unsupported cold resume fails without replacing the saved conversation"
-      : "cold resume preserves native identity, prior turns and actual tool bytes (git=%s)",
+    "cold resume preserves native identity, prior turns and actual tool bytes (git=%s)",
     {
       timeout: ["antigravity", "grok", "opencode"].includes(provider)
         ? 10_000
@@ -196,24 +178,6 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
           uuid: "55555555-5555-4555-8555-555555555555",
         },
       });
-      if (provider === "gemini-acp") {
-        // Frozen Gemini retains session/resume. Native 0.36 only offers load;
-        // qualify explicit refusal and preservation, not a protocol expansion.
-        await f.message((m) => m.type === "error");
-        expect(
-          f.events.filter((m) => m.type === "system" && m.subtype === "init"),
-        ).toHaveLength(1);
-        expect(f.model.requests).toHaveLength(2);
-        expect(JSON.stringify(f.events.at(-1))).toContain("session/resume");
-        await f.close();
-        expect(f.diagnostics.map((d) => d.msg)).toEqual([
-          "Gemini ACP session error",
-        ]);
-        expect(JSON.stringify(f.diagnostics)).toContain("-32601");
-        expect(f.model.failures).toEqual([]);
-        expect(f.errors).toEqual([]);
-        return;
-      }
       const resumed = await f.model.next();
       if (provider === "antigravity")
         expect(resumed.model).toBe("gemini-3.7-flash");

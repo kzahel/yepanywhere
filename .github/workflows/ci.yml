@@ -212,7 +212,7 @@ jobs:
       # "Known-unreachable advisories".
       # A failure here means a new, untriaged advisory: fix it or triage it in both
       # places — never ignore without a table entry.
-      - run: pnpm audit --prod
+      - run: pnpm audit
       # Standalone npm manifests are outside the pnpm workspace. Include dev
       # dependencies: the sharing worker's Wrangler/Miniflare edge is dev-only.
       - run: npm audit --package-lock-only

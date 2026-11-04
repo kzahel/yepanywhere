@@ -62,7 +62,7 @@
     "@types/sanitize-html": "^2.16.0",
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
-    "@yep-anywhere/native-test-executables": "file:test/native-provider/executables",
+    "@yep-anywhere/native-test-executables": "workspace:*",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^4.1.12"
