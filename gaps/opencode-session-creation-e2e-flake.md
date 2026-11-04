@@ -12,6 +12,17 @@ Evidence from kzahel CI runs on `main`:
 - `8d5dfe5d3` (run 41763375258): both variants flaky, passing on retry.
 - `4b0f3dc1b` (run 41794993630): hosted variant failed all three attempts;
   local variant flaky.
+- `30ff6a30f` (run 41798287137): hosted variant failed all three attempts;
+  after a shard rerun, the local variant failed all three.
+
+Across those six failing attempts the failure point moves: line 103 twice
+and lines 96 and 85 once each (the creation reply missing after server
+restart plus reload, after a plain reload, or never streamed), line 111 once
+(after cold continuation the transcript shows only the continuation input,
+without the earlier creation turn, while liveness reports verified idle),
+and line 44 once (typing timeout). The moving failure point suggests a race
+in reply persistence or native-history projection, not one deterministic
+step.
 
 Not fixed in place: it was found while unbreaking the Chromium sandbox on CI,
 which it predates and is unrelated to. It needs diagnosis first. Candidates
