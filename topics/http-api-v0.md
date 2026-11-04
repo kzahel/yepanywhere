@@ -351,6 +351,13 @@ retention/export/pruning needs its own explicit idempotency-window contract.
 `GET /v0/servers/{serverId}/sessions/{sessionId}/relationships` returns the
 first recorded v0 creation receipt and a bounded page of initiated command
 receipts. `creation=null` does not prove that an older session was human-created.
+
+The [durable relationship design](session-relationships.md) proposes a shared
+application read model for these trusted creator facts, provider children and
+YA lineage. It preserves the receipt owner and does not reinterpret initiated
+message commands as parent/child creation. No response fields or authorization
+rules are changed by that proposal; extensions need their explicit contract.
+
 Both ends retain source/destination public server ids, trusted source session,
 launch, principal, request id and time. Source/destination are currently this
 same local profile; server-granted peer identity and cross-host routing remain

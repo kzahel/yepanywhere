@@ -198,6 +198,10 @@ that request's data until they close. Details and the owner table are in
   audit; implementation is pending. The
   [creation proposal](topics/session-creation.sketches.md) builds draft,
   attachment and navigation behavior on this boundary.
+- [`topics/session-relationships.md`](topics/session-relationships.md) — proposed
+  durable typed relationships coordinating provider-native children, trusted
+  v0 creator receipts and YA lineage through the existing identity/admission
+  owners; includes nonblocking transcript reads and provider-specific evidence.
 - [`topics/source-transport.md`](topics/source-transport.md) — proposal for a
   source-bound transport facade that makes localhost, plain multiplex
   WebSocket, and secure/relay modes explicit without hiding channel status.

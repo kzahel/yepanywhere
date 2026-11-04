@@ -43,6 +43,11 @@ capability/release guarantees remain separate.
 
 ## Native v0 and peer creation
 
+The [durable relationship design](session-relationships.md) coordinates trusted
+receipt creator links with provider children and YA lineage. It keeps this
+descriptive surface metadata separate from authenticated creator evidence,
+ownership and grants, and introduces no new v0 behavior by itself.
+
 Native v0 creation explicitly records `{ surface: "api" }` through Supervisor's
 pre-launch metadata boundary, including worker deferral and incoming peer
 creation. This API entry point does not infer web/desktop source from caller

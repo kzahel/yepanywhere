@@ -11,6 +11,12 @@ Related topics: [provider-session-tree](provider-session-tree.md),
 [vanilla-defaults](vanilla-defaults.md),
 [codex-sessions](codex-sessions.md)
 
+The [durable relationship design](session-relationships.md) proposes a shared
+SQL model coordinating native children, trusted v0 creator links, forks,
+`/btw` and other session relationships. It preserves the identity distinctions
+below and proposes removing fresh child acquisition from transcript delivery.
+It is a design proposal; the current freshness paths documented here remain.
+
 ## Identity contract
 
 The parent YA URL session ID remains canonical. Claude child transcript IDs and
