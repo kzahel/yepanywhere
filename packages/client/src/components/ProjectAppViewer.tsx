@@ -6,7 +6,14 @@ import {
   type ProjectAppView,
   type ProjectAppAddresses,
 } from "@yep-anywhere/shared";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ComposerInsertContext } from "../contexts/ComposerInsertContext";
 import { useOptionalToastContext } from "../contexts/ToastContext";
 import { writeClipboardText } from "../lib/clipboard";
@@ -315,6 +322,24 @@ export function ProjectAppViewer({
   }, []);
   const [frameLocation, setFrameLocation] = useState<URL | null>(null);
   const viewUrl = view?.url;
+  // The page the frame last reported, under its view's own link, so a reload
+  // of the same view stays on it instead of returning to the entry.
+  const shownPage = useRef<{ viewId: string; url: string } | null>(null);
+  useEffect(() => {
+    if (view && frameLocation)
+      shownPage.current = {
+        viewId: view.id,
+        url: framePageLink(view.url, view.url, frameLocation),
+      };
+  }, [view, frameLocation]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Read once per frame mount; later reports must not remount it.
+  const frameSrc = useMemo(
+    () =>
+      view && shownPage.current?.viewId === view.id
+        ? shownPage.current.url
+        : view?.url,
+    [view?.id, view?.url, reload],
+  );
   // The sandboxed frame cannot show a PDF; its hand-off page asks for a tab.
   // A service is its own origin, while static apps and artifacts are grants.
   useArtifactTabHandoff(
@@ -639,6 +664,8 @@ export function ProjectAppViewer({
                 void refresh().catch((reason: Error) =>
                   setError(reason.message),
                 );
+                // Home goes to the app's entry, not the page it is on.
+                shownPage.current = null;
                 setReload((value) => value + 1);
               }}
             >
@@ -855,7 +882,7 @@ export function ProjectAppViewer({
             )}
           {view && (
             <ViewerWindowActions
-              url={view.url}
+              url={framePageLink(view.url, view.url, frameLocation)}
               copyUrl={resolveCopyUrl}
               copyLink={info?.canCopyLink !== false}
               // Tinted while a handed-out link works: a served address, or the
@@ -1431,7 +1458,7 @@ export function ProjectAppViewer({
           hidden={details}
           className={styles.frame}
           title={view.label}
-          src={view.url}
+          src={frameSrc ?? view.url}
           sandbox={
             view.kind === "service"
               ? "allow-scripts allow-same-origin allow-forms allow-downloads"

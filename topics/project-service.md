@@ -116,7 +116,10 @@ report, and each later change, with `{type:
 origin; `shown` is false while the trail is clipped, so an app can show its
 own crumbs only when the bar does not (repo-view hides its crumbs while framed
 unless told `shown: false`). A directory
-crumb navigates the frame under the view's own access link. Apps that never
+crumb navigates the frame under the view's own access link. Open in new tab
+and Reload keep the last reported page, under the view's own link (Reload
+remounts the frame there); the app's Home control returns to its entry, and a
+new view (another target or launch) starts at its entry. Apps that never
 post keep the static title; nothing changes for them.
 Closing it changes navigation only. Stop is a separate service control in
 Settings. Use the existing iframe sandbox, credential
@@ -225,8 +228,9 @@ or reserve anything. Explain when that link grants transferable access and
 when it expires. A copied link is for someone else, so on a local
 (`.localhost`) page without a served address, Copy link mints the public link
 at click time when sharing is allowed (`canShare`), else copies the local one;
-viewing alone mints no public grant. Open in new tab keeps the view link;
-apps opting into public viewing below start with a public address. When
+viewing alone mints no public grant. Open in new tab keeps the view link, at
+the page the crumbs show; apps opting into public viewing below start with a
+public address. When
 the copied link differs from the view link only by host, it names the page the
 crumbs show, keeping its own `ya_access`. **Share** offers existing public-audience artifact sharing
 when this target, server and principal support it, without requiring a vhost.

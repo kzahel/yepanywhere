@@ -787,6 +787,19 @@ it("shows the page its frame reports and opens a crumb under the view's link", a
   expect(frame.src).toBe(
     "https://app-x.example/research/papers/?ya_access=view-token",
   );
+  // Opening in a new tab and reloading keep the last reported page, under
+  // the view's own link rather than any token the page carried.
+  const page = `https://app-x.example${paper}?ya_access=view-token`;
+  expect(
+    screen
+      .getByRole("link", { name: "Move viewer to new tab" })
+      .getAttribute("href"),
+  ).toBe(page);
+  fireEvent.click(screen.getByRole("button", { name: "Reload from disk" }));
+  await waitFor(() =>
+    expect(container.querySelector("iframe")).not.toBe(frame),
+  );
+  expect(container.querySelector("iframe")!.src).toBe(page);
 });
 it("inserts app path comments only from the displayed frame and origin", async () => {
   const original = mock.fetch.getMockImplementation()!;
