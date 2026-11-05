@@ -8,6 +8,92 @@
 
 export const CODEX_TOOL_CORRELATION_FIELD = "_codexToolCorrelation";
 
+/**
+ * Decode one literal POSIX shell wrapper from a Codex commandExecution item.
+ * Extra arguments, operators and outer-shell expansion remain unknown. This
+ * compares presentation identities; it is not proof of launch or authority.
+ */
+export function unwrapCodexCommandExecutionShell(
+  command: string,
+): string | null {
+  if (command.includes("\0")) return null;
+  const words: string[] = [];
+  let word = "",
+    started = false;
+  let quote: "'" | '"' | undefined;
+  const finish = () => {
+    if (started) words.push(word);
+    word = "";
+    started = false;
+  };
+  for (let index = 0; index < command.length; index++) {
+    const char = command[index]!;
+    if (quote === "'") {
+      if (char === "'") quote = undefined;
+      else word += char;
+      continue;
+    }
+    if (quote === '"') {
+      if (char === '"') quote = undefined;
+      else if (char === "\\") {
+        const next = command[++index];
+        if (next === undefined) return null;
+        if (next !== "\n") {
+          // In double quotes POSIX only removes these particular escapes.
+          word +=
+            next === "$" ||
+            next.charCodeAt(0) === 96 ||
+            next === '"' ||
+            next === "\\"
+              ? next
+              : "\\" + next;
+        }
+      } else {
+        if (char === "$" || char.charCodeAt(0) === 96) return null;
+        word += char;
+      }
+      continue;
+    }
+    if (char === " " || char === "\t") {
+      finish();
+      if (words.length > 3) return null;
+    } else if (char === "'" || char === '"') {
+      started = true;
+      quote = char;
+    } else if (char === "\\") {
+      const next = command[++index];
+      if (next === undefined) return null;
+      if (next !== "\n") {
+        word += next;
+        started = true;
+      }
+    } else {
+      if (
+        char === "\n" ||
+        char === "\r" ||
+        char.charCodeAt(0) === 96 ||
+        ";&|()<>$#*?[]{}~!".includes(char)
+      )
+        return null;
+      word += char;
+      started = true;
+    }
+  }
+  if (quote) return null;
+  finish();
+  const executable = words[0],
+    flag = words[1];
+  if (!executable || words.length !== 3 || (flag !== "-c" && flag !== "-lc"))
+    return null;
+  const name = executable.split("/").at(-1);
+  if (
+    !["sh", "bash", "dash", "zsh"].includes(name ?? "") ||
+    (!executable.startsWith("/") && executable !== name)
+  )
+    return null;
+  return words[2] ?? null;
+}
+
 export type CodexToolCorrelationOrigin =
   | "command_execution"
   | "custom_tool_call"

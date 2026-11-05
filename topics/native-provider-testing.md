@@ -277,9 +277,13 @@ shared decoder as the direct client. It focuses the composer once and uses
 raw keyboard dispatch per key so repeated locator readiness checks cannot hide
 a busy renderer. Completion must arrive as a live message before API replacement;
 a completed row is checked before replacement, after replacement and after
-reload. The known [Bash identity mismatch](../gaps/codex-live-bash-identity-does-not-match-rollout.md)
-can leave an additional pending row live, so this does not claim full tool-row
-identity convergence.
+reload. For the qualified literal POSIX Bash envelope with explicit absolute workdir
+and only output/yield controls, it also requires exactly one tool row at each
+point. [Bash identity convergence](codex-code-mode-render-convergence.md#2026-11-05-native-bash-identity-convergence)
+records the actual captured records and conservative matching limits; this is
+not qualification of arbitrary code orchestration or every shell envelope. Omitted
+turn cwd and additional execution settings remain in the
+[narrower Bash gap](../gaps/codex-bash-without-turn-cwd-or-with-login-still-duplicates.md).
 
 The command records its PID and native start identity. Cleanup publishes a
 terminal gate (also covering a late start), signals only a matching live
@@ -789,3 +793,11 @@ not separate those internal steps. A last mark without its successor names
 unfinished work, not a completed phase. Timeout guards include reader and
 shutdown work. These cold cases qualify view-then-resume. They do not establish
 direct-only Antigravity or OpenCode resume.
+
+
+The changed Process source `06c549a79` passes automatic Linux provider run
+42081658163 (69 cases, two workers). App run 42081724289 passes Linux's ten app
+and three browser cases, but its three-CPU M1 macOS job exhausts seven app-case
+budgets before the browser step. The [hosted macOS gap](../gaps/hosted-macos-native-app-case-timeouts.md)
+retains readiness phases, capacity and the pending one-worker control. No full
+macOS or combined matrix acceptance is claimed for that source.

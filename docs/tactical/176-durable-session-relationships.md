@@ -1223,8 +1223,8 @@ command identity is reaped. An injected early failure independently confirms
 cleanup. The retained browser fails against the old Process at its live-final
 result check (24.4 seconds) and passes with the exact fixed source restored
 (17.8 seconds). A stronger total-row assertion exposes the separate live/durable
-[Bash identity mismatch](../../gaps/codex-live-bash-identity-does-not-match-rollout.md),
-which remains explicit rather than claiming unique tool-row convergence.
+[Bash identity mismatch](../../topics/codex-code-mode-render-convergence.md#2026-11-05-native-bash-identity-convergence),
+handled in the next slice below rather than mixed into that Process repair.
 
 Local qualification passes 69 native cases (62.45 seconds wall /149.93 aggregate
 work), ten app cases (49.37 /136.68) and the revised three browser cases
@@ -1238,3 +1238,42 @@ unchanged. New hosted provider and app/browser qualification remains required
 for this changed Process path.
 Generic graph contract approval and remaining acquisition/consumer work still
 keep the overall plan active.
+
+### Converge actual native Bash presentation identities
+
+The stronger completion check exposed a separate live/durable Bash mismatch.
+A fresh real native run with a scripted model endpoint supplies sanitized
+normalized SDK/rollout-reader records. Its reducer regression fails before the
+fix with four retained messages instead of one parent/result pair.
+
+The client now compares consistent command/working-directory aliases and
+ignores only qualified output/yield controls. A shared literal POSIX decoder
+removes one provider-added wrapper from the live item; it never unwraps the
+durable user command. Unknown execution settings retain the older exact-input
+rule. Same-turn, ten-second, display semantics and one-to-one constraints stay
+intact. No wire field, authority or relationship fact is added. Shell expansion,
+extra arguments, malformed syntax and unqualified wrappers are not decoded.
+The owning [render-convergence topic](../../topics/codex-code-mode-render-convergence.md#2026-11-05-native-bash-identity-convergence)
+records the evidence boundary. The explicit-workdir, output/yield-only case is
+resolved; the [narrower Bash gap](../../gaps/codex-bash-without-turn-cwd-or-with-login-still-duplicates.md)
+retains omitted turn cwd and additional execution settings.
+
+The existing native browser now requires exactly one completed tool row before
+API replacement, after replacement and after reload, keeping concurrent output
+and every key below 100 ms. All three local browser cases pass in 47.6 seconds.
+The captured reducer and 25 lexical guard cases pass. Workspace passes 7,090
+server (+85 skips), 7,117 client, 979 shared, 139 relay and 45 push-broker tests.
+Lint, formatting and types pass; console budgets stay at 108/60/90.
+The requested independent review precedes publication. This is a
+presentation repair, not Codex-to-Claude relationship acquisition.
+
+The preceding Process slice at `06c549a79` passes automatic Linux provider
+[run 42081658163](https://github.com/kzahel/yepanywhere/actions/runs/42081658163),
+all 69 cases in 74.30 seconds wall /130.54 aggregate work with two workers.
+Its app/browser [run 42081724289](https://github.com/kzahel/yepanywhere/actions/runs/42081724289)
+passes Linux's ten app and three browser cases. Its three-CPU M1 macOS job
+fails seven app cases at the unchanged 30/40-second limits, so its browser
+step does not run. The [macOS gap](../../gaps/hosted-macos-native-app-case-timeouts.md)
+records readiness at 12.909–20.585 seconds, sparse host-pressure evidence and
+a one-worker control at the same source with all limits intact. Provider or
+Linux acceptance alone does not qualify macOS. The full plan remains active.

@@ -513,3 +513,50 @@ alone does not change how workflow annotations are parsed.
   `+0`.
 - Manual before/after screenshots were user-waived and are not represented as
   a completed visual inspection.
+
+### 2026-11-05 native Bash identity convergence
+
+A current Codex 0.166.0 command against an owned scripted model endpoint
+exposed a gap beyond the earlier Read/image qualification. The live Bash item
+uses `command`/`cwd` with a provider-added shell wrapper. Rollout normalizes the
+outer `exec` call with `cmd`/`workdir`, output/yield controls and a `command`
+alias. Comparing every raw input key left a pending live row beside the
+completed durable row, even for one native command. API replacement could hide
+that duplication.
+
+Bash correlation now compares the exact command and working directory, with
+consistent `cmd`/`command` and `cwd`/`workdir` aliases. Only the known transport
+controls `yield_time_ms` and `max_output_tokens` are ignored. Additional input
+fields or inconsistent aliases retain the older exact-input matching rule.
+Only a live `command_execution` may decode one literal POSIX shell envelope;
+the durable command retains an explicit shell invocation. The shared decoder
+accepts exactly a known shell, `-c`/`-lc` and one literal argument. It does not
+decode expansions, malformed quotes, extra arguments, operators, redirections,
+comments, unknown shells or relative shell paths. The existing same-turn,
+ten-second start window, display semantics and one-to-one matching still apply.
+No command is executed by this decoder, and matching supplies presentation
+identity rather than launch or relationship authority. PowerShell and other
+unqualified envelopes gain no decoding rule.
+
+This repair qualifies explicit absolute workdir with only output/yield controls.
+Omitted workdir and execution settings such as login still fall back and can
+leave the duplicate row; the [remaining Bash gap](../gaps/codex-bash-without-turn-cwd-or-with-login-still-duplicates.md)
+tracks exact-turn cwd and login-envelope evidence. The existing nearest-start
+policy can also leave identical near-simultaneous calls ambiguous; it is not
+relationship authority.
+
+The sanitized `codex-bash-native.json` client fixture retains actual normalized
+live SDK and rollout-reader records from that run; it is not a raw protocol
+fixture or independent qualification of every provider conversion. Paths/IDs
+are replaced, tool output is omitted and client source tags are explicit.
+Before the change its reducer regression retains four messages instead of one
+parent/result pair; after it, durable adoption and late live completion retain
+two. Guard cases cover quoting/expansion, working directories, conflicting
+aliases, additional execution settings and an explicit durable shell invocation.
+The existing real browser case now requires exactly one completed tool row
+before API replacement, after replacement and after page reload, while retaining
+output during sequential typing and the independent 100 ms acknowledgement
+limit. All three local browser cases pass in 47.6 seconds. Workspace passes
+7,090 server (+85 skips), 7,117 client, 979 shared, 139 relay and 45 push-broker
+tests. Lint, formatting and types pass, with unchanged console budgets.
+Independent review precedes publication.

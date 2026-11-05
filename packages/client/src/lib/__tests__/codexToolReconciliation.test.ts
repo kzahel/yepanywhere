@@ -4,6 +4,7 @@ import {
   type ToolDisplayAction,
 } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
+import observedBash from "./fixtures/codex-bash-native.json";
 import type { Message, SessionMetadata } from "../../types";
 import { reconcileCodexToolMessages } from "../codexToolReconciliation";
 import {
@@ -166,6 +167,71 @@ function firstContentBlock(message: Message | undefined) {
 }
 
 describe("Codex tool reconciliation", () => {
+  it("adopts the actual native Bash wrapper and rollout input aliases without leaving a pending parent", () => {
+    const live = observedBash.live as unknown as Message[];
+    const durable = observedBash.durable as unknown as Message[];
+    const active = reduceSessionDetailActions(
+      live.map((message) => ({ type: "applyStreamMessage" as const, message })),
+      { ...createInitialSessionDetailState(), session },
+    );
+    expect(active.messages).toHaveLength(2);
+    const settled = reduceSessionDetailState(active, {
+      type: "applyCatchupMessages",
+      messages: durable,
+    });
+    expect(settled.messages.map((message) => message.uuid)).toEqual([
+      "call_owned_command",
+      "call_owned_command-result",
+    ]);
+    const late = reduceSessionDetailActions(
+      live
+        .slice(-2)
+        .map((message) => ({ type: "applyStreamMessage" as const, message })),
+      settled,
+    );
+    expect(late.messages).toHaveLength(2);
+    expect(late.messages.every((message) => message._source === "jsonl")).toBe(
+      true,
+    );
+    expect(firstContentBlock(late.messages[1])).toMatchObject({
+      type: "tool_result",
+      tool_use_id: "call_owned_command",
+    });
+  });
+
+  it.each([
+    ["different working directory", { workdir: "/another/project" }],
+    ["unobserved execution settings", { env: { MODE: "different" } }],
+    ["conflicting command aliases", { cmd: "echo a different command" }],
+    ["explicit durable shell invocation", {}],
+  ])("does not correlate Bash with %s", (_label, changes) => {
+    const live = observedBash.live[0] as unknown as Message;
+    const durable = JSON.parse(
+      JSON.stringify(observedBash.durable[0]),
+    ) as Message;
+    const content = durable.message?.content;
+    if (!Array.isArray(content) || content[0]?.type !== "tool_use")
+      throw Error("Expected the captured native tool parent");
+    content[0].input = {
+      ...(content[0].input as Record<string, unknown>),
+      ...changes,
+    };
+    if (_label === "explicit durable shell invocation") {
+      const native = firstContentBlock(live);
+      if (native?.type !== "tool_use") throw Error("Expected native wrapper");
+      const command = (native.input as Record<string, unknown>).command;
+      content[0].input = {
+        ...(content[0].input as Record<string, unknown>),
+        cmd: command,
+        command,
+      };
+    }
+    expect(reconcileCodexToolMessages([live, durable])).toEqual([
+      live,
+      durable,
+    ]);
+  });
+
   it("adopts one durable parent and result across started, completed, and rollout", () => {
     const liveId = "exec-sanitized-three-reads";
     const durableId = "call_sanitized_three_reads";

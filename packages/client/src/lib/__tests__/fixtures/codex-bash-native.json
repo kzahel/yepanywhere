@@ -1,0 +1,174 @@
+{
+  "provenance": {
+    "provider": "codex",
+    "version": "0.166.0",
+    "captured": "2026-11-05",
+    "model": "scripted Responses endpoint, no inference",
+    "boundary": "actual normalized live SDK events and actual native rollout through the production reader",
+    "sanitization": "Paths and provider IDs replaced; tool output omitted; timestamps, input spelling and quoting preserved. _source is the client ingress tag."
+  },
+  "live": [
+    {
+      "type": "assistant",
+      "uuid": "exec-owned-command",
+      "_codexToolCorrelation": {
+        "origin": "command_execution",
+        "turnId": "turn-owned-command",
+        "itemId": "exec-owned-command",
+        "startedAt": "2026-11-05T18:13:40.618Z"
+      },
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "exec-owned-command",
+            "name": "Bash",
+            "input": {
+              "command": "/opt/homebrew/bin/bash -lc \"'/usr/bin/node' '/workspace/app/progress-writer.cjs' '/workspace/app/tool-progress' '/workspace/app/tool-progress-ready'\"",
+              "cwd": "/workspace/app"
+            }
+          }
+        ]
+      },
+      "timestamp": "2026-11-05T18:13:40.618Z",
+      "_source": "sdk"
+    },
+    {
+      "type": "user",
+      "uuid": "exec-owned-command-result",
+      "_isStreaming": true,
+      "_codexToolCorrelation": {
+        "origin": "command_execution",
+        "turnId": "turn-owned-command",
+        "itemId": "exec-owned-command"
+      },
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "exec-owned-command",
+            "content": "OWNED_COMMAND_OUTPUT"
+          }
+        ]
+      },
+      "timestamp": "2026-11-05T18:13:40.687Z",
+      "_source": "sdk"
+    },
+    {
+      "type": "assistant",
+      "uuid": "exec-owned-command",
+      "_codexToolCorrelation": {
+        "origin": "command_execution",
+        "turnId": "turn-owned-command",
+        "itemId": "exec-owned-command",
+        "startedAt": "2026-11-05T18:13:40.618Z"
+      },
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "exec-owned-command",
+            "name": "Bash",
+            "input": {
+              "command": "/opt/homebrew/bin/bash -lc \"'/usr/bin/node' '/workspace/app/progress-writer.cjs' '/workspace/app/tool-progress' '/workspace/app/tool-progress-ready'\"",
+              "cwd": "/workspace/app"
+            }
+          }
+        ]
+      },
+      "timestamp": "2026-11-05T18:13:41.148Z",
+      "_source": "sdk"
+    },
+    {
+      "type": "user",
+      "uuid": "exec-owned-command-result",
+      "_codexToolCorrelation": {
+        "origin": "command_execution",
+        "turnId": "turn-owned-command",
+        "itemId": "exec-owned-command",
+        "startedAt": "2026-11-05T18:13:40.618Z"
+      },
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "exec-owned-command",
+            "content": "OWNED_COMMAND_OUTPUT"
+          }
+        ]
+      },
+      "toolUseResult": {
+        "stdout": "OWNED_COMMAND_OUTPUT",
+        "stderr": "",
+        "interrupted": false,
+        "isImage": false,
+        "exitCode": 0
+      },
+      "timestamp": "2026-11-05T18:13:41.148Z",
+      "_source": "sdk"
+    }
+  ],
+  "durable": [
+    {
+      "uuid": "call_owned_command",
+      "type": "assistant",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "call_owned_command",
+            "name": "Bash",
+            "input": {
+              "cmd": "'/usr/bin/node' '/workspace/app/progress-writer.cjs' '/workspace/app/tool-progress' '/workspace/app/tool-progress-ready'",
+              "workdir": "/workspace/app",
+              "yield_time_ms": 10000,
+              "max_output_tokens": 20000,
+              "command": "'/usr/bin/node' '/workspace/app/progress-writer.cjs' '/workspace/app/tool-progress' '/workspace/app/tool-progress-ready'"
+            }
+          }
+        ]
+      },
+      "_codexToolCorrelation": {
+        "origin": "custom_tool_call",
+        "turnId": "turn-owned-command",
+        "itemId": "call_owned_command"
+      },
+      "timestamp": "2026-11-05T18:13:40.432Z",
+      "_source": "jsonl"
+    },
+    {
+      "uuid": "call_owned_command-result",
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "call_owned_command",
+            "content": "OWNED_COMMAND_OUTPUT"
+          }
+        ]
+      },
+      "toolUseResult": {
+        "stdout": "OWNED_COMMAND_OUTPUT",
+        "stderr": "",
+        "interrupted": false,
+        "isImage": false,
+        "exitCode": 0,
+        "durationSeconds": 0.7
+      },
+      "timestamp": "2026-11-05T18:13:41.149Z",
+      "_codexToolCorrelation": {
+        "origin": "custom_tool_call",
+        "turnId": "turn-owned-command",
+        "itemId": "call_owned_command"
+      },
+      "_source": "jsonl"
+    }
+  ]
+}

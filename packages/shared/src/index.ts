@@ -1122,6 +1122,7 @@ export {
   createCodexToolCorrelation,
   getCodexResponseItemTurnId,
   getCodexToolCorrelation,
+  unwrapCodexCommandExecutionShell,
 } from "./codex-tool-correlation.js";
 export {
   isUserMessage,

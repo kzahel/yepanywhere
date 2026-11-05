@@ -51,7 +51,7 @@ for (const provider of ["claude", "codex"] as const)
       const activity = page.locator(".conversation-activity-summary");
       if ((await activity.getAttribute("aria-expanded")) !== "true")
         await activity.click();
-      // Bash live/durable identity convergence has a separate captured gap.
+      await expect(page.locator(".tool-row")).toHaveCount(1);
       await expect(page.locator(".tool-row.status-complete")).toHaveCount(1);
     };
     try {

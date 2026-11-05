@@ -1,6 +1,7 @@
 import {
   CODEX_TOOL_CORRELATION_FIELD,
   getCodexToolCorrelation,
+  unwrapCodexCommandExecutionShell,
   type CodexToolCorrelationMetadata,
 } from "@yep-anywhere/shared";
 import type { Message } from "../types";
@@ -67,8 +68,59 @@ function getToolBlock(
     : null;
 }
 
-function getToolUseFingerprint(block: Record<string, unknown>): string | null {
+const BASH_CORRELATION_INPUTS = new Set([
+  "command",
+  "cmd",
+  "cwd",
+  "workdir",
+  "yield_time_ms",
+  "max_output_tokens",
+]);
+
+function getBashFingerprint(
+  block: Record<string, unknown>,
+  origin: CodexToolCorrelationMetadata["origin"],
+): string | null {
+  const input = block.input;
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const fields = input as Record<string, unknown>;
+  if (Object.keys(fields).some((key) => !BASH_CORRELATION_INPUTS.has(key)))
+    return null;
+  const command = fields.command ?? fields.cmd,
+    cwd = fields.cwd ?? fields.workdir;
+  if (typeof command !== "string" || typeof cwd !== "string" || !cwd)
+    return null;
+  if (
+    (fields.cmd !== undefined && fields.cmd !== command) ||
+    (fields.command !== undefined && fields.command !== command) ||
+    (fields.cwd !== undefined && fields.cwd !== cwd) ||
+    (fields.workdir !== undefined && fields.workdir !== cwd)
+  )
+    return null;
+  for (const key of ["yield_time_ms", "max_output_tokens"])
+    if (
+      fields[key] !== undefined &&
+      (!Number.isInteger(fields[key]) || (fields[key] as number) < 0)
+    )
+      return null;
+  // Only the live native item carries the provider-added shell wrapper.
+  // Preserve an explicit shell invocation in the durable user command.
+  const normalized =
+    origin === "command_execution"
+      ? (unwrapCodexCommandExecutionShell(command) ?? command)
+      : command;
+  return `Bash:${stableStringify({ command: normalized, cwd })}:${stableStringify(block._displayActions)}`;
+}
+
+function getToolUseFingerprint(
+  block: Record<string, unknown>,
+  origin: CodexToolCorrelationMetadata["origin"],
+): string | null {
   if (typeof block.name !== "string") return null;
+  if (block.name === "Bash") {
+    const fingerprint = getBashFingerprint(block, origin);
+    if (fingerprint) return fingerprint;
+  }
   if (block.name === "ViewImage") {
     const input = block.input;
     if (!input || typeof input !== "object" || Array.isArray(input))
@@ -104,7 +156,7 @@ function collectToolUseCandidates(messages: Message[]): ToolUseCandidate[] {
     const timestampMs = getTimestampMs(message, metadata);
     if (timestampMs === null) continue;
     const toolUseId = block.id;
-    const fingerprint = getToolUseFingerprint(block);
+    const fingerprint = getToolUseFingerprint(block, metadata.origin);
     if (typeof toolUseId !== "string" || !fingerprint) continue;
     candidates.push({
       fingerprint,
