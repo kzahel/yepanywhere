@@ -162,6 +162,10 @@ interface OperationRow {
   deleted: number;
   created_at: string;
 }
+type CreationControlRow = Pick<
+  OperationRow,
+  "id" | "current_attempt" | "input_expected" | "created_at" | "deleted"
+>;
 interface AttemptRow {
   id: string;
   creation_id: string;
@@ -532,7 +536,7 @@ export class SessionCreationStore {
         "SELECT * FROM session_creations WHERE owner_key = ? AND request_key = ?",
       ),
       bySession: database.prepare(
-        "SELECT * FROM session_creations WHERE session_id = ?",
+        "SELECT id, current_attempt, input_expected, created_at, deleted FROM session_creations WHERE session_id = ?",
       ),
       attempt: database.prepare(
         "SELECT * FROM session_creation_attempts WHERE id = ?",
@@ -657,7 +661,7 @@ export class SessionCreationStore {
 
   /** Point status avoids decoding the immutable request/context payload. */
   statusForSession(sessionId: YaSessionId): SessionCreationStatus | undefined {
-    const row = this.statements.bySession.get<OperationRow>(
+    const row = this.statements.bySession.get<CreationControlRow>(
       parseYaSessionId(sessionId),
     );
     if (!row) return;
@@ -745,10 +749,26 @@ export class SessionCreationStore {
     return row ? this.read(row) : undefined;
   }
   getForSession(sessionId: YaSessionId): SavedSessionCreation | undefined {
-    const row = this.statements.bySession.get<OperationRow>(
+    const control = this.statements.bySession.get<CreationControlRow>(
       parseYaSessionId(sessionId),
     );
+    const row = control && this.statements.byId.get<OperationRow>(control.id);
     return row ? this.read(row) : undefined;
+  }
+  /** Source admission evidence only; neither discovery adoption nor an access grant. */
+  admissionForSession(
+    sessionId: YaSessionId,
+  ): { createdAt: string; deleted: boolean; copy: boolean } | undefined {
+    const row = this.statements.bySession.get<CreationControlRow>(
+      parseYaSessionId(sessionId),
+    );
+    return row
+      ? {
+          createdAt: row.created_at,
+          deleted: row.deleted === 1,
+          copy: this.readAttempt(row.current_attempt).kind === "copy",
+        }
+      : undefined;
   }
   assertAttachmentCapacity(bytes: number): void {
     const usage = this.statements.capacity.get<{ attachment_bytes: number }>()!;
@@ -825,6 +845,7 @@ export class SessionCreationStore {
           initialPrompt: request.message,
           workingProjectId: request.projectId,
           sandboxLevel: request.launch?.sandboxLevel ?? "none",
+          sandboxEverConfined: request.launch?.sandboxLevel === "project-write",
           ...(request.launch?.sandboxLevel === "project-write"
             ? {
                 sandboxNetworkFirewall:

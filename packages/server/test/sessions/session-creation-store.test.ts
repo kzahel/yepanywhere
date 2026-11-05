@@ -25,6 +25,7 @@ import {
 import {
   openSqliteOrThrow,
   type SqliteDatabase,
+  type SqliteValue,
 } from "../../src/storage/sqlite.js";
 
 const roots: string[] = [],
@@ -56,9 +57,33 @@ const request: SavedCreationRequest = {
     serviceTier: null,
   },
 };
-async function fixture(path = ":memory:") {
+async function fixture(path = ":memory:", onGet?: (row: unknown) => void) {
   vi.spyOn(console, "log").mockImplementation(() => {});
-  const database = openSqliteOrThrow(path);
+  const real = openSqliteOrThrow(path);
+  const database = !onGet
+    ? real
+    : new Proxy(real, {
+        get(target, key) {
+          if (key === "prepare")
+            return (sql: string) => {
+              const statement = target.prepare(sql);
+              return new Proxy(statement, {
+                get(stmt, member) {
+                  if (member === "get")
+                    return (...params: SqliteValue[]) => {
+                      const row = stmt.get(...params);
+                      onGet(row);
+                      return row;
+                    };
+                  const value = Reflect.get(stmt, member, stmt);
+                  return typeof value === "function" ? value.bind(stmt) : value;
+                },
+              });
+            };
+          const value = Reflect.get(target, key, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
   databases.push(database);
   migrateDiscoveryDatabase(database);
   const root = await mkdtemp(join(tmpdir(), "ya-creation-store-"));
@@ -856,4 +881,86 @@ it("accounts attachment claims transactionally, rejects profile overflow and rel
       "SELECT operations, attachment_bytes FROM session_creation_capacity",
     ),
   ).toEqual([{ operations: 1, attachment_bytes: 0 }]);
+});
+
+it("reads creation status and admitted birth without returning saved payloads across the real SQLite boundary", async () => {
+  let capture = false;
+  const returned: unknown[] = [];
+  const { store } = await fixture(":memory:", (row) => {
+    if (capture && row) returned.push(row);
+  });
+  const saved = store.admit({
+    requestId: "compact-status-payload",
+    context,
+    request: { ...request, message: "private original prompt ".repeat(8000) },
+  });
+  capture = true;
+  expect(store.statusForSession(saved.sessionId)?.state).toBe("saved");
+  expect(store.admissionForSession(saved.sessionId)).toEqual({
+    createdAt: saved.createdAt,
+    deleted: false,
+    copy: false,
+  });
+  expect(returned.length).toBeGreaterThan(0);
+  expect(
+    returned.some(
+      (row) =>
+        Object.hasOwn(row as object, "payload_json") ||
+        Object.hasOwn(row as object, "context_json"),
+    ),
+  ).toBe(false);
+  returned.length = 0;
+  expect(store.getForSession(saved.sessionId)?.request).toEqual(saved.request);
+  expect(
+    returned.some((row) => Object.hasOwn(row as object, "payload_json")),
+  ).toBe(true); // Probe can see a real payload read.
+});
+
+it("persists confinement provenance across a project-write to none transition without inventing legacy history", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ya-confinement-history-"));
+  roots.push(root);
+  const path = join(root, "profile.sqlite"),
+    f = await fixture(path);
+  const saved = f.store.admit({
+    requestId: "confinement-history",
+    context,
+    request,
+  });
+  expect(f.metadata.getMetadata(saved.sessionId)?.sandboxEverConfined).toBe(
+    false,
+  );
+  const selection = {
+    projectPath: request.projectPath,
+    projectId: request.projectId,
+    provider: request.provider,
+  };
+  await f.metadata.setSessionSandbox(saved.sessionId, {
+    ...selection,
+    level: "project-write",
+  });
+  await f.metadata.setSessionSandbox(saved.sessionId, {
+    ...selection,
+    level: "none",
+  });
+  expect(f.metadata.getMetadata(saved.sessionId)).toMatchObject({
+    sandboxLevel: "none",
+    sandboxEverConfined: true,
+  });
+  await f.metadata.setSessionSandbox("legacy-source", {
+    ...selection,
+    level: "none",
+  });
+  expect(
+    f.metadata.getMetadata("legacy-source")?.sandboxEverConfined,
+  ).toBeUndefined();
+  f.store.close();
+  f.database.close();
+  const reopened = await fixture(path);
+  expect(reopened.metadata.getMetadata(saved.sessionId)).toMatchObject({
+    sandboxLevel: "none",
+    sandboxEverConfined: true,
+  });
+  expect(
+    reopened.metadata.getMetadata("legacy-source")?.sandboxEverConfined,
+  ).toBeUndefined();
 });

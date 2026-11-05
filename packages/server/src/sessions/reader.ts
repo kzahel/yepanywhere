@@ -370,18 +370,27 @@ export class ClaudeSessionReader implements ISessionReader {
     // Note: Raw messages might not have UUIDs if they are old format or haven't been normalized.
     // But typically they do.
     let finalMessages = rawMessages;
+    let committedEntries = snapshot.committedEntries;
     if (afterMessageId) {
       const afterIndex = rawMessages.findIndex(
         (m) => "uuid" in m && m.uuid === afterMessageId,
       );
       if (afterIndex !== -1) {
         finalMessages = rawMessages.slice(afterIndex + 1);
+        committedEntries = Math.max(0, committedEntries - afterIndex - 1);
       }
     }
 
     return {
       summary,
       transcriptSnapshotUpdatedAt: snapshot.stats.mtime.toISOString(),
+      committedEntries,
+      transcriptSourceVersion: {
+        id: JSON.stringify([snapshot.stats.dev, snapshot.stats.ino]),
+        size: snapshot.stats.size,
+        mtime: snapshot.stats.mtimeMs,
+        ctime: snapshot.stats.ctimeMs,
+      },
       data: {
         provider: summary.provider as ClaudeProviderName,
         session: {

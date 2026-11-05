@@ -94,6 +94,10 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
               identity,
               edges,
               pending: graph.checkpoint("nested-harness-pending-v1", sessionId),
+              historyScan: graph.checkpoint(
+                "nested-harness-history-scan-v1",
+                sessionId,
+              ),
               incoming: graph.list({
                 resource: target,
                 direction: "incoming",
@@ -187,7 +191,7 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         rejected.finish("NESTED_HARNESS_PARENT_DONE");
         await reconnected.wait("NESTED_HARNESS_PARENT_DONE");
         await reconnected.wait('"type":"result"');
-        const accepted = await appBarrier(async () => {
+        let accepted = await appBarrier(async () => {
           const view = await inspect();
           return view?.edges.length ? view : false;
         }, "accepted named harness edge");
@@ -211,6 +215,57 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         expect(accepted.pending?.state).toBe("complete");
         expect(accepted.providerChildren).toEqual([]);
         expect(accepted.created).toEqual([]);
+        // Fault injection in this owned profile models a session recorded before
+        // the live relationship producer existed. Keep the actual native files
+        // and admission unchanged; remove only this one launch's derived index.
+        const oldIndex = loadSqliteDriver()!.open(
+          join(f.root, "home", "ya", "discovery.sqlite"),
+        );
+        const evidenceDelete = oldIndex.prepare(
+            "DELETE FROM session_relationship_evidence WHERE edge_id = ?",
+          ),
+          edgeDelete = oldIndex.prepare(
+            "DELETE FROM session_relationship_edges WHERE id = ?",
+          ),
+          doneDelete = oldIndex.prepare(
+            "DELETE FROM session_relationship_checkpoints WHERE producer = 'nested-harness-complete-v1' AND source_key = ?",
+          );
+        try {
+          oldIndex.transaction(() => {
+            evidenceDelete.run(accepted.edges[0]!.id);
+            edgeDelete.run(accepted.edges[0]!.id);
+            doneDelete.run(
+              JSON.stringify([parent.sessionId, `call_${first.id}`]),
+            );
+          });
+        } finally {
+          evidenceDelete.finalize();
+          edgeDelete.finalize();
+          doneDelete.finalize();
+          oldIndex.close();
+        }
+        await f.api(
+          `/projects/${parent.projectId}/sessions/${parent.sessionId}?tailCompactions=2&tailTurns=20`,
+        );
+        accepted = await appBarrier(async () => {
+          const view = await inspect();
+          return view?.evidence.some(
+            (e) => e.producer === "nested-harness-history-v1",
+          )
+            ? view
+            : false;
+        }, "historical command acquisition from actual native rows");
+        expect(accepted.evidence).toEqual([
+          expect.objectContaining({
+            producer: "nested-harness-history-v1",
+            trust: "command-observed",
+            metadata: {
+              toolUseId: `call_${first.id}`,
+              sourceTimestamp: expect.any(String),
+            },
+          }),
+        ]);
+        expect(accepted.edges).toHaveLength(1);
         await f.api(
           `/projects/${parent.projectId}/sessions/${childId}/metadata`,
         );
@@ -296,6 +351,49 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         forkReply.finish("NESTED_FORK_DONE");
         await forkConnection.wait("NESTED_FORK_DONE");
         await forkConnection.wait('"type":"result"');
+        await f.api(
+          `/projects/${parent.projectId}/sessions/${fork.sessionId}?tailCompactions=2&tailTurns=20`,
+        );
+        // A positive control behind the fork's queued turn fences this negative
+        // check. Re-acquire the original's actual history in the same two-worker
+        // LRU coordinator, rather than assuming a /version round trip drained it.
+        const control = loadSqliteDriver()!.open(
+          join(f.root, "home", "ya", "discovery.sqlite"),
+        );
+        const removeEvidence = control.prepare(
+            "DELETE FROM session_relationship_evidence WHERE edge_id = ?",
+          ),
+          removeEdge = control.prepare(
+            "DELETE FROM session_relationship_edges WHERE id = ?",
+          ),
+          removePoint = control.prepare(
+            "DELETE FROM session_relationship_checkpoints WHERE producer = ? AND source_key = ?",
+          );
+        try {
+          control.transaction(() => {
+            removeEvidence.run(accepted.edges[0]!.id);
+            removeEdge.run(accepted.edges[0]!.id);
+            removePoint.run("nested-harness-history-scan-v1", parent.sessionId);
+            removePoint.run(
+              "nested-harness-complete-v1",
+              JSON.stringify([parent.sessionId, `call_${first.id}`, "history"]),
+            );
+          });
+        } finally {
+          removeEvidence.finalize();
+          removeEdge.finalize();
+          removePoint.finalize();
+          control.close();
+        }
+        await f.api(
+          `/projects/${parent.projectId}/sessions/${parent.sessionId}?tailCompactions=2&tailTurns=20`,
+        );
+        accepted = await appBarrier(async () => {
+          const view = await inspect();
+          return view?.edges.length && view.historyScan?.state === "complete"
+            ? view
+            : false;
+        }, "positive history control after copied-fork turn");
         const forkGraph = await inspect(fork.sessionId);
         expect(forkGraph).not.toBe(false);
         if (!forkGraph) throw Error("Fork identity unavailable");

@@ -1,3 +1,12 @@
+import {
+  collectHarnessHistory,
+  encodeHarnessHistory,
+  restoreHarnessHistory,
+  isOlderHarnessHistory,
+  type HarnessHistoryState,
+  type HarnessHistoryVersion,
+} from "./claude-harness-history.js";
+import type { ClaudeSessionEntry } from "@yep-anywhere/shared";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
@@ -42,6 +51,7 @@ interface Hint {
   observedAt: string;
   ready: boolean;
   attempts?: number;
+  sourceTimestamp?: string;
 }
 interface Pending {
   v: 1;
@@ -50,12 +60,22 @@ interface Pending {
   hints: Hint[];
 }
 type Event =
-  | { kind: "observe"; hint: Hint; directory: string }
+  | { kind: "observe"; hint: Hint; directory: string; projectPath?: string }
   | { kind: "finish"; id: string; success: boolean }
   | { kind: "probe" }
   | { kind: "end" };
+interface HistoryView {
+  rows: WeakRef<readonly ClaudeSessionEntry[]>;
+  projectPath: string;
+  committed: number;
+  version?: HarnessHistoryVersion;
+  state?: HarnessHistoryState;
+  revision?: number | null;
+}
 interface Work {
   context: HarnessProcessContext;
+  initialized?: boolean;
+  history?: HistoryView;
   pending?: Pending;
   events: Event[];
   running: boolean;
@@ -67,6 +87,7 @@ interface Work {
 const PENDING = "nested-harness-pending-v1";
 const COMPLETE = "nested-harness-complete-v1";
 const PRODUCER = "nested-harness-command-v1";
+const HISTORY_SCAN = "nested-harness-history-scan-v1";
 const MAX_SOURCES = 128,
   MAX_PENDING = 32,
   MAX_EVENTS = 66,
@@ -104,6 +125,14 @@ export class NestedHarnessRelationshipService
     private readonly identities: SessionIdentityStore | undefined,
     private readonly onCommitted: (sessionId: string) => void,
     private readonly onError: (error: unknown) => void,
+    private readonly admission?: (sessionId: string) =>
+      | {
+          createdAt: string;
+          deleted: boolean;
+          copy?: boolean;
+          confined?: boolean;
+        }
+      | undefined,
   ) {
     writer.assertProfileConnection(database);
     this.recovery = runOutsideRequestContext(async () => {
@@ -193,6 +222,10 @@ export class NestedHarnessRelationshipService
         !/^[a-f0-9-]{36}$/i.test(h.targetId) ||
         !Number.isFinite(Date.parse(h.observedAt)) ||
         typeof h.ready !== "boolean" ||
+        (h.sourceTimestamp !== undefined &&
+          (typeof h.sourceTimestamp !== "string" ||
+            h.sourceTimestamp.length > 32 ||
+            !Number.isFinite(Date.parse(h.sourceTimestamp)))) ||
         (h.attempts !== undefined &&
           (!Number.isInteger(h.attempts) ||
             h.attempts < 0 ||
@@ -220,6 +253,8 @@ export class NestedHarnessRelationshipService
       const pending = this.readPending(context.sessionId);
       const work: Work = {
         context,
+        initialized: true,
+        history: existing?.history,
         pending,
         events: [],
         running: false,
@@ -241,6 +276,53 @@ export class NestedHarnessRelationshipService
       this.onError(error);
     }
     return "registered";
+  }
+  /** Read-only historical evidence from rows the authorized route already acquired. */
+  observeTranscript(
+    context: Omit<HarnessProcessContext, "id" | "confined">,
+    rows: readonly ClaudeSessionEntry[],
+    committed = Math.max(0, rows.length - 1),
+    version?: HarnessHistoryVersion,
+  ): void {
+    const historyContext = {
+      sessionId: context.sessionId,
+      provider: context.provider,
+      projectPath: context.projectPath,
+      id: `history:${context.sessionId}`,
+      confined: false,
+    };
+    if (!this.admission || !rows.length || !this.eligible(historyContext))
+      return;
+    let work = this.sources.get(context.sessionId);
+    if (!work) {
+      if (this.sources.size >= MAX_SOURCES) return; // No new native resources under pressure.
+      work = {
+        context: historyContext,
+        events: [],
+        running: false,
+        generation: 0,
+        known: new Set(),
+        detached: true,
+      };
+      this.sources.set(context.sessionId, work);
+    }
+    work.history = {
+      rows: new WeakRef(rows),
+      version: version && {
+        id: version.id,
+        size: version.size,
+        mtime: version.mtime,
+        ctime: version.ctime,
+      },
+      projectPath: context.projectPath,
+      committed:
+        Number.isSafeInteger(committed) &&
+        committed >= 0 &&
+        committed <= rows.length
+          ? committed
+          : 0,
+    };
+    this.schedule();
   }
   forgetProcess(
     context: HarnessProcessContext,
@@ -402,13 +484,15 @@ export class NestedHarnessRelationshipService
         this.wake = undefined;
         for (const work of this.sources.values()) {
           if (this.active.size >= CONCURRENCY) break;
-          if (work.running || !work.events.length) continue;
+          if (work.running || (!work.events.length && !work.history)) continue;
           work.running = true;
           this.sources.delete(work.context.sessionId);
           this.sources.set(work.context.sessionId, work);
           const generation = work.generation;
           const job = this.run(work, generation)
             .catch((error) => {
+              work.history = undefined;
+              if (!work.initialized) work.failed = true;
               if (!this.retired) this.onError(error);
             })
             .finally(() => {
@@ -418,12 +502,17 @@ export class NestedHarnessRelationshipService
                 work.detached &&
                 !work.events.length &&
                 !work.pending?.hints.length &&
+                !work.history &&
                 this.sources.get(work.context.sessionId) === work
               )
                 this.sources.delete(work.context.sessionId);
               this.recoveryWake?.();
               this.recoveryWake = undefined;
-              if ([...this.sources.values()].some((w) => w.events.length))
+              if (
+                [...this.sources.values()].some(
+                  (w) => w.events.length || w.history,
+                )
+              )
                 this.schedule();
             });
           this.active.add(job);
@@ -485,9 +574,12 @@ export class NestedHarnessRelationshipService
       });
       if (!published) return false;
       if (completed) {
-        const key = callKey(work.context.sessionId, completed.hint.id);
+        const key = this.completionKey(work, completed.hint);
         const done = this.writer.index.checkpoint(COMPLETE, key);
-        if (!done && completed.observed) {
+        const previouslyObserved =
+          done && JSON.parse(done.cursor).observed === true;
+        const upgrade = completed.observed && !previouslyObserved;
+        if (upgrade) {
           const from = {
             kind: "native" as const,
             serverId: this.writer.serverId,
@@ -500,7 +592,9 @@ export class NestedHarnessRelationshipService
           );
           this.writer.index.recordWithinTransaction(
             {
-              producer: PRODUCER,
+              producer: completed.hint.sourceTimestamp
+                ? "nested-harness-history-v1"
+                : PRODUCER,
               sourceKey: work.context.sessionId,
               sourceVersion: createHash("sha256")
                 .update(relationshipResourceKey(from))
@@ -519,12 +613,17 @@ export class NestedHarnessRelationshipService
                 },
                 recordKey: completed.hint.id,
                 trust: "command-observed",
-                metadata: { toolUseId: completed.hint.id },
+                metadata: {
+                  toolUseId: completed.hint.id,
+                  ...(completed.hint.sourceTimestamp
+                    ? { sourceTimestamp: completed.hint.sourceTimestamp }
+                    : {}),
+                },
               },
             ],
           );
         }
-        if (!done)
+        if (!done || upgrade)
           this.writer.index.publishWithinTransaction({
             observation: {
               producer: COMPLETE,
@@ -533,7 +632,7 @@ export class NestedHarnessRelationshipService
               extractorVersion: 1,
               observedAt: new Date().toISOString(),
             },
-            expectedRevision: null,
+            expectedRevision: done?.revision ?? null,
             facts: [],
             progress: {
               state: "complete",
@@ -547,9 +646,140 @@ export class NestedHarnessRelationshipService
     if (saved) work.pending = committed;
     return saved;
   }
+  private completionKey(work: Work, hint: Hint): string {
+    return hint.sourceTimestamp
+      ? JSON.stringify([work.context.sessionId, hint.id, "history"])
+      : callKey(work.context.sessionId, hint.id);
+  }
+  private stageHistory(work: Work):
+    | {
+        view: HistoryView;
+        state: HarnessHistoryState;
+        hints: ReturnType<typeof collectHarnessHistory>["hints"];
+      }
+    | undefined {
+    const view = work.history;
+    if (!view) return;
+    const rows = view.rows.deref(),
+      admission = this.admission?.(work.context.sessionId),
+      source = this.source(work);
+    if (
+      !rows ||
+      !admission ||
+      admission.deleted ||
+      admission.copy ||
+      admission.confined !== false ||
+      !Number.isFinite(Date.parse(admission.createdAt)) ||
+      source?.family !== "claude"
+    ) {
+      work.history = undefined;
+      return;
+    }
+    if (!view.state) {
+      const checkpoint = this.writer.index.checkpoint(
+        HISTORY_SCAN,
+        work.context.sessionId,
+      );
+      if (
+        isOlderHarnessHistory(checkpoint?.cursor, rows, source, view.version)
+      ) {
+        work.history = undefined;
+        return;
+      }
+      view.state = restoreHarnessHistory(
+        checkpoint?.cursor,
+        rows,
+        source,
+        view.committed,
+        view.version,
+      );
+      view.revision = checkpoint?.revision ?? null;
+    }
+    if (
+      view.state.retryAfter &&
+      view.state.retryAfter > Date.now() &&
+      view.state.retryAfter <= Date.now() + 1000
+    ) {
+      work.history = undefined;
+      return;
+    }
+    if (MAX_PENDING - work.known.size <= 0) {
+      work.history = undefined;
+      return;
+    }
+    const deferred = new Set(
+      work.pending?.hints.filter((h) => !h.sourceTimestamp).map((h) => h.id),
+    );
+    if (
+      view.state.entry >= view.committed &&
+      !view.state.needsCommit &&
+      ![...view.state.pending.values()].some(
+        (h) => h.ready && !deferred.has(h.id),
+      )
+    ) {
+      work.history = undefined;
+      return;
+    }
+    const result = collectHarnessHistory(
+      rows,
+      view.state,
+      source.id,
+      admission.createdAt,
+      MAX_PENDING - work.known.size,
+      view.committed,
+      deferred,
+    );
+    for (const h of result.hints) {
+      const hint: Hint = {
+        id: h.id,
+        targetId: h.targetId,
+        sourceTimestamp: h.sourceTimestamp,
+        observedAt: new Date().toISOString(),
+        ready: true,
+      };
+      const live = this.writer.index.checkpoint(
+        COMPLETE,
+        callKey(work.context.sessionId, h.id),
+      );
+      if (live && JSON.parse(live.cursor).observed === true) {
+        result.state.pending.delete(h.id);
+        continue;
+      }
+      const done = this.writer.index.checkpoint(
+        COMPLETE,
+        this.completionKey(work, hint),
+      );
+      if (done && JSON.parse(done.cursor).observed === true) {
+        result.state.pending.delete(h.id);
+        continue;
+      }
+      // A still-owned live observation keeps its timestamp, key and proof budget.
+      if (work.pending?.hints.some((p) => p.id === h.id && !p.sourceTimestamp))
+        continue;
+      if (!work.known.has(h.id) && work.known.size >= MAX_PENDING) continue;
+      work.known.add(h.id);
+      work.events.push({
+        kind: "observe",
+        hint,
+        directory: h.directory,
+        projectPath: view.projectPath,
+      });
+    }
+    return { view, state: result.state, hints: result.hints };
+  }
   private async run(work: Work, generation: number): Promise<void> {
+    if (!work.initialized) {
+      work.pending = this.readPending(work.context.sessionId);
+      work.known = new Set(work.pending?.hints.map((h) => h.id));
+      work.initialized = true;
+    }
+    // Existing live events retain priority over another historical CPU batch.
+    const historyTurn = work.events.length === 0 && !!work.history;
+    const history = historyTurn ? this.stageHistory(work) : undefined;
     // Finite turn; another source gets a worker before the next event batch.
     const events = work.events.splice(0, MAX_EVENTS);
+    const handed = new Set<string>(),
+      terminal = new Set<string>();
     for (const event of events) {
       if (!this.current(work, generation)) return;
       try {
@@ -560,30 +790,49 @@ export class NestedHarnessRelationshipService
             source.id === event.hint.targetId
           ) {
             work.known.delete(event.hint.id);
+            if (event.hint.sourceTimestamp) terminal.add(event.hint.id);
             continue;
           }
           const directory = await realpath(event.directory);
           if (
-            directory !== (await realpath(work.context.projectPath)) ||
+            directory !==
+              (await realpath(event.projectPath ?? work.context.projectPath)) ||
             basename(source.storageScope) !==
               claudeCwdProjectDirectory(directory) ||
             (await realpath(source.storageScope)) !== source.storageScope ||
             !this.current(work, generation)
           ) {
             work.known.delete(event.hint.id);
+            if (event.hint.sourceTimestamp) terminal.add(event.hint.id);
             continue;
           }
           const saved = this.save(
             work,
             (p) => {
+              const old = p.hints.find((h) => h.id === event.hint.id);
               if (
-                !p.hints.some((h) => h.id === event.hint.id) &&
-                p.hints.length < MAX_PENDING
+                old &&
+                event.hint.sourceTimestamp &&
+                old.targetId === event.hint.targetId &&
+                old.sourceTimestamp
               )
+                Object.assign(old, event.hint);
+              else if (!old && p.hints.length < MAX_PENDING)
                 p.hints.push(event.hint);
             },
             { v: 1, native: source, directory, hints: [] },
           );
+          if (
+            saved &&
+            event.hint.sourceTimestamp &&
+            work.pending?.hints.some(
+              (h) =>
+                h.id === event.hint.id &&
+                h.targetId === event.hint.targetId &&
+                h.sourceTimestamp,
+            )
+          )
+            handed.add(event.hint.id);
           if (!saved) work.known.delete(event.hint.id);
         } else if (event.kind === "end") {
           for (const hint of work.pending?.hints ?? [])
@@ -607,10 +856,107 @@ export class NestedHarnessRelationshipService
       } catch (error) {
         // One inaccessible candidate must not discard other already-observed events.
         if (event.kind === "observe") work.known.delete(event.hint.id);
+        if (history && event.kind === "observe" && event.hint.sourceTimestamp)
+          history.state.retryAfter = Date.now() + 1000;
         if (!this.retired) this.onError(error);
       }
     }
-    await this.probe(work, generation);
+    if (await this.probe(work, generation, historyTurn))
+      this.onCommitted(work.context.sessionId);
+    if (history && this.current(work, generation)) {
+      const rows = history.view.rows.deref(),
+        native = this.source(work);
+      if (!rows || !native) {
+        if (work.history === history.view) work.history = undefined;
+        return;
+      }
+      for (const hint of history.hints) {
+        const queued = work.pending?.hints.find(
+          (h) =>
+            h.id === hint.id &&
+            h.targetId === hint.targetId &&
+            h.sourceTimestamp,
+        );
+
+        const live = this.writer.index.checkpoint(
+          COMPLETE,
+          callKey(work.context.sessionId, hint.id),
+        );
+        const old = this.writer.index.checkpoint(
+          COMPLETE,
+          JSON.stringify([work.context.sessionId, hint.id, "history"]),
+        );
+        if (
+          queued ||
+          handed.has(hint.id) ||
+          terminal.has(hint.id) ||
+          (old && JSON.parse(old.cursor).observed === true) ||
+          (live && JSON.parse(live.cursor).observed === true)
+        )
+          history.state.pending.delete(hint.id);
+        if (
+          (terminal.has(hint.id) || (handed.has(hint.id) && !queued)) &&
+          (!live || JSON.parse(live.cursor).observed !== true) &&
+          (!old || JSON.parse(old.cursor).observed !== true)
+        )
+          history.state.partial = true;
+      }
+      const waitingForHandoff = [...history.state.pending.values()].some(
+        (h) =>
+          h.ready &&
+          !work.pending?.hints.some(
+            (live) => live.id === h.id && !live.sourceTimestamp,
+          ),
+      );
+      if (waitingForHandoff) history.state.retryAfter = Date.now() + 1000;
+      const saved = this.database.transaction(() =>
+        this.writer.index.publishWithinTransaction({
+          observation: {
+            producer: HISTORY_SCAN,
+            sourceKey: work.context.sessionId,
+            sourceVersion: createHash("sha256")
+              .update(
+                relationshipResourceKey({
+                  kind: "native",
+                  serverId: this.writer.serverId,
+                  native,
+                }),
+              )
+              .digest("hex"),
+            extractorVersion: 1,
+            observedAt: new Date().toISOString(),
+          },
+          expectedRevision: history.view.revision ?? null,
+          facts: [],
+          progress: {
+            state:
+              history.state.partial ||
+              history.state.pending.size ||
+              history.state.entry < history.view.committed
+                ? "partial"
+                : "complete",
+            cursor: encodeHarnessHistory(
+              history.state,
+              rows,
+              native,
+              history.view.version,
+            ),
+          },
+        }),
+      );
+      if (saved) {
+        history.state.needsCommit = false;
+        history.view.state = history.state;
+        history.view.revision = (history.view.revision ?? 0) + 1;
+      }
+      if (
+        work.history === history.view &&
+        (!saved ||
+          history.state.entry >= history.view.committed ||
+          waitingForHandoff)
+      )
+        work.history = undefined;
+    }
   }
   /** Unknown terminal outcome, never a statement that no launch occurred. */
   private abandon(work: Work, hint: Hint): void {
@@ -626,7 +972,12 @@ export class NestedHarnessRelationshipService
     )
       work.known.delete(hint.id);
   }
-  private async probe(work: Work, generation: number): Promise<void> {
+  private async probe(
+    work: Work,
+    generation: number,
+    historicalOnly = false,
+  ): Promise<boolean> {
+    let committed = false;
     const pending = work.pending;
     const source = this.source(work);
     if (
@@ -635,24 +986,28 @@ export class NestedHarnessRelationshipService
       source.family !== "claude" ||
       !sameNative(source, pending.native)
     )
-      return;
+      return committed;
     for (const hint of pending.hints) {
-      if (!this.current(work, generation)) return;
+      if (historicalOnly && !hint.sourceTimestamp) continue;
+      if (!this.current(work, generation)) return committed;
       if (Date.now() - Date.parse(hint.observedAt) >= MAX_AGE_MS) {
         this.abandon(work, hint);
         continue;
       }
       if (!hint.ready) continue;
-      let proven = false;
+      let proven = false,
+        transient = false;
       try {
         proven = await this.targetExists(pending, hint);
       } catch (error) {
+        transient = true;
         if (!this.retired) this.onError(error);
       }
-      if (!this.current(work, generation)) return;
+      if (!this.current(work, generation)) return committed;
       if (!proven) {
         const attempts = (hint.attempts ?? 0) + 1;
-        if (attempts >= MAX_PROBES) this.abandon(work, hint);
+        if ((hint.sourceTimestamp && !transient) || attempts >= MAX_PROBES)
+          this.abandon(work, hint);
         else
           this.save(work, (p) => {
             const h = p.hints.find((h) => h.id === hint.id);
@@ -670,9 +1025,10 @@ export class NestedHarnessRelationshipService
       );
       if (saved) {
         work.known.delete(hint.id);
-        this.onCommitted(work.context.sessionId);
+        committed = true;
       }
     }
+    return committed;
   }
   private async targetExists(pending: Pending, hint: Hint): Promise<boolean> {
     const path = join(pending.native.storageScope, hint.targetId + ".jsonl");

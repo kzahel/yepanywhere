@@ -122,6 +122,59 @@ wrapper SIGHUP while the child is running, verifies
 SQL edges after completion and target loss, and checks that copied fork history
 creates no extra launch edge. No inference is used by that fixture.
 
+## Historical acquisition from an authorized read
+
+Ordinary authenticated detail reads also offer the already acquired Claude rows
+to the same bounded coordinator. The request stores only a weak reference and
+compact source context, and waits for no historical discovery. It starts no
+parent-file read, summary-cache invalidation or corpus walk. Public-share
+capture does not request this acquisition.
+
+Only a server-admitted, non-copy source with its exact native binding and an
+explicit persisted sandbox level of `none` plus known never-confined admission
+provenance qualifies. A private monotonic `sandboxEverConfined` marker starts at
+admission and becomes true on any `project-write` selection; switching back to
+`none` cannot clear it. Missing legacy provenance remains unknown and is
+withheld, so a downgrade cannot re-qualify confined-era rows.
+The admission owner supplies its birth time without loading the saved prompt or
+context. Rows must belong to that native source and follow its admitted birth;
+sidechains, replay and synthetic rows are withheld. Copied/legacy histories lack
+a reliable source cutoff and remain unknown. Live observations still cover new
+commands in those sessions. A successful paired foreground Bash result and the
+existing destination proof support command evidence, never creation authority.
+
+Each CPU turn examines at most 256 records/blocks and 256K command characters.
+At most 32 pending IDs/pairs with 48 KiB of compact data survive in a private SQL
+extraction cursor. No command, prompt or tool output enters that cursor. The
+reader supplies its newline-committed count, excluding provisional tails.
+Native file identity, size/mtime and a bounded stable UUID anchor qualify append
+continuation; replacement or a changed prefix resets extraction, preserving
+accepted history. Pending pairs survive observer replacement and expire as
+unknown after 24 hours since extraction, rather than since an old command ran.
+An unchanged high-water mark causes no extraction write. An older same-file
+view cannot rewind newer progress, and an invalid derived cursor resets without
+erasing accepted facts.
+
+Facts and pending proof use the existing atomic relationship owner. The SQL
+scan cursor advances only after durable handoff under the current generation;
+ready but unhanded pairs remain in that cursor. Capacity and transient handoff
+failures stop the view without dropping those pairs. Transient handoff failures
+use a one-second persisted retry deadline, checked only by later reads; no
+timer or closed-view loop is created. A replay before the handoff
+is idempotent. A terminal live unknown can gain
+historical support later. Already accepted live evidence is not duplicated, and a historical read cannot
+change an active live hint's timestamp, completion key or retry budget. Transient
+proof errors use the bounded retry ladder. Notifications coalesce once per
+coordinator turn.
+Native command time is stored separately from the new observation time.
+
+The native fixture models a pre-index session by deleting only its derived
+launch index inside the owned temporary profile, then opening the ordinary
+detail route. Actual native command/result rows restore the edge; neither the
+rejected reused id nor copied fork commands add one. Model dispatch counts stay
+unchanged. Automatic install-wide backfill and copied-history birth proof remain
+separate work.
+
 ## Not covered
 
 The reverse edge — a child session showing which session launched it — is not

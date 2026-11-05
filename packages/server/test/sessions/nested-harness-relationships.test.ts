@@ -3,6 +3,7 @@ import {
   mkdir,
   mkdtemp,
   realpath,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -13,6 +14,7 @@ import {
   nativeSessionRef,
   parseNativeSessionId,
   parseYaSessionId,
+  type ClaudeSessionEntry,
 } from "@yep-anywhere/shared";
 import { afterEach, expect, it, vi } from "vitest";
 import { claudeCwdProjectDirectory } from "../../src/projects/claude-project-directory.js";
@@ -26,9 +28,10 @@ import { quoteShellWord } from "../../src/utils/posixShell.js";
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
+  vi.restoreAllMocks();
 });
 const turn = () => new Promise<void>((resolve) => setImmediate(resolve));
-async function fixture() {
+async function fixture(history = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "ya-harness-sql-")));
   const project = join(root, "project"),
     scope = join(root, "native", claudeCwdProjectDirectory(project));
@@ -65,6 +68,13 @@ async function fixture() {
   };
   const errors: unknown[] = [],
     committed = vi.fn();
+  const admission = {
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    deleted: false,
+    copy: false,
+    confined: false as boolean | undefined,
+  };
+  const admissionReads = vi.fn(() => admission);
   const services: NestedHarnessRelationshipService[] = [];
   const service = () => {
     const s = new NestedHarnessRelationshipService(
@@ -73,6 +83,7 @@ async function fixture() {
       identities,
       committed,
       (e) => errors.push(e),
+      history ? admissionReads : undefined,
     );
     services.push(s);
     return s;
@@ -87,7 +98,7 @@ async function fixture() {
   });
   const resource = { kind: "native" as const, serverId: "server", native };
   const edges = () =>
-    writer.index.list({ resource, type: "launched_harness" }).edges;
+    writer.index.list({ resource, type: "launched_harness", limit: 200 }).edges;
   const pending = () =>
     writer.index.checkpoint("nested-harness-pending-v1", sessionId);
   const observe = (
@@ -155,6 +166,8 @@ async function fixture() {
     header,
     edges,
     pending,
+    admission,
+    admissionReads,
   };
 }
 
@@ -523,5 +536,444 @@ it("preserves an unreturned call through local reload completion and reattached 
     },
   });
   await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  expect(f.errors).toEqual([]);
+});
+
+function historicalRows(
+  f: Awaited<ReturnType<typeof fixture>>,
+  targets: string[],
+  timestamp = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+): ClaudeSessionEntry[] {
+  const native = f.identities.resolveYa(f.context.sessionId)!.native!;
+  return targets
+    .flatMap(
+      (target, index) =>
+        [
+          {
+            type: "assistant",
+            uuid: `command-${index}`,
+            sessionId: native.id,
+            timestamp,
+            message: {
+              role: "assistant",
+              content: [
+                {
+                  type: "tool_use",
+                  name: "Bash",
+                  id: `historical-${index}`,
+                  input: {
+                    command: `cd ${quoteShellWord(f.project)} && claude --session-id ${target} --print go`,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            type: "user",
+            uuid: `result-${index}`,
+            sessionId: native.id,
+            timestamp,
+            message: {
+              role: "user",
+              content: [
+                {
+                  type: "tool_result",
+                  tool_use_id: `historical-${index}`,
+                  content: "private historical output",
+                },
+              ],
+            },
+          },
+        ] as ClaudeSessionEntry[],
+    )
+    .concat([
+      {
+        type: "assistant",
+        uuid: "last",
+        sessionId: native.id,
+        timestamp,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Complete" }],
+        },
+      } as ClaudeSessionEntry,
+    ]);
+}
+
+it("indexes more than one historical batch from already acquired rows, without a parent file or retained commands", async () => {
+  const f = await fixture(true),
+    targets = Array.from({ length: 80 }, () => randomUUID());
+  await Promise.all(
+    targets.map((target) =>
+      writeFile(join(f.scope, target + ".jsonl"), f.header(target)),
+    ),
+  );
+  const rows = historicalRows(f, targets);
+  f.first.observeTranscript(f.context, rows);
+  expect(f.edges()).toEqual([]);
+  expect(f.admissionReads).not.toHaveBeenCalled(); // No synchronous SQL/native work.
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(80));
+  const evidence = f.writer.index.evidence(f.edges()[0]!.id);
+  expect(evidence).toEqual([
+    expect.objectContaining({
+      producer: "nested-harness-history-v1",
+      trust: "command-observed",
+      metadata: expect.objectContaining({
+        sourceTimestamp: expect.any(String),
+      }),
+    }),
+  ]);
+  expect(JSON.stringify(evidence)).not.toContain("private historical output");
+  f.first.observeTranscript(f.context, rows);
+  await turn();
+  await turn();
+  expect(f.committed.mock.calls.length).toBeLessThanOrEqual(3);
+  expect(f.errors).toEqual([]);
+});
+
+it("can refine a live terminal unknown from a proved historical command/result pair", async () => {
+  const f = await fixture(true),
+    target = randomUUID();
+  f.observe(f.first, "historical-0", target);
+  f.first.forgetProcess(f.context);
+  await vi.waitFor(() =>
+    expect(
+      f.writer.index.checkpoint(
+        "nested-harness-complete-v1",
+        JSON.stringify([f.context.sessionId, "historical-0"]),
+      )?.cursor,
+    ).toBe('{"observed":false}'),
+  );
+  await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+  const rows = historicalRows(f, [target]);
+  f.first.observeTranscript(f.context, rows);
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  expect(f.errors).toEqual([]);
+});
+
+it.each([
+  "copy",
+  "deleted",
+  "invalid-birth",
+  "confined",
+  "missing-sandbox",
+] as const)(
+  "withholds historical %s sources without spinning",
+  async (kind) => {
+    const f = await fixture(true),
+      target = randomUUID();
+    await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+    if (kind === "copy") f.admission.copy = true;
+    if (kind === "deleted") f.admission.deleted = true;
+    if (kind === "confined") f.admission.confined = true;
+    if (kind === "missing-sandbox") f.admission.confined = undefined;
+    if (kind === "invalid-birth") f.admission.createdAt = "invalid";
+    const rows = historicalRows(
+      f,
+      [target],
+      new Date(Date.now() + 3600000).toISOString(),
+    );
+    f.first.observeTranscript(f.context, rows);
+    await vi.waitFor(() => expect(f.admissionReads).toHaveBeenCalled());
+    await turn();
+    await f.first.close();
+    expect(f.edges()).toEqual([]);
+    expect(f.errors).toEqual([]);
+  },
+);
+
+it("persists an unpaired committed command across observer replacement and accepts a newly committed last-row result", async () => {
+  const f = await fixture(true),
+    target = randomUUID();
+  await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+  const rows = historicalRows(f, [target]),
+    key = "nested-harness-history-scan-v1";
+  f.first.observeTranscript(f.context, rows, 1, {
+    id: "owned-file",
+    size: 100,
+    mtime: 1,
+  });
+  await vi.waitFor(() =>
+    expect(
+      JSON.parse(f.writer.index.checkpoint(key, f.context.sessionId)!.cursor)
+        .entry,
+    ).toBe(1),
+  );
+  expect(f.edges()).toEqual([]);
+  const pending = JSON.parse(
+    f.writer.index.checkpoint(key, f.context.sessionId)!.cursor,
+  );
+  expect(pending.pending).toHaveLength(1);
+  expect(JSON.stringify(pending)).not.toContain("claude --session-id");
+  await f.first.close();
+  const next = f.service(),
+    committedRows = rows.slice(0, 2);
+  next.observeTranscript(f.context, committedRows, 2, {
+    id: "owned-file",
+    size: 200,
+    mtime: 2,
+  });
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  await vi.waitFor(() =>
+    expect(f.writer.index.checkpoint(key, f.context.sessionId)?.state).toBe(
+      "complete",
+    ),
+  );
+  const revision = f.writer.index.checkpoint(
+    key,
+    f.context.sessionId,
+  )!.revision;
+  next.observeTranscript(f.context, committedRows, 2, {
+    id: "owned-file",
+    size: 200,
+    mtime: 2,
+  });
+  await turn();
+  await turn();
+  await next.close();
+  expect(f.writer.index.checkpoint(key, f.context.sessionId)!.revision).toBe(
+    revision,
+  );
+  expect(f.errors).toEqual([]);
+});
+
+it("resets historical progress after a same-size native rewrite while preserving accepted history", async () => {
+  const f = await fixture(true),
+    targets = [randomUUID(), randomUUID()];
+  await Promise.all(
+    targets.map((target) =>
+      writeFile(join(f.scope, target + ".jsonl"), f.header(target)),
+    ),
+  );
+  const first = historicalRows(f, [targets[0]!]);
+  f.first.observeTranscript(f.context, first, first.length, {
+    id: "owned-file",
+    size: 500,
+    mtime: 1,
+  });
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  await vi.waitFor(() =>
+    expect(
+      f.writer.index.checkpoint(
+        "nested-harness-history-scan-v1",
+        f.context.sessionId,
+      )?.state,
+    ).toBe("complete"),
+  );
+  const replacement = historicalRows(f, [targets[1]!]);
+  // UUID positions deliberately remain equal; the native snapshot changed.
+  const command = replacement[0] as unknown as {
+      message: { content: { id: string }[] };
+    },
+    result = replacement[1] as unknown as {
+      message: { content: { tool_use_id: string }[] };
+    };
+  command.message.content[0]!.id = "replacement-call";
+  result.message.content[0]!.tool_use_id = "replacement-call";
+  f.first.observeTranscript(f.context, replacement, replacement.length, {
+    id: "owned-file",
+    size: 500,
+    mtime: 2,
+  });
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(2));
+  expect(f.errors).toEqual([]);
+});
+
+it("retries historical pairs after 32 live pending calls release capacity without advancing past them", async () => {
+  const f = await fixture(true),
+    targets = [randomUUID(), randomUUID()];
+  await Promise.all(
+    targets.map((t) => writeFile(join(f.scope, t + ".jsonl"), f.header(t))),
+  );
+  for (let i = 0; i < 32; i++)
+    f.observe(f.first, `pressure-${i}`, randomUUID());
+  await vi.waitFor(() =>
+    expect(JSON.parse(f.pending()!.cursor).hints).toHaveLength(32),
+  );
+  const rows = historicalRows(f, targets);
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() => expect(f.admissionReads).toHaveBeenCalled());
+  await turn();
+  await turn();
+  expect(
+    f.writer.index.checkpoint(
+      "nested-harness-history-scan-v1",
+      f.context.sessionId,
+    ),
+  ).toBeNull();
+  f.first.forgetProcess(f.context);
+  await vi.waitFor(() => expect(f.pending()?.state).toBe("complete"));
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(2));
+  expect(f.errors).toEqual([]);
+});
+
+it("retains a completed historical pair after failed handoff and retries it without rereading earlier rows", async () => {
+  const f = await fixture(true),
+    target = randomUUID();
+  await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+  const rows = historicalRows(f, [target]);
+  await rename(f.project, f.project + "-away");
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() =>
+    expect(
+      JSON.parse(
+        f.writer.index.checkpoint(
+          "nested-harness-history-scan-v1",
+          f.context.sessionId,
+        )!.cursor,
+      ).pending[0].ready,
+    ).toBe(true),
+  );
+  expect(f.edges()).toEqual([]);
+  await rename(f.project + "-away", f.project);
+  const realNow = Date.now.bind(Date);
+  vi.spyOn(Date, "now").mockImplementation(() => realNow() + 1100);
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  expect(f.errors).toHaveLength(1);
+});
+
+it("does not let historical reads change the completion key, clock or retry budget of a live hint", async () => {
+  const f = await fixture(true),
+    target = randomUUID();
+  f.observe(f.first, "historical-0", target);
+  f.finish(f.first, "historical-0");
+  await vi.waitFor(() =>
+    expect(JSON.parse(f.pending()!.cursor).hints[0].attempts).toBe(1),
+  );
+  const before = JSON.parse(f.pending()!.cursor).hints[0],
+    rows = historicalRows(f, [target]);
+  for (let i = 0; i < 1500; i++)
+    rows.push({
+      ...rows[rows.length - 1]!,
+      uuid: `tail-${i}`,
+    } as ClaudeSessionEntry);
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() =>
+    expect(
+      JSON.parse(
+        f.writer.index.checkpoint(
+          "nested-harness-history-scan-v1",
+          f.context.sessionId,
+        )!.cursor,
+      ).entry,
+    ).toBe(rows.length),
+  );
+  const revision = f.writer.index.checkpoint(
+    "nested-harness-history-scan-v1",
+    f.context.sessionId,
+  )!.revision;
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await turn();
+  await turn();
+  expect(
+    f.writer.index.checkpoint(
+      "nested-harness-history-scan-v1",
+      f.context.sessionId,
+    )!.revision,
+  ).toBe(revision);
+  expect(JSON.parse(f.pending()!.cursor).hints[0]).toEqual(before);
+  await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+  f.first.observationReady("claude");
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  expect(f.writer.index.evidence(f.edges()[0]!.id)[0]?.producer).toBe(
+    "nested-harness-command-v1",
+  );
+  expect(f.errors).toEqual([]);
+});
+
+it("keeps a historical proof on the retry ladder after a transient I/O failure", async () => {
+  const f = await fixture(true),
+    target = randomUUID();
+  await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+  const probe = vi
+    .spyOn(
+      f.first as unknown as {
+        targetExists(p: unknown, h: unknown): Promise<boolean>;
+      },
+      "targetExists",
+    )
+    .mockRejectedValueOnce(
+      Object.assign(Error("temporary header read"), { code: "EIO" }),
+    );
+  const rows = historicalRows(f, [target]);
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() =>
+    expect(JSON.parse(f.pending()!.cursor).hints[0].attempts).toBe(1),
+  );
+  expect(f.edges()).toEqual([]);
+  f.first.observationReady("claude");
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  expect(f.errors).toHaveLength(1);
+  probe.mockRestore();
+});
+
+it("ignores an older same-file snapshot after a newer history view commits", async () => {
+  const f = await fixture(true),
+    target = randomUUID();
+  await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+  const rows = historicalRows(f, [target]);
+  f.first.observeTranscript(f.context, rows, rows.length, {
+    id: "stable-file",
+    size: 200,
+    mtime: 2,
+  });
+  await vi.waitFor(() =>
+    expect(
+      f.writer.index.checkpoint(
+        "nested-harness-history-scan-v1",
+        f.context.sessionId,
+      )?.state,
+    ).toBe("complete"),
+  );
+  const before = f.writer.index.checkpoint(
+    "nested-harness-history-scan-v1",
+    f.context.sessionId,
+  )!;
+  f.first.observeTranscript(f.context, rows.slice(0, 1), 1, {
+    id: "stable-file",
+    size: 100,
+    mtime: 1,
+  });
+  await turn();
+  await turn();
+  await f.first.close();
+  expect(
+    f.writer.index.checkpoint(
+      "nested-harness-history-scan-v1",
+      f.context.sessionId,
+    ),
+  ).toEqual(before);
+  expect(f.errors).toEqual([]);
+});
+
+it("rebuilds a corrupt private scan cursor without losing independently accepted facts", async () => {
+  const f = await fixture(true),
+    target = randomUUID();
+  await writeFile(join(f.scope, target + ".jsonl"), f.header(target));
+  f.writer.index.publish({
+    observation: {
+      producer: "nested-harness-history-scan-v1",
+      sourceKey: f.context.sessionId,
+      sourceVersion: "old",
+      extractorVersion: 1,
+      observedAt: new Date().toISOString(),
+    },
+    expectedRevision: null,
+    facts: [],
+    progress: { state: "partial", cursor: "not valid JSON" },
+  });
+  const rows = historicalRows(f, [target]);
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  await vi.waitFor(() =>
+    expect(
+      f.writer.index.checkpoint(
+        "nested-harness-history-scan-v1",
+        f.context.sessionId,
+      )?.state,
+    ).toBe("complete"),
+  );
   expect(f.errors).toEqual([]);
 });

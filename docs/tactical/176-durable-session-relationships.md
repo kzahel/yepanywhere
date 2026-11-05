@@ -718,3 +718,57 @@ producer. Alternate Claude roots rely on completion/startup rather than the
 single watched root's file events. This slice introduces no public contract;
 the proposed optional relationship capability and adapters await the required
 explicit compatibility approval. The full plan remains active.
+
+
+### Historical evidence from existing detail reads
+
+The same coordinator accepts weakly referenced rows already acquired by the
+ordinary authorized Claude detail route. Compact admission reads establish the
+non-copy source's birth without returning saved prompt/context JSON from SQL;
+full recovery reuses the existing id lookup. The prepared-statement count does
+not grow. A real-SQL boundary test distinguishes compact status/birth from an
+explicit payload fetch with a large saved prompt.
+
+Historical work uses bounded CPU turns and durable compact pending/progress in
+the relationship index. Newline-committed counts exclude provisional rows;
+native snapshot identity and an append anchor fence continuation/reset.
+Accepted facts survive replacement and a prior live unknown can be refined.
+Unchanged high-water marks perform no extraction write. The actual native
+fixture restores a deliberately removed derived index through the ordinary
+detail route, preserving model dispatch counts and copied-fork rejection.
+Copied/adopted source histories, automatic corpus traversal and other launch
+families remain unknown; those limits are not completion of the full plan.
+Initial Opus review found a sandbox-policy bypass and a cursor advance past
+unhanded hints. Historical admission now requires explicit persisted sandbox
+`none`; ready unhanded pairs stay in the durable cursor, and full capacity
+stops extraction without advancing it. Further regressions cover transient
+handoff/proof failures, preservation of live proof budgets, stale-view no-ops
+and invalid-cursor reset. Notifications coalesce per turn. A positive native
+control fences the copied-fork negative assertion. A subsequent review caught mutable sandbox selection: switching from confined
+execution to `none` could re-qualify older rows. Common admission now seeds a
+private monotonic confinement marker before native effects. Any project-write
+selection makes it permanently true, including after a downgrade and profile
+reopen. Missing legacy provenance stays unknown. Historical acquisition requires
+known never-confined provenance; live observations retain their current-process
+qualification. Ready live-owned pairs are deferred without blocking later rows
+or spending live retry budgets. Opus accepted the final source after these
+regressions and the 1,500-row continuation/no-write check.
+
+All four root gates pass: zero lint warnings, format/types, 7,086 server / 7,112
+client / 954 shared tests. The server suite takes 150.63 seconds. All ten actual
+native-app scenarios pass (108.63 seconds aggregate / 41.10 wall). Node 22/24 and
+Bun 1.3.14 independently preserve unpaired extraction over database reopen,
+accept a newly committed last-row result, resume append progress, avoid writes
+for an unchanged view, retain explicit full-payload recovery and preserve facts
+after native loss. These are local qualification observations, not portable
+performance ceilings. Native model endpoints are scripted and isolated; only
+the independent review uses inference. Twenty-four SQL/filesystem history/live
+cases cover queue pressure, transient handoff/proof failure, stale/corrupt
+cursors and scope withholding. The common creation-owner test also proves
+confinement provenance survives downgrade and reopen without inventing legacy
+history. No prepared statement or public wire contract is added.
+
+Remaining work includes copied/legacy/previously confined histories, automatic
+corpus acquisition, other harness families and the separately pending public
+compatibility decision. This read-triggered producer does not claim universal
+historical coverage or completion of the full plan.

@@ -1,3 +1,4 @@
+import type { NestedHarnessRelationshipService } from "../sessions/NestedHarnessRelationshipService.js";
 import type { NativeSessionRef } from "@yep-anywhere/shared";
 import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import { savedLimitedCreationError } from "../auth/limitedLaunchPolicy.js";
@@ -317,6 +318,10 @@ function isQueueFullResponse(
 
 export interface SessionsDeps {
   providerChildRelationships?: ProviderChildRelationshipService;
+  harnessRelationships?: Pick<
+    NestedHarnessRelationshipService,
+    "observeTranscript"
+  >;
   getLimitedUserGrants?: (
     username: string,
   ) => import("@yep-anywhere/shared").LimitedUserGrants | null;
@@ -3682,6 +3687,27 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     );
 
     const readEndMs = performance.now();
+    if (
+      !publicShare &&
+      loadedSession &&
+      loadedSession.committedEntries !== undefined &&
+      loadedSession.transcriptSourceVersion !== undefined &&
+      !loadedSession.readWindow &&
+      resolvedIdentity &&
+      (loadedSession.data.provider === "claude" ||
+        loadedSession.data.provider === "claude-gateway" ||
+        loadedSession.data.provider === "claude-ollama")
+    )
+      deps.harnessRelationships?.observeTranscript(
+        {
+          sessionId: resolvedIdentity.sessionId,
+          provider: resolvedIdentity.provider,
+          projectPath: transcriptProject.path,
+        },
+        loadedSession.data.session.messages,
+        loadedSession.committedEntries,
+        loadedSession.transcriptSourceVersion,
+      );
 
     let session = loadedSession
       ? normalizeSession(loadedSession, {

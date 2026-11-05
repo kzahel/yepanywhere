@@ -35,6 +35,8 @@ export interface RelationshipMetadata {
   title?: string;
   agentType?: string;
   toolUseId?: string;
+  /** Native command time, separate from the index observation time. */
+  sourceTimestamp?: string;
   spawnDepth?: number;
   receiptId?: string;
   launchId?: string;
@@ -144,6 +146,7 @@ function metadataJson(metadata: RelationshipMetadata = {}): string {
     "title",
     "agentType",
     "toolUseId",
+    "sourceTimestamp",
     "receiptId",
     "launchId",
     "boundaryId",

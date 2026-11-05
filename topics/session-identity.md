@@ -16,6 +16,18 @@ limits. This does not enable every retained provider or input shape.
 defines the implementation slices, isolated-profile qualification and requested
 Sol 6.1 High review/commit loop. It is a plan, not implementation evidence.
 
+### Compact creation control reads
+
+Creation status and admitted-source birth lookups select compact control fields;
+they do not return saved prompt or context JSON across the SQLite boundary.
+Explicit saved-request recovery still fetches the complete operation through its
+existing id lookup. Both paths reuse the existing prepared statements and keep
+the profile statement ceiling unchanged. Admission birth is source evidence,
+not native-history adoption or an access grant; copy intent remains explicit.
+Admission also seeds private confinement provenance before native effects. Any
+`project-write` selection makes it permanently true, including after a later
+`none` selection and profile reopen. An absent legacy marker remains unknown.
+
 ### Selected consolidation target
 
 The selected end state is one stable, transport-independent creation contract

@@ -41,6 +41,8 @@ const DEFAULT_BUDGET_MB = 192;
 export interface ClaudeTranscriptSnapshot {
   /** Parsed entries in file order. Do not mutate; identity is cache-stable. */
   entries: ClaudeSessionEntry[];
+  /** Parsed rows ending at a newline; a provisional tail is excluded. */
+  committedEntries: number;
   /** Compact summary fold over the committed entries (plus provisional tail). */
   summaryState: ClaudeSummaryParseState;
   stats: Stats;
@@ -464,6 +466,7 @@ function toSnapshot(entry: CacheEntry): ClaudeTranscriptSnapshot {
   if (!entry.hasProvisionalTail) {
     return {
       entries: entry.entries,
+      committedEntries: entry.committedEntries,
       summaryState: entry.summaryState,
       stats: entry.stats,
       malformedLines: entry.malformedLines,
@@ -478,6 +481,7 @@ function toSnapshot(entry: CacheEntry): ClaudeTranscriptSnapshot {
   }
   return {
     entries: entry.entries,
+    committedEntries: entry.committedEntries,
     summaryState: state,
     stats: entry.stats,
     malformedLines: entry.malformedLines,

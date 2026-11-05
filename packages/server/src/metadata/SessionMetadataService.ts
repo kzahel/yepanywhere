@@ -160,6 +160,8 @@ export interface SessionMetadata {
   automationPausedUntilUserTurn?: boolean;
   /** Settled YA host filesystem confinement for every launch of this session. */
   sandboxLevel?: SessionSandboxLevel;
+  /** Private monotonic provenance; absent means earlier confinement is unknown. */
+  sandboxEverConfined?: boolean;
   /** Public-only egress selection; absent means on for project-write. */
   sandboxNetworkFirewall?: boolean;
   /** Opaque key for the canonical project's private provider runtime state. */
@@ -1093,6 +1095,11 @@ export class SessionMetadataService {
       ...metadata,
       ...(sandbox.provider ? { provider: sandbox.provider } : {}),
       sandboxLevel: sandbox.level,
+      sandboxEverConfined:
+        sandbox.level === "project-write" ||
+        metadata.sandboxEverConfined === true
+          ? true
+          : metadata.sandboxEverConfined,
       sandboxNetworkFirewall:
         sandbox.level === "project-write"
           ? sandbox.networkFirewall !== false
@@ -1451,6 +1458,13 @@ export class SessionMetadataService {
     if (updated.sandboxLevel) {
       cleaned.sandboxLevel = updated.sandboxLevel;
     }
+    if (
+      existing.sandboxEverConfined === true ||
+      updated.sandboxEverConfined === true
+    )
+      cleaned.sandboxEverConfined = true;
+    else if (updated.sandboxEverConfined === false)
+      cleaned.sandboxEverConfined = false;
     if (updated.sandboxNetworkFirewall !== undefined) {
       cleaned.sandboxNetworkFirewall = updated.sandboxNetworkFirewall;
     }

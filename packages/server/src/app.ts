@@ -1658,6 +1658,20 @@ export function createApp(options: AppOptions): AppResult {
         { event: "nested_harness_observation_unavailable", error },
         "Nested harness evidence unavailable",
       ),
+    (sessionId) => {
+      const metadata = options.sessionMetadataService;
+      const admission = metadata?.creations.admissionForSession(
+        parseYaSessionId(sessionId),
+      );
+      return (
+        admission && {
+          ...admission,
+          confined:
+            metadata!.getMetadata(sessionId)?.sandboxLevel !== "none" ||
+            metadata!.getMetadata(sessionId)?.sandboxEverConfined !== false,
+        }
+      );
+    },
   );
   const unsubscribeProviderChildChanges = options.eventBus?.subscribe(
     (event) => {
@@ -3344,6 +3358,7 @@ export function createApp(options: AppOptions): AppResult {
     "/api",
     createSessionsRoutes({
       providerChildRelationships,
+      harnessRelationships,
       getLimitedUserGrants: getActiveLimitedGrants,
       signal: sessionReadLifetime.signal,
       onIssueWindow: (source, messages) =>

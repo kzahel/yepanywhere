@@ -144,6 +144,15 @@ export interface LoadedSession {
   summary: SessionSummary;
   /** Source timestamp captured with the transcript rows in this snapshot. */
   transcriptSnapshotUpdatedAt: string;
+  /** Private reader evidence; count of newline-committed rows in data. */
+  committedEntries?: number;
+  /** Private native snapshot identity used only for append-fenced extraction. */
+  transcriptSourceVersion?: {
+    id: string;
+    size: number;
+    mtime: number;
+    ctime?: number;
+  };
   /** Provider read window used to avoid retaining known-hidden source bytes. */
   readWindow?:
     | {
