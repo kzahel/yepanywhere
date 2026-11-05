@@ -90,6 +90,21 @@ describe.each(providers)("real native provider: %s", (provider) => {
     expect(JSON.stringify(a.body).includes("OWNED_TOOL_CONTENT")).toBe(false);
     readOwnedFile(provider, f.project, a);
     const afterTool = await f.model.next();
+    if (provider === "codex") {
+      // A streaming user-role result shares its UUID with final completion.
+      // It must not be mistaken for a duplicate optimistic input echo.
+      await f.message(
+        (message) =>
+          message.type === "user" &&
+          !message._isStreaming &&
+          Array.isArray(message.message?.content) &&
+          message.message.content.some(
+            (block) =>
+              block.type === "tool_result" &&
+              JSON.stringify(block.content).includes("OWNED_TOOL_CONTENT"),
+          ),
+      );
+    }
     expect(JSON.stringify(afterTool.body).includes("OWNED_TOOL_CONTENT")).toBe(
       true,
     );

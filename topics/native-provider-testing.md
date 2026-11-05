@@ -269,9 +269,30 @@ The two browser cases additionally prove actual composer submission, visible
 interim/final output, draft retention across server replacement, sequential
 keystroke acknowledgement under concurrent output (each below 100 ms), one
 user bubble, transcript convergence after page refresh and another submission
-on the same worker. The isolated browser config has no retries; the ordinary
-mock browser suite excludes these scenarios. The API group is opt-in separately
-from the inexpensive native Process baseline and ordinary workspace tests.
+on the same worker. Codex runs a real command whose test-owned file gate emits
+output and completes during typing. The case expands activity before typing,
+requires tool-output frames during that interval, checks the final zero exit
+status and completed tool row, and decodes binary/chunked frames with the same
+shared decoder as the direct client. It focuses the composer once and uses
+raw keyboard dispatch per key so repeated locator readiness checks cannot hide
+a busy renderer. Completion must arrive as a live message before API replacement;
+a completed row is checked before replacement, after replacement and after
+reload. The known [Bash identity mismatch](../gaps/codex-live-bash-identity-does-not-match-rollout.md)
+can leave an additional pending row live, so this does not claim full tool-row
+identity convergence.
+
+The command records its PID and native start identity. Cleanup publishes a
+terminal gate (also covering a late start), signals only a matching live
+identity and verifies it is gone. An intentional early failure independently
+verifies cleanup while the command is waiting. The command closes its watcher
+and lets stdout drain naturally. The revised three-case macOS run passes in
+47.4 seconds including cleanup, with one browser worker. This is diagnostic
+evidence, not a sustained performance claim. The 120-second case guard is
+2.74 times the prior hosted Linux maximum of 43.829 seconds, measured before
+the added command/model continuation. Hosted qualification of the extended
+case is pending; the independent 100 ms per-key bound and zero retries remain.
+The ordinary mock browser suite excludes these scenarios. The API group is
+opt-in separately from the native Process baseline and workspace tests.
 
 Qualification on 2026-11-04: macOS arm64, Node 24.22.1, Claude 2.1.312 and Codex
 0.166.0. Four API cases pass in 18.48 s wall time / 35.11 s summed test work;

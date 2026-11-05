@@ -1197,3 +1197,44 @@ with all fourteen marks and both reader replays. This qualifies the automatic
 push path; the pull-request path and identical filters are statically reviewed,
 not represented as a live PR trial. The separate earlier Linux/macOS app
 acceptance remains unchanged. The full relationship plan is still active.
+
+### Preserve completed native tool evidence through Process
+
+An actual Codex-to-Claude named-launch probe exposed a shared delivery defect:
+Codex emits user-role tool-result snapshots and final completion under the same
+UUID. Process mistook the final result for an already echoed user input and
+never delivered its exit status. Raw native notifications and normalization
+already contained the correct zero exit code; no new observation protocol is
+needed to recover it. This repair is a prerequisite for using that completion
+as relationship evidence, not qualification of Codex harness acquisition.
+
+Tool results now bypass ordinary input-echo deduplication. Replay keeps their
+newest full state across both time buckets and gives each update a fresh cursor,
+so reconnect can receive completion without retaining every growing output
+copy. The regression covers 256 updates, bucket rotation, expiration and final
+status. The existing real native Codex queue scenario now requires the final
+result, and the existing browser scenario exercises actual command output
+while typing, final completion, API replacement and reload. No new native
+startup or browser case is added. Opus accepts the runtime fix and requests
+stronger browser evidence and failure cleanup. The revised case counts only
+output published during typing, requires a non-replayed final message before
+replacement, checks completion after replacement/reload and verifies the exact
+command identity is reaped. An injected early failure independently confirms
+cleanup. The retained browser fails against the old Process at its live-final
+result check (24.4 seconds) and passes with the exact fixed source restored
+(17.8 seconds). A stronger total-row assertion exposes the separate live/durable
+[Bash identity mismatch](../../gaps/codex-live-bash-identity-does-not-match-rollout.md),
+which remains explicit rather than claiming unique tool-row convergence.
+
+Local qualification passes 69 native cases (62.45 seconds wall /149.93 aggregate
+work), ten app cases (49.37 /136.68) and the revised three browser cases
+(47.4 seconds). Native/app use the existing four-worker Vitest default;
+browser uses one. The native run overlaps workspace/browser work and the app
+run overlaps workspace work. These are not the hosted two-worker results.
+Workspace passes 7,090 server (+85 skips), 7,112 client, 954 shared, 139 relay
+and 45 push-broker tests; server wall time is 171.64 seconds. Final lint,
+formatting and types pass after the review changes; console budgets remain
+unchanged. New hosted provider and app/browser qualification remains required
+for this changed Process path.
+Generic graph contract approval and remaining acquisition/consumer work still
+keep the overall plan active.

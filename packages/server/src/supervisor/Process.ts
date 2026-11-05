@@ -385,6 +385,15 @@ function parseIsoMs(value: string | null | undefined): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
+/** Provider tool-result rows use the user role, but are not echoed input. */
+function isProviderToolResult(message: SDKMessage): boolean {
+  return (
+    message.type === "user" &&
+    Array.isArray(message.message?.content) &&
+    message.message.content.some((block) => block.type === "tool_result")
+  );
+}
+
 /**
  * IMPORTANT: Never filter out messages by type before emitting to SSE!
  *
@@ -1114,8 +1123,9 @@ export class Process {
   private static readonly BUCKET_SWAP_INTERVAL_MS = 15_000;
 
   /**
-   * Replay position of each buffered message, assigned once when first
-   * buffered, so a resubscribing client can skip what it already received.
+   * Replay position of each buffered message. Tool-result state updates get a
+   * fresh position; other messages keep their original position on rebuffer.
+   * A resubscribing client can skip what it already received.
    * Every buffered message is emitted synchronously after being buffered, so
    * a subscriber that has received a live message has received every message
    * buffered at or before `lastReplaySeq` at that moment.
@@ -3192,9 +3202,20 @@ export class Process {
     return [...expiredSteerEchoes, ...buffered];
   }
 
-  /** Buffer a message for replay, keeping any replay position it already has. */
+  /** Tool-result snapshots replace older states; every update gets a fresh cursor. */
   private bufferForReplay(message: SDKMessage): void {
-    if (!this.replaySeqs.has(message)) {
+    const toolResult = Boolean(message.uuid) && isProviderToolResult(message);
+    if (toolResult) {
+      // Keep the latest full state, including during bucket handover. Retaining
+      // each growing output snapshot would multiply replay memory by chunk count.
+      for (const bucket of [this.previousBucket, this.currentBucket]) {
+        const index = bucket.findIndex(
+          (old) => old.uuid === message.uuid && isProviderToolResult(old),
+        );
+        if (index !== -1) bucket.splice(index, 1);
+      }
+    }
+    if (toolResult || !this.replaySeqs.has(message)) {
       this.lastReplaySeq += 1;
       this.replaySeqs.set(message, this.lastReplaySeq);
     }
@@ -5423,6 +5444,7 @@ export class Process {
         // already echoed at queue time.
         const isDuplicateUserEcho =
           message.type === "user" &&
+          !isProviderToolResult(message) &&
           Boolean(message.uuid) &&
           (this.currentBucket.some((m) => m.uuid === message.uuid) ||
             this.previousBucket.some((m) => m.uuid === message.uuid));

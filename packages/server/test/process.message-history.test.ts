@@ -6,6 +6,7 @@ import {
   createMockIterator,
 } from "./process.test-support.js";
 import type { SDKMessage, UrlProjectId } from "./process.test-support.js";
+import { STREAMING_SNAPSHOT_INTERVAL_MS } from "../src/sdk/providers/streaming-snapshot-coalescing.js";
 
 describe("Process", () => {
   describe("messageHistory", () => {
@@ -112,6 +113,99 @@ describe("Process", () => {
       expect(emittedMessages.filter((m) => m.type === "user")).toHaveLength(1);
       controller.finish();
       await process.abort();
+    });
+
+    it("publishes repeated tool-result states and replays only their newest cursor across bucket rotation", async () => {
+      vi.useFakeTimers();
+      const controller = createControllableIterator();
+      const process = new Process(controller.iterator, {
+        projectPath: "/test",
+        projectId: "proj-1" as UrlProjectId,
+        sessionId: "sess-1",
+        provider: "codex",
+        idleTimeoutMs: 60_000,
+        queue: new MessageQueue(),
+      });
+      const emitted: SDKMessage[] = [];
+      process.subscribe((event) => {
+        if (event.type === "message") emitted.push(event.message);
+      });
+      const tool = (
+        uuid: string,
+        content: string,
+        streaming = true,
+      ): SDKMessage => ({
+        type: "user",
+        timestamp: new Date().toISOString(),
+        uuid,
+        _isStreaming: streaming,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: uuid.replace("-result", ""),
+              content,
+            },
+          ],
+        },
+      });
+      try {
+        controller.push(tool("first-result", "started"));
+        await vi.waitFor(() => expect(emitted).toHaveLength(1));
+        const before = process.getReplayCursor();
+        controller.push(tool("second-result", "other command"));
+        controller.push(tool("first-result", "updated"));
+        await vi.waitFor(() => expect(emitted).toHaveLength(3));
+        expect(
+          process.getMessageHistory().filter((m) => m.uuid === "first-result"),
+        ).toHaveLength(1);
+        expect(process.getReplayCursor()).toBeGreaterThan(before);
+
+        // The next update must replace a state retained in the previous bucket.
+        await vi.advanceTimersByTimeAsync(15_000);
+        const cursorAtRotation = process.getReplayCursor();
+        expect(
+          process.getMessageHistory().filter((m) => m.uuid === "second-result"),
+        ).toHaveLength(1);
+        // Let each update cross the existing queued-snapshot coalescer before
+        // publishing the next one; a burst may deliberately coalesce upstream.
+        for (let index = 1; index <= 256; index++) {
+          const snapshot = tool("first-result", "x".repeat(index * 256));
+          controller.push(snapshot);
+          await vi.advanceTimersByTimeAsync(STREAMING_SNAPSHOT_INTERVAL_MS);
+          expect(emitted.at(-1)).toBe(snapshot);
+        }
+        const final = tool("first-result", "complete", false);
+        final.toolUseResult = {
+          stdout: "complete",
+          stderr: "",
+          interrupted: false,
+          exitCode: 0,
+        };
+        controller.push(final);
+        controller.push({ type: "result", session_id: "sess-1" });
+        await vi.waitFor(() => expect(emitted.at(-1)?.type).toBe("result"));
+        expect(emitted.filter((m) => m.uuid === "first-result")).toHaveLength(
+          259,
+        );
+        expect(emitted.filter((m) => m.uuid === "first-result").at(-1)).toBe(
+          final,
+        );
+        const history = process.getMessageHistory();
+        expect(history.filter((m) => m.uuid === "first-result")).toEqual([
+          final,
+        ]);
+        // The independent state expires normally while the updated tool survives.
+        expect(history.filter((m) => m.uuid === "second-result")).toHaveLength(
+          0,
+        );
+        expect(process.getReplaySeq(final)).toBeGreaterThan(cursorAtRotation);
+      } finally {
+        controller.finish();
+        await process.abort();
+        vi.useRealTimers();
+      }
     });
 
     it("should include attachment info in user message content", async () => {

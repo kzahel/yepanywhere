@@ -10,9 +10,10 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
-  // Six native app/browser runs took 16.3–17.7s per case on macOS arm64;
-  // round 3x the observed maximum up to one minute.
-  timeout: 60_000,
+  // Hosted run 42047227082 reaches 43.829s through fixture cleanup on Linux
+  // (macOS max 39.085s), before the added command. 120s is 2.74x that maximum;
+  // requalify the extended case hosted. Input stays <100ms.
+  timeout: 120_000,
   expect: { timeout: 15_000 },
   use: {
     launchOptions: { chromiumSandbox: true },

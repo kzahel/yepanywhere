@@ -104,14 +104,22 @@ Process:
    `deferredMessages`.
 2. Walk `process.getMessageHistory()` (concatenation of `previousBucket` +
    `currentBucket`) and re-emit each as a `message` with `isReplay: true`.
-   Process numbers each message when it is first buffered, and every session
-   event id (`<processId>.<cursor>.<frame>`) names a cursor the subscriber
+   Process numbers each message when first buffered; tool-result updates are
+   renumbered. Every session event id (`<processId>.<cursor>.<frame>`) names a cursor the subscriber
    has fully received. A resubscribe passing its last event id skips messages
    at or before that cursor; an id from another Process replays everything.
 3. If a streaming response is mid-flight, `process.getStreamingContent()`
    returns the accumulated text + `messageId`; the augmenter renders that to
    pending HTML and emits a single catch-up frame so the client sees partial
    output without waiting for the next delta.
+
+Provider tool results use the `user` role but are not optimistic input echoes.
+Repeated same-UUID result snapshots must still reach live subscribers, including
+the final exit status. Replay retains only the newest full result snapshot for
+that UUID across both buckets and assigns each update a fresh cursor. This
+keeps growing output from multiplying replay memory by snapshot count and lets
+a reconnect after an earlier snapshot receive its completion. Ordinary echoed
+user inputs retain their existing UUID deduplication.
 
 The two buckets swap every 15 s (`BUCKET_SWAP_INTERVAL_MS`). That gives a
 15–30 s replay window — long enough to
