@@ -124,6 +124,65 @@ documented contracts, not observed behavior.
   The README also mentions a multi-model "fusion" routing feature, which a
   plain concrete-model session should not engage; confirm empirically.
 
+## Observed runtime wire and the gateway hop (2026-11-05)
+
+Captured by pointing Copilot CLI 1.0.105 at a logging pass-through proxy
+with `COPILOT_API_URL` and running one-shot `copilot -p` turns that made one
+shell tool call, on `claude-sonnet-5.5` and `gpt-5.6-terra`. These are
+observed behavior on the maintainer's individual account.
+
+- **Server/TUI split.** The interactive TUI spawns its runtime as
+  `copilot --server --port 0 --managed-server` (plus `--model`, `--agent`,
+  `--name`, `--log-dir`, `--yolo` when set), discovers it through a local
+  managed-server registry, and `--connect [sessionId]` attaches to a
+  session. `--headless`, `--server` and `--acp` all select the non-TUI
+  entry. That headless runtime is what the SDK spawns, so Architecture C
+  supervises the same process the TUI uses.
+- **The runtime calls the Copilot API itself.** Its API base is
+  `copilotUrl || COPILOT_API_URL || <account endpoints.api>`. Mission
+  Control and cloud-session URLs derive from the same base, so a redirect
+  must pass `/agents/*` and `/mcp/readonly` through too. Nothing in
+  Architecture C needs `copilot-api`. The gateway exists only because
+  Claude Code (Architecture B) speaks Anthropic Messages to a configurable
+  base URL and needs Copilot's token exchange done for it.
+- **Endpoint per model family** (`/models` `supported_endpoints`):
+  Anthropic models serve `/v1/messages` and `/chat/completions`; GPT-5.x/6.x
+  and MAI serve `/responses` plus `ws:/responses`; Grok serves
+  `/responses`; Gemini and Kimi serve only `/chat/completions`;
+  `gpt-6-luna-decisions` serves a new `/v1/decisions`. The CLI opened the
+  WebSocket `/responses` first, then used HTTP POST.
+- **Headers the CLI sends.** `copilot-integration-id: copilot-developer-cli`,
+  `x-github-api-version: 2026-08-01`, `copilot-harness-id: copilot-sdk`,
+  `x-initiator` plus `x-interaction-type`
+  (`conversation-user` on the first request of a prompt,
+  `conversation-agent` on tool continuations), and stable
+  `x-interaction-id`, `x-agent-task-id` and `x-client-session-id` across
+  a prompt's requests. Claude requests add
+  `anthropic-beta: thinking-binding-controls-2026-08-01,fallback-credit-2026-07-01`.
+  `copilot-api` still sends `vscode-chat` and `2025-04-01`. Its catalog
+  differed from the CLI's by one row (CLI-only `gpt-5.6-luna-utility`).
+- **Request bodies.** Claude: `thinking: {type: "adaptive", display:
+  "summarized", block_binding: …}` and `output_config`. Responses:
+  `reasoning: {effort, summary: "auto"}`,
+  `include: ["reasoning.encrypted_content"]`, `text.verbosity`, and a
+  `custom` (freeform) tool next to `function` tools.
+- **Per-call billing in the reply.** Both `/v1/messages` and `/responses`
+  replies carry a `copilot_usage` object (per token type: count,
+  `cost_per_batch`, `batch_size`; plus `total_nano_aiu`). It survives any
+  route that passes the reply through unchanged. A translating adapter
+  drops it (`copilot-api`'s Anthropic-to-Responses and Chat Completions
+  paths). The SDK surfaces the same information as `assistant.usage` and
+  `session.quota_observation`.
+
+**Gateway initiator divergence.** `copilot-api`'s `/v1/messages` route marks
+a request `agent` whenever the conversation contains any assistant message,
+so every Claude Gateway prompt after the first is sent as agent-initiated,
+where the official client sends `user`. If premium requests are charged on
+user-initiated requests, as is commonly understood but not verified here,
+the gateway under-bills relative to the official client. Changing it is
+therefore a billing decision, not a fidelity cleanup. The fork's
+`/v1/responses` pass-through (added 2026-11-05) follows the official rule.
+
 ## Architecture C — a direct YA `copilot` provider
 
 YA registers a new `copilot` provider (the [`grok.md`](grok.md) isolated-additive
@@ -139,7 +198,11 @@ Trade-offs vs Architecture A (OpenCode) and B (Claude Gateway):
   vendor's wire format into another's (the class of defect in
   [`copilot-oauth-claude.md`](copilot-oauth-claude.md) § Known gateway
   failure: mid-conversation system message). The model catalog arrives with
-  policy, billing and effort metadata instead of being inferred.
+  policy, billing and effort metadata instead of being inferred. The runtime
+  talks to the Copilot API with the official client's integration id,
+  headers, per-prompt initiator, WebSocket Responses transport and
+  per-call `copilot_usage` (see § Observed runtime wire). A gateway must
+  reproduce each of these and lags whenever the CLI moves.
 - **Harness:** the Copilot runtime is itself the agent harness (its own tool
   loop, compaction, instructions, skills, subagents), so YA is a supervisor,
   as with Codex. Claude Code's own features (its system prompt, hooks, Tool
@@ -165,6 +228,10 @@ Trade-offs vs Architecture A (OpenCode) and B (Claude Gateway):
 Recommendation (2026-11-05): build Architecture C. The SDK now supplies the
 TUI-independent host, the policy-aware catalog and the switches below that
 the earlier "stay on OpenCode" recommendation lacked. A and B stay available.
+Keep B for its one distinct value, running Claude Code as the harness on
+Copilot models. Do not route new YA Copilot needs through `copilot-api`;
+the runtime already reaches the Copilot API directly with the official
+client's wire behavior.
 
 ### Plan
 
@@ -214,6 +281,8 @@ Hosted multi-user YA needs per-user GitHub App tokens
 
 <!-- epistemic status: GitHub Copilot SDK auth docs + GitHub ToS direction,
 verified 2026-06-21; SDK surface read from the published 1.0.28 package on
-2026-11-05, not yet exercised. Full Section J text not directly verified.
+2026-11-05, not yet exercised. Runtime wire behavior captured 2026-11-05
+from Copilot CLI 1.0.105 through a logging proxy (two one-shot turns).
+Full Section J text not directly verified.
 Supersedes earlier "probably inferior / TOS-questionable" framing. -->
 </content>
