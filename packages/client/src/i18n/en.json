@@ -2550,6 +2550,8 @@
   "sourceProjectionRequestError": "Couldn't load the requested Source Control view: {error}. Try again.",
   "sourceDismissProjectionError": "Dismiss Source Control error",
   "sourceHunkPosition": "{current} of {total}",
+  "sourceScrollHunk": "Scroll hunk",
+  "sourceScrollLines": "Scroll long lines",
   "sourcePreviousHunkShortcut": "Previous hunk (P)",
   "sourceNextHunkShortcut": "Next hunk (N)",
   "gitStatusRecentCommits": "Recent commits",

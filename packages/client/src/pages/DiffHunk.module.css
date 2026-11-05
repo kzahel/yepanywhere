@@ -1,0 +1,123 @@
+.hunk {
+  --diff-hunk-header-height: var(--source-code-line-height);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--source-code-font-size);
+  line-height: var(--source-code-line-height);
+  background: var(--bg-code);
+}
+
+.header {
+  position: sticky;
+  top: var(--diff-sticky-top, 0px);
+  scroll-margin-top: var(--diff-sticky-top, 0px);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  min-height: var(--diff-hunk-header-height);
+  padding: 0 0.5rem;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  font-size: var(--source-code-font-size);
+}
+
+.group {
+  min-width: 0;
+}
+
+.body {
+  display: flex;
+  align-items: stretch;
+}
+
+.rows {
+  flex: 1;
+  min-width: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.paired {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cell {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cell::-webkit-scrollbar {
+  display: none;
+}
+
+.paired > .cell + .cell {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.content {
+  min-width: max(100%, var(--diff-scroll-width));
+}
+
+.content:global(.highlighted-diff) > :global(pre.shiki) {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border-radius: 0;
+}
+
+.rail {
+  flex: 0 0 6rem;
+  background: var(--bg-secondary);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-left: auto;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--source-code-font-size);
+  line-height: var(--source-code-line-height);
+  white-space: nowrap;
+}
+
+.control input {
+  width: 6rem;
+  height: var(--source-code-line-height);
+  font: inherit;
+  margin: 0;
+  accent-color: var(--text-muted);
+}
+
+.control span {
+  font-size: var(--font-size-xs);
+}
+
+.tall .control {
+  position: sticky;
+  top: calc(var(--diff-sticky-top, 0px) + var(--diff-hunk-header-height));
+  padding-inline: 0.25rem;
+}
+
+.tall .control input {
+  width: 4rem;
+}
+
+@media (pointer: coarse) {
+  .hunk {
+    --diff-hunk-header-height: 2.75rem;
+  }
+
+  .control input {
+    min-height: 2.75rem;
+  }
+}

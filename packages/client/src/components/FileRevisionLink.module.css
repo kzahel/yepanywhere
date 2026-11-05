@@ -16,6 +16,18 @@
   text-decoration: none;
 }
 
+.withAuthor {
+  flex-shrink: 1;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.author {
+  font-family: var(--font-sans);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .commit:hover {
   text-decoration: underline;
 }

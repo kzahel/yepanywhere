@@ -69,6 +69,7 @@ describe("FileRevisionLink", () => {
           projectId="project-1"
           path="src/file.ts"
           origPath="src/old.ts"
+          showAuthor
           dirtyLabel="dirty"
           uncommittedLabel="uncommitted"
         />
@@ -80,6 +81,7 @@ describe("FileRevisionLink", () => {
       "/git-status?projectId=project-1&rev=1234567890abcdef&commitFile=src%2Fold.ts",
     );
     expect(link.getAttribute("title")).toContain("Ada Lovelace");
+    expect(screen.getByText("Ada Lovelace")).not.toBeNull();
     expect(link.getAttribute("title")).toContain("Explain revision");
     expect(link.getAttribute("title")).toMatch(/\n\.\.\.$/);
     expect(screen.getByText("dirty")).not.toBeNull();

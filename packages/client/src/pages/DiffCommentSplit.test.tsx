@@ -2,7 +2,8 @@
 
 import type { PatchHunk } from "@yep-anywhere/shared";
 import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { I18nProvider } from "../i18n";
 import { SideBySideDiff } from "./SideBySideDiff";
 import { UnifiedDiff } from "./UnifiedDiff";
 
@@ -25,7 +26,19 @@ const DIFF_HTML =
   `</code></pre>`;
 
 describe("diff comment splits", () => {
-  afterEach(cleanup);
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("keeps the selected unified row above the editor", () => {
     render(
@@ -35,6 +48,7 @@ describe("diff comment splits", () => {
         splitAfterLine={2}
         editor={<textarea aria-label="comment" />}
       />,
+      { wrapper: I18nProvider },
     );
 
     const before = document.querySelector("[data-review-comment-before]");
@@ -52,6 +66,7 @@ describe("diff comment splits", () => {
         splitAfterLine={2}
         editor={<textarea aria-label="comment" />}
       />,
+      { wrapper: I18nProvider },
     );
 
     const before = document.querySelector("[data-review-comment-before]");

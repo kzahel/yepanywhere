@@ -628,6 +628,24 @@ a separately sized or spaced monospace style.
 
 ## Navigation and diff controls
 
+Highlighted unified and side-by-side diffs share horizontal scroll groups.
+A hunk whose source rows and header fit the visible vertical scrollport has
+one slider beside its hunk range; both sides move by the same pixel offset.
+For a taller hunk, each isolated overflowing row or contiguous run of
+overflowing rows has its own inline slider in a narrow right-hand rail.
+Short rows remain fixed, and separate runs retain independent positions.
+Native horizontal scrolling and keyboard slider input move the same group.
+There are no per-line scrollbar tracks or nested vertical scrollports.
+
+Hunk headers stay visible while their hunk passes through the pane, and a
+long run's control stays available while scrolling through that run. Pane
+resizing and source typography changes recompute the grouping from rendered
+line widths and the available height. Regrouping can reset an affected run's
+horizontal position. Comment insertion retains the original line anchors
+and splits source above and below the editor; each visible segment owns its
+scroll groups. Plain text and after-side file projections keep their existing
+scroll behavior.
+
 One selected row drives the adjacent detail. Identity and state stay visible
 in list rows; primary quick actions belong in the selected detail banner; one
 shared ellipsis/context menu discloses the full action set. Right-click,
@@ -897,6 +915,10 @@ shared chrome covers ordinary and modal file viewers, expanded Edit details,
 Source Control current-content, commit, comparison, and diff panes, and blame.
 An immutable view resolves history from its selected revision; a live view
 resolves from `HEAD`. A not-yet-committed rename follows its original path.
+
+Source Control diff banners also display the author between the hash and age,
+without requiring hover. Narrow banners wrap the metadata and long author
+names instead of overflowing; other file surfaces keep their compact chrome.
 
 Live content adds **dirty** only when its bytes differ from the committed blob;
 a rename with identical content is not dirty. Immutable revision views are

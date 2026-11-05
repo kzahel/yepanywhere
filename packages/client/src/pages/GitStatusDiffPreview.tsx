@@ -8,6 +8,7 @@ import type {
 } from "@yep-anywhere/shared";
 import {
   forwardRef,
+  type CSSProperties,
   type ReactNode,
   type RefObject,
   useCallback,
@@ -336,6 +337,7 @@ export const GitDiffPreview = forwardRef<
               actions: headerActions,
               revision: (
                 <FileRevisionLink
+                  showAuthor
                   projectId={projectId}
                   path={file.path}
                   origPath={
@@ -427,6 +429,7 @@ export function GitDiffModal({
     >
       <div className="git-diff-preview-header-actions">
         <FileRevisionLink
+          showAuthor
           projectId={projectId}
           path={file.path}
           origPath={revisionForDiffSource(source) ? undefined : file.origPath}
@@ -798,6 +801,8 @@ function GitDiffContent({
   }, []);
   const [viewMode, setViewMode] = useDiffViewMode();
   const [paneWidth, setPaneWidth] = useState(0);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(0);
   const sourceKind = source.kind;
   const sourceBaseSha =
     source.kind === "commit"
@@ -828,11 +833,14 @@ function GitDiffContent({
   useEffect(() => {
     const el = contentRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (typeof width === "number") setPaneWidth(width);
-    });
+    const measure = () => {
+      setPaneWidth(el.clientWidth);
+      setToolbarHeight(toolbarRef.current?.offsetHeight ?? 0);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
+    if (toolbarRef.current) observer.observe(toolbarRef.current);
     return () => observer.disconnect();
   }, []);
 
@@ -1089,7 +1097,8 @@ function GitDiffContent({
       return;
     }
     const scrollRoot = getDiffScrollRoot(content);
-    const threshold = scrollRoot.getBoundingClientRect().top + 52;
+    const threshold =
+      scrollRoot.getBoundingClientRect().top + toolbarHeight + 1;
     let index = 0;
     for (let i = 0; i < hunks.length; i++) {
       const hunk = hunks[i];
@@ -1101,7 +1110,7 @@ function GitDiffContent({
         ? current
         : { index, count: hunks.length },
     );
-  }, [renderedHunks]);
+  }, [renderedHunks, toolbarHeight]);
 
   const jumpToHunk = useCallback(
     (direction: -1 | 1): boolean => {
@@ -1365,6 +1374,7 @@ function GitDiffContent({
     <>
       {paneHeader ? (
         <DiffPaneToolbar
+          toolbarRef={toolbarRef}
           title={paneHeader.title}
           path={paneHeader.path}
           actions={paneHeader.actions}
@@ -1382,6 +1392,7 @@ function GitDiffContent({
       <div
         className="diff-modal-content source-diff-pane diff-gutter-aligned"
         ref={mountContent}
+        style={{ "--diff-sticky-top": `${toolbarHeight}px` } as CSSProperties}
       >
         {plainDiff && !previewSkipped && !showingMarkdownPreview && (
           <div className={styles.plainNotice}>
@@ -1428,7 +1439,11 @@ function DiffPaneToolbar({
   actions,
   revision,
   children,
-}: DiffPaneHeader & { children?: ReactNode }) {
+  toolbarRef,
+}: DiffPaneHeader & {
+  children?: ReactNode;
+  toolbarRef?: RefObject<HTMLDivElement | null>;
+}) {
   const directoryPath =
     path && path !== title
       ? path.endsWith(title)
@@ -1436,7 +1451,10 @@ function DiffPaneToolbar({
         : path
       : "";
   return (
-    <div className={`git-diff-pane-toolbar ${headerStyles.header}`}>
+    <div
+      ref={toolbarRef}
+      className={`git-diff-pane-toolbar ${headerStyles.header}`}
+    >
       <div className={headerStyles.identity}>
         <span className="git-diff-file-identity" title={path || title}>
           {directoryPath && (

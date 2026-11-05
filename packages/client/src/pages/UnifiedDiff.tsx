@@ -4,6 +4,7 @@ import { InnerHtml } from "../components/ui/InnerHtml";
 import { parseDiffLineFragments } from "../lib/diffSideBySide";
 import { ReviewCommentSplitLayout } from "./ReviewCommentSplitLayout";
 import styles from "./UnifiedDiff.module.css";
+import { DiffHunks } from "./DiffHunk";
 
 type UnifiedRow =
   | { type: "header"; text: string }
@@ -155,16 +156,19 @@ function UnifiedRows({
   fragments: Map<number, string>;
   omitDiffPrefixes: boolean;
 }) {
-  const html = rows
-    .map((row) => {
-      if (row.type === "header") {
-        return `<span class="line line-hunk">${escapeText(row.text)}</span>`;
-      }
-      return (
-        fragments.get(row.flatIndex) ??
-        `<span class="${fallbackClassName(row.text)}" data-diff-line="${row.flatIndex}">${omitDiffPrefixes ? "" : `<span class="diff-prefix">${escapeText(row.text[0] ?? " ")}</span>`}${escapeText(row.text.slice(1))}</span>`
-      );
-    })
+  const displayRows = rows.map((row) => {
+    if (row.type === "header") {
+      return row;
+    }
+    const html =
+      fragments.get(row.flatIndex) ??
+      `<span class="${fallbackClassName(row.text)}" data-diff-line="${row.flatIndex}">${omitDiffPrefixes ? "" : `<span class="diff-prefix">${escapeText(row.text[0] ?? " ")}</span>`}${escapeText(row.text.slice(1))}</span>`;
+    return { type: "line" as const, cells: [html] };
+  });
+  // The after-side file projection has no hunk chrome or diff navigation.
+  if (!omitDiffPrefixes) return <DiffHunks rows={displayRows} />;
+  const html = displayRows
+    .flatMap((row) => (row.type === "line" ? row.cells : []))
     .join("");
   // Server-highlighted diff rows.
   return (

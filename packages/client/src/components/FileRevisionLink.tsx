@@ -21,6 +21,7 @@ export interface FileRevisionLinkProps {
   dirtyLabel: string;
   uncommittedLabel: string;
   className?: string;
+  showAuthor?: boolean;
 }
 
 /** Compact last-revision provenance shared by every file-viewing surface. */
@@ -32,6 +33,7 @@ export function FileRevisionLink({
   dirtyLabel,
   uncommittedLabel,
   className,
+  showAuthor = false,
 }: FileRevisionLinkProps) {
   const sourceKey = useClientSummarySourceKey();
   const authenticatedView = usePublicShareContext() === null;
@@ -84,7 +86,9 @@ export function FileRevisionLink({
   const tooltip = formatRevisionTooltip(revision.commit);
 
   return (
-    <span className={`${styles.root} ${className ?? ""}`}>
+    <span
+      className={`${styles.root} ${showAuthor ? styles.withAuthor : ""} ${className ?? ""}`}
+    >
       <a
         className={styles.commit}
         href={href}
@@ -97,6 +101,9 @@ export function FileRevisionLink({
       >
         {revision.commit.shortHash}
       </a>
+      {showAuthor && (
+        <span className={styles.author}>{revision.commit.authorName}</span>
+      )}
       <span className={styles.age}>
         ({formatRevisionAge(revision.commit.authorDate)})
       </span>

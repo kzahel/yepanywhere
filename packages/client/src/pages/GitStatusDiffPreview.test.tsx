@@ -90,6 +90,13 @@ const render = (
 
 describe("GitDiffBody", () => {
   beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
     copiedValues.length = 0;
     Object.defineProperty(Element.prototype, "scrollIntoView", {
       configurable: true,
@@ -107,6 +114,7 @@ describe("GitDiffBody", () => {
       delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     }
     cleanup();
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
@@ -258,8 +266,9 @@ describe("GitDiffBody", () => {
     expect(rendered?.querySelector(".line-hunk")).toBeNull();
 
     fireEvent.click(showRemovedLinesButton);
-    expect(rendered?.textContent).toContain("-old");
-    expect(rendered?.querySelector(".line-hunk")).not.toBeNull();
+    const restoredDiff = document.querySelector("[data-diff-hunk]");
+    expect(restoredDiff?.textContent).toContain("-old");
+    expect(restoredDiff?.querySelector(".line-hunk")).not.toBeNull();
   });
 
   it("keeps the requested rendered diff through a source-only refresh", async () => {

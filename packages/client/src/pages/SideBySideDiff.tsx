@@ -1,11 +1,11 @@
 import type { PatchHunk } from "@yep-anywhere/shared";
 import { memo, type ReactNode, useMemo } from "react";
-import { InnerHtml } from "../components/ui/InnerHtml";
 import {
   buildSideBySideRows,
   parseDiffLineFragments,
 } from "../lib/diffSideBySide";
 import { ReviewCommentSplitLayout } from "./ReviewCommentSplitLayout";
+import { DiffHunks } from "./DiffHunk";
 
 /**
  * Side-by-side diff (topic: source-review-to-session, P8). The server already
@@ -73,27 +73,19 @@ function SideBySideRows({
   fragments: Map<number, string>;
 }) {
   return (
-    <div className="side-by-side-diff">
-      {rows.map((row, index) => {
-        if (row.type === "header") {
-          return (
-            <InnerHtml
-              key={`h-${index}`}
-              className="sbs-header highlighted-diff"
-              trustedHtml={`<pre class="shiki"><code><span class="line line-hunk">${escapeText(
-                row.text,
-              )}</span></code></pre>`}
-            />
-          );
-        }
-        return (
-          <div key={`r-${index}`} className="sbs-row">
-            <SbsCell col="old" html={cellHtml(fragments, row.left)} />
-            <SbsCell col="new" html={cellHtml(fragments, row.right)} />
-          </div>
-        );
-      })}
-    </div>
+    <DiffHunks
+      rows={rows.map((row) =>
+        row.type === "header"
+          ? row
+          : {
+              type: "line",
+              cells: [
+                cellHtml(fragments, row.left),
+                cellHtml(fragments, row.right),
+              ],
+            },
+      )}
+    />
   );
 }
 
@@ -103,25 +95,4 @@ function cellHtml(
 ): string | null {
   if (index === null) return null;
   return fragments.get(index) ?? null;
-}
-
-function SbsCell({ col, html }: { col: "old" | "new"; html: string | null }) {
-  if (html === null) {
-    return <div className="sbs-cell sbs-empty" />;
-  }
-  // Server-highlighted diff.
-  return (
-    <InnerHtml
-      className="sbs-cell highlighted-diff"
-      data-diff-col={col}
-      trustedHtml={`<pre class="shiki"><code>${html}</code></pre>`}
-    />
-  );
-}
-
-function escapeText(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }
