@@ -51,7 +51,7 @@ actually runs on macOS (job 127530827997) and passes all ten app cases with the
 same guards, in 226.23 wall / 222.20 aggregate seconds. Its browser step passes
 two cases and fails the Claude case before typing: the initial composer is not
 mounted within 15 seconds while cold Vite modules are still loading. The
-[separate browser bootstrap finding](hosted-macos-native-browser-bootstrap-timeout.md)
+[cold browser readiness evidence](../topics/native-provider-testing.md#cold-browser-initial-readiness)
 owns that failure. Linux also passes its app/browser steps. This qualifies one
 app-worker setting for this source; it does not prove a sustained speedup or a
 cause for the two-worker failures. That control changed no budget, assertion
@@ -64,7 +64,7 @@ At `ddda13a4a`, one-worker [run 42115449136](https://github.com/kzahel/yepanywhe
 macOS job 127553758255, passes all twelve app cases with the same case guards
 in 311.47 seconds. Both reload browser cases also pass; the grouped-input case
 then fails its separate 100 ms acknowledgement gate at 126.2 ms. The
-[typing finding](hosted-macos-native-input-acknowledgement-over-100ms.md) owns
+[typing finding](hosted-native-input-acknowledgement-over-100ms.md) owns
 that unresolved failure. This is app acceptance, not full browser acceptance.
 
 ## One-worker current-source replacement guard
@@ -115,3 +115,21 @@ observed maxima and stay unchanged. This is measured reliability slack,
 not acceleration. Inner barriers, all semantic assertions and 100 ms typing
 remain intact. Keep the gap until changed-source hosted qualification; a new
 pass alone does not explain historical host contention or the two-worker path.
+
+## Selected default profile qualified
+
+At `568d097dd`, [run 42126184144](https://github.com/kzahel/yepanywhere/actions/runs/42126184144)
+passes all twelve app cases on macOS (one worker, job 127590884296), in 390.14
+wall / 377.05 aggregate seconds. Linux two-worker app cases also pass in
+122.02 / 235.39 seconds. No app case budget expires. This qualifies the
+selected default profile and its measured guards; it does not explain the old
+two-worker failures or qualify macOS two/four-worker controls. That residual
+qualification limit keeps this entry open. The browser step now executes but
+fails the separate [typing contract](hosted-native-input-acknowledgement-over-100ms.md).
+
+The completed macOS job now spans 10m47s (647 seconds), so its unchanged
+20-minute job guard is 1.85× that observation. The next job-budget edit must
+include this newer maximum; the earlier 8m57s derivation is not the current
+maximum. This job completed and preserved its browser artifacts. The observed
+browser failures are typing assertions, not job cancellation. Broader budget
+headroom and the explicit macOS stress profiles remain qualification follow-ups.

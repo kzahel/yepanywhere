@@ -1450,7 +1450,7 @@ passes Linux's 69 provider, ten app and three browser cases. The same-source
 macOS one-worker control passes all ten app cases with unchanged guards, while
 its first composer mount exhausts a cold-development readiness check before
 any session-detail request or keystroke. The two-worker app timeout and
-[browser bootstrap](../../gaps/hosted-macos-native-browser-bootstrap-timeout.md)
+[browser bootstrap evidence](../../topics/native-provider-testing.md#cold-browser-initial-readiness)
 findings remain explicit. No worker default, input limit or public contract is
 changed in this slice. Generic graph API approval remains pending.
 
@@ -1475,7 +1475,7 @@ this repaired source remains pending; the gaps keep the previous failures.
 
 The current-source macOS job takes 8m57s, including both successful reload
 cases, but fails grouped-input acknowledgement at 126.2 ms. The
-[typing finding](../../gaps/hosted-macos-native-input-acknowledgement-over-100ms.md)
+[typing finding](../../gaps/hosted-native-input-acknowledgement-over-100ms.md)
 remains unresolved and its 100 ms gate is unchanged. The macOS app job guard
 is 20 minutes (2.23 times that observed maximum), allowing the readiness
 repair to finish and preserve failure evidence; other job guards stay ten
@@ -1564,3 +1564,23 @@ server/client durations are 160.21/138.99 seconds. Lint is warning-free and
 format/types pass. A direct comparison confirms each changed test file is
 identical after removing comments and reversing only its outer guard constant.
 These timings are diagnostic, not a claimed runtime reduction.
+
+### Published backend qualification checkpoint
+
+Source `568d097dd` passes all twelve native app cases in both selected hosted
+profiles (Linux two workers, macOS one) in run 42126184144. That qualifies the
+creation/receipt, independent destination, copy-boundary, historical recovery
+and actual API replacement scenarios. Production provider code is unchanged
+from the separate 69-case Linux provider pass. No whole-browser pass is claimed:
+Linux is two of three and macOS one of three, with streaming acknowledgements
+104.9/114.5/271 ms against the unchanged 100 ms gate. The
+[cross-platform typing gap](../../gaps/hosted-native-input-acknowledgement-over-100ms.md)
+owns those unresolved samples; no CPU cause or repair is claimed.
+
+All three macOS initial mounts succeed. The cold-readiness gap is retired after
+moving its evidence into [native provider testing](../../topics/native-provider-testing.md#cold-browser-initial-readiness).
+The earlier two-worker app failures remain explicitly unqualified in their
+gap. Full plan completion still requires the previously requested public API,
+authorized-page and consumer compatibility decision; the backend checkpoint is
+not approval to add those routes or make hosted/mobile clients depend on them.
+The live port 3400 was not restarted for these measurements or publication.

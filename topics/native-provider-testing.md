@@ -47,7 +47,7 @@ lower bound; the [hosted finding](../gaps/hosted-macos-native-app-case-timeouts.
 retains phase evidence. This selects capacity without promising acceptance of
 every later source. The earlier `ddda13a4a` browser
 step fails the separate 100 ms typing contract at 126.2 ms;
-[that finding](../gaps/hosted-macos-native-input-acknowledgement-over-100ms.md)
+[that finding](../gaps/hosted-native-input-acknowledgement-over-100ms.md)
 remains open. Ordinary workspace concurrency and the browser's single
 worker are unchanged. See
 [Linux qualification](#linux-native-qualification-and-ci-gate).
@@ -58,7 +58,11 @@ separate `workers=2` and `workers=4` dispatches on the same source and capacity
 key before claiming a speed change; a successful run after reducing concurrency
 is qualification evidence, not by itself a performance result. Scenario guards
 follow measured maxima below; native/listener readiness deadlines remain
-unchanged. Initial browser composer mounting has its own 45-second guard: the
+unchanged.
+
+### Cold browser initial readiness
+
+Initial browser composer mounting has its own 45-second guard: the
 hosted M1 cold source-module graph remained incomplete at the previous
 15-second guard, with 885 module requests and no session-detail request yet.
 Forty-five seconds is three times that observed lower bound. All later browser
@@ -66,10 +70,20 @@ assertions and the 100 ms sequential-key acknowledgement limit are unchanged.
 A controlled 16-second lazy-module gate fails the old mount guard and passes
 this one through the full retained typing/reload/history scenario; the gate is
 a one-time qualification probe, not an extra recurring test. The macOS app
-job has a 20-minute guard, 2.23 times the observed 8m57s job at `ddda13a4a`,
-leaving room for the cold-mount allowance and failure-evidence upload. Linux
-and provider job guards stay at ten minutes. Neither readiness nor job guards
-relax the 100 ms typing requirement.
+job's 20-minute guard was chosen from the 8m57s job at `ddda13a4a` (2.23×).
+The newer 10m47s (647-second) job at `568d097dd` leaves 1.85×; the
+[app-case gap](../gaps/hosted-macos-native-app-case-timeouts.md) tracks this
+headroom follow-up. Linux and provider job guards stay at ten minutes.
+Neither readiness nor job guards relax the 100 ms typing requirement.
+
+The original M1 failure is run 42108868835, job 127530827997: the Claude
+composer is absent at 15 seconds, before any keystroke or session-detail GET.
+Its trace still loads lazy Vite modules; completed bootstrap APIs succeed
+(`/api/providers` about 1.54 seconds). This locates cold source boot, not a
+warm detail regression. In run 42126184144 at `568d097dd`, all three macOS
+cases pass initial mounting with the measured guard. The readiness finding is
+closed; the separate [typing finding](../gaps/hosted-native-input-acknowledgement-over-100ms.md)
+keeps full browser acceptance open. Raising readiness never relaxes input speed.
 
 ### Native app case budgets
 
@@ -81,17 +95,35 @@ sequential-key requirement stay unchanged.
 
 | Case family | Observed maximum | Hosted run | Guard / margin |
 | --- | --- | --- | --- |
-| Creation matrix | 25.648 s | 42121264200 | 80 s / 3.12× |
-| Named nested harness / copy history | 34.318 s | 42115449136 | 105 s / 3.06× |
+| Creation matrix | 27.282 s | 42126184144 | 80 s / 2.93× |
+| Named nested harness / copy history | 38.215 s | 42126184144 | 105 s / 2.75× |
 | Explicit profile / pending reload | 39.962 s | 42123429243 | 80 s / 2.00× |
-| Tool / approval reload | 40.799 s | 42123429243 | 90 s / 2.21× |
-| API replacement / crash reload | ≥30.734 s through cleanup after timeout | 42123429243 | 90 s / ≤2.93× |
+| Tool / approval reload | 42.555 s | 42126184144 | 90 s / 2.11× |
+| API replacement / crash reload | 32.748 s, complete | 42126184144 | 90 s / 2.75× |
 
 These guards qualify the selected functional boundary with measured slack; they
 claim neither lower runtime nor acceptance of the unqualified two/four-worker
 macOS controls. No cases, model exchanges, assertions, retries or fixed waits
 are added by this adjustment. The earlier failures remain in the
 [hosted finding](../gaps/hosted-macos-native-app-case-timeouts.md).
+
+### Current hosted qualification
+
+At `568d097dd`, [run 42126184144](https://github.com/kzahel/yepanywhere/actions/runs/42126184144)
+passes twelve native app cases on Linux (two workers, 122.02 wall / 235.39
+aggregate seconds) and macOS (one worker, 390.14 / 377.05 seconds). The measured
+case budgets complete the selected default profiles, including copy snapshots,
+creation receipts, pending explicit destinations and actual API replacement.
+Two/four-worker macOS controls remain unqualified; no speedup is claimed.
+
+The same run is red overall: Linux passes two browser cases and fails Claude
+streaming acknowledgement at 104.9 ms; macOS passes grouped input and fails
+Claude/Codex streaming acknowledgements at 114.5/271 ms. All initial mounts
+succeed, while later reload assertions after the failed timing checks do not
+run. The [cross-platform typing finding](../gaps/hosted-native-input-acknowledgement-over-100ms.md)
+retains evidence without a cause claim. The 100 ms contract is unchanged.
+The separate 69-case Linux provider pass at `b2e2ac950` remains qualification
+of the production provider code, unchanged through these test-only slices.
 
 The manual workflow's `suite` selector defaults to `all`; `providers` and `app` allow
 targeted requalification when the other boundary's sources are unchanged.
