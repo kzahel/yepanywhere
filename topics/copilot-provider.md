@@ -6,9 +6,9 @@
 > not a reverse-engineered one. This topic is the shared legitimacy + SDK-facts
 > hub for the Copilot integration family, and scopes **Architecture C: a direct
 > YA Copilot provider** built on the SDK/CLI. Sibling architectures:
-> [`opencode-copilot.md`](opencode-copilot.md) (A: via OpenCode — current
-> near-term plan) and [`copilot-oauth-claude.md`](copilot-oauth-claude.md) (B:
-> Claude TUI fronting an SDK-based gateway).
+> [`opencode-copilot.md`](opencode-copilot.md) (A: via OpenCode) and
+> [`copilot-oauth-claude.md`](copilot-oauth-claude.md) (B: Claude Code through
+> the copilot-api gateway). C is the recommended next build.
 
 Topic: copilot-provider
 
@@ -32,11 +32,11 @@ with specifics.
 ## The three architectures (all sanctioned)
 
 ```
-A. OpenCode → Copilot            opencode is the harness; YA drives opencode.   (near-term plan)
-B. Claude TUI → SDK gateway →    Claude Code is the harness, billed to Copilot
-   Copilot                        via a YA-built Anthropic-Messages gateway on the Copilot SDK.
-C. YA → Copilot SDK/CLID →       YA is the harness/supervisor; a first-class YA
-   Copilot                        `copilot` provider talks the SDK directly.
+A. OpenCode → Copilot            opencode is the harness; YA drives opencode.
+B. Claude Code → copilot-api →   Claude Code is the harness, billed to Copilot
+   Copilot                        through the copilot-api translating gateway.
+C. YA → Copilot SDK runtime →    the Copilot runtime is the harness; a first-class
+   Copilot                        YA `copilot` provider supervises it via the SDK.
 ```
 
 A is [`opencode-copilot.md`](opencode-copilot.md); B is
@@ -59,18 +59,64 @@ A is [`opencode-copilot.md`](opencode-copilot.md); B is
   party product that accesses GitHub" (Section H). So a third-party app using a
   user's own Copilot OAuth is contemplated, not prohibited.
 
-### Not yet verified by me (verify empirically)
+### Still to verify by reading
 
-- **Opus / full model set via the SDK.** The auth page doesn't enumerate models,
-  and the SDK overview page 404'd on fetch. The user's local `opencode models`
-  already lists `github-copilot/claude-opus-4.8` (and gpt/gemini), so Copilot
-  clearly serves Opus to this plan; that the *SDK surface* exposes the same set is
-  very likely but should be confirmed by listing models through the SDK/CLI.
 - **Exact Section J text.** Confirmed individuals fall under Section J and that
   API-via-third-party is contemplated; did not read Section J line-by-line for
   the absence of any relevant restriction. Treat "no client restriction" as the
   user's reading, well-corroborated but worth a direct read before relying on it
   in a public doc.
+
+## Verified SDK surface (2026-11-05)
+
+Read from the published package `@github/copilot-sdk` 1.0.28 (MIT; README and
+type declarations), which pins Copilot CLI 1.0.105, the CLI installed on the
+maintainer host. No session has yet been driven through the SDK; these are
+documented contracts, not observed behavior.
+
+- **Transport.** `CopilotClient` speaks JSON-RPC to the Copilot runtime,
+  spawned over stdio by default (TCP, an existing URL, or experimental
+  in-process FFI are alternatives). Platform packages bundle the runtime, or
+  `COPILOT_CLI_PATH` selects an installed CLI. This is the TUI-independent
+  host; the CLI's `--acp` mode and `-p --output-format json` are thinner
+  alternatives that YA does not need.
+- **Sessions.** `createSession`/`resumeSession` with caller-chosen ids,
+  `listSessions` (cwd, git root, branch, summary), `getEvents`,
+  `deleteSession`, `abort`, `setModel`. Runtime state lives under
+  `~/.copilot` (`session-state/`, `session-store.db`); `baseDirectory`
+  relocates it. `mode: "copilot-cli"` (default) reuses the user's CLI
+  configuration; `"empty"` is the multi-user server mode.
+- **Events.** About 100 typed events, including `assistant.message_delta`,
+  `assistant.reasoning_delta`, `tool.execution_*`, `permission.requested`,
+  `subagent.*`, `assistant.usage`, `session.quota_observation`,
+  `session.compaction_*`, `session.title_changed` and `session.todos_changed`.
+- **Permissions and input.** `onPermissionRequest` approves or denies each
+  tool call; omitted, requests stay pending as events. `onUserInputRequest`
+  and `onElicitationRequest` carry `ask_user`. Managed enterprise settings
+  make `approveAll` throw, so YA's approval UI must be real there.
+- **Model catalog.** `listModels()` returns per model: policy state
+  (`enabled`/`disabled`/`unconfigured`, reflecting admin choices), billing
+  multiplier and token prices, context and output limits, vision, whether
+  effort is supported, `supportedReasoningEfforts` and
+  `defaultReasoningEffort`. Effort levels are per model, not fixed; the
+  SDK's effort union is `low`…`max`. `allowedModels` restricts a session to
+  exact ids.
+- **Copilot additions and their switches.**
+
+  | Addition | Switch |
+  |---|---|
+  | Subagents (the built-in `task` tool) | `excludedTools: ["task"]`; `customAgents` with per-agent model/effort; `includeSubAgentStreamingEvents` |
+  | Auto model routing | only when `model: "auto"`, tiered by `capi.autoTier` / `setAutoTier`; a concrete model never routes |
+  | Autopilot continuation | `autopilot: { continuationEnabled, maxContinues }` (default five) |
+  | Memory | `memory` configuration |
+  | Cross-session store | `enableSessionStore` |
+  | Automatic compaction | `infiniteSessions` (enabled, 0.80/0.95 thresholds) |
+  | Built-in GitHub MCP servers | `mcpServers`, tool filters |
+  | Custom instructions (`AGENTS.md` etc.) | loaded by default; `skipCustomInstructions`, `instructionDirectories` |
+  | System prompt | `systemMessage` append, per-section customize, or replace |
+
+  The README also mentions a multi-model "fusion" routing feature, which a
+  plain concrete-model session should not engage; confirm empirically.
 
 ## Architecture C — a direct YA `copilot` provider
 
@@ -78,21 +124,23 @@ YA registers a new `copilot` provider (the [`grok.md`](grok.md) isolated-additiv
 template): new `ProviderName`, a new
 `packages/server/src/sdk/providers/copilot*.ts`, additive registration +
 `ENABLED_PROVIDERS` gating, no edits to `Process`/`Supervisor`/event bus/other
-providers. It drives the Copilot SDK (or `copilot` CLI), authenticates from the
-user's stored Copilot OAuth / `COPILOT_GITHUB_TOKEN`, exposes Copilot's model set
-(incl. Opus, plan-permitting), and normalizes events to YA `SDKMessage`s.
+providers. It drives the Copilot SDK, authenticates from the user's stored
+Copilot CLI login / `COPILOT_GITHUB_TOKEN`, exposes the account's Copilot model
+set as the SDK reports it, and normalizes SDK events to YA `SDKMessage`s.
 
-Trade-offs vs Architecture A (OpenCode):
-- **Pro:** no opencode dependency; YA owns the transport and normalization; one
-  fewer moving part for Copilot-only users.
-- **Con:** YA reimplements what opencode already does (model catalog, streaming,
-  tool/permission normalization); opencode is further along today. Whether the
-  SDK provider is *better* than opencode is now an empirical quality question,
-  **not** a legitimacy one.
-- **Same harness-gap profile as opencode:** YA (not Claude Code) is the harness,
-  so the first-party Claude Code features (its system prompt, hooks, skills, Tool
-  Search, Anthropic prompt caching) are not present — see the gaps catalog in
-  [`copilot-oauth-claude.md`](copilot-oauth-claude.md).
+Trade-offs vs Architecture A (OpenCode) and B (Claude Gateway):
+- **Pro:** no opencode or copilot-api dependency, and no translation of one
+  vendor's wire format into another's (the class of defect in
+  [`copilot-oauth-claude.md`](copilot-oauth-claude.md) § Known gateway
+  failure: mid-conversation system message). The model catalog arrives with
+  policy, billing and effort metadata instead of being inferred.
+- **Harness:** the Copilot runtime is itself the agent harness (its own tool
+  loop, compaction, instructions, skills, subagents), so YA is a supervisor,
+  as with Codex. Claude Code's own features (its system prompt, hooks, Tool
+  Search) are not present; users who want Claude Code on Copilot models keep
+  Architecture B.
+- **Con:** a new event vocabulary to normalize, and a young SDK whose
+  protocol may move; pin the SDK version and record the pinned CLI.
 
 ## Implementation / operational considerations (not legitimacy blockers)
 
@@ -108,21 +156,58 @@ Trade-offs vs Architecture A (OpenCode):
 
 ## Status / recommendation
 
-- **Near-term: stay on Architecture A** (opencode→Copilot,
-  [`opencode-copilot.md`](opencode-copilot.md)) — it's the furthest along.
-- **Architecture C is a verified-allowed, viable alternative**, worth building if
-  the opencode dependency or its harness gaps become limiting, or if a
-  Copilot-only audience wants a leaner path. Start with the model-exposure +
-  SDK-auth empirical checks above.
+Recommendation (2026-11-05): build Architecture C. The SDK now supplies the
+TUI-independent host, the policy-aware catalog and the switches below that
+the earlier "stay on OpenCode" recommendation lacked. A and B stay available.
+
+### Plan
+
+1. **Spike (no YA code).** Drive the SDK on the maintainer host: `listModels`
+   (policy states, multipliers, per-model efforts), one turn with a tool
+   permission round-trip, abort, warm and cold resume, `excludedTools:
+   ["task"]` actually removing subagents, a concrete model not engaging auto
+   or fusion routing. Record observed event sequences here; they decide the
+   event mapping and whether reload reads `getEvents` or the on-disk state.
+2. **Provider skeleton.** `copilot` provider per the
+   [`provider-abstraction.md`](provider-abstraction.md) contract and the
+   [`grok.md`](grok.md) template; runtime lifetime and reload behavior per
+   [`reload-safe-provider-runtimes.md`](reload-safe-provider-runtimes.md)
+   (one runtime child can host many sessions; decide shared versus
+   per-session from the spike). Gate the provider with a server capability
+   ([`server-capabilities.md`](server-capabilities.md)).
+3. **Catalog and effort.** Models from `listModels`; hide `disabled`, mark
+   `unconfigured`, show the billing multiplier. The effort picker offers
+   exactly the model's `supportedReasoningEfforts`, defaulting to its
+   `defaultReasoningEffort`, and none when unsupported. `auto` appears as an
+   explicit model choice with its tier, never as a silent default.
+4. **Session options and defaults.** A Copilot options group on the New
+   Session form, persisted through the existing New Session defaults ("Set as
+   default", Model settings). Subagents follow the server-wide **Subagent
+   nesting limit** ([`vanilla-defaults.md`](vanilla-defaults.md) § Known
+   Exceptions): `0` excludes `task`. Autopilot continuation, memory, the
+   cross-session store and auto routing start off and are per-session
+   opt-ins (user-directed 2026-11-05). This departs from Copilot CLI's own
+   defaults, so it lands as a recorded exception in `vanilla-defaults.md`
+   with the implementation.
+5. **Interaction surfaces.** Permission requests to YA approvals,
+   `ask_user`/elicitation to YA's question UI, `subagent.*` to
+   [`provider-child-sessions.md`](provider-child-sessions.md),
+   `assistant.usage` and `session.quota_observation` to
+   [`session-usage-accounting.md`](session-usage-accounting.md).
+
+Hosted multi-user YA needs per-user GitHub App tokens
+(`gitHubTokenProvider`); out of scope until that deployment exists.
 
 ## Sources
 
 - [GitHub Copilot SDK authentication](https://docs.github.com/en/copilot/how-tos/copilot-sdk/authenticate-copilot-sdk/authenticate-copilot-sdk)
+- `@github/copilot-sdk` 1.0.28 on npm: README and `dist/types.d.ts`
+  (source repository `github/copilot-agent-runtime`, `src/sdk/nodejs`)
 - [GitHub Terms for Additional Products and Features (Section H, API via third-party)](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features)
 - [GitHub Terms of Service — Section J (AI Features)](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)
 
-<!-- epistemic status: GitHub Copilot SDK auth docs + GitHub ToS direction + local
-opencode model evidence, verified 2026-06-21. SDK model enumeration (Opus) and the
-full Section J text are flagged as not-directly-verified. Supersedes earlier
-"probably inferior / TOS-questionable" framing. -->
+<!-- epistemic status: GitHub Copilot SDK auth docs + GitHub ToS direction,
+verified 2026-06-21; SDK surface read from the published 1.0.28 package on
+2026-11-05, not yet exercised. Full Section J text not directly verified.
+Supersedes earlier "probably inferior / TOS-questionable" framing. -->
 </content>

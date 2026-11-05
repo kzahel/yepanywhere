@@ -138,6 +138,27 @@ Copilot occasionally 503s Opus requests with "upstream model provider is
 currently experiencing high demand", which surfaces as an HTTP error, not a
 mid-stream cut.
 
+## Known gateway failure: mid-conversation system message (fixed in fork)
+
+Diagnosed 2026-11-05. Symptom: a Gemini model (`gemini-4-argon`) through
+Claude Gateway fails on the opening prompt with `400 invalid_message_role`:
+"The last message in a Gemini request must not be from the assistant."
+
+- Claude Code (Agent SDK 0.3.318) now sends its `# Environment` block as a
+  `role: "system"` entry in `messages`, after the user turn, so a first
+  request's roles are `[user, system]`. Observed through a logging proxy
+  for Claude, GPT and Gemini model ids alike.
+- `copilot-api`'s Chat Completions and Responses translators mapped every
+  non-`user` role to assistant, turning that block into a trailing
+  assistant message. Gemini rejects it; GPT models accepted it as an
+  assistant prefill, so they saw the environment block as their own partial
+  reply. Claude models were unaffected, because `/v1/messages` forwards the
+  Anthropic payload unchanged.
+- Copilot itself accepts a `system` message in any position for Gemini, so
+  no reordering is needed. The `graehl/copilot-api` fork (`Translate
+  mid-conversation system messages as system`) now translates the role
+  faithfully on both paths; a gateway restart is needed to pick it up.
+
 ## Prompt caching through the gateway
 
 Measured 2026-08-06 against `~/copilot-api` on `127.0.0.1:4141` (a ~8.4k-token
