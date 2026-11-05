@@ -78,59 +78,6 @@ describe("artifact capture command", () => {
     });
   });
 
-  it("discovers delivery through the inherited URL without --ya-url", async () => {
-    const requests: string[] = [];
-    const server = createServer((request, response) => {
-      requests.push(request.url ?? "");
-      response.setHeader("Content-Type", "application/json");
-      response.end(
-        JSON.stringify({
-          current: "0.8.2",
-          artifactViewer: { available: false },
-        }),
-      );
-    });
-    const directory = await mkdtemp(join(tmpdir(), "ya-artifact-env-"));
-    try {
-      await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
-      const address = server.address();
-      if (!address || typeof address === "string")
-        throw new Error("Missing test server port");
-      await writeFile(
-        join(directory, "index.html"),
-        "<h1>Discovered server</h1>",
-      );
-      const result = await exec(
-        process.execPath,
-        [
-          "--import",
-          loader,
-          script,
-          "index.html",
-          "--out",
-          "capture",
-          "--json",
-        ],
-        {
-          cwd: directory,
-          env: {
-            ...process.env,
-            AGENT_SERVER_URL: `http://127.0.0.1:${address.port}/`,
-          },
-        },
-      );
-      expect(requests).toEqual(["/api/version"]);
-      expect(JSON.parse(result.stdout)).toMatchObject({
-        delivery: { status: "skipped" },
-        screenshots: [{ name: "desktop" }, { name: "phone" }],
-      });
-    } finally {
-      server.closeAllConnections();
-      await new Promise<void>((done) => server.close(() => done()));
-      await rm(directory, { recursive: true });
-    }
-  }, 30_000);
-
   it.each(
     [
       [],
@@ -146,7 +93,18 @@ describe("artifact capture command", () => {
     expect(() => parseCaptureArgs(argv)).toThrow();
   });
 
-  it("runs from another working directory and emits parseable JSON plus Markdown files", async () => {
+  it("discovers inherited delivery from another working directory and emits CLI artifacts", async () => {
+    const requests: string[] = [];
+    const server = createServer((request, response) => {
+      requests.push(request.url ?? "");
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          current: "0.8.2",
+          artifactViewer: { available: false },
+        }),
+      );
+    });
     const directory = await mkdtemp(join(tmpdir(), "ya-artifact-cli-"));
     // Node's tsx loader can emit runtime deprecation warnings on stderr;
     // these assertions check the CLI's protocol output only.
@@ -155,6 +113,13 @@ describe("artifact capture command", () => {
       env: { ...process.env, NODE_NO_WARNINGS: "1" },
     };
     try {
+      await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+      const address = server.address();
+      if (!address || typeof address === "string")
+        throw Error("Missing test server port");
+      Object.assign(commandOptions.env, {
+        AGENT_SERVER_URL: `http://127.0.0.1:${address.port}/`,
+      });
       await writeFile(
         join(directory, "page with spaces.html"),
         "<h1>Standalone CLI</h1><input aria-label=\"Reply\"><button onclick=\"document.querySelector('h1').textContent=document.querySelector('input').value;document.querySelector('h1').dataset.ready='yes'\">Submit</button>",
@@ -180,7 +145,6 @@ describe("artifact capture command", () => {
           "--out",
           "captures",
           "--json",
-          "--local-only",
           "--interact",
           "workflow with spaces.mjs",
           "--ready-selector",
@@ -190,6 +154,8 @@ describe("artifact capture command", () => {
       );
       const data = JSON.parse(result.stdout);
       expect(data.kind).toBe("artifact-capture");
+      expect(requests).toEqual(["/api/version"]);
+      expect(data.delivery).toMatchObject({ status: "skipped" });
       expect(data.screenshots).toHaveLength(2);
       expect(result.stderr).toBe("# acli: 1 +commentary\n");
       expect(data._acli.commentary).toHaveLength(2);
@@ -233,9 +199,15 @@ describe("artifact capture command", () => {
       );
       expect(usage.stdout).toContain("this call\nitself presents");
       expect(usage.stderr).toBe("");
+      // Local-only capture and help must not contact the inherited server.
+      expect(requests).toEqual(["/api/version"]);
     } finally {
+      server.closeAllConnections();
+      await new Promise<void>((done) => server.close(() => done()));
       await rm(directory, { recursive: true });
     }
+    // Reuse both captures for delivery/opt-out and CLI output coverage; avoid a
+    // separate browser startup just to exercise inherited URL discovery.
     // Two real browser captures plus three CLI startups exceed the unit-test
     // default on CI runners; the capture command retains its own deadlines.
   }, 30_000);
