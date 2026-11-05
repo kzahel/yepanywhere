@@ -99,28 +99,23 @@ export function ProjectCard({
   };
 
   return (
-    <li className={styles.card}>
+    <li className={`${styles.card} ${appEnabled ? styles.withApp : ""}`}>
+      {appEnabled && (
+        <Link
+          to={`${basePath}/projects/${project.id}/app`}
+          className={`${styles.newSession} ${styles.appLink}`}
+          aria-label={t("projectAppOpen")}
+          title={t("projectAppOpen")}
+        >
+          {t("projectAppLabel")}
+        </Link>
+      )}
       <Link
         to={`${basePath}/sessions?project=${project.id}&source=projects`}
         className={styles.link}
         data-project-card-link=""
       >
         <div className={styles.header}>
-          {appEnabled && (
-            <button
-              type="button"
-              className={styles.newSession}
-              aria-label={t("projectAppOpen")}
-              title={t("projectAppOpen")}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                navigate(`${basePath}/projects/${project.id}/app`);
-              }}
-            >
-              {t("projectAppLabel")}
-            </button>
-          )}
           {onCopy && (
             <button
               type="button"

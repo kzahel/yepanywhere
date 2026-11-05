@@ -47,8 +47,11 @@ state. App discovery occurs on explicit open rather than delaying navigation.
 Projects offers **Open app**, opening the main content pane with the same
 isolated rendering and viewer controls as the session's right App pane. It
 does not require opening or retaining an agent session. Keep the card's
-existing session navigation and gear action. Project Settings contains **App**
-and, only when server vhost serving is enabled, **App address**. Both principal
+existing session navigation and gear action.
+The card's App control is an independent link: ordinary clicks, middle-clicks,
+and browser Open link in new tab all target the project App viewer, never the
+card's sessions list. Project Settings contains **App** and, only when server
+vhost serving is enabled, **App address**. Both principal
 kinds use this surface; authorization determines the available actions.
 App lifecycle and address controls appear inline in the project settings
 dialog, alongside sharing and session defaults. Opening settings does not

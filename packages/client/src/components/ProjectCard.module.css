@@ -1,5 +1,6 @@
 .card {
   position: relative;
+  --app-control-size: 28px;
 }
 
 .link {
@@ -19,6 +20,10 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
+}
+
+.withApp .header {
+  padding-left: calc(var(--app-control-size) + var(--space-2));
 }
 
 .identity {
@@ -112,8 +117,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--app-control-size);
+  height: var(--app-control-size);
   padding: 0;
   background: transparent;
   border: 1px solid var(--border-input);
@@ -126,6 +131,14 @@
 
 .newSession {
   margin-left: auto;
+}
+
+.appLink {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  text-decoration: none;
+  font-size: var(--font-size-sm);
 }
 
 .newSession:hover,

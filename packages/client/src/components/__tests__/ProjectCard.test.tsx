@@ -44,6 +44,33 @@ describe("ProjectCard", () => {
     cleanup();
   });
 
+  it.each(["", "/remote/test-server"])(
+    "gives Open app its own native link under %s",
+    (basePath) => {
+      render(
+        <I18nProvider>
+          <MemoryRouter>
+            <ProjectCard
+              project={project}
+              appEnabled
+              basePath={basePath}
+              needsAttentionCount={0}
+              thinkingCount={0}
+            />
+          </MemoryRouter>
+        </I18nProvider>,
+      );
+      const app = screen.getByRole("link", { name: "Open app" });
+      expect(app.getAttribute("href")).toBe(`${basePath}/projects/proj-1/app`);
+      expect(app.parentElement?.closest("a")).toBeNull();
+      expect(
+        document
+          .querySelector("[data-project-card-link]")
+          ?.getAttribute("href"),
+      ).toBe(`${basePath}/sessions?project=proj-1&source=projects`);
+    },
+  );
+
   it("removes the project straight from the trash button", () => {
     const onDeleteProject = vi.fn();
     renderProjectCard(onDeleteProject);
