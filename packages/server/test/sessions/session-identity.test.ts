@@ -592,12 +592,42 @@ describe("scoped durable session identity", () => {
         expect(response.status).toBe(200);
         const result = await response.json();
         expect(result.session.id).toBe("permanent-ya");
+        expect(result.session.nativeSessionId).toBe(nativeRef.id);
         expect(JSON.stringify(result.messages)).toContain(
           "correct private source",
         );
         expect(JSON.stringify(result.messages)).not.toContain(
           "wrong ambient source",
         );
+        const source = await app.app.request(
+          "/api/sessions/permanent-ya/native-source",
+        );
+        expect(source.status).toBe(200);
+        expect(await source.json()).toEqual({
+          sessionId: "permanent-ya",
+          provider: "claude",
+          projectId: currentProjectId,
+          status: "available",
+          native: nativeRef,
+          transcriptPath: join(privateDir, "native-file.jsonl"),
+        });
+        for (const [id, status] of [
+          ["unbound", "unbound"],
+          ["missing-bound", "missing"],
+        ]) {
+          const source = await app.app.request(
+            `/api/sessions/${id}/native-source`,
+          );
+          expect(source.status).toBe(200);
+          expect(await source.json()).toMatchObject({
+            sessionId: id,
+            status,
+            transcriptPath: null,
+          });
+        }
+        expect(
+          (await app.app.request("/api/sessions/unknown/native-source")).status,
+        ).toBe(404);
         for (const id of ["unbound", "missing-bound"]) {
           const missing = await app.app.request(
             `/api/projects/${currentProjectId}/sessions/${id}`,

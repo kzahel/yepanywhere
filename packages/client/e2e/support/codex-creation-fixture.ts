@@ -119,6 +119,7 @@ export async function createCodexCreationFixture(
       writeFile(`${gate}.compact-completion`, "release"),
     releaseFork: () => writeFile(`${gate}.fork`, "release"),
     releaseAck: () => writeFile(`${gate}.ack`, "release"),
+    releaseBinding: () => writeFile(`${gate}.binding`, "release"),
     releaseReply: () => writeFile(`${gate}.reply`, "release"),
     async crashServer() {
       const child = server.process;

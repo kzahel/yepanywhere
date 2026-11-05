@@ -64,6 +64,11 @@ async function handle(message) {
       respond(id, { data: [{ cwd, skills: [], errors: [] }] });
       break;
     case "thread/start":
+      while (
+        process.env.YEP_E2E_CREATION_HOLD_BINDING === "true" &&
+        !existsSync(`${gate}.binding`)
+      )
+        await new Promise((resolve) => setTimeout(resolve, 20));
       try {
         closeSync(openSync(`${log}.first-thread`, "wx"));
       } catch (error) {

@@ -36,6 +36,17 @@ export function SessionCreationNotice({
     !!creation &&
     ["saved", "queued", "dispatching", "bound"].includes(creation.state) &&
     isSessionCreationPending(creation);
+  const [visibleAttempt, setVisibleAttempt] = useState(
+    pending ? attemptId : undefined,
+  );
+  useEffect(() => {
+    if (pending) {
+      setVisibleAttempt(attemptId);
+      return;
+    }
+    const timer = setTimeout(() => setVisibleAttempt(undefined), 250);
+    return () => clearTimeout(timer);
+  }, [pending, attemptId]);
   useEffect(() => {
     setChecksExhausted(false);
     if (!pending || paused) return;
@@ -105,21 +116,18 @@ export function SessionCreationNotice({
       document.removeEventListener("visibilitychange", resume);
     };
   }, [active, pending, paused, transportStatus, attemptId]);
-  if (!pending || !creation || paused) return null;
-  if (active && !checksExhausted)
+  if (!creation || paused) return null;
+  if (!pending)
     return (
-      <section
-        className={styles.progress}
-        aria-label={t("sessionCreationLabel")}
-      >
-        <span role="status">
-          {t(
-            creation.state === "queued"
-              ? "sessionCreationQueueProgress"
-              : "sessionCreationProgress",
-          )}
-        </span>
-      </section>
+      visibleAttempt === attemptId &&
+      creation.state !== "deleted" && (
+        <section
+          className={`${styles.progress} ${styles.departing}`}
+          aria-hidden="true"
+        >
+          {t("sessionCreationProgress")}
+        </section>
+      )
     );
   const state = creation.state;
   const label =
@@ -142,12 +150,19 @@ export function SessionCreationNotice({
                 : "sessionCreationStarting";
   return (
     <section className={styles.notice} aria-label={t("sessionCreationLabel")}>
-      <p role="status">{t(label)}</p>
+      <p role="status">
+        {t(
+          active && !checksExhausted
+            ? creation.state === "queued"
+              ? "sessionCreationQueueProgress"
+              : "sessionCreationProgress"
+            : label,
+        )}
+      </p>
       {prompt && (
-        <details>
-          <summary>{t("sessionCreationSavedPrompt")}</summary>
-          <pre>{prompt}</pre>
-        </details>
+        <pre role="region" aria-label={t("sessionCreationSavedPrompt")}>
+          {prompt}
+        </pre>
       )}
       <div className={styles.actions}>
         {prompt && (
@@ -165,12 +180,14 @@ export function SessionCreationNotice({
             {t("sessionCreationCopyPrompt")}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => void refresh.current().catch(() => {})}
-        >
-          {t("sessionCreationRefresh")}
-        </button>
+        {(!active || checksExhausted) && (
+          <button
+            type="button"
+            onClick={() => void refresh.current().catch(() => {})}
+          >
+            {t("sessionCreationRefresh")}
+          </button>
+        )}
       </div>
       {copyFailed && <p role="status">{t("sessionCreationCopyFailed")}</p>}
     </section>

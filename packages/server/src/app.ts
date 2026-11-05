@@ -1760,6 +1760,9 @@ export function createApp(options: AppOptions): AppResult {
             type: "session-metadata-changed",
             sessionId,
             creation,
+            nativeSessionId:
+              options.sessionMetadataService!.identities.resolveYa(sessionId)
+                ?.native?.id,
             timestamp: creation.updatedAt,
           }),
       )

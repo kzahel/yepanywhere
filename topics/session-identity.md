@@ -691,6 +691,46 @@ callback is produced. Historical imported identities and persisted old receipt
 aliases remain readable. [Older-server client reconciliation](session-id-remap.md)
 and the isolated older-server creation adapter remain supported.
 
+## Immediate startup and native-facing viewer URLs
+
+Preferred provider behavior, including Agent Auth Router routes, is to return
+the saved creation receipt immediately and open its result page while startup
+continues. Show the submitted prompt in full with Copy, without a disclosure
+click. Keep pending status until initial-input consumption is confirmed, then
+fade it out; native binding alone is not proof the prompt began work. Preserve
+bounded recovery checks, explicit failure controls and reduced-motion behavior.
+The transcript owns the prompt's display once delivery is confirmed.
+
+Providers should publish the actual native session ID as soon as it is known.
+The committed binding is projected as optional `nativeSessionId` in detail,
+metadata and creation-change events. A current viewer replaces its history
+entry with `/projects/P/sessions/N?yaSessionId=Y` when N differs from Y: N is
+the provider's rollout ID; Y remains the permanent YA resource identity. The
+query disambiguates native IDs shared by providers/stores without exposing the
+storage root. No native-ID guessing, registry remap or resource migration occurs.
+The sidebar, API operations and retained DOM use Y. URL replacement preserves
+the mounted session, draft, hash and unrelated query parameters; reload resolves
+Y again. Existing Y-only URLs remain readable. An older server omits the optional
+field and the current client keeps its existing URL; older clients ignore the
+field. Native-facing links require a current client that understands the query.
+
+Operator tooling can resolve Y through the read-only
+`GET /api/sessions/:sessionId/native-source`. The response includes `sessionId`,
+`projectId`, `provider`, `native` (family, storageScope, id, or null),
+`transcriptPath` and `status`: `available`, `unbound`, `missing` or `unsupported`.
+Only the scoped bound reader locates the file. It neither starts a provider nor
+reads the full transcript. Unknown/deleted identities return 404; non-operator
+principals cannot use this endpoint because it exposes host paths. This is an
+explicit operator endpoint, not an automatic client request or an advertised
+older-server fallback. `~/agents/scripts/ya-session` provides the general agent
+CLI and accepts either the YA ID or a full native-facing viewer URL.
+
+An AAR account pin chooses credentials; it does not choose the client harness's
+rollout directory. For example, a Codex client with its normal CODEX_HOME can
+write under `~/.codex/sessions/` while using the router's `codex-second` account.
+Use the identity registry/endpoint to locate its actual file rather than
+searching the account's credential home.
+
 ## Provider-only runtime execution
 
 The optional [background New Session action](session-creation.sketches.md#implemented-optional-background-creation--november-3)

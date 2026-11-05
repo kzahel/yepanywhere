@@ -1678,6 +1678,7 @@ export function useSession(
           !prev ||
           ![
             event.creation,
+            event.nativeSessionId,
             event.title,
             event.archived,
             event.starred,
@@ -1695,6 +1696,9 @@ export function useSession(
         return {
           ...prev,
           ...(event.creation !== undefined && { creation: event.creation }),
+          ...(event.nativeSessionId !== undefined && {
+            nativeSessionId: event.nativeSessionId,
+          }),
           ...(event.title !== undefined && { customTitle: event.title }),
           ...(event.archived !== undefined && { isArchived: event.archived }),
           ...(event.starred !== undefined && { isStarred: event.starred }),

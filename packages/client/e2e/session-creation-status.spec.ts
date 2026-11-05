@@ -17,7 +17,10 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
   const owned = await createCodexCreationFixture(
     false,
     false,
-    { YEP_E2E_CREATION_PERSIST_BEFORE_ACK: "true" },
+    {
+      YEP_E2E_CREATION_PERSIST_BEFORE_ACK: "true",
+      YEP_E2E_CREATION_HOLD_BINDING: "true",
+    },
     { serveBuiltClient: true },
   );
   const context = await browser.newContext({
@@ -39,6 +42,7 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
   });
   let blockTail = false,
     posts = 0;
+  let metadataCaptured = false;
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   page.on("request", (request) => {
@@ -49,7 +53,9 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
       posts++;
   });
   await page.route("**/api/projects/*/sessions/*/metadata", async (route) => {
-    if (route.request().method() !== "GET") return route.continue();
+    if (route.request().method() !== "GET" || metadataCaptured)
+      return route.continue();
+    metadataCaptured = true;
     const sessionId = new URL(route.request().url()).pathname
       .split("/")
       .at(-2)!;
@@ -81,6 +87,7 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
   const capture = async (name: string) => {
     for (const [suffix, viewport] of [
       ["desktop", { width: 1000, height: 600 }],
+      ["wide", { width: 1200, height: 600 }],
       ["phone", { width: 375, height: 812 }],
     ] as const) {
       await page.setViewportSize(viewport);
@@ -120,8 +127,38 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     await expect(
       page.getByRole("button", { name: "Refresh status", exact: true }),
     ).toHaveCount(0);
-    await capture("creation-compact-startup");
+    await expect(page.getByLabel("Saved prompt", { exact: true })).toHaveText(
+      "Confirm this initial request exactly once",
+    );
+    await expect(
+      page.getByRole("button", { name: "Copy prompt", exact: true }),
+    ).toBeVisible();
+    await capture("creation-visible-prompt-startup");
     await held;
+    const historyLength = await page.evaluate(() => history.length);
+    await page.locator("textarea[data-composer-input]").evaluate((element) => {
+      element.dataset.bindingSentinel = "same-composer";
+    });
+    await owned.releaseBinding();
+    await expect(page).toHaveURL(
+      new RegExp(
+        `/sessions/019a0000-cccc-7ccc-8ccc-cccccccccccc\\?yaSessionId=${receipt.sessionId}$`,
+      ),
+    );
+    const source = await (
+      await owned.request(`/sessions/${receipt.sessionId}/native-source`)
+    ).json();
+    expect(source).toMatchObject({
+      provider: "codex",
+      status: "available",
+      native: { id: "019a0000-cccc-7ccc-8ccc-cccccccccccc" },
+    });
+    expect(source.transcriptPath).toContain(source.native.id);
+    expect(await page.evaluate(() => history.length)).toBe(historyLength);
+    await expect(page.locator("textarea[data-composer-input]")).toHaveAttribute(
+      "data-binding-sentinel",
+      "same-composer",
+    );
     blockTail = true;
     await owned.releaseAck();
     await expect
@@ -231,6 +268,11 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
       ),
     ).toHaveLength(1);
     expect(errors).toEqual([]);
+    await page.reload();
+    await expect(page.locator(".session-title-text")).toHaveText(currentTitle);
+    await expect(
+      page.getByText("OWNED_CODEX_CREATION_REPLY", { exact: true }).first(),
+    ).toBeVisible();
   } finally {
     releaseMetadata();
     releaseTail();

@@ -13,6 +13,7 @@ import styles from "./NavigationLayout.module.css";
 import { Sidebar, SidebarToggleIcon } from "../components/Sidebar";
 import { GlossaryProjectProvider } from "../contexts/GlossaryContext";
 import { MOBILE_KEYBOARD_OPEN_VIEWPORT_RATIO } from "../lib/mobileKeyboardViewport";
+import { viewerYaSessionId } from "../lib/sessionViewerUrl";
 import { useSidebarPreference } from "../hooks/useSidebarPreference";
 import { usePanelSlideAnimations } from "../hooks/usePanelSlideAnimations";
 import {
@@ -134,6 +135,7 @@ function responsiveLayoutStateEquals(
 
 function readSidebarSessionRouteFromPathname(
   pathname: string,
+  search: string,
 ): { projectId: string; sessionId: string } | null {
   const match = pathname.match(/(?:^|\/)projects\/([^/]+)\/sessions\/([^/]+)/);
   if (!match?.[1] || !match[2]) {
@@ -141,7 +143,7 @@ function readSidebarSessionRouteFromPathname(
   }
   return {
     projectId: decodeURIComponent(match[1]),
-    sessionId: decodeURIComponent(match[2]),
+    sessionId: viewerYaSessionId(decodeURIComponent(match[2]), search),
   };
 }
 
@@ -168,8 +170,9 @@ function NavigationLayoutFrame({ sessionElement }: NavigationLayoutProps) {
 
   const location = useLocation();
   const sidebarSessionMatch = useMemo(
-    () => readSidebarSessionRouteFromPathname(location.pathname),
-    [location.pathname],
+    () =>
+      readSidebarSessionRouteFromPathname(location.pathname, location.search),
+    [location.pathname, location.search],
   );
   const currentProjectId = useMemo(
     () => readProjectIdFromPathname(location.pathname),

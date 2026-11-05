@@ -2928,6 +2928,46 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     return projectPath;
   };
 
+  routes.get("/sessions/:sessionId/native-source", async (c) => {
+    if (principalFor(c).kind !== "superuser")
+      return c.json({ error: "Operator access required" }, 403);
+    const sessionId = c.req.param("sessionId");
+    if (!isYaSessionId(sessionId))
+      return c.json({ error: "Invalid session ID" }, 400);
+    const identity = storedIdentityFor(sessionId);
+    if (
+      !identity ||
+      creationStatusForSession(
+        deps.sessionMetadataService,
+        sessionId,
+        deps.signal,
+      )?.state === "deleted"
+    )
+      return c.json({ error: "Session not found" }, 404);
+    const result = {
+      sessionId: identity.sessionId,
+      provider: identity.provider,
+      projectId: identity.projectId,
+      native: identity.native,
+      transcriptPath: null as string | null,
+    };
+    if (!identity.native) return c.json({ ...result, status: "unbound" });
+    const project = await deps.scanner.getOrCreateProject(identity.projectId);
+    if (!project) return c.json({ ...result, status: "missing" });
+    const reader = deps.readerFactory(
+      { ...project, provider: identity.provider },
+      identity.native,
+    );
+    if (!reader.getSessionFilePath)
+      return c.json({ ...result, status: "unsupported" });
+    const transcriptPath = await reader.getSessionFilePath(identity.native.id);
+    return c.json({
+      ...result,
+      transcriptPath,
+      status: transcriptPath ? "available" : "missing",
+    });
+  });
+
   // GET /api/projects/:projectId/sessions/:sessionId/agents - Get agent mappings
   // Used to find agent sessions for pending Tasks on page reload
   routes.get("/projects/:projectId/sessions/:sessionId/agents", async (c) => {
@@ -3263,6 +3303,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         routerBinding: metadata?.routerBinding,
         initialPrompt:
           metadata?.initialPrompt ?? sessionSummary?.fullTitle ?? undefined,
+        nativeSessionId: storedIdentityFor(sessionId)?.native?.id,
         wakeTurnsEnabled: metadata?.wakeTurnsEnabled,
         promptSuggestionMode: metadata?.promptSuggestionMode,
         recapAfterSeconds: metadata?.recapAfterSeconds,
@@ -3828,6 +3869,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             ),
             routerBinding: metadata?.routerBinding,
             initialPrompt: metadata?.initialPrompt,
+            nativeSessionId: storedIdentityFor(sessionId)?.native?.id,
             wakeTurnsEnabled: metadata?.wakeTurnsEnabled,
             promptSuggestionMode: metadata?.promptSuggestionMode,
             recapAfterSeconds: metadata?.recapAfterSeconds,
@@ -4274,6 +4316,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         ),
         routerBinding: metadata?.routerBinding,
         initialPrompt: metadata?.initialPrompt ?? session.fullTitle,
+        nativeSessionId: storedIdentityFor(sessionId)?.native?.id,
         wakeTurnsEnabled: metadata?.wakeTurnsEnabled,
         promptSuggestionMode: metadata?.promptSuggestionMode,
         recapAfterSeconds: metadata?.recapAfterSeconds,

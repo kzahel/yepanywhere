@@ -689,6 +689,8 @@ export interface AppSessionSummary {
   creationProvenance?: SessionCreationProvenance;
   /** Durable YA startup evidence; absent on legacy/external sessions. */
   creation?: SessionCreationStatus;
+  /** Provider's bound rollout ID for viewer URLs; never a YA resource key. */
+  nativeSessionId?: string;
   /** Public, immutable account pin. Never contains transport credentials. */
   routerBinding?: {
     poolId?: string;

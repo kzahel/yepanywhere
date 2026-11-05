@@ -36,6 +36,7 @@ export function savedCreationView(
       title: request.message.trim().slice(0, 120) || null,
       fullTitle: request.message,
       initialPrompt: request.message,
+      nativeSessionId: identity.native?.id,
       createdAt: creation.createdAt,
       updatedAt: attempt.updatedAt,
       messageCount: 0,

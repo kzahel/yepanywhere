@@ -22,6 +22,10 @@ import type { SessionNavigationIntent } from "../components/SessionListItem";
 import { useSessionPerformanceSettings } from "../hooks/useSessionPerformanceSettings";
 import { useClientSummarySourceKey } from "../lib/clientSummaryStore";
 import { markReloadPerfPhase } from "../lib/diagnostics/reloadPerfProbe";
+import {
+  sessionViewerSearch,
+  viewerYaSessionId,
+} from "../lib/sessionViewerUrl";
 
 const SESSION_DOM_LINGER_TTL_MS = 60_000;
 const SESSION_DOM_LINGER_MAX_PARKED_ELEMENTS = 5_000;
@@ -215,12 +219,13 @@ function createSessionDomLingerKey(options: {
     encodeURIComponent(options.sourceKey),
     encodeURIComponent(options.projectId),
     encodeURIComponent(options.sessionId),
-    encodeURIComponent(options.search),
+    encodeURIComponent(sessionViewerSearch(options.search)),
   ].join(":");
 }
 
 function readSessionRouteFromPathname(
   pathname: string,
+  search: string,
 ): { projectId: string; sessionId: string } | null {
   const match = pathname.match(
     /(?:^|\/)projects\/([^/]+)\/sessions\/([^/]+)\/?$/,
@@ -230,7 +235,7 @@ function readSessionRouteFromPathname(
   }
   return {
     projectId: decodeURIComponent(match[1]),
-    sessionId: decodeURIComponent(match[2]),
+    sessionId: viewerYaSessionId(decodeURIComponent(match[2]), search),
   };
 }
 
@@ -258,8 +263,8 @@ export function SessionDomLingerHost({
   const navigationContext = useContext(UNSAFE_NavigationContext);
   const sourceKey = useClientSummarySourceKey();
   const currentSessionMatch = useMemo(
-    () => readSessionRouteFromPathname(location.pathname),
-    [location.pathname],
+    () => readSessionRouteFromPathname(location.pathname, location.search),
+    [location.pathname, location.search],
   );
   const currentSessionRoute = useMemo<SessionDomLingerRoute | null>(() => {
     if (!currentSessionMatch) {
@@ -279,8 +284,11 @@ export function SessionDomLingerHost({
       location: {
         hash: location.hash,
         key: location.key,
-        pathname: location.pathname,
-        search: location.search,
+        pathname: location.pathname.replace(
+          /[^/]+\/?$/,
+          encodeURIComponent(sessionId),
+        ),
+        search: sessionViewerSearch(location.search),
         state: location.state,
       },
       status: "active",

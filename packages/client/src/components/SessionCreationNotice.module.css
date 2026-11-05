@@ -15,15 +15,26 @@
 .notice p {
   margin: 0 0 0.75rem;
 }
-.notice summary {
-  cursor: pointer;
-  min-height: 2.75rem;
-}
 .notice pre {
+  margin: 0;
+  font: inherit;
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: 16rem;
-  overflow: auto;
+}
+.departing {
+  animation: depart 250ms ease-out forwards;
+}
+@keyframes depart {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .departing {
+    animation: none;
+    visibility: hidden;
+  }
 }
 .actions {
   display: flex;

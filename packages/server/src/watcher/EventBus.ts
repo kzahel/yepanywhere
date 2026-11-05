@@ -194,6 +194,7 @@ export interface SessionQueuePersistenceChangedEvent {
 export interface SessionMetadataChangedEvent {
   /** Committed startup state; absence leaves the existing status unchanged. */
   creation?: SessionCreationStatus;
+  nativeSessionId?: string;
   nonHumanUserTurn?: NonHumanUserTurn | null;
   creationProvenance?: SessionCreationProvenance;
   type: "session-metadata-changed";

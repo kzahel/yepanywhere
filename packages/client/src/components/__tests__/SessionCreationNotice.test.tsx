@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { SessionCreationStatus } from "@yep-anywhere/shared";
 import { I18nProvider } from "../../i18n";
@@ -26,6 +32,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
@@ -68,7 +75,9 @@ it("refreshes on a restored transport without restarting for unrelated status up
   expect(refresh).toHaveBeenCalledTimes(2);
 });
 
-it("resumes bounded metadata checks after hiding and keeps ordinary startup compact", async () => {
+it("shows the saved prompt and Copy during startup, then releases checks and fades status after delivery", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { language: "en", clipboard: { writeText } });
   let delivered = false;
   const reads = vi.fn();
   function View() {
@@ -86,7 +95,11 @@ it("resumes bounded metadata checks after hiding and keeps ordinary startup comp
   }
   render(<View />, { wrapper: I18nProvider });
   expect(screen.getByText("Starting session…")).toBeTruthy();
-  expect(screen.queryByText("Saved prompt")).toBeNull();
+  expect(screen.getByText("Saved original").tagName).toBe("PRE");
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" })),
+  );
+  expect(writeText).toHaveBeenCalledWith("Saved original");
   expect(screen.queryByRole("button", { name: "Refresh status" })).toBeNull();
   visibility = "hidden";
   await act(() => vi.advanceTimersByTimeAsync(5000));
@@ -99,8 +112,15 @@ it("resumes bounded metadata checks after hiding and keeps ordinary startup comp
   expect(screen.getByRole("button", { name: "Refresh status" })).toBeTruthy();
   delivered = true;
   await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+  expect(screen.queryByText("Saved original")).toBeNull();
+  expect(
+    screen.getByText("Starting session…").getAttribute("aria-hidden"),
+  ).toBe("true");
+  await act(() => vi.advanceTimersByTimeAsync(250));
   expect(screen.queryByText("Starting session…")).toBeNull();
   expect(screen.queryByRole("button", { name: "Refresh status" })).toBeNull();
+  await act(() => vi.advanceTimersByTimeAsync(60000));
+  expect(reads).toHaveBeenCalledTimes(16);
 });
 
 it("releases startup timers when parked and preserves recovery controls for failed delivery", async () => {

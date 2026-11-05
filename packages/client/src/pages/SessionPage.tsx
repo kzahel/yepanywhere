@@ -9,6 +9,10 @@ import {
 } from "../lib/sessionCreation";
 import { isSessionCreationPending } from "@yep-anywhere/shared";
 import { SessionCreationNotice } from "../components/SessionCreationNotice";
+import {
+  nativeSessionViewerUrl,
+  viewerYaSessionId,
+} from "../lib/sessionViewerUrl";
 import { RoutedSessionContext } from "../contexts/RoutedSessionContext";
 import {
   DRAFT_STORAGE_EVENT,
@@ -448,6 +452,7 @@ interface GeneratedRetitleState {
 export interface SessionPageRouteLocation {
   pathname: string;
   search: string;
+  hash?: string;
   state: unknown;
   /** Router history entry id; distinguishes repeat navigations to one path. */
   key?: string;
@@ -477,7 +482,12 @@ export function SessionPage({
     sessionId: string;
   }>();
   const projectId = projectIdProp ?? params.projectId;
-  const sessionId = sessionIdProp ?? params.sessionId;
+  const viewerLocation = useLocation();
+  const sessionId =
+    sessionIdProp ??
+    (params.sessionId
+      ? viewerYaSessionId(params.sessionId, viewerLocation.search)
+      : undefined);
 
   // Guard against missing params - this shouldn't happen with proper routing
   if (!projectId || !sessionId) {
@@ -2392,6 +2402,27 @@ function SessionPageContent({
     location.state,
     basePath,
     isDomLingerParked,
+  ]);
+
+  useEffect(() => {
+    if (isDomLingerParked || !session?.nativeSessionId) return;
+    const target = nativeSessionViewerUrl(
+      location.pathname,
+      location.search,
+      location.hash ?? "",
+      actualSessionId,
+      session.nativeSessionId,
+    );
+    if (target) navigate(target, { replace: true, state: location.state });
+  }, [
+    actualSessionId,
+    session?.nativeSessionId,
+    isDomLingerParked,
+    navigate,
+    location.pathname,
+    location.search,
+    location.hash,
+    location.state,
   ]);
 
   // Navigate to the session reader canonical project when the API followed
