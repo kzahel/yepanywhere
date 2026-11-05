@@ -609,7 +609,7 @@ describe("scoped durable session identity", () => {
           projectId: currentProjectId,
           status: "available",
           native: nativeRef,
-          transcriptPath: join(privateDir, "native-file.jsonl"),
+          transcriptPath: join(nativeRef.storageScope, "native-file.jsonl"),
         });
         for (const [id, status] of [
           ["unbound", "unbound"],
