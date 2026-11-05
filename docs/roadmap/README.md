@@ -606,8 +606,11 @@ Gemini history. The [discussion scope](../../topics/antigravity.md#discovery-and
 extends plan 093. Shared discovery, exact child/vocabulary reader selection and
 catalog-backed queue titles are implemented. Broader reader migration and
 owner-aware focused observation remain; Grok/Antigravity ACP transport sharing
-is assessed separately. The remaining sequence is still under discussion; this
-does not reopen the archived core or select a new transcript store.
+is assessed separately. The [ACP comparison and recommendation](../../topics/acp.md)
+records proposed composition and Copilot/registry boundaries without selecting
+implementation or changing priority. The remaining sequence is still under
+discussion; this does not reopen the archived core or select a new transcript
+store.
 
 Rows 1, 2, 3 and 11 are the completed removal set. The independent review
 closed direct-fork and background-candidate SSH boundaries; plan 161 records

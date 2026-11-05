@@ -282,6 +282,10 @@ switches or caches it removes and verify the surviving behavior.
 
 ### Gemini retirement and optional ACP consolidation
 
+The [ACP topic](acp.md) compares current YA and T3 sharing and recommends a
+bounded transport/session composition. It refines this discussion without
+authorizing implementation or changing the retirement/qualification sequence.
+
 Once Antigravity discovery and normal session use meet the selected platform
 qualification, remove legacy Gemini execution and its installer/authentication
 surface. Retain historical readers, recorded IDs, scoped source resolution and

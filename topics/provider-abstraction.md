@@ -7,7 +7,8 @@ helpers).
 
 See also: [`provider-state-machine.md`](provider-state-machine.md),
 [`provider-context-economics.md`](provider-context-economics.md),
-[`provider-refresh.md`](provider-refresh.md). Global aesthetic: the
+[`provider-refresh.md`](provider-refresh.md),
+[ACP integration and sharing](acp.md). Global aesthetic: the
 "shared-facility contract" rule and agent-design's "promote to a dedicated
 surface when you need to gate/render/audit".
 

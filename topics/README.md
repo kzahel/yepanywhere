@@ -49,6 +49,8 @@
 - [Optional discovery SQLite storage](optional-sqlite.md) (Node/Bun adapters,
   startup opt-in, migrations, and source-server readiness)
 - OpenCode backend capability and rendering parity
+- [ACP integration and sharing](acp.md) (current YA/T3 comparison and proposed
+  transport/session composition; native Copilot and generic registry boundaries)
 - OpenCode ses_ session ID unification with YA session ID
 - MessageQueue batch delivery and steering UI
 - Message-control and queue intent (`/btw`, queue intent, later-interrupt state contract)

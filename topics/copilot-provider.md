@@ -12,6 +12,12 @@
 
 Topic: copilot-provider
 
+The [ACP topic](acp.md) records the separate native Copilot CLI option via
+`copilot --acp --stdio`, T3's implementation and a recommendation for sharing
+YA's ACP machinery. Architecture C below remains the SDK/CLI proposal; neither
+a native Copilot provider nor a generic ACP Registry provider is implemented
+in YA. Existing Pi/OpenCode/Gateway routes use other harnesses.
+
 See also: [`opencode-copilot.md`](opencode-copilot.md),
 [`copilot-oauth-claude.md`](copilot-oauth-claude.md),
 [`provider-abstraction.md`](provider-abstraction.md) /
