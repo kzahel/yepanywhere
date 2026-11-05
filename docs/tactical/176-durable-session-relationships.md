@@ -842,3 +842,57 @@ concurrent workspace load. The related budget gap remains open. The existing
 native qualification workflow will supply slower-runner evidence after push;
 no platform result is inferred from its configuration. Public API compatibility
 approval and the full plan remain pending.
+
+### Repair hosted relationship qualification assumptions
+
+The first hosted native workflow, run 42024897610 at `5ea03c920`, failed its
+Linux provider and Linux/macOS app jobs. Earlier main CI also exposed
+relationship unit and browser failures. Local green samples did not establish
+those hosted boundaries. Native startup/control budgets and remaining hosted
+app failures still require separate diagnosis; this slice does not claim that
+changing an assertion makes those jobs pass.
+
+Relationship fixtures now avoid machine-speed/precision assumptions:
+whole-second activity timestamps avoid Linux `utimes` rounding in both activity
+cases, startup recovery waits for all 131 distinct source commits, historical
+acquisition waits for its 80 published facts, and the 128-parent OpenCode case
+waits on actual commits rather than a two-second acquisition limit.
+Source errors reject those event waits. Atomic derived-index fault injection
+retries only SQLite writer contention under the existing bounded app barrier;
+other errors fail immediately and fixture closure fences retries.
+Statement preparation and execution share the retried transaction, and the
+fixture asserts that its target edge was actually removed. Busy exhaustion
+retains the SQLite error; incomplete event waits report their remaining owners.
+
+The browser typing probe uses each native key timestamp through the retained
+field value after rendering, checking every prefix against the unchanged
+100 ms gate. Controller wall time remains diagnostic. Two disposable controls
+separate these clocks: 150 ms of controller delay passes with browser samples
+below 20 ms, while a 160 ms browser key-handler stall fails at 164.9 ms.
+A real two-connection SQL control proves contention retry, one mutation,
+immediate non-busy failure and rollback. Those probes are removed after their
+evidence rather than adding permanent startup costs. Final independent review
+and qualification are recorded below.
+
+Opus review found preparation outside the retry and a per-key locator preflight
+that could hide renderer work before key dispatch. Both are corrected: the
+field is focused once and native keys dispatch directly. Updated controls prove
+that a fresh prepare is blocked by a pending writer, all mutation work retries
+atomically, missing-edge assertions roll back, and a 160 ms renderer task
+already queued before the key fails at 167.5 ms. Controller-only delay still
+passes (16.9 ms browser / 169.2 ms controller maximum). These controls validate
+the measurement and test lifecycle; hosted native acceptance remains open in
+the [recorded gap](../../gaps/native-relationship-hosted-acceptance.md).
+
+Opus accepted the final ten-file slice after rechecking those controls and the
+complete retry boundary. All root gates pass: zero lint warnings, format/types,
+7,087 server / 7,112 client / 954 shared tests; the server suite takes 145.05
+seconds locally. Console budgets pass unchanged (108/108 chatty sites, 60/60
+warn sites, 90/90 error sites; all deltas zero). The focused relationship group
+passes all 45 cases. All ten native-app cases pass (33.12 seconds wall / 87.96
+aggregate work). Final direct-key desktop/phone checks pass with all 44 prefixes
+retained and browser maxima 15.1/16.1 ms; both final captures were inspected.
+Those are local measurements, not hosted latency ceilings. The main CI run
+after publication must still establish the hosted fixture/browser corrections.
+Native startup/control acceptance, public compatibility approval and the full
+plan remain open. No provider capability or production behavior changes.

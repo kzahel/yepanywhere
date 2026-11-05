@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { nativeSessionRef, parseNativeSessionId } from "@yep-anywhere/shared";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi, onTestFailed } from "vitest";
 import { openCodeRelationshipWatcherSpec } from "../../src/sessions/opencode-child-source.js";
 import { OpenCodeDbReader } from "../../src/sessions/opencode-db-reader.js";
 import { OpenCodeSessionReader } from "../../src/sessions/opencode-reader.js";
@@ -100,14 +100,20 @@ async function fixture(
     probeNetworkFilesystem: () => undefined,
   });
   let commits = 0;
+  const onCommit = vi.fn<(sessionId: string) => void>();
+  const onError = vi.fn<(error: unknown) => void>();
   const errors: unknown[] = [];
   const service = new ProviderChildRelationshipService(
     profile.getDatabase(),
     "server",
-    () => {
+    (owner) => {
       commits++;
+      onCommit(owner.sessionId);
     },
-    (e) => errors.push(e),
+    (e) => {
+      errors.push(e);
+      onError(e);
+    },
   );
   const demand = () =>
     service.demand(
@@ -140,6 +146,8 @@ async function fixture(
     profile,
     service,
     errors,
+    onCommit,
+    onError,
     demand,
     wait,
     commits: () => commits,
@@ -543,6 +551,19 @@ it("coalesces DB/WAL for all 128 sources and reacquires only the changed lineage
   let handled = 0,
     done!: () => void;
   let finished = new Promise<void>((resolve) => (done = resolve));
+  const remaining = new Set(
+    observed.map(({ native }) => "public-" + native.id),
+  );
+  onTestFailed(() =>
+    console.info("Unpublished native parents:", [...remaining]),
+  );
+  const acquired = new Promise<void>((resolve, reject) => {
+    f.onCommit.mockImplementation((sessionId) => {
+      remaining.delete(sessionId);
+      if (remaining.size === 0) resolve();
+    });
+    f.onError.mockImplementation(reject);
+  });
   for (const { native, source } of observed) {
     const original = source.handleFileChange!;
     source.handleFileChange = async (event) => {
@@ -554,12 +575,15 @@ it("coalesces DB/WAL for all 128 sources and reacquires only the changed lineage
     };
     f.service.demand(native, { sessionId: "public-" + native.id }, source);
   }
-  await f.wait(() =>
-    observed.every(
-      ({ native }) =>
-        f.service.accepted(native, "public-" + native.id) !== undefined,
-    ),
-  );
+  await acquired;
+  expect(
+    observed
+      .filter(
+        ({ native }) =>
+          f.service.accepted(native, "public-" + native.id) === undefined,
+      )
+      .map(({ native }) => native.id),
+  ).toEqual([]);
   const commits = f.commits();
   const snapshot = vi.spyOn(
     OpenCodeDbReader.prototype,

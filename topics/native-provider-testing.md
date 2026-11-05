@@ -315,6 +315,13 @@ native matrix or paid inference.
 
 ## Isolation and lifecycle
 
+Relationship fixture fault injection writes only its owned profile's derived
+index. The app may still be committing metadata, so those atomic removals use
+the existing bounded app barrier for SQLite writer contention. Only
+`SQLITE_BUSY` is retryable; other mutation errors surface immediately and the
+transaction rolls back. The fixture's closed signal fences retries. This is
+test control, not another production writer or a wider runtime retry policy.
+
 Fixtures reuse the standalone environment scrubber with private project, home,
 XDG, Windows app-data, provider histories and YA roots. They remove inherited
 provider/account/agent authority and shell startup configuration. Model auth

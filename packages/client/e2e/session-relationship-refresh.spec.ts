@@ -114,7 +114,28 @@ for (const viewport of [
     const transcript = main.getByText(/Relationship test turn 159\./);
     await expect(transcript).toBeVisible();
     const node = await transcript.elementHandle();
+    await composer.focus();
+    await expect(composer).toBeFocused();
+    await composer.evaluate((element) => {
+      const field = element as HTMLTextAreaElement & {
+        acks: { value: string; latency: number }[];
+      };
+      field.acks = [];
+      field.addEventListener("keydown", (event) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            field.acks.push({
+              value: field.value,
+              latency: performance.now() - event.timeStamp,
+            }),
+          ),
+        ),
+      );
+    });
+    // Controller wall time includes Playwright IPC and assertion round trips;
+    // the input contract is browser keydown → painted retained field value.
     const delays: number[] = [];
+    const prefixes: string[] = [];
     let draft = "";
     let readsBeforePublication = 0;
     for (const character of "Keep this draft while child metadata arrives") {
@@ -125,9 +146,20 @@ for (const viewport of [
       }
       draft += character;
       const start = performance.now();
-      await composer.pressSequentially(character);
-      await expect(composer).toHaveValue(draft, { timeout: 100 });
+      await page.keyboard.type(character);
+      await expect(composer).toHaveValue(draft);
       delays.push(performance.now() - start);
+      prefixes.push(draft);
+      await expect
+        .poll(() =>
+          composer.evaluate(
+            (element) =>
+              (
+                element as HTMLTextAreaElement & { acks: { value: string }[] }
+              ).acks.at(-1)?.value,
+          ),
+        )
+        .toBe(draft);
     }
     await expect(
       page
@@ -137,7 +169,19 @@ for (const viewport of [
     expect(metadataReads).toBeGreaterThan(0);
     expect(transcriptReads).toBe(readsBeforePublication);
     expect(await node!.evaluate((element) => element.isConnected)).toBe(true);
-    expect(Math.max(...delays)).toBeLessThan(100);
+    const acks = await composer.evaluate(
+      (element) =>
+        (
+          element as HTMLTextAreaElement & {
+            acks: { value: string; latency: number }[];
+          }
+        ).acks,
+    );
+    expect(acks.map((ack) => ack.value)).toEqual(prefixes);
+    expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThan(100);
+    console.log(
+      `Relationship typing: ${acks.length} keys, browser maximum ${Math.max(...acks.map((ack) => ack.latency)).toFixed(1)} ms; controller wall maximum ${Math.max(...delays).toFixed(1)} ms`,
+    );
     await expect(composer).toHaveValue(draft);
     await recordUiCapture(
       page,

@@ -10,7 +10,12 @@ import {
 } from "@yep-anywhere/shared";
 import { SessionIdentityStore } from "../../src/sessions/SessionIdentityStore.js";
 import { SessionRelationshipStore } from "../../src/sessions/SessionRelationshipStore.js";
-import { loadSqliteDriver } from "../../src/storage/sqlite.js";
+import {
+  loadSqliteDriver,
+  type SqliteDatabase,
+  type SqliteRunResult,
+  type SqliteValue,
+} from "../../src/storage/sqlite.js";
 import { quoteShellWord } from "../../src/utils/posixShell.js";
 import {
   nativeAppFixture,
@@ -27,6 +32,44 @@ interface NativeRow {
   message?: {
     content?: string | { type: string; name?: string; input?: unknown }[];
   };
+}
+
+/** The app may be writing its profile while this test removes derived rows. */
+async function removeDerivedIndex(
+  database: SqliteDatabase,
+  remove: (
+    run: (sql: string, ...parameters: SqliteValue[]) => SqliteRunResult,
+  ) => void,
+  alive: () => Promise<unknown>,
+) {
+  const outcome = await appBarrier(async () => {
+    await alive(); // Fence retries when the owning fixture closes.
+    try {
+      database.transaction(() =>
+        remove((sql, ...parameters) => {
+          const statement = database.prepare(sql);
+          try {
+            return statement.run(...parameters);
+          } finally {
+            statement.finalize();
+          }
+        }),
+      );
+      return { committed: true as const };
+    } catch (error) {
+      // Only SQLite's writer contention is retryable; schema/assertion and
+      // other failures must surface directly rather than spend the barrier.
+      if (
+        error &&
+        typeof error === "object" &&
+        "errcode" in error &&
+        error.errcode === 5
+      )
+        throw error; // appBarrier retains the actual contention diagnostic.
+      return { committed: false as const, error };
+    }
+  }, "owned derived-index mutation after concurrent app writes");
+  if (!outcome.committed) throw outcome.error;
 }
 
 let fixture: Awaited<ReturnType<typeof nativeAppFixture>> | undefined;
@@ -221,27 +264,28 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         const oldIndex = loadSqliteDriver()!.open(
           join(f.root, "home", "ya", "discovery.sqlite"),
         );
-        const evidenceDelete = oldIndex.prepare(
-            "DELETE FROM session_relationship_evidence WHERE edge_id = ?",
-          ),
-          edgeDelete = oldIndex.prepare(
-            "DELETE FROM session_relationship_edges WHERE id = ?",
-          ),
-          doneDelete = oldIndex.prepare(
-            "DELETE FROM session_relationship_checkpoints WHERE producer = 'nested-harness-complete-v1' AND source_key = ?",
-          );
         try {
-          oldIndex.transaction(() => {
-            evidenceDelete.run(accepted.edges[0]!.id);
-            edgeDelete.run(accepted.edges[0]!.id);
-            doneDelete.run(
-              JSON.stringify([parent.sessionId, `call_${first.id}`]),
-            );
-          });
+          await removeDerivedIndex(
+            oldIndex,
+            (run) => {
+              run(
+                "DELETE FROM session_relationship_evidence WHERE edge_id = ?",
+                accepted.edges[0]!.id,
+              );
+              expect(
+                run(
+                  "DELETE FROM session_relationship_edges WHERE id = ?",
+                  accepted.edges[0]!.id,
+                ).changes,
+              ).toBe(1);
+              run(
+                "DELETE FROM session_relationship_checkpoints WHERE producer = 'nested-harness-complete-v1' AND source_key = ?",
+                JSON.stringify([parent.sessionId, `call_${first.id}`]),
+              );
+            },
+            () => f.api("/version"),
+          );
         } finally {
-          evidenceDelete.finalize();
-          edgeDelete.finalize();
-          doneDelete.finalize();
           oldIndex.close();
         }
         await f.api(
@@ -360,29 +404,38 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         const control = loadSqliteDriver()!.open(
           join(f.root, "home", "ya", "discovery.sqlite"),
         );
-        const removeEvidence = control.prepare(
-            "DELETE FROM session_relationship_evidence WHERE edge_id = ?",
-          ),
-          removeEdge = control.prepare(
-            "DELETE FROM session_relationship_edges WHERE id = ?",
-          ),
-          removePoint = control.prepare(
-            "DELETE FROM session_relationship_checkpoints WHERE producer = ? AND source_key = ?",
-          );
         try {
-          control.transaction(() => {
-            removeEvidence.run(accepted.edges[0]!.id);
-            removeEdge.run(accepted.edges[0]!.id);
-            removePoint.run("nested-harness-history-scan-v1", parent.sessionId);
-            removePoint.run(
-              "nested-harness-complete-v1",
-              JSON.stringify([parent.sessionId, `call_${first.id}`, "history"]),
-            );
-          });
+          await removeDerivedIndex(
+            control,
+            (run) => {
+              run(
+                "DELETE FROM session_relationship_evidence WHERE edge_id = ?",
+                accepted.edges[0]!.id,
+              );
+              expect(
+                run(
+                  "DELETE FROM session_relationship_edges WHERE id = ?",
+                  accepted.edges[0]!.id,
+                ).changes,
+              ).toBe(1);
+              run(
+                "DELETE FROM session_relationship_checkpoints WHERE producer = ? AND source_key = ?",
+                "nested-harness-history-scan-v1",
+                parent.sessionId,
+              );
+              run(
+                "DELETE FROM session_relationship_checkpoints WHERE producer = ? AND source_key = ?",
+                "nested-harness-complete-v1",
+                JSON.stringify([
+                  parent.sessionId,
+                  `call_${first.id}`,
+                  "history",
+                ]),
+              );
+            },
+            () => f.api("/version"),
+          );
         } finally {
-          removeEvidence.finalize();
-          removeEdge.finalize();
-          removePoint.finalize();
           control.close();
         }
         await f.api(

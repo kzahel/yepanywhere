@@ -87,6 +87,24 @@ than treating the banner as unrelated visual noise.
 
 ## Recommended automation
 
+### Sequential typing latency
+
+Measure the 100 ms input acknowledgement contract in the browser, from the
+native key event's timestamp through a rendered, retained field value. The
+native-app and relationship-refresh probes record each value after two
+animation frames, check every typed prefix and require every sample below
+100 ms. A dropped character or a late browser update fails the check.
+
+Playwright command/assertion round trips use the controller's clock and can
+include IPC or host scheduling delays after the browser has already rendered.
+Record those separately for diagnosis; they cannot substitute for the browser
+input measurement. Instrumentation changes must retain real sequential keys,
+expected data volume and concurrent updates. A controlled browser stall must
+still fail the input gate; controller delay alone is not browser input latency.
+Focus the field once before timing, then dispatch native keys directly. A
+per-key locator/focus evaluation waits on the renderer before sending the key
+and can hide a long task already blocking it.
+
 ### Browser integration fixture isolation
 
 Each Playwright invocation owns a unique temporary directory, passed from

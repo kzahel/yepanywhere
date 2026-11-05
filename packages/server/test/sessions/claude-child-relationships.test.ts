@@ -182,7 +182,9 @@ it("keeps activity append events out of structural acquisition and SQL while all
   const observe = vi.spyOn(f.source, "observe");
   await f.demand();
   const before = f.accepted()![0]!.updatedAt;
-  const later = Date.parse(before) + 10000;
+  // Whole seconds avoid utimes' fractional-second conversion rounding below
+  // the requested millisecond on Linux. Activity still advances independently.
+  const later = Math.ceil(Date.parse(before) / 1000) * 1000 + 10000;
   await utimes(
     join(f.dir, "agent-child.jsonl"),
     new Date(later),
@@ -409,7 +411,7 @@ it("retains activity and shares a live acquisition across repeated fresh source 
   const f = await fixture();
   await f.child("active");
   await f.demand();
-  const time = new Date(Date.now() + 60000);
+  const time = new Date(Math.ceil(Date.now() / 1000) * 1000 + 60000);
   await utimes(join(f.dir, "agent-active.jsonl"), time, time);
   f.service.notifyNativeFileChange(f.event("active", "modify"));
   await vi.waitFor(() =>

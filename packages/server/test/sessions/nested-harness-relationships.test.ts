@@ -16,7 +16,7 @@ import {
   parseYaSessionId,
   type ClaudeSessionEntry,
 } from "@yep-anywhere/shared";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi, onTestFailed } from "vitest";
 import { claudeCwdProjectDirectory } from "../../src/projects/claude-project-directory.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { NestedHarnessRelationshipService } from "../../src/sessions/NestedHarnessRelationshipService.js";
@@ -67,7 +67,10 @@ async function fixture(history = false) {
     confined: false,
   };
   const errors: unknown[] = [],
-    committed = vi.fn();
+    committed = vi.fn<(sessionId: string) => void>(),
+    onError = vi.fn((error: unknown) => {
+      errors.push(error);
+    });
   const admission = {
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     deleted: false,
@@ -82,7 +85,7 @@ async function fixture(history = false) {
       writer,
       identities,
       committed,
-      (e) => errors.push(e),
+      onError,
       history ? admissionReads : undefined,
     );
     services.push(s);
@@ -158,6 +161,7 @@ async function fixture(history = false) {
     identities,
     context,
     errors,
+    onError,
     committed,
     first,
     service,
@@ -360,8 +364,23 @@ it("drains more than the retained-source ceiling in finite startup pages without
       });
     }
   });
+  const remaining = new Set<string>(sources.map((source) => source.sessionId));
+  onTestFailed(() =>
+    console.info("Unpublished startup sources:", [...remaining]),
+  );
+  const drained = new Promise<void>((resolve, reject) => {
+    f.committed.mockImplementation((sessionId) => {
+      remaining.delete(sessionId);
+      if (remaining.size === 0) resolve();
+    });
+    f.onError.mockImplementation((error) => {
+      f.errors.push(error);
+      reject(error);
+    });
+  });
   f.service();
-  await vi.waitFor(() => expect(f.committed).toHaveBeenCalledTimes(131));
+  await drained;
+  expect(f.committed).toHaveBeenCalledTimes(131);
   expect(f.writer.index.partialSources("nested-harness-pending-v1")).toEqual(
     [],
   );
@@ -609,10 +628,20 @@ it("indexes more than one historical batch from already acquired rows, without a
     ),
   );
   const rows = historicalRows(f, targets);
+  const published = new Promise<void>((resolve, reject) => {
+    f.committed.mockImplementation(() => {
+      if (f.edges().length === targets.length) resolve();
+    });
+    f.onError.mockImplementation((error) => {
+      f.errors.push(error);
+      reject(error);
+    });
+  });
   f.first.observeTranscript(f.context, rows);
   expect(f.edges()).toEqual([]);
   expect(f.admissionReads).not.toHaveBeenCalled(); // No synchronous SQL/native work.
-  await vi.waitFor(() => expect(f.edges()).toHaveLength(80));
+  await published;
+  expect(f.edges()).toHaveLength(80);
   const evidence = f.writer.index.evidence(f.edges()[0]!.id);
   expect(evidence).toEqual([
     expect.objectContaining({
