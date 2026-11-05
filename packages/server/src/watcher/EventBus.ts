@@ -35,6 +35,7 @@ export type WatchProvider =
   | "codex"
   | "pi"
   | "grok"
+  | "opencode"
   | "antigravity";
 
 export interface FileChangeEvent {

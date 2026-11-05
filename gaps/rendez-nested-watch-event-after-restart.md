@@ -306,3 +306,20 @@ The accepted frozen-tree workspace rerun subsequently passed all 7,019 server
 cases (143.18 seconds) and 7,110 client cases. Evidence:
 `tasks/session-relationships/slice-5-qualified-final-unit.log`. This validates
 the relationship slice while retaining the earlier failure and open watcher gap.
+
+2026-11-05: OpenCode relationship qualification's second full macOS / Node
+24.22.1 run missed the second nested delivery at line 364 (1 observed, 2
+expected). The immediate isolated file run reproduced it: three passed, one
+failed, one skipped in 12.88 seconds. Evidence remains in ignored
+`tasks/session-relationships/slice-7-final2-unit.log` (147.07 seconds server)
+and `slice-7-rendez-isolated.log`. All 7,110 client cases passed. The OpenCode
+slice adds fixed provider DB/WAL observation but changes neither the shared
+directory watcher nor Rendez source, assertions, timeouts or retry settings.
+These failures remain evidence of this open defect; no green aggregate is
+claimed for those runs.
+
+The final frozen OpenCode slice subsequently passed all 7,037 server cases
+(146.51 seconds) and 7,110 client cases, recorded in
+`tasks/session-relationships/slice-7-final4-unit.log`. This later green run
+validates the slice; it does not erase the earlier full/isolated failures or
+close this unrelated watcher defect.

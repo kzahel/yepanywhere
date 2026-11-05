@@ -95,7 +95,7 @@ unrelated interactions and deduplication across persisted event envelopes.
 
 These are regenerated native specimens, not constructed reader fixtures or
 paid inference. The relationship scenario also qualifies Claude Gateway,
-Claude Ollama, Codex OSS and Grok, including production-reader SQL publication and
+Claude Ollama, Codex OSS, Grok and OpenCode, including production-reader SQL publication and
 reopen, on macOS arm64. Gateway explicitly enables its default-disabled Agent
 tool for this scenario; production defaults and remote child-model availability
 are not changed or qualified. Both parent and child stay on the owned model
@@ -111,7 +111,7 @@ or Codex runtime.
 | Claude / Gateway / Ollama | Actual `Agent`, native ids, production child content, SQL publication/reopen | Direct children; Gateway fixture explicitly enables Agent. |
 | Codex / OSS | Actual v2 `collaboration.spawn_agent`, native start correlation and child-owned immediate parent, production content, SQL reopen | Review/internal delegates stay excluded; deeper descendants remain separate qualification. |
 | Grok 1.0.70 | Actual `spawn_subagent`, parent tool result, explicit sidecar ids, child's own summary, production content, SQL reopen | Default cwd; cross-cwd/worktree navigation and exclusion remain unqualified. |
-| OpenCode 1.x | Existing native/legacy child readers | Native spawn scenario and shared SQL source remain pending. |
+| OpenCode 1.18.9 | Actual `task`, own native database parent/directory, parent continuation id, production content/exclusion, SQL publication/reopen | Direct children; deeper native nesting and unsupported 2.x remain unqualified. |
 | Pi | Transcript-node parent links | Those are not session-child proof. Common YA lineage still applies. |
 | Antigravity / frozen Gemini | No qualified YA native child source | Do not infer a child capability from the transport. |
 

@@ -77,6 +77,8 @@ import { ProjectGlossarySubscriptionManager } from "./projects/projectGlossarySu
 import { ProjectWorktreeSubscriptionManager } from "./projects/projectWorktreeSubscriptionManager.js";
 import { projectPathCacheDiagnostics } from "./projects/projectPathIndex.js";
 import { GROK_SESSIONS_DIR } from "./projects/paths.js";
+import { OPENCODE_DB_PATH } from "./sessions/opencode-reader.js";
+import { openCodeRelationshipWatcherSpec } from "./sessions/opencode-child-source.js";
 import { ProjectStoragePolicy } from "./projects/projectStoragePolicy.js";
 import { PushService, getOrCreateVapidKeys } from "./push/index.js";
 import { RecentsService } from "./recents/index.js";
@@ -576,6 +578,8 @@ const mockProvider = config.useMockSdk
 
 // Create the event bus and the eligibility-gated provider watcher owner.
 const eventBus = new EventBus();
+const openCodeRelationshipWatcher =
+  openCodeRelationshipWatcherSpec(OPENCODE_DB_PATH);
 const providerSessionWatchers = new ProviderSessionWatcherRegistry({
   eventBus,
   activationDelayMs: PROVIDER_WATCH_ACTIVATION_DELAY_MS,
@@ -619,6 +623,7 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
       debounceMs: 200,
       internalOnly: true,
     },
+    ...(openCodeRelationshipWatcher ? [openCodeRelationshipWatcher] : []),
   ],
 });
 providerSessionWatchersForShutdown = providerSessionWatchers;

@@ -14,7 +14,7 @@ Related topics: [provider-session-tree](provider-session-tree.md),
 The [durable relationship contract](session-relationships.md) selects a shared
 SQL model coordinating native children, trusted v0 creator links, forks,
 `/btw` and other relationships. [Plan 176](../docs/tactical/176-durable-session-relationships.md)
-tracks migrated sources and remaining qualification. Claude, Codex and Grok application reads
+tracks migrated sources and remaining qualification. Claude, Codex, Grok and OpenCode application reads
 use this durable model; retained provider paths are described below.
 
 ## Identity contract
@@ -86,6 +86,20 @@ set or a new parent. The [Grok owner](grok.md#native-source-identity-and-observa
 defines its bounded acquisition and internal watcher channel. Existing legacy
 top-level child exclusion still has its native metadata reader; migrating that
 consumer is separate from nonblocking enrichment.
+
+OpenCode application enrichment also reads accepted SQL facts immediately.
+Its native 1.x `session.parent_id` proves the immediate parent; copied Task
+parts and native fork history do not. One read-only statement acquires the
+selected parent, descendants and necessary ancestors from a committed native
+SQLite snapshot. A WAL-only change is visible without a changed main-file
+mtime. Legacy JSON headers remain readable in their existing native namespace;
+current database rows take precedence over frozen headers for the same id.
+Missing/unreadable stores never establish an empty observation. Older schemas
+without parent ids and malformed/cyclic metadata remain partial. Independently
+valid siblings can still be accepted, and source loss preserves history.
+Descendants keep their immediate parents rather than being flattened beneath
+the viewed root. The [OpenCode owner](opencode-backend.md#durable-child-relationships)
+defines bounded legacy acquisition and native observation.
 
 ## Presentation contract
 

@@ -41,6 +41,8 @@ import type {
   LoadedSession,
 } from "./types.js";
 import { sortProviderChildSessions } from "./types.js";
+import { OpenCodeChildSourceOwner } from "./opencode-child-source.js";
+import type { ProviderChildSource } from "./ProviderChildRelationshipService.js";
 
 /** Default OpenCode storage directory */
 export const OPENCODE_STORAGE_DIR = join(
@@ -223,6 +225,8 @@ export class OpenCodeSessionReader implements ISessionReader {
   private closed = false;
   private readonly nativeStorageScope?: string;
   private readonly projectScope: Promise<OpenCodeProjectScope>;
+  private readonly retireListeners = new Set<() => void>();
+  private readonly childSourceOwner: OpenCodeChildSourceOwner;
 
   constructor(options: OpenCodeSessionReaderOptions) {
     this.storageDir = options.storageDir ?? OPENCODE_STORAGE_DIR;
@@ -237,11 +241,40 @@ export class OpenCodeSessionReader implements ISessionReader {
         canonicalDirectory,
       }));
     this.dbReader = new OpenCodeDbReader(this.databasePath);
+    this.childSourceOwner = new OpenCodeChildSourceOwner({
+      owner: this,
+      databasePath: this.databasePath,
+      storageDir: this.storageDir,
+      projectPath: this.projectPath,
+      database: this.dbReader,
+      isRetired: () => this.closed,
+      onRetire: (listener) => {
+        this.retireListeners.add(listener);
+        return () => {
+          this.retireListeners.delete(listener);
+        };
+      },
+    });
   }
 
   close(): void {
     this.closed = true;
+    for (const listener of this.retireListeners) listener();
+    this.retireListeners.clear();
     this.dbReader.close();
+  }
+
+  getProviderChildSource(
+    parent: NativeSessionRef,
+  ): ProviderChildSource | undefined {
+    if (
+      this.closed ||
+      parent.family !== "opencode" ||
+      (this.nativeStorageScope &&
+        this.nativeStorageScope !== parent.storageScope)
+    )
+      return undefined;
+    return this.childSourceOwner.source(parent);
   }
 
   /**

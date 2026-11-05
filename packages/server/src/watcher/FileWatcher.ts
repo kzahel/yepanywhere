@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { getLogger } from "../logging/logger.js";
 import { isCodexRolloutFileName } from "../utils/codexRolloutFiles.js";
 import { watchSharedDirectory } from "./SharedDirectoryWatcher.js";
+import { runOutsideRequestContext } from "../lib/outsideRequestContext.js";
 import type {
   EventBus,
   FileChangeEvent,
@@ -19,6 +20,12 @@ export interface FileWatcherOptions {
   eventBus: EventBus;
   /** Debounce delay in ms (default: 200) */
   debounceMs?: number;
+  /** Fixed native metadata subtrees/files. Excluded trees are never scanned. */
+  includePaths?: readonly string[];
+  /** Native recursion and baseline traversal share the same explicit bound. */
+  recursive?: boolean;
+  /** Fixed files needing inode watches (macOS open SQLite WAL writes). Max 8. */
+  watchFiles?: readonly string[];
   /** Internal finite handover; never emitted onto the client activity stream. */
   onInitialBaseline?: () => void;
   /**
@@ -115,6 +122,19 @@ export class FileWatcher {
   private provider: WatchProvider;
   private eventBus: EventBus;
   private debounceMs: number;
+  private readonly includePaths?: readonly string[];
+  private readonly recursive: boolean;
+  private readonly watchFiles: readonly string[];
+  private readonly fileWatches = new Map<
+    string,
+    { identity: string; watcher: fs.FSWatcher }
+  >();
+  private fileWatchFailed = false;
+  // Bun 1.3.14 on macOS misses writes even with an inode fs.watch. One
+  // provider-owned timer stats at most eight fixed files, never a corpus.
+  private readonly fixedFilePoll =
+    !!process.versions.bun && process.platform === "darwin";
+  private fixedFileTimer: NodeJS.Timeout | undefined;
   private readonly onInitialBaseline?: () => void;
   private periodicRescanMs: number;
   private periodicRescanCurrentMs: number;
@@ -144,6 +164,17 @@ export class FileWatcher {
     this.provider = options.provider;
     this.eventBus = options.eventBus;
     this.debounceMs = options.debounceMs ?? 200;
+    this.includePaths = options.includePaths;
+    this.recursive = options.recursive ?? true;
+    this.watchFiles = options.watchFiles ?? [];
+    if (
+      this.watchFiles.length > 8 ||
+      this.watchFiles.some(
+        (name) =>
+          path.isAbsolute(name) || name.includes(path.sep) || name === "..",
+      )
+    )
+      throw new Error("FileWatcher requires at most eight fixed basenames");
     this.onInitialBaseline = options.onInitialBaseline;
     this.periodicRescanMs = options.periodicRescanMs ?? 0;
     this.periodicRescanCurrentMs = this.periodicRescanMs;
@@ -170,12 +201,13 @@ export class FileWatcher {
     }
 
     this.observationError = null;
+    this.fileWatchFailed = false;
     this.observationEpoch = ++lastObservationEpoch;
     try {
       const lifecycleGeneration = ++this.lifecycleGeneration;
       this.watcher = watchSharedDirectory(
         this.watchDir,
-        { recursive: true },
+        { recursive: this.recursive },
         (eventType, filename) => {
           if (!filename) {
             getLogger().debug(
@@ -188,13 +220,27 @@ export class FileWatcher {
         },
       );
 
-      this.watcher.on("error", (error) => {
+      const watcher = this.watcher;
+      watcher.on("error", (error) => {
+        if (this.watcher !== watcher) return;
         this.observationError = error.message;
         console.error("[FileWatcher] Error:", error);
       });
-      this.watcher.on("close", () => {
+      watcher.on("close", () => {
+        if (this.watcher !== watcher) return;
         this.watcher = null;
+        this.releaseFixedFiles();
       });
+      this.refreshFileWatches();
+      if (this.fixedFilePoll && this.watchFiles.length) {
+        this.fixedFileTimer = runOutsideRequestContext(() =>
+          setInterval(() => {
+            for (const name of this.watchFiles)
+              this.handleFileEvent("change", name);
+          }, 1000),
+        );
+        this.fixedFileTimer.unref();
+      }
 
       getLogger().info(`[FileWatcher] Watching ${this.watchDir}`);
       this.scheduleInitialBaseline(lifecycleGeneration);
@@ -218,6 +264,8 @@ export class FileWatcher {
    */
   stop(): void {
     this.lifecycleGeneration += 1;
+    this.releaseFixedFiles();
+    this.fileWatchFailed = false;
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
@@ -414,8 +462,10 @@ export class FileWatcher {
       const files: string[] = [];
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) pendingDirectories.push(fullPath);
-        else files.push(fullPath);
+        if (!this.includesPath(fullPath)) continue;
+        if (entry.isDirectory()) {
+          if (this.recursive) pendingDirectories.push(fullPath);
+        } else files.push(fullPath);
       }
 
       for (let offset = 0; offset < files.length; offset += statBatchSize) {
@@ -465,6 +515,8 @@ export class FileWatcher {
 
   private handleFileEvent(eventType: string, filename: string): void {
     const fullPath = path.join(this.watchDir, filename);
+    if (!this.includesPath(fullPath)) return;
+    this.refreshFileWatches();
     const duringInitialBaseline =
       this.initialBaselineState === "scheduled" ||
       this.initialBaselineState === "running";
@@ -559,7 +611,7 @@ export class FileWatcher {
       provider: this.provider,
       path: fullPath,
       relativePath,
-      ...(["claude", "codex", "grok"].includes(this.provider)
+      ...(["claude", "codex", "grok", "opencode"].includes(this.provider)
         ? { nativeStorageScope: this.watchDir }
         : {}),
       changeType,
@@ -877,6 +929,8 @@ export class FileWatcher {
 
   private parseFileType(relativePath: string): FileChangeEvent["fileType"] {
     switch (this.provider) {
+      case "opencode":
+        return "agent-session";
       case "claude":
         return this.parseClaudeFileType(relativePath);
       case "gemini":
@@ -904,6 +958,83 @@ export class FileWatcher {
           ? "session"
           : "other";
     }
+  }
+
+  private includesPath(fullPath: string): boolean {
+    const suffix = path.relative(this.watchDir, fullPath);
+    return (
+      !this.includePaths ||
+      this.includePaths.some(
+        (included) =>
+          suffix === included ||
+          suffix.startsWith(`${included}${path.sep}`) ||
+          included.startsWith(`${suffix}${path.sep}`),
+      )
+    );
+  }
+
+  private refreshFileWatches(): void {
+    if (this.fixedFilePoll || this.fileWatchFailed || !this.watcher) return;
+    for (const name of this.watchFiles) {
+      const fullPath = path.join(this.watchDir, name);
+      const previous = this.fileWatches.get(name);
+      let identity: string;
+      try {
+        const s = fs.lstatSync(fullPath);
+        if (!s.isFile())
+          throw Object.assign(new Error("Native watch file unavailable"), {
+            code: "ENOENT",
+          });
+        identity = `${s.dev}:${s.ino}`;
+      } catch (error) {
+        this.fileWatches.delete(name);
+        previous?.watcher.close();
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        this.failFileWatches(error);
+        return;
+      }
+      if (previous?.identity === identity) continue;
+      this.fileWatches.delete(name);
+      previous?.watcher.close();
+      try {
+        const watcher = runOutsideRequestContext(() =>
+          fs.watch(fullPath, { persistent: false }, (event) => {
+            if (this.fileWatches.get(name)?.watcher === watcher)
+              this.handleFileEvent(event, name);
+          }),
+        );
+        this.fileWatches.set(name, { identity, watcher });
+        watcher.on("error", (error) => {
+          if (this.fileWatches.get(name)?.watcher === watcher)
+            this.failFileWatches(error);
+        });
+        watcher.on("close", () => {
+          if (this.fileWatches.get(name)?.watcher === watcher)
+            this.failFileWatches(
+              new Error("Native metadata file watcher closed"),
+            );
+        });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        this.failFileWatches(error);
+        return;
+      }
+    }
+  }
+
+  private failFileWatches(error: unknown): void {
+    this.fileWatchFailed = true;
+    this.observationError =
+      error instanceof Error ? error.message : String(error);
+    this.releaseFixedFiles();
+  }
+
+  private releaseFixedFiles(): void {
+    if (this.fixedFileTimer) clearInterval(this.fixedFileTimer);
+    this.fixedFileTimer = undefined;
+    const watches = [...this.fileWatches.values()];
+    this.fileWatches.clear();
+    for (const value of watches) value.watcher.close();
   }
 
   private parseClaudeFileType(

@@ -62,6 +62,33 @@ no wire capability and changes no access grants.
 
 ## Progress
 
+- OpenCode child SQL integration is independently reviewed and qualified.
+  It acquires native parent/descendant proof
+  from one read-only committed database snapshot, including WAL-only changes.
+  Legacy bounded JSON headers share the existing scope and give current SQL
+  proof precedence. Descendants retain immediate parents. Activity versions
+  avoid relationship writes for time-only updates. A real macOS test reproduced
+  directory watches missing open-WAL writes; two fixed provider-owned inode
+  watches now cover that boundary, with a nonrecursive DB directory watch
+  and no public wire event. Frozen legacy headers refresh on detail demand. The actual pinned 1.18.9 Task scenario passes raw
+  native identity, production content/exclusion and SQL publication/reopen on
+  the owned local model API. Default direct children are qualified; deeper
+  native nesting, other platforms and 2.x are not claimed by this evidence.
+  Review findings are addressed: native watch allocation is nonrecursive;
+  one shared indexed WAL probe updates activity and refreshes only changed
+  lineages; activity re-sorts; legacy failures and missing older-schema/ancestor
+  proof stay partial without blocking independent native facts. Per-lineage
+  validation prevents unrelated spawns from cancelling initial publication.
+  DB/WAL changes share one pending key per parent, including the full 128-source
+  queue. Regression probes reproduce both prior failures; the corrected cases
+  pass. Eleven real filesystem/SQLite cases take about 0.5 seconds with retained
+  service tests; the complete focused group passes. Final Node 22/24 and Bun
+  qualification with 128 registered parents and a native writer checkpoint
+  uses one or two shared snapshots, with no relationship writes for activity.
+  Opus accepts the final pinned source with no actionable correctness findings.
+  All root checks pass: 7,037 server, 7,110 client and 952 shared cases, with
+  the previously recorded unrelated Rendez failures preserved in their gap.
+
 - Grok child SQL integration is implemented and independently reviewed.
   The source proves canonical parent identity, project/root and explicit native
   sidecar links without reading transcript bodies. Native JSON records are
@@ -335,3 +362,21 @@ Node 22/24 and Bun runs acquire the first 205 children in 40–77 ms;
 full 206-child SQL projections take 5.9–7.2 ms median of 25 reads. SQL reopen
 with native files deleted takes 6.5–8.2 ms. Automatic host evidence is retained
 with the ignored raw results; these local observations are not portable ceilings.
+
+OpenCode diagnostics use 205 initial children plus a late child, alongside 127
+other registered parents. Each native session carries 118,750 bytes of unused
+prompt metadata; the relationship query never selects it. During concurrent
+workspace verification, the final Node 22/24 and Bun runs acquire the first
+205 children in 64–91 ms. Full 206-child SQL projections take 6.9–7.1 ms median
+of 25 reads, and reopen after deleting native storage takes 6.9–7.9 ms. Automatic
+host samples report up to 1.54 load per effective CPU and at least 6.6 GB
+available memory. These are local diagnostics, not portable ceilings. Actual
+OpenCode Task/child content and SQL reopen also pass on the owned model API.
+
+Standalone Node/Bun browser checks read the ordinary 40-message tail from
+2,000 synthetic native SQLite messages and parts. Desktop and phone become
+readable in 0.83–0.86 seconds; late WAL child updates retain transcript DOM and
+drafts, with every sequential keystroke acknowledged within 27 ms. Final
+captures are produced through the repository facility and visually checked.
+Linux/Windows native observation, deeper native spawning and unsupported
+OpenCode 2.x remain outside this local qualification.

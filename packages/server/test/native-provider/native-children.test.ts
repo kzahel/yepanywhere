@@ -7,6 +7,7 @@ import { readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
+import { loadSqliteDriver } from "../../src/storage/sqlite.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { nativeFixture } from "./fixture.js";
 import { historyReader, findNativeFile } from "./history.js";
@@ -38,7 +39,12 @@ interface NativeRow {
 // Real native spawn/persistence is the oracle. Reopening production readers
 // must agree with native ids, not ids manufactured by the extractor under test.
 function supportsNativeChildScenario(provider: NativeProvider) {
-  return isClaude(provider) || isCodex(provider) || provider === "grok";
+  return (
+    isClaude(provider) ||
+    isCodex(provider) ||
+    provider === "grok" ||
+    provider === "opencode"
+  );
 }
 
 describe.each(providers.filter(supportsNativeChildScenario))(
@@ -51,7 +57,7 @@ describe.each(providers.filter(supportsNativeChildScenario))(
       fixtures.push(f);
       const first = await f.model.next();
       const callId = `call_${first.id}`;
-      let grokParentContinuation: string | undefined;
+      let nativeParentContinuation: string | undefined;
       if (isClaude(provider)) {
         expect(first.body.tools).toEqual(
           expect.arrayContaining([expect.objectContaining({ name: "Agent" })]),
@@ -104,6 +110,21 @@ describe.each(providers.filter(supportsNativeChildScenario))(
           "CHILD_RELATIONSHIP_REPLY",
         );
         afterWait.finish("PARENT_RELATIONSHIP_DONE");
+      } else if (provider === "opencode") {
+        first.tool("task", {
+          description: "Owned native child",
+          prompt: "CHILD_RELATIONSHIP_INPUT. Reply CHILD_RELATIONSHIP_REPLY.",
+          subagent_type: "general",
+        });
+        const child = await f.model.next();
+        expect(JSON.stringify(child.body)).toContain(
+          "CHILD_RELATIONSHIP_INPUT",
+        );
+        child.finish("CHILD_RELATIONSHIP_REPLY");
+        const parent = await f.model.next();
+        nativeParentContinuation = JSON.stringify(parent.body);
+        expect(nativeParentContinuation).toContain("CHILD_RELATIONSHIP_REPLY");
+        parent.finish("PARENT_RELATIONSHIP_DONE");
       } else {
         first.tool("spawn_subagent", {
           description: "Owned native child",
@@ -117,14 +138,16 @@ describe.each(providers.filter(supportsNativeChildScenario))(
         );
         child.finish("CHILD_RELATIONSHIP_REPLY");
         const parent = await f.model.next();
-        grokParentContinuation = JSON.stringify(parent.body);
-        expect(grokParentContinuation).toContain("CHILD_RELATIONSHIP_REPLY");
+        nativeParentContinuation = JSON.stringify(parent.body);
+        expect(nativeParentContinuation).toContain("CHILD_RELATIONSHIP_REPLY");
         parent.finish("PARENT_RELATIONSHIP_DONE");
       }
       await f.idle();
       await f.stop();
       const rows =
-        provider === "grok" ? [] : ((await f.nativeRows()) as NativeRow[]);
+        provider === "grok" || provider === "opencode"
+          ? []
+          : ((await f.nativeRows()) as NativeRow[]);
       let childId: string;
       if (isClaude(provider)) {
         childId =
@@ -152,6 +175,31 @@ describe.each(providers.filter(supportsNativeChildScenario))(
           agent_thread_id: childId,
           id: callId,
         });
+      } else if (provider === "opencode") {
+        const db = loadSqliteDriver()!.open(
+          join(f.environment.XDG_DATA_HOME!, "opencode", "opencode.db"),
+          { readOnly: true },
+        );
+        try {
+          const query = db.prepare(
+            "SELECT id, parent_id, directory FROM session WHERE parent_id = ?",
+          );
+          try {
+            const children = query.all<{
+              id: string;
+              parent_id: string;
+              directory: string;
+            }>(f.nativeId());
+            expect(children).toHaveLength(1);
+            childId = children[0]!.id;
+            expect(children[0]!.directory).toBe(f.project);
+            expect(nativeParentContinuation).toContain(childId);
+          } finally {
+            query.finalize();
+          }
+        } finally {
+          db.close();
+        }
       } else {
         const path = await findNativeFile(
           f.environment.GROK_SESSIONS_DIR!,
@@ -163,7 +211,7 @@ describe.each(providers.filter(supportsNativeChildScenario))(
         expect(meta.child_session_id).toBe(meta.subagent_id);
         childId = meta.child_session_id;
         expect(childId).toBeTruthy();
-        expect(grokParentContinuation).toContain(childId);
+        expect(nativeParentContinuation).toContain(childId);
         const ownSummary = JSON.parse(
           await readFile(
             join(
@@ -190,7 +238,9 @@ describe.each(providers.filter(supportsNativeChildScenario))(
         expect(children[0]).toMatchObject({
           id: childId,
           parentSessionId: f.nativeId(),
-          ...(provider === "grok" ? {} : { toolUseId: callId }),
+          ...(["grok", "opencode"].includes(provider)
+            ? {}
+            : { toolUseId: callId }),
         });
         expect(await reader.listProviderChildSessions!(childId)).toEqual([]);
         expect(
@@ -207,19 +257,25 @@ describe.each(providers.filter(supportsNativeChildScenario))(
               ? "claude"
               : isCodex(provider)
                 ? "codex"
-                : "grok",
+                : provider === "opencode"
+                  ? "opencode"
+                  : "grok",
             isCodex(provider)
               ? await realpath(f.environment.CODEX_SESSIONS_DIR!)
               : provider === "grok"
                 ? await realpath(f.environment.GROK_SESSIONS_DIR!)
-                : await realpath(
-                    dirname(
-                      (await findNativeFile(
-                        join(f.environment.CLAUDE_CONFIG_DIR!, "projects"),
-                        (name) => name === `${f.nativeId()}.jsonl`,
-                      ))!,
+                : provider === "opencode"
+                  ? await realpath(
+                      join(f.environment.XDG_DATA_HOME!, "opencode"),
+                    )
+                  : await realpath(
+                      dirname(
+                        (await findNativeFile(
+                          join(f.environment.CLAUDE_CONFIG_DIR!, "projects"),
+                          (name) => name === `${f.nativeId()}.jsonl`,
+                        ))!,
+                      ),
                     ),
-                  ),
             parseNativeSessionId(f.nativeId()),
           );
           const source = reader.getProviderChildSource!(parent)!;

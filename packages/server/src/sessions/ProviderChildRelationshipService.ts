@@ -22,6 +22,10 @@ import {
 /** Native addresses are internal. Public projections retain the parent's YA id. */
 export interface ObservedProviderChild {
   native: NativeSessionRef;
+  /** Immediate native parent, when one acquisition includes descendants. */
+  parent?: NativeSessionRef;
+  /** Compact structural version; activity alone need not rewrite evidence. */
+  version?: string;
   summary: ProviderChildSessionSummary;
   /** Missing/unreadable optional enrichment cannot erase last-known anchors. */
   metadataAvailable?: boolean;
@@ -47,6 +51,8 @@ export interface ProviderChildSource {
   isRetired?(): boolean;
   onRetire?(listener: () => void): () => void;
   ownsFileChange?(event: FileChangeEvent): boolean;
+  /** Paths such as a database and its WAL may form one logical change stream. */
+  fileChangeKey?(event: FileChangeEvent): string;
   /** Existing native events may overlay activity without structural SQL work. */
   handleFileChange?(event: FileChangeEvent): boolean | Promise<boolean>;
   /** Release transient source-version proof after a finite acquisition. */
@@ -300,7 +306,10 @@ export class ProviderChildRelationshipService {
         (!possibleAliasedParent && !work.source.ownsFileChange?.(event))
       )
         continue;
-      const eventKey = JSON.stringify([key, event.path]);
+      const eventKey = JSON.stringify([
+        key,
+        work.source.fileChangeKey?.(event) ?? event.path,
+      ]);
       const previous = this.nativeEvents.get(eventKey);
       if (!previous && this.nativeEvents.size >= MAX_SOURCES) {
         // Lost event detail needs a follow-up read, not cancellation of every
@@ -624,8 +633,15 @@ export class ProviderChildRelationshipService {
           if (!accepted) return false;
           for (const child of batch)
             previousParents.push(
-              ...this.recordChild(work.native, child, observation.version, now),
+              ...this.recordChild(
+                child.parent ?? work.native,
+                child,
+                child.version ?? observation.version,
+                now,
+              ),
             );
+          for (const child of batch)
+            if (child.parent) previousParents.push(this.key(child.parent));
           return true;
         });
         if (!committed) return;

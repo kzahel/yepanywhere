@@ -44,7 +44,7 @@ interface ReadQueries {
  * retains the direct-reader opt-out independently of YA's required own database.
  * Checked at the single `ensureDb` choke point, so one guard covers every query.
  */
-function openCodeDbReaderEnabled(): boolean {
+export function openCodeDbReaderEnabled(): boolean {
   const v = process.env.OPENCODE_DB_READER?.trim().toLowerCase();
   return v !== "0" && v !== "false" && v !== "off" && v !== "no";
 }
@@ -88,6 +88,12 @@ export interface OpenCodeDbChildSessionRow {
   timeUpdated: number | null;
 }
 
+/** Raw compact native rows; the relationship adapter owns identity/scope proof. */
+export interface OpenCodeRelationshipSnapshot {
+  rows: Array<Record<string, unknown>>;
+  hasParentIds: boolean;
+}
+
 interface DbRow {
   [column: string]: unknown;
 }
@@ -112,6 +118,8 @@ export class OpenCodeDbReader {
     },
   };
   private sessionColumns: Set<string> | undefined;
+  private relationshipStatement: SqliteStatement | undefined;
+  private relationshipSql: string | undefined;
 
   constructor(private databasePath: string) {}
 
@@ -156,6 +164,9 @@ export class OpenCodeDbReader {
   }
 
   private closeHandle(): void {
+    this.relationshipStatement?.finalize();
+    this.relationshipStatement = undefined;
+    this.relationshipSql = undefined;
     for (const statement of this.statements.values()) statement.finalize();
     this.statements.clear();
     this.projectIdCache.clear();
@@ -435,6 +446,76 @@ export class OpenCodeDbReader {
         return parseChildSessionRows(rows);
       })) ?? []
     );
+  }
+
+  /**
+   * Strict acquisition boundary: failure is never an authoritative empty set.
+   * One statement reads descendants and the ancestors of selected legacy ids
+   * from one committed WAL snapshot. No messages, parts, writes or checkpoints.
+   * Unlike the tolerant replay methods, this method deliberately throws.
+   */
+  async readRelationshipSnapshot(
+    parentSessionId: string,
+    relatedSessionIds: readonly string[] = [],
+    additionalParentIds: readonly string[] = [],
+  ): Promise<OpenCodeRelationshipSnapshot> {
+    const db = this.ensureDb();
+    if (!db) throw new Error("OpenCode native relationship store unavailable");
+    // Schema reads are constant-sized and fresh, including WAL-only migrations.
+    // The generated SELECT has one replaceable statement slot, not a cache
+    // entry for every optional-column combination encountered over its lifetime.
+    const columns = new Set(
+      this.queries
+        .prepare("PRAGMA table_info(session)")
+        .all<DbRow>()
+        .flatMap((row) => (typeof row.name === "string" ? [row.name] : [])),
+    );
+    if (!columns.has("id") || !columns.has("project_id"))
+      throw new Error("OpenCode native relationship schema unavailable");
+    const hasParentIds = columns.has("parent_id");
+    const optional = (column: string, limit: number) =>
+      columns.has(column)
+        ? `CASE WHEN length(s.${column}) <= ${limit} THEN s.${column} ELSE NULL END`
+        : "NULL";
+    const rawDirectory = columns.has("directory")
+      ? "COALESCE(NULLIF(s.directory, ''), p.worktree)"
+      : "p.worktree";
+    const directory = `CASE WHEN length(${rawDirectory}) <= 4096 THEN ${rawDirectory} ELSE NULL END`;
+    const updated = columns.has("time_updated")
+      ? "CASE WHEN s.time_updated BETWEEN 0 AND 8640000000000000 THEN s.time_updated ELSE NULL END"
+      : "NULL";
+    const wanted = hasParentIds
+      ? `WITH RECURSIVE descendants(id) AS (
+      SELECT value FROM json_each(?) UNION SELECT s.id FROM session s JOIN descendants d ON s.parent_id = d.id
+    ), targets(id) AS (
+      SELECT id FROM descendants UNION SELECT value FROM json_each(?)
+    ), lineage(id) AS (
+      SELECT id FROM targets UNION SELECT s.parent_id FROM session s JOIN lineage l ON s.id = l.id WHERE s.parent_id IS NOT NULL AND s.parent_id != ''
+    )`
+      : `WITH lineage(id) AS (SELECT value FROM json_each(?) UNION SELECT value FROM json_each(?))`;
+    const sql = `${wanted}
+      SELECT ${optional("id", 1024)} AS id,
+        ${optional("parent_id", 1024)} AS parent_id,
+        ${columns.has("title") ? "substr(s.title, 1, 256)" : "NULL"} AS title,
+        ${columns.has("agent") ? "substr(s.agent, 1, 256)" : "NULL"} AS agent,
+        ${directory} AS directory, CASE WHEN length(p.worktree) <= 4096 THEN p.worktree ELSE NULL END AS worktree,
+        ${updated} AS time_updated
+      FROM session s LEFT JOIN project p ON p.id = s.project_id
+      WHERE s.id IN (SELECT id FROM lineage)`;
+    if (this.relationshipSql !== sql) {
+      this.relationshipStatement?.finalize();
+      this.relationshipStatement = undefined;
+      this.relationshipSql = undefined;
+      this.relationshipStatement = db.prepare(sql);
+      this.relationshipSql = sql;
+    }
+    return {
+      rows: this.relationshipStatement!.all<DbRow>(
+        JSON.stringify([...new Set([parentSessionId, ...additionalParentIds])]),
+        JSON.stringify(relatedSessionIds),
+      ),
+      hasParentIds,
+    };
   }
 
   /**

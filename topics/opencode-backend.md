@@ -352,6 +352,68 @@ pre-1.16: fall back to CLI export (captured via a **file fd**, not a pipe), then
 to the legacy file tree. Do not delete the file-tree path — older installs and
 already-migrated transcripts still use it.
 
+### Durable child relationships
+
+Application detail, collection and process enrichment reads accepted child
+relationships from the required profile SQL index without awaiting native
+acquisition. The native database remains read-only. A single coherent SELECT
+reads the selected session, descendants and ancestors, using native parent ids
+and the provider's directory/worktree scoping rules. Native task execution
+creates that parent link; resuming an existing task does not reparent it.
+Native forks omit the link even when their copied history contains Task parts.
+Those parts therefore cannot independently establish a provider-child edge.
+The upstream [1.18.9 Task implementation](https://github.com/anomalyco/opencode/blob/v1.18.9/packages/opencode/src/tool/task.ts)
+and [session fork implementation](https://github.com/anomalyco/opencode/blob/v1.18.9/packages/opencode/src/session/session.ts)
+define these distinctions; the inference-free native scenario qualifies direct
+spawning and production-reader/SQL agreement against that executable.
+
+The source rechecks the logical database snapshot before profile publication,
+including WAL-only commits. Structural versions exclude `time_updated`, so
+activity can refresh the bounded display overlay without rewriting relationship
+evidence. One indexed snapshot per reader/change batch serves its retained
+parents together. Activity-only changes update and re-sort the overlay; only
+changed lineages reacquire their publication proof. The probe selects registered
+roots and their subtrees/ancestors, not a timestamp scan of the native corpus.
+There are at most 128 retained source registrations and four compact event
+results, released with their owner. DB and WAL notifications share one pending
+key per source, so a paired write does not overflow the 128-source queue.
+Each lineage has its own validation generation; unrelated spawns cannot cancel
+its initial publication or leave a listed parent permanently unknown. Titles, agent names and directory fields
+are bounded; messages, parts, prompts and
+native paths are never selected for graph evidence. Optional schema columns do
+not silently turn missing parent proof into a known-empty result. Reader
+retirement and project/native-root rebinds fence outstanding work.
+
+The legacy JSON source reads only bounded project/session headers (64 KiB
+per header), never message or part trees. A reader shares one compact catalog
+of at most 4,096 headers and an immediate-parent lookup; exceeding that budget
+is partial rather than accepted empty. Failed headers, missing ancestry,
+conflicting ids and cycles preserve previously accepted facts. A failed legacy
+store cannot block independent current SQL proof. Missing ancestry above a
+proved viewed parent makes the observation partial while preserving its valid
+direct children. A schema without parent ids does not erase independent legacy
+parent proof. Current native
+SQL parent proof wins over frozen JSON for the same native id. Default SQL and
+legacy roots share the existing namespace; explicitly different configured
+roots stay distinct. `OPENCODE_DB_READER=0` retains legacy proof without opening
+or probing the native database. It does not disable YA's required profile SQL.
+
+One internal provider observer watches only the configured database/WAL, with
+a nonrecursive native directory watch. Message, part, media and frozen legacy
+trees acquire no native watches or baseline scans. Legacy headers refresh on
+explicit detail demand; continuous observation of mutable pre-1.16 stores is
+not claimed. The observer emits no public native-file events. macOS directory
+notifications can miss writes to an open WAL; two fixed inode file watches
+cover the database and WAL, with directory notifications for replacement.
+These have provider lifetime, finite allocation and teardown, never session
+lifetime or a per-session timer. Bun 1.3.14 on macOS also misses inode-watch
+writes, so its one provider-owned fallback stats only those two fixed files
+once per second; it never scans transcripts or queries unchanged native SQL.
+Disabling the direct DB reader also omits this observer. Allocation failure
+degrades observation without an allocation retry loop. The existing
+128-source/two-worker coordinator coalesces acquisition. Unwatched custom roots refresh on explicit detail demand;
+continuous observation of every arbitrary private root is not claimed.
+
 ### Direct SQLite reader (Gap #11) — LANDED 2026-06-21
 
 `OpenCodeDbReader` (`packages/server/src/sessions/opencode-db-reader.ts`) reads

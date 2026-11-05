@@ -187,12 +187,21 @@ it("keeps scoped OpenCode identities through native catalogue, public history, W
         "other exact native history",
       );
       expect((await history(nativeId)).status).toBe(404);
-      expect(body.session.providerChildren).toEqual([
-        expect.objectContaining({
-          id: "ses_native_child",
-          parentSessionId: publicId,
-        }),
-      ]);
+      // Child discovery is independent of transcript delivery. The existing
+      // metadata projection converges after the native snapshot commits.
+      await vi.waitFor(async () => {
+        const projected = await (
+          await app!.app.request(
+            `/api/projects/${workingId}/sessions/${publicId}/metadata`,
+          )
+        ).json();
+        expect(projected.session.providerChildren).toEqual([
+          expect.objectContaining({
+            id: "ses_native_child",
+            parentSessionId: publicId,
+          }),
+        ]);
+      });
       const child = await app.app.request(
         `/api/projects/${workingId}/sessions/${publicId}/agents/ses_native_child`,
       );
