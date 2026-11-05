@@ -15,6 +15,7 @@ import {
   loadSqliteDriver,
   type SqliteDatabase,
   type SqliteRunResult,
+  type SqliteStatement,
   type SqliteValue,
 } from "../../src/storage/sqlite.js";
 import { quoteShellWord } from "../../src/utils/posixShell.js";
@@ -30,6 +31,28 @@ interface NativeRow {
   message?: {
     content?: string | { type: string; name?: string; input?: unknown }[];
   };
+}
+
+function isSqliteBusy(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { errcode?: unknown; errno?: unknown; code?: unknown };
+  return (
+    value.errcode === 5 || (value.code === "SQLITE_BUSY" && value.errno === 5)
+  );
+}
+
+/** Read-only inspection can race the app's WAL/schema lock too. */
+async function readSnapshot<T>(read: () => Promise<T>): Promise<T> {
+  const outcome = await appBarrier(async () => {
+    try {
+      return { value: await read() };
+    } catch (error) {
+      if (isSqliteBusy(error)) throw error;
+      return { error };
+    }
+  }, "owned profile snapshot after concurrent app writes");
+  if ("error" in outcome) throw outcome.error;
+  return outcome.value;
 }
 
 /** The app may be writing its profile while this test removes derived rows. */
@@ -57,13 +80,7 @@ async function removeDerivedIndex(
     } catch (error) {
       // Only SQLite's writer contention is retryable; schema/assertion and
       // other failures must surface directly rather than spend the barrier.
-      if (
-        error &&
-        typeof error === "object" &&
-        "errcode" in error &&
-        error.errcode === 5
-      )
-        throw error; // appBarrier retains the actual contention diagnostic.
+      if (isSqliteBusy(error)) throw error; // appBarrier retains the actual contention diagnostic.
       return { committed: false as const, error };
     }
   }, "owned derived-index mutation after concurrent app writes");
@@ -94,18 +111,19 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         const first = await f.model.next();
         const childId = randomUUID(),
           executable = nativeExecutable("claude");
-        const inspect = async (sessionId = parent.sessionId) => {
+        const inspectOnce = async (sessionId: string) => {
           await f.api("/version"); // Teardown fence for every publication wait.
           const db = loadSqliteDriver()!.open(
             join(f.root, "home", "ya", "discovery.sqlite"),
             { readOnly: true },
           );
-          const server = db.prepare(
-            "SELECT server_id FROM public_server_identity WHERE singleton=1",
-          );
-          let identities: SessionIdentityStore | undefined,
+          let server: SqliteStatement | undefined,
+            identities: SessionIdentityStore | undefined,
             graph: SessionRelationshipStore | undefined;
           try {
+            server = db.prepare(
+              "SELECT server_id FROM public_server_identity WHERE singleton=1",
+            );
             db.exec("BEGIN");
             identities = new SessionIdentityStore(db);
             graph = new SessionRelationshipStore(db);
@@ -157,12 +175,14 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
             db.exec("COMMIT");
             return view;
           } finally {
-            server.finalize();
+            server?.finalize();
             identities?.close();
             graph?.dispose();
             db.close();
           }
         };
+        const inspect = (sessionId = parent.sessionId) =>
+          readSnapshot(() => inspectOnce(sessionId));
         expect(basename(executable)).toBe("claude");
         const command = `unset CLAUDECODE; cd ${quoteShellWord(f.project)} && ${quoteShellWord(executable)} --session-id ${childId} --print --output-format stream-json --verbose --permission-mode bypassPermissions --model claude-haiku-5-5 NESTED_HARNESS_CHILD_INITIAL`;
         expect(detectNestedHarnessLaunch(command)).toEqual({

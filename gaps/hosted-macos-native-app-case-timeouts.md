@@ -1,4 +1,4 @@
-# Two-worker hosted macOS native-app cases exhaust their budgets
+# Hosted macOS native-app startup and replacement exceed case budgets
 
 [Run 42081724289](https://github.com/kzahel/yepanywhere/actions/runs/42081724289),
 macOS job 127436238859 at `06c549a79`, fails seven of ten app cases at their
@@ -66,3 +66,24 @@ in 311.47 seconds. Both reload browser cases also pass; the grouped-input case
 then fails its separate 100 ms acknowledgement gate at 126.2 ms. The
 [typing finding](hosted-macos-native-input-acknowledgement-over-100ms.md) owns
 that unresolved failure. This is app acceptance, not full browser acceptance.
+
+## One-worker current-source replacement guard
+
+At `b2e2ac950`, automatic worker selection in
+[run 42121264200](https://github.com/kzahel/yepanywhere/actions/runs/42121264200)
+uses one macOS worker (job 127573920717). Eleven of twelve app cases pass in
+312.67 wall / 305.16 aggregate test seconds. The Codex tool/approval reload
+case reaches its 30-second guard during the second API replacement. Its owned
+phase report records API readiness at 12.477 seconds, first replacement
+acceptance at 18.331, reattachment at 26.286 and second acceptance at 26.989;
+cleanup starts at 30.027, before that reattachment completes. This locates the
+unfinished work; it does not establish the cause of slow startup/replacement.
+The browser step is skipped, so it supplies no readiness or typing result.
+
+That shared tool/approval case now has a 90-second guard, three times the
+observed 30-second lower bound. Native inner barriers, semantic assertions and
+typing requirements remain unchanged. The other case guards are unchanged.
+The earlier one-worker passes remain valid evidence for their exact sources,
+not a promise that every later source stays below 30 seconds. Keep this gap
+until the changed source is qualified; neither worker selection nor a later
+pass explains the historical two-worker failures.

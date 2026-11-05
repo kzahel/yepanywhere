@@ -16,6 +16,27 @@ not creation. The native fixture's Claude pin drift is repaired and its full-app
 qualified against the declared runtime; broader child-source coverage remains
 explicit below.
 
+## Current completion boundary
+
+Published backend work now includes the shared durable graph, authoritative YA
+and v0/peer receipt writers, qualified native-child adapters, bounded live and
+historical harness observations, and SQL-backed nonblocking detail/metadata and
+existing child-navigation projections. Creation, provider delegation, copy and
+command-observed launch remain distinct evidence; unsupported cases stay
+unknown. Accepted facts and acquisition progress survive restart/source loss.
+
+The full plan remains active. Generic authorized relationship pages, revised v0
+query output and reverse presentation still await the previously requested
+public-contract compatibility decision. The old-extension exclusion does not
+approve making hosted/mobile clients depend on unsupported older-server routes.
+Other harness families, automatic unseen-corpus acquisition, legacy copy fences
+and unqualified platform/provider formats are not silently inferred. Their
+qualification is separate from the delivered bounded adapters.
+
+The final source is locally qualified by the whole workspace and Node/Bun SQL
+reopen probes. Hosted matrix acceptance and its separate input/startup findings
+are recorded below; a later pass does not explain earlier typing misses.
+
 ## Substantial delivery slices
 
 1. Shared SQL foundation: migration, typed scoped resources and edges, separate
@@ -1459,3 +1480,60 @@ remains unresolved and its 100 ms gate is unchanged. The macOS app job guard
 is 20 minutes (2.23 times that observed maximum), allowing the readiness
 repair to finish and preserve failure evidence; other job guards stay ten
 minutes. No claim of full macOS browser acceptance follows from app success.
+
+### Final published-source loading check
+
+At `b2e2ac950`, an isolated Node 24.22.1 profile repeats the original frozen
+Codex session with 112.1, 204.3 and 388.7 MiB histories, preserving the same
+19.9 MiB native tail and 1,718-message / 4.5 MB reply. Warm detail medians are
+365, 358 and 364 ms; fresh-profile reads are 885, 1,110 and 1,532 ms, and reads
+after restart are 480, 445 and 464 ms. Complete metadata medians are
+1.18–1.23 ms. The warm route spends roughly 220–227 ms augmenting messages,
+48 ms reading, 33 ms normalizing and 0.2–0.3 ms on metadata. This sample shows
+no quadratic growth from preceding history, and excludes Wi-Fi, relay and
+browser presentation. It does not claim a portable speed ceiling.
+
+The M4 Pro capacity has 14 logical CPUs, at least 26.4 GB available memory,
+maximum load per effective CPU 0.491 and unchanged 435.56 MiB swap use; CPU-busy
+counters are unavailable. Every owned standalone server is disposed. Separate
+Node 24/Bun 1.3.14 probes recover 205 children after native-source removal in
+6.4/6.6 ms, with SQL read medians 5.9/6.1 ms and empty transcript caches.
+Node records zero parent-body streams; Bun's counter is unavailable.
+
+The clean rebase incorporates upstream metadata-save and diff-renderer changes.
+Its diff fixtures needed translation context and jsdom ResizeObserver; the
+separate reviewed fixture repair changes no product code or assertions. Final
+whole-workspace checks pass 7,096 server (87 skipped), 7,119 client, 980 shared,
+139 relay and 45 push-broker cases; lint has no warnings and format/types pass.
+The earlier Rendez failure remains evidence in its gap, not erased by this pass.
+
+### Inspect concurrent SQL snapshots and budget owned replacement
+
+Published `b2e2ac950` passes the automatic Linux provider gate (69 cases,
+91.15 wall / 165.07 aggregate seconds, run 42121232381). App run 42121264200
+confirms automatic Linux two / macOS one worker selection. Linux passes eleven
+of twelve app cases in 116.81 wall / 227.06 aggregate seconds: the direct
+copied-session test inspection hits `SQLITE_BUSY` while preparing its read-only
+snapshot. macOS passes eleven in 312.67 / 305.16 seconds: the Codex tool case
+exhausts its 30-second guard during its second API reattachment. Neither
+browser step runs. No full app/browser acceptance is claimed for this source.
+
+The owned test inspection now retries only SQLite contention through its
+existing bounded barrier and closes its connection even when prepare fails.
+Node's numeric `errcode` and Bun's `SQLITE_BUSY`/`errno` remain distinct runtime
+representations; other errors surface immediately, and unknown/empty snapshots
+keep their meanings. An owned two-connection WAL/exclusive-lock probe fails
+one-shot reads and succeeds on the second attempt with the revised helper;
+both read connections close. Node 24 and Bun pass that control, including
+immediate non-busy errors. The initial Bun probe exposed its different error
+shape and is retained as a failed probe, not reported as passing.
+
+The shared tool/approval case guard is 90 seconds (three times the hosted
+30-second lower bound), with the measured phases beside it. Inner barriers,
+semantic assertions, ordinary provider behavior and 100 ms typing stay
+unchanged. No new recurring cases or model requests are added. Final local native
+app qualification passes all twelve cases (59.03 wall / 112.37 aggregate
+seconds). Whole-workspace checks again pass 7,096 server (87 skipped), 7,119
+client, 980 shared, 139 relay and 45 push-broker cases; lint is warning-free
+and format/types pass. Changed-source hosted acceptance remains separate from
+that local result and the pending public API decision.

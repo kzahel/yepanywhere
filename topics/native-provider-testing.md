@@ -39,7 +39,13 @@ that each capacity/worker pair is qualified. The same-source M1 control at
 `a71daaa9d` passes ten app cases with one worker and unchanged guards, while two
 workers exhaust nine guards. This selects a completed configuration, not a
 sustained speed claim. Source `ddda13a4a` also passes all twelve app cases
-with one macOS worker (311.47 seconds wall in run 42115449136). Its browser
+with one macOS worker (311.47 seconds wall in run 42115449136). At
+`b2e2ac950`, the same automatic setting passes eleven of twelve cases; the
+Codex approval/tool case exceeds its old 30-second guard during the second
+API replacement. Its 90-second case budget follows three times that observed
+lower bound; the [hosted finding](../gaps/hosted-macos-native-app-case-timeouts.md)
+retains phase evidence. This selects capacity without promising acceptance of
+every later source. The earlier `ddda13a4a` browser
 step fails the separate 100 ms typing contract at 126.2 ms;
 [that finding](../gaps/hosted-macos-native-input-acknowledgement-over-100ms.md)
 remains open. Ordinary workspace concurrency and the browser's single

@@ -19,9 +19,10 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
     it.for(["claude", "codex"] as const)(
       "%s preserves pending approval, dense tool output and queue blockers",
       {
-        // Source wrapper/native startup plus two replacements took at most
-        // 9.40s per case on macOS arm64; allow 3x that observed maximum.
-        timeout: 30_000,
+        // Hosted M1 run 42121264200 reached the 30s guard during its second
+        // replacement (cold API ready at 12.477s, first replacement ~8s).
+        // 90s is 3x that observed lower bound; inner barriers are unchanged.
+        timeout: 90_000,
       },
       async (provider, context) => {
         const f = await nativeAppTestFixture(provider, context);
