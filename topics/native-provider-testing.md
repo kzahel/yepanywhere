@@ -32,9 +32,18 @@ YEP_NATIVE_TEST_PROVIDERS=codex pnpm test:providers
 ```
 
 The native provider workflow uses two workers on relevant push/PR checks.
-Manual dispatches accept one, two or four workers and default to two, including
-the separately manual app matrix. Ordinary workspace concurrency and the
-browser's single worker are unchanged. See
+Manual dispatches default to `auto`: provider and Linux app jobs use two
+workers, while the macOS app job uses one. Explicit `1`, `2` or `4` selections
+apply unchanged to every selected job; they remain controls rather than promises
+that each capacity/worker pair is qualified. The same-source M1 control at
+`a71daaa9d` passes ten app cases with one worker and unchanged guards, while two
+workers exhaust nine guards. This selects a completed configuration, not a
+sustained speed claim. Source `ddda13a4a` also passes all twelve app cases
+with one macOS worker (311.47 seconds wall in run 42115449136). Its browser
+step fails the separate 100 ms typing contract at 126.2 ms;
+[that finding](../gaps/hosted-macos-native-input-acknowledgement-over-100ms.md)
+remains open. Ordinary workspace concurrency and the browser's single
+worker are unchanged. See
 [Linux qualification](#linux-native-qualification-and-ci-gate).
 Use explicit `--maxWorkers=2` or `--maxWorkers=4` with the native runners for
 local controls. Both runners share process-exit handling, visible native
@@ -42,7 +51,19 @@ reporters, GitHub annotations and capacity/start/end host samples. Compare
 separate `workers=2` and `workers=4` dispatches on the same source and capacity
 key before claiming a speed change; a successful run after reducing concurrency
 is qualification evidence, not by itself a performance result. Scenario guards
-follow measured maxima below; readiness deadlines remain unchanged.
+follow measured maxima below; native/listener readiness deadlines remain
+unchanged. Initial browser composer mounting has its own 45-second guard: the
+hosted M1 cold source-module graph remained incomplete at the previous
+15-second guard, with 885 module requests and no session-detail request yet.
+Forty-five seconds is three times that observed lower bound. All later browser
+assertions and the 100 ms sequential-key acknowledgement limit are unchanged.
+A controlled 16-second lazy-module gate fails the old mount guard and passes
+this one through the full retained typing/reload/history scenario; the gate is
+a one-time qualification probe, not an extra recurring test. The macOS app
+job has a 20-minute guard, 2.23 times the observed 8m57s job at `ddda13a4a`,
+leaving room for the cold-mount allowance and failure-evidence upload. Linux
+and provider job guards stay at ten minutes. Neither readiness nor job guards
+relax the 100 ms typing requirement.
 
 The manual workflow's `suite` selector defaults to `all`; `providers` and `app` allow
 targeted requalification when the other boundary's sources are unchanged.

@@ -360,3 +360,11 @@ passes / 150.50 seconds) and `slice-25-rendez-focused.log`. Client 7,112 and
 shared 954 pass. The earlier `slice-25-unit.log` is green but predates a
 restored native history assertion and cannot replace the final red run.
 Neither watcher source nor its assertions, budgets or retries changed.
+
+2026-11-05: the relationship qualification workflow/readiness-only slice
+again misses the second nested delivery at line 364 (1 observed, 2 expected)
+on macOS / Node 24.22.1. The server run passes 7,093 other cases and skips 87
+in 149.20 seconds; all relationship source remains identical to published
+`ddda13a4a`. No watcher code, assertion, budget or retries changed. Evidence:
+ignored `tasks/session-relationships/slice-32-root.log`. This workspace run
+remains red and is not replaced by a passing isolated retry.

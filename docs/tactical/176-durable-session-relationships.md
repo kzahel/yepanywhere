@@ -1432,3 +1432,30 @@ any session-detail request or keystroke. The two-worker app timeout and
 [browser bootstrap](../../gaps/hosted-macos-native-browser-bootstrap-timeout.md)
 findings remain explicit. No worker default, input limit or public contract is
 changed in this slice. Generic graph API approval remains pending.
+
+### Qualified app worker selection and cold browser readiness
+
+Manual native qualification now defaults to `auto`, choosing two provider/Linux
+app workers and one macOS app worker. Explicit one/two/four-worker controls
+remain unchanged. The fixed-source M1 control actually completes all ten prior
+app cases with one worker and the original guards; the current `ddda13a4a`
+source passes all twelve in 311.47 seconds. Selecting that configuration
+is distinct from claiming a speedup or qualifying the failing two-worker path.
+
+All three native browser cases' initial composer mounts have a 45-second readiness guard, three
+times the observed M1 15-second lower bound. Retained traces show cold source
+modules still loading before any session-detail request, with no keystroke yet.
+An owned 16-second lazy-module fault fails the old guard and passes the new one
+through all existing native typing, reload and history assertions (33.2 seconds).
+Fault setup is not retained, no new CI case is added, and the 100 ms per-key gate,
+all later assertions and overall case guards remain unchanged. Whole-app
+startup is not reported as warm session-detail latency. Hosted acceptance for
+this repaired source remains pending; the gaps keep the previous failures.
+
+The current-source macOS job takes 8m57s, including both successful reload
+cases, but fails grouped-input acknowledgement at 126.2 ms. The
+[typing finding](../../gaps/hosted-macos-native-input-acknowledgement-over-100ms.md)
+remains unresolved and its 100 ms gate is unchanged. The macOS app job guard
+is 20 minutes (2.23 times that observed maximum), allowing the readiness
+repair to finish and preserve failure evidence; other job guards stay ten
+minutes. No claim of full macOS browser acceptance follows from app success.

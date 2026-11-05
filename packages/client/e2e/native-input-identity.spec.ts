@@ -45,7 +45,10 @@ test("native grouped input reconciles both echoes and original-input navigation"
     const url = `${f.baseUrl}/projects/${created.projectId}/sessions/${created.sessionId}`;
     await page.goto(url);
     const input = page.locator("textarea[data-composer-input]").first();
-    await expect(input).toBeEditable();
+    // Each fixture has a cold Vite graph. M1 run 42108868835 exhausted
+    // 15s before any detail GET; 45s is 3x that initial readiness bound.
+    // The sequential-key acknowledgement requirement below remains <100ms.
+    await expect(input).toBeEditable({ timeout: 45_000 });
     await input.pressSequentially("IDENTITY_BROWSER_ACTIVE");
     await input.press("Enter");
     const active = await f.model.next();

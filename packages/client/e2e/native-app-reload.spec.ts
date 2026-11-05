@@ -63,7 +63,10 @@ for (const provider of ["claude", "codex"] as const)
         `${f.baseUrl}/projects/${created.projectId}/sessions/${created.sessionId}`,
       );
       const input = page.locator("textarea[data-composer-input]").first();
-      await expect(input).toBeEditable();
+      // Hosted M1 a71daaa9d still loaded cold Vite modules at the 15s mount
+      // guard (885 requests, no detail GET yet). 45s is 3x that lower bound;
+      // this is initial fixture readiness, never the 100ms typing contract.
+      await expect(input).toBeEditable({ timeout: 45_000 });
       await expect
         .poll(() =>
           frames.some(

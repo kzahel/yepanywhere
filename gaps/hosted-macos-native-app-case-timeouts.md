@@ -54,5 +54,15 @@ mounted within 15 seconds while cold Vite modules are still loading. The
 [separate browser bootstrap finding](hosted-macos-native-browser-bootstrap-timeout.md)
 owns that failure. Linux also passes its app/browser steps. This qualifies one
 app-worker setting for this source; it does not prove a sustained speedup or a
-cause for the two-worker failures. No budget, assertion or worker default has
-changed. The earlier unacquired control is still not a test result.
+cause for the two-worker failures. That control changed no budget, assertion
+or worker default. The workflow's subsequent `auto` selection now chooses the completed one-worker macOS app
+configuration; explicit worker controls remain honored. This does not qualify
+the two-worker profile or erase its timeouts. The earlier unacquired control
+is still not a test result.
+
+At `ddda13a4a`, one-worker [run 42115449136](https://github.com/kzahel/yepanywhere/actions/runs/42115449136),
+macOS job 127553758255, passes all twelve app cases with the same case guards
+in 311.47 seconds. Both reload browser cases also pass; the grouped-input case
+then fails its separate 100 ms acknowledgement gate at 126.2 ms. The
+[typing finding](hosted-macos-native-input-acknowledgement-over-100ms.md) owns
+that unresolved failure. This is app acceptance, not full browser acceptance.
