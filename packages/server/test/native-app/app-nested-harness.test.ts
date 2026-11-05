@@ -101,7 +101,9 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
     it.for(["admin-route", "wrapper-signal"] as const)(
       "preserves named launch evidence across %s replacement and indexes only new copy commands",
       {
-        timeout: 40_000,
+        // Hosted one-worker M1 run 42115449136 reaches 34.318s. 105s is
+        // 3.06x that maximum; native deadlines and evidence checks stay fixed.
+        timeout: 105_000,
       },
       async (replacement, context) => {
         const f = await nativeAppTestFixture("claude", context);

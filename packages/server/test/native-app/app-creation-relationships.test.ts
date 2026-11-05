@@ -31,10 +31,9 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
     ] as const)(
       "%s creates native %s through its launch-bound API and preserves proof across app replacement",
       {
-        // The full 2x2 matrix reached 18.00s/case on macOS arm64/Node24
-        // with native-app, all-provider and workspace suites concurrent.
-        // 40s gives >2x that observed maximum; this is not a speed assertion.
-        timeout: 40_000,
+        // Hosted one-worker M1 run 42121264200 reaches 25.648s. 80s is
+        // 3.12x that maximum; receipt and native identity checks stay fixed.
+        timeout: 80_000,
       },
       async ([provider, childProvider], context) => {
         const f = await nativeAppTestFixture(provider, context, {

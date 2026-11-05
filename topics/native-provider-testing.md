@@ -71,6 +71,28 @@ leaving room for the cold-mount allowance and failure-evidence upload. Linux
 and provider job guards stay at ten minutes. Neither readiness nor job guards
 relax the 100 ms typing requirement.
 
+### Native app case budgets
+
+Whole-case guards cover cold source startup, native turns, API replacements and
+joined cleanup; they are not speed assertions. The retained one-worker M1
+measurements set the following current budgets. A timed-out case is a lower
+bound, not a completed scenario. Inner readiness/native barriers and the 100 ms
+sequential-key requirement stay unchanged.
+
+| Case family | Observed maximum | Hosted run | Guard / margin |
+| --- | --- | --- | --- |
+| Creation matrix | 25.648 s | 42121264200 | 80 s / 3.12× |
+| Named nested harness / copy history | 34.318 s | 42115449136 | 105 s / 3.06× |
+| Explicit profile / pending reload | 39.962 s | 42123429243 | 80 s / 2.00× |
+| Tool / approval reload | 40.799 s | 42123429243 | 90 s / 2.21× |
+| API replacement / crash reload | ≥30.734 s through cleanup after timeout | 42123429243 | 90 s / ≤2.93× |
+
+These guards qualify the selected functional boundary with measured slack; they
+claim neither lower runtime nor acceptance of the unqualified two/four-worker
+macOS controls. No cases, model exchanges, assertions, retries or fixed waits
+are added by this adjustment. The earlier failures remain in the
+[hosted finding](../gaps/hosted-macos-native-app-case-timeouts.md).
+
 The manual workflow's `suite` selector defaults to `all`; `providers` and `app` allow
 targeted requalification when the other boundary's sources are unchanged.
 Skipped jobs are not passes. Provider-only changes need not repeat an already
@@ -195,9 +217,8 @@ classified auxiliary requests. Each initial parent, parent continuation and
 child exchange is directly checked against its expected protocol. Post-teardown
 counts also require two parent-protocol requests and one child-protocol request,
 without assuming which concurrent continuation arrives first. The creation
-case has a 40-second test budget, derived from its measured 18.00-second maximum
-with workspace, native-app and all-provider suites running concurrently; this
-adds guard headroom rather than changing runtime behavior or claiming speed.
+case's current budget follows the [hosted measurement table](#native-app-case-budgets),
+adding guard headroom without changing runtime behavior or claiming speed.
 
 This remains POSIX Node qualification. It does not qualify peer-native dispatch,
 Windows or a new public graph contract. Unit/integration fixtures retain the

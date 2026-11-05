@@ -17,9 +17,10 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
     it.for(["claude", "codex"] as const)(
       "%s survives actual API replacement and delivers the next input once",
       {
-        // Source wrapper/native startup plus two replacements took at most
-        // 9.40s per case on macOS arm64; allow 3x that observed maximum.
-        timeout: 30_000,
+        // Hosted M1 run 42123429243 exhausts 30s during API reattachment;
+        // cleanup completes by 30.734s. 90s is 2.93x that observed bound.
+        // Native inner barriers and once-only delivery assertions stay fixed.
+        timeout: 90_000,
       },
       async (provider, context) => {
         const f = await nativeAppTestFixture(provider, context);

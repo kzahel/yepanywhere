@@ -87,3 +87,31 @@ The earlier one-worker passes remain valid evidence for their exact sources,
 not a promise that every later source stays below 30 seconds. Keep this gap
 until the changed source is qualified; neither worker selection nor a later
 pass explains the historical two-worker failures.
+
+## Remaining local-derived case budgets
+
+At `d452209df`, [run 42123429243](https://github.com/kzahel/yepanywhere/actions/runs/42123429243)
+passes Linux's twelve app and three browser cases (job 127581398139). Its app
+step takes 149.50 wall / 287.11 aggregate seconds; browser takes 2.1 minutes.
+This includes the previously failing copied-session SQL snapshot.
+
+macOS job 127581397745 passes ten app cases, including both named-harness cases
+and the revised tool/approval pair (32.725 / 40.799 seconds), then both ordinary
+reload cases hit their separate 30-second guards. The run takes 327.69 wall /
+321.43 aggregate seconds. Claude's API readiness is 16.124 seconds, first
+replacement answers at 27.507 and deliberate backend crash starts at 27.942;
+cleanup starts at 30.006 before crash reattachment. Codex is API-ready at
+15.736, first generation at 22.548 and replacement acceptance at 24.822;
+cleanup starts at 30.008 before reattachment. Cleanup completes by 30.734.
+The browser step is skipped, so the cold-mount and typing findings receive no
+macOS result.
+
+The remaining local-derived guards are now aligned together to the complete
+retained one-worker hosted measurements in
+[native provider testing](../topics/native-provider-testing.md#native-app-case-budgets):
+reload 90 seconds, nested/copy 105 and creation 80. The existing 80-second
+explicit-profile and 90-second tool budgets already give at least 2× their
+observed maxima and stay unchanged. This is measured reliability slack,
+not acceleration. Inner barriers, all semantic assertions and 100 ms typing
+remain intact. Keep the gap until changed-source hosted qualification; a new
+pass alone does not explain historical host contention or the two-worker path.

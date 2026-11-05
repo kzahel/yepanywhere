@@ -1537,3 +1537,30 @@ seconds). Whole-workspace checks again pass 7,096 server (87 skipped), 7,119
 client, 980 shared, 139 relay and 45 push-broker cases; lint is warning-free
 and format/types pass. Changed-source hosted acceptance remains separate from
 that local result and the pending public API decision.
+
+### Align the remaining native app guards to hosted measurements
+
+Source `d452209df` passes all twelve Linux app cases and three browser cases in
+run 42123429243. The copied-session read and revised tool/approval boundary also
+pass on macOS. Its remaining ordinary reload cases still have 30-second guards
+derived from a local 9.4-second observation; both exhaust them during API
+reattachment after 15.7–16.1 seconds of cold readiness. The browser never runs.
+The [owning gap](../../gaps/hosted-macos-native-app-case-timeouts.md) retains
+per-phase evidence and exact source/job ids.
+
+All five app families now have a single reviewed measurement table in
+[native provider testing](../../topics/native-provider-testing.md#native-app-case-budgets).
+The three remaining local-derived guards become reload 90 seconds, nested/copy
+105 and creation 80, giving 2–4× the retained one-worker M1 maximum or timed-out
+lower bound. The already sufficient explicit-profile 80 and tool/approval 90
+stay unchanged. No source runtime, assertions, inner barrier, 100 ms typing
+contract, model request, recurring case or fixed delay changes. Changed-source
+hosted acceptance remains pending; the earlier red runs stay evidence.
+
+Final local qualification passes twelve native app cases in 78.59 wall / 147.21
+aggregate seconds while the workspace checks run. Root checks pass 7,096 server
+(87 skipped), 7,119 client, 980 shared, 139 relay and 45 push-broker cases;
+server/client durations are 160.21/138.99 seconds. Lint is warning-free and
+format/types pass. A direct comparison confirms each changed test file is
+identical after removing comments and reversing only its outer guard constant.
+These timings are diagnostic, not a claimed runtime reduction.
