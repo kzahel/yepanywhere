@@ -242,24 +242,33 @@ export async function* iterateJsonlLineRecords(
   const chunks = isZstdPath(filePath)
     ? streamZstdJsonlText(filePath)
     : streamPlainJsonlText(filePath);
-  let pending = "";
+  // Search each chunk once and join a record only when it is complete. Growing
+  // and rescanning one string per chunk makes a large single record quadratic.
+  let pending: string[] = [];
   let firstChunk = true;
 
   for await (const rawChunk of chunks) {
     const chunk = firstChunk ? stripBom(rawChunk) : rawChunk;
     firstChunk = false;
-    pending += chunk;
-
-    let newlineIndex = pending.indexOf("\n");
+    let offset = 0;
+    let newlineIndex = chunk.indexOf("\n");
     while (newlineIndex !== -1) {
-      yield { line: pending.slice(0, newlineIndex), terminated: true };
-      pending = pending.slice(newlineIndex + 1);
-      newlineIndex = pending.indexOf("\n");
+      const tail = chunk.slice(offset, newlineIndex);
+      let line = tail;
+      if (pending.length) {
+        pending.push(tail);
+        line = pending.join("");
+        pending = [];
+      }
+      yield { line, terminated: true };
+      offset = newlineIndex + 1;
+      newlineIndex = chunk.indexOf("\n", offset);
     }
+    if (offset < chunk.length) pending.push(chunk.slice(offset));
   }
 
-  if (pending) {
-    yield { line: pending, terminated: false };
+  if (pending.length) {
+    yield { line: pending.join(""), terminated: false };
   }
 }
 

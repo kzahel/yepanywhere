@@ -3,18 +3,34 @@ import {
   mkdir,
   mkdtemp,
   readdir,
+  realpath,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { toUrlProjectId, truncateSessionTitle } from "@yep-anywhere/shared";
+import {
+  toUrlProjectId,
+  truncateSessionTitle,
+  nativeSessionRef,
+  parseNativeSessionId,
+  parseYaSessionId,
+  type NativeSessionRef,
+  type ProviderChildSessionSummary,
+} from "@yep-anywhere/shared";
+import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
+import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
 import { afterEach, expect, it, vi } from "vitest";
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
 import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
 import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
-import { createGlobalSessionsRoutes } from "../../src/routes/global-sessions.js";
+import {
+  createGlobalSessionsRoutes,
+  type GlobalSessionsResponse,
+  type GlobalSessionItem,
+} from "../../src/routes/global-sessions.js";
 import { readRetainedSessionItems } from "../../src/routes/retained-session-collections.js";
 import { createInboxRoutes } from "../../src/routes/inbox.js";
 import { createRecentsRoutes } from "../../src/routes/recents.js";
@@ -852,4 +868,324 @@ it("keeps the last accepted rows on failure and stops publication after disposal
   unblock();
   await Promise.all([work, disposal]);
   expect(emitted).not.toHaveBeenCalled();
+});
+
+it("joins durable scoped children into retained global rows after SQL reopen while native refresh is blocked", async () => {
+  dataDir = await realpath(
+    await mkdtemp(join(tmpdir(), "retained-child-sql-")),
+  );
+  const nativeDir = join(dataDir, "native"),
+    scopeA = join(nativeDir, "a"),
+    scopeB = join(nativeDir, "b");
+  await mkdir(scopeA, { recursive: true });
+  await mkdir(scopeB, { recursive: true });
+  const projectA = catalogProjectIdentity(join(dataDir, "project-a")),
+    projectB = catalogProjectIdentity(join(dataDir, "project-b"));
+  const now = new Date().toISOString();
+  const parents = [
+    {
+      publicId: "public-a",
+      native: nativeSessionRef(
+        "claude",
+        scopeA,
+        parseNativeSessionId("same-parent"),
+      ),
+      project: projectA,
+      title: "A child",
+    },
+    {
+      publicId: "public-b",
+      native: nativeSessionRef(
+        "claude",
+        scopeB,
+        parseNativeSessionId("same-parent"),
+      ),
+      project: projectB,
+      title: "B child",
+    },
+    {
+      publicId: "public-empty",
+      native: nativeSessionRef(
+        "claude",
+        scopeA,
+        parseNativeSessionId("empty-parent"),
+      ),
+      project: projectA,
+      title: undefined,
+    },
+    {
+      publicId: "public-unknown",
+      native: nativeSessionRef(
+        "claude",
+        scopeA,
+        parseNativeSessionId("unknown-parent"),
+      ),
+      project: projectA,
+      title: undefined,
+    },
+  ];
+  let sql = new DiscoverySqliteService({
+    dataDir,
+    probeNetworkFilesystem: () => undefined,
+  });
+  let metadata = new SessionMetadataService({
+    dataDir,
+    database: sql.getDatabase(),
+  });
+  await metadata.initialize();
+  const bus = new EventBus(),
+    errors: unknown[] = [];
+  let committed: () => void = () => {};
+  const indexed = () =>
+    new ProviderChildRelationshipService(
+      sql.getDatabase(),
+      metadata.relationships.serverId,
+      (owner) => {
+        bus.emit({
+          type: "session-metadata-changed",
+          sessionId: owner.sessionId,
+          timestamp: new Date().toISOString(),
+        });
+        committed();
+      },
+      (e) => errors.push(e),
+      () => metadata.relationships.index,
+    );
+  let index = indexed();
+  const publish = async (
+    parent: NativeSessionRef,
+    publicId: string,
+    title?: string,
+  ) => {
+    const done = new Promise<void>((resolve) => (committed = resolve));
+    index.demand(
+      parent,
+      { sessionId: publicId },
+      {
+        observe: async () => ({
+          version: title ?? "empty",
+          state: "complete",
+          children: title
+            ? [
+                {
+                  native: nativeSessionRef(
+                    "claude",
+                    join(parent.storageScope, parent.id, "subagents"),
+                    parseNativeSessionId("same-child"),
+                  ),
+                  summary: {
+                    id: "same-child",
+                    parentSessionId: parent.id,
+                    title,
+                    toolUseId: "call-" + publicId,
+                    updatedAt: now,
+                  } satisfies ProviderChildSessionSummary,
+                },
+              ]
+            : [],
+        }),
+        isCurrent: async () => true,
+      },
+    );
+    await done;
+  };
+  try {
+    sql.getDatabase().transaction(() => {
+      for (const p of parents) {
+        metadata.identities.allocateWithinTransaction({
+          sessionId: parseYaSessionId(p.publicId),
+          provider: "claude",
+          projectId: p.project.projectId,
+          createdAt: now,
+        });
+        metadata.identities.bindWithinTransaction(
+          parseYaSessionId(p.publicId),
+          p.native,
+        );
+      }
+    });
+    for (const p of parents.slice(0, 3))
+      await publish(p.native, p.publicId, p.title);
+    const managed = metadata.creations.admit({
+      requestId: "retained_managed_child_01",
+      context: {
+        owner: { kind: "superuser" },
+        source: { kind: "request", provenance: { surface: "web" } },
+      },
+      request: {
+        provider: "claude",
+        projectId: projectA.projectId,
+        projectPath: projectA.projectPath,
+        message: "managed parent before native catalog publication",
+        settings: {
+          permissionMode: "default",
+          requestedModel: null,
+          thinking: null,
+          effort: null,
+          serviceTier: null,
+        },
+      },
+    });
+    const managedNative = nativeSessionRef(
+      "claude",
+      scopeA,
+      parseNativeSessionId("managed-parent"),
+    );
+    const attempt = metadata.creations.beginDispatch(
+      managed.attempt,
+      managedNative,
+    );
+    metadata.creations.bindNative(attempt, managedNative);
+    await publish(managedNative, managed.sessionId, "Managed child");
+    await index.close();
+    sql.close();
+    await rm(nativeDir, { recursive: true });
+    sql = new DiscoverySqliteService({
+      dataDir,
+      probeNetworkFilesystem: () => undefined,
+    });
+    metadata = new SessionMetadataService({
+      dataDir,
+      database: sql.getDatabase(),
+    });
+    await metadata.initialize();
+    index = indexed();
+    const rows: SessionCatalogRow[] = parents.map((p) => ({
+      catalogFamily: "claude",
+      storeKey: p.native.storageScope,
+      nativeStorageScope: p.native.storageScope,
+      sessionId: p.native.id,
+      ...p.project,
+      updatedAt: now,
+      title: p.publicId,
+      fidelity: "head",
+      sourceVersion: "v1",
+      location: { kind: "provider", recordId: p.native.id },
+    }));
+    rows.push({
+      ...rows[0]!,
+      storeKey: "unscoped-legacy",
+      nativeStorageScope: undefined,
+      title: "unscoped",
+    });
+    const adapters: NativeSessionCatalogAdapter[] = [
+      ...new Set(rows.map((r) => r.storeKey)),
+    ].map((storeKey) => ({
+      catalogFamily: "claude",
+      storeKey,
+      scan: async () => ({
+        sourceVersion: "v1",
+        rows: rows.filter((r) => r.storeKey === storeKey),
+      }),
+    }));
+    const seed = new SessionCatalogService({ dataDir });
+    await seed.initialize();
+    const seeded = await seed.reconcile(adapters);
+    seed.stop();
+    let entered: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const blocked = new Promise<void>((resolve) => {
+      unblock = resolve;
+    });
+    collections = new RetainedSessionCollections({
+      dataDir,
+      eventBus: bus,
+      adapters: async () => {
+        entered();
+        await blocked;
+        return adapters;
+      },
+    });
+    const refresh = collections.refresh();
+    await started;
+    const scanner = new ProjectScanner({
+      projectsDir: join(dataDir, "missing-provider"),
+    });
+    const scan = vi.spyOn(scanner, "listProjects");
+    const reader = vi.fn(() => {
+      throw new Error(
+        "Retained child projection must not acquire a provider reader",
+      );
+    });
+    const demand = vi.spyOn(index, "demand");
+    const routes = createGlobalSessionsRoutes({
+      scanner,
+      readerFactory: reader,
+      retainedCollections: collections,
+      sessionMetadataService: metadata,
+      providerChildRelationships: index,
+      eventBus: bus,
+    });
+    const read = async (): Promise<GlobalSessionsResponse> =>
+      (await routes.request("/?summaryMode=retained&knownGeneration=1")).json();
+    const first = await read();
+    const byId = new Map<string, GlobalSessionItem>(
+      first.sessions.map((r) => [r.id, r]),
+    );
+    expect(byId.get("public-a")?.providerChildren).toMatchObject([
+      { id: "same-child", parentSessionId: "public-a", title: "A child" },
+    ]);
+    expect(byId.get("public-b")?.providerChildren).toMatchObject([
+      { id: "same-child", parentSessionId: "public-b", title: "B child" },
+    ]);
+    expect(byId.get(managed.sessionId)?.providerChildren).toMatchObject([
+      {
+        id: "same-child",
+        parentSessionId: managed.sessionId,
+        title: "Managed child",
+      },
+    ]);
+    expect(byId.get("public-empty")?.providerChildren).toEqual([]);
+    expect(byId.get("public-unknown")).not.toHaveProperty("providerChildren");
+    expect(byId.get("same-parent")).not.toHaveProperty("providerChildren");
+    expect(first.catalog).toMatchObject({
+      catalogEpoch: seeded.snapshot.catalogEpoch,
+      catalogGeneration: 1,
+      refreshing: true,
+    });
+    expect(demand).not.toHaveBeenCalled();
+    for (const p of parents) expect(index.hasSource(p.native)).toBe(false);
+    demand.mockRestore();
+    await publish(parents[0]!.native, "public-a", "A updated child");
+    const next = await read();
+    expect(
+      next.sessions.find((r) => r.id === "public-a")?.providerChildren?.[0]
+        ?.title,
+    ).toBe("A updated child");
+    expect(next.catalog?.catalogGeneration).toBe(
+      first.catalog?.catalogGeneration,
+    );
+    expect(next).not.toHaveProperty("unchanged");
+    const accepted = vi.spyOn(index, "accepted");
+    const page: GlobalSessionsResponse = await (
+      await routes.request("/?summaryMode=retained&limit=1&q=public-a")
+    ).json();
+    expect(page.sessions.map((s) => s.id)).toEqual(["public-a"]);
+    expect(accepted).toHaveBeenCalledExactlyOnceWith(
+      parents[0]!.native,
+      "public-a",
+    );
+    accepted.mockClear();
+    const filtered: GlobalSessionsResponse = await (
+      await routes.request(
+        `/?summaryMode=retained&project=${projectA.projectId}`,
+      )
+    ).json();
+    expect(filtered.sessions.some((r) => r.id === "public-b")).toBe(false);
+    expect(
+      accepted.mock.calls.some(([native]) => native.storageScope === scopeB),
+    ).toBe(false);
+    expect(scan).not.toHaveBeenCalled();
+    expect(reader).not.toHaveBeenCalled();
+    expect(errors).toEqual([]);
+    unblock();
+    await refresh;
+  } finally {
+    unblock();
+    await collections?.dispose();
+    await index.close();
+    sql.close();
+  }
 });

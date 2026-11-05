@@ -6,6 +6,7 @@ import {
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
+import { mergeProviderChildAgentMappings } from "../../src/sessions/provider-child-sessions.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { loadSqliteDriver } from "../../src/storage/sqlite.js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -242,6 +243,11 @@ describe.each(providers.filter(supportsNativeChildScenario))(
             ? {}
             : { toolUseId: callId }),
         });
+        if (isClaude(provider)) {
+          expect(await reader.getAgentMappings(f.nativeId())).toEqual([
+            expect.objectContaining({ agentId: childId, toolUseId: callId }),
+          ]);
+        }
         expect(await reader.listProviderChildSessions!(childId)).toEqual([]);
         expect(
           (await reader.listSessions(toUrlProjectId(f.project))).some(
@@ -299,6 +305,20 @@ describe.each(providers.filter(supportsNativeChildScenario))(
             expect(index.accepted(parent, "canonical-parent")).toMatchObject([
               { id: childId, parentSessionId: "canonical-parent" },
             ]);
+            if (isClaude(provider)) {
+              const fresh = await reader.getAgentMappings(f.nativeId());
+              const merged = mergeProviderChildAgentMappings(
+                fresh,
+                index.accepted(parent, "canonical-parent"),
+              );
+              expect(merged).toEqual(fresh);
+              expect(merged).toContainEqual(
+                expect.objectContaining({
+                  agentId: childId,
+                  toolUseId: callId,
+                }),
+              );
+            }
             await index.close();
             db.close();
             db = new DiscoverySqliteService({
@@ -324,6 +344,9 @@ describe.each(providers.filter(supportsNativeChildScenario))(
       expect(f.model.failures).toEqual([]);
       expect(f.errors).toEqual([]);
       expect(f.diagnostics).toEqual([]);
-    });
+      // Actual OpenCode spawn/persistence took 3.15 s standalone and exceeded
+      // the default 5 s under concurrent root checks on 2026-11-05. Keep three
+      // times that observed lower bound for native startup plus SQL reopen.
+    }, 15_000);
   },
 );

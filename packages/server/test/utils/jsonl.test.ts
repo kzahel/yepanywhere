@@ -65,6 +65,38 @@ describe("jsonl utilities", () => {
     ]);
   });
 
+  it("preserves long Unicode records, blank lines and a partial tail across stream chunks", async () => {
+    const dir = join(tmpdir(), `jsonl-chunks-${randomUUID()}`);
+    tempDirs.push(dir);
+    await mkdir(dir, { recursive: true });
+    const lines = [
+      "",
+      "a".repeat(65532),
+      JSON.stringify({ text: "α😀".repeat(262144) }),
+      "",
+      "with carriage return\r",
+      "unterminated😀".repeat(10000),
+    ];
+    const content = `\uFEFF${lines.join("\n")}`;
+    const paths = [join(dir, "records.jsonl")];
+    await writeFile(paths[0]!, content);
+    if (hasNativeZstd) {
+      paths.push(join(dir, "records.jsonl.zst"));
+      await writeFile(paths[1]!, zstdCompressed(content));
+    }
+    const { iterateJsonlLineRecords } = await import(
+      "../../src/utils/jsonl.js"
+    );
+    for (const path of paths) {
+      const records = [];
+      for await (const record of iterateJsonlLineRecords(path))
+        records.push(record);
+      expect(records).toEqual(
+        lines.map((line, i) => ({ line, terminated: i < lines.length - 1 })),
+      );
+    }
+  });
+
   itIfNativeZstd(
     "streams the first line of zstd JSONL without full file reads",
     async () => {

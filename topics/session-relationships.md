@@ -23,7 +23,7 @@ Related owners:
 Retained provider adapters wait for fresh child discovery before returning
 messages. A compact-tail bound cannot bound that independent work. The former
 Codex process-local projection also lost facts on restart and could consult the
-broader listing to find a selected parent. Claude, Codex and Grok application reads now use the
+broader listing to find a selected parent. Claude, Codex, Grok and OpenCode application reads now use the
 durable nonblocking path below; plan 176 tracks the remaining adapters.
 
 Meanwhile, durable relationships already have several owners:
@@ -319,6 +319,13 @@ from this model as their owning writers migrate. They retain their established
 semantics. A generic related-session view may show additional predicates, but
 API-created independent sessions must not become provider-native read-only
 children or inherit that UI's control limitations.
+
+Retained global collections now read child projections from the same SQL owner,
+using exact scoped native catalog identities or an admitted managed session's
+binding. Agent mappings supplement fresh native anchors with unambiguous SQL
+anchors after source loss, without removing pending native children. The
+[provider-child contract](provider-child-sessions.md#freshness-and-resource-use)
+owns these existing-wire projections and the bounded Claude legacy fallback.
 
 The v0 `relationships` resource should reuse the query service while keeping
 its creation receipt and initiated-command evidence. New normalized edge fields

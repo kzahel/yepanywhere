@@ -180,7 +180,7 @@ parse. Child creation may invalidate the bounded child projection. An append
 with no child lifecycle record must cost at most incremental append inspection,
 not a replay from byte zero.
 
-Claude, Codex and Grok application detail, metadata, incremental catch-up and older pagination
+Claude, Codex, Grok and OpenCode application detail, metadata, incremental catch-up and older pagination
 read accepted profile SQLite facts without awaiting native acquisition. Unknown
 or partial-empty observations omit enrichment; an accepted empty observation
 returns `[]`. Known facts survive restart, missing native files and failed
@@ -233,6 +233,36 @@ historical [startup investigation](../docs/tactical/089-main-thread-startup-cpu-
 records why repeatedly parsing complete parents from process snapshots was
 unacceptable. Current diagnostic detail scaling and restart evidence are in
 plan 176; the old benchmark is not evidence of SQL publication/read latency.
+
+The retained global session collection joins accepted SQL children using the
+catalog's exact native id and storage scope after public-id projection. A
+managed creation can use its SQL native binding before a catalog row exists.
+An unscoped legacy catalog row does not guess a binding. These reads neither
+open provider persistence nor register discovery, and still distinguish unknown
+from accepted empty children. Only the authorized, filtered response page needs
+child SQL queries; Inbox performs none. A new collection read sees structural
+publication even when the native catalog generation has not changed.
+
+The lazy agent-mapping route merges fresh native mappings with accepted SQL
+launch anchors. Fresh non-placeholder anchors and provider aliases win; SQL
+can restore missing anchors after source loss or replace an agent-id placeholder.
+Ambiguous stored child or call ids produce no guessed mapping. Missing native
+files do not erase stored anchors. Native failures still fail when no accepted
+observation exists; accepted facts remain available when native reads fail.
+This preserves pending-child discovery for existing clients without changing
+the mapping response or requiring a new client preference. Actual native
+fresh-plus-SQL launch anchors are qualified for Claude. The pre-existing
+[Codex v2 mapping gap](../gaps/codex-v2-agent-mappings-miss-native-start-items.md)
+remains separate from its qualified structural child discovery; Grok and
+OpenCode currently publish no SQL launch anchor.
+
+All Claude reader sidecar consumers require a regular metadata file of at most
+64 KiB, with no-follow opening where supported. Mapping reads use it first.
+A current sidecar launch id does not require a nonempty child transcript or
+reading its body. Older sidecars fall back to streaming the first five header
+lines after initial blank lines, retaining large legacy records with linear
+chunk processing and without reading the rest of a long child. Invalid or oversized optional sidecars leave that
+legacy fallback available. Retired readers return no fresh mappings.
 
 Inline content follows the heavier session-detail path. Current Claude streams
 route content by the provider child ID and map a parent tool call only when that

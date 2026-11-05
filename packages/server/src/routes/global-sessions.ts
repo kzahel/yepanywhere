@@ -592,24 +592,27 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
     // post-walk value would certify rows the response does not contain.
     const generation = collectionGeneration.current;
     if (c.req.query("summaryMode") === "retained" && deps.retainedCollections) {
+      const matches = (row: GlobalSessionItem) =>
+        (!accessibleProjectIdSet ||
+          accessibleProjectIdSet.has(row.projectId)) &&
+        matchesGlobalSessionQuery(row, {
+          filterProjectId,
+          searchQuery,
+          includeArchived,
+          starredOnly,
+          categorizedOnly,
+        }) &&
+        isBeforeCursor(row.updatedAt, afterCursor);
       const retained = await readRetainedSessionItems(
         deps.retainedCollections,
         deps,
+        (sessions) => sessions.filter(matches).slice(0, limit),
       );
       const accessibleSessions = retained.sessions.filter(
         (row) =>
           !accessibleProjectIdSet || accessibleProjectIdSet.has(row.projectId),
       );
-      const rows = accessibleSessions.filter(
-        (row) =>
-          matchesGlobalSessionQuery(row, {
-            filterProjectId,
-            searchQuery,
-            includeArchived,
-            starredOnly,
-            categorizedOnly,
-          }) && isBeforeCursor(row.updatedAt, afterCursor),
-      );
+      const rows = accessibleSessions.filter(matches);
       return c.json({
         ...retained,
         sessions: rows.slice(0, limit),

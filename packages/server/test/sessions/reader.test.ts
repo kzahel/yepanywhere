@@ -1321,6 +1321,44 @@ describe("SessionReader", () => {
       });
     });
 
+    it("uses current sidecar launch proof before a child writes transcript content and preserves large legacy headers", async () => {
+      const dir = join(testDir, "parent", "subagents");
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, "agent-current.jsonl"), "");
+      await writeFile(
+        join(dir, "agent-current.meta.json"),
+        JSON.stringify({ toolUseId: "current-call", agentType: "Explore" }),
+      );
+      const header = JSON.stringify({
+        type: "system",
+        message: "legacy-😀".repeat(20000),
+        parent_tool_use_id: "legacy-call",
+      });
+      await writeFile(
+        join(dir, "agent-legacy.jsonl"),
+        "\n \n" + header + "\n" + "{invalid body}\n".repeat(1000),
+      );
+      await writeFile(
+        join(dir, "agent-legacy.meta.json"),
+        JSON.stringify({
+          toolUseId: "oversized-wrong-call",
+          description: "x".repeat(70000),
+        }),
+      );
+      expect(await reader.getAgentMappings("parent")).toEqual(
+        expect.arrayContaining([
+          {
+            agentId: "current",
+            toolUseId: "current-call",
+            agentType: "Explore",
+          },
+          { agentId: "legacy", toolUseId: "legacy-call" },
+        ]),
+      );
+      reader.close();
+      expect(await reader.getAgentMappings("parent")).toEqual([]);
+    });
+
     it("returns empty array when no agent files exist", async () => {
       const mappings = await reader.getAgentMappings();
       expect(mappings).toHaveLength(0);

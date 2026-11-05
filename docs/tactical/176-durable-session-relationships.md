@@ -62,6 +62,42 @@ no wire capability and changes no access grants.
 
 ## Progress
 
+- Retained global collections and lazy agent mappings now consume the shared
+  SQL read model. Exact native scopes survive public-id projection, and managed
+  control rows can precede the native catalog. Unknown, accepted empty and
+  stored children survive restart/source loss without requesting discovery.
+  Fresh native launch anchors and pending children remain available; stored
+  ambiguous anchors are withheld. Claude uses current bounded sidecars without
+  reading child bodies and streams only legacy header records when needed.
+  Real SQLite/API tests cover cross-root collisions, source deletion, managed
+  admission, unchanged catalog generation and fresh-versus-stored mappings.
+  Only the authorized filtered response page queries child SQL; Inbox does
+  none. Opus accepts the final source with that bound, a linear JSONL splitter
+  for large legacy records, and native-failure fallback coverage. The actual
+  Claude fresh-plus-SQL mapping check and all seven structural native launch
+  variants pass without inference (7.88 seconds test work / 9.18 total).
+  The actual Codex v2 mapping check exposed a pre-existing missing started-item
+  consumer, recorded in its [gap](../../gaps/codex-v2-agent-mappings-miss-native-start-items.md)
+  for the next slice; this commit does not claim those anchors are qualified.
+  Sixty-seven focused filesystem/SQLite/API cases pass in 0.70 seconds test
+  work / 2.53 total. Node 22/24 and Bun diagnostics keep exactly 20 child
+  lookups for a 20-row response across 100, 1,000 and 5,000 catalog parents,
+  including 205 stored children after reopen with no native store. Complete
+  handler medians range from 8–23 ms; this is local evidence, not a portable
+  ceiling. Current Claude sidecars map 32 sparse 128 MiB child files in
+  3.8–7.8 ms; Node instrumentation records no child body streams. Bun timing
+  passes but that instrumentation is unavailable. The legacy 128 MiB case
+  reads 128 KiB on Node. A 32 MiB single-record before/after probe improves
+  from 922 to 80 ms on Node and 236 to 10 ms on Bun with no new record cutoff.
+  Automatic host samples record contention/headroom; Darwin CPU-busy/swap
+  counters are unavailable. Node/Bun 2,000-native-message desktop/phone checks
+  load the 40-message tail in 0.82–0.85 seconds, with every measured sequential
+  keystroke below 26 ms during child publication. Messages, DOM and draft stay
+  mounted; all four final captures were inspected. All required root gates
+  pass: lint has zero warnings, format/types pass, and 7,041 server / 7,110
+  client / 952 shared cases pass. Existing negative-fixture/navigation logger
+  debt remains in its owning gaps. No client contract changes.
+
 - OpenCode child SQL integration is independently reviewed and qualified.
   It acquires native parent/descendant proof
   from one read-only committed database snapshot, including WAL-only changes.

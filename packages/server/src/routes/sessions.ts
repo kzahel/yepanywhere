@@ -111,6 +111,7 @@ import { extractLastAgentExcerpt } from "../sessions/agent-excerpt.js";
 import {
   projectProviderChildren,
   resolveProviderChildSessions,
+  mergeProviderChildAgentMappings,
 } from "../sessions/provider-child-sessions.js";
 import { lastRewindableClaudeRowId } from "../sessions/claude-messages.js";
 import {
@@ -440,6 +441,7 @@ async function resolveSessionReader({
 }): Promise<{
   reader: ISessionReader;
   nativeSessionId: NativeSessionId;
+  native?: NativeSessionRef;
 } | null> {
   const bound = boundSessionSource(
     project,
@@ -451,6 +453,7 @@ async function resolveSessionReader({
     return {
       reader: bound.source.reader,
       nativeSessionId: bound.nativeSessionId,
+      native: bound.native,
     };
   const metadataProvider = deps.sessionMetadataService?.getProvider(
     sessionId,
@@ -467,6 +470,7 @@ async function resolveSessionReader({
     return {
       reader: resolved.source.reader,
       nativeSessionId: resolved.nativeSessionId,
+      native: resolved.native,
     };
   const fallback = await resolveLegacySessionSource(
     {
@@ -488,6 +492,7 @@ async function resolveSessionReader({
     ? {
         reader: fallback.source.reader,
         nativeSessionId: fallback.nativeSessionId,
+        native: fallback.native,
       }
     : null;
 }
@@ -2959,9 +2964,20 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       projectId: routing.transcriptProjectId,
     });
     if (!source) return c.json({ error: "Session not found" }, 404);
-    const mappings = await source.reader.getAgentMappings(
-      source.nativeSessionId,
-    );
+    const accepted = source.native
+      ? deps.providerChildRelationships?.accepted(
+          source.native,
+          c.req.param("sessionId"),
+        )
+      : undefined;
+    let fresh: Awaited<ReturnType<ISessionReader["getAgentMappings"]>>;
+    try {
+      fresh = await source.reader.getAgentMappings(source.nativeSessionId);
+    } catch (error) {
+      if (accepted === undefined) throw error;
+      fresh = [];
+    }
+    const mappings = mergeProviderChildAgentMappings(fresh, accepted);
 
     return c.json({ mappings });
   });
