@@ -4,7 +4,26 @@ import { readOwnedFile } from "./actions.js";
 import { providers } from "./selection.js";
 
 let fixture: Awaited<ReturnType<typeof nativeFixture>> | undefined;
+let coldPhases:
+  | {
+      provider: (typeof providers)[number];
+      started: number;
+      marks: Array<{ phase: string; atMs: number }>;
+    }
+  | undefined;
 afterEach(async (context) => {
+  if (coldPhases)
+    console.info(
+      JSON.stringify({
+        nativeColdResume: {
+          provider: coldPhases.provider,
+          marks: coldPhases.marks,
+          elapsedMs: Math.round(performance.now() - coldPhases.started),
+          state: context.task.result?.state,
+        },
+      }),
+    );
+  coldPhases = undefined;
   if (fixture && context.task.result?.state === "fail")
     console.info(
       JSON.stringify({
@@ -167,35 +186,57 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
   it.each(provider === "opencode" ? [true, false] : [true])(
     "cold resume preserves native identity, prior turns and actual tool bytes (git=%s)",
     {
-      // Linux two-worker control exhausted 10s with COLD_RESUME_DONE already
-      // observed; native reader/stop work shares this case. Allow 2x that floor.
-      timeout:
-        provider === "opencode"
-          ? 20_000
-          : ["antigravity", "grok"].includes(provider)
-            ? 10_000
-            : 5_000,
+      // Linux OpenCode exhausted 10s with COLD_RESUME_DONE already observed.
+      // After bootstrap repair, Linux Antigravity exhausted 10s after its first
+      // persisted turn (run 42060535825). Allow 2x each observed floor; retain
+      // native resume and final independent history/teardown assertions.
+      timeout: ["opencode", "antigravity"].includes(provider)
+        ? 20_000
+        : provider === "grok"
+          ? 10_000
+          : 5_000,
     },
     async (gitProject) => {
+      const phases = {
+        provider,
+        started: performance.now(),
+        marks: [] as Array<{ phase: string; atMs: number }>,
+      };
+      coldPhases = phases;
+      const mark = (phase: string) =>
+        phases.marks.push({
+          phase,
+          atMs: Math.round(performance.now() - phases.started),
+        });
+      mark("fixture-start");
       const f = await nativeFixture(provider, "gentle", {
         gitProject,
       });
       fixture = f;
+      mark("await-initial-request");
       const initial = await f.model.next();
+      mark("native-tool");
       readOwnedFile(provider, f.project, initial);
       const afterTool = await f.model.next();
       expect(
         JSON.stringify(afterTool.body).includes("OWNED_TOOL_CONTENT"),
       ).toBe(true);
+      mark("initial-output");
       afterTool.finish("BEFORE_COLD_RESTART");
       await f.output("BEFORE_COLD_RESTART");
       await f.idle();
       const id = f.nativeId();
+      mark("initial-stop");
       await f.stop();
+      // Opening a stopped session runs a production-reader replay before a
+      // user resumes it. Retain this interaction as well as the final reopen.
+      mark("initial-history");
       expect(
         JSON.stringify(await f.history()).includes("BEFORE_COLD_RESTART"),
       ).toBe(true);
+      mark("resume-source");
       const source = await f.source();
+      mark("resume-start");
       await f.restart({
         resumeSessionId: id,
         nativeResumeSource: source,
@@ -207,6 +248,7 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
           uuid: "55555555-5555-4555-8555-555555555555",
         },
       });
+      mark("await-resumed-request");
       const resumed = await f.model.next();
       if (provider === "antigravity")
         expect(resumed.model).toBe("gemini-3.7-flash");
@@ -215,15 +257,20 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       expect(body.includes("OWNED_TOOL_CONTENT")).toBe(true);
       expect(body.includes("BEFORE_COLD_RESTART")).toBe(true);
       expect(body.includes("AFTER_COLD_RESTART")).toBe(true);
+      mark("resumed-output");
       resumed.finish("COLD_RESUME_DONE");
       await f.output("COLD_RESUME_DONE");
       await f.idle();
       expect(f.nativeId()).toBe(id);
+      mark("resumed-stop");
       await f.stop();
+      mark("persisted-history");
       const persisted = JSON.stringify(await f.history());
       expect(persisted.includes("BEFORE_COLD_RESTART")).toBe(true);
       expect(persisted.includes("COLD_RESUME_DONE")).toBe(true);
+      mark("fixture-close");
       await f.close();
+      mark("complete");
       expect(f.errors).toEqual([]);
       expect(f.diagnostics).toEqual([]);
       expect(f.model.failures).toEqual([]);

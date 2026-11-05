@@ -117,3 +117,12 @@ busy, no swap use and at least 15.0 GB available; these are diagnostic samples,
 not a portable latency baseline. The workflow now provisions a missing
 `nobody` name as an alias of that existing user's primary group. Acceptance
 remains pending until that published source runs the real scenarios.
+
+The prerequisite [run 42060535825](https://github.com/kzahel/yepanywhere/actions/runs/42060535825)
+at `5719e3f2d` resolves the group as `nobody:x:65534` and passes 68/69 in
+92.07 seconds wall / 171.77 aggregate work. Antigravity queue, cancellation
+and retry pass. Its cold-resume scenario alone exhausts ten seconds after
+the first turn, with no repeated bootstrap abort. This proves that the group
+name repairs the observed bootstrap, not complete provider acceptance. The
+next cold-resume slice adds phase attribution while retaining the initial
+independent reader and derives its guard from this actual floor.

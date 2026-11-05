@@ -350,3 +350,13 @@ passes all 7,089 server tests in 147.32 seconds, alongside 7,112 client and
 changed. Ignored `tasks/session-relationships/slice-23-unit.log` retains the
 red result and `slice-23-publication-unit.log` retains the later green sample;
 this repeated readiness/event-delivery finding remains unresolved.
+
+2026-11-05: cold-resume phase attribution's final workspace check again misses
+the second nested delivery at line 364 (one observed, two expected). The
+focused file then fails the same assertion, with three passing cases and one
+skip in 12.79 seconds. Full evidence is retained in ignored
+`tasks/session-relationships/slice-25-final-unit.log` (7,088 other server
+passes / 150.50 seconds) and `slice-25-rendez-focused.log`. Client 7,112 and
+shared 954 pass. The earlier `slice-25-unit.log` is green but predates a
+restored native history assertion and cannot replace the final red run.
+Neither watcher source nor its assertions, budgets or retries changed.

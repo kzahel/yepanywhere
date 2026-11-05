@@ -657,3 +657,22 @@ getent group nobody
 ```
 
 The local installer and test scripts never run `sudo` automatically.
+
+## Cold resume qualification phases
+
+The shared cold-resume scenario stops its initial owner, opens history through
+an independent production reader, then resumes from native persistence. This
+covers opening a stopped session before sending new input, including the
+Antigravity reader's native `session/load`, which may update continuation
+metadata. The resumed model request must contain the initial prompt, actual
+tool result and prior reply; after stopping the resumed owner, another
+independent reader must recover both old and new turns.
+
+Fourteen fixed monotonic phase marks printed for each cold case distinguish
+construction, native exchanges, initial replay, source resolution, stop, final
+replay and close on passing and failing runs. Awaiting the initial or resumed
+request includes native spawn/load until model dispatch; these marks alone do
+not separate those internal steps. A last mark without its successor names
+unfinished work, not a completed phase. Timeout guards include reader and
+shutdown work. These cold cases qualify view-then-resume. They do not establish direct-only
+Antigravity or OpenCode resume.

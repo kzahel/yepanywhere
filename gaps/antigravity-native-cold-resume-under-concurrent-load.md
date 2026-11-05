@@ -31,3 +31,14 @@ or assertion in this scenario changed. Local logs are
 `tasks/session-relationships/slice-14-{qualified,quiet}-native-all.log`.
 
 Found 2026-11-04 while verifying the shared input-queue FIFO repair.
+
+The first provisioned Linux run,
+[42060535825](https://github.com/kzahel/yepanywhere/actions/runs/42060535825)
+at `5719e3f2d`, passes 68/69 but this same case exhausts ten seconds after
+its first native tool/turn. It has no resumed model request yet. Native stderr
+proves the separate missing-group bootstrap is repaired; the SIGTERM traces
+shown here belong to the stopped initial owner and preliminary reader runtime,
+not the previous SIGABRT. Bounded monotonic phase marks, retaining the initial
+reader `session/load` before resume, are the next qualification source. The
+proposed twenty-second guard is twice the exhausted floor; acceptance still needs actual
+local/load/hosted execution with all persistence assertions retained.

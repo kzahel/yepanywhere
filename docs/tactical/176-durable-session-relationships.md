@@ -1093,3 +1093,45 @@ the upcoming published hosted run must prove the alias is sufficient. The
 review's local-testbed instruction and gap-footer placement nits are addressed.
 No script acquires privilege automatically, no provider runs as root, and no
 prior failure without stderr is retroactively assigned this cause.
+
+### Attribute native cold resume and independent replay
+
+Run 42060535825 at `5719e3f2d` resolves `nobody:x:65534` and passes 68/69,
+including Antigravity queue, cancellation and retry. Its sole failure is the
+Antigravity cold-resume ten-second case after the initial native tool/turn
+completes. No new bootstrap abort occurs. The provider gate therefore remains
+unqualified and is not promoted into ordinary CI.
+
+The cold scenario now records fourteen fixed monotonic phase marks covering
+fixture construction, initial model/tool/output, stop, independent initial
+history, source resolution, restart, resumed model/output, final independent
+history and close. Awaiting a model request includes native spawn/load; the
+marks do not independently separate those internal steps. The production
+reader before resume preserves the real view-stopped-session-then-resume
+interaction, whose Antigravity `session/load` can update continuation metadata.
+Both model-content checks and the final production-reader reopen remain.
+
+Antigravity's case guard is twenty seconds, twice the actual hosted exhausted
+ten-second floor, matching the existing measured OpenCode guard. Other
+Antigravity cases and Grok guards are unchanged. This is headroom for native
+operations, not a speed claim. Independent review retains the first reader's
+unique production interaction as its own phase. Final local/native/hosted
+qualification follows before any acceptance claim.
+
+Opus accepts the final five pinned files after retaining both independent
+reader replays and naming request-wait phases accurately. Early constructor
+failures retain the provider name. All 69 native cases pass with two workers
+while workspace checks overlap (59.45 seconds wall / 112.70 aggregate work).
+Antigravity's fourteen marks end at 7.057 seconds; the initial and final
+replays take 1.296 and 1.291 seconds. These local timings are diagnostics,
+not matched performance comparisons or hosted acceptance.
+
+Final lint, formatting and types pass. The final workspace run remains red
+only for the existing Rendez second-delivery failure at line 364: 7,088 other
+server tests pass in 150.50 seconds, along with 7,112 client and 954 shared
+tests. Its focused recheck also fails that same assertion (three pass, one
+skip, 12.79 seconds total). Both red results remain in the watcher gap; no
+watcher source, assertion, deadline or retry changed. The earlier workspace
+pass predates the restored replay and does not replace this final result.
+The reviewed native phase/budget slice is published separately so the next
+provider-only Linux run can qualify its actual resume behavior.
