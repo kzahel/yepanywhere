@@ -25,22 +25,31 @@ afterEach(async (context) => {
 describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "native v0 creation relationships",
   () => {
-    it.each(["claude", "codex"] as const)(
-      "%s creates another native session through its launch-bound API and preserves proof across app replacement",
+    it.each([
+      ["claude", "claude"],
+      ["claude", "codex"],
+      ["codex", "claude"],
+      ["codex", "codex"],
+    ] as const)(
+      "%s creates native %s through its launch-bound API and preserves proof across app replacement",
       {
-        // Full app + two native launches + replacement took 7–8s/case
-        // locally and 11.88s under concurrent gates/review on macOS arm64.
-        // The existing 30s native-app envelope remains >2x that maximum.
-        timeout: 30_000,
+        // The full 2x2 matrix reached 18.00s/case on macOS arm64/Node24
+        // with native-app, all-provider and workspace suites concurrent.
+        // 40s gives >2x that observed maximum; this is not a speed assertion.
+        timeout: 40_000,
       },
-      async (provider) => {
+      async (provider, childProvider) => {
         const f = await nativeAppFixture(provider, {
           agentApiManagement: true,
+          additionalProviders: [childProvider],
         });
         fixture = f;
         await f.ready();
+        const wire = (name: typeof provider) =>
+          name === "claude" ? "anthropic" : "responses";
         const parent = await f.create("V0_PARENT_INITIAL");
         const first = await f.model.next();
+        expect(first.wire).toBe(wire(provider));
         const socket = await f.connect(parent.sessionId);
         const output = join(f.project, "creation-result.json"),
           script = join(f.project, "create-owned-session.cjs");
@@ -49,7 +58,7 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
           `const http=require('node:http'),fs=require('node:fs');
 async function api(path,body){return await new Promise((resolve,reject)=>{const url=new URL(process.env.AGENT_YA_V0_URL+path);const data=body===undefined?undefined:JSON.stringify(body);const r=http.request(url,{...(process.env.AGENT_YA_V0_SOCKET?{socketPath:process.env.AGENT_YA_V0_SOCKET}:{}),method:data?'POST':'GET',headers:{Authorization:process.env.AGENT_YA_V0_AUTHORIZATION,'Content-Type':'application/json'}},res=>{let text='';res.on('data',c=>text+=c);res.on('end',()=>{try{resolve({status:res.statusCode,body:JSON.parse(text)})}catch(e){reject(e)}})});r.on('error',reject);r.setTimeout(10000,()=>r.destroy(Error('Owned API deadline')));r.end(data)});}
 (async()=>{const me=await api('/v0/me');if(me.status!==200||!me.body.session?.management)throw Error('Launch management unavailable');const base='/v0/servers/'+me.body.server.id;
-const request={requestId:'native-v0-owned-creation',projectId:${JSON.stringify(parent.projectId)},provider:${JSON.stringify(provider)},message:'V0_CHILD_INITIAL',permissionMode:'bypassPermissions',model:${JSON.stringify(provider === "claude" ? "claude-haiku-5-5" : "gpt-6.1-sol")}};
+const request={requestId:'native-v0-owned-creation',projectId:${JSON.stringify(parent.projectId)},provider:${JSON.stringify(childProvider)},message:'V0_CHILD_INITIAL',permissionMode:'bypassPermissions',model:${JSON.stringify(childProvider === "claude" ? "claude-haiku-5-5" : "gpt-6.1-sol")}};
 const created=await api(base+'/sessions',request),retry=await api(base+'/sessions',request),conflict=await api(base+'/sessions',{...request,message:'Conflicting input'});
 let receipt=created.body;for(let i=0;i<40&&!receipt.sessionId;i++){await new Promise(r=>setTimeout(r,50));receipt=(await api(base+'/receipts/'+receipt.id)).body;}
 fs.writeFileSync(${JSON.stringify(output)},JSON.stringify({me:{serverId:me.body.server.id,session:me.body.session},created,retry,conflict,receipt}));console.log('V0_CREATION_TOOL_DONE');})().catch(e=>{console.error(e.message);process.exitCode=1});
@@ -72,12 +81,14 @@ fs.writeFileSync(${JSON.stringify(output)},JSON.stringify({me:{serverId:me.body.
         for (let i = 0; i < 2; i++) {
           const request = await f.model.next();
           if (JSON.stringify(request.body).includes("V0_PARENT_INITIAL")) {
+            expect(request.wire).toBe(wire(provider));
             expect(JSON.stringify(request.body)).toContain(
               "V0_CREATION_TOOL_DONE",
             );
             parentReply = request;
             request.partial("V0_PARENT_HELD");
           } else {
+            expect(request.wire).toBe(wire(childProvider));
             expect(JSON.stringify(request.body)).toContain("V0_CHILD_INITIAL");
             request.finish("V0_CHILD_DONE");
           }
@@ -192,7 +203,8 @@ fs.writeFileSync(${JSON.stringify(output)},JSON.stringify({me:{serverId:me.body.
             expect(rows.nativeObservation?.state).toBe("complete");
           expect(rows.publicChildren).toEqual([]);
           expect(rows.nativeChildren).toEqual([]);
-          expect(rows.childIdentity.native?.family).toBe(provider);
+          expect(rows.parentIdentity.native?.family).toBe(provider);
+          expect(rows.childIdentity.native?.family).toBe(childProvider);
           return rows.parentIdentity.native!.id;
         };
         const nativeParentId = await assertDurable();
@@ -260,6 +272,9 @@ fs.writeFileSync(${JSON.stringify(output)},JSON.stringify({me:{serverId:me.body.
         await f.close();
         expect(f.model.failures).toEqual([]);
         expect(f.model.requests).toHaveLength(3);
+        expect(f.model.requests.map((request) => request.wire).sort()).toEqual(
+          [wire(provider), wire(provider), wire(childProvider)].sort(),
+        );
       },
     );
   },

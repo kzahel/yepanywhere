@@ -69,7 +69,10 @@ async function freePort() {
 
 export async function nativeAppFixture(
   provider: AppProvider,
-  options: { agentApiManagement?: boolean } = {},
+  options: {
+    agentApiManagement?: boolean;
+    additionalProviders?: readonly AppProvider[];
+  } = {},
 ) {
   if (!["darwin", "linux"].includes(process.platform))
     throw Error(
@@ -79,8 +82,13 @@ export async function nativeAppFixture(
   const project = join(root, "project"),
     home = join(root, "home"),
     host = join(root, "host");
+  const enabledProviders = [
+    ...new Set([provider, ...(options.additionalProviders ?? [])]),
+  ];
   const model = await modelServer(
-    provider === "claude" ? "anthropic" : "responses",
+    enabledProviders.map((selected) =>
+      selected === "claude" ? "anthropic" : "responses",
+    ),
     {
       blockedHosts: [
         "chatgpt.com:443",
@@ -123,7 +131,7 @@ export async function nativeAppFixture(
     host,
     true,
     {
-      ENABLED_PROVIDERS: provider,
+      ENABLED_PROVIDERS: enabledProviders.join(","),
       ANTHROPIC_API_KEY: syntheticKey,
       OPENAI_API_KEY: syntheticKey,
       ANTHROPIC_BASE_URL: model.url,
@@ -223,15 +231,17 @@ export async function nativeAppFixture(
       join(env.CODEX_HOME!, "config.toml"),
       `model_provider = "owned_fixture"\n[model_providers.owned_fixture]\nname = "Owned local model"\nbase_url = "${model.url}/v1"\nwire_api = "responses"\nenv_key = "OPENAI_API_KEY"\nsupports_websockets = false\n[analytics]\nenabled = false\n`,
     );
-    const version = (
-      await exec(nativeExecutable(provider), ["--version"], {
-        cwd: project,
-        env,
-        timeout: 5000,
-      })
-    ).stdout.trim();
-    if (!version.split(/\s+/).includes(expectedVersions[provider]))
-      throw Error(`Unexpected native ${provider} version ${version}`);
+    for (const selected of enabledProviders) {
+      const version = (
+        await exec(nativeExecutable(selected), ["--version"], {
+          cwd: project,
+          env,
+          timeout: 5000,
+        })
+      ).stdout.trim();
+      if (!version.split(/\s+/).includes(expectedVersions[selected]))
+        throw Error(`Unexpected native ${selected} version ${version}`);
+    }
     child = spawn(process.execPath, [join(repo, "scripts/dev.js")], {
       cwd: repo,
       env,

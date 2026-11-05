@@ -546,7 +546,9 @@ WebSocket and a transient SQL read lock; corrected lifecycle ownership and the
 publication barrier handle them without changing product behavior.
 
 No product timeout, provider defaults, production source or client contract is
-changed. Cross-provider/peer-native creation and Windows remain explicit limits.
+changed. At this stage cross-provider/peer-native creation and Windows remain
+explicit limits; the cross-provider matrix is qualified in the later section
+below.
 
 
 ### Direct Codex reader metadata consolidation
@@ -624,3 +626,41 @@ counter remains explicitly unavailable. Automatic host samples report maximum
 load 0.57 per effective CPU and at least 9 GiB available memory; Darwin
 CPU-busy/swap counters remain unavailable. These are local diagnostics, not a
 portable regression ceiling or end-to-end session-load claim.
+
+### Cross-provider native v0 creation
+
+The existing launch-bound creation scenario now covers Claude→Claude,
+Claude→Codex, Codex→Claude and Codex→Codex. Its owned listener explicitly selects
+both native model protocols for mixed fixtures, dispatches each response using
+the request's actual protocol and retains the same synthetic-credential,
+loopback, unexpected-request and teardown checks. Both selected executable
+versions are verified; production launch defaults and public contracts do not
+change. The exact native family of each endpoint, direct per-exchange protocol
+assertions and the post-teardown two-parent/one-child protocol multiset
+complement the existing creator/receipt, retry, SQL, API replacement and catalog
+assertions. Opus accepted the final source after those protocol checks and a
+measured test-budget correction: the matrix reached 18.00 seconds per case
+under concurrent broad suites, so its guard is now 40 seconds (>2x). No creation
+case had failed its former 30-second guard; this is headroom, not acceleration.
+
+All eight final native-app cases pass without inference: 72.59 seconds
+aggregate / 35.45 wall. The four creation cases take 8.4–8.8 seconds each.
+Automatic host samples report maximum load 0.51 per effective CPU and at least
+23 GiB available memory; Darwin CPU-busy/swap counters are unavailable. An
+earlier concurrent run passes all eight in 131.78 seconds aggregate / 62.90
+wall; that contention sample remains part of the budget evidence.
+
+The standalone all-provider suite passes all 68 cases in 97.09 seconds
+aggregate / 41.66 wall, with automatic host load at most 0.34 per effective CPU
+and at least 31 GiB available memory. Running it alongside the workspace and
+native-app suites first produced three timeouts (65 passes): the existing
+Antigravity cold-resume gap and two OpenCode scenario-budget findings. Their
+raw failures remain captured in their owning gaps; their budgets and assertions
+are unchanged, and the later control does not establish a fix under load.
+
+All four root gates pass on the final reviewed source: zero lint warnings,
+format/types and 7,059 server / 7,110 client / 952 shared tests. The server
+suite takes 151.18 seconds; ordinary runs skip the four native creation cases.
+Existing failure-fixture/navigation diagnostic debt remains tracked separately.
+Peer-native dispatch, Windows and new public graph contracts remain outside
+this local matrix.

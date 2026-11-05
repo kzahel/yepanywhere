@@ -367,9 +367,10 @@ interface ModelServerOptions {
 }
 
 export async function modelServer(
-  wire: ModelWire,
+  wire: ModelWire | readonly ModelWire[],
   options: ModelServerOptions = {},
 ) {
+  const allowedWires = typeof wire === "string" ? [wire] : wire;
   const requests: Exchange[] = [],
     auxiliaryRequests: Array<{ kind: string; body: ModelRequest }> = [];
   const waiting: Array<{
@@ -481,17 +482,21 @@ export async function modelServer(
         res.end(JSON.stringify({ input_tokens: 100, totalTokens: 100 }));
         return;
       }
-      if (req.method !== "POST" || actualWire !== wire) {
+      if (
+        req.method !== "POST" ||
+        !actualWire ||
+        !allowedWires.includes(actualWire)
+      ) {
         fail(`Unexpected native request: ${req.method} ${path}`);
         res.writeHead(400);
         res.end();
         return;
       }
       const model =
-        wire === "gemini"
+        actualWire === "gemini"
           ? decodeURIComponent(path.split("/models/")[1]!.split(":")[0]!)
           : String(body.model);
-      const exchange = new Exchange(body, res, wire, model);
+      const exchange = new Exchange(body, res, actualWire, model);
       requests.push(exchange);
       const waiter = waiting.shift();
       if (waiter) waiter.resolve(exchange);

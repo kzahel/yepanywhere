@@ -101,12 +101,28 @@ A single read-only SQL snapshot supplies rows, with assertions outside the
 publication wait. The post-restart catalog contains exactly the parent and
 child; model failure/egress and dispatch counts are checked after joined teardown.
 
-This qualifies the two currently supported local v0 providers on POSIX Node.
-It does not qualify cross-provider creation, peer-native dispatch, Windows or a
-new public graph contract. Unit/integration fixtures retain the remaining
-admission, peer, recovery and access-control boundaries. The two new cases are
-opt-in with the existing native-app suite, rather than another startup cost in
-ordinary workspace tests.
+The fixture now exercises the full two-by-two creation matrix for the currently
+supported local v0 providers: Claude and Codex can each create either provider.
+Both exact native versions are checked when selected, and a mixed fixture
+explicitly allows both model protocols on its owned listener. Each exchange uses
+the protocol detected from its request path; unexpected routes/protocols,
+credentials or external model endpoints still fail, retaining the explicitly
+classified auxiliary requests. Each initial parent, parent continuation and
+child exchange is directly checked against its expected protocol. Post-teardown
+counts also require two parent-protocol requests and one child-protocol request,
+without assuming which concurrent continuation arrives first. The creation
+case has a 40-second test budget, derived from its measured 18.00-second maximum
+with workspace, native-app and all-provider suites running concurrently; this
+adds guard headroom rather than changing runtime behavior or claiming speed.
+
+This remains POSIX Node qualification. It does not qualify peer-native dispatch,
+Windows or a new public graph contract. Unit/integration fixtures retain the
+remaining admission, peer, recovery and access-control boundaries. The four
+creation cases are opt-in with the existing native-app suite, rather than
+another startup cost in ordinary workspace tests. Independent review and the
+final eight native-app cases pass. The standalone all-provider suite passes
+68 cases; concurrent OpenCode/Antigravity budget failures remain open findings,
+not repaired flakes. Detailed timings and scope are recorded in plan 176.
 
 ## Native child evidence
 

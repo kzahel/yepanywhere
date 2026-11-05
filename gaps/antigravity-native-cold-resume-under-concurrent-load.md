@@ -15,4 +15,19 @@ observed 10-second limit. This is separate from FIFO input correctness and
 from the already wider Antigravity rate-limit recovery case. Evidence is in
 ignored `tasks/input-boundaries-implementation/fifo-{all-native,all-second}.log`.
 
+Reproduced 2026-11-05 while qualifying cross-provider native v0 creation. The
+all-provider run overlapped the workspace and eight native-app cases: this
+case exhausted 10 seconds again. Its diagnostic already contained the expected
+cold-resume reply and result with idle state, so total startup/reader/cleanup
+cost still needs attribution. Two OpenCode cases also exhausted their separate
+five-second envelopes, tracked in the [OpenCode native scenario gap](opencode-native-scenario-budgets-under-concurrent-load.md).
+
+With the same source and no competing workspace/native-app run, all 68 native
+cases passed in 41.66 seconds wall / 97.09 aggregate test work. Automatic host
+samples reported maximum load 0.34 per effective CPU and at least 31 GiB
+available memory; Darwin CPU-busy/swap counters were unavailable. The earlier
+red run remains evidence of the load limit, not a repaired flake. No timeout
+or assertion in this scenario changed. Local logs are
+`tasks/session-relationships/slice-14-{qualified,quiet}-native-all.log`.
+
 Found 2026-11-04 while verifying the shared input-queue FIFO repair.
