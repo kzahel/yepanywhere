@@ -195,7 +195,7 @@ async function enrichProcessInfo(
     if (
       providerChildren &&
       (providerChildren.length > 0 ||
-        (bound?.native && reader.getProviderChildSource?.(bound.native)))
+        (deps.providerChildRelationships && bound?.native))
     )
       enriched.providerChildren = projectProviderChildren(
         providerChildren,

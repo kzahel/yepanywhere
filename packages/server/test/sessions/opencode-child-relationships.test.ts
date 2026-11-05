@@ -16,6 +16,7 @@ import { openCodeRelationshipWatcherSpec } from "../../src/sessions/opencode-chi
 import { OpenCodeDbReader } from "../../src/sessions/opencode-db-reader.js";
 import { OpenCodeSessionReader } from "../../src/sessions/opencode-reader.js";
 import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
+import { resolveProviderChildSessions } from "../../src/sessions/provider-child-sessions.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { loadSqliteDriver } from "../../src/storage/sqlite.js";
 import { FileWatcher } from "../../src/watcher/FileWatcher.js";
@@ -221,6 +222,104 @@ it("publishes native descendants with immediate parents, sees WAL-only commits, 
   } finally {
     await reopened.close();
   }
+});
+it("keeps bound SQL children when a colliding reader rejects their scope or is unavailable", async () => {
+  const a = await fixture();
+  const b = await fixture();
+  a.child("child-a");
+  b.child("child-b");
+  b.child("empty", null);
+  const empty = nativeSessionRef(
+    "opencode",
+    b.nativeRoot,
+    parseNativeSessionId("empty"),
+  );
+  a.demand();
+  a.service.demand(b.parent, { sessionId: "public-b" }, b.source);
+  a.service.demand(
+    empty,
+    { sessionId: "public-empty" },
+    b.reader.getProviderChildSource(empty)!,
+  );
+  await a.wait(
+    () =>
+      a.service.accepted(a.parent, "public-parent")?.length === 1 &&
+      a.service.accepted(b.parent, "public-b")?.length === 1 &&
+      a.service.accepted(empty, "public-empty")?.length === 0,
+  );
+  const reader = new OpenCodeSessionReader({
+    databasePath: a.path,
+    storageDir: a.storage,
+    projectPath: a.project,
+    nativeStorageScope: a.nativeRoot,
+  });
+  cleanup.push(async () => reader.close());
+  // Both native stores contain the same parent id, but a bound reader rejects
+  // the other store. A bare-id fallback really would find the wrong children.
+  expect(reader.getProviderChildSource(b.parent)).toBeUndefined();
+  expect(
+    (await reader.listProviderChildSessions("parent")).map((c) => c.id),
+  ).toEqual(["child-a"]);
+  const fresh = vi.spyOn(reader, "listProviderChildSessions");
+  const indexed = {
+    service: a.service,
+    native: b.parent,
+    publicSessionId: "public-b",
+  };
+  for (const mode of ["fresh", "accepted-or-cheap"] as const) {
+    expect(
+      (
+        await resolveProviderChildSessions(reader, "parent", mode, indexed)
+      )?.map((c) => c.id),
+    ).toEqual(["child-b"]);
+  }
+  expect(fresh).not.toHaveBeenCalled();
+  expect(a.service.hasSource(b.parent)).toBe(true);
+  await a.service.close();
+  const reopened = new ProviderChildRelationshipService(
+    a.profile.getDatabase(),
+    "server",
+    () => {},
+  );
+  cleanup.push(() => reopened.close());
+  // Source loss and an absent/retired reader do not discard retained facts or
+  // turn a new scope's unknown state into the colliding store's positive set.
+  await rename(b.nativeRoot, join(b.root, "gone"));
+  reader.close();
+  for (const available of [undefined, reader]) {
+    for (const mode of ["fresh", "accepted-or-cheap"] as const) {
+      expect(
+        (
+          await resolveProviderChildSessions(available, "parent", mode, {
+            ...indexed,
+            service: reopened,
+          })
+        )?.map((c) => c.id),
+      ).toEqual(["child-b"]);
+      expect(
+        await resolveProviderChildSessions(available, "parent", mode, {
+          ...indexed,
+          service: reopened,
+          native: nativeSessionRef(
+            "opencode",
+            join(b.root, "unknown"),
+            parseNativeSessionId("parent"),
+          ),
+        }),
+      ).toBeUndefined();
+      expect(
+        await resolveProviderChildSessions(available, "empty", mode, {
+          ...indexed,
+          service: reopened,
+          native: empty,
+          publicSessionId: "public-empty",
+        }),
+      ).toEqual([]);
+    }
+  }
+  expect(fresh).not.toHaveBeenCalled();
+  expect(reopened.hasSource(b.parent)).toBe(false);
+  expect(a.errors).toEqual([]);
 });
 it("revalidates the logical WAL snapshot before publication and isolates cycles and foreign ancestry", async () => {
   const f = await fixture();

@@ -772,3 +772,31 @@ Remaining work includes copied/legacy/previously confined histories, automatic
 corpus acquisition, other harness families and the separately pending public
 compatibility decision. This read-triggered producer does not claim universal
 historical coverage or completion of the full plan.
+
+### Preserve bound children when native acquisition is unavailable
+
+An exact indexed lookup no longer falls back to bare-id native discovery when
+its reader rejects the bound scope or is absent/retired. It returns only the
+exact SQL projection and preserves unknown versus accepted empty. The legacy
+reader-only path remains available solely to unindexed callers. This closes a
+scope collision and a route back to request-blocking acquisition; it introduces
+no API contract or provider schema change.
+
+Processes also emits an indexed known-empty set independently of a live native
+source, matching detail, metadata and lists without building a throwaway source.
+
+A real two-store OpenCode regression first reproduced the wrong-root result.
+It checks both lookup modes, service reopen and native source loss, absent and
+retired readers, and known-empty versus unknown state. Opus accepted the final
+source after the Processes correction and two documentation/fixture nits. Its
+nine-file focused cohort passed all 93 cases; the owner's focused route/reader
+cohort passed all 41. No shallow test duplicates the Processes predicate.
+
+All four root gates pass: zero lint warnings, format/types, 7,087 server / 7,112
+client / 954 shared tests. The server suite takes 145.20 seconds on the local
+macOS/Node 24 host; this is a qualification observation, not a portable timing
+ceiling. Existing negative-fixture diagnostics remain recorded under their
+owning gaps. This internal change adds no native tool, provider schema, SQL
+statement or client contract. The separately pending public compatibility
+decision and other recorded qualification limits still apply; the full plan
+remains active.

@@ -190,6 +190,13 @@ the same SQL facts through the stored scoped native binding. Stored activity
 times describe the last structural observation. Current activity overlays do
 not become durable merely because an unrelated sibling changes.
 
+An exact indexed native binding remains authoritative when its reader is absent,
+retired or rejects that storage scope. Return that binding's accepted SQL facts,
+including known empty versus unknown, without bare-id discovery or registration
+of a mismatched source. A same-string parent in another native store cannot
+replace those facts. Only an explicitly unindexed legacy lookup may retain the
+older reader-only path.
+
 One profile coordinator owns a bounded source queue and finite coalesced work,
 with no per-session timer. Explicit detail demand and native file observations
 schedule acquisition outside request context. The Codex adapter reuses the
@@ -362,11 +369,11 @@ ID is actually present. Reload and lazy-load endpoints pass the canonical
 parent ID into the reader, which makes current-layout discovery parent-scoped.
 
 The Agents projection still comes from the process snapshot. Project and
-global session lists attach children for idle parents too: Claude and Codex use
-accepted SQL child facts and never start a cold parent rollout
-parse for a list read. Claude and Codex metadata/detail attach accepted SQL facts and
-schedule acquisition independently; retained adapters still request a fresh
-listing for the open parent. `providerChildren` is optional on those existing
+global session lists attach children for idle parents too. Indexed Claude,
+Codex, Grok and OpenCode reads use accepted SQL child facts and schedule finite
+acquisition independently when a source is available. They never wait for a
+fresh native child listing. Unindexed legacy callers retain the reader-only
+path. `providerChildren` is optional on those existing
 payloads; an omitted metadata field preserves any already accepted children. The nested child page uses the existing agent-session GET and does
 not add a capability. A later indexed historical projection may replace the
 per-parent readdir, but list reads must not parse child or parent JSONL.

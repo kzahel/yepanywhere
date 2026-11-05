@@ -93,15 +93,15 @@ export async function resolveProviderChildSessions(
     publicSessionId: string;
   },
 ): Promise<ProviderChildSessionSummary[] | undefined> {
-  if (!reader) {
-    return undefined;
-  }
-  const source = indexed && reader.getProviderChildSource?.(indexed.native);
-  if (indexed && source) {
+  if (indexed) {
     const accepted = indexed.service.accepted(
       indexed.native,
       indexed.publicSessionId,
     );
+    const source = reader?.getProviderChildSource?.(indexed.native);
+    // A bound lookup never loses its namespace or its durable facts because
+    // native acquisition is unavailable. Bare-id discovery is legacy only.
+    if (!source) return accepted;
     const children =
       accepted && !indexed.service.hasSource(indexed.native)
         ? (source.overlayActivity?.(accepted) ?? accepted)
@@ -121,6 +121,7 @@ export async function resolveProviderChildSessions(
       );
     return children;
   }
+  if (!reader) return undefined;
   if (
     mode === "accepted-or-cheap" &&
     reader.listAcceptedProviderChildSessions
