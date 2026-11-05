@@ -314,6 +314,35 @@ whole-install materialization. Session status overlays and receipt outcomes
 remain separate joins. Stable cursors/order and bounded page/query/cache work
 must be exercised against large fan-out and concurrent source changes.
 
+The internal `projectRelationshipBatch` adapter now centralizes endpoint and
+evidence projection above the private index. A caller authorizes every query
+anchor before SQL, resolves both endpoints through its existing identity/access
+owner, and supplies an evidence allow-list separately. It can merge a canonical
+YA resource and that identity owner's exact native binding without another
+registry or additional prepared statements. Each finite batch selects at most
+200 unique edges from at most two indexed anchor reads, with at most 20 active
+evidence excerpts per edge. Both directions across two anchors execute at most
+four list statements, read 804 raw rows and decode 400 edges before selecting
+that batch, plus at most 200 evidence queries and caller-owned policy work.
+These excerpts do not claim exhaustive proof history.
+
+Provider-child projections use this adapter under their already authorized
+exact-parent navigation scope. They additionally require one unambiguous
+structural parent and provider-observed evidence, and preserve unknown versus
+accepted empty. This grants neither access to another top-level session nor
+access to creator receipts. Other adapters must supply their own existing
+policy; endpoint access alone never authorizes receipt/proof visibility.
+
+Batch scan progress is private control data, not a public pagination contract.
+Its cursor may advance over withheld rows, so neither it nor a raw count or
+inferred has-more bit may enter API replies. Progress is held in private class
+fields, absent from JSON and object spreads. Raw edge ids hash private scoped
+references and are also excluded from projected output; a hash is not path
+redaction. A future API must establish
+authorized-page lookahead/continuation before exposing pagination; a withheld
+or bounded evidence result cannot establish known empty. No generic route,
+client dependency or revised v0 resource is introduced by this internal adapter.
+
 Adapt today's `providerChildren`, `/agents` navigation, fork and `/btw` fields
 from this model as their owning writers migrate. They retain their established
 semantics. A generic related-session view may show additional predicates, but

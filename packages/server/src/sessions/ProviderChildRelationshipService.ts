@@ -12,6 +12,7 @@ import {
 } from "@yep-anywhere/shared";
 import { runOutsideRequestContext } from "../lib/outsideRequestContext.js";
 import type { SqliteDatabase } from "../storage/sqlite.js";
+import { projectRelationshipBatch } from "./session-relationship-query.js";
 import {
   SessionRelationshipStore,
   relationshipResourceKey,
@@ -157,40 +158,49 @@ export class ProviderChildRelationshipService {
     let filtered = false;
     let after: string | undefined;
     do {
-      const page = this.index.list({
-        resource,
-        direction: "outgoing",
-        type: "provider_child",
-        after,
-        limit: 200,
-      });
-      for (const edge of page.edges) {
-        if (edge.target.kind !== "native") {
-          filtered = true;
-          continue;
-        }
-        // Conflicting structural observations do not silently acquire parenting.
-        const parents = this.index.list({
-          resource: edge.target,
-          direction: "incoming",
+      // The route/catalog owner already authorizes this exact native parent.
+      // Its native children retain that parent's read-only navigation scope;
+      // no unrelated session, creator receipt or transitive grant is admitted.
+      const page = projectRelationshipBatch(
+        this.index,
+        {
+          resources: [resource],
+          direction: "outgoing",
           type: "provider_child",
-          limit: 2,
-        });
-        if (parents.edges.length !== 1 || parents.next) {
-          filtered = true;
-          continue;
-        }
-        const evidence = this.index
-          .evidence(edge.id, { limit: 20 })
-          .filter((e) => e.trust === "provider-observed")
-          .sort((a, b) => b.observedAt.localeCompare(a.observedAt))[0];
-        if (!evidence) {
-          filtered = true;
-          continue;
-        }
+          after,
+        },
+        {
+          anchor: (candidate) =>
+            relationshipResourceKey(candidate) === this.key(native),
+          endpoint: (candidate, _edge, position) => {
+            if (candidate.kind !== "native") return undefined;
+            if (position === "target") {
+              // Conflicting observations cannot silently acquire parenting.
+              const parents = this.index.list({
+                resource: candidate,
+                direction: "incoming",
+                type: "provider_child",
+                limit: 2,
+              });
+              if (parents.edges.length !== 1 || parents.next) return undefined;
+            }
+            return candidate.native;
+          },
+          evidence: (entry) =>
+            entry.trust === "provider-observed"
+              ? { metadata: entry.metadata, observedAt: entry.observedAt }
+              : undefined,
+        },
+      );
+      if (!page) return undefined;
+      filtered ||= page.withheld;
+      for (const edge of page.relationships) {
+        const evidence = edge.evidence.sort((a, b) =>
+          b.observedAt.localeCompare(a.observedAt),
+        )[0]!;
         const m = evidence.metadata;
         children.push({
-          id: edge.target.native.id,
+          id: edge.target.id,
           parentSessionId: publicParentId,
           ...(m.title ? { title: m.title } : {}),
           ...(m.agentType ? { agentType: m.agentType } : {}),
@@ -199,7 +209,7 @@ export class ProviderChildRelationshipService {
           updatedAt: m.nativeUpdatedAt ?? evidence.observedAt,
         });
       }
-      after = page.next ?? undefined;
+      after = page.scanAfter ?? undefined;
     } while (after);
     children.sort(
       (a, b) =>

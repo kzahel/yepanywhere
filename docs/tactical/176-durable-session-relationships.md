@@ -583,3 +583,44 @@ streams on Node; Bun does not support that instrumentation and reports the
 counter as unavailable. Automatic host samples report maximum load 0.21 per
 effective CPU and at least 10 GiB available memory. These are local metadata
 diagnostics, not HTTP or mobile latency ceilings. No client contract changes.
+
+### Shared authorized relationship projection
+
+The internal query adapter now accepts a canonical YA resource and its existing
+exact native binding, merges bounded incoming/outgoing/type-filtered SQL pages,
+and requires caller-owned endpoint and evidence projection. Provider-child
+reads are its first retained consumer, preserving unique-parent and
+provider-observed evidence policy within the already authorized parent scope.
+No identity/grant registry, native I/O, additional statements, cache or recurring
+work is added. Private raw scan progress cannot be serialized by JSON or object
+spread; it is not an API continuation. Generic routes, public authorized-page
+semantics, v0 adapters and bounded nested-harness acquisition remain separate.
+
+Real SQLite cases exercise existing identity bindings, cross-root native-id
+collisions, remote/unresolved endpoints, separately hidden receipt evidence,
+mixed-direction alias pagination beyond a full batch and concurrent unrelated
+writes. A 510-fact scan also inserts 32 related edges between batches and checks
+the actual stored ids on both sides of its saved cursor: later keys appear
+exactly once, earlier keys require a fresh scan. Raw edge ids hash private
+scope paths, so they are excluded from projected output rather than mistaken
+for redacted identifiers. Opus accepted the final implementation after this
+privacy fix, binary cursor ordering and the stronger insertion oracle.
+
+All four root gates pass, with zero lint warnings and 7,054 server / 7,110
+client / 952 shared tests. The final server suite takes 147.15 seconds. The
+focused final graph/service cases pass 26/26 in 0.40 seconds test work / 0.89
+wall; all seven actual native child variants pass in 11.58 / 15.03 seconds.
+The existing failure-fixture/navigation diagnostic debt remains in its owning
+gaps. No client, route, v0, grant or native provider target changes.
+After rebasing concurrent app-viewer/reload work, all four combined-tree gates
+also pass: 7,059 server / 7,110 client / 952 shared tests, with the server suite
+at 147.72 seconds. The reviewed runtime and test bodies are unchanged.
+
+Node 22/24 and Bun diagnostics retain empty transcript caches and metadata-only
+child discovery: 20 concurrent readers / 205 children / 8 MiB parent take
+50–52 ms; SQL publication takes 18–21 ms, projection medians 6.6–6.9 ms and
+reopen after native deletion 7.0–8.0 ms. Node records zero body streams; Bun's
+counter remains explicitly unavailable. Automatic host samples report maximum
+load 0.57 per effective CPU and at least 9 GiB available memory; Darwin
+CPU-busy/swap counters remain unavailable. These are local diagnostics, not a
+portable regression ceiling or end-to-end session-load claim.
