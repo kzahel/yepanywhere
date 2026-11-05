@@ -199,7 +199,17 @@ for (const hosted of [false, true])
           (session: { id: string }) => session.id === receipt.sessionId,
         ),
       ).toHaveLength(1);
-      expect(nativeUrls).toEqual([]);
+      await expect(page).toHaveURL(
+        `${origin}/projects/${projectId}/sessions/${nativeId}?yaSessionId=${receipt.sessionId}`,
+      );
+      expect(nativeUrls.length).toBeGreaterThan(0);
+      for (const value of nativeUrls) {
+        const url = new URL(value);
+        expect(url.pathname).toBe(
+          `/projects/${projectId}/sessions/${nativeId}`,
+        );
+        expect(url.searchParams.get("yaSessionId")).toBe(receipt.sessionId);
+      }
       expect(errors).toEqual([]);
     } catch (error) {
       if (server) {

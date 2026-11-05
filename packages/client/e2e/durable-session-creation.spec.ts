@@ -416,8 +416,9 @@ test("a disappeared executable leaves a saved failed session and prompt after pa
     );
     await expect(failure).toBeVisible();
     const sessionUrl = page.url();
-    await page.getByText("Saved prompt", { exact: true }).click();
-    await expect(page.getByText(prompt, { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Saved prompt", exact: true }),
+    ).toHaveText(prompt);
     await recordUiCapture(page, "claude-creation-failed-desktop");
     await page.setViewportSize({ width: 375, height: 812 });
     await recordUiCapture(page, "claude-creation-failed-phone");

@@ -94,7 +94,9 @@ for (const hosted of [false, true])
       await expect(
         page.getByText("OWNED_PI_CONTINUED_REPLY", { exact: true }).first(),
       ).toBeVisible();
-      await expect(page).toHaveURL(origin + path);
+      await expect(page).toHaveURL(
+        `${origin}/projects/${owned.projectId}/sessions/${native}?yaSessionId=${receipt.sessionId}`,
+      );
       await expect(
         page.getByText("OWNED_PI_CREATION_REPLY", { exact: true }).first(),
       ).toBeVisible();
