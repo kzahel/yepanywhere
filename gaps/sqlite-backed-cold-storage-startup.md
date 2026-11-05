@@ -1,5 +1,34 @@
 # Large JSON stores delay server readiness and retain cold data in RAM
 
+Progress, 2026-11-05 — Contributing-model: 6-astra
+
+The built-client reload path now reuses an unchanged, intact build within its
+own wrapper. It checks source/configuration/install inputs and emitted content;
+changed inputs rebuild before stopping Hono, and failed or concurrently edited
+builds keep the incumbent backend. See
+[built-client reload](../topics/reload-safe-provider-runtimes.md#built-client-for-everyday-source-checkout-use).
+The wrapper itself needs a restart to adopt this code; ordinary Hono reload
+does not update it. Fresh wrapper startup still builds once.
+
+An isolated real Vite build on Linux/Node 24.22.1 took 16,500 ms including
+fingerprinting and preparation; three subsequent unchanged checks took
+210/193/198 ms and launched no builder. The same reuse assertion rejects the
+previous implementation, which launched a second build. Wrapper integration
+checks cover same-directory reuse, replacement, failed-build preservation and
+cleanup; filesystem checks cover same-size/preserved-mtime edits, additions,
+deletions, environment changes, missing/corrupt output and edits during build.
+The host had 16 logical CPUs, 85.9% available RAM, load about 7–9, and existing
+YA/provider workloads; a short sample showed 62% CPU idle and some swap-in.
+These are diagnostic build-phase measurements, not full restart or browser
+readiness measurements. No production restart was performed. No probe process
+or generated build remained after cleanup. macOS/Windows execution was not
+available locally.
+
+Still open: eager session-metadata loading/retention, discovery enumeration and
+retained-provider reattachment, first-wrapper build cost, and end-to-end initial
+view/memory qualification. The change above addresses measured reload work,
+not the cold-storage migration/query-scope contract below.
+
 Progress, 2026-11-04: production provider summaries now persist in the required
 SQLite database. Legacy per-scope JSON indexes import lazily and atomically;
 selected-session summary reads query one row instead of loading the scope.

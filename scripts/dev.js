@@ -175,7 +175,7 @@ if (!builtClient)
   );
 if (backendWatch) console.log("  Backend auto-reload: ENABLED (--watch)");
 if (noFrontendReload) console.log("  Frontend HMR: DISABLED");
-if (builtClient) console.log("  Frontend: built client, rebuilt on reload");
+if (builtClient) console.log("  Frontend: built client, checked on reload");
 if (!backendWatch && !noFrontendReload && !builtClient)
   console.log("  Frontend HMR: ENABLED, Backend: manual restart only");
 console.log(
@@ -193,6 +193,8 @@ const env = {
   // Pass vite port to both server and client for consistency
   VITE_PORT: String(vitePort),
 };
+// Runtime control credentials are added later and are not client build inputs.
+const clientBuildEnv = { ...env };
 
 const reloadSafeRuntimeHostsEnabled =
   providerHostPolicyEnabled &&
@@ -970,13 +972,14 @@ function startClient() {
 }
 
 async function buildClient() {
-  console.log(
-    "[ClientBuild] Building bundled client before backend replacement",
-  );
+  const startedAt = performance.now();
   const previous = clientBuild;
   clientBuild = await prepareBuiltClient(
     rootDir,
     async (directory) => {
+      console.log(
+        "[ClientBuild] Building bundled client before backend replacement",
+      );
       const child = spawnManaged(
         pnpmBin,
         [
@@ -989,7 +992,7 @@ async function buildClient() {
           directory,
           "--emptyOutDir",
         ],
-        { cwd: rootDir, env, stdio: "inherit", ...shellOption },
+        { cwd: rootDir, env: clientBuildEnv, stdio: "inherit", ...shellOption },
       );
       clientChild = child;
       await new Promise((resolve, reject) => {
@@ -1005,14 +1008,21 @@ async function buildClient() {
       if (clientChild === child) clientChild = null;
     },
     previous,
+    clientBuildEnv,
+  );
+  const reused = clientBuild === previous;
+  console.log(
+    `[ClientBuild] ${reused ? "Reused unchanged bundled client" : "Prepared bundled client"} in ${Math.round(performance.now() - startedAt)} ms`,
   );
   // The old backend still serves its own directory until replacement finishes.
-  if (previous) retiredClientBuilds.push(previous.directory);
+  if (previous && !reused) retiredClientBuilds.push(previous.directory);
 }
 
 async function removeRetiredClientBuilds() {
   for (const directory of retiredClientBuilds) {
-    await rm(directory, { recursive: true });
+    await rm(directory, { recursive: true }).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
   }
   retiredClientBuilds.length = 0;
 }

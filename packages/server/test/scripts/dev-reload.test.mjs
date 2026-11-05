@@ -8,6 +8,7 @@ import {
   rm,
   writeFile,
   readdir,
+  symlink,
 } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
@@ -67,9 +68,31 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")(
         join(bin, "pnpm"),
       );
       await chmod(join(bin, "pnpm"), 0o755);
+      const checkout = join(directory, "checkout");
+      await mkdir(join(checkout, "scripts"), { recursive: true });
+      await mkdir(join(checkout, "packages/client/src"), { recursive: true });
+      await mkdir(join(checkout, "packages/shared"), { recursive: true });
+      await writeFile(join(checkout, "package.json"), '{"type":"module"}');
+      await writeFile(join(checkout, "packages/client/src/app.js"), "before");
+      await copyFile(
+        join(root, "scripts/dev.js"),
+        join(checkout, "scripts/dev.js"),
+      );
+      for (const name of [
+        "dev-built-client.mjs",
+        "dev-instance-provenance.mjs",
+        "provider-runtime-discovery.mjs",
+        "provider-process-identity.mjs",
+        "safe-home.js",
+      ]) {
+        await symlink(
+          join(root, "scripts", name),
+          join(checkout, "scripts", name),
+        );
+      }
       const wrapper = spawn(
         process.execPath,
-        [join(root, "scripts/dev.js"), "--built-client"],
+        [join(checkout, "scripts/dev.js"), "--built-client"],
         {
           cwd: root,
           env: {
@@ -103,19 +126,32 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")(
           await readFile(join(first.distPath, "index.html"), "utf8"),
         ).toContain("built");
         const firstAssets = await readdir(join(first.distPath, "assets"));
-        await writeFile(`${eventsFile}.fail`, "fail build");
-        await reload(first);
-        await expect
-          .poll(() => output, { timeout: 10000 })
-          .toContain("Client build failed; keeping the running backend");
-        expect(await servers()).toHaveLength(1);
-        expect(() => process.kill(first.pid, 0)).not.toThrow();
-        await rm(`${eventsFile}.fail`);
         await reload(first);
         await expect
           .poll(async () => (await servers()).length, { timeout: 10000 })
           .toBe(2);
-        const second = (await servers())[1];
+        const unchanged = (await servers())[1];
+        expect(unchanged.distPath).toBe(first.distPath);
+        expect(
+          (await readEvents(eventsFile)).filter(
+            (event) => event.role === "build",
+          ),
+        ).toHaveLength(1);
+        expect(output).toContain("Reused unchanged bundled client");
+        await writeFile(join(checkout, "packages/client/src/app.js"), "after");
+        await writeFile(`${eventsFile}.fail`, "fail build");
+        await reload(unchanged);
+        await expect
+          .poll(() => output, { timeout: 10000 })
+          .toContain("Client build failed; keeping the running backend");
+        expect(await servers()).toHaveLength(2);
+        expect(() => process.kill(unchanged.pid, 0)).not.toThrow();
+        await rm(`${eventsFile}.fail`);
+        await reload(unchanged);
+        await expect
+          .poll(async () => (await servers()).length, { timeout: 10000 })
+          .toBe(3);
+        const second = (await servers())[2];
         expect(second.distPath).not.toBe(first.distPath);
         expect(await readdir(join(second.distPath, "assets"))).toEqual(
           expect.arrayContaining(firstAssets),
