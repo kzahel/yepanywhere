@@ -94,12 +94,19 @@ export interface AgentAuthRouterOverview {
     blocked?: "auth-unavailable" | "cooldown";
     cooldownUntil?: string;
     /** `source` is absent from routers without quota-inference-headers-v1. */
-    quota: { observedAt: string; source?: "probe" | "inference" } | null;
+    quota: {
+      observedAt: string;
+      source?: "probe" | "inference";
+      ordinaryUsageAllowed?: boolean;
+      planType?: string;
+      planCapacityUnits?: number;
+    } | null;
     windows: {
       bucket: string;
       windowMinutes: number | null;
       usedPercent: number | null;
       remainingPercent: number | null;
+      remainingCapacityUnits?: number | null;
       resetsAt: string | null;
       scope: "all" | "opus" | "sonnet" | "unknown";
     }[];

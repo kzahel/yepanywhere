@@ -500,12 +500,23 @@ it("fails a router refusal before provider start as retryable, never once a nati
   ).toThrow(SessionCreationConflict);
   const dispatching = store.beginDispatch(saved.attempt, native);
   expect(
-    store.failBeforeProvider(dispatching, "router-login-required"),
+    store.failBeforeProvider(
+      dispatching,
+      "router-login-required",
+      "Quota refresh unavailable",
+    ),
   ).toMatchObject({
     state: "failed",
     delivery: "not-admitted",
     failure: "router-login-required",
+    failureDetail: "Quota refresh unavailable",
   });
+  expect(store.getForSession(saved.sessionId)?.attempt.failureDetail).toBe(
+    "Quota refresh unavailable",
+  );
+  expect(store.statusForSession(saved.sessionId)?.failureDetail).toBe(
+    "Quota refresh unavailable",
+  );
   expect(rows(database, "SELECT * FROM native_session_allocations")).toEqual(
     [],
   );
@@ -516,6 +527,7 @@ it("fails a router refusal before provider start as retryable, never once a nati
     dispatching.attemptId,
   );
   const redispatched = store.beginDispatch(retry, native);
+  expect(redispatched.failureDetail).toBeUndefined();
   store.bindNative(redispatched, native);
   expect(() =>
     store.failBeforeProvider(redispatched, "router-refused"),

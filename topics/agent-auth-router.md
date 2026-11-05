@@ -31,7 +31,9 @@ The design and deferred work are in [plan 143](../docs/tactical/143-agent-auth-r
    refresh. The session header shows its pinned account. AAR usage snapshots
    include their observation time; these are account windows, not a promise
    that every model has the same budget. Routed session controls suppress quota
-   observations from the native login. No background polling is added.
+   observations from the native login and show the pinned account's cached
+   AAR windows instead. Available allowance weights are shown in USD 200-plan
+   units, with unknown amounts left unknown. No background polling is added.
 5. Disconnect revokes the integration and its derived inference credentials.
    If AAR is offline, YA persists `revocation-pending`, blocks new routed
    launches locally, and offers **Finish disconnecting**.
@@ -146,6 +148,9 @@ stale label. A reset passing does not establish restored quota.
 
 Automatic policies require fresh catalog membership and fresh applicable quota with
 headroom; unknown, stale, exhausted, disabled or blocked accounts are excluded.
+For Codex, fresh account-verified ordinary-usage permission takes precedence
+over general display percentages, which can read 100% while usage is allowed.
+Owner ceilings and observed authentication/rate-limit blocks still apply.
 Manual permits unknown quota with validated catalog membership, but cannot ignore
 known applicable exhaustion or observed authentication/rate-limit blocks. Neither
 mode enables paid overage. Catalog evidence expires after 60 seconds and quota

@@ -21,6 +21,29 @@ const starting: SessionCreationStatus = {
   attemptId: "startup",
   updatedAt: "2026-11-04T00:00:00Z",
 };
+
+it("shows the specific router refusal as text alongside the saved prompt", () => {
+  render(
+    <SessionCreationNotice
+      creation={{
+        ...starting,
+        state: "failed",
+        failure: "router-refused",
+        failureDetail:
+          "no eligible pool account: quota stale; check Pools and usage",
+      }}
+      prompt="Saved original"
+      onRefresh={async () => {}}
+    />,
+    { wrapper: I18nProvider },
+  );
+  expect(
+    screen.getByText(
+      "no eligible pool account: quota stale; check Pools and usage",
+    ),
+  ).toBeTruthy();
+  expect(screen.getByText("Saved original")).toBeTruthy();
+});
 let visibility: DocumentVisibilityState;
 beforeEach(() => {
   vi.useFakeTimers();

@@ -122,6 +122,7 @@ export interface CreationAttempt extends CreationAttemptFence {
   readonly delivery: CreationDelivery;
   readonly updatedAt: string;
   readonly failure?: SessionCreationStatus["failure"];
+  readonly failureDetail?: string;
 }
 export interface SavedSessionCreation {
   readonly id: string;
@@ -638,8 +639,10 @@ export class SessionCreationStore {
   listProjections(): SessionCreationProjection[] {
     return this.statements.projections.all<ProjectionRow>().map((row) => {
       assertUrlProjectId(row.project_id);
-      const detail: Pick<SessionCreationStatus, "failure" | "kind"> =
-        JSON.parse(row.detail_json);
+      const detail: Pick<
+        SessionCreationStatus,
+        "failure" | "failureDetail" | "kind"
+      > = JSON.parse(row.detail_json);
       return {
         sessionId: parseYaSessionId(row.session_id),
         projectId: row.project_id,
@@ -658,6 +661,9 @@ export class SessionCreationStore {
             : {}),
           ...(detail.kind === "copy" ? { kind: "copy" as const } : {}),
           ...(detail.failure ? { failure: detail.failure } : {}),
+          ...(detail.failureDetail
+            ? { failureDetail: detail.failureDetail }
+            : {}),
         },
       };
     });
@@ -681,15 +687,17 @@ export class SessionCreationStore {
         : {}),
       ...(attempt.kind ? { kind: attempt.kind } : {}),
       ...(attempt.failure ? { failure: attempt.failure } : {}),
+      ...(attempt.failureDetail
+        ? { failureDetail: attempt.failureDetail }
+        : {}),
     };
   }
 
   private readAttempt(id: string): CreationAttempt {
     const row = this.statements.attempt.get<AttemptRow>(id);
     if (!row) throw new Error("Missing saved creation attempt");
-    const detail: Pick<CreationAttempt, "failure" | "kind"> = JSON.parse(
-      row.detail_json,
-    );
+    const detail: Pick<CreationAttempt, "failure" | "failureDetail" | "kind"> =
+      JSON.parse(row.detail_json);
     return {
       creationId: row.creation_id,
       attemptId: row.id,
@@ -699,6 +707,7 @@ export class SessionCreationStore {
       updatedAt: row.updated_at,
       ...(detail.kind === "copy" ? { kind: "copy" as const } : {}),
       ...(detail.failure ? { failure: detail.failure } : {}),
+      ...(detail.failureDetail ? { failureDetail: detail.failureDetail } : {}),
     };
   }
   private read(row: OperationRow): SavedSessionCreation {
@@ -1011,6 +1020,7 @@ export class SessionCreationStore {
     generation = fence.generation,
     namespace?: NativeSessionNamespace,
     copyBoundary?: ClaudeCopyBoundary,
+    failureDetail?: string,
   ): CreationAttempt {
     const previous = this.statements.attempt.get<AttemptRow>(fence.attemptId)!;
     const retained: {
@@ -1032,6 +1042,9 @@ export class SessionCreationStore {
           ? { nativeNamespace: validateNativeSessionNamespace(nativeNamespace) }
           : {}),
         ...(failure ? { failure } : {}),
+        ...(failureDetail
+          ? { failureDetail: failureDetail.slice(0, 512) }
+          : {}),
       }),
       size = Buffer.byteLength(detail);
     if (size > 8192) throw new SessionCreationCapacityError();
@@ -1121,6 +1134,7 @@ export class SessionCreationStore {
   failBeforeProvider(
     fence: CreationAttemptFence,
     failure: "router-login-required" | "router-refused",
+    failureDetail?: string,
   ): CreationAttempt {
     return this.transaction(() => {
       const current = this.assertCurrent(fence);
@@ -1140,7 +1154,16 @@ export class SessionCreationStore {
         fence.attemptId,
         fence.generation,
       );
-      return this.update(fence, "failed", "not-admitted", failure);
+      return this.update(
+        fence,
+        "failed",
+        "not-admitted",
+        failure,
+        fence.generation,
+        undefined,
+        undefined,
+        failureDetail,
+      );
     });
   }
   bindNative(

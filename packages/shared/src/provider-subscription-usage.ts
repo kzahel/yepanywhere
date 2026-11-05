@@ -19,6 +19,8 @@ export interface ProviderSubscriptionUsageWindow {
   id: string;
   /** Provider-reported utilization, normalized to the inclusive 0-100 range. */
   usedPercent: number;
+  /** Included allowance remaining relative to this provider's USD 200 plan. */
+  remainingCapacityUnits?: number | null;
   /** Rolling-window duration when the provider reports or defines it. */
   windowDurationMinutes?: number;
   /** ISO 8601 reset timestamp when the provider reports one. */
@@ -34,6 +36,8 @@ export interface ProviderSubscriptionUsage {
   provider: ProviderName;
   windows: ProviderSubscriptionUsageWindow[];
   fetchedAt: string;
+  accountLabel?: string;
+  ordinaryUsageAllowed?: boolean;
 }
 
 export function getApplicableSubscriptionUsageWindows(

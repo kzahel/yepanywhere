@@ -136,11 +136,15 @@ export function ContextUsagePopover({
             <div className="context-threshold-popover-title">
               {t("subscriptionUsageTitle")}
             </div>
+            {usage.accountLabel && <div>{usage.accountLabel}</div>}
             {binding && (
               <div className="subscription-usage-summary">
-                {t("subscriptionUsageCompact", {
-                  percent: Math.round(binding.usedPercent),
-                })}
+                {usage.ordinaryUsageAllowed === true &&
+                binding.usedPercent >= 100
+                  ? t("subscriptionUsageAllowed")
+                  : t("subscriptionUsageCompact", {
+                      percent: Math.round(binding.usedPercent),
+                    })}
               </div>
             )}
           </div>
@@ -180,6 +184,15 @@ export function ContextUsagePopover({
             <div className="subscription-usage-meter" aria-hidden="true">
               <span style={{ width: `${window.usedPercent}%` }} />
             </div>
+            {window.remainingCapacityUnits !== undefined && (
+              <div className="subscription-usage-reset">
+                {window.remainingCapacityUnits === null
+                  ? t("subscriptionUsageCapacityUnknown")
+                  : t("subscriptionUsageCapacity", {
+                      units: window.remainingCapacityUnits,
+                    })}
+              </div>
+            )}
             {window.resetsAt && (
               <div className="subscription-usage-reset">
                 {t("subscriptionUsageResets", {

@@ -102,8 +102,6 @@ const WINDOW_SHORT_KEYS = {
   seven_day_opus: "routerWindowShortWeeklyOpus",
   seven_day_sonnet: "routerWindowShortWeeklySonnet",
   seven_day_oauth_apps: "routerWindowShortWeeklyApps",
-  "codex:primary": "routerWindowShortFiveHour",
-  "codex:secondary": "routerWindowShortWeekly",
 } as const;
 
 type OverviewAccount = AgentAuthRouterOverview["accounts"][number];
@@ -265,6 +263,11 @@ function quotaExhausted(
   account: OverviewAccount,
   concreteModel: string | undefined,
 ): boolean {
+  if (
+    account.provider === "codex" &&
+    account.quota?.ordinaryUsageAllowed !== undefined
+  )
+    return !account.quota.ordinaryUsageAllowed;
   return (account.windows ?? []).some(
     (w) => w.remainingPercent === 0 && windowApplies(w, concreteModel),
   );
@@ -280,7 +283,10 @@ export function tightestRemaining(
       (w) => w.remainingPercent !== null && windowApplies(w, concreteModel),
     )
     .map((w) => w.remainingPercent as number);
-  return percents.length ? Math.min(...percents) : null;
+  const remaining = percents.length ? Math.min(...percents) : null;
+  return remaining === 0 && account.quota?.ordinaryUsageAllowed === true
+    ? null
+    : remaining;
 }
 
 /**
@@ -461,19 +467,37 @@ function AccountQuota({ account }: { account: OverviewAccount }) {
       }
     >
       {windows.map((w) => (
-        <span key={w.bucket} className={remainingTone(w.remainingPercent)}>
-          {w.remainingPercent === null
-            ? t("routerQuotaLineUnknown", { window: windowShortLabel(t, w) })
-            : w.resetsAt
-              ? t("routerQuotaLine", {
-                  window: windowShortLabel(t, w),
-                  percent: Math.round(w.remainingPercent),
-                  reset: formatReset(w.resetsAt),
-                })
-              : t("routerQuotaLineNoReset", {
-                  window: windowShortLabel(t, w),
-                  percent: Math.round(w.remainingPercent),
-                })}
+        <span
+          key={w.bucket}
+          className={remainingTone(
+            account.quota?.ordinaryUsageAllowed && w.remainingPercent === 0
+              ? null
+              : w.remainingPercent,
+          )}
+        >
+          {account.quota?.ordinaryUsageAllowed && w.remainingPercent === 0
+            ? t("subscriptionUsageAllowed")
+            : w.remainingPercent === null
+              ? t("routerQuotaLineUnknown", { window: windowShortLabel(t, w) })
+              : w.resetsAt
+                ? t("routerQuotaLine", {
+                    window: windowShortLabel(t, w),
+                    percent: Math.round(w.remainingPercent),
+                    reset: formatReset(w.resetsAt),
+                  })
+                : t("routerQuotaLineNoReset", {
+                    window: windowShortLabel(t, w),
+                    percent: Math.round(w.remainingPercent),
+                  })}
+          {w.remainingCapacityUnits != null && (
+            <>
+              {" "}
+              ·{" "}
+              {t("subscriptionUsageCapacity", {
+                units: w.remainingCapacityUnits,
+              })}
+            </>
+          )}
         </span>
       ))}
       {age && <span className={styles.quotaUnknown}>{age}</span>}

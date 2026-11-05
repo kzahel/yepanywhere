@@ -16,6 +16,8 @@ export interface SessionCreationStatus {
   initialInputExpected?: false;
   attemptId: string;
   updatedAt: string;
+  /** Safe router refusal text, saved only before provider startup. Absent on older servers. */
+  failureDetail?: string;
   delivery: "not-admitted" | "uncertain" | "consumed";
   /**
    * Safe outcome codes. The `router-*` codes mean Agent Auth Router refused

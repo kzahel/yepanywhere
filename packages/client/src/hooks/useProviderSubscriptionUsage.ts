@@ -3,6 +3,7 @@ import {
   serverHasCapability,
   type ProviderName,
   type ProviderSubscriptionUsage,
+  type AgentAuthRouterOverview,
 } from "@yep-anywhere/shared";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { RoutedSessionContext } from "../contexts/RoutedSessionContext";
@@ -19,6 +20,46 @@ import { useVersion } from "./useVersion";
 
 const USAGE_CACHE_TTL_MS = 60_000;
 
+/** A routed session reads only its pinned account, never the host's native login. */
+function routedUsage(
+  overview: AgentAuthRouterOverview,
+  accountId: string,
+  provider: ProviderName,
+): ProviderSubscriptionUsage | null {
+  const account = overview.accounts.find(
+    (a) => a.id === accountId && a.provider === provider,
+  );
+  if (!account?.quota) return null;
+  return {
+    provider,
+    fetchedAt: account.quota.observedAt,
+    accountLabel: account.displayName,
+    ordinaryUsageAllowed: account.quota.ordinaryUsageAllowed,
+    windows: account.windows.flatMap((w) => {
+      if (w.usedPercent === null || w.scope === "unknown") return [];
+      return [
+        {
+          id: w.bucket,
+          usedPercent: w.usedPercent,
+          remainingCapacityUnits: w.remainingCapacityUnits,
+          windowDurationMinutes: w.windowMinutes ?? undefined,
+          resetsAt: w.resetsAt ?? undefined,
+          scope:
+            w.scope === "all"
+              ? { type: "provider" as const }
+              : {
+                  type: "models" as const,
+                  label: w.scope,
+                  modelIds: account.models
+                    .filter((m) => m.id.includes(w.scope))
+                    .map((m) => m.id),
+                },
+        },
+      ];
+    }),
+  };
+}
+
 interface UsageCacheEntry {
   value: ProviderSubscriptionUsage | null;
   expiresAt: number;
@@ -26,20 +67,20 @@ interface UsageCacheEntry {
 
 const usageCaches = new Map<
   ClientSummarySourceKey,
-  Map<ProviderName, UsageCacheEntry>
+  Map<string, UsageCacheEntry>
 >();
 const usageRequests = new Map<
   ClientSummarySourceKey,
-  Map<ProviderName, Promise<ProviderSubscriptionUsage | null>>
+  Map<string, Promise<ProviderSubscriptionUsage | null>>
 >();
 
 function sourceMap<T>(
-  stores: Map<ClientSummarySourceKey, Map<ProviderName, T>>,
+  stores: Map<ClientSummarySourceKey, Map<string, T>>,
   sourceKey: ClientSummarySourceKey,
-): Map<ProviderName, T> {
+): Map<string, T> {
   const existing = stores.get(sourceKey);
   if (existing) return existing;
-  const created = new Map<ProviderName, T>();
+  const created = new Map<string, T>();
   stores.set(sourceKey, created);
   return created;
 }
@@ -48,40 +89,47 @@ async function loadUsage(
   sourceKey: ClientSummarySourceKey,
   provider: ProviderName,
   forceRefresh: boolean,
+  accountId: string | undefined,
 ): Promise<ProviderSubscriptionUsage | null> {
+  const key = accountId ? `${provider}:router:${accountId}` : provider;
   const cache = sourceMap(usageCaches, sourceKey);
-  const cached = cache.get(provider);
+  const cached = cache.get(key);
   if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
     return cached.value;
   }
 
   const requests = sourceMap(usageRequests, sourceKey);
-  const pending = requests.get(provider);
+  const pending = requests.get(key);
   if (!forceRefresh && pending) return pending;
 
-  const request = api
-    .getProviderSubscriptionUsage(provider, { refresh: forceRefresh })
-    .then((response) => response.usage);
-  requests.set(provider, request);
+  const request = accountId
+    ? (forceRefresh
+        ? api.routerRefreshOverview({ accountId })
+        : api.routerOverview()
+      ).then((overview) => routedUsage(overview, accountId, provider))
+    : api
+        .getProviderSubscriptionUsage(provider, { refresh: forceRefresh })
+        .then((response) => response.usage);
+  requests.set(key, request);
   try {
     const value = await request;
-    if (requests.get(provider) === request) {
-      cache.set(provider, {
+    if (requests.get(key) === request) {
+      cache.set(key, {
         value,
         expiresAt: Date.now() + USAGE_CACHE_TTL_MS,
       });
     }
     return value;
   } finally {
-    if (requests.get(provider) === request) {
-      requests.delete(provider);
+    if (requests.get(key) === request) {
+      requests.delete(key);
     }
   }
 }
 
 interface UsageState {
   sourceKey: ClientSummarySourceKey;
-  provider: ProviderName | null;
+  provider: string | null;
   usage: ProviderSubscriptionUsage | null;
   loading: boolean;
   error: Error | null;
@@ -98,15 +146,20 @@ export function useProviderSubscriptionUsage(
 ) {
   const sourceKey = useClientSummarySourceKey();
   const { version } = useVersion();
+  const routed = useContext(RoutedSessionContext);
+  const accountId = routed?.accountId;
   const supported = serverHasCapability(
     version,
-    PROVIDER_SUBSCRIPTION_USAGE_CAPABILITY,
+    routed ? "agent-auth-router-pools" : PROVIDER_SUBSCRIPTION_USAGE_CAPABILITY,
   );
-  const routed = useContext(RoutedSessionContext);
-  const normalizedProvider = routed ? null : (provider ?? null);
+  const normalizedProvider = provider ?? null;
+  const usageKey =
+    normalizedProvider && accountId
+      ? `${normalizedProvider}:router:${accountId}`
+      : normalizedProvider;
   const [state, setState] = useState<UsageState>({
     sourceKey,
-    provider: normalizedProvider,
+    provider: usageKey,
     usage: null,
     loading: false,
     error: null,
@@ -119,7 +172,7 @@ export function useProviderSubscriptionUsage(
       if (!supported || !normalizedProvider) {
         setState({
           sourceKey,
-          provider: normalizedProvider,
+          provider: usageKey,
           usage: null,
           loading: false,
           error: null,
@@ -127,10 +180,10 @@ export function useProviderSubscriptionUsage(
         return null;
       }
 
-      const cached = sourceMap(usageCaches, sourceKey).get(normalizedProvider);
+      const cached = sourceMap(usageCaches, sourceKey).get(usageKey!);
       setState({
         sourceKey,
-        provider: normalizedProvider,
+        provider: usageKey,
         usage: cached?.value ?? null,
         loading: true,
         error: null,
@@ -140,11 +193,12 @@ export function useProviderSubscriptionUsage(
           sourceKey,
           normalizedProvider,
           forceRefresh,
+          accountId,
         );
         if (sequence === sequenceRef.current) {
           setState({
             sourceKey,
-            provider: normalizedProvider,
+            provider: usageKey,
             usage,
             loading: false,
             error: null,
@@ -155,7 +209,7 @@ export function useProviderSubscriptionUsage(
         if (sequence === sequenceRef.current) {
           setState({
             sourceKey,
-            provider: normalizedProvider,
+            provider: usageKey,
             usage: null,
             loading: false,
             error: error instanceof Error ? error : new Error(String(error)),
@@ -164,7 +218,7 @@ export function useProviderSubscriptionUsage(
         return null;
       }
     },
-    [normalizedProvider, sourceKey, supported],
+    [normalizedProvider, usageKey, accountId, sourceKey, supported],
   );
 
   useEffect(() => {
@@ -199,7 +253,7 @@ export function useProviderSubscriptionUsage(
   ]);
 
   const visible =
-    state.sourceKey === sourceKey && state.provider === normalizedProvider
+    state.sourceKey === sourceKey && state.provider === usageKey
       ? state
       : {
           sourceKey,

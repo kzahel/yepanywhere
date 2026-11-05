@@ -159,6 +159,9 @@ export function SessionCreationNotice({
             : label,
         )}
       </p>
+      {state === "failed" &&
+        creation.failure?.startsWith("router-") &&
+        creation.failureDetail && <p>{creation.failureDetail}</p>}
       {prompt && (
         <pre role="region" aria-label={t("sessionCreationSavedPrompt")}>
           {prompt}

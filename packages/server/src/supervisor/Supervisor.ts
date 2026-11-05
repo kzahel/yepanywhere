@@ -1539,6 +1539,7 @@ export class Supervisor {
           store.failBeforeProvider(
             currentFence,
             error.loginRequired ? "router-login-required" : "router-refused",
+            error.message,
           );
           getLogger().warn(
             {

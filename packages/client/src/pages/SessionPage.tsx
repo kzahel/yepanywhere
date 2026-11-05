@@ -7745,7 +7745,7 @@ function SessionPageContent({
           draftControlsRef.current?.focus?.({ preventScroll: true });
       }}
     >
-      <RoutedSessionContext value={Boolean(session?.routerBinding)}>
+      <RoutedSessionContext value={session?.routerBinding ?? null}>
         <ComposerInsertContext value={insertQuotedSelection}>
           <SessionIssuesProvider
             key={`${clientSummarySourceKey}:${projectId}:${sessionId}`}

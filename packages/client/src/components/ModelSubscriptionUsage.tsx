@@ -15,6 +15,16 @@ export function ModelSubscriptionUsage({
   const bindingWindow = getMostUsedSubscriptionUsageWindow(usage, modelId);
   if (!bindingWindow) return null;
   const percent = Math.round(bindingWindow.usedPercent);
+  if (usage?.ordinaryUsageAllowed === true && percent >= 100) {
+    return (
+      <span
+        className="subscription-usage-badge tone-neutral"
+        title={t("subscriptionUsageAllowed")}
+      >
+        {t("subscriptionUsageAvailable")}
+      </span>
+    );
+  }
   const tone = percent >= 90 ? "danger" : percent >= 75 ? "warning" : "neutral";
   return (
     <span

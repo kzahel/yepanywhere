@@ -551,6 +551,39 @@ const quotaWindow = (
   resetsAt,
   scope,
 });
+it("does not call an explicitly permitted Codex account exhausted at a displayed zero", () => {
+  const account = overview().accounts[0]!;
+  account.provider = "codex";
+  account.freshness = "fresh";
+  account.quota = {
+    observedAt: new Date().toISOString(),
+    ordinaryUsageAllowed: true,
+  };
+  account.windows = [quotaWindow("codex:primary", 0)];
+  expect(tightestRemaining(account, model.id)).toBeNull();
+  expect(
+    routerAccountIssue(
+      (key) => key,
+      account,
+      model.id,
+      model.name,
+      model.id,
+      "auto",
+    ),
+  ).toBeNull();
+  account.quota.ordinaryUsageAllowed = false;
+  expect(
+    routerAccountIssue(
+      (key) => key,
+      account,
+      model.id,
+      model.name,
+      model.id,
+      "auto",
+    )?.text,
+  ).toBe("routerReasonExhausted");
+});
+
 it("shows every cached quota window per account and the best remaining per pool", () => {
   const data = overview();
   data.pools[0]!.policy = "manual";

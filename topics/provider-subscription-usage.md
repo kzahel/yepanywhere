@@ -4,7 +4,9 @@ The manual [Agent Auth Router integration](agent-auth-router.md) exposes granted
 account quota snapshots under **Settings → Providers** through its private
 control socket. These explicit refreshes are separate from direct-login usage
 and do not change the existing model-scoped utilization calculation. Routed
-session controls suppress native-login quota observations. Native
+session controls read the pinned AAR account through its passive overview;
+explicit Refresh targets that account only. They never use native-login quota
+observations. Native
 Codex `/usage` and `/status` are refused on routed sessions so they cannot report
 another account's native-home state.
 
@@ -94,6 +96,20 @@ The existing context percentage remains context-window consumption, not
 subscription usage.
 
 ## Compatibility
+
+Routed reads use the existing `agent-auth-router-pools` capability and cache by
+source, provider and pinned account. Older routers may omit the additive
+`ordinaryUsageAllowed`, `planCapacityUnits` and per-window
+`remainingCapacityUnits` fields. Missing capacity metadata is unknown, never a
+full USD 200 subscription. The router owns allowance weights; YA does not
+derive them from subscription prices. Windows overlap and are not summed.
+When Codex explicitly permits usage despite a 100% display reading, the detail
+view explains that permission and leaves the remaining amount unknown.
+
+Pre-provider router refusals retain the bounded, sanitized router message in
+the session-creation attempt's optional `failureDetail`. Both session detail
+and list projections preserve it; a new retry starts without the prior detail.
+Older servers simply retain the generic refusal copy.
 
 `provider-subscription-usage` is a permanent server capability covering
 `GET /api/providers/:name/subscription-usage`. A client must observe the
