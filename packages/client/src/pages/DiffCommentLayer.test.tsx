@@ -425,6 +425,7 @@ describe("DiffCommentLayer", () => {
       <MemoryRouter>
         <ColHarness />
       </MemoryRouter>,
+      { wrapper: I18nProvider },
     );
 
     fireEvent.click(document.querySelector('[data-diff-line="0"]')!);
@@ -466,6 +467,7 @@ describe("DiffCommentLayer", () => {
           }}
         />
       </MemoryRouter>,
+      { wrapper: I18nProvider },
     );
 
     fireEvent.click(document.querySelector('[data-diff-line="1"]')!);
@@ -517,6 +519,7 @@ describe("DiffCommentLayer", () => {
           }}
         />
       </MemoryRouter>,
+      { wrapper: I18nProvider },
     );
 
     fireEvent.click(document.querySelector('[data-diff-line="1"]')!);
@@ -621,6 +624,7 @@ describe("DiffCommentLayer", () => {
           }}
         />
       </MemoryRouter>,
+      { wrapper: I18nProvider },
     );
 
     await waitFor(() =>

@@ -30,6 +30,26 @@ function createTestStorage(): Storage {
 // Do not probe window.localStorage first: Node 25's webstorage getter warns
 // unless --localstorage-file has a valid path.
 if (typeof window !== "undefined") {
+  // jsdom has no layout engine or resize observer. Structural renderer tests
+  // need the browser API to mount; geometry/notification tests supply their
+  // own observer, and real scrolling is qualified in the browser suite.
+  if (typeof globalThis.ResizeObserver === "undefined") {
+    const Observer = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    Object.defineProperty(globalThis, "ResizeObserver", {
+      configurable: true,
+      writable: true,
+      value: Observer,
+    });
+    Object.defineProperty(window, "ResizeObserver", {
+      configurable: true,
+      writable: true,
+      value: Observer,
+    });
+  }
   // jsdom has no media-query evaluator. Tests can override matches/events
   // when exercising responsive behavior or reduced-motion preferences.
   Object.defineProperty(window, "matchMedia", {

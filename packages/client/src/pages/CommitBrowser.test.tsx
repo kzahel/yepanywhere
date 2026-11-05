@@ -12,6 +12,8 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const stableT = vi.hoisted(() => (key: string) => key);
+
 vi.mock("react-router-dom", async (orig) => ({
   ...(await orig<typeof import("react-router-dom")>()),
   useNavigate: () => vi.fn(),
@@ -22,6 +24,11 @@ vi.mock("../components/FileRevisionLink", () => ({
 }));
 vi.mock("../hooks/useRemoteBasePath", () => ({
   useRemoteBasePath: () => "",
+}));
+// The nested diff renderer now reads translations from context as well.
+vi.mock("../i18n", async (orig) => ({
+  ...(await orig<typeof import("../i18n")>()),
+  useI18n: () => ({ t: stableT }),
 }));
 
 const getGitCommits = vi.fn();
@@ -67,7 +74,7 @@ import { CommitBrowser } from "./CommitBrowser";
 const SHA = "a".repeat(40);
 const HEAD_SHA = "b".repeat(40);
 const DIRECT_SHA = "c".repeat(40);
-const t = (key: string) => key;
+const t = stableT;
 
 function dirtyStatus(): GitStatusInfo {
   return {
