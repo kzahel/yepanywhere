@@ -293,6 +293,43 @@ export function detectNestedHarnessLaunch(
 export function detectScopedNestedHarnessLaunch(
   command: string,
 ): NestedHarnessLaunch | undefined {
+  return detectScopedLaunch(command, false);
+}
+
+/** Explicit native profile selection, separate from the inherited-store subset. */
+export interface ExplicitScopedNestedHarnessLaunch extends NestedHarnessLaunch {
+  configDirectory: string;
+}
+export function detectExplicitScopedNestedHarnessLaunch(
+  command: string,
+): ExplicitScopedNestedHarnessLaunch | undefined {
+  const launch = detectScopedLaunch(command, true);
+  return launch?.configDirectory
+    ? { ...launch, configDirectory: launch.configDirectory }
+    : undefined;
+}
+
+function literalAbsolutePosixPath(value: string | undefined): value is string {
+  return (
+    !!value &&
+    value.startsWith("/") &&
+    value.length <= 4096 &&
+    ![...value].some(
+      (c) =>
+        c.charCodeAt(0) < 32 ||
+        c.charCodeAt(0) === 127 ||
+        "*?[]{}~".includes(c),
+    ) &&
+    !value.includes("//") &&
+    (value === "/" || !value.endsWith("/")) &&
+    !value.split("/").some((part) => part === "." || part === "..")
+  );
+}
+
+function detectScopedLaunch(
+  command: string,
+  explicitProfile: boolean,
+): (NestedHarnessLaunch & { configDirectory?: string }) | undefined {
   if (
     command.length > 65536 ||
     !command.includes("claude") ||
@@ -320,7 +357,30 @@ export function detectScopedNestedHarnessLaunch(
     0,
     invocation!.words.length - args.length,
   );
-  if (prefix.some((word) => ASSIGNMENT_RE.test(word) && word !== "CLAUDECODE="))
+  let configDirectory: string | undefined;
+  if (explicitProfile) {
+    // The system env executable applies this binding after shell startup and
+    // executes an absolute CLI directly. No wrapper shell or other assignment.
+    if (
+      prefix[0] !== "/usr/bin/env" ||
+      !literalAbsolutePosixPath(args[0]) ||
+      !literalAbsolutePosixPath(cwd)
+    )
+      return undefined;
+    let cleared = false;
+    for (const word of prefix.slice(1)) {
+      if (
+        word.startsWith("CLAUDE_CONFIG_DIR=") &&
+        configDirectory === undefined
+      )
+        configDirectory = word.slice("CLAUDE_CONFIG_DIR=".length);
+      else if (word === "CLAUDECODE=" && !cleared) cleared = true;
+      else return undefined;
+    }
+    if (!literalAbsolutePosixPath(configDirectory)) return undefined;
+  } else if (
+    prefix.some((word) => ASSIGNMENT_RE.test(word) && word !== "CLAUDECODE=")
+  )
     return undefined;
   let names = 0;
   for (const arg of args.slice(1)) {
@@ -350,5 +410,7 @@ export function detectScopedNestedHarnessLaunch(
   }
   if (names !== 1) return undefined;
   const launch = detectNestedHarnessLaunch(command);
-  return launch?.sessionId ? launch : undefined;
+  return launch?.sessionId
+    ? { ...launch, ...(configDirectory ? { configDirectory } : {}) }
+    : undefined;
 }

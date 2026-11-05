@@ -34,7 +34,7 @@ Meanwhile, durable relationships already have several owners:
   before native effects. `CreationCopySnapshot.kind` distinguishes fork/clone.
 - Metadata distinguishes `/btw` parenting from `forkedFromSessionId`.
 - Provider readers discover separately executed native children.
-- Scoped live Claude shell launches have a durable command-evidence producer. Already acquired admitted, known never-confined history can supply bounded historical evidence. New Claude copies additionally require a durable provider-owned copied-row fence; legacy or missing fences stay unknown. Automatic corpus acquisition and reverse presentation remain pending.
+- Scoped live Claude shell launches have a durable command-evidence producer. Explicit POSIX destination-profile commands also support current owned Codex frames; parent identity and target namespace remain independent, while older workers and implicit cross-family inheritance stay unknown. Already acquired admitted, known never-confined history can supply bounded historical evidence. New Claude copies additionally require a durable provider-owned copied-row fence; legacy or missing fences stay unknown. Automatic corpus acquisition and reverse presentation remain pending.
 
 The shared design must coordinate these owners, not create another competing
 creator, receipt or identity store. Native persistence and receipts remain

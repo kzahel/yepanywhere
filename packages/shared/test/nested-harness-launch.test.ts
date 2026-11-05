@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectNestedHarnessLaunch,
   detectScopedNestedHarnessLaunch,
+  detectExplicitScopedNestedHarnessLaunch,
 } from "../src/nested-harness-launch.js";
 
 const CHILD = "28dad9a6-9c40-4d90-af7e-84d0ed4db9a4";
@@ -173,4 +174,50 @@ describe("durable scoped harness selection", () => {
     ])
       expect(detectScopedNestedHarnessLaunch(command), command).toBeUndefined();
   });
+});
+
+it("selects only literal system-env profiles while preserving the inherited selector's rejection", () => {
+  const command = `cd '/owned/project space' && /usr/bin/env CLAUDE_CONFIG_DIR='/owned/profile space' CLAUDECODE= /owned/claude --session-id ${CHILD} --print go`;
+  expect(detectExplicitScopedNestedHarnessLaunch(command)).toEqual({
+    harness: "claude",
+    sessionId: CHILD,
+    workingDirectory: "/owned/project space",
+    configDirectory: "/owned/profile space",
+  });
+  expect(detectScopedNestedHarnessLaunch(command)).toBeUndefined();
+  for (const candidate of [
+    command.replace("/usr/bin/env", "env"),
+    command.replace("/usr/bin/env", "/usr/bin/env -S"),
+    command.replace("/owned/claude", "claude"),
+    command.replace("CLAUDECODE=", "HOME=/foreign"),
+    command.replace("CLAUDECODE=", "BASH_ENV=/foreign"),
+    command.replace("CLAUDECODE=", "CLAUDE_CONFIG_DIR=/second"),
+    command.replace("CLAUDECODE=", "exec"),
+    command.replace("'/owned/profile space'", "relative"),
+    command.replace("/owned/profile space", "$ROOT"),
+    ...[
+      "/owned/../profile",
+      "/owned/./profile",
+      "/owned//profile",
+      "/owned/profile/",
+      "/owned/{a,b}",
+      "/owned/*",
+      "/owned/?",
+      "/owned/[ab]",
+      "/owned/~",
+      "/owned/\u0001profile",
+    ].map((path) => command.replace("/owned/profile space", path)),
+    command.replace("/owned/project space", "/owned/{a,b}"),
+    command.replace("/owned/claude", "/owned/./claude"),
+    command.replace("--print", "--settings /foreign --print"),
+    command.replace("--print", "--fork-session --print"),
+    command + " &",
+    command + " | cat",
+    command + " && echo done",
+    `echo ${JSON.stringify(command)}`,
+  ])
+    expect(
+      detectExplicitScopedNestedHarnessLaunch(candidate),
+      candidate,
+    ).toBeUndefined();
 });

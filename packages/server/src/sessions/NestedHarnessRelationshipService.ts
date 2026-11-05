@@ -18,6 +18,9 @@ import { lstat, open, realpath } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import {
   detectScopedNestedHarnessLaunch,
+  detectExplicitScopedNestedHarnessLaunch,
+  getCodexToolCorrelation,
+  unwrapCodexCommandExecutionShell,
   nativeSessionFamily,
   isYaSessionId,
   nativeSessionRef,
@@ -57,15 +60,22 @@ interface Hint {
   ready: boolean;
   attempts?: number;
   sourceTimestamp?: string;
+  target?: NativeSessionRef;
 }
 interface Pending {
-  v: 1;
+  v: 1 | 2;
   native: NativeSessionRef;
   directory: string;
   hints: Hint[];
 }
 type Event =
-  | { kind: "observe"; hint: Hint; directory: string; projectPath?: string }
+  | {
+      kind: "observe";
+      hint: Hint;
+      directory: string;
+      projectPath?: string;
+      configDirectory?: string;
+    }
   | { kind: "finish"; id: string; success: boolean }
   | { kind: "probe" }
   | { kind: "end" };
@@ -200,7 +210,9 @@ export class NestedHarnessRelationshipService
       !this.retired &&
       !!this.identities &&
       !context.confined &&
-      nativeSessionFamily(context.provider) === "claude" &&
+      (nativeSessionFamily(context.provider) === "claude" ||
+        (context.provider === "codex" &&
+          ["darwin", "linux"].includes(process.platform))) &&
       isYaSessionId(context.sessionId)
     );
   }
@@ -210,7 +222,7 @@ export class NestedHarnessRelationshipService
     if (raw.length > 65536) throw Error("Invalid pending harness evidence");
     const p = JSON.parse(raw) as Pending;
     if (
-      p.v !== 1 ||
+      (p.v !== 1 && p.v !== 2) ||
       !isAbsolute(p.directory) ||
       p.directory.length > 4096 ||
       !Array.isArray(p.hints) ||
@@ -222,7 +234,7 @@ export class NestedHarnessRelationshipService
       p.native.storageScope,
       parseNativeSessionId(p.native.id),
     );
-    for (const h of p.hints)
+    for (const h of p.hints) {
       if (
         !validId(h.id) ||
         !/^[a-f0-9-]{36}$/i.test(h.targetId) ||
@@ -238,6 +250,29 @@ export class NestedHarnessRelationshipService
             h.attempts > MAX_PROBES))
       )
         throw Error("Invalid pending harness evidence");
+      if (p.v === 1) {
+        if (p.native.family !== "claude")
+          throw Error("Invalid inherited harness namespace");
+        h.target = nativeSessionRef(
+          "claude",
+          p.native.storageScope,
+          parseNativeSessionId(h.targetId),
+        );
+      } else {
+        if (
+          h.target?.family !== "claude" ||
+          h.target.id !== h.targetId ||
+          !isAbsolute(h.target.storageScope) ||
+          h.target.storageScope.length > 4096
+        )
+          throw Error("Invalid destination harness namespace");
+        h.target = nativeSessionRef(
+          "claude",
+          h.target.storageScope,
+          parseNativeSessionId(h.targetId),
+        );
+      }
+    }
     return p;
   }
   registerProcess(
@@ -352,6 +387,7 @@ export class NestedHarnessRelationshipService
   private observe(context: HarnessProcessContext, message: SDKMessage): void {
     if (
       !this.eligible(context) ||
+      (context.provider === "codex" && message._codexOwnedCommand !== true) ||
       message.parent_tool_use_id ||
       message.isSynthetic ||
       message.isReplay ||
@@ -376,7 +412,27 @@ export class NestedHarnessRelationshipService
           ("run_in_background" in input && input.run_in_background === true)
         )
           continue;
-        const launch = detectScopedNestedHarnessLaunch(input.command);
+        let command = input.command;
+        const codex = context.provider === "codex";
+        if (codex) {
+          // Pinned native commandExecution is a redacted shlex argv presentation.
+          // Decode only unchanged, provider-tagged literal shell argv; the
+          // explicit inner env binding, result and target header supply evidence.
+          if (
+            getCodexToolCorrelation(message)?.origin !== "command_execution" ||
+            command.includes("[REDACTED_SECRET]")
+          )
+            continue;
+          const decoded = unwrapCodexCommandExecutionShell(command);
+          if (decoded === null) continue;
+          command = decoded;
+        }
+        const explicit = ["darwin", "linux"].includes(process.platform)
+          ? detectExplicitScopedNestedHarnessLaunch(command)
+          : undefined;
+        const launch =
+          explicit ??
+          (!codex ? detectScopedNestedHarnessLaunch(command) : undefined);
         if (
           !launch?.sessionId ||
           !launch.workingDirectory ||
@@ -413,6 +469,7 @@ export class NestedHarnessRelationshipService
         this.enqueue(work, {
           kind: "observe",
           directory: launch.workingDirectory,
+          ...(explicit ? { configDirectory: explicit.configDirectory } : {}),
           hint: {
             id: block.id,
             targetId: launch.sessionId,
@@ -422,6 +479,7 @@ export class NestedHarnessRelationshipService
         });
       } else if (
         message.type === "user" &&
+        message._isStreaming !== true &&
         block.type === "tool_result" &&
         validId(block.tool_use_id)
       ) {
@@ -438,7 +496,21 @@ export class NestedHarnessRelationshipService
         this.enqueue(work, {
           kind: "finish",
           id: block.tool_use_id,
-          success: block.is_error !== true,
+          success:
+            block.is_error !== true &&
+            (context.provider !== "codex" ||
+              (getCodexToolCorrelation(message)?.origin ===
+                "command_execution" &&
+                getCodexToolCorrelation(message)?.itemId ===
+                  block.tool_use_id &&
+                !!message.toolUseResult &&
+                typeof message.toolUseResult === "object" &&
+                "exitCode" in message.toolUseResult &&
+                message.toolUseResult.exitCode === 0 &&
+                !(
+                  "interrupted" in message.toolUseResult &&
+                  message.toolUseResult.interrupted === true
+                ))),
         });
       }
     }
@@ -450,8 +522,7 @@ export class NestedHarnessRelationshipService
         work.pending?.hints.some(
           (h) =>
             h.ready &&
-            event.path ===
-              join(work.pending!.native.storageScope, h.targetId + ".jsonl"),
+            event.path === join(h.target!.storageScope, h.targetId + ".jsonl"),
         )
       )
         this.enqueue(work, { kind: "probe" });
@@ -563,19 +634,39 @@ export class NestedHarnessRelationshipService
       )
         return false;
       change(pending);
+      // Keep inherited-only Claude records compact and readable on rollback.
+      // Explicit destinations require v2 so an old reader cannot reinterpret them.
+      const inherited =
+        source.family === "claude" &&
+        pending.hints.every(
+          (h) =>
+            h.target?.family === "claude" &&
+            h.target.storageScope === source.storageScope &&
+            h.target.id === h.targetId,
+        );
+      pending.v = inherited ? 1 : 2;
+      const cursor = JSON.stringify(
+        inherited
+          ? {
+              ...pending,
+              hints: pending.hints.map(({ target: _target, ...hint }) => hint),
+            }
+          : pending,
+      );
+      if (cursor.length > 65536) return false;
       const published = this.writer.index.publishWithinTransaction({
         observation: {
           producer: PENDING,
           sourceKey: work.context.sessionId,
-          sourceVersion: "1",
-          extractorVersion: 1,
+          sourceVersion: "2",
+          extractorVersion: 2,
           observedAt: new Date().toISOString(),
         },
         expectedRevision: previous?.revision ?? null,
         facts: [],
         progress: {
           state: pending.hints.length ? "partial" : "complete",
-          cursor: JSON.stringify(pending),
+          cursor,
         },
       });
       if (!published) return false;
@@ -591,11 +682,8 @@ export class NestedHarnessRelationshipService
             serverId: this.writer.serverId,
             native: source,
           };
-          const target = nativeSessionRef(
-            "claude",
-            source.storageScope,
-            parseNativeSessionId(completed.hint.targetId),
-          );
+          const target = completed.hint.target;
+          if (!target) throw Error("Missing destination harness namespace");
           this.writer.index.recordWithinTransaction(
             {
               producer: completed.hint.sourceTimestamp
@@ -810,8 +898,8 @@ export class NestedHarnessRelationshipService
         if (event.kind === "observe") {
           const source = this.source(work);
           if (
-            source?.family !== "claude" ||
-            source.id === event.hint.targetId
+            !source ||
+            (!event.configDirectory && source.family !== "claude")
           ) {
             work.known.delete(event.hint.id);
             if (event.hint.sourceTimestamp) terminal.add(event.hint.id);
@@ -821,11 +909,35 @@ export class NestedHarnessRelationshipService
           if (
             directory !==
               (await realpath(event.projectPath ?? work.context.projectPath)) ||
-            basename(source.storageScope) !==
-              claudeCwdProjectDirectory(directory) ||
-            (await realpath(source.storageScope)) !== source.storageScope ||
+            (!event.configDirectory &&
+              (basename(source.storageScope) !==
+                claudeCwdProjectDirectory(directory) ||
+                (await realpath(source.storageScope)) !==
+                  source.storageScope)) ||
             !this.current(work, generation)
           ) {
+            work.known.delete(event.hint.id);
+            if (event.hint.sourceTimestamp) terminal.add(event.hint.id);
+            continue;
+          }
+          const targetScope = event.configDirectory
+            ? resolve(
+                event.configDirectory,
+                "projects",
+                claudeCwdProjectDirectory(directory),
+              )
+            : source.storageScope;
+          if (targetScope.length > 4096) {
+            work.known.delete(event.hint.id);
+            if (event.hint.sourceTimestamp) terminal.add(event.hint.id);
+            continue;
+          }
+          event.hint.target = nativeSessionRef(
+            "claude",
+            targetScope,
+            parseNativeSessionId(event.hint.targetId),
+          );
+          if (sameNative(source, event.hint.target)) {
             work.known.delete(event.hint.id);
             if (event.hint.sourceTimestamp) terminal.add(event.hint.id);
             continue;
@@ -844,7 +956,7 @@ export class NestedHarnessRelationshipService
               else if (!old && p.hints.length < MAX_PENDING)
                 p.hints.push(event.hint);
             },
-            { v: 1, native: source, directory, hints: [] },
+            { v: 2, native: source, directory, hints: [] },
           );
           if (
             saved &&
@@ -1004,12 +1116,7 @@ export class NestedHarnessRelationshipService
     let committed = false;
     const pending = work.pending;
     const source = this.source(work);
-    if (
-      !pending ||
-      !source ||
-      source.family !== "claude" ||
-      !sameNative(source, pending.native)
-    )
+    if (!pending || !source || !sameNative(source, pending.native))
       return committed;
     for (const hint of pending.hints) {
       if (historicalOnly && !hint.sourceTimestamp) continue;
@@ -1055,11 +1162,18 @@ export class NestedHarnessRelationshipService
     return committed;
   }
   private async targetExists(pending: Pending, hint: Hint): Promise<boolean> {
-    const path = join(pending.native.storageScope, hint.targetId + ".jsonl");
+    const target = hint.target;
+    if (
+      target?.family !== "claude" ||
+      target.id !== hint.targetId ||
+      basename(target.storageScope) !==
+        claudeCwdProjectDirectory(pending.directory)
+    )
+      return false;
+    const path = join(target.storageScope, hint.targetId + ".jsonl");
     try {
       if (
-        (await realpath(pending.native.storageScope)) !==
-          pending.native.storageScope ||
+        (await realpath(target.storageScope)) !== target.storageScope ||
         (await realpath(path)) !== path
       )
         return false;

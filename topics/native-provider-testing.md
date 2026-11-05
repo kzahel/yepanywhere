@@ -120,6 +120,21 @@ post-teardown dispatch counts and endpoint failure checks remain enforced.
 This is live scoped acquisition, not historical backfill or background-job
 qualification. It introduces no public relationship response fields.
 
+
+The separate opt-in `test/native-app/app-explicit-harness.test.ts` runs both
+Claude and Codex parents through their actual shell tools. Each names a Claude
+child in an explicitly different profile while an unchanged same-id native
+header exists in the inherited profile. It requires pending v2 SQL with the
+independent source/destination, holds the child's model response over an API
+generation replacement, then checks the final edge in both directions. Codex's
+actual streaming user result cannot publish an edge; only the terminal result
+can finish the hint. Actual rejected reuse adds no evidence. The Codex case uses the code-mode `exec` → `tools.exec_command`/`write_stdin`
+path and its actual unified-exec command items; direct top-level shell/tool
+variants are not separately natively qualified here. Both protocols,
+native child content, unchanged incumbent, process identity, joined cleanup and
+exact four scripted model exchanges are asserted. This is POSIX qualification;
+no paid inference or implicit-profile/OSS/Windows acceptance is implied.
+
 ## Native v0 creator evidence
 
 The opt-in `test/native-app/app-creation-relationships.test.ts` uses the real

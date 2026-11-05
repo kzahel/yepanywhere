@@ -90,10 +90,38 @@ Claude-family processes. It uses the same lexer with a stricter scoped selector:
 one explicit `cd` into the process project followed by a named foreground Claude invocation,
 optionally clearing `CLAUDECODE`. Branches, pipelines, shell expansion, alternate
 homes/configuration, worktrees, forks, background jobs, informational invocations
-and unnamed launches are withheld. Other
-parent storage families are not qualified by this producer.
+and unnamed launches are withheld by that inherited-store selector.
 
-The existing identity binding selects the exact native store. A successful foreground tool
+A separate POSIX selector accepts an explicit target profile: `cd` into the
+same project, then the literal system `/usr/bin/env`, one literal absolute
+`CLAUDE_CONFIG_DIR`, optional empty `CLAUDECODE`, and an absolute named Claude
+executable. It permits no other environment assignment or shell wrapper around
+the inner CLI. Identity-bearing paths must already be normalized absolute
+POSIX spellings, without control characters, dot/traversal segments, repeated
+or trailing separators, or glob/brace/tilde forms. Unsupported spellings stay
+unknown before native scope construction. This binds the destination after outer shell startup; parent
+native storage and server environment defaults do not select it. A canonical,
+complete target header must still prove the named session and project.
+
+Current Codex app-server frames can use that explicit selector. The adapter
+marks command frames only after their explicit native thread id matches the
+owned root thread. Missing ownership evidence, including an older still-running
+hosted worker, stays unknown. Acquisition requires a provider-tagged
+`command_execution` frame, an unchanged command presentation (no native secret
+redaction marker), and one decoded literal POSIX shell argv envelope. Decoding
+alone is no launch authority: explicit destination binding, the final successful
+tool result and target header supply command evidence together. Streaming user
+rows cannot finish a hint. Codex additionally requires the matching command
+item's terminal zero-exit, non-interrupted result. Failed or declined calls
+supply no accepted observation. The native redaction assumption is audited against 0.166.0; other installed
+versions do not gain native qualification from this parser and still rely on
+the independent namespace/result/header proof. Codex OSS, Windows shell forms, other parent
+families and implicit Codex-to-Claude profile inheritance remain unqualified.
+Existing Claude-family inherited-store selection remains separate.
+
+The existing identity binding selects the parent anchor. The inherited Claude
+selector uses that qualified store; the explicit selector supplies an independent
+destination. A successful foreground tool
 result and a bounded, complete target header matching the named id and project
 support a `launched_harness` fact with `command-observed` trust. This does not
 prove creation, command intent, or provider subagent membership. A resume
@@ -101,7 +129,16 @@ only names an existing same-project session; no fresh creation is inferred. Full
 prompts and tool outputs are never persisted in this index.
 
 Pending tool ids, target ids and exact scope live in the existing SQL extraction
-checkpoints. Accepted facts, duplicate suppression and pending removal commit
+checkpoints. Private cursor v2 carries each destination separately from the
+source native identity, so concurrent calls can name different profiles. Existing
+v1 Claude cursors import their inherited destination; a v1 cursor cannot imply a
+Codex destination. Inherited-only Claude hints and empty Claude cursors keep the
+compact v1 format, preserving rollback and avoiding per-hint namespace inflation.
+Only independent destinations or Codex sources require v2. Old readers with no
+v2 decoder retain accepted graph facts and withhold acquisition for affected
+sessions rather than reinterpret those records. Cursor admission remains bounded
+to 64K serialized characters and 32 hints; oversized new hints stay unknown
+without replacing already committed hints. Accepted facts, duplicate suppression and pending removal commit
 atomically. Startup walks indexed partial checkpoints in finite pages; existing
 native file events can retry a missing target in the watched Claude root;
 alternate roots rely on process completion or startup. There are two workers, 128 retained

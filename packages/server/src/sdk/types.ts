@@ -68,6 +68,8 @@ export interface SDKMessage {
   tool_name?: string;
   tool_input?: unknown;
   toolUseResult?: unknown;
+  /** Private live evidence: Codex verified this command frame's native owner. */
+  _codexOwnedCommand?: boolean;
   toolResultMedia?: ToolResultMedia[];
   // Input requests (tool approval, questions, etc.)
   input_request?: {

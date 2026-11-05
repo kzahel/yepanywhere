@@ -431,3 +431,15 @@ parts to the child id so Task Open works. `getAgentSession` replays the
 child's own messages. Child ids stay out of top-level OpenCode lists and
 the session catalog. There is still no first-class YA `copilot` provider;
 Architecture C live `subagent.started` events remain a later path.
+
+
+### Owned Codex command evidence across API upgrades
+
+The app-server adapter marks a live command only when the notification's
+explicit native thread id matches its owned root thread, after the existing
+foreign-child filter. This private marker lets internal relationship acquisition
+withhold frames produced by older, still-running hosted workers. Presentation
+correlation alone does not prove that an old worker attributed a frame to the
+correct native owner. This changes neither provider-child membership nor its
+public navigation projection; shell-launched harnesses remain a distinct
+`launched_harness` relationship with command-observed trust.

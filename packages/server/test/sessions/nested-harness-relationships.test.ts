@@ -35,7 +35,10 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 const turn = () => new Promise<void>((resolve) => setImmediate(resolve));
-async function fixture(history = false) {
+async function fixture(
+  history = false,
+  provider: "claude" | "codex" = "claude",
+) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "ya-harness-sql-")));
   const project = join(root, "project"),
     scope = join(root, "native", claudeCwdProjectDirectory(project));
@@ -50,14 +53,14 @@ async function fixture(history = false) {
     writer = new SessionRelationshipWriter(sql, "server");
   const sessionId = parseYaSessionId(randomUUID()),
     native = nativeSessionRef(
-      "claude",
+      provider,
       scope,
       parseNativeSessionId(randomUUID()),
     );
   sql.transaction(() => {
     identities.allocateWithinTransaction({
       sessionId,
-      provider: "claude",
+      provider,
       projectId: encodeProjectId(project),
       createdAt: new Date().toISOString(),
     });
@@ -67,7 +70,7 @@ async function fixture(history = false) {
     id: "process-1",
     sessionId,
     projectPath: project,
-    provider: "claude" as const,
+    provider,
     confined: false,
   };
   const errors: unknown[] = [],
@@ -1088,5 +1091,156 @@ it("indexes only post-copy pairs across reopen, cursor reset and a future-dated 
   await turn();
   await turn();
   expect(f.edges()).toHaveLength(1); // Accepted facts survive loss of their native prefix.
+  expect(f.errors).toEqual([]);
+});
+
+it("keeps an explicit Claude destination independent of its Codex parent, ignores streaming success and recovers the pending scope", async () => {
+  const f = await fixture(false, "codex"),
+    targetId = randomUUID();
+  const targetScope = join(
+    f.root,
+    "target",
+    "projects",
+    claudeCwdProjectDirectory(f.project),
+  );
+  await mkdir(targetScope, { recursive: true });
+  await Promise.all(
+    [f.scope, targetScope].map((scope) =>
+      writeFile(join(scope, targetId + ".jsonl"), f.header(targetId)),
+    ),
+  );
+  const id = "exec-cross-scope",
+    correlation = {
+      _codexOwnedCommand: true,
+      _codexToolCorrelation: {
+        origin: "command_execution",
+        turnId: "turn",
+        itemId: id,
+      },
+    };
+  const inner = `cd ${quoteShellWord(f.project)} && /usr/bin/env CLAUDE_CONFIG_DIR=${quoteShellWord(join(f.root, "target"))} CLAUDECODE= /owned/claude --session-id ${targetId} --print go`;
+  const commandMessage = {
+    type: "assistant",
+    session_id: f.context.sessionId,
+    ...correlation,
+    message: {
+      content: [
+        {
+          type: "tool_use",
+          id,
+          name: "Bash",
+          input: { command: `/bin/bash -lc ${quoteShellWord(inner)}` },
+        },
+      ],
+    },
+  };
+  f.first.observeMessage(f.context, {
+    ...commandMessage,
+    _codexOwnedCommand: undefined,
+  });
+  await turn();
+  await turn();
+  expect(f.pending()).toBeNull(); // Older workers lack native owner proof.
+  f.first.observeMessage(f.context, commandMessage);
+  await vi.waitFor(() =>
+    expect(JSON.parse(f.pending()!.cursor).hints[0].target.storageScope).toBe(
+      targetScope,
+    ),
+  );
+  const result = {
+    type: "user",
+    session_id: f.context.sessionId,
+    ...correlation,
+    message: {
+      content: [
+        { type: "tool_result", tool_use_id: id, content: "partial success" },
+      ],
+    },
+  };
+  f.first.observeMessage(f.context, {
+    ...result,
+    _isStreaming: true,
+    toolUseResult: { exitCode: 0 },
+  });
+  await turn();
+  await turn();
+  expect(f.edges()).toEqual([]);
+  expect(JSON.parse(f.pending()!.cursor).hints[0].ready).toBe(false);
+  f.first.forgetProcess(f.context, "reload");
+  await f.first.close();
+  const next = f.service();
+  next.registerProcess({ ...f.context, id: "reattached" });
+  next.observeMessage(
+    { ...f.context, id: "reattached" },
+    { ...result, toolUseResult: { exitCode: 0, interrupted: false } },
+  );
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  expect(f.edges()[0]).toMatchObject({
+    source: { native: { family: "codex" } },
+    target: {
+      native: { family: "claude", storageScope: targetScope, id: targetId },
+    },
+  });
+  expect(JSON.parse(f.pending()!.cursor).v).toBe(2);
+  expect(f.errors).toEqual([]);
+});
+
+it("drains a near-capacity legacy cursor without inflating inherited destinations during migration", async () => {
+  const f = await fixture();
+  await f.first.close();
+  // A retained profile can outlive the old native directory. Recovery must
+  // release its unreturned calls without reading that directory or expanding
+  // one shared old namespace into 32 copies in the serialized cursor.
+  const old = f.identities.resolveYa(f.context.sessionId)!.native!;
+  const native = {
+    ...old,
+    storageScope: join(
+      f.root,
+      ...Array.from({ length: 12 }, () => "n".repeat(200)),
+      "old-profile",
+    ),
+  };
+  const update = f.sql.prepare(
+    "UPDATE session_identities SET native_scope = ? WHERE session_id = ?",
+  );
+  try {
+    update.run(native.storageScope, f.context.sessionId);
+  } finally {
+    update.finalize();
+  }
+  const cursor = JSON.stringify({
+    v: 1,
+    native,
+    directory: f.project,
+    hints: Array.from({ length: 32 }, (_, i) => ({
+      id: String(i) + "x".repeat(1000),
+      targetId: randomUUID(),
+      observedAt: new Date().toISOString(),
+      ready: false,
+    })),
+  });
+  expect(cursor.length).toBeLessThan(65536);
+  expect(cursor.length + native.storageScope.length * 31).toBeGreaterThan(
+    65536,
+  );
+  f.writer.index.publish({
+    observation: {
+      producer: "nested-harness-pending-v1",
+      sourceKey: f.context.sessionId,
+      sourceVersion: "1",
+      extractorVersion: 1,
+      observedAt: new Date().toISOString(),
+    },
+    expectedRevision: null,
+    facts: [],
+    progress: { state: "partial", cursor },
+  });
+  const next = f.service();
+  next.registerProcess(f.context);
+  next.forgetProcess(f.context);
+  await vi.waitFor(() => expect(f.pending()?.state).toBe("complete"));
+  expect(JSON.parse(f.pending()!.cursor)).toMatchObject({ v: 1, hints: [] });
+  expect(f.pending()!.cursor.length).toBeLessThan(cursor.length);
+  expect(f.edges()).toEqual([]);
   expect(f.errors).toEqual([]);
 });

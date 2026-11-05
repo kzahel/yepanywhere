@@ -30,6 +30,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import {
   CODEX_TOOL_CORRELATION_FIELD,
+  getCodexToolCorrelation,
   type CodexAsyncUserInputQuestion,
   type CodexCyberAccessProgram,
   type CodexPlanToolMode,
@@ -3683,6 +3684,14 @@ export class CodexProvider implements AgentProvider {
             }
             if (suppressFailedRetryableCompletion) {
               continue;
+            }
+            if (
+              observedThreadId === runtimeState.threadId &&
+              getCodexToolCorrelation(msg)?.origin === "command_execution"
+            ) {
+              // Private acquisition evidence, absent on older hosted workers.
+              // A current native thread match is stronger than presentation ids.
+              msg._codexOwnedCommand = true;
             }
             failureTrace.lastEmittedMessage =
               provider.describeSDKMessageForFailureTrace(msg);

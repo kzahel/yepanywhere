@@ -30,3 +30,29 @@ to manufacture a green result. Owning evidence/limits belong in
 [native provider testing](../topics/native-provider-testing.md).
 
 Found 2026-11-05 while qualifying repeated native tool-result delivery.
+
+
+## Copy-aware source qualification
+
+At `a71daaa9d`, [run 42104700612](https://github.com/kzahel/yepanywhere/actions/runs/42104700612)
+again fails macOS (job 127516338539): nine of ten app cases exhaust the unchanged
+30/40-second guards, so its browser step never runs. The app duration is 214.37
+seconds, with 374.37 aggregate test seconds. Linux job 127516338059 passes all
+ten app cases (94.70 wall / 168.80 aggregate seconds) and all three browser cases
+(1.6 minutes); the separate provider job passes all 69 scenarios.
+
+The macOS capacity key remains the three-CPU/7-GiB arm64 runner. API readiness
+ranges from 11.593 to 25.002 seconds. Sparse start/end samples report maximum
+load per effective CPU 18.653 and minimum available memory 998,981,632 bytes;
+CPU busy and swap remain unavailable. These observations do not establish the
+cause or qualify a warm-detail performance regression. The same-source one-worker
+control [42108868835](https://github.com/kzahel/yepanywhere/actions/runs/42108868835)
+actually runs on macOS (job 127530827997) and passes all ten app cases with the
+same guards, in 226.23 wall / 222.20 aggregate seconds. Its browser step passes
+two cases and fails the Claude case before typing: the initial composer is not
+mounted within 15 seconds while cold Vite modules are still loading. The
+[separate browser bootstrap finding](hosted-macos-native-browser-bootstrap-timeout.md)
+owns that failure. Linux also passes its app/browser steps. This qualifies one
+app-worker setting for this source; it does not prove a sustained speedup or a
+cause for the two-worker failures. No budget, assertion or worker default has
+changed. The earlier unacquired control is still not a test result.

@@ -1371,3 +1371,64 @@ from the native pair. No new browser/display contract is added.
 Hosted acceptance for this new source remains separate. Older copies, legacy
 adoption, automatic corpus traversal and other parent harness families remain
 unqualified; this does not complete the full relationship design.
+
+
+### Independent destinations and owned Codex shell acquisition
+
+Pending commands now carry their own destination native reference, independent
+of the parent's family/profile. Private cursor v2 reads existing v1 Claude hints
+without guessing a cross-family destination. Inherited-only and empty Claude
+cursors remain compact v1, preserving rollback and preventing namespace
+inflation from blocking abandonment of near-capacity legacy records. The
+existing SQL owner still atomically accepts facts and removes pending hints;
+source rebinding, proof limits, canonical file checks and bounded scheduling
+remain in force. New hints cannot exceed the existing 64K-character cursor
+admission bound. No schema migration, public relationship field or grant is added.
+
+Explicit POSIX commands bind a literal Claude profile through the system env
+executable after outer-shell startup. Current Codex root-thread command frames
+can use that selector with a terminal zero-exit/non-interrupted result; streaming
+user output is not completion evidence. A new private adapter ownership marker
+is absent on older hosted workers, which remain unknown. The pinned 0.166.0
+source formats commandExecution as redacted shlex argv; only marker-free,
+provider-tagged literal envelopes qualify as candidates. Candidate parsing does
+not replace explicit scope/result/header proof. Implicit cross-family profiles,
+Codex OSS, Windows forms and other parent families remain unqualified.
+
+Actual pinned Claude/Codex parents qualify different child profiles, a same-id
+inherited-profile control, held child responses over API replacement, final SQL
+acceptance and failed reuse. Codex uses code-mode `exec` with native unified-exec
+items. Twenty-seven SQL/filesystem cases and seventeen selector cases pass.
+The cross-family regression fails against the previous service. The retained
+legacy-overflow case fails with always-v2 encoding and passes with compact v1;
+identity-bearing paths now reject normalization, traversal, controls and
+unsupported expansion forms before scope construction. Opus accepted the initial
+implementation with no blockers and prompted these compact-format and path
+hardening changes.
+
+All twelve app cases pass after hardening at two workers (54.53 wall / 104.93
+aggregate test seconds). The unchanged adapter boundary passes all 69 native
+scenarios (60.09 / 110.13 seconds); three browser cases pass (49.1 seconds),
+retaining the 100 ms sequential-key limit, concurrent output, input identity and
+final-history checks. Root tests pass 7,094 server (87 skipped) / 7,116 client /
+980 shared / 139 relay / 45 push-broker; server duration is 147.93 seconds.
+Lint, format and types are checked on the final source. Node 22.23.3, Node 24.22.1
+and Bun 1.3.14 constructed owned-profile probes qualify v2 pending SQL reopen,
+separate destinations, terminal handoff and retention after target loss; Bun
+also requalifies inherited/copy history reopen with an owned input snapshot and
+the compact format. An earlier supplemental probe passed an unowned temporary
+clone to the intentionally weak-reference handoff and timed out; it is retained
+as inconclusive fixture evidence. Controlled busy-worker/GC fault injection
+releases weak-only rows without publishing facts, then publishes with the same
+strongly owned snapshot. No production change was needed for that correction.
+Actual native launch proof remains the two parent cases, not those constructed
+probes.
+
+Hosted source acceptance remains separate. The preceding `a71daaa9d` source
+passes Linux's 69 provider, ten app and three browser cases. The same-source
+macOS one-worker control passes all ten app cases with unchanged guards, while
+its first composer mount exhausts a cold-development readiness check before
+any session-detail request or keystroke. The two-worker app timeout and
+[browser bootstrap](../../gaps/hosted-macos-native-browser-bootstrap-timeout.md)
+findings remain explicit. No worker default, input limit or public contract is
+changed in this slice. Generic graph API approval remains pending.

@@ -508,6 +508,8 @@ export {
 export {
   detectNestedHarnessLaunch,
   detectScopedNestedHarnessLaunch,
+  detectExplicitScopedNestedHarnessLaunch,
+  type ExplicitScopedNestedHarnessLaunch,
   type NestedHarnessLaunch,
   type NestedHarnessName,
 } from "./nested-harness-launch.js";
