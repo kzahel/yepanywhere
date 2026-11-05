@@ -34,7 +34,7 @@ Meanwhile, durable relationships already have several owners:
   before native effects. `CreationCopySnapshot.kind` distinguishes fork/clone.
 - Metadata distinguishes `/btw` parenting from `forkedFromSessionId`.
 - Provider readers discover separately executed native children.
-- Nested shell launches have outbound links but no durable reverse index.
+- Scoped live Claude shell launches now have a durable command-evidence producer; historical acquisition and reverse presentation remain pending.
 
 The shared design must coordinate these owners, not create another competing
 creator, receipt or identity store. Native persistence and receipts remain

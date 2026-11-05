@@ -24,7 +24,7 @@ This is not a [provider child session](provider-child-sessions.md) and not a
 subagent. Subagent detection keys on `agentId` plus `isSidechain`, and these
 transcripts contain no sidechain entries at all, because no subagent was ever
 created. The child is a real YA session with its own canonical YA session id,
-listed and openable like any other. Only the edge to its launcher is missing.
+listed and openable like any other. The live scoped producer below records that edge; reverse presentation is still pending.
 
 The Bash result's `backgroundTaskId` does not supply that edge. It names a
 harness-local output file under the harness temp directory, not a session, and
@@ -83,12 +83,50 @@ restores visibility for work the user explicitly caused, adds no action and no
 provider state mutation, and reuses YA's existing session navigation. It ships
 always-on and adds no setting.
 
+## Durable live command evidence
+
+`NestedHarnessRelationshipService` observes main-session Bash calls from managed
+Claude-family processes. It uses the same lexer with a stricter scoped selector:
+one explicit `cd` into the process project followed by a named foreground Claude invocation,
+optionally clearing `CLAUDECODE`. Branches, pipelines, shell expansion, alternate
+homes/configuration, worktrees, forks, background jobs, informational invocations
+and unnamed launches are withheld. Other
+parent storage families are not qualified by this producer.
+
+The existing identity binding selects the exact native store. A successful foreground tool
+result and a bounded, complete target header matching the named id and project
+support a `launched_harness` fact with `command-observed` trust. This does not
+prove creation, command intent, or provider subagent membership. A resume
+only names an existing same-project session; no fresh creation is inferred. Full commands,
+prompts and tool outputs are never persisted in this index.
+
+Pending tool ids, target ids and exact scope live in the existing SQL extraction
+checkpoints. Accepted facts, duplicate suppression and pending removal commit
+atomically. Startup walks indexed partial checkpoints in finite pages; existing
+native file events can retry a missing target in the watched Claude root;
+alternate roots rely on process completion or startup. There are two workers, 128 retained
+sources and 32 pending calls per source, with no per-session timers or new
+watchers. Capacity and unqualified syntax remain unknown, not known empty.
+A real process end abandons unreturned calls as unknown. Unproved targets
+receive at most three probes; pending hints older than 24 hours are abandoned
+on the next acquisition/startup, without a timer. These terminal unknowns free
+capacity and leave the partial startup index. Reload detachment is nonterminal,
+including a direct wrapper SIGHUP; it preserves pending correlation.
+Observed facts survive target deletion. Acquisition never reads parent bodies or
+reruns a provider command. A frame lost before its pending SQL commit is not
+recoverable from this live-only producer.
+
+The opt-in native-app fixture runs actual parent/child Claude executables against
+a scripted model endpoint, replaces the API via both the admin route and direct
+wrapper SIGHUP while the child is running, verifies
+SQL edges after completion and target loss, and checks that copied fork history
+creates no extra launch edge. No inference is used by that fixture.
+
 ## Not covered
 
 The reverse edge — a child session showing which session launched it — is not
 implemented. It cannot be derived from the child's own transcript, so it needs
-launch edges indexed across a project's sessions plus a server contract to
-carry them, which is a client/server compatibility decision
+a server contract to carry the indexed facts, which is a client/server compatibility decision
 ([server-capabilities](server-capabilities.md)) rather than a rendering
 concern. Until then a launched session still looks unattached when opened
 directly, which

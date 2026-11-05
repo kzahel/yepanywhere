@@ -1,4 +1,5 @@
 import { ProviderChildRelationshipService } from "./sessions/ProviderChildRelationshipService.js";
+import { NestedHarnessRelationshipService } from "./sessions/NestedHarnessRelationshipService.js";
 import { CreationAttachments } from "./sessions/creation-attachments.js";
 import { localPeerHost } from "./peer-api/connection-contracts.js";
 import {
@@ -1642,20 +1643,40 @@ export function createApp(options: AppOptions): AppResult {
       ),
     () => sessionRelationships.index,
   );
+  const harnessRelationships = new NestedHarnessRelationshipService(
+    discoverySqlite.getDatabase(),
+    sessionRelationships,
+    options.sessionMetadataService?.identities,
+    (sessionId) =>
+      options.eventBus?.emit({
+        type: "session-metadata-changed",
+        sessionId,
+        timestamp: new Date().toISOString(),
+      }),
+    (error) =>
+      getLogger().debug(
+        { event: "nested_harness_observation_unavailable", error },
+        "Nested harness evidence unavailable",
+      ),
+  );
   const unsubscribeProviderChildChanges = options.eventBus?.subscribe(
     (event) => {
-      if (event.type === "file-change")
+      if (event.type === "file-change") {
         providerChildRelationships.notifyNativeFileChange(event);
+        harnessRelationships.notifyFileChange(event);
+      }
     },
   );
   const unsubscribeProviderObservationReady =
-    options.subscribeProviderObservationReady?.((family) =>
-      providerChildRelationships.observationReady(family),
-    );
+    options.subscribeProviderObservationReady?.((family) => {
+      providerChildRelationships.observationReady(family);
+      harnessRelationships.observationReady(family);
+    });
   const unsubscribeNativeProviderFileChanges =
-    options.subscribeNativeProviderFileChanges?.((event) =>
-      providerChildRelationships.notifyNativeFileChange(event),
-    );
+    options.subscribeNativeProviderFileChanges?.((event) => {
+      providerChildRelationships.notifyNativeFileChange(event);
+      harnessRelationships.notifyFileChange(event);
+    });
   const projectFileCompletion = new ProjectFileCompletion(effectiveDataDir, {
     eventBus: options.eventBus,
   });
@@ -1823,6 +1844,7 @@ export function createApp(options: AppOptions): AppResult {
       unsubscribeProviderObservationReady?.();
       unsubscribeNativeProviderFileChanges?.();
       await providerChildRelationships.close();
+      await harnessRelationships.close();
       await relationshipReconciliation;
       unsubscribeCreationStatus?.();
       hostAgentProcessService?.close();
@@ -2524,6 +2546,7 @@ export function createApp(options: AppOptions): AppResult {
     sessionQueuePersistenceService: options.sessionQueuePersistenceService,
     toolResultMediaStore,
     dirtyFileEditorService: options.dirtyFileEditorService,
+    harnessRelationships,
     sandboxStateRoot: join(effectiveDataDir, "session-sandboxes"),
     // Save executor for remote sessions to support resume
     onSessionExecutor: options.sessionMetadataService

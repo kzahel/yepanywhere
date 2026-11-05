@@ -1,0 +1,319 @@
+import { randomUUID } from "node:crypto";
+import { readFile, unlink } from "node:fs/promises";
+import { basename, join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  detectNestedHarnessLaunch,
+  parseYaSessionId,
+  nativeSessionRef,
+  parseNativeSessionId,
+} from "@yep-anywhere/shared";
+import { SessionIdentityStore } from "../../src/sessions/SessionIdentityStore.js";
+import { SessionRelationshipStore } from "../../src/sessions/SessionRelationshipStore.js";
+import { loadSqliteDriver } from "../../src/storage/sqlite.js";
+import { quoteShellWord } from "../../src/utils/posixShell.js";
+import {
+  nativeAppFixture,
+  appBarrier,
+} from "../native-provider/app-fixture.js";
+import { nativeExecutable } from "../native-provider/runtimes.js";
+
+interface NativeRow {
+  type?: string;
+  sessionId?: string;
+  uuid?: string;
+  timestamp?: string;
+  isSidechain?: boolean;
+  message?: {
+    content?: string | { type: string; name?: string; input?: unknown }[];
+  };
+}
+
+let fixture: Awaited<ReturnType<typeof nativeAppFixture>> | undefined;
+afterEach(async (context) => {
+  if (fixture && context.task.result?.state === "fail")
+    console.info(await fixture.diagnostics());
+  await fixture?.close();
+  fixture = undefined;
+});
+
+describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
+  "native named nested harness evidence",
+  () => {
+    it.each(["admin-route", "wrapper-signal"] as const)(
+      "preserves named launch evidence across %s replacement and rejects copied fork commands",
+      {
+        timeout: 40_000,
+      },
+      async (replacement) => {
+        const f = await nativeAppFixture("claude");
+        fixture = f;
+        await f.ready();
+        const parent = await f.create("NESTED_HARNESS_PARENT_INITIAL");
+        const first = await f.model.next();
+        const childId = randomUUID(),
+          executable = nativeExecutable("claude");
+        const inspect = async (sessionId = parent.sessionId) => {
+          await f.api("/version"); // Teardown fence for every publication wait.
+          const db = loadSqliteDriver()!.open(
+            join(f.root, "home", "ya", "discovery.sqlite"),
+            { readOnly: true },
+          );
+          const server = db.prepare(
+            "SELECT server_id FROM public_server_identity WHERE singleton=1",
+          );
+          let identities: SessionIdentityStore | undefined,
+            graph: SessionRelationshipStore | undefined;
+          try {
+            db.exec("BEGIN");
+            identities = new SessionIdentityStore(db);
+            graph = new SessionRelationshipStore(db);
+            const identity = identities.resolveYa(parseYaSessionId(sessionId));
+            const serverId = server.get<{ server_id: string }>()?.server_id;
+            if (!identity?.native || !serverId) return undefined;
+            const resource = {
+              kind: "native" as const,
+              serverId,
+              native: identity.native,
+            };
+            const target = {
+              kind: "native" as const,
+              serverId,
+              native: nativeSessionRef(
+                "claude",
+                identity.native.storageScope,
+                parseNativeSessionId(childId),
+              ),
+            };
+            const edges = graph.list({
+              resource,
+              direction: "outgoing",
+              type: "launched_harness",
+            }).edges;
+            const view = {
+              identity,
+              edges,
+              pending: graph.checkpoint("nested-harness-pending-v1", sessionId),
+              incoming: graph.list({
+                resource: target,
+                direction: "incoming",
+                type: "launched_harness",
+              }).edges,
+              evidence: edges[0] ? graph.evidence(edges[0].id) : [],
+              providerChildren: graph.list({
+                resource: target,
+                type: "provider_child",
+              }).edges,
+              created: graph.list({
+                resource: { kind: "session", serverId, sessionId: childId },
+                type: "created_session",
+              }).edges,
+            };
+            db.exec("COMMIT");
+            return view;
+          } finally {
+            server.finalize();
+            identities?.close();
+            graph?.dispose();
+            db.close();
+          }
+        };
+        expect(basename(executable)).toBe("claude");
+        const command = `unset CLAUDECODE; cd ${quoteShellWord(f.project)} && ${quoteShellWord(executable)} --session-id ${childId} --print --output-format stream-json --verbose --permission-mode bypassPermissions --model claude-haiku-5-5 NESTED_HARNESS_CHILD_INITIAL`;
+        expect(detectNestedHarnessLaunch(command)).toEqual({
+          harness: "claude",
+          sessionId: childId,
+          workingDirectory: f.project,
+        });
+        first.tool("Bash", {
+          command,
+          timeout: 20000,
+          description: "Run one owned named harness",
+        });
+        const child = await f.model.next();
+        expect(JSON.stringify(child.body)).toContain(
+          "NESTED_HARNESS_CHILD_INITIAL",
+        );
+        expect(JSON.stringify(child.body)).not.toContain(
+          "NESTED_HARNESS_PARENT_INITIAL",
+        );
+        const pending = await appBarrier(async () => {
+          const view = await inspect();
+          return view?.pending ? view : false;
+        }, "durable pending harness correlation");
+        expect(pending.pending?.state).toBe("partial");
+        expect(JSON.parse(pending.pending!.cursor).hints).toEqual([
+          expect.objectContaining({ targetId: childId, ready: false }),
+        ]);
+        const parentWorker = (await f.inventory()).find(
+          (w) => w.providerSessionId === pending.identity.native!.id,
+        );
+        expect(parentWorker).toBeDefined();
+        if (!parentWorker) throw Error("Native parent owner missing");
+        if (replacement === "admin-route") await f.api("/server/restart", {});
+        else await f.reload();
+        const attached = await appBarrier(async () => {
+          const next = (await f.inventory()).find(
+            (w) => w.runtimeId === parentWorker.runtimeId,
+          );
+          return next?.attachedServerGeneration &&
+            next.attachedServerGeneration !==
+              parentWorker.attachedServerGeneration
+            ? next
+            : false;
+        }, "pending harness API replacement");
+        expect(attached.pid).toBe(parentWorker.pid);
+        expect(attached.providerProcessGroupIds).toEqual(
+          parentWorker.providerProcessGroupIds,
+        );
+        await appBarrier(
+          async () => await f.api("/version"),
+          "replacement API ready",
+        );
+        const reconnected = await f.connect(parent.sessionId);
+        child.finish("NESTED_HARNESS_CHILD_DONE");
+        const continued = await f.model.next();
+        expect(JSON.stringify(continued.body)).toContain(childId);
+        expect(JSON.stringify(continued.body)).toContain(
+          "NESTED_HARNESS_CHILD_DONE",
+        );
+        // A named fresh launch against an already persisted id must fail without
+        // supporting another launch observation. This exercises native Bash's
+        // actual is_error result, rather than a fabricated tool-result fixture.
+        continued.tool("Bash", { command, timeout: 20000 });
+        const rejected = await f.model.next();
+        expect(JSON.stringify(rejected.body)).toContain("already in use");
+        expect(JSON.stringify(rejected.body)).toContain('"is_error":true');
+        rejected.finish("NESTED_HARNESS_PARENT_DONE");
+        await reconnected.wait("NESTED_HARNESS_PARENT_DONE");
+        await reconnected.wait('"type":"result"');
+        const accepted = await appBarrier(async () => {
+          const view = await inspect();
+          return view?.edges.length ? view : false;
+        }, "accepted named harness edge");
+        expect(accepted.edges).toHaveLength(1);
+        expect(accepted.incoming).toEqual(accepted.edges);
+        expect(accepted.edges[0]?.target).toMatchObject({
+          kind: "native",
+          native: {
+            id: childId,
+            family: "claude",
+            storageScope: accepted.identity.native!.storageScope,
+          },
+        });
+        expect(accepted.evidence).toEqual([
+          expect.objectContaining({
+            producer: "nested-harness-command-v1",
+            trust: "command-observed",
+            metadata: { toolUseId: `call_${first.id}` },
+          }),
+        ]);
+        expect(accepted.pending?.state).toBe("complete");
+        expect(accepted.providerChildren).toEqual([]);
+        expect(accepted.created).toEqual([]);
+        await f.api(
+          `/projects/${parent.projectId}/sessions/${childId}/metadata`,
+        );
+        const identity = async (sessionId: string) =>
+          appBarrier(async () => {
+            await f.api("/version");
+            const db = loadSqliteDriver()!.open(
+              join(f.root, "home", "ya", "discovery.sqlite"),
+              { readOnly: true },
+            );
+            let identities: SessionIdentityStore | undefined;
+            try {
+              identities = new SessionIdentityStore(db);
+              const row = identities.resolveYa(parseYaSessionId(sessionId));
+              return row?.native ? row : false;
+            } finally {
+              identities?.close();
+              db.close();
+            }
+          }, "native source identity");
+        const original = await identity(parent.sessionId);
+        const rows = async (id: string, scope: string): Promise<NativeRow[]> =>
+          (await readFile(join(scope, id + ".jsonl"), "utf8"))
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line));
+        const commandRows = (entries: NativeRow[]) =>
+          entries.filter(
+            (row) =>
+              row.type === "assistant" &&
+              Array.isArray(row.message?.content) &&
+              row.message.content.some(
+                (block) =>
+                  block.type === "tool_use" &&
+                  block.name === "Bash" &&
+                  block.input !== null &&
+                  typeof block.input === "object" &&
+                  "command" in block.input &&
+                  block.input.command === command,
+              ),
+          );
+        const originalCommands = commandRows(
+          await rows(original.native!.id, original.native!.storageScope),
+        );
+        expect(originalCommands).toHaveLength(2);
+        const childRows = await rows(childId, original.native!.storageScope);
+        expect(childRows.some((row) => row.sessionId === childId)).toBe(true);
+        expect(childRows.some((row) => row.isSidechain === true)).toBe(false);
+        const fork = await f.api(
+          `/projects/${parent.projectId}/sessions/${parent.sessionId}/fork`,
+          { forkKind: "clone-latest-complete" },
+        );
+        const copied = await identity(fork.sessionId);
+        const copiedCommands = commandRows(
+          await rows(copied.native!.id, copied.native!.storageScope),
+        );
+        expect(copiedCommands).toHaveLength(2);
+        for (let index = 0; index < originalCommands.length; index++) {
+          expect(originalCommands[index]!.sessionId).toBe(original.native!.id);
+          expect(copiedCommands[index]!.sessionId).toBe(copied.native!.id);
+          expect(copiedCommands[index]!.uuid).not.toBe(
+            originalCommands[index]!.uuid,
+          );
+          expect(copiedCommands[index]!.timestamp).toBe(
+            originalCommands[index]!.timestamp,
+          );
+          expect(Date.parse(copiedCommands[index]!.timestamp!)).toBeLessThan(
+            Date.parse(copied.createdAt),
+          );
+        }
+        await f.api(
+          `/projects/${parent.projectId}/sessions/${fork.sessionId}/resume`,
+          {
+            message: "NESTED_FORK_CONTINUE_ONLY",
+            mode: "bypassPermissions",
+          },
+        );
+        const forkConnection = await f.connect(fork.sessionId);
+        const forkReply = await f.model.next();
+        expect(JSON.stringify(forkReply.body)).toContain(
+          "NESTED_FORK_CONTINUE_ONLY",
+        );
+        forkReply.finish("NESTED_FORK_DONE");
+        await forkConnection.wait("NESTED_FORK_DONE");
+        await forkConnection.wait('"type":"result"');
+        const forkGraph = await inspect(fork.sessionId);
+        expect(forkGraph).not.toBe(false);
+        if (!forkGraph) throw Error("Fork identity unavailable");
+        expect(forkGraph.edges).toEqual([]);
+        expect(forkGraph.incoming).toEqual(accepted.edges);
+        // Historical relationship facts survive native loss and another API.
+        await unlink(join(original.native!.storageScope, childId + ".jsonl"));
+        await f.api("/server/restart", {});
+        await appBarrier(
+          async () => await f.api("/version"),
+          "historical harness API",
+        );
+        const historical = await inspect();
+        expect(historical?.edges).toEqual(accepted.edges);
+        await f.close();
+        expect(f.model.failures).toEqual([]);
+        expect(f.model.requests).toHaveLength(5);
+      },
+    );
+  },
+);

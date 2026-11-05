@@ -3824,6 +3824,11 @@ export class Process {
     };
   }
 
+  /** Local completion during reload does not mean the hosted provider ended. */
+  get isDetachingForServerReload(): boolean {
+    return this.viewerLifecycle.isDetachingForServerReload;
+  }
+
   private inputRejectionError(): string | null {
     if (this.managedIdentity && this.iteratorDone) {
       return "Process provider stream has ended";

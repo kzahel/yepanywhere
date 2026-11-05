@@ -5,7 +5,7 @@ import {
   parseYaSessionId,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
-import type { SqliteDatabase } from "../storage/sqlite.js";
+import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
 
 export const SESSION_RELATIONSHIP_TYPES = [
   "created_session",
@@ -169,6 +169,7 @@ function metadataJson(metadata: RelationshipMetadata = {}): string {
  * Statements are prepared once and finalized by dispose. No process-wide maps.
  */
 export class SessionRelationshipStore {
+  private pendingSources?: SqliteStatement;
   private readonly insertEdge;
   private readonly insertEvidence;
   private readonly refreshEvidence;
@@ -240,6 +241,19 @@ export class SessionRelationshipStore {
           cursor: row.cursor,
         }
       : null;
+  }
+
+  /** Internal finite recovery cursor; no public counts or provider acquisition. */
+  partialSources(producer: string, after = "", limit = 25): string[] {
+    bounded(producer, 128);
+    pageLimit(limit);
+    this.pendingSources ??= this.database.prepare(
+      `SELECT source_key FROM session_relationship_checkpoints INDEXED BY session_relationship_pending
+       WHERE producer = ? AND state = 'partial' AND source_key > ? ORDER BY source_key LIMIT ?`,
+    );
+    return this.pendingSources
+      .all<{ source_key: string }>(producer, after, limit)
+      .map((row) => row.source_key);
   }
 
   /** Owner must already hold the profile transaction (e.g. common admission). */
@@ -433,6 +447,7 @@ export class SessionRelationshipStore {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.pendingSources?.finalize();
     for (const statement of [
       this.insertEdge,
       this.insertEvidence,

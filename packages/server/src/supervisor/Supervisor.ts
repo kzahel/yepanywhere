@@ -1,4 +1,5 @@
 import { isDesktopControlOrigin } from "../desktop/machine-control.js";
+import type { HarnessRelationshipObserver } from "../sessions/NestedHarnessRelationshipService.js";
 import { assertClaudeCopyRoot, cloneClaudeSession } from "../sessions/fork.js";
 import type { AuthorizeSessionCreation } from "../sessions/session-creation-authority.js";
 import type {
@@ -602,6 +603,7 @@ export interface SupervisorOptions {
   toolResultMediaStore?: ToolResultMediaStore;
   /** Tracks the last YA session to mutate each still-dirty project file. */
   dirtyFileEditorService?: DirtyFileEditorService;
+  harnessRelationships?: HarnessRelationshipObserver;
   /** Root for persistent project-private provider state. */
   sandboxStateRoot?: string;
 }
@@ -816,6 +818,7 @@ export class Supervisor {
   private sessionQueuePersistenceService?: SessionQueuePersistenceService;
   private toolResultMediaStore?: ToolResultMediaStore;
   private dirtyFileEditorService?: DirtyFileEditorService;
+  private harnessRelationships?: HarnessRelationshipObserver;
   private sandboxStateRoot?: string;
   private getLimitedUserInstructions?: SupervisorOptions["getLimitedUserInstructions"];
   // In-flight forked recaps, keyed by process id. The AbortController cancels
@@ -878,6 +881,7 @@ export class Supervisor {
       options.sessionQueuePersistenceService;
     this.toolResultMediaStore = options.toolResultMediaStore;
     this.dirtyFileEditorService = options.dirtyFileEditorService;
+    this.harnessRelationships = options.harnessRelationships;
     this.sandboxStateRoot = options.sandboxStateRoot;
     this.getLimitedUserInstructions = options.getLimitedUserInstructions;
     this.activationCoordinator = new SessionActivationCoordinator({
@@ -5730,6 +5734,14 @@ export class Supervisor {
       return;
     }
     this.observedProcessIds.add(process.id);
+    const harnessContext = {
+      id: process.id,
+      sessionId: process.sessionId,
+      projectPath: process.projectPath,
+      provider: process.provider,
+      confined: !!process.sandboxEnforcement,
+    };
+    this.harnessRelationships?.registerProcess(harnessContext);
     process.subscribe((event) => {
       if (
         event.type === "state-change" ||
@@ -5803,11 +5815,19 @@ export class Supervisor {
         );
       } else if (event.type === "complete") {
         this.dirtyFileEditorService?.forgetProcess(process.id);
+        this.harnessRelationships?.forgetProcess(
+          harnessContext,
+          process.isDetachingForServerReload ? "reload" : "ended",
+        );
         void this.activationCoordinator.settleStoppingProcessLaunchSettings(
           process,
         );
         this.unregisterProcess(process);
       } else if (event.type === "message") {
+        this.harnessRelationships?.observeMessage(
+          harnessContext,
+          event.message,
+        );
         this.dirtyFileEditorService?.observeMessage(process, event.message);
         if (
           isCompactBoundaryMessage(event.message) ||
@@ -5917,6 +5937,10 @@ export class Supervisor {
         this.emitWorkerActivity();
       } else if (event.type === "terminated") {
         this.dirtyFileEditorService?.forgetProcess(process.id);
+        this.harnessRelationships?.forgetProcess(
+          harnessContext,
+          process.isDetachingForServerReload ? "reload" : "ended",
+        );
         if (event.failureNotice) {
           void this.sessionMetadataService
             ?.addLocalCommandMessage(process.sessionId, event.failureNotice)

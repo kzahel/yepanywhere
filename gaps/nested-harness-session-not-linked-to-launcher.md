@@ -32,3 +32,10 @@ own lifetime and cleanup story.
 Found 2026-08-17 while tracing why an "Opus 5 task btthdjvcf" reported by one
 session appeared nowhere in YA's subagent visualization; narrowed the same day
 when the launcher→child direction landed.
+
+
+2026-11-05: plan 176 adds a scoped live Claude command-evidence producer using the
+existing durable relationship index. It qualifies named same-project launches and
+keeps pending correlation across API replacement. Historical corpus acquisition,
+unnamed sessions, other parent families and a compatible reverse presentation
+contract remain open; this defect is not closed by the internal producer.

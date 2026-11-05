@@ -81,8 +81,10 @@ function skipHeredocBody(
  * cannot be read as an invocation. Words inside a quoted `sh -c` argument stay
  * one word and are deliberately not descended into.
  */
-function splitSimpleCommands(command: string): string[][] {
-  const commands: string[][] = [];
+function splitSimpleCommands(
+  command: string,
+): Array<{ words: string[]; after: string }> {
+  const commands: Array<{ words: string[]; after: string }> = [];
   const heredocs: HeredocBody[] = [];
   let words: string[] = [];
   let word = "";
@@ -112,9 +114,9 @@ function splitSimpleCommands(command: string): string[][] {
     words.push(finished);
   };
 
-  const endCommand = (): void => {
+  const endCommand = (after = ""): void => {
     endWord();
-    if (words.length) commands.push(words);
+    if (words.length) commands.push({ words, after });
     words = [];
   };
 
@@ -160,8 +162,13 @@ function splitSimpleCommands(command: string): string[][] {
       index += 1;
       continue;
     }
+    if (char === "#" && !started) {
+      // Only an unquoted word-start # begins a shell comment.
+      while (index < command.length && command[index] !== "\n") index++;
+      continue;
+    }
     if (char === "\n") {
-      endCommand();
+      endCommand("\n");
       index += 1;
       while (heredocs.length) {
         index = skipHeredocBody(
@@ -186,8 +193,10 @@ function splitSimpleCommands(command: string): string[][] {
       char === ")" ||
       char === "`"
     ) {
-      endCommand();
-      index += 1;
+      const double =
+        (char === "&" || char === "|") && command[index + 1] === char;
+      endCommand(double ? char + char : char);
+      index += double ? 2 : 1;
       continue;
     }
     if (char === " " || char === "\t" || char === "\r") {
@@ -255,7 +264,7 @@ export function detectNestedHarnessLaunch(
   }
   let workingDirectory: string | undefined;
   for (const simpleCommand of splitSimpleCommands(command)) {
-    const args = stripTransparentPrefix(simpleCommand);
+    const args = stripTransparentPrefix(simpleCommand.words);
     const name = args[0];
     if (!name) continue;
     if (name === "cd") {
@@ -272,4 +281,74 @@ export function detectNestedHarnessLaunch(
     return workingDirectory ? { ...launch, workingDirectory } : launch;
   }
   return undefined;
+}
+
+/**
+ * Conservative storage-scoped subset for durable acquisition. The ordinary
+ * presentation detector above deliberately recognizes more command shapes.
+ * Only an explicit successful `cd` followed by one named invocation can select
+ * the inherited store; branching, pipelines, overrides and forks are unknown.
+ * This is command evidence, never authenticated creation or proof of success.
+ */
+export function detectScopedNestedHarnessLaunch(
+  command: string,
+): NestedHarnessLaunch | undefined {
+  if (
+    command.length > 65536 ||
+    !command.includes("claude") ||
+    /[$`]/.test(command)
+  )
+    return undefined;
+  const commands = splitSimpleCommands(command);
+  if (commands[0]?.words.join(" ") === "unset CLAUDECODE") {
+    if (![";", "&&", "\n"].includes(commands[0].after)) return undefined;
+    commands.shift();
+  }
+  if (commands.length !== 2) return undefined;
+  const [directory, invocation] = commands;
+  if (
+    directory!.after !== "&&" ||
+    directory!.words.length !== 2 ||
+    directory!.words[0] !== "cd"
+  )
+    return undefined;
+  const cwd = directory!.words[1]!;
+  if (/[$`]/.test(cwd) || !["", "\n"].includes(invocation!.after))
+    return undefined;
+  const args = stripTransparentPrefix(invocation!.words);
+  const prefix = invocation!.words.slice(
+    0,
+    invocation!.words.length - args.length,
+  );
+  if (prefix.some((word) => ASSIGNMENT_RE.test(word) && word !== "CLAUDECODE="))
+    return undefined;
+  let names = 0;
+  for (const arg of args.slice(1)) {
+    if (arg.startsWith("-") && !arg.startsWith("--") && arg.length > 2)
+      return undefined;
+    const flag = arg.split("=", 1)[0]!;
+    if (SESSION_FLAGS.has(flag)) names++;
+    if (
+      [
+        "--help",
+        "-h",
+        "--version",
+        "-v",
+        "--no-session-persistence",
+        "--fork-session",
+        "--continue",
+        "-c",
+        "--worktree",
+        "-w",
+        "--settings",
+        "--setting-sources",
+        "--cwd",
+        "--",
+      ].includes(flag)
+    )
+      return undefined;
+  }
+  if (names !== 1) return undefined;
+  const launch = detectNestedHarnessLaunch(command);
+  return launch?.sessionId ? launch : undefined;
 }

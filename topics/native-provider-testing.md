@@ -78,6 +78,20 @@ Do not use the primary CLI as an implicit fallback when optional dependencies
 are absent. Runtime support/version policy remains owned by
 [provider version support](provider-version-support.md).
 
+## Native nested-harness evidence
+
+The opt-in `test/native-app/app-nested-harness.test.ts` runs an actual Claude
+parent whose Bash tool starts a second named Claude executable on the owned
+scripted endpoint. It checks pending SQL before replacing the API, reattaches
+the same native process, then verifies both directions of the command-evidence
+edge. Both the admin restart route and direct wrapper SIGHUP preserve that
+pending correlation; real process completion remains terminal. A real second invocation of the already-used id fails, with no added
+observation. Forking copies both commands but creates no fork launch edge;
+accepted history survives child deletion and another API replacement. Exact
+post-teardown dispatch counts and endpoint failure checks remain enforced.
+This is live scoped acquisition, not historical backfill or background-job
+qualification. It introduces no public relationship response fields.
+
 ## Native v0 creator evidence
 
 The opt-in `test/native-app/app-creation-relationships.test.ts` uses the real

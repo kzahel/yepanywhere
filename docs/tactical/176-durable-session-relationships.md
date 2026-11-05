@@ -664,3 +664,57 @@ suite takes 151.18 seconds; ordinary runs skip the four native creation cases.
 Existing failure-fixture/navigation diagnostic debt remains tracked separately.
 Peer-native dispatch, Windows and new public graph contracts remain outside
 this local matrix.
+
+
+### Scoped live nested-harness acquisition
+
+The managed-process observer records named same-project foreground Claude
+launches through existing identity bindings and relationship checkpoints. A
+successful foreground Bash result plus bounded complete target-header proof
+supports `launched_harness`, distinct from authenticated creation and provider
+children. A resume names an existing session; creation is never inferred.
+Pending extraction is durable. Migration 027 indexes only partial checkpoints
+for finite startup recovery without a new launch journal. Two workers, 128
+retained sources and 32 pending calls each reuse existing native observation
+events, with no new timer or watcher. Accepted facts survive native deletion.
+
+Opus review led to terminal unknown outcomes for interrupted or unprovable
+calls: real process end frees unreturned calls, proof retries stop after three,
+and a 24-hour age bound applies on acquisition/startup. These outcomes mean
+unknown, never known absent. Shared shell-comment handling and strict rejection
+of clustered options, background jobs, informational commands, no-persistence
+and configuration overrides prevent false named targets. The wider existing
+presentation detector retains background links.
+
+Direct SIGHUP originally exposed a lifecycle mismatch: local proxy completion
+was mistaken for provider termination. The observer now reads the existing
+reload lifecycle flag through Process and preserves pending work at nonterminal
+release. Both admin-route and direct-wrapper reloads pass actual native
+scenarios with unchanged provider PID/groups. The real CLI rejects reuse of an
+already-used id without supporting another observation. Copied fork commands
+create no fork edge, and accepted history survives target deletion and reopen.
+Nine real SQLite/filesystem tests cover these lifecycle rules, replay, failed
+proofs, symlinks, incomplete headers, 33 interrupted process lifetimes followed
+by a valid launch, age/probe exhaustion, and recovery of 131 sources through
+the 128-source coordinator. Opus accepted the final implementation.
+
+All four root gates pass after rebasing two independent upstream commits:
+zero lint warnings, format/types, 7,069 server / 7,112 client / 954 shared tests.
+The server suite takes 158.05 seconds. The first combined run exposed an
+upstream fixture expecting macOS's lexical `/tmp` alias instead of the bound
+canonical `/private/tmp` path; a separately reviewed fixture correction retains
+the full exact-path assertion. Production behavior is unchanged by that fix.
+All ten full-app native cases pass (117.30 seconds aggregate / 42.15 wall).
+The standalone 68-scenario suite also passes. Node 22/24 and Bun 1.3.14 preserve
+pending SQL through reload release, recover without a Process after reopen,
+and retain accepted facts after native deletion. Native scenarios use scripted
+owned endpoints; only the independent review uses inference. These durations
+are local qualification observations, not portable performance ceilings.
+
+Historical corpus backfill, other parent storage families, unnamed/background
+launch acquisition and reverse public presentation remain separate work. A
+frame lost before its pending SQL commit remains unrecoverable by this live
+producer. Alternate Claude roots rely on completion/startup rather than the
+single watched root's file events. This slice introduces no public contract;
+the proposed optional relationship capability and adapters await the required
+explicit compatibility approval. The full plan remains active.

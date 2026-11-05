@@ -507,6 +507,7 @@ export {
 } from "./slash-command-goal.js";
 export {
   detectNestedHarnessLaunch,
+  detectScopedNestedHarnessLaunch,
   type NestedHarnessLaunch,
   type NestedHarnessName,
 } from "./nested-harness-launch.js";

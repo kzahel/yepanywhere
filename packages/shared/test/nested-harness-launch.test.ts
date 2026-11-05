@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { detectNestedHarnessLaunch } from "../src/nested-harness-launch.js";
+import {
+  detectNestedHarnessLaunch,
+  detectScopedNestedHarnessLaunch,
+} from "../src/nested-harness-launch.js";
 
 const CHILD = "28dad9a6-9c40-4d90-af7e-84d0ed4db9a4";
 
@@ -129,5 +132,45 @@ describe("detectNestedHarnessLaunch", () => {
     expect(
       detectNestedHarnessLaunch(`bash -lc 'claude --resume ${CHILD} --print'`),
     ).toBeUndefined();
+  });
+});
+
+describe("durable scoped harness selection", () => {
+  it("selects a single explicit directory and named inherited-store invocation", () => {
+    for (const command of [
+      `cd '/owned/project space' && claude --session-id ${CHILD} --print go`,
+      `unset CLAUDECODE; cd '/owned/project space' && env CLAUDECODE= /opt/claude --resume=${CHILD} --print go`,
+    ])
+      expect(detectScopedNestedHarnessLaunch(command)).toMatchObject({
+        sessionId: CHILD,
+        workingDirectory: "/owned/project space",
+      });
+  });
+  it("withholds shell branching, store overrides, forks, expansion and unnamed invocations", () => {
+    for (const command of [
+      `claude --session-id ${CHILD} -p go`,
+      `cd /owned && claude -p go # --session-id ${CHILD}`,
+      `cd /owned && claude -pc --session-id ${CHILD}`,
+      `cd /owned && claude -pw --session-id ${CHILD}`,
+      `cd /owned && claude --session-id ${CHILD} -p go &`,
+      `cd /owned && claude --session-id ${CHILD} --help`,
+      `cd /owned && claude --session-id ${CHILD} --version`,
+      `cd /owned && claude --session-id ${CHILD} --no-session-persistence -p go`,
+      `cd /owned; claude --session-id ${CHILD} -p go`,
+      `cd /owned || claude --session-id ${CHILD} -p go`,
+      `cd /owned && claude --session-id ${CHILD} -p go | cat`,
+      `cd /owned && HOME=/foreign claude --session-id ${CHILD} -p go`,
+      `cd /owned && env CLAUDE_CONFIG_DIR=/foreign claude --session-id ${CHILD} -p go`,
+      `cd /owned && claude --resume ${CHILD} --fork-session -p go`,
+      `cd /owned && claude --session-id ${CHILD} --settings /foreign -p go`,
+      `cd /owned && claude --session-id ${CHILD} --worktree -p go`,
+      `cd /owned && claude --session-id ${CHILD} --resume ${CHILD} -p go`,
+      'cd "$ROOT" && claude --resume ' + CHILD + " -p go",
+      `cd /owned && claude --session-id ${CHILD} -p \`hostname\``,
+      `cd /owned && claude -p go`,
+      `cat <<EOF\ncd /owned && claude --session-id ${CHILD} -p go\nEOF`,
+      `echo 'cd /owned && claude --session-id ${CHILD} -p go'`,
+    ])
+      expect(detectScopedNestedHarnessLaunch(command), command).toBeUndefined();
   });
 });

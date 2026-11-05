@@ -383,6 +383,12 @@ export async function nativeAppFixture(
         for (const pid of Object.values(processes)) await observePid(pid);
         return processes;
       },
+      async reload() {
+        const pid = child!.pid!;
+        if (!identity || (await captureLeaderStartTime(pid)) !== identity)
+          throw Error("Native app wrapper identity changed");
+        process.kill(pid, "SIGHUP");
+      },
       async crashBackend() {
         const pid = (await this.processes()).backend;
         const started = observedPids.get(pid);
