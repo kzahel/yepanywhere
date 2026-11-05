@@ -31,18 +31,22 @@ describe.each(providers)("native retry: %s", (provider) => {
   // GenAI backoff and Grok startup/retry hit 5s locally (Grok under the
   // full-workspace/all-provider run); retain 2x that observed bound.
   it("retries original input after a controlled rate limit and persists the reply", {
-    // Antigravity's real GenAI retry/backoff plus startup exhausted 10s in
-    // the concurrent workspace/native run (2026-11-04); retain 2x that bound.
+    // Linux runs 42060535825 / 42063066589: Antigravity retry max 13.063s
+    // -> 30s (2.30x); Pi max 3.272s -> 8s (2.44x). Mac triple-suite overlap
+    // (2026-11-05) measures Grok retry at 5.613s -> 15s (2.67x).
+    // Semantic native retry behavior remains unchanged.
     timeout:
       provider === "antigravity"
-        ? 20_000
+        ? 30_000
         : provider === "opencode"
           ? // Linux two/four-worker controls exhausted 5s; the two-worker run
             // already observed the real retry. Startup/backoff get 4x that floor.
             20_000
           : provider === "grok"
-            ? 10_000
-            : 5_000,
+            ? 15_000
+            : provider === "pi"
+              ? 8_000
+              : 5_000,
   }, async () => {
     const f = await nativeFixture(provider);
     fixture = f;

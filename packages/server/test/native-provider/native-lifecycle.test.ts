@@ -107,17 +107,13 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       expect(f.model.failures).toEqual([]);
     });
 
-  // Antigravity native reader teardown and Grok restart hit the
-  // initial 5s bound locally; use 2x that observed bound.
   it("cancels an active native request and continues with saved context", {
-    // Both Linux controls at d03e72e0b exhausted 5s during OpenCode startup
-    // before model dispatch. Keep the semantic gates and allow 4x that floor.
-    timeout:
-      provider === "opencode"
-        ? 20_000
-        : ["antigravity", "grok"].includes(provider)
-          ? 10_000
-          : 5_000,
+    // Linux runs 42060535825 / 42063066589: Antigravity cancel max 9.520s
+    // -> 20s (2.10x). Mac triple-suite overlap (2026-11-05) measures Grok
+    // at 6.393s -> 20s (3.13x). OpenCode retains 4x its exhausted 5s floor.
+    timeout: ["antigravity", "opencode", "grok"].includes(provider)
+      ? 20_000
+      : 5_000,
   }, async () => {
     const f = await nativeFixture(provider, "gentle", {
       // Pair the queued bypass scenario with real non-bypass exec resumes.
@@ -181,20 +177,24 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
     expect(f.model.failures).toEqual([]);
   });
 
-  // Antigravity, Grok and OpenCode hit the runner's 5s limit during cold start/load.
-  // Two real launches plus native reader teardown get 2x that observed bound.
+  // Retain both independent reader replays around native resume. Guards include
+  // construction, model/tool exchanges, native history and process teardown.
   it.each(provider === "opencode" ? [true, false] : [true])(
     "cold resume preserves native identity, prior turns and actual tool bytes (git=%s)",
     {
-      // Linux OpenCode exhausted 10s with COLD_RESUME_DONE already observed.
-      // After bootstrap repair, Linux Antigravity exhausted 10s after its first
-      // persisted turn (run 42060535825). Allow 2x each observed floor; retain
-      // native resume and final independent history/teardown assertions.
-      timeout: ["opencode", "antigravity"].includes(provider)
-        ? 20_000
-        : provider === "grok"
-          ? 10_000
-          : 5_000,
+      // Linux Antigravity passes in 16.217s (run 42063066589), including two
+      // reader replays of ~3s each. Use 35s, 2.16x that measured maximum.
+      // Runs 42060535825 / 42063066589: OpenCode cold max 12.591s -> 30s
+      // (2.38x, both git variants). Mac triple-suite overlap (2026-11-05)
+      // measures Grok cold at 6.389s -> 20s (3.13x).
+      timeout:
+        provider === "antigravity"
+          ? 35_000
+          : provider === "opencode"
+            ? 30_000
+            : provider === "grok"
+              ? 20_000
+              : 5_000,
     },
     async (gitProject) => {
       const phases = {

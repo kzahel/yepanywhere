@@ -703,10 +703,11 @@ CSS ownership extraction is deferred for this logic-only change: MessageList's
 44 reviewed edges include coupled/generated vocabulary across two legacy
 stylesheets, outside the bounded identity/navigation surface.
 
-Two adjacent findings remain separately recorded: [Antigravity cold load under
-concurrent suite load](../../gaps/antigravity-native-cold-resume-under-concurrent-load.md)
-and [Claude's optional background-Bash yield observer](../../gaps/claude-steer-yield-reference-mismatch.md).
-Neither is hidden by broader retries or represented as a repaired behavior.
+The adjacent Antigravity cold-load finding is now resolved through measured
+[native qualification](../../topics/native-provider-testing.md#linux-native-qualification-and-ci-gate),
+including both independent reader replays and its derived case guard.
+[Claude's optional background-Bash yield observer](../../gaps/claude-steer-yield-reference-mismatch.md)
+remains open; no broader retry masks it.
 
 Final local macOS arm64 / Node 24.22.1 acceptance: all 65 native scenarios
 pass in 52.68 s; the four full-app API cases pass in 26.78 s. All three browser

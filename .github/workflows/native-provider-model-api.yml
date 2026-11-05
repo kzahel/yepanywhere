@@ -1,8 +1,53 @@
 name: Native provider model API qualification
 
-# Keep the complete matrix explicit until Linux acceptance has run. The
-# Claude/Codex baseline already gates ordinary CI through the server suite.
+# Linux's complete native suite is qualified. Gate only its relevant source;
+# the slower app/browser matrix and worker controls remain explicit dispatches.
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/native-provider-model-api.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".npmrc"
+      - "packages/server/package.json"
+      - "packages/server/vitest*.config.ts"
+      - "packages/shared/package.json"
+      - "packages/shared/src/**"
+      - "packages/server/src/**"
+      - "packages/server/test/native-provider/**"
+      - "packages/client/e2e/support/standalone-environment.ts"
+      - "packages/client/e2e/support/process-lifecycle.ts"
+      - "packages/client/e2e/support/provider-host-runtime.ts"
+      - "packages/server/test/setup/**"
+      - "scripts/safe-home.js"
+      - "scripts/perf-suite/host-profile.mjs"
+      - "scripts/install-native-provider-tests.mjs"
+      - "scripts/run-native-*.mjs"
+      - "scripts/run-with-safe-home.js"
+  pull_request:
+    paths:
+      - ".github/workflows/native-provider-model-api.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".npmrc"
+      - "packages/server/package.json"
+      - "packages/server/vitest*.config.ts"
+      - "packages/shared/package.json"
+      - "packages/shared/src/**"
+      - "packages/server/src/**"
+      - "packages/server/test/native-provider/**"
+      - "packages/client/e2e/support/standalone-environment.ts"
+      - "packages/client/e2e/support/process-lifecycle.ts"
+      - "packages/client/e2e/support/provider-host-runtime.ts"
+      - "packages/server/test/setup/**"
+      - "scripts/safe-home.js"
+      - "scripts/perf-suite/host-profile.mjs"
+      - "scripts/install-native-provider-tests.mjs"
+      - "scripts/run-native-*.mjs"
+      - "scripts/run-with-safe-home.js"
   workflow_dispatch:
     inputs:
       suite:
@@ -16,13 +61,21 @@ on:
         default: "2"
         options: ["2", "4", "1"]
 
+permissions:
+  contents: read
+
+# Superseded automatic checks cancel; explicit manual controls have unique groups.
+concurrency:
+  group: native-model-api-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  NATIVE_TEST_WORKERS: ${{ inputs.workers }}
+  NATIVE_TEST_WORKERS: ${{ inputs.workers || '2' }}
 
 jobs:
   native-provider-model-api:
-    if: inputs.suite != 'app'
+    if: github.event_name != 'workflow_dispatch' || inputs.suite != 'app'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,7 +101,7 @@ jobs:
         run: pnpm test:providers:all --maxWorkers="$NATIVE_TEST_WORKERS"
 
   native-app-reload:
-    if: inputs.suite != 'providers'
+    if: github.event_name == 'workflow_dispatch' && inputs.suite != 'providers'
     strategy:
       fail-fast: false
       matrix:

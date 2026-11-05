@@ -51,14 +51,18 @@ afterEach(async (context) => {
 // Tool and queue assertions share one native startup; qualified steering
 // remains separate. Keep per-provider measured budgets below.
 describe.each(providers)("real native provider: %s", (provider) => {
-  // Native startup plus three turns hit the runner's 5s bound for Antigravity
-  // and OpenCode on the capture Mac (2026-11-04). Grok also hit 5s in
-  // the full native matrix; its measured isolated work was 1.27s plus 2.01s
-  // native stop. Keep semantic assertions; use 2x the observed 5s limit.
+  // Linux two-worker runs 42060535825 / 42063066589: Antigravity queue
+  // max 9.224s -> 20s (2.17x); OpenCode 7.060s -> 15s (2.12x).
+  // Grok retains 2x its original exhausted 5s startup/stop floor.
   it("YA Queue holds B through A’s real tool and persists separate turns", {
-    timeout: ["antigravity", "opencode", "grok"].includes(provider)
-      ? 10_000
-      : 5_000,
+    timeout:
+      provider === "antigravity"
+        ? 20_000
+        : provider === "opencode"
+          ? 15_000
+          : provider === "grok"
+            ? 10_000
+            : 5_000,
   }, async () => {
     const f = await nativeFixture(provider);
     fixtures.push(f);
@@ -167,58 +171,68 @@ describe.each(providers)("real native provider: %s", (provider) => {
       provider === "grok"
         ? (["gentle"] as const)
         : (["gentle", "immediate"] as const),
-    )("native %s steering preserves correction input", async (mode) => {
-      const f = await nativeFixture(provider, mode);
-      fixtures.push(f);
-      const original = await f.model.next();
-      original.partial("PARTIAL_ORIGINAL");
-      // Grok's ACP runtime buffers assistant text until its native item ends.
-      // Its open model request and acknowledged interject establish this boundary.
-      if (provider !== "grok")
-        await f.message(
-          (message) =>
-            (message.type === "stream_event" || message.type === "assistant") &&
-            JSON.stringify(message).includes("PARTIAL_ORIGINAL"),
-        );
-      expect(
-        f.proc.queueMessage({
-          text: "NATIVE_CORRECTION",
-          uuid: "44444444-4444-4444-8444-444444444444",
-          tempId: "correction",
-          metadata: {
-            deliveryIntent: "steer",
-            steerNow: mode === "immediate",
-          },
-        }).success,
-      ).toBe(true);
-      if (mode === "gentle") {
-        if (provider.startsWith("claude")) {
-          // Native receipt, not YA's optimistic echo or synchronous queue push.
+    )(
+      "native %s steering preserves correction input",
+      {
+        // Linux runs 42060535825 / 42063066589: Grok gentle max 4.396s;
+        // 10s is 2.27x. Other providers retain their existing 5s guard.
+        timeout: provider === "grok" ? 10_000 : 5_000,
+      },
+      async (mode) => {
+        const f = await nativeFixture(provider, mode);
+        fixtures.push(f);
+        const original = await f.model.next();
+        original.partial("PARTIAL_ORIGINAL");
+        // Grok's ACP runtime buffers assistant text until its native item ends.
+        // Its open model request and acknowledged interject establish this boundary.
+        if (provider !== "grok")
           await f.message(
             (message) =>
-              message.type === "command_lifecycle" &&
-              message.command_uuid === "44444444-4444-4444-8444-444444444444" &&
-              message.state === "queued",
+              (message.type === "stream_event" ||
+                message.type === "assistant") &&
+              JSON.stringify(message).includes("PARTIAL_ORIGINAL"),
           );
-        } else expect(await f.steerAccepted).toBe(true);
-        expect(f.model.requests).toHaveLength(1);
-        original.finish("_ORIGINAL_DONE");
-      } else await original.cancelled;
-      const correction = await f.model.next();
-      expect(JSON.stringify(correction.body)).toContain("NATIVE_CORRECTION");
-      correction.finish("CORRECTION_DONE");
-      await f.output("CORRECTION_DONE");
-      await f.idle();
-      expect(f.model.requests).toHaveLength(2);
-      expect(JSON.stringify(f.events)).toContain("CORRECTION_DONE");
-      await f.stop();
-      expect(
-        JSON.stringify(await f.history()).includes("NATIVE_CORRECTION"),
-      ).toBe(true);
-      await f.close();
-      expect(f.model.failures).toEqual([]);
-      expect(f.errors).toEqual([]);
-      expect(f.events.filter((m) => m.type === "error")).toEqual([]);
-      expect(f.diagnostics).toEqual([]);
-    });
+        expect(
+          f.proc.queueMessage({
+            text: "NATIVE_CORRECTION",
+            uuid: "44444444-4444-4444-8444-444444444444",
+            tempId: "correction",
+            metadata: {
+              deliveryIntent: "steer",
+              steerNow: mode === "immediate",
+            },
+          }).success,
+        ).toBe(true);
+        if (mode === "gentle") {
+          if (provider.startsWith("claude")) {
+            // Native receipt, not YA's optimistic echo or synchronous queue push.
+            await f.message(
+              (message) =>
+                message.type === "command_lifecycle" &&
+                message.command_uuid ===
+                  "44444444-4444-4444-8444-444444444444" &&
+                message.state === "queued",
+            );
+          } else expect(await f.steerAccepted).toBe(true);
+          expect(f.model.requests).toHaveLength(1);
+          original.finish("_ORIGINAL_DONE");
+        } else await original.cancelled;
+        const correction = await f.model.next();
+        expect(JSON.stringify(correction.body)).toContain("NATIVE_CORRECTION");
+        correction.finish("CORRECTION_DONE");
+        await f.output("CORRECTION_DONE");
+        await f.idle();
+        expect(f.model.requests).toHaveLength(2);
+        expect(JSON.stringify(f.events)).toContain("CORRECTION_DONE");
+        await f.stop();
+        expect(
+          JSON.stringify(await f.history()).includes("NATIVE_CORRECTION"),
+        ).toBe(true);
+        await f.close();
+        expect(f.model.failures).toEqual([]);
+        expect(f.errors).toEqual([]);
+        expect(f.events.filter((m) => m.type === "error")).toEqual([]);
+        expect(f.diagnostics).toEqual([]);
+      },
+    );
 });

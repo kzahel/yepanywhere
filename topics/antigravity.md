@@ -16,6 +16,12 @@ absolute path. An explicit path never falls back to another installation.
 YA resolves executable symlinks before launch so the companion stays beside it.
 YA does not download, update or reconfigure the runtime.
 
+On Linux, the pinned 1.4.5 bootstrap requires a resolvable `nobody` group name,
+even for an unprivileged caller. A missing name aborts before ACP initialization.
+The [native qualification prerequisite](native-provider-testing.md#linux-antigravity-bootstrap-prerequisite)
+records the Ubuntu alias using that user's existing primary GID. An installed
+host needs administrator-provided group configuration; YA never edits it.
+
 This is one integration interface for Antigravity, not a separate model or
 subscription. Google's `agy` terminal CLI is a different distribution and also
 offers [headless stream-JSON input/output](https://antigravity.google/docs/cli/headless/).

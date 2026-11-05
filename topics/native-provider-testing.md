@@ -31,18 +31,20 @@ pnpm test:providers:all             # All qualified launch paths
 YEP_NATIVE_TEST_PROVIDERS=codex pnpm test:providers
 ```
 
-The manual native qualification workflow accepts one, two or four Vitest
-workers; its default is two. This is limited to the opt-in native jobs and does
-not change ordinary workspace concurrency or the browser's single worker.
+The native provider workflow uses two workers on relevant push/PR checks.
+Manual dispatches accept one, two or four workers and default to two, including
+the separately manual app matrix. Ordinary workspace concurrency and the
+browser's single worker are unchanged. See
+[Linux qualification](#linux-native-qualification-and-ci-gate).
 Use explicit `--maxWorkers=2` or `--maxWorkers=4` with the native runners for
 local controls. Both runners share process-exit handling, visible native
 reporters, GitHub annotations and capacity/start/end host samples. Compare
 separate `workers=2` and `workers=4` dispatches on the same source and capacity
 key before claiming a speed change; a successful run after reducing concurrency
-is qualification evidence, not by itself a performance result. Case and
-readiness deadlines are unchanged.
+is qualification evidence, not by itself a performance result. Scenario guards
+follow measured maxima below; readiness deadlines remain unchanged.
 
-The workflow's `suite` selector defaults to `all`; `providers` and `app` allow
+The manual workflow's `suite` selector defaults to `all`; `providers` and `app` allow
 targeted requalification when the other boundary's sources are unchanged.
 Skipped jobs are not passes. Provider-only changes need not repeat an already
 qualified application/browser matrix.
@@ -281,8 +283,9 @@ browser scenario exposed and repaired a Codex normalization defect: an empty
 update could erase newer live text. Started messages now remain streaming.
 
 The manual native qualification workflow includes Linux x64 and macOS arm64 app
-jobs. Hosted platform acceptance still awaits those runs; local macOS evidence
-is not Linux acceptance. The [historical macOS owner-interruption
+jobs. Both are accepted at two workers in run 42047227082, with ten app cases
+and three browser cases per platform; see [qualification scope](#linux-native-qualification-and-ci-gate).
+The [historical macOS owner-interruption
 gap](../gaps/macos-provider-host-turn-interruptions.md) remains open and the host
 stays opt-in there. These scenarios do not cover wrapper/host crashes, all
 signal ladders, authenticated/relay routes, browser offline recovery or real
@@ -435,8 +438,9 @@ Antigravity/OpenCode's multi-turn scenarios hit the initial 5-second budget;
 their adjacent comments record the observed bound and derived 10-second ceiling.
 Executable provisioning cost is separate: a warm frozen install takes 0.85 s;
 the external macOS artifacts download about 170 MB combined on a cold cache.
-Keep CI costs visible when expanding coverage. Linux/Windows native acceptance
-is still pending; artifact availability does not imply execution qualification.
+Keep CI costs visible when expanding coverage. Linux is now qualified as
+[recorded below](#linux-native-qualification-and-ci-gate); Windows's complete
+native matrix remains unqualified. Artifact availability alone is insufficient.
 
 ## Retained lifecycle and recovery depth — 2026-11-04
 
@@ -478,19 +482,100 @@ processes, and ACP launcher-only shutdown leaving a native worker/model request
 alive. Requested ACP transport closure is classified narrowly; unrelated native
 errors remain errors. No new UI capabilities or queue policy changes follow.
 
-The manual `Native provider model API qualification` workflow provisions and runs
-the full set on Linux x64 at the supported Node floor. It is deliberately an
-acceptance job until the complete Linux run passes; the normal CI server suite
-continues to gate the Claude/Codex baseline. Promote the complete job to relevant
-change gates after that acceptance. No complete Linux or Windows suite pass is
-claimed here.
+## Linux native qualification and CI gate
 
-The `a0627fb63` hosted run qualifies all seven direct-child variants and the
-nested OpenCode case on Linux, but the complete provider job is still red
-(64/69). Antigravity emitted an SDK error before any model request; OpenCode's
-cancellation case timed out. Queue, lifecycle and retry failure diagnostics now
-include bounded error-event text so those native failures are not reduced to
-an unexplained timeout. No native error or retry is reclassified by that logging.
+The [provider-only run
+42063066589](https://github.com/kzahel/yepanywhere/actions/runs/42063066589)
+at `3fcffd386` passes all 69 native scenarios on Linux x64 / Node 22.23.4 with
+two workers: 102.71 seconds wall and 186.57 aggregate test work. This includes
+all seven direct child variants and configured depth-two OpenCode. The
+four-CPU host records 54.5% whole-run CPU busy, maximum load 0.555 per
+effective CPU, at least 15.2 GB available and no swap use. These are
+diagnostic samples, not a sustained performance baseline. Windows's complete
+matrix remains unqualified.
+
+The workflow now runs the complete provider check for server/shared source,
+native fixtures, their standalone environment builder, runner and
+dependency-pin changes on main pushes and pull requests. Covering the whole
+server source avoids an incomplete hand-maintained transitive dependency list;
+client-only product and documentation changes do not start the check.
+Automatic runs use two workers and cancel superseded checks. Each explicit
+manual dispatch retains its own run, suite selector and one/two/ four-worker
+controls. The Linux/macOS app and browser matrix remains manual; it is not
+started by automatic provider checks. The ordinary server suite continues its
+Claude/Codex baseline. No branch-protection setting is changed.
+
+Earlier Linux Antigravity failures at `d33e616f9` are attributed by actual
+native stderr to SIGABRT in Google initialization: the `nobody` group name was
+absent, before ACP initialization or any model request. The provisioned Ubuntu
+run resolves the existing user's primary GID and passes queue, cancellation
+and retry; cold resume then exhausts ten seconds. Its subsequent fourteen
+phase marks establish a passing 16.217-second cold case, including 3.287
+seconds for the initial independent reader and 3.017 seconds for the final
+reader. Setup and the first turn take about six seconds; native resume to its
+model request takes 3.257 seconds. The final guard is 35 seconds, 2.16 times
+that measured maximum, with both reader replays and every native-content
+assertion retained. The guard adds hang headroom, not an acceleration or a
+native retry.
+
+The OpenCode startup/cancellation and retry cases previously exhausted five
+seconds, cold resume ten seconds and nested Task twelve seconds. The complete
+Linux run passes them, and the local 69-case run also passes while workspace
+checks overlap (59.45 seconds wall / 112.70 aggregate work). Earlier macOS
+failures under simultaneous workspace/native-app load remain historical
+diagnostic evidence; no arbitrary concurrency or latency guarantee is
+inferred. Raw evidence is retained in ignored
+`tasks/input-boundaries-implementation/fifo-{all-native,all-second}.log` and
+`tasks/session-relationships/slice-{14,25}-*`; the resolved test-budget
+findings are preserved in Git history.
+
+Before making this a recurring check, consecutive hosted two-worker runs
+42060535825 / 42063066589 and the repeated macOS triple-suite overlap supply
+the other measured maxima (Grok cancel/cold/retry bind in the latter). Guards
+retain all assertions and native retries; they change failure headroom, not
+passing work:
+
+| Case | Observed maximum | Guard | Multiple |
+| --- | --- | --- | --- |
+| Antigravity queue | 9.224 s | 20 s | 2.17x |
+| Antigravity cancel/continue | 9.520 s | 20 s | 2.10x |
+| Antigravity retry | 13.063 s | 30 s | 2.30x |
+| Grok gentle steering | 4.396 s | 10 s | 2.27x |
+| Grok cancel/continue | 6.393 s | 20 s | 3.13x |
+| Grok cold resume | 6.389 s | 20 s | 3.13x |
+| Grok retry | 5.613 s | 15 s | 2.67x |
+| OpenCode queue | 7.060 s | 15 s | 2.12x |
+| OpenCode cold resume, both variants | 12.591 s | 30 s | 2.38x |
+| Pi retry | 3.272 s | 8 s | 2.44x |
+
+Only cold resume has the fourteen internal phase marks. Queue, cancellation,
+steering and retry guards are based on complete case measurements. Earlier
+macOS triple-suite overlap is a distinct workload, not proved by the quieter
+Linux pass. The repeated overlap runs all 69 provider and ten app scenarios
+successfully at two workers alongside the workspace suite. The original used
+four native/app workers, so this establishes the supported two-worker setting
+rather than four-worker overlap qualification. It takes 71.42/69.22 seconds
+wall and 130.54/114.09 aggregate test work respectively. The shared 14-CPU
+host reaches load 0.992 per effective CPU; Darwin CPU-busy/swap counters are
+unavailable. This closes the earlier budget finding for that measured
+workload, without an arbitrary-concurrency guarantee or native speedup claim.
+The three newly binding Grok maxima receive the guards in the table; targeted
+final-source checks follow without repeating unchanged workload bodies.
+
+The separate [two-worker app run
+42047227082](https://github.com/kzahel/yepanywhere/actions/runs/42047227082)
+at `d03e72e0b` passes ten full-app cases and three actual browser cases on
+both Linux and macOS. Its provider job fails and is superseded by the later
+accepted provider run; a skipped app job in provider-only runs is not app
+acceptance. App/browser sources are unchanged across these provider
+diagnostics. This qualifies the retained relationship application boundary at
+that configuration, not every future graph consumer or provider/platform
+combination. The four-worker run 42047231416 fails both app jobs and remains
+unqualified; exposing a manual worker control does not claim acceptance of
+that setting. Vitest's existing ten-second cleanup-hook guard is shorter than
+the full graceful plus forced terminator window; no hosted failure has been
+attributed to that horizon, which remains a watch item without a deadline
+change.
 
 Remaining depth includes native multi-input/batched identity, broader tool
 denial, wrapper/host terminal faults and retry exhaustion, wrapper settings/
@@ -643,8 +728,9 @@ ACP initialization; a missing name aborts with SIGABRT and no model dispatch.
 The Ubuntu job creates only a missing group-name alias using the existing
 `nobody` user's primary GID, preserving that account's numeric permissions. It
 does not change provider flags, fixture credentials or protocol expectations.
-The provisioned source must pass its actual native scenarios before Linux
-Antigravity acceptance is claimed.
+The provisioned source passes all actual Antigravity scenarios at `3fcffd386`
+in [run 42063066589](https://github.com/kzahel/yepanywhere/actions/runs/42063066589);
+see the phase and guard evidence above.
 
 For an owned Debian/Ubuntu testbed with the same missing-name failure, an
 administrator can apply the same guarded alias before running the suite:
@@ -674,5 +760,5 @@ replay and close on passing and failing runs. Awaiting the initial or resumed
 request includes native spawn/load until model dispatch; these marks alone do
 not separate those internal steps. A last mark without its successor names
 unfinished work, not a completed phase. Timeout guards include reader and
-shutdown work. These cold cases qualify view-then-resume. They do not establish direct-only
-Antigravity or OpenCode resume.
+shutdown work. These cold cases qualify view-then-resume. They do not establish
+direct-only Antigravity or OpenCode resume.

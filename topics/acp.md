@@ -193,8 +193,10 @@ Existing open evidence limits remain:
   records an unresolved live/durable merge symptom, not proof of a transport bug.
 - [User-turn durable identity](../gaps/provider-user-turn-durable-identity.md)
   forbids replacing authoritative native receipts with text matching.
-- [AGY cold resume under load](../gaps/antigravity-native-cold-resume-under-concurrent-load.md)
-  records a qualification limit that a common wrapper alone cannot close.
+
+The measured [Linux native qualification](native-provider-testing.md#linux-native-qualification-and-ci-gate)
+now covers Antigravity's reader-then-resume sequence with attributed startup,
+replay and teardown costs; it does not establish parity for other ACP runtimes.
 
 Preserve [resource quiescence](architecture-mandates.md), native transcript
 ownership and the existing provider-host boundary throughout. This source

@@ -881,8 +881,8 @@ that a fresh prepare is blocked by a pending writer, all mutation work retries
 atomically, missing-edge assertions roll back, and a 160 ms renderer task
 already queued before the key fails at 167.5 ms. Controller-only delay still
 passes (16.9 ms browser / 169.2 ms controller maximum). These controls validate
-the measurement and test lifecycle; hosted native acceptance remains open in
-the [recorded gap](../../gaps/native-relationship-hosted-acceptance.md).
+the measurement and test lifecycle; hosted native acceptance was still open
+at that point. See the later hosted qualification recorded below.
 
 Opus accepted the final ten-file slice after rechecking those controls and the
 complete retry boundary. All root gates pass: zero lint warnings, format/types,
@@ -1135,3 +1135,55 @@ watcher source, assertion, deadline or retry changed. The earlier workspace
 pass predates the restored replay and does not replace this final result.
 The reviewed native phase/budget slice is published separately so the next
 provider-only Linux run can qualify its actual resume behavior.
+
+### Gate the qualified Linux provider boundary
+
+The provider-only run 42063066589 at `3fcffd386` passes all 69 native cases
+with two workers (102.71 seconds wall / 186.57 aggregate work). Antigravity
+cold resume takes 16.217 seconds, including independent initial/final replays
+of 3.287/3.017 seconds and native resume to request of 3.257 seconds. The
+measured guard is now thirty-five seconds, 2.16 times that maximum. All
+semantic assertions, fourteen phase marks and both reader replays remain. The
+accepted earlier two-worker Linux/macOS app/browser jobs use unchanged
+application sources. The owning native-testing topic retains platform, load
+and historical evidence while the resolved qualification/budget gaps retire.
+
+Server/shared source, native fixture, environment-builder, runner and pin
+changes now start the full Linux provider check on main pushes and pull
+requests. Automatic runs use two workers and cancel superseded checks; manual
+controls remain independent. The slower app/browser matrix remains manual. No
+branch protection or public graph contract changes. Independent Opus review
+and local checks precede publication; the first automatic run must confirm
+event selection and the complete suite. The earlier Rendez full/focused
+failures remain open and are not erased by provider acceptance. Public
+compatibility approval and remaining graph consumers/harness sources still
+prevent completion of the full plan.
+
+The initial gate review required consistent two-run headroom for the other
+cases, additional direct/imported test-helper paths, and correction of older
+pending statements. Those are addressed. Four-worker app failures and the
+cleanup-hook horizon remain explicit limits in the owning topic. The same
+three-suite macOS overlap is repeated at the supported two-worker native/app
+setting; the original used Vitest's default four. This does not claim
+four-worker overlap qualification. All 69 native and ten app scenarios pass in
+that repeated overlap (71.42/69.22 seconds wall); Grok cancel/cold/retry
+measure 6.393/6.389/5.613 seconds and receive twenty/twenty/fifteen-second
+guards. The repeated overlap used the stricter twelve/twelve/ten-second Grok
+guards and already passed; final targeted Grok checks qualify the larger
+derived guards. No assertion, native retry or phase changes with those final
+three guard adjustments.
+
+Opus accepts the twelve pinned files after the measured guard and path-closure
+corrections. The repeated overlap passes all 69 native scenarios, ten app
+cases and the full workspace (7,089 server / 7,112 client / 954 shared; server
+160.07 seconds). Both native/app jobs use two workers; this does not qualify
+the original four-worker overlap. Three newly binding Grok maxima then widen
+only their guards; all five final-source Grok cases pass in 13.30 seconds
+wall / 23.19 aggregate work. Every assertion and native retry remains.
+
+Final lint is warning-free, formatting/types/scoped actionlint pass, and the
+resolved findings' durable evidence now lives in the owning native-testing
+topic. Antigravity's installation topic links its Linux group prerequisite.
+The first automatic published check remains to be observed. Earlier Rendez
+red results stay retained despite the later workspace pass; public contract
+approval and remaining consumers/acquisition still keep the full plan active.
