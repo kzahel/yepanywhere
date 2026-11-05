@@ -28,6 +28,7 @@ afterEach(async (context) => {
         })),
         errors: fixture.errors.map((e) => e.message),
         diagnostics: fixture.diagnostics,
+        nativeDiagnostics: fixture.nativeDiagnostics,
       }),
     );
   await fixture?.close();
@@ -90,7 +91,14 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
   // Antigravity native reader teardown and Grok restart hit the
   // initial 5s bound locally; use 2x that observed bound.
   it("cancels an active native request and continues with saved context", {
-    timeout: ["antigravity", "grok"].includes(provider) ? 10_000 : 5_000,
+    // Both Linux controls at d03e72e0b exhausted 5s during OpenCode startup
+    // before model dispatch. Keep the semantic gates and allow 4x that floor.
+    timeout:
+      provider === "opencode"
+        ? 20_000
+        : ["antigravity", "grok"].includes(provider)
+          ? 10_000
+          : 5_000,
   }, async () => {
     const f = await nativeFixture(provider, "gentle", {
       // Pair the queued bypass scenario with real non-bypass exec resumes.
@@ -159,9 +167,14 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
   it.each(provider === "opencode" ? [true, false] : [true])(
     "cold resume preserves native identity, prior turns and actual tool bytes (git=%s)",
     {
-      timeout: ["antigravity", "grok", "opencode"].includes(provider)
-        ? 10_000
-        : 5_000,
+      // Linux two-worker control exhausted 10s with COLD_RESUME_DONE already
+      // observed; native reader/stop work shares this case. Allow 2x that floor.
+      timeout:
+        provider === "opencode"
+          ? 20_000
+          : ["antigravity", "grok"].includes(provider)
+            ? 10_000
+            : 5_000,
     },
     async (gitProject) => {
       const f = await nativeFixture(provider, "gentle", {

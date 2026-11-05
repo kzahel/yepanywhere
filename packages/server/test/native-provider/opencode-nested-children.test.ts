@@ -293,8 +293,7 @@ it.skipIf(!providers.includes("opencode"))(
     expect(f.errors).toEqual([]);
     expect(f.diagnostics).toEqual([]);
   },
-  // Native startup, two Tasks, a refused Task and SQL reopen took 3.03–3.13 s
-  // locally; the all-native 69-case run also passed (42.25 s total). Twelve
-  // seconds is 3.8x that observed maximum; hosted slow-machine evidence pending.
-  12000,
+  // Linux four-worker control at d03e72e0b exhausted 12s. Two Tasks, a refused
+  // Task, native shutdown and SQL reopen get 2.5x that observed lower bound.
+  30000,
 );

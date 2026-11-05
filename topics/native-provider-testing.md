@@ -42,6 +42,11 @@ key before claiming a speed change; a successful run after reducing concurrency
 is qualification evidence, not by itself a performance result. Case and
 readiness deadlines are unchanged.
 
+The workflow's `suite` selector defaults to `all`; `providers` and `app` allow
+targeted requalification when the other boundary's sources are unchanged.
+Skipped jobs are not passes. Provider-only changes need not repeat an already
+qualified application/browser matrix.
+
 The selector accepts comma-separated qualified fixture names. An unknown or
 unqualified selected provider fails; a missing executable or mismatched version
 also fails. There is no fake executable, paid fallback or successful skip.
@@ -379,6 +384,18 @@ owned project. Tests wait for real requests, responses and YA output/state
 events, rather than scheduling sleeps. A request arriving is not proof that its
 YA output has arrived, and an idle notification from the previous native turn
 is not completion of a queued steering turn.
+
+Owned Antigravity tests also observe the actual transport child's exit status
+and stderr. This test-only observer reserves at most sixteen observations,
+keeps at most 16,384 text characters per child and reports at most 4,000 characters after
+omitting URL/credential-related lines. A clipped first line is discarded before
+filtering, and a missing-library diagnostic retains only the library basename.
+It requires the fixture's fresh private profile and synthetic credentials;
+production stderr remains drained. An explicit unavailable observation exposes
+a changed transport shape. Two real Node fault peers cover numeric exit and
+POSIX signal status, split URL tails and filtered bootstrap output without model
+inference. They share the existing transport-test setup rather than another
+native startup.
 
 Native teardown assertions protect [Claude's requested-cancellation
 contract](claude.md#contracts), including the SDK's classified abort errors.

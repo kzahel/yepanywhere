@@ -12,6 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
 import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
+import {
+  observeOwnedAntigravity,
+  type NativeProcessDiagnostic,
+} from "../../native-provider/native-process-diagnostics.js";
 import { AntigravitySessionCatalogAdapter } from "../../../src/sessions/catalog-adapters/antigravity-catalog-adapter.js";
 import { createCatalogSessionLookup } from "../../../src/sessions/catalog-session-lookup.js";
 import { projectCatalogIdentities } from "../../../src/sessions/catalog-identity.js";
@@ -243,6 +247,72 @@ describe("Antigravity native process boundary", () => {
         await active?.abort();
         app.stopNotifications();
         await app.disposeSessionReaders();
+      }
+    },
+  );
+
+  // Exact native signal status is POSIX-only; the exit-code path stays portable.
+  it.each(
+    process.platform === "win32"
+      ? (["exit"] as const)
+      : (["exit", "signal"] as const),
+  )(
+    "retains owned bootstrap %s diagnostics without private URL tails",
+    async (outcome) => {
+      const diagnostics: NativeProcessDiagnostic[] = [];
+      // A prior teardown may still own the spy; replacement must not recurse.
+      const previousObserver = observeOwnedAntigravity([]);
+      const observer = observeOwnedAntigravity(diagnostics);
+      const runtime = new AntigravityRuntime();
+      const stderr =
+        `https://accounts.example/authorize?state=${"x".repeat(20_000)}SPLIT_PRIVATE_MARKER\n` +
+        String.raw`open https:\/\/accounts.example/authorize?client_id=OWNED_CLIENT` +
+        "\n" +
+        "open https://accounts.example/authorize?state=OWNED_PLAIN\n" +
+        '"code": "OWNED_CODE_01234567890123456789"\nkey=OWNED_KEY_01234567890123456789\n"state": "OWNED_STATE_01234567890123456789"\n' +
+        "&code_challenge=OWNED_CHALLENGE&client_id=OWNED_CLIENTID\n" +
+        "api_key=OWNED_SECRET\nordinary owned native failure\n" +
+        "rpc error: code = Unavailable desc = owned failure\ncode: 'ENOENT'\n" +
+        "loader: error while loading shared libraries: libsecret-1.so.0: missing\n";
+      const script = `require('node:readline').createInterface({input:process.stdin}).once('line',()=>{
+        process.stderr.write(${JSON.stringify(stderr)},()=>${outcome === "exit" ? "process.exit(7)" : "process.kill(process.pid, 'SIGTERM')"});
+      });`;
+      try {
+        await expect(
+          runtime.connect(process.execPath, directory, ["-e", script]),
+        ).rejects.toThrow("closed");
+        await runtime.closed;
+        expect(diagnostics).toHaveLength(1);
+        expect(diagnostics[0]).toMatchObject({
+          exitCode: outcome === "exit" ? 7 : null,
+          signal: outcome === "signal" ? "SIGTERM" : null,
+          truncated: true,
+        });
+        const report = diagnostics[0]!.stderr!;
+        expect(report).toContain("ordinary owned native failure");
+        expect(report).toContain(
+          "rpc error: code = Unavailable desc = owned failure",
+        );
+        expect(report).toContain("code: 'ENOENT'");
+        expect(report).toContain("Missing native library: libsecret-1.so.0");
+        for (const secret of [
+          "https://",
+          "SPLIT_PRIVATE_MARKER",
+          "OWNED_SECRET",
+          "accounts.example",
+          "OWNED_CLIENT",
+          "OWNED_PLAIN",
+          "OWNED_CODE",
+          "OWNED_KEY",
+          "OWNED_STATE",
+          "OWNED_CHALLENGE",
+          "OWNED_CLIENTID",
+        ])
+          expect(report).not.toContain(secret);
+      } finally {
+        await runtime.close();
+        observer.mockRestore();
+        previousObserver.mockRestore();
       }
     },
   );

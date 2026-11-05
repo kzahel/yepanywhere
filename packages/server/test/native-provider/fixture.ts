@@ -40,6 +40,10 @@ import pino from "pino";
 import { modelServer, syntheticKey, type ModelWire } from "./model-server.js";
 import { historyReader } from "./history.js";
 import {
+  observeOwnedAntigravity,
+  type NativeProcessDiagnostic,
+} from "./native-process-diagnostics.js";
+import {
   expectedVersions,
   isClaude,
   isCodex,
@@ -209,6 +213,8 @@ export async function nativeFixture(
   const events: SDKMessage[] = [],
     errors: Error[] = [];
   const diagnostics: Array<Record<string, unknown>> = [];
+  const nativeDiagnostics: NativeProcessDiagnostic[] = [];
+  let restoreNativeDiagnostics = () => {};
   const logger = pino(
     { level: "warn" },
     {
@@ -350,6 +356,7 @@ export async function nativeFixture(
             await rm(root, { recursive: true, force: true });
           } finally {
             vi.unstubAllEnvs();
+            restoreNativeDiagnostics();
             loggerSpy.mockRestore();
           }
         }
@@ -500,8 +507,11 @@ export async function nativeFixture(
       ]);
       await codex.getAvailableModels();
       adapter = codex;
-    } else if (provider === "antigravity") adapter = new AntigravityProvider();
-    else if (provider === "pi")
+    } else if (provider === "antigravity") {
+      const observer = observeOwnedAntigravity(nativeDiagnostics);
+      restoreNativeDiagnostics = () => observer.mockRestore();
+      adapter = new AntigravityProvider();
+    } else if (provider === "pi")
       adapter = new PiProvider({ sessionsDir: environment.PI_SESSIONS_DIR });
     else if (provider === "opencode")
       adapter = new OpenCodeProvider({ opencodePath: executable });
@@ -517,6 +527,7 @@ export async function nativeFixture(
       events,
       errors,
       diagnostics,
+      nativeDiagnostics,
       environment,
       get proc() {
         return proc!;

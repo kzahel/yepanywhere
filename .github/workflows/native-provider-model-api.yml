@@ -5,6 +5,11 @@ name: Native provider model API qualification
 on:
   workflow_dispatch:
     inputs:
+      suite:
+        description: Native boundary to qualify
+        type: choice
+        default: all
+        options: [all, providers, app]
       workers:
         description: Vitest workers for controlled native qualification
         type: choice
@@ -17,6 +22,7 @@ env:
 
 jobs:
   native-provider-model-api:
+    if: inputs.suite != 'app'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,6 +40,7 @@ jobs:
         run: pnpm test:providers:all --maxWorkers="$NATIVE_TEST_WORKERS"
 
   native-app-reload:
+    if: inputs.suite != 'providers'
     strategy:
       fail-fast: false
       matrix:

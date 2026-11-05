@@ -39,6 +39,7 @@ afterEach(async (context) => {
             })),
             errors: f.errors.map((e) => e.message),
             diagnostics: f.diagnostics,
+            nativeDiagnostics: f.nativeDiagnostics,
           },
           null,
           2,

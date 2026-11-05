@@ -83,3 +83,27 @@ Both native runners record host windows, and native errors retain their text.
 Compare separate `workers=2` and `workers=4` dispatches on one source before
 attributing any result to concurrency.
 No deadline, retry, assertion or provider behavior is changed by that control.
+
+The two-worker [run 42047227082](https://github.com/kzahel/yepanywhere/actions/runs/42047227082)
+at `d03e72e0b` passes both app jobs: ten app cases and three actual browser cases
+on Linux and macOS. App/browser relationship qualification is accepted for that
+source and configuration. The four-worker [run 42047231416](https://github.com/kzahel/yepanywhere/actions/runs/42047231416)
+fails both app jobs. Linux app hosts have different capacity keys, while macOS
+is contended and lacks CPU/swap counters, so this establishes qualification at
+two workers without a comparable speedup claim.
+
+Both complete provider jobs remain red (62/69). Their Linux capacity keys match;
+the two-worker window has 52.1% CPU busy, maximum load 0.395 per CPU, over 15 GB
+available and no swap. Both emit `Antigravity runtime closed` before a model
+request. That generic transport message still hides the exit status and stderr;
+worker reduction alone does not explain or repair it. Test-only bounded,
+filtered diagnostics now observe the owned native child without changing the
+production transport or its stderr policy.
+
+OpenCode's observed work also outlasts its case guards: the two-worker cold
+resume already has `COLD_RESUME_DONE` near the ten-second bound, its retry has
+two native requests near five seconds, and startup/cancellation has not yet
+dispatched by five seconds. The four-worker nested case exhausts twelve
+seconds. The affected semantic scenarios now have guards derived at 2–4 times
+those observed lower bounds, preserving every action/assertion and retry. This
+is qualification headroom; hosted provider acceptance is still pending.

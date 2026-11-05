@@ -1026,3 +1026,49 @@ watcher gap. The later green sample does not repair that intermittent defect.
 The hosted OIDC timeout is recorded separately without a cause or budget edit.
 Two/four-worker hosted dispatches on the same published source are next; no
 provider-error cause, hosted acceptance or performance improvement is claimed.
+
+### Qualify native bootstrap evidence and measured OpenCode work
+
+At `d03e72e0b`, two workers pass ten app and three browser scenarios on both
+hosted Linux and macOS. This qualifies the existing relationship application
+boundary. Four workers fail both app jobs. Linux app capacity keys differ and
+macOS remains contended with unavailable CPU/swap counters; no comparable
+speedup is claimed. The application/browser sources are unchanged in this
+slice, and the workflow now supports provider-only or app-only selection while
+retaining `all` by default.
+
+Both full provider controls still pass only 62/69. Their Linux capacity keys
+match, and the two-worker host has CPU and memory headroom. Antigravity's error
+is the generic `runtime closed` before model dispatch, leaving its native exit
+cause unknown. A test-only observer now records bounded exit status and
+filtered stderr from the real transport child in its owned synthetic profile.
+Production transport, authentication and stderr handling are unchanged. Two
+real Node fault peers retain coverage of exit/signal status, clipped URL tails
+and omitted credential lines without another provider startup. The observer
+is restored with the fixture's existing cleanup.
+
+OpenCode scenarios receive case guards derived from hosted lower bounds:
+cancellation/startup and rate-limit recovery each exhausted five seconds,
+cold resume reached its expected output at ten seconds, and the nested Task
+case exhausted twelve. Guards of twenty and thirty seconds respectively are
+2–4 times those bounds. Every semantic assertion and native retry remains;
+this does not claim a latency improvement or provider acceptance before the
+next actual hosted run. Independent review and local qualification follow.
+
+Opus accepts the final eleven-file review after the observer captures the
+original connect method once and the filter preserves ordinary gRPC/errno
+status lines. Two actual Node child controls qualify exit 7 and SIGTERM,
+observer reinstallation, clipped and unclipped URL omission, opaque credential
+omission and useful status retention. The eight Antigravity unit cases pass
+in 3.95 seconds; the two new controls use about 50–80 ms each.
+
+All 69 native cases pass locally with two workers (52.24 seconds wall / 98.64
+aggregate work); the final Antigravity-only native subset passes four cases
+in 14.52 seconds. Lint is warning-free and format/types/actionlint pass. The
+publication workspace check passes 7,089 server / 7,112 client / 954 shared
+tests, with server time 147.32 seconds. An earlier run misses Rendez's first
+nested delivery at line 353; that red evidence remains in its existing gap.
+The later pass does not repair the watcher. Hosted provider qualification
+remains pending; dispatch the provider-only suite at two workers on the
+published source. No application/browser source changed after its accepted
+hosted qualification, and no public compatibility contract is added.

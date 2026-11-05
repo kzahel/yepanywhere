@@ -341,3 +341,12 @@ then passes four cases with one skip in 5.79 seconds. No watcher source, test,
 assertion, retry or budget changed. The red run remains retained in ignored
 `tasks/session-relationships/slice-22-final-unit.log`, with the focused result
 in `slice-22-rendez-focused.log`; that pass does not close this known defect.
+
+2026-11-05: the native bootstrap-diagnostic slice's first workspace run misses
+the first nested delivery at line 353 (zero observed, one expected): 7,088
+other server tests pass in 152.48 seconds. The unchanged final workspace run
+passes all 7,089 server tests in 147.32 seconds, alongside 7,112 client and
+954 shared tests. Neither watcher source nor assertions, budgets or retries
+changed. Ignored `tasks/session-relationships/slice-23-unit.log` retains the
+red result and `slice-23-publication-unit.log` retains the later green sample;
+this repeated readiness/event-delivery finding remains unresolved.

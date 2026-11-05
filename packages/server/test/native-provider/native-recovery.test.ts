@@ -20,6 +20,7 @@ afterEach(async (context) => {
         })),
         errors: fixture.errors.map((error) => error.message),
         diagnostics: fixture.diagnostics.slice(-12),
+        nativeDiagnostics: fixture.nativeDiagnostics,
       }),
     );
   await fixture?.close();
@@ -35,9 +36,13 @@ describe.each(providers)("native retry: %s", (provider) => {
     timeout:
       provider === "antigravity"
         ? 20_000
-        : provider === "grok"
-          ? 10_000
-          : 5_000,
+        : provider === "opencode"
+          ? // Linux two/four-worker controls exhausted 5s; the two-worker run
+            // already observed the real retry. Startup/backoff get 4x that floor.
+            20_000
+          : provider === "grok"
+            ? 10_000
+            : 5_000,
   }, async () => {
     const f = await nativeFixture(provider);
     fixture = f;
