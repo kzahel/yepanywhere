@@ -367,6 +367,14 @@ and [session fork implementation](https://github.com/anomalyco/opencode/blob/v1.
 define these distinctions; the inference-free native scenario qualifies direct
 spawning and production-reader/SQL agreement against that executable.
 
+The nested native scenario explicitly enables `general` Task permission and
+sets `subagent_depth: 2` in its private fixture configuration. It qualifies
+root → child → grandchild acquisition without flattening immediate parents,
+refusal of another spawn at the native depth limit, top-level exclusion,
+parent-scoped content/mappings, and SQL reopen after native storage removal.
+The default child omits Task; production configuration and depth defaults stay
+unchanged. Other depths, platforms and OpenCode 2.x remain unqualified.
+
 The source rechecks the logical database snapshot before profile publication,
 including WAL-only commits. Structural versions exclude `time_updated`, so
 activity can refresh the bounded display overlay without rewriting relationship

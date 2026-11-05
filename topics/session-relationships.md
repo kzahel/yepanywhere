@@ -439,8 +439,11 @@ pairs remain supported. Both families qualify SQL publication and reopen.
 The inference-free child scenario also exercises Claude Gateway, Claude Ollama
 and Codex OSS through their actual launch adapters. Gateway explicitly enables
 its default-disabled Agent for the fixture; remote child-model availability
-remains outside this local-routing qualification. Other native child sources
-and deeper actor nesting remain qualification work.
+remains outside this local-routing qualification. Grok and OpenCode also have
+actual direct-child specimens. The configured OpenCode depth-two scenario
+qualifies immediate child/grandchild parentage, a refused deeper launch and
+durable reopen after native loss. The [native qualification matrix](native-provider-testing.md#native-child-evidence)
+owns remaining provider/depth/platform limits.
 The captured corpus explicitly lacks child sidecars/subagent scenarios and
 contains older baseline versions; keep it for historical parser regressions,
 not as proof of current native spawning. OpenCode 1.x qualification does not

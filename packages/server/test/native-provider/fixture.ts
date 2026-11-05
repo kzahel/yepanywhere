@@ -68,6 +68,7 @@ interface FixtureOptions {
   gitProject?: boolean;
   piKeepRecentTokens?: number;
   gatewayAgentEnabled?: boolean;
+  openCodeNestedTasks?: boolean;
 }
 
 export async function nativeFixture(
@@ -419,6 +420,12 @@ export async function nativeFixture(
         autoupdate: false,
         model: "owned/m1",
         small_model: "owned/m1",
+        ...(options.openCodeNestedTasks
+          ? {
+              subagent_depth: 2,
+              agent: { general: { permission: { task: "allow" } } },
+            }
+          : {}),
         enabled_providers: ["owned"],
         provider: {
           owned: {

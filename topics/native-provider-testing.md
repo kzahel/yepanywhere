@@ -162,8 +162,9 @@ check the native SQLite spawn index; its rows locate child-owned header proof
 rather than establish creation parentage. Gateway explicitly enables its default-disabled Agent
 tool for this scenario; production defaults and remote child-model availability
 are not changed or qualified. Both parent and child stay on the owned model
-endpoint with synthetic credentials. Other providers, nested descendants and trusted
-YA/v0 child creation remain separate relationship qualification work in
+endpoint with synthetic credentials. The OpenCode nested scenario below adds
+depth-two evidence. Other providers/depths and peer-native dispatch remain
+separate relationship qualification work in
 [plan 176](../docs/tactical/176-durable-session-relationships.md). Process and
 full-app version guards now use the same root compatibility markers through
 `runtimes.ts`; stale fixture tables cannot independently select an older Claude
@@ -174,7 +175,7 @@ or Codex runtime.
 | Claude / Gateway / Ollama | Actual `Agent`, native ids, production child content, SQL publication/reopen | Direct children; Gateway fixture explicitly enables Agent. |
 | Codex / OSS | Actual v2 `collaboration.spawn_agent`, native start correlation and child-owned immediate parent, production content and launch mappings, SQL anchor reopen | Review/internal delegates stay excluded; deeper descendants remain separate qualification. |
 | Grok 1.0.70 | Actual `spawn_subagent`, parent tool result, explicit sidecar ids, child's own summary, production content, SQL reopen | Default cwd; cross-cwd/worktree navigation and exclusion remain unqualified. |
-| OpenCode 1.18.9 | Actual `task`, own native database parent/directory, parent continuation id, production content/exclusion, SQL publication/reopen | Direct children; deeper native nesting and unsupported 2.x remain unqualified. |
+| OpenCode 1.18.9 | Actual `task`, own native database parent/directory, parent continuation id, production content/exclusion, SQL publication/reopen; configured depth-two child/grandchild chain and refused next depth | Default direct children; depth two explicitly enables Task permission and native depth setting. Other depths/platforms and unsupported 2.x remain unqualified. |
 | Pi | Transcript-node parent links | Those are not session-child proof. Common YA lineage still applies. |
 | Antigravity / frozen Gemini | No qualified YA native child source | Do not infer a child capability from the transport. |
 
@@ -184,6 +185,19 @@ proof and legacy directory spellings have filesystem/SQL regressions, while the
 old captured corpus remains historical evidence rather than current spawning
 qualification. These are local macOS results, not Linux/Windows or native-mobile
 acceptance for the new source.
+
+### Native OpenCode depth two
+
+The separate `opencode-nested-children.test.ts` executes two nested native Tasks
+with fixture-only `subagent_depth: 2` and an explicit `general` Task permission.
+The default child inventory omits Task. The enabled fixture checks correlated
+tool-result messages, independent native ids/parent columns, immediate-parent
+production mappings/content and top-level exclusion. A further Task returns the
+native depth-limit error without allocating a fourth session. The root's one
+structural acquisition publishes both immediate edges; a leaf acquisition
+establishes known empty. Both links and the empty leaf survive SQL reopen after
+native-storage deletion. Post-teardown assertions require exactly six scripted
+model exchanges and no unexpected egress/errors. No production default changes.
 
 ## Full source app and dev reload qualification
 

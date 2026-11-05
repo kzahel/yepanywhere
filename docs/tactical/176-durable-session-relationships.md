@@ -147,6 +147,7 @@ no wire capability and changes no access grants.
   native identity, production content/exclusion and SQL publication/reopen on
   the owned local model API. Default direct children are qualified; deeper
   native nesting, other platforms and 2.x are not claimed by this evidence.
+  The later configured depth-two qualification extends the nesting boundary.
   Review findings are addressed: native watch allocation is nonrecursive;
   one shared indexed WAL probe updates activity and refreshes only changed
   lineages; activity re-sorts; legacy failures and missing older-schema/ancestor
@@ -451,8 +452,9 @@ Standalone Node/Bun browser checks read the ordinary 40-message tail from
 readable in 0.83–0.86 seconds; late WAL child updates retain transcript DOM and
 drafts, with every sequential keystroke acknowledged within 27 ms. Final
 captures are produced through the repository facility and visually checked.
-Linux/Windows native observation, deeper native spawning and unsupported
-OpenCode 2.x remain outside this local qualification.
+Linux/Windows native observation and unsupported OpenCode 2.x remain outside
+this local qualification. Configured depth-two spawning is qualified below;
+other depths remain separate.
 
 
 ### Requested-parent metadata revalidation
@@ -800,3 +802,43 @@ owning gaps. This internal change adds no native tool, provider schema, SQL
 statement or client contract. The separately pending public compatibility
 decision and other recorded qualification limits still apply; the full plan
 remains active.
+
+### Actual nested OpenCode child lineage
+
+The new real-executable scenario enables Task for `general` and sets native
+depth two only inside its isolated fixture. Default child Task omission was
+independently observed; the pinned native Task/permission implementation was
+inspected before choosing the override. No production policy or schema changes.
+
+Root, child and grandchild execute on the owned scripted endpoint. A further
+Task returns the native depth-limit refusal. Correlated tool-result messages
+and independent native SQL rows establish the actual immediate parents, with
+exactly three native sessions and six model exchanges after joined teardown.
+Production mappings/content retain those parents and top-level lists exclude
+both descendants. The root's structural acquisition publishes both edges;
+the leaf gets its own accepted empty observation. SQL reopen after native
+storage deletion retains both links and the empty leaf without prompt/output
+metadata.
+
+Opus accepted the final source after finding a timeout cleanup hole and two
+test-budget issues. Hook-driven cleanup closes reader/index/database resources
+and the native fixture even when a body never resumes. Publication events now
+replace one-second polling assertions, with source errors rejecting the waits.
+Two disposable fault schedules intentionally time out at a held model request
+and with SQL resources open. Both independently prove PID disappearance,
+adapter liveness loss, listener closure and private-root removal; the SQL case
+also proves its observed database handle is closed. The temporary probes are
+removed rather than adding recurring timeout costs to CI.
+
+The final standalone native suite passes all 69 scenarios (41.48 seconds wall /
+101.18 aggregate test work). All root gates pass: zero lint warnings,
+format/types, 7,087 server / 7,112 client / 954 shared tests; server time is
+144.71 seconds. The extra OpenCode case is not selected by the default
+Claude/Codex workspace group and runs explicitly in the complete native suite.
+These macOS/Node 24 observations do not establish hosted Linux acceptance.
+The twelve-second case budget is provisional: local maximum is 3.13 seconds,
+while the sibling direct-child case previously exceeded five seconds under
+concurrent workspace load. The related budget gap remains open. The existing
+native qualification workflow will supply slower-runner evidence after push;
+no platform result is inferred from its configuration. Public API compatibility
+approval and the full plan remain pending.

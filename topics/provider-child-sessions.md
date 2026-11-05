@@ -101,6 +101,14 @@ Descendants keep their immediate parents rather than being flattened beneath
 the viewed root. The [OpenCode owner](opencode-backend.md#durable-child-relationships)
 defines bounded legacy acquisition and native observation.
 
+Actual OpenCode 1.18.9 nesting is qualified at depth two with an explicit
+fixture-only Task permission and depth setting. A grandchild stays beneath its
+immediate child parent in SQL and parent-scoped content reads; it neither
+becomes a direct root child nor a top-level session. A refused deeper Task
+allocates no fourth session or structural edge. The default child Task policy
+and production depth selection are unchanged; broader depths/platforms remain
+separate qualification.
+
 ## Presentation contract
 
 Every reader returns children most recently active first, through the one
