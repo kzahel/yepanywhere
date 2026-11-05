@@ -323,3 +323,13 @@ The final frozen OpenCode slice subsequently passed all 7,037 server cases
 `tasks/session-relationships/slice-7-final4-unit.log`. This later green run
 validates the slice; it does not erase the earlier full/isolated failures or
 close this unrelated watcher defect.
+
+
+2026-11-05: Codex direct-reader consolidation's first full macOS / Node
+24.22.1 run missed the second nested delivery at line 364 (one observed, two
+expected): 7,049 other server tests and 7,110 client tests passed; server time
+150.43 seconds. Raw evidence remains in ignored
+`tasks/session-relationships/slice-12-test.log`. The changed Codex metadata
+adapter/parser/benchmark does not change Rendez, its directory watcher, fixture,
+assertions, budgets or retries. This run remains red; later qualification
+cannot erase the repeated restart/event-registration finding.

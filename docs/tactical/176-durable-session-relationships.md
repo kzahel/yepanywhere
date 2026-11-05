@@ -547,3 +547,39 @@ publication barrier handle them without changing product behavior.
 
 No product timeout, provider defaults, production source or client contract is
 changed. Cross-provider/peer-native creation and Windows remain explicit limits.
+
+
+### Direct Codex reader metadata consolidation
+
+The retained direct-reader fallback now uses the same scoped header
+source as durable SQL acquisition. This removes the separate 8 MiB parent-body
+projection cache and its incremental parser, rather than keeping two child
+read models. Structural children no longer depend on copied or missing launch
+records. Optional anchors remain with explicit mapping reads and already-read
+verified metadata. Accepted direct reads are synchronous and do no work;
+explicit fresh reads acquire and validate native metadata. The diagnostic
+command is updated to cover metadata/SQL/reopen cost and automatic host evidence.
+
+Focused real-filesystem tests cover concurrent readers with an unread 8 MiB
+parent, later child creation, parent rewrite, fork/native-parent overlap, launch
+correlation and partial lines through the explicit mapping reader, cold versus
+accepted empty, expiry and retirement. Unrelated catalog churn cannot erase a
+successfully observed child; native read failures fall back to accepted
+headers. Exact bindings remain authoritative across project/worktree changes,
+while raw discovery still filters its selected project. Opus accepted the
+source and the regression checks after these boundaries were corrected.
+
+All four root gates pass, with 7,051 server / 7,110 client / 952 shared tests;
+the server suite takes 146.31 seconds. The final focused cases pass 22/22 and
+the seven actual native child variants pass in 12.15 seconds test work / 15.28
+wall. An earlier root run reproduced the existing Rendez restart watcher gap;
+its raw failure remains recorded in the owning gap, and is not fixed here.
+
+Final Node 22/24 and Bun diagnostics acquire 205 child headers for 20 concurrent
+readers with an unread 8 MiB parent in 49–51 ms. SQL publication takes 17–25 ms,
+complete projections 6.3–6.7 ms median, and reopen after native deletion 6.8–7.1
+ms. All transcript caches remain empty. A negative control validates zero body
+streams on Node; Bun does not support that instrumentation and reports the
+counter as unavailable. Automatic host samples report maximum load 0.21 per
+effective CPU and at least 10 GiB available memory. These are local metadata
+diagnostics, not HTTP or mobile latency ceilings. No client contract changes.

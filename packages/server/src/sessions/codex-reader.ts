@@ -54,7 +54,6 @@ import {
   type CodexSpawnIndexLease,
 } from "./codex-spawn-index.js";
 import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
-import type { SourceVersionedSingleFlightStats } from "../lib/sourceVersionedSingleFlight.js";
 import { getLogger } from "../logging/logger.js";
 import {
   canonicalizeProjectPath,
@@ -92,12 +91,10 @@ import {
   reconcileCodexRootObservation,
 } from "./codex-rollout-tree-observation.js";
 import {
-  type CodexProviderChildProjection,
-  codexProviderChildProjections,
   parseCodexSpawnAgentOutput,
   parseCodexStartedChild,
   codexOutputMayMatch,
-} from "./codex-provider-child-projection.js";
+} from "./codex-child-launch-metadata.js";
 import {
   type CodexRolloutDiscoveryStats,
   createCodexSessionDiscoveryIndex,
@@ -477,18 +474,19 @@ interface CodexAgentMappingCache {
   mappings: CodexAgentMapping[];
 }
 
-export interface CodexProviderChildProjectionMetrics {
-  event: "codex_provider_child_projection";
-  status: "accepted" | "computed" | "hit" | "joined" | "stale";
-  durationMs: number;
-  fileSize: number;
-  fullRebuild: boolean;
-  startOffset: number;
-  sourceBytesRead: number;
-  linesInspected: number;
-  parsedEntries: number;
-  childCount: number;
-  retainedBytes: number;
+function codexMappingAnchors(
+  cache?: CodexAgentMappingCache,
+): Map<string, string | null> {
+  const result = new Map<string, string | null>();
+  for (const m of cache?.mappings ?? []) {
+    if (m.toolUseId.length > 1024) continue;
+    const previous = result.get(m.agentId);
+    result.set(
+      m.agentId,
+      previous === undefined || previous === m.toolUseId ? m.toolUseId : null,
+    );
+  }
+  return result;
 }
 
 type CodexEntryReadPurpose =
@@ -756,9 +754,6 @@ export class CodexSessionReader implements ISessionReader {
   private summaryParserClient?: SummaryParserClient;
   private lastScanMetrics: CodexSessionReaderScanMetrics | null = null;
   private lastSummaryStreamMetrics: CodexSummaryStreamMetrics | null = null;
-  private lastProviderChildProjectionMetrics: CodexProviderChildProjectionMetrics | null =
-    null;
-  private providerChildProjectionKeys = new Set<string>();
 
   // Cache of session ID -> file path for quick lookups
   private sessionFileCache: Map<string, CodexSessionFile> = new Map();
@@ -814,7 +809,6 @@ export class CodexSessionReader implements ISessionReader {
     // retirement. Background relationship sources release this reader above.
     this.agentMappingCache.clear();
     this.rolloutPathById.clear();
-    this.providerChildProjectionKeys.clear();
     const client = this.summaryParserClient;
     this.summaryParserClient = undefined;
     await client?.close();
@@ -829,10 +823,6 @@ export class CodexSessionReader implements ISessionReader {
     this.entryCache.clear();
     this.agentMappingCache.clear();
     this.rolloutPathById.clear();
-    for (const key of this.providerChildProjectionKeys) {
-      codexProviderChildProjections.invalidate(key);
-    }
-    this.providerChildProjectionKeys.clear();
     codexSharedScanCache.delete(this.sessionsDir);
   }
 
@@ -867,16 +857,6 @@ export class CodexSessionReader implements ISessionReader {
       mappings += cached.mappings.length;
     }
     return { sessions: this.agentMappingCache.size, mappings };
-  }
-
-  getProviderChildProjectionCacheStats(): SourceVersionedSingleFlightStats {
-    return codexProviderChildProjections.getStats();
-  }
-
-  getLastProviderChildProjectionMetrics(): CodexProviderChildProjectionMetrics | null {
-    return this.lastProviderChildProjectionMetrics
-      ? { ...this.lastProviderChildProjectionMetrics }
-      : null;
   }
 
   getLastSummaryStreamMetrics(): CodexSummaryStreamMetrics | null {
@@ -1533,49 +1513,23 @@ export class CodexSessionReader implements ISessionReader {
     const historicalAnchors = new Map<string, string | undefined>();
     let emittedAnchors = new Map<string, string | undefined>();
     let anchors = new Map<string, string | null>();
-    const readAnchors = () => {
-      const result = new Map<string, string | null>();
-      for (const m of lastAnchors?.mappings ?? []) {
-        if (m.toolUseId.length > 1024) continue;
-        const previous = result.get(m.agentId);
-        result.set(
-          m.agentId,
-          previous === undefined || previous === m.toolUseId
-            ? m.toolUseId
-            : null,
-        );
-      }
-      return result;
-    };
+    const readAnchors = () => codexMappingAnchors(lastAnchors);
     const snapshot = (entry: CodexSharedScanCacheEntry) => {
-      const children: ProviderChildObservation["children"][number][] = [];
-      for (const child of entry.sessions.values()) {
-        if (child.parentThreadId !== parent.id) continue;
-        const native = nativeSessionRef(
+      const children = this.materializeNativeChildren(
+        parent.id,
+        entry,
+        anchors,
+        historicalAnchors,
+      ).map((summary) => ({
+        native: nativeSessionRef(
           "codex",
           parent.storageScope,
-          parseNativeSessionId(child.id),
-        );
-        const toolUseId =
-          anchors.get(child.id) ?? historicalAnchors.get(child.id);
-        children.push({
-          native,
-          summary: {
-            id: child.id,
-            parentSessionId: parent.id,
-            ...(toolUseId ? { toolUseId } : {}),
-            ...(child.agentNickname ? { title: child.agentNickname } : {}),
-            ...(child.agentRole ? { agentType: child.agentRole } : {}),
-            ...(child.spawnDepth !== undefined
-              ? { spawnDepth: child.spawnDepth }
-              : {}),
-            updatedAt: new Date(child.mtime).toISOString(),
-          },
-          // Optional parent launch records can disappear while native header
-          // proof remains. Preserve previously accepted historical anchors.
-          metadataAvailable: !!toolUseId,
-        });
-      }
+          parseNativeSessionId(summary.id),
+        ),
+        summary,
+        metadataAvailable: !!summary.toolUseId,
+        version: "",
+      }));
       for (const child of children) {
         const { updatedAt: _activity, ...summary } = child.summary;
         child.version = createHash("sha256")
@@ -1853,6 +1807,8 @@ export class CodexSessionReader implements ISessionReader {
             .get(this.sessionsDir)
             ?.get(this.getSharedScanCacheKey());
         }
+        // The caller supplies the authorized native binding. Its original
+        // YA project need not equal a fork/worktree's native working directory.
         if (signal.aborted || this.retired || !entry?.sessions.has(parent.id))
           throw new Error("Codex parent metadata unavailable");
         return finishObservation(entry, previousMetadata);
@@ -1987,174 +1943,119 @@ export class CodexSessionReader implements ISessionReader {
     };
   }
 
+  /** Explicit fresh native metadata, never a parent-body replay. */
   async listProviderChildSessions(
     parentSessionId: string,
   ): Promise<ProviderChildSessionSummary[]> {
-    const projection =
-      await this.refreshProviderChildProjection(parentSessionId);
-    return this.materializeProviderChildSessions(parentSessionId, projection);
+    if (this.retired) return [];
+    const native = await this.getNativeSessionRef(
+      parseNativeSessionId(parentSessionId),
+    );
+    if (!native) return [];
+    await this.scanSessions();
+    const parent = codexSharedScanCache
+      .get(this.sessionsDir)
+      ?.get(this.getSharedScanCacheKey())
+      ?.sessions.get(parentSessionId);
+    if (
+      !parent ||
+      (this.projectIdentityKey &&
+        getProjectIdentityKey(parent.cwd) !== this.projectIdentityKey)
+    )
+      return [];
+    const source = this.getProviderChildSource(native)!;
+    let lastObservation: ProviderChildObservation | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const observation = await source.observe(new AbortController().signal);
+        lastObservation = observation;
+        if (await source.isCurrent(observation.version))
+          return sortProviderChildSessions(
+            observation.children.map((c) => c.summary),
+          );
+      } catch {
+        if (this.retired) return [];
+        // Raw adapters tolerate disappearing native storage. SQL publication
+        // retains its stricter validation; this is only a historical view.
+      } finally {
+        source.releaseObservation?.();
+      }
+    }
+    return (
+      this.listAcceptedProviderChildSessions(parentSessionId) ??
+      sortProviderChildSessions(
+        lastObservation?.children.map((c) => c.summary) ?? [],
+      )
+    );
   }
 
+  /** Pure accepted header metadata. Cold callers must explicitly request freshness. */
   listAcceptedProviderChildSessions(
     parentSessionId: string,
   ): ProviderChildSessionSummary[] | undefined {
-    const key = this.getProviderChildProjectionKey(parentSessionId);
-    this.providerChildProjectionKeys.add(key);
-    const projection = codexProviderChildProjections.getAccepted(key);
-    this.lastProviderChildProjectionMetrics = {
-      event: "codex_provider_child_projection",
-      status: "accepted",
-      durationMs: 0,
-      fileSize: projection?.readThroughBytes ?? 0,
-      fullRebuild: false,
-      startOffset: projection?.readThroughBytes ?? 0,
-      sourceBytesRead: 0,
-      linesInspected: 0,
-      parsedEntries: 0,
-      childCount: projection?.children.size ?? 0,
-      retainedBytes: projection?.retainedBytes ?? 0,
-    };
-    void this.refreshProviderChildProjection(parentSessionId).catch(
-      (error: unknown) => {
-        getLogger().debug(
-          {
-            event: "codex_provider_child_projection_refresh_failed",
-            sessionId: parentSessionId,
-            error: error instanceof Error ? error.message : String(error),
-          },
-          "CODEX_READER: provider child projection refresh failed",
-        );
-      },
+    if (this.retired) return undefined;
+    const entry = codexSharedScanCache
+      .get(this.sessionsDir)
+      ?.get(this.getSharedScanCacheKey());
+    const parent = entry?.sessions.get(parentSessionId);
+    if (
+      !entry ||
+      !parent ||
+      entry.inFlight ||
+      entry.applyingChanges ||
+      entry.changedPaths.size ||
+      entry.needsEnumeration ||
+      (this.projectIdentityKey &&
+        getProjectIdentityKey(parent.cwd) !== this.projectIdentityKey) ||
+      (entry.epoch ?? null) !== getCodexRolloutTreeEpoch(this.sessionsDir) ||
+      (!isCodexRolloutTreeEnumerationTrusted(this.sessionsDir, entry.epoch) &&
+        (entry.timestamp === undefined ||
+          Date.now() - entry.timestamp >= CODEX_SCAN_CACHE_TTL_MS))
+    )
+      return undefined;
+    const cache = this.agentMappingCache.get(parentSessionId);
+    const children = this.materializeNativeChildren(
+      parentSessionId,
+      entry,
+      cache?.verified &&
+        cache.filePath === parent.filePath &&
+        cache.size <= parent.size &&
+        cache.mtimeMs <= parent.mtime
+        ? codexMappingAnchors(cache)
+        : undefined,
     );
-    if (!projection) return undefined;
-    return this.materializeProviderChildSessions(parentSessionId, projection);
+    return children.length || !entry.incomplete
+      ? sortProviderChildSessions(children)
+      : undefined;
   }
 
-  private async refreshProviderChildProjection(
-    parentSessionId: string,
-  ): Promise<CodexProviderChildProjection | undefined> {
-    const startedAt = Date.now();
-    const key = this.getProviderChildProjectionKey(parentSessionId);
-    this.providerChildProjectionKeys.add(key);
-
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await this.scanSessions();
-      // Native children can be parents too; the public listing hides them,
-      // while the scoped file catalog retains their exact native metadata.
-      const parentSession = this.getCachedSessionFile(parentSessionId);
-      if (!parentSession) {
-        codexProviderChildProjections.invalidate(key);
-        return undefined;
-      }
-
-      let stats: Awaited<ReturnType<typeof stat>>;
-      try {
-        stats = await stat(parentSession.filePath);
-      } catch {
-        codexProviderChildProjections.invalidate(key);
-        return undefined;
-      }
-      const result = await codexProviderChildProjections.run({
-        key,
-        filePath: parentSession.filePath,
-        parentUpdatedAt: parentSession.timestamp,
-        stats,
-      });
-
-      if (result.status === "stale") {
-        if (attempt === 0) continue;
-        const fallback =
-          result.previous?.value ??
-          codexProviderChildProjections.getAccepted(key);
-        this.recordProviderChildProjectionMetrics({
-          startedAt,
-          status: "stale",
-          fileSize: Number(stats.size),
-          projection: fallback,
-        });
-        return fallback;
-      }
-
-      this.recordProviderChildProjectionMetrics({
-        startedAt,
-        status: result.status,
-        fileSize: Number(stats.size),
-        projection: result.value,
-      });
-      return result.value;
-    }
-
-    return undefined;
-  }
-
-  private recordProviderChildProjectionMetrics(options: {
-    startedAt: number;
-    status: CodexProviderChildProjectionMetrics["status"];
-    fileSize: number;
-    projection?: CodexProviderChildProjection;
-  }): void {
-    const build =
-      options.status === "computed" ? options.projection?.lastBuild : undefined;
-    this.lastProviderChildProjectionMetrics = {
-      event: "codex_provider_child_projection",
-      status: options.status,
-      durationMs: Date.now() - options.startedAt,
-      fileSize: options.fileSize,
-      fullRebuild: build?.fullRebuild ?? false,
-      startOffset: build?.startOffset ?? options.fileSize,
-      sourceBytesRead: build?.sourceBytesRead ?? 0,
-      linesInspected: build?.linesInspected ?? 0,
-      parsedEntries: build?.parsedEntries ?? 0,
-      childCount: options.projection?.children.size ?? 0,
-      retainedBytes: options.projection?.retainedBytes ?? 0,
-    };
-  }
-
-  private materializeProviderChildSessions(
-    parentSessionId: string,
-    projection?: CodexProviderChildProjection,
+  private materializeNativeChildren(
+    parentId: string,
+    entry: CodexSharedScanCacheEntry,
+    anchors?: ReadonlyMap<string, string | null>,
+    historical?: ReadonlyMap<string, string | undefined>,
   ): ProviderChildSessionSummary[] {
-    if (!projection) return [];
-    const parentUpdatedAt =
-      this.getCachedSessionFile(parentSessionId)?.timestamp ??
-      projection.parentUpdatedAt;
     const children: ProviderChildSessionSummary[] = [];
-    for (const child of projection.children.values()) {
-      const launch = projection.launches.get(child.toolUseId);
-      const childFile = this.getCachedSessionFile(child.id);
-      // Forked transcripts may copy someone else's spawn records. Only the
-      // child's own immediate-parent claim can anchor this structural link.
-      if (!launch || childFile?.parentThreadId !== parentSessionId) continue;
+    for (const child of entry.sessions.values()) {
+      if (child.parentThreadId !== parentId) continue;
+      const toolUseId = anchors?.get(child.id) ?? historical?.get(child.id);
       children.push({
         id: child.id,
-        parentSessionId,
-        ...(child.nickname
-          ? { title: child.nickname }
-          : launch.title
-            ? { title: launch.title }
-            : {}),
-        ...(launch.agentType && { agentType: launch.agentType }),
-        toolUseId: child.toolUseId,
-        updatedAt:
-          this.getCachedSessionFile(child.id)?.timestamp ?? parentUpdatedAt,
+        parentSessionId: parentId,
+        ...(toolUseId ? { toolUseId } : {}),
+        ...(child.agentNickname
+          ? { title: truncateSessionTitle(child.agentNickname) }
+          : {}),
+        ...(child.agentRole
+          ? { agentType: child.agentRole.slice(0, 256) }
+          : {}),
+        ...(child.spawnDepth !== undefined
+          ? { spawnDepth: child.spawnDepth }
+          : {}),
+        updatedAt: new Date(child.mtime).toISOString(),
       });
     }
-    return sortProviderChildSessions(children);
-  }
-
-  private getProviderChildProjectionKey(parentSessionId: string): string {
-    return `${this.sessionsDir}\0${parentSessionId}`;
-  }
-
-  private getCachedSessionFile(
-    sessionId: string,
-  ): CodexSessionFile | undefined {
-    const local = this.sessionFileCache.get(sessionId);
-    if (local) return local;
-    return codexSharedScanCache
-      .get(this.sessionsDir)
-      ?.get(this.getSharedScanCacheKey())
-      ?.sessions.get(sessionId);
+    return children;
   }
 
   /**

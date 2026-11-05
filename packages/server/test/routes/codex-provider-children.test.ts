@@ -198,8 +198,6 @@ describe("Codex provider child route contract", () => {
           expect.objectContaining({
             id: childId,
             parentSessionId: parentId,
-            title: "Nested page",
-            toolUseId: callId,
           }),
         ],
       },

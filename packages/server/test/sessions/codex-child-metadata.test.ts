@@ -228,7 +228,16 @@ it("refreshes exact indexed locators without a corpus scan, fences WAL and own-h
 it("treats missing/old indexes as unavailable, fences physical database replacement, and releases a retained lease on reader retirement", async () => {
   const f = await fixture();
   await f.child("child");
-  const observation = (await f.source.refreshMetadata!(
+  let observation = (await f.source.refreshMetadata!(
+    new AbortController().signal,
+  ))!;
+  expect(await f.source.isCurrent(observation.version)).toBe(true);
+  f.source.releaseObservation?.();
+  expect(f.reader.getLastScanMetrics()).toBeNull();
+  expect(await f.reader.listProviderChildSessions("parent")).toMatchObject([
+    { id: "child" },
+  ]);
+  observation = (await f.source.refreshMetadata!(
     new AbortController().signal,
   ))!;
   await rename(f.path, `${f.path}.old`);

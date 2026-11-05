@@ -257,14 +257,17 @@ describe.each(providers.filter(supportsNativeChildScenario))(
         expect(children[0]).toMatchObject({
           id: childId,
           parentSessionId: f.nativeId(),
-          ...(["grok", "opencode"].includes(provider)
-            ? {}
-            : { toolUseId: callId }),
+          ...(isClaude(provider) ? { toolUseId: callId } : {}),
         });
         if (isClaude(provider) || isCodex(provider)) {
           expect(await reader.getAgentMappings(f.nativeId())).toEqual([
             expect.objectContaining({ agentId: childId, toolUseId: callId }),
           ]);
+          expect(
+            await reader.listProviderChildSessions!(f.nativeId()),
+          ).toContainEqual(
+            expect.objectContaining({ id: childId, toolUseId: callId }),
+          );
         }
         expect(await reader.listProviderChildSessions!(childId)).toEqual([]);
         expect(

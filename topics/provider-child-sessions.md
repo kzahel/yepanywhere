@@ -261,15 +261,42 @@ durable progress resumes after the last committed batch. Root locations outside
 the configured provider watcher still reconcile on explicit detail demand;
 continuous observation of those private roots remains separate qualification.
 
-The older source-versioned direct-reader projection remains for retained raw
-reader callers while adapters migrate. It incrementally inspects parent
-launch records under an 8 MiB process budget; it is not the Codex application
-read authority. Its pre-SQL benchmark remains available as
-`pnpm --filter @yep-anywhere/server benchmark:codex-child-projection`. The
-historical [startup investigation](../docs/tactical/089-main-thread-startup-cpu-investigation.md)
-records why repeatedly parsing complete parents from process snapshots was
-unacceptable. Current diagnostic detail scaling and restart evidence are in
-plan 176; the old benchmark is not evidence of SQL publication/read latency.
+Direct Codex reader calls now use that same validated native header source.
+There is no separate parent-body child projection or its process cache.
+Explicit fresh reads share header acquisition, while synchronous accepted reads
+perform no I/O and start no background work. Cold, expired, invalidated or
+partial-empty header state remains unknown until explicit freshness is requested.
+The application still uses durable SQL immediately; reader acceptance is a
+native-adapter boundary, not another durable read authority. If unrelated
+streaming invalidates both finite fresh attempts, the raw adapter preserves its
+last proved view rather than returning a false empty list. Native read loss is
+tolerated, and retirement returns no raw data. This historical fallback is never
+used to publish SQL; durable acquisition still requires current source proof.
+Raw project discovery checks the parent's cwd, while an already authorized
+exact binding remains valid when its original YA project differs from a
+fork/worktree's native working directory.
+
+Own native parentage establishes structural visibility even when the parent's
+launch record is missing, unfinished or lost to a rewrite. Titles, roles and
+depth come from the child's native header. Already-read verified mappings can
+supply launch anchors; an explicit agent-mapping request can acquire older
+anchors independently. Accepted anchors are historical hints guarded by the
+cached header's size/activity; pure accepted reads cannot revalidate file
+identity. Fresh acquisition and SQL publication retain their physical-file
+fences. Listing children never starts that parent-body read.
+A fork that also explicitly carries a qualified native parent can have both
+lineage and child relationships; copied launch history alone proves neither.
+
+`pnpm --filter @yep-anywhere/server benchmark:codex-child-projection` now runs a
+metadata/SQL diagnostic with automatic host evidence: twenty cold reader callers,
+205 children and an 8 MiB parent, empty transcript caches, indexed SQL reads
+and reopen after native content deletion. A negative control qualifies the
+stream counter: Node verifies zero measured body streams; Bun reports the
+counter unavailable when its module bindings cannot be intercepted. The
+historical parent-body projection benchmark is retired. The
+[older startup investigation](../docs/tactical/089-main-thread-startup-cpu-investigation.md)
+explains why replaying parents from process snapshots was unacceptable. Current
+detail scaling and restart evidence remain in plan 176.
 
 The retained global session collection joins accepted SQL children using the
 catalog's exact native id and storage scope after public-id projection. A
