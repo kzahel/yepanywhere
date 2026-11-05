@@ -67,7 +67,10 @@ async function freePort() {
   return port;
 }
 
-export async function nativeAppFixture(provider: AppProvider) {
+export async function nativeAppFixture(
+  provider: AppProvider,
+  options: { agentApiManagement?: boolean } = {},
+) {
   if (!["darwin", "linux"].includes(process.platform))
     throw Error(
       "Native app reload requires the production POSIX Node provider host",
@@ -210,6 +213,9 @@ export async function nativeAppFixture(provider: AppProvider) {
           codexUpdatePolicy: "off",
           recapMode: "off",
           promptSuggestionMode: "off",
+          ...(options.agentApiManagement
+            ? { agentApiEnabled: true, agentApiManagementEnabled: true }
+            : {}),
         },
       }),
     );

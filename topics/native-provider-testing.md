@@ -78,6 +78,36 @@ Do not use the primary CLI as an implicit fallback when optional dependencies
 are absent. Runtime support/version policy remains owned by
 [provider version support](provider-version-support.md).
 
+## Native v0 creator evidence
+
+The opt-in `test/native-app/app-creation-relationships.test.ts` uses the real
+application and provider host. An actual Claude or Codex parent executes a shell
+tool against its private launch-bound v0 connection, creates a second actual
+executable, repeats the same request and submits a conflicting retry. Both
+executables stay on the owned scripted model endpoint. The fixture explicitly
+enables API discovery and management only in its private profile; production
+defaults are unchanged and no operator credential is substituted.
+
+The scenario checks the parent's canonical launch attribution, one receipt and
+one native child dispatch, both directions of `created_session` in profile SQL,
+receipt evidence, API surface provenance and native identity bindings. Absence
+of a provider-child edge is checked after an accepted complete structural
+observation of the parent's stored native ref; its version deliberately ignores
+ordinary parent body activity. While the real parent remains active, the owned API
+process is replaced. Reopening SQL and the existing authorized v0 relationship
+reply must retain the same creator receipt. The WebSocket reconnects before the
+parent finishes; no old subscription is treated as surviving API replacement.
+A single read-only SQL snapshot supplies rows, with assertions outside the
+publication wait. The post-restart catalog contains exactly the parent and
+child; model failure/egress and dispatch counts are checked after joined teardown.
+
+This qualifies the two currently supported local v0 providers on POSIX Node.
+It does not qualify cross-provider creation, peer-native dispatch, Windows or a
+new public graph contract. Unit/integration fixtures retain the remaining
+admission, peer, recovery and access-control boundaries. The two new cases are
+opt-in with the existing native-app suite, rather than another startup cost in
+ordinary workspace tests.
+
 ## Native child evidence
 
 The baseline `native-children.test.ts` executes actual native child tools. The

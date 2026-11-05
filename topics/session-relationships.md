@@ -375,7 +375,7 @@ Current coverage is a foundation, not complete relationship qualification:
 | --- | --- | --- |
 | Native execution | Actual launch, tools, queue/control, history and resume scenarios across qualified launch paths | Actual child-tool invocation, child model exchanges, returned native id, parent/child files or DB rows, and independent reopen through the production reader. |
 | Child extraction | Constructed Claude/Codex/Grok/OpenCode persistence, scoped readers and route tests | Native-generated specimens for the exact qualified versions; independent expectations from native tool results and raw storage, not the same parser on both sides of an assertion. |
-| YA/v0 creation | Real admission/SQLite, retry, creator, peer, remap and restart checks; some boundaries use scripted provider peers | A real parent executable's tool invokes the owned API, creates a real child executable, and verifies its trusted launch attribution and public/native bindings after restart. Exercise every retained admission ingress independently at its cheapest meaningful boundary. |
+| YA/v0 creation | Real admission/SQLite, retry, creator, peer, remap and restart checks; actual Claude/Codex parents invoke launch-bound v0, launch real children and retain receipt/graph/native binding through API replacement | Cross-provider and peer-native dispatch remain separate; exercise other retained admission ingresses at their cheapest meaningful boundary. |
 | UI and latency | Existing real Claude/Codex source-app/browser harness | Block relationship acquisition while the transcript loads, publish relationships later, and prove stable navigation/scroll and sequential typing under concurrent updates. |
 
 A child request must remain on the owned model endpoint with synthetic

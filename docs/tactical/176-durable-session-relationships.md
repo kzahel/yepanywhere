@@ -509,3 +509,41 @@ remain partial. Nested symlinks inside a native sessions tree can still withhold
 optional anchor enrichment; physical scope proof and durable history remain.
 Generic authorized projections, nested-harness indexing and remaining legacy
 consumers are separate work; this slice adds no public API.
+
+### Native launch-bound v0 creation qualification
+
+Actual Claude and Codex parent tools now exercise their private management lease
+against the real application, create another actual native session, repeat an
+identical request and submit a conflicting retry. The fixture verifies one
+receipt/dispatch, canonical creator attribution, incoming/outgoing SQL creation
+edges and source evidence, API provenance and native bindings. An owned API
+replacement preserves those facts while the parent provider remains active;
+the browser-independent socket reconnects before the parent finishes.
+
+The final local-model probe passes both cases without inference (14.33 seconds
+test work / 14.96 total). All six native-app scenarios pass on the reviewed
+source (52.93 seconds aggregate / 18.77 wall). Opus independently ran the
+suite twice under concurrent gate load: 74.8–75.5 seconds aggregate / 26.9–27.3
+wall, with a maximum creation case of 11.88 seconds. The existing 30-second
+budget remains over twice that measured maximum; no timeout is raised.
+
+Opus accepted the final tests after two oracle gaps were corrected. A finite
+publication wait now returns raw rows from one read-only SQL snapshot, with
+semantic assertions outside the wait and a teardown fence. Model failure/egress
+and request counts are checked after joined teardown, and the post-restart
+catalog contains exactly the parent and child. The parent keeps its native PID
+and process group across replacement; a new attached API generation and new
+WebSocket deliver its final text. Provider-child absence follows an accepted
+complete structural observation, which deliberately does not imply a new
+parent-body revision. V0 creation proof is independently read after restart.
+
+All four root gates pass on the final reviewed source: zero lint warnings,
+format/types and 7,050 server / 7,110 client / 952 shared tests. The server
+suite takes 147.29 seconds; the two new native cases are skipped by ordinary
+workspace runs. Existing failure-fixture/navigation diagnostics remain in their
+owning gaps. Early probe failures exposed incorrect test-owner lookup, a closed
+WebSocket and a transient SQL read lock; corrected lifecycle ownership and the
+publication barrier handle them without changing product behavior.
+
+No product timeout, provider defaults, production source or client contract is
+changed. Cross-provider/peer-native creation and Windows remain explicit limits.
