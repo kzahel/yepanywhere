@@ -201,10 +201,45 @@ and discovery progress commit together in bounded SQL transactions. Ordinary
 child mtime changes overlay activity from the catalog without SQL commits or
 metadata broadcasts; only structural changes publish. File changes coalesce by
 scope and target the proved current/previous parents. First list-only reads
-register finite acquisition, including revalidation after restart; subsequent
-accepted reads do not repeat it. An explicit
+register finite acquisition, including revalidation after restart. Subsequent
+accepted reads return SQL immediately. For an already registered parent, a
+request after 30 seconds may schedule one bounded metadata refresh; concurrent
+requests coalesce with native events and foreground demand under the same
+128-source/two-worker ceiling. Queued foreground/native work runs before aged
+metadata work; already running acquisitions remain finite. Age alone schedules
+nothing, and there is no per-session timer or added watcher. Normal native
+observations remain the prompt update path. Unwatched private scopes can
+remain stale until the next aged request or explicit fresh demand. An explicit
 corrected native parent supersedes that child's older structural observation;
 absence from a later enumeration does not erase historical facts.
+
+A request-driven metadata refresh may inspect only the exact parent's native
+metadata. Claude and Grok read that parent's child directory and sidecars;
+Grok never falls back to project/root enumeration in this mode. OpenCode reads
+the selected native SQLite lineage without loading its legacy JSON catalog.
+Codex uses the pinned native `state_5.sqlite` parent index only as a locator,
+then reads bounded, terminated, plain child-owned headers in the exact
+physical session scope and project. Cross-project child headers are withheld
+by this partial refresh. Attached actors whose own creation-parent header
+differs are withheld. Parent bodies, prompts and provider-wide walks are not
+inputs. A missing/older Codex index, nonconventional session-root layout or
+custom SQLite-home location without a scoped locator can leave this cheap
+refresh stale or unavailable; ordinary foreground discovery remains supported.
+YA never borrows an ambient SQLite-home override for a different native scope.
+
+Native SQLite connections are read-only, finite acquisition leases with reused
+statements; SQLite may create WAL/SHM reader sidecars. File identity and fresh
+logical selected rows fence replacement and WAL-only changes; bounded
+own-header proofs fence file replacement while allowing ordinary body appends.
+Reader retirement releases pending leases. Codex locator observations and
+OpenCode's SQL-only refresh are partial, so they cannot certify an absent
+legacy child or turn unknown into accepted empty. Metadata progress has a
+separate checkpoint from full discovery and emits the existing metadata event
+only when child facts change. Unsupported or failed cheap reads preserve
+accepted facts and never escalate into a provider-corpus walk. Newly available
+launch metadata may request ordinary finite discovery when cheap refresh is
+unavailable or misses verified already-read anchors. Aged reads still publish
+partial positive facts without escalating. No new client contract is used.
 
 Claude reuses the existing provider FileWatcher and its native-root hint.
 Aliased watch roots must resolve to the bound physical scope before accepting

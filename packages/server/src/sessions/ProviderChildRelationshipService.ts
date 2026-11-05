@@ -35,6 +35,8 @@ export interface ProviderChildObservation {
   version: string;
   state: "partial" | "complete";
   children: readonly ObservedProviderChild[];
+  /** A partial locator missed already-read anchors; only a handoff may escalate. */
+  needsFullMetadata?: boolean;
 }
 export interface ProviderChildSource {
   /** Stable reader lifecycle, not a cache of native facts. */
@@ -48,6 +50,10 @@ export interface ProviderChildSource {
       child: NativeSessionRef,
     ) => Readonly<RelationshipMetadata> | undefined,
   ): Promise<ProviderChildObservation>;
+  /** Optional bounded metadata reads; must never enumerate a provider corpus. */
+  refreshMetadata?(
+    ...args: Parameters<ProviderChildSource["observe"]>
+  ): Promise<ProviderChildObservation | undefined>;
   /** Close the native source-version race before publishing profile facts. */
   isCurrent(version: string): Promise<boolean>;
   /** Cheap current activity overlay; never acquires provider storage. */
@@ -83,13 +89,19 @@ interface Work {
   running: boolean;
   dirty: boolean;
   staleRetries: number;
+  mode: AcquisitionMode;
+  runningMode?: AcquisitionMode;
+  lastAttemptAt: number;
   release?: () => void;
 }
+
+type AcquisitionMode = "full" | "metadata" | "metadata-or-full";
 
 const SNAPSHOT_PRODUCER = "provider-child-snapshot-v1";
 const MAX_SOURCES = 128;
 const MAX_CONCURRENT = 2;
 const COMMIT_BATCH = 100;
+const REQUEST_REFRESH_MS = 30_000;
 
 /**
  * Profile-owned SQL reads plus finite, coalesced native acquisition. A request
@@ -119,6 +131,7 @@ export class ProviderChildRelationshipService {
     private readonly onCommitted: (owner: ProviderChildOwner) => void,
     private readonly onError: (error: unknown) => void = () => {},
     private readonly sharedIndex?: () => SessionRelationshipStore,
+    private readonly now: () => number = Date.now,
   ) {}
 
   private get index(): SessionRelationshipStore {
@@ -232,7 +245,8 @@ export class ProviderChildRelationshipService {
     const retire = source.onRetire?.(() => this.forget(key, source));
     const metadata = source.onMetadataAvailable?.(() => {
       const work = this.sources.get(key);
-      if (work?.source === source) this.invalidate(work.native);
+      if (work?.source === source)
+        this.invalidate(work.native, "metadata-or-full");
     });
     return () => {
       retire?.();
@@ -262,8 +276,9 @@ export class ProviderChildRelationshipService {
         existing.release = this.subscribeSource(key, source);
       }
       existing.staleRetries = 0;
+      existing.mode = "full";
       if (existing.running) {
-        if (replace) existing.dirty = true;
+        if (replace || existing.runningMode !== "full") existing.dirty = true;
       } else existing.queued = true;
       this.sources.delete(key);
       this.sources.set(key, existing);
@@ -287,6 +302,8 @@ export class ProviderChildRelationshipService {
         running: false,
         dirty: false,
         staleRetries: 0,
+        mode: "full",
+        lastAttemptAt: -Infinity,
       });
       const work = this.sources.get(key)!;
       work.release = this.subscribeSource(key, source);
@@ -295,12 +312,37 @@ export class ProviderChildRelationshipService {
     return true;
   }
 
+  /** A requested row can revalidate cheap metadata without owning an idle poll. */
+  requestMetadataRefresh(
+    native: NativeSessionRef,
+    owner: ProviderChildOwner,
+    source: ProviderChildSource,
+  ): boolean {
+    if (this.retired || source.isRetired?.()) return false;
+    if (!this.hasSource(native))
+      return this.demand(native, owner, source, "background");
+    const work = this.sources.get(this.key(native))!;
+    if (
+      !work.source.refreshMetadata ||
+      work.running ||
+      work.queued ||
+      this.now() - work.lastAttemptAt < REQUEST_REFRESH_MS
+    )
+      return false;
+    work.owner = owner;
+    work.mode = "metadata";
+    work.queued = true;
+    this.schedule();
+    return true;
+  }
+
   /** Native observations, never the service's own metadata publication. */
-  invalidate(native: NativeSessionRef): void {
+  invalidate(native: NativeSessionRef, mode: AcquisitionMode = "full"): void {
     const work = this.sources.get(this.key(native));
     if (!work || this.retired) return;
     work.generation++;
     work.staleRetries = 0;
+    if (!work.queued || work.mode !== "full") work.mode = mode;
     if (work.running) work.dirty = true;
     else work.queued = true;
     this.schedule();
@@ -337,6 +379,7 @@ export class ProviderChildRelationshipService {
       if (!previous && this.nativeEvents.size >= MAX_SOURCES) {
         // Lost event detail needs a follow-up read, not cancellation of every
         // running read during sustained pressure. The source revalidates proof.
+        work.mode = "full";
         if (work.running) work.dirty = true;
         else work.queued = true;
         this.schedule();
@@ -541,7 +584,13 @@ export class ProviderChildRelationshipService {
             });
           this.inFlight.add(promise);
         }
-        for (const [key, work] of this.sources) {
+        // Serve foreground/native fidelity before request-driven aged work.
+        const queued = [...this.sources];
+        const ordered = [
+          ...queued.filter(([, work]) => work.mode !== "metadata"),
+          ...queued.filter(([, work]) => work.mode === "metadata"),
+        ];
+        for (const [key, work] of ordered) {
           if (this.inFlight.size >= MAX_CONCURRENT) break;
           if (work.source.isRetired?.()) {
             this.forget(key);
@@ -550,12 +599,16 @@ export class ProviderChildRelationshipService {
           if (!work.queued || work.running) continue;
           work.queued = false;
           work.running = true;
-          const promise = this.acquire(key, work)
+          const mode = work.mode;
+          work.runningMode = mode;
+          work.lastAttemptAt = this.now();
+          const promise = this.acquire(key, work, mode)
             .catch((error) => {
               if (!this.retired) this.onError(error);
             })
             .finally(() => {
               work.running = false;
+              work.runningMode = undefined;
               if (work.dirty) {
                 work.dirty = false;
                 work.queued = true;
@@ -574,10 +627,14 @@ export class ProviderChildRelationshipService {
     );
   }
 
-  private async acquire(key: string, work: Work): Promise<void> {
+  private async acquire(
+    key: string,
+    work: Work,
+    mode: AcquisitionMode,
+  ): Promise<void> {
     const source = work.source;
     try {
-      await this.acquireObservation(key, work, source);
+      await this.acquireObservation(key, work, source, mode);
     } finally {
       source.releaseObservation?.();
     }
@@ -587,13 +644,18 @@ export class ProviderChildRelationshipService {
     key: string,
     work: Work,
     source: ProviderChildSource,
+    mode: AcquisitionMode,
   ): Promise<void> {
     const generation = work.generation;
-    const previous = this.index.checkpoint(SNAPSHOT_PRODUCER, key);
-    const observation = await source.observe(
-      this.lifetime.signal,
-      previous
-        ? (child) => {
+    let metadataOnly = mode !== "full";
+    let producer = metadataOnly
+      ? `${SNAPSHOT_PRODUCER}/metadata-v1`
+      : SNAPSHOT_PRODUCER;
+    let previous = this.index.checkpoint(producer, key);
+    const previousMetadata =
+      previous ||
+      (metadataOnly && this.index.checkpoint(SNAPSHOT_PRODUCER, key))
+        ? (child: NativeSessionRef) => {
             if (this.retired) return;
             // Historical enrichment comes from this exact scoped edge. It cannot
             // supply structural proof or collide through flattened child ids.
@@ -618,8 +680,24 @@ export class ProviderChildRelationshipService {
                   e.trust === "provider-observed",
               )?.metadata;
           }
-        : undefined,
-    );
+        : undefined;
+    let observation = metadataOnly
+      ? await source.refreshMetadata?.(this.lifetime.signal, previousMetadata)
+      : await source.observe(this.lifetime.signal, previousMetadata);
+    if (
+      (!observation || observation.needsFullMetadata) &&
+      mode === "metadata-or-full"
+    ) {
+      source.releaseObservation?.();
+      metadataOnly = false;
+      producer = SNAPSHOT_PRODUCER;
+      previous = this.index.checkpoint(producer, key);
+      observation = await source.observe(
+        this.lifetime.signal,
+        previousMetadata,
+      );
+    }
+    if (!observation) return;
     if (this.retired || generation !== work.generation) return;
     if (!(await source.isCurrent(observation.version))) {
       // A different reader may have consumed the catalog's pending invalidation.
@@ -663,7 +741,7 @@ export class ProviderChildRelationshipService {
         const committed = this.database.transaction(() => {
           const accepted = this.index.publishWithinTransaction({
             observation: {
-              producer: SNAPSHOT_PRODUCER,
+              producer,
               sourceKey: key,
               sourceVersion: observation.version,
               extractorVersion: 1,
@@ -699,7 +777,7 @@ export class ProviderChildRelationshipService {
           const owner = this.sources.get(parentKey)?.owner;
           if (owner) owners.set(owner.sessionId, owner);
         }
-        changed = true;
+        changed ||= !metadataOnly || previousParents.length > 0;
         expectedRevision = (expectedRevision ?? 0) + 1;
         if (start + COMMIT_BATCH < observation.children.length)
           await runOutsideRequestContext(

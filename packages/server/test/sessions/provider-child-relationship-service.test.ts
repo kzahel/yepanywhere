@@ -59,7 +59,7 @@ function snapshot(
       : [],
   };
 }
-function fixture(dataDir?: string) {
+function fixture(dataDir?: string, now?: () => number) {
   const root =
     dataDir ?? mkdtempSync(join(tmpdir(), "ya-child-relationships-"));
   if (!dataDir) roots.push(root);
@@ -79,6 +79,8 @@ function fixture(dataDir?: string) {
       committed.resolve();
     },
     (error) => failed.resolve(error),
+    undefined,
+    now,
   );
   services.push(service);
   return { root, db, service, committed, failed, ownerChanges };
@@ -90,6 +92,141 @@ const source = (value: ProviderChildObservation): ProviderChildSource => ({
 const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 describe("profile-owned provider child facts", () => {
+  it("revalidates only requested aged metadata, returns SQL while held, and preserves full discovery priority", async () => {
+    let now = 0;
+    const f = fixture(undefined, () => now);
+    let fullCalls = 0,
+      metadataCalls = 0;
+    let available = snapshot("child");
+    let hold: ReturnType<typeof deferred<void>> | undefined;
+    const acquisition: ProviderChildSource = {
+      observe: async () => {
+        fullCalls++;
+        return available;
+      },
+      refreshMetadata: async () => {
+        metadataCalls++;
+        await hold?.promise;
+        return available;
+      },
+      isCurrent: async () => true,
+    };
+    f.service.demand(native("parent"), owner, acquisition);
+    await f.committed.promise;
+    await nextTurn();
+    expect(
+      f.service.requestMetadataRefresh(native("parent"), owner, acquisition),
+    ).toBe(false);
+    now = 30_001;
+    hold = deferred<void>();
+    available = {
+      ...snapshot("new-child", "v2", "partial"),
+      children: [
+        snapshot("child").children[0]!,
+        snapshot("new-child").children[0]!,
+      ],
+    };
+    expect(
+      f.service.requestMetadataRefresh(native("parent"), owner, acquisition),
+    ).toBe(true);
+    await nextTurn();
+    for (let i = 0; i < 40; i++) {
+      expect(
+        f.service.accepted(native("parent"), owner.sessionId)?.map((c) => c.id),
+      ).toEqual(["child"]);
+      expect(
+        f.service.requestMetadataRefresh(native("parent"), owner, acquisition),
+      ).toBe(false);
+    }
+    expect(metadataCalls).toBe(1);
+    // A real foreground/native refresh arriving during cheap work must still
+    // receive full acquisition after the finite metadata job completes.
+    f.service.demand(native("parent"), owner, acquisition);
+    hold.resolve();
+    hold = undefined;
+    await vi.waitFor(() => expect(fullCalls).toBe(2), { interval: 5 });
+    await nextTurn();
+    expect(
+      f.service
+        .accepted(native("parent"), owner.sessionId)
+        ?.map((c) => c.id)
+        .sort(),
+    ).toEqual(["child", "new-child"]);
+    const events = f.ownerChanges.length;
+    const changes = f.db.getDatabase().prepare("SELECT total_changes() AS n");
+    now += 30_001;
+    f.service.requestMetadataRefresh(native("parent"), owner, acquisition);
+    await vi.waitFor(() => expect(metadataCalls).toBe(2), { interval: 5 });
+    await nextTurn();
+    const afterFirstMetadata = changes.get<{ n: number }>()!.n;
+    now += 30_001;
+    f.service.requestMetadataRefresh(native("parent"), owner, acquisition);
+    await vi.waitFor(() => expect(metadataCalls).toBe(3), { interval: 5 });
+    await nextTurn();
+    expect(changes.get<{ n: number }>()!.n).toBe(afterFirstMetadata);
+    expect(f.ownerChanges).toHaveLength(events);
+    acquisition.refreshMetadata = async () => {
+      metadataCalls++;
+      return undefined;
+    };
+    now += 30_001;
+    f.service.requestMetadataRefresh(native("parent"), owner, acquisition);
+    await vi.waitFor(() => expect(metadataCalls).toBe(4), { interval: 5 });
+    await nextTurn();
+    expect(fullCalls).toBe(2);
+    expect(changes.get<{ n: number }>()!.n).toBe(afterFirstMetadata);
+    now += 1_000_000;
+    await nextTurn();
+    expect(metadataCalls).toBe(4); // Advancing age alone owns no idle work.
+    changes.finalize();
+  });
+
+  it("starts queued foreground acquisition ahead of aged metadata jobs", async () => {
+    let now = 0;
+    const f = fixture(undefined, () => now);
+    const held = deferred<void>(),
+      started = deferred<void>(),
+      foreground = deferred<void>();
+    const metadata: number[] = [];
+    let full = 0;
+    const sources = Array.from(
+      { length: 5 },
+      (_, id): ProviderChildSource => ({
+        observe: async () => {
+          full++;
+          if (id === 4 && full > 5) foreground.resolve();
+          return snapshot(null, `parent-${id}`);
+        },
+        refreshMetadata: async () => {
+          metadata.push(id);
+          if (id === 0) {
+            started.resolve();
+            await held.promise;
+          }
+          return snapshot(null, `parent-${id}`, "partial");
+        },
+        isCurrent: async () => true,
+      }),
+    );
+    for (let i = 0; i < 5; i++)
+      f.service.demand(native(`parent-${i}`), owner, sources[i]!);
+    await vi.waitFor(() => expect(full).toBe(5), { interval: 5 });
+    await nextTurn();
+    now = 30_001;
+    f.service.requestMetadataRefresh(native("parent-0"), owner, sources[0]!);
+    await started.promise;
+    for (let i = 1; i < 4; i++)
+      f.service.requestMetadataRefresh(
+        native(`parent-${i}`),
+        owner,
+        sources[i]!,
+      );
+    f.service.demand(native("parent-4"), owner, sources[4]!);
+    await foreground.promise;
+    expect(metadata).toEqual([0]);
+    held.resolve();
+  });
+
   it("bounds native event pressure, preserves creation across appends and lets acquisition progress", async () => {
     const f = fixture();
     const held = [deferred<void>(), deferred<void>()];

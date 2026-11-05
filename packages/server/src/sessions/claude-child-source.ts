@@ -92,7 +92,7 @@ export function createClaudeChildSource(options: {
       activity.delete(oldest!);
     }
   };
-  return {
+  const source: ProviderChildSource = {
     owner: options.owner,
     async ownsNativeScope() {
       for (const root of options.roots)
@@ -386,4 +386,6 @@ export function createClaudeChildSource(options: {
       return current && generation === value.generation && !options.isRetired();
     },
   };
+  source.refreshMetadata = source.observe;
+  return source;
 }

@@ -627,3 +627,27 @@ it("publishes an initial parent while unrelated lineage changes interleave with 
     for (const g of gates) g.resolve();
   }
 });
+
+it("refreshes current SQLite metadata without enumerating a retained legacy catalog", async () => {
+  const f = await fixture();
+  f.child("child");
+  const full = await f.source.observe(new AbortController().signal);
+  expect(await f.source.isCurrent(full.version)).toBe(true);
+  f.source.releaseObservation?.();
+  const owner = (
+    f.reader as unknown as {
+      childSourceOwner: { legacyRows(): Promise<unknown> };
+    }
+  ).childSourceOwner;
+  const legacy = vi
+    .spyOn(owner, "legacyRows")
+    .mockRejectedValue(new Error("LEGACY CORPUS FORBIDDEN"));
+  f.child("late");
+  const next = (await f.source.refreshMetadata!(new AbortController().signal))!;
+  expect(next.state).toBe("partial");
+  expect(next.children.map((c) => c.native.id)).toEqual(["child", "late"]);
+  expect(await f.source.isCurrent(next.version)).toBe(true);
+  expect(legacy).not.toHaveBeenCalled();
+  f.source.releaseObservation?.();
+  legacy.mockRestore();
+});

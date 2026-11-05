@@ -6,6 +6,7 @@ import {
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
+import { openCodexSpawnIndex } from "../../src/sessions/codex-spawn-index.js";
 import { mergeProviderChildAgentMappings } from "../../src/sessions/provider-child-sessions.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { loadSqliteDriver } from "../../src/storage/sqlite.js";
@@ -226,6 +227,23 @@ describe.each(providers.filter(supportsNativeChildScenario))(
         );
         expect(ownSummary.info.id).toBe(childId);
       }
+      if (isCodex(provider)) {
+        const nativeIndex = await openCodexSpawnIndex(
+          f.environment.CODEX_SESSIONS_DIR!,
+        );
+        expect(nativeIndex).toBeDefined();
+        try {
+          expect(nativeIndex!.read(f.nativeId())).toContainEqual(
+            expect.objectContaining({
+              parentId: f.nativeId(),
+              childId,
+            }),
+          );
+          expect(await nativeIndex!.isCurrent()).toBe(true);
+        } finally {
+          nativeIndex?.close();
+        }
+      }
       const reader = await historyReader(
         provider,
         f.project,
@@ -285,6 +303,16 @@ describe.each(providers.filter(supportsNativeChildScenario))(
             parseNativeSessionId(f.nativeId()),
           );
           const source = reader.getProviderChildSource!(parent)!;
+          const metadata = await source.refreshMetadata?.(
+            new AbortController().signal,
+          );
+          expect(metadata?.children).toContainEqual(
+            expect.objectContaining({
+              native: expect.objectContaining({ id: childId }),
+            }),
+          );
+          expect(await source.isCurrent(metadata!.version)).toBe(true);
+          source.releaseObservation?.();
           const dataDir = join(f.root, "relationship-reopen");
           let db = new DiscoverySqliteService({
             dataDir,

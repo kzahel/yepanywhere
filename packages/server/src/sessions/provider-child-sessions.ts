@@ -106,12 +106,18 @@ export async function resolveProviderChildSessions(
       accepted && !indexed.service.hasSource(indexed.native)
         ? (source.overlayActivity?.(accepted) ?? accepted)
         : accepted;
-    if (mode === "fresh" || !indexed.service.hasSource(indexed.native))
+    if (mode === "fresh")
       indexed.service.demand(
         indexed.native,
         { sessionId: indexed.publicSessionId },
         source,
-        mode === "fresh" ? "foreground" : "background",
+        "foreground",
+      );
+    else
+      indexed.service.requestMetadataRefresh(
+        indexed.native,
+        { sessionId: indexed.publicSessionId },
+        source,
       );
     return children;
   }

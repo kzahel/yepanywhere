@@ -111,6 +111,12 @@ export class MergedSessionReader implements ISessionReader {
         }
         throw new Error("Merged child source does not own the native scope");
       },
+      async refreshMetadata(signal, previousMetadata) {
+        if (signal.aborted) throw new Error("Merged child source retired");
+        selected = await findSource();
+        if (signal.aborted) throw new Error("Merged child source retired");
+        return selected?.refreshMetadata?.(signal, previousMetadata);
+      },
       isCurrent: (version) =>
         selected?.isCurrent(version) ?? Promise.resolve(false),
     };

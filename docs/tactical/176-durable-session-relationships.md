@@ -453,3 +453,59 @@ drafts, with every sequential keystroke acknowledged within 27 ms. Final
 captures are produced through the repository facility and visually checked.
 Linux/Windows native observation, deeper native spawning and unsupported
 OpenCode 2.x remain outside this local qualification.
+
+
+### Requested-parent metadata revalidation
+
+Registered parents outside normal watcher coverage can become stale after their
+first observation. Aged requests now schedule finite exact-parent metadata
+refreshes while returning accepted SQL facts immediately. This extends the
+existing bounded coordinator rather than adding session timers or native
+watcher allocations. Claude/Grok use exact-parent metadata; OpenCode excludes
+legacy catalog acquisition; Codex uses its native indexed spawn locators plus
+child-owned scoped headers. Native indexes do not establish creation parentage.
+Missing/unsupported cheap metadata preserves history and does not authorize a
+provider-corpus walk. Full and partial metadata progress have separate durable
+checkpoints. See the [provider-child contract](../../topics/provider-child-sessions.md)
+for freshness, resource and fallback limits.
+
+Opus accepts the final source after reproduced aliased-home and unavailable
+parent-locator handoff failures were fixed. Real-source/service regressions
+cover successful cheap publication, unavailable-locator fallback and a partial
+native index missing an already-read anchor. Only meaningful handoffs can
+escalate; ordinary aged reads retain partial positives. Foreground/native work
+starts before queued aged jobs, and OpenCode preserves older-schema routing
+membership without reloading legacy metadata. Reader leases remain finite.
+
+All four root gates pass: zero lint warnings, formatting/types and 7,050 server
+/ 7,110 client / 952 shared tests. The final server suite takes 148.20 seconds;
+the seven actual native child variants take 9.23 seconds test work / 10.65
+total. Existing negative-fixture and navigation diagnostic debt stays in its
+owning gaps. The final reviewed source/test pins match the qualified tree.
+
+Compiled Node 22/24 and Bun diagnostics with 205 initial children plus a late
+child and an 8 MiB parent perform no corpus scan. After the broad checks end,
+initial metadata acquisition takes 86–93 ms and the late refresh 76–94 ms.
+Queueing costs less than 0.1 ms; concurrent SQL reads take 6.1–6.8 ms. Complete
+206-child projections take 5.7–6.2 ms median, and reopen after deleting native
+content takes 6.3–7.4 ms. WAL-only changes are detected; ordinary activity adds
+zero relationship writes/events; retirement leaves no native DB leases. Host
+samples report maximum load 0.73 per effective CPU and at least 12 GiB
+available memory; generic Darwin CPU-busy/swap counters are unavailable.
+During concurrent workspace testing, the same refresh took 0.30–0.92 seconds;
+these are local diagnostics, not portable ceilings or HTTP timings.
+
+Node/Bun standalone browser checks seed the native SQLite spawn index and
+2,000 messages plus the large parent prefix. Desktop/phone become readable in
+0.81–0.85 seconds. Late launch anchors reach SQL and existing lazy mappings
+while the transcript DOM and draft survive concurrent sequential typing;
+every key is acknowledged within 24 ms. Four repository-facility captures are
+individually checked. Source-only review fixes retain that UI path; targeted
+real-source alias/fallback tests cover their changed boundaries.
+
+Native SQLite reads may create WAL/SHM reader sidecars. Custom SQLite homes
+without a scoped locator may be stale or unavailable; indexed observations
+remain partial. Nested symlinks inside a native sessions tree can still withhold
+optional anchor enrichment; physical scope proof and durable history remain.
+Generic authorized projections, nested-harness indexing and remaining legacy
+consumers are separate work; this slice adds no public API.

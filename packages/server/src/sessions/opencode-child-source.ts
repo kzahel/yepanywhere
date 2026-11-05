@@ -493,7 +493,246 @@ export class OpenCodeChildSourceOwner {
       }
       return undefined;
     };
-    return {
+    const observe = async (
+      signal: AbortSignal,
+      metadataRefresh = false,
+    ): Promise<
+      | import("./ProviderChildRelationshipService.js").ProviderChildObservation
+      | undefined
+    > => {
+      check(signal);
+      if (!(await owns()))
+        throw new Error("OpenCode native namespace unavailable");
+      const generation = this.active.get(sourceKey(parent))?.generation ?? 0;
+      const legacyRoot = await realpath(roots[1]!).catch(() => null);
+      let legacy: Legacy = { rows: new Map(), proofs: [], complete: true };
+      if (!metadataRefresh && legacyRoot === parent.storageScope) {
+        try {
+          legacy = await this.legacyRows();
+        } catch {
+          const p = await proof(join(o.storageDir, "project")).catch(
+            () => undefined,
+          );
+          legacy = { rows: new Map(), proofs: p ? [p] : [], complete: false };
+        }
+      }
+      const descendants = new Set<string>([parent.id]);
+      legacy.byParent ??= new Map<string, string[]>();
+      const byParent = legacy.byParent;
+      if (!byParent.size)
+        for (const r of legacy.rows.values())
+          if (r.parent) {
+            const ids = byParent.get(r.parent) ?? [];
+            ids.push(r.id);
+            byParent.set(r.parent, ids);
+          }
+      const pending: string[] = [parent.id];
+      for (let i = 0; i < pending.length; i++)
+        for (const id of byParent.get(pending[i]!) ?? [])
+          if (!descendants.has(id)) {
+            descendants.add(id);
+            pending.push(id);
+          }
+      const related = [
+        ...new Set([
+          ...descendants,
+          ...(metadataRefresh
+            ? (this.active.get(sourceKey(parent))?.related ?? [])
+            : []),
+        ]),
+      ];
+      const snapshot = await dbRows(related);
+      check(signal);
+      if (metadataRefresh && !snapshot?.rows.some((r) => r.id === parent.id))
+        return undefined;
+      const rows = new Map<string, Row>(),
+        dbIds = new Set<string>();
+      for (const id of related) {
+        let next: string | undefined = id;
+        while (next && !rows.has(next)) {
+          const row = legacy.rows.get(next);
+          if (!row) break;
+          rows.set(next, row);
+          next = row.parent;
+        }
+      }
+      let complete =
+        !metadataRefresh &&
+        legacy.complete &&
+        (!snapshot || snapshot.hasParentIds);
+      for (const r of snapshot?.rows ?? []) {
+        const id = nativeId(r.id),
+          nativeParent =
+            r.parent_id == null || r.parent_id === ""
+              ? undefined
+              : nativeId(r.parent_id);
+        const historicalParent =
+          id && !snapshot?.hasParentIds ? rows.get(id)?.parent : undefined;
+        if (id) {
+          dbIds.add(id);
+          rows.delete(id);
+        }
+        if (
+          !id ||
+          (r.parent_id != null && r.parent_id !== "" && !nativeParent)
+        ) {
+          complete = false;
+          continue;
+        }
+        dbIds.add(id);
+        rows.set(id, {
+          id,
+          parent: nativeParent ?? historicalParent,
+          title: title(r.title),
+          agent: typeof r.agent === "string" ? r.agent : undefined,
+          directory:
+            typeof r.directory === "string" && r.directory.length <= 4096
+              ? r.directory
+              : undefined,
+          worktree: typeof r.worktree === "string" ? r.worktree : undefined,
+          updatedAt: date(r.time_updated),
+        });
+      }
+      const root = rows.get(parent.id);
+      if (
+        !root ||
+        (!(await this.belongs(root.directory)) &&
+          !(await this.belongs(root.worktree)))
+      )
+        throw new Error("OpenCode native parent unavailable in this project");
+      const proofs = [...legacy.proofs];
+      const children: ObservedProviderChild[] = [];
+      // Validate the whole discovered ancestry once. Native cycles are partial
+      // evidence; valid siblings remain independently usable.
+      const eligible = new Set<string>();
+      const aliases = new Map<string, boolean>();
+      const physicalAliases = new Map<string, string>();
+      const matches = async (path?: string) => {
+        if (!path || !isAbsolutePath(path)) return false;
+        if (!aliases.has(path)) {
+          const physical = await realpath(path).catch(() => path);
+          physicalAliases.set(path, physical);
+          aliases.set(
+            path,
+            isAbsolutePath(path) &&
+              getProjectIdentityKey(physical) ===
+                getProjectIdentityKey(await this.projectDirectory),
+          );
+        }
+        return aliases.get(path)!;
+      };
+      for (const row of rows.values())
+        if ((await matches(row.directory)) || (await matches(row.worktree)))
+          eligible.add(row.id);
+      const rootTrail: string[] = [],
+        rootPositions = new Map<string, number>();
+      let ancestor: string | undefined = parent.id;
+      while (ancestor && rows.has(ancestor) && !rootPositions.has(ancestor)) {
+        rootPositions.set(ancestor, rootTrail.length);
+        rootTrail.push(ancestor);
+        ancestor = rows.get(ancestor)?.parent;
+      }
+      const cyclic = new Set(
+        ancestor && rootPositions.has(ancestor)
+          ? rootTrail.slice(rootPositions.get(ancestor)!)
+          : [],
+      );
+      const valid = new Map<string, boolean>([[parent.id, true]]);
+      const validRow = async (id: string) => {
+        if (valid.has(id)) return valid.get(id)!;
+        const trail: string[] = [],
+          seen = new Set<string>();
+        let next: string | undefined = id;
+        while (next && !valid.has(next)) {
+          if (next === parent.id && trail.length) break;
+          const row = rows.get(next);
+          if (!row || !eligible.has(next) || seen.has(next)) {
+            for (const key of trail) valid.set(key, false);
+            return false;
+          }
+          seen.add(next);
+          trail.push(next);
+          next = row.parent;
+        }
+        const result = !next || next === parent.id || valid.get(next) === true;
+        for (const key of trail) valid.set(key, result);
+        return result;
+      };
+      for (const row of rows.values()) {
+        check(signal);
+        // The SQL snapshot includes ancestors for proof. Only accept rows in
+        // this reader's established directory/worktree projection.
+        if (!eligible.has(row.id) || cyclic.has(row.id)) {
+          complete = false;
+          continue;
+        }
+        if (row.proof) proofs.push(row.proof);
+        if (!(await validRow(row.id))) {
+          complete = false;
+          continue;
+        }
+        const previous = this.activity.get(row.id);
+        if (!previous || previous < row.updatedAt)
+          this.activity.set(row.id, row.updatedAt);
+        if (this.activity.size > MAX_ACTIVITY)
+          this.activity.delete(this.activity.keys().next().value!);
+        if (!row.parent) continue;
+        if (!rows.has(row.parent) || !eligible.has(row.parent)) {
+          complete = false;
+          continue;
+        }
+        if (!descendants.has(row.id) && !dbIds.has(row.id)) continue;
+        const nativeParent = nativeSessionRef(
+          "opencode",
+          parent.storageScope,
+          parseNativeSessionId(row.parent),
+        );
+        const native = nativeSessionRef(
+          "opencode",
+          parent.storageScope,
+          parseNativeSessionId(row.id),
+        );
+        const summary: ProviderChildSessionSummary = {
+          id: row.id,
+          parentSessionId: row.parent,
+          updatedAt: row.updatedAt,
+          ...(row.title ? { title: row.title } : {}),
+          ...(row.agent ? { agentType: row.agent } : {}),
+        };
+        children.push({
+          native,
+          parent: nativeParent,
+          summary,
+          metadataAvailable: !!row.title,
+          version: hash([
+            row.id,
+            row.parent,
+            row.title,
+            row.agent,
+            dbIds.has(row.id) ? "db" : "legacy",
+          ]),
+        });
+      }
+      children.sort((a, b) => a.native.id.localeCompare(b.native.id));
+      const version = hash([complete, children.map((c) => c.version)]);
+      const nativeVersion = structural(snapshot);
+      const active = this.active.get(sourceKey(parent));
+      if (active) {
+        active.related = related;
+        active.structure = nativeVersion;
+      }
+      accepted = {
+        version,
+        generation,
+        proofs,
+        related,
+        aliases: physicalAliases,
+        ...(snapshot ? { dbHash: nativeVersion } : {}),
+      };
+      return { version, state: complete ? "complete" : "partial", children };
+    };
+
+    const source: ProviderChildSource = {
       owner: o.owner,
       ownsNativeScope: owns,
       isRetired: o.isRetired,
@@ -542,225 +781,9 @@ export class OpenCodeChildSourceOwner {
         return changed ? sortProviderChildSessions(next) : children;
       },
       observe: async (signal) => {
-        check(signal);
-        if (!(await owns()))
-          throw new Error("OpenCode native namespace unavailable");
-        const generation = this.active.get(sourceKey(parent))?.generation ?? 0;
-        const legacyRoot = await realpath(roots[1]!).catch(() => null);
-        let legacy: Legacy = { rows: new Map(), proofs: [], complete: true };
-        if (legacyRoot === parent.storageScope) {
-          try {
-            legacy = await this.legacyRows();
-          } catch {
-            const p = await proof(join(o.storageDir, "project")).catch(
-              () => undefined,
-            );
-            legacy = { rows: new Map(), proofs: p ? [p] : [], complete: false };
-          }
-        }
-        const descendants = new Set<string>([parent.id]);
-        legacy.byParent ??= new Map<string, string[]>();
-        const byParent = legacy.byParent;
-        if (!byParent.size)
-          for (const r of legacy.rows.values())
-            if (r.parent) {
-              const ids = byParent.get(r.parent) ?? [];
-              ids.push(r.id);
-              byParent.set(r.parent, ids);
-            }
-        const pending: string[] = [parent.id];
-        for (let i = 0; i < pending.length; i++)
-          for (const id of byParent.get(pending[i]!) ?? [])
-            if (!descendants.has(id)) {
-              descendants.add(id);
-              pending.push(id);
-            }
-        const related = [...descendants];
-        const snapshot = await dbRows(related);
-        check(signal);
-        const rows = new Map<string, Row>(),
-          dbIds = new Set<string>();
-        for (const id of related) {
-          let next: string | undefined = id;
-          while (next && !rows.has(next)) {
-            const row = legacy.rows.get(next);
-            if (!row) break;
-            rows.set(next, row);
-            next = row.parent;
-          }
-        }
-        let complete = legacy.complete && (!snapshot || snapshot.hasParentIds);
-        for (const r of snapshot?.rows ?? []) {
-          const id = nativeId(r.id),
-            nativeParent =
-              r.parent_id == null || r.parent_id === ""
-                ? undefined
-                : nativeId(r.parent_id);
-          const historicalParent =
-            id && !snapshot?.hasParentIds ? rows.get(id)?.parent : undefined;
-          if (id) {
-            dbIds.add(id);
-            rows.delete(id);
-          }
-          if (
-            !id ||
-            (r.parent_id != null && r.parent_id !== "" && !nativeParent)
-          ) {
-            complete = false;
-            continue;
-          }
-          dbIds.add(id);
-          rows.set(id, {
-            id,
-            parent: nativeParent ?? historicalParent,
-            title: title(r.title),
-            agent: typeof r.agent === "string" ? r.agent : undefined,
-            directory:
-              typeof r.directory === "string" && r.directory.length <= 4096
-                ? r.directory
-                : undefined,
-            worktree: typeof r.worktree === "string" ? r.worktree : undefined,
-            updatedAt: date(r.time_updated),
-          });
-        }
-        const root = rows.get(parent.id);
-        if (
-          !root ||
-          (!(await this.belongs(root.directory)) &&
-            !(await this.belongs(root.worktree)))
-        )
-          throw new Error("OpenCode native parent unavailable in this project");
-        const proofs = [...legacy.proofs];
-        const children: ObservedProviderChild[] = [];
-        // Validate the whole discovered ancestry once. Native cycles are partial
-        // evidence; valid siblings remain independently usable.
-        const eligible = new Set<string>();
-        const aliases = new Map<string, boolean>();
-        const physicalAliases = new Map<string, string>();
-        const matches = async (path?: string) => {
-          if (!path || !isAbsolutePath(path)) return false;
-          if (!aliases.has(path)) {
-            const physical = await realpath(path).catch(() => path);
-            physicalAliases.set(path, physical);
-            aliases.set(
-              path,
-              isAbsolutePath(path) &&
-                getProjectIdentityKey(physical) ===
-                  getProjectIdentityKey(await this.projectDirectory),
-            );
-          }
-          return aliases.get(path)!;
-        };
-        for (const row of rows.values())
-          if ((await matches(row.directory)) || (await matches(row.worktree)))
-            eligible.add(row.id);
-        const rootTrail: string[] = [],
-          rootPositions = new Map<string, number>();
-        let ancestor: string | undefined = parent.id;
-        while (ancestor && rows.has(ancestor) && !rootPositions.has(ancestor)) {
-          rootPositions.set(ancestor, rootTrail.length);
-          rootTrail.push(ancestor);
-          ancestor = rows.get(ancestor)?.parent;
-        }
-        const cyclic = new Set(
-          ancestor && rootPositions.has(ancestor)
-            ? rootTrail.slice(rootPositions.get(ancestor)!)
-            : [],
-        );
-        const valid = new Map<string, boolean>([[parent.id, true]]);
-        const validRow = async (id: string) => {
-          if (valid.has(id)) return valid.get(id)!;
-          const trail: string[] = [],
-            seen = new Set<string>();
-          let next: string | undefined = id;
-          while (next && !valid.has(next)) {
-            if (next === parent.id && trail.length) break;
-            const row = rows.get(next);
-            if (!row || !eligible.has(next) || seen.has(next)) {
-              for (const key of trail) valid.set(key, false);
-              return false;
-            }
-            seen.add(next);
-            trail.push(next);
-            next = row.parent;
-          }
-          const result =
-            !next || next === parent.id || valid.get(next) === true;
-          for (const key of trail) valid.set(key, result);
-          return result;
-        };
-        for (const row of rows.values()) {
-          check(signal);
-          // The SQL snapshot includes ancestors for proof. Only accept rows in
-          // this reader's established directory/worktree projection.
-          if (!eligible.has(row.id) || cyclic.has(row.id)) {
-            complete = false;
-            continue;
-          }
-          if (row.proof) proofs.push(row.proof);
-          if (!(await validRow(row.id))) {
-            complete = false;
-            continue;
-          }
-          const previous = this.activity.get(row.id);
-          if (!previous || previous < row.updatedAt)
-            this.activity.set(row.id, row.updatedAt);
-          if (this.activity.size > MAX_ACTIVITY)
-            this.activity.delete(this.activity.keys().next().value!);
-          if (!row.parent) continue;
-          if (!rows.has(row.parent) || !eligible.has(row.parent)) {
-            complete = false;
-            continue;
-          }
-          if (!descendants.has(row.id) && !dbIds.has(row.id)) continue;
-          const nativeParent = nativeSessionRef(
-            "opencode",
-            parent.storageScope,
-            parseNativeSessionId(row.parent),
-          );
-          const native = nativeSessionRef(
-            "opencode",
-            parent.storageScope,
-            parseNativeSessionId(row.id),
-          );
-          const summary: ProviderChildSessionSummary = {
-            id: row.id,
-            parentSessionId: row.parent,
-            updatedAt: row.updatedAt,
-            ...(row.title ? { title: row.title } : {}),
-            ...(row.agent ? { agentType: row.agent } : {}),
-          };
-          children.push({
-            native,
-            parent: nativeParent,
-            summary,
-            metadataAvailable: !!row.title,
-            version: hash([
-              row.id,
-              row.parent,
-              row.title,
-              row.agent,
-              dbIds.has(row.id) ? "db" : "legacy",
-            ]),
-          });
-        }
-        children.sort((a, b) => a.native.id.localeCompare(b.native.id));
-        const version = hash([complete, children.map((c) => c.version)]);
-        const nativeVersion = structural(snapshot);
-        const active = this.active.get(sourceKey(parent));
-        if (active) {
-          active.related = related;
-          active.structure = nativeVersion;
-        }
-        accepted = {
-          version,
-          generation,
-          proofs,
-          related,
-          aliases: physicalAliases,
-          ...(snapshot ? { dbHash: nativeVersion } : {}),
-        };
-        return { version, state: complete ? "complete" : "partial", children };
+        const result = await observe(signal);
+        if (!result) throw new Error("OpenCode native parent unavailable");
+        return result;
       },
       isCurrent: async (version) => {
         check();
@@ -792,5 +815,7 @@ export class OpenCodeChildSourceOwner {
         accepted = undefined;
       },
     };
+    source.refreshMetadata = (signal) => observe(signal, true);
+    return source;
   }
 }

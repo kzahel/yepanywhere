@@ -200,7 +200,18 @@ export function createGrokChildSource(options: {
       throw new Error("Grok native parent project changed");
     return { path, proofs, cwd, nativeId };
   };
-  const locateParent = async (signal: AbortSignal) => {
+  const locateParent = async (signal: AbortSignal, metadataOnly = false) => {
+    if (metadataOnly && parentDir) {
+      try {
+        const located = await readParent(join(parentDir, "summary.json"));
+        if (located.nativeId !== parent.id)
+          throw new Error("Grok native parent identity changed");
+        return located;
+      } catch (error) {
+        if (absent(error)) return undefined;
+        throw error;
+      }
+    }
     const known = options.knownParentPath();
     if (known) {
       try {
@@ -227,6 +238,7 @@ export function createGrokChildSource(options: {
         if (!absent(error)) throw error;
       }
     }
+    if (metadataOnly) return undefined;
     // A native id normally names its directory. Older stores may use another
     // basename; reuse that format without treating the basename as an alias.
     // This finite, bounded-header fallback is off the request path and creates
@@ -275,7 +287,168 @@ export function createGrokChildSource(options: {
     if (!found) throw new Error("Grok native parent unavailable");
     return found;
   };
-  return {
+  const observe = async (
+    signal: AbortSignal,
+    metadataRefresh = false,
+  ): Promise<
+    | import("./ProviderChildRelationshipService.js").ProviderChildObservation
+    | undefined
+  > => {
+    check(signal);
+    const startGeneration = generation;
+    if ((await realpath(options.root)) !== parent.storageScope)
+      throw new Error("Grok child source does not own the native scope");
+    const located = await locateParent(signal, metadataRefresh);
+    if (!located) return undefined;
+    check(signal);
+    const selected = dirname(located.path);
+    const { proofs, cwd } = located;
+    const parentDirectory = await lstat(selected);
+    if (
+      !parentDirectory.isDirectory() ||
+      (await realpath(selected)) !== selected
+    )
+      throw new Error("Grok native parent directory changed");
+    proofs.push({
+      path: selected,
+      value: inode(parentDirectory),
+      identityOnly: true,
+    });
+    const subagents = join(selected, "subagents");
+    let entries: string[];
+    try {
+      const directory = await lstat(subagents);
+      if (!directory.isDirectory() || (await realpath(subagents)) !== subagents)
+        throw new Error(
+          "Grok subagents directory is not the exact parent scope",
+        );
+      proofs.push({ path: subagents, value: stamp(directory) });
+      entries = (await readdir(subagents, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+        .map((entry) => entry.name);
+    } catch (error) {
+      if (!absent(error)) throw error;
+      proofs.push({ path: subagents, value: null });
+      entries = [];
+    }
+    // Keep proved ownership during subsequent acquisition, so native events
+    // cannot disappear merely because the next snapshot is being read.
+    parentDir = selected;
+    aliases = [subagents];
+    let partial = false,
+      through = 0;
+    const children: ObservedProviderChild[] = [];
+    await Promise.all(
+      Array.from(
+        { length: Math.min(CONCURRENCY, entries.length) },
+        async () => {
+          while (through < entries.length) {
+            check(signal);
+            const name = entries[through++]!;
+            try {
+              const id = parseNativeSessionId(name);
+              if (name === "." || name === ".." || id === parent.id)
+                throw new Error("Invalid Grok child directory");
+              const dir = join(subagents, name);
+              const directory = await lstat(dir);
+              if (!directory.isDirectory() || (await realpath(dir)) !== dir)
+                throw new Error("Grok child directory escaped native scope");
+              proofs.push({
+                path: dir,
+                value: inode(directory),
+                identityOnly: true,
+              });
+              const meta = await readJson(join(dir, "meta.json"), proofs);
+              if (
+                meta.subagent_id !== id ||
+                meta.child_session_id !== id ||
+                meta.parent_session_id !== parent.id
+              )
+                throw new Error("Grok child does not prove its native parent");
+              const timestamp = [meta.completed_at, meta.started_at].find(
+                (value) =>
+                  typeof value === "string" &&
+                  Number.isFinite(Date.parse(value)),
+              );
+              const summary: ProviderChildSessionSummary = {
+                id,
+                parentSessionId: parent.id,
+                updatedAt: timestamp
+                  ? new Date(Date.parse(timestamp as string)).toISOString()
+                  : new Date(0).toISOString(),
+              };
+              if (typeof meta.description === "string")
+                summary.title = truncateSessionTitle(meta.description);
+              if (typeof meta.subagent_type === "string")
+                summary.agentType = meta.subagent_type.slice(0, 256);
+              const childCwd =
+                typeof meta.child_cwd === "string" ? meta.child_cwd : cwd;
+              let body: string | undefined;
+              try {
+                if (isAbsolutePath(childCwd))
+                  body = join(
+                    parent.storageScope,
+                    encodeURIComponent(childCwd),
+                    id,
+                    "updates.jsonl",
+                  );
+              } catch {
+                /* Invalid Unicode makes only the locator unavailable. */
+              }
+              if (!body) {
+                partial = true;
+                const previous = activity.get(id)?.updatedAt;
+                if (previous) {
+                  activity.set(id, { updatedAt: previous });
+                  if (previous > summary.updatedAt)
+                    summary.updatedAt = previous;
+                }
+              } else {
+                if (
+                  (await realpath(dirname(body)).catch(() => undefined)) ===
+                  dirname(body)
+                ) {
+                  const stats = await lstat(body).catch(() => undefined);
+                  if (stats?.isFile())
+                    summary.updatedAt =
+                      stats.mtime.toISOString() > summary.updatedAt
+                        ? stats.mtime.toISOString()
+                        : summary.updatedAt;
+                }
+                remember(id, summary.updatedAt, body);
+              }
+              children.push({
+                native: nativeSessionRef("grok", parent.storageScope, id),
+                summary,
+              });
+            } catch {
+              partial = true;
+            }
+          }
+        },
+      ),
+    );
+    check(signal);
+    children.sort((a, b) => a.native.id.localeCompare(b.native.id));
+    const state = partial ? ("partial" as const) : ("complete" as const);
+    const version = createHash("sha256")
+      .update(
+        JSON.stringify({
+          state,
+          children: children.map(
+            ({ native, summary: { updatedAt: _activity, ...summary } }) => ({
+              native,
+              summary,
+            }),
+          ),
+        }),
+      )
+      .digest("hex");
+    accepted = { version, generation: startGeneration, proofs };
+    return { version, state, children };
+  };
+
+  const source: ProviderChildSource = {
     owner: options.owner,
     isRetired: options.isRetired,
     onRetire: options.onRetire,
@@ -331,162 +504,9 @@ export function createGrokChildSource(options: {
         : children;
     },
     async observe(signal) {
-      check(signal);
-      const startGeneration = generation;
-      if ((await realpath(options.root)) !== parent.storageScope)
-        throw new Error("Grok child source does not own the native scope");
-      const located = await locateParent(signal);
-      check(signal);
-      const selected = dirname(located.path);
-      const { proofs, cwd } = located;
-      const parentDirectory = await lstat(selected);
-      if (
-        !parentDirectory.isDirectory() ||
-        (await realpath(selected)) !== selected
-      )
-        throw new Error("Grok native parent directory changed");
-      proofs.push({
-        path: selected,
-        value: inode(parentDirectory),
-        identityOnly: true,
-      });
-      const subagents = join(selected, "subagents");
-      let entries: string[];
-      try {
-        const directory = await lstat(subagents);
-        if (
-          !directory.isDirectory() ||
-          (await realpath(subagents)) !== subagents
-        )
-          throw new Error(
-            "Grok subagents directory is not the exact parent scope",
-          );
-        proofs.push({ path: subagents, value: stamp(directory) });
-        entries = (await readdir(subagents, { withFileTypes: true }))
-          .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
-          .map((entry) => entry.name);
-      } catch (error) {
-        if (!absent(error)) throw error;
-        proofs.push({ path: subagents, value: null });
-        entries = [];
-      }
-      // Keep proved ownership during subsequent acquisition, so native events
-      // cannot disappear merely because the next snapshot is being read.
-      parentDir = selected;
-      aliases = [subagents];
-      let partial = false,
-        through = 0;
-      const children: ObservedProviderChild[] = [];
-      await Promise.all(
-        Array.from(
-          { length: Math.min(CONCURRENCY, entries.length) },
-          async () => {
-            while (through < entries.length) {
-              check(signal);
-              const name = entries[through++]!;
-              try {
-                const id = parseNativeSessionId(name);
-                if (name === "." || name === ".." || id === parent.id)
-                  throw new Error("Invalid Grok child directory");
-                const dir = join(subagents, name);
-                const directory = await lstat(dir);
-                if (!directory.isDirectory() || (await realpath(dir)) !== dir)
-                  throw new Error("Grok child directory escaped native scope");
-                proofs.push({
-                  path: dir,
-                  value: inode(directory),
-                  identityOnly: true,
-                });
-                const meta = await readJson(join(dir, "meta.json"), proofs);
-                if (
-                  meta.subagent_id !== id ||
-                  meta.child_session_id !== id ||
-                  meta.parent_session_id !== parent.id
-                )
-                  throw new Error(
-                    "Grok child does not prove its native parent",
-                  );
-                const timestamp = [meta.completed_at, meta.started_at].find(
-                  (value) =>
-                    typeof value === "string" &&
-                    Number.isFinite(Date.parse(value)),
-                );
-                const summary: ProviderChildSessionSummary = {
-                  id,
-                  parentSessionId: parent.id,
-                  updatedAt: timestamp
-                    ? new Date(Date.parse(timestamp as string)).toISOString()
-                    : new Date(0).toISOString(),
-                };
-                if (typeof meta.description === "string")
-                  summary.title = truncateSessionTitle(meta.description);
-                if (typeof meta.subagent_type === "string")
-                  summary.agentType = meta.subagent_type.slice(0, 256);
-                const childCwd =
-                  typeof meta.child_cwd === "string" ? meta.child_cwd : cwd;
-                let body: string | undefined;
-                try {
-                  if (isAbsolutePath(childCwd))
-                    body = join(
-                      parent.storageScope,
-                      encodeURIComponent(childCwd),
-                      id,
-                      "updates.jsonl",
-                    );
-                } catch {
-                  /* Invalid Unicode makes only the locator unavailable. */
-                }
-                if (!body) {
-                  partial = true;
-                  const previous = activity.get(id)?.updatedAt;
-                  if (previous) {
-                    activity.set(id, { updatedAt: previous });
-                    if (previous > summary.updatedAt)
-                      summary.updatedAt = previous;
-                  }
-                } else {
-                  if (
-                    (await realpath(dirname(body)).catch(() => undefined)) ===
-                    dirname(body)
-                  ) {
-                    const stats = await lstat(body).catch(() => undefined);
-                    if (stats?.isFile())
-                      summary.updatedAt =
-                        stats.mtime.toISOString() > summary.updatedAt
-                          ? stats.mtime.toISOString()
-                          : summary.updatedAt;
-                  }
-                  remember(id, summary.updatedAt, body);
-                }
-                children.push({
-                  native: nativeSessionRef("grok", parent.storageScope, id),
-                  summary,
-                });
-              } catch {
-                partial = true;
-              }
-            }
-          },
-        ),
-      );
-      check(signal);
-      children.sort((a, b) => a.native.id.localeCompare(b.native.id));
-      const state = partial ? ("partial" as const) : ("complete" as const);
-      const version = createHash("sha256")
-        .update(
-          JSON.stringify({
-            state,
-            children: children.map(
-              ({ native, summary: { updatedAt: _activity, ...summary } }) => ({
-                native,
-                summary,
-              }),
-            ),
-          }),
-        )
-        .digest("hex");
-      accepted = { version, generation: startGeneration, proofs };
-      return { version, state, children };
+      const result = await observe(signal);
+      if (!result) throw new Error("Grok native parent unavailable");
+      return result;
     },
     async isCurrent(version) {
       const value = accepted;
@@ -521,4 +541,6 @@ export function createGrokChildSource(options: {
       return current && value.generation === generation && !options.isRetired();
     },
   };
+  source.refreshMetadata = (signal) => observe(signal, true);
+  return source;
 }

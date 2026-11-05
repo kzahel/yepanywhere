@@ -49,6 +49,10 @@ import {
 } from "@yep-anywhere/shared";
 import type { SessionDiscoveryIndex } from "../indexes/SessionDiscoveryIndex.js";
 import { getForkedSessionFile } from "./fork-discovery.js";
+import {
+  openCodexSpawnIndex,
+  type CodexSpawnIndexLease,
+} from "./codex-spawn-index.js";
 import { resolveNativeSessionRef } from "./SessionIdentityStore.js";
 import type { SourceVersionedSingleFlightStats } from "../lib/sourceVersionedSingleFlight.js";
 import { getLogger } from "../logging/logger.js";
@@ -762,6 +766,7 @@ export class CodexSessionReader implements ISessionReader {
   private entryReadOwners: Map<string, CodexEntryReadOwner> = new Map();
   private entryCacheRevision = 0;
   private retired = false;
+  private readonly childIndexLeases = new Set<CodexSpawnIndexLease>();
   private readonly retirementListeners = new Set<() => void>();
   private readonly entryCacheBudget: CodexEntryCacheBudget;
   private agentMappingCache: Map<string, CodexAgentMappingCache> = new Map();
@@ -795,6 +800,8 @@ export class CodexSessionReader implements ISessionReader {
 
   async close(): Promise<void> {
     this.retired = true;
+    for (const lease of this.childIndexLeases) lease.close();
+    this.childIndexLeases.clear();
     for (const listener of [...this.retirementListeners]) listener();
     this.retirementListeners.clear();
     this.mappingListeners.clear();
@@ -1597,6 +1604,158 @@ export class CodexSessionReader implements ISessionReader {
           .digest("hex"),
       };
     };
+    let indexLease: CodexSpawnIndexLease | undefined;
+    let pointCurrent: (() => Promise<boolean>) | undefined;
+    const releaseIndex = () => {
+      if (indexLease) {
+        indexLease.close();
+        this.childIndexLeases.delete(indexLease);
+        indexLease = undefined;
+      }
+      pointCurrent = undefined;
+    };
+    const finishObservation = async (
+      entry: CodexSharedScanCacheEntry,
+      previousMetadata: Parameters<ProviderChildSource["observe"]>[1],
+    ): Promise<ProviderChildObservation> => {
+      const candidate = this.agentMappingCache.get(parent.id);
+      lastCacheEntry = candidate;
+      const historical = lastAnchors;
+      lastAnchors = undefined;
+      if (
+        candidate &&
+        candidate.filePath === entry.sessions.get(parent.id)?.filePath
+      ) {
+        const current = await stat(candidate.filePath).catch(() => undefined);
+        if (current) {
+          const identity = `${Number(current.dev)}\0${Number(current.ino)}`;
+          if (
+            Number(current.size) >= candidate.size &&
+            candidate.fileIdentity === identity &&
+            (candidate.verified ||
+              (await this.verifyMappingCache(candidate).catch(() => false)))
+          ) {
+            candidate.verified = true;
+            lastAnchors = candidate;
+          } else if (
+            historical?.verified &&
+            historical.filePath === candidate.filePath &&
+            Number(current.size) >= historical.size &&
+            historical.fileIdentity === identity
+          )
+            lastAnchors = historical;
+        }
+      }
+      // Structure comes from each child's native parent proof. A long parent
+      // transcript is irrelevant to enumerating its children (including none).
+      // Use the current catalog, not the reader's historical best-file cache:
+      // that cache intentionally retains deleted/backdated native records.
+      anchors = readAnchors();
+      const present = new Set<string>();
+      for (const child of entry.sessions.values()) {
+        if (child.parentThreadId !== parent.id) continue;
+        present.add(child.id);
+        // Query SQL once for a newly seen child, or when transient native
+        // metadata disappeared after emitting an anchor SQL may now retain.
+        // isCurrent reuses this acquisition's snapshot, never repeating SQL.
+        if (
+          !anchors.get(child.id) &&
+          (!historicalAnchors.has(child.id) ||
+            historicalAnchors.get(child.id) !== emittedAnchors.get(child.id))
+        ) {
+          const native = nativeSessionRef(
+            "codex",
+            parent.storageScope,
+            parseNativeSessionId(child.id),
+          );
+          historicalAnchors.set(
+            child.id,
+            previousMetadata?.(native)?.toolUseId,
+          );
+        } else if (!historicalAnchors.has(child.id))
+          historicalAnchors.set(child.id, undefined);
+      }
+      for (const id of historicalAnchors.keys())
+        if (!present.has(id)) historicalAnchors.delete(id);
+      const observation = snapshot(entry);
+      emittedAnchors = new Map(
+        observation.children.map((c) => [c.native.id, c.summary.toolUseId]),
+      );
+      lastEntry = entry;
+      lastEpoch = getCodexRolloutTreeEpoch(this.sessionsDir);
+      lastVersion = observation.version;
+      return observation;
+    };
+    const readPoint = async (path: string, id: string) => {
+      parseNativeSessionId(id);
+      const physical = await realpath(path);
+      const suffix = relative(parent.storageScope, physical);
+      if (
+        !suffix ||
+        suffix === ".." ||
+        suffix.startsWith(`..${sep}`) ||
+        isAbsolute(suffix)
+      )
+        throw new Error("Codex child locator escaped native scope");
+      const lexical = join(this.sessionsDir, suffix);
+      if ((await realpath(lexical)) !== physical)
+        throw new Error("Codex child source root changed");
+      const before = await stat(physical);
+      if (isCompressedCodexRolloutPath(physical))
+        throw new Error("Codex native spawn locator requires a plain rollout");
+      const handle = await open(physical, "r");
+      let terminated = false;
+      try {
+        const bytes = Buffer.alloc(4096);
+        for (let offset = 0; offset < 1024 * 1024; offset += bytes.length) {
+          const { bytesRead } = await handle.read(
+            bytes,
+            0,
+            bytes.length,
+            offset,
+          );
+          if (bytes.subarray(0, bytesRead).includes(10)) {
+            terminated = true;
+            break;
+          }
+          if (bytesRead < bytes.length) break;
+        }
+      } finally {
+        await handle.close();
+      }
+      if (!terminated) throw new Error("Codex native metadata is incomplete");
+      const session = await this.readSessionMeta(
+        lexical,
+        undefined,
+        undefined,
+        true,
+      );
+      const after = await stat(physical);
+      if (
+        !session ||
+        session.id !== id ||
+        before.dev !== after.dev ||
+        before.ino !== after.ino ||
+        (this.projectIdentityKey &&
+          getProjectIdentityKey(session.cwd) !== this.projectIdentityKey)
+      )
+        throw new Error("Codex child locator metadata mismatch");
+      return {
+        session,
+        proof: JSON.stringify([
+          physical,
+          before.dev,
+          before.ino,
+          session.id,
+          session.cwd,
+          session.parentThreadId,
+          session.isSubagent,
+          session.agentNickname,
+          session.agentRole,
+          session.spawnDepth,
+        ]),
+      };
+    };
     return {
       isRetired: () => this.retired,
       owner: this,
@@ -1665,6 +1824,7 @@ export class CodexSessionReader implements ISessionReader {
           );
       },
       observe: async (signal, previousMetadata) => {
+        releaseIndex();
         if (signal.aborted || this.retired)
           throw new Error("Codex child observation retired");
         if ((await realpath(this.sessionsDir)) !== parent.storageScope)
@@ -1695,73 +1855,94 @@ export class CodexSessionReader implements ISessionReader {
         }
         if (signal.aborted || this.retired || !entry?.sessions.has(parent.id))
           throw new Error("Codex parent metadata unavailable");
-        const candidate = this.agentMappingCache.get(parent.id);
-        lastCacheEntry = candidate;
-        const historical = lastAnchors;
-        lastAnchors = undefined;
-        if (
-          candidate &&
-          candidate.filePath === entry.sessions.get(parent.id)?.filePath
-        ) {
-          const current = await stat(candidate.filePath).catch(() => undefined);
-          if (current) {
-            const identity = `${Number(current.dev)}\0${Number(current.ino)}`;
-            if (
-              Number(current.size) >= candidate.size &&
-              candidate.fileIdentity === identity &&
-              (candidate.verified ||
-                (await this.verifyMappingCache(candidate).catch(() => false)))
-            ) {
-              candidate.verified = true;
-              lastAnchors = candidate;
-            } else if (
-              historical?.verified &&
-              historical.filePath === candidate.filePath &&
-              Number(current.size) >= historical.size &&
-              historical.fileIdentity === identity
-            )
-              lastAnchors = historical;
+        return finishObservation(entry, previousMetadata);
+      },
+      releaseObservation: releaseIndex,
+      refreshMetadata: async (signal, previousMetadata) => {
+        releaseIndex();
+        if (signal.aborted || this.retired)
+          throw new Error("Codex child observation retired");
+        if ((await realpath(this.sessionsDir)) !== parent.storageScope)
+          throw new Error("Codex child observation scope mismatch");
+        const lease = await openCodexSpawnIndex(this.sessionsDir);
+        if (!lease) return undefined;
+        if (signal.aborted || this.retired) {
+          lease.close();
+          return undefined;
+        }
+        indexLease = lease;
+        this.childIndexLeases.add(lease);
+        try {
+          const rows = lease.read(parent.id);
+          if (!rows.length) {
+            releaseIndex();
+            return undefined;
           }
+          const rowVersion = JSON.stringify(rows);
+          const points = new Map<string, { path: string; proof: string }>();
+          const sessions = new Map<string, CodexSessionFile>();
+          const p = await readPoint(rows[0]!.parentPath, parent.id);
+          sessions.set(parent.id, p.session);
+          points.set(parent.id, { path: rows[0]!.parentPath, proof: p.proof });
+          for (const row of rows) {
+            if (signal.aborted || this.retired)
+              throw new Error("Codex child observation retired");
+            if (!row.childId || !row.childPath || row.childId === parent.id)
+              continue;
+            try {
+              const point = await readPoint(row.childPath, row.childId);
+              // Native ownership can change after attachment. Creation parentage
+              // still requires this child's own qualified thread-spawn header.
+              if (point.session.parentThreadId !== parent.id) continue;
+              sessions.set(row.childId, point.session);
+              points.set(row.childId, {
+                path: row.childPath,
+                proof: point.proof,
+              });
+            } catch {
+              /* Unavailable locators cannot erase accepted history. */
+            }
+          }
+          const entry: CodexSharedScanCacheEntry = {
+            sessions,
+            changedPaths: new Set(),
+            incomplete: true,
+          };
+          pointCurrent = async () => {
+            if (
+              this.retired ||
+              signal.aborted ||
+              !(await lease.isCurrent()) ||
+              (await realpath(this.sessionsDir).catch(() => undefined)) !==
+                parent.storageScope ||
+              JSON.stringify(lease.read(parent.id)) !== rowVersion
+            )
+              return false;
+            for (const [id, point] of points)
+              if ((await readPoint(point.path, id)).proof !== point.proof)
+                return false;
+            if (this.retired || signal.aborted) return false;
+            this.hydrateSessionFileCache([...sessions.values()]);
+            return true;
+          };
+          const observation = await finishObservation(entry, previousMetadata);
+          const observedAnchors = new Map<string, string | undefined>(
+            observation.children.map((c) => [c.native.id, c.summary.toolUseId]),
+          );
+          return {
+            ...observation,
+            needsFullMetadata:
+              lastAnchors?.mappings.some(
+                (m) => observedAnchors.get(m.agentId) !== m.toolUseId,
+              ) ?? false,
+          };
+        } catch (error) {
+          releaseIndex();
+          if (signal.aborted || this.retired) throw error;
+          // The native index is optional locator evidence. Busy recovery,
+          // archived paths and old rows must leave the full handoff available.
+          return undefined;
         }
-        // Structure comes from each child's native parent proof. A long parent
-        // transcript is irrelevant to enumerating its children (including none).
-        // Use the current catalog, not the reader's historical best-file cache:
-        // that cache intentionally retains deleted/backdated native records.
-        anchors = readAnchors();
-        const present = new Set<string>();
-        for (const child of entry.sessions.values()) {
-          if (child.parentThreadId !== parent.id) continue;
-          present.add(child.id);
-          // Query SQL once for a newly seen child, or when transient native
-          // metadata disappeared after emitting an anchor SQL may now retain.
-          // isCurrent reuses this acquisition's snapshot, never repeating SQL.
-          if (
-            !anchors.get(child.id) &&
-            (!historicalAnchors.has(child.id) ||
-              historicalAnchors.get(child.id) !== emittedAnchors.get(child.id))
-          ) {
-            const native = nativeSessionRef(
-              "codex",
-              parent.storageScope,
-              parseNativeSessionId(child.id),
-            );
-            historicalAnchors.set(
-              child.id,
-              previousMetadata?.(native)?.toolUseId,
-            );
-          } else if (!historicalAnchors.has(child.id))
-            historicalAnchors.set(child.id, undefined);
-        }
-        for (const id of historicalAnchors.keys())
-          if (!present.has(id)) historicalAnchors.delete(id);
-        const observation = snapshot(entry);
-        emittedAnchors = new Map(
-          observation.children.map((c) => [c.native.id, c.summary.toolUseId]),
-        );
-        lastEntry = entry;
-        lastEpoch = getCodexRolloutTreeEpoch(this.sessionsDir);
-        lastVersion = observation.version;
-        return observation;
       },
       isCurrent: async (version) => {
         const current = codexSharedScanCache
@@ -1776,23 +1957,31 @@ export class CodexSessionReader implements ISessionReader {
                 `${Number(s.dev)}\0${Number(s.ino)}`,
             () => false,
           ));
+        const point = pointCurrent
+          ? await pointCurrent().catch(() => false)
+          : undefined;
         return (
           !this.retired &&
           anchorIdentityCurrent &&
           (!this.agentMappingCache.get(parent.id) ||
             this.agentMappingCache.get(parent.id)?.digest ===
               lastCacheEntry?.digest) &&
-          !!current &&
-          current === lastEntry &&
-          version === lastVersion &&
-          getCodexRolloutTreeEpoch(this.sessionsDir) === lastEpoch &&
-          (current.epoch ?? null) === lastEpoch &&
-          current.sessions.has(parent.id) &&
-          !current.needsEnumeration &&
-          !current.inFlight &&
-          !current.applyingChanges &&
-          !current.changedPaths.size &&
-          snapshot(current).version === version
+          (point !== undefined
+            ? point &&
+              version === lastVersion &&
+              !!lastEntry &&
+              snapshot(lastEntry).version === version
+            : !!current &&
+              current === lastEntry &&
+              version === lastVersion &&
+              getCodexRolloutTreeEpoch(this.sessionsDir) === lastEpoch &&
+              (current.epoch ?? null) === lastEpoch &&
+              current.sessions.has(parent.id) &&
+              !current.needsEnumeration &&
+              !current.inFlight &&
+              !current.applyingChanges &&
+              !current.changedPaths.size &&
+              snapshot(current).version === version)
         );
       },
     };
@@ -3752,12 +3941,15 @@ export class CodexSessionReader implements ISessionReader {
     filePath: string,
     options?: CodexScanOptions,
     metrics?: CodexSessionReaderScanMetrics,
+    freshHeader = false,
   ): Promise<CodexSessionFile | null> {
     try {
       const session = await readCodexRolloutMetadata({
         sessionsDir: this.sessionsDir,
         filePath,
-        ...(this.discoveryIndex ? { discoveryIndex: this.discoveryIndex } : {}),
+        ...(!freshHeader && this.discoveryIndex
+          ? { discoveryIndex: this.discoveryIndex }
+          : {}),
         ...(options?.activeAfterMs !== undefined
           ? { activeAfterMs: options.activeAfterMs }
           : {}),

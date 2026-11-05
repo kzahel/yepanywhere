@@ -96,7 +96,10 @@ unrelated interactions and deduplication across persisted event envelopes.
 These are regenerated native specimens, not constructed reader fixtures or
 paid inference. The relationship scenario also qualifies Claude Gateway,
 Claude Ollama, Codex OSS, Grok and OpenCode, including production-reader SQL publication and
-reopen, on macOS arm64. Gateway explicitly enables its default-disabled Agent
+reopen, on macOS arm64. Each qualified family also verifies exact-parent cheap
+metadata refresh against those native-created children. Codex/OSS independently
+check the native SQLite spawn index; its rows locate child-owned header proof
+rather than establish creation parentage. Gateway explicitly enables its default-disabled Agent
 tool for this scenario; production defaults and remote child-model availability
 are not changed or qualified. Both parent and child stay on the owned model
 endpoint with synthetic credentials. Other providers, nested descendants and trusted
