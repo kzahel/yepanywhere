@@ -8,6 +8,7 @@ export type ModelRequest = Record<string, unknown>;
 export const syntheticKey = "owned-model-stub-only";
 
 export class Exchange {
+  readonly receivedAt = performance.now();
   readonly id = `owned_${randomUUID().replaceAll("-", "")}`;
   readonly cancelled: Promise<void>;
   private finished = false;

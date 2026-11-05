@@ -1,3 +1,4 @@
+import { nativeAppTestFixture } from "./fixture.js";
 import { randomUUID } from "node:crypto";
 import { readFile, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
@@ -17,10 +18,7 @@ import {
   type SqliteValue,
 } from "../../src/storage/sqlite.js";
 import { quoteShellWord } from "../../src/utils/posixShell.js";
-import {
-  nativeAppFixture,
-  appBarrier,
-} from "../native-provider/app-fixture.js";
+import { appBarrier } from "../native-provider/app-fixture.js";
 import { nativeExecutable } from "../native-provider/runtimes.js";
 
 interface NativeRow {
@@ -72,7 +70,7 @@ async function removeDerivedIndex(
   if (!outcome.committed) throw outcome.error;
 }
 
-let fixture: Awaited<ReturnType<typeof nativeAppFixture>> | undefined;
+let fixture: Awaited<ReturnType<typeof nativeAppTestFixture>> | undefined;
 afterEach(async (context) => {
   if (fixture && context.task.result?.state === "fail")
     console.info(await fixture.diagnostics());
@@ -83,13 +81,13 @@ afterEach(async (context) => {
 describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "native named nested harness evidence",
   () => {
-    it.each(["admin-route", "wrapper-signal"] as const)(
+    it.for(["admin-route", "wrapper-signal"] as const)(
       "preserves named launch evidence across %s replacement and rejects copied fork commands",
       {
         timeout: 40_000,
       },
-      async (replacement) => {
-        const f = await nativeAppFixture("claude");
+      async (replacement, context) => {
+        const f = await nativeAppTestFixture("claude", context);
         fixture = f;
         await f.ready();
         const parent = await f.create("NESTED_HARNESS_PARENT_INITIAL");

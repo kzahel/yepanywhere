@@ -927,3 +927,54 @@ and all workspace tests (7,087 server / 7,112 client / 954 shared; server
 scenarios. These local observations do not establish hosted acceptance or a
 performance improvement. Startup phase attribution, hosted native/app failures,
 public compatibility approval and the rest of this plan remain open.
+
+### Attribute native-app startup and join cancelled construction
+
+The early constructor acquired its real model listener and prepared its
+environment before entering the cleanup boundary. A controlled setup error
+reproduced an open listener and retained private root on the published source.
+Cleanup now owns those resources before acquisition. Test-owned callers pass
+Vitest's cancellation signal and join construction on completion, covering a
+timeout before the caller can save its fixture. The shared plain fixture keeps
+its Playwright/standalone use without importing Vitest.
+
+Disposable real-resource controls prove cleanup for the same setup error and
+for two deliberate case timeouts: one held environment preparation after the
+listener opened, and one held identity capture after a real wrapper spawned.
+The latter verifies the original process identity is gone, the listener is
+closed and the private root is removed. Those intentionally failing timeout
+controls are removed after preserving their proof, avoiding recurring timeout
+cost in CI. Normal native-app scenarios and independent review still qualify
+the final slice before publication.
+
+Monotonic phase reports and bounded model-acceptance timings now separate profile,
+version check, wrapper/host, readiness, model exchange and teardown work. Host
+capacity and start/end resource samples accompany app runs. Buffered CI stdout
+upload timestamps are not startup measurements. No test deadline, concurrency,
+provider runtime or public contract changes; original hosted failures remain
+open until the diagnostic source is actually qualified there.
+
+Opus accepted all twelve reviewed files after adding admin-request, acceptance,
+crash and newly observed worker-generation marks. A wall-clock anchor aligns
+relative phases with logs; reports still emit if root removal fails, and the
+runner preserves GitHub failure annotations. Generation marks are first
+observations at inventory polling resolution. An API answer after a replacement
+request does not itself prove a new generation. The same request label is used
+for admin and SIGHUP replacement; only the admin route records acceptance.
+The existing ten-second cleanup-hook horizon remains tracked for hosted
+qualification, with no deadline change.
+
+Final local checks pass: ten native-app cases (37.57 seconds wall / 100.78
+aggregate work), all three native browser cases (48.6 seconds), zero lint
+warnings, formatting, types and the complete workspace suites (7,087 server /
+7,112 client / 954 shared; server 144.09 seconds). The complete 69-scenario
+native run also passes (45.50 seconds wall / 109.51 aggregate work); its
+shared model listener is unchanged by the later app-diagnostic delta. Ten final
+app reports contain at most 27 phases, thirteen accepted admin replacements and
+two deliberate backend crashes; every report ends in root removal. These are
+local diagnostic samples, not a speed improvement or hosted acceptance. The
+Linux/macOS native workflow must now qualify this source and attribute any
+remaining startup/control failures. The prior main CI at `d89b8a13d` passes all
+other jobs and fails the same three creation-client cases already tracked in
+the separate URL-publication gap. Public compatibility approval and the full
+plan remain open.

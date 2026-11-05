@@ -1,13 +1,11 @@
+import { nativeAppTestFixture } from "./fixture.js";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  nativeAppFixture,
-  appBarrier,
-} from "../native-provider/app-fixture.js";
+import { appBarrier } from "../native-provider/app-fixture.js";
 import { heldAppTool } from "../native-provider/app-tools.js";
 
-let fixture: Awaited<ReturnType<typeof nativeAppFixture>> | undefined;
+let fixture: Awaited<ReturnType<typeof nativeAppTestFixture>> | undefined;
 afterEach(async (context) => {
   if (fixture && context.task.result?.state === "fail")
     console.info(await fixture.diagnostics());
@@ -18,15 +16,15 @@ afterEach(async (context) => {
 describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "real tool and approval reload",
   () => {
-    it.each(["claude", "codex"] as const)(
+    it.for(["claude", "codex"] as const)(
       "%s preserves pending approval, dense tool output and queue blockers",
       {
         // Source wrapper/native startup plus two replacements took at most
         // 9.40s per case on macOS arm64; allow 3x that observed maximum.
         timeout: 30_000,
       },
-      async (provider) => {
-        const f = await nativeAppFixture(provider);
+      async (provider, context) => {
+        const f = await nativeAppTestFixture(provider, context);
         fixture = f;
         await f.ready();
         const created = await f.create("APP_TOOL_INPUT", "default");

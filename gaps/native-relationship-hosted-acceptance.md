@@ -34,6 +34,23 @@ regressions, but neither is yet proved to explain the earlier hosted tool
 content failures. Recent Responses inputs are now included in bounded failure
 diagnostics so the actual returned tool result can establish that mechanism.
 
+Native-app phase attribution now records monotonic times inside the fixture;
+the earlier CI stdout blocks were printed after failure and their upload times
+do not establish actual wrapper startup duration. Constructor cleanup also
+starts before listener/environment acquisition and joins test cancellation.
+Disposable controls reproduce the prior listener/root leak on an early setup
+error, prove its repair, and prove timeout cleanup both before wrapper launch
+and after a real wrapper spawns but before the caller retains the fixture.
+These lifecycle repairs and new diagnostics still require hosted qualification;
+they do not by themselves explain the original startup/control timeouts.
+
+Watch the joined cleanup horizon on hosted runs as well: Vitest's existing
+ten-second hook budget is shorter than the process terminator's full graceful
+plus forced shutdown window. Local cleanup is around 250–350 ms; no hosted
+teardown-budget failure has yet been attributed. Derive any hook-budget change
+from actual termination progress and the supported shutdown window, preserving
+joined cleanup rather than merely suppressing its errors.
+
 Retained logs are under ignored `tasks/session-relationships/slice-18-ci-linux-*`
 and `slice-19-hosted-mac-app.log`. Keep hosted qualification explicitly pending
 until the relevant jobs and browser steps actually pass. Do not relax the

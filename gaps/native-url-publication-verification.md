@@ -31,6 +31,15 @@ failure or of a timing-only cause. The server-runtime/SQLite workflow passed.
 The browser CI shard also failed; compare its retained errors before assigning
 all failures to the obsolete expectations.
 
+Later [CI 42031605996](https://github.com/kzahel/yepanywhere/actions/runs/42031605996)
+passes its unit job and second browser shard, but the first shard fails three
+creation-client cases (lines 124, 305 and 334). The latter two expect two
+acknowledgements; the existing conditional draft-settlement boundary remains
+unqualified. Attachment drop, parked completion and delayed remote acceptance
+also need a retry in that shard. Keep those creation/draft findings separate
+from the native-app startup and relationship fixture corrections; the run's
+remaining browser failures do not invalidate its passing unit qualification.
+
 Retain each check's full logs across consecutive `verify` invocations, qualify
 the two browser cases, and rerun the remaining full browser cases with an
 explicit bounded plan. Do not raise deadlines or add retries to hide failures.

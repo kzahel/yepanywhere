@@ -1,11 +1,9 @@
+import { nativeAppTestFixture } from "./fixture.js";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  nativeAppFixture,
-  appBarrier,
-} from "../native-provider/app-fixture.js";
+import { appBarrier } from "../native-provider/app-fixture.js";
 import { readOwnedFile } from "../native-provider/actions.js";
 
-let fixture: Awaited<ReturnType<typeof nativeAppFixture>> | undefined;
+let fixture: Awaited<ReturnType<typeof nativeAppTestFixture>> | undefined;
 afterEach(async (context) => {
   if (fixture && context.task.result?.state === "fail")
     console.info(await fixture.diagnostics());
@@ -16,15 +14,15 @@ afterEach(async (context) => {
 describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "real application reload",
   () => {
-    it.each(["claude", "codex"] as const)(
+    it.for(["claude", "codex"] as const)(
       "%s survives actual API replacement and delivers the next input once",
       {
         // Source wrapper/native startup plus two replacements took at most
         // 9.40s per case on macOS arm64; allow 3x that observed maximum.
         timeout: 30_000,
       },
-      async (provider) => {
-        const f = await nativeAppFixture(provider);
+      async (provider, context) => {
+        const f = await nativeAppTestFixture(provider, context);
         fixture = f;
         await f.ready();
         const created = await f.create("APP_INITIAL_INPUT");

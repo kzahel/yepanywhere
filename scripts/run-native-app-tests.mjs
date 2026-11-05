@@ -1,4 +1,9 @@
 import { spawn } from "node:child_process";
+import {
+  readHostCapacity,
+  readHostSample,
+  summarizeHostWindow,
+} from "./perf-suite/host-profile.mjs";
 
 if (!["linux", "darwin"].includes(process.platform) || process.versions.bun)
   throw Error(
@@ -19,15 +24,39 @@ const command = browser
       "--config",
       "playwright.native-app.config.ts",
     ]
-  : ["--filter", "@yep-anywhere/server", "test", "test/native-app"];
-const child = spawn(process.execPath, [pnpm, ...command, ...args], {
-  stdio: "inherit",
-  env: { ...process.env, YEP_NATIVE_APP_TESTS: "1" },
-});
-child.on("error", (error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
-child.on("exit", (code) => {
-  process.exitCode = code ?? 1;
-});
+  : [
+      "--filter",
+      "@yep-anywhere/server",
+      "test",
+      "test/native-app",
+      // Agent/minimal reporters otherwise withhold successful-case evidence.
+      "--reporter=default",
+      ...(process.env.GITHUB_ACTIONS === "true"
+        ? ["--reporter=github-actions"]
+        : []),
+      "--silent=false",
+    ];
+const capacity = await readHostCapacity();
+const start = await readHostSample(capacity);
+console.info(JSON.stringify({ nativeAppHost: { capacity, start } }));
+try {
+  process.exitCode = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [pnpm, ...command, ...args], {
+      stdio: "inherit",
+      env: { ...process.env, YEP_NATIVE_APP_TESTS: "1" },
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve(code ?? 1));
+  });
+} finally {
+  const end = await readHostSample(capacity);
+  console.info(
+    JSON.stringify({
+      nativeAppHost: {
+        capacityKey: capacity.capacityKey,
+        end,
+        summary: summarizeHostWindow(capacity, start, end),
+      },
+    }),
+  );
+}

@@ -1,12 +1,10 @@
+import { nativeAppTestFixture } from "./fixture.js";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseYaSessionId } from "@yep-anywhere/shared";
 import { quoteShellWord } from "../../src/utils/posixShell.js";
-import {
-  nativeAppFixture,
-  appBarrier,
-} from "../native-provider/app-fixture.js";
+import { appBarrier } from "../native-provider/app-fixture.js";
 import {
   relationshipResourceKey,
   SessionRelationshipStore,
@@ -14,7 +12,7 @@ import {
 import { SessionIdentityStore } from "../../src/sessions/SessionIdentityStore.js";
 import { loadSqliteDriver } from "../../src/storage/sqlite.js";
 
-let fixture: Awaited<ReturnType<typeof nativeAppFixture>> | undefined;
+let fixture: Awaited<ReturnType<typeof nativeAppTestFixture>> | undefined;
 afterEach(async (context) => {
   if (fixture && context.task.result?.state === "fail")
     console.info(await fixture.diagnostics());
@@ -25,7 +23,7 @@ afterEach(async (context) => {
 describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "native v0 creation relationships",
   () => {
-    it.each([
+    it.for([
       ["claude", "claude"],
       ["claude", "codex"],
       ["codex", "claude"],
@@ -38,8 +36,8 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         // 40s gives >2x that observed maximum; this is not a speed assertion.
         timeout: 40_000,
       },
-      async (provider, childProvider) => {
-        const f = await nativeAppFixture(provider, {
+      async ([provider, childProvider], context) => {
+        const f = await nativeAppTestFixture(provider, context, {
           agentApiManagement: true,
           additionalProviders: [childProvider],
         });

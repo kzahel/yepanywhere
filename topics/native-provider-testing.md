@@ -201,6 +201,29 @@ model exchanges and no unexpected egress/errors. No production default changes.
 
 ## Full source app and dev reload qualification
 
+Native-app qualification records monotonic fixture phases for private profile
+setup, executable version checks, wrapper/host startup, API/frontend readiness,
+creation and joined cleanup. Actual model requests carry their acceptance time;
+admin restart requests/acceptance, backend crashes and newly observed worker
+generations also mark recovery progress. A wall-clock anchor aligns monotonic
+phases with server logs and host samples. An API response after a replacement
+request alone does not establish that its generation changed.
+Reports include at most sixteen request timings and sixty-four phase entries,
+with no request bodies. The app runner selects the default reporter explicitly
+so agent/minimal reporter selection cannot hide successful-case evidence. It
+also records the existing performance harness's capacity key and start/end host
+samples. Missing CPU or swap counters remain explicit; these diagnostic samples
+alone do not establish a performance regression or improvement.
+
+The plain app fixture owns cleanup before model/environment acquisition and
+accepts an optional cancellation signal. Vitest cases use the test-owned helper
+to pass their timeout/cancellation signal and join construction in
+`onTestFinished`, even if the caller never retained a fixture. Version probes
+and HTTP readiness observe cancellation; a cancelled constructor cannot proceed
+to a new wrapper launch. Playwright and other callers retain the plain helper
+without a Vitest runtime dependency. Existing readiness and case budgets remain
+unchanged.
+
 ```bash
 pnpm test:providers:app             # Four real API/socket lifecycle cases
 pnpm --filter @yep-anywhere/client exec playwright install chromium
