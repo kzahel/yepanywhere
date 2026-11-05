@@ -2659,6 +2659,87 @@ describe("CodexSessionReader - OSS Support", () => {
     await expect(reader.getAgentMappings(sessionId)).resolves.toEqual([
       { toolUseId: "call-spawn", agentId: "child-thread" },
     ]);
+    await appendFile(
+      sessionPath,
+      [
+        {
+          type: "response_item",
+          timestamp,
+          payload: {
+            type: "function_call",
+            name: "spawn_agent",
+            call_id: "call-new",
+            arguments: JSON.stringify({
+              task_name: "new-child",
+              message: "new",
+            }),
+          },
+        },
+        {
+          type: "event_msg",
+          timestamp,
+          payload: {
+            type: "item_completed",
+            item: {
+              type: "SubAgentActivity",
+              id: "call-new",
+              kind: "started",
+              agent_thread_id: "new-child",
+              agent_path: "/owned",
+              model: null,
+              reasoning_effort: null,
+            },
+          },
+        },
+      ]
+        .map((v) => JSON.stringify(v))
+        .join("\n") + "\n",
+    );
+    const cold = new CodexSessionReader({ sessionsDir: testDir });
+    try {
+      const tail = await cold.getSession(sessionId, projectId, undefined, {
+        tailCompactions: 2,
+        summaryHint: summary,
+      });
+      expect(tail?.readWindow).toBeDefined();
+      // Positive partial extraction may know the new call, but the lazy route
+      // must still recover the older launch outside that window.
+      expect(cold.getAgentMappingCacheStats()).toEqual({
+        sessions: 1,
+        mappings: 1,
+      });
+      await expect(cold.getAgentMappings(sessionId)).resolves.toEqual([
+        { toolUseId: "call-spawn", agentId: "child-thread" },
+        { toolUseId: "call-new", agentId: "new-child" },
+      ]);
+      cold.invalidateCache();
+      const end = Buffer.byteLength(
+        lines
+          .slice(0, 3)
+          .map((v) => JSON.stringify(v))
+          .join("\n") + "\n",
+      );
+      const oldest = await cold.getSession(sessionId, projectId, undefined, {
+        tailCompactions: 2,
+        beforeMessageId: `codex-cursor-byte-${end}`,
+        summaryHint: summary,
+      });
+      expect(oldest?.readWindow).toMatchObject({
+        kind: "compact-page",
+        omittedPrefix: false,
+      });
+      // Starting at zero does not imply that an older page read the newer tail.
+      expect(cold.getAgentMappingCacheStats()).toEqual({
+        sessions: 1,
+        mappings: 1,
+      });
+      await expect(cold.getAgentMappings(sessionId)).resolves.toEqual([
+        { toolUseId: "call-spawn", agentId: "child-thread" },
+        { toolUseId: "call-new", agentId: "new-child" },
+      ]);
+    } finally {
+      await cold.close();
+    }
   });
 
   it("keeps the compact tail when the rollout grew past its indexed summary", async () => {

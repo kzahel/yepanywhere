@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
+import nodeFs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import {
   appendFile,
   mkdir,
+  mkdtemp,
   realpath,
   rm,
   stat,
@@ -15,13 +18,14 @@ import {
   parseNativeSessionId,
   type UrlProjectId,
 } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
 import {
   CodexSessionReader,
   observeCodexRolloutTree,
 } from "../../src/sessions/codex-reader.js";
+import { MergedSessionReader } from "../../src/sessions/merged-reader.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
 import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
@@ -201,6 +205,490 @@ describe("Codex subagent sessions", () => {
       );
     } finally {
       await reader.close();
+    }
+  });
+
+  it("filters native output prefixes without losing escaped ids or unfamiliar legacy envelopes", async () => {
+    const now = "2026-11-05T00:00:00.000Z",
+      parent = "prefix-mappings";
+    const calls = ['call"one\\😀', "call-legacy"];
+    const records = [
+      sessionMeta(parent, now),
+      ...calls.map((call) =>
+        line(
+          "response_item",
+          {
+            type: "function_call",
+            name: "spawn_agent",
+            call_id: call,
+            arguments: "{}",
+          },
+          now,
+        ),
+      ),
+      line(
+        "response_item",
+        {
+          type: "function_call_output",
+          call_id: "unrelated",
+          output: JSON.stringify({
+            agent_id: "not-a-child",
+            ignored: "x".repeat(12000),
+          }),
+        },
+        now,
+      ),
+      line(
+        "response_item",
+        {
+          type: "function_call_output",
+          call_id: calls[0],
+          output: JSON.stringify({ agent_id: "child-escaped" }),
+        },
+        now,
+      ),
+      JSON.stringify({
+        provider_extension: {
+          payload: { type: "function_call_output", call_id: "unrelated" },
+        },
+        type: "response_item",
+        timestamp: now,
+        payload: {
+          output: JSON.stringify({ agent_id: "child-legacy" }),
+          context: "x".repeat(5000),
+          call_id: calls[1],
+          type: "function_call_output",
+        },
+      }),
+    ];
+    await writeRollout(sessionsDir, parent, records);
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    try {
+      expect(await reader.getAgentMappings(parent)).toEqual([
+        { toolUseId: calls[0], agentId: "child-escaped" },
+        { toolUseId: calls[1], agentId: "child-legacy" },
+      ]);
+    } finally {
+      await reader.close();
+    }
+  });
+
+  it("returns terminated launch anchors when an active parent appends during the lazy read", async () => {
+    const now = "2026-11-05T00:00:00.000Z",
+      parent = "growing-mappings";
+    const path = await writeRollout(sessionsDir, parent, [
+      sessionMeta(parent, now),
+      line(
+        "response_item",
+        {
+          type: "function_call",
+          name: "spawn_agent",
+          call_id: "call-grow",
+          arguments: "{}",
+        },
+        now,
+      ),
+      line(
+        "response_item",
+        {
+          type: "function_call_output",
+          call_id: "call-grow",
+          output: JSON.stringify({ agent_id: "child-grow" }),
+        },
+        now,
+      ),
+      line(
+        "event_msg",
+        { type: "agent_message", message: "x".repeat(70000) },
+        now,
+      ),
+    ]);
+    const read = nodeFs.createReadStream;
+    let appended = false;
+    const streams = vi
+      .spyOn(nodeFs, "createReadStream")
+      .mockImplementation((...args) => {
+        const stream = read(...args);
+        if (String(args[0]) === path) {
+          const iterate = stream[Symbol.asyncIterator].bind(stream);
+          stream[Symbol.asyncIterator] = async function* () {
+            for await (const chunk of iterate()) {
+              yield chunk;
+              if (!appended) {
+                appended = true;
+                await appendFile(
+                  path,
+                  line(
+                    "event_msg",
+                    { type: "agent_message", message: "concurrent append" },
+                    now,
+                  ) + "\n",
+                );
+              }
+            }
+          };
+        }
+        return stream;
+      });
+    syncBuiltinESMExports();
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    try {
+      expect(await reader.getAgentMappings(parent)).toEqual([
+        { toolUseId: "call-grow", agentId: "child-grow" },
+      ]);
+      expect(appended).toBe(true);
+      expect(reader.getAgentMappingCacheStats().sessions).toBe(0);
+    } finally {
+      streams.mockRestore();
+      syncBuiltinESMExports();
+      await reader.close();
+    }
+  });
+
+  it("publishes windowed native v2 launch anchors, keeps appends write-free and survives source loss", async () => {
+    const now = "2026-11-05T00:00:00.000Z",
+      parentId = "anchor-parent";
+    const childMeta = (id: string, parent: string) =>
+      sessionMeta(id, now, {
+        parent_thread_id: parent,
+        source: { subagent: { thread_spawn: { parent_thread_id: parent } } },
+      });
+    const spawn = (call: string) =>
+      line(
+        "response_item",
+        {
+          type: "function_call",
+          name: "spawn_agent",
+          call_id: call,
+          arguments: JSON.stringify({
+            task_name: "owned",
+            message: "DO_NOT_STORE_DELEGATED_PROMPT",
+          }),
+        },
+        now,
+      );
+    const started = (call: string, child: string, kind = "started") =>
+      line(
+        "event_msg",
+        {
+          type: "item_completed",
+          item: {
+            type: "SubAgentActivity",
+            id: call,
+            kind,
+            agent_thread_id: child,
+            agent_path: "/owned",
+            model: null,
+            reasoning_effort: null,
+          },
+        },
+        now,
+      );
+    const parentPath = await writeRollout(sessionsDir, parentId, [
+      sessionMeta(parentId, now),
+      line(
+        "response_item",
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "Observe child metadata" }],
+        },
+        now,
+      ),
+      line(
+        "world_state",
+        { full: true, state: { filler: "x".repeat(5 * 1024 * 1024) } },
+        now,
+      ),
+      ...[1, 2, 3].map((i) =>
+        line("compacted", { message: `compact ${i}` }, now),
+      ),
+      spawn("call-one"),
+      line(
+        "response_item",
+        {
+          type: "function_call_output",
+          call_id: "call-one",
+          output: JSON.stringify({ task_name: "owned" }),
+        },
+        now,
+      ),
+      started("call-one", "child-one"),
+      spawn("copied-call"),
+      started("copied-call", "foreign-child"),
+      spawn("not-a-start"),
+      started("not-a-start", "child-two", "interacted"),
+    ]);
+    await writeRollout(sessionsDir, "child-one", [
+      childMeta("child-one", parentId),
+    ]);
+    await writeRollout(sessionsDir, "child-two", [
+      childMeta("child-two", parentId),
+    ]);
+    await writeRollout(sessionsDir, "foreign-child", [
+      childMeta("foreign-child", "other-parent"),
+    ]);
+    const dataDir = await mkdtemp(join(tmpdir(), "codex-anchor-sql-"));
+    const reader = new CodexSessionReader({
+      sessionsDir,
+      projectPath: PROJECT_PATH,
+    });
+    const otherRoot = join(dataDir, "other-native");
+    await writeRollout(otherRoot, parentId, [
+      sessionMeta(parentId, now),
+      spawn("wrong-root-call"),
+      started("wrong-root-call", "child-one"),
+    ]);
+    const otherReader = new CodexSessionReader({
+      sessionsDir: otherRoot,
+      projectPath: PROJECT_PATH,
+    });
+    const merged = new MergedSessionReader([
+      otherReader,
+      new MergedSessionReader([reader]),
+    ]);
+    let restartedReader: CodexSessionReader | undefined;
+    let db = new DiscoverySqliteService({
+      dataDir,
+      probeNetworkFilesystem: () => undefined,
+    });
+    const errors: unknown[] = [];
+    let commits = 0,
+      committed: () => void = () => {};
+    let service = new ProviderChildRelationshipService(
+      db.getDatabase(),
+      "local",
+      () => {
+        commits++;
+        committed();
+      },
+      (e) => errors.push(e),
+    );
+    try {
+      const parent = nativeSessionRef(
+        "codex",
+        await realpath(sessionsDir),
+        parseNativeSessionId(parentId),
+      );
+      const source = merged.getProviderChildSource(parent)!;
+      let notices = 0;
+      const handover = source.onMetadataAvailable!;
+      source.onMetadataAvailable = (listener) =>
+        handover(() => {
+          notices++;
+          listener();
+        });
+      let validated: (() => void) | undefined;
+      const current = source.isCurrent;
+      source.isCurrent = async (version) => {
+        const result = await current(version);
+        const done = validated;
+        validated = undefined;
+        // This scenario has one synchronous SQL batch after validation. Join
+        // the next event-loop turn rather than relying on a fixed sleep.
+        if (done) setImmediate(done);
+        return result;
+      };
+      const initial = new Promise<void>((r) => {
+        committed = r;
+      });
+      service.demand(parent, { sessionId: "public-parent" }, source);
+      await initial;
+      expect(service.accepted(parent, "public-parent")).toHaveLength(2);
+      expect(
+        service.accepted(parent, "public-parent")!.every((c) => !c.toolUseId),
+      ).toBe(true);
+      expect(reader.getAgentMappingCacheStats().sessions).toBe(0);
+      await otherReader.getAgentMappings(parentId);
+      expect(notices).toBe(0);
+      // A bounded detail window supplies positive launch metadata without
+      // certifying whole-file absence or requiring another explicit demand.
+      const summary = await reader.getSessionSummary(
+        parentId,
+        encodeProjectId(PROJECT_PATH),
+      );
+      expect(summary).not.toBeNull();
+      const enriched = new Promise<void>((r) => {
+        committed = r;
+      });
+      const window = await reader.getSession(
+        parentId,
+        encodeProjectId(PROJECT_PATH),
+        undefined,
+        { tailCompactions: 2, summaryHint: summary! },
+      );
+      expect(window?.readWindow).toBeDefined();
+      await enriched;
+      expect(service.accepted(parent, "public-parent")).toContainEqual(
+        expect.objectContaining({ id: "child-one", toolUseId: "call-one" }),
+      );
+      expect(
+        service
+          .accepted(parent, "public-parent")!
+          .some((c) => c.id === "foreign-child"),
+      ).toBe(false);
+      const beforeActivity = commits,
+        beforeNotices = notices;
+      const revisions = () => {
+        const q = db
+          .getDatabase()
+          .prepare(
+            "SELECT source_key, revision FROM session_relationship_checkpoints WHERE producer = ? ORDER BY source_key",
+          );
+        try {
+          return new Map(
+            q
+              .all<{ source_key: string; revision: number }>(
+                "provider-child/codex",
+              )
+              .map((r) => [
+                JSON.parse(r.source_key).at(-1) as string,
+                r.revision,
+              ]),
+          );
+        } finally {
+          q.finalize();
+        }
+      };
+      const beforeRevisions = revisions();
+      await appendFile(
+        parentPath,
+        line(
+          "event_msg",
+          { type: "agent_message", message: "ordinary activity" },
+          now,
+        ) + "\n",
+      );
+      await reader.getAgentMappings(parentId);
+      expect(notices).toBe(beforeNotices);
+      expect(commits).toBe(beforeActivity);
+      // A syntactically valid but unterminated start record is not accepted yet.
+      await appendFile(
+        parentPath,
+        spawn("call-two") + "\n" + started("call-two", "child-two"),
+      );
+      expect(await reader.getAgentMappings(parentId)).not.toContainEqual(
+        expect.objectContaining({ toolUseId: "call-two" }),
+      );
+      expect(notices).toBe(beforeNotices);
+      expect(commits).toBe(beforeActivity);
+      const complete = new Promise<void>((r) => {
+        validated = r;
+      });
+      await appendFile(parentPath, "\n");
+      await reader.getAgentMappings(parentId);
+      await complete;
+      expect(service.accepted(parent, "public-parent")).toContainEqual(
+        expect.objectContaining({ id: "child-two", toolUseId: "call-two" }),
+      );
+      expect(commits).toBe(beforeActivity + 1);
+      expect(revisions().get("child-one")).toBe(
+        beforeRevisions.get("child-one"),
+      );
+      expect(revisions().get("child-two")).toBe(
+        beforeRevisions.get("child-two")! + 1,
+      );
+      const query = db
+        .getDatabase()
+        .prepare("SELECT metadata FROM session_relationship_evidence");
+      try {
+        expect(JSON.stringify(query.all())).not.toContain(
+          "DO_NOT_STORE_DELEGATED_PROMPT",
+        );
+      } finally {
+        query.finalize();
+      }
+      await service.close();
+      await merged.close();
+      restartedReader = new CodexSessionReader({
+        sessionsDir,
+        projectPath: PROJECT_PATH,
+      });
+      service = new ProviderChildRelationshipService(
+        db.getDatabase(),
+        "local",
+        () => {
+          commits++;
+        },
+        (e) => errors.push(e),
+      );
+      const restarted = restartedReader.getProviderChildSource(parent)!;
+      let historicalReads = 0;
+      const observeRestarted = restarted.observe;
+      restarted.observe = (signal, previous) =>
+        observeRestarted(
+          signal,
+          previous
+            ? (child) => {
+                historicalReads++;
+                return previous(child);
+              }
+            : undefined,
+        );
+      const valid = restarted.isCurrent;
+      const joined = new Promise<void>((resolve) => {
+        restarted.isCurrent = async (version) => {
+          const result = await valid(version);
+          setImmediate(resolve);
+          return result;
+        };
+      });
+      const changes = db.getDatabase().prepare("SELECT total_changes() AS n");
+      const beforeRestart = changes.get<{ n: number }>()!.n;
+      service.demand(parent, { sessionId: "public-parent" }, restarted);
+      await joined;
+      expect(historicalReads).toBe(2);
+      expect(changes.get<{ n: number }>()!.n).toBe(beforeRestart);
+      const revalidated = new Promise<void>((resolve) => {
+        restarted.isCurrent = async (version) => {
+          const result = await valid(version);
+          setImmediate(resolve);
+          return result;
+        };
+      });
+      restartedReader.invalidateCache();
+      service.invalidate(parent);
+      await revalidated;
+      expect(historicalReads).toBe(2);
+      expect(changes.get<{ n: number }>()!.n).toBe(beforeRestart);
+      changes.finalize();
+      expect(commits).toBe(beforeActivity + 1);
+      await service.close();
+      await restartedReader.close();
+      db.close();
+      await rm(sessionsDir, { recursive: true });
+      db = new DiscoverySqliteService({
+        dataDir,
+        probeNetworkFilesystem: () => undefined,
+      });
+      service = new ProviderChildRelationshipService(
+        db.getDatabase(),
+        "local",
+        () => {},
+      );
+      expect(
+        service
+          .accepted(parent, "public-parent")!
+          .map((c) => [c.id, c.toolUseId])
+          .sort(),
+      ).toEqual([
+        ["child-one", "call-one"],
+        ["child-two", "call-two"],
+      ]);
+      expect(await reader.getAgentMappings(parentId)).toEqual([]);
+      expect(errors).toEqual([]);
+    } finally {
+      await service.close();
+      await merged.close();
+      await restartedReader?.close();
+      db.close();
+      await rm(dataDir, { recursive: true, force: true });
     }
   });
 

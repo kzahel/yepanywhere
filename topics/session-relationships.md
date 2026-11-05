@@ -336,6 +336,13 @@ corpus, capability/version gate and older-server fallback are agreed. A newer
 internal model can replace old internals without requiring parallel permanent
 stores; supported wire projections remain adapters for their required horizon.
 
+Already-parsed optional native metadata can request a finite exact-source
+refresh through the same coordinator. Its subscription lifetime follows the
+registered reader. Codex uses this to persist known launch ids from ordinary
+transcript/mapping reads while structural acquisition remains header-only.
+Per-child structural versions avoid rewriting unrelated siblings for an anchor
+change; activity alone changes neither evidence nor metadata events.
+
 ### Authorization
 
 Relationships describe causality, lineage and structure; they confer no grant,

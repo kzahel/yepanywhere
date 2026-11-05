@@ -186,7 +186,9 @@ or partial-empty observations omit enrichment; an accepted empty observation
 returns `[]`. Known facts survive restart, missing native files and failed
 reads. A later metadata event patches children without replacing messages,
 scroll memory or the composer draft. Process and collection projections consume
-the same SQL facts through the stored scoped native binding.
+the same SQL facts through the stored scoped native binding. Stored activity
+times describe the last structural observation. Current activity overlays do
+not become durable merely because an unrelated sibling changes.
 
 One profile coordinator owns a bounded source queue and finite coalesced work,
 with no per-session timer. Explicit detail demand and native file observations
@@ -251,18 +253,46 @@ files do not erase stored anchors. Native failures still fail when no accepted
 observation exists; accepted facts remain available when native reads fail.
 This preserves pending-child discovery for existing clients without changing
 the mapping response or requiring a new client preference. Actual native
-fresh-plus-SQL launch anchors are qualified for Claude. The pre-existing
-[Codex v2 mapping gap](../gaps/codex-v2-agent-mappings-miss-native-start-items.md)
-remains separate from its qualified structural child discovery; Grok and
-OpenCode currently publish no SQL launch anchor.
+fresh-plus-SQL launch anchors are qualified for Claude and Codex variants.
+Grok and OpenCode currently publish no SQL launch anchor.
+
+Codex lazy mappings and direct child projections share the audited native
+started-item interpretation, including its legacy output fallback. Only a
+started record correlated with an observed spawn call supplies an anchor;
+interaction/completion records do not. Candidate outputs use parsed call-id
+lookups rather than scanning every prior launch id for every output.
+
+Already-read terminated parent records, including positive records in bounded
+windows, may enrich SQL children. Empty or partial windows never certify
+whole-file absence. The bounded relationship coordinator subscribes to exact-
+parent metadata handovers while that native source is registered and releases
+them with the reader. Discovery never starts another parent-body read to
+acquire optional launch ids. An anchor is accepted only beside the child's own
+scoped parent proof. Copied fork history cannot introduce a structural edge.
+Stable native file identity/version checks and a bounded plain-file footer
+check fence new durable extraction. Known historical anchors may survive
+ordinary appends in that physical file. Replacement, unavailable enrichment
+and source loss preserve accepted SQL history rather than fabricate an empty
+set. Unterminated start records are not accepted by the lazy reader. Activity
+with unchanged anchor sets does not notify the coordinator. Historical
+metadata comes from the exact scoped SQL edge when the transient parser cache
+is absent; it never supplies native parent proof. Validation reuses the
+observation without repeating SQL lookups. A registered source remembers
+accepted hints only for currently observed children, refreshing them when
+transient native enrichment disappears before its newly emitted anchor was
+remembered. Unchanged child versions retain their SQL revisions. A lazy read
+can return its terminated prefix during ordinary same-inode growth without
+caching that reply as complete-file proof. Physical replacement or shrink
+remains a failed read. SQL stores bounded launch ids alongside native header
+metadata, excluding delegated prompts and outputs.
 
 All Claude reader sidecar consumers require a regular metadata file of at most
 64 KiB, with no-follow opening where supported. Mapping reads use it first.
 A current sidecar launch id does not require a nonempty child transcript or
 reading its body. Older sidecars fall back to streaming the first five header
 lines after initial blank lines, retaining large legacy records with linear
-chunk processing and without reading the rest of a long child. Invalid or oversized optional sidecars leave that
-legacy fallback available. Retired readers return no fresh mappings.
+chunk processing and without reading the rest of a long child. Invalid or
+oversized optional sidecars leave that legacy fallback available. Retired readers return no fresh mappings.
 
 Inline content follows the heavier session-detail path. Current Claude streams
 route content by the provider child ID and map a parent tool call only when that

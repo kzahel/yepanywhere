@@ -73,6 +73,20 @@ export class MergedSessionReader implements ISessionReader {
           for (const release of releases) release();
         };
       },
+      onMetadataAvailable: (listener) => {
+        const releases = candidates.flatMap(({ source }) =>
+          source.onMetadataAvailable
+            ? [
+                source.onMetadataAvailable(() => {
+                  if (source === selected) listener();
+                }),
+              ]
+            : [],
+        );
+        return () => {
+          for (const release of releases) release();
+        };
+      },
       ownsFileChange: (event) => selected?.ownsFileChange?.(event) ?? false,
       ...(candidates.some(({ source }) => source.handleFileChange)
         ? {
@@ -86,14 +100,14 @@ export class MergedSessionReader implements ISessionReader {
       parentsForChanges: (ids, signal) =>
         selected?.parentsForChanges?.(ids, signal) ?? Promise.resolve([]),
       releaseObservation: () => selected?.releaseObservation?.(),
-      async observe(signal) {
+      async observe(signal, previousMetadata) {
         if (signal.aborted) throw new Error("Merged child source retired");
         selected = await findSource();
         if (signal.aborted) throw new Error("Merged child source retired");
         if (selected) {
           // A matching authority that fails cannot fall through to another
           // same-string native id in another physical namespace.
-          return selected.observe(signal);
+          return selected.observe(signal, previousMetadata);
         }
         throw new Error("Merged child source does not own the native scope");
       },

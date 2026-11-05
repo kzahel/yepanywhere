@@ -243,7 +243,7 @@ describe.each(providers.filter(supportsNativeChildScenario))(
             ? {}
             : { toolUseId: callId }),
         });
-        if (isClaude(provider)) {
+        if (isClaude(provider) || isCodex(provider)) {
           expect(await reader.getAgentMappings(f.nativeId())).toEqual([
             expect.objectContaining({ agentId: childId, toolUseId: callId }),
           ]);
@@ -305,7 +305,7 @@ describe.each(providers.filter(supportsNativeChildScenario))(
             expect(index.accepted(parent, "canonical-parent")).toMatchObject([
               { id: childId, parentSessionId: "canonical-parent" },
             ]);
-            if (isClaude(provider)) {
+            if (isClaude(provider) || isCodex(provider)) {
               const fresh = await reader.getAgentMappings(f.nativeId());
               const merged = mergeProviderChildAgentMappings(
                 fresh,
@@ -331,7 +331,13 @@ describe.each(providers.filter(supportsNativeChildScenario))(
               () => {},
             );
             expect(index.accepted(parent, "canonical-parent")).toMatchObject([
-              { id: childId, parentSessionId: "canonical-parent" },
+              {
+                id: childId,
+                parentSessionId: "canonical-parent",
+                ...(isClaude(provider) || isCodex(provider)
+                  ? { toolUseId: callId }
+                  : {}),
+              },
             ]);
           } finally {
             await index.close();

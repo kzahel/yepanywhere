@@ -17,6 +17,7 @@ import {
   relationshipResourceKey,
   type RelationshipFact,
   type RelationshipResource,
+  type RelationshipMetadata,
 } from "./SessionRelationshipStore.js";
 
 /** Native addresses are internal. Public projections retain the parent's YA id. */
@@ -41,7 +42,12 @@ export interface ProviderChildSource {
   /** Scope ownership only; unavailable content is not an authoritative empty. */
   ownsNativeScope?(): Promise<boolean>;
   /** Must distinguish failure/unavailable from an accepted empty observation. */
-  observe(signal: AbortSignal): Promise<ProviderChildObservation>;
+  observe(
+    signal: AbortSignal,
+    previousMetadata?: (
+      child: NativeSessionRef,
+    ) => Readonly<RelationshipMetadata> | undefined,
+  ): Promise<ProviderChildObservation>;
   /** Close the native source-version race before publishing profile facts. */
   isCurrent(version: string): Promise<boolean>;
   /** Cheap current activity overlay; never acquires provider storage. */
@@ -50,6 +56,8 @@ export interface ProviderChildSource {
   ): ProviderChildSessionSummary[];
   isRetired?(): boolean;
   onRetire?(listener: () => void): () => void;
+  /** Already-read native metadata can refine facts without another body read. */
+  onMetadataAvailable?(listener: () => void): () => void;
   ownsFileChange?(event: FileChangeEvent): boolean;
   /** Paths such as a database and its WAL may form one logical change stream. */
   fileChangeKey?(event: FileChangeEvent): string;
@@ -217,6 +225,21 @@ export class ProviderChildRelationshipService {
       if (pending.key === key) this.nativeEvents.delete(eventKey);
   }
 
+  private subscribeSource(
+    key: string,
+    source: ProviderChildSource,
+  ): () => void {
+    const retire = source.onRetire?.(() => this.forget(key, source));
+    const metadata = source.onMetadataAvailable?.(() => {
+      const work = this.sources.get(key);
+      if (work?.source === source) this.invalidate(work.native);
+    });
+    return () => {
+      retire?.();
+      metadata?.();
+    };
+  }
+
   /** Register explicit demand; native acquisition begins outside the request. */
   demand(
     native: NativeSessionRef,
@@ -236,7 +259,7 @@ export class ProviderChildRelationshipService {
       if (replace) {
         existing.release?.();
         existing.source = source;
-        existing.release = source.onRetire?.(() => this.forget(key, source));
+        existing.release = this.subscribeSource(key, source);
       }
       existing.staleRetries = 0;
       if (existing.running) {
@@ -266,7 +289,7 @@ export class ProviderChildRelationshipService {
         staleRetries: 0,
       });
       const work = this.sources.get(key)!;
-      work.release = source.onRetire?.(() => this.forget(key, source));
+      work.release = this.subscribeSource(key, source);
     }
     this.schedule();
     return true;
@@ -567,7 +590,36 @@ export class ProviderChildRelationshipService {
   ): Promise<void> {
     const generation = work.generation;
     const previous = this.index.checkpoint(SNAPSHOT_PRODUCER, key);
-    const observation = await source.observe(this.lifetime.signal);
+    const observation = await source.observe(
+      this.lifetime.signal,
+      previous
+        ? (child) => {
+            if (this.retired) return;
+            // Historical enrichment comes from this exact scoped edge. It cannot
+            // supply structural proof or collide through flattened child ids.
+            const parents = this.index.list({
+              resource: this.resource(child),
+              direction: "incoming",
+              type: "provider_child",
+              limit: 2,
+            });
+            if (
+              parents.edges.length !== 1 ||
+              parents.next ||
+              relationshipResourceKey(parents.edges[0]!.source) !== key
+            )
+              return;
+            return this.index
+              .evidence(parents.edges[0]!.id)
+              .find(
+                (e) =>
+                  e.producer === `provider-child/${child.family}` &&
+                  e.sourceKey === this.key(child) &&
+                  e.trust === "provider-observed",
+              )?.metadata;
+          }
+        : undefined,
+    );
     if (this.retired || generation !== work.generation) return;
     if (!(await source.isCurrent(observation.version))) {
       // A different reader may have consumed the catalog's pending invalidation.
@@ -640,8 +692,6 @@ export class ProviderChildRelationshipService {
                 now,
               ),
             );
-          for (const child of batch)
-            if (child.parent) previousParents.push(this.key(child.parent));
           return true;
         });
         if (!committed) return;
@@ -709,6 +759,13 @@ export class ProviderChildRelationshipService {
       )
       .map((edge) => relationshipResourceKey(edge.source));
     const previous = this.index.checkpoint(producer, sourceKey);
+    if (
+      previous?.state === "complete" &&
+      previous.sourceVersion === version &&
+      parentEdges.length === 1 &&
+      relationshipResourceKey(parentEdges[0]!.source) === this.key(parent)
+    )
+      return [];
     const fact: RelationshipFact = {
       type: "provider_child",
       source: this.resource(parent),
@@ -737,7 +794,7 @@ export class ProviderChildRelationshipService {
       progress: { state: "complete", cursor: "{}" },
       replaceSource: true,
     });
-    return previousParents;
+    return [...previousParents, this.key(parent)];
   }
 
   async close(): Promise<void> {

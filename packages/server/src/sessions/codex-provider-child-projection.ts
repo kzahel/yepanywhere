@@ -3,6 +3,7 @@ import { stat } from "node:fs/promises";
 import {
   parseCodexSessionEntry,
   truncateSessionTitle,
+  type CodexSessionEntry,
 } from "@yep-anywhere/shared";
 import {
   SourceVersionedSingleFlight,
@@ -23,6 +24,44 @@ export interface CodexProviderChild {
   id: string;
   toolUseId: string;
   nickname?: string;
+}
+
+/** Current native start items enrich anchors; they never establish parentage. */
+export function parseCodexStartedChild(
+  entry: CodexSessionEntry,
+): CodexProviderChild | undefined {
+  if (entry.type !== "event_msg" || !isRecord(entry.payload)) return;
+  const payload = entry.payload;
+  const activity =
+    payload.type === "item_completed" &&
+    isRecord(payload.item) &&
+    payload.item.type === "SubAgentActivity"
+      ? payload.item
+      : payload.type === "sub_agent_activity"
+        ? payload
+        : null;
+  if (activity?.kind !== "started") return;
+  const toolUseId =
+    stringField(activity, "id") ?? stringField(activity, "event_id");
+  const id = stringField(activity, "agent_thread_id");
+  return toolUseId && id ? { id, toolUseId } : undefined;
+}
+
+// Only recognize an unambiguous native envelope/payload prefix. Unknown field
+// ordering or a long/escaped key falls back to the full parser, never a miss.
+const OUTPUT_CALL_PREFIX =
+  /^\s*\{(?:\s*"(?:timestamp|type|ordinal)"\s*:\s*(?:"(?:[^"\\]|\\.)*"|-?\d+)\s*,)*\s*"payload"\s*:\s*\{\s*"type"\s*:\s*"function_call_output"\s*,\s*"call_id"\s*:\s*("(?:[^"\\]|\\.)*")/;
+export function codexOutputMayMatch(
+  line: string,
+  calls: ReadonlySet<string> | ReadonlyMap<string, unknown>,
+): boolean {
+  const match = OUTPUT_CALL_PREFIX.exec(line.slice(0, 4096));
+  if (!match) return true;
+  try {
+    return calls.has(JSON.parse(match[1]!));
+  } catch {
+    return true;
+  }
 }
 
 export interface CodexProviderChildProjectionBuild {
@@ -65,24 +104,12 @@ class CodexProviderChildProjectionCollector {
     if (!this.acceptsLine(line)) return false;
     const entry = parseCodexSessionEntry(line);
     if (entry?.type === "event_msg" && isRecord(entry.payload)) {
-      const payload = entry.payload;
-      const activity =
-        payload.type === "item_completed" &&
-        isRecord(payload.item) &&
-        payload.item.type === "SubAgentActivity"
-          ? payload.item
-          : payload.type === "sub_agent_activity"
-            ? payload
-            : null;
-      if (activity?.kind !== "started") return true;
-      const callId =
-        stringField(activity, "id") ?? stringField(activity, "event_id");
-      const childId = stringField(activity, "agent_thread_id");
       // v2 tool output deliberately exposes only task_name. The provider's
       // persisted start item carries the native id and original spawn call id.
       // Interactions/completions and unrelated activity are not new children.
-      if (callId && childId && this.launches.has(callId))
-        this.children.set(callId, { id: childId, toolUseId: callId });
+      const child = parseCodexStartedChild(entry);
+      if (child && this.launches.has(child.toolUseId))
+        this.children.set(child.toolUseId, child);
       return true;
     }
     if (entry?.type !== "response_item" || !isRecord(entry.payload))
@@ -139,11 +166,12 @@ class CodexProviderChildProjectionCollector {
       line.includes('"sub_agent_activity"')
     )
       return true;
-    if (!line.includes('"function_call_output"')) return false;
-    for (const callId of this.launches.keys()) {
-      if (line.includes(callId)) return true;
-    }
-    return false;
+    // The parsed call-id lookup is constant work; scanning every launch id
+    // for every output makes long launch-heavy sessions quadratic.
+    return (
+      line.includes('"function_call_output"') &&
+      codexOutputMayMatch(line, this.launches)
+    );
   }
 }
 

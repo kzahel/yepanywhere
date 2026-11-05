@@ -109,7 +109,7 @@ or Codex runtime.
 | Native child path | Qualified evidence | Limit |
 | --- | --- | --- |
 | Claude / Gateway / Ollama | Actual `Agent`, native ids, production child content, SQL publication/reopen | Direct children; Gateway fixture explicitly enables Agent. |
-| Codex / OSS | Actual v2 `collaboration.spawn_agent`, native start correlation and child-owned immediate parent, production content, SQL reopen | Review/internal delegates stay excluded; deeper descendants remain separate qualification. |
+| Codex / OSS | Actual v2 `collaboration.spawn_agent`, native start correlation and child-owned immediate parent, production content and launch mappings, SQL anchor reopen | Review/internal delegates stay excluded; deeper descendants remain separate qualification. |
 | Grok 1.0.70 | Actual `spawn_subagent`, parent tool result, explicit sidecar ids, child's own summary, production content, SQL reopen | Default cwd; cross-cwd/worktree navigation and exclusion remain unqualified. |
 | OpenCode 1.18.9 | Actual `task`, own native database parent/directory, parent continuation id, production content/exclusion, SQL publication/reopen | Direct children; deeper native nesting and unsupported 2.x remain unqualified. |
 | Pi | Transcript-node parent links | Those are not session-child proof. Common YA lineage still applies. |

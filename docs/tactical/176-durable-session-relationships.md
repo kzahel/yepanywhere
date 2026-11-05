@@ -62,6 +62,43 @@ no wire capability and changes no access grants.
 
 ## Progress
 
+- Codex current-native launch mappings and optional SQL anchor enrichment are
+  implemented. The lazy reader shares the already audited started-item
+  interpretation with the direct projection, retaining older result formats.
+  Exact-parent handovers reuse already-read records, verify file proof and
+  join only children whose own native headers prove parentage. Independent
+  structural acquisition remains body-free. Per-child versions and unchanged
+  anchors avoid activity writes; accepted anchors survive source loss/reopen.
+  A real SQL/filesystem case covers bounded detail publication without redemand,
+  copied foreign history, unchanged activity, incomplete/complete start records,
+  prompt exclusion and reopen. Nested merged roots forward only the selected
+  scope handover; restarted readers reuse exact SQL anchor history with no
+  writes. Sibling revisions stay fixed when another anchor changes. A real
+  stream interleaving proves a concurrent append retains lazy mappings, and
+  escaped/noncanonical legacy envelopes retain their full-parser fallback.
+  Actual Codex/Codex OSS cases pass the formerly failing fresh mapping and
+  SQL-reopen anchor assertion; all seven native launch variants pass without
+  inference (10.39 seconds test work / 13.65 total). Opus accepts the final
+  source after fixing active-append failure, oldest-page completeness, sibling
+  rewrites, unchanged-activity work, merged handovers and repeated SQL hints.
+  Eighty-seven focused cases pass with two expected skips (0.77 seconds test
+  work / 1.53 total). All root gates pass: zero lint warnings, format/types and
+  7,044 server / 7,110 client / 952 shared tests. Existing negative-fixture and
+  navigation diagnostic debt stays in its owning gaps.
+  Node 22/24 and Bun probes publish 205 launch anchors from a bounded tail of
+  an 8 MiB-padded parent in 16–21 ms; detail extraction itself takes 2.7–3.5 ms.
+  Complete SQL reads take 6.6–7.1 ms and reopen without the native store takes
+  6.8–8.0 ms. Initial structural acquisition is 41–70 ms. The first restarted
+  source resolves 205 exact SQL hints once; validation and the next acquisition
+  repeat none. Unchanged activity writes nothing. These local diagnostics
+  include automatic host samples, with unavailable Darwin CPU-busy/swap fields;
+  they are not portable ceilings. Node/Bun desktop/phone checks use 2,000 input
+  messages plus 8 MiB padding and return a 41-message tail including a launch.
+  Readable content arrives in 0.83–0.84 seconds; sequential typing stays below
+  27 ms during native child creation and anchor publication. SQL metadata and
+  lazy mappings converge while messages/DOM/draft stay mounted. All four final
+  captures were inspected. No client wire contract or native target changed.
+
 - Retained global collections and lazy agent mappings now consume the shared
   SQL read model. Exact native scopes survive public-id projection, and managed
   control rows can precede the native catalog. Unknown, accepted empty and
@@ -77,8 +114,8 @@ no wire capability and changes no access grants.
   Claude fresh-plus-SQL mapping check and all seven structural native launch
   variants pass without inference (7.88 seconds test work / 9.18 total).
   The actual Codex v2 mapping check exposed a pre-existing missing started-item
-  consumer, recorded in its [gap](../../gaps/codex-v2-agent-mappings-miss-native-start-items.md)
-  for the next slice; this commit does not claim those anchors are qualified.
+  consumer, subsequently fixed and qualified by the coordinated Codex consumer
+  slice above; the retained-collection slice alone did not qualify those anchors.
   Sixty-seven focused filesystem/SQLite/API cases pass in 0.70 seconds test
   work / 2.53 total. Node 22/24 and Bun diagnostics keep exactly 20 child
   lookups for a 20-row response across 100, 1,000 and 5,000 catalog parents,
