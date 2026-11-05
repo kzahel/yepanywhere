@@ -3731,6 +3731,7 @@ export class Supervisor {
                 const nativeId = parseNativeSessionId(result.newSessionId);
                 return {
                   nativeSessionId: nativeId,
+                  copyBoundary: result.copyBoundary,
                   native: nativeSessionRef(
                     "claude",
                     nativeSource.native.storageScope,
@@ -3779,7 +3780,7 @@ export class Supervisor {
         if (saved) {
           if (!fork.native)
             throw new Error("Transcript copy lacks native result evidence");
-          store!.bindNative(fence!, fork.native);
+          store!.bindNative(fence!, fork.native, fork.copyBoundary);
         } else if (fork.native && identities) {
           const adopted = identities.adoptCopiedNative({
             native: fork.native,

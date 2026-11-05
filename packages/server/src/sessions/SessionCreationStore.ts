@@ -1,3 +1,7 @@
+import {
+  isClaudeCopyBoundary,
+  type ClaudeCopyBoundary,
+} from "./claude-copy-boundary.js";
 import type {
   ProviderForkSource,
   ProviderForkBoundary,
@@ -756,19 +760,33 @@ export class SessionCreationStore {
     return row ? this.read(row) : undefined;
   }
   /** Source admission evidence only; neither discovery adoption nor an access grant. */
-  admissionForSession(
-    sessionId: YaSessionId,
-  ): { createdAt: string; deleted: boolean; copy: boolean } | undefined {
+  admissionForSession(sessionId: YaSessionId):
+    | {
+        createdAt: string;
+        deleted: boolean;
+        copy: boolean;
+        copyBoundary?: ClaudeCopyBoundary;
+      }
+    | undefined {
     const row = this.statements.bySession.get<CreationControlRow>(
       parseYaSessionId(sessionId),
     );
-    return row
-      ? {
-          createdAt: row.created_at,
-          deleted: row.deleted === 1,
-          copy: this.readAttempt(row.current_attempt).kind === "copy",
-        }
-      : undefined;
+    if (!row) return undefined;
+    const attempt = this.statements.attempt.get<AttemptRow>(
+      row.current_attempt,
+    )!;
+    const detail = JSON.parse(attempt.detail_json) as {
+      kind?: string;
+      copyBoundary?: unknown;
+    };
+    return {
+      createdAt: row.created_at,
+      deleted: row.deleted === 1,
+      copy: detail.kind === "copy",
+      ...(detail.kind === "copy" && isClaudeCopyBoundary(detail.copyBoundary)
+        ? { copyBoundary: detail.copyBoundary }
+        : {}),
+    };
   }
   assertAttachmentCapacity(bytes: number): void {
     const usage = this.statements.capacity.get<{ attachment_bytes: number }>()!;
@@ -992,16 +1010,21 @@ export class SessionCreationStore {
     failure?: CreationAttempt["failure"],
     generation = fence.generation,
     namespace?: NativeSessionNamespace,
+    copyBoundary?: ClaudeCopyBoundary,
   ): CreationAttempt {
     const previous = this.statements.attempt.get<AttemptRow>(fence.attemptId)!;
     const retained: {
       nativeNamespace?: NativeSessionNamespace;
       controllerPid?: number;
       kind?: "copy";
+      copyBoundary?: ClaudeCopyBoundary;
     } = JSON.parse(previous.detail_json);
     const nativeNamespace = namespace ?? retained.nativeNamespace;
     const detail = JSON.stringify({
         ...(retained.kind === "copy" ? { kind: "copy" } : {}),
+        ...((copyBoundary ?? retained.copyBoundary)
+          ? { copyBoundary: copyBoundary ?? retained.copyBoundary }
+          : {}),
         ...(retained.controllerPid !== undefined
           ? { controllerPid: retained.controllerPid }
           : {}),
@@ -1123,9 +1146,21 @@ export class SessionCreationStore {
   bindNative(
     fence: CreationAttemptFence,
     native: NativeSessionRef,
+    copyBoundary?: ClaudeCopyBoundary,
   ): CreationAttempt {
     return this.transaction(() => {
       const current = this.assertCurrent(fence);
+      if (copyBoundary) {
+        if (
+          current.attempt.kind !== "copy" ||
+          native.family !== "claude" ||
+          !isClaudeCopyBoundary(copyBoundary)
+        )
+          throw new SessionCreationConflict();
+        const old = this.admissionForSession(current.sessionId)?.copyBoundary;
+        if (old && JSON.stringify(old) !== JSON.stringify(copyBoundary))
+          throw new SessionCreationConflict();
+      }
       if (
         !["dispatching", "bound", "uncertain"].includes(current.attempt.state)
       )
@@ -1135,6 +1170,10 @@ export class SessionCreationStore {
         fence,
         current.attempt.state === "uncertain" ? "uncertain" : "bound",
         current.attempt.delivery,
+        undefined,
+        fence.generation,
+        undefined,
+        copyBoundary,
       );
     });
   }

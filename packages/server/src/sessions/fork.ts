@@ -1,3 +1,7 @@
+import {
+  captureClaudeCopyBoundary,
+  type ClaudeCopyBoundary,
+} from "./claude-copy-boundary.js";
 /**
  * Legacy Claude storage cloning. Codex clones use the native fork adapter.
  */
@@ -35,6 +39,7 @@ function assertCloneSessionId(sessionId: string): void {
  * Result of cloning a session.
  */
 export interface CloneResult {
+  copyBoundary?: ClaudeCopyBoundary;
   /** The new session ID */
   newSessionId: string;
   /** Number of JSONL entries copied */
@@ -89,6 +94,8 @@ export async function cloneClaudeSession(
   assertCloneSessionId(targetId);
 
   // Transform each line: update session_id if present
+  let copiedEntries = 0;
+  let copyBoundary: ClaudeCopyBoundary | undefined;
   const transformedLines = lines.map((line) => {
     try {
       const entry = JSON.parse(line) as Record<string, unknown>;
@@ -98,6 +105,14 @@ export async function cloneClaudeSession(
         entry.session_id = targetId;
       }
 
+      const tip = captureClaudeCopyBoundary([entry]);
+      if (tip)
+        copyBoundary = {
+          kind: "claude-rows",
+          entries: copiedEntries + 1,
+          anchor: { index: copiedEntries, uuid: tip.anchor.uuid },
+        };
+      copiedEntries++;
       return JSON.stringify(entry);
     } catch {
       // Keep malformed lines as-is (shouldn't happen, but be safe)
@@ -119,8 +134,14 @@ export async function cloneClaudeSession(
     await target.close();
   }
 
+  if (copyBoundary) {
+    copyBoundary.entries = copiedEntries;
+    if (copiedEntries - copyBoundary.anchor.index > 256)
+      copyBoundary = undefined;
+  }
   return {
     newSessionId: targetId,
     entries: lines.length,
+    copyBoundary,
   };
 }

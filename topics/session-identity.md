@@ -22,7 +22,9 @@ Creation status and admitted-source birth lookups select compact control fields;
 they do not return saved prompt or context JSON across the SQLite boundary.
 Explicit saved-request recovery still fetches the complete operation through its
 existing id lookup. Both paths reuse the existing prepared statements and keep
-the profile statement ceiling unchanged. Admission birth is source evidence,
+the profile statement ceiling unchanged. New qualified Claude copy binding also saves a private copied-row fence in
+the existing attempt detail. Compact admission reads return that fence without
+loading saved input; public startup projections omit it. Admission birth is source evidence,
 not native-history adoption or an access grant; copy intent remains explicit.
 Admission also seeds private confinement provenance before native effects. Any
 `project-write` selection makes it permanently true, including after a later

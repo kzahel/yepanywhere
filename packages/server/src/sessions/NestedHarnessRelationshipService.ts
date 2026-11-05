@@ -1,5 +1,10 @@
 import {
+  matchesClaudeCopyBoundary,
+  type ClaudeCopyBoundary,
+} from "./claude-copy-boundary.js";
+import {
   collectHarnessHistory,
+  emptyHarnessHistory,
   encodeHarnessHistory,
   restoreHarnessHistory,
   isOlderHarnessHistory,
@@ -130,6 +135,7 @@ export class NestedHarnessRelationshipService
           createdAt: string;
           deleted: boolean;
           copy?: boolean;
+          copyBoundary?: ClaudeCopyBoundary;
           confined?: boolean;
         }
       | undefined,
@@ -667,7 +673,12 @@ export class NestedHarnessRelationshipService
       !rows ||
       !admission ||
       admission.deleted ||
-      admission.copy ||
+      (admission.copy &&
+        !matchesClaudeCopyBoundary(
+          admission.copyBoundary,
+          rows,
+          view.committed,
+        )) ||
       admission.confined !== false ||
       !Number.isFinite(Date.parse(admission.createdAt)) ||
       source?.family !== "claude"
@@ -694,6 +705,19 @@ export class NestedHarnessRelationshipService
         view.version,
       );
       view.revision = checkpoint?.revision ?? null;
+    }
+    if (
+      admission.copy &&
+      admission.copyBoundary &&
+      view.state.entry < admission.copyBoundary.entries
+    ) {
+      // This floor is revalidated against the immutable native copy witness on
+      // every view, including after cursor reset/replacement. Never pair across it.
+      view.state = {
+        ...emptyHarnessHistory(),
+        entry: admission.copyBoundary.entries,
+        needsCommit: true,
+      };
     }
     if (
       view.state.retryAfter &&

@@ -58,3 +58,17 @@ The subsequent full run after final peer/OIDC source changes passed all 7,062
 client tests in 179.55 seconds and all 6,680 server tests in 162.69 seconds. No
 Vite fixture or deadline was changed. This clean run does not establish the
 cause of the earlier timeout.
+
+
+## 2026-11-05 relationship qualification
+
+A full macOS Node 24.22.1 run reproduced the 5,000 ms explicit-reload timeout;
+the following notification case then failed its fetch-count expectation.
+7,114 other client cases passed. Server/native validation commands were also
+running; that observation does not establish the cause. The same three-case
+file passed separately in 1.08 seconds (784 ms of test execution).
+
+A later full workspace run passed all 7,116 client cases in 122.06 seconds and
+all 7,092 server cases in 147.04 seconds. No Vite fixture, browser assertion,
+retry count or deadline was changed. This remains an unresolved finding; the
+clean run does not prove why the initial timeout or subsequent count occurred.

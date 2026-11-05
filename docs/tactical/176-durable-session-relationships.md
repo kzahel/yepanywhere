@@ -1324,3 +1324,50 @@ Published Bash source `33059ad06` passes automatic provider run 42086495032
 Linux, but macOS job 127450094472 is never acquired (zero steps/no log, explicit
 GitHub arm64 capacity annotations). It does not test the one-worker hypothesis
 or supersede the earlier executed macOS failures.
+
+
+### Copy-aware historical Claude acquisition
+
+New Claude SDK forks and full-file clones capture the copied parsed-row count
+and a bounded stable native UUID while the existing writer owns those rows.
+Common creation commits that private fence with the native binding, preserving
+it across attempt transitions and SQL reopen. No migration, extra prepared
+statement, public startup field, capability or parent-file read is introduced.
+Historical acquisition revalidates the fence against every already-authorized
+full snapshot and skips the entire copied prefix before pairing commands and
+results. Future-dated inherited commands cannot become launches by the copy;
+resetting a derived extraction cursor cannot weaken the cutoff. An absent,
+compacted or mismatched fence remains unknown. Live observations remain
+independent, and accepted SQL facts survive native loss.
+
+The two actual native copy-writer scenarios pass (SDK fork and full-file clone),
+including new child execution, SQL-only index loss, API generation replacement
+and historical restoration through ordinary detail. Their inherited rows are
+also withheld by existing source-id/birth predicates; the future-dated
+SQL/filesystem regression independently qualifies the floor, including after
+lost scan progress. Forty focused SQL/filesystem cases pass; the post-copy
+regression fails against the previous historical owner. Opus accepted the
+implementation with no blockers.
+
+All 69 native provider scenarios pass at two workers (82.02 wall / 149.62
+aggregate test seconds). All ten app scenarios pass at two workers (48.73 wall /
+85.30 aggregate test seconds), including both copy writers. The expanded native
+pair adds two scripted model requests per case, with no additional test/app
+startup. Guards remain unchanged. A broader run initially found that host
+reattachment preceded HTTP listener readiness; the new copy check now retains
+its generation fence and waits for its actual authorized detail read. That
+failing run remains evidence, not a passing qualification.
+
+Root lint, format, types and tests pass: 7,092 server / 7,116 client / 979 shared /
+139 relay / 45 push-broker cases; server duration 147.04 seconds. The initial
+root run reproduced the existing Vite reload timeout and fetch-spy count finding;
+the gap retains it, and a later clean run does not establish its cause. A small
+owned-profile probe under Node 22.23.3, Node 24.22.1 and Bun 1.3.14 qualifies
+private copy admission/binding, unpaired progress across SQL reopen, final
+result handoff, unchanged-view no-write, public omission and accepted facts
+after target loss. It uses constructed rows; actual writer qualification comes
+from the native pair. No new browser/display contract is added.
+
+Hosted acceptance for this new source remains separate. Older copies, legacy
+adoption, automatic corpus traversal and other parent harness families remain
+unqualified; this does not complete the full relationship design.

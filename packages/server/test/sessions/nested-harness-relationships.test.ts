@@ -1,3 +1,7 @@
+import {
+  captureClaudeCopyBoundary,
+  type ClaudeCopyBoundary,
+} from "../../src/sessions/claude-copy-boundary.js";
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
@@ -75,6 +79,7 @@ async function fixture(history = false) {
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     deleted: false,
     copy: false,
+    copyBoundary: undefined as ClaudeCopyBoundary | undefined,
     confined: false as boolean | undefined,
   };
   const admissionReads = vi.fn(() => admission);
@@ -1004,5 +1009,84 @@ it("rebuilds a corrupt private scan cursor without losing independently accepted
       )?.state,
     ).toBe("complete"),
   );
+  expect(f.errors).toEqual([]);
+});
+
+it("indexes only post-copy pairs across reopen, cursor reset and a future-dated inherited prefix", async () => {
+  const f = await fixture(true),
+    inherited = randomUUID(),
+    fresh = randomUUID();
+  await Promise.all(
+    [inherited, fresh].map((id) =>
+      writeFile(join(f.scope, id + ".jsonl"), f.header(id)),
+    ),
+  );
+  // Deliberately future-date inherited commands: birth timestamps cannot be a copy fence.
+  const prefix = historicalRows(
+    f,
+    [inherited],
+    new Date(Date.now() + 86400000).toISOString(),
+  );
+  f.admission.copy = true;
+  f.admission.copyBoundary = captureClaudeCopyBoundary(prefix);
+  const suffix = historicalRows(f, [fresh]).map((row) => ({
+    ...row,
+    uuid: "fresh-" + ("uuid" in row ? row.uuid : ""),
+    message:
+      "message" in row && row.message
+        ? {
+            ...row.message,
+            content: Array.isArray(row.message.content)
+              ? row.message.content.map((block) => ({
+                  ...block,
+                  ...(block.type === "tool_use" ? { id: "fresh-call" } : {}),
+                  ...(block.type === "tool_result"
+                    ? { tool_use_id: "fresh-call" }
+                    : {}),
+                }))
+              : row.message.content,
+          }
+        : undefined,
+  })) as ClaudeSessionEntry[];
+  const rows = [...prefix, ...suffix];
+  // A window lacking the original fence cannot qualify merely by containing new-looking rows.
+  f.first.observeTranscript(f.context, suffix, suffix.length);
+  await turn();
+  await turn();
+  expect(f.edges()).toEqual([]);
+  expect(
+    f.writer.index.checkpoint(
+      "nested-harness-history-scan-v1",
+      f.context.sessionId,
+    ),
+  ).toBeNull();
+  f.first.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() => expect(f.edges()).toHaveLength(1));
+  expect(f.edges()[0]!.target).toMatchObject({ native: { id: fresh } });
+  await f.first.close();
+  const next = f.service();
+  // Losing derived scan progress must reset behind the immutable copy floor.
+  f.sql.exec(
+    "DELETE FROM session_relationship_checkpoints WHERE producer = 'nested-harness-history-scan-v1'",
+  );
+  next.observeTranscript(f.context, rows, rows.length);
+  await vi.waitFor(() =>
+    expect(
+      f.writer.index.checkpoint(
+        "nested-harness-history-scan-v1",
+        f.context.sessionId,
+      )?.state,
+    ).toBe("complete"),
+  );
+  expect(f.edges()).toHaveLength(1);
+  const changed = rows.map((row, i) =>
+    i === f.admission.copyBoundary!.anchor.index
+      ? { ...row, uuid: "replaced-copy-fence" }
+      : row,
+  ) as ClaudeSessionEntry[];
+  next.observeTranscript(f.context, changed, changed.length);
+  await turn();
+  await turn();
+  expect(f.edges()).toHaveLength(1); // Accepted facts survive loss of their native prefix.
   expect(f.errors).toEqual([]);
 });

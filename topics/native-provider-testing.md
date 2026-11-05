@@ -104,8 +104,18 @@ scripted endpoint. It checks pending SQL before replacing the API, reattaches
 the same native process, then verifies both directions of the command-evidence
 edge. Both the admin restart route and direct wrapper SIGHUP preserve that
 pending correlation; real process completion remains terminal. A real second invocation of the already-used id fails, with no added
-observation. Forking copies both commands but creates no fork launch edge;
-accepted history survives child deletion and another API replacement. Exact
+observation. The admin-route case uses the native SDK fork; the wrapper-signal
+case uses YA's full-file Claude clone. Both keep the original commands without
+attributing their inherited launches to the copy. Each then runs one new named
+child from the copy. Removing only that launch's derived graph rows and scan
+progress, replacing the API and reading ordinary detail restores exactly the
+new copy launch from native command/result rows and the saved copy fence.
+Inherited rows in these native cases are also withheld by the existing
+source-id/birth predicates; the future-dated SQL/filesystem regression separately
+qualifies the copy floor and its reapplication after lost scan progress.
+The replacement is fenced by the worker's changed attached-server generation,
+not a version reply that the retiring API can still answer. Accepted history
+survives child deletion and another API replacement. Exact
 post-teardown dispatch counts and endpoint failure checks remain enforced.
 This is live scoped acquisition, not historical backfill or background-job
 qualification. It introduces no public relationship response fields.

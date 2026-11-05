@@ -1,3 +1,4 @@
+import type { ClaudeCopyBoundary } from "../../sessions/claude-copy-boundary.js";
 import type { DesktopControlOrigin } from "../../desktop/machine-control.js";
 import {
   nativeSessionFamily,
@@ -101,6 +102,8 @@ export interface ProviderForkOptions {
 }
 
 export interface ProviderForkResult {
+  /** Private copy provenance; never inferred from the source cutoff or timestamps. */
+  copyBoundary?: ClaudeCopyBoundary;
   /** Native child allocation; Supervisor binds it to the admitted public identity. */
   nativeSessionId: NativeSessionId;
   filePath?: string;

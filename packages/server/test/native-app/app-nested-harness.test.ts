@@ -82,7 +82,7 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "native named nested harness evidence",
   () => {
     it.for(["admin-route", "wrapper-signal"] as const)(
-      "preserves named launch evidence across %s replacement and rejects copied fork commands",
+      "preserves named launch evidence across %s replacement and indexes only new copy commands",
       {
         timeout: 40_000,
       },
@@ -356,9 +356,11 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         const childRows = await rows(childId, original.native!.storageScope);
         expect(childRows.some((row) => row.sessionId === childId)).toBe(true);
         expect(childRows.some((row) => row.isSidechain === true)).toBe(false);
+        // Exercise both actual copy writers without another app/native startup.
+        const fullClone = replacement === "wrapper-signal";
         const fork = await f.api(
-          `/projects/${parent.projectId}/sessions/${parent.sessionId}/fork`,
-          { forkKind: "clone-latest-complete" },
+          `/projects/${parent.projectId}/sessions/${parent.sessionId}/${fullClone ? "clone" : "fork"}`,
+          fullClone ? {} : { forkKind: "clone-latest-complete" },
         );
         const copied = await identity(fork.sessionId);
         const copiedCommands = commandRows(
@@ -367,10 +369,17 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         expect(copiedCommands).toHaveLength(2);
         for (let index = 0; index < originalCommands.length; index++) {
           expect(originalCommands[index]!.sessionId).toBe(original.native!.id);
-          expect(copiedCommands[index]!.sessionId).toBe(copied.native!.id);
-          expect(copiedCommands[index]!.uuid).not.toBe(
-            originalCommands[index]!.uuid,
+          expect(copiedCommands[index]!.sessionId).toBe(
+            fullClone ? original.native!.id : copied.native!.id,
           );
+          if (fullClone)
+            expect(copiedCommands[index]!.uuid).toBe(
+              originalCommands[index]!.uuid,
+            );
+          else
+            expect(copiedCommands[index]!.uuid).not.toBe(
+              originalCommands[index]!.uuid,
+            );
           expect(copiedCommands[index]!.timestamp).toBe(
             originalCommands[index]!.timestamp,
           );
@@ -390,7 +399,21 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         expect(JSON.stringify(forkReply.body)).toContain(
           "NESTED_FORK_CONTINUE_ONLY",
         );
-        forkReply.finish("NESTED_FORK_DONE");
+        const freshChildId = randomUUID();
+        const freshCommand = command
+          .replaceAll(childId, freshChildId)
+          .replace("NESTED_HARNESS_CHILD_INITIAL", "NESTED_FORK_CHILD_INITIAL");
+        forkReply.tool("Bash", { command: freshCommand, timeout: 20000 });
+        const freshChild = await f.model.next();
+        expect(JSON.stringify(freshChild.body)).toContain(
+          "NESTED_FORK_CHILD_INITIAL",
+        );
+        freshChild.finish("NESTED_FORK_CHILD_DONE");
+        const freshContinuation = await f.model.next();
+        expect(JSON.stringify(freshContinuation.body)).toContain(
+          "NESTED_FORK_CHILD_DONE",
+        );
+        freshContinuation.finish("NESTED_FORK_DONE");
         await forkConnection.wait("NESTED_FORK_DONE");
         await forkConnection.wait('"type":"result"');
         await f.api(
@@ -448,8 +471,91 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         const forkGraph = await inspect(fork.sessionId);
         expect(forkGraph).not.toBe(false);
         if (!forkGraph) throw Error("Fork identity unavailable");
-        expect(forkGraph.edges).toEqual([]);
+        expect(forkGraph.edges).toHaveLength(1);
+        expect(forkGraph.edges[0]!.target).toMatchObject({
+          kind: "native",
+          native: { id: freshChildId },
+        });
         expect(forkGraph.incoming).toEqual(accepted.edges);
+        // Keep the actual copy and new native command/result, but remove the
+        // derived edge and scan progress. After API replacement, only the
+        // ordinary historical read can restore this new launch in the copy.
+        const copiedIndex = loadSqliteDriver()!.open(
+          join(f.root, "home", "ya", "discovery.sqlite"),
+        );
+        try {
+          await removeDerivedIndex(
+            copiedIndex,
+            (run) => {
+              run(
+                "DELETE FROM session_relationship_evidence WHERE edge_id = ?",
+                forkGraph.edges[0]!.id,
+              );
+              expect(
+                run(
+                  "DELETE FROM session_relationship_edges WHERE id = ?",
+                  forkGraph.edges[0]!.id,
+                ).changes,
+              ).toBe(1);
+              run(
+                "DELETE FROM session_relationship_checkpoints WHERE producer = 'nested-harness-history-scan-v1' AND source_key = ?",
+                fork.sessionId,
+              );
+              for (const key of [
+                [fork.sessionId, `call_${forkReply.id}`],
+                [fork.sessionId, `call_${forkReply.id}`, "history"],
+              ])
+                run(
+                  "DELETE FROM session_relationship_checkpoints WHERE producer = 'nested-harness-complete-v1' AND source_key = ?",
+                  JSON.stringify(key),
+                );
+            },
+            () => f.api("/version"),
+          );
+        } finally {
+          copiedIndex.close();
+        }
+        const copyWorker = (await f.inventory()).find(
+          (w) => w.providerSessionId === copied.native!.id,
+        );
+        if (!copyWorker) throw Error("Native copy owner missing");
+        await f.api("/server/restart", {});
+        await appBarrier(async () => {
+          const next = (await f.inventory()).find(
+            (w) => w.runtimeId === copyWorker.runtimeId,
+          );
+          return next?.attachedServerGeneration &&
+            next.attachedServerGeneration !==
+              copyWorker.attachedServerGeneration
+            ? next
+            : false;
+        }, "copy history replacement generation");
+        await appBarrier(
+          async () =>
+            await f.api(
+              `/projects/${parent.projectId}/sessions/${fork.sessionId}?tailCompactions=2&tailTurns=20`,
+            ),
+          "copy historical detail after reattachment",
+        );
+        const restoredCopy = await appBarrier(async () => {
+          const view = await inspect(fork.sessionId);
+          return view?.historyScan?.state === "complete" &&
+            view.evidence.some(
+              (e) => e.producer === "nested-harness-history-v1",
+            )
+            ? view
+            : false;
+        }, "post-copy historical command acquisition");
+        expect(restoredCopy.edges).toEqual(forkGraph.edges);
+        expect(restoredCopy.evidence).toEqual([
+          expect.objectContaining({
+            producer: "nested-harness-history-v1",
+            metadata: {
+              toolUseId: `call_${forkReply.id}`,
+              sourceTimestamp: expect.any(String),
+            },
+          }),
+        ]);
         // Historical relationship facts survive native loss and another API.
         await unlink(join(original.native!.storageScope, childId + ".jsonl"));
         await f.api("/server/restart", {});
@@ -461,7 +567,7 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         expect(historical?.edges).toEqual(accepted.edges);
         await f.close();
         expect(f.model.failures).toEqual([]);
-        expect(f.model.requests).toHaveLength(5);
+        expect(f.model.requests).toHaveLength(7);
       },
     );
   },

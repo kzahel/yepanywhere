@@ -1,3 +1,7 @@
+import {
+  captureClaudeCopyBoundary,
+  type ClaudeCopyBoundary,
+} from "../../sessions/claude-copy-boundary.js";
 import { claudeCwdProjectDirectory } from "../../projects/claude-project-directory.js";
 import { nativeStorageScope } from "./native-storage-scope.js";
 import {
@@ -299,7 +303,10 @@ function assertClaudeForkSessionId(sessionId: string): void {
   }
 }
 
-function createClaudeForkStore(directory: FileHandle | string): SessionStore {
+function createClaudeForkStore(
+  directory: FileHandle | string,
+  copied?: (boundary: ClaudeCopyBoundary | undefined) => void,
+): SessionStore {
   const directoryPath =
     typeof directory === "string" ? directory : `/proc/self/fd/${directory.fd}`;
   return {
@@ -359,6 +366,7 @@ function createClaudeForkStore(directory: FileHandle | string): SessionStore {
           `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`,
           "utf8",
         );
+        copied?.(captureClaudeCopyBoundary(entries));
       } finally {
         await file.close();
       }
@@ -2225,6 +2233,10 @@ export class ClaudeProvider implements AgentProvider {
     if (options.boundary && options.boundary.kind !== "message") {
       throw new Error("Claude fork requires a message boundary");
     }
+    let copyBoundary: ClaudeCopyBoundary | undefined;
+    const copied = (boundary: ClaudeCopyBoundary | undefined) => {
+      copyBoundary = boundary;
+    };
     const upToMessageId =
       options.boundary?.kind === "message"
         ? options.boundary.messageId
@@ -2243,6 +2255,7 @@ export class ClaudeProvider implements AgentProvider {
           ? {
               sessionStore: createClaudeForkStore(
                 options.nativeSource.native.storageScope,
+                copied,
               ),
             }
           : {}),
@@ -2251,6 +2264,7 @@ export class ClaudeProvider implements AgentProvider {
       return options.nativeSource
         ? {
             nativeSessionId: nativeChildId,
+            ...(copyBoundary ? { copyBoundary } : {}),
             filePath: join(
               options.nativeSource.native.storageScope,
               nativeChildId + ".jsonl",
@@ -2279,11 +2293,12 @@ export class ClaudeProvider implements AgentProvider {
         dir: options.cwd,
         upToMessageId,
         title: options.title,
-        sessionStore: createClaudeForkStore(directory),
+        sessionStore: createClaudeForkStore(directory, copied),
       });
       const nativeChildId = parseNativeSessionId(result.sessionId);
       return {
         nativeSessionId: nativeChildId,
+        ...(copyBoundary ? { copyBoundary } : {}),
         filePath: join(
           options.sessionSandbox.transcriptDir,
           nativeChildId + ".jsonl",

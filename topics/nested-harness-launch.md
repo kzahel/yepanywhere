@@ -130,7 +130,7 @@ compact source context, and waits for no historical discovery. It starts no
 parent-file read, summary-cache invalidation or corpus walk. Public-share
 capture does not request this acquisition.
 
-Only a server-admitted, non-copy source with its exact native binding and an
+Only a server-admitted source with its exact native binding and an
 explicit persisted sandbox level of `none` plus known never-confined admission
 provenance qualifies. A private monotonic `sandboxEverConfined` marker starts at
 admission and becomes true on any `project-write` selection; switching back to
@@ -138,9 +138,25 @@ admission and becomes true on any `project-write` selection; switching back to
 withheld, so a downgrade cannot re-qualify confined-era rows.
 The admission owner supplies its birth time without loading the saved prompt or
 context. Rows must belong to that native source and follow its admitted birth;
-sidechains, replay and synthetic rows are withheld. Copied/legacy histories lack
-a reliable source cutoff and remain unknown. Live observations still cover new
-commands in those sessions. A successful paired foreground Bash result and the
+sidechains, replay and synthetic rows are withheld.
+
+New YA Claude forks and full clones save a private native copy fence in the
+existing creation attempt's SQLite detail, in the same transaction as the
+child's native identity binding. The adapter captures the actual copied parsed
+row count and a stable UUID within its final 256 rows while writing the copy;
+there is no additional file read. This fence is separate from the requested
+source fork cutoff, which can have remapped UUIDs. It is not a public creation
+field, a new graph edge or an access grant. Subsequent creation state changes
+preserve it, and a conflicting replacement is refused.
+
+Historical extraction of a copy requires that exact UUID at its saved index
+and the complete committed copied prefix. Every view revalidates the fence in
+constant work. Extraction and pending-pair matching start after the entire
+copied prefix, even when inherited timestamps are later than the copy's birth.
+Losing a derived scan cursor cannot bypass this floor. Tail windows, compacted
+or replaced prefixes lacking the fence, old copies without a saved fence, and
+legacy/adopted histories remain unknown. Accepted facts survive native loss.
+Live observations still cover new commands in those sessions. A successful paired foreground Bash result and the
 existing destination proof support command evidence, never creation authority.
 
 Each CPU turn examines at most 256 records/blocks and 256K command characters.

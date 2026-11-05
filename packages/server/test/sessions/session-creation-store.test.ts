@@ -964,3 +964,74 @@ it("persists confinement provenance across a project-write to none transition wi
     reopened.metadata.getMetadata("legacy-source")?.sandboxEverConfined,
   ).toBeUndefined();
 });
+
+it("commits immutable private copy provenance with native binding and retains it across state changes and SQL reopen", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ya-copy-boundary-"));
+  roots.push(root);
+  const path = join(root, "profile.sqlite"),
+    f = await fixture(path);
+  const native = nativeSessionRef(
+    "claude",
+    "/native/project",
+    parseNativeSessionId("copy-native"),
+  );
+  const saved = f.store.admit({
+    requestId: "durable-copy-fence",
+    context,
+    request: {
+      ...request,
+      intent: "copy",
+      message: "",
+      copy: {
+        kind: "fork",
+        sourceSessionId: "source-session",
+        source: {
+          native: { ...native, id: parseNativeSessionId("source-native") },
+          filePath: "/native/project/source-native.jsonl",
+          projectId: request.projectId,
+        },
+      },
+    },
+  });
+  const fence = f.store.beginDispatch(saved.attempt, native);
+  const boundary = {
+    kind: "claude-rows" as const,
+    entries: 4,
+    anchor: { index: 2, uuid: "copied-tip" },
+  };
+  const transaction = f.database.transaction.bind(f.database);
+  vi.spyOn(f.database, "transaction").mockImplementationOnce((operation) =>
+    transaction(() => {
+      operation();
+      throw Error("Owned copy commit failure");
+    }),
+  );
+  expect(() => f.store.bindNative(fence, native, boundary)).toThrow(
+    "Owned copy commit failure",
+  );
+  expect(
+    f.store.admissionForSession(saved.sessionId)?.copyBoundary,
+  ).toBeUndefined();
+  expect(f.metadata.identities.resolveYa(saved.sessionId)?.native).toBeNull();
+  f.store.bindNative(fence, native, boundary);
+  f.store.bindNative(fence, native, boundary); // Idempotent acknowledgement.
+  expect(() =>
+    f.store.bindNative(fence, native, { ...boundary, entries: 5 }),
+  ).toThrow(SessionCreationConflict);
+  f.store.markUncertain(fence);
+  expect(f.store.admissionForSession(saved.sessionId)?.copyBoundary).toEqual(
+    boundary,
+  );
+  expect(
+    JSON.stringify(f.store.statusForSession(saved.sessionId)),
+  ).not.toContain("copied-tip");
+  f.database.close();
+  databases.splice(databases.indexOf(f.database), 1);
+  const reopened = await fixture(path);
+  expect(
+    reopened.store.admissionForSession(saved.sessionId)?.copyBoundary,
+  ).toEqual(boundary);
+  expect(
+    JSON.stringify(reopened.store.getForSession(saved.sessionId)),
+  ).not.toContain("copied-tip");
+});
