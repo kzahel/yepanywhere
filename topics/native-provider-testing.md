@@ -801,3 +801,19 @@ and three browser cases, but its three-CPU M1 macOS job exhausts seven app-case
 budgets before the browser step. The [hosted macOS gap](../gaps/hosted-macos-native-app-case-timeouts.md)
 retains readiness phases, capacity and the pending one-worker control. No full
 macOS or combined matrix acceptance is claimed for that source.
+
+
+The existing Codex native-child scenario includes an actual child tool command.
+Its marker must remain in native child persistence and never appear in the
+parent Process stream. This qualifies the [thread ownership boundary](provider-child-sessions.md#codex-live-notification-ownership)
+without inventing parent markers or dropping native child history. The new
+assertion fails against the previous adapter and passes with the root-thread
+filter; it adds one scripted child continuation and no additional CLI startup.
+
+
+The Bash presentation slice `33059ad06` passes automatic provider run
+42086495032 (all 69 cases); its app/browser matrix is not thereby qualified.
+The same-source `06c549a79` one-worker control 42085703995 passes Linux, while
+macOS is never acquired by a runner (zero steps, no log; capacity annotation).
+It supplies no new macOS test result. The original executed two-worker timeouts
+and the broader qualification limit remain in the hosted macOS gap.

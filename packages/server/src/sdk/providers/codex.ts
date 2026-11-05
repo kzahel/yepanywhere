@@ -613,6 +613,18 @@ function classifyCodexTurnError(
   return null;
 }
 
+function getCodexNotificationThreadId(
+  notification: JsonRpcNotification,
+): string | null {
+  if (!notification.params || typeof notification.params !== "object")
+    return null;
+  const params = notification.params as Record<string, unknown>;
+  if (typeof params.threadId === "string") return params.threadId;
+  if (notification.method !== "thread/started") return null;
+  const thread = params.thread as { id?: unknown } | null | undefined;
+  return typeof thread?.id === "string" ? thread.id : null;
+}
+
 function getCodexNotificationTurnId(
   notification: JsonRpcNotification,
   threadId: string,
@@ -3504,6 +3516,16 @@ export class CodexProvider implements AgentProvider {
           if (
             provider.shouldSuppressLiveDeltaNotification(notification, options)
           ) {
+            continue;
+          }
+          const observedThreadId = getCodexNotificationThreadId(notification);
+          if (
+            observedThreadId !== null &&
+            observedThreadId !== runtimeState.threadId
+          ) {
+            // Native subagents share this transport. Keep their raw diagnostics,
+            // but never treat their tools, usage or completion as the parent's.
+            logRawNotification(notification);
             continue;
           }
           const notificationReceipt =

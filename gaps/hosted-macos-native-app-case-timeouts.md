@@ -17,10 +17,13 @@ CPU busy and swap measurements are unavailable. These sparse samples do not
 establish the cause of contention or attribute a product performance regression.
 Cold whole-app startup is distinct from a warm session-detail request.
 
-A one-worker dispatch of the same published source is a diagnostic control,
-with all limits/assertions unchanged. Record its source, capacity and phases;
-a pass alone would not erase the two-worker failure or establish a sustained
-speedup. Attribute cold startup/replacement, compare prior qualified capacity,
+The one-worker control, run 42085703995 at the same `06c549a79` source,
+passes Linux but supplies no macOS timing evidence. macOS job 127450094472
+was cancelled with zero steps and no log: GitHub reports that no hosted runner
+acquired it after multiple attempts and identifies macOS arm64 capacity
+constraints. This is not a one-worker test failure or acceptance. The original
+two-worker case timeouts remain. Limits/assertions stayed unchanged; a future
+pass alone would not erase those failures or establish a sustained speedup. Attribute cold startup/replacement, compare prior qualified capacity,
 and choose measured budgets or a qualified capacity/worker setting before
 claiming macOS acceptance. Do not weaken the 100 ms typing limit or rerun only
 to manufacture a green result. Owning evidence/limits belong in

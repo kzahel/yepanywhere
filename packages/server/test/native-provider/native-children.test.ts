@@ -11,6 +11,7 @@ import { mergeProviderChildAgentMappings } from "../../src/sessions/provider-chi
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { loadSqliteDriver } from "../../src/storage/sqlite.js";
 import { afterEach, describe, expect, it } from "vitest";
+import { readOwnedFile } from "./actions.js";
 import { nativeFixture } from "./fixture.js";
 import { historyReader, findNativeFile } from "./history.js";
 import { providers } from "./selection.js";
@@ -105,7 +106,13 @@ describe.each(providers.filter(supportsNativeChildScenario))(
           "CHILD_RELATIONSHIP_INPUT",
         );
         expect(JSON.stringify(parent.body)).toContain("/root/owned_child");
-        child.finish("CHILD_RELATIONSHIP_REPLY");
+        readOwnedFile(provider, f.project, child);
+        const childAfterTool = await f.model.next();
+        expect(thread(childAfterTool.body)).not.toBe(rootKey);
+        expect(JSON.stringify(childAfterTool.body)).toContain(
+          "OWNED_TOOL_CONTENT",
+        );
+        childAfterTool.finish("CHILD_RELATIONSHIP_REPLY");
         parent.tool("wait_agent", { timeout_ms: 10000 }, "collaboration");
         const afterWait = await f.model.next();
         expect(JSON.stringify(afterWait.body)).toContain(
@@ -145,6 +152,18 @@ describe.each(providers.filter(supportsNativeChildScenario))(
         parent.finish("PARENT_RELATIONSHIP_DONE");
       }
       await f.idle();
+      if (isCodex(provider)) {
+        // Child tool notifications share the connection, never parent ownership.
+        expect(JSON.stringify(f.events)).not.toContain("OWNED_TOOL_CONTENT");
+        const parentTools = f.events
+          .flatMap((message) =>
+            Array.isArray(message.message?.content)
+              ? message.message.content
+              : [],
+          )
+          .filter((block) => block.type === "tool_use");
+        expect(JSON.stringify(parentTools)).not.toContain("notes.txt");
+      }
       await f.stop();
       const rows =
         provider === "grok" || provider === "opencode"
@@ -160,6 +179,7 @@ describe.each(providers.filter(supportsNativeChildScenario))(
           true,
         );
       } else if (isCodex(provider)) {
+        expect(JSON.stringify(rows)).toContain("OWNED_TOOL_CONTENT");
         childId =
           rows.find(
             (r) =>

@@ -1277,3 +1277,50 @@ step does not run. The [macOS gap](../../gaps/hosted-macos-native-app-case-timeo
 records readiness at 12.909–20.585 seconds, sparse host-pressure evidence and
 a one-worker control at the same source with all limits intact. Provider or
 Linux acceptance alone does not qualify macOS. The full plan remains active.
+
+### Isolate native child notifications before parent interpretation
+
+A current-native Codex child tool probe proves that foreign-thread command,
+usage and completion frames arrive on the parent's app-server connection.
+Before this repair, the adapter normalized a child's command as parent SDK
+messages, with parent session id and no `parent_tool_use_id`. Enabling another
+harness producer on those frames would misattribute its source.
+
+The active-turn owner now withholds explicit foreign-thread frames before
+resynchronization, usage/background updates and normalization. Raw diagnostics
+remain available and global notifications remain valid. The existing Codex
+child scenario executes a real child command and requires native child
+persistence plus absence from parent events, while retaining child header/SQL
+reopen and parent wait/completion checks. It fails before the change and passes
+after it without an additional native startup. Full checks and independent
+review qualify this provider slice before publication.
+
+This does not enable cross-family harness acquisition. A Codex source store is
+not its nested Claude target store. Neither the API viewer root nor the outer
+provider environment alone proves the effective shell/CLI profile after login
+and BASH_ENV processing. Such targets still need execution-owned scope proof
+or the existing trusted YA/v0 creation receipt; a matching bare native id is
+not enough. The typed graph already distinguishes managed creation from native
+delegation and weaker command evidence. Existing v0 two-by-two creation
+qualification remains the strong structured launch path. Public graph adapter
+approval and remaining consumers/acquisition keep the overall plan active.
+
+
+Local provider qualification for the thread boundary passes all 69 native
+cases at two workers (71.94 seconds wall /129.87 aggregate work), ten app cases
+at two workers (57.42 /95.44) and all three browser cases (55.0 seconds).
+The initial full workspace run instead hits the unrelated artifact CLI
+inherited-URL case's unchanged 30-second guard. Consolidating that HTTP check
+into the existing real CLI/capture case preserves discovery, local-only opt-out
+and both captures while removing one duplicate startup. Its focused twelve
+cases pass in 2.88 seconds. The changed workspace then passes 7,090 server
+(+85 skips), 7,116 client, 979 shared, 139 relay and 45 push-broker tests.
+Final lint, formatting and types pass, with unchanged console budgets.
+The original failed result and older screenshot/grant findings remain recorded.
+This test-only cleanup is a separate commit from provider ownership.
+
+Published Bash source `33059ad06` passes automatic provider run 42086495032
+(all 69 cases). The same-source `06c549a79` one-worker control 42085703995 passes
+Linux, but macOS job 127450094472 is never acquired (zero steps/no log, explicit
+GitHub arm64 capacity annotations). It does not test the one-worker hypothesis
+or supersede the earlier executed macOS failures.

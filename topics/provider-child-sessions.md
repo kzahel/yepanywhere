@@ -39,6 +39,30 @@ replace the returned parent id with the canonical YA id. Stored unbound parents
 do not enumerate an ambient same-string native parent; child handles remain
 native beneath the public parent-scoped `/agents/:child` route.
 
+## Codex live notification ownership
+
+Codex subagents share the app-server connection with their parent. A native
+child can send command items, token usage, agent text and turn completion on
+that connection with its own `threadId`; these frames have no Claude-style
+`parent_tool_use_id`. Transport membership alone does not make them parent
+messages or relationship evidence owned by the parent.
+
+The Codex adapter checks an explicit thread id against its actual native root
+before turn-id resynchronization, usage updates, background tracking and SDK
+normalization. `thread/started` uses its nested thread id. Foreign-thread
+frames follow the existing raw diagnostics policy, while global notifications
+without a thread id retain their existing handling. Child requests and parent-owned delegation
+items are unaffected. This prevents a child's command from being relabelled as
+a managed parent's live Bash call. Native child headers and the child's own
+transcript remain the discovery/content authorities.
+
+The existing current-native child scenario now makes the actual child execute
+a command through the scripted model endpoint. The command must be in the
+child's native persistence and absent from the parent's Process stream; parent
+wait/completion and the reopened SQL relationship projection still pass. No
+new native startup or paid model call is added. The assertion fails before the
+thread boundary and passes after it.
+
 ## Provider persistence
 
 Claude's current SDK stores child JSONL and metadata sidecars below
