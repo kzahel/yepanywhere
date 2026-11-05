@@ -143,6 +143,13 @@ work; this is not browser persistence or authority across logins.
 
 ## Retained project discovery owner
 
+Hidden-project membership uses canonical identity lookup, rebuilt only after
+hidden membership changes or metadata reload. Checking each discovered project
+does not rescan the hidden-project list. Provider merging also indexes the
+settled Claude projects by identity, preserving first-match/provider precedence
+without searching the growing project array for each Codex or Gemini project.
+These indexes are memory-only; hiding still preserves native files and sessions.
+
 Servers advertising `retained-projects` accept `summaryMode=retained` on
 `GET /api/projects`. `ProjectScanner.readRetainedProjects` returns the last
 accepted collection without awaiting a transcript scan or current sandbox

@@ -298,7 +298,6 @@ export class SessionMetadataService {
     });
     this.state.sessions[sessionId] = snapshot;
     this.revision += 1;
-    this.persisted.set(sessionId, text);
     return result;
   }
 
@@ -310,11 +309,12 @@ export class SessionMetadataService {
     selectImport: SqliteStatement;
     insertImport: SqliteStatement;
     selectAll: SqliteStatement;
+    selectOne: SqliteStatement;
     upsert: SqliteStatement;
     remove: SqliteStatement;
   };
-  /** Last JSON written per session, so a save writes only changed rows. */
-  private persisted = new Map<string, string>();
+  /** Pending mutations only; cleared after a successful synchronous commit. */
+  private dirtySessionIds = new Set<string>();
   private unsavedGoalObservations = new Set<string>();
   private metadataSaver = createCoalescingSaver(() => this.doSave());
   private save = this.metadataSaver.flush;
@@ -339,6 +339,9 @@ export class SessionMetadataService {
       ),
       selectAll: this.database.prepare(
         "SELECT session_id, metadata FROM session_metadata",
+      ),
+      selectOne: this.database.prepare(
+        "SELECT metadata FROM session_metadata WHERE session_id = ?",
       ),
       upsert: this.database.prepare(
         "INSERT INTO session_metadata (session_id, metadata) VALUES (?, ?) ON CONFLICT (session_id) DO UPDATE SET metadata = excluded.metadata",
@@ -366,14 +369,13 @@ export class SessionMetadataService {
       this.state.sessions[row.session_id] = JSON.parse(
         row.metadata,
       ) as SessionMetadata;
-      this.persisted.set(row.session_id, row.metadata);
     }
     console.log(
-      `[SessionMetadataService] Loaded ${this.persisted.size} sessions from the database`,
+      `[SessionMetadataService] Loaded ${Object.keys(this.state.sessions).length} sessions from the database`,
     );
 
     let changed = false;
-    for (const metadata of Object.values(this.state.sessions)) {
+    for (const [sessionId, metadata] of Object.entries(this.state.sessions)) {
       if (!metadata.transcriptDisplayObjects) {
         continue;
       }
@@ -401,6 +403,7 @@ export class SessionMetadataService {
         )
       ) {
         metadata.transcriptDisplayObjects = recovered;
+        this.dirtySessionIds.add(sessionId);
         changed = true;
       }
     }
@@ -1362,6 +1365,7 @@ export class SessionMetadataService {
     const existing = this.state.sessions[resolvedSessionId] ?? {};
     const updated = updater(existing);
     this.revision += 1;
+    this.dirtySessionIds.add(resolvedSessionId);
 
     // Remove undefined values and check if entry should be deleted
     const cleaned: SessionMetadata = {};
@@ -1483,8 +1487,7 @@ export class SessionMetadataService {
 
     if (Object.keys(cleaned).length === 0) {
       // Remove the entry entirely if empty
-      const { [resolvedSessionId]: _, ...rest } = this.state.sessions;
-      this.state.sessions = rest;
+      delete this.state.sessions[resolvedSessionId];
     } else {
       this.state.sessions[resolvedSessionId] = cleaned;
     }
@@ -1497,8 +1500,8 @@ export class SessionMetadataService {
   async clearSession(sessionId: string): Promise<void> {
     const resolvedSessionId = sessionId;
     if (this.state.sessions[resolvedSessionId]) {
-      const { [resolvedSessionId]: _, ...rest } = this.state.sessions;
-      this.state.sessions = rest;
+      delete this.state.sessions[resolvedSessionId];
+      this.dirtySessionIds.add(resolvedSessionId);
       this.revision += 1;
       await this.save();
     }
@@ -1506,14 +1509,23 @@ export class SessionMetadataService {
 
   private async doSave(): Promise<void> {
     const changed = new Map<string, string>();
-    for (const [sessionId, metadata] of Object.entries(this.state.sessions)) {
+    const removed: string[] = [];
+    for (const sessionId of this.dirtySessionIds) {
+      const metadata = this.state.sessions[sessionId];
+      if (!metadata) {
+        removed.push(sessionId);
+        continue;
+      }
       const text = JSON.stringify(metadata);
-      if (this.persisted.get(sessionId) !== text) changed.set(sessionId, text);
+      const persisted = this.statements.selectOne.get<{ metadata: string }>(
+        sessionId,
+      );
+      if (persisted?.metadata !== text) changed.set(sessionId, text);
     }
-    const removed = [...this.persisted.keys()].filter(
-      (sessionId) => !(sessionId in this.state.sessions),
-    );
-    if (changed.size === 0 && removed.length === 0) return;
+    if (changed.size === 0 && removed.length === 0) {
+      this.dirtySessionIds.clear();
+      return;
+    }
     try {
       const relationships = this.relationships;
       this.database.transaction(() => {
@@ -1529,9 +1541,7 @@ export class SessionMetadataService {
       console.error("[SessionMetadataService] Failed to save state:", error);
       throw error;
     }
-    for (const [sessionId, text] of changed)
-      this.persisted.set(sessionId, text);
-    for (const sessionId of removed) this.persisted.delete(sessionId);
+    this.dirtySessionIds.clear();
   }
 
   /** Where session metadata is stored, for diagnostics. */

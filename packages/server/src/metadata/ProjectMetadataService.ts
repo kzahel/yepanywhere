@@ -95,6 +95,8 @@ export class ProjectMetadataService {
   private state: ProjectMetadataState;
   private dataDir: string;
   private filePath: string;
+  /** One identity per hidden project; invalidated when hidden membership changes. */
+  private hiddenProjectIdentities?: Set<string>;
   private save = createCoalescingSaver(() => this.doSave()).save;
 
   constructor(options: ProjectMetadataServiceOptions = {}) {
@@ -118,6 +120,7 @@ export class ProjectMetadataService {
    * Creates the data directory and file if they don't exist.
    */
   async initialize(): Promise<void> {
+    this.hiddenProjectIdentities = undefined;
     console.log(`[ProjectMetadataService] Initializing from: ${this.filePath}`);
     try {
       // Ensure data directory exists
@@ -365,6 +368,7 @@ export class ProjectMetadataService {
    * Hide a project from YA's project list without deleting files or session logs.
    */
   async hideProject(projectId: string, projectPath: string): Promise<void> {
+    this.hiddenProjectIdentities = undefined;
     const canonicalPath = canonicalizeProjectPath(projectPath);
     const canonicalProjectId = encodeProjectId(canonicalPath);
     const owner = this.getProjectOwner(canonicalPath);
@@ -408,10 +412,12 @@ export class ProjectMetadataService {
    * project discovery.
    */
   isHiddenProjectPath(projectPath: string): boolean {
-    const targetIdentity = getProjectIdentityKey(projectPath);
-    return Object.values(this.state.hiddenProjects ?? {}).some(
-      (metadata) => getProjectIdentityKey(metadata.path) === targetIdentity,
+    this.hiddenProjectIdentities ??= new Set(
+      Object.values(this.state.hiddenProjects ?? {}).map((metadata) =>
+        getProjectIdentityKey(metadata.path),
+      ),
     );
+    return this.hiddenProjectIdentities.has(getProjectIdentityKey(projectPath));
   }
 
   private async doSave(): Promise<void> {
@@ -614,6 +620,7 @@ export class ProjectMetadataService {
   }
 
   private deleteHiddenProjectsByIdentity(projectPath: string): void {
+    this.hiddenProjectIdentities = undefined;
     if (!this.state.hiddenProjects) return;
     const targetIdentity = getProjectIdentityKey(projectPath);
     for (const [projectId, metadata] of Object.entries(

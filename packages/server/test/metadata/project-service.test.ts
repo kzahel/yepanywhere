@@ -314,11 +314,14 @@ describe("ProjectMetadataService", () => {
 
     it("unhides a project when it is added again", async () => {
       const projectId = encodeProjectId("/path1");
+      expect(service.isHiddenProjectPath("/path1")).toBe(false);
       await service.hideProject(projectId, "/path1");
+      expect(service.isHiddenProjectPath("/path1")).toBe(true);
 
       await service.addProject(projectId, "/path1");
 
       expect(service.isHiddenProject(projectId)).toBe(false);
+      expect(service.isHiddenProjectPath("/path1")).toBe(false);
       expect(service.getMetadata(projectId)).toBeDefined();
     });
 
@@ -329,7 +332,9 @@ describe("ProjectMetadataService", () => {
 
       const reloaded = new ProjectMetadataService({ dataDir: tempDir });
       await reloaded.initialize();
+      expect(reloaded.isHiddenProjectPath("/home/archer/notes")).toBe(true);
       await reloaded.addProject(projectId, "/home/archer/notes");
+      expect(reloaded.isHiddenProjectPath("/home/archer/notes")).toBe(false);
 
       expect(reloaded.getMetadata(projectId)?.ownerUsername).toBe("archer");
     });

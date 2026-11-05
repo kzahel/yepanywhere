@@ -1056,13 +1056,6 @@ export class ProjectScanner {
     // Map from normalized path to project index for cross-machine dedup
     const normalizedIndex = new Map<string, number>();
 
-    const findProjectByIdentity = (projectPath: string): Project | undefined =>
-      projects.find(
-        (project) =>
-          getProjectIdentityKey(project.path) ===
-          getProjectIdentityKey(projectPath),
-      );
-
     // Helper to add a Claude project, merging cross-machine duplicates
     const addOrMerge = (
       rawProjectPath: string,
@@ -1161,12 +1154,22 @@ export class ProjectScanner {
       addOrMerge(info.projectPath, dir, info.sessionCount, info.lastActivity);
     }
 
+    // Build after Claude merging settles its preferred local path. Keep the
+    // first identity match, as discovery's provider precedence requires.
+    const projectsByIdentity = new Map<string, Project>();
+    for (const project of projects) {
+      const identity = getProjectIdentityKey(project.path);
+      if (!projectsByIdentity.has(identity))
+        projectsByIdentity.set(identity, project);
+    }
+
     // Merge Codex projects if enabled
     if (this.codexScanner) {
       for (const codexProject of codexResult.value) {
         const projectPath = canonicalizeProjectPath(codexProject.path);
         if (this.isHiddenProjectPath(projectPath)) continue;
-        const existing = findProjectByIdentity(projectPath);
+        const identity = getProjectIdentityKey(projectPath);
+        const existing = projectsByIdentity.get(identity);
         if (existing) {
           addProviderSessionCount(
             existing,
@@ -1184,14 +1187,16 @@ export class ProjectScanner {
         }
         seenPaths.add(projectPath);
         seenIdentityKeys.add(getProjectIdentityKey(projectPath));
-        projects.push({
+        const project: Project = {
           ...withProviderSessionCounts(codexProject),
           id: encodeProjectId(projectPath),
           path: projectPath,
           name: getProjectName(projectPath),
           hasCodexSessions: true,
           hasGeminiSessions: false,
-        });
+        };
+        projects.push(project);
+        projectsByIdentity.set(identity, project);
       }
     }
 
@@ -1206,7 +1211,8 @@ export class ProjectScanner {
       for (const geminiProject of geminiProjects) {
         const projectPath = canonicalizeProjectPath(geminiProject.path);
         if (this.isHiddenProjectPath(projectPath)) continue;
-        const existing = findProjectByIdentity(projectPath);
+        const identity = getProjectIdentityKey(projectPath);
+        const existing = projectsByIdentity.get(identity);
         if (existing) {
           addProviderSessionCount(
             existing,
@@ -1224,14 +1230,16 @@ export class ProjectScanner {
         }
         seenPaths.add(projectPath);
         seenIdentityKeys.add(getProjectIdentityKey(projectPath));
-        projects.push({
+        const project: Project = {
           ...withProviderSessionCounts(geminiProject),
           id: encodeProjectId(projectPath),
           path: projectPath,
           name: getProjectName(projectPath),
           hasCodexSessions: false,
           hasGeminiSessions: true,
-        });
+        };
+        projects.push(project);
+        projectsByIdentity.set(identity, project);
       }
     }
 

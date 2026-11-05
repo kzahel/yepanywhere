@@ -287,11 +287,17 @@ a single row recording that the legacy file was handled.
 - **Unreadable file.** A legacy file that cannot be read or parsed stops
   startup and records no import, so a repaired file is imported on the next
   start. YA never replaces it.
-- **Writes.** Each save compares every session's metadata with what was last
-  written and writes only the changed rows, plus deletions, in one
-  transaction. A failed transaction leaves every row as it was, and the next
-  save retries it. Saves are synchronous, so only saves requested while one
-  is in progress coalesce.
+- **Writes.** Saves visit only sessions mutated through the service, including
+  startup recovery and deletions. Each candidate is compared with its indexed
+  SQLite row; unchanged cold sessions are neither serialized nor queried. There
+  is no retained second copy of the corpus as JSON strings. Changed rows and
+  deletions commit in one transaction; failures retain the pending mutations
+  for retry. Saves are synchronous, so requests arriving during a drain
+  coalesce. Callers change metadata through service methods, not by mutating
+  returned projections.
+- **Cold reads remain open work.** Initialization still parses and retains all
+  metadata objects. Point comparisons reduce save work and duplicate retention,
+  but do not make startup or whole-corpus projection consumers lazy.
 - **Concurrent first start.** The import re-checks its marker inside its
   transaction, so two connections initializing together import once.
 - **Maintenance scripts.** `scripts/prune-stale-index-entries.ts` edits rows

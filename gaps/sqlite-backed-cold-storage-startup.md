@@ -2,6 +2,43 @@
 
 Progress, 2026-11-05 — Contributing-model: 6-astra
 
+The scale pass removes three avoidable costs without adding persisted data,
+tables, indexes, or transcript copies (zero added data-storage bytes, within
+the maintainer's 5% of provider-rollout storage ceiling):
+
+- Session metadata saves visit only mutated sessions. Comparing a candidate
+  with its indexed SQLite row also removes the retained serialized duplicate
+  of every metadata object. Deleting one entry no longer copies the full map.
+- Hidden-project identity checks reuse an in-memory set instead of scanning
+  every hidden project for every candidate. Hide, re-add and reload invalidate
+  it; original provider files and hidden ownership remain intact.
+- Cross-provider project merging uses identity lookup instead of searching the
+  growing project array for every Codex/Gemini candidate.
+
+The real SQLite service check seeds 256 cold metadata rows with 8 KiB prompts,
+updates 24 active sessions, deletes two, and verifies restart persistence.
+Cold-row serializations are zero; restoring whole-corpus traversal makes the
+same assertion fail with 1,280. A SQLite trigger also verifies failed deletion
+rollback and retry. All 150 focused metadata, project-scanner and cold-collection
+tests pass on Linux, as do lint, typechecking and touched-file format checks.
+No production restart, browser timing, RSS comparison, Bun or other-OS run was
+performed for this slice.
+
+Project file completion already streams Git enumeration, limits active scans
+and queries, and caps retained inventories by path count and per-project/global
+byte budgets (`ProjectFileCompletion` / `enumerateProjectFiles`). This pass
+adds no file-content or path disk index.
+
+Still open: metadata startup eagerly parses/retains every object; existing
+whole-corpus readers need scoped projections before lazy retention can be
+safe. Scanner/reader enumeration coalescing, retained-provider reattachment,
+and end-to-end initial view/memory qualification remain as below. These need
+recovery/freshness work beyond the local save and lookup improvements; the gap
+is not closed. Current contracts: [SQLite](../topics/optional-sqlite.md#session-metadata)
+and [project discovery](../topics/session-catalog-observation.md#retained-project-discovery-owner).
+
+Progress, 2026-11-05 — Contributing-model: 6-astra
+
 The built-client reload path now reuses an unchanged, intact build within its
 own wrapper. It checks source/configuration/install inputs and emitted content;
 changed inputs rebuild before stopping Hono, and failed or concurrently edited
