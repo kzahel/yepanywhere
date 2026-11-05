@@ -505,6 +505,12 @@ controls. The Linux/macOS app and browser matrix remains manual; it is not
 started by automatic provider checks. The ordinary server suite continues its
 Claude/Codex baseline. No branch-protection setting is changed.
 
+The first automatic [push run 42068711365](https://github.com/kzahel/yepanywhere/actions/runs/42068711365)
+at `06c8d6f1c` passes all 69 cases in 95.76 seconds wall / 173.30 aggregate
+work with the resolved default of two workers; the app job is skipped. The PR
+conditions and equal path filters have static review, rather than a live PR
+trial.
+
 Earlier Linux Antigravity failures at `d33e616f9` are attributed by actual
 native stderr to SIGABRT in Google initialization: the `nobody` group name was
 absent, before ACP initialization or any model request. The provisioned Ubuntu

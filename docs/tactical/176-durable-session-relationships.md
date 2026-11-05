@@ -1187,3 +1187,13 @@ topic. Antigravity's installation topic links its Linux group prerequisite.
 The first automatic published check remains to be observed. Earlier Rendez
 red results stay retained despite the later workspace pass; public contract
 approval and remaining consumers/acquisition still keep the full plan active.
+
+The first automatic [push run 42068711365](https://github.com/kzahel/yepanywhere/actions/runs/42068711365)
+passes the full 69-scenario provider job at `06c8d6f1c` (95.76 seconds wall /
+173.30 aggregate work). The actual step environment resolves
+`NATIVE_TEST_WORKERS: 2` without dispatch inputs. The app job is skipped,
+confirming it stays manual. Antigravity cold resume passes in 15.469 seconds
+with all fourteen marks and both reader replays. This qualifies the automatic
+push path; the pull-request path and identical filters are statically reviewed,
+not represented as a live PR trial. The separate earlier Linux/macOS app
+acceptance remains unchanged. The full relationship plan is still active.
