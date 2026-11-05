@@ -22,6 +22,8 @@ afterEach(async (context) => {
         events: fixture.events.slice(-10).map((m) => ({
           type: m.type,
           subtype: m.subtype,
+          error:
+            m.type === "error" ? JSON.stringify(m).slice(0, 4000) : undefined,
           text: JSON.stringify(m.message?.content)?.slice(0, 200),
         })),
         errors: fixture.errors.map((e) => e.message),

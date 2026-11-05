@@ -978,3 +978,51 @@ remaining startup/control failures. The prior main CI at `d89b8a13d` passes all
 other jobs and fails the same three creation-client cases already tracked in
 the separate URL-publication gap. Public compatibility approval and the full
 plan remain open.
+
+### Control hosted native concurrency and retain native errors
+
+Run 42040094970 at `a0627fb63` remains red in all three jobs. The run used the
+configuration's four Vitest workers in both native jobs. Linux now passes
+all seven native child variants and the nested OpenCode case; its full provider
+job passes 64/69. Antigravity emits an SDK error before model dispatch, so its
+four timeouts cannot yet be assigned to host speed. Bounded error-event text
+is now retained in queue, lifecycle and retry failure diagnostics. OpenCode's
+separate cancellation case still needs attribution.
+
+The app phase evidence establishes cold API readiness around 21–22 seconds on
+the four-CPU Linux runner before thirty-second reload/tool guards. Its CPU is
+84.4% busy, with load up to 2.225 per CPU and no swap use. Hosted macOS starts
+at load 50.08 on three CPUs with about 1.4 GB available; its first eight cases
+never reach readiness in time. Later cases reach readiness in 10–14 seconds.
+These contended samples justify a worker-count control, not a performance
+baseline or a deadline increase. All final app reports reach root removal;
+hosted app/browser acceptance remains open.
+
+The manual workflow accepts one, two or four workers and defaults to two for
+the opt-in native jobs. Both runners share host-window reporting and process
+exit semantics, retaining visible reports and GitHub annotations. Ordinary
+workspace and browser concurrency, native selectors, provider behavior,
+assertions, retries and deadlines are unchanged. Compare two/four workers on
+the same published source and capacity key through separate dispatches with
+`workers=2` and `workers=4`. Independent review and final local
+checks precede publication; hosted controls then establish the next evidence.
+
+Opus accepted the eleven pinned files after the recovery hook switched to JSON
+output; nested logger causes no longer collapse to `[Object]`. A disposable
+control through the actual Codex recovery case and failure hook preserves both
+the SDK error and nested cause. Six real child-runner controls preserve exit
+0/3, signal failure, selectors, worker arguments, reporter selection and both
+host samples. Those deliberate failure controls are removed after their proof.
+
+Local two-worker checks pass all 69 native scenarios (52.00 seconds wall /
+97.18 aggregate work), ten app cases (47.12 / 78.02) and all nine retry cases
+(23.23 / 22.07) after the JSON correction. Browser listing still selects the
+same three cases; no browser or app fixture changed in this slice. Final lint
+has zero warnings, format/types/actionlint pass, and the publication workspace
+run passes 7,087 server / 7,112 client / 954 shared tests (server 143.86
+seconds). An earlier final run missed Rendez's second nested delivery at line
+364; its focused recheck passes, and both results remain in the existing
+watcher gap. The later green sample does not repair that intermittent defect.
+The hosted OIDC timeout is recorded separately without a cause or budget edit.
+Two/four-worker hosted dispatches on the same published source are next; no
+provider-error cause, hosted acceptance or performance improvement is claimed.

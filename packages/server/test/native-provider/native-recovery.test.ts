@@ -3,7 +3,25 @@ import { nativeFixture } from "./fixture.js";
 import { providers } from "./selection.js";
 
 let fixture: Awaited<ReturnType<typeof nativeFixture>> | undefined;
-afterEach(async () => {
+afterEach(async (context) => {
+  if (fixture && context.task.result?.state === "fail")
+    console.info(
+      JSON.stringify({
+        provider: fixture.provider,
+        state: fixture.proc.state,
+        modelRequests: fixture.model.requests.length,
+        events: fixture.events.slice(-12).map((message) => ({
+          type: message.type,
+          subtype: message.subtype,
+          error:
+            message.type === "error"
+              ? JSON.stringify(message).slice(0, 4000)
+              : undefined,
+        })),
+        errors: fixture.errors.map((error) => error.message),
+        diagnostics: fixture.diagnostics.slice(-12),
+      }),
+    );
   await fixture?.close();
   fixture = undefined;
 });

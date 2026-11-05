@@ -59,3 +59,27 @@ This larger native/app boundary remains separate from the current relationship
 fixture precision, completion-barrier and browser-clock corrections.
 
 Found 2026-11-05 while qualifying durable provider-neutral relationships.
+
+The diagnostic [run 42040094970](https://github.com/kzahel/yepanywhere/actions/runs/42040094970)
+at `a0627fb63` is also red: Linux provider 64/69, Linux app 5/10, macOS app
+2/10, using four Vitest workers from the server configuration. All seven direct
+native-child variants and nested OpenCode pass on Linux.
+Antigravity's four failures have an SDK error before the first model request;
+the old diagnostic omitted its text. Capture that error before treating its
+timeouts as a budget problem. The fifth provider failure is OpenCode cancellation.
+
+Linux app phases establish 21–22 seconds of cold API readiness before the
+30-second reload/tool deadline. The four-CPU runner reports 84.4% whole-run CPU
+busy, load up to 2.225 per CPU, CPU pressure and no swap use; it is contended
+diagnostic evidence, not an eligible performance baseline. The three-CPU macOS
+runner starts at load 50.08 with about 1.4 GB available and exceeds readiness
+in its first eight cases; CPU/swap counters are unavailable. Later, less
+concurrent cases reach readiness in 10–14 seconds. Every final fixture report
+reaches root removal. Cleanup ownership is qualified for those runs, while
+startup/reload acceptance remains open and neither hosted browser stage ran.
+
+The workflow now exposes a bounded worker-count control, defaulting to two.
+Both native runners record host windows, and native errors retain their text.
+Compare separate `workers=2` and `workers=4` dispatches on one source before
+attributing any result to concurrency.
+No deadline, retry, assertion or provider behavior is changed by that control.

@@ -27,9 +27,20 @@ current-native qualification.
 pnpm install --frozen-lockfile
 pnpm test:providers                 # Claude/Codex baseline
 pnpm test:providers:install         # Verified Antigravity/Grok artifacts
-pnpm test:providers:all             # All ten launch paths
+pnpm test:providers:all             # All qualified launch paths
 YEP_NATIVE_TEST_PROVIDERS=codex pnpm test:providers
 ```
+
+The manual native qualification workflow accepts one, two or four Vitest
+workers; its default is two. This is limited to the opt-in native jobs and does
+not change ordinary workspace concurrency or the browser's single worker.
+Use explicit `--maxWorkers=2` or `--maxWorkers=4` with the native runners for
+local controls. Both runners share process-exit handling, visible native
+reporters, GitHub annotations and capacity/start/end host samples. Compare
+separate `workers=2` and `workers=4` dispatches on the same source and capacity
+key before claiming a speed change; a successful run after reducing concurrency
+is qualification evidence, not by itself a performance result. Case and
+readiness deadlines are unchanged.
 
 The selector accepts comma-separated qualified fixture names. An unknown or
 unqualified selected provider fails; a missing executable or mismatched version
@@ -452,9 +463,17 @@ errors remain errors. No new UI capabilities or queue policy changes follow.
 
 The manual `Native provider model API qualification` workflow provisions and runs
 the full set on Linux x64 at the supported Node floor. It is deliberately an
-acceptance job until its first Linux run is reviewed; the normal CI server suite
+acceptance job until the complete Linux run passes; the normal CI server suite
 continues to gate the Claude/Codex baseline. Promote the complete job to relevant
-change gates after that acceptance. No Linux or Windows pass is claimed here.
+change gates after that acceptance. No complete Linux or Windows suite pass is
+claimed here.
+
+The `a0627fb63` hosted run qualifies all seven direct-child variants and the
+nested OpenCode case on Linux, but the complete provider job is still red
+(64/69). Antigravity emitted an SDK error before any model request; OpenCode's
+cancellation case timed out. Queue, lifecycle and retry failure diagnostics now
+include bounded error-event text so those native failures are not reduced to
+an unexplained timeout. No native error or retry is reclassified by that logging.
 
 Remaining depth includes native multi-input/batched identity, broader tool
 denial, wrapper/host terminal faults and retry exhaustion, wrapper settings/

@@ -333,3 +333,11 @@ expected): 7,049 other server tests and 7,110 client tests passed; server time
 adapter/parser/benchmark does not change Rendez, its directory watcher, fixture,
 assertions, budgets or retries. This run remains red; later qualification
 cannot erase the repeated restart/event-registration finding.
+
+2026-11-05: the final worker-control/diagnostic workspace check on macOS /
+Node 24.22.1 again misses the second delivery at line 364 (one observed, two
+expected): 7,086 other server tests pass in 146.10 seconds. The focused file
+then passes four cases with one skip in 5.79 seconds. No watcher source, test,
+assertion, retry or budget changed. The red run remains retained in ignored
+`tasks/session-relationships/slice-22-final-unit.log`, with the focused result
+in `slice-22-rendez-focused.log`; that pass does not close this known defect.

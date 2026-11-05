@@ -31,6 +31,10 @@ afterEach(async (context) => {
             events: f.events.slice(-20).map((m) => ({
               type: m.type,
               subtype: m.subtype,
+              error:
+                m.type === "error"
+                  ? JSON.stringify(m).slice(0, 4000)
+                  : undefined,
               content: JSON.stringify(m.message?.content)?.slice(0, 200),
             })),
             errors: f.errors.map((e) => e.message),
