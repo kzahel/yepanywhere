@@ -366,6 +366,15 @@ Claude variants and app-server Codex additionally retain A/B's supplied input
 UUIDs in native JSONL. Other native identity guarantees remain separately gated;
 passing text/history assertions does not close the
 [durable input identity gap](../gaps/provider-user-turn-durable-identity.md).
+The fixture's YA `Process` receives the same model and permission mode as its
+adapter launch. Otherwise deferred inputs can overwrite the requested launch
+mode with a default. Native Codex/OSS queue transcripts must retain Bypass's
+`never`/`danger-full-access` pair on every turn. The existing OSS cancellation
+and cold-continuation scenario uses default mode and checks that all persisted
+turns retain `never`/`workspace-write`, exercising the opposite permission bound
+without another native startup. These are requested-policy checks, not proof
+of operating-system sandbox enforcement. Responses failure diagnostics retain
+bounded recent native tool results as well as chat-protocol messages.
 Grok buffers ACP assistant text until its native item completes; its held model
 request and native interject acknowledgement establish the busy boundary instead.
 

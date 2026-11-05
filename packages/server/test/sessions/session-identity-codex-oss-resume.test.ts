@@ -69,10 +69,11 @@ const { appendFileSync }=require('node:fs');
 const argv=process.argv.slice(2),log=${JSON.stringify(log)},file=${JSON.stringify(file)},id=${JSON.stringify(id)};
 appendFileSync(log,JSON.stringify({argv,home:process.env.CODEX_HOME})+'\\n');
 if(argv.includes('--version')){if(process.env.CODEX_OSS_FIXTURE_FAIL==='spawn')require('node:fs').chmodSync(__filename,0o644);console.log('codex-cli 0.166.0');process.exit(0);}
-if(argv[0]!=='exec'||argv[1]!=='resume'||argv[2]!==id){console.error('unexpected native allocation');process.exit(9);}
+const resume=argv.indexOf('resume');
+if(argv[0]!=='exec'||resume<0||argv[resume+1]!==id){console.error('unexpected native allocation');process.exit(9);}
 if(process.env.CODEX_OSS_FIXTURE_FAIL==='wrong-native'){console.log(JSON.stringify({type:'thread.started',thread_id:'710ed378-49e7-40be-9ab8-0f1d371cd079'}));process.exit(0);}
 if(process.env.CODEX_OSS_FIXTURE_FAIL){console.error('controlled exec failure');process.exit(7);}
-appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:'2026-11-01T00:00:02Z',payload:{type:'user_message',message:argv[3]}})+'\\n');
+appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:'2026-11-01T00:00:02Z',payload:{type:'user_message',message:argv[resume+2]}})+'\\n');
 appendFileSync(file,JSON.stringify({type:'response_item',timestamp:'2026-11-01T00:00:03Z',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:'OWNED_OSS_REPLY'}]}})+'\\n');
 console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:'owned-reply',text:'OWNED_OSS_REPLY'}}));
 `,
@@ -343,18 +344,21 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:
         .trim()
         .split("\n")
         .map((line) => JSON.parse(line));
+      for (const c of calls.filter((c) => c.argv[0] !== "--version")) {
+        const resume = c.argv.indexOf("resume");
+        expect(c.argv.slice(0, resume)).toEqual([
+          "exec",
+          "-s",
+          "workspace-write",
+        ]);
+        expect(c.argv[resume + 1]).toBe(id);
+        expect(c.home).toBe(home);
+      }
       expect(
-        calls
-          .filter((c) => c.argv[0] !== "--version")
-          .every(
-            (c) =>
-              c.argv[0] === "exec" &&
-              c.argv[1] === "resume" &&
-              c.argv[2] === id &&
-              c.home === home,
-          ),
-      ).toBe(true);
-      expect(calls.filter((c) => c.argv[3] === "LATER_ONCE")).toHaveLength(1);
+        calls.filter(
+          (c) => c.argv[c.argv.indexOf("resume") + 2] === "LATER_ONCE",
+        ),
+      ).toHaveLength(1);
       const native = await readFile(file, "utf8");
       expect(native.match(/ORIGINAL_ONCE/g)).toHaveLength(1);
       expect(native.match(/LATER_ONCE/g)).toHaveLength(1);

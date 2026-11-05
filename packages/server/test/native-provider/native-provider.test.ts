@@ -17,6 +17,11 @@ afterEach(async (context) => {
               messages: Array.isArray(r.body.messages)
                 ? r.body.messages.map((m) => JSON.stringify(m).slice(0, 800))
                 : undefined,
+              input: Array.isArray(r.body.input)
+                ? r.body.input
+                    .slice(-5)
+                    .map((item) => JSON.stringify(item).slice(0, 1200))
+                : undefined,
               labels: [
                 "INITIAL_NATIVE_INPUT",
                 "QUEUE_ALPHA",
@@ -92,12 +97,28 @@ describe.each(providers)("real native provider: %s", (provider) => {
     expect(JSON.stringify(f.events)).toContain("BRAVO_DONE");
     const retainsInputUuid =
       provider.startsWith("claude") || provider === "codex";
-    if (retainsInputUuid) {
-      const native = JSON.stringify(await f.nativeRows());
-      expect(native).toContain("QUEUE_ALPHA");
-      expect(native).toContain("QUEUE_BRAVO");
-      expect(native).toContain("22222222-2222-4222-8222-222222222222");
-      expect(native).toContain("33333333-3333-4333-8333-333333333333");
+    if (retainsInputUuid || provider === "codex-oss") {
+      const rows = await f.nativeRows();
+      if (retainsInputUuid) {
+        const native = JSON.stringify(rows);
+        expect(native).toContain("QUEUE_ALPHA");
+        expect(native).toContain("QUEUE_BRAVO");
+        expect(native).toContain("22222222-2222-4222-8222-222222222222");
+        expect(native).toContain("33333333-3333-4333-8333-333333333333");
+      }
+      if (provider.startsWith("codex")) {
+        // A mismatched Process default used to reset queued native turns to
+        // on-request/workspace-write despite the fixture's bypass launch.
+        const contexts = (
+          rows as Array<{ type: string; payload?: unknown }>
+        ).filter((row) => row.type === "turn_context");
+        expect(contexts.length).toBeGreaterThanOrEqual(3);
+        for (const row of contexts)
+          expect(row.payload).toMatchObject({
+            approval_policy: "never",
+            sandbox_policy: { type: "danger-full-access" },
+          });
+      }
     }
     await f.stop();
     const persisted = JSON.stringify(await f.history());

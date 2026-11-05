@@ -896,3 +896,34 @@ Those are local measurements, not hosted latency ceilings. The main CI run
 after publication must still establish the hosted fixture/browser corrections.
 Native startup/control acceptance, public compatibility approval and the full
 plan remain open. No provider capability or production behavior changes.
+
+### Preserve permissions while qualifying native launch paths
+
+Native transcript probes found that the fixture launched with Bypass while its
+YA Process defaulted to Ask, resetting deferred Codex turns to
+`on-request`/`workspace-write`. Fixture launch options now also initialize the
+Process. A second actual CLI probe found that OSS resumed turns dropped the
+explicit launch sandbox and reloaded workspace-write configuration. The exec
+backend now supplies its existing launch mapping before every resume
+subcommand. The pinned 0.166.0 source and real executable validate this option
+placement; no provider target, protocol schema or capability changes.
+
+Existing queue scenarios check every persisted Codex/OSS turn for the Bypass
+policy. The existing OSS cancellation/continuation scenario checks default
+workspace-write across native restart, preserving the tighter-mode bound
+without another native startup. Recent Responses inputs are included in bounded
+failure diagnostics. These fixes are not yet proof of the earlier hosted tool
+content failure mechanism or startup acceptance. Independent review, complete
+native and root qualification follow before publication.
+
+Opus accepted the final eleven-file slice after finding and rechecking two
+fake CLI argument assumptions. Both fakes now locate the resume subcommand;
+the cold-continuation regression also verifies its exact sandbox prefix, native
+UUID and store. Both launch builders share the sandbox mapping. Final local
+qualification passes: 69 native scenarios (42.57 seconds wall / 103.07 aggregate
+work), 28 focused adapter/admission cases, zero lint warnings, formatting, types
+and all workspace tests (7,087 server / 7,112 client / 954 shared; server
+162.19 seconds). No additional native startups were added to the retained
+scenarios. These local observations do not establish hosted acceptance or a
+performance improvement. Startup phase attribution, hosted native/app failures,
+public compatibility approval and the rest of this plan remain open.

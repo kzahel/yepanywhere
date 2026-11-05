@@ -256,7 +256,7 @@ export async function nativeFixture(
     commandResult = new Promise((resolve) => {
       resolveCommand = resolve;
     });
-    session = await adapter.startSession({
+    const startOptions: StartSessionOptions = {
       cwd: project,
       model: provider === "grok" ? "owned" : modelId,
       permissionMode: options.permissionMode ?? "bypassPermissions",
@@ -268,7 +268,8 @@ export async function nativeFixture(
         uuid: "11111111-1111-4111-8111-111111111111",
       },
       ...launch,
-    });
+    };
+    session = await adapter.startSession(startOptions);
     const nativeSession = session;
     async function* observe() {
       for await (const message of nativeSession.iterator) {
@@ -286,7 +287,8 @@ export async function nativeFixture(
       projectPath: project,
       projectId: toUrlProjectId(project),
       provider,
-      model: launch.model ?? modelId,
+      model: startOptions.model,
+      permissionMode: startOptions.permissionMode,
       queue: nativeSession.queue,
       pid: () =>
         typeof nativeSession.pid === "function"

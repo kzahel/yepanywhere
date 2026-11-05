@@ -96,6 +96,13 @@ Codex OSS uses `--json` for both new `codex exec` turns and subsequent
 output, tools and completion; human-readable headings do not delimit responses.
 This keeps queued follow-up output visible with the audited CLI.
 
+Each exec invocation also supplies the launch sandbox explicitly, including
+resumed turns: Bypass uses `danger-full-access`, and other supported exec modes
+retain `workspace-write`. The option precedes the `resume` subcommand because
+`-s` is an exec option. Omitting it reloads configuration and can silently
+change the sandbox after the first turn. This is the exec backend's existing
+launch mapping; it does not add app-server live permission switching to OSS.
+
 A scoped cold
 continuation requires a native UUID, the actual canonical `CODEX_HOME/sessions`
 (or native home default), a physical descendant rollout and a matching bounded

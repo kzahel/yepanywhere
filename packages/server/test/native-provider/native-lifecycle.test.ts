@@ -90,7 +90,10 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
   it("cancels an active native request and continues with saved context", {
     timeout: ["antigravity", "grok"].includes(provider) ? 10_000 : 5_000,
   }, async () => {
-    const f = await nativeFixture(provider);
+    const f = await nativeFixture(provider, "gentle", {
+      // Pair the queued bypass scenario with real non-bypass exec resumes.
+      ...(provider === "codex-oss" ? { permissionMode: "default" } : {}),
+    });
     fixture = f;
     const initial = await f.model.next();
     initial.finish("BEFORE_CANCELLATION");
@@ -132,6 +135,17 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
     expect(
       JSON.stringify(await f.history()).includes("CONTINUED_AFTER_CANCEL"),
     ).toBe(true);
+    if (provider === "codex-oss") {
+      const contexts = (
+        (await f.nativeRows()) as Array<{ type: string; payload?: unknown }>
+      ).filter((row) => row.type === "turn_context");
+      expect(contexts.length).toBeGreaterThanOrEqual(3);
+      for (const row of contexts)
+        expect(row.payload).toMatchObject({
+          approval_policy: "never",
+          sandbox_policy: { type: "workspace-write" },
+        });
+    }
     await f.close();
     expect(f.errors).toEqual([]);
     expect(f.diagnostics).toEqual([]);

@@ -72,7 +72,8 @@ if(argv.includes('--help')){console.log('--experimental-acp');process.exit(0);}
 const record=v=>fs.appendFileSync(log,JSON.stringify(v)+'\\n');
 const wait=()=>new Promise(r=>{const t=setInterval(()=>{if(fs.existsSync(release)){clearInterval(t);r();}},5)});
 if(argv[0]==='exec'){
- record({method:argv[1]==='resume'?'resume':'new',id:argv[1]==='resume'?argv[2]:id});
+ const resume=argv.indexOf('resume');
+ record({method:resume>=0?'resume':'new',id:resume>=0?argv[resume+1]:id});
  console.log(JSON.stringify({type:'thread.started',thread_id:id}));
  wait().then(()=>{console.log(JSON.stringify({type:'turn.started'}));console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:1,output_tokens:1,cached_input_tokens:0}}));});
  process.stdin.resume(); process.stdin.on('data',()=>{});

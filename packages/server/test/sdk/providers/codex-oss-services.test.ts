@@ -200,6 +200,8 @@ describe("CodexOSS gateway services", () => {
 
     expect(provider.resumeTurnArgs("deepseek-v4-flash", "thread-1")).toEqual([
       "exec",
+      "-s",
+      "workspace-write",
       "resume",
       "thread-1",
       "go",
@@ -215,6 +217,13 @@ describe("CodexOSS gateway services", () => {
       "-c",
       'model="deepseek-v4-flash"',
     ]);
+    expect(
+      provider
+        .resumeTurnArgs("deepseek-v4-flash", "thread-1", {
+          permissionMode: "bypassPermissions",
+        })
+        .slice(0, 4),
+    ).toEqual(["exec", "-s", "danger-full-access", "resume"]);
   });
 
   it("keeps an endpoint's routes when a later catalog read fails", async () => {

@@ -1196,14 +1196,18 @@ export class CodexOSSProvider implements AgentProvider {
     }
     args.push(...this.reasoningEffortArgs(options, route));
 
-    // Sandbox mode
-    if (options.permissionMode === "bypassPermissions") {
-      args.push("-s", "danger-full-access");
-    } else {
-      args.push("-s", "workspace-write");
-    }
+    args.push(...this.sandboxArgs(options));
 
     return args;
+  }
+
+  private sandboxArgs(options: StartSessionOptions): string[] {
+    return [
+      "-s",
+      options.permissionMode === "bypassPermissions"
+        ? "danger-full-access"
+        : "workspace-write",
+    ];
   }
 
   /**
@@ -1222,6 +1226,9 @@ export class CodexOSSProvider implements AgentProvider {
     const service = this.serviceById(route.serviceId);
     const args: string[] = [
       "exec",
+      // Resume reloads configuration rather than inheriting the previous
+      // turn's sandbox. Keep the launch policy explicit before the subcommand.
+      ...this.sandboxArgs(options),
       "resume",
       sessionId,
       prompt,

@@ -27,6 +27,13 @@ findings retain their independent load evidence. Codex's tool-content failures
 need their actual result inspected, including possible incomplete exec results;
 they are not yet a proved parser or runtime defect.
 
+Local follow-up found two permission mismatches independently of those hosted
+failures: the native fixture's Process default reset queued app-server turns,
+and OSS exec resume omitted the launch sandbox. Both have native transcript
+regressions, but neither is yet proved to explain the earlier hosted tool
+content failures. Recent Responses inputs are now included in bounded failure
+diagnostics so the actual returned tool result can establish that mechanism.
+
 Retained logs are under ignored `tasks/session-relationships/slice-18-ci-linux-*`
 and `slice-19-hosted-mac-app.log`. Keep hosted qualification explicitly pending
 until the relevant jobs and browser steps actually pass. Do not relax the
