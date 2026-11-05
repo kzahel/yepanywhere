@@ -46,5 +46,16 @@ explicit bounded plan. Do not raise deadlines or add retries to hide failures.
 These adjacent failures were captured while correcting the native URL and
 visible prompt expectations; no unrelated product repair is included.
 
+[CI 42047047992](https://github.com/kzahel/yepanywhere/actions/runs/42047047992)
+at `d03e72e0b` passes its unit job but still fails the first browser shard.
+Its terminal result is one failed case, `session-creation-client.spec.ts:385`
+(parked Session-page GET completion replacing a foreground route), 248 passed,
+nine skipped and six flaky. The earlier creation cases at lines 124/305/334
+pass on retry in this run; they are not three terminal failures here. The
+other retry cases are creation-client:894, limited-instructions:103 and
+remote-qualification:232. The full log is retained in ignored
+`tasks/session-relationships/slice-23-main-ci22-e2e.log`. These client sources
+are unchanged by the native bootstrap prerequisite; their causes remain open.
+
 Found 2026-11-05 while publishing native viewer URLs and visible saved prompts.
 Contributing-model: 6.1-Sol

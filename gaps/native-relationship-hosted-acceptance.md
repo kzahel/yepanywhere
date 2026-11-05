@@ -107,3 +107,13 @@ dispatched by five seconds. The four-worker nested case exhausts twelve
 seconds. The affected semantic scenarios now have guards derived at 2–4 times
 those observed lower bounds, preserving every action/assertion and retry. This
 is qualification headroom; hosted provider acceptance is still pending.
+
+The provider-only [run 42058247780](https://github.com/kzahel/yepanywhere/actions/runs/42058247780)
+at `d33e616f9` passes 65/69 in 92.97 seconds wall / 168.74 aggregate work.
+All OpenCode cases now pass. Every remaining failure is Antigravity, with
+actual child SIGABRT and `LookupGIDByGroupName` reporting `Group nobody not
+found` before any model dispatch. The four-CPU Ubuntu 24 host has 45.8% CPU
+busy, no swap use and at least 15.0 GB available; these are diagnostic samples,
+not a portable latency baseline. The workflow now provisions a missing
+`nobody` name as an alias of that existing user's primary group. Acceptance
+remains pending until that published source runs the real scenarios.

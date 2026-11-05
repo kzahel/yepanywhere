@@ -36,6 +36,14 @@ jobs:
       - run: pnpm --filter @yep-anywhere/shared build
       - name: Install official checksum-verified test executables
         run: pnpm test:providers:install
+      - name: Provide Antigravity's native nobody group alias
+        # Its Google native bootstrap resolves this name before ACP initialize.
+        # Ubuntu calls nobody's existing primary group nogroup. Preserve its GID.
+        run: |
+          if ! getent group nobody >/dev/null; then
+            sudo groupadd --non-unique --gid "$(id -g nobody)" nobody
+          fi
+          getent group nobody
       - name: Real executables, owned profiles and scripted loopback models
         run: pnpm test:providers:all --maxWorkers="$NATIVE_TEST_WORKERS"
 

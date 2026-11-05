@@ -1072,3 +1072,24 @@ The later pass does not repair the watcher. Hosted provider qualification
 remains pending; dispatch the provider-only suite at two workers on the
 published source. No application/browser source changed after its accepted
 hosted qualification, and no public compatibility contract is added.
+
+### Provision the native Linux bootstrap group
+
+Provider-only run 42058247780 at `d33e616f9` passes 65/69, including every
+OpenCode scenario and all direct/nested child cases. The real owned stderr
+observer attributes all four remaining Antigravity failures to SIGABRT in
+Google initialization: the `nobody` group name does not exist. No model
+request is made. This is a native runner prerequisite, not an ACP protocol or
+relationship failure. The Ubuntu workflow creates the missing name using
+the existing nobody user's primary GID, retaining numeric permissions and
+all runtime flags. Independent review precedes publication and a fresh actual
+provider-only hosted run; no Linux Antigravity acceptance is yet claimed.
+
+Opus accepts the five-file slice. The final workflow passes scoped actionlint,
+and repository lint is warning-free with formatting clean. No TypeScript,
+runtime, test or browser source changes after the preceding full green
+workspace qualification. Local macOS cannot establish Linux group switching;
+the upcoming published hosted run must prove the alias is sufficient. The
+review's local-testbed instruction and gap-footer placement nits are addressed.
+No script acquires privilege automatically, no provider runs as root, and no
+prior failure without stderr is retroactively assigned this cause.

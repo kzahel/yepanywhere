@@ -634,3 +634,26 @@ unlocks. It distinguishes implemented evidence from proposed depth; this topic
 owns current contracts and qualification. The evidence does not change queue
 defaults or justify removing implicit YA concatenation without identity/policy
 qualification.
+
+## Linux Antigravity bootstrap prerequisite
+
+The native provider qualification runner requires the system group name
+`nobody`. Antigravity ACP 1.4.5's Google native bootstrap resolves it before
+ACP initialization; a missing name aborts with SIGABRT and no model dispatch.
+The Ubuntu job creates only a missing group-name alias using the existing
+`nobody` user's primary GID, preserving that account's numeric permissions. It
+does not change provider flags, fixture credentials or protocol expectations.
+The provisioned source must pass its actual native scenarios before Linux
+Antigravity acceptance is claimed.
+
+For an owned Debian/Ubuntu testbed with the same missing-name failure, an
+administrator can apply the same guarded alias before running the suite:
+
+```sh
+if ! getent group nobody >/dev/null; then
+  sudo groupadd --non-unique --gid "$(id -g nobody)" nobody
+fi
+getent group nobody
+```
+
+The local installer and test scripts never run `sudo` automatically.
