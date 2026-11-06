@@ -219,6 +219,18 @@ status, count, and menu affordances—not only rows currently mounted in the
 vertical-scroll window. Recompute it when the corpus or relevant font, size,
 or spacing metrics change.
 
+The default files width is a tight fit, not a fixed size. Until the user
+resizes the boundary, the pane takes the widest rendered row's untruncated
+demand: indent, status and state badges, path text, line counts, comment and
+review badges, row padding, the row menu, and the scrollbar. Path text is
+measured as text, because the path element stretches to fill its row. The fit
+is floored at the 220 px pane minimum and capped at the previous fixed
+defaults (380 px for Changes, 340 px beside history), so long paths still
+ellipsize as before. It re-measures when the file list's own rows change, as
+when status loads or a folder expands, and only ever grows within a mount, so
+filtering or collapsing does not jitter the boundary. A drag or keyboard
+resize ends fitting for that mount.
+
 ### Changed-file state and path recovery
 
 Changed-file rows use the compact git status code as the primary kind:

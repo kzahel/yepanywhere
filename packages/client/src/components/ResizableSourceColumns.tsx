@@ -94,9 +94,54 @@ export function calculateSourceAutoFilesWidth({
 }
 
 /**
+ * The narrowest files-column width that shows every file row unclipped: each
+ * row's indent, badges, path text and counts, plus the column's own insets and
+ * scrollbar. Paths stretch to fill their row, so their demand is read from the
+ * text itself rather than the element. Returns 0 when no row is rendered.
+ */
+export function measureSourceFilesFit(column: HTMLElement): number {
+  const columnWidth = column.getBoundingClientRect().width;
+  const range = document.createRange();
+  let fit = 0;
+  for (const row of column.querySelectorAll<HTMLElement>(
+    "[data-source-list-item]",
+  )) {
+    const rowWidth = row.getBoundingClientRect().width;
+    if (rowWidth === 0) continue;
+    const rowStyle = getComputedStyle(row);
+    let natural =
+      cssPixels(rowStyle.paddingLeft) +
+      cssPixels(rowStyle.paddingRight) +
+      cssPixels(rowStyle.borderLeftWidth) +
+      cssPixels(rowStyle.borderRightWidth);
+    let visible = 0;
+    for (const child of row.children) {
+      if (!(child instanceof HTMLElement)) continue;
+      const style = getComputedStyle(child);
+      if (style.display === "none" || style.position === "absolute") continue;
+      visible++;
+      natural += cssPixels(style.marginLeft) + cssPixels(style.marginRight);
+      if (style.overflowX === "visible") {
+        natural += child.getBoundingClientRect().width;
+      } else {
+        range.selectNodeContents(child);
+        natural +=
+          range.getBoundingClientRect().width +
+          cssPixels(style.paddingLeft) +
+          cssPixels(style.paddingRight);
+      }
+    }
+    natural += Math.max(0, visible - 1) * cssPixels(rowStyle.columnGap);
+    fit = Math.max(fit, columnWidth - rowWidth + natural);
+  }
+  return Math.ceil(fit);
+}
+
+/**
  * Desktop Source Control grids with edge-only resize handles. The tiny top and
  * bottom handles keep the pane interiors clean; interaction reveals one full
- * height guide while the grid reflows live.
+ * height guide while the grid reflows live. Until the user resizes it, the
+ * files column fits its rows, never wider than the default.
  */
 export function ResizableSourceColumns({
   layout,
@@ -126,6 +171,10 @@ export function ResizableSourceColumns({
   const pendingDragClientXRef = useRef<number | null>(null);
   const liveDragWidthsRef = useRef<Widths | null>(null);
   const ignoreNextClickRef = useRef(false);
+  /** Once the user sizes the files column, fitting no longer moves it. */
+  const filesUserSizedRef = useRef(false);
+  /** Widest fit seen, so filtering or collapsing rows never jitters the edge. */
+  const filesFitRef = useRef(0);
   const defaultFilesWidth =
     initialFilesWidth ?? (layout === "history" ? 340 : DEFAULT_FILES_WIDTH);
   const [widths, setWidths] = useState<Widths>(() => ({
@@ -149,6 +198,8 @@ export function ResizableSourceColumns({
         handleWidth: layoutMetrics.handleWidth,
       })
     : undefined;
+  const filesMaxRef = useRef(filesMax);
+  filesMaxRef.current = filesMax;
 
   useEffect(() => {
     if (previousRevisionPaneVisibleRef.current === revisionPaneVisible) return;
@@ -198,6 +249,55 @@ export function ResizableSourceColumns({
       current.files <= filesMax ? current : { ...current, files: filesMax },
     );
   }, [filesMax]);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || !enabled) return;
+    let frame: number | null = null;
+    const fitFiles = () => {
+      frame = null;
+      if (filesUserSizedRef.current) return;
+      const column = root.querySelector<HTMLElement>(".commit-files-column");
+      if (!column) return;
+      filesFitRef.current = Math.max(
+        filesFitRef.current,
+        measureSourceFilesFit(column),
+      );
+      if (filesFitRef.current === 0) return;
+      const files = clamp(
+        filesFitRef.current,
+        FILES_MIN,
+        Math.min(defaultFilesWidth, filesMaxRef.current ?? defaultFilesWidth),
+      );
+      setWidths((current) =>
+        current.files === files ? current : { ...current, files },
+      );
+    };
+    const schedule = () => {
+      if (frame === null) frame = window.requestAnimationFrame(fitFiles);
+    };
+    fitFiles();
+    // Rows arrive and change after mount (status loads, folder expansion);
+    // churn in the detail pane is not the file list's concern.
+    const observer = new MutationObserver((records) => {
+      const column = root.querySelector(".commit-files-column");
+      if (
+        records.some(
+          (record) =>
+            !column ||
+            column.contains(record.target) ||
+            record.target.contains(column),
+        )
+      ) {
+        schedule();
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [defaultFilesWidth, enabled]);
 
   useLayoutEffect(() => {
     if (
@@ -290,6 +390,9 @@ export function ResizableSourceColumns({
       flushPointerMove();
       const nextWidths = liveDragWidthsRef.current ?? dragging.startWidths;
       setWidths(nextWidths);
+      if (dragging.boundary === "files" && dragMovedRef.current) {
+        filesUserSizedRef.current = true;
+      }
       if (dragging.boundary === "revisions") {
         setRevisionsCollapsed(nextWidths.revisions === 0);
       }
@@ -327,6 +430,8 @@ export function ResizableSourceColumns({
     if (boundary === "revisions") {
       if (value > 0) lastRevisionWidthRef.current = value;
       setRevisionsCollapsed(value === 0);
+    } else {
+      filesUserSizedRef.current = true;
     }
     setWidths((current) => ({ ...current, [boundary]: value }));
   };
@@ -466,4 +571,9 @@ export function ResizableSourceColumns({
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function cssPixels(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
