@@ -164,7 +164,7 @@ High value and comparatively low risk: route files have obvious endpoint
 groups, and `create*Routes()` aggregators can remain stable.
 
 **Ownership:** future `packages/server/src/routes/sessions.ts` extraction
-should revive or supersede the dormant child ledger in
+should revive or supersede the child ledger in
 [`053-sessions-route-refactor-ledger.md`](053-sessions-route-refactor-ledger.md)
 and use SRR items there. That child ledger applies only to the server route
 file and its `routes/session-*.ts` helper modules; it does not gate Phase 2
@@ -175,7 +175,8 @@ ledger has already landed SRR-001 (request parsing helpers), SRR-002
 routes), SRR-008 (compact thresholds), SRR-009 (metadata patch parsing),
 SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
 SRR-013 (metadata/seen-state routes), SRR-014/SRR-015 (session-detail
-helpers and read routes), and SRR-016 (session project routing) —
+helpers and read routes), SRR-016 (session project routing), and
+SRR-017 (session start/resume shared helpers) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do
 not create a `routes/sessions/` directory or a shared helpers bucket.
@@ -187,7 +188,9 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | 1.2a | Done 2026-11-06 as SRR-014 | Session-detail helpers shared with the rest of `sessions.ts` | Move `resolveSessionReader` into `session-provider-resolution.ts`, the SDK-history conversion (`sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages`) into `session-sdk-history.ts`, and `messageId` into `session-message-id.ts`. | Preflight for 1.2b: the detail routes call these, and except for `extractContextUsageFromSDKMessages` (moved with its SDK-history sibling) so does code that stays (restart, fork, rewind), so they cannot move with the routes without a back-import. Helper functions only; Tier 2. |
 | 1.2b | Done 2026-11-06 as SRR-015 | Session-detail read route registrars | Move the agents, agent-content and metadata `GET`s, and the session-detail `GET`, into registrars called at their two original positions. | Tier 3. The six factory closures both registrars use (the project-routing/redirect pair, `storedIdentityFor`, the Grok lookup and redirect, `rewindRecordIdsFor`) become a `routing` parameter. |
 | 1.2c | Done 2026-11-06 as SRR-016 | Session project-routing closures | Move `resolveSessionProjectRouting`, `buildSessionProjectRedirectPath`, `getGrokNativeProjectId` with its lazy Grok reader, and `buildGrokNativeRedirectPath` into `createSessionProjectRouting(deps, storedIdentityFor)` in the existing `session-project-routing.ts`, called once at the old position. | Follow-up to 1.2b. Call sites unchanged: the factory destructures the same four names. One lazy Grok reader per factory call. `storedIdentityFor` and `rewindRecordIdsFor` stay. Tier 3. |
-| 1.3 | Deferred 2026-07-06 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, and remote sync behavior if revived. |
+| 1.3 | In progress 2026-11-06 as SRR-017/SRR-018 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers, in the two sub-slices below. | Deferred 2026-07-06 with the sessions route-registrar lane; revived through doc 053 at the maintainer's request. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, durable creation recovery, and remote sync behavior. |
+| 1.3a | Done 2026-11-06 as SRR-017 | Start/resume helpers shared with the rest of `sessions.ts` | Move the launch body types and parsers, the start-result guards, the sandbox request settings, `resolveCompactModelSettings`, and the `creationForRequest`/`creationAcceptance` and `getGlobalInstructions`/`buildResumeLaunch` closures (as `createSessionCreationRequests(deps)` and `createSessionLaunchSettings(deps)`) into domain modules. | Preflight for 1.3b: the routes share no factory state, but these are also used by restart, stale-handoff, fork, fork-summary, clone, recap, retitle, `PUT .../mode`, the message route, `/clearloop` and the recovered-queue deps, so they cannot move with the routes without a back-import. Call sites unchanged. Tier 2. |
+| 1.3b | Not started | Start/resume/reactivate route registrars | Move the two session-creation `POST`s with `ensureDetachedProjectPath`, and resume plus the reactivate admission middleware and `POST` with `parseOptionalReactivateSessionBody`, `REACTIVATE_SHOW_THINKING_OPTIONS` and `isPermissionRules` (used only by these routes), into registrars called at the old position. | Tier 3 plus `pnpm test:e2e:sdk`: creation and reactivation cross project-queue admission. |
 | 1.4 | Deferred 2026-07-06 | Restart/fork/recap/retitle routes | Extract restart, fork, recap, fork-summary, and retitle flows; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Higher risk; preserve handoff/fork semantics and recap background behavior if revived. |
 | 1.5 | Deferred 2026-07-06 | Queue/deferred routes | Extract message queue, deferred patient queue, steer/cancel, pending input, and mode routes. Builds on SRR-005 (recovered queue helpers, done in doc 053). | Deferred with the sessions route-registrar lane. Queue timers and idle ownership are load-bearing; read architecture mandates and run `test:e2e:sdk` if revived. |
 | 1.6 | Done 2026-11-06 as SRR-013 | Metadata/notifications routes | Move mark-seen (both verbs), notifications last-seen, debug metadata and the metadata `PUT` (archive/star included) into `session-metadata-routes.ts` as `registerSessionMetadataRoutes`, called at the old position. Builds on SRR-009 (metadata patch parsing). | Revived through doc 053 as SRR-013. Byte-identical block; event-bus emissions and the archive stop boundary unchanged. The session-detail metadata `GET` stays with row 1.2. |
@@ -352,6 +355,79 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 1.3a — Session Start/Resume Shared Helpers (Landed 2026-11-06, this commit)
+
+Tracked in doc 053 as SRR-017; it prepares slice 1.3b (SRR-018).
+
+Moved:
+- `permissionModeError`, `StartSessionBody`, `hasSessionMessageContent`,
+  `CreateSessionBody`, `parseOptionalJsonObjectBody` -> new
+  `packages/server/src/routes/session-launch-request.ts`.
+- `isQueuedResponse`, `isQueueFullResponse` -> new
+  `packages/server/src/routes/session-launch-results.ts`.
+- `parseSessionSandboxLevel`, `persistedSandboxNetworkFirewall`,
+  `inheritedSandboxSettings` -> new
+  `packages/server/src/routes/session-sandbox-settings.ts`.
+- `resolveCompactModelSettings` -> existing
+  `packages/server/src/routes/session-compact-thresholds.ts`.
+- `ResumeLaunchRequest`, plus the factory closures `getGlobalInstructions`
+  and `buildResumeLaunch` (one contiguous block) inside
+  `createSessionLaunchSettings` -> new
+  `packages/server/src/routes/session-launch-settings.ts`.
+- `requestCreationProvenance`, plus the factory closures
+  `creationForRequest` and `creationAcceptance` (one contiguous block)
+  inside `createSessionCreationRequests` -> new
+  `packages/server/src/routes/session-creation-requests.ts`.
+- All eleven moved chunks are byte-identical to `HEAD` apart from the
+  `export` added to each module-level declaration except the module-private
+  `requestCreationProvenance`, and the `deps` parameter type noted below (checked as
+  substrings of their new modules). `createSessionsRoutes` calls each
+  factory once at its block's old position and destructures the same
+  names, so call sites are unchanged.
+Signature conversions (closure -> parameter):
+- The two factories take the route factory's `deps` as a parameter, typed
+  as `SessionCreationRequestDeps` and `SessionLaunchSettingsDeps`.
+- `resolveCompactModelSettings`'s `deps` parameter changed type from
+  `SessionsDeps` to the new `CompactModelSettingsDeps`, the two services it
+  reads; `SessionLaunchSettingsDeps` extends it. Callers still pass
+  `SessionsDeps`, which satisfies all three without a cast.
+Behavior changes:
+- None. The helpers are pure and the closures are stateless, read `deps` at
+  request time, and are not called while the route factory is being built.
+Verification:
+- Tier 1: shared build; server `tsc --noEmit`; Biome check on changed
+  files; `git diff --check`; byte-identity check of the moved chunks;
+  focused `test/routes`, `test/sessions`, `test/api/sessions.test.ts`,
+  `test/auth/limitedUsers.test.ts`, `test/auth/session-access-app.test.ts`,
+  `test/native-app/app-creation-relationships.test.ts`, the two
+  `test/projects/template-*` creation tests and
+  `test/agent-auth-router.test.ts`, through `run-with-safe-home.js`: 2,006
+  passed, 13 skipped (186 files), no failures.
+- Tier 2: root `pnpm lint` (zero warnings, including the budget check),
+  `pnpm format:check`, `pnpm typecheck` and `pnpm test` passed (server
+  7,111 passed / 87 skipped; client 7,128; shared 980; relay 139;
+  push-broker 45).
+- Skipped: Tier 3 client E2E and `pnpm test:e2e:sdk`; no route, admission,
+  timer or liveness code moved. Both run for slice 1.3b, which moves the
+  routes that call these helpers.
+- Budget: `pnpm source:budgets --record` lowered `sessions.ts`
+  7,265 -> 6,713.
+- Independent review (claude-opus-5-5, xhigh): every moved chunk matches
+  `HEAD` exactly; every free identifier resolves to the same binding, with
+  no shadowing; neither factory holds mutable state, and
+  `creationAcceptance`'s per-request promise is unchanged; `SessionsDeps`
+  satisfies the three deps interfaces without a cast; registration order
+  is unchanged and no destructured name is read before its old position;
+  no cycle or back-import. Its findings were fixed: the ledger still read
+  as dormant and lacked an SRR-018 item, the caller lists were wrong or
+  incomplete (the docs and the `createSessionLaunchSettings` comment), row
+  1.3b did not name the parser and `ensureDetachedProjectPath` that must
+  travel with the routes, and `requestCreationProvenance` had an unneeded
+  `export`. Server `tsc --noEmit`, Biome check, `pnpm lint` and
+  `pnpm format:check` were re-run after the fixes.
+Follow-ups recorded:
+- None.
 
 ### Slice 1.2c — Session Project Routing (Landed 2026-11-06, this commit)
 

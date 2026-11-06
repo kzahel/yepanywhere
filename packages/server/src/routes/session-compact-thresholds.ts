@@ -1,4 +1,7 @@
-import type { ProviderName } from "@yep-anywhere/shared";
+import { type ProviderName, getModelContextWindow } from "@yep-anywhere/shared";
+import type { ModelInfoService } from "../services/ModelInfoService.js";
+import type { ServerSettingsService } from "../services/ServerSettingsService.js";
+import type { ModelSettings } from "../supervisor/Supervisor.js";
 
 /**
  * Per-model compact-early percent (task 029): a direct lookup of the resolved
@@ -39,4 +42,56 @@ export function resolveCompactWindow(
     }
   }
   return undefined;
+}
+
+/** What `resolveCompactModelSettings` reads from the sessions route deps. */
+export interface CompactModelSettingsDeps {
+  serverSettingsService?: ServerSettingsService;
+  modelInfoService?: ModelInfoService;
+}
+
+export function resolveCompactModelSettings(
+  deps: CompactModelSettingsDeps,
+  options: {
+    provider?: ProviderName;
+    yaModelId?: string;
+    modelCandidates?: (string | undefined)[];
+  },
+): Pick<
+  ModelSettings,
+  | "compactAtContextPercent"
+  | "compactAtContextWindow"
+  | "forceYaOrchestratedCompaction"
+  | "claudeAutoCompactPercentOverride"
+> {
+  const defaults = deps.serverSettingsService?.getSetting("clientDefaults");
+  const compactAtContextPercent = resolveCompactPercent(
+    defaults?.compactAtContextPercent,
+    options.yaModelId,
+  );
+  const modelInfoService = deps.modelInfoService;
+  const resolveContextWindow = modelInfoService
+    ? (model: string | undefined, provider?: ProviderName) =>
+        modelInfoService.getContextWindow(model, provider)
+    : getModelContextWindow;
+  const compactAtContextWindow =
+    compactAtContextPercent === undefined
+      ? undefined
+      : resolveCompactWindow(
+          options.provider,
+          options.modelCandidates ?? [options.yaModelId],
+          resolveContextWindow,
+        );
+  return {
+    compactAtContextPercent,
+    compactAtContextWindow,
+    forceYaOrchestratedCompaction:
+      defaults?.forceYaOrchestratedCompaction === true,
+    claudeAutoCompactPercentOverride:
+      options.provider === "claude"
+        ? deps.serverSettingsService?.getSetting(
+            "claudeAutoCompactPercentOverride",
+          )
+        : undefined,
+  };
 }

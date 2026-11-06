@@ -1,15 +1,18 @@
 # Sessions Route Refactor Ledger
 
-Status: Dormant again, 2026-11-06: the maintainer revived the session-detail
+Status: Active, 2026-11-06: the maintainer revived the session-detail
 read routes (doc 058 row 1.2) and they landed as SRR-014, which moved the
 helpers those routes share with the rest of the file, and SRR-015, which moved
 the routes. SRR-016 then moved the session project-routing closures those
-routes receive out of the route factory. SRR-013 landed the
+routes receive out of the route factory. The maintainer then revived the
+start/resume/reactivate routes (doc 058 row 1.3): SRR-017 moved the helpers
+and closures they share with the rest of the file, and SRR-018, which moves
+the routes themselves, is accepted and next. SRR-013 landed the
 metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
 observer cleanup does not extend the move slice. The other route-registrar
-extractions (doc 058 rows 1.3-1.5) remain deferred; revive each as its own
+extractions (doc 058 rows 1.4-1.5) remain deferred; revive each as its own
 SRR item.
 
 See also: `topics/core-service-api.md` — the sessions REST surface this
@@ -19,7 +22,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-016
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-018
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -43,8 +46,8 @@ slices; Phases 2-6 do not involve this document.
 
 Pivot note, 2026-07-06: SRR-003 remains deferred, all other SRR items are
 done, and doc 058 rows 1.2-1.6 are deferred for now (row 1.6 later landed
-as SRR-013 on 2026-11-06, and row 1.2 was revived as SRR-014/SRR-015 the
-same day). Future `sessions.ts`
+as SRR-013 on 2026-11-06, and rows 1.2 and 1.3 were revived the same day
+as SRR-014/SRR-015 and SRR-017/SRR-018). Future `sessions.ts`
 route-registrar extraction should reopen or supersede this ledger deliberately
 rather than assuming the old narrow lane is still active.
 
@@ -89,6 +92,100 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-018: Register Start, Resume And Reactivate Routes From Their Own Modules
+
+Status: accepted, 2026-11-06, with SRR-017 (doc 058 slice 1.3b).
+
+Scope: move the two session-creation `POST`s with `ensureDetachedProjectPath`,
+and the resume `POST`, the reactivate admission middleware and `POST`, with
+`parseOptionalReactivateSessionBody`, `REACTIVATE_SHOW_THINKING_OPTIONS` and
+`isPermissionRules`, into registrars called at the routes' old position. The
+registrars receive `creationAcceptance`, `getGlobalInstructions` and
+`buildResumeLaunch` as parameters.
+
+### SRR-017: Move Session Start And Resume Helpers Shared With Other Routes
+
+Status: done, 2026-11-06. Proposed and accepted the same day (the
+maintainer asked for the next slice after SRR-016), landed as campaign
+slice 1.3a in doc 058. It prepares SRR-018, which moves the start, resume
+and reactivate routes (doc 058 row 1.3).
+
+Destinations:
+
+- `permissionModeError`, `StartSessionBody`, `hasSessionMessageContent`,
+  `CreateSessionBody` and `parseOptionalJsonObjectBody` -> new
+  `packages/server/src/routes/session-launch-request.ts`;
+- `isQueuedResponse` and `isQueueFullResponse` -> new
+  `packages/server/src/routes/session-launch-results.ts`;
+- `parseSessionSandboxLevel`, `persistedSandboxNetworkFirewall` and
+  `inheritedSandboxSettings` -> new
+  `packages/server/src/routes/session-sandbox-settings.ts`;
+- `resolveCompactModelSettings` -> existing
+  `packages/server/src/routes/session-compact-thresholds.ts`, beside the
+  `resolveCompactPercent`/`resolveCompactWindow` it calls;
+- `ResumeLaunchRequest` and the factory closures `getGlobalInstructions` and
+  `buildResumeLaunch` -> new
+  `packages/server/src/routes/session-launch-settings.ts`, inside
+  `createSessionLaunchSettings(deps)`;
+- `requestCreationProvenance` and the factory closures `creationForRequest`
+  and `creationAcceptance` -> new
+  `packages/server/src/routes/session-creation-requests.ts`, inside
+  `createSessionCreationRequests(deps)`.
+
+Line delta: `-552` lines from `sessions.ts` (7,265 -> 6,713); `+55` in
+`session-compact-thresholds.ts` (42 -> 97); new modules of 137, 21, 81, 129
+and 227 lines.
+
+Problem:
+
+A preflight of the start, resume and reactivate routes (lines 2462-3379
+before this item) found they share no factory state such as maps, timers
+or queues with the rest of `createSessionsRoutes`, but they do reach three
+factory closures that code staying behind also calls: `creationForRequest`
+(through `creationAcceptance`; called directly by restart, stale-handoff,
+fork, fork-summary and clone), `getGlobalInstructions` (also restart,
+stale-handoff, fork-summary, recap, retitle, the message route and the
+recovered-queue deps) and `buildResumeLaunch` (also `/clearloop`'s
+`sendClearloopPrompt`). They also use ten module-level helpers and body
+types that staying code uses (restart, stale-handoff, fork, fork-summary,
+clone, retitle, `PUT /sessions/:sessionId/mode`, the message route and
+`/clearloop`).
+Moving the routes while those stay behind would make the new module import
+`sessions.ts`, which the campaign forbids.
+
+Implemented:
+
+- moved the module-level helpers and types verbatim, each gaining `export`
+  except `requestCreationProvenance`, which only its new module calls.
+  `inheritedSandboxSettings` is used only by staying routes; it moved with
+  its two sandbox siblings so the sandbox request settings have one owner;
+- moved the contiguous `creationForRequest`/`creationAcceptance` block and
+  the contiguous `getGlobalInstructions`/`buildResumeLaunch` block
+  byte-identically into the bodies of the two factories, which return them.
+  `createSessionsRoutes` calls each once at its block's old position and
+  destructures the same names, so every call site is unchanged.
+  `creationAcceptance` is used only by the two session-creation routes; it
+  moved with `creationForRequest`, which it calls, as the durable-creation
+  domain. `sessions/session-creation-acceptance.ts` keeps the receipt and
+  submission-hash logic, which has no HTTP context;
+- `deps` is typed as narrow interfaces rather than `SessionsDeps`:
+  `resolveCompactModelSettings` takes `CompactModelSettingsDeps`
+  (`serverSettingsService`, `modelInfoService`), the launch-settings factory
+  `SessionLaunchSettingsDeps` (those plus `sessionMetadataService`), and the
+  creation factory `SessionCreationRequestDeps` (`signal`,
+  `getLimitedUserGrants`, `sessionMetadataService`). Every caller passes
+  `SessionsDeps`, which satisfies them structurally;
+- `sessions.ts` imports the moved names; imports used only by the moved code
+  left its import list.
+
+Risk:
+
+- low. Pure helpers and stateless closures that read `deps` at request time;
+  nothing in the route factory calls them during construction. No route
+  registration, queue admission, timer or process code moved.
+
+Verification: see doc 058's slice 1.3a landing note.
 
 ### SRR-016: Build Session Project Routing Outside The Route Factory
 

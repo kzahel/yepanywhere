@@ -1,17 +1,7 @@
 import type { NestedHarnessRelationshipService } from "../sessions/NestedHarnessRelationshipService.js";
 import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
-import { savedLimitedCreationError } from "../auth/limitedLaunchPolicy.js";
-import { ALL_PROVIDERS } from "@yep-anywhere/shared";
-import { creationProvenanceForHeaders } from "../sessions/creation-provenance.js";
 import { creationStatusForSession } from "../sessions/session-creation-view.js";
-import {
-  sessionCreationReceipt,
-  sessionCreationSubmissionHash,
-} from "../sessions/session-creation-acceptance.js";
-import {
-  SessionCreationConflict,
-  type SavedSessionCreation,
-} from "../sessions/SessionCreationStore.js";
+import { sessionCreationReceipt } from "../sessions/session-creation-acceptance.js";
 import { readLimitedJsonObject } from "./limited-json-body.js";
 import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
@@ -20,20 +10,13 @@ import {
   type PermissionRules,
   type PromptSuggestionMode,
   type ProviderName,
-  type RecapMode,
-  type SessionCreationProvenance,
   type SessionSandboxLevel,
-  type ShowThinking,
   type ThinkingOption,
   type TranscriptDisplayObject,
   type UploadedFile,
-  type StagedAttachmentRef,
   type UserQuestionAnswers,
-  type UserMessageMetadata,
   type UrlProjectId,
   agentHarness,
-  buildEffectiveAgentContext,
-  getModelContextWindow,
   isThinkingOption,
   isUrlProjectId,
   isYaSessionId,
@@ -68,6 +51,24 @@ import {
 } from "../projects/paths.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import { createSessionProjectRouting } from "./session-project-routing.js";
+import { createSessionCreationRequests } from "./session-creation-requests.js";
+import {
+  type CreateSessionBody,
+  type StartSessionBody,
+  hasSessionMessageContent,
+  parseOptionalJsonObjectBody,
+  permissionModeError,
+} from "./session-launch-request.js";
+import {
+  isQueueFullResponse,
+  isQueuedResponse,
+} from "./session-launch-results.js";
+import { createSessionLaunchSettings } from "./session-launch-settings.js";
+import {
+  inheritedSandboxSettings,
+  parseSessionSandboxLevel,
+  persistedSandboxNetworkFirewall,
+} from "./session-sandbox-settings.js";
 import { parseSlashCommandSubmission } from "../sdk/slashCommandEmulation.js";
 import { dispatchProviderCommand } from "../supervisor/provider-command.js";
 import { tryRestartCompact } from "../supervisor/restart-compaction.js";
@@ -107,10 +108,7 @@ import {
 import type { Process } from "../supervisor/Process.js";
 import type {
   ModelSettings,
-  QueueFullResponse,
-  ResumeMode,
   SessionReactivationOverrides,
-  SessionLaunchOptions,
   Supervisor,
 } from "../supervisor/Supervisor.js";
 import {
@@ -122,7 +120,6 @@ import {
   SessionMessageRejectedError,
 } from "../supervisor/Supervisor.js";
 import { RouterUnavailable } from "../services/AgentAuthRouter.js";
-import type { QueuedResponse } from "../supervisor/WorkerQueue.js";
 import type {
   ContentBlock,
   Message,
@@ -136,10 +133,7 @@ import {
   parseOptionalExecutor,
   parseOptionalResumeMode,
 } from "./session-request-helpers.js";
-import {
-  resolveCompactPercent,
-  resolveCompactWindow,
-} from "./session-compact-thresholds.js";
+import { resolveCompactModelSettings } from "./session-compact-thresholds.js";
 import {
   type ClaudeResumeApiErrorBlocker,
   getClaudeResumeBlockerFromReader,
@@ -175,34 +169,6 @@ import type { EventBus } from "../watcher/index.js";
 import { resolveExistingSessionIdentity } from "./session-existing-identity.js";
 import type { SessionIdentityLookup } from "../sessions/SessionIdentityStore.js";
 import type { SessionReaderFactory } from "../sessions/types.js";
-
-function permissionModeError(mode: unknown): string | undefined {
-  if (
-    mode !== undefined &&
-    !ALL_PERMISSION_MODES.includes(mode as PermissionMode)
-  ) {
-    return "Invalid permission mode";
-  }
-  return undefined;
-}
-
-/**
- * Type guard to check if a result is a QueuedResponse
- */
-function isQueuedResponse(
-  result: Process | QueuedResponse | QueueFullResponse,
-): result is QueuedResponse {
-  return "queued" in result && result.queued === true;
-}
-
-/**
- * Type guard to check if a result is a QueueFullResponse
- */
-function isQueueFullResponse(
-  result: Process | QueuedResponse | QueueFullResponse,
-): result is QueueFullResponse {
-  return "error" in result && result.error === "queue_full";
-}
 
 export interface SessionsDeps {
   providerChildRelationships?: ProviderChildRelationshipService;
@@ -269,158 +235,10 @@ export interface SessionsDeps {
   ) => Promise<ReadonlySet<string>>;
 }
 
-function resolveCompactModelSettings(
-  deps: SessionsDeps,
-  options: {
-    provider?: ProviderName;
-    yaModelId?: string;
-    modelCandidates?: (string | undefined)[];
-  },
-): Pick<
-  ModelSettings,
-  | "compactAtContextPercent"
-  | "compactAtContextWindow"
-  | "forceYaOrchestratedCompaction"
-  | "claudeAutoCompactPercentOverride"
-> {
-  const defaults = deps.serverSettingsService?.getSetting("clientDefaults");
-  const compactAtContextPercent = resolveCompactPercent(
-    defaults?.compactAtContextPercent,
-    options.yaModelId,
-  );
-  const modelInfoService = deps.modelInfoService;
-  const resolveContextWindow = modelInfoService
-    ? (model: string | undefined, provider?: ProviderName) =>
-        modelInfoService.getContextWindow(model, provider)
-    : getModelContextWindow;
-  const compactAtContextWindow =
-    compactAtContextPercent === undefined
-      ? undefined
-      : resolveCompactWindow(
-          options.provider,
-          options.modelCandidates ?? [options.yaModelId],
-          resolveContextWindow,
-        );
-  return {
-    compactAtContextPercent,
-    compactAtContextWindow,
-    forceYaOrchestratedCompaction:
-      defaults?.forceYaOrchestratedCompaction === true,
-    claudeAutoCompactPercentOverride:
-      options.provider === "claude"
-        ? deps.serverSettingsService?.getSetting(
-            "claudeAutoCompactPercentOverride",
-          )
-        : undefined,
-  };
-}
-
 function isApprovalAuditLogEnabled(deps: SessionsDeps): boolean {
   return (
     deps.serverSettingsService?.getSetting("approvalAuditLogEnabled") === true
   );
-}
-
-interface StartSessionBody {
-  intent?: "prepare";
-  requestId?: string;
-  stagedAttachments?: StagedAttachmentRef[];
-  routerAccountId?: string;
-  routerPoolId?: string;
-  routerPolicy?: string;
-  routerClaudeAiConnectors?: boolean;
-  creationProvenance?: SessionCreationProvenance;
-  computerControl?: boolean;
-  machineControl?: boolean;
-  message: string;
-  images?: string[];
-  documents?: string[];
-  attachments?: UploadedFile[];
-  mode?: PermissionMode;
-  model?: string;
-  serviceTier?: string;
-  thinking?: ThinkingOption;
-  /** Display preference for thinking rows (default/on/off). */
-  showThinking?: ShowThinking;
-  provider?: ProviderName;
-  /** Browser-side timestamp for request latency tracking (epoch ms) */
-  clientTimestamp?: number;
-  /** YA-internal submission timing and delivery-intent metadata. */
-  messageMetadata?: UserMessageMetadata;
-  /** Client-generated temp ID for optimistic UI tracking */
-  tempId?: string;
-  /** SSH host alias for remote execution (undefined = local) */
-  executor?: string;
-  /** Default-off YA host filesystem confinement settled at session creation. */
-  sandboxLevel?: SessionSandboxLevel;
-  /** Public-only egress boundary for a project-write session. */
-  sandboxNetworkFirewall?: boolean;
-  /** Permission rules for tool filtering (deny/allow patterns) */
-  permissions?: PermissionRules;
-  /** Session recap behavior for future away-return triggers. */
-  recapMode?: RecapMode;
-  /** Browser-away duration before YA asks this session for a recap. */
-  recapAfterSeconds?: number;
-  /** Prompt suggestion behavior for this session. */
-  promptSuggestionMode?: PromptSuggestionMode;
-  /** Session-level helper side model for simulated helper features. */
-  helperSideModel?: string;
-  /** Resume strategy for existing sessions. */
-  resumeMode?: ResumeMode;
-  /** Removed lane target: explicit stale-client requests are refused. */
-  workstreamId?: unknown;
-}
-
-function hasSessionMessageContent(body: StartSessionBody): boolean {
-  return (
-    typeof body.message === "string" &&
-    (body.message.length > 0 ||
-      (Array.isArray(body.attachments) && body.attachments.length > 0) ||
-      (Array.isArray(body.stagedAttachments) &&
-        body.stagedAttachments.length > 0))
-  );
-}
-
-interface CreateSessionBody {
-  routerAccountId?: string;
-  routerPoolId?: string;
-  routerPolicy?: string;
-  routerClaudeAiConnectors?: boolean;
-  creationProvenance?: SessionCreationProvenance;
-  computerControl?: boolean;
-  machineControl?: boolean;
-  mode?: PermissionMode;
-  model?: string;
-  serviceTier?: string;
-  thinking?: ThinkingOption;
-  /** Display preference for thinking rows (default/on/off). */
-  showThinking?: ShowThinking;
-  provider?: ProviderName;
-  /** SSH host alias for remote execution (undefined = local) */
-  executor?: string;
-  /** Default-off YA host filesystem confinement settled at session creation. */
-  sandboxLevel?: SessionSandboxLevel;
-  /** Public-only egress boundary for a project-write session. */
-  sandboxNetworkFirewall?: boolean;
-  /** Permission rules for tool filtering (deny/allow patterns) */
-  permissions?: PermissionRules;
-  /** Session recap behavior for future away-return triggers. */
-  recapMode?: RecapMode;
-  /** Browser-away duration before YA asks this session for a recap. */
-  recapAfterSeconds?: number;
-  /** Prompt suggestion behavior for this session. */
-  promptSuggestionMode?: PromptSuggestionMode;
-  /** Session-level helper side model for simulated helper features. */
-  helperSideModel?: string;
-  /** Removed lane target: explicit stale-client requests are refused. */
-  workstreamId?: unknown;
-}
-
-function requestCreationProvenance(
-  c: Context,
-  declared: unknown,
-): SessionCreationProvenance {
-  return creationProvenanceForHeaders(c.req.raw.headers, declared);
 }
 
 interface InputResponseBody {
@@ -428,109 +246,6 @@ interface InputResponseBody {
   response: "approve" | "approve_accept_edits" | "deny" | string;
   answers?: UserQuestionAnswers;
   feedback?: string;
-}
-
-function parseSessionSandboxLevel(
-  value: unknown,
-  networkFirewall: unknown = undefined,
-  fallbackLevel: SessionSandboxLevel = "none",
-  fallbackNetworkFirewall: boolean | undefined = undefined,
-):
-  | {
-      sandboxLevel: SessionSandboxLevel;
-      sandboxNetworkFirewall: boolean;
-    }
-  | { error: string } {
-  const sandboxLevel =
-    value === undefined || value === null || value === ""
-      ? fallbackLevel
-      : value;
-  if (sandboxLevel !== "none" && sandboxLevel !== "project-write") {
-    return { error: 'sandboxLevel must be "none" or "project-write"' };
-  }
-  if (
-    networkFirewall !== undefined &&
-    networkFirewall !== null &&
-    typeof networkFirewall !== "boolean"
-  ) {
-    return { error: "sandboxNetworkFirewall must be a boolean" };
-  }
-  if (sandboxLevel !== "project-write" && networkFirewall === true) {
-    return {
-      error: "sandboxNetworkFirewall requires sandboxLevel project-write",
-    };
-  }
-  const defaultNetworkFirewall =
-    sandboxLevel === fallbackLevel && fallbackNetworkFirewall !== undefined
-      ? fallbackNetworkFirewall
-      : true;
-  return {
-    sandboxLevel,
-    sandboxNetworkFirewall:
-      sandboxLevel === "project-write" &&
-      (networkFirewall === undefined || networkFirewall === null
-        ? defaultNetworkFirewall
-        : networkFirewall),
-  };
-}
-
-function persistedSandboxNetworkFirewall(
-  metadata:
-    | { sandboxLevel?: SessionSandboxLevel; sandboxNetworkFirewall?: boolean }
-    | null
-    | undefined,
-): boolean {
-  return (
-    metadata?.sandboxLevel === "project-write" &&
-    metadata.sandboxNetworkFirewall !== false
-  );
-}
-
-/**
- * Launch choices one resume request makes for an existing session. An unset
- * field falls back to what the session saved, so a resume with no client body
- * (a `/clearloop` iteration, a body-less route call) keeps the session's
- * standing settings.
- */
-interface ResumeLaunchRequest {
-  /** YA model id the request names; absent recovers the saved one. */
-  model?: string;
-  serviceTier?: ModelSettings["serviceTier"];
-  thinking?: ModelSettings["thinking"];
-  effort?: ModelSettings["effort"];
-  /** SSH host alias the request names; absent recovers the saved one. */
-  executor?: string;
-  permissions?: ModelSettings["permissions"];
-  recapMode?: ModelSettings["recapMode"];
-  recapAfterSeconds?: number;
-  promptSuggestionMode?: ModelSettings["promptSuggestionMode"];
-  helperSideModel?: string;
-  resumeMode: NonNullable<ModelSettings["resumeMode"]>;
-  resumeSessionAt?: string;
-}
-
-function inheritedSandboxSettings(
-  metadata:
-    | {
-        sandboxLevel?: SessionSandboxLevel;
-        sandboxNetworkFirewall?: boolean;
-        sandboxStateKey?: string;
-      }
-    | null
-    | undefined,
-):
-  | {
-      sandboxLevel: "project-write";
-      sandboxNetworkFirewall: boolean;
-      sandboxStateKey?: string;
-    }
-  | Record<string, never> {
-  if (metadata?.sandboxLevel !== "project-write") return {};
-  return {
-    sandboxLevel: "project-write",
-    sandboxNetworkFirewall: metadata.sandboxNetworkFirewall !== false,
-    sandboxStateKey: metadata.sandboxStateKey,
-  };
 }
 
 interface RestartSessionBody extends CreateSessionBody {
@@ -560,22 +275,6 @@ interface RestartSessionBody extends CreateSessionBody {
    * transcript instead of sending a message.
    */
   handoffText?: string;
-}
-
-function parseOptionalJsonObjectBody(
-  rawBody: string,
-): { body: Record<string, unknown> } | { error: string } {
-  if (rawBody.trim().length === 0) return { body: {} };
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawBody);
-  } catch {
-    return { error: "Invalid JSON body" };
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { error: "Invalid JSON body" };
-  }
-  return { body: parsed as Record<string, unknown> };
 }
 
 const REACTIVATE_SHOW_THINKING_OPTIONS: ReadonlySet<unknown> = new Set([
@@ -1625,183 +1324,8 @@ function isRestartReplacementActivity(message: SDKMessage): boolean {
 
 export function createSessionsRoutes(deps: SessionsDeps): Hono {
   const routes = new Hono();
-  const creationForRequest = (
-    c: Context,
-    declared: unknown,
-    lineage?: import("../sessions/SessionRelationshipWriter.js").CreationLineage,
-  ): NonNullable<SessionLaunchOptions["creation"]> => {
-    const principal = principalFor(c);
-    const liveDesktopOrigin = desktopControlOrigin(c);
-    const context = {
-      owner:
-        principal.kind === "limited"
-          ? { kind: "limited" as const, username: principal.username }
-          : { kind: "superuser" as const },
-      source: {
-        kind: "request" as const,
-        provenance: requestCreationProvenance(c, declared),
-      },
-    };
-    return {
-      context,
-      lineage,
-      async authorize(saved) {
-        if (deps.signal?.aborted)
-          throw new Error("Session owner is shutting down");
-        if (
-          saved.context.owner.kind !== context.owner.kind ||
-          (saved.context.owner.kind === "limited" &&
-            (context.owner.kind !== "limited" ||
-              saved.context.owner.username !== context.owner.username))
-        )
-          throw new Error("Creation owner changed");
-        if (saved.context.owner.kind === "limited") {
-          const refused = savedLimitedCreationError(
-            saved,
-            deps.getLimitedUserGrants?.(saved.context.owner.username) ?? null,
-          );
-          if (refused) throw new Error(refused);
-        }
-        return { desktopControlOrigin: liveDesktopOrigin };
-      },
-    };
-  };
-  const creationAcceptance = (
-    c: Context,
-    body: StartSessionBody,
-    projectId: string,
-  ) => {
-    const context = creationForRequest(c, body.creationProvenance);
-    if (
-      typeof body.requestId !== "string" ||
-      !/^[A-Za-z0-9_-]{8,128}$/.test(body.requestId)
-    )
-      return c.json({ error: "Invalid creation request id" }, 400);
-    const store = deps.sessionMetadataService?.creations;
-    if (!store)
-      return c.json({ error: "Durable session storage is unavailable" }, 503);
-    const submissionHash = sessionCreationSubmissionHash(body, projectId);
-    const existing = store.get(context.context.owner, body.requestId);
-    if (existing) {
-      if (existing.deleted)
-        return c.json({ error: "Session creation was deleted" }, 410);
-      if (existing.request?.submissionHash !== submissionHash)
-        return c.json(
-          { error: "Creation request conflicts with saved input" },
-          409,
-        );
-      return c.json(sessionCreationReceipt(existing), 202);
-    }
-    if (
-      (body.provider !== undefined && !ALL_PROVIDERS.includes(body.provider)) ||
-      typeof body.message !== "string" ||
-      (!body.message.trim() &&
-        !body.stagedAttachments?.length &&
-        body.intent !== "prepare") ||
-      (body.intent !== undefined &&
-        (body.intent !== "prepare" ||
-          Boolean(body.message) ||
-          Boolean(body.stagedAttachments?.length))) ||
-      (body.stagedAttachments !== undefined &&
-        (!Array.isArray(body.stagedAttachments) ||
-          !body.stagedAttachments.length ||
-          body.stagedAttachments.length > 64)) ||
-      body.images !== undefined ||
-      body.documents !== undefined ||
-      body.attachments !== undefined ||
-      body.executor
-    )
-      return c.json(
-        {
-          error:
-            "This request is outside the supported session creation workflow",
-          reason: "creation-not-accepted",
-        },
-        400,
-      );
-    let accepted = false;
-    let resolve!: (saved: SavedSessionCreation) => void;
-    let reject!: (error: unknown) => void;
-    const promise = new Promise<SavedSessionCreation>((yes, no) => {
-      resolve = yes;
-      reject = no;
-    });
-    return {
-      promise,
-      replay() {
-        const saved = store.get(context.context.owner, body.requestId!);
-        if (!saved) return undefined;
-        if (saved.deleted)
-          return c.json({ error: "Session creation was deleted" }, 410);
-        if (saved.request?.submissionHash !== submissionHash)
-          return c.json(
-            { error: "Creation request conflicts with saved input" },
-            409,
-          );
-        return c.json(sessionCreationReceipt(saved), 202);
-      },
-      creation: {
-        ...context,
-        intent: body.intent,
-        requestId: body.requestId,
-        attachments: body.stagedAttachments
-          ? { owner: { type: "draft" as const }, refs: body.stagedAttachments }
-          : undefined,
-        submissionHash,
-        onAccepted(saved: SavedSessionCreation) {
-          accepted = true;
-          resolve(saved);
-        },
-      },
-      refused(error: unknown): Response {
-        const saved = store.get(context.context.owner, body.requestId!);
-        if (saved) {
-          if (saved.deleted)
-            return c.json({ error: "Session creation was deleted" }, 410);
-          if (saved.request?.submissionHash !== submissionHash)
-            return c.json(
-              { error: "Creation request conflicts with saved input" },
-              409,
-            );
-          return c.json(sessionCreationReceipt(saved), 202);
-        }
-        if (error instanceof SessionCreationConflict)
-          return c.json(
-            { error: "Creation request conflicts with preparing input" },
-            409,
-          );
-        return c.json(
-          {
-            error:
-              "Session creation was not accepted; your draft is preserved. Check the attachments or available capacity before retrying.",
-            reason: "creation-not-accepted",
-          },
-          400,
-        );
-      },
-      failed(error: unknown) {
-        if (!accepted) {
-          reject(error);
-          return;
-        }
-        // The receipt already went out, so this log line and the saved
-        // failure code are the only record of why startup failed.
-        getLogger().warn(
-          {
-            event: "session_creation_failed",
-            requestId: body.requestId,
-            projectId,
-            provider: body.provider,
-            error: error instanceof Error ? error.message : String(error),
-          },
-          "Accepted session creation failed to start",
-        );
-      },
-      finished() {
-        if (!accepted) reject(new Error("Creation was not durably accepted"));
-      },
-    };
-  };
+  const { creationForRequest, creationAcceptance } =
+    createSessionCreationRequests(deps);
   routes.get("/session-creations/:requestId", (c) => {
     const principal = principalFor(c);
     const owner =
@@ -1899,84 +1423,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     resolveSessionProjectRouting,
   } = createSessionProjectRouting(deps, storedIdentityFor);
 
-  const getGlobalInstructions = (): string | undefined =>
-    buildEffectiveAgentContext({
-      globalInstructions:
-        deps.serverSettingsService?.getSetting("globalInstructions"),
-      hints: deps.serverSettingsService?.getSetting("agentContextHints"),
-    });
-
-  /**
-   * The one assembly of an existing session's resume launch: the request's
-   * choices over the session's saved model, executor, helper preferences and
-   * settled sandbox. The resume route and `/clearloop` iterations both use it.
-   */
-  const buildResumeLaunch = (input: {
-    sessionId: string;
-    providerName: ProviderName;
-    workingProjectPath: string;
-    /** Model the replaced process reported, a compact-window lookup key. */
-    previousResolvedModel?: string;
-    request: ResumeLaunchRequest;
-  }): { projectPath: string; settings: ModelSettings } | { error: string } => {
-    const { sessionId, providerName, request } = input;
-    const saved = deps.sessionMetadataService;
-    const metadata = saved?.getMetadata?.(sessionId);
-    const requestedModel = request.model ?? saved?.getRequestedModel(sessionId);
-    const model =
-      requestedModel && requestedModel !== "default"
-        ? requestedModel
-        : undefined;
-    let executor = request.executor;
-    if (!executor) {
-      const savedExecutor = parseOptionalExecutor(
-        saved?.getExecutor(sessionId),
-      );
-      if (savedExecutor.error) return { error: savedExecutor.error };
-      executor = savedExecutor.executor;
-    }
-    const recapMode = request.recapMode ?? metadata?.recapMode;
-    const sandboxLevel = metadata?.sandboxLevel ?? "none";
-    const sandboxError = getSessionSandboxSettingsError(
-      sandboxLevel,
-      recapMode,
-    );
-    if (sandboxError) return { error: sandboxError };
-    return {
-      projectPath:
-        sandboxLevel === "project-write"
-          ? (metadata?.sandboxProjectPath ?? input.workingProjectPath)
-          : input.workingProjectPath,
-      settings: {
-        model,
-        requestedModel,
-        serviceTier: request.serviceTier,
-        thinking: request.thinking,
-        effort: request.effort,
-        providerName,
-        executor,
-        sandboxLevel,
-        sandboxNetworkFirewall: persistedSandboxNetworkFirewall(metadata),
-        sandboxStateKey: metadata?.sandboxStateKey,
-        globalInstructions: getGlobalInstructions(),
-        permissions: request.permissions,
-        recapMode,
-        recapAfterSeconds:
-          request.recapAfterSeconds ?? saved?.getRecapAfterSeconds?.(sessionId),
-        promptSuggestionMode:
-          request.promptSuggestionMode ??
-          saved?.getPromptSuggestionMode?.(sessionId),
-        helperSideModel: request.helperSideModel,
-        resumeMode: request.resumeMode,
-        resumeSessionAt: request.resumeSessionAt,
-        ...resolveCompactModelSettings(deps, {
-          provider: providerName,
-          yaModelId: requestedModel,
-          modelCandidates: [requestedModel, model, input.previousResolvedModel],
-        }),
-      },
-    };
-  };
+  const { getGlobalInstructions, buildResumeLaunch } =
+    createSessionLaunchSettings(deps);
 
   const persistLaunchMetadata = async (
     sessionId: string,
