@@ -3,7 +3,7 @@ import {
   auditCapabilityInventory,
   findClientCapabilityReferences,
 } from "../../../../scripts/capability-inventory.js";
-import type { ServerCapabilityDefinition } from "../../../shared/src/server-capabilities.js";
+import type { ServerCapabilityDefinition } from "../../../shared/src/server-capability-definition.js";
 
 const capability: ServerCapabilityDefinition = {
   name: "fixed-feature",

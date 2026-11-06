@@ -5,11 +5,9 @@ import {
   CAPABILITY_ID_ALLOCATIONS,
   CAPABILITY_ID_ENCODING_INTRODUCED_IN,
 } from "../packages/shared/src/capability-ids.js";
-import {
-  OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS,
-  SERVER_CAPABILITIES,
-  type ServerCapabilityDefinition,
-} from "../packages/shared/src/server-capabilities.js";
+import { SERVER_CAPABILITIES } from "../packages/shared/src/server-capabilities.js";
+import type { ServerCapabilityDefinition } from "../packages/shared/src/server-capability-definition.js";
+import { OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS } from "../packages/shared/src/server-capability-optional-bits.js";
 import {
   auditCompatibilitySunsets,
   parseAuditDate,

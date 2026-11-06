@@ -29,7 +29,10 @@ Neither job primarily repairs servers from before capabilities existed.
 
 | File or symbol | Purpose |
 | --- | --- |
-| `packages/shared/src/server-capabilities.ts` → `SERVER_CAPABILITIES` | Named definitions, support rules, descriptions and client fallbacks |
+| `packages/shared/src/server-capabilities.ts` → `SERVER_CAPABILITIES` | Composes the registry and owns `serverHasCapability`, the encoders and the exported name constants |
+| `packages/shared/src/server-capabilities-<area>.ts` | The entries themselves, one module per `area` value: named definitions, support rules, descriptions and client fallbacks |
+| `packages/shared/src/server-capability-definition.ts` → `ServerCapabilityDefinition` | Entry shape, including the allowed `area` values |
+| `packages/shared/src/server-capability-optional-bits.ts` | Optional-bit aliases of ledger IDs |
 | `packages/shared/src/capability-ids.ts` → `CAPABILITY_ID_ALLOCATIONS` | Permanent numeric ID ledger; also owns sparse-bit encoding |
 | `serverHasCapability` | Shared interpretation of server version, positive/negative bits and legacy representations |
 | `packages/server/src/routes/version.ts` | Chooses supported features and encodes `/api/version` for the client |
@@ -66,8 +69,9 @@ version-implied rule is interpreted centrally. Exported named string constants
 and domain helpers are also supported; do not substitute literal feature names
 or ad-hoc version comparisons in callers.
 
-Do not duplicate the registry as a hand-maintained ID table here. Allocate the
-next unused ID from the ledger, never from a number copied into prose. IDs are
+Add a new entry to the area module matching its `area`. Do not duplicate the
+registry as a hand-maintained ID table here. Allocate the next unused ID from
+the ledger, never from a number copied into prose. IDs are
 shared across directions and never reused or renumbered. Retired allocated
 server capabilities keep their ledger and registry entries.
 

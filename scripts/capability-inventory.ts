@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { ServerCapabilityDefinition } from "../packages/shared/src/server-capabilities.js";
+import type { ServerCapabilityDefinition } from "../packages/shared/src/server-capability-definition.js";
 import {
   COMPATIBILITY_LIFETIME_DAYS,
   parseAuditDate,

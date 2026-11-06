@@ -162,10 +162,11 @@
       "maxLines": 1505
     },
     "packages/shared/src/index.ts": {
-      "maxLines": 1719
-    },
-    "packages/shared/src/server-capabilities.ts": {
-      "maxLines": 5226
+      "maxLines": 1721,
+      "raise": {
+        "from": 1719,
+        "reason": "Slice 7.1 moved the capability definition types and optional-bit table out of server-capabilities.ts; the package barrel names them explicitly rather than using export *. Maintainer-approved 2026-11-06."
+      }
     }
   }
 }

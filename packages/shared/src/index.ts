@@ -908,21 +908,23 @@ export {
   SERVER_CAPABILITIES,
   getSessionTextCreationCapability,
   SPEECH_BACKEND_SETUP_CAPABILITY,
-  OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS,
   TOOL_RESULT_MEDIA_PRESERVATION_POLICY_CAPABILITY,
   VOICE_INPUT_CAPABILITY,
   encodeVersionedServerCapabilities,
   hasServerCapabilityAdvertisement,
   negotiateServerCapabilityEncoding,
   serverHasCapability,
-  type ServerCapabilityAdvertisement,
-  type ServerCapabilityDefinition,
   type ServerCapabilityKey,
-  type ServerCapabilityKind,
   type ServerCapabilityName,
   type ServerCapabilitySource,
   type VersionedServerCapabilityAdvertisement,
 } from "./server-capabilities.js";
+export type {
+  ServerCapabilityAdvertisement,
+  ServerCapabilityDefinition,
+  ServerCapabilityKind,
+} from "./server-capability-definition.js";
+export { OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS } from "./server-capability-optional-bits.js";
 
 export {
   CAPABILITY_ID_ALLOCATIONS,

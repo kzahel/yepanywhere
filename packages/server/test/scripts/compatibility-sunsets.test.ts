@@ -3,7 +3,7 @@ import {
   auditCompatibilitySunsets,
   parseAuditDate,
 } from "../../../../scripts/compatibility-sunsets.js";
-import type { ServerCapabilityDefinition } from "../../../shared/src/server-capabilities.js";
+import type { ServerCapabilityDefinition } from "../../../shared/src/server-capability-definition.js";
 
 const fallback = {
   name: "old-parser",

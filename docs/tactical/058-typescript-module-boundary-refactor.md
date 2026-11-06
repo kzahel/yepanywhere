@@ -100,7 +100,7 @@ over 2,000):
 | 6,582 | 4,026 | `packages/server/src/supervisor/Process.ts` |
 | 5,984 | 3,346 | `packages/client/src/components/NewSessionForm.tsx` |
 | 5,702 | 3,615 | `packages/client/src/components/MessageList.tsx` |
-| 5,226 | — | `packages/shared/src/server-capabilities.ts` |
+| 5,226 | — | `packages/shared/src/server-capabilities.ts` (split by area in slice 7.1; 445 after) |
 | 4,781 | 2,339 | `packages/client/src/components/MessageInput.tsx` |
 | 4,645 | 1,678 | `packages/server/src/app.ts` (after slice 1.8a; 4,913 before) |
 | 4,157 | 2,180 | `packages/server/src/sessions/codex-reader.ts` |
@@ -313,6 +313,20 @@ can improve review when scenarios are independent.
 | 6.3 | Done 2026-07-06 | `codex.test.ts` fixtures | Move repeated raw notification fixtures and expected SDK outputs into fixture modules. | Extracted scenario-named event fixtures only; conversion calls and assertions stay explicit in `codex.test.ts`. |
 | 6.4 | Not started | Route metadata tests | Split route metadata tests once route modules split. | Keep request/response assertions explicit. |
 
+## Phase 7: Shared Contract Registries
+
+`packages/shared` registries are data, not control flow, and nearly
+append-only: every new client/server contract adds an entry. They are cheap to
+split along their own classification fields, and splitting them removes the
+merge hot spot that feature work otherwise shares. Read
+[server capabilities](../../topics/server-capabilities.md) before touching the
+capability registry.
+
+| Slice | Status | Target | Intent | Tripwires / Notes |
+|---|---|---|---|---|
+| 7.1 | Done 2026-11-06 | `server-capabilities.ts` by `area` | Move each `SERVER_CAPABILITIES` entry into `server-capabilities-<area>.ts` for its existing `area` field, and compose them back into the unchanged registry. | Runtime use is name/key lookup only; `capabilities:audit` output byte-identical. Definition types and the optional-bit allocation table moved to their own modules so area modules do not import the hub. |
+| 7.2 | Not started | Sessions capability area | `server-capabilities-sessions.ts` starts at 1,396 lines, a few entries under the 1,500-line threshold. When the next entry would cross it, move the Agent Auth Router entries (`agentAuthRouter*`, six entries) and the session-creation entries (`sessionCreationAdmission`, `stagedSessionCreation`, the four `*TextCreation` entries) into their own modules, still `area: "sessions"`. | Move-only, same checks as 7.1. Do not change any entry's `area` value to fit a module; the field is registry data shown by the audit. |
+
 ## Landing Template
 
 Each landed slice updates its row and appends a note here (newest first):
@@ -333,6 +347,86 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 7.1 — Server Capability Registry By Area (Landed 2026-11-06, this commit)
+
+Moved:
+- The 167 `SERVER_CAPABILITIES` entries -> eleven modules named for their
+  existing `area` value: `server-capabilities-device-bridge.ts`,
+  `-git-status.ts`, `-local-access.ts`, `-project-queue.ts`,
+  `-providers.ts`, `-remote-access.ts`, `-rendering.ts`, `-security.ts`,
+  `-sessions.ts`, `-settings.ts` and `-speech.ts` (all in
+  `packages/shared/src/`), each exporting `<AREA>_SERVER_CAPABILITIES`
+  `as const satisfies Record<string, ServerCapabilityDefinition>`. Entries
+  are byte-identical and keep their relative order within each area.
+  `server-capabilities.ts` composes the eleven objects by spread, in
+  alphabetical area order, under the same `as const satisfies` clause.
+- `ServerCapabilityKind`, `ServerCapabilityAdvertisement`,
+  `ServerCapabilityPermanentLifecycle`,
+  `ServerCapabilityTransitionalLifecycle` and `ServerCapabilityDefinition` ->
+  `server-capability-definition.ts`; `OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS`
+  -> `server-capability-optional-bits.ts`. The area modules need both, and
+  importing them from the hub would be a back-import. The wire types
+  (`VersionedServerCapabilityAdvertisement`, `ServerCapabilitySource`), the
+  exported `*_CAPABILITY` name constants, the by-name map, the encoders and
+  `serverHasCapability` stay in the hub.
+- Importers repointed: `index.ts` (explicit named exports from the two new
+  modules), `scripts/audit-server-capabilities.ts`,
+  `scripts/capability-inventory.ts`, `scripts/compatibility-sunsets.ts` and
+  their two server tests. No re-export shim remains in the hub.
+Signature conversions (closure -> parameter):
+- None.
+Behavior changes:
+- None at runtime. One declared exception to the contract's ordering rule:
+  property enumeration order of `SERVER_CAPABILITIES` is now grouped by area
+  rather than insertion order. The slice request (2026-11-06) approved
+  reordering on condition that no consumer depends on key order; keeping the
+  old order would have meant either interleaved area modules or a
+  hand-maintained 167-key ordering list in the hub. Consumers checked: the
+  only production enumeration builds the by-name
+  `Map`, which is order-insensitive because names are unique (checked).
+  `/api/version` builds its supported list from explicit constants, not by
+  enumerating the registry. The two server tests and two client E2E specs
+  that enumerate it assert per name, expect an empty difference, or feed the
+  names to the bitset encoder, so none depends on order. The audit's text
+  report, the one human-facing listing, is byte-identical (below).
+- Public surface of `@yep-anywhere/shared`: unchanged. The barrel names the
+  moved exports explicitly; `export *` would have saved four lines but
+  would also have exposed the two lifecycle interfaces.
+Verification:
+- Equivalence against `HEAD` (throwaway check, not committed): a type-level
+  exact-equality assertion for `typeof SERVER_CAPABILITIES`,
+  `ServerCapabilityKey`, `ServerCapabilityName`, every moved type and the
+  optional-bit table (confirmed live by flipping one assertion); runtime deep
+  equality of the registry, the optional-bit table (including key order) and
+  every remaining exported constant; 167 keys, unique names.
+- `pnpm capabilities:audit --as-of 2026-11-06`: text output byte-identical to
+  `HEAD`; `--json` inventory, sunsets and findings equal.
+- Tier 1: shared build; Biome check on changed files; focused
+  `src/__tests__/server-capabilities.test.ts` (33) and server
+  `test/version.test.ts`, `test/routes/version.test.ts`,
+  `test/scripts/capability-inventory.test.ts`,
+  `test/scripts/compatibility-sunsets.test.ts` (81) passed.
+- Tier 2: root `pnpm lint` (including the budget check),
+  `pnpm format:check`, `pnpm typecheck` and `pnpm test` passed
+  (server 7,111 passed / 87 skipped; client 7,127; shared 980; relay 139;
+  push-broker 45).
+- Budget: `pnpm source:budgets --record` retired the
+  `server-capabilities.ts` entry (5,226 -> 445). `index.ts` was raised
+  1,719 -> 1,721 with a maintainer-approved `raise` record for the
+  explicit barrel exports.
+- Tier 3 not required: no route, mount or client-visible surface moved; the
+  registry objects are runtime-equal.
+- Independent review (gpt-6.1-sol): all 167 entries byte-identical; values
+  and types match `HEAD`; client-reference discovery still finds all 179
+  locations; no cycle, back-import or shim. Its one finding was the
+  enumeration-order change, recorded above as the approved exception.
+Follow-ups recorded:
+- Slice 7.2 (sessions area is 104 lines under the threshold).
+- A key duplicated across two area modules would silently resolve to the
+  later spread instead of failing as a duplicate object-literal key.
+  `capabilities:audit` catches it only through the ID ledger checks. Not
+  changed here; an explicit duplicate-key check would belong in the audit.
 
 ### Slice 1.8a — Public-Share Mounting (Landed 2026-11-06, this commit)
 

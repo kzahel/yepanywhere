@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ServerCapabilityDefinition } from "../packages/shared/src/server-capabilities.js";
+import type { ServerCapabilityDefinition } from "../packages/shared/src/server-capability-definition.js";
 
 export const COMPATIBILITY_LIFETIME_DAYS = 90;
 const DAY_MS = 86_400_000;
