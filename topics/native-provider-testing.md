@@ -792,7 +792,7 @@ production adapters and readers in private standalone profiles.
 | Claude | Bundled 2.1.312 / SDK 0.3.312; Messages override. | Gentle and immediate steering; durable input UUIDs. |
 | Claude Gateway | Same bundled CLI; real Gateway service/catalog/effort probe. | Gentle and immediate steering; actual launch/routing path, not a real upstream Gateway service. |
 | Claude Ollama | Same bundled CLI; adapter URL setter routes Messages locally. | Gentle and immediate steering; qualifies Claude launch, not an actual Ollama server. |
-| Codex | Pinned 0.166.0 app-server; custom Responses endpoint. | Gentle and immediate steering; durable input UUIDs. |
+| Codex | Pinned 0.167.0 app-server; custom Responses endpoint. | Gentle and immediate steering; durable input UUIDs. |
 | Codex OSS | Same CLI, distinct new/resumed exec JSONL path; owned service catalog. | Separate first-exec tool coverage. |
 | Pi | Pinned 1.5.0 RPC; private models.json, Chat Completions. | Real RPC lifecycle and native JSONL reader. |
 | OpenCode | Pinned 1.18.9 server; private custom provider, Chat Completions. | Actual server tool execution and production SQLite/export reader. |

@@ -279,7 +279,34 @@ possible ([provider-version-support](provider-version-support.md)).
 Recheck, 2026-11-04: installed Codex is still `0.166.0`, npm `latest`, and
 `pnpm codex:protocol:check` reports no drift. Nothing to refresh.
 
-Current source refresh, 2026-10-29 (0.166.0):
+Current source refresh, 2026-11-06 (0.167.0, generated types only):
+
+- Installed Codex is `codex-cli 0.167.0`, npm `latest`; the official
+  `rust-v0.167.0` tag resolves to `086ccc833`. `expectedVersion`,
+  `compatibleThroughVersion`, the native test pin, and the reference
+  checkout record `0.167.0`.
+- Regeneration changes four subset files. Audio inputs (`UserInput`
+  `audio`, `ContentItem` `input_audio`) may now reference an uploaded
+  `fileId`/`file_id` instead of a URL; YA sends no audio, and
+  `CodexInputAudioContentSchema` already treats `audio_url` as optional
+  and passes other fields through.
+- New control, not adopted: managed `requirements.toml` prefix rules with
+  `decision = "prompt-user"` (upstream #58045) raise a command approval
+  with `kind: "humanCommand"` that accepts only a one-time
+  accept/decline/cancel. Codex sends it only to connections that
+  initialize with `experimentalApi` and the new `requiredHumanApproval`
+  capability (`app-server/src/outgoing_message.rs`); YA declares only
+  `experimentalApi`, so such approvals never reach YA. Adopting it is a design refresh:
+  YA would need a one-time-only approval prompt that never offers session
+  or persistent approval. Trigger: a user who runs managed `prompt-user`
+  rules under YA.
+- A zero-token `model/list` returns the same nine models as 0.166.0, in
+  YA's preferred order, `gpt-6.1-sol` default at low effort.
+- No credentialed smoke ran. Server type checking, the server provider
+  suites (838 tests), and the 17 Codex and Codex OSS native scenarios on
+  the pinned 0.167.0 executable pass.
+
+Previous source refresh, 2026-10-29 (0.166.0):
 
 - Installed Codex is `codex-cli 0.166.0`, which is npm `latest`; the
   official `rust-v0.166.0` tag resolves to `6ff1e1ca3`, 1,335 commits after
