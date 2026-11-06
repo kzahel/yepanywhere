@@ -174,8 +174,8 @@ ledger has already landed SRR-001 (request parsing helpers), SRR-002
 (recovered queue helpers), SRR-006 (Claude resume guard), SRR-007 (worker queue
 routes), SRR-008 (compact thresholds), SRR-009 (metadata patch parsing),
 SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
-SRR-013 (metadata/seen-state routes), and SRR-014/SRR-015 (session-detail
-helpers and read routes) —
+SRR-013 (metadata/seen-state routes), SRR-014/SRR-015 (session-detail
+helpers and read routes), and SRR-016 (session project routing) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do
 not create a `routes/sessions/` directory or a shared helpers bucket.
@@ -186,6 +186,7 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | 1.2 | Done 2026-11-06 as SRR-014/SRR-015 | Session detail routes | Extract metadata, agent content, and `GET /projects/:projectId/sessions/:sessionId` handlers behind a local registrar, in the two sub-slices below. | Deferred 2026-07-06 because this is a route registrar move with pagination, compact-tail, augment, unread, and server-E2E tripwires; revived through doc 053 at the maintainer's request. |
 | 1.2a | Done 2026-11-06 as SRR-014 | Session-detail helpers shared with the rest of `sessions.ts` | Move `resolveSessionReader` into `session-provider-resolution.ts`, the SDK-history conversion (`sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages`) into `session-sdk-history.ts`, and `messageId` into `session-message-id.ts`. | Preflight for 1.2b: the detail routes call these, and except for `extractContextUsageFromSDKMessages` (moved with its SDK-history sibling) so does code that stays (restart, fork, rewind), so they cannot move with the routes without a back-import. Helper functions only; Tier 2. |
 | 1.2b | Done 2026-11-06 as SRR-015 | Session-detail read route registrars | Move the agents, agent-content and metadata `GET`s, and the session-detail `GET`, into registrars called at their two original positions. | Tier 3. The six factory closures both registrars use (the project-routing/redirect pair, `storedIdentityFor`, the Grok lookup and redirect, `rewindRecordIdsFor`) become a `routing` parameter. |
+| 1.2c | Done 2026-11-06 as SRR-016 | Session project-routing closures | Move `resolveSessionProjectRouting`, `buildSessionProjectRedirectPath`, `getGrokNativeProjectId` with its lazy Grok reader, and `buildGrokNativeRedirectPath` into `createSessionProjectRouting(deps, storedIdentityFor)` in the existing `session-project-routing.ts`, called once at the old position. | Follow-up to 1.2b. Call sites unchanged: the factory destructures the same four names. One lazy Grok reader per factory call. `storedIdentityFor` and `rewindRecordIdsFor` stay. Tier 3. |
 | 1.3 | Deferred 2026-07-06 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, and remote sync behavior if revived. |
 | 1.4 | Deferred 2026-07-06 | Restart/fork/recap/retitle routes | Extract restart, fork, recap, fork-summary, and retitle flows; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Higher risk; preserve handoff/fork semantics and recap background behavior if revived. |
 | 1.5 | Deferred 2026-07-06 | Queue/deferred routes | Extract message queue, deferred patient queue, steer/cancel, pending input, and mode routes. Builds on SRR-005 (recovered queue helpers, done in doc 053). | Deferred with the sessions route-registrar lane. Queue timers and idle ownership are load-bearing; read architecture mandates and run `test:e2e:sdk` if revived. |
@@ -352,6 +353,83 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Slice 1.2c — Session Project Routing (Landed 2026-11-06, this commit)
+
+Tracked in doc 053 as SRR-016; the follow-up slice 1.2b recorded.
+
+Moved:
+- `unscopedGrokReader`, `getUnscopedGrokReader`, `getGrokNativeProjectId`,
+  `buildGrokNativeRedirectPath`, `buildSessionProjectRedirectPath` and
+  `resolveSessionProjectRouting` (one contiguous block of
+  `createSessionsRoutes`) -> the body of `createSessionProjectRouting` in
+  the existing `packages/server/src/routes/session-project-routing.ts`,
+  which returns the four closures. The block is byte-identical to `HEAD`
+  (checked as a substring of the new module).
+- `createSessionsRoutes` calls the factory once at the block's old position
+  and destructures the four names, so `POST .../refresh-preview` and the
+  `sessionDetailRouting` object reference them unchanged.
+Signature conversions (closure -> parameter):
+- `deps` became a parameter, typed as the new `SessionProjectRoutingDeps`
+  so the module does not import `SessionsDeps`; `createSessionsRoutes`
+  passes its own `deps` object.
+- The factory closure `storedIdentityFor` became the second parameter under
+  the same name. It stays in `sessions.ts` for
+  `GET /sessions/:sessionId/native-source`, `POST .../clone` and the
+  routing object.
+Behavior changes:
+- None. The closures are invoked only at request time; the routing object
+  literal, the only construction-time reader, still follows the call. The
+  lazy Grok reader is still created on first use and shared by both
+  detail registrars, one per `createSessionsRoutes` call.
+Verification:
+- Tier 1: shared build; server `tsc --noEmit`; Biome check on changed
+  files; `git diff --check`; byte-identity check of the moved block;
+  focused `test/routes`, `test/sessions` and every other server test
+  matching `redirectProjectId`, `refresh-preview`, `workingProjectId`,
+  `grokSessionsDir` or `session-project-routing`, plus
+  `session-path-scope.test.ts`, through `run-with-safe-home.js`: 2,069
+  passed, 32 skipped (190 files). The first run had one failed test; only
+  its summary line was kept, so the test is unnamed and the failure is
+  unattributed. Six later runs of the same command with this change, the
+  last three logged in full, and the full Tier 2 server suite all passed
+  with no failures.
+- Tier 2: root `pnpm lint` (zero warnings, including the budget check),
+  `pnpm format:check`, `pnpm typecheck` and `pnpm test` passed (server
+  7,111 passed / 87 skipped; client 7,128; shared 980; relay 139;
+  push-broker 45).
+- Tier 3: the client gate
+  `pnpm --filter client test:e2e --grep-invert "physical Android"`
+  (server from source through `tsx`): 491 passed, 13 skipped, 5 failed.
+  `provider-sign-in.spec.ts:161` is the known `HEAD` baseline failure. The
+  other four, `artifact-viewer.spec.ts:136`, `async-questions-jump.spec.ts:11`,
+  `durable-session-creation.spec.ts:438` and `rendez-compose.spec.ts:8`,
+  passed 3/3 each in isolation (`--repeat-each=3`, 12/12), so none
+  persists and no `HEAD` comparison was needed.
+- Skipped: `pnpm test:e2e:sdk`; it has no case that calls these routes, and
+  no queue, timer or liveness code moved.
+- Budget: `pnpm source:budgets --record` lowered `sessions.ts`
+  7,423 -> 7,265.
+- Independent review (claude-opus-5-5, xhigh): the moved block matches
+  `HEAD` lines 1896-2058 exactly; every free identifier resolves to the
+  same binding; one lazy Grok reader per factory call, used by both
+  registrars; `SessionsDeps` satisfies `SessionProjectRoutingDeps` without
+  a cast, and the `Pick<>` narrowing is type-only, so the calls remain
+  method calls on `deps.supervisor`/`deps.scanner`; no TDZ, ordering, cycle
+  or back-import issue. Its findings were fixed: the docs named the wrong
+  `storedIdentityFor` caller, `SessionProjectRoutingDeps` redeclared the
+  inherited `grokSessionsDir`, and the Tier 1 note implied the unnamed
+  failure was unrelated. The redeclaration was dropped after Tier 2/3 ran
+  (a type-only edit; server `tsc --noEmit`, Biome check and
+  `pnpm lint` re-run).
+Follow-ups recorded:
+- `buildGrokNativeRedirectPath` and `buildSessionProjectRedirectPath` have
+  identical bodies; only the `suffix` parameter type differs. Folding them
+  together changes call sites and the registrars' destructuring, so it was
+  left out of this move.
+- `SessionProjectRouting` in `session-detail-routes.ts` restates the
+  inline return type of `resolveSessionProjectRouting`; declaring it once
+  in `session-project-routing.ts` is a type-only follow-up.
+
 ### Slice 1.2b — Session-Detail Read Routes (Landed 2026-11-06, this commit)
 
 Tracked in doc 053 as SRR-015; completes row 1.2 after slice 1.2a.
@@ -439,7 +517,8 @@ Follow-ups recorded:
   `resolveSessionProjectRouting`/`buildSessionProjectRedirectPath` are
   shared only with `POST .../refresh-preview`. Lifting them into a domain module
   that takes `deps` would let later registrars stop receiving them as
-  parameters; that changes call sites, so it is its own slice.
+  parameters; that changes call sites, so it is its own slice. Done as slice
+  1.2c (SRR-016), which keeps the call sites and the `routing` parameter.
 - `slash-command-argument-completions.spec.ts:344` flakes about 1 in 6-8
   isolated runs at `161f2d1eb` with a strict-mode violation: the goal
   dialog briefly renders two `status` elements. Client race, not

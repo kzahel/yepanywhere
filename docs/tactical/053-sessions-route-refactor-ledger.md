@@ -3,8 +3,10 @@
 Status: Dormant again, 2026-11-06: the maintainer revived the session-detail
 read routes (doc 058 row 1.2) and they landed as SRR-014, which moved the
 helpers those routes share with the rest of the file, and SRR-015, which moved
-the routes. SRR-013 landed the metadata/seen-state registrar (row 1.6) earlier
-the same day. SRR-012 landed 2026-10-27 as `06cff21d6` under
+the routes. SRR-016 then moved the session project-routing closures those
+routes receive out of the route factory. SRR-013 landed the
+metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
+2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
 observer cleanup does not extend the move slice. The other route-registrar
 extractions (doc 058 rows 1.3-1.5) remain deferred; revive each as its own
@@ -17,7 +19,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-015
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-016
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -88,6 +90,70 @@ boundaries, not necessarily fewer total repository lines.
 
 ## Refactor Items
 
+### SRR-016: Build Session Project Routing Outside The Route Factory
+
+Status: done, 2026-11-06. Proposed and accepted the same day (the
+maintainer asked for the next slice after SRR-015, whose follow-up named
+it), landed as campaign slice 1.2c in doc 058.
+
+Destination: the existing
+`packages/server/src/routes/session-project-routing.ts`, which already owns
+`resolveCanonicalProjectRedirect`, now also exporting
+`createSessionProjectRouting(deps, storedIdentityFor)` and its
+`SessionProjectRoutingDeps`.
+
+Line delta: `-158` lines from `sessions.ts` (7,423 -> 7,265), `+208` in
+`session-project-routing.ts` (41 -> 249).
+
+Problem:
+
+After SRR-015, the session project-routing closures sat in
+`createSessionsRoutes` with no route of their own:
+`resolveSessionProjectRouting` and `buildSessionProjectRedirectPath` serve
+the two detail registrars and `POST .../refresh-preview`,
+`getGrokNativeProjectId` (with its lazy `unscopedGrokReader`) and
+`buildGrokNativeRedirectPath` serve only the registrars. They are one
+domain, the project a session request is served under, and the module that
+already decides that redirect is their natural owner.
+
+Implemented:
+
+- moved the contiguous block from `let unscopedGrokReader` through
+  `resolveSessionProjectRouting` byte-identically into the body of
+  `createSessionProjectRouting`, which returns the four closures.
+  `createSessionsRoutes` calls it once at the block's old position and
+  destructures the same four names, so every call site (`POST
+  .../refresh-preview` and the `sessionDetailRouting` object) is unchanged.
+  The lazy Grok reader is still one instance per `createSessionsRoutes`
+  call, shared by both registrars;
+- `deps` is typed as the narrow `SessionProjectRoutingDeps`
+  (`SessionProviderResolutionDeps` plus `supervisor.getProcessForSession`,
+  `scanner.getOrCreateProject`, and the full `sessionMetadataService`
+  that `creationStatusForSession` takes and whose `getMetadata` the block
+  reads; `grokSessionsDir` and `signal` are inherited), not `SessionsDeps`;
+  the factory passes its own `deps` object;
+- `storedIdentityFor` stays in `sessions.ts` because
+  `GET /sessions/:sessionId/native-source`, `POST .../clone` and the routing
+  object also use it; it becomes the second parameter, under the same
+  name, so the moved body still calls it as before;
+- `rewindRecordIdsFor` stays: it belongs to the rewind domain, not to
+  project routing;
+- `sessions.ts` no longer imports `resolveCanonicalProjectRedirect` or
+  `encodeProjectId`, and imports `GrokSessionReader` as a type only (its
+  remaining use is a type annotation);
+- the two detail registrars keep receiving the `routing` object. Having
+  each call `createSessionProjectRouting` itself would build a second lazy
+  Grok reader, which is not a move.
+
+Risk:
+
+- low. Closures only, called at request time; nothing reads them during
+  factory construction except the routing object literal, which still
+  follows the call. No route registration, queue, timer or process code
+  moved.
+
+Verification: see doc 058's slice 1.2c landing note.
+
 ### SRR-015: Register Session-Detail Read Routes From Their Own Modules
 
 Status: done, 2026-11-06. Proposed and accepted with SRR-014, landed as
@@ -131,7 +197,9 @@ Implemented:
   `registerSessionDetailRoute` verbatim. The instance is still built once
   per `createSessionsRoutes` call; its constructor only stores options, so
   building it a few statements later is not observable;
-- factory closures both registrars use stay in `sessions.ts`:
+- factory closures both registrars use stay in `sessions.ts` (SRR-016
+  later moved four of them into `session-project-routing.ts`, still built
+  once per factory call):
   `resolveSessionProjectRouting` and `buildSessionProjectRedirectPath`
   (also called by `POST .../refresh-preview`), `storedIdentityFor` (also
   used by other routes), `getGrokNativeProjectId` (which owns the lazy Grok

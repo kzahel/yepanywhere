@@ -103,7 +103,7 @@
       "maxLines": 1891
     },
     "packages/server/src/routes/sessions.ts": {
-      "maxLines": 7423
+      "maxLines": 7265
     },
     "packages/server/src/routes/ws-relay-handlers.ts": {
       "maxLines": 3087
