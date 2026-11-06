@@ -381,6 +381,9 @@ additional new-session action create the same durable Project Queue target
 shape (`target.type === "new-session"`); neither uses a client-held draft
 queue. The active-session action inherits that session's selected provider,
 model, executor, permission mode, and thinking settings for the future session.
+Until the current session's provider is known, its new-session actions remain
+unavailable instead of submitting with the server's default provider. The
+composer continues accepting draft text while session details load.
 
 Right-click (long-press on touch) on the active-session new-session action
 opens a purple-tinted dock below the editable composer instead of queueing.

@@ -69,5 +69,12 @@ qualification and the complete unit suite pass locally; hosted verification
 remains required. These repairs do not resolve the separate artifact typing
 finding or explain the original unretained server failures above.
 
+The next hosted run, `42145995300`, passed recovery and router assertions but
+exposed a second cause for the missing native launch: the options dock could
+open before the parent session detail loaded, capture an undefined provider,
+and submit to the server's default Claude provider rather than the fixture's
+Codex peer. The current action waits for its inherited provider, independently
+of draft typing; creation checks explicitly assert the admitted Codex provider.
+
 Found 2026-11-05 while publishing native viewer URLs and visible saved prompts.
 Contributing-model: 6.1-Sol

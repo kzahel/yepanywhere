@@ -192,6 +192,7 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
       saved = r;
     });
     await page.route("**/session-creations", async (route) => {
+      expect(route.request().postDataJSON().provider).toBe("codex");
       expect(route.request().postDataJSON().stagedAttachments).toHaveLength(1);
       const response = await route.fetch();
       expect(response.status()).toBe(202);
@@ -337,6 +338,7 @@ test("unchanged Session-page files are acknowledged once and stay cleared after 
     );
     await f.start();
     const receipt = await (await accepted).json();
+    expect(receipt.provider).toBe("codex");
     await expect(f.page).toHaveURL(
       (url) =>
         url.pathname.endsWith(`/sessions/${receipt.sessionId}`) ||
@@ -376,7 +378,9 @@ test("lost creation reply and recovery read reload into conditional read-only dr
       posts++;
       const response = await route.fetch();
       expect(response.status()).toBe(202);
-      sessionId = (await response.json()).sessionId;
+      const receipt = await response.json();
+      expect(receipt.provider).toBe("codex");
+      sessionId = receipt.sessionId;
       await route.abort("failed");
     });
     await f.start();

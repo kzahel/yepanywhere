@@ -7495,7 +7495,7 @@ function SessionPageContent({
                       : undefined
                   }
                   onProjectQueueNewSession={
-                    !mainComposerForAside
+                    !mainComposerForAside && effectiveProvider
                       ? handleProjectQueueNewSession
                       : undefined
                   }
