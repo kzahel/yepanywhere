@@ -78,6 +78,11 @@
   color: var(--success-color);
 }
 
+.tierBackground .sectionHeader {
+  border-left-color: var(--text-dimmed);
+  color: var(--text-muted);
+}
+
 .tierUnread8h .sectionHeader {
   border-left-color: var(--link-color);
   color: var(--link-color);
@@ -154,6 +159,12 @@
 /* Empty section styling */
 .sectionEmpty .sectionHeader {
   opacity: 0.6;
+}
+
+.sectionNote {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-dimmed);
 }
 
 .sectionEmptyMessage {

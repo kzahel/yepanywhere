@@ -12,6 +12,7 @@ import type {
   ProjectQueueProjectStatus,
   ProjectQueueRecoveredSessionQueueSummary,
   SessionMetadataPayload,
+  SessionProviderPhase,
   UrlProjectId,
 } from "@yep-anywhere/shared";
 import type { GlobalSessionItem, InboxItem } from "../api/client";
@@ -1041,6 +1042,7 @@ function putInboxSnapshot(
   );
   let next = state;
   const tiers = createEmptyInboxTierRecord<string[]>(() => []);
+  const providerPhases = new Map<string, SessionProviderPhase>();
   const seenSessionIds = new Set<string>();
   for (const tier of INBOX_TIERS) {
     for (const item of snapshot[tier]) {
@@ -1049,6 +1051,7 @@ function putInboxSnapshot(
         seenSessionIds.add(sessionId);
         tiers[tier].push(sessionId);
       }
+      if (item.providerPhase) providerPhases.set(sessionId, item.providerPhase);
       next = upsertInboxItemRecord(next, item, observation);
     }
   }
@@ -1057,12 +1060,13 @@ function putInboxSnapshot(
     ? next.inbox.tiers
     : tiers;
 
+  const partial = snapshot.catalog?.complete === false;
   return {
     ...next,
     inbox: {
       ...next.inbox,
-      tiers:
-        snapshot.catalog?.complete === false ? next.inbox.tiers : stableTiers,
+      tiers: partial ? next.inbox.tiers : stableTiers,
+      providerPhases: partial ? next.inbox.providerPhases : providerPhases,
       catalog: snapshot.catalog,
       requestStartedAt,
       fetchedAt: Date.now(),

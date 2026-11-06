@@ -1,0 +1,137 @@
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  color: var(--text-primary);
+}
+
+.intro {
+  margin-bottom: var(--space-4);
+}
+
+.intro h1 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.segmented button {
+  padding: 0.25rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Same 8px footprint as the thinking dot, so titles do not shift. */
+.ring {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--thinking-color);
+  flex-shrink: 0;
+}
+
+.ring[data-phase="quiet"] {
+  border-color: var(--warning-color);
+  border-style: dashed;
+}
+
+.ring[data-phase="background"] {
+  border-color: var(--text-dimmed);
+}
+
+/*
+ * Proposal-mode row rules: the meta line wraps so a long work pill drops
+ * below project and age instead of squeezing them, and the link is
+ * constrained so the pill's ellipsis applies. Shipped rows get the same
+ * from SessionListItem.module.css.
+ */
+.page:not([data-shipped]) :global(.session-list-item--card .session-list-item__link) {
+  min-width: 0;
+}
+
+.page:not([data-shipped]) :global(.session-list-item--card .session-list-item__meta) {
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
+
+/* Doubled class beats the global badge's flex-shrink: 0. */
+.workPill.workPill {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: min(100%, 52ch);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-waiting {
+  background: color-mix(in srgb, var(--thinking-color) 12%, transparent);
+  color: var(--thinking-color);
+}
+
+.pill-quiet {
+  background: color-mix(
+    in srgb,
+    var(--warning-color) 14%,
+    transparent
+  );
+  color: var(--warning-color);
+}
+
+.pill-background {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.tierBackground h2 {
+  border-left-color: var(--text-dimmed);
+  color: var(--text-muted);
+}
+
+.sectionNote {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-dimmed);
+}

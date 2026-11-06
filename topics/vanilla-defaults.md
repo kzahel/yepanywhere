@@ -106,6 +106,15 @@ single-key session triage. Unmodified `r` and `u` explicitly set read state for
 the focused session; they leave typing, menus, dialogs and viewers alone. Their
 only visible addition is a key hint beside the existing menu action.
 
+The Inbox's **provider-phase indicators**
+([provider waits](provider-wait-and-background-work.md#contracts)) are always
+on, authorized by graehl on 2026-11-06 after approving the mockup. They refine
+YA's own Active-row dot, which had no first-party equivalent, so it no longer
+claims generation while a turn waits on a command or background work holds an
+ended turn: a ring and a short pill replace the dot, and background-held
+sessions move into a Background tier shown only while it has rows. Queue and
+idle behavior are unchanged.
+
 The File Viewer's **clickable path segments**
 ([media routing](media-rendering-and-routing.md#resource-actions-and-file-presentation-choice))
 are always on, authorized by graehl on 2026-10-29 after approving the mockup.

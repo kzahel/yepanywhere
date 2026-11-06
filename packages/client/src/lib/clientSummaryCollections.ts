@@ -1,4 +1,7 @@
-import type { SessionClearloopBadge } from "@yep-anywhere/shared";
+import type {
+  SessionClearloopBadge,
+  SessionProviderPhase,
+} from "@yep-anywhere/shared";
 import type {
   AgentActivity,
   PendingInputType,
@@ -156,6 +159,12 @@ export interface ProjectQueueCountSource {
 export interface InboxCollectionState {
   catalog?: RetainedSessionCollectionState;
   tiers: Record<InboxTier, readonly string[]>;
+  /**
+   * Per-request live state from the latest complete inbox snapshot, kept
+   * apart from session records so other collections cannot clear or freeze
+   * it.
+   */
+  providerPhases?: ReadonlyMap<string, SessionProviderPhase>;
   requestStartedAt?: number;
   fetchedAt?: number;
 }

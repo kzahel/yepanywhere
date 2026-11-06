@@ -2618,3 +2618,66 @@ describe("clientSummaryState", () => {
     ]);
   });
 });
+
+it("keeps inbox provider phases from the latest complete inbox snapshot only", () => {
+  const held = {
+    phase: "background" as const,
+    work: [
+      {
+        id: "task-1",
+        kind: "shell" as const,
+        label: "pnpm dev",
+        source: "background_tasks_changed",
+      },
+    ],
+  };
+  const inbox = (active: InboxItem[], complete = true) => ({
+    ...(complete ? {} : { catalog: { complete: false } as never }),
+    needsAttention: [],
+    active,
+    recentActivity: [],
+    unread8h: [],
+    unread24h: [],
+  });
+  const activePhases = (
+    state: ReturnType<typeof createEmptyClientSummaryState>,
+  ) => selectInboxResponse(state).active.map((item) => item.providerPhase);
+
+  let state = applyInboxCollectionSnapshot(
+    createEmptyClientSummaryState(),
+    inbox([
+      inboxItem("held", { activity: "in-turn", providerPhase: held }),
+      inboxItem("plain", { activity: "in-turn" }),
+    ]),
+    100,
+  );
+  expect(activePhases(state)).toEqual([held, undefined]);
+
+  // A global sessions snapshot of the same rows never carries the phase and
+  // must not clear it.
+  state = applyGlobalSessionsCollectionSnapshot(
+    state,
+    {
+      query: { scope: "global-sessions", limit: 50 },
+      sessions: [globalSession("held", { activity: "in-turn" })],
+      hasMore: false,
+    },
+    150,
+  );
+  expect(activePhases(state)).toEqual([held, undefined]);
+
+  // A partial catalog keeps the last complete tiers and their phases.
+  state = applyInboxCollectionSnapshot(
+    state,
+    inbox([inboxItem("held", { activity: "in-turn" })], false),
+    200,
+  );
+  expect(activePhases(state)).toEqual([held, undefined]);
+
+  state = applyInboxCollectionSnapshot(
+    state,
+    inbox([inboxItem("held", { activity: "in-turn" })]),
+    300,
+  );
+  expect(activePhases(state)).toEqual([undefined]);
+});

@@ -20,6 +20,7 @@ import type {
   PromptSuggestionMode,
   SafeRestartChangedEvent,
   SessionCatalogUpdatedEvent,
+  SessionProviderPhase,
   RecentsChangedEvent,
   TranscriptDisplayObject,
   UrlProjectId,
@@ -109,6 +110,20 @@ export interface ProcessStateEvent {
   activity: AgentActivity;
   /** Type of pending input (only set when activity is "waiting-input") */
   pendingInputType?: PendingInputType;
+  timestamp: string;
+}
+
+/**
+ * A session's provider phase moved without a row activity change: a
+ * foreground wait started or ended, or background work changed. Row-only;
+ * it carries no activity and must not trigger turn or idle work.
+ */
+export interface SessionProviderPhaseEvent {
+  type: "session-provider-phase-changed";
+  sessionId: string;
+  projectId: UrlProjectId;
+  /** Null when the session no longer has a provider phase. */
+  providerPhase: SessionProviderPhase | null;
   timestamp: string;
 }
 
@@ -363,6 +378,7 @@ export type BusEvent =
   | BackendReloadedEvent
   | SessionSeenEvent
   | ProcessStateEvent
+  | SessionProviderPhaseEvent
   | ProcessTerminatedEvent
   | ReviewResponseChangedEvent
   | ProviderRuntimeStatusChangedEvent

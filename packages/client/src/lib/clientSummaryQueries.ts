@@ -267,7 +267,8 @@ export function selectInboxTierItems(
       return [];
     }
     const item = sessionRecordToInboxItem(record);
-    return item ? [item] : [];
+    const providerPhase = state.inbox.providerPhases?.get(sessionId);
+    return item ? [providerPhase ? { ...item, providerPhase } : item] : [];
   });
 }
 

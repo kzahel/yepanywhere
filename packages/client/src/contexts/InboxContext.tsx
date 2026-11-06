@@ -45,6 +45,7 @@ const INBOX_REVALIDATE_EVENTS = [
   "refresh",
   "reconnect",
   "process-state-changed",
+  "session-provider-phase-changed",
   "session-status-changed",
   "session-seen",
   "session-created",

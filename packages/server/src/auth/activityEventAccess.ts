@@ -85,6 +85,7 @@ export function limitedActivityEvent(
 
     case "session-status-changed":
     case "process-state-changed":
+    case "session-provider-phase-changed":
     case "process-terminated":
     case "review-response-changed":
     case "provider-runtime-status-changed":

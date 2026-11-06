@@ -40,6 +40,8 @@ const NON_COLLECTION_EVENT_TYPES: ReadonlySet<BusEvent["type"]> = new Set([
   "worker-activity-changed",
   "cache-miss-billing",
   "cache-miss-billing-expected-expiry",
+  // Inbox computes the phase per request, outside the shared walk.
+  "session-provider-phase-changed",
 ]);
 
 export function busEventChangesSessionCollection(event: BusEvent): boolean {

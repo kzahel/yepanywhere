@@ -40,6 +40,11 @@ interface TierConfig {
   key: string;
   titleKey: string;
   colorClass: string;
+  /** Rows come from the server's Active tier and show phase indicators. */
+  activityTier?: boolean;
+  /** A tier the user only needs while it has rows. */
+  hideWhenEmpty?: boolean;
+  noteKey?: string;
   getBadge?: (item: InboxItem) => { label: string; className: string } | null;
 }
 
@@ -68,7 +73,17 @@ const TIER_CONFIGS: TierConfig[] = [
     key: "active",
     titleKey: "inboxTierActive",
     colorClass: styles.tierActive ?? "",
+    activityTier: true,
     // Active items show a pulsing dot instead of a text badge
+  },
+  {
+    // Active sessions whose turn ended while background work holds them.
+    key: "background",
+    titleKey: "inboxTierBackground",
+    colorClass: styles.tierBackground ?? "",
+    activityTier: true,
+    hideWhenEmpty: true,
+    noteKey: "inboxTierBackgroundNote",
   },
   {
     key: "recentActivity",
@@ -229,9 +244,9 @@ function InboxProjectQueueItem({
 
 function getInboxRowActivity(
   item: InboxItem,
-  tierKey: string,
+  config: TierConfig,
 ): InboxItem["activity"] {
-  if (tierKey === "active" && item.activityInferredFromInboxTier) {
+  if (config.activityTier && item.activityInferredFromInboxTier) {
     return undefined;
   }
   return item.activity;
@@ -252,6 +267,7 @@ function InboxSection({
   const { t } = useI18n();
   const sectionCount = items.length + projectQueueItems.length;
   const isEmpty = sectionCount === 0;
+  if (isEmpty && config.hideWhenEmpty) return null;
 
   return (
     <section
@@ -261,6 +277,9 @@ function InboxSection({
         {t(config.titleKey as never)}
         <span className={styles.sectionCount}>{sectionCount}</span>
       </h2>
+      {config.noteKey && (
+        <p className={styles.sectionNote}>{t(config.noteKey as never)}</p>
+      )}
       {isEmpty ? (
         <p className={styles.sectionEmptyMessage}>{t("inboxNoSessions")}</p>
       ) : (
@@ -279,7 +298,7 @@ function InboxSection({
           ))}
           {items.map((item) => {
             const badge = config.getBadge?.(item);
-            const activity = getInboxRowActivity(item, config.key);
+            const activity = getInboxRowActivity(item, config);
             return (
               <SessionListItem
                 key={item.sessionId}
@@ -295,6 +314,7 @@ function InboxSection({
                 hasUnread={item.hasUnread}
                 isStarred={item.isStarred}
                 activity={activity}
+                providerPhase={item.providerPhase}
                 pendingInputType={item.pendingInputType}
                 mode="card"
                 openNonHumanUserTurn
@@ -302,7 +322,7 @@ function InboxSection({
                 showTimestamp
                 showContextUsage={false}
                 showStatusBadge={false}
-                showActivityIndicator={config.key === "active"}
+                showActivityIndicator={config.activityTier === true}
                 customBadge={
                   badge ? { ...badge, label: t(badge.label as never) } : null
                 }
@@ -530,10 +550,15 @@ export function InboxContent({
     }
   };
 
-  // Map tier keys to their data
+  // Map tier keys to their data. Background-held sessions leave Active for
+  // their own tier; every other count and lookup keeps treating them as
+  // Active rows.
   const tierData: Record<string, InboxItem[]> = {
     needsAttention,
-    active,
+    active: active.filter((item) => item.providerPhase?.phase !== "background"),
+    background: active.filter(
+      (item) => item.providerPhase?.phase === "background",
+    ),
     recentActivity,
     unread8h,
     unread24h,

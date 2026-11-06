@@ -758,18 +758,17 @@ export {
   GIT_STATUS_REMOTE_CHECK_CAPABILITY,
 } from "./git-status.js";
 
-export type {
-  ProviderWorkItem,
-  ProviderWorkKind,
-  SessionActiveWorkKind,
-  SessionLivenessDerivedStatus,
-  SessionLivenessProbeStatus,
-  SessionLivenessSnapshot,
-  SessionProviderRetentionSnapshot,
-  SessionWakeReason,
-  SessionWakeReasonSnapshot,
-} from "./session-liveness.js";
 export {
+  type ProviderWorkItem,
+  type ProviderWorkKind,
+  type SessionActiveWorkKind,
+  type SessionLivenessDerivedStatus,
+  type SessionLivenessProbeStatus,
+  type SessionLivenessSnapshot,
+  type SessionProviderPhase,
+  type SessionProviderRetentionSnapshot,
+  type SessionWakeReason,
+  type SessionWakeReasonSnapshot,
   normalizeProviderWorkItems,
   PROVIDER_WORK_ITEM_LIMIT,
 } from "./session-liveness.js";

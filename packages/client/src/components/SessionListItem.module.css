@@ -61,6 +61,20 @@
   min-width: 0;
   align-self: stretch;
 }
+
+/*
+ * A provider-phase pill can be long: a card holding one lets its meta line
+ * wrap the pill below project and age instead of squeezing them, and lets
+ * the link shrink so the pill's ellipsis applies.
+ */
+.body:has([data-provider-phase-pill]) :global(.session-list-item__link) {
+  min-width: 0;
+}
+
+.body :global(.session-list-item__meta):has([data-provider-phase-pill]) {
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
 .searchRow > .body {
   flex-basis: 100%;
 }

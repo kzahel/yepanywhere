@@ -20,7 +20,10 @@ import { getProjectName } from "../projects/paths.js";
 import { getSessionDisplayTitle } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
-import type { RetainedSessionCollectionState } from "@yep-anywhere/shared";
+import type {
+  RetainedSessionCollectionState,
+  SessionProviderPhase,
+} from "@yep-anywhere/shared";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
 import { readRetainedSessionItems } from "./retained-session-collections.js";
 import type { SessionIndexService } from "../indexes/index.js";
@@ -39,6 +42,7 @@ import type { GrokSessionReader } from "../sessions/grok-reader.js";
 import type { PiSessionReader } from "../sessions/pi-reader.js";
 import type { ISessionReader, SessionListSummary } from "../sessions/types.js";
 import { getEffectiveProviderUpdatedAt } from "../sessions/recap-overlays.js";
+import { sessionProviderPhaseFromProcess } from "../sessions/session-provider-phase.js";
 import { sessionRowRuntimeOverlay } from "../sessions/session-runtime-overlay.js";
 import type { ProjectQueueService } from "../services/ProjectQueueService.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
@@ -95,6 +99,8 @@ export interface InboxItem {
   isStarred?: boolean;
   pendingInputType?: PendingInputType;
   activity?: AgentActivity;
+  /** What an active session's provider is doing; absent on older servers. */
+  providerPhase?: SessionProviderPhase;
   hasUnread?: boolean;
 }
 
@@ -419,6 +425,12 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
       isStarred: item.isStarred,
       pendingInputType: item.pendingInputType,
       activity: item.activity,
+      providerPhase:
+        item.activity === "in-turn"
+          ? sessionProviderPhaseFromProcess(
+              deps.supervisor?.getProcessForSession(item.session.id),
+            )
+          : undefined,
       hasUnread: item.hasUnread,
       asyncQuestions: item.session.asyncQuestions,
     });

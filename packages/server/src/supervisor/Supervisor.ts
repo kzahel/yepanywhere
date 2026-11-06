@@ -113,6 +113,7 @@ import {
   messageTimestampMs,
   toDurableRecapMessage,
 } from "../sessions/recap-overlays.js";
+import { publishProviderPhaseChange } from "../sessions/session-provider-phase.js";
 import {
   sessionActivityEventFromProcess,
   sessionOwnershipFromProcess,
@@ -6510,13 +6511,12 @@ export class Supervisor {
     process: Process | null;
   }): void {
     const process = processHolder.process;
-    // A snapshot change that leaves `retained` alone (recorded work only,
-    // e.g. a Codex background terminal) refreshes liveness and nothing else.
+    if (process) publishProviderPhaseChange(this.eventBus, process);
+    // A snapshot that leaves `retained` alone only refreshes liveness and phase.
     if (!process?.handleProviderRetentionChanged()) return;
     this.emitWorkerActivity();
     // Background work starting/finishing flips an idle session between active
-    // and truly idle without a state-change event. Surface that so inbox/sidebar
-    // activity indicators update live rather than only on the next refresh.
+    // and idle without a state change; publish it so row indicators stay live.
     if (process.state.type === "idle") {
       this.emitProcessActivity(process);
       if (!process.isRetainingProviderWork()) {

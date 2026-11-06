@@ -7,6 +7,13 @@ Topic: backward-compat
 
 ## Decisions
 
+2026-11-06 inbox `providerPhase` — an optional field on inbox items and a new
+`session-provider-phase-changed` bus event, with no capability. An older
+server omits both, and the client keeps the plain Active dot and tiers. An
+older client ignores the field and drops the unknown event type. Row
+`activity` keeps its meaning, so queueing, push and webhooks are unchanged.
+See [provider waits](provider-wait-and-background-work.md#contracts).
+
 2026-11-01 YA-owned session identity — selected direction, implementation
 pending. New YA-created sessions will retain a permanent public id and durable
 startup state independently of provider identity/transcript creation. Preserve

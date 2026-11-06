@@ -87,6 +87,13 @@ sessions instead of completing a transcript-tail summary. That projection must
 not update the complete-summary index or clear its dirty state; complete
 consumers must still receive exact message count and tail-derived metadata.
 
+`providerPhase` is per-request live process state on Active rows, derived
+from the owned process's provider snapshot; the client splits `background`
+rows into their own Background section below Active. The client store keeps
+phases from the latest complete inbox response only; session-list snapshots
+neither carry nor clear them. The phase contract is in
+[provider waits](provider-wait-and-background-work.md#contracts).
+
 `pendingInputType` is live process state, not durable session-summary state.
 Inbox uses pending input as an attention reason only when the owned process is
 currently in `waiting-input` with an actionable request. A stale provider

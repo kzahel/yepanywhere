@@ -5,6 +5,7 @@ import type {
   SessionOwnership,
 } from "@yep-anywhere/shared";
 import type { NotificationService } from "../notifications/index.js";
+import type { ProviderRetentionSnapshot } from "../sdk/types.js";
 import { hasUnreadProviderContent } from "./recap-overlays.js";
 
 /** The live-process state a session row reads, and nothing else. */
@@ -17,6 +18,8 @@ export interface SessionRuntimeProcess {
   state: { type: string };
   isRetainingProviderWork(): boolean;
   getPendingInputRequest(): { type: string } | null;
+  /** Recorded provider work; rows without it show no provider phase. */
+  getProviderRetentionSnapshot?(): ProviderRetentionSnapshot;
 }
 
 /** Who controls the session: this server's process, an external program, or nobody. */

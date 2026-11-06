@@ -4,6 +4,7 @@ import type {
   PendingInputType,
   RetainedSessionCollectionState,
   SessionCreationProvenance,
+  SessionProviderPhase,
 } from "@yep-anywhere/shared";
 
 /**
@@ -22,6 +23,8 @@ export interface InboxItem {
   isStarred?: boolean;
   pendingInputType?: PendingInputType;
   activity?: AgentActivity;
+  /** What an active session's provider is doing; absent on older servers. */
+  providerPhase?: SessionProviderPhase;
   activityInferredFromInboxTier?: boolean;
   hasUnread?: boolean;
 }

@@ -2,7 +2,7 @@
 
 > How Claude and Codex wait, keep work running after a turn, and wake
 > themselves, and the provider-neutral record of that work YA keeps for the
-> sessions it owns, ahead of any new indicators or lifecycle behavior.
+> sessions it owns, and the inbox indicators built on it.
 
 Related topics: [session liveness](session-liveness.md) owns liveness
 statuses, retention and idle reaping; [Claude provider control](claude.md)
@@ -109,8 +109,26 @@ came from, plus `command`, `startedAt`, `until`, `schedule`, `recurring` or
   idle session for its terminals, per the
   [architecture mandates](architecture-mandates.md).
 - Row activity is unchanged: an idle process that retains provider work
-  still reports `activity: "in-turn"`. New indicators that use the recorded
-  work are future UI decisions.
+  still reports `activity: "in-turn"`, so queued messages keep waiting.
+  Inbox rows add an optional `providerPhase` beside it: `generating` (in a
+  turn, no foreground wait), `waiting` (in a turn with foreground waits) or
+  `background` (an ended turn held by retained work), with up to three of
+  those work items and `workCount` when there are more. It is absent for
+  idle, waiting-input and unowned sessions, and on older servers, where the
+  client keeps the plain activity dot.
+- The phase is derived only from event-driven state; no timer recomputes it.
+  A provider snapshot change that moves it publishes
+  `session-provider-phase-changed`, a row-only event that carries no
+  activity and drives no turn, idle, queue or webhook work. The inbox
+  refetches on it; the session-collection generation ignores it because the
+  inbox computes the phase per request. A row-level "no output for a while"
+  state would need a timer and is not shown.
+- Inbox shows the pulsing dot for `generating`, an orange ring and pill
+  naming the first foreground wait for `waiting`, and a gray ring and pill
+  for `background`. Pills lead with elapsed time or the wake time so
+  truncation drops the label; ages are as of the last row refresh. Sessions
+  in `background` leave Active for a Background tier that appears only while
+  it has rows. The sidebar keeps the plain dot.
 - Codex self-started turns (goals, thread queue) carry no trigger field over
   app-server; YA can record that a turn began without a YA `turn/start`, not
   why.

@@ -71,6 +71,26 @@ export interface SessionProviderRetentionSnapshot {
   foregroundWaits?: ProviderWorkItem[];
 }
 
+/**
+ * What an active YA-owned session's provider is doing, for session rows:
+ * - `generating`: in a turn and not blocked on recorded work;
+ * - `waiting`: in a turn, blocked on foreground waits (a long command,
+ *   a sleep, a foreground subagent);
+ * - `background`: the turn ended and retained background work or a
+ *   scheduled wake holds the session.
+ * Row `activity` stays `in-turn` for all three. See
+ * topics/provider-wait-and-background-work.md.
+ */
+export type SessionProviderPhaseKind = "generating" | "waiting" | "background";
+
+export interface SessionProviderPhase {
+  phase: SessionProviderPhaseKind;
+  /** The first few items the phase is about, provider order. */
+  work?: ProviderWorkItem[];
+  /** All items of that kind, when more than `work` carries. */
+  workCount?: number;
+}
+
 export const PROVIDER_WORK_ITEM_LIMIT = 64;
 const PROVIDER_WORK_TEXT_LIMIT = 500;
 

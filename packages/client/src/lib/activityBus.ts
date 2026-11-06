@@ -18,6 +18,7 @@ import type {
   SafeRestartChangedEvent,
   SafeRestartState,
   SessionCatalogUpdatedEvent,
+  SessionProviderPhase,
   RecentsChangedEvent,
   TranscriptDisplayObject,
   UrlProjectId,
@@ -98,6 +99,15 @@ export interface ProcessStateEvent {
   activity: AgentActivity;
   /** Type of pending input (only set when activity is "waiting-input") */
   pendingInputType?: PendingInputType;
+  timestamp: string;
+}
+
+/** Row-only provider phase change; carries no activity. */
+export interface SessionProviderPhaseEvent {
+  type: "session-provider-phase-changed";
+  sessionId: string;
+  projectId: UrlProjectId;
+  providerPhase: SessionProviderPhase | null;
   timestamp: string;
 }
 
@@ -261,6 +271,7 @@ export interface ActivityEventMap {
   "session-updated": SessionUpdatedEvent;
   "session-seen": SessionSeenEvent;
   "process-state-changed": ProcessStateEvent;
+  "session-provider-phase-changed": SessionProviderPhaseEvent;
   "review-response-changed": ReviewResponseChangedEvent;
   "provider-runtime-status-changed": ProviderRuntimeStatusChangedEvent;
   "project-queue-changed": ProjectQueueChangedEvent;
@@ -675,6 +686,7 @@ class ActivityBus {
       "session-updated",
       "session-seen",
       "process-state-changed",
+      "session-provider-phase-changed",
       "review-response-changed",
       "provider-runtime-status-changed",
       "project-queue-changed",

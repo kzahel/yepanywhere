@@ -1810,7 +1810,7 @@ export class Process {
     });
   }
 
-  private getProviderRetentionSnapshot(): ProviderRetentionSnapshot {
+  getProviderRetentionSnapshot(): ProviderRetentionSnapshot {
     return (
       this.getProviderRetentionFn?.() ?? {
         retained: false,

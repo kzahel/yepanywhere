@@ -1,4 +1,7 @@
-import type { SessionClearloopBadge } from "@yep-anywhere/shared";
+import type {
+  SessionClearloopBadge,
+  SessionProviderPhase,
+} from "@yep-anywhere/shared";
 import {
   type ReactNode,
   useCallback,
@@ -55,6 +58,10 @@ import { SessionMenu } from "./SessionMenu";
 import { LegacySessionShareModal } from "./SessionShareModal";
 import { SessionStatusBadge } from "./StatusBadge";
 import { ClearloopRemainingBadge } from "./ClearloopRemainingBadge";
+import {
+  SessionProviderPhaseMark,
+  SessionProviderPhasePill,
+} from "./SessionProviderPhase";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import styles from "./SessionListItem.module.css";
 import { useSessionHasApp } from "../lib/sessionApps";
@@ -84,6 +91,8 @@ interface SessionListItemProps {
   updatedAt?: string;
   hasUnread?: boolean;
   activity?: AgentActivity;
+  /** Card rows refine the activity dot with what the provider is doing. */
+  providerPhase?: SessionProviderPhase;
   pendingInputType?: PendingInputType;
   contextUsage?: ContextUsage;
   status?: SessionStatus;
@@ -205,6 +214,7 @@ export function SessionListItem({
   updatedAt,
   hasUnread: hasUnreadProp,
   activity,
+  providerPhase,
   pendingInputType,
   contextUsage,
   status,
@@ -911,7 +921,11 @@ export function SessionListItem({
                   {...titleTooltipAttributes}
                 >
                   {isStarred && <StarIcon filled size={12} />}
-                  {showCardThinkingIndicator && <ThinkingIndicator />}
+                  {showCardThinkingIndicator && (
+                    <SessionProviderPhaseMark
+                      phase={isNewSession ? undefined : providerPhase?.phase}
+                    />
+                  )}
                   {isBtwAside && (
                     // biome-ignore lint/a11y/noStaticElementInteractions: clickable variant has link role and keyboard handling; inert variant only shows the badge
                     <span
@@ -996,6 +1010,11 @@ export function SessionListItem({
                       {customBadge.label}
                     </span>
                   )}
+                  {showActivityIndicator &&
+                    activity === "in-turn" &&
+                    providerPhase && (
+                      <SessionProviderPhasePill providerPhase={providerPhase} />
+                    )}
                   {showStatusBadge && status && (
                     <SessionStatusBadge
                       status={status}
