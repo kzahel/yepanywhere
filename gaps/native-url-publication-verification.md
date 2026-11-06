@@ -57,5 +57,17 @@ remote-qualification:232. The full log is retained in ignored
 `tasks/session-relationships/slice-23-main-ci22-e2e.log`. These client sources
 are unchanged by the native bootstrap prerequisite; their causes remain open.
 
+November 6 diagnosis of CI `42129217026`: native-label history replacement
+invalidated SessionPage's literal URL/history-key creation owner even though
+the YA resource stayed mounted. The repair compares the resource URL and
+history entry index, with a controlled native-label replacement during a held
+reply in the existing real-typing case. The recovery test also mistook the
+parent's native URL for navigation to the saved child and could leave before
+conditional settlement completed; it now waits for the child's YA identity.
+Native startup counts now await dispatch after HTTP acceptance. Focused browser
+qualification and the complete unit suite pass locally; hosted verification
+remains required. These repairs do not resolve the separate artifact typing
+finding or explain the original unretained server failures above.
+
 Found 2026-11-05 while publishing native viewer URLs and visible saved prompts.
 Contributing-model: 6.1-Sol

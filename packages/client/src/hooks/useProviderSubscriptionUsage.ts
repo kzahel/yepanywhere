@@ -1,5 +1,6 @@
 import {
   PROVIDER_SUBSCRIPTION_USAGE_CAPABILITY,
+  SERVER_CAPABILITIES,
   serverHasCapability,
   type ProviderName,
   type ProviderSubscriptionUsage,
@@ -150,7 +151,9 @@ export function useProviderSubscriptionUsage(
   const accountId = routed?.accountId;
   const supported = serverHasCapability(
     version,
-    routed ? "agent-auth-router-pools" : PROVIDER_SUBSCRIPTION_USAGE_CAPABILITY,
+    routed
+      ? SERVER_CAPABILITIES.agentAuthRouterPools
+      : PROVIDER_SUBSCRIPTION_USAGE_CAPABILITY,
   );
   const normalizedProvider = provider ?? null;
   const usageKey =

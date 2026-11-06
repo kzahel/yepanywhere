@@ -157,6 +157,17 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
       })
     ).json();
     const page = await f.context.newPage();
+    // Hold the real router's native-label replacement until creation is pending.
+    await page.addInitScript(() => {
+      const replace = history.replaceState.bind(history);
+      history.replaceState = (data, unused, url) => {
+        if (String(url).includes("yaSessionId=")) {
+          (
+            window as unknown as { publishNativeLabel: () => void }
+          ).publishNativeLabel = () => replace(data, unused, url);
+        } else replace(data, unused, url);
+      };
+    });
     await page.goto(
       `${f.origin}/projects/${f.projectId}/sessions/${parent.sessionId}`,
     );
@@ -199,6 +210,16 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
       .getByRole("button", { name: "Start new session now", exact: true })
       .click();
     await accepted;
+    // Publish the parent's native label while creation still owns this view.
+    await page.waitForFunction(() => "publishNativeLabel" in window);
+    await page.evaluate(() =>
+      (
+        window as unknown as { publishNativeLabel: () => void }
+      ).publishNativeLabel(),
+    );
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("yaSessionId") === parent.sessionId,
+    );
     let text = "";
     for (const c of "NEWER_PAGE_DRAFT") {
       await input.pressSequentially(c);
@@ -224,7 +245,9 @@ test("Session-page Start now uses one acceptance and keeps newer typing while it
       .getByRole("button", { name: "Open saved session", exact: true })
       .click();
     await expect(page).toHaveURL(
-      new RegExp(`/sessions/${receipt!.sessionId}$`),
+      (url) =>
+        url.pathname.endsWith(`/sessions/${receipt!.sessionId}`) ||
+        url.searchParams.get("yaSessionId") === receipt!.sessionId,
     );
     await expect
       .poll(
@@ -315,7 +338,9 @@ test("unchanged Session-page files are acknowledged once and stay cleared after 
     await f.start();
     const receipt = await (await accepted).json();
     await expect(f.page).toHaveURL(
-      new RegExp(`/sessions/${receipt.sessionId}$`),
+      (url) =>
+        url.pathname.endsWith(`/sessions/${receipt.sessionId}`) ||
+        url.searchParams.get("yaSessionId") === receipt.sessionId,
     );
     await f.page.goto(f.path);
     await expect(f.input).toBeEditable();
@@ -323,9 +348,13 @@ test("unchanged Session-page files are acknowledged once and stay cleared after 
     await expect(
       f.page.getByRole("button", { name: "Remove request.txt", exact: true }),
     ).toHaveCount(0);
-    expect(
-      (await f.owned.requests()).filter((r) => r.method === "thread/start"),
-    ).toHaveLength(2);
+    await expect
+      .poll(
+        async () =>
+          (await f.owned.requests()).filter((r) => r.method === "thread/start")
+            .length,
+      )
+      .toBe(2);
   } finally {
     await f.dispose();
   }
@@ -337,6 +366,7 @@ test("lost creation reply and recovery read reload into conditional read-only dr
   const f = await originComposer(browser);
   let lost = true,
     posts = 0;
+  let sessionId: string;
   try {
     await f.page.route("**/api/session-creations/*", async (route) => {
       if (lost) return route.abort("failed");
@@ -346,6 +376,7 @@ test("lost creation reply and recovery read reload into conditional read-only dr
       posts++;
       const response = await route.fetch();
       expect(response.status()).toBe(202);
+      sessionId = (await response.json()).sessionId;
       await route.abort("failed");
     });
     await f.start();
@@ -365,7 +396,11 @@ test("lost creation reply and recovery read reload into conditional read-only dr
     await f.page
       .getByRole("button", { name: "Open saved session", exact: true })
       .click();
-    await expect(f.page).not.toHaveURL(f.path);
+    await expect(f.page).toHaveURL(
+      (url) =>
+        url.pathname.endsWith(`/sessions/${sessionId}`) ||
+        url.searchParams.get("yaSessionId") === sessionId,
+    );
     await f.page.goto(f.path);
     await expect(f.input).toBeEditable();
     await expect(f.input).toHaveValue("");
@@ -373,9 +408,13 @@ test("lost creation reply and recovery read reload into conditional read-only dr
       f.page.getByRole("button", { name: "Remove request.txt", exact: true }),
     ).toHaveCount(0);
     expect(posts).toBe(1);
-    expect(
-      (await f.owned.requests()).filter((r) => r.method === "thread/start"),
-    ).toHaveLength(2);
+    await expect
+      .poll(
+        async () =>
+          (await f.owned.requests()).filter((r) => r.method === "thread/start")
+            .length,
+      )
+      .toBe(2);
   } finally {
     await f.dispose();
   }
@@ -933,8 +972,27 @@ test("Project Queue acceptance preserves a sibling attachment-only edit across r
     await expect(
       sibling.getByRole("button", { name: "Remove sibling.txt", exact: true }),
     ).toBeVisible();
+    // A visible chip can still be uploading. Establish the sibling's durable
+    // edit before releasing the acknowledgement that conditionally clears it.
+    await expect
+      .poll(async () => {
+        const { snapshot } = await (
+          await f.owned.request("/drafts/read", {
+            slot: { kind: "new-session" },
+          })
+        ).json();
+        return snapshot.payload.attachments.some(
+          (file: { originalName: string }) =>
+            file.originalName === "sibling.txt",
+        );
+      })
+      .toBe(true);
     release();
-    await expect(f.queue).toBeEnabled();
+    await expect(
+      f.page.getByText("Queued new session for Project Queue.", {
+        exact: true,
+      }),
+    ).toBeVisible();
     await sibling.reload();
     await expect(other).toHaveValue("Sibling queue request");
     await expect(

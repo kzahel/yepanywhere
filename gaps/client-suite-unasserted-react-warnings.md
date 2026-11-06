@@ -26,6 +26,15 @@ dynamic-import warning is repaired with explicit entry paths.
 
 Found 2026-09-30 while verifying the CI reliability repairs remotely.
 
+The November 6 CI repair's complete client run passed 7,119 tests but also
+emitted two unattributed jsdom `Not implemented: navigation (except hash
+changes)` diagnostics from `HTMLHyperlinkElementUtils-impl.js`. The workspace's
+summary reporter did not identify their fixture; changing or suppressing its
+global navigation handling without that attribution could hide a real link
+regression. Retained diagnostics: `tasks/ci-recovery-2026-11-06/unit.log`.
+The focused creation/router browser checks are separate from those jsdom
+fixtures.
+
 Reconfirmed in [CI 36970258142](https://github.com/kzahel/yepanywhere/actions/runs/36970258142)
 on 2026-10-02: `MessageList.scroll.test.tsx` emits "An update to
 ParagraphQuoteRail inside a test was not wrapped in act(...)" in the held-press

@@ -17,6 +17,18 @@ export function sessionViewerSearch(search: string): string {
   return value ? `?${value}` : "";
 }
 
+/** Compare the resource being viewed across native-label history replacement. */
+export function sessionViewerResourceHref(href: string): string {
+  const url = new URL(href);
+  url.pathname = url.pathname.replace(
+    /(\/sessions\/)([^/]+)(\/?)$/,
+    (_, prefix, id, suffix) =>
+      `${prefix}${encodeURIComponent(viewerYaSessionId(decodeURIComponent(id), url.search))}${suffix}`,
+  );
+  url.search = sessionViewerSearch(url.search);
+  return url.href;
+}
+
 export function nativeSessionViewerUrl(
   pathname: string,
   search: string,

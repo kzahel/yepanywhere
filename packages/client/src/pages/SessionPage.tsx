@@ -11,6 +11,7 @@ import { isSessionCreationPending } from "@yep-anywhere/shared";
 import { SessionCreationNotice } from "../components/SessionCreationNotice";
 import {
   nativeSessionViewerUrl,
+  sessionViewerResourceHref,
   viewerYaSessionId,
 } from "../lib/sessionViewerUrl";
 import { RoutedSessionContext } from "../contexts/RoutedSessionContext";
@@ -595,8 +596,9 @@ function SessionPageContent({
   creationOwner.current.key = creationKey;
   const captureCreationView = () => ({
     key: creationKey,
-    href: window.location.href,
-    historyKey: window.history.state?.key,
+    href: sessionViewerResourceHref(window.location.href),
+    // A native-label replace changes React Router's key, but keeps this entry.
+    historyIndex: window.history.state?.idx,
     activation: progressiveRenderPauseSignal?.activationVersion,
   });
   const ownsCreationView = (token: ReturnType<typeof captureCreationView>) =>
@@ -604,8 +606,8 @@ function SessionPageContent({
     creationOwner.current.key === token.key &&
     !progressiveRenderPauseSignal?.current &&
     progressiveRenderPauseSignal?.activationVersion === token.activation &&
-    window.location.href === token.href &&
-    window.history.state?.key === token.historyKey;
+    sessionViewerResourceHref(window.location.href) === token.href &&
+    window.history.state?.idx === token.historyIndex;
 
   useEffect(() => {
     creationOwner.current.active = true;

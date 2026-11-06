@@ -727,6 +727,10 @@ the mounted session, draft, hash and unrelated query parameters; reload resolves
 Y again. Existing Y-only URLs remain readable. An older server omits the optional
 field and the current client keeps its existing URL; older clients ignore the
 field. Native-facing links require a current client that understands the query.
+Replacing only the native viewer label preserves ownership of an in-flight
+creation acknowledgement and its recovery control. Ownership checks compare
+the YA resource and history entry; leaving that view still prevents a late
+reply from navigating or clearing a foreground draft.
 
 Operator tooling can resolve Y through the read-only
 `GET /api/sessions/:sessionId/native-source`. The response includes `sessionId`,
