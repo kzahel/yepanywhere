@@ -1,4 +1,5 @@
 import { receiptFollowQuery, receiptFollowSchema } from "./receipt-follow.js";
+import { relatedQuery } from "./relationship-graph-contracts.js";
 import {
   createSessionRequest,
   sendMessageRequest,
@@ -456,9 +457,9 @@ export const operationDocumentation: Record<
   relationships: {
     summary: "Inspect recorded session creation and initiated commands",
     description:
-      "Operator-only view of the target session's v0 creation and bounded outgoing receipts. This is provenance, independent of fork or /btw parenting. Legacy sessions can have creation=null. Sources/destinations are local public server ids in this build; no peer routing or grants are implied.",
+      "Operator-only view of the target session's v0 creation and bounded outgoing receipts. includeRelated=true adds separately paged local structural relationships, using relatedLimit/relatedCursor; receipt limit/cursor retain their numeric offset semantics. Missing related means unsupported. Native children remain parent-scoped read-only handles. Peers retain only their visible creation receipt. Legacy sessions can have creation=null; no new grants or remote traversal are implied.",
     example:
-      "/v0/servers/{serverId}/sessions/{sessionId}/relationships?limit=50",
+      "/v0/servers/{serverId}/sessions/{sessionId}/relationships?limit=50&includeRelated=true&relatedLimit=25",
   },
   followConversation: {
     summary: "Follow compact conversation over bounded HTTP",
@@ -672,6 +673,17 @@ export function apiSchema(launchBound = false, selected?: Operation) {
                       description: schema.description,
                       schema: z.toJSONSchema(schema),
                     }))
+                  : []),
+                ...(operation.id === "relationships"
+                  ? Object.entries(relatedQuery.shape).map(
+                      ([name, schema]) => ({
+                        name,
+                        in: "query",
+                        required: false,
+                        description: schema.description,
+                        schema: z.toJSONSchema(schema),
+                      }),
+                    )
                   : []),
               ],
               responses: Object.fromEntries(

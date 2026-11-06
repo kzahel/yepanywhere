@@ -1,3 +1,6 @@
+import { AuthorizedRelationshipSource } from "./sessions/authorized-relationship-source.js";
+import { createSessionRelationshipRead } from "./sessions/session-relationship-read.js";
+import { createSessionRelationshipRoutes } from "./routes/session-relationships.js";
 import { ProviderChildRelationshipService } from "./sessions/ProviderChildRelationshipService.js";
 import { NestedHarnessRelationshipService } from "./sessions/NestedHarnessRelationshipService.js";
 import { CreationAttachments } from "./sessions/creation-attachments.js";
@@ -865,6 +868,10 @@ export function createApp(options: AppOptions): AppResult {
     discoverySqlite.getDatabase(),
     publicServerId,
   );
+  const authorizedRelationships = new AuthorizedRelationshipSource(
+    discoverySqlite.getDatabase(),
+    () => sessionRelationships.index,
+  );
   try {
     draftStore = new DraftStore(discoverySqlite.getDatabase());
   } catch (error) {
@@ -1616,6 +1623,19 @@ export function createApp(options: AppOptions): AppResult {
   /** Least recently used first; bounded by `maxReaderCacheSize`. */
   const readerCache = createLruMap<string, ISessionReader>();
   const sessionReadLifetime = new AbortController();
+  const relationshipRead = options.sessionMetadataService
+    ? createSessionRelationshipRead({
+        serverId: publicServerId,
+        source: (scope) => authorizedRelationships.scoped(() => scope),
+        identities: options.sessionMetadataService.identities,
+        metadata: options.sessionMetadataService,
+        isDeleted: (id) =>
+          isYaSessionId(id) &&
+          options.sessionMetadataService!.creations.statusForSession(id)
+            ?.state === "deleted",
+        signal: sessionReadLifetime.signal,
+      })
+    : undefined;
   const relationshipReconciliation = reconcileSessionRelationships(
     discoverySqlite.getDatabase(),
     sessionRelationships,
@@ -1858,6 +1878,7 @@ export function createApp(options: AppOptions): AppResult {
       unsubscribeProviderObservationReady?.();
       unsubscribeNativeProviderFileChanges?.();
       await providerChildRelationships.close();
+      authorizedRelationships.dispose();
       await harnessRelationships.close();
       await relationshipReconciliation;
       unsubscribeCreationStatus?.();
@@ -3356,6 +3377,19 @@ export function createApp(options: AppOptions): AppResult {
   }
   app.route(
     "/api",
+    createSessionRelationshipRoutes(
+      relationshipRead ??
+        (async () => {
+          throw new CoreApiError(
+            "relationships_unavailable",
+            "Relationships are unavailable",
+            503,
+          );
+        }),
+    ),
+  );
+  app.route(
+    "/api",
     createSessionsRoutes({
       providerChildRelationships,
       harnessRelationships,
@@ -3901,6 +3935,7 @@ export function createApp(options: AppOptions): AppResult {
       ),
   );
   const coreSources: CoreApiSources = {
+    relationships: relationshipRead,
     peerAuthentication: () => !!options.peerAccess,
     serverMetadata: () =>
       localPeerHost(

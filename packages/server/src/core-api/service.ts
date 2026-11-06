@@ -1,3 +1,5 @@
+import { relatedQuery } from "./relationship-graph-contracts.js";
+import type { SessionRelationshipRead } from "../sessions/session-relationship-read.js";
 import { receiptFollowQuery } from "./receipt-follow.js";
 import {
   createSessionRequest,
@@ -40,6 +42,7 @@ import {
 } from "./contracts.js";
 
 export interface CoreApiSources {
+  relationships?: SessionRelationshipRead;
   peerAuthentication?: () => boolean;
   /** Cheap local display facts; does not discover providers or probe peers. */
   serverMetadata?(): ApiServerMetadata;
@@ -94,7 +97,13 @@ export class CoreApi {
       sessionId?: string;
       receiptId?: string;
       body?: unknown;
-      query?: PageQuery & ConversationFollowQuery & { operation?: string };
+      query?: PageQuery &
+        ConversationFollowQuery & {
+          operation?: string;
+          includeRelated?: string;
+          relatedLimit?: string;
+          relatedCursor?: string;
+        };
       signal?: AbortSignal;
       /** Established by a trusted launch authenticator, never a request field. */
       launch?: ApiLaunchContext;
@@ -498,18 +507,35 @@ export class CoreApi {
             nextCursor: null,
           };
         }
-        return (
-          this.sources.commands?.store.relationships(
-            input.sessionId!,
-            Number(query.data.cursor ?? 0),
-            Number(query.data.limit ?? 50),
-          ) ?? {
-            sessionId: input.sessionId!,
-            creation: null,
-            initiated: [],
-            nextCursor: null,
-          }
-        );
+        const parsed = relatedQuery.safeParse(input.query ?? {});
+        if (!parsed.success)
+          throw new CoreApiError(
+            "invalid_request",
+            "Invalid related relationship query",
+            400,
+          );
+        const related =
+          parsed.data.includeRelated === "true"
+            ? await this.sources.relationships?.({
+                sessionId: input.sessionId!,
+                query: {
+                  limit: parsed.data.relatedLimit,
+                  cursor: parsed.data.relatedCursor,
+                },
+                signal: input.signal,
+              })
+            : undefined;
+        const receipts = this.sources.commands?.store.relationships(
+          input.sessionId!,
+          Number(query.data.cursor ?? 0),
+          Number(query.data.limit ?? 50),
+        ) ?? {
+          sessionId: input.sessionId!,
+          creation: null,
+          initiated: [],
+          nextCursor: null,
+        };
+        return { ...receipts, ...(related ? { related } : {}) };
       }
       case "followConversation": {
         const parsed = followQuery.safeParse(input.query ?? {});

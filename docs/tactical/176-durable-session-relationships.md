@@ -1623,3 +1623,28 @@ cursor and reopen probes under the 64-statement ceiling. Final workspace checks
 pass 7,106 server (87 skipped), 7,119 client, 980 shared, 139 relay and 45
 push-broker cases; server/client durations are 154.42/130.28 seconds. Lint is
 warning-free and format/types pass. Typing qualification remains deferred.
+
+### Publish the operator relationship page and coordinate v0
+
+The ordinary HTTP adapter and opt-in v0 `related` section now use one
+allow-listed projection over the authorized source. Receipt pagination remains
+independent and unchanged by default. Canonical/native anchors, read-only
+provider-child handles, deletion filtering, restart-expiring cursors and generic
+errors share one owner. The new fixed-feature capability records its first
+source date and the approved hide-only fallback; it is not a client dependency
+until the next consumer slice. Limited-user generic graph qualification remains
+separate from their existing child/session readers and v0 operator restriction.
+
+The independent API review accepts the boundary and independently verifies SQL
+deletion filtering and indexed seeks. Its inexpensive follow-ups document v0
+whole-reply failures, register the owning route module, standardize ordinary API
+errors and assert deletion directly at the SQL boundary. The optional v0 field
+keeps the existing diagnostic revision rather than forcing a receipt-only peer
+upgrade. Sixteen focused checks pass in 2.60 seconds (0.215 test work). Node
+22.23.3, Node 24.22.1 and Bun 1.3.14 recover the SQLite facts and walk 205 public
+operator rows over 30 in-process HTTP pages under the 64-statement ceiling.
+Median small-page diagnostics are 4.15/3.80/4.99 ms; these are not network or UI
+acceptance measurements. Whole-workspace checks pass 7,111 server (87 skipped),
+7,119 client, 980 shared, 139 relay and 45 push-broker cases (server/client
+154.99/133.26 seconds). Lint, format, types and capability audit pass; final
+review-follow-up checks are recorded separately before publication.

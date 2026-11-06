@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  sessionRelationships: {
+    id: 151,
+    direction: "server",
+    name: "session-relationships",
+    introducedIn: "0.11.1",
+  },
   projectAppStartCommand: {
     id: 150,
     direction: "server",

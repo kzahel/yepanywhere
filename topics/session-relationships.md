@@ -383,9 +383,59 @@ includes the resolved project/creator/server scope as well as the principal.
 There is
 one reused SQL statement per profile source, a fixed cursor key, no retained
 session/page cache and no polling. Existing synchronous child projections do
-not retain verification witnesses. HTTP/v0 route and capability advertisement
-integration remain the next delivery slice; this internal adapter advertises
-no new support by itself.
+not retain verification witnesses. The HTTP/v0 projection below applies this
+internal adapter without exposing its private scan controls.
+
+### Operator HTTP projection
+
+The ordinary app exposes `GET /api/projects/:projectId/sessions/:sessionId/relationships`
+independently of experimental v0 enablement. It reads accepted local SQL facts
+without starting a provider, reading a transcript, adopting identities or
+requesting discovery. Empty means no currently accepted matching SQL facts;
+it does not certify a complete native inventory. Canonical YA anchors include
+their exact existing native binding. Wrong-project, deleted and unknown anchors
+return the same `404 session_not_found`. All responses are non-cacheable.
+Ordinary API errors contain an `error` message string and a separate `code`;
+v0 retains its existing `{error: {code, message}}` envelope.
+
+This first provenance projection requires the existing superuser/operator
+authority. Limited users retain their existing project-scoped session and child
+views, and receive no new graph or proof access. Their eventual generic
+projection must qualify SQL visibility against project grants, path grants,
+creator access and revocation together; final browser filtering is insufficient.
+Peer v0 views retain only their already-authorized creation receipt.
+
+The query accepts `limit` (1–100, default 50), opaque `cursor`,
+`direction` (`incoming`, `outgoing`, `both`) and a known relationship `type`.
+Replies contain `relationships` and `nextCursor`. Invalid/expired cursors return
+400 and require a fresh page; incomplete safe lookahead returns generic 503,
+never partial or invented empty data. Concurrent insertions need a page-one
+refresh; pages are keyset reads rather than snapshots.
+
+Each edge carries a predicate, two allow-listed endpoints and at most twenty
+proof summaries. A bound endpoint is a canonical YA session reference with
+server, project and provider. An unbound native child is a read-only
+`provider-child` handle containing its canonical `parentSessionId`, `childId`,
+project and provider. Only unique provider-observed children of a bound local
+parent qualify. This does not promote native ids into YA session URLs or add
+independent child controls. Unknown future predicates remain display-only.
+Proof summaries expose trust, observation time and optional bounded
+title/type/tool/depth/source-time display metadata. They omit private source
+keys/versions, native scopes, record keys, edge ids, receipt/launch ids and copy
+boundaries. Remote and unresolved endpoints remain with their existing owners.
+
+The public factory accepts only the nominal SQL-authorized source and fixes
+both its SQL scope and cursor binding to the same local operator authority.
+Deleted creation endpoints are filtered before LIMIT and rechecked at final
+projection. The source owns one reused statement; API shutdown closes it.
+
+The approved optional-feature corpus on 2026-11-06 is v0.11.0 (October 24) and
+v0.10.2 (October 20). Neither tag has this route or projection. The named
+`session-relationships` capability is version-implied from 0.11.1, with positive
+advertisement on earlier source versions. Its source introduction is November
+6; the temporary client support check expires February 4, 2027 under the
+existing 90-day rule. Unsupported servers omit the new visualization without a
+legacy loader. This API slice adds no client dependency yet.
 
 Adapt today's `providerChildren`, `/agents` navigation, fork and `/btw` fields
 from this model as their owning writers migrate. They retain their established

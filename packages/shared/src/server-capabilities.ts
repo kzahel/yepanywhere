@@ -2729,6 +2729,29 @@ export const SERVER_CAPABILITIES = {
       reason: "Older servers have no start-command route.",
     },
   },
+  sessionRelationships: {
+    id: CAPABILITY_ID_ALLOCATIONS.sessionRelationships.id,
+    name: "session-relationships",
+    kind: "permanent",
+    area: "sessions",
+    introducedIn: "0.11.1",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Reads durable local session relationships without provider discovery or transcript loading. The provenance page requires operator authority.",
+    clientFallback:
+      "Omit the new relationship visualization and make no relationship request; ordinary session viewing continues.",
+    serverContract: {
+      routes: [
+        "GET /api/projects/:projectId/sessions/:sessionId/relationships",
+      ],
+      routeModules: ["packages/server/src/routes/session-relationships.ts"],
+      responseFields: ["relationships", "nextCursor"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason: "Older servers have no durable relationship page route.",
+    },
+  },
   fileFolderListing: {
     id: CAPABILITY_ID_ALLOCATIONS.fileFolderListing.id,
     name: "file-folder-listing",

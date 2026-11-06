@@ -29,8 +29,10 @@ const identityJoin = (resource: "source" | "target", alias: "s" | "t") => `
      AND ${alias}.native_family = json_extract(e.${resource}, '$[2]')
      AND ${alias}.native_scope = json_extract(e.${resource}, '$[3]')
      AND ${alias}.native_id = json_extract(e.${resource}, '$[4]')))
- LEFT JOIN session_metadata ${alias}m ON ${alias}m.session_id = ${alias}.session_id`;
-const visible = (alias: "s" | "t") => `(${alias}.session_id IS NOT NULL AND (
+ LEFT JOIN session_metadata ${alias}m ON ${alias}m.session_id = ${alias}.session_id
+ LEFT JOIN session_creations ${alias}c ON ${alias}c.session_id = ${alias}.session_id`;
+const visible = (alias: "s" | "t") => `(${alias}.session_id IS NOT NULL
+ AND coalesce(${alias}c.deleted, 0) = 0 AND (
  p.all_projects = 1 OR coalesce(json_extract(${alias}m.metadata, '$.workingProjectId'), ${alias}.project_id)
  IN (SELECT value FROM json_each(p.projects))))`;
 const child = `(e.type = 'provider_child'

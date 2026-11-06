@@ -1712,3 +1712,8 @@ export {
 
 export { isSessionCreationPending } from "./session-creation.js";
 export * from "./steering.js";
+export type {
+  SessionRelationshipEndpoint,
+  SessionRelationshipProof,
+  SessionRelationshipPage,
+} from "./session-relationships.js";

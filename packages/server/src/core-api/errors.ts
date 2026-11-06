@@ -21,6 +21,7 @@ const statuses = {
   catalog_not_ready: 503,
   controller_unavailable: 503,
   conversation_unavailable: 503,
+  relationships_unavailable: 503,
   anchor_unavailable: 404,
 } as const;
 export class CoreApiError extends Error {

@@ -1,3 +1,4 @@
+import { relationshipGraphPageSchema } from "./relationship-graph-contracts.js";
 import { z } from "zod";
 
 export const requestIdSchema = z
@@ -183,6 +184,11 @@ export const relationshipsSchema = z.object({
     ),
   initiated: z.array(receiptSchema).max(100),
   nextCursor: z.string().nullable(),
+  related: relationshipGraphPageSchema
+    .optional()
+    .describe(
+      "Separately paged local structural relationships. Operator only; absence means unsupported, never known empty. relatedCursor/relatedLimit do not affect receipt pagination.",
+    ),
   outbound: z
     .object({
       items: z.array(outboundSchema).max(100),
