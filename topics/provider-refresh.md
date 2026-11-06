@@ -1385,7 +1385,34 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-11-04 (Claude Code 2.1.318 / SDK 0.3.318):
+Current source refresh, 2026-11-06 (Claude Code 2.1.319 / SDK 0.3.319):
+
+- The SDK and matching native packages advance from 0.3.318 to 0.3.319;
+  the bundled Linux executable and the standalone install both report
+  Claude Code 2.1.319. Compatibility markers advance together.
+- The declaration delta is additive and unused by YA: a
+  `set_has_subscribers` control request that matters only under
+  `CLAUDE_CODE_STREAM_EVENT_HOLD_MS`, which YA does not set; a
+  `check_permissions` option on direct `mcp_call` control requests; a
+  `denyInsteadOfPrompting` permission setting; a Windows
+  `disableWindowsBashCommandSplit` setting; and a
+  `session_security_tier_below_org_policy` bridge credential refusal.
+  `session_writes_lost` is now documented as sent only on a status-0
+  exit; YA's warning row is unchanged.
+- A no-turn handshake from a scratch directory against each bundled
+  executable returns identical results for 0.3.318 and 0.3.319: 8 model
+  rows with the same names and efforts and the same 71 commands. `/goal`
+  and `/loop` remain native. (Earlier counts came from a different probe
+  setup and are not comparable.)
+- Server type checking, the server provider and Claude route suites,
+  the shared Claude transcript-schema tests (52), and the Claude native
+  scenarios (11) pass. One clone-route test timed out at 5 s under the
+  parallel run and passes alone in under 1 s.
+- No assistant turn ran, so authenticated generation and 2.1.319
+  transcripts are not covered. Existing provider-host workers must
+  restart to adopt the update.
+
+Previous source refresh, 2026-11-04 (Claude Code 2.1.318 / SDK 0.3.318):
 
 - The SDK and matching native packages advance from 0.3.312 to 0.3.318;
   the bundled Linux executable reports Claude Code 2.1.318, ahead of the
