@@ -267,11 +267,6 @@ describe("successor launch metadata writes", () => {
     expect(response.status).toBe(200);
     expect(metadata.writesFor("sess-retitle-generator")).toEqual([
       [
-        "updateMetadata",
-        "sess-retitle-generator",
-        { promptSuggestionMode: "native" },
-      ],
-      [
         "setSessionSandbox",
         "sess-retitle-generator",
         {
@@ -348,7 +343,6 @@ describe("successor launch metadata writes", () => {
       ).toBe(true);
     });
     expect(metadata.writesFor("sess-generator")).toEqual([
-      ["updateMetadata", "sess-generator", { promptSuggestionMode: "native" }],
       [
         "setSessionSandbox",
         "sess-generator",

@@ -3848,7 +3848,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         deps.sessionMetadataService,
         generator.sessionId,
         {
-          promptSuggestionMode: sourceMetadata?.promptSuggestionMode,
           sandbox: inheritedSandboxRecord(sourceMetadata, {
             sandboxStateKey: generator.sandboxStateKey,
             projectPath: sourceProjectPath,
@@ -4107,7 +4106,6 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             deps.sessionMetadataService,
             generator.sessionId,
             {
-              promptSuggestionMode: originalMetadata?.promptSuggestionMode,
               sandbox: inheritedSandboxRecord(originalMetadata, {
                 sandboxStateKey: generator.sandboxStateKey,
                 projectPath: sourceProjectPath,

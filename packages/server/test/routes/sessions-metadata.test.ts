@@ -5849,12 +5849,8 @@ describe("Sessions metadata route", () => {
       }),
     );
     // Creation admission records the generator's title, archiving,
-    // source, provider and model; the route re-records the source's
-    // prompt-suggestion mode over admission's "off" for internal helpers.
-    expect(updateMetadata).toHaveBeenCalledTimes(1);
-    expect(updateMetadata).toHaveBeenCalledWith("sess-retitle-generator", {
-      promptSuggestionMode: "native",
-    });
+    // source, provider, model and preferences.
+    expect(updateMetadata).not.toHaveBeenCalled();
     expect(setProvider).not.toHaveBeenCalled();
     expect(setRequestedModel).not.toHaveBeenCalled();
   });
@@ -6186,12 +6182,9 @@ describe("Sessions metadata route", () => {
     // Creation admission records both copies' titles, sources, providers
     // and models, and the generator's archiving; the route hides the target
     // until its continuation starts.
-    expect(updateMetadata).toHaveBeenCalledWith("sess-generator", {
-      promptSuggestionMode: "native",
-    });
     expect(updateMetadata).not.toHaveBeenCalledWith(
       "sess-generator",
-      expect.objectContaining({ title: expect.anything() }),
+      expect.anything(),
     );
     expect(updateMetadata).toHaveBeenCalledWith("sess-target", {
       archived: true,

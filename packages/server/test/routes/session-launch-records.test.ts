@@ -737,7 +737,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
     `);
   });
 
-  it("helper generators of a source that shows prompt suggestions", async () => {
+  it("helper generators keep prompt suggestions off when the source shows them", async () => {
     await metadata.updateMetadata(publicId, { promptSuggestionMode: "native" });
     const generateSummary = vi
       .spyOn(app.supervisor, "generateSummary")
@@ -770,12 +770,12 @@ describe("the launch settings a new session keeps for later resumes", () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "promptSuggestionMode": "native",
+          "promptSuggestionMode": "off",
           "recapMode": "off",
           "title": "Retitle generator",
         },
         {
-          "promptSuggestionMode": "native",
+          "promptSuggestionMode": "off",
           "recapMode": "off",
           "title": "Fork summary generator",
         },

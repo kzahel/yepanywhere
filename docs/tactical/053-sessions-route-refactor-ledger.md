@@ -114,7 +114,7 @@ argument for fields admission already saved, which it announces without
 writing; `inheritedChildLaunchMetadata` and the route's
 `recordCopyCreator` are removed.
 
-Line delta: `-38` lines from `sessions.ts` (5,475 -> 5,437);
+Line delta: `-40` lines from `sessions.ts` (5,475 -> 5,435);
 `session-launch-metadata.ts` shrinks from 188 to 174 lines.
 
 Problem:
@@ -132,6 +132,9 @@ Implemented:
   resolved, and the sandbox record;
 - admission stores a copy's title cleaned up the way the route's title
   write did;
+- a separate commit stops the retitle and fork-summary generators storing
+  their source's prompt-suggestion preference over admission's "off" for
+  internal helpers, an accidental leftover;
 - the owner of each field and every difference found are in plan 177's
   step 5 tables; the sandbox record keeps its route write until it can be
   verified on Linux.
