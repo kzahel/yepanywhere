@@ -2,7 +2,7 @@
 
 Topic: core-service-api
 
-Status: steps 1-4 landed 2026-11-06. Accepted by the maintainer as the top item
+Status: steps 1-4 and the first part of step 5 landed 2026-11-06. Accepted by the maintainer as the top item
 of the module-boundary [priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
 
 Starting a session is one operation that today has about a dozen hand-written
@@ -234,6 +234,62 @@ helper generators' archiving and a limited user as creator, which fork,
 clone, restart fork and the helpers write again after the copy exists; and the Supervisor saves a project-write sandbox on start,
 which the routes write again. The Supervisor's recap generator fork also
 writes its own copy's title, archiving and launch metadata by hand.
+
+#### Part 1: one owner per field
+
+Landed 2026-11-06. The routes no longer write again what creation
+admission already saved. The decision is recorded in
+[core service API](../../topics/core-service-api.md#session-launch-metadata-owners).
+
+| Field | Owner | Paths |
+| --- | --- | --- |
+| Provider, requested model, launch settings | Admission; the Supervisor records the settings a process runs with | Every new session and copy |
+| Prompt-suggestion and recap preferences | Admission | Every new session and copy |
+| The same preferences as a started process resolved them | Route, after the launch starts | Restart fork and fork-summary target; the recap delay only for restart handoff |
+| A copy's title (cleaned up as a title edit is) and source, a clone's `/btw` link to its source, an internal helper's archiving, a limited user as creator | Admission | Fork, clone, restart fork, retitle and fork-summary helpers |
+| A handoff's title | Route | Restart handoff, stale-session handoff |
+| Fork lineage root | Route | Fork, restart fork, fork-summary target |
+| The fork-summary target's archiving (hidden until it starts, hidden again on failure) | Route | Fork-summary target |
+| A `/btw` link to a parent other than the source | Route | Clone |
+| Sandbox record | Admission, the Supervisor on start and the route (not yet decided) | Every path; see below |
+
+`recordNewSessionMetadata` now takes the fields only the route knows and,
+separately, the fields admission already saved, which it announces to open
+session lists without writing them again. The fork, clone and helper routes
+no longer write the provider, model, preferences, title, source or creator,
+and `inheritedChildLaunchMetadata` and `recordCopyCreator` are gone; a
+copy's usage record stays in the route.
+`test/routes/session-launch-records.test.ts` runs fork, clone, restart
+handoff, restart fork and the retitle and fork-summary helpers through the
+full app with a real Claude transcript, and pins each new session's whole
+stored record and the settings a later plain resume starts with, for a
+source with and without saved preferences, and the stored titles of clones
+and the helper generators' preferences. It passed against the old code
+before the change.
+
+Every difference found while removing the writes was checked:
+
+| Difference | Finding | Resolution |
+| --- | --- | --- |
+| A restart fork's request can change its prompt-suggestion and recap preferences; admission records the source's | Route-only: the fork's creation never sees the request's preferences, and a resume does not save preferences | The route keeps recording the started process's preferences |
+| A restart handoff, restart fork or fork-summary target whose source saved no preferences stores the defaults its process started with; a plain fork stores none | Deliberate: a started session records what it runs with, since prompt suggestions (`2169541e5`, 2026-06-16) and recap delays (`9682c7687`, 2026-06-24) became durable. A later resume starts with the same defaults either way. Admission already resolves a restart handoff's prompt-suggestion preference the same way, so only its recap delay is recorded again | Unchanged; the three paths keep it |
+| The route's title write cleaned a copy's title up (one line, no control characters, none when blank); admission stored it as sent. A `/btw` question aside's title keeps the question's line breaks | User-visible if dropped | Admission now stores a copy's title cleaned the same way. A copy the route never finished, because it failed after admission or was recovered later, also keeps a cleaned title now, as do lists that show a copy before the route ran |
+| An internal retitle or fork-summary generator stored the source's prompt-suggestion preference over admission's "off" | Accidental: admission turns internal helpers' prompt suggestions off (`e86b1caa9`, 2026-11-03), and the route's write predates it. Harmless: a summary is generated through the provider, not by resuming the helper, so the stored value matters only if someone opens an archived helper | Kept here; dropped in its own commit |
+| A session without a sandbox stored its project path as a sandbox path through the route's explicit "none" record | Harmless: every reader uses that path only for a project-write sandbox, or falls back to the working project, which names the same directory | Kept with the sandbox record below |
+| The route's sandbox record names the source's working project, while a copy's admission and the Supervisor's save name the directory the copy runs in | Unverified: the two differ when the project is opened through a symlinked path, and sandboxing runs only on Linux, so it cannot be tested on the maintainer's machine | The route keeps its sandbox record; part 2 |
+| The fork route computed the copy's model itself when the fork returned no launch settings | Unreachable: `forkSession` always returns them | Removed |
+
+#### Remaining
+
+- Give the sandbox record one owner: pass the working project to the copy
+  and start calls so the Supervisor's save is the only one, verified on
+  Linux.
+- Lift `buildResumeLaunch`, `buildSuccessorLaunch`, `settleLaunch` and the
+  remaining writers under `packages/server/src/sessions/`, with the route
+  helpers they depend on, and let the non-route launchers share
+  `settleLaunch`.
+- Recovered-queue reactivation still records its provider and model in the
+  route, because a reactivation saves only the settings its request names.
 
 ## Not in scope
 

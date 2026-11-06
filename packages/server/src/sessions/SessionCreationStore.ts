@@ -29,6 +29,7 @@ import {
   nativeSessionFamily,
   nativeSessionRef,
   parseNativeSessionId,
+  sanitizeSessionTitle,
   type NativeSessionRef,
   type SessionCreationStatus,
   type ProviderName,
@@ -858,6 +859,11 @@ export class SessionCreationStore {
       attempt = randomUUID(),
       initialInputId = request.input?.nativeReceiptId ?? randomUUID(),
       now = new Date().toISOString();
+    // Stored the way a title edit stores it: one line, no control
+    // characters, and no title when nothing is left.
+    const copyTitle = request.copy?.title
+      ? sanitizeSessionTitle(request.copy.title)
+      : undefined;
     const detail = JSON.stringify({
       controllerPid: process.pid,
       ...(request.intent === "copy" ? { kind: "copy" } : {}),
@@ -906,7 +912,7 @@ export class SessionCreationStore {
                   : {}),
               }
             : {}),
-          ...(request.copy?.title ? { customTitle: request.copy.title } : {}),
+          ...(copyTitle ? { customTitle: copyTitle } : {}),
           ...(request.lineage?.asideOf
             ? {
                 parentSessionId: request.lineage.asideOf,

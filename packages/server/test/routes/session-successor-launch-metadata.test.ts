@@ -14,11 +14,15 @@ import { SessionQueuePersistenceService } from "../../src/services/SessionQueueP
 import type { ISessionReader } from "../../src/sessions/types.js";
 import type { Project } from "../../src/supervisor/types.js";
 
-// Characterization for the session-launch service plan (doc 177): every
-// successor launch (fork, retitle generator, fork-summary generator and
-// target, restart fork, restart handoff) and recovered-queue reactivation
-// writes its session's launch metadata in a fixed order. These pin the exact ordered writes per child so the
-// consolidation cannot reorder, drop or remap a field.
+// Characterization for the session-launch service plan (doc 177): the
+// launch metadata each successor launch (fork, retitle generator,
+// fork-summary generator and target, restart fork, restart handoff) and
+// recovered-queue reactivation writes after its session exists, in order.
+// Creation admission records a copy's provider, model, preferences, title
+// and source, so the routes write only what admission does not know:
+// the sandbox record, the preferences a started process resolved, the
+// lineage root and the fork-summary target's archiving.
+// session-launch-records.test.ts pins the stored result of both together.
 
 const project: Project = {
   id: "proj-1" as UrlProjectId,
@@ -162,7 +166,7 @@ const post = (path: string, body: unknown) => ({
 });
 
 describe("successor launch metadata writes", () => {
-  it("fork persists the source's launch metadata on the child", async () => {
+  it("fork records its inherited sandbox and its lineage root", async () => {
     const metadata = recordingMetadata(sandboxedSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -186,10 +190,6 @@ describe("successor launch metadata writes", () => {
 
     expect(response.status).toBe(200);
     expect(metadata.writesFor("sess-fork")).toEqual([
-      ["setProvider", "sess-fork", "claude"],
-      ["setRequestedModel", "sess-fork", "saved-model"],
-      ["updateMetadata", "sess-fork", { promptSuggestionMode: "native" }],
-      ["updateMetadata", "sess-fork", { recapAfterSeconds: 300 }],
       [
         "setSessionSandbox",
         "sess-fork",
@@ -201,15 +201,7 @@ describe("successor launch metadata writes", () => {
           projectId: "proj-working",
         },
       ],
-      [
-        "updateMetadata",
-        "sess-fork",
-        {
-          title: "Fork: Refactor session",
-          forkedFromSessionId: "sess-1",
-          forkLineageRootId: "sess-1",
-        },
-      ],
+      ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });
 
@@ -234,8 +226,6 @@ describe("successor launch metadata writes", () => {
 
     expect(response.status).toBe(200);
     expect(metadata.writesFor("sess-fork")).toEqual([
-      ["setProvider", "sess-fork", "claude"],
-      ["setRequestedModel", "sess-fork", "saved-model"],
       [
         "setSessionSandbox",
         "sess-fork",
@@ -247,19 +237,11 @@ describe("successor launch metadata writes", () => {
           projectId: project.id,
         },
       ],
-      [
-        "updateMetadata",
-        "sess-fork",
-        {
-          title: undefined,
-          forkedFromSessionId: "sess-1",
-          forkLineageRootId: "sess-1",
-        },
-      ],
+      ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });
 
-  it("retitle persists the source's launch metadata on its generator", async () => {
+  it("retitle records its generator's inherited sandbox", async () => {
     const metadata = recordingMetadata(firewallOnSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -287,20 +269,8 @@ describe("successor launch metadata writes", () => {
       [
         "updateMetadata",
         "sess-retitle-generator",
-        {
-          title: "Retitle generator",
-          archived: true,
-          forkedFromSessionId: "sess-1",
-        },
-      ],
-      ["setProvider", "sess-retitle-generator", "claude"],
-      ["setRequestedModel", "sess-retitle-generator", "saved-model"],
-      [
-        "updateMetadata",
-        "sess-retitle-generator",
         { promptSuggestionMode: "native" },
       ],
-      ["updateMetadata", "sess-retitle-generator", { recapAfterSeconds: 300 }],
       [
         "setSessionSandbox",
         "sess-retitle-generator",
@@ -315,7 +285,7 @@ describe("successor launch metadata writes", () => {
     ]);
   });
 
-  it("fork-summary persists launch metadata on its generator and target", async () => {
+  it("fork-summary records its generator's sandbox and its target's started settings", async () => {
     const metadata = recordingMetadata(firewallOnSource);
     const forkSession = vi
       .fn()
@@ -378,19 +348,7 @@ describe("successor launch metadata writes", () => {
       ).toBe(true);
     });
     expect(metadata.writesFor("sess-generator")).toEqual([
-      [
-        "updateMetadata",
-        "sess-generator",
-        {
-          title: "Fork summary generator",
-          archived: true,
-          forkedFromSessionId: "sess-1",
-        },
-      ],
-      ["setProvider", "sess-generator", "claude"],
-      ["setRequestedModel", "sess-generator", "saved-model"],
       ["updateMetadata", "sess-generator", { promptSuggestionMode: "native" }],
-      ["updateMetadata", "sess-generator", { recapAfterSeconds: 300 }],
       [
         "setSessionSandbox",
         "sess-generator",
@@ -410,21 +368,14 @@ describe("successor launch metadata writes", () => {
       projectPath: "/tmp/project-sandbox",
       projectId: "proj-working",
     };
-    const targetMetadata = {
-      title: "Refactor continuation",
-      forkedFromSessionId: "sess-1",
-      forkLineageRootId: "sess-1",
-    };
     expect(metadata.writesFor("sess-target")).toEqual([
-      ["updateMetadata", "sess-target", { ...targetMetadata, archived: true }],
-      ["setProvider", "sess-target", "claude"],
-      ["setRequestedModel", "sess-target", "saved-model"],
-      ["updateMetadata", "sess-target", { promptSuggestionMode: "native" }],
-      ["updateMetadata", "sess-target", { recapAfterSeconds: 300 }],
+      [
+        "updateMetadata",
+        "sess-target",
+        { archived: true, forkLineageRootId: "sess-1" },
+      ],
       ["setSessionSandbox", "sess-target", targetSandbox],
       // After the resumed target process starts: its own resolved settings.
-      ["setProvider", "sess-target", "claude"],
-      ["setRequestedModel", "sess-target", "saved-model"],
       ["updateMetadata", "sess-target", { promptSuggestionMode: "off" }],
       ["updateMetadata", "sess-target", { recapAfterSeconds: 600 }],
       [
@@ -438,11 +389,11 @@ describe("successor launch metadata writes", () => {
           projectId: "proj-resumed",
         },
       ],
-      ["updateMetadata", "sess-target", { ...targetMetadata, archived: false }],
+      ["updateMetadata", "sess-target", { archived: false }],
     ]);
   });
 
-  it("restart fork persists the resumed fork's launch metadata", async () => {
+  it("restart fork records its started preferences, sandbox and lineage root", async () => {
     const metadata = recordingMetadata(sandboxedSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -488,8 +439,6 @@ describe("successor launch metadata writes", () => {
 
     expect(response.status).toBe(200);
     expect(metadata.writesFor("sess-fork")).toEqual([
-      ["setProvider", "sess-fork", "claude"],
-      ["setRequestedModel", "sess-fork", "settings-model"],
       ["updateMetadata", "sess-fork", { promptSuggestionMode: "off" }],
       ["updateMetadata", "sess-fork", { recapAfterSeconds: 600 }],
       [
@@ -503,15 +452,11 @@ describe("successor launch metadata writes", () => {
           projectId: "proj-resumed",
         },
       ],
-      [
-        "updateMetadata",
-        "sess-fork",
-        { title: "Fork: Refactor session", forkLineageRootId: "sess-1" },
-      ],
+      ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });
 
-  it("restart handoff persists the new session's launch metadata", async () => {
+  it("restart handoff records its started recap delay, sandbox and title", async () => {
     const metadata = recordingMetadata(firewallOnSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -551,9 +496,6 @@ describe("successor launch metadata writes", () => {
 
     expect(response.status).toBe(200);
     expect(metadata.writesFor("sess-new")).toEqual([
-      ["setProvider", "sess-new", "claude"],
-      ["setRequestedModel", "sess-new", "settings-model"],
-      ["updateMetadata", "sess-new", { promptSuggestionMode: "off" }],
       ["updateMetadata", "sess-new", { recapAfterSeconds: 600 }],
       [
         "setSessionSandbox",

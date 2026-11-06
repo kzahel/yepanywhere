@@ -14,7 +14,9 @@ consolidation from here, SRR-020 gave the successor launches one
 settings assembly as step 2, SRR-021 gave every route one reading of a
 launch's started, queued or queue-full result as step 3, and SRR-022 gave
 the routes that make a session from another one writer for its title and
-lineage as step 4. SRR-013 landed the
+lineage as step 4. SRR-023 then stopped those routes writing again what
+creation admission already saved, as the first part of step 5. SRR-013
+landed the
 metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
@@ -29,7 +31,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-022
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-023
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -99,6 +101,46 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-023: One Owner For Each New Session's Launch Record
+
+Status: done, 2026-11-06. First part of step 5 of
+[plan 177](177-session-launch-service.md). Not a move-only slice; it follows
+that plan's behavior-preserving rules.
+
+Destination: no new module. `recordNewSessionMetadata` in
+`packages/server/src/routes/session-launch-metadata.ts` gains a second
+argument for fields admission already saved, which it announces without
+writing; `inheritedChildLaunchMetadata` and the route's
+`recordCopyCreator` are removed.
+
+Line delta: `-38` lines from `sessions.ts` (5,475 -> 5,437);
+`session-launch-metadata.ts` shrinks from 188 to 174 lines.
+
+Problem:
+
+Fork, clone, restart (handoff and fork) and the retitle and fork-summary
+helpers wrote a new session's provider, model, preferences, title, source
+and creator after it existed, although creation admission had saved each of
+them before the session was made.
+
+Implemented:
+
+- each route writes only what admission does not know: a handoff's title,
+  a fork's lineage root, the fork-summary target's archiving, a `/btw` link
+  to a parent other than the source, the preferences a started process
+  resolved, and the sandbox record;
+- admission stores a copy's title cleaned up the way the route's title
+  write did;
+- the owner of each field and every difference found are in plan 177's
+  step 5 tables; the sandbox record keeps its route write until it can be
+  verified on Linux.
+
+Verification: `test/routes/session-launch-records.test.ts` pins each new
+session's whole stored record and the settings a later plain resume starts
+with, through the full app and a real Claude transcript. It passed against
+the old code before the change. The route write-order tests were updated to
+the shorter write lists.
 
 ### SRR-022: One Record For Sessions Made From Another
 

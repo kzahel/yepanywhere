@@ -273,12 +273,12 @@ describe("Codex clone route", () => {
     expect(clonedSummary).not.toBeNull();
     expect(clonedSummary?.id).toBe(body.sessionId);
     expect(codexScanner.invalidateCache).not.toHaveBeenCalled();
-    expect(updateMetadata).toHaveBeenCalledWith(body.sessionId, {
-      title: "Prime the cache [cloned]",
-      parentSessionId: undefined,
-      parentSessionKind: undefined,
-      forkedFromSessionId: "source-session",
-    });
+    // The copy carries its title to creation admission, which records it
+    // with the source; the route writes neither again.
+    expect(forkSession).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Prime the cache [cloned]" }),
+    );
+    expect(updateMetadata).not.toHaveBeenCalled();
   });
 
   it("stores parent metadata for /btw clones", async () => {
@@ -315,11 +315,11 @@ describe("Codex clone route", () => {
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as { sessionId: string };
+    // A link to a parent other than the source is the route's alone; the
+    // title and source travel to creation admission with the copy.
     expect(updateMetadata).toHaveBeenCalledWith(body.sessionId, {
-      title: "/btw inspect this side path",
       parentSessionId: "parent-session",
       parentSessionKind: "btw-aside",
-      forkedFromSessionId: "source-session",
     });
   });
 

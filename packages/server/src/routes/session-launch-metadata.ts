@@ -23,8 +23,11 @@ export interface LaunchSandboxRecord {
 }
 
 /**
- * The launch metadata a session-launching route records for a session it
- * started, resumed or copied. An absent field is not written.
+ * The launch metadata a route records itself. Creation admission already
+ * saved a new session's or copy's provider, model and preferences, so the
+ * successor routes pass only the preferences a started process resolved and
+ * the sandbox record; recovered-queue reactivation passes the rest. An
+ * absent field is not written.
  */
 export interface LaunchMetadataRecord {
   provider?: ProviderName;
@@ -35,15 +38,13 @@ export interface LaunchMetadataRecord {
   sandbox?: LaunchSandboxRecord;
 }
 
-/** Source fields a transcript child inherits its launch metadata from. */
+/** Source fields a transcript child inherits its sandbox record from. */
 type InheritedLaunchSource = Pick<
   SessionMetadata,
   | "sandboxLevel"
   | "sandboxNetworkFirewall"
   | "sandboxStateKey"
   | "workingProjectId"
-  | "promptSuggestionMode"
-  | "recapAfterSeconds"
 >;
 
 /**
@@ -65,9 +66,8 @@ export async function persistLaunchMetadata(
   if (record.executor) {
     await service.setExecutor(sessionId, record.executor);
   }
-  // Persist the launch model identity. Normal launches retain the selected YA
-  // alias (including "default"); forks replace "default" with the observed
-  // source model so a cold first resume cannot drift to a new default.
+  // Persist the launch model identity, the selected YA alias (including
+  // "default").
   if (record.requestedModel) {
     await service.setRequestedModel(sessionId, record.requestedModel);
   }
@@ -111,46 +111,28 @@ export function inheritedSandboxRecord(
   };
 }
 
-/**
- * The launch metadata a cold transcript child (fork, or a retitle or
- * fork-summary helper) inherits from its source session.
- */
-export function inheritedChildLaunchMetadata(
-  source: InheritedLaunchSource | undefined,
-  child: {
-    provider: ProviderName;
-    executor: string | undefined;
-    requestedModel: string | undefined;
-    sandboxStateKey: string | undefined;
-    projectPath: string;
-    projectId: UrlProjectId;
-  },
-): LaunchMetadataRecord {
-  return {
-    provider: child.provider,
-    executor: child.executor,
-    requestedModel: child.requestedModel,
-    promptSuggestionMode: source?.promptSuggestionMode,
-    recapAfterSeconds: source?.recapAfterSeconds,
-    sandbox: inheritedSandboxRecord(source, child),
-  };
-}
-
-/**
- * The title and lineage a route records on a session it made from another:
- * a fork, a handoff or a helper fork. An absent field is not written.
- */
-export interface NewSessionRecord {
+/** What open session lists are told about a new session. */
+export interface NewSessionAnnouncement {
   title?: string;
   archived?: boolean;
   forkedFromSessionId?: string;
+}
+
+/**
+ * The title, archiving and lineage only the route knows about a session it
+ * made from another one: a handoff's title, a fork's lineage root, the
+ * fork-summary target's archiving. An absent field is not written.
+ */
+export interface NewSessionRecord extends NewSessionAnnouncement {
   /** The fork lineage's root, which only fork numbering reads. */
   forkLineageRootId?: string;
 }
 
 /**
- * Record a new session's title and lineage, then announce them with
- * `session-metadata-changed` so open session lists show them. The
+ * Record what only the route knows about a new session, then announce the
+ * session with `session-metadata-changed` so open session lists show it.
+ * `admitted` names fields creation admission already saved, such as a
+ * copy's title and source; they are announced, not written again. The
  * announcement carries every field but the lineage root.
  */
 export async function recordNewSessionMetadata(
@@ -158,15 +140,19 @@ export async function recordNewSessionMetadata(
   eventBus: EventBus | undefined,
   sessionId: string,
   record: NewSessionRecord,
+  admitted: NewSessionAnnouncement = {},
 ): Promise<void> {
   if (!service) {
     return;
   }
-  await service.updateMetadata(sessionId, record);
+  if (Object.keys(record).length > 0) {
+    await service.updateMetadata(sessionId, record);
+  }
   const { forkLineageRootId: _lineageRoot, ...announced } = record;
   eventBus?.emit({
     type: "session-metadata-changed",
     sessionId,
+    ...admitted,
     ...announced,
     timestamp: new Date().toISOString(),
   });

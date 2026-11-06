@@ -29,7 +29,7 @@ shared, and how risky it is to touch today.
    call. This is a behavior-preserving consolidation, not a move-only slice,
    so it has its own plan:
    [session launch service](177-session-launch-service.md). Steps 1-4
-   landed 2026-11-06.
+   and the first part of step 5 landed 2026-11-06.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
    (about 7,800 lines), `NewSessionForm.tsx` (about 6,000),
    `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about
@@ -214,9 +214,9 @@ SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
 SRR-013 (metadata/seen-state routes), SRR-014/SRR-015 (session-detail
 helpers and read routes), SRR-016 (session project routing), and
 SRR-017/SRR-018 (session start/resume helpers and routes), plus
-SRR-019 to SRR-022 (the shared launch-metadata writer, successor
-launch-settings assembly, launch-outcome mapping and new-session record,
-steps 1-4 of
+SRR-019 to SRR-023 (the shared launch-metadata writer, successor
+launch-settings assembly, launch-outcome mapping, new-session record and
+one owner per launch-record field, steps 1-4 and part of step 5 of
 [plan 177](177-session-launch-service.md)) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do

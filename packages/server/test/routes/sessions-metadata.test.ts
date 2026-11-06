@@ -4920,7 +4920,6 @@ describe("Sessions metadata route", () => {
       projectId: project.id,
     });
     expect(updateMetadata).toHaveBeenCalledWith("sess-fork", {
-      title: "Fork: Refactor session",
       forkLineageRootId: "sess-1",
     });
   });
@@ -5014,7 +5013,8 @@ describe("Sessions metadata route", () => {
     // Fork-only: no process is started or resumed, no message sent.
     expect(resumeSession).not.toHaveBeenCalled();
     expect(startSession).not.toHaveBeenCalled();
-    expect(setProvider).toHaveBeenCalledWith("sess-fork", "claude");
+    // Creation admission records the fork's provider.
+    expect(setProvider).not.toHaveBeenCalled();
     expect(forkSession).toHaveBeenCalledWith(
       expect.objectContaining({
         creation: expect.objectContaining({
@@ -5035,9 +5035,10 @@ describe("Sessions metadata route", () => {
       projectPath: project.path,
       projectId: project.id,
     });
-    expect(updateMetadata).toHaveBeenCalledWith("sess-fork", {
+    expect(forkSession.mock.calls[0]?.[0]).toMatchObject({
       title: "Fork: Refactor session",
-      forkedFromSessionId: "sess-1",
+    });
+    expect(updateMetadata).toHaveBeenCalledWith("sess-fork", {
       forkLineageRootId: "sess-1",
     });
   });
@@ -5166,8 +5167,6 @@ describe("Sessions metadata route", () => {
     expect(await forkOnce()).toBe("Fork 3: Refactor session");
     expect(nextForkOrdinal).toHaveBeenCalledTimes(3);
     expect(updateMetadata).toHaveBeenLastCalledWith("sess-fork", {
-      title: "Fork 3: Refactor session",
-      forkedFromSessionId: "sess-1",
       forkLineageRootId: "sess-1",
     });
   });
@@ -5287,8 +5286,6 @@ describe("Sessions metadata route", () => {
     expect((await response.json()).title).toBe("Fork 2: Refactor session");
     // The fork of a fork stays in the original session's numbering lineage.
     expect(updateMetadata).toHaveBeenCalledWith("sess-fork-2", {
-      title: "Fork 2: Refactor session",
-      forkedFromSessionId: "sess-fork",
       forkLineageRootId: "sess-root",
     });
   });
@@ -5364,12 +5361,14 @@ describe("Sessions metadata route", () => {
       boundary: undefined,
       upToMessageId: undefined,
     });
-    expect(updateMetadata).toHaveBeenCalledWith("sess-clone", {
+    expect(forkSession.mock.calls[0]?.[0]).toMatchObject({
       title: "Clone: Short session",
-      forkedFromSessionId: "sess-1",
+    });
+    expect(updateMetadata).toHaveBeenCalledWith("sess-clone", {
       forkLineageRootId: "sess-1",
     });
-    expect(setRequestedModel).toHaveBeenCalledWith("sess-clone", "gpt-5.6-sol");
+    // Creation admission records the copy's model from its source.
+    expect(setRequestedModel).not.toHaveBeenCalled();
     expect(resumeSession).not.toHaveBeenCalled();
   });
 
@@ -5849,23 +5848,15 @@ describe("Sessions metadata route", () => {
         lengthTarget: 132,
       }),
     );
+    // Creation admission records the generator's title, archiving,
+    // source, provider and model; the route re-records the source's
+    // prompt-suggestion mode over admission's "off" for internal helpers.
+    expect(updateMetadata).toHaveBeenCalledTimes(1);
     expect(updateMetadata).toHaveBeenCalledWith("sess-retitle-generator", {
-      title: "Retitle generator",
-      archived: true,
-      forkedFromSessionId: "sess-1",
+      promptSuggestionMode: "native",
     });
-    expect(updateMetadata).not.toHaveBeenCalledWith(
-      "sess-1",
-      expect.objectContaining({ title: expect.any(String) }),
-    );
-    expect(setProvider).toHaveBeenCalledWith(
-      "sess-retitle-generator",
-      "claude",
-    );
-    expect(setRequestedModel).toHaveBeenCalledWith(
-      "sess-retitle-generator",
-      "sonnet",
-    );
+    expect(setProvider).not.toHaveBeenCalled();
+    expect(setRequestedModel).not.toHaveBeenCalled();
   });
 
   it("reactivates a stopped cross-provider session before retitle fork", async () => {
@@ -6192,27 +6183,25 @@ describe("Sessions metadata route", () => {
         projectPath: project.path,
       }),
     );
+    // Creation admission records both copies' titles, sources, providers
+    // and models, and the generator's archiving; the route hides the target
+    // until its continuation starts.
     expect(updateMetadata).toHaveBeenCalledWith("sess-generator", {
-      title: "Fork summary generator",
-      archived: true,
-      forkedFromSessionId: "sess-1",
+      promptSuggestionMode: "native",
     });
+    expect(updateMetadata).not.toHaveBeenCalledWith(
+      "sess-generator",
+      expect.objectContaining({ title: expect.anything() }),
+    );
     expect(updateMetadata).toHaveBeenCalledWith("sess-target", {
-      title: "Refactor continuation",
       archived: true,
-      forkedFromSessionId: "sess-1",
       forkLineageRootId: "sess-1",
     });
     expect(updateMetadata).toHaveBeenCalledWith("sess-target", {
-      title: "Refactor continuation",
       archived: false,
-      forkedFromSessionId: "sess-1",
-      forkLineageRootId: "sess-1",
     });
-    expect(setProvider).toHaveBeenCalledWith("sess-target", "claude");
-    expect(setProvider).toHaveBeenCalledWith("sess-generator", "claude");
-    expect(setRequestedModel).toHaveBeenCalledWith("sess-target", "sonnet");
-    expect(setRequestedModel).toHaveBeenCalledWith("sess-generator", "sonnet");
+    expect(setProvider).not.toHaveBeenCalled();
+    expect(setRequestedModel).not.toHaveBeenCalled();
     expect(updateTranscriptDisplayObject).toHaveBeenCalled();
     expect(transcriptDisplayObjects[0]).toMatchObject({
       status: "ready",
@@ -6948,7 +6937,9 @@ describe("Sessions metadata route", () => {
       }),
     );
     expect(startSession.mock.calls[0]?.[1].text).toContain("- Model: sonnet");
-    expect(setProvider).toHaveBeenCalledWith("sess-new", "codex");
+    expect(startSession.mock.calls[0]?.[3]).toMatchObject({
+      providerName: "codex",
+    });
 
     startSession.mockClear();
     const explicitResponse = await routes.request(

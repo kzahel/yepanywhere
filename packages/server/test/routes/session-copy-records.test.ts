@@ -16,14 +16,16 @@ import type { ISessionReader } from "../../src/sessions/types.js";
 import { ForkSettingsPersistenceError } from "../../src/supervisor/Supervisor.js";
 import type { Project } from "../../src/supervisor/types.js";
 
-// Characterization for the session-launch service plan (doc 177, step 4):
-// fork, restart, the stale-session handoff and the retitle and fork-summary
-// helpers record a new session's title and lineage and announce it with
-// session-metadata-changed (clone records without announcing and is not
-// covered here), fork records a limited user as its creator, and the forks
-// claim a fork number that a failed fork gives back. These pin, per new
-// session, the writes and announcements in order, and the fork-number claims
-// and releases, so folding the copies cannot drop, reorder or remap one.
+// Characterization for the session-launch service plan (doc 177, steps 4
+// and 5): fork, restart, the stale-session handoff and the retitle and
+// fork-summary helpers announce a new session with session-metadata-changed
+// (clone does not announce and is not covered here) and record what only the
+// route knows: a handoff's title, a fork's lineage root and the fork-summary
+// target's archiving. Creation admission records a copy's title, source,
+// archiving and creator, so those are announced, not written again. The
+// forks claim a fork number that a failed fork gives back. These pin, per
+// new session, the writes and announcements in order, and the fork-number
+// claims and releases.
 
 const project: Project = {
   id: "proj-1" as UrlProjectId,
@@ -239,7 +241,7 @@ const announce = (sessionId: string, fields: Record<string, unknown>) => [
 ];
 
 describe("new-session title and lineage records", () => {
-  it("fork records its title and lineage, then announces both", async () => {
+  it("fork records its lineage root and announces its title and source", async () => {
     const fixture = copyRoutes({
       forkSession: vi.fn(async () => ({ sessionId: "sess-fork" })),
     });
@@ -250,11 +252,7 @@ describe("new-session title and lineage records", () => {
 
     expect(response.status).toBe(200);
     expect(fixture.recordsFor("sess-fork")).toEqual([
-      metadataWrite("sess-fork", {
-        title: "Fork 2: Refactor session",
-        forkedFromSessionId: "sess-1",
-        forkLineageRootId: "sess-root",
-      }),
+      metadataWrite("sess-fork", { forkLineageRootId: "sess-root" }),
       announce("sess-fork", {
         title: "Fork 2: Refactor session",
         forkedFromSessionId: "sess-1",
@@ -263,7 +261,7 @@ describe("new-session title and lineage records", () => {
     expect(fixture.claims()).toEqual([["claim", "sess-1"]]);
   });
 
-  it("a limited user's fork records its creator, then its usage, then its title", async () => {
+  it("a limited user's fork counts as one of their sessions and leaves its creator to admission", async () => {
     const fixture = copyRoutes(
       { forkSession: vi.fn(async () => ({ sessionId: "sess-fork" })) },
       {
@@ -287,13 +285,8 @@ describe("new-session title and lineage records", () => {
 
     expect(response.status).toBe(200);
     expect(fixture.creationRecords()).toEqual([
-      ["recordSessionCreator", "sess-fork", "alice"],
       ["usage", "alice"],
-      metadataWrite("sess-fork", {
-        title: "Fork 2: Refactor session",
-        forkedFromSessionId: "sess-1",
-        forkLineageRootId: "sess-root",
-      }),
+      metadataWrite("sess-fork", { forkLineageRootId: "sess-root" }),
       announce("sess-fork", {
         title: "Fork 2: Refactor session",
         forkedFromSessionId: "sess-1",
@@ -301,7 +294,7 @@ describe("new-session title and lineage records", () => {
     ]);
   });
 
-  it("restart fork records its title and lineage root and announces the title", async () => {
+  it("restart fork records its lineage root and announces its title", async () => {
     const fixture = copyRoutes({
       forkSession: vi.fn(async () => ({ sessionId: "sess-fork" })),
       resumeSession: vi.fn(async () => startedProcess("sess-fork")),
@@ -314,10 +307,7 @@ describe("new-session title and lineage records", () => {
 
     expect(response.status).toBe(200);
     expect(fixture.recordsFor("sess-fork")).toEqual([
-      metadataWrite("sess-fork", {
-        title: "Fork 2: Refactor session",
-        forkLineageRootId: "sess-root",
-      }),
+      metadataWrite("sess-fork", { forkLineageRootId: "sess-root" }),
       announce("sess-fork", { title: "Fork 2: Refactor session" }),
     ]);
     expect(fixture.claims()).toEqual([["claim", "sess-1"]]);
@@ -356,7 +346,7 @@ describe("new-session title and lineage records", () => {
     ]);
   });
 
-  it("retitle archives and announces its generator", async () => {
+  it("retitle announces its archived generator", async () => {
     const fixture = copyRoutes({
       forkSession: vi.fn(async () => ({ sessionId: "sess-generator" })),
       generateSummary: vi.fn(async () => ({ text: "Tight rename flow" })),
@@ -373,13 +363,12 @@ describe("new-session title and lineage records", () => {
       forkedFromSessionId: "sess-1",
     };
     expect(fixture.recordsFor("sess-generator")).toEqual([
-      metadataWrite("sess-generator", generator),
       announce("sess-generator", generator),
     ]);
     expect(fixture.claims()).toEqual([]);
   });
 
-  it("fork-summary archives its generator and reveals its target once started", async () => {
+  it("fork-summary announces its archived generator and reveals its target once started", async () => {
     const fixture = copyRoutes({
       forkSession: vi
         .fn()
@@ -403,18 +392,11 @@ describe("new-session title and lineage records", () => {
     await vi.waitFor(() =>
       expect(fixture.recordsFor("sess-target")).toEqual([
         metadataWrite("sess-target", {
-          title: "Refactor continuation",
           archived: true,
-          forkedFromSessionId: "sess-1",
           forkLineageRootId: "sess-root",
         }),
         announce("sess-target", { ...target, archived: true }),
-        metadataWrite("sess-target", {
-          title: "Refactor continuation",
-          archived: false,
-          forkedFromSessionId: "sess-1",
-          forkLineageRootId: "sess-root",
-        }),
+        metadataWrite("sess-target", { archived: false }),
         announce("sess-target", { ...target, archived: false }),
       ]),
     );
@@ -424,7 +406,6 @@ describe("new-session title and lineage records", () => {
       forkedFromSessionId: "sess-1",
     };
     expect(fixture.recordsFor("sess-generator")).toEqual([
-      metadataWrite("sess-generator", generator),
       announce("sess-generator", generator),
     ]);
     // The generated summary named a title, so no fork number is claimed.
@@ -570,11 +551,9 @@ describe("fork-number claims", () => {
       archived: true,
       forkedFromSessionId: "sess-1",
     };
-    // Archived when made, and archived again by the failed job's cleanup.
+    // Announced when made, and again by the failed job's cleanup.
     expect(fixture.recordsFor("sess-generator")).toEqual([
-      metadataWrite("sess-generator", generator),
       announce("sess-generator", generator),
-      metadataWrite("sess-generator", generator),
       announce("sess-generator", generator),
     ]);
   });
@@ -608,12 +587,12 @@ describe("fork-number claims", () => {
     };
     expect(fixture.recordsFor("sess-target")).toEqual([
       metadataWrite("sess-target", {
-        ...target,
+        archived: true,
         forkLineageRootId: "sess-root",
       }),
       announce("sess-target", target),
       // The cleanup re-archives without the lineage root.
-      metadataWrite("sess-target", target),
+      metadataWrite("sess-target", { archived: true }),
       announce("sess-target", target),
     ]);
   });

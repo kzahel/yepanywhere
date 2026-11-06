@@ -29,7 +29,7 @@ import {
 } from "../services/ClearloopService.js";
 import { turnIndexOf } from "../sessions/turn-index.js";
 import { hostname } from "node:os";
-import { type Context, Hono } from "hono";
+import { Hono } from "hono";
 import type { ISessionIndexService } from "../indexes/types.js";
 import { getLogger } from "../logging/logger.js";
 import type { ToolResultMediaStore } from "../media/ToolResultMediaStore.js";
@@ -57,9 +57,9 @@ import {
   settleLaunch,
 } from "./session-launch-results.js";
 import {
-  inheritedChildLaunchMetadata,
   inheritedSandboxRecord,
   persistLaunchMetadata,
+  type NewSessionAnnouncement,
   type NewSessionRecord,
   recordNewSessionMetadata,
   releaseFailedForkNumber,
@@ -1307,31 +1307,15 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   const recordNewSession = (
     sessionId: string,
     record: NewSessionRecord,
+    admitted?: NewSessionAnnouncement,
   ): Promise<void> =>
     recordNewSessionMetadata(
       deps.sessionMetadataService,
       deps.eventBus,
       sessionId,
       record,
+      admitted,
     );
-  /**
-   * Record a limited user as a fork's or clone's creator, as creation
-   * admission already does (topics/limited-users.md § Delivery v1), and
-   * count every copy as one session in the acting user's usage.
-   */
-  const recordCopyCreator = async (
-    c: Context,
-    sessionId: string,
-  ): Promise<void> => {
-    const creator = actingUsername(c);
-    if (creator) {
-      await deps.sessionMetadataService?.recordSessionCreator(
-        sessionId,
-        creator,
-      );
-    }
-    void deps.userUsageService?.recordSession(creator);
-  };
   const getCodexReader = (projectPath: string): CodexSessionReader | null =>
     deps.codexReaderFactory?.(projectPath) ??
     (deps.codexSessionsDir
@@ -2333,13 +2317,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       const result = outcome.process;
 
       void deps.userUsageService?.recordSession(actingUsername(c));
+      // The fork's creation recorded the source's preferences; it keeps the
+      // ones its process started with: the request's, defaults included.
       await persistLaunchMetadata(
         deps.sessionMetadataService,
         result.sessionId,
         {
-          provider: sourceProvider,
-          executor,
-          requestedModel: requestedModel ?? undefined,
           promptSuggestionMode: result.promptSuggestionMode,
           recapAfterSeconds: result.recapAfterSeconds,
           sandbox: {
@@ -2354,10 +2337,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           },
         },
       );
-      await recordNewSession(result.sessionId, {
-        title: forkTitle,
-        forkLineageRootId: lineageRootId,
-      });
+      await recordNewSession(
+        result.sessionId,
+        { forkLineageRootId: lineageRootId },
+        { title: forkTitle },
+      );
 
       const oldProcessAbortDeferred = abortOldProcessAfterReplacementActivity(
         oldProcess,
@@ -2432,11 +2416,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     const result = outcome.process;
 
     void deps.userUsageService?.recordSession(actingUsername(c));
+    // Creation recorded the requested preferences; the handoff keeps the
+    // recap delay its process started with, a default included.
     await persistLaunchMetadata(deps.sessionMetadataService, result.sessionId, {
-      provider: providerName,
-      executor,
-      requestedModel: requestedModel ?? undefined,
-      promptSuggestionMode: result.promptSuggestionMode,
       recapAfterSeconds: result.recapAfterSeconds,
       sandbox: {
         level: restartSandboxLevel,
@@ -3662,47 +3644,19 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       );
     }
 
-    const savedExecutor = parseOptionalExecutor(
-      deps.sessionMetadataService?.getExecutor(sessionId),
-    ).executor;
-    let inheritedModel = fork.launchSettings
-      ? (fork.launchSettings.requestedModel ?? undefined)
-      : resolveInheritedForkModel(
-          deps.sessionMetadataService?.getRequestedModel(sessionId),
-          sourceProcess?.resolvedModel,
-          sourceProcess?.model,
-        );
-    if (!fork.launchSettings && !inheritedModel) {
-      const fullSummary = await findSessionSummaryAcrossProviders(
-        project,
-        sessionId,
-        projectId,
-        providerResolutionDeps(deps),
-        providerName,
-      );
-      inheritedModel = resolveInheritedForkModel(
-        deps.sessionMetadataService?.getRequestedModel(sessionId),
-        fullSummary?.summary.model,
-      );
-    }
-    await persistLaunchMetadata(
-      deps.sessionMetadataService,
-      fork.sessionId,
-      inheritedChildLaunchMetadata(originalMetadata, {
-        provider: providerName,
-        executor: savedExecutor,
-        requestedModel: inheritedModel,
+    await persistLaunchMetadata(deps.sessionMetadataService, fork.sessionId, {
+      sandbox: inheritedSandboxRecord(originalMetadata, {
         sandboxStateKey: fork.sandboxStateKey,
         projectPath: forkProjectPath,
         projectId: projectId as UrlProjectId,
       }),
-    );
-    await recordCopyCreator(c, fork.sessionId);
-    await recordNewSession(fork.sessionId, {
-      title: forkTitle,
-      forkedFromSessionId: sessionId,
-      forkLineageRootId,
     });
+    void deps.userUsageService?.recordSession(actingUsername(c));
+    await recordNewSession(
+      fork.sessionId,
+      { forkLineageRootId },
+      { title: forkTitle, forkedFromSessionId: sessionId },
+    );
 
     return c.json({
       sessionId: fork.sessionId,
@@ -3881,22 +3835,26 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       generatorSessionId = generator.sessionId;
       requestedModel =
         generator.launchSettings?.requestedModel ?? requestedModel;
-      await recordNewSession(generator.sessionId, {
-        title: "Retitle generator",
-        archived: true,
-        forkedFromSessionId: sessionId,
-      });
+      await recordNewSession(
+        generator.sessionId,
+        {},
+        {
+          title: "Retitle generator",
+          archived: true,
+          forkedFromSessionId: sessionId,
+        },
+      );
       await persistLaunchMetadata(
         deps.sessionMetadataService,
         generator.sessionId,
-        inheritedChildLaunchMetadata(sourceMetadata, {
-          provider: providerName,
-          executor: savedExecutor,
-          requestedModel,
-          sandboxStateKey: generator.sandboxStateKey,
-          projectPath: sourceProjectPath,
-          projectId: projectId as UrlProjectId,
-        }),
+        {
+          promptSuggestionMode: sourceMetadata?.promptSuggestionMode,
+          sandbox: inheritedSandboxRecord(sourceMetadata, {
+            sandboxStateKey: generator.sandboxStateKey,
+            projectPath: sourceProjectPath,
+            projectId: projectId as UrlProjectId,
+          }),
+        },
       );
       if (abortController.signal.aborted) {
         throw new DOMException("Retitle cancelled", "AbortError");
@@ -4136,22 +4094,26 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           generatorSessionId = generator.sessionId;
           requestedModel =
             generator.launchSettings?.requestedModel ?? requestedModel;
-          await recordNewSession(generator.sessionId, {
-            title: "Fork summary generator",
-            archived: true,
-            forkedFromSessionId: sessionId,
-          });
+          await recordNewSession(
+            generator.sessionId,
+            {},
+            {
+              title: "Fork summary generator",
+              archived: true,
+              forkedFromSessionId: sessionId,
+            },
+          );
           await persistLaunchMetadata(
             deps.sessionMetadataService,
             generator.sessionId,
-            inheritedChildLaunchMetadata(originalMetadata, {
-              provider: providerName,
-              executor: savedExecutor,
-              requestedModel,
-              sandboxStateKey: generator.sandboxStateKey,
-              projectPath: sourceProjectPath,
-              projectId: projectId as UrlProjectId,
-            }),
+            {
+              promptSuggestionMode: originalMetadata?.promptSuggestionMode,
+              sandbox: inheritedSandboxRecord(originalMetadata, {
+                sandboxStateKey: generator.sandboxStateKey,
+                projectPath: sourceProjectPath,
+                projectId: projectId as UrlProjectId,
+              }),
+            },
           );
           if (abortController.signal.aborted) {
             throw new DOMException("Fork summary cancelled", "AbortError");
@@ -4219,23 +4181,22 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           });
           targetSessionId = target.sessionId;
           void deps.userUsageService?.recordSession(forkSummaryActor);
-          await recordNewSession(target.sessionId, {
-            title,
-            archived: true,
-            forkedFromSessionId: sessionId,
-            forkLineageRootId,
-          });
+          // Hidden until its continuation starts.
+          await recordNewSession(
+            target.sessionId,
+            { archived: true, forkLineageRootId },
+            { title, forkedFromSessionId: sessionId },
+          );
           await persistLaunchMetadata(
             deps.sessionMetadataService,
             target.sessionId,
-            inheritedChildLaunchMetadata(originalMetadata, {
-              provider: providerName,
-              executor: savedExecutor,
-              requestedModel,
-              sandboxStateKey: target.sandboxStateKey,
-              projectPath: sourceProjectPath,
-              projectId: projectId as UrlProjectId,
-            }),
+            {
+              sandbox: inheritedSandboxRecord(originalMetadata, {
+                sandboxStateKey: target.sandboxStateKey,
+                projectPath: sourceProjectPath,
+                projectId: projectId as UrlProjectId,
+              }),
+            },
           );
           if (abortController.signal.aborted) {
             throw new DOMException("Fork summary cancelled", "AbortError");
@@ -4283,9 +4244,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             deps.sessionMetadataService,
             result.sessionId,
             {
-              provider: providerName,
-              executor: savedExecutor,
-              requestedModel,
+              // The target's creation recorded the source's preferences; it
+              // keeps the ones its continuation started with.
               promptSuggestionMode: result.promptSuggestionMode,
               recapAfterSeconds: result.recapAfterSeconds,
               sandbox: {
@@ -4301,12 +4261,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
               },
             },
           );
-          await recordNewSession(result.sessionId, {
-            title,
-            archived: false,
-            forkedFromSessionId: sessionId,
-            forkLineageRootId,
-          });
+          await recordNewSession(
+            result.sessionId,
+            { archived: false },
+            { title, forkedFromSessionId: sessionId },
+          );
           await deps.sessionMetadataService?.updateTranscriptDisplayObject(
             sessionId,
             displayObject.id,
@@ -4348,22 +4307,26 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           };
           if (generatorSessionId) {
             try {
-              await recordNewSession(generatorSessionId, {
-                title: "Fork summary generator",
-                archived: true,
-                forkedFromSessionId: sessionId,
-              });
+              await recordNewSession(
+                generatorSessionId,
+                {},
+                {
+                  title: "Fork summary generator",
+                  archived: true,
+                  forkedFromSessionId: sessionId,
+                },
+              );
             } catch (cleanupError) {
               logCleanupFailure("archive-generator", cleanupError);
             }
           }
           if (targetSessionId && targetTitle) {
             try {
-              await recordNewSession(targetSessionId, {
-                title: targetTitle,
-                archived: true,
-                forkedFromSessionId: sessionId,
-              });
+              await recordNewSession(
+                targetSessionId,
+                { archived: true },
+                { title: targetTitle, forkedFromSessionId: sessionId },
+              );
             } catch (cleanupError) {
               logCleanupFailure("archive-target", cleanupError);
             }
@@ -5434,15 +5397,14 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         );
       }
 
-      await recordCopyCreator(c, result.newSessionId);
-      // Set clone metadata. /btw asides pass parentSessionId so the child
-      // can jump back into the parent viewport.
-      if (deps.sessionMetadataService) {
-        await deps.sessionMetadataService.updateMetadata(result.newSessionId, {
-          title: cloneTitle,
+      void deps.userUsageService?.recordSession(actingUsername(c));
+      // /btw asides pass parentSessionId so the child can jump back into the
+      // parent viewport. Creation recorded the clone's title, its source and
+      // a link to that source; a link to another parent is recorded here.
+      if (parentSessionId && parentSessionId !== sessionId) {
+        await deps.sessionMetadataService?.updateMetadata(result.newSessionId, {
           parentSessionId,
-          parentSessionKind: parentSessionId ? "btw-aside" : undefined,
-          forkedFromSessionId: sessionId,
+          parentSessionKind: "btw-aside",
         });
       }
 

@@ -392,6 +392,32 @@ from the core. Thin; depends entirely on resolving the stateless-request →
 stateful-session `OPEN:` mapping decision. Ships last because it is the most
 opinionated and the least load-bearing for the primary (experiment) use case.
 
+## Session launch metadata owners
+
+A headless host or script that launches a session needs to know which layer
+saves what a later resume reads, so the launch call can live below the REST
+routes. Decided 2026-11-06 in
+[plan 177 step 5](../docs/tactical/177-session-launch-service.md#part-1-one-owner-per-field):
+
+- **Creation admission** (`SessionCreationStore.admit`) owns everything a
+  new session or transcript copy is created with: provider, requested model
+  and launch settings, prompt-suggestion and recap preferences, sandbox
+  level, a copy's title and source, a `/btw` link to the copy's source, an
+  internal helper's archiving and a limited user as creator. It saves them
+  before the session exists, so a queued launch or a server restart keeps
+  them.
+- **The Supervisor** owns what a running process changes: the launch
+  settings it runs with, and the sandbox it confines once it starts.
+- **The launch caller** owns only what admission is not told: a handoff's
+  title, a fork's lineage root, the fork-summary target's archiving, a
+  `/btw` link to a parent other than the source, the preferences a restart
+  fork or fork-summary continuation resolved when it started, and a restart
+  handoff's started recap delay. It announces new
+  sessions to open lists without writing admission's fields again.
+
+The sandbox record still has a caller write alongside the Supervisor's until
+plan 177 verifies one owner on Linux.
+
 ## Design tensions and mandates that constrain this
 
 - **Resource Quiescence is non-negotiable** (`architecture-mandates.md`). Every
@@ -487,9 +513,16 @@ place.
    thinking/effort ride the request; tools blocked and thinking off unless
    explicitly asked; per-turn overrides allowed.
 
+### Resolved (2026-11-06)
+
+7. **Session launch metadata → one owner per field**
+   (§ *Session launch metadata owners*). Creation admission saves what a
+   session is created with, the Supervisor what a running process changes,
+   and the launch caller only what admission is not told.
+
 ### Still open
 
-7. **OpenAI adapter session mapping** (only if D6 is in scope soon): how does a
+8. **OpenAI adapter session mapping** (only if D6 is in scope soon): how does a
    stateless `messages[]` request map to session identity — ephemeral per call,
    caller-supplied id, or prefix-hash reuse?
 

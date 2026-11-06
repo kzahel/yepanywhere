@@ -13,10 +13,12 @@ either way, through the creation record.
 
 Not fixed in place: step 3 of
 [the session launch service plan](../docs/tactical/177-session-launch-service.md)
-only consolidated how routes read a launch result. The fix needs the title
-to travel with the queued launch, such as a title on the creation request
-that `SessionCreationStore` records at admission, the same owner the step 5
-metadata-writer decision considers.
+only consolidated how routes read a launch result, and step 5 left a
+handoff's title with the route because admission is not told it. The fix
+needs the title to travel with the queued launch: a title on the creation
+request that `SessionCreationStore` records at admission, as it already does
+for a transcript copy's title
+([launch metadata owners](../topics/core-service-api.md#session-launch-metadata-owners)).
 
 Found 2026-11-06 while consolidating the launch-outcome mapping (plan 177
 step 3).
