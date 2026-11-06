@@ -49,10 +49,12 @@ An explicit barrel is longer. When that pushes a budgeted barrel over its
 source-file budget, the explicit names are a legitimate `raise` reason; see the
 [growth guard](../../topics/typescript-module-boundary-refactor.md#growth-guard).
 
-Six files that predate the rule are exempted in the first `overrides` entry
-of `biome.json`. That list only shrinks: convert a file's star exports to
+Files that predate the rule are exempted in the first `overrides` entry of
+`biome.json`. That list only shrinks: convert a file's star exports to
 explicit names, with its consumers' surface unchanged, and delete it from the
-list in the same commit. Never add a file to it.
+list in the same commit. Never add a file to it. A barrel with only a few
+in-package consumers is better removed by pointing those imports at the
+owning modules.
 
 ## Biome Formatting Is A Repository Invariant
 

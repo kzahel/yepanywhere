@@ -6,8 +6,8 @@ import { MESSAGE_STALE_THRESHOLD_MS } from "../../lib/messageAge";
 import {
   getExplorationKind,
   getExploredEntryFallbackSummary,
-  getLatestRenderItemsTimestampMs,
-} from "../../lib/sessionDetail/renderSelectors";
+} from "../../lib/sessionDetail/exploration";
+import { getLatestRenderItemsTimestampMs } from "../../lib/sessionDetail/renderItems";
 import {
   estimateExplorationGroupHeightPx,
   getExplorationEntryDisplayLabel,

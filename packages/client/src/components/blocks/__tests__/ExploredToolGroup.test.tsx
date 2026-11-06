@@ -7,7 +7,7 @@ import {
 } from "../../../contexts/RememberedDisclosureStateContext";
 import { SessionMetadataProvider } from "../../../contexts/SessionMetadataContext";
 import { I18nProvider } from "../../../i18n";
-import { buildAssistantRenderSegments } from "../../../lib/sessionDetail/renderSelectors";
+import { buildAssistantRenderSegments } from "../../../lib/sessionDetail/exploration";
 import type { Message } from "../../../types";
 import type {
   RenderItem,

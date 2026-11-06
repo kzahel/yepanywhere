@@ -5,49 +5,57 @@ import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import {
   buildComposerTailItems,
   buildComposerTailDisplayRows,
-  buildAssistantRenderSegments,
-  buildAssistantTimelineRows,
+  getComposerTailLanePositions,
+  isPatientDeferredMessage,
+  isRecoveredDeferredMessage,
+} from "../composerTail";
+import { buildAssistantRenderSegments } from "../exploration";
+import {
   buildSessionDetailRenderItems,
-  buildTimelineEntryDisplayRows,
-  buildVisibleTimelineEntries,
-  countThinkingItems,
+  getDisplayRenderItems,
+  getLastTimestampedRenderItem,
+  getLatestVisibleTimestampMs,
+  groupEndsVisibleTurn,
+  groupRenderItemsIntoTurns,
+  selectSessionDetailRenderItems,
+  type RenderTurnGroup,
+} from "../renderItems";
+import {
   getActiveSearchAnchors,
   getAllTurnSearchAnchors,
-  getComposerTailLanePositions,
-  getDisplayRenderItems,
   getFullSessionSearchAnchors,
   getLinkSearchAnchors,
-  getLastTimestampedRenderItem,
-  getLatestThinkingItemId,
-  getLatestVisibleTimestampMs,
-  getNextProgressiveEntryCount,
-  getProgressiveTimelineVisibility,
-  getProgressiveTimelineEntryWeight,
   getSearchMatchProjection,
   getSearchNavigatorStateProjection,
   getSearchPanelProjection,
   getSearchReady,
   getSearchSelectionProjection,
   getSearchVisibleTurnGroups,
-  getTailEntryCountForRenderItemTarget,
+  getUserTurnNavAnchors,
+  getUserTurnSearchAnchors,
+  hasSearchableUserTurn,
+  selectLatestCorrectablePrompt,
+} from "../search";
+import {
+  countThinkingItems,
+  getLatestThinkingItemId,
   getThinkingDurationMs,
   getThinkingItemIds,
   getThinkingTextLengths,
-  getUserTurnNavAnchors,
-  getUserTurnSearchAnchors,
-  groupEndsVisibleTurn,
-  groupRenderItemsIntoTurns,
-  hasSearchableUserTurn,
   hasVisibleThinkingTextDelta,
-  isPatientDeferredMessage,
-  isRecoveredDeferredMessage,
   reconcileAutoExpandedThinkingItemIds,
-  selectSessionDetailRenderItems,
-  selectLatestCorrectablePrompt,
+} from "../thinking";
+import {
+  buildAssistantTimelineRows,
+  buildTimelineEntryDisplayRows,
+  buildVisibleTimelineEntries,
+  getNextProgressiveEntryCount,
+  getProgressiveTimelineVisibility,
+  getProgressiveTimelineEntryWeight,
+  getTailEntryCountForRenderItemTarget,
   type ProgressiveTimelineEntry,
   type RenderTimelineEntry,
-  type RenderTurnGroup,
-} from "../renderSelectors";
+} from "../timeline";
 import { createInitialSessionDetailState } from "../transcriptReducer";
 
 function displayObject(

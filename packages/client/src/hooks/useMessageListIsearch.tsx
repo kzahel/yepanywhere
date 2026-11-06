@@ -19,6 +19,7 @@ import {
   dispatchSessionIsearchGuideState,
   type SessionIsearchScope,
 } from "../lib/sessionIsearchGuide";
+import { type RenderTurnGroup } from "../lib/sessionDetail/renderItems";
 import {
   getActiveSearchAnchors,
   getAllTurnSearchAnchors,
@@ -34,8 +35,7 @@ import {
   getUserTurnNavAnchors,
   getUserTurnSearchAnchors,
   hasSearchableUserTurn,
-  type RenderTurnGroup,
-} from "../lib/sessionDetail/renderSelectors";
+} from "../lib/sessionDetail/search";
 import {
   searchSessionHistoryPage,
   type SessionHistorySearchPageInput,

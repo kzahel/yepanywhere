@@ -208,7 +208,8 @@ such as `packages/android/app/src` are out), excluding tests, `__tests__/`,
   the shallow checkout), so committing the raise does not hide it. An
   unavailable explicit base fails the check rather than skipping the
   comparison. In review the record is the visible, greppable trace of the
-  exception. Explicit names in a package barrel are an accepted reason:
+  exception. Explicit re-export names in a barrel, and importers split
+  across owning modules when a star barrel is removed, are accepted reasons:
   `export *` is banned
   ([code quality](../docs/development/code-quality.md#name-re-exports-explicitly)),
   so it is not an offset.

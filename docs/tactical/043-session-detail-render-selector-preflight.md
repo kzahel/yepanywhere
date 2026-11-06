@@ -10,8 +10,9 @@ It records the render-selector boundary split from `MessageList`.
 
 The pure render boundary is now in the
 `packages/client/src/lib/sessionDetail/` concern modules (renderItems,
-composerTail, thinking, exploration, timeline, search), re-exported through
-`renderSelectors.ts`.
+composerTail, thinking, exploration, timeline, search). Callers import the
+concern module that owns each selector; the `renderSelectors.ts` barrel that
+re-exported them was removed on 2026-11-06.
 
 Covered inputs:
 

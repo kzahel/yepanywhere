@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Message } from "../../types";
 import type { RenderItem } from "@yep-anywhere/shared/transcript/items";
 import {
-  buildTimelineEntryDisplayRows,
-  buildVisibleTimelineEntries,
   groupRenderItemsIntoTurns,
   stabilizeRenderTurnGroups,
+} from "../sessionDetail/renderItems";
+import {
+  buildTimelineEntryDisplayRows,
+  buildVisibleTimelineEntries,
   stabilizeTimelineEntryDisplayRows,
-} from "../sessionDetail/renderSelectors";
+} from "../sessionDetail/timeline";
 import { stabilizeRenderItems } from "../stableRenderItems";
 
 describe("stabilizeRenderItems", () => {

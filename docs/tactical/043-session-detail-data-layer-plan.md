@@ -158,7 +158,9 @@ What is already in place:
   derivation — render items and turn grouping, search anchors/projections,
   timeline and progressive-reveal entries, thinking summaries, composer tail
   rows, and action eligibility — lives in the `sessionDetail/` render-selector
-  modules behind the `renderSelectors` barrel. The full covered-output list is
+  concern modules, which callers import directly (the former
+  `renderSelectors` barrel was removed with the `export *` ban). The full
+  covered-output list is
   in
   [`043-session-detail-render-selector-preflight.md`](043-session-detail-render-selector-preflight.md).
 

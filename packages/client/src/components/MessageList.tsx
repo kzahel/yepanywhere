@@ -105,32 +105,40 @@ import {
 } from "../lib/scrollAnchors";
 import {
   buildComposerTailDisplayRows,
+  type ComposerTailLanePosition,
+} from "../lib/sessionDetail/composerTail";
+import {
+  projectConversationView,
+  windowConversationViewItems,
+} from "../lib/sessionDetail/conversationView";
+import {
   buildSessionDetailRenderItems,
-  buildTimelineEntryDisplayRows,
-  buildVisibleTimelineEntries,
-  countThinkingItems,
   getDisplayRenderItems,
   getLastTimestampedRenderItem,
   getLatestVisibleTimestampMs,
+  groupEndsVisibleTurn,
+  groupRenderItemsIntoTurns,
+  stabilizeRenderTurnGroups,
+  type RenderTurnGroup,
+} from "../lib/sessionDetail/renderItems";
+import { selectLatestCorrectablePrompt } from "../lib/sessionDetail/search";
+import {
+  countThinkingItems,
   getLatestThinkingItemId,
+  getThinkingItemIds,
+  getThinkingTextLengths,
+  hasVisibleThinkingTextDelta,
+  reconcileAutoExpandedThinkingItemIds,
+} from "../lib/sessionDetail/thinking";
+import {
+  buildTimelineEntryDisplayRows,
+  buildVisibleTimelineEntries,
   getNextProgressiveEntryCount,
   getProgressiveTimelineVisibility,
   getTailEntryCountForRenderItemTarget,
-  getThinkingItemIds,
-  getThinkingTextLengths,
-  groupEndsVisibleTurn,
-  groupRenderItemsIntoTurns,
-  hasVisibleThinkingTextDelta,
-  projectConversationView,
-  reconcileAutoExpandedThinkingItemIds,
-  selectLatestCorrectablePrompt,
-  stabilizeRenderTurnGroups,
   stabilizeTimelineEntryDisplayRows,
-  windowConversationViewItems,
   type TimelineEntryDisplayRow,
-  type ComposerTailLanePosition,
-  type RenderTurnGroup,
-} from "../lib/sessionDetail/renderSelectors";
+} from "../lib/sessionDetail/timeline";
 import type { CommentAnchor } from "../lib/commentAnchors";
 import { stabilizeRenderItems } from "../lib/stableRenderItems";
 import { UI_KEYS } from "../lib/storageKeys";
