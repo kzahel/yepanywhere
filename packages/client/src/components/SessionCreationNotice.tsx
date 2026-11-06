@@ -24,8 +24,9 @@ export function SessionCreationNotice({
   const refresh = useRef(onRefresh);
   refresh.current = onRefresh;
   const [copyFailed, setCopyFailed] = useState(false);
-  const [checksExhausted, setChecksExhausted] = useState(false);
+  const [exhaustedAttempt, setExhaustedAttempt] = useState<string>();
   const attemptId = creation?.attemptId;
+  const checksExhausted = !!attemptId && exhaustedAttempt === attemptId;
   const currentAttempt = useRef(attemptId);
   currentAttempt.current = attemptId;
   const pending =
@@ -36,19 +37,8 @@ export function SessionCreationNotice({
     !!creation &&
     ["saved", "queued", "dispatching", "bound"].includes(creation.state) &&
     isSessionCreationPending(creation);
-  const [visibleAttempt, setVisibleAttempt] = useState(
-    pending ? attemptId : undefined,
-  );
   useEffect(() => {
-    if (pending) {
-      setVisibleAttempt(attemptId);
-      return;
-    }
-    const timer = setTimeout(() => setVisibleAttempt(undefined), 250);
-    return () => clearTimeout(timer);
-  }, [pending, attemptId]);
-  useEffect(() => {
-    setChecksExhausted(false);
+    setExhaustedAttempt(undefined);
     if (!pending || paused) return;
     let stopped = false;
     let running = false;
@@ -80,14 +70,14 @@ export function SessionCreationNotice({
       } else if (active && ++checks < 15) {
         timer = setTimeout(check, 2000);
       } else if (active) {
-        setChecksExhausted(true);
+        setExhaustedAttempt(attemptId);
       }
     };
     const resume = () => {
       if (document.visibilityState === "hidden") return;
       clearTimeout(timer);
       checks = 0;
-      setChecksExhausted(false);
+      setExhaustedAttempt(undefined);
       void check();
     };
     // A suspended check has no timer. Foregrounding explicitly renews its
@@ -116,19 +106,8 @@ export function SessionCreationNotice({
       document.removeEventListener("visibilitychange", resume);
     };
   }, [active, pending, paused, transportStatus, attemptId]);
-  if (!creation || paused) return null;
-  if (!pending)
-    return (
-      visibleAttempt === attemptId &&
-      creation.state !== "deleted" && (
-        <section
-          className={`${styles.progress} ${styles.departing}`}
-          aria-hidden="true"
-        >
-          {t("sessionCreationProgress")}
-        </section>
-      )
-    );
+  if (!creation || paused || !pending || (active && !checksExhausted))
+    return null;
   const state = creation.state;
   const label =
     state === "failed" && creation.failure === "router-login-required"
@@ -150,15 +129,7 @@ export function SessionCreationNotice({
                 : "sessionCreationStarting";
   return (
     <section className={styles.notice} aria-label={t("sessionCreationLabel")}>
-      <p role="status">
-        {t(
-          active && !checksExhausted
-            ? creation.state === "queued"
-              ? "sessionCreationQueueProgress"
-              : "sessionCreationProgress"
-            : label,
-        )}
-      </p>
+      <p role="status">{t(label)}</p>
       {state === "failed" &&
         creation.failure?.startsWith("router-") &&
         creation.failureDetail && <p>{creation.failureDetail}</p>}

@@ -150,7 +150,7 @@ for (const hosted of [false, true])
       await page.reload();
       await expect(
         page.getByRole("region", { name: "Session startup" }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await writeFile(`${gate}.ack`, "release");
       await expect
         .poll(async () => (await api(detailPath)).session.creation.delivery)

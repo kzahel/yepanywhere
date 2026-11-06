@@ -98,7 +98,7 @@ it("refreshes on a restored transport without restarting for unrelated status up
   expect(refresh).toHaveBeenCalledTimes(2);
 });
 
-it("shows the saved prompt and Copy during startup, then releases checks and fades status after delivery", async () => {
+it("keeps startup hidden until checks exhaust and removes recovery immediately on delivery", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   vi.stubGlobal("navigator", { language: "en", clipboard: { writeText } });
   let delivered = false;
@@ -116,32 +116,26 @@ it("shows the saved prompt and Copy during startup, then releases checks and fad
       />
     );
   }
-  render(<View />, { wrapper: I18nProvider });
-  expect(screen.getByText("Starting session…")).toBeTruthy();
-  expect(screen.getByText("Saved original").tagName).toBe("PRE");
-  await act(async () =>
-    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" })),
-  );
-  expect(writeText).toHaveBeenCalledWith("Saved original");
-  expect(screen.queryByRole("button", { name: "Refresh status" })).toBeNull();
+  const { container } = render(<View />, { wrapper: I18nProvider });
+  expect(container.innerHTML).toBe("");
   visibility = "hidden";
   await act(() => vi.advanceTimersByTimeAsync(5000));
   expect(reads).not.toHaveBeenCalled();
   visibility = "visible";
   await act(async () => document.dispatchEvent(new Event("visibilitychange")));
   expect(reads).toHaveBeenCalledTimes(1);
+  expect(container.innerHTML).toBe("");
   await act(() => vi.advanceTimersByTimeAsync(30000));
   expect(reads).toHaveBeenCalledTimes(15);
+  expect(screen.getByText("Saved original").tagName).toBe("PRE");
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" })),
+  );
+  expect(writeText).toHaveBeenCalledWith("Saved original");
   expect(screen.getByRole("button", { name: "Refresh status" })).toBeTruthy();
   delivered = true;
   await act(async () => document.dispatchEvent(new Event("visibilitychange")));
-  expect(screen.queryByText("Saved original")).toBeNull();
-  expect(
-    screen.getByText("Starting session…").getAttribute("aria-hidden"),
-  ).toBe("true");
-  await act(() => vi.advanceTimersByTimeAsync(250));
-  expect(screen.queryByText("Starting session…")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Refresh status" })).toBeNull();
+  expect(container.innerHTML).toBe("");
   await act(() => vi.advanceTimersByTimeAsync(60000));
   expect(reads).toHaveBeenCalledTimes(16);
 });
@@ -156,7 +150,9 @@ it("releases startup timers when parked and preserves recovery controls for fail
       paused={paused}
     />
   );
-  const { rerender } = render(view(starting), { wrapper: I18nProvider });
+  const { container, rerender } = render(view(starting), {
+    wrapper: I18nProvider,
+  });
   rerender(view(starting, true));
   await act(() => vi.advanceTimersByTimeAsync(60000));
   act(() => document.dispatchEvent(new Event("visibilitychange")));
@@ -167,4 +163,8 @@ it("releases startup timers when parked and preserves recovery controls for fail
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Copy prompt" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh status" })).toBeTruthy();
+  rerender(view({ ...starting, state: "uncertain" }));
+  expect(screen.getByText(/Startup was interrupted/)).toBeTruthy();
+  rerender(view({ ...starting, state: "queued", attemptId: "new-attempt" }));
+  expect(container.innerHTML).toBe("");
 });

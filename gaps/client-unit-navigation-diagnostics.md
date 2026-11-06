@@ -30,3 +30,11 @@ changes SQL ownership and server admission only; its focused writer/admission
 checks are clean. Attribution still requires a separate client fixture audit,
 so no global navigation or jsdom suppression was added. Evidence: ignored
 `tasks/session-relationships/slice-4-qualified-unit.log`.
+
+2026-11-06: hiding healthy session-creation notices repeats the same two
+timer-only jsdom navigation diagnostics in the passing Node 24.22.1 workspace
+run (7,127 client tests). The focused startup component checks and browser
+no-flash/typing checks are clean. Neither navigation event can be attributed
+from these stacks, so changing global links or suppressing jsdom diagnostics
+would expand this presentation fix into an unrelated fixture audit. Evidence:
+ignored `tasks/creation-notice-test-node24.log`.

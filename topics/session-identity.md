@@ -82,8 +82,13 @@ The recovery identity and accepted receipt remain stored until the owning view
 settles its captured draft; returning after retirement recovers the same session.
 Draft acknowledgement checks the physical account-scoped storage value through
 the sync coordinator, including when a sibling storage event has not arrived.
-Normal startup shows compact progress; failed, uncertain or still-unconfirmed
-startup after the bounded check window exposes the saved prompt and Copy/Refresh.
+Normal startup, including queued work, renders no creation notice, saved-prompt
+panel, reserved space or completion animation. Failed, uncertain or
+still-unconfirmed startup after the bounded check window exposes the saved prompt
+and Copy/Refresh.
+Hidden presentation does not stop status checks or durable recovery. Confirmation
+removes recovery UI immediately, and a new attempt starts hidden with its own
+check budget.
 Follow-up submission waits for proved native first-input consumption. Committed
 creation transitions publish optional `creation` on the existing
 `session-metadata-changed` activity event, so confirmation removes startup UI and

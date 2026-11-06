@@ -360,7 +360,7 @@ for (const hosted of [false, true])
       await page.goto(`${owned.server.baseUrl}${path}`);
       await expect(
         page.getByRole("region", { name: "Session startup" }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       let composer = page.locator("textarea[data-composer-input]").first();
       await expect(composer).not.toBeEditable();
       if (!hosted) {

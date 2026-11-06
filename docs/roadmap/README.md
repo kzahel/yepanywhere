@@ -707,9 +707,11 @@ qualification is not claimed by this cleanup.
 
 New Session startup freshness now publishes committed delivery state to the open
 view, preserves it against older snapshots and recovers on foreground/reconnect.
-Healthy startup uses compact progress, and captured draft acknowledgement removes
-the sidebar badge without reload. This is a bounded reliability correction to
-the implemented creation flow; broader provider/platform qualification is unchanged.
+Healthy startup keeps creation and saved-prompt notices hidden; failure,
+uncertainty or exhausted status checks expose recovery. Captured draft
+acknowledgement removes the sidebar badge without reload. This is a bounded
+reliability correction to the implemented creation flow; broader provider/platform
+qualification is unchanged.
 
 The next product slice, optional [background New Session creation](../../topics/session-creation.sketches.md#implemented-optional-background-creation--november-3),
 uses that shared contract: a default-off browser setting enables Command-Enter,

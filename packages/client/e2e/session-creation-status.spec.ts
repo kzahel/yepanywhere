@@ -95,6 +95,20 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     }
     await page.setViewportSize({ width: 1000, height: 600 });
   };
+  await page.addInitScript(() => {
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (
+            node instanceof Element &&
+            (node.matches('section[aria-label="Session startup"]') ||
+              node.querySelector('section[aria-label="Session startup"]'))
+          )
+            sessionStorage.setItem("creation-notice-seen", "true");
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
   try {
     await page.goto(
       `${owned.server.baseUrl}/new-session?projectId=${owned.projectId}&provider=codex&model=gpt-6.1-sol`,
@@ -122,18 +136,19 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     const receipt = await response.json();
     await expect(page).toHaveURL(new RegExp(`/sessions/${receipt.sessionId}$`));
     await expect(
-      page.getByText("Starting session…", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Refresh status", exact: true }),
+      page.getByRole("region", { name: "Session startup" }),
     ).toHaveCount(0);
-    await expect(page.getByLabel("Saved prompt", { exact: true })).toHaveText(
-      "Confirm this initial request exactly once",
+    await expect(page.getByLabel("Saved prompt", { exact: true })).toHaveCount(
+      0,
     );
     await expect(
       page.getByRole("button", { name: "Copy prompt", exact: true }),
-    ).toBeVisible();
-    await capture("creation-visible-prompt-startup");
+    ).toHaveCount(0);
+    await expect(page.locator("textarea[data-composer-input]")).toBeVisible();
+    await expect(
+      page.locator("textarea[data-composer-input]"),
+    ).not.toBeEditable();
+    await capture("creation-quiet-startup");
     await held;
     const historyLength = await page.evaluate(() => history.length);
     await page.locator("textarea[data-composer-input]").evaluate((element) => {
@@ -261,6 +276,9 @@ test("committed input confirmation unlocks typing before a stale startup snapsho
     await expect(
       page.getByText("OWNED_CODEX_CREATION_REPLY", { exact: true }).first(),
     ).toBeVisible();
+    expect(
+      await page.evaluate(() => sessionStorage.getItem("creation-notice-seen")),
+    ).toBeNull();
     expect(posts).toBe(1);
     expect(
       (await owned.requests()).filter(

@@ -1,10 +1,3 @@
-.progress {
-  margin: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
 .notice {
   margin: 0.75rem;
   padding: 1rem;
@@ -21,20 +14,6 @@
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.departing {
-  animation: depart 250ms ease-out forwards;
-}
-@keyframes depart {
-  to {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .departing {
-    animation: none;
-    visibility: hidden;
-  }
 }
 .actions {
   display: flex;

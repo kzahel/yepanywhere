@@ -356,11 +356,11 @@ test("routed Claude accepts before startup and retains one session and native tu
     await expect(page).toHaveURL(new RegExp(`/sessions/${receipt.sessionId}$`));
     await expect(
       page.getByRole("region", { name: "Session startup" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await page.reload();
     await expect(
       page.getByRole("region", { name: "Session startup" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect.poll(() => owned.modelRequests.length).toBe(1);
     const [prepare] = owned.routerRequests.filter(
       (request) => request.path === "/v1/pools/prepare",
