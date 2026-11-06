@@ -433,6 +433,12 @@ title/type/tool/depth/source-time display metadata. They omit private source
 keys/versions, native scopes, record keys, edge ids, receipt/launch ids and copy
 boundaries. Remote and unresolved endpoints remain with their existing owners.
 
+Actual native child specimens from the seven qualified launch variants also
+pass this operator route in process, before and after SQL reopen. They retain a
+canonical YA parent and a read-only native child handle with provider-observed
+proof, never a promoted top-level child. The native-testing owner distinguishes
+that projection proof from full-app launch/authentication and catalog adoption.
+
 The public factory accepts only the nominal SQL-authorized source and fixes
 both its SQL scope and cursor binding to the same local operator authority.
 Deleted creation endpoints are filtered before LIMIT and rechecked at final

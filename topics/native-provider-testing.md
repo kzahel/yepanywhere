@@ -252,8 +252,10 @@ without assuming which concurrent continuation arrives first. The creation
 case's current budget follows the [hosted measurement table](#native-app-case-budgets),
 adding guard headroom without changing runtime behavior or claiming speed.
 
-This remains POSIX Node qualification. It does not qualify peer-native dispatch,
-Windows or a new public graph contract. Unit/integration fixtures retain the
+That earlier run remains POSIX Node qualification. It did not qualify
+peer-native dispatch, Windows or the later public graph contract; the current
+public creation proof is described under full source app qualification below.
+Unit/integration fixtures retain the
 remaining admission, peer, recovery and access-control boundaries. The four
 creation cases are opt-in with the existing native-app suite, rather than
 another startup cost in ordinary workspace tests. Independent review and the
@@ -275,6 +277,20 @@ uses the correlated persisted `SubAgentActivity` start record plus the child's
 own native immediate-parent metadata, retaining the
 older native-id call/output format. A focused append test covers partial records,
 unrelated interactions and deduplication across persisted event envelopes.
+
+The same seven child cases now also qualify the operator public projection
+before and after closing/reopening the profile database. They bind a known
+fixture parent through the production identity owner, then use the production
+Hono route and authorized SQL source in process: one canonical YA source and
+one parent-scoped read-only child target, with provider-observed proof and no
+native storage scope. Reopen uses the saved identity rather than adopting it
+again, and the entire public page must match. The route receives no native
+reader or provider dependency. The fixture shares one profile graph index with
+acquisition, preserves the 64-statement ceiling, and joins index/connection
+cleanup. This proves projection of native-created evidence, not automatic
+catalog adoption, network authentication, deeper ancestry or a full app launch
+for every provider. Those boundaries retain their own cases. No native tool
+exchange, executable launch, test case or paid inference is added.
 
 These are regenerated native specimens, not constructed reader fixtures or
 paid inference. The relationship scenario also qualifies Claude Gateway,

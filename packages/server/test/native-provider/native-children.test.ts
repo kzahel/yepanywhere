@@ -1,15 +1,26 @@
 import {
   nativeSessionRef,
+  isYaSessionId,
   parseNativeSessionId,
+  parseYaSessionId,
   toUrlProjectId,
+  type NativeSessionRef,
 } from "@yep-anywhere/shared";
+import { Hono } from "hono";
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { SUPERUSER, type Principal } from "../../src/auth/principal.js";
+import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+import { createSessionRelationshipRoutes } from "../../src/routes/session-relationships.js";
+import { AuthorizedRelationshipSource } from "../../src/sessions/authorized-relationship-source.js";
+import { createSessionRelationshipRead } from "../../src/sessions/session-relationship-read.js";
+import { profileSessionRelationships } from "../../src/sessions/SessionRelationshipWriter.js";
 import { ProviderChildRelationshipService } from "../../src/sessions/ProviderChildRelationshipService.js";
 import { openCodexSpawnIndex } from "../../src/sessions/codex-spawn-index.js";
 import { mergeProviderChildAgentMappings } from "../../src/sessions/provider-child-sessions.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { loadSqliteDriver } from "../../src/storage/sqlite.js";
+import type { SqliteDatabase } from "../../src/storage/sqlite.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { readOwnedFile } from "./actions.js";
 import { nativeFixture } from "./fixture.js";
@@ -48,6 +59,89 @@ function supportsNativeChildScenario(provider: NativeProvider) {
     provider === "grok" ||
     provider === "opencode"
   );
+}
+
+// Reuse real native evidence with the production SQL/HTTP projection. No model
+// server, provider, catalog or native-reader dependency enters this read path.
+async function publicChildPage(
+  database: SqliteDatabase,
+  dataDir: string,
+  project: string,
+  provider: NativeProvider,
+  parent: NativeSessionRef,
+  childId: string,
+  adopt: boolean,
+) {
+  const metadata = new SessionMetadataService({ dataDir, database });
+  await metadata.initialize();
+  const parentId = parseYaSessionId("canonical-parent");
+  const projectId = toUrlProjectId(project);
+  if (adopt)
+    database.transaction(() => {
+      metadata.identities.allocateWithinTransaction({
+        sessionId: parentId,
+        projectId,
+        provider,
+        createdAt: "2026-11-06T00:00:00Z",
+      });
+      metadata.identities.bindWithinTransaction(parentId, parent);
+    });
+  expect(metadata.identities.resolveYa(parentId)?.native).toEqual(parent);
+  const writer = profileSessionRelationships(database);
+  const source = new AuthorizedRelationshipSource(database, () => writer.index);
+  const read = createSessionRelationshipRead({
+    serverId: writer.serverId,
+    source: (scope) => source.scoped(() => scope),
+    identities: metadata.identities,
+    metadata,
+    isDeleted: (id) =>
+      isYaSessionId(id) &&
+      metadata.creations.statusForSession(id)?.state === "deleted",
+  });
+  const app = new Hono<{ Variables: { yaPrincipal: Principal } }>();
+  app.use("*", async (c, next) => {
+    c.set("yaPrincipal", SUPERUSER);
+    await next();
+  });
+  app.route("/api", createSessionRelationshipRoutes(read));
+  try {
+    const response = await app.request(
+      `/api/projects/${projectId}/sessions/${parentId}/relationships`,
+    );
+    expect(response.status).toBe(200);
+    const page = await response.json();
+    expect(page).toMatchObject({
+      relationships: [
+        {
+          type: "provider_child",
+          source: {
+            kind: "session",
+            serverId: writer.serverId,
+            sessionId: parentId,
+            projectId,
+            provider,
+          },
+          target: {
+            kind: "provider-child",
+            serverId: writer.serverId,
+            parentSessionId: parentId,
+            childId,
+            projectId,
+            provider,
+          },
+          evidence: [expect.objectContaining({ trust: "provider-observed" })],
+        },
+      ],
+      nextCursor: null,
+    });
+    expect(metadata.identities.lookupNative(parent)?.sessionId).toBe(parentId);
+    expect(JSON.stringify(page)).not.toContain(parent.storageScope);
+    return page;
+  } finally {
+    source.dispose();
+    metadata.creations.close();
+    metadata.identities.close();
+  }
 }
 
 describe.each(providers.filter(supportsNativeChildScenario))(
@@ -342,13 +436,18 @@ describe.each(providers.filter(supportsNativeChildScenario))(
             probeNetworkFilesystem: () => undefined,
           });
           let done!: () => void;
-          const committed = new Promise<void>((resolve) => {
+          let failed!: (error: unknown) => void;
+          const committed = new Promise<void>((resolve, reject) => {
             done = resolve;
+            failed = reject;
           });
+          let writer = profileSessionRelationships(db.getDatabase());
           let index = new ProviderChildRelationshipService(
             db.getDatabase(),
-            "native-test",
+            writer.serverId,
             () => done(),
+            failed,
+            () => writer.index,
           );
           try {
             index.demand(parent, { sessionId: "canonical-parent" }, source);
@@ -356,6 +455,15 @@ describe.each(providers.filter(supportsNativeChildScenario))(
             expect(index.accepted(parent, "canonical-parent")).toMatchObject([
               { id: childId, parentSessionId: "canonical-parent" },
             ]);
+            const publicPage = await publicChildPage(
+              db.getDatabase(),
+              dataDir,
+              f.project,
+              provider,
+              parent,
+              childId,
+              true,
+            );
             if (isClaude(provider) || isCodex(provider)) {
               const fresh = await reader.getAgentMappings(f.nativeId());
               const merged = mergeProviderChildAgentMappings(
@@ -371,15 +479,19 @@ describe.each(providers.filter(supportsNativeChildScenario))(
               );
             }
             await index.close();
+            writer.dispose();
             db.close();
             db = new DiscoverySqliteService({
               dataDir,
               probeNetworkFilesystem: () => undefined,
             });
+            writer = profileSessionRelationships(db.getDatabase());
             index = new ProviderChildRelationshipService(
               db.getDatabase(),
-              "native-test",
+              writer.serverId,
               () => {},
+              undefined,
+              () => writer.index,
             );
             expect(index.accepted(parent, "canonical-parent")).toMatchObject([
               {
@@ -390,8 +502,20 @@ describe.each(providers.filter(supportsNativeChildScenario))(
                   : {}),
               },
             ]);
+            expect(
+              await publicChildPage(
+                db.getDatabase(),
+                dataDir,
+                f.project,
+                provider,
+                parent,
+                childId,
+                false,
+              ),
+            ).toEqual(publicPage);
           } finally {
             await index.close();
+            writer.dispose();
             db.close();
           }
         }

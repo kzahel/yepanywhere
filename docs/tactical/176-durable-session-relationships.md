@@ -21,12 +21,14 @@ explicit below.
 Published backend work now includes the shared durable graph, authoritative YA
 and v0/peer receipt writers, qualified native-child adapters, bounded live and
 historical harness observations, and SQL-backed nonblocking detail/metadata and
-existing child-navigation projections. Creation, provider delegation, copy and
-command-observed launch remain distinct evidence; unsupported cases stay
+existing child-navigation projections. Operator pages, filtered v0 opt-in and
+source-scoped Session Info reverse navigation are also delivered. Creation,
+provider delegation, copy and command-observed launch remain distinct evidence;
+unsupported cases stay
 unknown. Accepted facts and acquisition progress survive restart/source loss.
 
 The full plan is resumed by the maintainer on 2026-11-06. Generic authorized
-relationship pages, v0 query integration and reverse presentation are approved
+relationship pages, v0 query integration and reverse presentation are delivered
 with one small, temporary support check: an older server omits the new
 relationship/subagent visualization without an alternate legacy loader. Track
 that check under the existing 90-day retirement rule. The old-extension
@@ -1751,3 +1753,34 @@ source builds may ignore the filters. No production cursor behavior changes.
 The corrected focused SQL/HTTP/core suite passes all eighteen cases in 2.56
 seconds (0.244 test work); final root checks are recorded with the private
 review evidence before publication.
+
+### Qualify public native-child handles across the retained launch variants
+
+The seven existing native child scenarios now route their actual accepted SQL
+evidence through the ordinary operator relationship API in process. Claude,
+Gateway, Ollama, Codex, OSS, Grok and OpenCode retain one canonical bound parent
+and one native read-only child, with provider-observed proof and no private
+storage scope. Reopening the real profile preserves the identity and exactly
+the same public page without another adoption or native read. The fixture uses
+the production shared graph owner and leaves the statement ceiling at 64.
+
+This adds no native starts, model exchanges, cases or browser cohort. The seven
+selected cases pass on local macOS arm64 / Node 24.22.1 in 9.86 seconds
+aggregate / 8.28 summed test work; the other 62 native scenarios are deliberately
+unselected, not claimed rerun. Prior full native qualification remains its own
+evidence. This is a Hono in-process route proof from native-created specimens;
+full app/network authentication, catalog adoption, unsupported providers, deeper
+ancestry and hosted platforms retain their separate qualification limits.
+Typing performance remains deferred.
+
+Review accepts the slice and prompts an unfiltered page assertion, the exact
+production deletion guard, explicit creation-store cleanup and direct
+acquisition-error rejection instead of a timeout. The final seven cases pass
+in 8.92 seconds (7.87 test work). Root verification passes 7,111 server
+(87 skipped), 7,127 client, 980 shared, 139 relay and 45 push-broker cases;
+server/client durations are 148.63/123.16 seconds. Final lint, format and
+typechecking accompany the frozen review evidence. The follow-ups change only
+this native test file; the final native run re-executes all seven cases,
+including the Claude/Codex baseline cases the default server suite also
+collects. Existing tracked unit-log findings remain; no global suppression or
+timeout increase is added.
