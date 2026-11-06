@@ -130,6 +130,11 @@ Add diagnostic log caps, rotation, or retention when any of these is true:
 - repeated support reports involve `~/.yep-anywhere/logs` consuming enough disk
   to threaten server liveness.
 
+Observed 2026-11-06 on the maintainer's macOS host: `server.log` reached
+8.0 GB in about seven weeks, mostly debug-level Codex scan lines, at roughly
+480 MB a day; see
+[Codex's native thread index](../docs/research/codex-native-thread-index.md#logs).
+
 ### Trigger For Disk-Pressure Health Reporting
 
 Add a disk-pressure status model when any of these is true:

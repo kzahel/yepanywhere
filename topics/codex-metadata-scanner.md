@@ -16,6 +16,11 @@ Related topics: [codex-sessions](codex-sessions.md),
 Implementation plan:
 [`docs/tactical/019-codex-metadata-scanner-index.md`](../docs/tactical/019-codex-metadata-scanner-index.md).
 
+Research (proposal, not current behavior):
+[Codex's native thread index](../docs/research/codex-native-thread-index.md)
+examines listing from Codex's `state_5.sqlite` `threads` table with
+directory-level reconciliation instead of per-file enumeration.
+
 ## Why It Exists
 
 Codex stores local rollouts by time, not by project:

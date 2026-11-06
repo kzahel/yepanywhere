@@ -264,6 +264,9 @@ differs are withheld. Parent bodies, prompts and provider-wide walks are not
 inputs. A missing/older Codex index, nonconventional session-root layout or
 custom SQLite-home location without a scoped locator can leave this cheap
 refresh stale or unavailable; ordinary foreground discovery remains supported.
+[Codex's native thread index](../docs/research/codex-native-thread-index.md)
+records how Codex writes and repairs that index and proposes, without
+adopting, a wider listing role for it.
 YA never borrows an ambient SQLite-home override for a different native scope.
 
 Native SQLite connections are read-only, finite acquisition leases with reused

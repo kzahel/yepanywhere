@@ -1,5 +1,16 @@
 # Large JSON stores delay server readiness and retain cold data in RAM
 
+Research, 2026-11-06 — Contributing-model: claude-opus-5-5
+
+[Codex's native thread index and cold session data](../docs/research/codex-native-thread-index.md)
+measures metadata size, growth and heap residency on the maintainer's macOS
+host, proposes a shape for on-demand metadata (SQL for the whole-corpus
+readers, list fields as columns, a resident hot set), and proposes listing
+Codex sessions from Codex's own `state_5.sqlite` index with cheap
+filesystem reconciliation. It also records the uncapped `server.log` growth
+and the per-project Codex scan fan-out seen on that host. Proposal only; this
+gap is unchanged.
+
 Progress, 2026-11-05 — Contributing-model: 6-astra
 
 The scale pass removes three avoidable costs without adding persisted data,
