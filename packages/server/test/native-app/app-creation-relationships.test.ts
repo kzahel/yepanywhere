@@ -202,6 +202,42 @@ fs.writeFileSync(${JSON.stringify(output)},JSON.stringify({me:{serverId:me.body.
           expect(rows.nativeChildren).toEqual([]);
           expect(rows.parentIdentity.native?.family).toBe(provider);
           expect(rows.childIdentity.native?.family).toBe(childProvider);
+          const page = await f.api(
+            `/projects/${parent.projectId}/sessions/${parent.sessionId}/relationships?direction=outgoing&type=created_session`,
+          );
+          expect(page.relationships).toEqual([
+            expect.objectContaining({
+              type: "created_session",
+              source: {
+                ...source,
+                kind: "session",
+                projectId: parent.projectId,
+                provider,
+              },
+              target: {
+                ...target,
+                kind: "session",
+                projectId: parent.projectId,
+                provider: childProvider,
+              },
+              evidence: [
+                expect.objectContaining({ trust: "local-authenticated" }),
+              ],
+            }),
+          ]);
+          expect(page.nextCursor).toBeNull();
+          const incomingPage = await f.api(
+            `/projects/${parent.projectId}/sessions/${child}/relationships?direction=incoming&type=created_session`,
+          );
+          expect(incomingPage).toEqual(page);
+          const publicJson = JSON.stringify(page);
+          expect(publicJson).not.toContain(
+            rows.parentIdentity.native!.storageScope,
+          );
+          expect(publicJson).not.toContain(
+            rows.childIdentity.native!.storageScope,
+          );
+          expect(publicJson).not.toContain(result.receipt.id);
           return rows.parentIdentity.native!.id;
         };
         const nativeParentId = await assertDurable();
@@ -240,7 +276,7 @@ fs.writeFileSync(${JSON.stringify(output)},JSON.stringify({me:{serverId:me.body.
         );
         await assertDurable(true);
         const relationshipResponse = await fetch(
-          `${f.baseUrl}/v0/servers/${result.me.serverId}/sessions/${child}/relationships`,
+          `${f.baseUrl}/v0/servers/${result.me.serverId}/sessions/${child}/relationships?includeRelated=true&relatedDirection=incoming&relatedType=created_session`,
         );
         expect(relationshipResponse.ok).toBe(true);
         const relationships = await relationshipResponse.json();
@@ -261,6 +297,20 @@ fs.writeFileSync(${JSON.stringify(output)},JSON.stringify({me:{serverId:me.body.
           [parent.sessionId, child].sort(),
         );
         expect(relationships.creation?.id).toBe(result.receipt.id);
+        expect(relationships.related.relationships).toEqual([
+          expect.objectContaining({
+            type: "created_session",
+            source: expect.objectContaining({
+              sessionId: parent.sessionId,
+              provider,
+            }),
+            target: expect.objectContaining({
+              sessionId: child,
+              provider: childProvider,
+            }),
+          }),
+        ]);
+        expect(relationships.related.nextCursor).toBeNull();
         socket.ws.close();
         const reconnected = await f.connect(parent.sessionId);
         parentReply!.finish("V0_PARENT_FINISHED");

@@ -117,13 +117,13 @@ describe("authorized relationship pages", () => {
   it("authenticates cursor contents and binds principal, exact namespace, query, expiry and process lifetime", async () => {
     using f = fixture(30);
     let now = 10_000;
-    const pages = new SessionRelationshipPages(
-      () => f.store,
-      () => now,
-    );
+    const pages = new SessionRelationshipPages(() => now);
     const first = await pages.read({ ...f.input, limit: 1 });
     expect(first.nextCursor).not.toBeNull();
     const cursor = first.nextCursor!;
+    const next = await pages.read({ ...f.input, cursor, limit: 1 });
+    expect(next.relationships).toHaveLength(1);
+    expect(next.relationships[0]).not.toEqual(first.relationships[0]);
     const bytes = Buffer.from(cursor, "base64url");
     bytes[35] = bytes[35]! ^ 1;
     for (const input of [
@@ -137,10 +137,7 @@ describe("authorized relationship pages", () => {
         code: "invalid_cursor",
       });
     await expect(
-      new SessionRelationshipPages(
-        () => f.store,
-        () => now,
-      ).read({
+      new SessionRelationshipPages(() => now).read({
         ...f.input,
         cursor,
       }),

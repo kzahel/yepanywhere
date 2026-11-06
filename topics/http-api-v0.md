@@ -24,7 +24,13 @@ Existing `/api/*` and the separate own-session listener retain their contracts.
 Operator calls to the existing `relationships` resource can opt into the local
 structural projection with `includeRelated=true`. Its optional `related` field
 uses the [durable relationship page contract](session-relationships.md#operator-http-projection),
-with independently named `relatedLimit` (1–100) and opaque `relatedCursor`.
+with independently named `relatedLimit` (1–100), opaque `relatedCursor`,
+`relatedDirection` (`incoming`, `outgoing`, `both`; default `both`) and
+`relatedType` (one known relationship predicate). Direction/type apply only to
+the related page and are bound into its cursor; changing either requires
+starting without that cursor. Invalid filter values return 400. For example,
+`?includeRelated=true&relatedDirection=incoming&relatedType=created_session`
+reads accepted creation parents without changing receipt history.
 Receipt `limit`, numeric `cursor`, creation, initiated commands and outbound
 ledger retain their existing meanings. Without opt-in, no graph query runs.
 Absence of `related` on an older server means unsupported, not known empty.
@@ -34,6 +40,10 @@ An opted-in related-section error fails the whole reply; retry from a fresh
 related page, or omit opt-in to read receipts alone. This additive optional
 projection keeps revision `2026-11-01.1`: absence is its compatibility signal,
 and existing access servers need no revision-only upgrade for receipt reads.
+Unreleased source builds that first introduced `related` can ignore the later
+direction/type filters; no stable release contains that intermediate contract.
+Callers needing those filters against arbitrary source builds must validate
+returned predicates/directions or consult the generated query schema.
 
 - `/v0` returns public server id, revision `2026-11-01.1`, unstable status and
   discovery links. The documentation slice adds Markdown

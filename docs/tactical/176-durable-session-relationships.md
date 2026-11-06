@@ -1708,3 +1708,46 @@ explain the failure. The full retry passes 7,111 server (87 skipped), 7,127
 client, 980 shared, 139 relay and 45 push-broker cases; server/client durations
 are 143.33/117.74 seconds. Final lint, format, types, CSS, capability audit and
 console scan complete. No SRP expectation, timeout or typing limit is weakened.
+
+
+### Qualify public native creation reads and filtered v0 pages
+
+The v0 opt-in now accepts independent related direction/type filters. Both
+ordinary and v0 reads use the same canonical projection and cursor binding;
+changing filter context rejects an existing cursor. Invalid filter values
+return 400. Default receipt reads, numeric pagination, peer creation-only
+authority and older-server absence semantics remain unchanged. Generated help
+and schema publish the same optional filters.
+
+The four existing native launch-bound creation cases now read public outgoing
+and incoming `created_session` edges before and after a verified API generation
+replacement. They cover both Claude/Codex parents and same/cross-provider
+children, authenticated proof, canonical identities and omission of native
+storage scopes/receipt ids. Filtered v0 reads preserve the original receipt.
+No model exchange, native startup, test case or browser cohort is added.
+
+All twelve existing native-app cases pass on local macOS arm64 / Node 24.22.1
+with actual pinned executables and scripted loopback model APIs: 34.73 seconds
+aggregate / 108.92 summed test work under the local default worker schedule.
+This is correctness qualification, not a CI speed comparison or new hosted
+acceptance. Twelve focused real-SQL HTTP/core checks pass in 2.40 seconds
+(0.121 test work). The typing workstream remains deferred and unchanged.
+
+Final workspace verification passes 7,111 server cases (87 skipped), 7,127
+client, 980 shared, 139 relay and 45 push-broker cases; server/client durations
+are 149.54/124.70 seconds. Lint, format and root typechecking pass. The separate
+SRP finding did not recur in this run and is not claimed repaired.
+
+Review accepts the API/native slice and catches a pre-existing vacuous cursor
+unit check: an obsolete two-argument constructor supplied a store factory as
+the clock, so every encoded cursor failed. The corrected fixture supplies only
+the clock and first proves successful same-context reuse before independent
+principal, namespace, direction, type, tampering, expiry and process-key
+rejections. The v0 check now changes direction and type separately. Help text
+names both filters/defaults; docs distinguish structural proof from the
+deliberately retained v0 creation receipt and note intermediate unreleased
+source builds may ignore the filters. No production cursor behavior changes.
+
+The corrected focused SQL/HTTP/core suite passes all eighteen cases in 2.56
+seconds (0.244 test work); final root checks are recorded with the private
+review evidence before publication.

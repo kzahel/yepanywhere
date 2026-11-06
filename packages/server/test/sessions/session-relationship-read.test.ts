@@ -266,6 +266,36 @@ it("adds opt-in v0 related pages without changing legacy receipt pagination or p
   );
   expect(next.status).toBe(200);
   expect((await next.json()).related.relationships).toHaveLength(2);
+  const incoming = await app.request(
+    `${path}?includeRelated=true&relatedDirection=incoming&relatedType=forked_from`,
+  );
+  expect(incoming.status).toBe(200);
+  expect((await incoming.json()).related.relationships).toEqual([
+    expect.objectContaining({
+      type: "forked_from",
+      source: expect.objectContaining({ sessionId: "other" }),
+    }),
+  ]);
+  for (const filter of [
+    "relatedDirection=incoming",
+    "relatedType=forked_from",
+  ]) {
+    const scopedCursor = await app.request(
+      `${path}?includeRelated=true&${filter}&relatedCursor=${first.related.nextCursor}`,
+    );
+    expect(scopedCursor.status).toBe(400);
+  }
+  expect(
+    (await app.request(`${path}?includeRelated=true&relatedDirection=ancestor`))
+      .status,
+  ).toBe(400);
+  expect(
+    (
+      await app.request(
+        `${path}?includeRelated=true&relatedType=not-a-predicate`,
+      )
+    ).status,
+  ).toBe(400);
   const count = related.mock.calls.length;
   const peer = await api.read(
     "relationships",

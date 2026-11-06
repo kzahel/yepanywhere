@@ -348,7 +348,7 @@ without a Vitest runtime dependency. Existing readiness and case budgets remain
 unchanged.
 
 ```bash
-pnpm test:providers:app             # Four real API/socket lifecycle cases
+pnpm test:providers:app             # Twelve API/socket and relationship cases
 pnpm --filter @yep-anywhere/client exec playwright install chromium
 pnpm test:providers:app --browser   # Three real browser scenarios
 pnpm test:providers:app --browser --repeat-each=3
@@ -369,6 +369,18 @@ volatile queue blockers/cancellation, streamed socket output, persisted history
 and the next input delivered exactly once. Worker/native process identities
 remain stable while API/frontend generations change. Approval continues on the
 original native callback and the real tool executes once.
+
+The four existing launch-bound creation cases also qualify the ordinary public
+relationship route for Claude/Codex parents and both same- and cross-provider
+children. After actual native persistence, outgoing and incoming reads return
+the same canonical `created_session` edge and authenticated proof. They repeat
+after a verified API generation replacement with unchanged worker/native
+identities. The operator v0 opt-in returns that incoming edge independently of
+its existing creation receipt. Structural pages omit native storage scopes and
+receipt ids; v0's separate `creation.id` intentionally retains its receipt id.
+These assertions reuse the existing model protocol exchanges and
+fixture teardown; they add no inference, executable launch or browser cohort.
+They do not qualify automatic historical discovery or unresolved remote targets.
 
 The two browser cases additionally prove actual composer submission, visible
 interim/final output, draft retention across server replacement, sequential

@@ -6,22 +6,21 @@ The launcher now links out to that session: `detectNestedHarnessLaunch` reads
 the resumed id from the command text and `NestedHarnessLaunchLink` renders it
 under the command. See [`topics/nested-harness-launch.md`](../topics/nested-harness-launch.md).
 
-The reverse edge is still missing. Open the launched session directly and
-nothing says another session started it, so it still reads as orphaned work
-from that side.
+The reverse edge is now presented in Session Info for accepted, resolved local
+launches on supported servers. Unnamed launches and histories not acquired by
+the bounded observer can still appear orphaned; those sources remain the open
+part of this finding.
 
 It cannot be derived from the child's own transcript. The evidence lives in
-some other session's Bash command, so answering "who launched me" needs launch
-edges indexed across a project's sessions and a server contract to carry them
-to the client. `SessionIndexService` is the plausible home — the Claude summary
-parse already streams every line, so collecting launched ids there is close to
-free, and `enrichSessions` in `packages/server/src/routes/projects.ts` already
-maps over a whole project's summaries and could invert them.
+some other session's Bash command. The durable relationship owner now indexes
+qualified command evidence; the public page reads SQL without scanning other
+transcripts. Acquisition remains separate and deliberately incomplete rather
+than blocking session delivery on a whole-project scan.
 
-Not fixed with the outbound direction because the new response field is a
-client/server compatibility decision under `topics/server-capabilities.md`,
-needing a release corpus, a capability gate, and a stated missing-gate
-fallback approved before implementation.
+The maintainer approved the compatible reverse presentation on 2026-11-06:
+one temporary capability check, omission on older servers and no legacy loader.
+The [owning contract](../topics/session-relationships.md#session-info-and-reverse-navigation)
+records its desktop/phone and source-lifetime behavior.
 
 Also unrecovered: a launch with no `--resume`/`--session-id` names no session
 at all. The child announces its new id in the init event of its
@@ -38,4 +37,9 @@ when the launcher→child direction landed.
 existing durable relationship index. It qualifies named same-project launches and
 keeps pending correlation across API replacement. Historical corpus acquisition,
 unnamed sessions, other parent families and a compatible reverse presentation
-contract remain open; this defect is not closed by the internal producer.
+contract were open; this defect was not closed by the internal producer.
+
+2026-11-06: bounded historical acquisition, qualified live Claude/Codex launch
+sources and the operator Session Info projection are implemented. Arbitrary
+unseen histories, unnamed launches, legacy copy boundaries and other parent
+harness families remain unqualified; this entry stays open for those sources.

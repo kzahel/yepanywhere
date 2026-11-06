@@ -1,9 +1,10 @@
 # Durable session relationships
 
-Status: implementation authorized 2026-11-04;
+Status: durable writers, bounded acquisition and operator presentation implemented;
 [plan 176](../docs/tactical/176-durable-session-relationships.md) tracks delivery
 and qualification. This document owns the design; completed runtime slices are
-recorded in that plan. No new wire contract or provider capability is implied.
+recorded in that plan. The public wire contract and its bounded compatibility
+check are specified below; unsupported native evidence remains unknown.
 This direction replaces a Codex-only child-cache proposal with one
 provider-neutral relationship read model. It does not select a new scheduler,
 delegation framework, authorization system, or transcript store.
@@ -34,7 +35,15 @@ Meanwhile, durable relationships already have several owners:
   before native effects. `CreationCopySnapshot.kind` distinguishes fork/clone.
 - Metadata distinguishes `/btw` parenting from `forkedFromSessionId`.
 - Provider readers discover separately executed native children.
-- Scoped live Claude shell launches have a durable command-evidence producer. Explicit POSIX destination-profile commands also support current owned Codex frames; parent identity and target namespace remain independent, while older workers and implicit cross-family inheritance stay unknown. Already acquired admitted, known never-confined history can supply bounded historical evidence. New Claude copies additionally require a durable provider-owned copied-row fence; legacy or missing fences stay unknown. Automatic corpus acquisition and reverse presentation remain pending.
+- Scoped live Claude shell launches have a durable command-evidence producer.
+  Explicit POSIX destination-profile commands also support current owned Codex
+  frames; parent identity and target namespace remain independent, while older
+  workers and implicit cross-family inheritance stay unknown. Already acquired
+  admitted, known never-confined history can supply bounded historical evidence.
+  New Claude copies additionally require a durable provider-owned copied-row
+  fence; legacy or missing fences stay unknown. Session Info now presents
+  accepted local reverse links. Automatic unseen-corpus acquisition remains
+  unqualified.
 
 The shared design must coordinate these owners, not create another competing
 creator, receipt or identity store. Native persistence and receipts remain
@@ -455,16 +464,17 @@ existing parent-scoped read-only route. Incoming `launched_harness` facts show
 independent YA creation, copies, asides and continuations keep distinct labels
 and observation trust. Unknown predicates remain display-only with respect to
 native-child controls. Unknown reference kinds have a neutral label without
-navigation, and unfamiliar trust values omit that label. Titles use already-retained authorized summaries or
-bounded evidence; there is no per-row metadata or transcript fetch.
+navigation, and unfamiliar trust values omit that label. Titles use
+already-retained authorized summaries or bounded evidence; there is no per-row
+metadata or transcript fetch.
 
 Loading and generic failure stay inside the section, leaving the other Info
 fields and transcript mounted. Empty means no matching links are recorded,
 not a complete native inventory. The user can follow server-issued pages,
 return to a previous page or refresh from the start after expiry/restart.
-Only page one follows shared reconnect, refresh, metadata and completed catalog notices;
-refresh-in-progress catalog notices do not cause another read.
-later keyset pages stay stable until explicit navigation/refresh.
+Only page one follows shared reconnect, refresh, metadata and completed catalog
+notices; refresh-in-progress catalog notices do not cause another read. Later
+keyset pages stay stable until explicit navigation/refresh.
 
 One retained query owner shares each source/session/cursor acquisition and
 revalidation. Its bounded page snapshot is shared by subscribers and discarded

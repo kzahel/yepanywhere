@@ -1,5 +1,6 @@
 import { ALL_PROVIDERS } from "@yep-anywhere/shared";
 import { z } from "zod";
+import { SESSION_RELATIONSHIP_TYPES } from "../sessions/SessionRelationshipStore.js";
 
 const endpointCommon = {
   serverId: z.string(),
@@ -64,4 +65,16 @@ export const relatedQuery = z.object({
     ),
   relatedLimit: z.coerce.number().int().min(1).max(100).optional(),
   relatedCursor: z.string().min(40).max(1024).optional(),
+  relatedDirection: z
+    .enum(["incoming", "outgoing", "both"])
+    .optional()
+    .describe(
+      "Direction of the related graph page (default both), independent of outgoing receipt history.",
+    ),
+  relatedType: z
+    .enum(SESSION_RELATIONSHIP_TYPES)
+    .optional()
+    .describe(
+      "Filter accepted local relationships by this predicate. Other predicates and receipt pagination are unchanged.",
+    ),
 });

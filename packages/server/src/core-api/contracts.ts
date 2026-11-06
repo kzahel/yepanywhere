@@ -457,7 +457,7 @@ export const operationDocumentation: Record<
   relationships: {
     summary: "Inspect recorded session creation and initiated commands",
     description:
-      "Operator-only view of the target session's v0 creation and bounded outgoing receipts. includeRelated=true adds separately paged local structural relationships, using relatedLimit/relatedCursor; receipt limit/cursor retain their numeric offset semantics. Missing related means unsupported. Native children remain parent-scoped read-only handles. Peers retain only their visible creation receipt. Legacy sessions can have creation=null; no new grants or remote traversal are implied.",
+      "Operator-only view of the target session's v0 creation and bounded outgoing receipts. includeRelated=true adds separately paged local structural relationships, using relatedLimit/relatedCursor and optional relatedDirection (default both)/relatedType filters. Changing direction or type requires a fresh related cursor. Receipt limit/cursor retain their numeric offset semantics. Missing related means unsupported. Native children remain parent-scoped read-only handles. Peers retain only their visible creation receipt. Legacy sessions can have creation=null; no new grants or remote traversal are implied.",
     example:
       "/v0/servers/{serverId}/sessions/{sessionId}/relationships?limit=50&includeRelated=true&relatedLimit=25",
   },

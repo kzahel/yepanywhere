@@ -103,6 +103,8 @@ export class CoreApi {
           includeRelated?: string;
           relatedLimit?: string;
           relatedCursor?: string;
+          relatedDirection?: string;
+          relatedType?: string;
         };
       signal?: AbortSignal;
       /** Established by a trusted launch authenticator, never a request field. */
@@ -521,6 +523,8 @@ export class CoreApi {
                 query: {
                   limit: parsed.data.relatedLimit,
                   cursor: parsed.data.relatedCursor,
+                  direction: parsed.data.relatedDirection,
+                  type: parsed.data.relatedType,
                 },
                 signal: input.signal,
               })
