@@ -166,10 +166,10 @@
       "maxLines": 1505
     },
     "packages/shared/src/index.ts": {
-      "maxLines": 1721,
+      "maxLines": 1919,
       "raise": {
-        "from": 1719,
-        "reason": "Slice 7.1 moved the capability definition types and optional-bit table out of server-capabilities.ts; the package barrel names them explicitly rather than using export *. Maintainer-approved 2026-11-06."
+        "from": 1721,
+        "reason": "The export-star ban expands the package barrel's 16 star re-exports into 187 explicit names; the package's export surface is unchanged. Maintainer-approved 2026-11-06."
       }
     }
   }

@@ -12,8 +12,22 @@ export type {
   ArtifactViewerGrant,
   ArtifactTabRequest,
 } from "./artifact-viewer.js";
-export * from "./vhost-oauth.js";
-export * from "./new-session-bootstrap.js";
+export {
+  redundantVhostEmail,
+  vhostEmailMatches,
+  type VhostOauthLogEntry,
+  vhostOauthPolicy,
+  type VhostOauthProvider,
+  type VhostOauthProviderEntry,
+  vhostOauthProviderName,
+  type VhostOauthStatus,
+} from "./vhost-oauth.js";
+export {
+  NEW_SESSION_BOOTSTRAP,
+  NEW_SESSION_BOOTSTRAP_PARTS,
+  type NewSessionBootstrapFrame,
+  type NewSessionBootstrapPart,
+} from "./new-session-bootstrap.js";
 export {
   ARTIFACT_SANDBOX,
   MANAGED_ARTIFACT_MAX_FILE_BYTES,
@@ -30,16 +44,136 @@ export type {
   SessionCatalogUpdatedEvent,
 } from "./retained-session-collections.js";
 
-export * from "./session-content-search.js";
-export * from "./mcp-apps.js";
-export * from "./instructionRestoration.js";
-export * from "./limited-users.js";
-export * from "./sidebar-categories.js";
-export * from "./project-template-source.js";
-export * from "./model-prices.js";
-export * from "./katex-compat.js";
-export * from "./model-display.js";
-export * from "./user-usage.js";
+export {
+  getCollapsedSearchPreviewText,
+  normalizeSearchPreviewText,
+  providerSupportsBoundedTurnSearch,
+  type SessionContentDiagnostic,
+  type SessionContentMatch,
+  type SessionContentSearchBatch,
+  type SessionContentSearchRequest,
+} from "./session-content-search.js";
+export {
+  formatMcpAppModelContext,
+  MCP_APP_CONTEXT_CLOSE,
+  MCP_APP_CONTEXT_OPEN,
+  MCP_APP_EXTENSION_ID,
+  MCP_APP_EXTENSION_SETTINGS,
+  MCP_APP_MIME_TYPE,
+  MCP_APP_MODEL_CONTEXT_LIMIT,
+  MCP_APP_PROTOCOL_VERSION,
+  MCP_APP_PROXY_PATH,
+  MCP_APP_PROXY_SANDBOX,
+  MCP_APP_VIEW_SANDBOX,
+  type McpAppApprovalRequired,
+  type McpAppDisplayMode,
+  type McpAppHostRequest,
+  mcpAppModelContextText,
+  type McpAppPermissions,
+  type McpAppProviderRequest,
+  type McpAppResourceCsp,
+  type McpAppToolCall,
+  mcpAppToolCallFromCodexItem,
+  mcpAppToolVisibleToApp,
+} from "./mcp-apps.js";
+export {
+  DEFAULT_INSTRUCTION_RESTORATION,
+  INSTRUCTION_RESTORATION_PREAMBLE,
+  type InstructionRestorationSettings,
+  parseInstructionRestorationSettings,
+} from "./instructionRestoration.js";
+export {
+  accessibleProjectIds,
+  type ActingPrincipal,
+  clampJoinStaleOffsetMinutes,
+  CLAUDE_FAMILY_CACHE_WARM_MINUTES,
+  DEFAULT_CACHE_WARM_MINUTES,
+  DEFAULT_LIMITED_USER_APP_INSTRUCTION,
+  DEFAULT_LIMITED_USER_INSTRUCTION,
+  DEFAULT_LIMITED_USER_INSTRUCTION_BLOCKS,
+  defaultLimitedUserInstructions,
+  EMPTY_LIMITED_USER_GRANTS,
+  higherAccessLevel,
+  instructionBlocksError,
+  isPathWithin,
+  isSessionFreshForJoin,
+  JOIN_STALE_OFFSET_MAX_MINUTES,
+  JOIN_STALE_OFFSET_MIN_MINUTES,
+  LIMITED_USER_MIN_PASSWORD_LENGTH,
+  LIMITED_USER_SERVER_APP_EXAMPLE,
+  LIMITED_USER_STATIC_APP_EXAMPLE,
+  LIMITED_USERNAME_MAX_LENGTH,
+  LIMITED_USERNAME_MIN_LENGTH,
+  type LimitedUserGrants,
+  type LimitedUserInstructions,
+  limitedUserInstructionsError,
+  type LimitedUserLock,
+  limitedUsernameError,
+  limitedUserPasswordError,
+  type LimitedUserSummary,
+  lockedThinkingOption,
+  MAX_INSTRUCTION_BLOCKS,
+  MAX_INSTRUCTION_CHARACTERS,
+  MAX_PATH_GRANTS,
+  mayCreateTemplate,
+  type PathGrant,
+  pathGrantLevel,
+  type ProjectAccessEntry,
+  type ProjectAccessLevel,
+  projectAccessLevel,
+  projectDisplayName,
+  providerCacheWarmMinutes,
+  type ResolvedLimitedUserInstructions,
+  resolveLimitedUserInstructions,
+  type TemplateCreationGrant,
+  templateGrantFor,
+  thinkingOptionEffort,
+  upgradeUntouchedLimitedUserInstructions,
+  withPathGrantProjects,
+} from "./limited-users.js";
+export {
+  MAX_SIDEBAR_CATEGORY_LENGTH,
+  normalizeSidebarCategory,
+} from "./sidebar-categories.js";
+export {
+  DEFAULT_PROJECT_TEMPLATE_SOURCE,
+  DEFAULT_PROJECT_TEMPLATE_SOURCES,
+  type ProjectTemplateSourceConfig,
+  type ProjectTemplateSourcesConfig,
+  type ProjectTemplateSourceSnapshot,
+  type ProjectTemplateSourceState,
+} from "./project-template-source.js";
+export {
+  equivalentOutputTokens,
+  findModelPrices,
+  longContextThresholdTokens,
+  type ProviderContextTier,
+  providerContextTier,
+  type TokenCostOptions,
+  tokenCostUsd,
+  unlistedEquivalentOutputTokens,
+} from "./model-prices.js";
+export { normalizeTexForKatex, paperKatexMacros } from "./katex-compat.js";
+export { displayModelId } from "./model-display.js";
+export {
+  binCost,
+  countWords,
+  coveredCalendarDays,
+  EMPTY_USAGE_TOKEN_CLASSES,
+  EMPTY_USAGE_TOTALS,
+  presumedActiveMs,
+  rawTokenCount,
+  summarizeUsage,
+  USAGE_AFK_AFTER_MS,
+  type UsageEvent,
+  type UsageEventKind,
+  type UsageReport,
+  type UsageTokenBin,
+  type UsageTokenBucket,
+  type UsageTokenClasses,
+  type UsageTotals,
+  type UserUsage,
+} from "./user-usage.js";
 export {
   ACLI_COMMENTARY_MAX_TEXTS,
   ACLI_COMMENTARY_MAX_BODY_BYTES,
@@ -1581,11 +1715,55 @@ export {
   decodeRelayMuxDataFrame,
 } from "./relay-mux.js";
 
-export * from "./glossary/index.js";
+export {
+  compileGlossaryArtifact,
+  flattenGlossaryInlineMarkdown,
+  GLOSSARY_ARTIFACT_VERSION,
+  GLOSSARY_LIMITS,
+  type GlossaryArtifact,
+  type GlossaryArtifactNode,
+  type GlossaryArtifactResponse,
+  type GlossaryArtifactTerminal,
+  type GlossaryCompileDiagnostic,
+  type GlossaryCompileDiagnosticCode,
+  type GlossaryCompileResult,
+  type GlossaryDefinitionContribution,
+  type GlossaryDependencyIdentity,
+  type GlossaryLimits,
+  type GlossaryMatch,
+  type GlossaryPathChangedEvent,
+  type GlossaryPathChangeType,
+  type GlossaryPathsSnapshotEvent,
+  type GlossaryProjectGeneration,
+  type GlossaryResolutionDiagnostic,
+  type GlossaryResolutionDiagnosticCode,
+  type GlossaryRowInput,
+  type GlossarySubscriptionEvent,
+  matchGlossaryText,
+  normalizeGlossaryCaseText,
+  normalizeGlossaryText,
+  type ParsedGlossaryRow,
+  type ParsedGlossaryTable,
+  parseFirstGlossaryTable,
+  parseGlossaryInline,
+  splitGlossaryAlternatives,
+} from "./glossary/index.js";
 
 export type { SqliteStatus } from "./sqlite-status.js";
 export type { SpeechVocabularyStatus } from "./speech-vocabulary.js";
-export * from "./speech-backend-setup.js";
+export {
+  isLocalSpeechBackendId,
+  LOCAL_SPEECH_BACKEND_IDS,
+  LOCAL_SPEECH_BACKEND_SPECS,
+  type LocalSpeechBackendId,
+  type LocalSpeechBackendSpec,
+  localSpeechBackendSpec,
+  parseSpeechVoiceBackends,
+  type SpeechBackendInstallStatus,
+  type SpeechBackendSetupRow,
+  type SpeechBackendSetupStatus,
+  unionSpeechVoiceBackends,
+} from "./speech-backend-setup.js";
 export type {
   SpeechVocabularyOccurrence,
   VocabularyCaseForms,
@@ -1663,7 +1841,20 @@ export {
   type ProjectAppInventory,
 } from "./project-service.js";
 
-export * from "./drafts.js";
+export {
+  DRAFT_MAX_BYTES,
+  draftHasContent,
+  type DraftPayload,
+  draftPayloadEqual,
+  type DraftRead,
+  type DraftSlot,
+  draftSlotKey,
+  type DraftSnapshot,
+  type DraftWrite,
+  type DraftWriteResult,
+  EMPTY_DRAFT,
+  mergeDrafts,
+} from "./drafts.js";
 export type {
   AgentAuthRouterStatus,
   AgentAuthRouterIssueCode,
@@ -1713,7 +1904,14 @@ export {
 } from "./session-identity.js";
 
 export { isSessionCreationPending } from "./session-creation.js";
-export * from "./steering.js";
+export {
+  parseProviderSteeringState,
+  parseSteeringModeSettings,
+  type ProviderSteeringCapabilities,
+  type ProviderSteeringState,
+  type SteeringMode,
+  type SteeringModeSettings,
+} from "./steering.js";
 export type {
   SessionRelationshipEndpoint,
   SessionRelationshipProof,
