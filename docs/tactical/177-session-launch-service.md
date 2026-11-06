@@ -2,7 +2,7 @@
 
 Topic: core-service-api
 
-Status: step 1 landed 2026-11-06. Accepted by the maintainer as the top item
+Status: steps 1 and 2 landed 2026-11-06. Accepted by the maintainer as the top item
 of the module-boundary [priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
 
 Starting a session is one operation that today has about a dozen hand-written
@@ -39,13 +39,13 @@ move-only rule and follows these rules instead:
 | New session (project or detached) | `startSession` | `session-creation-routes.ts`, inline | creation admission and Supervisor |
 | Resume | `resumeSession` | `buildResumeLaunch` | Supervisor activation |
 | Reactivate | `reactivateSession` | `session-resume-routes.ts`, inline | `SessionActivationCoordinator` overrides |
-| Restart handoff | `startSession` | `sessions.ts`, inline | route |
-| Restart fork | `forkSession`, then `resumeSession` | `sessions.ts`, inline | route |
-| Stale-session handoff | `startSession` | `sessions.ts`, inline | route, title only |
+| Restart handoff | `startSession` | `buildSuccessorLaunch` | route |
+| Restart fork | `forkSession`, then `resumeSession` | `buildSuccessorLaunch` | route |
+| Stale-session handoff | `startSession` | `buildSuccessorLaunch` | route, title only |
 | Fork | `forkSession` | none (cold child) | route |
 | Clone | `cloneSession`, or `forkSession` for Codex | Supervisor `resolveForkLaunchSettings` (Claude); none (Codex) | route adds a Codex sandbox |
 | Retitle helper | `reactivateSession` if cold, then `forkSession` | `sessions.ts`, inline | route |
-| Fork-summary helper and target | `forkSession` twice, then `resumeSession` | `sessions.ts`, inline | route, three times |
+| Fork-summary helper and target | `forkSession` twice, then `resumeSession` | `sessions.ts`, inline (a resume of the forked target) | route, three times |
 | Recap revival | `reactivateSession` | `sessions.ts`, inline | Supervisor activation |
 | `/clearloop` | `resumeSession` | `buildResumeLaunch` | Supervisor activation |
 | Queued message launch | queue, later `startSession`/`resumeSession` | message route, inline | queue owner |
@@ -93,14 +93,45 @@ the working-project precedence.
 
 ### 2 — one successor launch-settings assembly
 
-Restart handoff, restart fork, the stale-session handoff and the fork-summary
-target each build the Supervisor `ModelSettings` from the same parts: the
-inherited model, thinking, effort and permissions; global instructions;
-compact settings from a model-candidate list; the source's recap and
-prompt-suggestion preferences unless the request overrides them; and the
-sandbox fields. Build them in one function. First pin the exact settings
-object each path passes, including the model-candidate lists, which already
-differ per path.
+Landed 2026-11-06. `buildSuccessorLaunch` in `routes/session-launch-settings.ts`,
+beside the resume assembly `buildResumeLaunch`, builds the Supervisor
+`ModelSettings` of a successor session: restart handoff, restart fork and the
+stale-session handoff. It applies the request's choices over the source's
+inherited model, thinking, effort, service tier and permission mode
+(`inheritSuccessorLaunchSettings`), adds the global instructions, the
+source's recap delay and prompt-suggestion preference unless the request
+overrides them, the sandbox fields, and the compact settings, and returns the
+inherited values the restart fork also needs for its `forkSession` call.
+`test/routes/session-successor-launch-settings.test.ts` pins the exact
+settings and permission mode each path passes. It passed against the old
+code before the change.
+
+The fork-summary target is not part of it. It resumes a child whose launch
+settings `forkSession` already recorded, so the Supervisor fills its thinking,
+effort, service tier and permission mode from that record, as on any resume.
+
+Every difference between the three copies was checked against its history:
+
+| Difference | Finding | Resolution |
+| --- | --- | --- |
+| Restart listed the request's model ahead of the resolved model as a compact-window fallback | Redundant: the launch `model` equals the request's model whenever it names one, and the window lookup skips `default` and empty ids | Dropped; no behavior change |
+| A cross-provider restart drops the source's models from the compact-window fallbacks | Deliberate: provider-local settings since `cfe0ecc62` (2026-08) | The shared rule |
+| The stale-session handoff keeps the source's transcript model as a fallback across providers, and skips the live process's resolved model | Accidental: added in `6acb17549` (2026-09) without the provider-local rule, which [restart handoff template](../../topics/restart-handoff-template.md#launch-settings-inheritance) states for every cross-provider handoff | A temporary `sourceModelsAcrossProviders` option, removed by the follow-up fix |
+| Only the restart handoff names the client `yep-anywhere` | Deliberate (`ef3c2470c`); the name equals the Codex default, so it has no effect today | Kept at the handoff call site |
+| Only the stale-session handoff passes `instructionUsername` | Deliberate: limited users can reach it but cannot restart ([limited users](../../topics/limited-users.md)) | Named option |
+| The restart fork adds its own sandbox state | Deliberate: the fork copied the source's sandbox state | Added by the caller |
+| The stale-session handoff passes no permission rules, recap mode, helper model or service-tier override | Its request names none; the limited-user lock supplies what it fixes | Absent inputs to the same assembly |
+
+The settings are now built once, before the handoff text or the fork is
+created, instead of at the Supervisor call. The global instructions and
+compact settings are read a moment earlier as a result.
+
+The compact-window fallback models are unreachable in practice: a stored
+compact percent needs a named model, that model is always the first
+candidate, and the window lookup falls back to a heuristic that is never
+zero. That is recorded as
+[a gap](../../gaps/compact-window-fallback-models-unreachable.md) covering
+every launch path's fallback list.
 
 ### 3 — one launch-outcome mapping
 

@@ -10,7 +10,8 @@ and closures they share with the rest of the file, and SRR-018 moved the
 routes themselves into their own registrars. SRR-019 then folded the
 successor routes' copied launch-metadata writes into one module as step 1 of
 [plan 177](177-session-launch-service.md), which owns the session-launch
-consolidation from here. SRR-013 landed the
+consolidation from here, and SRR-020 gave the successor launches one
+settings assembly as step 2. SRR-013 landed the
 metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
@@ -25,7 +26,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-019
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-020
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -95,6 +96,46 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-020: One Launch-Settings Assembly For Successor Sessions
+
+Status: done, 2026-11-06. Step 2 of
+[plan 177](177-session-launch-service.md). Not a move-only slice; it follows
+that plan's behavior-preserving rules.
+
+Destination: `buildSuccessorLaunch` joins `buildResumeLaunch` in the existing
+`packages/server/src/routes/session-launch-settings.ts`.
+
+Line delta: `-81` lines from `sessions.ts` (5,621 -> 5,540);
+`session-launch-settings.ts` grows from 129 to 246 lines.
+
+Problem:
+
+Restart handoff, restart fork and the stale-session handoff each built the
+Supervisor launch settings of their new session by hand: the same inherited
+model, thinking, effort, service tier and permission mode, global
+instructions, recap and prompt-suggestion preferences, sandbox fields and
+compact settings, with small differences between the copies.
+
+Implemented:
+
+- `buildSuccessorLaunch` runs the successor inheritance and builds the
+  settings object once. The restart fork adds its fork's sandbox state; the
+  restart handoff adds its client name; the stale-session handoff names the
+  acting user for limited-user instructions;
+- each difference between the copies was traced to its commit and
+  classified in plan 177's step 2 table. The one accidental difference, the
+  stale-session handoff's compact-window fallbacks, stays behind a temporary
+  option here and is fixed in its own follow-up commit.
+
+Verification: `test/routes/session-successor-launch-settings.test.ts` pins
+the exact settings object and permission mode each path passes to the
+Supervisor: restart handoff with every request override, with inherited
+settings in a sandbox, and across providers; restart fork; and the
+stale-session handoff for a superuser and for a locked limited user. Two
+restart handoff cases load a transcript whose model differs from the live
+process's, pinning the order of the compact-window fallbacks. It passed
+against the old code before the change.
 
 ### SRR-019: One Launch-Metadata Writer For Successor Sessions
 

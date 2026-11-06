@@ -140,7 +140,6 @@ import {
   resolveRecoveredGroupForDelivery,
   resumeRecoveredGroup,
 } from "./session-recovered-queue.js";
-import { inheritSuccessorLaunchSettings } from "../supervisor/sessionLaunchInheritance.js";
 import { buildThinkingOptions } from "./session-thinking-options.js";
 import {
   actingUsername,
@@ -1339,7 +1338,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     resolveSessionProjectRouting,
   } = createSessionProjectRouting(deps, storedIdentityFor);
 
-  const { getGlobalInstructions, buildResumeLaunch } =
+  const { getGlobalInstructions, buildResumeLaunch, buildSuccessorLaunch } =
     createSessionLaunchSettings(deps);
 
   /**
@@ -2181,35 +2180,35 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
     const sourceProvider = sourceSession.provider ?? preferredSourceProvider;
     const providerName = body.provider ?? sourceProvider;
-    const inheritsSourceProviderSettings = providerName === sourceProvider;
-
     const {
       requestedModel,
-      thinking,
-      effort,
       serviceTier,
       permissionMode: restartPermissionMode,
-    } = inheritSuccessorLaunchSettings(
-      originalMetadata?.effectiveLaunchSettings,
-      {
-        sameProvider: inheritsSourceProviderSettings,
-        legacyRequestedModel: () =>
-          deps.sessionMetadataService?.getRequestedModel(sessionId),
-      },
-      {
-        requestedModel: body.model,
+      settings: successorSettings,
+    } = buildSuccessorLaunch({
+      sessionId,
+      sourceMetadata: originalMetadata,
+      sourceProvider,
+      providerName,
+      sourceModels: [oldProcess?.resolvedModel, sourceSession.model],
+      executor,
+      sandboxLevel: restartSandboxLevel,
+      sandboxNetworkFirewall: restartSandboxNetworkFirewall,
+      request: {
+        model: body.model,
         thinking: body.thinking,
         serviceTier:
           body.serviceTier !== undefined
             ? (normalizeOptionalServiceTier(body.serviceTier) ?? null)
             : undefined,
         permissionMode: body.mode,
+        permissions: body.permissions,
+        recapMode: helperSettings.recapMode,
+        recapAfterSeconds: helperSettings.recapAfterSeconds,
+        promptSuggestionMode: helperSettings.promptSuggestionMode,
+        helperSideModel: helperSettings.helperSideModel,
       },
-    );
-    const model =
-      requestedModel && requestedModel !== "default"
-        ? requestedModel
-        : undefined;
+    });
 
     if (restartMode === "fork") {
       const claimed =
@@ -2285,38 +2284,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           { text: forkMessage, mode: restartPermissionMode },
           restartPermissionMode,
           {
-            model,
-            requestedModel: requestedModel ?? undefined,
-            serviceTier,
-            thinking,
-            effort,
-            providerName: sourceProvider,
-            executor,
-            sandboxLevel: restartSandboxLevel,
-            sandboxNetworkFirewall: restartSandboxNetworkFirewall,
+            // Fork rejects a provider change above, so these are the source
+            // provider's settings.
+            ...successorSettings,
             sandboxStateKey:
               fork.sandboxStateKey ?? originalMetadata?.sandboxStateKey,
-            globalInstructions: getGlobalInstructions(),
-            permissions: body.permissions,
-            recapMode: helperSettings.recapMode,
-            recapAfterSeconds:
-              helperSettings.recapAfterSeconds ??
-              originalMetadata?.recapAfterSeconds,
-            // Inherit the source session's preference unless the body overrides.
-            promptSuggestionMode:
-              helperSettings.promptSuggestionMode ??
-              originalMetadata?.promptSuggestionMode,
-            helperSideModel: helperSettings.helperSideModel,
-            ...resolveCompactModelSettings(deps, {
-              provider: sourceProvider,
-              yaModelId: requestedModel ?? undefined,
-              modelCandidates: [
-                body.model,
-                model,
-                oldProcess?.resolvedModel,
-                sourceSession.model,
-              ],
-            }),
           },
         );
       } catch (error) {
@@ -2444,41 +2416,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         mode: restartPermissionMode,
       },
       restartPermissionMode,
-      {
-        model,
-        requestedModel: requestedModel ?? undefined,
-        serviceTier,
-        thinking,
-        effort,
-        providerName,
-        clientName: "yep-anywhere",
-        executor,
-        sandboxLevel: restartSandboxLevel,
-        sandboxNetworkFirewall: restartSandboxNetworkFirewall,
-        globalInstructions: getGlobalInstructions(),
-        permissions: body.permissions,
-        recapMode: helperSettings.recapMode,
-        recapAfterSeconds:
-          helperSettings.recapAfterSeconds ??
-          originalMetadata?.recapAfterSeconds,
-        // Inherit the source session's preference unless the body overrides.
-        promptSuggestionMode:
-          helperSettings.promptSuggestionMode ??
-          originalMetadata?.promptSuggestionMode,
-        helperSideModel: helperSettings.helperSideModel,
-        ...resolveCompactModelSettings(deps, {
-          provider: providerName,
-          yaModelId: requestedModel ?? undefined,
-          modelCandidates: inheritsSourceProviderSettings
-            ? [
-                body.model,
-                model,
-                oldProcess?.resolvedModel,
-                sourceSession.model,
-              ]
-            : [body.model, model],
-        }),
-      },
+      // The client name matches the Codex default; a restart has named itself
+      // since provider client identity was added.
+      { ...successorSettings, clientName: "yep-anywhere" },
       {
         creation: creationForRequest(c, body.creationProvenance, {
           continuedFrom: sessionId,
@@ -2645,26 +2585,24 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         return c.json({ error: parsedExecutor.error }, 400);
       }
       const executor = parsedExecutor.executor;
-      const providerName =
-        (launchBody.provider as ProviderName | undefined) ?? sourceProvider;
-      const { requestedModel, thinking, effort, serviceTier, permissionMode } =
-        inheritSuccessorLaunchSettings(
-          originalMetadata?.effectiveLaunchSettings,
-          {
-            sameProvider: providerName === sourceProvider,
-            legacyRequestedModel: () =>
-              deps.sessionMetadataService?.getRequestedModel(sessionId),
-          },
-          {
-            requestedModel: launchBody.model,
-            thinking: launchBody.thinking as ThinkingOption | undefined,
-            permissionMode: body.mode,
-          },
-        );
-      const model =
-        requestedModel && requestedModel !== "default"
-          ? requestedModel
-          : undefined;
+      const { permissionMode, settings } = buildSuccessorLaunch({
+        sessionId,
+        sourceMetadata: originalMetadata,
+        sourceProvider,
+        providerName:
+          (launchBody.provider as ProviderName | undefined) ?? sourceProvider,
+        sourceModels: [sourceSession.model],
+        sourceModelsAcrossProviders: true,
+        executor,
+        sandboxLevel: sandbox.level,
+        sandboxNetworkFirewall: sandbox.networkFirewall,
+        instructionUsername: actingUsername(c),
+        request: {
+          model: launchBody.model,
+          thinking: launchBody.thinking as ThinkingOption | undefined,
+          permissionMode: body.mode,
+        },
+      });
       const projectPath = sandboxWorkingProjectPath(
         originalMetadata,
         project.path,
@@ -2706,26 +2644,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         projectPath,
         userMessage,
         permissionMode,
-        {
-          model,
-          requestedModel: requestedModel ?? undefined,
-          serviceTier,
-          thinking,
-          effort,
-          providerName,
-          executor,
-          sandboxLevel: sandbox.level,
-          sandboxNetworkFirewall: sandbox.networkFirewall,
-          instructionUsername: actingUsername(c),
-          globalInstructions: getGlobalInstructions(),
-          recapAfterSeconds: originalMetadata?.recapAfterSeconds,
-          promptSuggestionMode: originalMetadata?.promptSuggestionMode,
-          ...resolveCompactModelSettings(deps, {
-            provider: providerName,
-            yaModelId: requestedModel ?? undefined,
-            modelCandidates: [model, sourceSession.model],
-          }),
-        },
+        settings,
         {
           projectId: project.id,
           creation: creationForRequest(c, body.creationProvenance, {

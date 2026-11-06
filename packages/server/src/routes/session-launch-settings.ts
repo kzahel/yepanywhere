@@ -1,10 +1,20 @@
 import {
+  type PermissionMode,
   type ProviderName,
+  type SessionSandboxLevel,
+  type ThinkingOption,
   buildEffectiveAgentContext,
 } from "@yep-anywhere/shared";
-import type { SessionMetadataService } from "../metadata/index.js";
+import type {
+  SessionMetadata,
+  SessionMetadataService,
+} from "../metadata/index.js";
 import { getSessionSandboxSettingsError } from "../session-sandbox.js";
 import type { ModelSettings } from "../supervisor/Supervisor.js";
+import {
+  type SuccessorLaunchSettings,
+  inheritSuccessorLaunchSettings,
+} from "../supervisor/sessionLaunchInheritance.js";
 import {
   type CompactModelSettingsDeps,
   resolveCompactModelSettings,
@@ -33,6 +43,28 @@ export interface ResumeLaunchRequest {
   helperSideModel?: string;
   resumeMode: NonNullable<ModelSettings["resumeMode"]>;
   resumeSessionAt?: string;
+}
+
+/**
+ * Launch choices a successor request (restart handoff or fork, stale-session
+ * handoff) makes. An unset field inherits from the source session.
+ */
+export interface SuccessorLaunchRequest {
+  model?: string;
+  thinking?: ThinkingOption;
+  /** null asks for the provider default; undefined inherits the source's. */
+  serviceTier?: string | null;
+  permissionMode?: PermissionMode;
+  permissions?: ModelSettings["permissions"];
+  recapMode?: ModelSettings["recapMode"];
+  recapAfterSeconds?: number;
+  promptSuggestionMode?: ModelSettings["promptSuggestionMode"];
+  helperSideModel?: string;
+}
+
+/** A successor session's launch: what it inherited and its settings. */
+export interface SuccessorLaunch extends SuccessorLaunchSettings {
+  settings: ModelSettings;
 }
 
 /** What the launch-settings closures read from the sessions route deps. */
@@ -125,5 +157,90 @@ export function createSessionLaunchSettings(deps: SessionLaunchSettingsDeps) {
     };
   };
 
-  return { getGlobalInstructions, buildResumeLaunch };
+  /**
+   * The one assembly of a successor session's launch, a new session that
+   * continues a source: restart handoff, restart fork and the stale-session
+   * handoff. The request's choices win; model, thinking, effort and service
+   * tier otherwise come from the source only when the successor keeps its
+   * provider, while the permission mode, recap delay and prompt-suggestion
+   * preference carry across providers. The recap mode is the request's only.
+   * The caller adds what only it has, such as a fork's own sandbox state.
+   */
+  const buildSuccessorLaunch = (input: {
+    sessionId: string;
+    sourceMetadata: SessionMetadata | undefined;
+    sourceProvider: ProviderName;
+    providerName: ProviderName;
+    /**
+     * Models the source ran, newest first: compact-window fallbacks when
+     * the successor's own model has no known window.
+     */
+    sourceModels: (string | undefined)[];
+    /**
+     * Keep `sourceModels` as window fallbacks across providers too. Only the
+     * stale-session handoff sets it; restart treats them as provider-local.
+     */
+    sourceModelsAcrossProviders?: boolean;
+    executor: string | undefined;
+    sandboxLevel: SessionSandboxLevel;
+    sandboxNetworkFirewall: boolean;
+    /**
+     * Selects a limited user's sandbox instructions. Only the stale-session
+     * handoff names one: limited users cannot restart.
+     */
+    instructionUsername?: string;
+    request: SuccessorLaunchRequest;
+  }): SuccessorLaunch => {
+    const { sourceMetadata: source, providerName, request } = input;
+    const sameProvider = providerName === input.sourceProvider;
+    const inherited = inheritSuccessorLaunchSettings(
+      source?.effectiveLaunchSettings,
+      {
+        sameProvider,
+        legacyRequestedModel: () =>
+          deps.sessionMetadataService?.getRequestedModel(input.sessionId),
+      },
+      {
+        requestedModel: request.model,
+        thinking: request.thinking,
+        serviceTier: request.serviceTier,
+        permissionMode: request.permissionMode,
+      },
+    );
+    const requestedModel = inherited.requestedModel ?? undefined;
+    const model =
+      requestedModel && requestedModel !== "default"
+        ? requestedModel
+        : undefined;
+    const settings: ModelSettings = {
+      model,
+      requestedModel,
+      serviceTier: inherited.serviceTier,
+      thinking: inherited.thinking,
+      effort: inherited.effort,
+      providerName,
+      executor: input.executor,
+      sandboxLevel: input.sandboxLevel,
+      sandboxNetworkFirewall: input.sandboxNetworkFirewall,
+      instructionUsername: input.instructionUsername,
+      globalInstructions: getGlobalInstructions(),
+      permissions: request.permissions,
+      recapMode: request.recapMode,
+      recapAfterSeconds: request.recapAfterSeconds ?? source?.recapAfterSeconds,
+      promptSuggestionMode:
+        request.promptSuggestionMode ?? source?.promptSuggestionMode,
+      helperSideModel: request.helperSideModel,
+      ...resolveCompactModelSettings(deps, {
+        provider: providerName,
+        yaModelId: requestedModel,
+        modelCandidates:
+          sameProvider || input.sourceModelsAcrossProviders
+            ? [model, ...input.sourceModels]
+            : [model],
+      }),
+    };
+    return { ...inherited, settings };
+  };
+
+  return { getGlobalInstructions, buildResumeLaunch, buildSuccessorLaunch };
 }
