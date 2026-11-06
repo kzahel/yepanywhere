@@ -6,11 +6,11 @@ import {
   useRef,
   useState,
 } from "react";
-import type { GlobalSessionItem } from "../api/client";
 import { SessionHoverCardTarget } from "../components/SessionHoverCardTarget";
 import type { SourceReviewDefaultSession } from "../contexts/SourceReviewDefaultSessionContext";
+import { useProjectReviewSessions } from "../hooks/useProjectReviewSessions";
 import type { TranslationFn } from "../i18n";
-import { loadProjectSessions, reviewSessionLabel } from "../lib/reviewSessions";
+import { reviewSessionLabel } from "../lib/reviewSessions";
 import styles from "./ReviewCommentWindow.module.css";
 
 /**
@@ -45,8 +45,8 @@ export function ReviewCommentWindow({
   t: TranslationFn;
 }) {
   const [text, setText] = useState("");
-  const [sessions, setSessions] = useState<GlobalSessionItem[] | null>(null);
-  const [sessionsError, setSessionsError] = useState(false);
+  const { sessions, error: sessionsError } =
+    useProjectReviewSessions(projectId);
   const [targetSessionId, setTargetSessionId] = useState(
     defaultSession?.id ?? "new",
   );
@@ -54,22 +54,9 @@ export function ReviewCommentWindow({
   const canSubmit = text.trim().length > 0 && !busy;
 
   useEffect(() => {
-    let cancelled = false;
-    loadProjectSessions(projectId)
-      .then((result) => {
-        if (cancelled) return;
-        setSessions(result);
-        if (!defaultSession && !targetTouchedRef.current) {
-          setTargetSessionId(result[0]?.id ?? "new");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setSessionsError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [defaultSession, projectId]);
+    if (!sessions || defaultSession || targetTouchedRef.current) return;
+    setTargetSessionId(sessions[0]?.id ?? "new");
+  }, [defaultSession, sessions]);
 
   const selectedSession =
     sessions?.find((session) => session.id === targetSessionId) ?? null;

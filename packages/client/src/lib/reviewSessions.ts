@@ -1,13 +1,19 @@
 import { api, type GlobalSessionItem } from "../api/client";
 
-/** Load every project session in the API's most-recently-active order. */
+/**
+ * Load every project session in the API's most-recently-active order.
+ * `retained` answers from the server's retained catalog: fast, but rows may
+ * lack a title or model until the complete walk has observed them.
+ */
 export async function loadProjectSessions(
   projectId: string,
+  summaryMode?: "retained",
 ): Promise<GlobalSessionItem[]> {
   const sessions: GlobalSessionItem[] = [];
   let after: string | undefined;
   for (;;) {
     const page = await api.getGlobalSessions({
+      ...(summaryMode ? { summaryMode } : {}),
       project: projectId,
       limit: 500,
       after,

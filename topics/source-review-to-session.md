@@ -524,10 +524,18 @@ preferring the session with recorded edits to this file when provenance is
 known, else the project's recently active sessions in a dropdown, else a new
 session. **Add to review remains targetless**: the accumulator's destination
 is selected when the batch is submitted, so comments accumulated at different
-times never silently create a mixed-destination batch. Today the
-submit-to-session action renders only when Source Control was opened from a
-session Edit-block link. The recently-active dropdown satisfies this contract
-before dirty-file provenance lands.
+times never silently create a mixed-destination batch. When Source Control
+was opened from a session Edit-block link, that session is the default;
+otherwise the most recently active project session is. The recently-active
+dropdown satisfies this contract before dirty-file provenance lands.
+
+The dropdown must offer existing sessions promptly. The complete session walk
+can take many seconds on a busy host (15.8 s observed on 2026-11-06), during
+which "New review session" was the only choice. `useProjectReviewSessions`
+therefore reads the server's retained catalog first when the
+`retained-session-collections` capability is present. Its rows may lack titles
+and models, so the complete rows replace them on arrival, and a late retained
+answer never overwrites a complete one.
 
 ### Pending Comments and Reviews are separate Source Control modes
 

@@ -5,16 +5,16 @@ import type {
 import { deriveReviewSubmissionName } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { GlobalSessionItem } from "../api/client";
 import type { ReviewPreviewItem } from "../api/reviewClient";
 import { Modal } from "../components/ui/Modal";
+import { useProjectReviewSessions } from "../hooks/useProjectReviewSessions";
 import {
   getAvailableProviders,
   getDefaultProvider,
   useProviders,
 } from "../hooks/useProviders";
 import { notifyReviewCommentsChanged } from "../lib/reviewCommentsBus";
-import { loadProjectSessions, reviewSessionLabel } from "../lib/reviewSessions";
+import { reviewSessionLabel } from "../lib/reviewSessions";
 import type { TranslationFn } from "../i18n";
 import { generateUUID } from "../lib/uuid";
 import styles from "./ReviewSubmitModal.module.css";
@@ -58,8 +58,8 @@ export function ReviewSubmitModal({
   if (submissionsEnabled && !submissionIdRef.current) {
     submissionIdRef.current = generateUUID();
   }
-  const [sessions, setSessions] = useState<GlobalSessionItem[] | null>(null);
-  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const { sessions, error: sessionsError } =
+    useProjectReviewSessions(projectId);
   const { providers, loading: providersLoading } = useProviders();
   const availableProviders = useMemo(
     () => getAvailableProviders(providers),
@@ -83,31 +83,9 @@ export function ReviewSubmitModal({
   // Load the project's sessions so a review can target any of them, not just a
   // fresh one or the recent review session.
   useEffect(() => {
-    let cancelled = false;
-    loadProjectSessions(projectId)
-      .then((result) => {
-        if (cancelled) return;
-        setSessions(result);
-        if (!targetTouchedRef.current) {
-          setTargetSessionId(
-            recentReviewSessionId
-              ? recentReviewSessionId
-              : (result[0]?.id ?? "new"),
-          );
-        }
-      })
-      .catch((cause) => {
-        if (cancelled) return;
-        setSessionsError(
-          cause instanceof Error
-            ? cause.message
-            : t("sourceReviewSessionsUnavailable"),
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, recentReviewSessionId, t]);
+    if (!sessions || targetTouchedRef.current) return;
+    setTargetSessionId(recentReviewSessionId ?? sessions[0]?.id ?? "new");
+  }, [recentReviewSessionId, sessions]);
 
   useEffect(() => {
     let cancelled = false;
