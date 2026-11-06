@@ -19,7 +19,7 @@ import {
   dispatchSessionIsearchGuideState,
   type SessionIsearchScope,
 } from "../lib/sessionIsearchGuide";
-import { type RenderTurnGroup } from "../lib/sessionDetail/renderItems";
+import type { RenderTurnGroup } from "../lib/sessionDetail/renderItems";
 import {
   getActiveSearchAnchors,
   getAllTurnSearchAnchors,
