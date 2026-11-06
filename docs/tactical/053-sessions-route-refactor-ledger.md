@@ -1,9 +1,12 @@
 # Sessions Route Refactor Ledger
 
-Status: Dormant again, 2026-10-27: SRR-012 landed as `06cff21d6` under
-[plan 163](163-http-independent-restart-compaction.md). Its separate observer
-cleanup does not extend the move slice. Other deferred items and route
-registrar extractions remain deferred.
+Status: Dormant again, 2026-11-06: SRR-013 revived one route-registrar
+extraction (the metadata/seen-state group, doc 058 row 1.6) at the
+maintainer's request and landed it. SRR-012 landed 2026-10-27 as `06cff21d6`
+under [plan 163](163-http-independent-restart-compaction.md); its separate
+observer cleanup does not extend the move slice. The other route-registrar
+extractions (doc 058 rows 1.2-1.5) remain deferred; revive each as its own
+SRR item.
 
 See also: `topics/core-service-api.md` — the sessions REST surface this
 ledger refactors is the surface that topic proposes exposing as an
@@ -12,7 +15,8 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 revival and future
+module-boundary campaign. This ledger owns the limited SRR-012 and SRR-013
+revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
 as SRR items, and carry both topic trailers.
@@ -34,7 +38,8 @@ in the dormant state. Doc 058 is the campaign worklog for all non-`sessions.ts`
 slices; Phases 2-6 do not involve this document.
 
 Pivot note, 2026-07-06: SRR-003 remains deferred, all other SRR items are
-done, and doc 058 rows 1.2-1.6 are deferred for now. Future `sessions.ts`
+done, and doc 058 rows 1.2-1.6 are deferred for now (row 1.6 later landed
+as SRR-013 on 2026-11-06). Future `sessions.ts`
 route-registrar extraction should reopen or supersede this ledger deliberately
 rather than assuming the old narrow lane is still active.
 
@@ -79,6 +84,55 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-013: Register Metadata And Seen-State Routes From Their Own Module
+
+Status: done, 2026-11-06. Proposed and accepted the same day (the
+maintainer asked for this revival), landed as campaign slice 1.6 in doc 058.
+
+Destination: new file
+`packages/server/src/routes/session-metadata-routes.ts`, exporting
+`registerSessionMetadataRoutes(routes, deps)`.
+
+Line delta: `-174` lines from `sessions.ts` (9,354 -> 9,180), `+199` lines
+in the registrar module.
+
+Problem:
+
+Five handlers near the end of `createSessionsRoutes` own seen state and
+metadata bookkeeping rather than transcripts or processes:
+`POST`/`DELETE /sessions/:sessionId/mark-seen`,
+`GET /notifications/last-seen`, `GET /debug/metadata` and
+`PUT /sessions/:sessionId/metadata` (which also carries archive and star
+updates and the archive stop boundary). They are one contiguous block and read
+only `supervisor`, `notificationService`, `sessionMetadataService` and
+`eventBus` from `deps`.
+
+Implemented:
+
+- moved the block byte-identically, including its route comments, into
+  `registerSessionMetadataRoutes`, which `createSessionsRoutes` calls at the
+  block's old position. The routes register on the same Hono instance in the
+  same order, so matching, mounted paths and the auth middleware applied in
+  `app.ts` are unchanged;
+- the closure-captured `deps` became the `deps` parameter, typed as the narrow
+  `SessionMetadataRoutesDeps` interface rather than importing `SessionsDeps`
+  back from the route file. `SessionsDeps` satisfies it structurally;
+- `SESSION_UNREAD_TIMESTAMP` and `parseSessionMetadataPatch` moved with
+  their only callers; `nonHumanUserTurnField` stays imported in both files.
+
+Left in place: `GET /projects/:projectId/sessions/:sessionId/metadata`. It is
+a session-detail read with ownership, unread and recap shaping, and belongs to
+the session-detail registrar (doc 058 row 1.2), not this group. The dedicated
+`POST /api/sessions/:sessionId/archive` route already lives in
+`session-archive.ts`.
+
+Risk:
+
+- low. No queue, timer, liveness or provider-process code moved; the archive
+  path still awaits `abortSessionWithVerification` before emitting.
+
+Verification: see doc 058's slice 1.6 landing note.
 
 ### SRR-012: Extract Restart Compaction Outside HTTP
 

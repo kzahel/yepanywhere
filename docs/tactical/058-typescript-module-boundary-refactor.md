@@ -185,7 +185,7 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | 1.3 | Deferred 2026-07-06 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, and remote sync behavior if revived. |
 | 1.4 | Deferred 2026-07-06 | Restart/fork/recap/retitle routes | Extract restart, fork, recap, fork-summary, and retitle flows; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Higher risk; preserve handoff/fork semantics and recap background behavior if revived. |
 | 1.5 | Deferred 2026-07-06 | Queue/deferred routes | Extract message queue, deferred patient queue, steer/cancel, pending input, and mode routes. Builds on SRR-005 (recovered queue helpers, done in doc 053). | Deferred with the sessions route-registrar lane. Queue timers and idle ownership are load-bearing; read architecture mandates and run `test:e2e:sdk` if revived. |
-| 1.6 | Deferred 2026-07-06 | Metadata/notifications routes | Extract metadata updates, mark-seen, last-seen, archive/star, and debug metadata routes. Builds on SRR-009 (metadata patch parsing, done in doc 053). | Deferred with the sessions route-registrar lane. Preserve event-bus update emissions if revived. |
+| 1.6 | Done 2026-11-06 as SRR-013 | Metadata/notifications routes | Move mark-seen (both verbs), notifications last-seen, debug metadata and the metadata `PUT` (archive/star included) into `session-metadata-routes.ts` as `registerSessionMetadataRoutes`, called at the old position. Builds on SRR-009 (metadata patch parsing). | Revived through doc 053 as SRR-013. Byte-identical block; event-bus emissions and the archive stop boundary unchanged. The session-detail metadata `GET` stays with row 1.2. |
 | 1.7 | Done 2026-07-06 | `routes/settings.ts` parser split | Move settings parsers/discovery helpers out of the route factory. | Moved parser/discovery helpers into `settings-parsers.ts`; route factory still owns endpoints, callbacks, config precedence, and response shapes. |
 | 1.8 | In progress 2026-11-06 | `app.ts` route composition cleanup | `createApp` is one ~4,000-line function that interleaves service construction with route mounting. Keep it as the composition root, but have it call domain `mount*Routes(app, options, deps)` functions and domain service builders in today's order. Each sub-slice below moves one contiguous group. | Do not alter middleware order, auth policy, or hosted-client endpoint selection. Coordinate with doc 054: workstreams slices (WS-004, WS-008, and later) actively mount routes in `app.ts`. Stop condition specific to this file: late-assigned `let` bindings (`artifactServer`, `supervisor`, `pushNotifier`, `retainedCollections`, `conversationSubscriptions`, `apiCommands`, `agentApiController`, `knownProjectsForGrants`) are read from closures; a group that reads one before assignment cannot move as-is. |
 | 1.8a | Done 2026-11-06 | Public-share mounting | Move the public-share loopback loaders and the five public-share route mounts into `routes/public-share-mounting.ts`. | Self-contained: reads only `options` and four already-initialized locals. Mount position preserved. Tier 3 substitute: public-share Playwright specs. |
@@ -347,6 +347,72 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 1.6 — Session Metadata And Seen-State Routes (Landed 2026-11-06, this commit)
+
+Tracked in doc 053 as SRR-013.
+
+Moved:
+- The contiguous `createSessionsRoutes` block registering
+  `POST`/`DELETE /sessions/:sessionId/mark-seen`,
+  `GET /notifications/last-seen`, `GET /debug/metadata` and
+  `PUT /sessions/:sessionId/metadata` ->
+  `packages/server/src/routes/session-metadata-routes.ts` as
+  `registerSessionMetadataRoutes(routes, deps)`. The block is byte-identical
+  to `HEAD` (checked with `diff`); `createSessionsRoutes` calls the registrar
+  at the block's old position.
+- Imports used only by the block (`SESSION_UNREAD_TIMESTAMP`,
+  `parseSessionMetadataPatch`) moved with it.
+Signature conversions (closure -> parameter):
+- `routes` and `deps` became parameters. `deps` is typed as the narrow
+  `SessionMetadataRoutesDeps` (`supervisor`, `notificationService`,
+  `sessionMetadataService`, `eventBus`) so the module does not import
+  `SessionsDeps` back from `sessions.ts`.
+Behavior changes:
+- None. The five routes register on the same Hono instance in the same
+  relative order, between `POST /sessions/:sessionId/input` and the clone
+  route, so matching, mounted paths and `app.ts` middleware are unchanged.
+  Event-bus emissions, the archive stop boundary, response shapes and error
+  strings moved verbatim.
+Verification:
+- Tier 1: shared build; server `tsc --noEmit`; Biome lint and format on
+  changed files; `git diff --check`; focused
+  `test/routes/sessions-metadata.test.ts`,
+  `test/routes/non-human-user-turn.test.ts`,
+  `test/routes/session-metadata-patch.test.ts`,
+  `test/auth/limitedUsers.test.ts`,
+  `test/routes/ws-transport-message-auth.test.ts`,
+  `test/routes/public-shares.test.ts` and
+  `test/routes/sessions-fork-discovery.test.ts`: 275 passed.
+- Tier 2: root `pnpm lint` (including the budget check),
+  `pnpm format:check`, `pnpm typecheck` and `pnpm test` passed (server
+  7,111 passed / 87 skipped; client 7,127; shared 980; relay 139;
+  push-broker 45).
+- Tier 3: the client gate
+  `pnpm --filter client test:e2e --grep-invert "physical Android"`
+  (server from source through `tsx`): 491 passed, 13 skipped, 5 failed.
+  None of the five failing specs calls a moved route. Rerun in isolation,
+  three passed. `provider-sign-in.spec.ts:161` also fails at `HEAD`
+  without this change (baseline). `slash-command-argument-completions.spec.ts:344`
+  passed 4/4 at `HEAD` and 4/4 with the change, so it is a load flake. The
+  four specs that drive the moved routes (`session-read-state`,
+  `non-human-user-turn` at both widths, `question-aside`,
+  `session-header-responsive`) passed. `pnpm test:e2e:sdk` was not run: it
+  has no case that calls these routes (its files cover real providers and
+  WebSocket auth), and no queue, timer or liveness code moved.
+- Budget: `pnpm source:budgets --record` lowered `sessions.ts`
+  9,354 -> 9,180.
+- Independent review (claude-opus-5-5): block byte-identical to `HEAD`;
+  registration order, wildcard and param matching, deps identity (plain
+  object literal from `app.ts`), event-bus emissions, the archive stop
+  boundary and error strings preserved; no cycle, back-import or shim. Its
+  two doc nits are addressed: the dated doc 053 pivot note now points at
+  SRR-013, and the full client gate replaced a four-spec substitute.
+Follow-ups recorded:
+- Rows 1.2-1.5 remain deferred; each revival is its own SRR item.
+- `provider-sign-in.spec.ts:161` ("focused sign-in keeps startup failures
+  visible…") fails at `HEAD` 2026-11-06: the predicate expecting a
+  positive count times out at 5 s. Not investigated in this move slice.
 
 ### Slice 7.1 — Server Capability Registry By Area (Landed 2026-11-06, this commit)
 
@@ -1658,7 +1724,8 @@ Verification:
   chatter recorded above.
 
 Follow-ups recorded:
-- Phase 1.6 remains the larger metadata/notifications route extraction.
+- Phase 1.6 remains the larger metadata/notifications route extraction
+  (landed as slice 1.6 / SRR-013, 2026-11-06).
 
 ### SRR-005 — Recovered Queue Helpers (Landed 2026-07-06, this commit)
 
