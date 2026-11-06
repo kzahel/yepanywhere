@@ -30,7 +30,6 @@ import type {
   EffortLevel,
   PermissionMode,
   PromptSuggestionMode,
-  ProviderName,
   ProjectQueueItemSummary,
   ProjectQueueStagedAttachments,
   SlashCommand,
@@ -77,8 +76,8 @@ import {
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import {
-  isHandoffRequiredRefusal,
   isStaleSessionRedirect,
+  requiresHandoffAfterClaudeResumeError,
 } from "../api/refusal";
 import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
 import { createSessionApi } from "../api/sessionClient";
@@ -313,7 +312,10 @@ import {
   uploadComposerAttachmentFile,
 } from "../lib/sessionComposerSubmission";
 import { isLegacyCodexSetupText } from "@yep-anywhere/shared/transcript/codexLegacySetup";
-import { resolveSessionProviderCapabilities } from "../lib/providerCapabilities";
+import {
+  resolveSessionProviderCapabilities,
+  resolveSteerNowDefault,
+} from "../lib/providerCapabilities";
 import { shouldShowProjectQueueAffordance } from "../lib/projectQueueVisibility";
 import { createSessionDraftStorageKey } from "../lib/sessionDraftStorage";
 import {
@@ -424,13 +426,6 @@ function isMissingDeferredQueueEntryError(error: unknown): boolean {
     message.includes("No active process") ||
     message.includes("Deferred message not found")
   );
-}
-
-function requiresHandoffAfterClaudeResumeError(
-  error: unknown,
-  provider: ProviderName | undefined,
-): boolean {
-  return isClaudeProviderName(provider) && isHandoffRequiredRefusal(error);
 }
 
 function parsePositiveIntegerParam(value: string | null): number | undefined {
@@ -1530,6 +1525,10 @@ function SessionPageContent({
   const supportsThinkingToggle =
     currentProviderInfo?.supportsThinkingToggle ?? true;
   const { generallySupportsSteering, supportsSteerNow } = providerCapabilities;
+  const steerNowDefault = resolveSteerNowDefault(
+    versionInfo?.clientDefaults,
+    effectiveProvider,
+  );
   const {
     selection: liveThinkingSelection,
     thinkingOverride,
@@ -7543,6 +7542,7 @@ function SessionPageContent({
                   supportsThinkingToggle={supportsThinkingToggle}
                   supportsSteering={generallySupportsSteering}
                   supportsSteerNow={supportsSteerNow}
+                  steerNowDefault={steerNowDefault}
                   isRunning={status.owner === "self"}
                   isThinking={canStopOwnedProcess}
                   onStop={handleAbort}

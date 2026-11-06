@@ -1,4 +1,9 @@
-import type { ProviderInfo, ProviderName } from "@yep-anywhere/shared";
+import {
+  type ClientDefaults,
+  DEFAULT_STEER_NOW_ENABLED,
+  type ProviderInfo,
+  type ProviderName,
+} from "@yep-anywhere/shared";
 
 // Shown before server provider metadata arrives. Keep this aligned with
 // providers that advertise supportsSteering and implement a real mid-turn
@@ -55,9 +60,27 @@ export function resolveSessionProviderCapabilities(params: {
     supportsCurrentTurnSteering: providerInfo
       ? metadataSupportsSteering
       : staticSupportsSteering,
-    supportsSteerNow: providerInfo?.steering
-      ? providerInfo.steering.selection === "per-message" &&
-        providerInfo.steering.modes.includes("immediate")
-      : providerInfo?.supportsSteerNow === true,
+    supportsSteerNow: providerSupportsSteerNow(providerInfo),
   };
+}
+
+/** A provider's own Steer now choice, else the global default. */
+export function resolveSteerNowDefault(
+  defaults: ClientDefaults | undefined,
+  provider: ProviderName | null | undefined,
+): boolean {
+  const own = provider
+    ? defaults?.steerNowDefaultByProvider?.[provider]
+    : undefined;
+  return own ?? defaults?.steerNowDefault ?? DEFAULT_STEER_NOW_ENABLED;
+}
+
+/** Whether a provider offers the per-message "now" steering lane. */
+export function providerSupportsSteerNow(
+  providerInfo: ProviderInfo | null | undefined,
+): boolean {
+  return providerInfo?.steering
+    ? providerInfo.steering.selection === "per-message" &&
+        providerInfo.steering.modes.includes("immediate")
+    : providerInfo?.supportsSteerNow === true;
 }

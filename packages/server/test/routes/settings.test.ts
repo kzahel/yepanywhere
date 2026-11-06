@@ -1854,6 +1854,45 @@ describe("Settings Routes", () => {
       });
     });
 
+    it("replaces and clears per-provider steer-now overrides", async () => {
+      settings = {
+        ...settings,
+        clientDefaults: {
+          steerNowDefault: true,
+          steerNowDefaultByProvider: { claude: true },
+        },
+      };
+      const routes = createSettingsRoutes({
+        serverSettingsService: mockServerSettingsService,
+      });
+      const put = (steerNowDefaultByProvider: unknown) =>
+        routes.request("/", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientDefaults: { steerNowDefaultByProvider },
+          }),
+        });
+
+      expect((await put({ "claude-gateway": false })).status).toBe(200);
+      expect(mockServerSettingsService.updateSettings).toHaveBeenLastCalledWith(
+        {
+          clientDefaults: {
+            steerNowDefault: true,
+            steerNowDefaultByProvider: { "claude-gateway": false },
+          },
+        },
+      );
+
+      expect((await put({})).status).toBe(200);
+      expect(mockServerSettingsService.updateSettings).toHaveBeenLastCalledWith(
+        { clientDefaults: { steerNowDefault: true } },
+      );
+
+      expect((await put({ "claude-gateway": "off" })).status).toBe(400);
+      expect((await put({ nonesuch: false })).status).toBe(400);
+    });
+
     it("rejects non-numeric compact threshold values", async () => {
       const routes = createSettingsRoutes({
         serverSettingsService: mockServerSettingsService,

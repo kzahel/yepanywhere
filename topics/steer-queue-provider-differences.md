@@ -110,7 +110,13 @@ Consequence for YA: `claude.ts` now advertises steering and implements
 browser sets `metadata.steerNow`, otherwise `priority: "next"`. Browser clients
 default the existing **Steer now** preference on when no stored
 `steerNowDefault` exists; an explicit false remains authoritative and selects
-`next`. YA-held queued (`deferred`) and patient messages are still kept out of
+`next`. `steerNowDefaultByProvider` overrides that default per provider (an
+absent key inherits), so a slow backend such as `claude-gateway` can start
+at `next` while direct Claude keeps `now`; SessionPage resolves it before the
+composer sees it. It is edited under the global checkbox in Message delivery
+and repeated on each such provider's Providers row, gated by capability 152,
+`provider-steer-now-defaults`, because older servers reject the unknown
+client-default key. YA-held queued (`deferred`) and patient messages are still kept out of
 `MessageQueue` until their turn-end / verified-quiet criteria pass; when they
 finally enter Claude, YA stamps `priority: "later"` as a wire-level guard.
 

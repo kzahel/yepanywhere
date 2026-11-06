@@ -23,6 +23,7 @@
     "agent-api-bootstrap": "2026-10-30",
     "queued-session-compaction": "2026-11-03",
     "provider-steering-modes": "2026-11-03",
+    "provider-steer-now-defaults": "2026-11-06",
     "project-app-start-command": "2026-11-04"
   }
 }

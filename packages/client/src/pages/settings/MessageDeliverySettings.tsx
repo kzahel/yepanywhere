@@ -1,5 +1,6 @@
 import {
   type BusyComposerDefaultAction,
+  type ClientDefaults,
   DEFAULT_CLEARLOOP_INACTIVITY_SECONDS,
   DEFAULT_PROJECT_QUEUE_QUIET_SECONDS,
   DEFAULT_PROJECT_QUEUE_CTRL_ENTER_ENABLED,
@@ -39,6 +40,10 @@ import { useI18n } from "../../i18n";
 
 import { SettingsItem } from "./SettingsItem";
 import { ProviderSteeringSettings } from "./ProviderSteeringSettings";
+import {
+  SteerNowProviderOverrides,
+  useSupportsSteerNowProviderDefaults,
+} from "./SteerNowProviderDefaults";
 import { ProjectQueueReadinessSettings } from "./ProjectQueueReadinessSettings";
 import { RendezSettings, type RendezSettingsValue } from "./RendezSettings";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
@@ -151,9 +156,10 @@ function PatientCompactThresholdItem({
   );
 }
 
-function sameSteeringModes(
-  a: SteeringModeSettings,
-  b: SteeringModeSettings,
+/** Same per-provider values, treating absent keys as unset. */
+function sameProviderValues<T>(
+  a: Partial<Record<ProviderName, T>>,
+  b: Partial<Record<ProviderName, T>>,
 ): boolean {
   return (
     Object.keys(a).length === Object.keys(b).length &&
@@ -174,6 +180,9 @@ interface MessageDeliveryBaseline {
   bangCommandsEnabled: boolean;
   busyComposerDefaultAction: BusyComposerDefaultAction;
   steerNowDefault: boolean;
+  steerNowDefaultByProvider: NonNullable<
+    ClientDefaults["steerNowDefaultByProvider"]
+  >;
   patientQueueDefault: boolean;
   patientQueueCompactAtPercent: number | undefined;
   topicShiftCompactAtPercent: number | undefined;
@@ -252,6 +261,9 @@ export function MessageDeliverySettings() {
     version,
     SERVER_CAPABILITIES.providerSteeringModes.name,
   );
+
+  const supportsSteerNowProviderDefaults =
+    useSupportsSteerNowProviderDefaults();
 
   const supportsReadinessCheck = serverHasCapability(
     version,
@@ -376,6 +388,8 @@ export function MessageDeliverySettings() {
           settings.clientDefaults?.busyComposerDefaultAction ?? "steer",
         steerNowDefault:
           settings.clientDefaults?.steerNowDefault ?? DEFAULT_STEER_NOW_ENABLED,
+        steerNowDefaultByProvider:
+          settings.clientDefaults?.steerNowDefaultByProvider ?? {},
         patientQueueDefault:
           settings.clientDefaults?.patientQueueDefault ?? false,
         patientQueueCompactAtPercent:
@@ -562,8 +576,13 @@ export function MessageDeliverySettings() {
       shownBangCommands !== baseline.bangCommandsEnabled ||
       shownBusyDefaultAction !== baseline.busyComposerDefaultAction ||
       shownSteerNowDefault !== baseline.steerNowDefault ||
+      (supportsSteerNowProviderDefaults &&
+        !sameProviderValues(
+          settings?.clientDefaults?.steerNowDefaultByProvider ?? {},
+          baseline.steerNowDefaultByProvider,
+        )) ||
       (supportsProviderSteering &&
-        !sameSteeringModes(
+        !sameProviderValues(
           settings?.steeringModes ?? {},
           baseline.steeringModes,
         )) ||
@@ -628,6 +647,9 @@ export function MessageDeliverySettings() {
         ...{ bangCommandsEnabled: snapshot.bangCommandsEnabled },
         busyComposerDefaultAction: snapshot.busyComposerDefaultAction,
         steerNowDefault: snapshot.steerNowDefault,
+        ...(supportsSteerNowProviderDefaults
+          ? { steerNowDefaultByProvider: snapshot.steerNowDefaultByProvider }
+          : {}),
         patientQueueDefault: snapshot.patientQueueDefault,
         ...(supportsTopicShift
           ? {
@@ -651,6 +673,7 @@ export function MessageDeliverySettings() {
     supportsClearloop,
     supportsReadinessCheck,
     supportsProviderSteering,
+    supportsSteerNowProviderDefaults,
     supportsRendez,
     supportsTopicShift,
     settings?.rendez,
@@ -1012,6 +1035,11 @@ export function MessageDeliverySettings() {
           label={t("messageDeliverySteerNowDefaultTitle")}
           description={t("messageDeliverySteerNowDefaultDescription")}
           doc="topics/steer-queue-provider-differences.md#levels-of-soon-urgency-ladder-short-of-hard-interrupt"
+          after={
+            supportsSteerNowProviderDefaults && (
+              <SteerNowProviderOverrides globalDefault={shownSteerNowDefault} />
+            )
+          }
         >
           <input
             type="checkbox"

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   providerSupportsLocalSessionSandbox,
   resolveSessionProviderCapabilities,
+  resolveSteerNowDefault,
 } from "../providerCapabilities";
 
 function provider(
@@ -114,5 +115,21 @@ describe("providerSupportsLocalSessionSandbox", () => {
     "pi",
   ] as const)("hides the unimplemented %s backend", (providerName) => {
     expect(providerSupportsLocalSessionSandbox(providerName)).toBe(false);
+  });
+});
+
+describe("resolveSteerNowDefault", () => {
+  const defaults = {
+    steerNowDefault: true,
+    steerNowDefaultByProvider: { "claude-gateway": false },
+  };
+
+  it("prefers the provider's override, else inherits the global default", () => {
+    expect(resolveSteerNowDefault(defaults, "claude-gateway")).toBe(false);
+    expect(resolveSteerNowDefault(defaults, "claude")).toBe(true);
+    expect(resolveSteerNowDefault({ steerNowDefault: false }, "claude")).toBe(
+      false,
+    );
+    expect(resolveSteerNowDefault(undefined, undefined)).toBe(true);
   });
 });

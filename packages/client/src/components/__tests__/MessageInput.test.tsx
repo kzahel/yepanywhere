@@ -5253,10 +5253,6 @@ describe("MessageInput", () => {
   });
 
   it("honors an explicit steer-now default override", () => {
-    versionState.version = {
-      ...versionState.version,
-      clientDefaults: { steerNowDefault: false },
-    };
     const restoreMatchMedia = installDesktopMatchMedia();
     const onSend = vi.fn();
     const textarea = renderMessageInput(
@@ -5265,6 +5261,7 @@ describe("MessageInput", () => {
         onSend,
         supportsSteering: true,
         supportsSteerNow: true,
+        steerNowDefault: false,
         onQueue: vi.fn(),
       },
     );

@@ -512,6 +512,7 @@ export const REMOTE_COMPATIBILITY_LEVEL = 10;
 
 const BASE_CAPABILITIES: string[] = [
   SERVER_CAPABILITIES.providerSteeringModes.name,
+  SERVER_CAPABILITIES.providerSteerNowDefaults.name,
   SERVER_CAPABILITIES.queuedSessionCompaction.name,
   SERVER_CAPABILITIES.sessionCreationAdmission.name,
   SERVER_CAPABILITIES.stagedSessionCreation.name,

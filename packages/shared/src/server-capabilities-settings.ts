@@ -23,6 +23,27 @@ export const SETTINGS_SERVER_CAPABILITIES = {
       reason: "Gate launch-scoped steering settings on installed servers.",
     },
   },
+  providerSteerNowDefaults: {
+    id: CAPABILITY_ID_ALLOCATIONS.providerSteerNowDefaults.id,
+    name: "provider-steer-now-defaults",
+    kind: "permanent",
+    area: "settings",
+    introducedIn: "0.11.1",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Server stores per-provider overrides of the Steer now default in client defaults.",
+    clientFallback:
+      "Show only the global Steer now default and send no per-provider value.",
+    serverContract: {
+      routes: ["GET /api/settings", "PUT /api/settings", "GET /api/version"],
+      requestFields: ["clientDefaults.steerNowDefaultByProvider"],
+      responseFields: ["settings.clientDefaults.steerNowDefaultByProvider"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason: "Older servers reject unknown client-default keys.",
+    },
+  },
   projectAppAutoStart: {
     id: CAPABILITY_ID_ALLOCATIONS.projectAppAutoStart.id,
     name: "project-app-auto-start",

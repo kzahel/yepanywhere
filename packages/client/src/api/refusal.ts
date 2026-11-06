@@ -1,3 +1,5 @@
+import { isClaudeProviderName, type ProviderName } from "@yep-anywhere/shared";
+
 /**
  * Machine-readable fields a refusal body carries beside its `error` text, so
  * a caller can act on why a request was refused without matching message
@@ -47,4 +49,12 @@ export function isHandoffRequiredRefusal(error: unknown): boolean {
   if (refused.recovery === "handoff-required") return true;
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("Start a handoff session");
+}
+
+/** A Claude resume refusal whose remedy is a handoff session. */
+export function requiresHandoffAfterClaudeResumeError(
+  error: unknown,
+  provider: ProviderName | undefined,
+): boolean {
+  return isClaudeProviderName(provider) && isHandoffRequiredRefusal(error);
 }

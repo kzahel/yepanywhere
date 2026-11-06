@@ -60,14 +60,14 @@ import {
 import { SettingsDocLink } from "./SettingsDocLink";
 import { SettingsItem } from "./SettingsItem";
 import { InstructionRestorationControl } from "./InstructionRestorationControl";
+import { OllamaSettings } from "./OllamaProviderSettings";
+import { ProviderSteerNowDefault } from "./SteerNowProviderDefaults";
 import styles from "./ProvidersSettings.module.css";
 import { useSettingsPaneTitle } from "./SettingsPaneTitleContext";
 import { SettingsSection } from "./SettingsSection";
 import { getProviderSessionDefaults } from "../../lib/newSessionDefaults";
 import { getAllProviders } from "../../providers/registry";
 
-const DEFAULT_OLLAMA_SYSTEM_PROMPT =
-  "You are a helpful coding assistant. You help users with software engineering tasks. You have access to tools for reading files, editing files, running shell commands, and searching code. Use tools when needed to answer questions or make changes. Be concise and direct.";
 const DEFAULT_CLAUDE_LOGIN_COMMAND = "claude auth login --claudeai";
 const DEFAULT_CODEX_LOGIN_COMMAND = "codex login";
 const CLAUDE_OLLAMA_DEPRECATION_DISMISSAL_KEY =
@@ -100,159 +100,6 @@ type UpdateServerSetting = <K extends keyof ServerSettings>(
   key: K,
   value: ServerSettings[K],
 ) => Promise<void>;
-
-function OllamaUrlInput() {
-  const { t } = useI18n();
-  const { settings, updateSetting } = useServerSettings();
-  const [url, setUrl] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  const serverValue = settings?.ollamaUrl ?? "";
-
-  useEffect(() => {
-    if (settings) {
-      setUrl(settings.ollamaUrl ?? "");
-    }
-  }, [settings]);
-
-  const handleSave = useCallback(async () => {
-    setIsSaving(true);
-    try {
-      await updateSetting("ollamaUrl", url.trim() || undefined);
-      setHasChanges(false);
-    } catch {
-      // Error handled by useServerSettings
-    } finally {
-      setIsSaving(false);
-    }
-  }, [url, updateSetting]);
-
-  return (
-    <form
-      style={{ marginTop: "var(--space-2)", width: "100%" }}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (hasChanges && !isSaving) void handleSave();
-      }}
-    >
-      <div
-        style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}
-      >
-        <input
-          type="text"
-          className="settings-input"
-          value={url}
-          onChange={(e) => {
-            setUrl(e.target.value);
-            setHasChanges(e.target.value !== serverValue);
-          }}
-          placeholder="http://localhost:11434"
-          style={{ flex: 1 }}
-        />
-        <button
-          type="submit"
-          className="settings-button"
-          disabled={!hasChanges || isSaving}
-        >
-          {isSaving ? t("providersSaving") : t("providersSave")}
-        </button>
-      </div>
-      <span className="settings-hint">{t("providersOllamaUrlHint")}</span>
-    </form>
-  );
-}
-
-function OllamaUseFullSystemPrompt() {
-  const { t } = useI18n();
-  const { settings, updateSetting } = useServerSettings();
-  const enabled = settings?.ollamaUseFullSystemPrompt ?? false;
-
-  return (
-    <label
-      style={{
-        display: "flex",
-        gap: "var(--space-2)",
-        alignItems: "center",
-        marginTop: "var(--space-2)",
-        cursor: "pointer",
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={enabled}
-        onChange={(e) =>
-          updateSetting("ollamaUseFullSystemPrompt", e.target.checked)
-        }
-      />
-      <span>{t("providersUseFullPrompt")}</span>
-      <span className="settings-hint" style={{ marginLeft: "auto" }}>
-        {t("providersUseFullPromptHint")}
-      </span>
-    </label>
-  );
-}
-
-function OllamaSystemPromptInput() {
-  const { t } = useI18n();
-  const { settings, updateSetting } = useServerSettings();
-  const [prompt, setPrompt] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  const serverValue = settings?.ollamaSystemPrompt ?? "";
-
-  useEffect(() => {
-    if (settings) {
-      setPrompt(settings.ollamaSystemPrompt ?? "");
-    }
-  }, [settings]);
-
-  const handleSave = useCallback(async () => {
-    setIsSaving(true);
-    try {
-      await updateSetting("ollamaSystemPrompt", prompt.trim() || undefined);
-      setHasChanges(false);
-    } catch {
-      // Error handled by useServerSettings
-    } finally {
-      setIsSaving(false);
-    }
-  }, [prompt, updateSetting]);
-
-  return (
-    <div style={{ marginTop: "var(--space-2)", width: "100%" }}>
-      <textarea
-        className="settings-textarea"
-        value={prompt}
-        onChange={(e) => {
-          setPrompt(e.target.value);
-          setHasChanges(e.target.value !== serverValue);
-        }}
-        placeholder={DEFAULT_OLLAMA_SYSTEM_PROMPT}
-        rows={4}
-      />
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: "var(--space-2)",
-        }}
-      >
-        <span className="settings-hint">{t("providersOllamaPromptHint")}</span>
-        <button
-          type="button"
-          className="settings-button"
-          disabled={!hasChanges || isSaving}
-          onClick={handleSave}
-        >
-          {isSaving ? t("providersSaving") : t("providersSave")}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function GrokBuildApiKeySettings() {
   const { t } = useI18n();
@@ -647,19 +494,6 @@ function CodexCyberAccessProgramSetting({
         ))}
       </select>
     </SettingsItem>
-  );
-}
-
-function OllamaSettings() {
-  const { settings } = useServerSettings();
-  const useFullPrompt = settings?.ollamaUseFullSystemPrompt ?? false;
-
-  return (
-    <>
-      <OllamaUrlInput />
-      <OllamaUseFullSystemPrompt />
-      {!useFullPrompt && <OllamaSystemPromptInput />}
-    </>
   );
 }
 
@@ -1635,6 +1469,7 @@ export function ProvidersSettings() {
                 </a>
               )}
             </SettingsItem>
+            <ProviderSteerNowDefault name={provider.id} />
             {provider.id === "codex" && (
               <CodexReasoningSummarySetting
                 value={

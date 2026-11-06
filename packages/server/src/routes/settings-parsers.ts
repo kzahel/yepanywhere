@@ -80,6 +80,7 @@ const CLIENT_DEFAULT_KEYS = [
   "collapsedComposerButton",
   "sessionToolbarPresence",
   "steerNowDefault",
+  "steerNowDefaultByProvider",
   "patientQueueDefault",
   "patientQueueCompactAtPercent",
   "topicShiftCompactAtPercent",
@@ -648,6 +649,27 @@ function parseCompactAtContextPercent(
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
 
+/**
+ * Per-provider Steer now overrides, replaced as a whole: an absent provider
+ * inherits the global default, and `null` or `{}` clears every override.
+ */
+function parseSteerNowDefaultByProvider(
+  raw: unknown,
+): Partial<Record<ProviderName, boolean>> | undefined | null {
+  if (raw === undefined || raw === null) return undefined;
+  if (!isRecord(raw)) return null;
+  const parsed: Partial<Record<ProviderName, boolean>> = {};
+  for (const [provider, value] of Object.entries(raw)) {
+    if (
+      !ALL_PROVIDERS.includes(provider as ProviderName) ||
+      typeof value !== "boolean"
+    )
+      return null;
+    parsed[provider as ProviderName] = value;
+  }
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
+}
+
 export function parseClientDefaults(
   raw: unknown,
 ): ClientDefaults | undefined | null {
@@ -759,6 +781,13 @@ export function parseClientDefaults(
     } else {
       parsed.steerNowDefault = raw.steerNowDefault;
     }
+  }
+  if ("steerNowDefaultByProvider" in raw) {
+    const byProvider = parseSteerNowDefaultByProvider(
+      raw.steerNowDefaultByProvider,
+    );
+    if (byProvider === null) return null;
+    parsed.steerNowDefaultByProvider = byProvider;
   }
   if ("patientQueueDefault" in raw) {
     if (
@@ -875,6 +904,13 @@ export function mergeClientDefaults(
       delete merged.steerNowDefault;
     } else {
       merged.steerNowDefault = update.steerNowDefault;
+    }
+  }
+  if ("steerNowDefaultByProvider" in update) {
+    if (update.steerNowDefaultByProvider === undefined) {
+      delete merged.steerNowDefaultByProvider;
+    } else {
+      merged.steerNowDefaultByProvider = update.steerNowDefaultByProvider;
     }
   }
   if ("patientQueueDefault" in update) {

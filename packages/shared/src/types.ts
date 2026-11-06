@@ -857,6 +857,12 @@ export interface ClientDefaults {
    */
   steerNowDefault?: boolean;
   /**
+   * Per-provider override of `steerNowDefault`. An absent provider inherits
+   * the global default; there is no stored "inherit" value. Resolve through
+   * the client's `resolveSteerNowDefault`.
+   */
+  steerNowDefaultByProvider?: Partial<Record<ProviderName, boolean>>;
+  /**
    * Default for the "wait until the agent is fully done before delivering
    * queued messages" preference (patient queue intent). Global; set in the
    * Message Delivery settings pane. Off = deliver at the next end of turn

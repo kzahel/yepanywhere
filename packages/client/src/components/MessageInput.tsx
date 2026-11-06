@@ -338,6 +338,8 @@ interface Props {
   supportsSteering?: boolean;
   /** Whether provider steering supports soft-immediate in-flight generation abort. */
   supportsSteerNow?: boolean;
+  /** Initial per-turn "now" toggle state; a click overrides it here. */
+  steerNowDefault?: boolean;
   /** Current behavior of the primary composer action. */
   primaryActionKind?: "send" | "steer" | "queue";
   /** Available provider and client commands. */
@@ -493,6 +495,7 @@ export function MessageInput({
   supportsThinkingToggle = true,
   supportsSteering = false,
   supportsSteerNow = false,
+  steerNowDefault = DEFAULT_STEER_NOW_ENABLED,
   primaryActionKind,
   slashCommands = [],
   onCustomCommand,
@@ -883,11 +886,6 @@ export function MessageInput({
         return null;
       }
     });
-  // Per-turn "now" steering toggle. The server-learned client default sets
-  // its initial state (Message Delivery settings); the toggle stays per-turn
-  // and a user click overrides the default for this composer.
-  const steerNowDefault =
-    version?.clientDefaults?.steerNowDefault ?? DEFAULT_STEER_NOW_ENABLED;
   // Patient queue intent is a global preference (Message Delivery settings):
   // when on, a queued message waits for verified-idle before delivery instead
   // of promoting at the next end of turn.
