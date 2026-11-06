@@ -1034,8 +1034,15 @@ export function TooltipLayer() {
       event.preventDefault();
       event.stopImmediatePropagation();
     };
-    const handleScroll = () => {
-      if (!visibleRef.current && activeTargetRef.current) hide();
+    const handleScroll = (event: Event) => {
+      const activeTarget = activeTargetRef.current;
+      if (visibleRef.current || !activeTarget) return;
+      // A streaming transcript scrolls under a resting pointer; that does not
+      // move a header control, so only a scroll that carries the target away
+      // cancels its pending tooltip.
+      if (event.target instanceof Node && !event.target.contains(activeTarget))
+        return;
+      hide();
     };
     const handleResize = () => {
       if (!visibleRef.current) {

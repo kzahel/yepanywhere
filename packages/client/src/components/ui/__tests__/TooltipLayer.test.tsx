@@ -64,6 +64,37 @@ describe("TooltipLayer", () => {
     });
   });
 
+  it("keeps a pending tooltip when an unrelated container scrolls", () => {
+    render(
+      <>
+        <TooltipLayer />
+        <button type="button" title="Goal: Active">
+          Goal
+        </button>
+        <div data-testid="transcript" style={{ overflow: "auto" }}>
+          <button type="button" title="Copy message">
+            Copy
+          </button>
+        </div>
+      </>,
+    );
+    const flag = screen.getByRole("button", { name: "Goal" });
+    const transcript = screen.getByTestId("transcript");
+    const pointer = { pointerType: "mouse", clientX: 10, clientY: 10 };
+
+    const copy = screen.getByRole("button", { name: "Copy" });
+    fireEvent.pointerOver(copy, pointer);
+    fireEvent.scroll(transcript);
+    act(() => vi.advanceTimersByTime(DEFAULT_TOOLTIP_DELAY_MS));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+
+    fireEvent.pointerOut(copy, { ...pointer, relatedTarget: flag });
+    fireEvent.pointerOver(flag, { ...pointer, relatedTarget: copy });
+    fireEvent.scroll(transcript);
+    act(() => vi.advanceTimersByTime(DEFAULT_TOOLTIP_DELAY_MS));
+    expect(screen.getByRole("tooltip").textContent).toBe("Goal: Active");
+  });
+
   it("stays readable through same-target motion and follow scroll", () => {
     render(
       <>

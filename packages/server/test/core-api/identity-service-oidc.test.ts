@@ -203,7 +203,10 @@ it("uses actual OIDC code/PKCE/JWKS then the shared key-bound enrollment and pro
   );
   expect(target.starts()).toBe(1);
   expect(target.sends()).toBe(1);
-});
+  // Six peer channels each pay the SRP hello's 250ms timing floor. Measured
+  // 2.2-2.7s on a developer host; CI exceeded the 5000ms default on
+  // 2026-11-06 (runs 42173765814, 42188482624). 3x that observed floor.
+}, 15_000);
 
 it("rejects wrong upstream nonce, signature, issuer and subject without implicit account linking", async () => {
   const f = await fixture(),

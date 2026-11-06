@@ -497,6 +497,9 @@ test("inspects and explicitly changes the goal without consuming the draft", asy
   expect(sent).toEqual([]);
   await panel.getByRole("button", { name: "Pause goal", exact: true }).click();
   await expect(flag).toHaveAttribute("data-goal-status", "paused");
+  // The paused inventory can arrive over the socket before the send settles,
+  // while the panel still announces "Updating goal status…".
+  await expect(panel).toHaveAttribute("aria-busy", "false");
   await expect(panel.getByRole("status")).toHaveText("Paused");
   await expect(composer).toHaveValue("Keep this draft while the agent works");
   expect(sent).toEqual(["/goal pause"]);
