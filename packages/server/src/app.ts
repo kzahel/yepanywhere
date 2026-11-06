@@ -96,7 +96,6 @@ import {
 } from "./middleware/allowed-hosts.js";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type {
-  AppSession,
   ProviderName,
   SafeRestartPreservedWork,
   UrlProjectId,
@@ -239,7 +238,6 @@ import { createDevRoutes } from "./routes/dev.js";
 import { createDesktopBootstrapRoutes } from "./routes/desktop-bootstrap.js";
 import { createDeviceRoutes } from "./routes/devices.js";
 import { createFilesRoutes } from "./routes/files.js";
-import { canonicalizeManagedAttachmentPath } from "./uploads/attachmentAccess.js";
 import { createBangCommandsRoutes } from "./routes/bang-commands.js";
 import { BangCommandService } from "./services/BangCommandService.js";
 import {
@@ -301,13 +299,7 @@ import {
 import { createProjectsRoutes } from "./routes/projects.js";
 import { createProvidersRoutes } from "./routes/providers.js";
 import { createCodexUpdateRoutes } from "./routes/codex-updates.js";
-import { createPublicFileShareRoutes } from "./routes/public-file-shares.js";
-import {
-  createPublicSharePublicRoutes,
-  createPublicShareRoutes,
-} from "./routes/public-shares.js";
-import { createPublicShareManagementFreezeRoutes } from "./routes/public-share-management-freeze.js";
-import { createPublicShareManagementRoutes } from "./routes/public-share-management.js";
+import { mountPublicShareRoutes } from "./routes/public-share-mounting.js";
 import { createRecentsRoutes } from "./routes/recents.js";
 import {
   createServerAdminRoutes,
@@ -354,7 +346,6 @@ import {
   type VersionRouteOptions,
 } from "./routes/version.js";
 import { createProviderHostRoutes } from "./routes/provider-host.js";
-import { WS_INTERNAL_AUTHENTICATED } from "./middleware/internal-auth.js";
 import {
   configureProviderRuntime,
   getAllProviders,
@@ -367,10 +358,7 @@ import type {
 } from "@yep-anywhere/shared";
 import type { AgentProvider } from "./sdk/providers/types.js";
 import type { PermissionMode } from "./sdk/types.js";
-import {
-  PublicShareCaptureError,
-  type PublicShareService,
-} from "./services/PublicShareService.js";
+import type { PublicShareService } from "./services/PublicShareService.js";
 import { AttachmentStagingService } from "./uploads/AttachmentStagingService.js";
 import type { BrowserProfileService } from "./services/BrowserProfileService.js";
 import type { BrowserSettingsBackupService } from "./services/BrowserSettingsBackupService.js";
@@ -4435,268 +4423,12 @@ export function createApp(options: AppOptions): AppResult {
     );
   }
 
-  // Public read-only session shares. Creation is authenticated under /api;
-  // public reads are secret-only and stay outside /api auth/mutation routes.
-  if (options.publicShareService) {
-    type PublicShareSessionDetailEnvelope = {
-      messages?: AppSession["messages"];
-      pagination?: unknown;
-      publicShareCapture?: { completedMessageCount?: unknown };
-      session?: AppSession;
-    };
-
-    const parsePublicShareSessionDetail = (
-      body: PublicShareSessionDetailEnvelope,
-      requireCompleteHistory: boolean,
-    ): AppSession | null => {
-      if (!body.session || typeof body.session !== "object") return null;
-      if (requireCompleteHistory) {
-        const completedMessageCount =
-          body.publicShareCapture?.completedMessageCount;
-        if (
-          !Array.isArray(body.messages) ||
-          body.pagination !== undefined ||
-          body.session.messages !== undefined ||
-          !Number.isInteger(body.session.messageCount) ||
-          body.session.messageCount < 0 ||
-          body.session.messageCount > body.messages.length ||
-          !Number.isInteger(completedMessageCount) ||
-          (completedMessageCount as number) < 0 ||
-          (completedMessageCount as number) > body.messages.length
-        ) {
-          throw new PublicShareCaptureError(
-            "Session detail did not provide complete history; retry frozen capture",
-            "incomplete-history",
-          );
-        }
-        return {
-          ...body.session,
-          messageCount: completedMessageCount as number,
-          messages: body.messages.slice(0, completedMessageCount as number),
-        };
-      }
-      return {
-        ...body.session,
-        messages: Array.isArray(body.session.messages)
-          ? body.session.messages
-          : (body.messages ?? []),
-      };
-    };
-
-    const fetchPublicShareSession = async (
-      projectId: UrlProjectId,
-      sessionId: string,
-      options: {
-        afterMessageId?: string;
-        requireCompleteHistory?: boolean;
-      } = {},
-    ): Promise<AppSession | null> => {
-      const searchParams = new URLSearchParams({ publicShare: "1" });
-      if (options.afterMessageId) {
-        searchParams.set("afterMessageId", options.afterMessageId);
-      }
-      if (options.requireCompleteHistory) {
-        searchParams.set("fullHistory", "1");
-        searchParams.set("fullHistoryReason", "public-share-capture");
-      }
-      const response = await app.fetch(
-        new Request(
-          `http://127.0.0.1/api/projects/${projectId}/sessions/${encodeURIComponent(sessionId)}?${searchParams}`,
-          { headers: { "X-Yep-Anywhere": "true" } },
-        ),
-        { [WS_INTERNAL_AUTHENTICATED]: true },
-      );
-      if (!response.ok) {
-        if (options.requireCompleteHistory && response.status !== 404) {
-          throw new PublicShareCaptureError(
-            "Complete session history is temporarily unavailable; retry frozen capture",
-            "incomplete-history",
-          );
-        }
-        return null;
-      }
-      let body: PublicShareSessionDetailEnvelope;
-      try {
-        body = (await response.json()) as PublicShareSessionDetailEnvelope;
-      } catch (error) {
-        if (options.requireCompleteHistory) {
-          throw new PublicShareCaptureError(
-            "Complete session history response was invalid; retry frozen capture",
-            "incomplete-history",
-          );
-        }
-        throw error;
-      }
-      return parsePublicShareSessionDetail(
-        body,
-        options.requireCompleteHistory ?? false,
-      );
-    };
-
-    const loadPublicShareSession = (
-      projectId: UrlProjectId,
-      sessionId: string,
-      options?: { afterMessageId?: string },
-    ): Promise<AppSession | null> =>
-      fetchPublicShareSession(projectId, sessionId, options);
-
-    const loadCompletePublicShareSession = (
-      projectId: UrlProjectId,
-      sessionId: string,
-    ): Promise<AppSession | null> =>
-      fetchPublicShareSession(projectId, sessionId, {
-        requireCompleteHistory: true,
-      });
-
-    const loadPublicShareSessionUpdatedAt = async (
-      projectId: UrlProjectId,
-      sessionId: string,
-    ): Promise<string | null> => {
-      const response = await app.fetch(
-        new Request(
-          `http://127.0.0.1/api/projects/${projectId}/sessions/${encodeURIComponent(sessionId)}/metadata`,
-          { headers: { "X-Yep-Anywhere": "true" } },
-        ),
-        { [WS_INTERNAL_AUTHENTICATED]: true },
-      );
-      if (!response.ok) {
-        return null;
-      }
-      const body = (await response.json()) as {
-        session?: { updatedAt?: string | null };
-      };
-      return body.session?.updatedAt ?? null;
-    };
-
-    const loadPublicShareSessionSummary = async (
-      projectId: UrlProjectId,
-      sessionId: string,
-    ): Promise<Pick<
-      AppSession,
-      | "customTitle"
-      | "fullTitle"
-      | "initialPrompt"
-      | "provider"
-      | "title"
-      | "updatedAt"
-    > | null> => {
-      const response = await app.fetch(
-        new Request(
-          `http://127.0.0.1/api/projects/${projectId}/sessions/${encodeURIComponent(sessionId)}/metadata`,
-          { headers: { "X-Yep-Anywhere": "true" } },
-        ),
-        { [WS_INTERNAL_AUTHENTICATED]: true },
-      );
-      if (!response.ok) {
-        return null;
-      }
-      const body = (await response.json()) as {
-        session?: Pick<
-          AppSession,
-          | "customTitle"
-          | "fullTitle"
-          | "initialPrompt"
-          | "provider"
-          | "title"
-          | "updatedAt"
-        >;
-      };
-      return body.session ?? null;
-    };
-
-    const fetchPublicShareProjectFile = async (
-      projectId: UrlProjectId,
-      filePath: string,
-      fileOptions: {
-        download?: boolean;
-        highlight?: boolean;
-        lineEnd?: number;
-        lineNumber?: number;
-        raw?: boolean;
-        projectRoot?: string;
-        viewMode?: "full" | "range";
-      },
-    ): Promise<Response> => {
-      const searchParams = new URLSearchParams({ path: filePath });
-      if (fileOptions.highlight) {
-        searchParams.set("highlight", "true");
-      }
-      if (fileOptions.lineNumber !== undefined) {
-        searchParams.set("line", String(fileOptions.lineNumber));
-      }
-      if (fileOptions.lineEnd !== undefined) {
-        searchParams.set("lineEnd", String(fileOptions.lineEnd));
-      }
-      if (fileOptions.viewMode === "range") {
-        searchParams.set("view", "range");
-      }
-      if (fileOptions.download) {
-        searchParams.set("download", "true");
-      }
-      const route = fileOptions.raw ? "files/raw" : "files";
-      const projectRoot = fileOptions.projectRoot ?? decodeProjectId(projectId);
-      const attachmentPath = canonicalizeManagedAttachmentPath(
-        filePath,
-        effectiveDataDir,
-      );
-      const shareFiles = createFilesRoutes({
-        scanner: {
-          getProject: async () => ({ path: projectRoot }),
-        } as unknown as ProjectScanner,
-        ...(attachmentPath
-          ? {
-              allowedPaths: () => [
-                join(effectiveDataDir, "projects"),
-                join(effectiveDataDir, "uploads"),
-              ],
-              includeProjects: () => false,
-            }
-          : { strictProjectFileAccess: true }),
-      });
-      return await shareFiles.request(`/${projectId}/${route}?${searchParams}`);
-    };
-
-    const publicShareDeps = {
-      publicShareService: options.publicShareService,
-      listProjectRoots: async () =>
-        (await scanner.listProjects()).map((project) => project.path),
-      loadSession: loadPublicShareSession,
-      loadCompleteSession: loadCompletePublicShareSession,
-      projectDisplayName,
-      loadSessionUpdatedAt: loadPublicShareSessionUpdatedAt,
-      loadSessionSummary: loadPublicShareSessionSummary,
-      fetchProjectFile: fetchPublicShareProjectFile,
-      dataDir: effectiveDataDir,
-      localFilePolicy: localResourcePathPolicy,
-      getRelayConfig: () =>
-        options.remoteAccessService?.getRelayConfig() ?? null,
-      getPublicSharesEnabled: () =>
-        options.serverSettingsService?.getSetting("publicSharesEnabled") ??
-        false,
-      getRemoteAccessEnabled: () =>
-        options.remoteAccessService?.isEnabled() ?? false,
-      getRelayStatus: () =>
-        options.relayClientService?.getState().status ?? null,
-      getYaClientBaseUrl: () =>
-        options.serverSettingsService?.getSetting("yaClientBaseUrl"),
-      getPublicShareViewerBaseUrl: () =>
-        options.serverSettingsService?.getSetting("publicShareViewerBaseUrl"),
-    };
-
-    app.route("/api/public-shares", createPublicShareRoutes(publicShareDeps));
-    app.route("/api", createPublicFileShareRoutes(publicShareDeps));
-    app.route(
-      "/api",
-      createPublicShareManagementRoutes({
-        publicShareService: options.publicShareService,
-      }),
-    );
-    app.route("/api", createPublicShareManagementFreezeRoutes(publicShareDeps));
-    app.route(
-      "/public-api/shares",
-      createPublicSharePublicRoutes(publicShareDeps),
-    );
-  }
+  mountPublicShareRoutes(app, options, {
+    scanner,
+    projectDisplayName,
+    effectiveDataDir,
+    localResourcePathPolicy,
+  });
 
   // Connections routes (list connected browser profiles)
   if (options.connectedBrowsers) {

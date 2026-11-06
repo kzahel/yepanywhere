@@ -102,7 +102,7 @@ over 2,000):
 | 5,702 | 3,615 | `packages/client/src/components/MessageList.tsx` |
 | 5,226 | — | `packages/shared/src/server-capabilities.ts` |
 | 4,781 | 2,339 | `packages/client/src/components/MessageInput.tsx` |
-| 4,913 | 1,678 | `packages/server/src/app.ts` |
+| 4,645 | 1,678 | `packages/server/src/app.ts` (after slice 1.8a; 4,913 before) |
 | 4,157 | 2,180 | `packages/server/src/sessions/codex-reader.ts` |
 | 4,059 | 3,059 | `packages/client/src/components/MessageInputToolbar.tsx` |
 | 3,114 | 1,912 | `packages/server/src/sdk/providers/claude.ts` |
@@ -188,7 +188,7 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | 1.6 | Deferred 2026-07-06 | Metadata/notifications routes | Extract metadata updates, mark-seen, last-seen, archive/star, and debug metadata routes. Builds on SRR-009 (metadata patch parsing, done in doc 053). | Deferred with the sessions route-registrar lane. Preserve event-bus update emissions if revived. |
 | 1.7 | Done 2026-07-06 | `routes/settings.ts` parser split | Move settings parsers/discovery helpers out of the route factory. | Moved parser/discovery helpers into `settings-parsers.ts`; route factory still owns endpoints, callbacks, config precedence, and response shapes. |
 | 1.8 | In progress 2026-11-06 | `app.ts` route composition cleanup | `createApp` is one ~4,000-line function that interleaves service construction with route mounting. Keep it as the composition root, but have it call domain `mount*Routes(app, options, deps)` functions and domain service builders in today's order. Each sub-slice below moves one contiguous group. | Do not alter middleware order, auth policy, or hosted-client endpoint selection. Coordinate with doc 054: workstreams slices (WS-004, WS-008, and later) actively mount routes in `app.ts`. Stop condition specific to this file: late-assigned `let` bindings (`artifactServer`, `supervisor`, `pushNotifier`, `retainedCollections`, `conversationSubscriptions`, `apiCommands`, `agentApiController`, `knownProjectsForGrants`) are read from closures; a group that reads one before assignment cannot move as-is. |
-| 1.8a | Not started | Public-share mounting | Move the public-share loopback loaders and the five public-share route mounts into `routes/public-share-mounting.ts`. | Self-contained: reads only `options` and four already-initialized locals. Keep the mount position. Tier 3 substitute: public-share Playwright specs. |
+| 1.8a | Done 2026-11-06 | Public-share mounting | Move the public-share loopback loaders and the five public-share route mounts into `routes/public-share-mounting.ts`. | Self-contained: reads only `options` and four already-initialized locals. Mount position preserved. Tier 3 substitute: public-share Playwright specs. |
 | 1.8b | Not started | Project file and git route mounting | Move the contiguous `/api/projects` file, glossary, git status/browse/revision, file completion/view search, working-tree, file-owner, incoming-commit and projection mounts into one domain mounting module. | Several routers share the `/api/projects` prefix, so their relative order is load-bearing; move the group whole. `createConversationContextRoutes({ supervisor })` sits inside the run and reads `supervisor` after assignment, which is safe at that point. Tier 3: client E2E for file viewer and source control. |
 | 1.8c | Not started | Session reader factories | Move `readerCache`, `getOrCreateReader`, `readerFactory`, the Codex/Gemini/Grok/Pi reader factories, and `disposeSessionReaders` into a session-reader construction module that returns them. | Medium risk: the LRU reader cache, `sessionReadLifetime` abort, and disposal ordering are shared state. Read `topics/architecture-mandates.md` first. Unlocks 1.8e because the Supervisor options read these factories. |
 | 1.8d | Not started | Issue and vocabulary services | Move the issue indexer/confirmer/content/status and vocabulary learning construction under `serverSettingsService` into a domain builder returning the services and their disposers. | Late-assigned `let` bindings are reassigned here and read by disposal; return them instead of assigning outer variables. Background refresh timers must keep their idle ownership. |
@@ -333,6 +333,47 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 1.8a — Public-Share Mounting (Landed 2026-11-06, this commit)
+
+Moved:
+- The `if (options.publicShareService) { ... }` block from `createApp`
+  (`PublicShareSessionDetailEnvelope`, `parsePublicShareSessionDetail`,
+  `fetchPublicShareSession`, `loadPublicShareSession`,
+  `loadCompletePublicShareSession`, `loadPublicShareSessionUpdatedAt`,
+  `loadPublicShareSessionSummary`, `fetchPublicShareProjectFile`,
+  `publicShareDeps`, and the five `app.route` mounts) ->
+  `packages/server/src/routes/public-share-mounting.ts` as
+  `mountPublicShareRoutes`. The body, including its guard and leading
+  comment, is byte-identical; `createApp` calls it at the same position.
+Signature conversions (closure -> parameter):
+- `app`, `options` (typed as `PublicShareMountOptions`, the four services the
+  block reads) and the locals `scanner`, `projectDisplayName`,
+  `effectiveDataDir` and `localResourcePathPolicy` became parameters. All
+  four locals are initialized before the call, so no late binding moved.
+Behavior changes:
+- None. The loopback `app.fetch` calls still run against the same Hono
+  instance at request time, so mount order relative to session detail,
+  metadata and files routes is unchanged.
+Verification:
+- Tier 1: server `tsc --noEmit`; Biome lint on changed files; focused
+  `test/routes/public-shares.test.ts`, `test/routes/public-file-shares.test.ts`,
+  `test/api/sessions.test.ts` (covers frozen capture through `createApp`) and
+  `test/incremental-session.test.ts`: 88 passed, 2 skipped.
+- Tier 2: root `pnpm lint`, `pnpm format:check`, `pnpm typecheck` and
+  `pnpm test` passed (server 7,111 passed / 87 skipped; client 7,127;
+  shared 980; relay 139; push-broker 45), with only the baseline
+  negative-path log chatter.
+- Independent review (gpt-6.1-sol): moved block byte-identical to `HEAD`;
+  mount position, options identity, narrowing and request-time loopback
+  calls preserved; no extraction issue found.
+- Budget: `pnpm source:budgets --record` lowered `app.ts` 4,913 -> 4,645.
+- Tier 3 substitute: `pnpm --filter client test:e2e
+  e2e/public-share-management.spec.ts e2e/public-share-viewer.spec.ts` — 6
+  passed against a real server. Server E2E has no public-share cases, and no
+  other mount moved.
+Follow-ups recorded:
+- Slices 1.8b–1.8e above.
 
 ### Slice 3.11 — api/client File/Diff Domain Client (Landed 2026-07-07, this commit)
 
