@@ -5,6 +5,11 @@ import type {
   StoredRelationship,
 } from "./SessionRelationshipStore.js";
 
+export type RelationshipQuerySource = Pick<
+  SessionRelationshipStore,
+  "list" | "evidence"
+>;
+
 export interface RelationshipProjectionAccess<T, E> {
   /** The queried resource must be authorized before looking up graph rows. */
   anchor(resource: RelationshipResource): boolean;
@@ -44,13 +49,22 @@ export interface ProjectedRelationship<T, E> {
 export class RelationshipProjectionBatch<T, E> {
   #scanAfter: string | null;
   #withheld: boolean;
+  #positions: readonly string[];
+  #scanned: number;
+  #verify: readonly (() => ProjectedRelationship<T, E> | undefined)[];
   constructor(
     readonly relationships: ProjectedRelationship<T, E>[],
     scanAfter: string | null,
     withheld: boolean,
+    positions: readonly string[],
+    scanned: number,
+    verify: readonly (() => ProjectedRelationship<T, E> | undefined)[],
   ) {
     this.#scanAfter = scanAfter;
     this.#withheld = withheld;
+    this.#positions = positions;
+    this.#scanned = scanned;
+    this.#verify = verify;
   }
   // Private scan control is intentionally absent from JSON/object spread.
   get scanAfter(): string | null {
@@ -59,6 +73,22 @@ export class RelationshipProjectionBatch<T, E> {
   get withheld(): boolean {
     return this.#withheld;
   }
+  /** Private continuation of a projected row, never a wire identifier. */
+  position(index: number): string {
+    const position = this.#positions[index];
+    if (position === undefined)
+      throw new Error("Invalid relationship position");
+    return position;
+  }
+  get scanned(): number {
+    return this.#scanned;
+  }
+  /** Re-run caller-owned visibility before publishing a page across yields. */
+  verifier(index: number): () => ProjectedRelationship<T, E> | undefined {
+    const verify = this.#verify[index];
+    if (!verify) throw new Error("Invalid relationship position");
+    return verify;
+  }
 }
 
 /**
@@ -66,16 +96,20 @@ export class RelationshipProjectionBatch<T, E> {
  * registry, grants, cache, transitive expansion, or background work. The
  * caller supplies existing resource and evidence policy for its projection.
  * At most two indexed anchor reads select 200 unique edges for projection,
- * with at most 20 evidence rows per selected edge. With both directions this
- * means at most four list statements / 804 raw rows / 400 decoded edges, plus
- * 200 evidence queries and caller-owned policy work. Existing statements are
- * reused, including the index's bounded incoming/outgoing merge.
+ * with at most 20 evidence rows per selected edge. For the bare index, both
+ * directions use at most four list statements / 804 fetched rows / 400 decoded
+ * edges, plus 200 evidence queries and caller-owned policy work. An authorized
+ * SQL source may examine more anchor edges while filtering before LIMIT; these
+ * are result/decode bounds, not a per-statement work or latency ceiling.
+ * Existing statements and the incoming/outgoing merge are reused.
  */
 export function projectRelationshipBatch<T, E>(
-  store: SessionRelationshipStore,
+  store: RelationshipQuerySource,
   input: Omit<Parameters<SessionRelationshipStore["list"]>[0], "resource"> & {
     /** A canonical YA resource plus its existing exact native binding, at most. */
     resources: readonly RelationshipResource[];
+    /** Only async page assembly retains witnesses across event-loop yields. */
+    retainVerification?: true;
   },
   access: RelationshipProjectionAccess<T, E>,
 ): RelationshipProjectionBatch<T, E> | undefined {
@@ -100,6 +134,8 @@ export function projectRelationshipBatch<T, E>(
       ? edges.at(-1)!.id
       : null;
   const relationships: ProjectedRelationship<T, E>[] = [];
+  const positions: string[] = [];
+  const verify: (() => ProjectedRelationship<T, E> | undefined)[] = [];
   let withheld = false;
   for (const edge of edges) {
     const source = access.endpoint(edge.source, edge, "source");
@@ -113,7 +149,8 @@ export function projectRelationshipBatch<T, E>(
       continue;
     }
     const evidence: E[] = [];
-    for (const entry of store.evidence(edge.id, { limit: 20 })) {
+    const entries = store.evidence(edge.id, { limit: 20 });
+    for (const entry of entries) {
       const projected = access.evidence(entry, edge);
       if (projected !== undefined) evidence.push(projected);
     }
@@ -127,6 +164,27 @@ export function projectRelationshipBatch<T, E>(
       target,
       evidence,
     });
+    positions.push(edge.id);
+    if (input.retainVerification)
+      verify.push(() => {
+        const source = access.endpoint(edge.source, edge, "source");
+        if (source === undefined) return undefined;
+        const target = access.endpoint(edge.target, edge, "target");
+        if (target === undefined) return undefined;
+        const evidence = entries
+          .map((entry) => access.evidence(entry, edge))
+          .filter((entry): entry is E => entry !== undefined);
+        return evidence.length
+          ? { type: edge.type, source, target, evidence }
+          : undefined;
+      });
   }
-  return new RelationshipProjectionBatch(relationships, scanAfter, withheld);
+  return new RelationshipProjectionBatch(
+    relationships,
+    scanAfter,
+    withheld,
+    positions,
+    edges.length,
+    verify,
+  );
 }

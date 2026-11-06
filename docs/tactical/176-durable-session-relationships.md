@@ -25,10 +25,12 @@ existing child-navigation projections. Creation, provider delegation, copy and
 command-observed launch remain distinct evidence; unsupported cases stay
 unknown. Accepted facts and acquisition progress survive restart/source loss.
 
-The full plan remains active. Generic authorized relationship pages, revised v0
-query output and reverse presentation still await the previously requested
-public-contract compatibility decision. The old-extension exclusion does not
-approve making hosted/mobile clients depend on unsupported older-server routes.
+The full plan is resumed by the maintainer on 2026-11-06. Generic authorized
+relationship pages, v0 query integration and reverse presentation are approved
+with one small, temporary support check: an older server omits the new
+relationship/subagent visualization without an alternate legacy loader. Track
+that check under the existing 90-day retirement rule. The old-extension
+exclusion remains; no new permission or identity model is introduced.
 Other harness families, automatic unseen-corpus acquisition, legacy copy fences
 and unqualified platform/provider formats are not silently inferred. Their
 qualification is separate from the delivered bounded adapters.
@@ -36,6 +38,15 @@ qualification is separate from the delivered bounded adapters.
 The final source is locally qualified by the whole workspace and Node/Bun SQL
 reopen probes. Hosted matrix acceptance and its separate input/startup findings
 are recorded below; a later pass does not explain earlier typing misses.
+
+## Resumed scope
+
+The maintainer defers the hosted typing-performance investigation from this
+workstream. Preserve its tests, 100 ms contract and open gap; do not relax the
+limit or rerun qualification merely to replace a failure. Ordinary focused UI
+regression checks still protect changes made here. Complete the remaining
+relationship API, consumer migration, bounded historical acquisition and
+provider/restart correctness work in coherent reviewed commits.
 
 ## Substantial delivery slices
 
@@ -1584,3 +1595,31 @@ gap. Full plan completion still requires the previously requested public API,
 authorized-page and consumer compatibility decision; the backend checkpoint is
 not approval to add those routes or make hosted/mobile clients depend on them.
 The live port 3400 was not restarted for these measurements or publication.
+
+### Authorized page and continuation foundation
+
+The resumed API slice establishes SQL visibility before LIMIT and opaque,
+query/principal-bound continuation with authorized lookahead. It reuses the
+existing identity/metadata tables and graph statements, adding one reused
+query statement instead of another authority or identity registry. Native
+children remain exact-parent read-only references. Assembled pages recheck
+endpoint/evidence permission after yielding; inaccessible resources and proof
+fields never become cursor or has-more data. The HTTP/v0 adapters and temporary
+capability are the next coherent integration step, not advertised prematurely.
+
+Real SQLite checks cover 2,100 hidden targets, working-project moves, separate
+creator visibility, unbound native children, conflicting parents, mixed
+canonical/native pages, cursor tampering/context/expiry/restart, bounded scan
+failure and permissions changing while a page yields. No provider startup,
+model request or browser scenario is added by this foundation.
+
+Review caught and corrected a bound hidden native child using the unbound-child
+exception, and an SQL plan scanning unrelated edges instead of seeking the
+anchor/keyset range. Retained real-SQL regressions cover both; SQL may still
+examine hidden edges on the selected anchor, so no per-statement time or scan
+ceiling is claimed. Thirteen focused cases pass in 0.702 seconds (0.245 test
+work). Node 22.23.3, Node 24.22.1 and Bun 1.3.14 pass actual file-SQLite page,
+cursor and reopen probes under the 64-statement ceiling. Final workspace checks
+pass 7,106 server (87 skipped), 7,119 client, 980 shared, 139 relay and 45
+push-broker cases; server/client durations are 154.42/130.28 seconds. Lint is
+warning-free and format/types pass. Typing qualification remains deferred.

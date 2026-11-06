@@ -126,7 +126,7 @@ export function relationshipResourceKey(
     native.id,
   ]);
 }
-function decodeResource(key: string): RelationshipResource {
+export function decodeRelationshipResource(key: string): RelationshipResource {
   const parts = JSON.parse(key) as string[];
   return parts[0] === "session"
     ? { kind: "session", serverId: parts[1]!, sessionId: parts[2]! }
@@ -411,8 +411,8 @@ export class SessionRelationshipStore {
       edges: rows.slice(0, limit).map((row) => ({
         id: row.id,
         type: row.type,
-        source: decodeResource(row.source),
-        target: decodeResource(row.target),
+        source: decodeRelationshipResource(row.source),
+        target: decodeRelationshipResource(row.target),
       })),
       next: rows.length > limit ? rows[limit - 1]!.id : null,
     };

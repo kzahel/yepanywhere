@@ -343,6 +343,50 @@ authorized-page lookahead/continuation before exposing pagination; a withheld
 or bounded evidence result cannot establish known empty. No generic route,
 client dependency or revised v0 resource is introduced by this internal adapter.
 
+The internal authorized-page adapter now supplies visibility-filtered SQL
+selection with bounded results and authorized lookahead. Its scoped source applies the existing
+identity and working-project grant scope before LIMIT, so hidden projects do
+not consume a page budget or expose their cardinality through continuation.
+Creator edges retain a separate operator-authority switch; this does not grant
+receipt access. Local bound identities and unique provider-observed native
+children can participate; unresolved and remote endpoints stay with their
+existing identity/receipt owners. A native child remains parent-scoped and
+read-only rather than becoming an independent YA identity.
+
+A page contains at most 100 projected relationships and issues a continuation
+only after observing another visible relationship. Cursors use process-local
+AES-256-GCM authenticated encryption over private position, exact resource/query
+binding and server-established principal context. They expire after ten minutes
+or API restart and grant no access; consumers start a fresh page on expiry.
+Anchor authority is checked before SQL and after each batch yield. Retained
+endpoint/evidence witnesses are rechecked before publishing, including the
+lookahead row; an authority change discards the assembled page. No public
+cursor, raw id, private scope, withheld count or scan frontier is exposed.
+
+Each read selects at most 2,000 SQL-visible candidate edges in 200-edge batches.
+This bounds returned candidates and JavaScript projection work, not SQL rows
+examined or wall time. Each statement seeks the exact anchor/keyset range,
+but may examine all hidden edges on that anchor before finding visible rows.
+That cost is linear in examined anchor edges; no per-statement scan ceiling
+or constant-time confidentiality is claimed, and latency weakly reflects
+hidden cardinality. Unbound native children currently require a bound visible
+immediate parent; an unbound child's own children need a separately qualified
+parent-chain rule. Native storage scope equality is not assumed across that
+edge: Claude's accepted child scope is its parent-owned subagents directory. A failure
+to complete safe lookahead within that bound returns an unavailable outcome,
+never partial data presented as known empty. Public adapters must use the
+SQL-authorized source, not the private unfiltered index: the work bound is not
+a substitute for filtering inaccessible projects before pagination. Their
+factory accepts the nominal authorized-source type; the SQL scope and final
+projection must derive from the same existing access owner. Cursor context
+includes the resolved project/creator/server scope as well as the principal.
+There is
+one reused SQL statement per profile source, a fixed cursor key, no retained
+session/page cache and no polling. Existing synchronous child projections do
+not retain verification witnesses. HTTP/v0 route and capability advertisement
+integration remain the next delivery slice; this internal adapter advertises
+no new support by itself.
+
 Adapt today's `providerChildren`, `/agents` navigation, fork and `/btw` fields
 from this model as their owning writers migrate. They retain their established
 semantics. A generic related-session view may show additional predicates, but
@@ -480,6 +524,23 @@ through the migration. Provider extractor/checkpoint versions and historical
 fixture formats have their own compatibility tests; a UI gate cannot repair an
 incorrect native parser. Server downgrade to a database schema it cannot read
 retains the existing explicit refusal/recovery policy.
+
+### Approved relationship rollout, 2026-11-06
+
+The maintainer approves a small temporary capability check for the new unified
+relationship API and visualization. Missing support omits that visualization,
+including subagent visualization if needed; normal session viewing continues.
+Do not retain a legacy relationship loader or rendering implementation solely
+as a fallback. The client check and omission path follow the existing 90-day
+retirement rule, anchored to the first source introduction for unreleased code;
+a later stable release does not reset the clock. Capability ID reservations
+remain separate from runtime compatibility code. Earlier legacy-path removal
+is allowed as consumers migrate within the supported contract.
+
+The hosted streaming-input performance investigation is deferred from this
+workstream. Its unchanged 100 ms contract and captured failures remain in the
+[typing gap](../gaps/hosted-native-input-acknowledgement-over-100ms.md); this is
+not a claim of full hosted browser acceptance.
 
 ### Implementation sequence
 
