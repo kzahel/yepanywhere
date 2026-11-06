@@ -29,7 +29,7 @@ import {
 } from "../services/ClearloopService.js";
 import { turnIndexOf } from "../sessions/turn-index.js";
 import { hostname } from "node:os";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import type { ISessionIndexService } from "../indexes/types.js";
 import { getLogger } from "../logging/logger.js";
 import type { ToolResultMediaStore } from "../media/ToolResultMediaStore.js";
@@ -60,6 +60,9 @@ import {
   inheritedChildLaunchMetadata,
   inheritedSandboxRecord,
   persistLaunchMetadata,
+  type NewSessionRecord,
+  recordNewSessionMetadata,
+  releaseFailedForkNumber,
 } from "./session-launch-metadata.js";
 import { createSessionLaunchSettings } from "./session-launch-settings.js";
 import {
@@ -1301,27 +1304,33 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       timestamp: new Date().toISOString(),
     });
   };
-  const updateForkSummaryChildMetadata = async (
-    childSessionId: string,
-    sourceSessionId: string,
-    title: string,
-    archived: boolean,
-    forkLineageRootId?: string,
+  const recordNewSession = (
+    sessionId: string,
+    record: NewSessionRecord,
+  ): Promise<void> =>
+    recordNewSessionMetadata(
+      deps.sessionMetadataService,
+      deps.eventBus,
+      sessionId,
+      record,
+    );
+  /**
+   * Record a limited user as a fork's or clone's creator, as creation
+   * admission already does (topics/limited-users.md § Delivery v1), and
+   * count every copy as one session in the acting user's usage.
+   */
+  const recordCopyCreator = async (
+    c: Context,
+    sessionId: string,
   ): Promise<void> => {
-    await deps.sessionMetadataService?.updateMetadata(childSessionId, {
-      title,
-      archived,
-      forkedFromSessionId: sourceSessionId,
-      ...(forkLineageRootId ? { forkLineageRootId } : {}),
-    });
-    deps.eventBus?.emit({
-      type: "session-metadata-changed",
-      sessionId: childSessionId,
-      title,
-      archived,
-      forkedFromSessionId: sourceSessionId,
-      timestamp: new Date().toISOString(),
-    });
+    const creator = actingUsername(c);
+    if (creator) {
+      await deps.sessionMetadataService?.recordSessionCreator(
+        sessionId,
+        creator,
+      );
+    }
+    void deps.userUsageService?.recordSession(creator);
   };
   const getCodexReader = (projectPath: string): CodexSessionReader | null =>
     deps.codexReaderFactory?.(projectPath) ??
@@ -2247,9 +2256,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           sandboxStateKey: originalMetadata?.sandboxStateKey,
         });
       } catch (error) {
-        if (claimed && !(error instanceof ForkSettingsPersistenceError)) {
-          await deps.sessionMetadataService?.releaseForkOrdinal(claimed);
-        }
+        await releaseFailedForkNumber(
+          deps.sessionMetadataService,
+          claimed,
+          error,
+        );
         getLogger().warn(
           {
             event: "restart_fork_failed",
@@ -2343,18 +2354,10 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           },
         },
       );
-      if (deps.sessionMetadataService) {
-        await deps.sessionMetadataService.updateMetadata(result.sessionId, {
-          title: forkTitle,
-          forkLineageRootId: lineageRootId,
-        });
-        deps.eventBus?.emit({
-          type: "session-metadata-changed",
-          sessionId: result.sessionId,
-          title: forkTitle,
-          timestamp: new Date().toISOString(),
-        });
-      }
+      await recordNewSession(result.sessionId, {
+        title: forkTitle,
+        forkLineageRootId: lineageRootId,
+      });
 
       const oldProcessAbortDeferred = abortOldProcessAfterReplacementActivity(
         oldProcess,
@@ -2443,17 +2446,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         projectId: result.projectId,
       },
     });
-    if (deps.sessionMetadataService) {
-      await deps.sessionMetadataService.updateMetadata(result.sessionId, {
-        title: handoffTitle,
-      });
-      deps.eventBus?.emit({
-        type: "session-metadata-changed",
-        sessionId: result.sessionId,
-        title: handoffTitle,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    await recordNewSession(result.sessionId, { title: handoffTitle });
 
     const oldProcessAbortDeferred = abortOldProcessAfterReplacementActivity(
       oldProcess,
@@ -2646,17 +2639,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       }
       const result = outcome.process;
 
-      if (deps.sessionMetadataService) {
-        await deps.sessionMetadataService.updateMetadata(result.sessionId, {
-          title: handoffTitle,
-        });
-        deps.eventBus?.emit({
-          type: "session-metadata-changed",
-          sessionId: result.sessionId,
-          title: handoffTitle,
-          timestamp: new Date().toISOString(),
-        });
-      }
+      await recordNewSession(result.sessionId, { title: handoffTitle });
       return c.json({
         sessionId: result.sessionId,
         processId: result.id,
@@ -3631,9 +3614,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         ...inheritedSandboxSettings(originalMetadata),
       });
     } catch (error) {
-      if (claimed && !(error instanceof ForkSettingsPersistenceError)) {
-        await deps.sessionMetadataService?.releaseForkOrdinal(claimed);
-      }
+      await releaseFailedForkNumber(
+        deps.sessionMetadataService,
+        claimed,
+        error,
+      );
       getLogger().warn(
         {
           event: "session_fork_failed",
@@ -3712,30 +3697,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         projectId: projectId as UrlProjectId,
       }),
     );
-    const forkCreator = actingUsername(c);
-    if (forkCreator) {
-      // A limited user's fork is theirs, like a session they start
-      // (topics/limited-users.md § Delivery v1).
-      await deps.sessionMetadataService?.recordSessionCreator(
-        fork.sessionId,
-        forkCreator,
-      );
-    }
-    void deps.userUsageService?.recordSession(forkCreator);
-    if (deps.sessionMetadataService) {
-      await deps.sessionMetadataService.updateMetadata(fork.sessionId, {
-        title: forkTitle,
-        forkedFromSessionId: sessionId,
-        forkLineageRootId,
-      });
-      deps.eventBus?.emit({
-        type: "session-metadata-changed",
-        sessionId: fork.sessionId,
-        title: forkTitle,
-        forkedFromSessionId: sessionId,
-        timestamp: new Date().toISOString(),
-      });
-    }
+    await recordCopyCreator(c, fork.sessionId);
+    await recordNewSession(fork.sessionId, {
+      title: forkTitle,
+      forkedFromSessionId: sessionId,
+      forkLineageRootId,
+    });
 
     return c.json({
       sessionId: fork.sessionId,
@@ -3914,12 +3881,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       generatorSessionId = generator.sessionId;
       requestedModel =
         generator.launchSettings?.requestedModel ?? requestedModel;
-      await updateForkSummaryChildMetadata(
-        generator.sessionId,
-        sessionId,
-        "Retitle generator",
-        true,
-      );
+      await recordNewSession(generator.sessionId, {
+        title: "Retitle generator",
+        archived: true,
+        forkedFromSessionId: sessionId,
+      });
       await persistLaunchMetadata(
         deps.sessionMetadataService,
         generator.sessionId,
@@ -4170,12 +4136,11 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           generatorSessionId = generator.sessionId;
           requestedModel =
             generator.launchSettings?.requestedModel ?? requestedModel;
-          await updateForkSummaryChildMetadata(
-            generator.sessionId,
-            sessionId,
-            "Fork summary generator",
-            true,
-          );
+          await recordNewSession(generator.sessionId, {
+            title: "Fork summary generator",
+            archived: true,
+            forkedFromSessionId: sessionId,
+          });
           await persistLaunchMetadata(
             deps.sessionMetadataService,
             generator.sessionId,
@@ -4254,13 +4219,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           });
           targetSessionId = target.sessionId;
           void deps.userUsageService?.recordSession(forkSummaryActor);
-          await updateForkSummaryChildMetadata(
-            target.sessionId,
-            sessionId,
+          await recordNewSession(target.sessionId, {
             title,
-            true,
+            archived: true,
+            forkedFromSessionId: sessionId,
             forkLineageRootId,
-          );
+          });
           await persistLaunchMetadata(
             deps.sessionMetadataService,
             target.sessionId,
@@ -4337,13 +4301,12 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
               },
             },
           );
-          await updateForkSummaryChildMetadata(
-            result.sessionId,
-            sessionId,
+          await recordNewSession(result.sessionId, {
             title,
-            false,
+            archived: false,
+            forkedFromSessionId: sessionId,
             forkLineageRootId,
-          );
+          });
           await deps.sessionMetadataService?.updateTranscriptDisplayObject(
             sessionId,
             displayObject.id,
@@ -4385,34 +4348,31 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
           };
           if (generatorSessionId) {
             try {
-              await updateForkSummaryChildMetadata(
-                generatorSessionId,
-                sessionId,
-                "Fork summary generator",
-                true,
-              );
+              await recordNewSession(generatorSessionId, {
+                title: "Fork summary generator",
+                archived: true,
+                forkedFromSessionId: sessionId,
+              });
             } catch (cleanupError) {
               logCleanupFailure("archive-generator", cleanupError);
             }
           }
           if (targetSessionId && targetTitle) {
             try {
-              await updateForkSummaryChildMetadata(
-                targetSessionId,
-                sessionId,
-                targetTitle,
-                true,
-              );
+              await recordNewSession(targetSessionId, {
+                title: targetTitle,
+                archived: true,
+                forkedFromSessionId: sessionId,
+              });
             } catch (cleanupError) {
               logCleanupFailure("archive-target", cleanupError);
             }
-          } else if (
-            fallbackClaim &&
-            !(error instanceof ForkSettingsPersistenceError)
-          ) {
+          } else {
             try {
-              await deps.sessionMetadataService?.releaseForkOrdinal(
+              await releaseFailedForkNumber(
+                deps.sessionMetadataService,
                 fallbackClaim,
+                error,
               );
             } catch (cleanupError) {
               logCleanupFailure("release-fork-ordinal", cleanupError);
@@ -5474,16 +5434,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         );
       }
 
-      const cloneCreator = actingUsername(c);
-      if (cloneCreator) {
-        // A limited user's clone is theirs, like a session they start
-        // (topics/limited-users.md § Delivery v1).
-        await deps.sessionMetadataService?.recordSessionCreator(
-          result.newSessionId,
-          cloneCreator,
-        );
-      }
-      void deps.userUsageService?.recordSession(cloneCreator);
+      await recordCopyCreator(c, result.newSessionId);
       // Set clone metadata. /btw asides pass parentSessionId so the child
       // can jump back into the parent viewport.
       if (deps.sessionMetadataService) {

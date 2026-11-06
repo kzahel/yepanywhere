@@ -8,6 +8,9 @@ import type {
   SessionMetadata,
   SessionMetadataService,
 } from "../metadata/index.js";
+import type { ForkOrdinalClaim } from "../metadata/SessionMetadataService.js";
+import { ForkSettingsPersistenceError } from "../supervisor/Supervisor.js";
+import type { EventBus } from "../watcher/index.js";
 import { persistedSandboxNetworkFirewall } from "./session-sandbox-settings.js";
 
 /** The sandbox a launched session records for later resumes. */
@@ -131,4 +134,55 @@ export function inheritedChildLaunchMetadata(
     recapAfterSeconds: source?.recapAfterSeconds,
     sandbox: inheritedSandboxRecord(source, child),
   };
+}
+
+/**
+ * The title and lineage a route records on a session it made from another:
+ * a fork, a handoff or a helper fork. An absent field is not written.
+ */
+export interface NewSessionRecord {
+  title?: string;
+  archived?: boolean;
+  forkedFromSessionId?: string;
+  /** The fork lineage's root, which only fork numbering reads. */
+  forkLineageRootId?: string;
+}
+
+/**
+ * Record a new session's title and lineage, then announce them with
+ * `session-metadata-changed` so open session lists show them. The
+ * announcement carries every field but the lineage root.
+ */
+export async function recordNewSessionMetadata(
+  service: SessionMetadataService | undefined,
+  eventBus: EventBus | undefined,
+  sessionId: string,
+  record: NewSessionRecord,
+): Promise<void> {
+  if (!service) {
+    return;
+  }
+  await service.updateMetadata(sessionId, record);
+  const { forkLineageRootId: _lineageRoot, ...announced } = record;
+  eventBus?.emit({
+    type: "session-metadata-changed",
+    sessionId,
+    ...announced,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
+ * Give back the fork number a failed fork claimed for its title, so the next
+ * fork takes it. A fork kept without its settings
+ * (`ForkSettingsPersistenceError`) exists and keeps its number.
+ */
+export async function releaseFailedForkNumber(
+  service: SessionMetadataService | undefined,
+  claim: ForkOrdinalClaim | undefined,
+  error: unknown,
+): Promise<void> {
+  if (claim && !(error instanceof ForkSettingsPersistenceError)) {
+    await service?.releaseForkOrdinal(claim);
+  }
 }

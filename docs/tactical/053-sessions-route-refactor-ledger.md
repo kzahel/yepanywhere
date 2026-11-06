@@ -11,8 +11,10 @@ routes themselves into their own registrars. SRR-019 then folded the
 successor routes' copied launch-metadata writes into one module as step 1 of
 [plan 177](177-session-launch-service.md), which owns the session-launch
 consolidation from here, SRR-020 gave the successor launches one
-settings assembly as step 2, and SRR-021 gave every route one reading of a
-launch's started, queued or queue-full result as step 3. SRR-013 landed the
+settings assembly as step 2, SRR-021 gave every route one reading of a
+launch's started, queued or queue-full result as step 3, and SRR-022 gave
+the routes that make a session from another one writer for its title and
+lineage as step 4. SRR-013 landed the
 metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
@@ -27,7 +29,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-021
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-022
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -97,6 +99,44 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-022: One Record For Sessions Made From Another
+
+Status: done, 2026-11-06. Step 4 of
+[plan 177](177-session-launch-service.md). Not a move-only slice; it follows
+that plan's behavior-preserving rules.
+
+Destination: `recordNewSessionMetadata` and `releaseFailedForkNumber` join
+the existing `packages/server/src/routes/session-launch-metadata.ts`;
+`recordCopyCreator` replaces two copies inside the sessions route factory.
+
+Line delta: `-49` lines from `sessions.ts` (5,524 -> 5,475);
+`session-launch-metadata.ts` grows from 134 to 188 lines.
+
+Problem:
+
+Fork, restart fork, restart handoff, the stale-session handoff and the
+retitle and fork-summary helpers each wrote a new session's title and
+lineage and announced it by hand or through a helper-only closure; fork,
+restart fork and the fork-summary target each wrote the rule that a failed
+fork gives back its fork number; fork and clone each recorded a limited
+user as the copy's creator.
+
+Implemented:
+
+- the three shared pieces above; each path keeps its own order of writes,
+  which differs per path;
+- each difference between the copies was classified in plan 177's step 4
+  table. Admission already records most of what these routes write again,
+  and clone and restart fork announce less than fork; both go to the
+  maintainer with step 5's one-owner-per-field decision.
+
+Verification: `test/routes/session-copy-records.test.ts` pins, per new
+session, the title and lineage writes and announcements in order, a
+limited user's fork's creator and usage records, and every fork-number claim
+and release, including failed forks, forks kept without their settings and
+restart fork and fork-summary targets whose launch is refused. It passed
+against the old code before the change.
 
 ### SRR-021: One Launch-Outcome Mapping
 

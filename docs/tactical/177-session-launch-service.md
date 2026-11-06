@@ -2,7 +2,7 @@
 
 Topic: core-service-api
 
-Status: steps 1-3 landed 2026-11-06. Accepted by the maintainer as the top item
+Status: steps 1-4 landed 2026-11-06. Accepted by the maintainer as the top item
 of the module-boundary [priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
 
 Starting a session is one operation that today has about a dozen hand-written
@@ -178,6 +178,45 @@ creator and usage, write the lineage metadata and emit
 `session-metadata-changed`. Fold the sequence into one function and keep each
 caller's title and error-response choices as parameters.
 
+Landed 2026-11-06, as three shared pieces rather than one function. Mapping
+the copies showed they agree on the pieces but not on the sequence: each
+path writes in its own order (fork records its launch metadata before its
+title, the helpers their title first, and the fork-summary target counts
+usage before either), and each records a different subset. One function
+would need a switch for every difference, so each path keeps its short
+sequence and calls:
+
+- `recordNewSessionMetadata` in `routes/session-launch-metadata.ts`: writes a
+  new session's title and lineage and announces them with
+  `session-metadata-changed`. Fork, restart fork, restart handoff, the
+  stale-session handoff and the retitle and fork-summary helpers each wrote
+  and announced by hand, or through a helper-only closure.
+- `releaseFailedForkNumber`, beside it: a failed fork gives back the fork
+  number it claimed for its title, unless it was kept without its settings.
+  Fork, restart fork and the fork-summary target each wrote that rule.
+- `recordCopyCreator` in the sessions route: a limited user's fork or clone
+  is recorded as theirs, and counts as one session of their usage.
+
+`test/routes/session-copy-records.test.ts` pins, per new session, the title
+and lineage writes and announcements in order, a limited user's fork's
+creator and usage records, and every fork-number claim and release,
+including failed forks, forks kept without their settings and restart fork
+and fork-summary targets whose launch is refused. It passed against the old code before
+the change. The Supervisor's own recap generator fork is not a route path and
+is unchanged.
+
+Every difference between the copies was checked against its history:
+
+| Difference | Finding | Resolution |
+| --- | --- | --- |
+| The order of the launch-metadata, creator, usage and title writes differs per path | Harmless: each write sets its own fields. Step 1's tests pin the order of the launch-metadata and title writes, and this step's tests pin fork's creator and usage records before its title | Each path keeps its order |
+| Each path re-records a different subset after the copy exists: fork its title, `forkedFromSessionId` and lineage root; restart fork its title and root; the helpers their title, `archived` and `forkedFromSessionId`, and the fork-summary target also the root; clone its title, `forkedFromSessionId` and `/btw` link; the handoffs a title | Mostly the stored result already agrees: `SessionCreationStore.admit` records every transcript copy's title and `forkedFromSessionId`, a clone's `/btw` link to its source, and the helper generators' archiving before the copy exists (`1824356f0`, `e86b1caa9`), and the route writes repeat it. Only the lineage root, the handoffs' title, the fork-summary target's archiving (when made, on failure, and its later unarchiving, per [fork from turn](../../topics/fork-from-turn.md)) and a clone's `/btw` link to a parent other than its source are the route's alone | The caller's record; whether the routes should repeat admission's fields is step 5's one-owner decision |
+| What each path announces: fork its title and `forkedFromSessionId`, restart fork only its title, clone nothing | Unclear: restart fork never re-recorded `forkedFromSessionId` (`cad0679d7`, `ea9c936df`), and clone predates the announcements (`bbaab48c3`; the `/btw` link `73e1ce003` added the parent fields to the event without emitting it from clone). No visible effect was found, since admission records those fields before a list can show the copy, but the client does read `forkedFromSessionId` from the event | Unchanged; raised with the maintainer with step 5 |
+| Only fork and clone record a limited user as the creator | A leftover duplicate: fork and clone gained the write in `0d04f2211` (2026-09), and when admission took the creator over, `e86b1caa9` removed the start routes' write but left these two. Admission records the creator of every limited user's copy and stale-session handoff | Kept in `recordCopyCreator`; step 5's one-owner decision |
+| Fork claims a number only when the source has a title, restart fork always, the fork-summary target only for a fallback title | Deliberate: an untitled fork has no number to show, restart always derives a title, and fork-summary does not spend a number its generated title will not use ([fork from turn](../../topics/fork-from-turn.md)) | Each caller decides when to claim; the release rule is shared |
+| Fork takes its lineage root from the claim or `forkLineageRoot`, restart fork from the claim or the source id, fork-summary from `forkLineageRoot` | The same value: a claim's root is `forkLineageRoot` of the source, and restart claims whenever there is metadata to write | Unchanged |
+| The helper closure announced even without a metadata service | Unreachable: both helper routes require one | The shared writer skips both |
+
 ### 5 — lift the service out of the route layer
 
 Once steps 2-4 exist, move them and the step 1 writer behind a
@@ -188,6 +227,13 @@ needs. Decide here which owner writes each launch-metadata field. Today
 `SessionCreationStore.admit`, the route, `Supervisor.forkSession` and
 `SessionActivationCoordinator` write overlapping fields; leave one owner per field, and record the decision in the
 core-service-api topic.
+
+Steps 3 and 4 found these duplicates: admission records a transcript copy's
+title and `forkedFromSessionId`, a clone's `/btw` link to its source, the
+helper generators' archiving and a limited user as creator, which fork,
+clone, restart fork and the helpers write again after the copy exists; and the Supervisor saves a project-write sandbox on start,
+which the routes write again. The Supervisor's recap generator fork also
+writes its own copy's title, archiving and launch metadata by hand.
 
 ## Not in scope
 
