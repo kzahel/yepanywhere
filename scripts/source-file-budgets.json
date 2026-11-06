@@ -3,7 +3,7 @@
   "updated": "2026-11-06",
   "files": {
     "packages/client/src/api/client.ts": {
-      "maxLines": 2003
+      "maxLines": 1974
     },
     "packages/client/src/components/blocks/ToolCallRow.tsx": {
       "maxLines": 1953
