@@ -112,6 +112,32 @@ test("hunks and long-line runs scroll independently without adding vertical scro
       .inputValue(),
   ).toBe("0");
 
+  // A run's control yields width only where it sits: rows outside every
+  // run's reach keep the full hunk width, and no fixed row is clipped.
+  const reach = await hunks.nth(1).evaluate((hunk) => {
+    const right = hunk.getBoundingClientRect().right;
+    const rows = [
+      ...hunk.querySelectorAll<HTMLElement>("[data-diff-scroll-row]"),
+    ];
+    const lastCell = (row: HTMLElement) => row.lastElementChild as HTMLElement;
+    return {
+      free: rows.filter((row) => !row.hasAttribute("data-diff-reserved"))
+        .length,
+      freeGaps: rows
+        .filter((row) => !row.hasAttribute("data-diff-reserved"))
+        .map((row) => right - lastCell(row).getBoundingClientRect().right),
+      fixedClipped: [...hunk.querySelectorAll("[data-diff-scroll-group]")]
+        .filter((group) => !group.querySelector('input[type="range"]'))
+        .flatMap((group) => [
+          ...group.querySelectorAll<HTMLElement>("[data-diff-scroll-cell]"),
+        ])
+        .filter((cell) => cell.scrollWidth > cell.clientWidth + 1).length,
+    };
+  });
+  expect(reach.free).toBeGreaterThan(0);
+  expect(Math.max(...reach.freeGaps)).toBeLessThan(2);
+  expect(reach.fixedClipped).toBe(0);
+
   // Native horizontal input also synchronizes the paired rows, not just the slider.
   await movedRun
     .locator("[data-diff-scroll-cell]")

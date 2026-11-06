@@ -632,7 +632,12 @@ Highlighted unified and side-by-side diffs share horizontal scroll groups.
 A hunk whose source rows and header fit the visible vertical scrollport has
 one slider beside its hunk range; both sides move by the same pixel offset.
 For a taller hunk, each isolated overflowing row or contiguous run of
-overflowing rows has its own inline slider in a narrow right-hand rail.
+overflowing rows has its own inline slider in a strip at the run's right
+edge. The strip takes width only from the run's rows, and from following rows
+when the control is taller than the run; every other row keeps the full hunk
+width. Rows count as overflowing against that full width, so the control
+never makes a fitting row scroll; a following row that the strip would clip
+joins the run.
 Short rows remain fixed, and separate runs retain independent positions.
 Native horizontal scrolling and keyboard slider input move the same group.
 There are no per-line scrollbar tracks or nested vertical scrollports.

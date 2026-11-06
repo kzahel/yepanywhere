@@ -30,6 +30,118 @@ interface ScrollGroup {
   overflow: number;
 }
 
+interface HunkLayout {
+  tall: boolean;
+  groups: ScrollGroup[];
+  /**
+   * Rows whose trailing cell yields width to a run control: the run's own
+   * rows, plus any following rows a control taller than its run overlaps.
+   */
+  reserved: number[];
+}
+
+interface MeasuredRow {
+  height: number;
+  /** Natural content width per populated column. */
+  natural: (number | null)[];
+  /** Cell width with no control reservation. */
+  full: (number | null)[];
+}
+
+/**
+ * Splits a tall hunk into fixed rows and long-line runs. Long rows are judged
+ * against the full width so a control never makes a fitting row scroll; only
+ * rows a control overlaps lose its width, and an overlapped row that then
+ * overflows joins the run.
+ */
+function runLayout(
+  measured: MeasuredRow[],
+  reservePx: number,
+  controlHeight: number,
+): Omit<HunkLayout, "tall"> {
+  const last = (measured[0]?.natural.length ?? 1) - 1;
+  const overflows = (row: MeasuredRow, reserved: boolean) =>
+    row.natural.some(
+      (natural, column) =>
+        natural !== null &&
+        natural >
+          (row.full[column] ?? 0) -
+            (reserved && column === last ? reservePx : 0) +
+            0.5,
+    );
+  const runs: { start: number; end: number; reserveEnd: number }[] = [];
+  let index = 0;
+  while (index < measured.length) {
+    if (!overflows(measured[index]!, false)) {
+      index++;
+      continue;
+    }
+    const start = index;
+    let end = index + 1;
+    let reserveEnd = end;
+    for (;;) {
+      while (end < measured.length && overflows(measured[end]!, false)) end++;
+      let covered = measured
+        .slice(start, end)
+        .reduce((sum, row) => sum - row.height, controlHeight);
+      reserveEnd = end;
+      while (covered > 0.5 && reserveEnd < measured.length) {
+        if (overflows(measured[reserveEnd]!, true)) break;
+        covered -= measured[reserveEnd]!.height;
+        reserveEnd++;
+      }
+      if (covered > 0.5 && reserveEnd < measured.length) {
+        end = reserveEnd + 1;
+        continue;
+      }
+      break;
+    }
+    runs.push({ start, end, reserveEnd });
+    index = reserveEnd;
+  }
+
+  const groups: ScrollGroup[] = [];
+  const reserved: number[] = [];
+  const widthOf = (rows: MeasuredRow[]) =>
+    Math.max(0, ...rows.flatMap((row) => row.natural.map((w) => w ?? 0)));
+  const pushFixed = (start: number, end: number) => {
+    if (end > start) {
+      groups.push({
+        start,
+        end,
+        width: widthOf(measured.slice(start, end)),
+        overflow: 0,
+      });
+    }
+  };
+  let cursor = 0;
+  for (const run of runs) {
+    pushFixed(cursor, run.start);
+    const rows = measured.slice(run.start, run.end);
+    const overflow = Math.max(
+      0,
+      ...rows.flatMap((row) =>
+        row.natural.map((natural, column) =>
+          natural === null
+            ? 0
+            : natural -
+              ((row.full[column] ?? 0) - (column === last ? reservePx : 0)),
+        ),
+      ),
+    );
+    groups.push({
+      start: run.start,
+      end: run.end,
+      width: widthOf(rows),
+      overflow: Math.ceil(overflow),
+    });
+    for (let row = run.start; row < run.reserveEnd; row++) reserved.push(row);
+    cursor = run.end;
+  }
+  pushFixed(cursor, measured.length);
+  return { groups, reserved };
+}
+
 function DiffHunk({
   header,
   rows,
@@ -39,13 +151,13 @@ function DiffHunk({
 }) {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
-  const [layout, setLayout] = useState<{
-    tall: boolean;
-    groups: ScrollGroup[];
-  }>({
+  const [layout, setLayout] = useState<HunkLayout>({
     tall: false,
     groups: [{ start: 0, end: rows.length, width: 0, overflow: 0 }],
+    reserved: [],
   });
+  const reservedRef = useRef(layout.reserved);
+  reservedRef.current = layout.reserved;
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -78,45 +190,72 @@ function DiffHunk({
           getComputedStyle(root).getPropertyValue("--diff-sticky-top"),
         ) || 0);
       const tall = height + headerHeight > availableHeight;
-      // Reserve the run controls before measuring overflow; their presence must
-      // not change which rows qualify as long on the next observer callback.
+      // Settle the scroll mode first; run membership is then measured against
+      // full widths, so reserving control space cannot change it.
       if (tall !== layout.tall) {
-        setLayout((previous) => ({ ...previous, tall }));
+        setLayout((previous) => ({ ...previous, tall, reserved: [] }));
         return;
       }
-      const groups: ScrollGroup[] = [];
+      const reservedNow = new Set(reservedRef.current);
+      const probe = root.querySelector<HTMLElement>(
+        "[data-diff-control-probe]",
+      );
+      const reservePx = probe?.offsetWidth ?? 0;
       const range = document.createRange();
-      elements.forEach((row, index) => {
-        let width = 0;
-        let overflow = 0;
-        for (const [column, html] of rows[index]!.entries()) {
-          if (html === null) continue;
+      const measured: MeasuredRow[] = elements.map((row, index) => {
+        const cells = rows[index]!;
+        const natural: (number | null)[] = [];
+        const full: (number | null)[] = [];
+        for (const [column, html] of cells.entries()) {
           const cell = row.children[column] as HTMLElement;
-          const line = cell.querySelector<HTMLElement>("[data-diff-line]");
-          if (!line) continue;
+          const line = cell?.querySelector<HTMLElement>("[data-diff-line]");
+          if (html === null || !line) {
+            natural.push(null);
+            full.push(null);
+            continue;
+          }
           range.selectNodeContents(line);
           const css = getComputedStyle(line);
-          const naturalWidth = Math.ceil(
-            range.getBoundingClientRect().width +
-              Number.parseFloat(css.paddingLeft || "0") +
-              Number.parseFloat(css.paddingRight || "0"),
+          natural.push(
+            Math.ceil(
+              range.getBoundingClientRect().width +
+                Number.parseFloat(css.paddingLeft || "0") +
+                Number.parseFloat(css.paddingRight || "0"),
+            ),
           );
-          width = Math.max(width, naturalWidth);
-          overflow = Math.max(overflow, naturalWidth - cell.clientWidth);
+          full.push(
+            cell.clientWidth +
+              (reservedNow.has(index) && column === cells.length - 1
+                ? reservePx
+                : 0),
+          );
         }
-        overflow = Math.max(0, overflow);
-        const previous = groups[groups.length - 1];
-        if (previous && (!tall || previous.overflow > 0 === overflow > 0)) {
-          previous.end = index + 1;
-          previous.width = Math.max(previous.width, width);
-          previous.overflow = Math.max(previous.overflow, overflow);
-        } else groups.push({ start: index, end: index + 1, width, overflow });
+        return { height: row.getBoundingClientRect().height, natural, full };
       });
+      let next: Omit<HunkLayout, "tall">;
+      if (tall) {
+        next = runLayout(measured, reservePx, probe?.offsetHeight ?? 0);
+      } else {
+        let width = 0;
+        let overflow = 0;
+        for (const row of measured) {
+          for (const [column, natural] of row.natural.entries()) {
+            if (natural === null) continue;
+            width = Math.max(width, natural);
+            overflow = Math.max(overflow, natural - (row.full[column] ?? 0));
+          }
+        }
+        next = {
+          groups: [{ start: 0, end: rows.length, width, overflow }],
+          reserved: [],
+        };
+      }
       setLayout((previous) =>
         previous.tall === tall &&
-        JSON.stringify(previous.groups) === JSON.stringify(groups)
+        JSON.stringify(previous.groups) === JSON.stringify(next.groups) &&
+        JSON.stringify(previous.reserved) === JSON.stringify(next.reserved)
           ? previous
-          : { tall, groups },
+          : { tall, ...next },
       );
     };
     measure();
@@ -149,6 +288,7 @@ function DiffHunk({
     layout.groups.at(-1)?.end === rows.length
       ? layout.groups
       : [{ start: 0, end: rows.length, width: 0, overflow: 0 }];
+  const reserved = new Set(layout.tall ? layout.reserved : []);
   return (
     <div
       ref={rootRef}
@@ -156,6 +296,9 @@ function DiffHunk({
       data-diff-hunk=""
       data-diff-scroll-mode={layout.tall ? "runs" : "hunk"}
     >
+      {layout.tall && (
+        <div className={styles.controlProbe} data-diff-control-probe="" />
+      )}
       {layout.tall && header && (
         <div className={`${styles.header} line-hunk`} data-diff-hunk-header="">
           {header}
@@ -166,6 +309,9 @@ function DiffHunk({
           key={group.start}
           group={group}
           rows={rows.slice(group.start, group.end)}
+          reserved={rows
+            .slice(group.start, group.end)
+            .map((_, index) => reserved.has(group.start + index))}
           paired={rows[0]?.length === 2}
           tall={layout.tall}
           header={layout.tall ? undefined : header}
@@ -179,6 +325,7 @@ function DiffHunk({
 function DiffScrollGroup({
   group,
   rows,
+  reserved,
   paired,
   tall,
   header,
@@ -186,6 +333,7 @@ function DiffScrollGroup({
 }: {
   group: ScrollGroup;
   rows: (string | null)[][];
+  reserved: boolean[];
   paired: boolean;
   tall: boolean;
   header?: string;
@@ -238,43 +386,42 @@ function DiffScrollGroup({
           {control}
         </div>
       )}
-      <div className={styles.body}>
-        <div className={styles.rows}>
-          {rows.map((cells, index) => (
-            <div
-              key={group.start + index}
-              className={`${styles.row} ${paired ? styles.paired : ""}`}
-              data-diff-scroll-row=""
-            >
-              {cells.map((html, column) => (
-                <div
-                  key={column}
-                  className={styles.cell}
-                  data-diff-scroll-cell=""
-                  data-diff-col={
-                    paired ? (column === 0 ? "old" : "new") : undefined
-                  }
-                  tabIndex={group.overflow > 0 ? 0 : undefined}
-                  onScroll={(event) => {
-                    // Ignore queued scroll events from our own synchronized writes.
-                    if (
-                      Math.abs(
-                        event.currentTarget.scrollLeft - position.current,
-                      ) > 0.5
-                    )
-                      scrollTo(event.currentTarget.scrollLeft);
-                  }}
-                >
-                  <InnerHtml
-                    className={`${styles.content} highlighted-diff`}
-                    trustedHtml={`<pre class="shiki"><code>${html ?? '<span class="line"> </span>'}</code></pre>`}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-        {tall && <div className={styles.rail}>{control}</div>}
+      {tall && control && <div className={styles.rail}>{control}</div>}
+      <div className={styles.rows}>
+        {rows.map((cells, index) => (
+          <div
+            key={group.start + index}
+            className={`${styles.row} ${paired ? styles.paired : ""} ${reserved[index] ? styles.reserved : ""}`}
+            data-diff-scroll-row=""
+            data-diff-reserved={reserved[index] ? "" : undefined}
+          >
+            {cells.map((html, column) => (
+              <div
+                key={column}
+                className={styles.cell}
+                data-diff-scroll-cell=""
+                data-diff-col={
+                  paired ? (column === 0 ? "old" : "new") : undefined
+                }
+                tabIndex={group.overflow > 0 ? 0 : undefined}
+                onScroll={(event) => {
+                  // Ignore queued scroll events from our own synchronized writes.
+                  if (
+                    Math.abs(
+                      event.currentTarget.scrollLeft - position.current,
+                    ) > 0.5
+                  )
+                    scrollTo(event.currentTarget.scrollLeft);
+                }}
+              >
+                <InnerHtml
+                  className={`${styles.content} highlighted-diff`}
+                  trustedHtml={`<pre class="shiki"><code>${html ?? '<span class="line"> </span>'}</code></pre>`}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );

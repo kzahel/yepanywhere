@@ -1,5 +1,8 @@
 .hunk {
   --diff-hunk-header-height: var(--source-code-line-height);
+  --diff-run-control-width: 5.75rem;
+  --diff-run-control-height: var(--source-code-line-height);
+  position: relative;
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--source-code-font-size);
@@ -11,7 +14,7 @@
   position: sticky;
   top: var(--diff-sticky-top, 0px);
   scroll-margin-top: var(--diff-sticky-top, 0px);
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -25,16 +28,11 @@
 }
 
 .group {
+  position: relative;
   min-width: 0;
 }
 
-.body {
-  display: flex;
-  align-items: stretch;
-}
-
 .rows {
-  flex: 1;
   min-width: 0;
 }
 
@@ -73,8 +71,29 @@
 }
 
 .rail {
-  flex: 0 0 6rem;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  width: var(--diff-run-control-width);
+  height: max(100%, var(--diff-run-control-height));
   background: var(--bg-secondary);
+}
+
+/* Sized exactly like a run's rail so measurement reads the reservation the
+   rail actually takes. */
+.controlProbe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  width: var(--diff-run-control-width);
+  height: var(--diff-run-control-height);
+}
+
+/* A row beside a run's rail without being in the run: its text stops short
+   of the rail instead of scrolling under it. */
+.reserved > .cell:last-child {
+  margin-inline-end: var(--diff-run-control-width);
 }
 
 .control {
@@ -115,6 +134,7 @@
 @media (pointer: coarse) {
   .hunk {
     --diff-hunk-header-height: 2.75rem;
+    --diff-run-control-height: 2.75rem;
   }
 
   .control input {
