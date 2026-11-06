@@ -174,7 +174,8 @@ ledger has already landed SRR-001 (request parsing helpers), SRR-002
 (recovered queue helpers), SRR-006 (Claude resume guard), SRR-007 (worker queue
 routes), SRR-008 (compact thresholds), SRR-009 (metadata patch parsing),
 SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
-SRR-013 (metadata/seen-state routes), and SRR-014 (session-detail helpers) —
+SRR-013 (metadata/seen-state routes), and SRR-014/SRR-015 (session-detail
+helpers and read routes) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do
 not create a `routes/sessions/` directory or a shared helpers bucket.
@@ -182,9 +183,9 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | Slice | Status | Target | Intent | Tripwires / Notes |
 |---|---|---|---|---|
 | 1.1 | Done 2026-07-06 as SRR-010/SRR-011 | `sessions.ts` queue summary shaping + provider guards | Land SRR-010 (patient/deferred queue summary shaping into `session-queue-summaries.ts`) and SRR-011 (provider name guards and resolution deps into `session-provider-resolution.ts`). | Move-only; shaping and guards, not queue behavior. Restart/fork helpers are excluded — they are larger and behavior-heavy. Tier 1. |
-| 1.2 | In progress 2026-11-06 as SRR-014/SRR-015 | Session detail routes | Extract metadata, agent content, and `GET /projects/:projectId/sessions/:sessionId` handlers behind a local registrar, in the two sub-slices below. | Deferred 2026-07-06 because this is a route registrar move with pagination, compact-tail, augment, unread, and server-E2E tripwires; revived through doc 053 at the maintainer's request. |
-| 1.2a | Done 2026-11-06 as SRR-014 | Session-detail helpers shared with the rest of `sessions.ts` | Move `resolveSessionReader` into `session-provider-resolution.ts`, the SDK-history conversion (`sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages`) into `session-sdk-history.ts`, and `messageId` into `session-message-id.ts`. | Preflight for 1.2b: the detail routes call these, and so does code that stays (restart, fork, rewind), so they cannot move with the routes without a back-import. Pure functions; Tier 2. |
-| 1.2b | Not started | Session-detail read route registrars | Move the agents, agent-content and metadata `GET`s, and the session-detail `GET`, into registrars called at their two original positions. | Tier 3. Factory closures shared with routes that stay (`resolveSessionProjectRouting`, `storedIdentityFor`, the redirect builders) become parameters. |
+| 1.2 | Done 2026-11-06 as SRR-014/SRR-015 | Session detail routes | Extract metadata, agent content, and `GET /projects/:projectId/sessions/:sessionId` handlers behind a local registrar, in the two sub-slices below. | Deferred 2026-07-06 because this is a route registrar move with pagination, compact-tail, augment, unread, and server-E2E tripwires; revived through doc 053 at the maintainer's request. |
+| 1.2a | Done 2026-11-06 as SRR-014 | Session-detail helpers shared with the rest of `sessions.ts` | Move `resolveSessionReader` into `session-provider-resolution.ts`, the SDK-history conversion (`sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages`) into `session-sdk-history.ts`, and `messageId` into `session-message-id.ts`. | Preflight for 1.2b: the detail routes call these, and except for `extractContextUsageFromSDKMessages` (moved with its SDK-history sibling) so does code that stays (restart, fork, rewind), so they cannot move with the routes without a back-import. Helper functions only; Tier 2. |
+| 1.2b | Done 2026-11-06 as SRR-015 | Session-detail read route registrars | Move the agents, agent-content and metadata `GET`s, and the session-detail `GET`, into registrars called at their two original positions. | Tier 3. The six factory closures both registrars use (the project-routing/redirect pair, `storedIdentityFor`, the Grok lookup and redirect, `rewindRecordIdsFor`) become a `routing` parameter. |
 | 1.3 | Deferred 2026-07-06 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, and remote sync behavior if revived. |
 | 1.4 | Deferred 2026-07-06 | Restart/fork/recap/retitle routes | Extract restart, fork, recap, fork-summary, and retitle flows; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Higher risk; preserve handoff/fork semantics and recap background behavior if revived. |
 | 1.5 | Deferred 2026-07-06 | Queue/deferred routes | Extract message queue, deferred patient queue, steer/cancel, pending input, and mode routes. Builds on SRR-005 (recovered queue helpers, done in doc 053). | Deferred with the sessions route-registrar lane. Queue timers and idle ownership are load-bearing; read architecture mandates and run `test:e2e:sdk` if revived. |
@@ -351,6 +352,99 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Slice 1.2b — Session-Detail Read Routes (Landed 2026-11-06, this commit)
+
+Tracked in doc 053 as SRR-015; completes row 1.2 after slice 1.2a.
+
+Moved:
+- `GET /projects/:projectId/sessions/:sessionId` ->
+  `packages/server/src/routes/session-detail-routes.ts` as
+  `registerSessionDetailRoute(routes, deps, routing)`, with the
+  factory-level `loadProviderSession` and `boundSessionReads` it alone uses,
+  and the module-level `SESSION_DETAIL_SLOW_LOG_MS`,
+  `DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS`,
+  `LARGE_FULL_HISTORY_MESSAGE_THRESHOLD`, `roundedMs`,
+  `DurableSessionOverlayMessage`, `findDurableOverlayCursor`,
+  `sliceAfterDurableOverlayCursor`, `completedPublicShareMessageCount`,
+  `getSessionSlashCommands` and `effectiveModelSettingsFromMetadata` (the
+  last two exported for the subresource module).
+- `GET .../agents`, `GET .../agents/:agentId` and `GET .../metadata` (one
+  contiguous block) ->
+  `packages/server/src/routes/session-detail-subresource-routes.ts` as
+  `registerSessionDetailSubresourceRoutes(routes, deps, routing)`.
+- Every moved block is byte-identical to `HEAD` (each checked as a
+  substring of its new module); the only edits are the `export` added to
+  `getSessionSlashCommands` and `effectiveModelSettingsFromMetadata`.
+  `createSessionsRoutes` calls the two registrars at the two blocks' old
+  positions.
+Signature conversions (closure -> parameter):
+- `routes` and `deps` became parameters; `deps` is typed as
+  `SessionDetailRouteDeps` so neither module imports `SessionsDeps`.
+- The factory closures `resolveSessionProjectRouting`,
+  `buildSessionProjectRedirectPath`, `getGrokNativeProjectId`,
+  `buildGrokNativeRedirectPath`, `rewindRecordIdsFor` and
+  `storedIdentityFor` stay in `sessions.ts` and arrive as the `routing`
+  object. Both registrars use all six; the routing pair is also called by
+  `POST .../refresh-preview`, `storedIdentityFor` by other routes, and
+  `getGrokNativeProjectId` owns the lazy Grok reader both must share. The
+  object is destructured at the top of each registrar.
+Behavior changes:
+- None. Route order, the session-scoped middleware ahead of them, response
+  shapes, redirects, error strings and log events are unchanged.
+  `boundSessionReads` is now constructed inside `registerSessionDetailRoute`,
+  later in the same synchronous `createSessionsRoutes` call; its constructor
+  has no side effects.
+Verification:
+- Tier 1: shared build; server `tsc --noEmit`; Biome check on changed
+  files; `git diff --check`; byte-identity check of every moved block;
+  focused `test/routes` plus every server test that drives these paths
+  (50 files matched by `tailCompactions`, `afterMessageId=`, `/agents/`,
+  `/metadata` or `createSessionsRoutes`), through
+  `run-with-safe-home.js`: 1,536 passed, 19 skipped.
+- Tier 2: root `pnpm lint` (zero warnings, including the budget check),
+  `pnpm format:check`, `pnpm typecheck` and `pnpm test` passed (server
+  7,111 passed / 87 skipped; client 7,127; shared 980; relay 139;
+  push-broker 45).
+- Tier 3: the client gate
+  `pnpm --filter client test:e2e --grep-invert "physical Android"`
+  (server from source through `tsx`): 492 passed, 13 skipped, 4 failed.
+  `provider-sign-in.spec.ts:161` is the known `HEAD` baseline failure.
+  `artifact-viewer.spec.ts:136` and `durable-session-creation.spec.ts:324`
+  passed 3/3 each in isolation. The latter reloads a session through the
+  detail read; in the full run it failed earlier, on a 5 s
+  `page.waitForResponse` timeout for `POST .../session-creations`, a route
+  this slice did not move. `slash-command-argument-completions.spec.ts:344` is flaky with
+  the same strict-mode violation (two `status` elements in the goal dialog)
+  with this change (4/6), at `132bd5252` (5/6) and with the pre-series
+  `161f2d1eb` routes (7/8), so it is a pre-existing client race.
+  `pnpm test:e2e:sdk` was not run: it has no case that calls these routes,
+  and no queue, timer or liveness code moved.
+- Budget: `pnpm source:budgets --record` lowered `sessions.ts`
+  8,943 -> 7,423.
+- Independent review (claude-opus-5-5, xhigh), covering 1.2a and 1.2b:
+  every moved block found in its new module with only the declared edits;
+  the 41-route registration sequence, including the session-scoped
+  middleware, identical to `HEAD`; all six routing closures `const` and
+  declared before the routing object; one shared lazy Grok reader; one
+  `BoundSessionReads` per factory call; same `deps` object; no cycle,
+  back-import or shim. It found no code issues. Its doc findings (the
+  reason the closures stay, an overstated identity claim, the undisclosed
+  `messageId` doc comment, "pure functions", and the follow-up's scope) are
+  fixed, and it confirmed the fixes.
+Follow-ups recorded:
+- Rows 1.3-1.5 remain deferred; each revival is its own SRR item.
+- `getGrokNativeProjectId` (with `unscopedGrokReader`),
+  `buildGrokNativeRedirectPath` and `rewindRecordIdsFor` now sit in
+  `sessions.ts` only as wiring for the two registrars, and
+  `resolveSessionProjectRouting`/`buildSessionProjectRedirectPath` are
+  shared only with `POST .../refresh-preview`. Lifting them into a domain module
+  that takes `deps` would let later registrars stop receiving them as
+  parameters; that changes call sites, so it is its own slice.
+- `slash-command-argument-completions.spec.ts:344` flakes about 1 in 6-8
+  isolated runs at `161f2d1eb` with a strict-mode violation: the goal
+  dialog briefly renders two `status` elements. Client race, not
+  investigated in these move slices.
+
 ### Slice 1.2a — Session-Detail Shared Helpers (Landed 2026-11-06, this commit)
 
 Tracked in doc 053 as SRR-014; prepares slice 1.2b.
@@ -362,7 +456,8 @@ Moved:
   `packages/server/src/routes/session-sdk-history.ts` (new).
 - `messageId` -> `packages/server/src/routes/session-message-id.ts` (new).
 - Bodies are identical to `HEAD` (checked with `diff`); the only differences
-  are the added `export` keywords, the formatter's rewrap of
+  are a one-line doc comment added above `messageId`, the added `export`
+  keywords, the formatter's rewrap of
   `sdkMessagesToClientMessages`'s signature after it, and the `deps` type
   below.
 Signature conversions (closure -> parameter):
@@ -372,7 +467,9 @@ Signature conversions (closure -> parameter):
   so the module does not import `sessions.ts`. Callers still pass
   `SessionsDeps`.
 Behavior changes:
-- None. Pure functions; call sites unchanged apart from the import.
+- None. Helper functions only; call sites unchanged apart from the import.
+  `extractContextUsageFromSDKMessages` had only the detail `GET` as caller
+  and moved with `sdkMessagesToClientMessages` as the same domain.
 Verification:
 - Tier 1: shared build; server `tsc --noEmit`; Biome check on changed files;
   `git diff --check`; focused `test/routes`, `test/agent-auth-router.test.ts`,

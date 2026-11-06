@@ -1,10 +1,10 @@
 # Sessions Route Refactor Ledger
 
-Status: Active, 2026-11-06: the maintainer revived the session-detail read
-routes (doc 058 row 1.2) as SRR-014, which moves the helpers those routes
-share with the rest of the file, followed by SRR-015, which moves the routes.
-SRR-013 landed the metadata/seen-state registrar (row 1.6) earlier the same
-day. SRR-012 landed 2026-10-27 as `06cff21d6` under
+Status: Dormant again, 2026-11-06: the maintainer revived the session-detail
+read routes (doc 058 row 1.2) and they landed as SRR-014, which moved the
+helpers those routes share with the rest of the file, and SRR-015, which moved
+the routes. SRR-013 landed the metadata/seen-state registrar (row 1.6) earlier
+the same day. SRR-012 landed 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
 observer cleanup does not extend the move slice. The other route-registrar
 extractions (doc 058 rows 1.3-1.5) remain deferred; revive each as its own
@@ -88,6 +88,70 @@ boundaries, not necessarily fewer total repository lines.
 
 ## Refactor Items
 
+### SRR-015: Register Session-Detail Read Routes From Their Own Modules
+
+Status: done, 2026-11-06. Proposed and accepted with SRR-014, landed as
+campaign slice 1.2b in doc 058.
+
+Destinations:
+
+- `packages/server/src/routes/session-detail-routes.ts`, exporting
+  `registerSessionDetailRoute(routes, deps, routing)` for
+  `GET /projects/:projectId/sessions/:sessionId`;
+- `packages/server/src/routes/session-detail-subresource-routes.ts`,
+  exporting `registerSessionDetailSubresourceRoutes(routes, deps, routing)`
+  for `GET .../agents`, `GET .../agents/:agentId` and `GET .../metadata`.
+
+Line delta: `-1,520` lines from `sessions.ts` (8,943 -> 7,423), `+1,301` and
+`+416` in the two registrar modules.
+
+Problem:
+
+The session-detail read is the file's largest handler (about 850 lines of
+pagination, compact-tail, overlay, augment and unread shaping), and three
+lighter reads of the same session sit beside it. They share response-field
+helpers with each other and not with the rest of the file. The agents,
+agent-content and metadata `GET`s are contiguous; the detail `GET` follows
+`PUT .../project` and `POST .../refresh-preview`.
+
+Implemented:
+
+- moved both route blocks byte-identically, including their route comments.
+  `createSessionsRoutes` calls each registrar at its block's old position,
+  so all four routes register on the same Hono instance in the same order
+  relative to every other route and to the
+  `/projects/:projectId/sessions/:sessionId/*` middleware;
+- helpers only these reads use moved with them: the detail constants,
+  `roundedMs`, the durable-overlay cursor helpers,
+  `completedPublicShareMessageCount`, and `getSessionSlashCommands` and
+  `effectiveModelSettingsFromMetadata` (exported from the detail module for
+  the subresource module), all verbatim;
+- the factory-level `loadProviderSession` and the `boundSessionReads`
+  instance it uses, both used only by the detail `GET`, moved into
+  `registerSessionDetailRoute` verbatim. The instance is still built once
+  per `createSessionsRoutes` call; its constructor only stores options, so
+  building it a few statements later is not observable;
+- factory closures both registrars use stay in `sessions.ts`:
+  `resolveSessionProjectRouting` and `buildSessionProjectRedirectPath`
+  (also called by `POST .../refresh-preview`), `storedIdentityFor` (also
+  used by other routes), `getGrokNativeProjectId` (which owns the lazy Grok
+  reader the two registrars must share), `buildGrokNativeRedirectPath` and
+  `rewindRecordIdsFor`. The last three are now referenced in `sessions.ts`
+  only by the routing object. They are passed as the
+  `routing` parameter (`SessionDetailRouting`) and destructured at the top of
+  each registrar, so the moved bodies keep calling them by name;
+- `deps` is typed as the narrow `SessionDetailRouteDeps`
+  (`SessionProviderResolutionDeps` plus the fields the reads use), not
+  `SessionsDeps`. `SessionProjectRouting` names the routing result type that
+  `resolveSessionProjectRouting` still declares inline.
+
+Risk:
+
+- medium. Largest route move of the series, but no queue, timer, liveness or
+  provider-process code moved, and every body is byte-identical.
+
+Verification: see doc 058's slice 1.2b landing note.
+
 ### SRR-014: Move Session-Detail Helpers Shared With The Rest Of The File
 
 Status: done, 2026-11-06. Proposed and accepted the same day (the
@@ -117,9 +181,13 @@ the new module import `sessions.ts`, which the campaign forbids.
 
 Implemented:
 
-- moved the four functions verbatim. Each gained `export` (the formatter
+- moved the five functions verbatim. Four gained `export` (the formatter
   rewrapped `sdkMessagesToClientMessages`'s signature as a result);
-  `isCompactBoundaryMessage` stays module-private beside its only caller;
+  `isCompactBoundaryMessage` stays module-private beside its only caller.
+  `messageId` gained a one-line doc comment in its new module.
+  `extractContextUsageFromSDKMessages` is called only by the detail `GET`;
+  it moved with `sdkMessagesToClientMessages` as the same SDK-history
+  domain;
 - `resolveSessionReader`'s `deps` parameter changed type from `SessionsDeps`
   to the new `SessionReaderResolutionDeps`
   (`SessionProviderResolutionDeps` plus `sessionMetadataService.getMetadata`),
@@ -131,7 +199,8 @@ Implemented:
 
 Risk:
 
-- low. Pure functions; no route, queue, timer or process code moved.
+- low. Helper functions only (`resolveSessionReader` reads provider
+  sources; the rest are pure); no route, queue, timer or process code moved.
 
 Verification: see doc 058's slice 1.2a landing note.
 
