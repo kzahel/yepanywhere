@@ -167,9 +167,58 @@ decide.
 - Console budget, i18n scan, and owning-ledger process respected where the
   tripwire matrix requires them.
 
+## Growth Guard
+
+Extraction alone lost to inflow: between 2026-07-07 and 2026-11-06 the hubs
+this campaign had just trimmed grew by 30–190%, because each new feature
+landed in the file that composes it. The guard addresses the inflow.
+
+**Authoring rule.** A feature or fix that needs code in a file over the
+threshold puts its logic in a domain-named module (the
+[naming rules](#naming-and-placement) apply) and adds only the wiring to the
+hub — the import, the call, the mount, the prop. If the wiring itself would
+push the hub over its budget, offset it with a move-only extraction from the
+same file, ideally along a seam already named in the tactical ledger, in a
+separate commit ahead of the feature.
+
+**Mechanism.** `pnpm lint` runs `scripts/check-source-file-budgets.mjs`
+(`pnpm source:budgets` alone; `--list` prints every budgeted file with its
+count and budget). Scope: tracked and untracked-not-ignored TS/JS files in
+direct package source roots (`:(glob)packages/*/src/**`, so nested trees
+such as `packages/android/app/src` are out), excluding tests, `__tests__/`,
+`test/`, `*.test-support.*`, `generated/` trees and `.d.ts` files.
+
+- Every in-scope file over the threshold (1,500 lines) needs an entry in
+  `scripts/source-file-budgets.json`, and may not exceed its `maxLines`.
+  The threshold is a constant in the script, not a budget-file field, so
+  changing it is a reviewed code change rather than a one-number edit that
+  would switch off the new-file ceiling. The 2026-11-06 baseline
+  grandfathered the 55 files then over the threshold at their current
+  length.
+- A new file over the threshold fails. Split it before landing rather than
+  adding an entry.
+- `--record` only lowers budgets to current counts and retires entries for
+  files now at or under the threshold. Run it in the same commit as any
+  extraction, so freed lines cannot silently regrow.
+- Raising a budget, or adding an entry, needs maintainer approval and a
+  `"raise": { "from": <base maxLines or null>, "reason": "..." }` record on
+  that entry. Raises are compared with a base revision: `HEAD` locally, so an
+  unrecorded raise fails before commit, and in CI the pull request base or
+  the commit before the push (`SOURCE_BUDGET_BASE`, fetched explicitly into
+  the shallow checkout), so committing the raise does not hide it. An
+  unavailable explicit base fails the check rather than skipping the
+  comparison. In review the record is the visible, greppable trace of the
+  exception.
+- A stale entry (file deleted or moved out of scope) fails until removed.
+
+Tests are outside the guard: scenario-ledger tests may stay long (see the
+Phase 6 rules in the tactical worklog).
+
 ## Non-Goals
 
-- Enforcing a hard repository-wide LOC limit.
+- Enforcing a hard repository-wide LOC limit. The growth guard is a
+  per-file ratchet on existing oversized files plus a ceiling for new ones;
+  it does not require shrinking any file to a target.
 - Introducing a new folder taxonomy across the repo.
 - Converting large components to compound component patterns.
 - Replacing existing store/transport/session-detail plans.

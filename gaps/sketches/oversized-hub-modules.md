@@ -5,6 +5,11 @@ inside them: `Process.ts` (4,650+ lines), `MessageInput.tsx` (3,000+),
 `clientSummaryState.ts` (2,000+), and `SessionPage.tsx` (sizes observed
 2026-07-25). The issue is mixed ownership, not a line-count threshold.
 
+By 2026-11-06 they had grown to 6,582, 4,781, 2,302 and 7,773 lines. The
+[growth guard](../../topics/typescript-module-boundary-refactor.md#growth-guard)
+now freezes each at that size, so further growth fails `pnpm lint`; this gap
+still records the existing ownership debt the guard does not remove.
+
 Each new feature pass (harsh-review 1c157030..4ae53adf and its fix pass)
 added to all four without attempting a split; none of those diffs opened a
 seam wide enough to force it, so this records the debt instead.

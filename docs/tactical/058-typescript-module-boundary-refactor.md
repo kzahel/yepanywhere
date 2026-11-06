@@ -2,8 +2,9 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: Broad low-risk slices in progress; the remaining `sessions.ts`
-route-registrar extractions are deferred.
+Status: Resumed 2026-11-06. The growth guard is live in `pnpm lint`, and the
+`app.ts` composition-root lane (slice 1.8) is in progress. The remaining
+`sessions.ts` route-registrar extractions are still deferred.
 
 Accepted 2026-10-27: [plan 163](163-http-independent-restart-compaction.md)
 and doc 053 SRR-012 describe one HTTP-independent restart-compaction
@@ -68,73 +69,85 @@ Baseline notes:
 - Chatter fixes are their own slices (see the contract); do not bundle them
   into move slices.
 
-## Large-File Inventory: 2026-07-06
+## Large-File Inventory: 2026-11-06
 
 Refresh cadence: at each phase completion, or when choosing the next phase's
-slices — not after every slice. Generated/build/reference trees were excluded
-with `rg --files`; specifically `node_modules`, `dist`, nested `dist`,
-`references`, coverage and Playwright reports, and generated Codex
-protocol/schema directories.
+slices — not after every slice. Production rows come from the
+[growth guard](../../topics/typescript-module-boundary-refactor.md#growth-guard)
+scope: tracked and untracked-not-ignored `packages/*/src` TS/JS files,
+excluding tests, test-support modules, `generated/` trees, and declaration
+files. `pnpm source:budgets --list` prints the full list; the budgets live in
+`scripts/source-file-budgets.json`.
 
-Production TS/TSX top offenders:
+What the refresh showed: the July slices landed (about 30 move-only
+extractions), and then the same hubs grew faster than those slices shrank
+them. Between 2026-07-07 and 2026-11-06 `app.ts` took 276 commits
+(+4,441/-1,241), `SessionPage.tsx` 214, `server-capabilities.ts` 180
+(+5,201/-337, nearly append-only), `routes/sessions.ts` 168 and
+`Supervisor.ts` 165. Features land in the file that composes them, so an
+extraction-only campaign cannot keep up with inflow. The growth guard below
+addresses the inflow; the slices address the stock.
 
-| LoC | File |
+Production TS/TSX top offenders (55 files over the 1,500-line threshold; 24
+over 2,000):
+
+| LoC 2026-11-06 | LoC 2026-07-06 | File |
+|---:|---:|---|
+| 9,354 | 6,278 | `packages/server/src/routes/sessions.ts` |
+| 8,235 | 5,724 | `packages/server/src/sdk/providers/codex.ts` |
+| 7,773 | 6,080 | `packages/client/src/pages/SessionPage.tsx` |
+| 6,966 | 4,322 | `packages/server/src/supervisor/Supervisor.ts` |
+| 6,582 | 4,026 | `packages/server/src/supervisor/Process.ts` |
+| 5,984 | 3,346 | `packages/client/src/components/NewSessionForm.tsx` |
+| 5,702 | 3,615 | `packages/client/src/components/MessageList.tsx` |
+| 5,226 | — | `packages/shared/src/server-capabilities.ts` |
+| 4,781 | 2,339 | `packages/client/src/components/MessageInput.tsx` |
+| 4,913 | 1,678 | `packages/server/src/app.ts` |
+| 4,157 | 2,180 | `packages/server/src/sessions/codex-reader.ts` |
+| 4,059 | 3,059 | `packages/client/src/components/MessageInputToolbar.tsx` |
+| 3,114 | 1,912 | `packages/server/src/sdk/providers/claude.ts` |
+| 3,087 | — | `packages/server/src/routes/ws-relay-handlers.ts` |
+| 2,808 | 2,103 | `packages/client/src/hooks/useSession.ts` |
+| 2,733 | — | `packages/client/src/components/FileViewer.tsx` |
+| 2,451 | — | `packages/server/src/sessions/normalization.ts` |
+| 2,448 | 2,195 | `packages/server/src/indexes/SessionIndexService.ts` |
+| 2,302 | 2,270 | `packages/client/src/lib/clientSummaryState.ts` |
+| 2,095 | 1,884 | `packages/client/src/lib/connection/SecureConnection.ts` |
+| 2,088 | — | `packages/client/src/pages/settings/AppearanceSettings.tsx` |
+| 2,066 | — | `packages/server/src/sdk/providers/provider-runtime-host.ts` |
+| 2,060 | — | `packages/server/src/server-main.ts` |
+| 2,003 | 1,936 | `packages/client/src/api/client.ts` |
+| 1,965 | 1,711 | `packages/server/src/sdk/providers/opencode.ts` |
+
+Test TS/TSX top offenders (tests are outside the growth guard; see Phase 6):
+
+| LoC 2026-11-06 | File |
 |---:|---|
-| 6278 | `packages/server/src/routes/sessions.ts` |
-| 6080 | `packages/client/src/pages/SessionPage.tsx` |
-| 5724 | `packages/server/src/sdk/providers/codex.ts` |
-| 4322 | `packages/server/src/supervisor/Supervisor.ts` |
-| 4026 | `packages/server/src/supervisor/Process.ts` |
-| 3615 | `packages/client/src/components/MessageList.tsx` |
-| 3346 | `packages/client/src/components/NewSessionForm.tsx` |
-| 3059 | `packages/client/src/components/MessageInputToolbar.tsx` |
-| 2339 | `packages/client/src/components/MessageInput.tsx` |
-| 2270 | `packages/client/src/lib/clientSummaryState.ts` |
-| 2195 | `packages/server/src/indexes/SessionIndexService.ts` |
-| 2180 | `packages/server/src/sessions/codex-reader.ts` |
-| 2103 | `packages/client/src/hooks/useSession.ts` |
-| 1936 | `packages/client/src/api/client.ts` |
-| 1912 | `packages/server/src/sdk/providers/claude.ts` |
-| 1884 | `packages/client/src/lib/connection/SecureConnection.ts` |
-| 1811 | `packages/client/src/lib/speechProviders/YaServerProvider.ts` |
-| 1810 | `packages/client/src/pages/GitStatusPage.tsx` |
-| 1711 | `packages/server/src/sdk/providers/opencode.ts` |
-| 1678 | `packages/server/src/app.ts` |
-| 1660 | `packages/server/src/routes/settings.ts` |
-| 1609 | `packages/client/src/components/renderers/tools/EditRenderer.tsx` |
-| 1489 | `packages/client/scripts/long-session-perf-probe.ts` |
-| 1482 | `packages/server/src/codex/normalization.ts` |
-| 1425 | `packages/server/src/sessions/opencode-reader.ts` |
+| 8,541 | `packages/server/test/sdk/providers/codex.test.ts` |
+| 8,218 | `packages/server/test/routes/sessions-metadata.test.ts` |
+| 7,811 | `packages/server/test/supervisor.test.ts` |
+| 6,975 | `packages/client/src/components/__tests__/MessageInput.test.tsx` |
+| 5,186 | `packages/client/src/components/__tests__/NewSessionForm.test.tsx` |
+| 4,532 | `packages/client/src/hooks/__tests__/useSessionMessages.cache.test.tsx` |
+| 4,254 | `packages/client/src/lib/__tests__/speechProviders.test.ts` |
+| 3,749 | `packages/server/test/sessions/codex-reader-oss.test.ts` |
 
-Test TS/TSX top offenders:
+The 2026-07-06 inventory (25 production and 25 test rows, generated with
+`rg --files` over the same exclusions) is in git history:
+`git show 760d1f75e:docs/tactical/058-typescript-module-boundary-refactor.md`.
 
-| LoC | File |
-|---:|---|
-| 4185 | `packages/server/test/process.test.ts` |
-| 4024 | `packages/server/test/routes/sessions-metadata.test.ts` |
-| 3779 | `packages/server/test/sdk/providers/codex.test.ts` |
-| 3473 | `packages/client/src/components/__tests__/MessageInput.test.tsx` |
-| 3458 | `packages/client/src/hooks/__tests__/useSessionMessages.cache.test.tsx` |
-| 3190 | `packages/client/src/lib/__tests__/speechProviders.test.ts` |
-| 3063 | `packages/server/test/supervisor.test.ts` |
-| 3016 | `packages/client/src/components/__tests__/MessageList.test.tsx` |
-| 2191 | `packages/client/src/components/__tests__/NewSessionForm.test.tsx` |
-| 1953 | `packages/server/test/e2e/ws-secure.e2e.test.ts` |
-| 1922 | `packages/client/src/lib/sessionDetail/__tests__/renderSelectors.test.ts` |
-| 1870 | `packages/client/src/lib/__tests__/preprocessMessages.test.ts` |
-| 1833 | `packages/client/src/lib/__tests__/clientSummaryState.test.ts` |
-| 1684 | `packages/server/test/sessions/reader.test.ts` |
-| 1557 | `packages/server/test/e2e/ws-transport.e2e.test.ts` |
-| 1477 | `packages/server/test/indexes/SessionIndexService.test.ts` |
-| 1445 | `packages/server/test/sessions/codex-normalization.test.ts` |
-| 1414 | `packages/server/test/augments/edit-augments.test.ts` |
-| 1364 | `packages/client/src/hooks/__tests__/useSession.test.ts` |
-| 1279 | `packages/shared/test/binary-framing.test.ts` |
-| 1267 | `packages/server/test/sessions/dag.test.ts` |
-| 1249 | `packages/client/src/components/__tests__/Sidebar.test.tsx` |
-| 1172 | `packages/server/test/augments/block-detector.test.ts` |
-| 1135 | `packages/server/test/routes/settings.test.ts` |
-| 1130 | `packages/server/test/sessions/codex-reader-oss.test.ts` |
+## Growth Guard
+
+Landed 2026-11-06, immediately before slice 1.8a. `pnpm lint` runs
+`scripts/check-source-file-budgets.mjs`, which freezes every production
+source file over 1,500 lines at its recorded budget, rejects a new file over
+the threshold, and requires a `raise` record (the previous limit plus a
+reason) before a budget may go up, compared with the pull request base or
+pre-push commit in CI. The contract and the authoring rule that
+goes with it are in
+[the topic's growth guard section](../../topics/typescript-module-boundary-refactor.md#growth-guard).
+Slices run `pnpm source:budgets --record` in the same commit so extracted
+lines cannot silently regrow.
 
 ## Phase 0: Preparation And Tracking
 
@@ -174,7 +187,12 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | 1.5 | Deferred 2026-07-06 | Queue/deferred routes | Extract message queue, deferred patient queue, steer/cancel, pending input, and mode routes. Builds on SRR-005 (recovered queue helpers, done in doc 053). | Deferred with the sessions route-registrar lane. Queue timers and idle ownership are load-bearing; read architecture mandates and run `test:e2e:sdk` if revived. |
 | 1.6 | Deferred 2026-07-06 | Metadata/notifications routes | Extract metadata updates, mark-seen, last-seen, archive/star, and debug metadata routes. Builds on SRR-009 (metadata patch parsing, done in doc 053). | Deferred with the sessions route-registrar lane. Preserve event-bus update emissions if revived. |
 | 1.7 | Done 2026-07-06 | `routes/settings.ts` parser split | Move settings parsers/discovery helpers out of the route factory. | Moved parser/discovery helpers into `settings-parsers.ts`; route factory still owns endpoints, callbacks, config precedence, and response shapes. |
-| 1.8 | Not started | `app.ts` route composition cleanup | Extract app dependency construction or route mounting groups only after route modules are stable. | Do not alter middleware order, auth policy, or hosted-client endpoint selection. Coordinate with doc 054: workstreams slices (WS-004, WS-008, and later) actively mount routes in `app.ts`. |
+| 1.8 | In progress 2026-11-06 | `app.ts` route composition cleanup | `createApp` is one ~4,000-line function that interleaves service construction with route mounting. Keep it as the composition root, but have it call domain `mount*Routes(app, options, deps)` functions and domain service builders in today's order. Each sub-slice below moves one contiguous group. | Do not alter middleware order, auth policy, or hosted-client endpoint selection. Coordinate with doc 054: workstreams slices (WS-004, WS-008, and later) actively mount routes in `app.ts`. Stop condition specific to this file: late-assigned `let` bindings (`artifactServer`, `supervisor`, `pushNotifier`, `retainedCollections`, `conversationSubscriptions`, `apiCommands`, `agentApiController`, `knownProjectsForGrants`) are read from closures; a group that reads one before assignment cannot move as-is. |
+| 1.8a | Not started | Public-share mounting | Move the public-share loopback loaders and the five public-share route mounts into `routes/public-share-mounting.ts`. | Self-contained: reads only `options` and four already-initialized locals. Keep the mount position. Tier 3 substitute: public-share Playwright specs. |
+| 1.8b | Not started | Project file and git route mounting | Move the contiguous `/api/projects` file, glossary, git status/browse/revision, file completion/view search, working-tree, file-owner, incoming-commit and projection mounts into one domain mounting module. | Several routers share the `/api/projects` prefix, so their relative order is load-bearing; move the group whole. `createConversationContextRoutes({ supervisor })` sits inside the run and reads `supervisor` after assignment, which is safe at that point. Tier 3: client E2E for file viewer and source control. |
+| 1.8c | Not started | Session reader factories | Move `readerCache`, `getOrCreateReader`, `readerFactory`, the Codex/Gemini/Grok/Pi reader factories, and `disposeSessionReaders` into a session-reader construction module that returns them. | Medium risk: the LRU reader cache, `sessionReadLifetime` abort, and disposal ordering are shared state. Read `topics/architecture-mandates.md` first. Unlocks 1.8e because the Supervisor options read these factories. |
+| 1.8d | Not started | Issue and vocabulary services | Move the issue indexer/confirmer/content/status and vocabulary learning construction under `serverSettingsService` into a domain builder returning the services and their disposers. | Late-assigned `let` bindings are reassigned here and read by disposal; return them instead of assigning outer variables. Background refresh timers must keep their idle ownership. |
+| 1.8e | Deferred | Supervisor construction | Move the ~270-line `new Supervisor({...})` options literal into a builder. | High risk: its callbacks close over most of `createApp`. Revisit only after 1.8c and 1.8d shrink what it captures. Tier 3 plus `pnpm test:e2e:sdk`. |
 
 ## Phase 2: Client Page And Component Boundaries
 

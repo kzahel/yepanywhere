@@ -194,7 +194,20 @@ jobs:
           node-version: 22.23.4
           cache: "pnpm"
       - run: pnpm install
+      # The source-file budget check compares raises with this revision; the
+      # shallow checkout only holds HEAD, which already contains any raise.
+      - name: Fetch source budget base
+        id: budget-base
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE" ] && ! printf '%s' "$BASE" | grep -qE '^0+$'; then
+            git fetch --no-tags --depth=1 origin "$BASE"
+            echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+          fi
       - run: pnpm lint
+        env:
+          SOURCE_BUDGET_BASE: ${{ steps.budget-base.outputs.sha }}
       - run: pnpm format:check
       - run: pnpm capabilities:audit
       - run: pnpm console:scan

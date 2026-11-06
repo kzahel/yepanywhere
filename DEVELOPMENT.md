@@ -91,6 +91,26 @@ catch-up paths, read `topics/architecture-mandates.md`. In particular, an idle
 provider session and a closed client tab must never indefinitely consume server
 resources.
 
+## Oversized Source Files
+
+Production source files over 1,500 lines are frozen at a recorded budget, and
+`pnpm lint` fails when one grows or a new file crosses the threshold. When a
+change needs code in such a hub (`app.ts`, `routes/sessions.ts`,
+`SessionPage.tsx`, `Supervisor.ts`, `Process.ts`, `codex.ts`, and the rest of
+`scripts/source-file-budgets.json`):
+
+- Put the new logic in a domain-named module beside the hub, and keep only the
+  wiring (import, call, mount, prop) in the hub. `helpers.ts`/`utils.ts`
+  buckets are not domain names.
+- If even the wiring exceeds the budget, first land a separate move-only
+  extraction from that file, preferably a seam already named in the
+  [refactor ledger](docs/tactical/058-typescript-module-boundary-refactor.md).
+- After any extraction, run `pnpm source:budgets --record` in the same commit
+  so the freed lines stay freed.
+- Never raise a budget to get lint green. A raise needs maintainer approval
+  and a `raise` record; see the
+  [growth guard](topics/typescript-module-boundary-refactor.md#growth-guard).
+
 ## Project Directory Storage
 
 Before adding or changing any YA-managed write inside a selected project or
@@ -179,6 +199,7 @@ are not a requirement to read every neighboring document.
 | SQLite adapter changes, SQL callers, statement lifetimes, or test ceilings | [Runtime-portable SQLite](topics/optional-sqlite.md#runtime-portable-sqlite): use the shared runtime intersection, reuse prepared statements, and obtain maintainer consensus before widening the boundary. |
 | Dependencies, install scripts, lockfile updates, or audit findings | [Dependency maintenance](docs/development/dependencies.md): install-script allowlist and advisory justifications/revisit triggers. |
 | Creating/editing tactical plans or retiring completed plans/gaps | [Documentation and plans](docs/development/documentation.md): descriptive step names and durable-content migration before retirement. |
+| Moving code between modules, splitting a large file, or a `source-file-budgets` lint failure | [Module boundary refactor discipline](topics/typescript-module-boundary-refactor.md): move-only slices, naming, tripwires, and the growth guard. |
 | Creating a commit | [Commit conventions](docs/development/commits.md): motivation, wrapping, provenance, and series trailers. |
 | Local instances, ports, profiles, or provider/feature environment configuration | [Local development](docs/development/local-development.md). |
 | Server/client logs or maintenance diagnostics | [Debugging](docs/development/debugging.md). |
