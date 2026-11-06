@@ -1648,3 +1648,63 @@ acceptance measurements. Whole-workspace checks pass 7,111 server (87 skipped),
 7,119 client, 980 shared, 139 relay and 45 push-broker cases (server/client
 154.99/133.26 seconds). Lint, format, types and capability audit pass; final
 review-follow-up checks are recorded separately before publication.
+
+### Show reverse relationships in existing Session Info
+
+The client now consumes the authorized page in Session Info after the current
+source capability and operator principal resolve. It does not add default
+header chrome or navigation-path work. Incoming launcher links and read-only
+child links share the same section while preserving predicate/trust labels.
+Older servers omit the new section without another loader. A source-scoped
+shared query owns each finite page, notification refresh and request lifetime;
+the last release discards data/coverage and prevents stale publications. Cursor
+state resets across sources, projects and sessions. Catalog notices heal an
+initially unadopted native anchor without foreground discovery.
+
+Retained client checks cover two consumers, notification bursts, cancellation,
+late replies, source changes, keyset state, reverse/child navigation, future
+predicates and local loading/failure. Browser qualification uses a private
+synthetic 2,000-message OpenCode profile and Playwright Chromium, with no primary
+browser or port-3400 restart and no model inference. Initial probe failures are
+retained: its launcher lacked native messages, then it skipped public catalog
+identity publication, then deliberate service-worker blocking produced a
+browser warning. The corrected fixture follows catalog-backed navigation and
+permits the isolated service worker; none of those failed probes is acceptance.
+Typing performance remains explicitly deferred.
+
+Final browser checks pass on the current immutable client build at 1000×600
+and 375×812: no graph request before Info, one page request on opening it,
+correct reverse/child links, retained transcript DOM and no browser warnings.
+An older-server capability response keeps ordinary Info visible with zero
+relationship requests. The last failed probe had asserted a heading where the
+existing modal title is a span; the corrected assertion follows the dialog's
+existing title contract. Both final images were inspected separately and
+presented through the artifact facility. No timing threshold was relaxed.
+
+Nineteen focused client checks pass in 1.31 seconds (0.464 test work), including
+seven retained new boundary/race cases. Whole-workspace checks pass 7,111 server
+(87 skipped), 7,126 client, 980 shared, 139 relay and 45 push-broker cases;
+server/client durations are 145.59/121.38 seconds. Lint, format, types, CSS and
+capability audit pass. Console scanning adds no sites. The touched-CSS report
+defers SessionPage's existing coupled/global rules; the change adds only a
+capability/authority prop there and owns all new styles in a component module.
+
+Review accepts the consumer and prompts five follow-ups: move the list after
+all existing Info fields, close Info on in-tab relationship navigation and
+release it while DOM-linger parked, handle unfamiliar reference/trust values,
+skip refresh-in-progress catalog notices, and reuse provider display names and
+Info heading conventions. Twenty focused checks pass in 1.16 seconds (0.446
+test work). The fresh desktop/phone captures pass and were inspected/delivered
+again. A 50-row control keeps the original Session ID in view, then follows
+the launcher with DOM linger enabled: the old page remains parked while its
+Info overlay closes. Fixture-only failures used an invalid preparation token
+and assumed a launcher title outside the retained summary window; corrected
+controls use the owner-defined preparation intent and known destination href.
+
+The first final whole-workspace run exposes the separate
+[missing SRP configuration finding](../../gaps/secure-websocket-srp-configuration-intermittently-missing.md)
+in the unchanged secure WebSocket suite. Its focused 23-case pass does not
+explain the failure. The full retry passes 7,111 server (87 skipped), 7,127
+client, 980 shared, 139 relay and 45 push-broker cases; server/client durations
+are 143.33/117.74 seconds. Final lint, format, types, CSS, capability audit and
+console scan complete. No SRP expectation, timeout or typing limit is weakened.

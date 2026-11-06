@@ -6869,7 +6869,7 @@ function SessionPageContent({
         )}
 
         {/* Model Switch Modal */}
-        {showModelSwitchModal && (
+        {showModelSwitchModal && !isDomLingerParked && (
           <ModelSwitchModal
             routed={routedSession}
             processId={status.owner === "self" ? status.processId : undefined}
@@ -6882,6 +6882,17 @@ function SessionPageContent({
             infoPane={
               session ? (
                 <ProcessInfoBody
+                  onRelationshipNavigate={() => setShowModelSwitchModal(false)}
+                  relationshipProjectId={
+                    creationPrincipalResolved &&
+                    creationPrincipal.superuser &&
+                    serverHasCapability(
+                      versionInfo,
+                      SERVER_CAPABILITIES.sessionRelationships,
+                    )
+                      ? projectId
+                      : undefined
+                  }
                   sessionId={actualSessionId}
                   sessionTitle={titleTooltip}
                   provider={session.provider}

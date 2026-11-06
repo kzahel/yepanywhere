@@ -435,7 +435,48 @@ v0.10.2 (October 20). Neither tag has this route or projection. The named
 advertisement on earlier source versions. Its source introduction is November
 6; the temporary client support check expires February 4, 2027 under the
 existing 90-day rule. Unsupported servers omit the new visualization without a
-legacy loader. This API slice adds no client dependency yet.
+legacy loader. The Session Info consumer uses that support check below.
+
+### Session Info and reverse navigation
+
+The existing Session Info view shows recorded incoming and outgoing links after
+its existing fields on
+supported servers for a resolved superuser. It adds metadata inside that
+deliberately opened view, with no new default-visible header control or provider
+behavior. Opening the session, sidebar navigation, transcript rendering and
+the model tab issue no relationship request. Older servers and restricted
+principals omit this section without an alternate loader or unsupported request;
+ordinary session viewing and independently existing child features continue.
+
+Opening Info acquires one 50-edge page from the current source's transport.
+Canonical sessions link to their YA routes; unique native children use the
+existing parent-scoped read-only route. Incoming `launched_harness` facts show
+"Launched by" and link back to the initiating session. Native children,
+independent YA creation, copies, asides and continuations keep distinct labels
+and observation trust. Unknown predicates remain display-only with respect to
+native-child controls. Unknown reference kinds have a neutral label without
+navigation, and unfamiliar trust values omit that label. Titles use already-retained authorized summaries or
+bounded evidence; there is no per-row metadata or transcript fetch.
+
+Loading and generic failure stay inside the section, leaving the other Info
+fields and transcript mounted. Empty means no matching links are recorded,
+not a complete native inventory. The user can follow server-issued pages,
+return to a previous page or refresh from the start after expiry/restart.
+Only page one follows shared reconnect, refresh, metadata and completed catalog notices;
+refresh-in-progress catalog notices do not cause another read.
+later keyset pages stay stable until explicit navigation/refresh.
+
+One retained query owner shares each source/session/cursor acquisition and
+revalidation. Its bounded page snapshot is shared by subscribers and discarded
+when the last one releases it. Release also invalidates accepted coverage and
+cancels that owner's request; a late response cannot repopulate a departed or
+replacement owner. Switching source, session or project resets page cursors.
+Catalog publication can heal an initially unresolved native anchor through the
+existing identity owner; the graph request itself never adopts native ids.
+Following a relationship link closes Info for ordinary in-tab navigation;
+modifier-clicks retain the current view. Parked DOM-linger pages do not keep
+the Model/Info modal or its relationship subscriptions mounted. There are no
+idle pollers, per-row scans or retained whole-install graphs.
 
 Adapt today's `providerChildren`, `/agents` navigation, fork and `/btw` fields
 from this model as their owning writers migrate. They retain their established

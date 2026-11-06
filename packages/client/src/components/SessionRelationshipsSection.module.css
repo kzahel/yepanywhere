@@ -1,0 +1,120 @@
+.root {
+  min-width: 0;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.button {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.button:hover:enabled {
+  background: var(--bg-hover);
+}
+
+.button:focus-visible,
+.link:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.note,
+.proof {
+  margin: var(--space-1) 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.predicate {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.link,
+.target {
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.link {
+  color: var(--link-color);
+}
+
+.target {
+  color: var(--text-primary);
+}
+
+.paging {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.error {
+  color: var(--error-color);
+  font-size: var(--font-size-sm);
+}
+
+@media (width <= 600px) {
+  .button {
+    min-height: 44px;
+  }
+
+  .link {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+  }
+}

@@ -17,6 +17,7 @@ import { isStandardServiceTier, serviceTierLabel } from "../lib/serviceTiers";
 import type { SessionStatus } from "../types";
 import styles from "./ProcessInfoModal.module.css";
 import { SessionTitleDetails } from "./SessionTitleDetails";
+import { SessionRelationshipsSection } from "./SessionRelationshipsSection";
 import type { RouterBinding } from "./RouterPoolSelector";
 import { Modal } from "./ui/Modal";
 
@@ -44,6 +45,9 @@ interface ProcessInfo {
 }
 
 interface ProcessInfoBodyProps {
+  /** Supplied only after the new operator page's capability and principal resolve. */
+  relationshipProjectId?: string;
+  onRelationshipNavigate?: () => void;
   sessionId: string;
   sessionTitle: string;
   provider: ProviderName;
@@ -279,6 +283,8 @@ function Section({
 }
 
 export function ProcessInfoBody({
+  relationshipProjectId,
+  onRelationshipNavigate,
   sessionId,
   sessionTitle,
   provider,
@@ -787,6 +793,14 @@ export function ProcessInfoBody({
           />
         </Section>
       )}
+      {relationshipProjectId && (
+        <SessionRelationshipsSection
+          key={`${relationshipProjectId}/${sessionId}`}
+          projectId={relationshipProjectId}
+          sessionId={sessionId}
+          onNavigate={onRelationshipNavigate}
+        />
+      )}
     </div>
   );
 }
@@ -795,7 +809,7 @@ export function ProcessInfoModal({ onClose, ...rest }: ProcessInfoModalProps) {
   const { t } = useI18n();
   return (
     <Modal title={t("processInfoTitle")} onClose={onClose}>
-      <ProcessInfoBody {...rest} />
+      <ProcessInfoBody {...rest} onRelationshipNavigate={onClose} />
     </Modal>
   );
 }
