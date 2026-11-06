@@ -1,13 +1,13 @@
 # Sessions Route Refactor Ledger
 
-Status: Active, 2026-11-06: the maintainer revived the session-detail
+Status: Dormant again, 2026-11-06: the maintainer revived the session-detail
 read routes (doc 058 row 1.2) and they landed as SRR-014, which moved the
 helpers those routes share with the rest of the file, and SRR-015, which moved
 the routes. SRR-016 then moved the session project-routing closures those
 routes receive out of the route factory. The maintainer then revived the
 start/resume/reactivate routes (doc 058 row 1.3): SRR-017 moved the helpers
-and closures they share with the rest of the file, and SRR-018, which moves
-the routes themselves, is accepted and next. SRR-013 landed the
+and closures they share with the rest of the file, and SRR-018 moved the
+routes themselves into their own registrars. SRR-013 landed the
 metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
@@ -95,14 +95,73 @@ boundaries, not necessarily fewer total repository lines.
 
 ### SRR-018: Register Start, Resume And Reactivate Routes From Their Own Modules
 
-Status: accepted, 2026-11-06, with SRR-017 (doc 058 slice 1.3b).
+Status: done, 2026-11-06. Accepted with SRR-017, which moved the helpers
+these routes share with the rest of the file; landed as campaign slice 1.3b
+in doc 058, completing row 1.3.
 
-Scope: move the two session-creation `POST`s with `ensureDetachedProjectPath`,
-and the resume `POST`, the reactivate admission middleware and `POST`, with
-`parseOptionalReactivateSessionBody`, `REACTIVATE_SHOW_THINKING_OPTIONS` and
-`isPermissionRules`, into registrars called at the routes' old position. The
-registrars receive `creationAcceptance`, `getGlobalInstructions` and
-`buildResumeLaunch` as parameters.
+Destinations:
+
+- `POST /projects/:projectId/session-creations` (`startProjectSession`),
+  `POST /session-creations` (`startDetachedSession`) and the factory closure
+  `ensureDetachedProjectPath`, used only by the detached start -> new
+  `packages/server/src/routes/session-creation-routes.ts`, as
+  `registerSessionCreationRoutes(routes, deps, closures)`;
+- `POST /projects/:projectId/sessions/:sessionId/resume`, the reactivate
+  project-queue admission middleware and
+  `POST /projects/:projectId/sessions/:sessionId/reactivate`, with the
+  module-level `parseOptionalReactivateSessionBody`,
+  `REACTIVATE_SHOW_THINKING_OPTIONS` and `isPermissionRules` that only
+  reactivate uses -> new `packages/server/src/routes/session-resume-routes.ts`,
+  as `registerSessionResumeRoutes(routes, deps, closures)`.
+
+Line delta: `-1,010` lines from `sessions.ts` (6,713 -> 5,703); new modules
+of 376 and 797 lines.
+
+Problem:
+
+The start, resume and reactivate handlers were 918 contiguous lines of
+`createSessionsRoutes`, the largest remaining block in row 1.3's scope.
+After SRR-017 they read no factory binding except `routes`, `deps`, three
+stateless closures, and `ensureDetachedProjectPath`, which only they use,
+so they can register from their own modules.
+
+Implemented:
+
+- moved the four route blocks, the admission middleware, the reactivate body
+  parser and `ensureDetachedProjectPath` byte-identically. The module-level
+  parser stays module-private in its new home; the routes and
+  `ensureDetachedProjectPath` sit inside the registrar bodies;
+- `createSessionsRoutes` calls the two registrars back to back at the old
+  position, right after `registerSessionDetailRoute`, so the registration
+  order of every route and middleware, including the reactivate admission
+  middleware relative to the read-only-executor `routes.use(...)` in front
+  of it, is unchanged;
+- the closures `creationAcceptance`, `getGlobalInstructions` and
+  `buildResumeLaunch` are still built once by the SRR-017 factories that
+  `createSessionsRoutes` calls, because their siblings and the latter two
+  themselves serve code that stays (restart, stale-handoff, fork,
+  fork-summary, clone, recap, retitle, the message route, `/clearloop` and
+  the recovered-queue deps). They are passed as the registrars'
+  `closures` parameter and destructured at the top of each registrar under
+  the same names. The registrars do not call the factories themselves, so
+  each closure is still the single instance the route factory built;
+- `deps` is typed as `SessionCreationRouteDeps` (`supervisor`, `scanner`,
+  `userUsageService`, and the compact-settings services) and
+  `SessionResumeRouteDeps` (provider resolution deps, those services,
+  `readerFactory`, `sessionMetadataService` and
+  `projectQueueScheduler.reserveUserSessionStart`), not `SessionsDeps`;
+- `ensureDetachedProjectPath` is now created when the registrar runs rather
+  than earlier in the factory; it is stateless and only called at request
+  time.
+
+Risk:
+
+- medium. Route registration, project-queue admission and durable session
+  creation pass through this code, though no body changed. Registration
+  order, the admission middleware and the closures' identity are the
+  tripwires; Tier 3 and `pnpm test:e2e:sdk` cover them.
+
+Verification: see doc 058's slice 1.3b landing note.
 
 ### SRR-017: Move Session Start And Resume Helpers Shared With Other Routes
 

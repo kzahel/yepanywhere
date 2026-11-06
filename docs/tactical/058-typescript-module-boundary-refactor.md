@@ -176,7 +176,7 @@ routes), SRR-008 (compact thresholds), SRR-009 (metadata patch parsing),
 SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
 SRR-013 (metadata/seen-state routes), SRR-014/SRR-015 (session-detail
 helpers and read routes), SRR-016 (session project routing), and
-SRR-017 (session start/resume shared helpers) —
+SRR-017/SRR-018 (session start/resume helpers and routes) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do
 not create a `routes/sessions/` directory or a shared helpers bucket.
@@ -188,9 +188,9 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | 1.2a | Done 2026-11-06 as SRR-014 | Session-detail helpers shared with the rest of `sessions.ts` | Move `resolveSessionReader` into `session-provider-resolution.ts`, the SDK-history conversion (`sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages`) into `session-sdk-history.ts`, and `messageId` into `session-message-id.ts`. | Preflight for 1.2b: the detail routes call these, and except for `extractContextUsageFromSDKMessages` (moved with its SDK-history sibling) so does code that stays (restart, fork, rewind), so they cannot move with the routes without a back-import. Helper functions only; Tier 2. |
 | 1.2b | Done 2026-11-06 as SRR-015 | Session-detail read route registrars | Move the agents, agent-content and metadata `GET`s, and the session-detail `GET`, into registrars called at their two original positions. | Tier 3. The six factory closures both registrars use (the project-routing/redirect pair, `storedIdentityFor`, the Grok lookup and redirect, `rewindRecordIdsFor`) become a `routing` parameter. |
 | 1.2c | Done 2026-11-06 as SRR-016 | Session project-routing closures | Move `resolveSessionProjectRouting`, `buildSessionProjectRedirectPath`, `getGrokNativeProjectId` with its lazy Grok reader, and `buildGrokNativeRedirectPath` into `createSessionProjectRouting(deps, storedIdentityFor)` in the existing `session-project-routing.ts`, called once at the old position. | Follow-up to 1.2b. Call sites unchanged: the factory destructures the same four names. One lazy Grok reader per factory call. `storedIdentityFor` and `rewindRecordIdsFor` stay. Tier 3. |
-| 1.3 | In progress 2026-11-06 as SRR-017/SRR-018 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers, in the two sub-slices below. | Deferred 2026-07-06 with the sessions route-registrar lane; revived through doc 053 at the maintainer's request. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, durable creation recovery, and remote sync behavior. |
+| 1.3 | Done 2026-11-06 as SRR-017/SRR-018 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers, in the two sub-slices below. | Deferred 2026-07-06 with the sessions route-registrar lane; revived through doc 053 at the maintainer's request. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, durable creation recovery, and remote sync behavior. |
 | 1.3a | Done 2026-11-06 as SRR-017 | Start/resume helpers shared with the rest of `sessions.ts` | Move the launch body types and parsers, the start-result guards, the sandbox request settings, `resolveCompactModelSettings`, and the `creationForRequest`/`creationAcceptance` and `getGlobalInstructions`/`buildResumeLaunch` closures (as `createSessionCreationRequests(deps)` and `createSessionLaunchSettings(deps)`) into domain modules. | Preflight for 1.3b: the routes share no factory state, but these are also used by restart, stale-handoff, fork, fork-summary, clone, recap, retitle, `PUT .../mode`, the message route, `/clearloop` and the recovered-queue deps, so they cannot move with the routes without a back-import. Call sites unchanged. Tier 2. |
-| 1.3b | Not started | Start/resume/reactivate route registrars | Move the two session-creation `POST`s with `ensureDetachedProjectPath`, and resume plus the reactivate admission middleware and `POST` with `parseOptionalReactivateSessionBody`, `REACTIVATE_SHOW_THINKING_OPTIONS` and `isPermissionRules` (used only by these routes), into registrars called at the old position. | Tier 3 plus `pnpm test:e2e:sdk`: creation and reactivation cross project-queue admission. |
+| 1.3b | Done 2026-11-06 as SRR-018 | Start/resume/reactivate route registrars | Move the two session-creation `POST`s with `ensureDetachedProjectPath`, and resume plus the reactivate admission middleware and `POST` with `parseOptionalReactivateSessionBody`, `REACTIVATE_SHOW_THINKING_OPTIONS` and `isPermissionRules` (used only by these routes), into registrars called at the old position. | Tier 3 plus `pnpm test:e2e:sdk`: creation and reactivation cross project-queue admission. Landed as `registerSessionCreationRoutes` and `registerSessionResumeRoutes`, called back to back at the old position; `creationAcceptance`, `getGlobalInstructions` and `buildResumeLaunch` are a `closures` parameter. |
 | 1.4 | Deferred 2026-07-06 | Restart/fork/recap/retitle routes | Extract restart, fork, recap, fork-summary, and retitle flows; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Higher risk; preserve handoff/fork semantics and recap background behavior if revived. |
 | 1.5 | Deferred 2026-07-06 | Queue/deferred routes | Extract message queue, deferred patient queue, steer/cancel, pending input, and mode routes. Builds on SRR-005 (recovered queue helpers, done in doc 053). | Deferred with the sessions route-registrar lane. Queue timers and idle ownership are load-bearing; read architecture mandates and run `test:e2e:sdk` if revived. |
 | 1.6 | Done 2026-11-06 as SRR-013 | Metadata/notifications routes | Move mark-seen (both verbs), notifications last-seen, debug metadata and the metadata `PUT` (archive/star included) into `session-metadata-routes.ts` as `registerSessionMetadataRoutes`, called at the old position. Builds on SRR-009 (metadata patch parsing). | Revived through doc 053 as SRR-013. Byte-identical block; event-bus emissions and the archive stop boundary unchanged. The session-detail metadata `GET` stays with row 1.2. |
@@ -355,6 +355,73 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 1.3b — Session Start, Resume And Reactivate Routes (Landed 2026-11-06, this commit)
+
+Tracked in doc 053 as SRR-018; completes row 1.3 after slice 1.3a.
+
+Moved:
+- `startProjectSession` with `POST /projects/:projectId/session-creations`,
+  `startDetachedSession` with `POST /session-creations`, and the factory
+  closure `ensureDetachedProjectPath` -> `registerSessionCreationRoutes` in
+  new `packages/server/src/routes/session-creation-routes.ts`.
+- `POST /projects/:projectId/sessions/:sessionId/resume`, the reactivate
+  project-queue admission `routes.use(...)` and
+  `POST /projects/:projectId/sessions/:sessionId/reactivate`, plus the
+  module-level `REACTIVATE_SHOW_THINKING_OPTIONS`, `isPermissionRules` and
+  `parseOptionalReactivateSessionBody` -> `registerSessionResumeRoutes` in
+  new `packages/server/src/routes/session-resume-routes.ts`.
+- All five moved chunks are byte-identical to `HEAD` (checked as
+  substrings of the new modules). `createSessionsRoutes` calls the two
+  registrars back to back where the first route block began, so route and
+  middleware registration order is unchanged.
+Signature conversions (closure -> parameter):
+- `deps` is a parameter, typed as `SessionCreationRouteDeps` and
+  `SessionResumeRouteDeps` rather than `SessionsDeps`; the route factory
+  passes its own `deps` object.
+- The factory closures `creationAcceptance`, `getGlobalInstructions` and
+  `buildResumeLaunch` are a `closures` parameter, destructured under the
+  same names at the top of each registrar; they are the instances the route
+  factory built through slice 1.3a's factories.
+Behavior changes:
+- None. `ensureDetachedProjectPath` is now created when the registrar runs
+  instead of earlier in the factory; it is stateless and called only at
+  request time.
+Verification:
+- Tier 1: shared build; server `tsc --noEmit`; Biome check on changed
+  files; `git diff --check`; byte-identity check of the moved chunks; the
+  same focused set as slice 1.3a through `run-with-safe-home.js`: 2,006
+  passed, 13 skipped (186 files), no failures.
+- Tier 2: root `pnpm lint` (zero warnings, including the budget check),
+  `pnpm format:check`, `pnpm typecheck` and `pnpm test` passed (server
+  7,111 passed / 87 skipped; client 7,128; shared 980; relay 139;
+  push-broker 45).
+- Tier 3: the client gate
+  `pnpm --filter client test:e2e --grep-invert "physical Android"`
+  (server from source through `tsx`): 493 passed, 13 skipped, 3 failed.
+  `provider-sign-in.spec.ts:161` is the known `HEAD` baseline failure.
+  `artifact-viewer.spec.ts:136` and `selection-during-activity.spec.ts:281`
+  passed 3/3 each in isolation (`--repeat-each=3`, 6/6), so neither
+  persists and no `HEAD` comparison was needed.
+- `pnpm test:e2e:sdk` (session creation and reactivation cross
+  project-queue admission): 80 passed, 4 skipped (8 files passed, 3
+  skipped).
+- Budget: `pnpm source:budgets --record` lowered `sessions.ts`
+  6,713 -> 5,703.
+- Independent review (claude-opus-5-5, xhigh): all five chunks match
+  `HEAD` exactly; every identifier in them resolves to the same module and
+  symbol, and only `deps`, `routes`, the three closures,
+  `ensureDetachedProjectPath` and the reactivate parser are rebound; with
+  the registrars inlined, the 39-entry route, middleware and registrar
+  sequence equals `HEAD`'s; each closure is still the factory's single
+  instance; `SessionsDeps` satisfies both deps interfaces without a cast;
+  no unused, duplicate or back-import. Its findings, all in doc 053's
+  SRR-018 entry, were fixed: two module line counts and the moved-block
+  length were off, the problem statement omitted `deps` and
+  `ensureDetachedProjectPath`, and the list of code keeping the closures
+  was incomplete.
+Follow-ups recorded:
+- None.
 
 ### Slice 1.3a — Session Start/Resume Shared Helpers (Landed 2026-11-06, this commit)
 
