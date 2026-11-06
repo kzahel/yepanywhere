@@ -1,7 +1,7 @@
 .notice {
   display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
+  flex-direction: column;
+  gap: 0.35rem;
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
@@ -16,6 +16,7 @@
 .label {
   flex: none;
   color: var(--text-secondary);
+  white-space: pre-wrap;
 }
 
 .objective {

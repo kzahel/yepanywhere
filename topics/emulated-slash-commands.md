@@ -179,27 +179,39 @@ Historical receipts are never used to infer current provider state.
 When inventory includes `providerDetails.codex.goalStatus`, the outlined flag
 uses subtle green for active and yellow for every resumable state (paused,
 blocked, usage-limited), and its tooltip names the actual status. Click, tap,
-or keyboard activation pauses an active goal or
-resumes a paused, blocked, or usage-limited goal. Complete, budget-limited, and
-unknown states remain inspectable without a toggle. While a request is pending,
-the tooltip says so and duplicate activation is ignored. The flag changes only
-on a provider observation, including status-only notifications; rejected or
-limited transitions never acquire an optimistic success color. These controls
-use the existing native command delivery during active turns and preserve the
-composer draft, attachments, and current turn status.
+or keyboard activation opens a goal panel with the full selectable objective,
+copy control, and provider-observed status. Desktop opens an anchored popover;
+phone opens a bottom sheet with a scrolling body and reachable actions. Opening,
+closing, copying, and cancelling edits send no goal command and create no
+transcript receipt. Escape, outside click, the close button, and browser Back
+close the panel; focus returns to the flag.
+
+Explicit panel buttons pause an active goal or resume a paused, blocked, or
+usage-limited goal. Complete, budget-limited, and unknown states have no toggle.
+Edit goal opens a local editor; Save goal submits `/goal <objective>`, while
+Cancel preserves the provider objective. Clear goal explicitly sends `/goal clear`.
+All panel commands preserve the composer draft and attachments. While a request
+is pending, duplicate submissions are ignored and command buttons are disabled.
+Failures keep the panel/editor available and never change the observed status
+optimistically. The flag and panel status change only on a provider observation,
+including status-only notifications; rejected or limited transitions never
+acquire an optimistic success color. These controls use existing native command
+delivery during active turns and preserve current turn status.
 
 Right-click retains the themed tooltip's enlarge/copy behavior. It also fills
 an empty or whitespace-only composer with `/goal <current objective>` and
 focuses it for editing. A nonempty draft remains untouched. This is an explicit
 user action and does not submit or replace the goal by itself.
 
-Interactive `/goal edit` is not advertised because YA has no provider goal
-editor; an explicit attempt directs the user to `/goal <objective>`.
+Native interactive `/goal edit` is not advertised; an explicit attempt directs
+the user to `/goal <objective>`. The panel editor submits that existing command
+and does not depend on a provider-native editor.
 
-Successful goal commands produce a compact, always-readable local receipt with
-the objective itself, rather than a collapsed “Goal set” heading. Read, clear,
-pause, and resume receipts share that style. The receipt acknowledges the
-submitted composer temp ID, so the local command does not leave a “Sending…”
+Successful goal commands produce an always-readable local receipt with the
+full objective itself. The command result (such as “Goal paused” or “Goal
+resumed”) appears visibly above the objective, rather than only in a tooltip.
+Read, clear, pause, and resume receipts share that style. The receipt
+acknowledges the submitted composer temp ID, so the local command does not leave a “Sending…”
 bubble while waiting for a provider user-turn echo that will never exist.
 With status-aware inventory, submitting a native goal command also preserves
 the observed idle/busy state until actual provider lifecycle events change it;
@@ -231,9 +243,9 @@ Current-objective metadata and argument completions are optional inventory
 fields. Servers that omit them retain command-name completion and no current
 goal flag; the client makes no additional provider or REST requests for these
 enhancements. No existing capability is expanded.
-The optional status field also gates flag toggling: inventories without it keep
-the neutral objective-only flag and make no toggle request. The optional-feature
-review covered `v0.8.1` (2026-09-05) and `v0.8.0` (2026-08-31), the latest two
+The optional status field also gates pause/resume controls: inventories without
+it keep the neutral objective-only flag and make no pause/resume request. The
+optional-feature review covered `v0.8.1` (2026-09-05) and `v0.8.0` (2026-08-31), the latest two
 stable releases and all stable releases within 14 days. Both lack the status
 field; no route, command meaning, or existing capability changes. The maintainer
 approved completing this plan on 2026-09-06.
@@ -285,7 +297,7 @@ the transition is not confirmed yet rather than claiming success.
 The inventory publishes `providerDetails.claude.goalObjective` and
 `goalStatus` (`active`, `paused`, or null for no goal) on the native `goal`
 entry, plus completions for the current objective, `clear`, and whichever of
-`pause`/`resume` applies. The header flag, its tooltip, its toggle, and the
+`pause`/`resume` applies. The header flag, its tooltip, its goal panel, and the
 right-click objective fill are the same controls as the Codex goal flag. When
 Claude is old enough to lack a native `/goal`, YA's `/loop wish` alias stays in
 place, carries no goal state, and offers no controls. A saved goal observation

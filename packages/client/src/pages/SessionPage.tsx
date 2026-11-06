@@ -6552,14 +6552,12 @@ function SessionPageContent({
                       <GoalFlag
                         objective={currentGoal}
                         status={goalDetails?.goalStatus}
-                        onToggle={
-                          goalDetails?.goalStatus
-                            ? (action) =>
-                                handleSend(`/goal ${action}`, undefined, {
-                                  preserveComposer: true,
-                                  localControl: true,
-                                })
-                            : undefined
+                        key={actualSessionId}
+                        onCommand={(argument) =>
+                          handleSend(`/goal ${argument}`, undefined, {
+                            preserveComposer: true,
+                            localControl: true,
+                          })
                         }
                         onEdit={() => {
                           const controls = draftControlsRef.current;
