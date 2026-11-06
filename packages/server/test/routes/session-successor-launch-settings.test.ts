@@ -448,6 +448,25 @@ describe("successor launch settings", () => {
     });
   });
 
+  it("stale-session handoff falls back to the live process's model before the transcript's", async () => {
+    const startSession = vi.fn(async () => startedProcess("sess-new"));
+    const routes = createSessionsRoutes(
+      launchDeps(
+        unsandboxedSource,
+        { startSession },
+        { reader: transcriptReader },
+      ),
+    );
+
+    const response = await routes.request(
+      ...post("stale-handoff", { message: "what is a volcano?" }),
+    );
+
+    expect(response.status).toBe(200);
+    const settings = startSession.mock.calls[0]?.[3] as Record<string, unknown>;
+    expect(settings).toMatchObject(claudeCompact(60, 400_000));
+  });
+
   it("restart handoff falls back to the transcript's model without a live one", async () => {
     const startSession = vi.fn(async () => startedProcess("sess-new"));
     const routes = createSessionsRoutes(
@@ -518,8 +537,8 @@ describe("successor launch settings", () => {
       recapAfterSeconds: 300,
       promptSuggestionMode: "native",
       compactAtContextPercent: 80,
-      // The source's Claude model is still a window candidate here.
-      compactAtContextWindow: 400_000,
+      // The source's Claude models are not window candidates for Codex.
+      compactAtContextWindow: undefined,
       forceYaOrchestratedCompaction: true,
       claudeAutoCompactPercentOverride: undefined,
     });

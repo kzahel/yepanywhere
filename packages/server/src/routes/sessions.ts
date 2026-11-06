@@ -2591,8 +2591,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         sourceProvider,
         providerName:
           (launchBody.provider as ProviderName | undefined) ?? sourceProvider,
-        sourceModels: [sourceSession.model],
-        sourceModelsAcrossProviders: true,
+        sourceModels: [oldProcess?.resolvedModel, sourceSession.model],
         executor,
         sandboxLevel: sandbox.level,
         sandboxNetworkFirewall: sandbox.networkFirewall,

@@ -126,7 +126,9 @@ Implemented:
 - each difference between the copies was traced to its commit and
   classified in plan 177's step 2 table. The one accidental difference, the
   stale-session handoff's compact-window fallbacks, stays behind a temporary
-  option here and is fixed in its own follow-up commit.
+  option here and is fixed in its own follow-up commit; that
+  commit takes `sessions.ts` to 5,539 lines and
+  `session-launch-settings.ts` to 241.
 
 Verification: `test/routes/session-successor-launch-settings.test.ts` pins
 the exact settings object and permission mode each path passes to the
@@ -135,7 +137,9 @@ settings in a sandbox, and across providers; restart fork; and the
 stale-session handoff for a superuser and for a locked limited user. Two
 restart handoff cases load a transcript whose model differs from the live
 process's, pinning the order of the compact-window fallbacks. It passed
-against the old code before the change.
+against the old code before the change. The follow-up fix adds a stale-session case
+for the same order; it and the locked cross-provider case fail before the
+fix, by design.
 
 ### SRR-019: One Launch-Metadata Writer For Successor Sessions
 

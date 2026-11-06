@@ -173,14 +173,10 @@ export function createSessionLaunchSettings(deps: SessionLaunchSettingsDeps) {
     providerName: ProviderName;
     /**
      * Models the source ran, newest first: compact-window fallbacks when
-     * the successor's own model has no known window.
+     * the successor's own model has no known window and keeps the source's
+     * provider.
      */
     sourceModels: (string | undefined)[];
-    /**
-     * Keep `sourceModels` as window fallbacks across providers too. Only the
-     * stale-session handoff sets it; restart treats them as provider-local.
-     */
-    sourceModelsAcrossProviders?: boolean;
     executor: string | undefined;
     sandboxLevel: SessionSandboxLevel;
     sandboxNetworkFirewall: boolean;
@@ -234,9 +230,8 @@ export function createSessionLaunchSettings(deps: SessionLaunchSettingsDeps) {
         provider: providerName,
         yaModelId: requestedModel,
         modelCandidates:
-          sameProvider || input.sourceModelsAcrossProviders
-            ? [model, ...input.sourceModels]
-            : [model],
+          // The source's models name another provider's windows.
+          sameProvider ? [model, ...input.sourceModels] : [model],
       }),
     };
     return { ...inherited, settings };
