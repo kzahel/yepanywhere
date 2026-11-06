@@ -173,7 +173,8 @@ ledger has already landed SRR-001 (request parsing helpers), SRR-002
 (`providerResolutionDeps` dedup), SRR-004 (thinking launch options), SRR-005
 (recovered queue helpers), SRR-006 (Claude resume guard), SRR-007 (worker queue
 routes), SRR-008 (compact thresholds), SRR-009 (metadata patch parsing),
-SRR-010 (queue summary shaping), and SRR-011 (provider resolution helpers) —
+SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
+SRR-013 (metadata/seen-state routes), and SRR-014 (session-detail helpers) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do
 not create a `routes/sessions/` directory or a shared helpers bucket.
@@ -181,7 +182,9 @@ not create a `routes/sessions/` directory or a shared helpers bucket.
 | Slice | Status | Target | Intent | Tripwires / Notes |
 |---|---|---|---|---|
 | 1.1 | Done 2026-07-06 as SRR-010/SRR-011 | `sessions.ts` queue summary shaping + provider guards | Land SRR-010 (patient/deferred queue summary shaping into `session-queue-summaries.ts`) and SRR-011 (provider name guards and resolution deps into `session-provider-resolution.ts`). | Move-only; shaping and guards, not queue behavior. Restart/fork helpers are excluded — they are larger and behavior-heavy. Tier 1. |
-| 1.2 | Deferred 2026-07-06 | Session detail routes | Extract metadata, agent content, and `GET /projects/:projectId/sessions/:sessionId` handlers behind a local registrar; propose as an SRR item first if revived. | Deferred because this is a route registrar move with pagination, compact-tail, augment, unread, and server-E2E tripwires; broader easier slices now have better value/risk. |
+| 1.2 | In progress 2026-11-06 as SRR-014/SRR-015 | Session detail routes | Extract metadata, agent content, and `GET /projects/:projectId/sessions/:sessionId` handlers behind a local registrar, in the two sub-slices below. | Deferred 2026-07-06 because this is a route registrar move with pagination, compact-tail, augment, unread, and server-E2E tripwires; revived through doc 053 at the maintainer's request. |
+| 1.2a | Done 2026-11-06 as SRR-014 | Session-detail helpers shared with the rest of `sessions.ts` | Move `resolveSessionReader` into `session-provider-resolution.ts`, the SDK-history conversion (`sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages`) into `session-sdk-history.ts`, and `messageId` into `session-message-id.ts`. | Preflight for 1.2b: the detail routes call these, and so does code that stays (restart, fork, rewind), so they cannot move with the routes without a back-import. Pure functions; Tier 2. |
+| 1.2b | Not started | Session-detail read route registrars | Move the agents, agent-content and metadata `GET`s, and the session-detail `GET`, into registrars called at their two original positions. | Tier 3. Factory closures shared with routes that stay (`resolveSessionProjectRouting`, `storedIdentityFor`, the redirect builders) become parameters. |
 | 1.3 | Deferred 2026-07-06 | Start/create/resume/reactivate routes | Extract new-session, two-phase create, resume, and reactivation handlers; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Preserve provider selection, YA-visible session ids, executor persistence, queue-full behavior, and remote sync behavior if revived. |
 | 1.4 | Deferred 2026-07-06 | Restart/fork/recap/retitle routes | Extract restart, fork, recap, fork-summary, and retitle flows; propose as an SRR item first if revived. | Deferred with the sessions route-registrar lane. Higher risk; preserve handoff/fork semantics and recap background behavior if revived. |
 | 1.5 | Deferred 2026-07-06 | Queue/deferred routes | Extract message queue, deferred patient queue, steer/cancel, pending input, and mode routes. Builds on SRR-005 (recovered queue helpers, done in doc 053). | Deferred with the sessions route-registrar lane. Queue timers and idle ownership are load-bearing; read architecture mandates and run `test:e2e:sdk` if revived. |
@@ -347,6 +350,51 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 1.2a — Session-Detail Shared Helpers (Landed 2026-11-06, this commit)
+
+Tracked in doc 053 as SRR-014; prepares slice 1.2b.
+
+Moved:
+- `resolveSessionReader` -> `packages/server/src/routes/session-provider-resolution.ts`.
+- `sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages` and
+  the module-private `isCompactBoundaryMessage` ->
+  `packages/server/src/routes/session-sdk-history.ts` (new).
+- `messageId` -> `packages/server/src/routes/session-message-id.ts` (new).
+- Bodies are identical to `HEAD` (checked with `diff`); the only differences
+  are the added `export` keywords, the formatter's rewrap of
+  `sdkMessagesToClientMessages`'s signature after it, and the `deps` type
+  below.
+Signature conversions (closure -> parameter):
+- None. `resolveSessionReader`'s `deps` parameter is retyped from
+  `SessionsDeps` to `SessionReaderResolutionDeps`
+  (`SessionProviderResolutionDeps` plus `sessionMetadataService.getMetadata`)
+  so the module does not import `sessions.ts`. Callers still pass
+  `SessionsDeps`.
+Behavior changes:
+- None. Pure functions; call sites unchanged apart from the import.
+Verification:
+- Tier 1: shared build; server `tsc --noEmit`; Biome check on changed files;
+  `git diff --check`; focused `test/routes`, `test/agent-auth-router.test.ts`,
+  `test/media/tool-result-media.test.ts` and
+  `test/supervisor/forkLaunchSettings.test.ts`: 1,195 passed, 1 failed.
+  The failure, `test/routes/session-path-scope.test.ts:140`, is an artifact
+  of running `vitest` directly: it fails the same way at `HEAD`, and passes
+  (4/4) through the package's `run-with-safe-home.js --temporary-home`
+  wrapper that `pnpm test` uses.
+- Tier 2: root `pnpm lint` (zero warnings, including the budget check),
+  `pnpm format:check`, `pnpm typecheck` and `pnpm test` passed (server
+  7,111 passed / 87 skipped; client 7,127; shared 980; relay 139;
+  push-broker 45).
+- Budget: `pnpm source:budgets --record` lowered `sessions.ts`
+  9,180 -> 8,943.
+- Independent review: see slice 1.2b, which was reviewed together with this
+  slice.
+Follow-ups recorded:
+- Focused server test runs should go through
+  `node ../../scripts/run-with-safe-home.js --temporary-home vitest run <files>`
+  from `packages/server`; bare `npx vitest run` leaves the host temp
+  directory in place and `session-path-scope.test.ts:140` then fails on macOS.
 
 ### Slice 1.6 — Session Metadata And Seen-State Routes (Landed 2026-11-06, this commit)
 

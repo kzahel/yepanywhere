@@ -1,11 +1,13 @@
 # Sessions Route Refactor Ledger
 
-Status: Dormant again, 2026-11-06: SRR-013 revived one route-registrar
-extraction (the metadata/seen-state group, doc 058 row 1.6) at the
-maintainer's request and landed it. SRR-012 landed 2026-10-27 as `06cff21d6`
-under [plan 163](163-http-independent-restart-compaction.md); its separate
+Status: Active, 2026-11-06: the maintainer revived the session-detail read
+routes (doc 058 row 1.2) as SRR-014, which moves the helpers those routes
+share with the rest of the file, followed by SRR-015, which moves the routes.
+SRR-013 landed the metadata/seen-state registrar (row 1.6) earlier the same
+day. SRR-012 landed 2026-10-27 as `06cff21d6` under
+[plan 163](163-http-independent-restart-compaction.md); its separate
 observer cleanup does not extend the move slice. The other route-registrar
-extractions (doc 058 rows 1.2-1.5) remain deferred; revive each as its own
+extractions (doc 058 rows 1.3-1.5) remain deferred; revive each as its own
 SRR item.
 
 See also: `topics/core-service-api.md` — the sessions REST surface this
@@ -15,7 +17,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 and SRR-013
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-015
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -39,7 +41,8 @@ slices; Phases 2-6 do not involve this document.
 
 Pivot note, 2026-07-06: SRR-003 remains deferred, all other SRR items are
 done, and doc 058 rows 1.2-1.6 are deferred for now (row 1.6 later landed
-as SRR-013 on 2026-11-06). Future `sessions.ts`
+as SRR-013 on 2026-11-06, and row 1.2 was revived as SRR-014/SRR-015 the
+same day). Future `sessions.ts`
 route-registrar extraction should reopen or supersede this ledger deliberately
 rather than assuming the old narrow lane is still active.
 
@@ -84,6 +87,53 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-014: Move Session-Detail Helpers Shared With The Rest Of The File
+
+Status: done, 2026-11-06. Proposed and accepted the same day (the
+maintainer asked for the next slice after SRR-013), landed as campaign
+slice 1.2a in doc 058. It prepares SRR-015.
+
+Destinations:
+
+- `resolveSessionReader` -> existing
+  `packages/server/src/routes/session-provider-resolution.ts`;
+- `sdkMessagesToClientMessages`, `extractContextUsageFromSDKMessages` and
+  their private `isCompactBoundaryMessage` -> new
+  `packages/server/src/routes/session-sdk-history.ts`;
+- `messageId` -> new `packages/server/src/routes/session-message-id.ts`.
+
+Line delta: `-237` lines from `sessions.ts` (9,180 -> 8,943), `+82` in
+`session-provider-resolution.ts`, `+167` and `+13` in the two new modules.
+
+Problem:
+
+A preflight of the session-detail read routes (doc 058 row 1.2) found three
+module-level helpers they call that other `sessions.ts` code also calls:
+`resolveSessionReader` (also the restart handoff), `sdkMessagesToClientMessages`
+(also the restart source session) and `messageId` (also the fork, rewind and
+restart-handoff helpers). Moving the routes while those stay behind would make
+the new module import `sessions.ts`, which the campaign forbids.
+
+Implemented:
+
+- moved the four functions verbatim. Each gained `export` (the formatter
+  rewrapped `sdkMessagesToClientMessages`'s signature as a result);
+  `isCompactBoundaryMessage` stays module-private beside its only caller;
+- `resolveSessionReader`'s `deps` parameter changed type from `SessionsDeps`
+  to the new `SessionReaderResolutionDeps`
+  (`SessionProviderResolutionDeps` plus `sessionMetadataService.getMetadata`),
+  the fields it reads. This avoids a back-import; every caller passes
+  `SessionsDeps`, which satisfies it structurally;
+- `sessions.ts` imports the moved functions; `ContextUsage`,
+  `NativeSessionId` and `collapseMessageSnapshots` left its import list with
+  their only users.
+
+Risk:
+
+- low. Pure functions; no route, queue, timer or process code moved.
+
+Verification: see doc 058's slice 1.2a landing note.
 
 ### SRR-013: Register Metadata And Seen-State Routes From Their Own Module
 

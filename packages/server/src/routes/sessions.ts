@@ -21,7 +21,6 @@ import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
 import {
   ALL_PERMISSION_MODES,
-  type ContextUsage,
   type DurableRecapMessage,
   type DurableLocalCommandMessage,
   type DurableSyntheticDoneMessage,
@@ -48,7 +47,6 @@ import {
   isThinkingOption,
   isUrlProjectId,
   isYaSessionId,
-  type NativeSessionId,
   truncateSessionTitle,
   readQueuedYaCommand,
   withKnownGoal,
@@ -57,7 +55,6 @@ import {
   type UpdateClearloopRequest,
 } from "@yep-anywhere/shared";
 import { isRealUserTurn } from "@yep-anywhere/shared/transcript/messageProjection";
-import { collapseMessageSnapshots } from "@yep-anywhere/shared/transcript/message";
 import { randomUUID } from "node:crypto";
 import {
   ClearloopConflictError,
@@ -212,7 +209,13 @@ import {
   isClaudeSdkProviderName,
   isCodexProviderName,
   providerResolutionDeps,
+  resolveSessionReader,
 } from "./session-provider-resolution.js";
+import { messageId } from "./session-message-id.js";
+import {
+  extractContextUsageFromSDKMessages,
+  sdkMessagesToClientMessages,
+} from "./session-sdk-history.js";
 import { registerSessionMetadataRoutes } from "./session-metadata-routes.js";
 import { sessionQueueSummaries } from "./session-queue-summaries.js";
 import {
@@ -430,75 +433,6 @@ function isApprovalAuditLogEnabled(deps: SessionsDeps): boolean {
   return (
     deps.serverSettingsService?.getSetting("approvalAuditLogEnabled") === true
   );
-}
-
-async function resolveSessionReader({
-  deps,
-  project,
-  sessionId,
-  projectId,
-}: {
-  deps: SessionsDeps;
-  project: Project;
-  sessionId: string;
-  projectId: UrlProjectId;
-}): Promise<{
-  reader: ISessionReader;
-  nativeSessionId: NativeSessionId;
-  native?: NativeSessionRef;
-} | null> {
-  const bound = boundSessionSource(
-    project,
-    sessionId,
-    providerResolutionDeps(deps),
-  );
-  if (bound === null) return null;
-  if (bound)
-    return {
-      reader: bound.source.reader,
-      nativeSessionId: bound.nativeSessionId,
-      native: bound.native,
-    };
-  const metadataProvider = deps.sessionMetadataService?.getProvider(
-    sessionId,
-  ) as ProviderName | undefined;
-  const resolved = await findSessionListSummaryAcrossProviders(
-    project,
-    sessionId,
-    projectId,
-    providerResolutionDeps(deps),
-    metadataProvider,
-  );
-
-  if (resolved)
-    return {
-      reader: resolved.source.reader,
-      nativeSessionId: resolved.nativeSessionId,
-      native: resolved.native,
-    };
-  const fallback = await resolveLegacySessionSource(
-    {
-      provider: project.provider,
-      reader: deps.readerFactory(project),
-      sessionDir: project.sessionDir,
-      kind: "primary",
-    },
-    sessionId,
-    { ...project, id: projectId },
-    providerResolutionDeps(deps),
-    {
-      allowMissingNativeProof: Boolean(
-        deps.sessionMetadataService?.getMetadata(sessionId),
-      ),
-    },
-  );
-  return fallback
-    ? {
-        reader: fallback.source.reader,
-        nativeSessionId: fallback.nativeSessionId,
-        native: fallback.native,
-      }
-    : null;
 }
 
 interface StartSessionBody {
@@ -985,17 +919,6 @@ function messageContent(message: Message): unknown {
   return nested?.content ?? (message as { content?: unknown }).content;
 }
 
-function messageId(message: Message | undefined): string | undefined {
-  if (!message) {
-    return undefined;
-  }
-  return (
-    (typeof message.uuid === "string" && message.uuid) ||
-    (typeof message.id === "string" && message.id) ||
-    undefined
-  );
-}
-
 type DurableSessionOverlayMessage =
   | DurableRecapMessage
   | DurableLocalCommandMessage
@@ -1221,10 +1144,6 @@ function getRestartQueuedMessages(
   process: Process | undefined,
 ): RestartQueuedMessage[] {
   return process?.getDeferredQueueSummary?.() ?? [];
-}
-
-function isCompactBoundaryMessage(message: SDKMessage | Message): boolean {
-  return message.type === "system" && message.subtype === "compact_boundary";
 }
 
 function latestCompactSummary(messages: Message[]): string | null {
@@ -1903,162 +1822,6 @@ function formatRestartSessionTurnHint(params: {
 
 function isRestartReplacementActivity(message: SDKMessage): boolean {
   return message.type === "assistant";
-}
-
-/**
- * Convert SDK messages to client Message format.
- * Used for mock SDK sessions where messages aren't persisted to disk.
- */
-function sdkMessagesToClientMessages(sdkMessages: SDKMessage[]): Message[] {
-  const messages: Message[] = [];
-  for (const msg of sdkMessages) {
-    const rawFields = msg as Record<string, unknown>;
-    if (isCompactBoundaryMessage(msg)) {
-      const content =
-        (typeof msg.message?.content === "string"
-          ? msg.message.content
-          : undefined) ??
-        (typeof msg.content === "string" ? msg.content : "Context compacted");
-      messages.push({
-        ...rawFields,
-        id: msg.uuid ?? `msg-${Date.now()}-${messages.length}`,
-        type: "system",
-        role: "system",
-        subtype: "compact_boundary",
-        content,
-        message: { role: "system", content },
-        timestamp:
-          typeof msg.timestamp === "string" && msg.timestamp.trim().length > 0
-            ? msg.timestamp
-            : new Date().toISOString(),
-      });
-      continue;
-    }
-
-    // Only include user and assistant messages with content
-    if (
-      (msg.type === "user" || msg.type === "assistant") &&
-      msg.message?.content
-    ) {
-      const rawContent = msg.message.content;
-      // Both user and assistant messages can have string or array content.
-      // User messages with tool_result blocks have array content that must be preserved.
-      // Assistant messages need ContentBlock[] for transcript projection.
-      let content: string | ContentBlock[];
-      if (typeof rawContent === "string") {
-        // String content: keep as-is for user messages, wrap in text block for assistant
-        content =
-          msg.type === "user"
-            ? rawContent
-            : [{ type: "text" as const, text: rawContent }];
-      } else if (Array.isArray(rawContent)) {
-        // Array content: pass through as ContentBlock[] for both user and assistant
-        content = rawContent as ContentBlock[];
-      } else {
-        // Unknown content type - skip this message
-        continue;
-      }
-
-      messages.push({
-        ...rawFields,
-        id: msg.uuid ?? `msg-${Date.now()}-${messages.length}`,
-        type: msg.type,
-        role: msg.type as "user" | "assistant",
-        content,
-        timestamp:
-          typeof msg.timestamp === "string" && msg.timestamp.trim().length > 0
-            ? msg.timestamp
-            : new Date().toISOString(),
-      });
-    }
-  }
-  return collapseMessageSnapshots(messages);
-}
-
-/**
- * Extract context usage from SDK messages.
- * Finds the last assistant message with usage data.
- *
- * @param sdkMessages - SDK messages to search
- * @param model - Model ID for determining context window size
- * @param provider - Provider for model-less context-window fallback
- */
-function extractContextUsageFromSDKMessages(
-  sdkMessages: SDKMessage[],
-  model: string | undefined,
-  provider?: ProviderName,
-  resolveContextWindow?: (
-    model: string | undefined,
-    provider?: ProviderName,
-  ) => number,
-): ContextUsage | undefined {
-  const contextWindowSize = resolveContextWindow
-    ? resolveContextWindow(model, provider)
-    : getModelContextWindow(model, provider);
-
-  const isCodexProvider = provider === "codex" || provider === "codex-oss";
-
-  // Find the last assistant message with usage data (iterate backwards)
-  for (let i = sdkMessages.length - 1; i >= 0; i--) {
-    const msg = sdkMessages[i];
-    if (msg && msg.type === "assistant" && msg.usage) {
-      const usage = msg.usage as {
-        input_tokens?: number;
-        output_tokens?: number;
-        cached_input_tokens?: number;
-        cache_read_input_tokens?: number;
-        cache_creation_input_tokens?: number;
-      };
-
-      // Codex context meter is based on fresh input tokens from the latest turn.
-      // Claude/OpenCode/Gemini paths continue to include cached+creation tokens.
-      const rawInputTokens = isCodexProvider
-        ? (usage.input_tokens ?? 0)
-        : (usage.input_tokens ?? 0) +
-          (usage.cache_read_input_tokens ?? 0) +
-          (usage.cache_creation_input_tokens ?? 0);
-
-      // Skip messages with zero input tokens (incomplete streaming messages)
-      if (rawInputTokens === 0) {
-        continue;
-      }
-
-      const percentage = Math.round((rawInputTokens / contextWindowSize) * 100);
-
-      const result: ContextUsage = {
-        inputTokens: rawInputTokens,
-        percentage,
-        contextWindow: contextWindowSize,
-      };
-
-      // Add optional fields if available
-      if (usage.output_tokens !== undefined && usage.output_tokens > 0) {
-        result.outputTokens = usage.output_tokens;
-      }
-      if (isCodexProvider) {
-        if (
-          usage.cached_input_tokens !== undefined &&
-          usage.cached_input_tokens > 0
-        ) {
-          result.cacheReadTokens = usage.cached_input_tokens;
-        }
-      } else if (
-        usage.cache_read_input_tokens !== undefined &&
-        usage.cache_read_input_tokens > 0
-      ) {
-        result.cacheReadTokens = usage.cache_read_input_tokens;
-      }
-      if (
-        usage.cache_creation_input_tokens !== undefined &&
-        usage.cache_creation_input_tokens > 0
-      ) {
-        result.cacheCreationTokens = usage.cache_creation_input_tokens;
-      }
-
-      return result;
-    }
-  }
-  return undefined;
 }
 
 export function createSessionsRoutes(deps: SessionsDeps): Hono {
