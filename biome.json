@@ -28,6 +28,23 @@
   },
   "overrides": [
     {
+      "includes": [
+        "packages/client/src/lib/sessionDetail/renderSelectors.ts",
+        "packages/shared/src/claude-sdk-schema/index.ts",
+        "packages/shared/src/codex-schema/index.ts",
+        "packages/shared/src/gemini-schema/index.ts",
+        "packages/shared/src/index.ts",
+        "packages/shared/src/opencode-schema/index.ts"
+      ],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noReExportAll": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/*.astro"],
       "linter": {
         "rules": {
@@ -110,6 +127,9 @@
       },
       "complexity": {
         "noImportantStyles": "off"
+      },
+      "performance": {
+        "noReExportAll": "error"
       },
       "style": {
         "noDescendingSpecificity": "off",

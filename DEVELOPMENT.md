@@ -110,6 +110,8 @@ change needs code in such a hub (`app.ts`, `routes/sessions.ts`,
 - Never raise a budget to get lint green. A raise needs maintainer approval
   and a `raise` record; see the
   [growth guard](topics/typescript-module-boundary-refactor.md#growth-guard).
+- Do not shorten a barrel with `export *`; lint rejects it. Name re-exports
+  explicitly ([code quality](docs/development/code-quality.md#name-re-exports-explicitly)).
 
 ## Project Directory Storage
 
@@ -180,7 +182,7 @@ are not a requirement to read every neighboring document.
 | Source edits or OS-sensitive behavior | [Testing](docs/development/testing.md): required checks, Linux/macOS/Windows coverage, and platform limitations. |
 | Adding, reviewing, removing, or accelerating tests at any level | [Test value and CI cost](docs/development/testing.md#test-value-and-ci-cost): retention by likely regression value, authority to remove shallow tests, and runtime in seconds. |
 | Choosing a test level, adding or changing browser tests, or deciding local E2E scope | [E2E testing](topics/e2e-testing.md): unique boundary, cost, retry evidence, and focused local verification. |
-| Source formatting, warning cleanup, or a commit | [Code quality](docs/development/code-quality.md): warning-free checks, exact-file formatting, and no routine import/export reordering. |
+| Source formatting, warning cleanup, or a commit | [Code quality](docs/development/code-quality.md): warning-free checks, exact-file formatting, no routine import/export reordering, and explicit re-exports (no `export *`). |
 | Authentication, named principals, project/session access grants, hosted issuer trust, or peer authorization | [Security](topics/security.md) and [principals and grants](topics/principals-and-grants.md): state how the proposed slice relates to the shared vocabulary before choosing a feature-local identity or authorization shape. |
 | Any change in `packages/client`, UI copy, or a chatty client console | [Client development](docs/development/client.md): English-only i18n additions and `pnpm console:scan`. |
 | Client styles, a legacy stylesheet, or a React component emitting legacy global classes | [CSS architecture](topics/css-architecture.md): CSS Modules, containment, and the `css:touched` ownership check. Run `pnpm css:check` for style changes. |

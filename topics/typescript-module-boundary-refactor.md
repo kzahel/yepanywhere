@@ -208,7 +208,10 @@ such as `packages/android/app/src` are out), excluding tests, `__tests__/`,
   the shallow checkout), so committing the raise does not hide it. An
   unavailable explicit base fails the check rather than skipping the
   comparison. In review the record is the visible, greppable trace of the
-  exception.
+  exception. Explicit names in a package barrel are an accepted reason:
+  `export *` is banned
+  ([code quality](../docs/development/code-quality.md#name-re-exports-explicitly)),
+  so it is not an offset.
 - A stale entry (file deleted or moved out of scope) fails until removed.
 
 Tests are outside the guard: scenario-ledger tests may stay long (see the

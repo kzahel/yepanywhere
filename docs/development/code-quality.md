@@ -31,6 +31,29 @@ runtime-safety benefit. Run the project lint wrapper for diagnostics, but do not
 turn a one-line import or export addition into a broad reorder solely to satisfy
 organize-imports advice.
 
+## Name Re-Exports Explicitly
+
+`export * from` and `export * as` are banned by Biome's
+`performance/noReExportAll` rule, which `pnpm lint` runs as an error. Re-export
+each name: `export { a, b } from "./x.js"` and
+`export type { T } from "./x.js"`. A star re-export:
+
+- hides a module's public surface from its entry file, so additions to it
+  (including helpers exported only for a sibling or a test) go unreviewed;
+- turns "where does this name come from" into a search across every starred
+  module;
+- makes bundlers and the Vite dev server resolve every starred module to find
+  one name.
+
+An explicit barrel is longer. When that pushes a budgeted barrel over its
+source-file budget, the explicit names are a legitimate `raise` reason; see the
+[growth guard](../../topics/typescript-module-boundary-refactor.md#growth-guard).
+
+Six files that predate the rule are exempted in the first `overrides` entry
+of `biome.json`. That list only shrinks: convert a file's star exports to
+explicit names, with its consumers' surface unchanged, and delete it from the
+list in the same commit. Never add a file to it.
+
 ## Biome Formatting Is A Repository Invariant
 
 `pnpm lint` remains a lint-only diagnostic command. `pnpm format:check` is the
