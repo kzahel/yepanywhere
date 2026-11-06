@@ -16,8 +16,9 @@ import {
   permissionModeError,
 } from "./session-launch-request.js";
 import {
-  isQueueFullResponse,
-  isQueuedResponse,
+  type LaunchResult,
+  refusedLaunchResponse,
+  settleLaunch,
 } from "./session-launch-results.js";
 import type { createSessionLaunchSettings } from "./session-launch-settings.js";
 import {
@@ -413,9 +414,9 @@ export function registerSessionResumeRoutes(
       return c.json({ error: limitedResume.error }, 403);
     }
 
-    let result: Awaited<ReturnType<Supervisor["resumeSession"]>>;
+    let launched: LaunchResult;
     try {
-      result = await deps.supervisor.resumeSession(
+      launched = await deps.supervisor.resumeSession(
         sessionId,
         resumeProjectPath,
         userMessage,
@@ -466,30 +467,20 @@ export function registerSessionResumeRoutes(
       throw error;
     }
 
-    // Check if queue is full
-    if (isQueueFullResponse(result)) {
-      return c.json(
-        { error: "Queue is full", maxQueueSize: result.maxQueueSize },
-        503,
-      );
-    }
-
-    // Check if request was queued
-    if (isQueuedResponse(result)) {
-      void deps.userUsageService?.recordTurn(
-        actingUsername(c),
-        userMessage.text,
-      );
+    const outcome = settleLaunch(launched, { whenQueued: "wait" });
+    if (outcome.kind === "refused") return refusedLaunchResponse(c, outcome);
+    void deps.userUsageService?.recordTurn(actingUsername(c), userMessage.text);
+    if (outcome.kind === "queued") {
       return c.json(
         {
-          ...result,
+          ...outcome.queued,
           serverTimestamp: Date.now(),
           resume: { ...resumeDiagnostics, outcome: "queued" },
         },
         202,
-      ); // 202 Accepted - queued for processing
+      );
     }
-    void deps.userUsageService?.recordTurn(actingUsername(c), userMessage.text);
+    const result = outcome.process;
 
     return c.json({
       processId: result.id,

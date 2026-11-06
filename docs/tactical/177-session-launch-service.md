@@ -2,7 +2,7 @@
 
 Topic: core-service-api
 
-Status: steps 1 and 2 landed 2026-11-06. Accepted by the maintainer as the top item
+Status: steps 1-3 landed 2026-11-06. Accepted by the maintainer as the top item
 of the module-boundary [priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
 
 Starting a session is one operation that today has about a dozen hand-written
@@ -135,12 +135,40 @@ every launch path's fallback list.
 
 ### 3 — one launch-outcome mapping
 
-Map a Supervisor launch result (started, queued, queue full) to the route
-response in one place. Today restart, the stale-session handoff, fork-summary,
-`/clearloop` and the creation routes each do this differently: some cancel a
-queued request, some return 202, and the error bodies differ. Pin each
-current response before replacing them. The differences are deliberate per
-route, so the shared mapping takes them as options.
+Landed 2026-11-06. `settleLaunch` in `routes/session-launch-results.ts`
+reads a Supervisor start or resume result once for resume, restart handoff,
+restart fork, the stale-session handoff, the fork-summary target and
+`/clearloop`. A full queue is refused. A queued launch is either kept
+(`whenQueued: "wait"`) or cancelled and refused with the caller's message
+(`whenQueued: "cancel"`). `refusedLaunchResponse` answers a refusal with the
+503 body each route already sent. `test/routes/session-launch-outcomes.test.ts`
+pins every route's status, body, queue cancellation and usage records for a
+full queue and a queued launch, and the usage records of a started restart,
+stale-session handoff and resume. It passed against the old code before the
+change.
+
+The creation routes are not part of it. Durable creation acceptance answers
+them with a 202 receipt before the launch settles, so they never read the
+result. Launches outside the route layer each map the result to their own
+shape: review delivery, native API commands, the Project Queue scheduler
+(with its own copies of the two checks), wake delivery, and the debug start
+route, which answers its own `queue_full` body. They can share the mapping
+once step 5 moves it under `src/sessions/`.
+
+Every difference between the copies was checked against its history:
+
+| Difference | Finding | Resolution |
+| --- | --- | --- |
+| Restart (handoff and fork) and the fork-summary target cancel a queued launch; resume, the stale-session handoff and `/clearloop` keep it | Deliberate. Restart shuts the old process down only after its replacement is active (`274cc24a3`, `cad0679d7`), so it leaves the old process running rather than replace it later. Fork-summary cancelled a queued launch from the start, when it answered like restart (`80068d677`); since it became a background job (`5c14aaf16`), the job tracks the target's process so a cancel can stop it. A user's turn and a loop's send can wait for a worker, and the client tells the user a queued stale-session handoff will appear when it starts | `whenQueued: "cancel"` or `"wait"` |
+| Each cancelling path names its own error | Deliberate: the message says what did not start | The caller's `notStartedError` |
+| The restart fork's 503s also name the new session and project | Deliberate (`e86b1caa9`): the fork already exists when its resume is refused | Extra fields passed to `refusedLaunchResponse` |
+| `/clearloop` and the fork-summary target throw instead of answering | They run outside the request, in the loop runner and a background job, which report the error | The same outcome; the caller throws it |
+| Usage is recorded per route: resume the turn, the stale-session handoff the session and turn, restart and the fork-summary target the session | Deliberate (`18ae0a87f`): a record is written when the server accepts the action, so a full queue records nothing for resume, restart or the stale-session handoff; the fork-summary job counts its target when the fork is created (next row). Resume recorded the turn in two branches | Unchanged; resume now records it once |
+| A refused restart fork leaves its fork uncounted, while the fork-summary job counts its target once the fork exists, even if its launch is then refused | Unclear: `18ae0a87f` counts fork-summary "once its fork exists" and restart only on success, and the restart fork's refusal began naming its kept fork later (`e86b1caa9`). It changes the per-user session count in Settings, so it goes to the maintainer | Unchanged; [a gap](../../gaps/refused-restart-fork-uncounted-in-usage.md) |
+
+A queued stale-session handoff never gets its handoff title, because the
+title is written only when the launch starts at once. That is recorded as
+[a gap](../../gaps/stale-handoff-queued-launch-loses-title.md).
 
 ### 4 — one transcript-child creation flow
 

@@ -52,8 +52,9 @@ import {
   permissionModeError,
 } from "./session-launch-request.js";
 import {
-  isQueueFullResponse,
-  isQueuedResponse,
+  type LaunchResult,
+  refusedLaunchResponse,
+  settleLaunch,
 } from "./session-launch-results.js";
 import {
   inheritedChildLaunchMetadata,
@@ -2276,9 +2277,9 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
 
       const forkMessage =
         body.reason?.trim() || "Continue from this fork point.";
-      let result: Awaited<ReturnType<Supervisor["resumeSession"]>>;
+      let launched: LaunchResult;
       try {
-        result = await deps.supervisor.resumeSession(
+        launched = await deps.supervisor.resumeSession(
           fork.sessionId,
           restartProjectPath,
           { text: forkMessage, mode: restartPermissionMode },
@@ -2305,29 +2306,20 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         );
       }
 
-      if (isQueueFullResponse(result)) {
-        return c.json(
-          {
-            error: "Queue is full",
-            maxQueueSize: result.maxQueueSize,
-            sessionId: fork.sessionId,
-            projectId,
-          },
-          503,
-        );
+      const outcome = settleLaunch(launched, {
+        whenQueued: "cancel",
+        supervisor: deps.supervisor,
+        notStartedError:
+          "Fork could not start immediately; old process was left running",
+      });
+      if (outcome.kind !== "started") {
+        // The fork exists either way; name it.
+        return refusedLaunchResponse(c, outcome, {
+          sessionId: fork.sessionId,
+          projectId,
+        });
       }
-      if (isQueuedResponse(result)) {
-        deps.supervisor.cancelQueuedRequest(result.queueId);
-        return c.json(
-          {
-            error:
-              "Fork could not start immediately; old process was left running",
-            sessionId: fork.sessionId,
-            projectId,
-          },
-          503,
-        );
-      }
+      const result = outcome.process;
 
       void deps.userUsageService?.recordSession(actingUsername(c));
       await persistLaunchMetadata(
@@ -2409,40 +2401,32 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         projectPath: restartProjectPath,
       }));
 
-    const result = await deps.supervisor.startSession(
-      restartProjectPath,
+    const outcome = settleLaunch(
+      await deps.supervisor.startSession(
+        restartProjectPath,
+        {
+          text: handoff,
+          mode: restartPermissionMode,
+        },
+        restartPermissionMode,
+        // The client name matches the Codex default; a restart has named
+        // itself since provider client identity was added.
+        { ...successorSettings, clientName: "yep-anywhere" },
+        {
+          creation: creationForRequest(c, body.creationProvenance, {
+            continuedFrom: sessionId,
+          }),
+        },
+      ),
       {
-        text: handoff,
-        mode: restartPermissionMode,
-      },
-      restartPermissionMode,
-      // The client name matches the Codex default; a restart has named itself
-      // since provider client identity was added.
-      { ...successorSettings, clientName: "yep-anywhere" },
-      {
-        creation: creationForRequest(c, body.creationProvenance, {
-          continuedFrom: sessionId,
-        }),
+        whenQueued: "cancel",
+        supervisor: deps.supervisor,
+        notStartedError:
+          "Restart could not start immediately; old process was left running",
       },
     );
-
-    if (isQueueFullResponse(result)) {
-      return c.json(
-        { error: "Queue is full", maxQueueSize: result.maxQueueSize },
-        503,
-      );
-    }
-
-    if (isQueuedResponse(result)) {
-      deps.supervisor.cancelQueuedRequest(result.queueId);
-      return c.json(
-        {
-          error:
-            "Restart could not start immediately; old process was left running",
-        },
-        503,
-      );
-    }
+    if (outcome.kind !== "started") return refusedLaunchResponse(c, outcome);
+    const result = outcome.process;
 
     void deps.userUsageService?.recordSession(actingUsername(c));
     await persistLaunchMetadata(deps.sessionMetadataService, result.sessionId, {
@@ -2639,29 +2623,28 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         ),
       };
 
-      const result = await deps.supervisor.startSession(
-        projectPath,
-        userMessage,
-        permissionMode,
-        settings,
-        {
-          projectId: project.id,
-          creation: creationForRequest(c, body.creationProvenance, {
-            continuedFrom: sessionId,
-          }),
-        },
+      const outcome = settleLaunch(
+        await deps.supervisor.startSession(
+          projectPath,
+          userMessage,
+          permissionMode,
+          settings,
+          {
+            projectId: project.id,
+            creation: creationForRequest(c, body.creationProvenance, {
+              continuedFrom: sessionId,
+            }),
+          },
+        ),
+        { whenQueued: "wait" },
       );
-      if (isQueueFullResponse(result)) {
-        return c.json(
-          { error: "Queue is full", maxQueueSize: result.maxQueueSize },
-          503,
-        );
-      }
+      if (outcome.kind === "refused") return refusedLaunchResponse(c, outcome);
       void deps.userUsageService?.recordSession(actingUsername(c));
       void deps.userUsageService?.recordTurn(actingUsername(c), body.message);
-      if (isQueuedResponse(result)) {
-        return c.json({ ...result, serverTimestamp }, 202);
+      if (outcome.kind === "queued") {
+        return c.json({ ...outcome.queued, serverTimestamp }, 202);
       }
+      const result = outcome.process;
 
       if (deps.sessionMetadataService) {
         await deps.sessionMetadataService.updateMetadata(result.sessionId, {
@@ -3049,17 +3032,19 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       // YA-injected, not a principal's turn: no sender and no usage record.
       metadata: buildUserMessageMetadata({}, Date.now(), "direct"),
     };
-    const result = await deps.supervisor.resumeSession(
-      sessionId,
-      launch.projectPath,
-      userMessage,
-      saved?.permissionMode,
-      launch.settings,
-      { requireProviderSessionId: true },
+    // A queued send runs when a worker frees up.
+    const outcome = settleLaunch(
+      await deps.supervisor.resumeSession(
+        sessionId,
+        launch.projectPath,
+        userMessage,
+        saved?.permissionMode,
+        launch.settings,
+        { requireProviderSessionId: true },
+      ),
+      { whenQueued: "wait" },
     );
-    if (isQueueFullResponse(result)) {
-      throw new Error("Queue is full");
-    }
+    if (outcome.kind === "refused") throw new Error(outcome.error);
   };
 
   deps.clearloopService?.setRunner({
@@ -4292,7 +4277,7 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
             throw new DOMException("Fork summary cancelled", "AbortError");
           }
 
-          const result = await deps.supervisor.resumeSession(
+          const launched = await deps.supervisor.resumeSession(
             target.sessionId,
             sourceProjectPath,
             { text: generated.text, mode },
@@ -4316,13 +4301,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
               }),
             },
           );
-          if (isQueueFullResponse(result)) {
-            throw new Error("Queue is full");
-          }
-          if (isQueuedResponse(result)) {
-            deps.supervisor.cancelQueuedRequest(result.queueId);
-            throw new Error("Fork summary could not start immediately");
-          }
+          const outcome = settleLaunch(launched, {
+            whenQueued: "cancel",
+            supervisor: deps.supervisor,
+            notStartedError: "Fork summary could not start immediately",
+          });
+          if (outcome.kind === "refused") throw new Error(outcome.error);
+          const result = outcome.process;
           targetProcessId = result.id;
           if (abortController.signal.aborted) {
             await deps.supervisor.abortProcess(result.id);

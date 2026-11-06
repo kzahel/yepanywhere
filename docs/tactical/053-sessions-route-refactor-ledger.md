@@ -10,8 +10,9 @@ and closures they share with the rest of the file, and SRR-018 moved the
 routes themselves into their own registrars. SRR-019 then folded the
 successor routes' copied launch-metadata writes into one module as step 1 of
 [plan 177](177-session-launch-service.md), which owns the session-launch
-consolidation from here, and SRR-020 gave the successor launches one
-settings assembly as step 2. SRR-013 landed the
+consolidation from here, SRR-020 gave the successor launches one
+settings assembly as step 2, and SRR-021 gave every route one reading of a
+launch's started, queued or queue-full result as step 3. SRR-013 landed the
 metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
@@ -26,7 +27,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-020
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-021
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -96,6 +97,47 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-021: One Launch-Outcome Mapping
+
+Status: done, 2026-11-06. Step 3 of
+[plan 177](177-session-launch-service.md). Not a move-only slice; it follows
+that plan's behavior-preserving rules.
+
+Destination: `settleLaunch` and `refusedLaunchResponse` replace the two type
+guards in the existing `packages/server/src/routes/session-launch-results.ts`.
+
+Line delta: `-15` lines from `sessions.ts` (5,539 -> 5,524);
+`session-resume-routes.ts` 797 -> 788; `session-launch-results.ts` 21 -> 97.
+
+Problem:
+
+Resume, restart handoff, restart fork, the stale-session handoff, the
+fork-summary target and `/clearloop` each read the Supervisor's started,
+queued or queue-full result by hand: the same queue-full body four times,
+and three hand-written cancellations of a queued launch that must start now.
+
+Implemented:
+
+- `settleLaunch(result, policy)` reads the result once. A full queue is
+  refused; a queued launch is kept (`whenQueued: "wait"`) or cancelled and
+  refused with the caller's message (`whenQueued: "cancel"`);
+- `refusedLaunchResponse` answers a refusal with the 503 body every route
+  already sent, plus what the request already made (the restart fork's new
+  session); `/clearloop` and the fork-summary job throw the refusal instead;
+- the resume route records the turn once for a started or kept launch
+  instead of in two branches;
+- each difference between the copies was classified in plan 177's step 3
+  table. Two existing differences are recorded as gaps for the maintainer:
+  a queued stale-session handoff loses its title
+  (`gaps/stale-handoff-queued-launch-loses-title.md`), and a refused
+  restart fork is left out of the usage count
+  (`gaps/refused-restart-fork-uncounted-in-usage.md`).
+
+Verification: `test/routes/session-launch-outcomes.test.ts` pins each
+route's status, body, queue cancellation and usage records for a full queue
+and a queued launch, plus usage for a started restart, stale-session
+handoff and resume. It passed against the old code before the change.
 
 ### SRR-020: One Launch-Settings Assembly For Successor Sessions
 
