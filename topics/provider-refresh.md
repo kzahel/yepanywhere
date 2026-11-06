@@ -99,6 +99,11 @@ matching upstream release tags when the version changed; the real zero-token
 probe covers the production model-discovery command but intentionally does not
 exercise authenticated assistant events or persisted sessions.
 
+Recheck, 2026-11-06: installed Pi and npm `latest` are both 1.5.0, so
+there is nothing new to audit. The installed binary still passes the
+zero-token RPC contract and the effort-retry test, and the pinned
+native scenarios pass (10).
+
 Current refresh, 2026-11-04 (Pi 1.5.0): `pi update --self` moves the
 managed install from 1.4.0 to 1.5.0; `PI_EXECUTABLE` names that managed
 launcher, not a fork. The installed binary passes the zero-token RPC
