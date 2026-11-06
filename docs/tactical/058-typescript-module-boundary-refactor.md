@@ -2,15 +2,52 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: Resumed 2026-11-06. The growth guard is live in `pnpm lint`, and the
-`app.ts` composition-root lane (slice 1.8) is in progress. The remaining
-`sessions.ts` route-registrar extractions are still deferred.
+Status: Resumed 2026-11-06. The growth guard is live in `pnpm lint`. Work
+follows the [priority queue](#priority-queue) below; its first item, the
+session launch service, is in progress under plan 177. The `app.ts`
+composition-root lane (slice 1.8) and the remaining `sessions.ts`
+route-registrar extractions are lower in the queue.
 
 Accepted 2026-10-27: [plan 163](163-http-independent-restart-compaction.md)
 and doc 053 SRR-012 describe one HTTP-independent restart-compaction
 extraction, followed by a separate observer-lifetime fix. The maintainer
 authorized both after independent plan review; SRR-012 landed as `06cff21d6`.
 This does not reactivate the other deferred route extractions.
+
+## Priority Queue
+
+Set by the maintainer on 2026-11-06: work this list from the top. Rank is by
+how much day-to-day work each item makes easier, not by line count. The
+factors are how often the code changes, how much of it is copied rather than
+shared, and how risky it is to touch today.
+
+1. **One session-launch service** (server). Starting, resuming, restarting,
+   forking and cloning a session are about a dozen hand-written copies of the
+   same setup, and the copies have started to disagree. Every launch feature
+   and bug fix pays for that, and the
+   [core service API](../../topics/core-service-api.md) needs launch as one
+   call. This is a behavior-preserving consolidation, not a move-only slice,
+   so it has its own plan:
+   [session launch service](177-session-launch-service.md). Step 1 landed
+   2026-11-06.
+2. **Session page and message composer split** (client). `SessionPage.tsx`
+   (about 7,800 lines), `NewSessionForm.tsx` (about 6,000),
+   `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about
+   4,100) are where most UI work lands. Their size makes each change slow to
+   review and easy to regress, including the keystroke-latency contract.
+   Phase 2 below holds the slice rows.
+3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
+   lines) is the largest source file and changes with every Codex refresh.
+   Separating protocol IO from normalization makes those refreshes smaller and
+   easier to verify. Phase 4 below holds the slice rows.
+4. **Supervisor and Process** (server). Both are about 6,500-7,000 lines and
+   load-bearing. They come after item 1 because the launch service moves
+   launch assembly out of their callers first, which shows where their own
+   seams are. Phase 5 below holds the slice rows.
+5. **Remaining move-only rows**: the restart/fork and queue routes still in
+   `sessions.ts` (rows 1.4 and 1.5) and `app.ts` route mounting (row 1.8).
+   These shrink files without changing how code is shared, so their payoff is
+   lower. Do them when they unblock one of the items above, or between them.
 
 ## Contract
 
@@ -176,7 +213,9 @@ routes), SRR-008 (compact thresholds), SRR-009 (metadata patch parsing),
 SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
 SRR-013 (metadata/seen-state routes), SRR-014/SRR-015 (session-detail
 helpers and read routes), SRR-016 (session project routing), and
-SRR-017/SRR-018 (session start/resume helpers and routes) —
+SRR-017/SRR-018 (session start/resume helpers and routes), plus
+SRR-019 (the shared launch-metadata writer, step 1 of
+[plan 177](177-session-launch-service.md)) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do
 not create a `routes/sessions/` directory or a shared helpers bucket.

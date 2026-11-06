@@ -79,3 +79,18 @@ export function inheritedSandboxSettings(
     sandboxStateKey: metadata.sandboxStateKey,
   };
 }
+
+/**
+ * The directory a session launched from `metadata` runs in: its sandbox
+ * working copy when it is project-write sandboxed, otherwise the project.
+ */
+export function sandboxWorkingProjectPath(
+  metadata:
+    | { sandboxLevel?: SessionSandboxLevel; sandboxProjectPath?: string }
+    | undefined,
+  projectPath: string,
+): string {
+  return metadata?.sandboxLevel === "project-write"
+    ? (metadata.sandboxProjectPath ?? projectPath)
+    : projectPath;
+}

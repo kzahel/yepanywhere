@@ -7,7 +7,10 @@ the routes. SRR-016 then moved the session project-routing closures those
 routes receive out of the route factory. The maintainer then revived the
 start/resume/reactivate routes (doc 058 row 1.3): SRR-017 moved the helpers
 and closures they share with the rest of the file, and SRR-018 moved the
-routes themselves into their own registrars. SRR-013 landed the
+routes themselves into their own registrars. SRR-019 then folded the
+successor routes' copied launch-metadata writes into one module as step 1 of
+[plan 177](177-session-launch-service.md), which owns the session-launch
+consolidation from here. SRR-013 landed the
 metadata/seen-state registrar (row 1.6) earlier the same day. SRR-012 landed
 2026-10-27 as `06cff21d6` under
 [plan 163](163-http-independent-restart-compaction.md); its separate
@@ -22,7 +25,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-018
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-019
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -92,6 +95,54 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-019: One Launch-Metadata Writer For Successor Sessions
+
+Status: done, 2026-11-06. Step 1 of
+[plan 177](177-session-launch-service.md), the session launch service. Not a
+move-only slice: it replaces copies with one implementation, under that
+plan's behavior-preserving rules rather than the module-boundary move-only
+contract.
+
+Destinations: new `packages/server/src/routes/session-launch-metadata.ts`;
+`sandboxWorkingProjectPath` joins the existing
+`packages/server/src/routes/session-sandbox-settings.ts`.
+
+Line delta: `-82` lines from `sessions.ts` (5,703 -> 5,621); new module of
+134 lines; `session-sandbox-settings.ts` grows by 15.
+
+Problem:
+
+`persistLaunchMetadata` was a factory closure with eight positional
+arguments. Fork, the retitle helper and the fork-summary helper and target
+each called it with the same hand-built "inherit from the source" record. The
+project-write working-directory rule was copied eight times. The
+recovered-queue module received the closure as a dependency.
+
+Implemented:
+
+- `persistLaunchMetadata(service, sessionId, record)` takes a named record
+  and writes the same fields in the same order. It no longer accepts the
+  initial prompt, which no caller passed;
+- `inheritedChildLaunchMetadata` and `inheritedSandboxRecord` build the
+  record a cold transcript child inherits. Fork, retitle, both fork-summary
+  forks and the Codex clone's sandbox record use them;
+- `sandboxWorkingProjectPath` replaces the eight copies of the working-directory
+  rule;
+- restart fork, restart handoff, the fork-summary target's post-resume write
+  and recovered-queue reactivation call the same writer with their own
+  records. The recovered-queue module imports it instead of taking it as a
+  dependency.
+
+Verification: `test/routes/session-successor-launch-metadata.test.ts`
+records every metadata write, in order, on each child for fork (sandboxed and
+unsandboxed), retitle, fork-summary, restart fork, restart handoff and
+recovered-queue reactivation. It passes against both the old and the new
+code. The Codex clone's sandbox record is covered by
+`test/routes/sessions-clone-codex.test.ts`. One real difference found while
+mapping the paths is recorded in
+[clone working directory](../../gaps/clone-working-directory-ignores-sandbox-level.md),
+not fixed here.
 
 ### SRR-018: Register Start, Resume And Reactivate Routes From Their Own Modules
 

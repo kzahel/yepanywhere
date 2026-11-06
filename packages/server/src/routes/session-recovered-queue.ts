@@ -1,4 +1,3 @@
-import type { PromptSuggestionMode, ProviderName } from "@yep-anywhere/shared";
 import type { SessionMetadataService } from "../metadata/index.js";
 import type {
   PersistedSessionQueuedMessage,
@@ -7,6 +6,7 @@ import type {
 import type { UserMessage } from "../sdk/types.js";
 import type { Process } from "../supervisor/Process.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
+import { persistLaunchMetadata } from "./session-launch-metadata.js";
 import { parseOptionalExecutor } from "./session-request-helpers.js";
 import {
   livePatientEntriesNewerThan,
@@ -15,22 +15,11 @@ import {
   sessionQueueSummaries,
 } from "./session-queue-summaries.js";
 
-type PersistLaunchMetadata = (
-  sessionId: string,
-  provider: ProviderName | undefined,
-  executor: string | undefined,
-  initialPrompt?: string,
-  requestedModel?: string,
-  promptSuggestionMode?: PromptSuggestionMode,
-  recapAfterSeconds?: number,
-) => Promise<void>;
-
 export interface RecoveredQueueDeps {
   sessionQueuePersistenceService?: SessionQueuePersistenceService;
   sessionMetadataService?: SessionMetadataService;
   supervisor: Pick<Supervisor, "getProcessForSession" | "reactivateSession">;
   getGlobalInstructions: () => string | undefined;
-  persistLaunchMetadata: PersistLaunchMetadata;
 }
 
 // A recovered patient queue entry may need a fresh process before it can
@@ -79,15 +68,13 @@ export async function ensureProcessForRecoveredItem(
         status: 503,
       };
     }
-    await deps.persistLaunchMetadata(
-      sessionId,
-      item.provider,
-      parsedExecutor.executor,
-      undefined,
-      item.model ?? metadata?.requestedModel,
-      metadata?.promptSuggestionMode,
-      metadata?.recapAfterSeconds,
-    );
+    await persistLaunchMetadata(deps.sessionMetadataService, sessionId, {
+      provider: item.provider,
+      executor: parsedExecutor.executor,
+      requestedModel: item.model ?? metadata?.requestedModel,
+      promptSuggestionMode: metadata?.promptSuggestionMode,
+      recapAfterSeconds: metadata?.recapAfterSeconds,
+    });
   } else if (mode) {
     process.setPermissionMode(mode);
   }

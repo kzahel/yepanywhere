@@ -29,7 +29,10 @@ See also: [`provider-abstraction.md`](provider-abstraction.md),
 (agent-facing scripts as a consumer of this seam),
 [`docs/tactical/053-sessions-route-refactor-ledger.md`](../docs/tactical/053-sessions-route-refactor-ledger.md)
 (running ledger of `sessions.ts` extraction refactors that reshape where
-this REST surface lives).
+this REST surface lives),
+[`docs/tactical/177-session-launch-service.md`](../docs/tactical/177-session-launch-service.md)
+(folds the route-level copies of "launch a session" into one service, the
+first step toward a launch call a headless host can make).
 
 Status: **proposal / not yet built.** The initial shaping decisions are
 resolved (see *Decisions*); one (the OpenAI-adapter session mapping) remains

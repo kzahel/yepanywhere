@@ -1,0 +1,643 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type {
+  TranscriptDisplayObject,
+  UrlProjectId,
+} from "@yep-anywhere/shared";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createSessionsRoutes,
+  type SessionsDeps,
+} from "../../src/routes/sessions.js";
+import { SessionQueuePersistenceService } from "../../src/services/SessionQueuePersistenceService.js";
+import type { ISessionReader } from "../../src/sessions/types.js";
+import type { Project } from "../../src/supervisor/types.js";
+
+// Characterization for the session-launch service plan (doc 177): every
+// successor launch (fork, retitle generator, fork-summary generator and
+// target, restart fork, restart handoff) and recovered-queue reactivation
+// writes its session's launch metadata in a fixed order. These pin the exact ordered writes per child so the
+// consolidation cannot reorder, drop or remap a field.
+
+const project: Project = {
+  id: "proj-1" as UrlProjectId,
+  path: "/tmp/project",
+  name: "project",
+  sessionCount: 1,
+  sessionDir: "/tmp/project/.claude-sessions",
+  activeOwnedCount: 0,
+  activeExternalCount: 0,
+  lastActivity: null,
+  provider: "claude",
+};
+
+/** A sandboxed source whose every inherited field is distinguishable. */
+const sandboxedSource = {
+  customTitle: "Refactor session",
+  promptSuggestionMode: "native",
+  recapAfterSeconds: 300,
+  sandboxLevel: "project-write",
+  sandboxNetworkFirewall: false,
+  sandboxStateKey: "source-sandbox",
+  sandboxProjectPath: "/tmp/project-sandbox",
+  workingProjectId: "proj-working",
+  effectiveLaunchSettings: {
+    schemaVersion: 1,
+    revision: 2,
+    permissionMode: "bypassPermissions",
+    requestedModel: "settings-model",
+    thinking: { type: "adaptive" },
+    effort: "high",
+  },
+};
+
+/** The same source with the network firewall left at its default (on). */
+const firewallOnSource = {
+  ...sandboxedSource,
+  sandboxNetworkFirewall: undefined,
+};
+
+type Write = [method: string, ...args: unknown[]];
+
+/**
+ * A metadata service that answers the reads the successor routes make and
+ * records every write, in call order.
+ */
+function recordingMetadata(source: Record<string, unknown> | undefined) {
+  const writes: Write[] = [];
+  let displayObjects: TranscriptDisplayObject[] = [];
+  const readers: Record<string, unknown> = {
+    getProvider: () => "claude",
+    getRequestedModel: () => "saved-model",
+    getExecutor: () => undefined,
+    getMetadata: () => source,
+    // A property, not a method: no identity store in these fixtures.
+    identities: undefined,
+    nextForkOrdinal: async () => ({ ordinal: 1, lineageRootId: "sess-1" }),
+    forkLineageRoot: (id: string) => id,
+    getTranscriptDisplayObjects: () => displayObjects,
+    addTranscriptDisplayObject: async (
+      sessionId: string,
+      object: TranscriptDisplayObject,
+    ) => {
+      writes.push(["addTranscriptDisplayObject", sessionId, object.kind]);
+      displayObjects = [...displayObjects, object];
+    },
+    updateTranscriptDisplayObject: async (
+      sessionId: string,
+      objectId: string,
+      updater: (object: TranscriptDisplayObject) => TranscriptDisplayObject,
+    ) => {
+      writes.push(["updateTranscriptDisplayObject", sessionId]);
+      let updated: TranscriptDisplayObject | undefined;
+      displayObjects = displayObjects.map((object) => {
+        if (object.id !== objectId) return object;
+        updated = updater(object);
+        return updated;
+      });
+      return updated;
+    },
+  };
+  // Every method that is not a reader is recorded as a write, so a write
+  // made through optional chaining cannot be skipped silently.
+  const service = new Proxy(readers, {
+    get(target, prop) {
+      if (typeof prop !== "string" || prop === "then") return undefined;
+      if (prop in target) return target[prop];
+      if (prop.startsWith("get")) return undefined;
+      return async (...args: unknown[]) => {
+        writes.push([prop, ...args]);
+        return undefined;
+      };
+    },
+  });
+  return {
+    service: service as unknown as NonNullable<
+      SessionsDeps["sessionMetadataService"]
+    >,
+    writesFor: (sessionId: string) =>
+      writes.filter(([, id]) => id === sessionId),
+  };
+}
+
+const nullReader = () =>
+  ({
+    getSessionSummary: vi.fn(async () => null),
+    getSession: vi.fn(async () => null),
+  }) as unknown as ISessionReader;
+
+const sourceProcess = (overrides: Record<string, unknown> = {}) => ({
+  id: "proc-source",
+  provider: "claude",
+  model: "live-model",
+  resolvedModel: "live-model",
+  permissionMode: "default",
+  modeVersion: 0,
+  state: { type: "idle", since: new Date() },
+  getMessageHistory: vi.fn(() => [
+    {
+      type: "user",
+      uuid: "msg-user-initial",
+      timestamp: "2026-04-24T20:00:00.000Z",
+      message: { role: "user", content: "Fix the failing test." },
+    },
+    {
+      type: "assistant",
+      uuid: "msg-after-initial-turn",
+      timestamp: "2026-04-24T20:00:01.000Z",
+      message: { role: "assistant", content: "Found the failing test." },
+    },
+  ]),
+  ...overrides,
+});
+
+const post = (path: string, body: unknown) => ({
+  path: `/projects/${project.id}/sessions/sess-1/${path}`,
+  init: {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  },
+});
+
+describe("successor launch metadata writes", () => {
+  it("fork persists the source's launch metadata on the child", async () => {
+    const metadata = recordingMetadata(sandboxedSource);
+    const routes = createSessionsRoutes({
+      supervisor: {
+        getProcessForSession: vi.fn(() => undefined),
+        supportsForkSession: vi.fn(() => true),
+        forkSession: vi.fn(async () => ({
+          sessionId: "sess-fork",
+          sandboxStateKey: "child-sandbox",
+        })),
+      } as unknown as SessionsDeps["supervisor"],
+      scanner: {
+        getOrCreateProject: vi.fn(async () => project),
+      } as unknown as SessionsDeps["scanner"],
+      readerFactory: vi.fn(nullReader),
+      sessionMetadataService: metadata.service,
+      eventBus: { emit: vi.fn() } as unknown as SessionsDeps["eventBus"],
+    });
+
+    const request = post("fork", { upToMessageId: "msg-uuid-3" });
+    const response = await routes.request(request.path, request.init);
+
+    expect(response.status).toBe(200);
+    expect(metadata.writesFor("sess-fork")).toEqual([
+      ["setProvider", "sess-fork", "claude"],
+      ["setRequestedModel", "sess-fork", "saved-model"],
+      ["updateMetadata", "sess-fork", { promptSuggestionMode: "native" }],
+      ["updateMetadata", "sess-fork", { recapAfterSeconds: 300 }],
+      [
+        "setSessionSandbox",
+        "sess-fork",
+        {
+          level: "project-write",
+          networkFirewall: false,
+          stateKey: "child-sandbox",
+          projectPath: "/tmp/project-sandbox",
+          projectId: "proj-working",
+        },
+      ],
+      [
+        "updateMetadata",
+        "sess-fork",
+        {
+          title: "Fork: Refactor session",
+          forkedFromSessionId: "sess-1",
+          forkLineageRootId: "sess-1",
+        },
+      ],
+    ]);
+  });
+
+  it("fork of an unsandboxed source persists an explicit none sandbox", async () => {
+    const metadata = recordingMetadata(undefined);
+    const routes = createSessionsRoutes({
+      supervisor: {
+        getProcessForSession: vi.fn(() => undefined),
+        supportsForkSession: vi.fn(() => true),
+        forkSession: vi.fn(async () => ({ sessionId: "sess-fork" })),
+      } as unknown as SessionsDeps["supervisor"],
+      scanner: {
+        getOrCreateProject: vi.fn(async () => project),
+      } as unknown as SessionsDeps["scanner"],
+      readerFactory: vi.fn(nullReader),
+      sessionMetadataService: metadata.service,
+      eventBus: { emit: vi.fn() } as unknown as SessionsDeps["eventBus"],
+    });
+
+    const request = post("fork", { upToMessageId: "msg-uuid-3" });
+    const response = await routes.request(request.path, request.init);
+
+    expect(response.status).toBe(200);
+    expect(metadata.writesFor("sess-fork")).toEqual([
+      ["setProvider", "sess-fork", "claude"],
+      ["setRequestedModel", "sess-fork", "saved-model"],
+      [
+        "setSessionSandbox",
+        "sess-fork",
+        {
+          level: "none",
+          networkFirewall: false,
+          stateKey: undefined,
+          projectPath: project.path,
+          projectId: project.id,
+        },
+      ],
+      [
+        "updateMetadata",
+        "sess-fork",
+        {
+          title: undefined,
+          forkedFromSessionId: "sess-1",
+          forkLineageRootId: "sess-1",
+        },
+      ],
+    ]);
+  });
+
+  it("retitle persists the source's launch metadata on its generator", async () => {
+    const metadata = recordingMetadata(firewallOnSource);
+    const routes = createSessionsRoutes({
+      supervisor: {
+        getProcessForSession: vi.fn(() => sourceProcess()),
+        supportsForkSession: vi.fn(() => true),
+        forkSession: vi.fn(async () => ({
+          sessionId: "sess-retitle-generator",
+          sandboxStateKey: "child-sandbox",
+        })),
+        generateSummary: vi.fn(async () => ({ text: "Tight rename flow" })),
+      } as unknown as SessionsDeps["supervisor"],
+      scanner: {
+        getOrCreateProject: vi.fn(async () => project),
+      } as unknown as SessionsDeps["scanner"],
+      readerFactory: vi.fn(nullReader),
+      sessionMetadataService: metadata.service,
+      eventBus: { emit: vi.fn() } as unknown as SessionsDeps["eventBus"],
+    });
+
+    const request = post("retitle", { currentTitle: "old title" });
+    const response = await routes.request(request.path, request.init);
+
+    expect(response.status).toBe(200);
+    expect(metadata.writesFor("sess-retitle-generator")).toEqual([
+      [
+        "updateMetadata",
+        "sess-retitle-generator",
+        {
+          title: "Retitle generator",
+          archived: true,
+          forkedFromSessionId: "sess-1",
+        },
+      ],
+      ["setProvider", "sess-retitle-generator", "claude"],
+      ["setRequestedModel", "sess-retitle-generator", "saved-model"],
+      [
+        "updateMetadata",
+        "sess-retitle-generator",
+        { promptSuggestionMode: "native" },
+      ],
+      ["updateMetadata", "sess-retitle-generator", { recapAfterSeconds: 300 }],
+      [
+        "setSessionSandbox",
+        "sess-retitle-generator",
+        {
+          level: "project-write",
+          networkFirewall: true,
+          stateKey: "child-sandbox",
+          projectPath: "/tmp/project-sandbox",
+          projectId: "proj-working",
+        },
+      ],
+    ]);
+  });
+
+  it("fork-summary persists launch metadata on its generator and target", async () => {
+    const metadata = recordingMetadata(firewallOnSource);
+    const forkSession = vi
+      .fn()
+      .mockResolvedValueOnce({
+        sessionId: "sess-generator",
+        sandboxStateKey: "generator-sandbox",
+      })
+      .mockResolvedValueOnce({
+        sessionId: "sess-target",
+        sandboxStateKey: "target-sandbox",
+      });
+    const resumeSession = vi.fn(async () => ({
+      id: "proc-target",
+      sessionId: "sess-target",
+      projectId: "proj-resumed",
+      projectPath: "/tmp/project-resumed",
+      provider: "claude",
+      model: "sonnet",
+      resolvedModel: "sonnet",
+      permissionMode: "default",
+      modeVersion: 0,
+      promptSuggestionMode: "off",
+      recapAfterSeconds: 600,
+      sandboxStateKey: "resumed-sandbox",
+      subscribe: vi.fn(() => vi.fn()),
+    }));
+    const routes = createSessionsRoutes({
+      supervisor: {
+        getProcessForSession: vi.fn(() => sourceProcess()),
+        supportsForkSession: vi.fn(() => true),
+        generateSummary: vi.fn(async () => ({
+          text: "Title: Refactor continuation\n\nContinue from the fix.",
+        })),
+        forkSession,
+        resumeSession,
+      } as unknown as SessionsDeps["supervisor"],
+      scanner: {
+        getOrCreateProject: vi.fn(async () => project),
+      } as unknown as SessionsDeps["scanner"],
+      readerFactory: vi.fn(nullReader),
+      sessionMetadataService: metadata.service,
+      eventBus: { emit: vi.fn() } as unknown as SessionsDeps["eventBus"],
+    });
+
+    const request = post("fork-summary", {
+      sourceMessageId: "msg-user-initial",
+    });
+    const response = await routes.request(request.path, request.init);
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => {
+      expect(
+        metadata
+          .writesFor("sess-target")
+          .some(
+            ([method, , update]) =>
+              method === "updateMetadata" &&
+              (update as { archived?: boolean }).archived === false,
+          ),
+      ).toBe(true);
+    });
+    expect(metadata.writesFor("sess-generator")).toEqual([
+      [
+        "updateMetadata",
+        "sess-generator",
+        {
+          title: "Fork summary generator",
+          archived: true,
+          forkedFromSessionId: "sess-1",
+        },
+      ],
+      ["setProvider", "sess-generator", "claude"],
+      ["setRequestedModel", "sess-generator", "saved-model"],
+      ["updateMetadata", "sess-generator", { promptSuggestionMode: "native" }],
+      ["updateMetadata", "sess-generator", { recapAfterSeconds: 300 }],
+      [
+        "setSessionSandbox",
+        "sess-generator",
+        {
+          level: "project-write",
+          networkFirewall: true,
+          stateKey: "generator-sandbox",
+          projectPath: "/tmp/project-sandbox",
+          projectId: "proj-working",
+        },
+      ],
+    ]);
+    const targetSandbox = {
+      level: "project-write",
+      networkFirewall: true,
+      stateKey: "target-sandbox",
+      projectPath: "/tmp/project-sandbox",
+      projectId: "proj-working",
+    };
+    const targetMetadata = {
+      title: "Refactor continuation",
+      forkedFromSessionId: "sess-1",
+      forkLineageRootId: "sess-1",
+    };
+    expect(metadata.writesFor("sess-target")).toEqual([
+      ["updateMetadata", "sess-target", { ...targetMetadata, archived: true }],
+      ["setProvider", "sess-target", "claude"],
+      ["setRequestedModel", "sess-target", "saved-model"],
+      ["updateMetadata", "sess-target", { promptSuggestionMode: "native" }],
+      ["updateMetadata", "sess-target", { recapAfterSeconds: 300 }],
+      ["setSessionSandbox", "sess-target", targetSandbox],
+      // After the resumed target process starts: its own resolved settings.
+      ["setProvider", "sess-target", "claude"],
+      ["setRequestedModel", "sess-target", "saved-model"],
+      ["updateMetadata", "sess-target", { promptSuggestionMode: "off" }],
+      ["updateMetadata", "sess-target", { recapAfterSeconds: 600 }],
+      [
+        "setSessionSandbox",
+        "sess-target",
+        {
+          level: "project-write",
+          networkFirewall: true,
+          stateKey: "resumed-sandbox",
+          projectPath: "/tmp/project-resumed",
+          projectId: "proj-resumed",
+        },
+      ],
+      ["updateMetadata", "sess-target", { ...targetMetadata, archived: false }],
+    ]);
+  });
+
+  it("restart fork persists the resumed fork's launch metadata", async () => {
+    const metadata = recordingMetadata(sandboxedSource);
+    const routes = createSessionsRoutes({
+      supervisor: {
+        getProcessForSession: vi.fn(() => sourceProcess()),
+        supportsForkSession: vi.fn(() => true),
+        forkSession: vi.fn(async () => ({
+          sessionId: "sess-fork",
+          sandboxStateKey: "child-sandbox",
+        })),
+        resumeSession: vi.fn(async () => ({
+          id: "proc-new",
+          sessionId: "sess-fork",
+          projectId: "proj-resumed",
+          provider: "claude",
+          model: "sonnet",
+          resolvedModel: "sonnet",
+          permissionMode: "default",
+          modeVersion: 0,
+          promptSuggestionMode: "off",
+          recapAfterSeconds: 600,
+          sandboxStateKey: "resumed-sandbox",
+          subscribe: vi.fn(() => vi.fn()),
+        })),
+        interruptProcess: vi.fn(async () => ({
+          success: true,
+          supported: true,
+        })),
+        abortProcess: vi.fn(async () => true),
+      } as unknown as SessionsDeps["supervisor"],
+      scanner: {
+        getOrCreateProject: vi.fn(async () => project),
+      } as unknown as SessionsDeps["scanner"],
+      readerFactory: vi.fn(nullReader),
+      sessionMetadataService: metadata.service,
+      eventBus: { emit: vi.fn() } as unknown as SessionsDeps["eventBus"],
+    });
+
+    const request = post("restart", {
+      restartMode: "fork",
+      forkUpToMessageId: "msg-uuid-7",
+    });
+    const response = await routes.request(request.path, request.init);
+
+    expect(response.status).toBe(200);
+    expect(metadata.writesFor("sess-fork")).toEqual([
+      ["setProvider", "sess-fork", "claude"],
+      ["setRequestedModel", "sess-fork", "settings-model"],
+      ["updateMetadata", "sess-fork", { promptSuggestionMode: "off" }],
+      ["updateMetadata", "sess-fork", { recapAfterSeconds: 600 }],
+      [
+        "setSessionSandbox",
+        "sess-fork",
+        {
+          level: "project-write",
+          networkFirewall: false,
+          stateKey: "resumed-sandbox",
+          projectPath: "/tmp/project-sandbox",
+          projectId: "proj-resumed",
+        },
+      ],
+      [
+        "updateMetadata",
+        "sess-fork",
+        { title: "Fork: Refactor session", forkLineageRootId: "sess-1" },
+      ],
+    ]);
+  });
+
+  it("restart handoff persists the new session's launch metadata", async () => {
+    const metadata = recordingMetadata(firewallOnSource);
+    const routes = createSessionsRoutes({
+      supervisor: {
+        getProcessForSession: vi.fn(() => sourceProcess()),
+        startSession: vi.fn(async () => ({
+          id: "proc-new",
+          sessionId: "sess-new",
+          projectId: "proj-started",
+          projectPath: "/tmp/project-started",
+          sandboxProjectPath: "/tmp/project-started-sandbox",
+          provider: "claude",
+          model: "sonnet",
+          resolvedModel: "sonnet",
+          permissionMode: "default",
+          modeVersion: 0,
+          promptSuggestionMode: "off",
+          recapAfterSeconds: 600,
+          sandboxStateKey: "started-sandbox",
+          subscribe: vi.fn(() => vi.fn()),
+        })),
+        interruptProcess: vi.fn(async () => ({
+          success: true,
+          supported: true,
+        })),
+        abortProcess: vi.fn(async () => true),
+      } as unknown as SessionsDeps["supervisor"],
+      scanner: {
+        getOrCreateProject: vi.fn(async () => project),
+      } as unknown as SessionsDeps["scanner"],
+      readerFactory: vi.fn(nullReader),
+      sessionMetadataService: metadata.service,
+      eventBus: { emit: vi.fn() } as unknown as SessionsDeps["eventBus"],
+    });
+
+    const request = post("restart", { handoffText: "Continue the fix." });
+    const response = await routes.request(request.path, request.init);
+
+    expect(response.status).toBe(200);
+    expect(metadata.writesFor("sess-new")).toEqual([
+      ["setProvider", "sess-new", "claude"],
+      ["setRequestedModel", "sess-new", "settings-model"],
+      ["updateMetadata", "sess-new", { promptSuggestionMode: "off" }],
+      ["updateMetadata", "sess-new", { recapAfterSeconds: 600 }],
+      [
+        "setSessionSandbox",
+        "sess-new",
+        {
+          level: "project-write",
+          networkFirewall: true,
+          stateKey: "started-sandbox",
+          projectPath: "/tmp/project-started-sandbox",
+          projectId: "proj-started",
+        },
+      ],
+      ["updateMetadata", "sess-new", { title: "Handoff: Refactor session" }],
+    ]);
+  });
+
+  it("recovered-queue reactivation persists the reactivated session's launch metadata", async () => {
+    const metadata = recordingMetadata({
+      requestedModel: "saved-model",
+      promptSuggestionMode: "native",
+      recapAfterSeconds: 300,
+    });
+    const dataDir = await mkdtemp(join(tmpdir(), "ya-successor-metadata-"));
+    try {
+      const sessionQueuePersistenceService = new SessionQueuePersistenceService(
+        { dataDir },
+      );
+      await sessionQueuePersistenceService.initialize();
+      await sessionQueuePersistenceService.replaceAll([
+        {
+          id: "queue-1",
+          sessionId: "sess-1",
+          projectId: project.id,
+          projectPath: project.path,
+          provider: "claude",
+          kind: "patient",
+          message: {
+            text: "resume after restart",
+            tempId: "temp-queue-1",
+            metadata: { deliveryIntent: "patient" },
+          },
+          createdAt: "2026-06-30T09:00:00.000Z",
+          updatedAt: "2026-06-30T09:01:00.000Z",
+          queuedAt: "2026-06-30T09:00:00.000Z",
+          status: "paused-after-restart",
+          source: { tempId: "temp-queue-1" },
+        },
+      ]);
+      const process = {
+        id: "proc-1",
+        isTerminated: false,
+        state: { type: "idle" },
+        permissionMode: "default",
+        modeVersion: 0,
+        setPermissionMode: vi.fn(),
+        noteInputIntent: vi.fn(),
+        primeSupportedCommandsForMessage: vi.fn(async () => {}),
+        deferMessage: vi.fn(() => ({ success: true, deferred: true })),
+        waitForPatientQueuePersistenceIdle: vi.fn(async () => {}),
+        getDeferredQueueSummary: vi.fn(() => []),
+      };
+      const routes = createSessionsRoutes({
+        supervisor: {
+          getProcessForSession: vi.fn(() => null),
+          reactivateSession: vi.fn(async () => process),
+        } as unknown as SessionsDeps["supervisor"],
+        sessionQueuePersistenceService,
+        sessionMetadataService: metadata.service,
+      } as unknown as SessionsDeps);
+
+      const response = await routes.request(
+        "/sessions/sess-1/recovered-queue/queue-1/resume",
+        { method: "POST" },
+      );
+
+      expect(response.status).toBe(200);
+      expect(metadata.writesFor("sess-1")).toEqual([
+        ["setProvider", "sess-1", "claude"],
+        ["setRequestedModel", "sess-1", "saved-model"],
+        ["updateMetadata", "sess-1", { promptSuggestionMode: "native" }],
+        ["updateMetadata", "sess-1", { recapAfterSeconds: 300 }],
+      ]);
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+});
