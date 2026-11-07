@@ -84,6 +84,9 @@ settings, projects and recent-visit reads while route modules load. Mounted
 consumers join the same retained query, including when it already completed.
 Capability-dependent requests still require the returned current-source facts;
 early acquisition neither invents support nor delays mounting on its response.
+Typing does not wait for it, but Start stays disabled, and every submit path
+refuses, until that first read settles. Unknown capabilities must not select
+the older-server creation route or drop a saved router preference.
 
 For New Session and Settings URLs, the local entry starts settings and version
 HTTP reads before loading the React runtime. Only New Session then acquires the

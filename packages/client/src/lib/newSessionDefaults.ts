@@ -3,6 +3,7 @@ import {
   isWithdrawnCodexModel,
   type ModelInfo,
   type NewSessionDefaults,
+  type ProviderInfo,
   type ProviderName,
   type ProviderSessionDefaults,
   type ThinkingMode,
@@ -149,5 +150,22 @@ export function withProviderSessionDefaults(
       ...defaults?.providers,
       [providerName]: providerDefaults,
     },
+  };
+}
+
+/**
+ * Stand-in row for seeding the form before any provider has been probed.
+ *
+ * It carries no status or capability claims: it exists so the saved provider
+ * and its provider-local model defaults can resolve, and it is replaced by the
+ * probed row the moment one arrives. It is never rendered as a provider card.
+ */
+export function unprobedProviderRow(name: ProviderName): ProviderInfo {
+  return {
+    name,
+    displayName: name,
+    installed: false,
+    authenticated: false,
+    enabled: false,
   };
 }

@@ -136,6 +136,7 @@ import {
   getPreferredProviderModelId,
   getProviderSessionDefaults,
   hasRequiredProviderModel,
+  unprobedProviderRow,
   withProviderSessionDefaults,
 } from "../lib/newSessionDefaults";
 import {
@@ -318,23 +319,6 @@ function createClientSpeechTurnId(): string {
 
 function createSpeechTargetId(): string {
   return `speech-target-${generateUUID()}`;
-}
-
-/**
- * Stand-in row for seeding the form before any provider has been probed.
- *
- * It carries no status or capability claims: it exists so the saved provider
- * and its provider-local model defaults can resolve, and it is replaced by the
- * probed row the moment one arrives. It is never rendered as a provider card.
- */
-function unprobedProviderRow(name: ProviderName): ProviderInfo {
-  return {
-    name,
-    displayName: name,
-    installed: false,
-    authenticated: false,
-    enabled: false,
-  };
 }
 
 export interface NewSessionFormProps {
@@ -1798,6 +1782,10 @@ export function NewSessionForm({
     !newProjectPanelShown &&
     (projectSnapshotPending ||
       (Boolean(projectId) && currentProjectSelection === null));
+  // Until the first capability read settles, the form cannot tell a current
+  // server from an older one: it would pick the retired legacy creation route
+  // and skip a saved router preference. Starting waits for it like the project.
+  const serverCapabilitiesPending = versionInfo === null && versionLoading;
   const isDetachedProject =
     !newProjectPanelShown &&
     currentProjectSelection === null &&
@@ -2943,7 +2931,8 @@ export function NewSessionForm({
         isStarting ||
         displayDefaultsPending ||
         !hasSelectedProviderModel ||
-        projectPending
+        projectPending ||
+        serverCapabilitiesPending
       ) {
         if (propagateFailure) throw new Error(t("composerMemoCannotStart"));
         return;
@@ -3447,6 +3436,7 @@ export function NewSessionForm({
       projectInput,
       projectApp,
       projectPending,
+      serverCapabilitiesPending,
       recapAfterSeconds,
       effectiveSandboxLevel,
       effectiveSandboxNetworkFirewall,
@@ -4131,6 +4121,7 @@ export function NewSessionForm({
       !displayDefaultsPending &&
       hasSelectedProviderModel &&
       !projectPending &&
+      !serverCapabilitiesPending &&
       (!isDetachedProject || canCreateDetached),
   );
   const hasProjectQueueTargetProject = Boolean(projectQueueTargetProjectId);

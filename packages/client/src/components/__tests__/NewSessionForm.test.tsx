@@ -251,6 +251,7 @@ const {
         projectQueueCtrlEnterEnabled?: boolean;
       };
     } | null,
+    loading: false,
   },
   remoteBasePathState: {
     basePath: "",
@@ -608,7 +609,7 @@ vi.mock("../../hooks/useProjectQueues", () => ({
 vi.mock("../../hooks/useVersion", () => ({
   useVersion: () => ({
     version: versionState.version,
-    loading: false,
+    loading: versionState.loading,
     error: null,
     refetch: vi.fn(),
     refetchFresh: vi.fn(),
@@ -910,6 +911,7 @@ describe("NewSessionForm", () => {
     draftAttachmentState.value = null;
     remoteBasePathState.basePath = "";
     versionState.version = { capabilities: [PROJECT_QUEUE_CAPABILITY] };
+    versionState.loading = false;
     modelSettingsState.voiceInputEnabled = true;
     modelSettingsState.speechMethod = "browser-native";
     modelSettingsState.hasStoredSpeechMethod = false;
@@ -4636,6 +4638,47 @@ describe("NewSessionForm", () => {
     expect(mockStartSession.mock.calls[0]?.[1]).not.toContain(
       "backend final words",
     );
+  });
+
+  it("waits for server capabilities before choosing how to create the session", async () => {
+    // Unknown capabilities once sent the retired legacy route, which current
+    // servers answer with 404, shown as "Project not found".
+    versionState.version = null;
+    versionState.loading = true;
+    mockConnectionFetch.mockResolvedValue({
+      requestId: "after-capabilities",
+      sessionId: "session-after-capabilities",
+      projectId: "project-1",
+    });
+    const form = () => (
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />
+    );
+    const { rerender } = render(form());
+    const composer = screen.getByPlaceholderText("newSessionPlaceholder");
+    fireEvent.change(composer, { target: { value: "early start" } });
+    const start = screen.getByRole("button", { name: "newSessionStartAction" });
+    expect(start).toHaveProperty("disabled", true);
+    fireEvent.keyDown(composer, { key: "Enter" });
+    expect(mockStartSession).not.toHaveBeenCalled();
+    expect(mockConnectionFetch).not.toHaveBeenCalled();
+
+    versionState.version = {
+      capabilities: [SERVER_CAPABILITIES.sessionCreationAdmission.name],
+    };
+    versionState.loading = false;
+    rerender(form());
+    fireEvent.click(
+      screen.getByRole("button", { name: "newSessionStartAction" }),
+    );
+    await waitFor(() => expect(mockConnectionFetch).toHaveBeenCalledOnce());
+    expect(mockConnectionFetch.mock.calls[0]?.[0]).toBe(
+      "/projects/project-1/session-creations",
+    );
+    expect(mockStartSession).not.toHaveBeenCalled();
   });
 
   it("keeps a pending background action authoritative over a final spoken send", async () => {
