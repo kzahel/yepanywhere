@@ -3,8 +3,8 @@
 Topic: mic-button-speech-ui
 
 Status: planned 2026-11-07; slices 0 (the test pins), 1 (speech state),
-2 (speech handlers) and 3 (keys, paste and speech field) landed
-2026-11-07. Proposal 1 of the [session page React hub
+2 (speech handlers), 3 (keys, paste and speech field) and 4 (attachment
+upload) landed 2026-11-07. Proposal 1 of the [session page React hub
 gap](../../gaps/session-page-react-hub.md), owned by
 [doc 058](058-typescript-module-boundary-refactor.md) priority-queue item 2.
 
@@ -79,7 +79,7 @@ Measured at `277e2cec3`. Line counts are new-session / in-session.
 | Desktop Enter-sends rule and mobile newline (key handler) | ~15 / ~15 | the order of the shortcuts ahead of it differs (D8) |
 | Voice shortcut in `handleComposerKeyDown` | 9 / 39 | in-session adds the floating new-session options keys (box-specific, stays) |
 | Clipboard file extraction in `handlePaste` | 19 / 23 | the attach guard sits inside `handlePaste` in-session and at the call site in new-session; where the files go (both box-specific, stay) |
-| Per-file prepare and staged upload | 3 copies in the new-session box (`addPendingFiles`, `resolvePendingAttachmentsForSession`, the start path) / `uploadComposerAttachmentFile` in `lib/sessionComposerSubmission.ts`, used by the session page | inventoried in slice 4 |
+| Per-file prepare and staged upload | 3 copies in the new-session box (`addPendingFiles`, `resolvePendingAttachmentsForSession`, the start path) / `uploadComposerAttachmentFile` in `lib/sessionComposerSubmission.ts`, used by the session page and the Project Queue attachment editor | A1 to A4; landed in slice 4 |
 
 `pendingTextareaSelectionRef` is not speech-only: the new-session box's
 launch seed and prefill also write it. The shared hook only holds it.
@@ -112,6 +112,15 @@ Out of this plan:
 | D9 | Transcription context: the in-session box adds the session id and vocabulary terms and keys its draft by session. | Deliberate; stays in each box. |
 | D10 | The textarea's `select` event counts as a manual caret move in the in-session box (`onSelect` calls `handleTextareaSelectionTarget`, which passes `true`) and as an automatic one in the new-session box (`onSelect` calls `handleSpeechSelectionTarget()`). A click mid-interim fires `select`, so in the new-session box the fragment still being recognized moves to the new caret at once, while in the in-session box it stays at its first target and only the next fragment moves. The new browser check shows this at `277e2cec3`. | User-visible. Outside the shared code: each box keeps its event wiring, and the browser check pins each box's result. Asked the maintainer; [mic button](../../topics/mic-button-speech-ui.md) describes the in-session behavior. |
 | D11 | Held Escape. The in-session box ignores repeated Escape key-downs first, and its bang and slash menus take Escape before the speech pair. The new-session box has no repeat guard, so holding Escape stops listening on the first key-down and a repeat that arrives once the state is "finalizing" cancels the transcription and drops its result. | User-visible. Kept: slice 3 shares only the pair, and each box keeps its guards ahead of it. Asked the maintainer. |
+
+### Attachment upload differences (slice 4)
+
+| # | Difference | Handling |
+| --- | --- | --- |
+| A1 | Progress: the session page's helper always passes a progress wrapper that calls its caller's callback when there is one; the new-session staging and its post-create upload report into the box's progress state; the new-session start path's staging passes none. | Deliberate per site. `prepareComposerAttachmentUpload` takes an optional progress callback and adds it to the options only when given; each site passes what it passed before. |
+| A2 | Preview URLs: the page's helper makes one from the prepared (resized) image and revokes it if the upload fails; the new-session box makes one from the original file when the file is added and stores previews itself. | Not part of the shared step; each site keeps its own. |
+| A3 | Staged or direct upload, and the batch id. | Per site; each keeps its own call. |
+| A4 | The image profile: the helper's callers (the session page and the Project Queue attachment editor) pass one; the new-session box derives it from attachment quality, provider and model. | Passed in. |
 
 ## Slices
 
@@ -156,10 +165,12 @@ line here.
    shares `handleVoiceInputShortcutKeyDown`, leaving a two-line callback in
    each box, so it stays.
 4. **Per-file attachment upload.** One function prepares an image and
-   uploads one file, staged or direct, for `uploadComposerAttachmentFile`
-   and the new-session box's three copies. Each site keeps its own pending
-   state, progress, preview storage and toasts. The slice starts by adding
-   each site's differences to this table under the same rule.
+   builds the upload options (its dimensions, plus a progress callback
+   where given), for `uploadComposerAttachmentFile` and the new-session
+   box's three copies. Each site keeps its own staged or direct upload call
+   (A3), pending state, progress, preview storage and toasts. The slice
+   starts by adding each site's differences to this table under the same
+   rule.
 5. **Floating composer.** `FloatingActionButton.tsx` holds a third copy of
    the speech state and handlers (listening start and stop, the selection
    target and its clear, commit, transcript, flush, interim, pending-state

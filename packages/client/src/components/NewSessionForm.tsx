@@ -191,7 +191,7 @@ import {
 } from "../lib/newProjectPath";
 import { getRecapModeDescription } from "../lib/recapModes";
 import { getSessionDefaultControlCopy } from "../lib/sessionDefaultControlCopy";
-import { prepareImageUpload } from "../lib/imageAttachmentResize";
+import { prepareComposerAttachmentUpload } from "../lib/composerAttachmentUpload";
 import { storeUploadedAttachmentPreview } from "../lib/attachmentPreviewCache";
 import type { DraftAttachmentState } from "../lib/draftEnvelope";
 import {
@@ -1021,40 +1021,27 @@ export function NewSessionForm({
         setPendingFiles((prev) => [...prev, uploadingFile]);
 
         const uploadPromise = (async () => {
-          const preparedImage = file.type.startsWith("image/")
-            ? await prepareImageUpload(
-                file,
-                getAttachmentUploadProfile(
-                  attachmentQuality,
-                  selectedProviderInfo,
-                  selectedModel,
-                ),
-              )
-            : { file };
-          const uploadFile = preparedImage.file;
-          const stagedRef = await sourceTransport.uploadStagedAttachment(
-            uploadFile,
-            {
-              batchId,
-              onProgress: (bytesUploaded) => {
+          const { uploadFile, uploadOptions } =
+            await prepareComposerAttachmentUpload(
+              file,
+              getAttachmentUploadProfile(
+                attachmentQuality,
+                selectedProviderInfo,
+                selectedModel,
+              ),
+              (bytesUploaded, preparedFile) => {
                 setUploadProgress((prev) => ({
                   ...prev,
                   [tempId]: {
                     uploaded: bytesUploaded,
-                    total: uploadFile.size,
+                    total: preparedFile.size,
                   },
                 }));
               },
-              ...(preparedImage.width !== undefined &&
-              preparedImage.height !== undefined
-                ? {
-                    imageDimensions: {
-                      width: preparedImage.width,
-                      height: preparedImage.height,
-                    },
-                  }
-                : {}),
-            },
+            );
+          const stagedRef = await sourceTransport.uploadStagedAttachment(
+            uploadFile,
+            { batchId, ...uploadOptions },
           );
           if (uploadFile.type.startsWith("image/")) {
             void storeUploadedAttachmentPreview(
@@ -2730,41 +2717,29 @@ export function NewSessionForm({
       const localFiles = currentFiles.filter(isPendingLocalFile);
       for (const pendingFile of localFiles) {
         try {
-          const preparedImage = pendingFile.file.type.startsWith("image/")
-            ? await prepareImageUpload(
-                pendingFile.file,
-                getAttachmentUploadProfile(
-                  attachmentQuality,
-                  selectedProviderInfo,
-                  selectedModel,
-                ),
-              )
-            : { file: pendingFile.file };
-          const uploadFile = preparedImage.file;
-          const uploadedFile = await sourceTransport.upload(
-            activeProjectId,
-            sessionId,
-            uploadFile,
-            {
-              onProgress: (bytesUploaded) => {
+          const { uploadFile, uploadOptions } =
+            await prepareComposerAttachmentUpload(
+              pendingFile.file,
+              getAttachmentUploadProfile(
+                attachmentQuality,
+                selectedProviderInfo,
+                selectedModel,
+              ),
+              (bytesUploaded, preparedFile) => {
                 setUploadProgress((prev) => ({
                   ...prev,
                   [pendingFile.id]: {
                     uploaded: bytesUploaded,
-                    total: uploadFile.size,
+                    total: preparedFile.size,
                   },
                 }));
               },
-              ...(preparedImage.width !== undefined &&
-              preparedImage.height !== undefined
-                ? {
-                    imageDimensions: {
-                      width: preparedImage.width,
-                      height: preparedImage.height,
-                    },
-                  }
-                : {}),
-            },
+            );
+          const uploadedFile = await sourceTransport.upload(
+            activeProjectId,
+            sessionId,
+            uploadFile,
+            uploadOptions,
           );
           uploadedFiles.push(uploadedFile);
         } catch (uploadErr) {
@@ -3112,30 +3087,19 @@ export function NewSessionForm({
                     throw new Error(t("sessionDraftAttachmentsUnavailable"));
                   return result;
                 }
-                const prepared = file.file.type.startsWith("image/")
-                  ? await prepareImageUpload(
-                      file.file,
-                      getAttachmentUploadProfile(
-                        attachmentQuality,
-                        selectedProviderInfo,
-                        selectedModel,
-                      ),
-                    )
-                  : { file: file.file };
+                // No progress callback on this path, as before.
+                const { uploadFile, uploadOptions } =
+                  await prepareComposerAttachmentUpload(
+                    file.file,
+                    getAttachmentUploadProfile(
+                      attachmentQuality,
+                      selectedProviderInfo,
+                      selectedModel,
+                    ),
+                  );
                 const ref = await sourceTransport.uploadStagedAttachment(
-                  prepared.file,
-                  {
-                    batchId,
-                    ...(prepared.width !== undefined &&
-                    prepared.height !== undefined
-                      ? {
-                          imageDimensions: {
-                            width: prepared.width,
-                            height: prepared.height,
-                          },
-                        }
-                      : {}),
-                  },
+                  uploadFile,
+                  { batchId, ...uploadOptions },
                 );
                 const result = {
                   ...ref,

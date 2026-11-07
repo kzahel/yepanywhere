@@ -33,17 +33,18 @@ shared, and how risky it is to touch today.
    the copy (SRR-025, checked on Linux), and the restarts' and
    continuation's records wait on the clone working-directory gap.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
-   (about 7,700 lines), `NewSessionForm.tsx` (about 5,600),
+   (about 7,700 lines), `NewSessionForm.tsx` (about 5,500),
    `MessageInput.tsx` (about 4,000) and `MessageInputToolbar.tsx` (about
    3,800) are where most UI work lands. Their size makes each change slow to
    review and easy to regress, including the keystroke-latency contract.
-   Phase 2 below holds the slice rows; slices 2.12 to 2.18 (the composer's
+   Phase 2 below holds the slice rows; slices 2.12 to 2.19 (the composer's
    bang completion state and recall drawer, the page's bang-command wiring,
    the toolbar's thinking control and the two message boxes' shared speech
-   state, handlers, keys and speech field) landed 2026-11-07. Moving small
-   features out one at a time leaves these files structurally as they were;
-   the burn-down order and the consolidations it needs (one shared
-   message-box core, then sending as plain functions) are in
+   state, handlers, keys, speech field and attachment upload step) landed
+   2026-11-07. Moving small features out one at a time leaves these files
+   structurally as they were; the burn-down order and the consolidations it
+   needs (one shared message-box core, then sending as plain functions) are
+   in
    [the session page hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
@@ -280,6 +281,7 @@ and props stable.
 | 2.16 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` speech state | Give both message boxes one copy of their dictation state and edit bookkeeping ([plan 178](178-shared-composer-dictation.md) slice 1). | Not move-only: a consolidation under plan 178, after its test pins (slice 0). Both boxes call `hooks/useComposerSpeechState.ts` for the speech refs and state, the textarea edit and replacement remaps, the pending-selection restore and the held-final clear, and `getSpeechInterimPreview` in `lib/speechRecognition.ts` for the interim mirror. No behavior change; the differences plan 178 lists stay as they are. Budgets `MessageInput.tsx` 4,543 -> 4,448 and `NewSessionForm.tsx` 5,975 -> 5,897. Tier 3, plus a new keystroke check in both boxes in `speech-caret-insertion.spec.ts`. |
 | 2.17 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` speech handlers | Give both message boxes one copy of their dictation handlers ([plan 178](178-shared-composer-dictation.md) slice 2). | Not move-only: a consolidation under plan 178. Both boxes call `hooks/useComposerSpeechHandlers.ts` for listening start and stop, caret retargeting, committing finals and interims, pending-state changes, failed transcriptions and cancel. What differs between the boxes comes in as options (plan 178 D2 to D7). No behavior change. Budgets `MessageInput.tsx` 4,448 -> 4,097 and `NewSessionForm.tsx` 5,897 -> 5,640. Tier 3, plus the slice 0 pins and the slice 1 keystroke check. |
 | 2.18 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` keys, paste and speech field | Give both message boxes one copy of their speech Escape keys, Enter-sends rule, paste file extraction and speech draft field ([plan 178](178-shared-composer-dictation.md) slice 3). | Not move-only: a consolidation under plan 178. Both boxes call `lib/composerKeys.ts` (`handleSpeechEscapeKey`, `isComposerEnterSend`, `getClipboardFiles`) and render `components/SpeechDraftField.tsx`. Each box keeps its key order and guards (plan 178 D8, D11). No behavior change. Budgets `MessageInput.tsx` 4,097 -> 4,023 and `NewSessionForm.tsx` 5,640 -> 5,571. Tier 3, plus the slice 1 keystroke check. |
+| 2.19 | Done 2026-11-07 | `NewSessionForm.tsx` and `lib/sessionComposerSubmission.ts` attachment upload step | Give the message boxes one copy of the per-file attachment prepare step ([plan 178](178-shared-composer-dictation.md) slice 4). | Not move-only: a consolidation under plan 178. The session page's upload helper and the new-session box's three copies call `lib/composerAttachmentUpload.ts` (`prepareComposerAttachmentUpload`); each keeps its own upload call, previews and state (plan 178 A1 to A4). No behavior change. Budget `NewSessionForm.tsx` 5,571 -> 5,535. Tier 3. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -413,6 +415,51 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.19 — Shared Message-Box Attachment Upload Step (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 178](178-shared-composer-dictation.md) slice 4 replaces
+four copies with one, under that plan's rules for differences between the
+copies (its table A1 to A4).
+
+Replaced:
+- The per-file prepare step (resize an image for the profile, then build
+  the upload options with its dimensions and a progress callback) in the
+  session page's `uploadComposerAttachmentFile`
+  (`lib/sessionComposerSubmission.ts`) and in three places in
+  `NewSessionForm.tsx` (`addPendingFiles`,
+  `resolvePendingAttachmentsForSession` and the start path's staging) ->
+  `prepareComposerAttachmentUpload` in new
+  `packages/client/src/lib/composerAttachmentUpload.ts`, which also takes
+  `imageDimensionOptions` from `sessionComposerSubmission.ts`.
+
+Shape changes:
+- Each site keeps its own upload call (staged or direct), batch id,
+  previews, pending-file state and toasts.
+- The progress callback is optional and only added to the options when
+  given (A1). The page's helper passes its wrapper always, as before; the
+  new-session progress callbacks read the prepared file's size from the
+  callback's second argument, the same file as before.
+
+Behavior changes:
+- None.
+
+Verification:
+- `NewSessionForm.test.tsx`, `sessionComposerSubmission.test.ts`,
+  `newSessionAttachments.test.ts`, `attachmentSubmission.test.ts` and the
+  page tests pass unchanged.
+- Focused browser specs pass: `attachment-drop.spec.ts`,
+  `session-creation-attachments.spec.ts`,
+  `session-creation-client.spec.ts` and `audio-memo.spec.ts`.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a separate worktree. Tier 3
+  (`pnpm --filter client test:e2e --grep-invert "physical Android"`) in
+  the same worktree: 496 passed, 13 skipped, 4 failed, all four the
+  `acli-commentary.spec.ts` cases that fail from any worktree (see slice
+  2.17).
+
+Follow-ups recorded:
+- Plan 178 slice 5 (the floating composer).
 
 ### Slice 2.18 — Shared Message-Box Keys, Paste and Speech Field (Landed 2026-11-07, this commit)
 
