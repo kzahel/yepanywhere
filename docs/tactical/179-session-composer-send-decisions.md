@@ -2,7 +2,32 @@
 
 Topic: message-control-steer-queue-btw-later-interrupt
 
-Status: planned 2026-11-07. Proposal 2 of the
+Status: planned 2026-11-07; slice 0 (the pins) landed 2026-11-07. It pins
+fourteen cases in `session-send-paths.spec.ts`, including both handoff
+notices (the built-in message and the routed one), `compactQueued`, the
+retried resume's request (same temp id and client time, no
+`showThinking`), a turn-effort command sent while correcting, and a
+command the page runs itself ending correction mode. Not pinned
+there, with the reason and the substitute:
+- The attachment-only refusal: with the version mocked as an old server
+  (version 0.7.1, the capability's bit cleared) the attached draft did not
+  submit at all, and the cause was not established. Slice 2 pins the
+  refusal with unit tests on `planSend` and `planQueue`.
+- Project Queue's legacy start-now: it needs a server without the
+  session-creation admission capability, and mocking an old server's
+  version has not yet been shown to work on this page (the attachment-only
+  attempt did not submit, for a reason not established), so it is not
+  pinned yet. Slice 3
+  lands its browser pin in a separate commit before any code moves.
+- Queue promoted versus queued: already pinned by
+  `queued-message-recall.spec.ts`.
+- Beacon states and toast severity: `composer-beacon.spec.ts` pins the
+  plain send's beacon states (it runs its own server process, so extending
+  it to every outcome costs a server per case); the slice 2 unit tests pin
+  the outcome each path maps to its beacon state, and slice 1's the
+  refusal severities.
+
+Proposal 2 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
 [doc 058](058-typescript-module-boundary-refactor.md) priority-queue item 2.
 Commits carry `Topic: typescript-module-boundary-refactor` and
