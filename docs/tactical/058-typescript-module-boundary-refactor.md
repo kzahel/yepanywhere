@@ -40,7 +40,10 @@ shared, and how risky it is to touch today.
    Phase 2 below holds the slice rows; slices 2.12 to 2.15 (the
    composer's bang completion state and recall drawer, the page's
    bang-command wiring and the toolbar's thinking control) landed
-   2026-11-07.
+   2026-11-07. Moving small features out one at a time leaves these files
+   structurally as they were; the burn-down order and the consolidations it
+   needs (one shared message-box core, then sending as plain functions) are
+   in [the session page hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
