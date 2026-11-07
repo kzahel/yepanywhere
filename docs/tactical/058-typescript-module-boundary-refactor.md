@@ -291,6 +291,7 @@ and props stable.
 | 2.25 | Done 2026-11-07 | `NewSessionForm.tsx` option section | Move the New Session options' section wrapper into its own module. | Move-only: `NewSessionOptionSection` and its props into `components/NewSessionOptionSection.tsx`. `NewSessionForm.tsx` 5,535 -> 5,503 lines; its budget stays at 5,535 until the next commit (see the landing note). Tier 3 at the series tip. |
 | 2.26 | Done 2026-11-07 | `NewSessionForm.tsx` option state | Give the New Session form's option choices one owner, a reducer ([plan 180](180-new-session-options-and-start.md) slice 1). | Not move-only: a consolidation under plan 180, after its slice 0 pins. The sixteen option `useState` fields become one `useReducer` over `lib/newSessionOptionsState.ts`, whose plain functions compute the seed, lock, provider switch, model fills, thinking choice, sandbox toggle and the automatic save's body; the form destructures the state under the same names and dispatches where it set state. No behavior change. Budget `NewSessionForm.tsx` 5,526 -> 5,339. Tier 3, plus plan 180's slice 0 pins. |
 | 2.27 | Done 2026-11-07 | `NewSessionForm.tsx` options hook | Move the New Session option state, its reads, derived values and effects into one hook ([plan 180](180-new-session-options-and-start.md) slice 2). | Not move-only: a consolidation under plan 180, because hook and effect order change (see the landing note). The reducer, the provider, settings, descriptor, router and subscription reads, every derived option value, the seed, lock, fill, source and save effects, and the provider, model and mode handlers move verbatim into `useNewSessionOptions` in new `hooks/useNewSessionOptions.ts`, called where the sandbox values stood. The inline choices call its `customizeOptions`. No behavior change. Budget `NewSessionForm.tsx` 5,339 -> 4,737; the hook is 820 lines. Tier 3, plus plan 180's slice 0 pins. |
+| 2.28 | Done 2026-11-07 | `NewSessionForm.tsx` options panel | Move the New Session options markup into a panel component ([plan 180](180-new-session-options-and-start.md) slice 3). | Move-only apart from props and one declared hunk: the section builders, label maps, model options, catalog notice, captions and advanced-options state, and the provider slot, advanced toggle and secondary options move into `NewSessionOptionsPanel` in new `components/NewSessionOptionsPanel.tsx`, which returns them as a fragment in the same grid. `providerSlotFilled` stays in the form, rewritten over the values the moved sections depend on (see the landing note). No behavior change. Budget `NewSessionForm.tsx` 4,737 -> 3,748; the panel is 1,085 lines. Tier 3, plus plan 180's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -424,6 +425,68 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.28 — New Session Options Panel (Landed 2026-11-07, this commit)
+
+Move-only apart from props and one declared hunk.
+[Plan 180](180-new-session-options-and-start.md) slice 3 moves the options
+markup out of the form.
+
+Moved to new `packages/client/src/components/NewSessionOptionsPanel.tsx`,
+each block unchanged:
+- `ROUTER_MODEL_UNAVAILABLE`;
+- `sessionDefaultCopy`, and the `showOptionCaptions` and
+  `showAdvancedOptions` state (with its `localStorage` key);
+- the label maps, the recap and suggestion mode lists and
+  `showHelperSideModel`;
+- `modelOptions`;
+- `optionPlaceholder` and every section from the provider section to
+  `activeAdvancedOptions`, including the catalog notice, the effort slot
+  and the fixed-launch section;
+- the provider slot, the advanced-options toggle and summary, and the
+  secondary options, which were the last three elements of the form's
+  grid. The panel returns them as a fragment, so the grid is unchanged.
+  The compact branch rendered none of them.
+
+Signature conversions (closure -> parameter):
+- The panel takes the hook's result as `options` and destructures the
+  values it reads under their names, reads `t` from `useI18n` (the same
+  context value), and takes `providerSlotFilled`, `showProviderPicker`,
+  `showModelPicker`, `launchLock`, `isStarting`,
+  `isProjectChooserExpanded`, `showThinking`, `setShowThinking`,
+  `clientSummarySourceKey` and `versionInfo`. The form keeps the hook's
+  result as `newSessionOptions` to pass it.
+
+Declared hunk:
+- `providerSlotFilled` read the section elements, which now live in the
+  panel. It stays in the form as `launchLock.limited ||
+  showProviderPicker || showModelPicker || showThinkingControls ||
+  !launchLock.effort`: the fixed-launch section renders exactly when the
+  launch is limited, the provider and model sections always render (each
+  falls back to a placeholder), and the effort slot renders when thinking
+  controls are shown or the effort is not locked.
+
+Behavior changes:
+- None. The panel's two state hooks and its model-options memo now belong
+  to a child component instead of the form; their values are the same.
+
+Budget:
+- `NewSessionForm.tsx` 4,737 -> 3,748. The panel is 1,085 lines.
+
+Verification:
+- `NewSessionForm.test.tsx` (148 tests, including plan 180's slice 0
+  pins) passes unchanged; tsc and Biome are clean; `pnpm i18n:scan`
+  reports nothing for the moved copy.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a worktree.
+- Tier 3 (`pnpm --filter client test:e2e --grep-invert "physical
+  Android"`) at the same tree, in a worktree: 513 passed, 13 skipped, 5
+  failed. Four are `acli-commentary.spec.ts`, which fails from a worktree
+  ([gap](../../gaps/acli-commentary-e2e-fails-from-worktree.md));
+  `session-header-responsive.spec.ts:29` passed when rerun alone.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.27 — New Session Options Hook (Landed 2026-11-07, this commit)
 

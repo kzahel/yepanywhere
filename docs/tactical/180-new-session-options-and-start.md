@@ -17,7 +17,12 @@ the target shape below: the `isStarting` guards stay with the markup, so
 the hook takes no `isStarting` and returns one stable `customizeOptions`
 (set the customization ref, then dispatch) in place of the ten inline
 ref-then-dispatch pairs; and `launch` is passed through as an object, so
-the moved memo keeps its dependency on it unchanged.
+the moved memo keeps its dependency on it unchanged. Slice 3 (the options
+panel, `components/NewSessionOptionsPanel.tsx`) landed 2026-11-07; it takes
+the hook's result as one `options` prop, reads `t` from `useI18n`, and also
+takes `providerSlotFilled` (computed once in the form for its layout class
+and passed in, so the panel and the form cannot disagree) and
+`clientSummarySourceKey` and `versionInfo` for the pool selector.
 
 Proposal 3 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
