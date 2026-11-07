@@ -14,12 +14,9 @@ there, with the reason and the substitute:
   (version 0.7.1, the capability's bit cleared) the attached draft did not
   submit at all, and the cause was not established. Slice 2 pins the
   refusal with unit tests on `planSend` and `planQueue`.
-- Project Queue's legacy start-now: it needs a server without the
-  session-creation admission capability, and mocking an old server's
-  version has not yet been shown to work on this page (the attachment-only
-  attempt did not submit, for a reason not established), so it is not
-  pinned yet. Slice 3
-  lands its browser pin in a separate commit before any code moves.
+- Project Queue's legacy start-now: pinned separately before slice 3, in
+  `session-send-paths.spec.ts` (the version mock clears the
+  creation-admission capability, an optional bit no version implies).
 - Queue promoted versus queued: already pinned by
   `queued-message-recall.spec.ts`.
 - Beacon states and toast severity: `composer-beacon.spec.ts` pins the

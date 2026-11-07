@@ -620,3 +620,69 @@ test("a command the page runs itself ends correction mode", async ({
   await expect(page.getByText("Correcting latest message")).toHaveCount(0);
   expect(session.endpoints()).toEqual([]);
 });
+
+test("start-now on a server without creation admission uses the legacy route", async ({
+  page,
+  baseURL,
+}) => {
+  // Creation admission is an optional bit (capability 147: word 4, bit 19)
+  // that no version implies; clear the bit and the name.
+  await page.route("**/api/version*", async (route) => {
+    const response = await route.fetch();
+    const version = await response.json();
+    version.capabilities = version.capabilities?.filter(
+      (capability: string) => capability !== "session-creation-admission-v1",
+    );
+    version.capabilityBits = version.capabilityBits?.map(
+      ([word, bits]: [number, number]) => [
+        word,
+        word === 4 && Math.floor(bits / 2 ** 19) % 2 === 1
+          ? bits - 2 ** 19
+          : bits,
+      ],
+    );
+    await route.fulfill({ response, json: version });
+  });
+  const started: Record<string, unknown>[] = [];
+  await page.route(`**/api/projects/${projectId}/sessions`, (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    started.push(route.request().postDataJSON() as Record<string, unknown>);
+    return json(route, 200, {
+      sessionId: "send-paths-legacy",
+      projectId,
+      processId: "legacy-process",
+      permissionMode: "default",
+      modeVersion: 0,
+    });
+  });
+  const session = await openSession(page, baseURL, {
+    owner: "self",
+    processState: "idle",
+    respond: {},
+  });
+  await session.composer.fill("Start this as a new session");
+  await page.locator(".send-button-with-help").click({ button: "right" });
+  await expect(
+    page.getByRole("form", { name: "Queue as new session" }),
+  ).toBeVisible();
+  await session.composer.press("Enter");
+
+  await expect.poll(() => started.length).toBe(1);
+  const request = started[0] ?? {};
+  expect(request.message).toBe("Start this as a new session");
+  expect(request).toMatchObject({ mode: "default", provider: "claude" });
+  expect(request.model).toEqual(expect.any(String));
+  expect(request.messageMetadata).toMatchObject({ deliveryIntent: "direct" });
+  await expect(page).toHaveURL(/\/sessions\/send-paths-legacy/);
+  expect(await page.evaluate(() => history.state?.usr)).toMatchObject({
+    initialTitle: "Start this as a new session",
+    initialProvider: "claude",
+    initialModel: request.model,
+    initialStatus: {
+      owner: "self",
+      processId: "legacy-process",
+      modeVersion: 0,
+    },
+  });
+  expect(session.endpoints()).toEqual([]);
+});
