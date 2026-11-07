@@ -10,6 +10,7 @@ import {
 import { createLocalFileRoutes } from "../../src/routes/local-file.js";
 import { createLocalImageRoutes } from "../../src/routes/local-image.js";
 import { createSessionPathScopeResolver } from "../../src/routes/session-path-scope.js";
+import { encodeProjectId } from "../../src/projects/paths.js";
 
 const limited: Principal = {
   kind: "limited",
@@ -57,6 +58,8 @@ describe("session-scoped local files", () => {
         sandboxProjectPath: projectPath,
       },
       plain: { sandboxProjectPath: projectPath },
+      // An unsandboxed copy records only the project it is listed under.
+      workingOnly: { workingProjectId: encodeProjectId(projectPath) },
     } as Record<string, Record<string, string>>;
     const scope = createSessionPathScopeResolver({
       sessionMetadataService: {
@@ -146,6 +149,27 @@ describe("session-scoped local files", () => {
       "/api/sessions/plain/local-file?path=/tmp/note.txt",
     );
     expect(response.status).not.toBe(200);
+  });
+
+  it("finds an unsandboxed session's project from its working project alone", async () => {
+    const { scope, outside, projectPath } = await fixture();
+    const asLimited = app(scope, limited);
+    for (const session of ["plain", "workingOnly"]) {
+      expect(
+        (
+          await asLimited.request(
+            `/api/sessions/${session}/local-file?path=${join(projectPath, "readme.txt")}`,
+          )
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await asLimited.request(
+            `/api/sessions/${session}/local-file?path=${join(outside, "secret.txt")}`,
+          )
+        ).status,
+      ).toBe(403);
+    }
   });
 
   it("refuses a limited user a session with no project", async () => {

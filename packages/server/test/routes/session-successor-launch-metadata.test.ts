@@ -201,7 +201,7 @@ describe("successor launch metadata writes", () => {
     ]);
   });
 
-  it("fork of an unsandboxed source persists an explicit none sandbox", async () => {
+  it("fork of an unsandboxed source writes no sandbox record", async () => {
     const metadata = recordingMetadata(undefined);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -221,18 +221,8 @@ describe("successor launch metadata writes", () => {
     const response = await routes.request(request.path, request.init);
 
     expect(response.status).toBe(200);
+    // Creation already recorded its working project and level.
     expect(metadata.writesFor("sess-fork")).toEqual([
-      [
-        "setSessionSandbox",
-        "sess-fork",
-        {
-          level: "none",
-          networkFirewall: false,
-          stateKey: undefined,
-          projectPath: project.path,
-          projectId: project.id,
-        },
-      ],
       ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });

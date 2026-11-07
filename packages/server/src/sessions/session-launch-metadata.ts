@@ -46,8 +46,8 @@ type InheritedLaunchSource = Pick<
 
 /**
  * Write a launched session's metadata, in a fixed order: prompt-suggestion
- * mode, recap delay, sandbox. A later resume that omits these from its request
- * recovers them from here.
+ * mode, recap delay, a project-write sandbox. A later resume that omits these
+ * from its request recovers them from here.
  */
 export async function persistLaunchMetadata(
   service: SessionMetadataService | undefined,
@@ -70,7 +70,9 @@ export async function persistLaunchMetadata(
       recapAfterSeconds: record.recapAfterSeconds,
     });
   }
-  if (record.sandbox) {
+  // An unsandboxed launch's creation already recorded its working project
+  // and level; the folder it runs in is that project's.
+  if (record.sandbox?.level === "project-write") {
     await service.setSessionSandbox?.(sessionId, record.sandbox);
   }
 }
