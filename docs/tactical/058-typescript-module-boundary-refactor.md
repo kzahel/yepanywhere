@@ -37,8 +37,8 @@ shared, and how risky it is to touch today.
    `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about
    4,100) are where most UI work lands. Their size makes each change slow to
    review and easy to regress, including the keystroke-latency contract.
-   Phase 2 below holds the slice rows; slice 2.12 (the composer's bang
-   completion state) landed 2026-11-07.
+   Phase 2 below holds the slice rows; slices 2.12 and 2.13 (the
+   composer's bang completion state and recall drawer) landed 2026-11-07.
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -268,6 +268,7 @@ and props stable.
 | 2.10 | Done 2026-07-06 | `GitStatusPage.tsx` diff preview module | Extract diff fetch/render preview components after large-diff admission guards are in place. | Moved diff preview fetch/render, modal, skipped-preview state, and low-level diff renderers into `GitStatusDiffPreview.tsx`; page keeps selected-file/action/untracked-folder state and owns route-retention writes. |
 | 2.11 | Done 2026-07-06 | `SessionPage.tsx` `/btw` sticky cards | Move sticky `/btw` footer-card JSX into a focused render component after slice 2.2 moved the orchestration hook. | Render-only follow-up to slice 2.2. `SessionPage.tsx` still owns composer routing and callback wiring; focused component tests cover actions and expanded transcript transfer. |
 | 2.12 | Done 2026-11-07 | `MessageInput.tsx` bang completion state | Move the `!!` completion menu's state and candidate fetch into a feature hook. | Moved `BangMenuItem`, `bangCompletionQueryKey`, the menu and candidate state and the debounced completion fetch into `hooks/useComposerBangCompletion.ts`; the keyboard handling, Tab completion, Ctrl+↑ history cycling and menu rendering that act on it stay in the composer. Move-only; `MessageInput.tsx` budget 4,781 -> 4,692. `bang-command.spec.ts` now measures, in the browser, that each keystroke of a bang draft shows within 100 ms while the completion menu is open and a fetch comes back between keys. |
+| 2.13 | Done 2026-11-07 | `MessageInput.tsx` recall drawer | Move the Ctrl+↑ recall drawer's state, handlers, keys and menu out of the composer. | Moved the drawer state, open/cancel/accept/go-to, and the keys it claims while open plus the Ctrl+↑ opener into `hooks/useComposerRecallDrawer.ts`, and its menu into `components/ComposerRecallMenu.tsx`. The composer keeps the touch-keyboard opener button, the blur cancel, and the bang Ctrl+↑ history that runs first; the ordering note stays at the call site. Move-only; the parameter conversions are listed in the landing note. `MessageInput.tsx` budget 4,692 -> 4,543. Tier 3, plus the new `composer-recall-drawer.spec.ts` keystroke check. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -311,11 +312,10 @@ owning behavior:
   Codex terminal-status construction are separate candidates. Queue persistence
   extends deferred slice 5.3; the other two need new Phase 5 rows and their own
   lifecycle/streaming tripwire review before movement.
-- `MessageInput.tsx`: the recall drawer communicates with the composer
-  through a narrow text/ref surface. Add a Phase 2 slice when it is next
-  modified; preserve keyboard, focus, undo, and measured toolbar behavior.
-  The bang completion state moved in slice 2.12; its keyboard handling and
-  menu rendering stay in the composer with the slash menu's.
+- `MessageInput.tsx`: the bang completion state and the recall drawer
+  moved in slices 2.12 and 2.13. The bang keyboard handling and menu
+  rendering stay in the composer with the slash menu's; no other named
+  candidate remains.
 - `clientSummaryState.ts`: session-id aliasing, record merge, and projection
   rewrites around `mergeRemappedSessionRecords` form a candidate remap module.
   It extends slice 3.2 only if the reducer update stays behavior-identical and
@@ -402,6 +402,55 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.13 — Composer Recall Drawer (Landed 2026-11-07, this commit)
+
+Moved:
+- The `recallDrawer` state, `openRecallDrawer`, `cancelRecallDrawer`,
+  `acceptRecallEntry`, `goToRecallTurn`, and the open-drawer key block with
+  the Ctrl+↑ opener -> `useComposerRecallDrawer` in new
+  `packages/client/src/hooks/useComposerRecallDrawer.ts`.
+- The drawer's menu JSX -> `ComposerRecallMenu` in new
+  `packages/client/src/components/ComposerRecallMenu.tsx`.
+
+Signature conversions (closure -> parameter):
+- The hook takes `text`, `setText`, `noteComposerEdit`, `textareaRef`,
+  `hasNonTextComposerContent` and `turnRecall`, which the moved closures
+  captured.
+- The key block became `handleRecallDrawerKeyDown(e)`. Each `return;` became
+  `return true;` and the end returns `false`, so the composer stops exactly
+  where it did.
+- The menu takes `matches`, `activeIndex`, `showGoTo` (the inline
+  `turnRecall?.onGoToTurn &&` gate), `onHighlight` (the row hover updater,
+  now `highlightRecallEntry(index)` in the hook), `onAccept` and `onGoTo`.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 3 ran once for slices 2.13-2.15, at the series tip before review
+  (`6e1d8c535`): `pnpm --filter client test:e2e --grep-invert "physical
+  Android"`, 497 passed and 13 skipped; `artifact-viewer.spec.ts:136`
+  failed once on a proxy error and passed alone. Each slice's files are
+  the same at its commit as at that tip, apart from the 2.13 review fixes
+  recorded in its note, and the three slices touch separate files. Tier 2 (`pnpm lint`,
+  `pnpm format:check`, `pnpm typecheck`, `pnpm test`) passed at the same
+  tip. `pnpm i18n:scan` reports nothing in the new modules.
+- New `composer-recall-drawer.spec.ts`: over a 300-turn session that updates
+  while the drawer is open and halfway through each typing run, each
+  keystroke shows within 100 ms when typing dismisses the open drawer and
+  after an accepted row; Escape restores the draft.
+- Review fixes made the spec wait for the transcript, assert the drawer is
+  open before typing and add the updates, and moved a comment back to the
+  call site. The final spec passed 3 runs in the main checkout and 5 more
+  against the pre-review tip. Two earlier main-checkout runs each had one
+  key over 100 ms (174 ms and 526 ms) while other work kept the machine's
+  load average at 20-29. The slow key was the tenth typed, not the one that
+  dismisses the drawer, and 11 runs at the base and 5 at the pre-review tip
+  under lighter load had no key above 22 ms.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 1.3b — Session Start, Resume And Reactivate Routes (Landed 2026-11-06, this commit)
 

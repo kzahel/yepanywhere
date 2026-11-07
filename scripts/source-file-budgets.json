@@ -15,7 +15,7 @@
       "maxLines": 1908
     },
     "packages/client/src/components/MessageInput.tsx": {
-      "maxLines": 4692
+      "maxLines": 4543
     },
     "packages/client/src/components/MessageInputToolbar.tsx": {
       "maxLines": 4059

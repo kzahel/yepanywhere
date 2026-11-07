@@ -1,5 +1,6 @@
 import { DraftSyncNotice } from "./DraftSyncNotice";
 import { AudioMemoPanel } from "./AudioMemoPanel";
+import { ComposerRecallMenu } from "./ComposerRecallMenu";
 import { ComposerRecents } from "./ComposerRecents";
 import { useComposerHistoryScope } from "../hooks/useComposerHistoryScope";
 import { NewSessionQueueMark } from "./NewSessionQueueMark";
@@ -74,10 +75,7 @@ import {
   resizeComposerTextarea,
   scrollCollapsedTextareaToCursor,
 } from "../lib/composerTextarea";
-import {
-  type ComposerTurnRecallEntry,
-  filterComposerTurnRecall,
-} from "../lib/composerTurnRecall";
+import type { ComposerTurnRecallEntry } from "../lib/composerTurnRecall";
 import { hasCoarsePointer } from "../lib/deviceDetection";
 import { MOBILE_KEYBOARD_OPEN_VIEWPORT_RATIO } from "../lib/mobileKeyboardViewport";
 import { programmaticFocus } from "../lib/programmaticFocus";
@@ -122,6 +120,7 @@ import {
   bangCompletionQueryKey,
   useComposerBangCompletion,
 } from "../hooks/useComposerBangCompletion";
+import { useComposerRecallDrawer } from "../hooks/useComposerRecallDrawer";
 import {
   getSlashCommandArgumentCompletionMatches,
   getSlashCommandMenuParts,
@@ -585,14 +584,6 @@ export function MessageInput({
   );
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
   const [composerCursor, setComposerCursor] = useState(text.length);
-  // Composer recall drawer (always-on Ctrl+↑ prior-user-turn recall). Open
-  // while non-null; matches are frozen at open time (any editing keystroke
-  // closes it), so the draft stays constant while it is shown.
-  const [recallDrawer, setRecallDrawer] = useState<{
-    matches: ComposerTurnRecallEntry[];
-    index: number;
-    originalDraft: string;
-  } | null>(null);
   const [textareaFocused, setTextareaFocused] = useState(false);
   const [textareaImeGeneration, setTextareaImeGeneration] = useState(0);
   const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false);
@@ -2462,45 +2453,22 @@ export function MessageInput({
     return true;
   };
 
-  // Open the recall drawer over the prior user turns that prefix-match the
-  // current draft (empty draft → all). No-op with nothing to show. Shared by
-  // Ctrl+↑ and the mobile open button. Returns whether it opened.
-  const openRecallDrawer = (): boolean => {
-    if (
-      hasNonTextComposerContent ||
-      !turnRecall ||
-      turnRecall.entries.length === 0
-    ) {
-      return false;
-    }
-    const matches = filterComposerTurnRecall(turnRecall.entries, text);
-    if (matches.length === 0) {
-      return false;
-    }
-    setRecallDrawer({ matches, index: 0, originalDraft: text });
-    return true;
-  };
-  // Cancel the recall drawer, restoring the pre-open draft (Esc / click-away).
-  const cancelRecallDrawer = () => {
-    if (recallDrawer) {
-      setText(recallDrawer.originalDraft);
-      setRecallDrawer(null);
-    }
-  };
-  // Accept a recall entry: draft its full text and close the drawer.
-  const acceptRecallEntry = (entry: ComposerTurnRecallEntry) => {
-    noteComposerEdit(entry.text);
-    setText(entry.text);
-    setRecallDrawer(null);
-    textareaRef.current?.focus();
-  };
-  // Go to a recalled turn: scroll the transcript to it and close the drawer.
-  // Navigation, not recall — the composer text is left untouched and the Esc
-  // draft-restore is deliberately skipped (nothing was drafted to restore).
-  const goToRecallTurn = (entry: ComposerTurnRecallEntry) => {
-    turnRecall?.onGoToTurn?.(entry.id);
-    setRecallDrawer(null);
-  };
+  const {
+    recallDrawer,
+    openRecallDrawer,
+    cancelRecallDrawer,
+    acceptRecallEntry,
+    goToRecallTurn,
+    highlightRecallEntry,
+    handleRecallDrawerKeyDown,
+  } = useComposerRecallDrawer({
+    text,
+    setText,
+    noteComposerEdit,
+    textareaRef,
+    hasNonTextComposerContent,
+    turnRecall,
+  });
 
   const clearComposer = () => {
     if (disabled) return;
@@ -2629,72 +2597,8 @@ export function MessageInput({
     // so bang shell-recall still wins for empty / "!!" drafts when bang
     // support is enabled; otherwise Ctrl+↑ opens this drawer.
     // See topics/composer-recall-drawer.md.
-    if (recallDrawer) {
-      if (
-        (e.key === "ArrowUp" || e.key === "ArrowDown") &&
-        !e.metaKey &&
-        !e.altKey
-      ) {
-        e.preventDefault();
-        const delta = e.key === "ArrowDown" ? 1 : -1;
-        setRecallDrawer((current) =>
-          current
-            ? {
-                ...current,
-                index:
-                  (current.index + delta + current.matches.length) %
-                  current.matches.length,
-              }
-            : current,
-        );
-        return;
-      }
-      if (
-        e.key === "Enter" &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
-        e.preventDefault();
-        const entry = recallDrawer.matches[recallDrawer.index];
-        if (entry) {
-          acceptRecallEntry(entry);
-        } else {
-          setRecallDrawer(null);
-        }
-        return;
-      }
-      if (
-        e.key === "Escape" &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
-        e.preventDefault();
-        cancelRecallDrawer();
-        return;
-      }
-      // Any other key dismisses the drawer and types normally (no
-      // preventDefault, falls through to the composer).
-      setRecallDrawer(null);
-    }
-
-    // Ctrl+↑ opens the recall drawer over prior user turns prefix-matched by
-    // the current draft. Only reached when no bang shell-recall claimed it.
-    if (
-      e.key === "ArrowUp" &&
-      e.ctrlKey &&
-      !e.metaKey &&
-      !e.shiftKey &&
-      !e.altKey &&
-      !recallDrawer
-    ) {
-      if (openRecallDrawer()) {
-        e.preventDefault();
-        return;
-      }
+    if (handleRecallDrawerKeyDown(e)) {
+      return;
     }
 
     // Tab always completes inside a bang draft, shell-style.
@@ -4110,67 +4014,14 @@ export function MessageInput({
         )}
 
         {recallDrawer && (
-          <div
-            className="slash-command-menu composer-slash-command-menu composer-recall-menu"
-            role="menu"
-            aria-label={t("composerRecallMenuLabel")}
-          >
-            {recallDrawer.matches.map((entry, index) => (
-              <div key={`${index}-${entry.id}`} className="composer-recall-row">
-                <button
-                  type="button"
-                  className={`slash-command-item composer-recall-preview${
-                    index === recallDrawer.index ? " active" : ""
-                  }`}
-                  onMouseEnter={() =>
-                    setRecallDrawer((current) =>
-                      current ? { ...current, index } : current,
-                    )
-                  }
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => acceptRecallEntry(entry)}
-                  role="menuitem"
-                >
-                  <span>{entry.preview}</span>
-                </button>
-                {turnRecall?.onGoToTurn && (
-                  // Navigation-only secondary control: scroll the transcript to
-                  // this turn and close the drawer (no composer/draft change).
-                  <button
-                    type="button"
-                    className="composer-recall-goto"
-                    onMouseEnter={() =>
-                      setRecallDrawer((current) =>
-                        current ? { ...current, index } : current,
-                      )
-                    }
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => goToRecallTurn(entry)}
-                    aria-label={t("composerRecallGoToTurn")}
-                    title={t("composerRecallGoToTurn")}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <circle cx="12" cy="12" r="3" />
-                      <line x1="12" y1="2" x2="12" y2="5" />
-                      <line x1="12" y1="19" x2="12" y2="22" />
-                      <line x1="2" y1="12" x2="5" y2="12" />
-                      <line x1="19" y1="12" x2="22" y2="12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+          <ComposerRecallMenu
+            matches={recallDrawer.matches}
+            activeIndex={recallDrawer.index}
+            showGoTo={!!turnRecall?.onGoToTurn}
+            onHighlight={highlightRecallEntry}
+            onAccept={acceptRecallEntry}
+            onGoTo={goToRecallTurn}
+          />
         )}
 
         {collapsed &&
