@@ -9,6 +9,9 @@ and real settings; sandbox support reaches `/new-session` over the socket,
 not HTTP, so T8 and the sandbox save are pinned by the component tests.
 Tier 2 passed; Tier 3 in a worktree had 514 passed, 13 skipped and 4
 failed, all `acli-commentary.spec.ts`, which fails from a worktree.
+Slice 1 (the reducer, `lib/newSessionOptionsState.ts`) landed 2026-11-07;
+the model fills became two functions, `fillGatewayModel` and
+`fillCatalogModel`, one per effect.
 
 Proposal 3 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
@@ -316,8 +319,11 @@ New `lib/newSessionOptionsState.ts`: no React, no I/O.
   which is the same value because nothing else changes it between the
   render and the click.
 - Rules, each unit-tested: an action that changes nothing returns the
-  previous state object, as an equal `useState` write skips the render
-  (T1 on mount, T3 when the lock is re-applied, T2 while providers settle);
+  previous state object, so React skips the children and effects (T1 on
+  mount, T3 when the lock is re-applied, T2 while providers settle);
+  unlike an equal `useState` write, the dispatch still re-runs the form
+  once, so `applyLaunchLock` keeps its early return for a principal who is
+  not limited;
   every memo and effect depends on individual fields, never the state
   object; one dispatch per transition matches today's batching of the
   setter calls inside one event or effect.

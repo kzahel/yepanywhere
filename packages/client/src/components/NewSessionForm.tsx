@@ -12,14 +12,12 @@ import {
 import { useRouterDiscovery } from "../hooks/useRouterDiscovery";
 import {
   RouterPoolSelector,
-  preferredRouterSelection,
   restoreRouterSelection,
   routedAccounts,
   routedModels,
   routerPoolMembers,
 } from "./RouterPoolSelector";
 import { resolveRouterModel, routerAliasTargets } from "@yep-anywhere/shared";
-import type { RouterSelection } from "./RouterPoolSelector";
 import { RouterClaudeAiConnectorsSelection } from "./RouterClaudeAiConnectorsSelection";
 import { DraftSyncNotice } from "./DraftSyncNotice";
 import { DRAFT_STORAGE_EVENT, draftStorage } from "../lib/draftSyncStorage";
@@ -45,25 +43,20 @@ import {
 import templateStyles from "./TemplateProjectForm.module.css";
 import { useProjectTemplateChoices } from "../hooks/useProjectTemplateChoices";
 import {
-  DEFAULT_PROVIDER,
   fromUrlProjectId,
   isUrlProjectId,
   SERVER_CAPABILITIES,
   serverHasCapability,
   isTurnEffort,
-  DEFAULT_RECAP_AFTER_SECONDS,
   DEFAULT_PROJECT_QUEUE_CTRL_ENTER_ENABLED,
   HELPER_SIDE_MODEL_CHEAPEST,
   HELPER_SIDE_MODEL_SAME_AS_MAIN,
-  type EffortLevel,
   type PromptSuggestionMode,
   type ProviderInfo,
   type ProviderName,
   type RecapMode,
   type SessionSandboxLevel,
-  type ThinkingMode,
   type ThinkingOption,
-  normalizeRecapAfterSeconds,
   resolveModel,
 } from "@yep-anywhere/shared";
 import {
@@ -75,6 +68,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -95,12 +89,7 @@ import {
   useModelSettings,
 } from "../hooks/useModelSettings";
 import { useProjectQueues } from "../hooks/useProjectQueues";
-import {
-  getDefaultLaunchableProvider,
-  getLaunchableProviders,
-  useProviderRow,
-  useProviders,
-} from "../hooks/useProviders";
+import { useProviderRow, useProviders } from "../hooks/useProviders";
 import { useProviderDescriptors } from "../hooks/useProviderDescriptors";
 import {
   getAttachmentUploadProfile,
@@ -128,17 +117,13 @@ import {
 import { selectableServiceTiers, serviceTierLabel } from "../lib/serviceTiers";
 import {
   knownLockedEffort,
-  knownLockedProvider,
   launchLockFor,
   launchLockOverrides,
   type LaunchLock,
 } from "../lib/limitedLaunchLock";
 import {
-  getPreferredProviderModelId,
   getProviderSessionDefaults,
   hasRequiredProviderModel,
-  unprobedProviderRow,
-  withProviderSessionDefaults,
 } from "../lib/newSessionDefaults";
 import {
   type RouterModelUnavailable,
@@ -168,10 +153,6 @@ import {
 import {
   PROMPT_SUGGESTION_MODE_ORDER,
   RECAP_MODE_ORDER,
-  getDefaultHelperSideModel,
-  getPreferredPromptSuggestionMode,
-  getPreferredRecapMode,
-  parseThinkingOption,
   resolvePromptSuggestionMode,
   resolveRecapMode,
   toThinkingOption,
@@ -189,6 +170,15 @@ import {
   projectNameForEntry,
   settlePathEntry,
 } from "../lib/newProjectPath";
+import {
+  INITIAL_NEW_SESSION_OPTIONS,
+  fillCatalogModel,
+  fillGatewayModel,
+  newSessionDefaultsToSave,
+  newSessionOptionsReducer,
+  seedNewSessionOptions,
+  switchNewSessionProvider,
+} from "../lib/newSessionOptionsState";
 import { getRecapModeDescription } from "../lib/recapModes";
 import { getSessionDefaultControlCopy } from "../lib/sessionDefaultControlCopy";
 import { prepareComposerAttachmentUpload } from "../lib/composerAttachmentUpload";
@@ -447,48 +437,41 @@ export function NewSessionForm({
   );
   const [message, setMessage, draftControls] =
     useDraftPersistence(newSessionDraftKey);
-  const [mode, setMode] = useState<PermissionMode>("default");
-  const [selectedProvider, setSelectedProvider] = useState<ProviderName | null>(
-    null,
+  const [optionsState, dispatchOptions] = useReducer(
+    newSessionOptionsReducer,
+    INITIAL_NEW_SESSION_OPTIONS,
   );
-  const [routerPreference, setRouterPreference] =
-    useState<RouterSelection | null>(null);
-  const [routerSelectionCustomized, setRouterSelectionCustomized] =
-    useState(false);
-  // Null follows the saved New Session default until changed in this form.
-  const [routerConnectorsChoice, setRouterConnectorsChoice] = useState<
-    boolean | null
-  >(null);
+  const {
+    mode,
+    selectedProvider,
+    routerPreference,
+    routerSelectionCustomized,
+    routerConnectorsChoice,
+    selectedModel,
+    selectedServiceTier,
+    selectedThinkingMode,
+    selectedEffortLevel,
+    selectedRecapMode,
+    sandboxLevel,
+    machineControlSelected,
+    sandboxNetworkFirewall,
+    recapAfterSeconds,
+    selectedPromptSuggestionMode,
+    helperSideModel,
+  } = optionsState;
   useEffect(() => {
-    setRouterPreference((selection) =>
-      selection?.sourceKey === clientSummarySourceKey ? selection : null,
-    );
-    setRouterSelectionCustomized(false);
-    setRouterConnectorsChoice(null);
+    dispatchOptions({
+      type: "sourceChanged",
+      sourceKey: clientSummarySourceKey,
+    });
   }, [clientSummarySourceKey]);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [selectedServiceTier, setSelectedServiceTier] = useState<string | null>(
-    null,
-  );
-  const [selectedThinkingMode, setSelectedThinkingMode] =
-    useState<ThinkingMode>("off");
-  const [selectedEffortLevel, setSelectedEffortLevel] =
-    useState<EffortLevel>("high");
-  const [selectedRecapMode, setSelectedRecapMode] = useState<RecapMode>("off");
-  const [sandboxLevel, setSandboxLevel] = useState<SessionSandboxLevel>("none");
-  const [machineControlSelected, setMachineControlSelected] = useState(false);
   const selectMachineControl = useCallback((selected: boolean) => {
-    setMachineControlSelected(selected);
+    dispatchOptions({
+      type: "choose",
+      field: "machineControlSelected",
+      value: selected,
+    });
   }, []);
-  const [sandboxNetworkFirewall, setSandboxNetworkFirewall] = useState(true);
-  const [recapAfterSeconds, setRecapAfterSeconds] = useState(
-    DEFAULT_RECAP_AFTER_SECONDS,
-  );
-  const [selectedPromptSuggestionMode, setSelectedPromptSuggestionMode] =
-    useState<PromptSuggestionMode>("off");
-  const [helperSideModel, setHelperSideModel] = useState<string>(
-    HELPER_SIDE_MODEL_CHEAPEST,
-  );
   const [pendingFiles, setPendingFilesState] = useState<PendingFile[]>([]);
   const pendingFilesRef = useRef<PendingFile[]>([]);
   const draftAttachmentBatchIdRef = useRef<string | null>(null);
@@ -1867,24 +1850,7 @@ export function NewSessionForm({
   // preference worth saving as this client's default.
   const applyLaunchLock = useCallback(() => {
     if (!launchLock.limited) return;
-    const lockedProvider = knownLockedProvider(launchLock);
-    if (lockedProvider) setSelectedProvider(lockedProvider);
-    if (launchLock.model) setSelectedModel(launchLock.model);
-    if (launchLock.effort) {
-      const lockedEffort = knownLockedEffort(launchLock);
-      if (lockedEffort) setSelectedEffortLevel(lockedEffort);
-      setSelectedThinkingMode("on");
-    }
-    setSandboxLevel("project-write");
-    // Sandboxing implies the firewall here for the same reason the toggle
-    // turns it on: without it a sandboxed agent can reach YA and escape.
-    // The checkbox below stays theirs to clear afterwards.
-    setSandboxNetworkFirewall(true);
-    // A side-session recap cannot run beside a sandboxed session, the same
-    // reason the sandbox toggle clears it when a superuser turns it on.
-    setSelectedRecapMode((current) =>
-      current === "side-session" ? "off" : current,
-    );
+    dispatchOptions({ type: "lock", lock: launchLock });
   }, [launchLock]);
 
   // Apply saved defaults against whatever provider rows are known so far.
@@ -1893,111 +1859,19 @@ export function NewSessionForm({
   // seeds the saved provider rather than blanking the form.
   const applyInitialDefaults = useCallback(
     (providerRows: ProviderInfo[]) => {
-      const catalogKnown = providerRows.length > 0;
-      const launchableProviderNames = new Set(
-        getLaunchableProviders(providerRows).map((p) => p.name),
-      );
-      const isSelectable = (name: ProviderName) =>
-        !catalogKnown || launchableProviderNames.has(name);
-      const savedDefaults = settings?.newSessionDefaults ?? displayDefaults;
-      // An explicit caller preference (e.g. "clear" from an existing session)
-      // outranks saved new-session defaults.
-      const requestedProviderName =
-        preferredProvider && isSelectable(preferredProvider)
-          ? preferredProvider
-          : null;
-      const savedProviderName =
-        requestedProviderName ??
-        (savedDefaults?.provider && isSelectable(savedDefaults.provider)
-          ? savedDefaults.provider
-          : null);
-      const initialProvider =
-        providerRows.find((p) => p.name === savedProviderName) ??
-        getDefaultLaunchableProvider(providerRows) ??
-        (catalogKnown
-          ? null
-          : unprobedProviderRow(savedProviderName ?? DEFAULT_PROVIDER));
-
-      if (!initialProvider) return;
-
-      const initialModels = initialProvider.models ?? [];
-      const requestedModelId =
-        requestedProviderName &&
-        initialProvider.name === requestedProviderName &&
-        preferredModel &&
-        ((initialProvider.name !== "claude-gateway" &&
-          initialModels.length === 0) ||
-          initialModels.some((model) => model.id === preferredModel))
-          ? preferredModel
-          : null;
-      const preferredPromptSuggestionMode =
-        getPreferredPromptSuggestionMode(savedDefaults);
-      const initialProviderDefaults = getProviderSessionDefaults(
-        savedDefaults,
-        initialProvider.name,
-        getLegacyProviderDefaultSeed(initialProvider.name),
-      );
-      setSelectedProvider(initialProvider.name);
-      setSelectedServiceTier(initialProviderDefaults.serviceTier ?? null);
-      setRouterPreference(
-        preferredRouterSelection(
-          initialProviderDefaults,
-          clientSummarySourceKey,
-        ),
-      );
-      setRouterSelectionCustomized(false);
-      setSelectedModel(
-        requestedModelId ??
-          getPreferredProviderModelId(
-            initialProvider.name,
-            initialModels,
-            initialProviderDefaults.model,
-          ),
-      );
-      const preferredThinkingSelection = preferredThinking
-        ? parseThinkingOption(preferredThinking)
-        : null;
-      setSelectedThinkingMode(
-        preferredThinkingSelection?.mode ??
-          initialProviderDefaults.thinkingMode ??
-          "off",
-      );
-      setSelectedEffortLevel(
-        preferredThinkingSelection?.effort ??
-          initialProviderDefaults.effortLevel ??
-          "high",
-      );
-      const savedSandboxLevel =
-        supportsSessionSandboxing &&
-        savedDefaults?.sandboxLevel === "project-write"
-          ? "project-write"
-          : "none";
-      const savedRecapMode = getPreferredRecapMode(
-        initialProvider,
-        savedDefaults,
-      );
-      setSelectedRecapMode(
-        providerSupportsLocalSessionSandbox(initialProvider.name) &&
-          savedSandboxLevel === "project-write" &&
-          savedRecapMode === "side-session"
-          ? "off"
-          : savedRecapMode,
-      );
-      setSandboxLevel(savedSandboxLevel);
-      setSandboxNetworkFirewall(
-        savedSandboxLevel === "project-write" &&
-          savedDefaults?.sandboxNetworkFirewall !== false,
-      );
-      setRecapAfterSeconds(
-        normalizeRecapAfterSeconds(savedDefaults?.recapAfterSeconds),
-      );
-      setSelectedPromptSuggestionMode(preferredPromptSuggestionMode);
-      setHelperSideModel(
-        getDefaultHelperSideModel(initialModels, initialProviderDefaults),
-      );
-      setMode(
-        preferredPermissionMode ?? savedDefaults?.permissionMode ?? "default",
-      );
+      const patch = seedNewSessionOptions({
+        providerRows,
+        savedDefaults: settings?.newSessionDefaults ?? displayDefaults,
+        preferredProvider,
+        preferredModel,
+        preferredThinking,
+        preferredPermissionMode,
+        supportsSessionSandboxing,
+        sourceKey: clientSummarySourceKey,
+        legacySeed: getLegacyProviderDefaultSeed,
+      });
+      if (!patch) return;
+      dispatchOptions({ type: "seed", patch });
       // Last, so a saved default never outranks the acting principal's lock.
       applyLaunchLock();
     },
@@ -2116,72 +1990,28 @@ export function NewSessionForm({
   // When provider changes, reset model based on user settings
   const handleProviderSelect = (providerName: ProviderName) => {
     hasUserCustomizedDefaultsRef.current = true;
-    setSelectedProvider(providerName);
-    const provider = providers.find((p) => p.name === providerName);
-    const providerModels = provider?.models ?? [];
-    const providerDefaults = getProviderSessionDefaults(
-      settings?.newSessionDefaults,
-      providerName,
-      getLegacyProviderDefaultSeed(providerName),
-    );
-    setSelectedServiceTier(providerDefaults.serviceTier ?? null);
-    setRouterPreference(
-      preferredRouterSelection(providerDefaults, clientSummarySourceKey),
-    );
-    setRouterSelectionCustomized(false);
-    if (provider?.models && provider.models.length > 0) {
-      setSelectedModel(
-        getPreferredProviderModelId(
-          providerName,
-          providerModels,
-          providerDefaults.model,
-        ),
-      );
-    } else {
-      setSelectedModel(null);
-    }
-    const preferredThinkingSelection = preferredThinking
-      ? parseThinkingOption(preferredThinking)
-      : null;
-    setSelectedThinkingMode(
-      preferredThinkingSelection?.mode ??
-        providerDefaults.thinkingMode ??
-        "off",
-    );
-    setSelectedEffortLevel(
-      preferredThinkingSelection?.effort ??
-        providerDefaults.effortLevel ??
-        "high",
-    );
-    setHelperSideModel(
-      getDefaultHelperSideModel(providerModels, providerDefaults),
-    );
+    dispatchOptions({
+      type: "switchProvider",
+      patch: switchNewSessionProvider({
+        providerName,
+        providers,
+        savedDefaults: settings?.newSessionDefaults,
+        preferredThinking,
+        sourceKey: clientSummarySourceKey,
+        legacySeed: getLegacyProviderDefaultSeed,
+      }),
+    });
   };
 
   useEffect(() => {
-    if (selectedProvider !== "claude-gateway") return;
-    if (
-      selectedModel &&
-      availableModels.some((model) => model.id === selectedModel)
-    ) {
-      return;
-    }
-    const providerDefaults = getProviderSessionDefaults(
-      settings?.newSessionDefaults,
+    const patch = fillGatewayModel({
       selectedProvider,
-      getLegacyProviderDefaultSeed(selectedProvider),
-    );
-    const nextModel = getPreferredProviderModelId(
-      selectedProvider,
+      selectedModel,
       availableModels,
-      providerDefaults.model,
-    );
-    if (selectedModel !== nextModel) {
-      setSelectedModel(nextModel);
-      setHelperSideModel(
-        getDefaultHelperSideModel(availableModels, providerDefaults),
-      );
-    }
+      savedDefaults: settings?.newSessionDefaults,
+      legacySeed: getLegacyProviderDefaultSeed,
+    });
+    if (patch) dispatchOptions({ type: "fillModel", patch });
   }, [
     availableModels,
     getLegacyProviderDefaultSeed,
@@ -2194,23 +2024,14 @@ export function NewSessionForm({
   // provider-local saved default once its models arrive, leaving any existing
   // pick alone.
   useEffect(() => {
-    if (!selectedProvider || selectedModel) return;
-    if (availableModels.length === 0) return;
-    const providerDefaults = getProviderSessionDefaults(
-      settings?.newSessionDefaults,
+    const patch = fillCatalogModel({
       selectedProvider,
-      getLegacyProviderDefaultSeed(selectedProvider),
-    );
-    const nextModel = getPreferredProviderModelId(
-      selectedProvider,
+      selectedModel,
       availableModels,
-      providerDefaults.model,
-    );
-    if (!nextModel) return;
-    setSelectedModel(nextModel);
-    setHelperSideModel(
-      getDefaultHelperSideModel(availableModels, providerDefaults),
-    );
+      savedDefaults: settings?.newSessionDefaults,
+      legacySeed: getLegacyProviderDefaultSeed,
+    });
+    if (patch) dispatchOptions({ type: "fillModel", patch });
   }, [
     availableModels,
     getLegacyProviderDefaultSeed,
@@ -2274,7 +2095,11 @@ export function NewSessionForm({
   // Handle model selection from FilterDropdown
   const handleModelSelect = useCallback((selected: string[]) => {
     hasUserCustomizedDefaultsRef.current = true;
-    setSelectedModel(selected[0] ?? null);
+    dispatchOptions({
+      type: "choose",
+      field: "selectedModel",
+      value: selected[0] ?? null,
+    });
   }, []);
 
   // Build STT backend options for the mic-attached speech menu.
@@ -2500,7 +2325,7 @@ export function NewSessionForm({
 
   const handleModeSelect = (selectedMode: PermissionMode) => {
     hasUserCustomizedDefaultsRef.current = true;
-    setMode(selectedMode);
+    dispatchOptions({ type: "choose", field: "mode", value: selectedMode });
   };
 
   // Auto-persist new-session defaults: any user change to provider / model /
@@ -2516,55 +2341,31 @@ export function NewSessionForm({
       displayDefaultsPending
     )
       return;
-    const {
-      helperSideModel: _legacyHelperSideModel,
-      serviceTier: _legacyServiceTier,
-      sandboxLevel: _savedSandboxLevel,
-      sandboxNetworkFirewall: _savedSandboxNetworkFirewall,
-      ...baseDefaults
-    } = (newSessionDefaultsRef.current ?? {}) as NonNullable<
-      typeof newSessionDefaultsRef.current
-    > & { helperSideModel?: string };
     void Promise.resolve(
-      updateServerSetting("newSessionDefaults", {
-        ...withProviderSessionDefaults(
-          {
-            ...baseDefaults,
-            provider: selectedProvider ?? undefined,
-            // Permission mode is an all-provider preference. Keep an
-            // unsupported saved value such as Auto intact while the visible /
-            // launch-time mode falls back to Ask for the selected model.
-            permissionMode: mode,
-            recapMode: selectedRecapMode,
+      updateServerSetting(
+        "newSessionDefaults",
+        newSessionDefaultsToSave({
+          saved: newSessionDefaultsRef.current,
+          choices: {
+            mode,
+            selectedModel,
+            selectedServiceTier,
+            selectedThinkingMode,
+            selectedEffortLevel,
+            selectedRecapMode,
             recapAfterSeconds,
-            promptSuggestionMode: selectedPromptSuggestionMode,
-            ...(supportsSessionSandboxing
-              ? {
-                  sandboxLevel,
-                  ...(sandboxLevel === "project-write"
-                    ? { sandboxNetworkFirewall }
-                    : {}),
-                }
-              : {}),
-          },
-          selectedProvider,
-          {
-            model: selectedModel ?? undefined,
-            serviceTier: selectedServiceTier ?? undefined,
-            routerPoolId: currentRouterPreference?.poolId,
-            routerAccountId: currentRouterPreference?.accountId || undefined,
-            routerPolicy: currentRouterPreference?.policy,
-            routerClaudeAiConnectors:
-              selectedProvider === "claude" && preferClaudeAiConnectors
-                ? true
-                : undefined,
-            thinkingMode: selectedThinkingMode,
-            effortLevel: selectedEffortLevel,
+            selectedPromptSuggestionMode,
+            sandboxLevel,
+            sandboxNetworkFirewall,
             helperSideModel,
           },
-          getLegacyProviderDefaultSeed(selectedProvider),
-        ),
-      }),
+          provider: selectedProvider,
+          supportsSessionSandboxing,
+          currentRouterPreference,
+          preferClaudeAiConnectors,
+          legacySeed: getLegacyProviderDefaultSeed,
+        }),
+      ),
     ).catch((err) => {
       console.error("Failed to save new session defaults:", err);
     });
@@ -4721,7 +4522,11 @@ export function NewSessionForm({
           selected={[effectiveServiceTier ?? ""]}
           onChange={([value]) => {
             hasUserCustomizedDefaultsRef.current = true;
-            setSelectedServiceTier(value || null);
+            dispatchOptions({
+              type: "choose",
+              field: "selectedServiceTier",
+              value: value || null,
+            });
           }}
           multiSelect={false}
           fullWidth
@@ -4773,16 +4578,7 @@ export function NewSessionForm({
         onChange={([selection]) => {
           if (!selection || isStarting) return;
           hasUserCustomizedDefaultsRef.current = true;
-          if (selection === "off" || selection === "auto") {
-            setSelectedThinkingMode(selection);
-            return;
-          }
-          const nextEffort = effortOptions.find(
-            (option) => selection === `on:${option.value}`,
-          );
-          if (!nextEffort) return;
-          setSelectedEffortLevel(nextEffort.value);
-          setSelectedThinkingMode("on");
+          dispatchOptions({ type: "chooseThinking", selection, effortOptions });
         }}
         multiSelect={false}
         fullWidth
@@ -4846,7 +4642,11 @@ export function NewSessionForm({
         onChange={([value]) => {
           if (isStarting) return;
           hasUserCustomizedDefaultsRef.current = true;
-          setSelectedRecapMode(value ?? "off");
+          dispatchOptions({
+            type: "choose",
+            field: "selectedRecapMode",
+            value: value ?? "off",
+          });
         }}
         multiSelect={false}
         fullWidth
@@ -4877,7 +4677,11 @@ export function NewSessionForm({
           mode={selectedRecapMode}
           onCommit={(seconds) => {
             hasUserCustomizedDefaultsRef.current = true;
-            setRecapAfterSeconds(seconds);
+            dispatchOptions({
+              type: "choose",
+              field: "recapAfterSeconds",
+              value: seconds,
+            });
           }}
         />
       )}
@@ -4896,7 +4700,11 @@ export function NewSessionForm({
         selected={[helperSideModel]}
         onChange={(selected) => {
           hasUserCustomizedDefaultsRef.current = true;
-          setHelperSideModel(selected[0] ?? HELPER_SIDE_MODEL_CHEAPEST);
+          dispatchOptions({
+            type: "choose",
+            field: "helperSideModel",
+            value: selected[0] ?? HELPER_SIDE_MODEL_CHEAPEST,
+          });
         }}
         multiSelect={false}
         placeholder={t("helperSideModelCheapest")}
@@ -4927,7 +4735,11 @@ export function NewSessionForm({
         onChange={([value]) => {
           if (isStarting) return;
           hasUserCustomizedDefaultsRef.current = true;
-          setSelectedPromptSuggestionMode(value ?? "off");
+          dispatchOptions({
+            type: "choose",
+            field: "selectedPromptSuggestionMode",
+            value: value ?? "off",
+          });
         }}
         multiSelect={false}
         fullWidth
@@ -5007,13 +4819,7 @@ export function NewSessionForm({
               if (isStarting) return;
               const enabled = value === "project-write";
               hasUserCustomizedDefaultsRef.current = true;
-              setSandboxLevel(enabled ? "project-write" : "none");
-              if (enabled) {
-                setSandboxNetworkFirewall(true);
-              }
-              if (enabled && selectedRecapMode === "side-session") {
-                setSelectedRecapMode("off");
-              }
+              dispatchOptions({ type: "toggleSandbox", enabled });
             }}
             multiSelect={false}
             fullWidth
@@ -5053,7 +4859,11 @@ export function NewSessionForm({
             onChange={([value]) => {
               if (isStarting) return;
               hasUserCustomizedDefaultsRef.current = true;
-              setSandboxNetworkFirewall(value === "on");
+              dispatchOptions({
+                type: "choose",
+                field: "sandboxNetworkFirewall",
+                value: value === "on",
+              });
             }}
             multiSelect={false}
             fullWidth
@@ -5486,8 +5296,7 @@ export function NewSessionForm({
                 }
                 onChange={(selection) => {
                   hasUserCustomizedDefaultsRef.current = true;
-                  setRouterSelectionCustomized(true);
-                  setRouterPreference(selection);
+                  dispatchOptions({ type: "chooseRouter", selection });
                 }}
                 disabled={isStarting}
                 showCaption={showOptionCaptions}
@@ -5499,7 +5308,11 @@ export function NewSessionForm({
               selected={routerClaudeAiConnectors}
               onChange={(value) => {
                 hasUserCustomizedDefaultsRef.current = true;
-                setRouterConnectorsChoice(value);
+                dispatchOptions({
+                  type: "choose",
+                  field: "routerConnectorsChoice",
+                  value,
+                });
               }}
               disabled={isStarting}
               showCaption={showOptionCaptions}

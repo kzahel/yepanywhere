@@ -289,6 +289,7 @@ and props stable.
 | 2.23 | Done 2026-11-07 | `SessionPage.tsx` Project Queue decisions | Move `queueComposerForProject`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 3). | Not move-only: under plan 179, after its legacy start-now pin. `resolveProjectQueueCommand`, `planProjectQueue` and `projectQueueQueuedMessage` in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,525 -> 7,475. Tier 3, plus plan 179's slice 0 pins. |
 | 2.24 | Done 2026-11-07 | `SessionPage.tsx` send module | Move the page's four sending functions into a plain send module the page calls each render ([plan 179](179-session-composer-send-decisions.md) slice 4). | Move-only: `prepareComposerSubmission`, `handleSend`, `handleQueue` and `queueComposerForProject` move verbatim into `createSessionComposerSend` in new `lib/sessionComposerSend.ts`, called where `handleSend` stood. The closure reads become a deps object, and the four callbacks the page declares later are passed as wrappers (listed in the landing note). No behavior change. Budget `SessionPage.tsx` 7,475 -> 6,560; the new module is 1,214 lines. Tier 3, plus plan 179's slice 0 pins. |
 | 2.25 | Done 2026-11-07 | `NewSessionForm.tsx` option section | Move the New Session options' section wrapper into its own module. | Move-only: `NewSessionOptionSection` and its props into `components/NewSessionOptionSection.tsx`. `NewSessionForm.tsx` 5,535 -> 5,503 lines; its budget stays at 5,535 until the next commit (see the landing note). Tier 3 at the series tip. |
+| 2.26 | Done 2026-11-07 | `NewSessionForm.tsx` option state | Give the New Session form's option choices one owner, a reducer ([plan 180](180-new-session-options-and-start.md) slice 1). | Not move-only: a consolidation under plan 180, after its slice 0 pins. The sixteen option `useState` fields become one `useReducer` over `lib/newSessionOptionsState.ts`, whose plain functions compute the seed, lock, provider switch, model fills, thinking choice, sandbox toggle and the automatic save's body; the form destructures the state under the same names and dispatches where it set state. No behavior change. Budget `NewSessionForm.tsx` 5,526 -> 5,339. Tier 3, plus plan 180's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -422,6 +423,65 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.26 — New Session Option State Reducer (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 180](180-new-session-options-and-start.md) slice 1
+gives the form's option choices one owner. Its slice 0 added the pins this
+slice relies on.
+
+Replaced in `NewSessionForm.tsx`:
+- The sixteen option `useState` fields -> one `useReducer` over
+  `newSessionOptionsReducer` in new
+  `packages/client/src/lib/newSessionOptionsState.ts`. The form
+  destructures the state under the old names, so every read is unchanged.
+- The bodies of `applyLaunchLock`, `applyInitialDefaults`,
+  `handleProviderSelect`, the Gateway and catalog model-fill effects, the
+  thinking choice and the sandbox toggle -> the plain functions
+  `lockNewSessionOptions`, `seedNewSessionOptions`,
+  `switchNewSessionProvider`, `fillGatewayModel`, `fillCatalogModel`,
+  `chooseNewSessionThinking` and `toggleNewSessionSandbox`, each
+  returning the fields it changes.
+- The automatic save's body -> `newSessionDefaultsToSave`, which takes
+  the saved choices field by field, so the save effect keeps its
+  dependency list and a machine-control change still saves nothing.
+
+Shape changes:
+- Each setter group became one dispatch. React already batched those
+  setters into one commit. The reducer returns the previous state when
+  nothing changes, so React skips the children and effects; unlike an
+  equal `useState` write, a `useReducer` dispatch still re-runs the form
+  once. `applyLaunchLock` keeps its early return for a principal who is
+  not limited, so the lock effect still queues nothing for one. The other
+  no-op dispatches (the source effect on mount, the machine-control
+  reset, an unmatched thinking row) each cost that one extra run.
+- The customization ref and the `isStarting` guards stay in the form,
+  ahead of each dispatch, as before. `selectMachineControl` and
+  `handleModelSelect` stay stable callbacks.
+- The sandbox toggle reads the recap mode from the reducer's state instead
+  of the render's; nothing changes it between the render and the click.
+
+Behavior changes:
+- None.
+
+Budget:
+- `NewSessionForm.tsx` 5,526 -> 5,339. The new module is 579 lines.
+
+Verification:
+- `newSessionOptionsState.test.ts` (17 tests: the no-op identity, each
+  transition including the Gateway fill's empty-catalog return and the
+  requested model before the catalog answers, the save body) and
+  `NewSessionForm.test.tsx` (148 tests, including plan 180's slice 0
+  pins) pass; tsc and Biome are clean.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a worktree.
+- Tier 3 (`pnpm --filter client test:e2e --grep-invert "physical
+  Android"`) at the same tree, in a worktree: 514 passed, 13 skipped, 4
+  failed, all `acli-commentary.spec.ts`, which fails from a worktree
+  ([gap](../../gaps/acli-commentary-e2e-fails-from-worktree.md)).
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.25 — New Session Option Section Module (Landed 2026-11-07, this commit)
 
