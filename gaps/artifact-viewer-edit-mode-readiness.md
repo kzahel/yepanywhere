@@ -37,3 +37,9 @@ Full local output is retained in
 The startup bundle does not run on this viewer route, but the run does not
 establish whether these failures predate the startup series. No assertions
 were relaxed. Contributing-model: 6-astra.
+
+## Local failure 2026-11-07
+
+The first case, `artifact-viewer.spec.ts:136`, failed once in a full local
+run on 2026-11-07, with the uncaught frontend proxy error recorded in
+[frontend proxy writes headers twice](frontend-proxy-writes-headers-twice.md).
