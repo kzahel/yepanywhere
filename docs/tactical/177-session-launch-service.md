@@ -341,7 +341,19 @@ more, so those fields are gone.
 
 - Give the sandbox record one owner: pass the working project to the copy
   and start calls so the Supervisor's save is the only one, verified on
-  Linux.
+  Linux. For a project-write source, the routes' record and admission's
+  differ only in the working project they name, and only for a project
+  opened through a symlinked path. Sandboxing runs only on Linux, so that
+  check needs Linux-only full-app cases (fork, clone, restart and the
+  helpers of a project-write source opened through a symlink) captured on
+  the old code on Linux, then the route write removed and the cases rerun.
+  For an unsandboxed source the Supervisor saves no record, and only the
+  route's record stores a sandbox project path, which fork, the helpers,
+  fork-summary and restart children would lose; readers fall back to the
+  working project, which names the same directory. Those cases can be
+  captured on the old code on any machine. A Linux testbed is reachable
+  through Machine Control and CI runs the Linux sandbox tests; the testbed
+  was not brought up in this pass.
 
 ## Not in scope
 
