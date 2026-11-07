@@ -2185,6 +2185,16 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
         {
           promptSuggestionMode: result.promptSuggestionMode,
           recapAfterSeconds: result.recapAfterSeconds,
+          sandbox: {
+            level: restartSandboxLevel,
+            networkFirewall: restartSandboxNetworkFirewall,
+            stateKey:
+              result.sandboxStateKey ??
+              fork.sandboxStateKey ??
+              originalMetadata?.sandboxStateKey,
+            projectPath: restartProjectPath,
+            projectId: result.projectId,
+          },
         },
       );
       await recordNewSession(
@@ -2270,6 +2280,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
     // recap delay its process started with, a default included.
     await persistLaunchMetadata(deps.sessionMetadataService, result.sessionId, {
       recapAfterSeconds: result.recapAfterSeconds,
+      sandbox: {
+        level: restartSandboxLevel,
+        networkFirewall: restartSandboxNetworkFirewall,
+        stateKey: result.sandboxStateKey,
+        projectPath: result.sandboxProjectPath ?? result.projectPath,
+        projectId: result.projectId,
+      },
     });
     await recordNewSession(result.sessionId, { title: handoffTitle });
 
@@ -4059,6 +4076,17 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
               // keeps the ones its continuation started with.
               promptSuggestionMode: result.promptSuggestionMode,
               recapAfterSeconds: result.recapAfterSeconds,
+              sandbox: {
+                level: originalMetadata?.sandboxLevel ?? "none",
+                networkFirewall:
+                  persistedSandboxNetworkFirewall(originalMetadata),
+                stateKey:
+                  result.sandboxStateKey ??
+                  target.sandboxStateKey ??
+                  originalMetadata?.sandboxStateKey,
+                projectPath: result.sandboxProjectPath ?? result.projectPath,
+                projectId: result.projectId,
+              },
             },
           );
           await recordNewSession(

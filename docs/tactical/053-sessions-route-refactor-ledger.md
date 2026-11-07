@@ -107,8 +107,10 @@ boundaries, not necessarily fewer total repository lines.
 Status: done, 2026-11-07. Move-only.
 
 Destination: `packages/server/src/sessions/session-successor-titles.ts`.
-Moved unchanged apart from `export` keywords on the four the routes call:
-`compactRestartTitleText`, `stripMarkdownHeading`,
+Moved unchanged apart from `export` on the four the routes call
+(`normalizeRestartTitleCandidate`, `forkTitleWithOrdinal`,
+`forkSummaryTitleCandidate`, `generatedRetitleCandidate`). The moved
+symbols are `compactRestartTitleText`, `stripMarkdownHeading`,
 `isGeneratedRestartHandoffTitle` and `normalizeRestartTitleCandidate`
 (whether a source title is worth keeping), `FORK_TITLE_PREFIX_PATTERN` and
 `forkTitleWithOrdinal` (a fork's numbered prefix), and
@@ -127,54 +129,69 @@ Verification: `test/routes/sessions-metadata.test.ts`,
 (Tier 1), which pin fork, clone, restart, retitle and fork-summary titles,
 pass unchanged.
 
-### SRR-025: One Owner For A Copy's Sandbox Record
+### SRR-025: The Copy Records A Copy's Sandbox
 
 Status: done, 2026-11-07. Last part of step 5 of
 [plan 177](177-session-launch-service.md). Not a move-only slice; it follows
-that plan's behavior-preserving rules, checked on the Linux testbed.
+that plan's behavior-preserving rules, checked on the Linux testbed. A
+first version (`e913b92e0`, `0fc447a9f`) was published before its review
+finished. It named the working project to creation admission and dropped
+the restarts' records, which changed a limited user's grant check, the
+transcript project of a Codex copy of a symlinked sandboxed source whose
+working project still named the link, where a failed copy is listed, the
+transcript project stored by a copy of an unsandboxed session that was
+moved to another project and then copied through its old project's URL, the
+folder an unsandboxed fork, helper, restart or fork-summary continuation
+stores, and the folder a restart fork stores for a project-write source
+saved without one. The correction that follows it restores each of those,
+drops the path-scope case the first version added for the dropped folder,
+and is what this entry describes.
 
 Destination: no new module. `Supervisor.forkSession` and `cloneSession`
-take the project the copy is listed under as `workingProjectId`; creation
-admission and the Supervisor's sandbox save record it.
-`inheritedSandboxRecord` and the sandbox field of `persistLaunchMetadata`
-are removed, and `inheritedWorkingProject` names the source's working
-project for the routes.
+take the project the copy is listed under as `workingProjectId`; after a
+successful copy the Supervisor saves the sandbox record the routes used to
+write, at every level, naming that project and the folder the caller gave.
+`inheritedSandboxRecord` is removed, and `inheritedWorkingProject` names
+the source's working project for the routes.
 
-Line delta: `-59` lines from `sessions.ts` (5,373 -> 5,314);
+Line delta: the first version took `sessions.ts` from 5,373 to 5,314
+lines; the correction adds 28 back (5,236 -> 5,264, after SRR-026).
 `Supervisor.ts` stays at 6,953 (reading the source's metadata once pays
-for the new option).
+for the new option and record).
 
 Problem:
 
-After a fork, clone, restart (handoff and fork), a fork-summary
-continuation and the retitle and fork-summary helpers, the routes wrote a
-sandbox record that creation admission and the Supervisor had already
-saved. For a project-write source the two differed only in the working
-project, and only for a project opened through a symlinked folder: the
-copy runs in the folder's real path, which the Supervisor named, while the
-route named the source's working project, the link.
+After a fork, a sandboxed source's Codex clone and the retitle and
+fork-summary helpers and target, the routes wrote a sandbox record after
+the copy had saved its own. For a project-write source the two differed in
+the working project when the project was opened through a symlinked
+folder: the copy runs in the folder's real path, which the copy named,
+while the route named the source's working project, the link. For an
+unsandboxed source only the route's record stored a sandbox folder.
 
 Implemented:
 
-- fork, the helpers and a sandboxed source's Codex clone pass the source's
-  working project to the copy, and the routes' sandbox writes are removed;
-  the restarts, the Claude clone and the fork-summary continuation already
-  recorded what the Supervisor saves;
-- the Supervisor records a copy's transcript project when the transcript
-  lies outside the folder the copy runs in, as before, rather than
-  comparing it with the new working project, so a fork of a symlinked
-  source keeps its stored transcript project;
-- a separate commit stops the routes' write for an unsandboxed source,
-  whose only effect was a sandbox folder equal to the project.
+- those paths pass the source's working project to the copy, and their
+  route writes are removed. Creation admission still names the folder the
+  copy runs in, so a limited user's grant check, a Codex copy's transcript
+  project and a copy that fails after admission are as before;
+- the restart handoff, restart fork and fork-summary continuation keep the
+  record they write after their process starts: for an unsandboxed session
+  it is the only record of the folder, which the Claude clone still reads
+  at any level
+  ([clone working directory](../../gaps/clone-working-directory-ignores-sandbox-level.md)),
+  and for a project-write source saved before its sandbox folder was
+  recorded the restart fork names the unresolved path. "Remaining" under
+  plan 177 step 5 records what removing them would change.
 
 Verification: the Linux-only full-app
 `test/routes/session-launch-records-sandboxed.test.ts`, captured on the old
 code on the Linux testbed, starts a real sandboxed session in a symlinked
 folder and pins each copy's stored record, the project list that shows it
-and where a later resume runs; it passes unchanged. The unsandboxed pins in
-`test/routes/session-launch-records.test.ts` change only in the commit that
-drops the unsandboxed folder. The cases also found a defect left as it was,
-recorded in
+and where a later resume runs; it passes unchanged, as do the unsandboxed
+pins in `test/routes/session-launch-records.test.ts`. The mocked route
+tests now check the project named to the copy. The cases also found a
+defect left as it was, recorded in
 [gaps/symlinked-sandboxed-session-leaves-its-project-list.md](../../gaps/symlinked-sandboxed-session-leaves-its-project-list.md).
 
 ### SRR-024: The Shared Launch Code Moves Below The Routes

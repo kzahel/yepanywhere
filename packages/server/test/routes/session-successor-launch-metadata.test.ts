@@ -14,13 +14,13 @@ import type { Project } from "../../src/supervisor/types.js";
 // launch metadata each successor launch (fork, retitle generator,
 // fork-summary generator and target, restart fork, restart handoff) writes
 // after its session exists, in order.
-// Creation admission records a copy's provider, model, preferences, title,
-// source and sandbox, and the Supervisor the sandbox a process runs in, so
-// the routes write only what neither knows: the preferences a started
+// Creation admission records a copy's provider, model, preferences, title
+// and source, and the copy its sandbox record once it is told the project
+// it is listed under, so the routes write only what admission does not
+// know: a started successor's sandbox record, the preferences a started
 // process resolved, the lineage root and the fork-summary target's
-// archiving. A copy is told the project it is listed under instead.
-// session-launch-records.test.ts and its Linux sandboxed sibling pin the
-// stored result of all of them together.
+// archiving. session-launch-records.test.ts and its Linux sandboxed sibling
+// pin the stored result of all of them together.
 
 const project: Project = {
   id: "proj-1" as UrlProjectId,
@@ -338,11 +338,22 @@ describe("successor launch metadata writes", () => {
       // After the resumed target process starts: its own resolved settings.
       ["updateMetadata", "sess-target", { promptSuggestionMode: "off" }],
       ["updateMetadata", "sess-target", { recapAfterSeconds: 600 }],
+      [
+        "setSessionSandbox",
+        "sess-target",
+        {
+          level: "project-write",
+          networkFirewall: true,
+          stateKey: "resumed-sandbox",
+          projectPath: "/tmp/project-resumed",
+          projectId: "proj-resumed",
+        },
+      ],
       ["updateMetadata", "sess-target", { archived: false }],
     ]);
   });
 
-  it("restart fork records its started preferences and lineage root", async () => {
+  it("restart fork records its started preferences, sandbox and lineage root", async () => {
     const metadata = recordingMetadata(sandboxedSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -390,11 +401,22 @@ describe("successor launch metadata writes", () => {
     expect(metadata.writesFor("sess-fork")).toEqual([
       ["updateMetadata", "sess-fork", { promptSuggestionMode: "off" }],
       ["updateMetadata", "sess-fork", { recapAfterSeconds: 600 }],
+      [
+        "setSessionSandbox",
+        "sess-fork",
+        {
+          level: "project-write",
+          networkFirewall: false,
+          stateKey: "resumed-sandbox",
+          projectPath: "/tmp/project-sandbox",
+          projectId: "proj-resumed",
+        },
+      ],
       ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });
 
-  it("restart handoff records its started recap delay and title", async () => {
+  it("restart handoff records its started recap delay, sandbox and title", async () => {
     const metadata = recordingMetadata(firewallOnSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -435,6 +457,17 @@ describe("successor launch metadata writes", () => {
     expect(response.status).toBe(200);
     expect(metadata.writesFor("sess-new")).toEqual([
       ["updateMetadata", "sess-new", { recapAfterSeconds: 600 }],
+      [
+        "setSessionSandbox",
+        "sess-new",
+        {
+          level: "project-write",
+          networkFirewall: true,
+          stateKey: "started-sandbox",
+          projectPath: "/tmp/project-started-sandbox",
+          projectId: "proj-started",
+        },
+      ],
       ["updateMetadata", "sess-new", { title: "Handoff: Refactor session" }],
     ]);
   });

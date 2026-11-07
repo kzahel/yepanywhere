@@ -29,8 +29,9 @@ shared, and how risky it is to touch today.
    call. This is a behavior-preserving consolidation, not a move-only slice,
    so it has its own plan:
    [session launch service](177-session-launch-service.md). Steps 1-5
-   landed 2026-11-06 and 2026-11-07, except a single owner for the
-   sandbox record, which needs a Linux check.
+   landed 2026-11-06 and 2026-11-07; a copy's sandbox record moved into
+   the copy (SRR-025, checked on Linux), and the restarts' and
+   continuation's records wait on the clone working-directory gap.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
    (about 7,800 lines), `NewSessionForm.tsx` (about 6,000),
    `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about
@@ -216,9 +217,10 @@ SRR-010 (queue summary shaping), SRR-011 (provider resolution helpers),
 SRR-013 (metadata/seen-state routes), SRR-014/SRR-015 (session-detail
 helpers and read routes), SRR-016 (session project routing), and
 SRR-017/SRR-018 (session start/resume helpers and routes), plus
-SRR-019 to SRR-023 (the shared launch-metadata writer, successor
-launch-settings assembly, launch-outcome mapping, new-session record and
-one owner per launch-record field, steps 1-4 and part of step 5 of
+SRR-019 to SRR-026 (the shared launch-metadata writer, successor
+launch-settings assembly, launch-outcome mapping, new-session record, one
+owner per launch-record field, the launch code's move below the routes, a
+copy's sandbox record and the successor title rules, steps 1-5 of
 [plan 177](177-session-launch-service.md)) —
 the flat domain-named
 `routes/session-*.ts` pattern those items established is the pattern here. Do

@@ -256,6 +256,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -350,6 +351,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "request-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -400,6 +402,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "request-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -451,6 +454,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -501,6 +505,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -524,6 +529,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -565,6 +571,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -608,6 +615,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -654,6 +662,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);
@@ -713,6 +722,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
         "requestedModel": "source-model",
         "sandboxEverConfined": false,
         "sandboxLevel": "none",
+        "sandboxProjectPath": "<project>",
         "workingProjectId": "<project-id>",
       }
     `);

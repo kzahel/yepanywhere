@@ -668,7 +668,7 @@ export interface SessionCopyOptions {
   initialPrompt?: string;
   creation?: NonNullable<SessionLaunchOptions["creation"]>;
   projectPath: string;
-  /** The project the copy is listed under; by default `projectPath`'s. */
+  /** Project to list the copy under; also saves its record at any level. */
   workingProjectId?: UrlProjectId;
   providerName?: ProviderName;
   upToMessageId?: string;
@@ -3600,8 +3600,6 @@ export class Supervisor {
             ?.cutMessageId
         : undefined;
     const source = this.sessionMetadataService?.getMetadata(options.sessionId);
-    let workingProjectId =
-      options.workingProjectId ?? encodeProjectId(options.projectPath);
     const store = this.sessionMetadataService?.creations;
     if (store && !options.creation)
       throw new Error("Transcript copies require trusted creation context");
@@ -3614,7 +3612,7 @@ export class Supervisor {
             context: options.creation.context,
             request: {
               provider: provider.name,
-              projectId: workingProjectId,
+              projectId: encodeProjectId(options.projectPath),
               projectPath: options.projectPath,
               message: options.initialPrompt ?? "",
               intent: "copy",
@@ -3660,7 +3658,6 @@ export class Supervisor {
         sandboxNetworkFirewall: request.launch?.sandboxNetworkFirewall,
         sandboxStateKey: request.launch?.sandboxStateKey,
       };
-      workingProjectId = request.projectId;
       nativeSource = copy.source;
       nativeSessionId = copy.source.native.id;
       launchSettings = request.settings;
@@ -3783,24 +3780,27 @@ export class Supervisor {
               "Fork child identity changed during account inheritance",
             );
         }
-        // Named when the transcript lies outside the folder the copy runs in.
+        const workingProjectId = encodeProjectId(options.projectPath);
         if (
           fork.transcriptProjectId &&
-          fork.transcriptProjectId !== encodeProjectId(options.projectPath)
+          fork.transcriptProjectId !== workingProjectId
         )
           await this.sessionMetadataService?.setWorkingProject(
             childId,
             workingProjectId,
             fork.transcriptProjectId,
           );
-        if (sessionSandbox)
+        // Given its project, save the routes' old record at any level.
+        if (sessionSandbox || options.workingProjectId)
           await this.sessionMetadataService?.setSessionSandbox(childId, {
-            level: "project-write",
+            level: sessionSandbox ? "project-write" : "none",
             networkFirewall: options.sandboxNetworkFirewall !== false,
-            stateKey: sessionSandbox.stateKey,
-            projectPath: sessionSandbox.projectPath,
-            projectId: workingProjectId,
-            provider: provider.name,
+            stateKey: sessionSandbox?.stateKey ?? options.sandboxStateKey,
+            projectPath: options.workingProjectId
+              ? options.projectPath
+              : sessionSandbox!.projectPath,
+            projectId: options.workingProjectId ?? workingProjectId,
+            ...(sessionSandbox ? { provider: provider.name } : {}),
           });
       } catch (error) {
         throw new ForkSettingsPersistenceError(childId, error);

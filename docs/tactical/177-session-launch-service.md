@@ -2,10 +2,11 @@
 
 Topic: core-service-api
 
-Status: steps 1-4 and the first part of step 5 landed 2026-11-06, the
-rest of step 5 on 2026-11-07, the sandbox record's single owner checked on
-the Linux testbed. Accepted by the maintainer as the top item of the module-boundary
-[priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
+Status: steps 1-4 and the first part of step 5 landed 2026-11-06, and
+step 5 landed 2026-11-07 except the restarts' and fork-summary
+continuation's sandbox records, which wait on the clone gap (see
+"Remaining" under step 5). Accepted by the maintainer as the top item of
+the module-boundary [priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
 
 Starting a session is one operation that today has about a dozen hand-written
 copies. New sessions, resume, reactivate, restart (handoff and fork), the
@@ -280,8 +281,8 @@ Every difference found while removing the writes was checked:
 | A restart handoff, restart fork or fork-summary target whose source saved no preferences stores the defaults its process started with; a plain fork stores none | Deliberate: a started session records what it runs with, since prompt suggestions (`2169541e5`, 2026-06-16) and recap delays (`9682c7687`, 2026-06-24) became durable. A later resume starts with the same defaults either way. Admission already resolves a restart handoff's prompt-suggestion preference the same way, so only its recap delay is recorded again | Unchanged; the three paths keep it |
 | The route's title write cleaned a copy's title up (one line, no control characters, none when blank); admission stored it as sent. A `/btw` question aside's title keeps the question's line breaks | User-visible if dropped | Admission now stores a copy's title cleaned the same way. A copy the route never finished, because it failed after admission or was recovered later, also keeps a cleaned title now, as do lists that show a copy before the route ran |
 | An internal retitle or fork-summary generator stored the source's prompt-suggestion preference over admission's "off" | Accidental: admission turns internal helpers' prompt suggestions off (`e86b1caa9`, 2026-11-03), and the route's write predates it. Harmless: a summary is generated through the provider, not by resuming the helper, so the stored value matters only if someone opens an archived helper | Dropped in its own commit; the full-app test pins "off" for a source that shows them |
-| A session without a sandbox stored its project path as a sandbox path through the route's explicit "none" record | Harmless: every reader uses that path only for a project-write sandbox, or falls back to the working project, which names the same directory | Dropped in its own commit in part 3; a path-scope case shows the working project alone gives the same scope |
-| The route's sandbox record names the source's working project, while a copy's admission and the Supervisor's save name the directory the copy runs in | They differ when the project is opened through a symlinked path; sandboxing runs only on Linux | Part 3: the routes pass the working project to the copy, checked on the Linux testbed |
+| A session without a sandbox stored its project path as a sandbox path through the route's explicit "none" record | Not harmless: the Claude clone reads the folder at any level ([clone gap](../../gaps/clone-working-directory-ignores-sandbox-level.md)); every other reader uses it only for a project-write sandbox or falls back to the working project | Kept: the copy now writes it for fork, the helpers and the fork-summary target, and the restarts and continuation still write it. The Claude clone reads the folder at any level, so for a copy later moved to another project and then cloned, dropping it would change where the clone runs |
+| The route's sandbox record names the source's working project, while a copy's admission and the Supervisor's save name the directory the copy runs in | They differ when the project is opened through a symlinked path; sandboxing runs only on Linux | Part 3: the routes name the working project to the copy, which saves the route's record; checked on the Linux testbed |
 | The fork route computed the copy's model itself when the fork returned no launch settings | Unreachable: `forkSession` always returns them | Removed |
 
 #### Part 2: the shared launch code moves below the routes
@@ -338,33 +339,52 @@ suggestions. Its snapshots were captured on the old code. No caller passes
 a provider, executor or requested model to `persistLaunchMetadata` any
 more, so those fields are gone.
 
-#### Part 3: one owner for a copy's sandbox record
+#### Part 3: the copy records a copy's sandbox
 
 Landed 2026-11-07 as SRR-025 in the
 [sessions route ledger](053-sessions-route-refactor-ledger.md). Fork, the
-retitle and fork-summary helpers and a sandboxed source's Codex clone pass
-the source's working project to `forkSession` as `workingProjectId`, which
-creation admission and the Supervisor's sandbox save record, and the
-routes' sandbox writes are removed. The restarts, the Claude clone and the
-fork-summary continuation already recorded what the Supervisor saves. The
-Supervisor still records a copy's transcript project when the transcript
-lies outside the folder the copy runs in, so a fork of a symlinked source
-keeps it.
+retitle and fork-summary helpers and target, and a sandboxed source's Codex
+clone name the source's working project to `forkSession` as
+`workingProjectId`. After a successful copy the Supervisor saves the record
+the route used to write: at every level, with that project and the folder
+the caller gave. Creation admission still names the folder the copy runs
+in. A first version (`e913b92e0`, `0fc447a9f`) passed the working project
+to admission instead and was published before its review finished; the
+correction that follows it restores admission's project, because a limited
+user's grant is checked against it, a Codex copy decides from it whether to
+record its transcript project, and a copy that fails after admission is
+listed under it.
+
+Two failure paths differ, both needing a metadata save to fail. The copy's
+record is now saved before its launch settings, so a copy whose settings
+save fails keeps the named project (and, unsandboxed, its folder) where it
+kept the run folder's project. A failure of the record's own save now
+returns the copy's `ForkSettingsPersistenceError`, naming the child and
+keeping its fork number, where the route's failure was a plain error.
 
 A Linux-only full-app test,
 `test/routes/session-launch-records-sandboxed.test.ts`, starts a real
 sandboxed session in a symlinked folder and pins what each copy stores, the
 project list that shows it and where a later resume runs. It was captured
 on the old code on the Linux testbed reached through Machine Control and
-passes unchanged. For an unsandboxed source the routes' record only added
-a sandbox folder equal to the project; that difference is dropped in its
-own commit, as part 1's table records.
+passes unchanged, as do the unsandboxed pins.
 
-The same cases show that a resume, a clone, a restart and a fork-summary
-continuation of such a source record the folder's real path as the working
-project, so those sessions leave the list of the project the user opened.
-That is left as it was and recorded in
-[gaps/symlinked-sandboxed-session-leaves-its-project-list.md](../../gaps/symlinked-sandboxed-session-leaves-its-project-list.md).
+#### Remaining
+
+- The restart handoff, restart fork and fork-summary continuation still
+  write a sandbox record after their process starts. For a project-write
+  source it repeats the Supervisor's save, except that a restart fork of a
+  source saved before its sandbox folder was recorded names the unresolved
+  path where the Supervisor names the real one. For an unsandboxed source it
+  is the only record of the folder, which the Claude clone reads at any
+  level ([clone working directory](../../gaps/clone-working-directory-ignores-sandbox-level.md)):
+  dropping it changes where a clone of a session later moved to another
+  project runs. Settle that gap first, then remove these writes.
+- The same cases show that a resume, a clone, a restart and a fork-summary
+  continuation of a symlinked sandboxed source record the folder's real
+  path as the working project, so those sessions leave the list of the
+  project the user opened; recorded in
+  [gaps/symlinked-sandboxed-session-leaves-its-project-list.md](../../gaps/symlinked-sandboxed-session-leaves-its-project-list.md).
 
 ## Not in scope
 

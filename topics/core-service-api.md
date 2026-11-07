@@ -409,12 +409,15 @@ routes. Decided 2026-11-06 in
 - **The Supervisor** owns what a running process changes: the launch
   settings it runs with, and the sandbox it confines once it starts or a
   copy is made. A caller names the project a copy is listed under
-  (`workingProjectId`) rather than writing the sandbox record itself.
+  (`workingProjectId`) rather than writing the copy's sandbox record. A
+  restart and a fork-summary continuation still write their started
+  sandbox record themselves; plan 177 says why.
 - **The launch caller** owns only what admission is not told: a handoff's
   title, a fork's lineage root, the fork-summary target's archiving, a
   `/btw` link to a parent other than the source, the preferences a restart
-  fork or fork-summary continuation resolved when it started, and a restart
-  handoff's started recap delay. It announces new
+  fork or fork-summary continuation resolved when it started, a restart
+  handoff's started recap delay, and the started sandbox record of a
+  restart or fork-summary continuation. It announces new
   sessions to open lists without writing admission's fields again.
 
 The launch pieces a caller uses live in `packages/server/src/sessions/`, not
@@ -423,7 +426,8 @@ in the routes: the resume and successor launch settings
 (`session-launch-outcome.ts`), the launch-metadata writers
 (`session-launch-metadata.ts`), the sandbox inheritance rules, the
 compact settings and the successor title rules
-(`session-successor-titles.ts`). They are plain modules that take the services they read;
+(`session-successor-titles.ts`). They are plain modules that take the
+services they read;
 [plan 177 part 2](../docs/tactical/177-session-launch-service.md#part-2-the-shared-launch-code-moves-below-the-routes)
 says why there is no single service object.
 

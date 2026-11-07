@@ -1,4 +1,8 @@
-import type { PromptSuggestionMode, UrlProjectId } from "@yep-anywhere/shared";
+import type {
+  PromptSuggestionMode,
+  SessionSandboxLevel,
+  UrlProjectId,
+} from "@yep-anywhere/shared";
 import type {
   SessionMetadata,
   SessionMetadataService,
@@ -7,22 +11,34 @@ import type { ForkOrdinalClaim } from "../metadata/SessionMetadataService.js";
 import { ForkSettingsPersistenceError } from "../supervisor/Supervisor.js";
 import type { EventBus } from "../watcher/index.js";
 
+/** The sandbox a launched session records for later resumes. */
+export interface LaunchSandboxRecord {
+  level: SessionSandboxLevel;
+  networkFirewall?: boolean;
+  stateKey?: string;
+  projectPath: string;
+  projectId: UrlProjectId;
+}
+
 /**
  * The launch metadata a launch caller records itself. Creation admission
- * already saved a new session's or copy's provider, model, preferences and
- * sandbox, and the Supervisor records the settings and sandbox a process runs
- * with, so a caller passes only preferences: the successor launches the
- * preferences their started process resolved, recovered-queue reactivation
- * the session's saved ones. An absent field is not written.
+ * already saved a new session's or copy's provider, model and preferences,
+ * the Supervisor records the settings a process runs with, and a copy its
+ * sandbox record, so a caller passes only preferences and a started
+ * successor's sandbox record: the successor launches the preferences their
+ * started process resolved, recovered-queue reactivation the session's saved
+ * ones. An absent field is not written.
  */
 export interface LaunchMetadataRecord {
   promptSuggestionMode?: PromptSuggestionMode;
   recapAfterSeconds?: number;
+  sandbox?: LaunchSandboxRecord;
 }
 
 /**
- * Write a launched session's preferences, prompt-suggestion mode first. A
- * later resume that omits these from its request recovers them from here.
+ * Write a launched session's metadata, in a fixed order: prompt-suggestion
+ * mode, recap delay, sandbox. A later resume that omits these from its request
+ * recovers them from here.
  */
 export async function persistLaunchMetadata(
   service: SessionMetadataService | undefined,
@@ -45,11 +61,15 @@ export async function persistLaunchMetadata(
       recapAfterSeconds: record.recapAfterSeconds,
     });
   }
+  if (record.sandbox) {
+    await service.setSessionSandbox?.(sessionId, record.sandbox);
+  }
 }
 
 /**
  * The project a transcript child of `source` is listed under: the source's
  * working project, or the one the request named when the source has none.
+ * The copy saves it with the child's sandbox record.
  */
 export function inheritedWorkingProject(
   source: Pick<SessionMetadata, "workingProjectId"> | undefined,
