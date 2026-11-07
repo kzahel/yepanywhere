@@ -37,8 +37,9 @@ shared, and how risky it is to touch today.
    `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about
    4,100) are where most UI work lands. Their size makes each change slow to
    review and easy to regress, including the keystroke-latency contract.
-   Phase 2 below holds the slice rows; slices 2.12 and 2.13 (the
-   composer's bang completion state and recall drawer) landed 2026-11-07.
+   Phase 2 below holds the slice rows; slices 2.12 to 2.14 (the
+   composer's bang completion state and recall drawer, and the page's
+   bang-command wiring) landed 2026-11-07.
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -269,6 +270,7 @@ and props stable.
 | 2.11 | Done 2026-07-06 | `SessionPage.tsx` `/btw` sticky cards | Move sticky `/btw` footer-card JSX into a focused render component after slice 2.2 moved the orchestration hook. | Render-only follow-up to slice 2.2. `SessionPage.tsx` still owns composer routing and callback wiring; focused component tests cover actions and expanded transcript transfer. |
 | 2.12 | Done 2026-11-07 | `MessageInput.tsx` bang completion state | Move the `!!` completion menu's state and candidate fetch into a feature hook. | Moved `BangMenuItem`, `bangCompletionQueryKey`, the menu and candidate state and the debounced completion fetch into `hooks/useComposerBangCompletion.ts`; the keyboard handling, Tab completion, Ctrl+↑ history cycling and menu rendering that act on it stay in the composer. Move-only; `MessageInput.tsx` budget 4,781 -> 4,692. `bang-command.spec.ts` now measures, in the browser, that each keystroke of a bang draft shows within 100 ms while the completion menu is open and a fetch comes back between keys. |
 | 2.13 | Done 2026-11-07 | `MessageInput.tsx` recall drawer | Move the Ctrl+↑ recall drawer's state, handlers, keys and menu out of the composer. | Moved the drawer state, open/cancel/accept/go-to, and the keys it claims while open plus the Ctrl+↑ opener into `hooks/useComposerRecallDrawer.ts`, and its menu into `components/ComposerRecallMenu.tsx`. The composer keeps the touch-keyboard opener button, the blur cancel, and the bang Ctrl+↑ history that runs first; the ordering note stays at the call site. Move-only; the parameter conversions are listed in the landing note. `MessageInput.tsx` budget 4,692 -> 4,543. Tier 3, plus the new `composer-recall-drawer.spec.ts` keystroke check. |
+| 2.14 | Done 2026-11-07 | `SessionPage.tsx` bang-command wiring | Move the page's `!!` command run, echo, transcript row actions and composer bang support into a feature hook. | Moved `runBangCommand`, `echoBangCommand`, the first-load display-object ids, `bangCommandHandlers`, `bangHistory` and `composerBangSupport` into `hooks/useSessionBangCommands.ts`, which returns the handlers and the composer support. Move-only; the parameter conversions are listed in the landing note. `SessionPage.tsx` budget 7,773 -> 7,655. Tier 3; `bang-command.spec.ts` (run, keystroke latency with the completion menu open, receipt) passes unchanged. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -322,8 +324,8 @@ owning behavior:
   the full remap fixture matrix moves with it.
 - `SessionPage.tsx`: recall wiring and navigation-state consumption are the
   remaining named candidates after the landed pure-helper, `/btw`, attachment,
-  and sticky-card slices. Choose one feature boundary per follow-up rather than
-  another general page-helper module.
+  sticky-card and bang-command slices. Choose one feature boundary per
+  follow-up rather than another general page-helper module.
 
 Remove a candidate from this section when its slice lands or fresh inspection
 shows the seam is no longer coherent. Delete the gap only when all four
@@ -402,6 +404,43 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.14 — Session Page Bang-Command Wiring (Landed 2026-11-07, this commit)
+
+Moved:
+- `messagesRef`, `runBangCommand`, `echoBangCommand`,
+  `initialDisplayObjectsRef`, `bangCommandHandlers`, `bangHistory` and
+  `composerBangSupport` -> `useSessionBangCommands` in new
+  `packages/client/src/hooks/useSessionBangCommands.ts`, which returns
+  `bangCommandHandlers` and `composerBangSupport`.
+
+Signature conversions (closure -> parameter):
+- The hook takes `projectId`, `sessionId`, `session`, `messages`,
+  `updateTranscriptDisplayObjectsForSession`, `setScrollTrigger`,
+  `handleSendRef` and `draftControlsRef`. It reads `t` and `showToast` from
+  the same contexts `SessionPageContent` reads them from.
+- `setScrollTrigger`, `handleSendRef` and `draftControlsRef` joined the
+  dependency lists of the callbacks that use them, as lint requires of
+  parameters. They are a state setter and two refs, whose identities never
+  change, so nothing recomputes.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 3 ran once for slices 2.13-2.15, at the series tip before review
+  (`6e1d8c535`): `pnpm --filter client test:e2e --grep-invert "physical
+  Android"`, 497 passed and 13 skipped; `artifact-viewer.spec.ts:136`
+  failed once on a proxy error and passed alone. Each slice's files are
+  the same at its commit as at that tip, apart from the 2.13 review fixes
+  recorded in its note, and the three slices touch separate files. Tier 2 (`pnpm lint`,
+  `pnpm format:check`, `pnpm typecheck`, `pnpm test`) passed at the same
+  tip. `pnpm i18n:scan` reports nothing in the new modules.
+- `bang-command.spec.ts` passes unchanged; it measures keystroke latency
+  with the completion menu open.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.13 — Composer Recall Drawer (Landed 2026-11-07, this commit)
 

@@ -25,8 +25,8 @@ import {
 } from "../components/SessionIssuesLink";
 import { useNonHumanUserTurnNavigation } from "../hooks/useNonHumanUserTurnNavigation";
 import { useSessionMessageNavigation } from "../hooks/useSessionMessageNavigation";
+import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import type {
-  BangCommandTranscriptDisplayObject,
   EffortLevel,
   PermissionMode,
   PromptSuggestionMode,
@@ -81,7 +81,6 @@ import {
 } from "../api/refusal";
 import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
 import { createSessionApi } from "../api/sessionClient";
-import type { BangCommandHandlers } from "../components/BangCommandDisplayObject";
 import {
   SessionViewerProvider,
   SessionViewerTranscriptGate,
@@ -92,12 +91,6 @@ import { LastSessionFile } from "../components/LastSessionFile";
 import styles from "./SessionPage.module.css";
 import { GoalFlag } from "../components/GoalNotice";
 import { ClearloopRemainingBadge } from "../components/ClearloopRemainingBadge";
-import {
-  applyBangCommandReceipt,
-  buildBangEchoText,
-  collectBangHistory,
-} from "../lib/bangCommands";
-import { getBangCommandAnchor } from "../lib/transcriptDisplayObjects";
 
 import { BtwAsidePane } from "../components/BtwAsidePane";
 import {
@@ -3242,127 +3235,16 @@ function SessionPageContent({
     [],
   );
 
-  // !! bang commands: local shell runs in the project dir, never provider
-  // ingress; persisted as transcript display objects (topics/bang-commands.md).
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
-  const runBangCommand = useCallback(
-    async (command: string) => {
-      const placementAfterMessageId = getBangCommandAnchor(messagesRef.current);
-      try {
-        const result = await api.runBangCommand(
-          projectId,
-          sessionId,
-          command,
-          placementAfterMessageId,
-        );
-        updateTranscriptDisplayObjectsForSession(sessionId, (current) =>
-          applyBangCommandReceipt(current, result.displayObject),
-        );
-        setScrollTrigger((prev) => prev + 1);
-      } catch (error) {
-        showToast(t("bangRunFailed"), "error");
-        throw error;
-      }
-    },
-    [
-      projectId,
-      sessionId,
-      updateTranscriptDisplayObjectsForSession,
-      showToast,
-      t,
-    ],
-  );
-
-  const echoBangCommand = useCallback(
-    async (object: BangCommandTranscriptDisplayObject) => {
-      try {
-        const output = await api.fetchBangCommandOutput(
-          projectId,
-          sessionId,
-          object.id,
-        );
-        await handleSendRef.current(buildBangEchoText(object, output));
-      } catch {
-        showToast(t("bangEchoFailed"), "error");
-      }
-    },
-    [projectId, sessionId, showToast, t],
-  );
-
-  const initialDisplayObjectsRef = useRef<{
-    sessionId: string;
-    ids: Set<string>;
-  } | null>(null);
-  if (
-    session?.id === sessionId &&
-    initialDisplayObjectsRef.current?.sessionId !== sessionId
-  ) {
-    initialDisplayObjectsRef.current = {
-      sessionId,
-      ids: new Set(
-        session.transcriptDisplayObjects?.map((object) => object.id),
-      ),
-    };
-  }
-  const bangCommandHandlers = useMemo<BangCommandHandlers>(
-    () => ({
-      shouldExpandOutput: (objectId) =>
-        !initialDisplayObjectsRef.current?.ids.has(objectId),
-      onKill: (objectId) => {
-        void api
-          .killBangCommand(projectId, sessionId, objectId)
-          .catch(() => {});
-      },
-      onDelete: (objectId) => {
-        void api
-          .deleteBangCommand(projectId, sessionId, objectId)
-          .then((result) => {
-            updateTranscriptDisplayObjectsForSession(
-              sessionId,
-              () => result.transcriptDisplayObjects,
-            );
-          })
-          .catch(() => {});
-      },
-      onRerun: (command) => {
-        void runBangCommand(command).catch(() => {});
-      },
-      onRecall: (command) => {
-        draftControlsRef.current?.setDraft(`!!${command}`);
-      },
-      onEcho: (object) => {
-        void echoBangCommand(object);
-      },
-      fetchOutput: (objectId) =>
-        api.fetchBangCommandOutput(projectId, sessionId, objectId),
-    }),
-    [
-      projectId,
-      sessionId,
-      runBangCommand,
-      echoBangCommand,
-      updateTranscriptDisplayObjectsForSession,
-    ],
-  );
-
-  const bangHistory = useMemo(
-    () => collectBangHistory(session?.transcriptDisplayObjects),
-    [session?.transcriptDisplayObjects],
-  );
-
-  const composerBangSupport = useMemo(
-    () => ({
-      onRun: (command: string) => runBangCommand(command),
-      fetchCompletions: (
-        token: string,
-        kind: "command" | "path",
-        line: string,
-      ) => api.fetchBangCompletions(projectId, token, kind, line),
-      history: bangHistory,
-    }),
-    [projectId, runBangCommand, bangHistory],
-  );
+  const { bangCommandHandlers, composerBangSupport } = useSessionBangCommands({
+    projectId,
+    sessionId,
+    session,
+    messages,
+    updateTranscriptDisplayObjectsForSession,
+    setScrollTrigger,
+    handleSendRef,
+    draftControlsRef,
+  });
 
   // Incremental across renders: streaming ticks that only churn the assistant
   // tail cost a pointer-compare walk and return the same entries array.
