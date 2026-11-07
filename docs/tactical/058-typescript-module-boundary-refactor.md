@@ -290,6 +290,7 @@ and props stable.
 | 2.24 | Done 2026-11-07 | `SessionPage.tsx` send module | Move the page's four sending functions into a plain send module the page calls each render ([plan 179](179-session-composer-send-decisions.md) slice 4). | Move-only: `prepareComposerSubmission`, `handleSend`, `handleQueue` and `queueComposerForProject` move verbatim into `createSessionComposerSend` in new `lib/sessionComposerSend.ts`, called where `handleSend` stood. The closure reads become a deps object, and the four callbacks the page declares later are passed as wrappers (listed in the landing note). No behavior change. Budget `SessionPage.tsx` 7,475 -> 6,560; the new module is 1,214 lines. Tier 3, plus plan 179's slice 0 pins. |
 | 2.25 | Done 2026-11-07 | `NewSessionForm.tsx` option section | Move the New Session options' section wrapper into its own module. | Move-only: `NewSessionOptionSection` and its props into `components/NewSessionOptionSection.tsx`. `NewSessionForm.tsx` 5,535 -> 5,503 lines; its budget stays at 5,535 until the next commit (see the landing note). Tier 3 at the series tip. |
 | 2.26 | Done 2026-11-07 | `NewSessionForm.tsx` option state | Give the New Session form's option choices one owner, a reducer ([plan 180](180-new-session-options-and-start.md) slice 1). | Not move-only: a consolidation under plan 180, after its slice 0 pins. The sixteen option `useState` fields become one `useReducer` over `lib/newSessionOptionsState.ts`, whose plain functions compute the seed, lock, provider switch, model fills, thinking choice, sandbox toggle and the automatic save's body; the form destructures the state under the same names and dispatches where it set state. No behavior change. Budget `NewSessionForm.tsx` 5,526 -> 5,339. Tier 3, plus plan 180's slice 0 pins. |
+| 2.27 | Done 2026-11-07 | `NewSessionForm.tsx` options hook | Move the New Session option state, its reads, derived values and effects into one hook ([plan 180](180-new-session-options-and-start.md) slice 2). | Not move-only: a consolidation under plan 180, because hook and effect order change (see the landing note). The reducer, the provider, settings, descriptor, router and subscription reads, every derived option value, the seed, lock, fill, source and save effects, and the provider, model and mode handlers move verbatim into `useNewSessionOptions` in new `hooks/useNewSessionOptions.ts`, called where the sandbox values stood. The inline choices call its `customizeOptions`. No behavior change. Budget `NewSessionForm.tsx` 5,339 -> 4,737; the hook is 820 lines. Tier 3, plus plan 180's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -423,6 +424,79 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.27 — New Session Options Hook (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 180](180-new-session-options-and-start.md) slice 2
+moves the option state out of the form. The moved code is verbatim; what
+is not a move is the order hooks and effects now run in, and one helper.
+
+Moved to new `packages/client/src/hooks/useNewSessionOptions.ts`, in this
+order, each block unchanged:
+- the reducer, the source-change effect and `selectMachineControl`;
+- `useProviders`, `useProviderRow` and the selected provider's row;
+- the three seeding refs;
+- the sandbox values (support, configurability, the unavailable reason,
+  the effective level and firewall, the local-auth warning);
+- `useProviderDescriptors`, `useServerSettings` and the
+  `newSessionDefaultsRef` sync;
+- the derived values from `providerChoices` to the legacy default seed
+  (router selection and discovery, model lists, tiers, pool members,
+  connectors, readiness, effort, thinking, permission and machine-control
+  eligibility);
+- `applyLaunchLock`, `applyInitialDefaults` and the two seeding and the
+  lock effects; `handleProviderSelect` and the Gateway and catalog fill
+  effects; `handleModelSelect`; `handleModeSelect` and the automatic save.
+
+Signature conversions (closure -> parameter):
+- The hook takes `clientSummarySourceKey`, `launch` (as `object |
+  undefined`, so the router selection memo keeps its dependency on it),
+  `launchLock`, the four preferred-option props, `versionInfo`,
+  `versionLoading`, `legacyEffortLevel`, `legacyThinkingMode` and `t`, and
+  returns the 63 values the form still reads, plus `customizeOptions`.
+
+Shape changes:
+- The ten inline choices (tier, thinking, recap mode and delay, helper
+  model, suggestions, sandbox, firewall, router, connectors) called
+  `hasUserCustomizedDefaultsRef.current = true` and then dispatched; they
+  now call the hook's stable `customizeOptions(action)`, which does the
+  same two steps. Their `isStarting` guards stay where they were, so the
+  hook takes no `isStarting` (plan 180's status records this departure).
+- The hook is called where the sandbox values stood, so every read in it
+  starts at that point. `useProviders` and `useProviderRow` now start
+  after the hooks between their old place and the call (toolbar presence,
+  speech state and capture settings, speech attribution, the voice ref,
+  `useModelSettings`, `useVersion`, `useActingPrincipal`, background
+  creation and `useRendezCompose`). `useProviderDescriptors`,
+  `useServerSettings`, `useRouterDiscovery` and
+  `useProviderSubscriptionUsage` now start earlier, before
+  `useBrowserXaiSttApiKey`, the launch-seed layout effect and the
+  draft-attachment and share-file effects; the router discovery and
+  subscription usage requests, which start in passive effects, are sent
+  in a different order. The moved effects run in their old order relative
+  to each other, after the form's `creationViewOwner` effect and before
+  the form's effects declared after the hook. None of those reads option
+  state or shares a ref or store with the moved effects.
+
+Behavior changes:
+- None.
+
+Budget:
+- `NewSessionForm.tsx` 5,339 -> 4,737. The hook is 820 lines.
+
+Verification:
+- `NewSessionForm.test.tsx` (148 tests, including plan 180's slice 0
+  pins) and `newSessionOptionsState.test.ts` pass unchanged; tsc and Biome
+  are clean.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a worktree.
+- Tier 3 (`pnpm --filter client test:e2e --grep-invert "physical
+  Android"`) at the same tree, in a worktree: 514 passed, 13 skipped, 4
+  failed, all `acli-commentary.spec.ts`, which fails from a worktree
+  ([gap](../../gaps/acli-commentary-e2e-fails-from-worktree.md)).
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.26 — New Session Option State Reducer (Landed 2026-11-07, this commit)
 

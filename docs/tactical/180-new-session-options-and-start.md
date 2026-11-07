@@ -11,7 +11,13 @@ Tier 2 passed; Tier 3 in a worktree had 514 passed, 13 skipped and 4
 failed, all `acli-commentary.spec.ts`, which fails from a worktree.
 Slice 1 (the reducer, `lib/newSessionOptionsState.ts`) landed 2026-11-07;
 the model fills became two functions, `fillGatewayModel` and
-`fillCatalogModel`, one per effect.
+`fillCatalogModel`, one per effect. Slice 2 (the options hook,
+`hooks/useNewSessionOptions.ts`) landed 2026-11-07 with two departures from
+the target shape below: the `isStarting` guards stay with the markup, so
+the hook takes no `isStarting` and returns one stable `customizeOptions`
+(set the customization ref, then dispatch) in place of the ten inline
+ref-then-dispatch pairs; and `launch` is passed through as an object, so
+the moved memo keeps its dependency on it unchanged.
 
 Proposal 3 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
@@ -355,13 +361,16 @@ machine-control and model handlers, which have no guard, stay stable),
 `refetchSettings`).
 
 The form calls the hook where `launchLock` and the version are known
-(about line 656). Moving the effects there runs them before the form's own
-effects. That is safe: none of the form's effects that would now run after
-them (807, 936, 940, 1126, 1611, 1763, 2089, 2429) or its layout effects
-(716, 2070, 2390, 2394) reads option state. What does change is that
-`useProviders` and `useProviderRow` (526-531) now run after
-`useModelSettings`, `useVersion` and `useActingPrincipal`, so their
-requests start in a different order.
+(about line 656), so every read in it starts there. Moving the effects
+there runs them before the form's effects declared after the hook (the
+`creationViewOwner` effect at 435 still runs first). That is safe: none of
+the form's effects that would now run after them (807, 936, 940, 1126,
+1611, 1763, 2089, 2429) or its layout effects (716, 2070, 2390, 2394)
+reads option state. What does change is request order: `useProviders` and
+`useProviderRow` (526-531) now start after the hooks between 537 and 656,
+and `useProviderDescriptors`, `useServerSettings`, `useRouterDiscovery`
+and `useProviderSubscriptionUsage` (1138-1271) start before
+`useBrowserXaiSttApiKey` and the form's effects from 716 on.
 
 New `components/NewSessionOptionsPanel.tsx`: the provider slot, the
 advanced-options toggle and summary, and the secondary options, which are
