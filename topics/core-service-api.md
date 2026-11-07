@@ -421,8 +421,9 @@ The launch pieces a caller uses live in `packages/server/src/sessions/`, not
 in the routes: the resume and successor launch settings
 (`session-launch-settings.ts`), the reading of a Supervisor launch result
 (`session-launch-outcome.ts`), the launch-metadata writers
-(`session-launch-metadata.ts`), the sandbox inheritance rules and the
-compact settings. They are plain modules that take the services they read;
+(`session-launch-metadata.ts`), the sandbox inheritance rules, the
+compact settings and the successor title rules
+(`session-successor-titles.ts`). They are plain modules that take the services they read;
 [plan 177 part 2](../docs/tactical/177-session-launch-service.md#part-2-the-shared-launch-code-moves-below-the-routes)
 says why there is no single service object.
 

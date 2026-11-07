@@ -31,7 +31,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-025
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-026
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -101,6 +101,31 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-026: The Successor Title Rules Move Below The Routes
+
+Status: done, 2026-11-07. Move-only.
+
+Destination: `packages/server/src/sessions/session-successor-titles.ts`.
+Moved unchanged apart from `export` keywords on the four the routes call:
+`compactRestartTitleText`, `stripMarkdownHeading`,
+`isGeneratedRestartHandoffTitle` and `normalizeRestartTitleCandidate`
+(whether a source title is worth keeping), `FORK_TITLE_PREFIX_PATTERN` and
+`forkTitleWithOrdinal` (a fork's numbered prefix), and
+`forkSummaryTitleCandidate` and `generatedRetitleCandidate` (the title a
+generated fork summary or retitle proposes). They read only
+`truncateSessionTitle`. The rules that read a transcript's messages stay
+with the restart transcript rendering in `sessions.ts`.
+
+Line delta: `-78` lines from `sessions.ts` (5,314 -> 5,236). The budget is
+recorded at 5,264, leaving room for the 28 lines of restart records the
+SRR-025 correction keeps, which leaves the budget as it is.
+
+Verification: `test/routes/sessions-metadata.test.ts`,
+`test/routes/session-copy-records.test.ts`,
+`test/routes/session-launch-records.test.ts` and the rest of `test/routes`
+(Tier 1), which pin fork, clone, restart, retitle and fork-summary titles,
+pass unchanged.
 
 ### SRR-025: One Owner For A Copy's Sandbox Record
 

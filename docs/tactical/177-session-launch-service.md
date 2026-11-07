@@ -297,6 +297,7 @@ them without the REST layer:
 | `session-launch-metadata.ts` | The launch-metadata and new-session writers |
 | `session-sandbox-inheritance.ts` | What a launch inherits from a saved sandbox: the firewall, a successor's project-write settings, the directory it runs in |
 | `session-compact-thresholds.ts` | The compact settings each launch adds |
+| `session-successor-titles.ts` | The title rules of a session made from another one: which source titles are kept, a fork's numbered prefix, a generated summary's or retitle's title (SRR-026) |
 
 What stays in the routes is what reads a request or answers one:
 `refusedLaunchResponse` (now `routes/session-launch-refusal.ts`), the
