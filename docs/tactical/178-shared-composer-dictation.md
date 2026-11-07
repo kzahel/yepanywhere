@@ -2,7 +2,7 @@
 
 Topic: mic-button-speech-ui
 
-Status: planned 2026-11-07. Proposal 1 of the
+Status: planned 2026-11-07; slice 0 (the test pins) landed 2026-11-07. Proposal 1 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
 [doc 058](058-typescript-module-boundary-refactor.md) priority-queue item 2.
 

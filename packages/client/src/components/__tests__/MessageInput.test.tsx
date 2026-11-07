@@ -826,6 +826,27 @@ describe("MessageInput", () => {
     vi.restoreAllMocks();
   });
 
+  // Plan 178: the shared speech hooks must not change the identity of the
+  // voice button's callbacks, which it uses as effect and handle inputs.
+  it("keeps the voice button's callbacks across a typed character", () => {
+    const textarea = renderMessageInput();
+    const before = { ...voicePropsState.current };
+    fireEvent.change(textarea, { target: { value: "a" } });
+    const after = voicePropsState.current;
+    for (const key of [
+      "getTranscriptionContext",
+      "onInterimTranscript",
+      "onListeningStart",
+      "onListeningStop",
+      "onPendingSpeechChange",
+      "onTranscript",
+      "onTranscriptionSettled",
+    ] as const) {
+      expect(after?.[key], key).toBeTypeOf("function");
+      expect(after?.[key], key).toBe(before[key]);
+    }
+  });
+
   it("routes a terminal question aside before trimming and preserves the space escape", () => {
     const onAsk = vi.fn(() => true);
     const onSend = vi.fn();

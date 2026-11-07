@@ -25,6 +25,7 @@ import {
   useCallback,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -383,12 +384,16 @@ vi.mock("../../api/client", () => ({
 vi.mock("../../hooks/useDraftPersistence", () => ({
   useDraftPersistence: (key: string) => {
     draftKeys.push(key);
-    const [value, setValue] = useState("");
-    const getDraft = useCallback(() => value, [value]);
-    const setDraft = useCallback(
-      (nextValue: string) => setValue(nextValue),
-      [],
-    );
+    const [value, setValueInternal] = useState("");
+    // Like the real hook, getDraft reads the latest value from a ref, so the
+    // controls keep their identity across edits.
+    const valueRef = useRef("");
+    const setValue = useCallback((nextValue: string) => {
+      valueRef.current = nextValue;
+      setValueInternal(nextValue);
+    }, []);
+    const getDraft = useCallback(() => valueRef.current, []);
+    const setDraft = setValue;
     const getAttachmentState = useCallback(
       () => draftAttachmentState.value,
       [],
@@ -400,11 +405,11 @@ vi.mock("../../hooks/useDraftPersistence", () => ({
       [],
     );
     const flushDraft = useCallback(() => {}, []);
-    const clearInput = useCallback(() => setValue(""), []);
+    const clearInput = useCallback(() => setValue(""), [setValue]);
     const clearDraft = useCallback(() => {
       setValue("");
       draftAttachmentState.value = null;
-    }, []);
+    }, [setValue]);
     const restoreFromStorage = useCallback(() => {}, []);
 
     const controls = useMemo(
@@ -4638,6 +4643,108 @@ describe("NewSessionForm", () => {
     expect(mockStartSession.mock.calls[0]?.[1]).not.toContain(
       "backend final words",
     );
+  });
+
+  // Plan 178: the shared speech hooks must not change the identity of the
+  // voice button's callbacks, which it uses as effect and handle inputs.
+  it("keeps the voice button's callbacks across a typed character", () => {
+    render(
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />,
+    );
+    const composer = screen.getByPlaceholderText("newSessionPlaceholder");
+    const before = { ...voicePropsState.current };
+    fireEvent.change(composer, { target: { value: "a" } });
+    const after = voicePropsState.current as Record<string, unknown> | null;
+    for (const key of [
+      "getTranscriptionContext",
+      "onInterimTranscript",
+      "onListeningStart",
+      "onListeningStop",
+      "onPendingSpeechChange",
+      "onTranscript",
+    ]) {
+      expect(after?.[key], key).toBeTypeOf("function");
+      expect(after?.[key], key).toBe((before as Record<string, unknown>)[key]);
+    }
+  });
+
+  // Plan 178 D1: pointer-up is a manual caret move, so with an interim
+  // showing the fragment in flight stays at its first target and only the
+  // next one follows the caret. (A caret-moving key-up also fires onSelect,
+  // which this box treats as automatic: plan 178 D10.)
+  it("keeps the in-flight fragment in place on a mid-interim pointer-up", async () => {
+    render(
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />,
+    );
+    const composer = screen.getByPlaceholderText(
+      "newSessionPlaceholder",
+    ) as HTMLTextAreaElement;
+    fireEvent.change(composer, { target: { value: "alpha omega" } });
+    composer.setSelectionRange(11, 11);
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onPendingSpeechChange?.("listening");
+      voicePropsState.current?.onInterimTranscript?.("first words");
+    });
+
+    composer.setSelectionRange(0, 0);
+    fireEvent.pointerUp(composer);
+    act(() => {
+      voicePropsState.current?.onTranscript?.("first words");
+    });
+    await waitFor(() => expect(composer.value).toBe("alpha omega first words"));
+
+    act(() => {
+      voicePropsState.current?.onTranscript?.("next words");
+    });
+    await waitFor(() =>
+      expect(composer.value).toBe("next words alpha omega first words"),
+    );
+  });
+
+  // Plan 178 D3: a failed cycle drops the delivery pressed during capture;
+  // nothing starts and the draft stays in the field.
+  it("starts nothing when speech fails after a press during capture", async () => {
+    render(
+      <NewSessionForm
+        projectId="project-1"
+        selectedProject={chooserProjects[0]}
+        projects={[...chooserProjects]}
+      />,
+    );
+    const composer = screen.getByPlaceholderText(
+      "newSessionPlaceholder",
+    ) as HTMLTextAreaElement;
+    fireEvent.change(composer, { target: { value: "typed draft" } });
+    composer.setSelectionRange(11, 11);
+    act(() => {
+      voicePropsState.current?.onListeningStart?.();
+      voicePropsState.current?.onPendingSpeechChange?.("listening");
+      voicePropsState.current?.onInterimTranscript?.("spoken words");
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /newSessionStartAction/ }),
+    );
+    expect(mockStartSession).not.toHaveBeenCalled();
+
+    act(() => {
+      voicePropsState.current?.onPendingSpeechChange?.("finalizing");
+      voicePropsState.current?.onPendingSpeechChange?.(null, "failed");
+    });
+    act(() => {
+      voicePropsState.current?.onPendingSpeechChange?.(null, "completed");
+    });
+    expect(mockStartSession).not.toHaveBeenCalled();
+    expect(mockConnectionFetch).not.toHaveBeenCalled();
+    expect(composer.value).toBe("typed draft");
   });
 
   it("waits for server capabilities before choosing how to create the session", async () => {
