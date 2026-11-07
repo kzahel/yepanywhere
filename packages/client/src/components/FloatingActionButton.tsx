@@ -1,3 +1,4 @@
+import { SpeechDraftField } from "./SpeechDraftField";
 import { DraftSyncNotice } from "./DraftSyncNotice";
 import {
   type KeyboardEvent,
@@ -10,7 +11,10 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDefaultNewSessionModel } from "../hooks/useDefaultNewSessionModel";
+import { useComposerSpeechHandlers } from "../hooks/useComposerSpeechHandlers";
+import { useComposerSpeechState } from "../hooks/useComposerSpeechState";
 import { useDraftPersistence } from "../hooks/useDraftPersistence";
+import { handleSpeechEscapeKey } from "../lib/composerKeys";
 import { createFabDraftKey } from "../hooks/useDrafts";
 import { useFabVisibility } from "../hooks/useFabVisibility";
 import { useFloatingActionButtonEnabled } from "../hooks/useFloatingActionButtonEnabled";
@@ -21,32 +25,13 @@ import {
 import { setNewSessionPrefill } from "../lib/newSessionPrefill";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
-import { generateUUID } from "../lib/uuid";
 import { useClientSummarySourceKey } from "../lib/clientSummaryStore";
-import { focusComposerForSpeechTransition } from "../lib/speechComposerFocus";
 import {
-  clearSpeechInsertionRangeReplacement,
-  createSpeechInsertionRange,
-  getSpeechSelectionFinalDelayMs,
-  getSpeechInterimDisplayTranscript,
-  getSpeechTranscriptInsertionParts,
-  getSpeechTranscriptReplacementParts,
+  getSpeechInterimPreview,
   getSpeechVisibleDraftText,
-  mapSpeechInsertionRangeThroughEdit,
-  retargetSpeechInsertionRange,
-  type SpeechInsertionRange,
   textBeforeSpeechCursor,
 } from "../lib/speechRecognition";
-import {
-  commitSpeechTranscript,
-  hasNonWhitespaceEdit,
-  type PendingSpeechRetarget,
-  type PendingTextareaSelectionRestore,
-} from "../lib/speechDraftTransaction";
-import type {
-  SpeechTranscriptionContext,
-  SpeechTranscriptionResultMetadata,
-} from "../lib/speechProviders/SpeechProvider";
+import type { SpeechTranscriptionContext } from "../lib/speechProviders/SpeechProvider";
 import { ProviderBadge } from "./ProviderBadge";
 import {
   VoiceInputButton,
@@ -54,10 +39,6 @@ import {
   type SpeechPendingKind,
   type VoiceInputButtonRef,
 } from "./VoiceInputButton";
-
-function createSpeechTargetId(): string {
-  return `speech-target-${generateUUID()}`;
-}
 
 /**
  * Informational default-model chip for the expanded floating composer: shows
@@ -82,12 +63,6 @@ function FloatingComposerModelChip() {
   );
 }
 
-interface PendingSpeechFinal {
-  timer: ReturnType<typeof setTimeout>;
-  transcript: string;
-  metadata?: SpeechTranscriptionResultMetadata;
-}
-
 /**
  * Floating Action Button for quick session creation.
  * Desktop-only feature that appears in the right margin when there's room.
@@ -106,52 +81,35 @@ export function FloatingActionButton() {
   const { floatingActionButtonEnabled } = useFloatingActionButtonEnabled();
   const [isExpanded, setIsExpanded] = useState(false);
   const [message, setMessage, draftControls] = useDraftPersistence(fabDraftKey);
-  const [interimTranscript, setInterimTranscript] = useState("");
-  const interimTranscriptRef = useRef(interimTranscript);
-  interimTranscriptRef.current = interimTranscript;
-  const [speechPending, setSpeechPending] = useState<SpeechPendingKind | null>(
-    null,
-  );
-  const speechPendingRef = useRef<SpeechPendingKind | null>(null);
-  const [, setSpeechPreviewRevision] = useState(0);
+  const {
+    speechState,
+    interimTranscript,
+    setInterimTranscript,
+    interimTranscriptRef,
+    speechPending,
+    setSpeechPending,
+    speechPendingRef,
+    speechInsertionRangeRef,
+    activeSpeechTargetIdRef,
+    speechInsertionRangesRef,
+    pendingSpeechRetargetRef,
+    clearPendingSpeechFinal,
+    noteSpeechDraftEdit,
+    restorePendingTextareaSelection,
+  } = useComposerSpeechState();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const voiceButtonRef = useRef<VoiceInputButtonRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const speechInsertionRangeRef = useRef<SpeechInsertionRange | null>(null);
-  const activeSpeechTargetIdRef = useRef<string | null>(null);
-  const speechInsertionRangesRef = useRef<Map<string, SpeechInsertionRange>>(
-    new Map(),
-  );
-  const pendingSpeechRetargetRef = useRef<PendingSpeechRetarget | null>(null);
-  const pendingSpeechFinalRef = useRef<PendingSpeechFinal | null>(null);
   const pendingSpeechDeliveryRef = useRef<string | null>(null);
-  // True once the user manually edits (non-whitespace) during the active mic
-  // transaction; holds an automatic Smart Turn endpoint send. Speech-inserted
-  // finals go through setDraft (not onChange) and never set this.
-  const composerEditedDuringSpeechRef = useRef(false);
-  const pendingTextareaSelectionRef =
-    useRef<PendingTextareaSelectionRestore | null>(null);
-  const speechInsertionRange = speechInsertionRangeRef.current;
-  const interimDisplayTranscript = getSpeechInterimDisplayTranscript(
-    message,
-    interimTranscript,
-    speechInsertionRange,
-  );
   // Only mutable provisional speech uses the textarea mirror. Capture and
   // post-capture status live with the mic so the real draft and caret stay
   // untouched while transcription is pending.
-  const interimInsertion = speechInsertionRange
-    ? getSpeechTranscriptReplacementParts(
-        message,
-        interimDisplayTranscript,
-        speechInsertionRange.end,
-        speechInsertionRange.replaceEnd ?? speechInsertionRange.end,
-      )
-    : getSpeechTranscriptInsertionParts(
-        message,
-        interimDisplayTranscript,
-        message.length,
-      );
+  const { interimDisplayTranscript, interimInsertion } =
+    getSpeechInterimPreview(
+      message,
+      interimTranscript,
+      speechInsertionRangeRef.current,
+    );
 
   // Extract projectId from current URL if we're in a project context
   const projectIdFromUrl = extractProjectIdFromPath(location.pathname);
@@ -172,18 +130,7 @@ export function FloatingActionButton() {
   }, [isExpanded]);
 
   useLayoutEffect(() => {
-    const pending = pendingTextareaSelectionRef.current;
-    const textarea = textareaRef.current;
-    if (
-      !pending ||
-      !textarea ||
-      message !== pending.value ||
-      textarea.value !== pending.value
-    ) {
-      return;
-    }
-    pendingTextareaSelectionRef.current = null;
-    pending.restore(textarea);
+    restorePendingTextareaSelection(message, textareaRef.current);
   }, [message]);
 
   // Close on click outside
@@ -252,33 +199,13 @@ export function FloatingActionButton() {
     // Skip Enter during IME composition (e.g. Chinese/Japanese/Korean input)
     if (e.key === "Enter" && e.nativeEvent.isComposing) return;
 
-    // Escape cancels a pending post-capture wait. Active listening still
-    // finalizes on Escape below.
     if (
-      e.key === "Escape" &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.shiftKey &&
-      !e.altKey &&
-      (speechPending === "transcribing" || speechPending === "finalizing")
+      handleSpeechEscapeKey(e, {
+        speechPending,
+        voice: voiceButtonRef.current,
+        cancelTranscription: handleCancelTranscription,
+      })
     ) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleCancelTranscription();
-      return;
-    }
-
-    if (
-      e.key === "Escape" &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.shiftKey &&
-      !e.altKey &&
-      voiceButtonRef.current?.isListening
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-      voiceButtonRef.current.toggle();
       return;
     }
 
@@ -296,223 +223,44 @@ export function FloatingActionButton() {
   }, []);
 
   // Voice input handlers
-  const handleListeningStart = useCallback(() => {
-    const textarea = textareaRef.current;
-    const current = draftControls.getDraft();
-    const selectionStart = Math.max(
-      0,
-      Math.min(textarea?.selectionStart ?? current.length, current.length),
-    );
-    const selectionEnd = Math.max(
-      selectionStart,
-      Math.min(textarea?.selectionEnd ?? selectionStart, current.length),
-    );
-    const targetId = createSpeechTargetId();
-    const range = createSpeechInsertionRange(selectionStart, selectionEnd);
-    activeSpeechTargetIdRef.current = targetId;
-    speechInsertionRangeRef.current = range;
-    speechInsertionRangesRef.current.set(targetId, range);
-    pendingTextareaSelectionRef.current = null;
-    pendingSpeechRetargetRef.current = null;
-    composerEditedDuringSpeechRef.current = false;
-    if (textarea) {
-      focusComposerForSpeechTransition(textarea);
-      textarea.setSelectionRange(selectionStart, selectionEnd);
-    }
-    interimTranscriptRef.current = "";
-    setInterimTranscript("");
-  }, [draftControls]);
-
-  const clearPendingSpeechFinal = useCallback(() => {
-    const pending = pendingSpeechFinalRef.current;
-    if (pending === null) return;
-    clearTimeout(pending.timer);
-    pendingSpeechFinalRef.current = null;
+  // The floating composer submits a pending delivery only when the cycle
+  // ends completed, from its own pending-state handler (plan 178 F1), so the
+  // shared hook's settled flag, attribution and delivery run are inert here.
+  const unusedSpeechDeliverySettledRef = useRef(false);
+  const noSpeechDeliveryStep = useCallback(() => {}, []);
+  const dropPendingSpeechDelivery = useCallback(() => {
+    pendingSpeechDeliveryRef.current = null;
   }, []);
-
-  useEffect(() => clearPendingSpeechFinal, [clearPendingSpeechFinal]);
-
-  const handleSpeechSelectionTarget = useCallback(
-    (event?: unknown, draftAtSelection?: string) => {
-      const manualInteraction = event !== undefined;
-      const textarea = textareaRef.current;
-      const range = speechInsertionRangeRef.current;
-      if (!textarea || !range) return;
-      const selectionStart = textarea.selectionStart;
-      const selectionEnd = textarea.selectionEnd;
-      const getNextRange = (
-        currentRange: SpeechInsertionRange,
-      ): SpeechInsertionRange => {
-        if (selectionStart === selectionEnd) {
-          return speechPendingRef.current === "listening"
-            ? retargetSpeechInsertionRange(
-                currentRange,
-                selectionStart,
-                selectionEnd,
-              )
-            : clearSpeechInsertionRangeReplacement(currentRange);
-        }
-        if (
-          currentRange.replaceSelectedAtMs === undefined &&
-          currentRange.end === selectionStart &&
-          currentRange.replaceEnd === selectionEnd
-        ) {
-          return currentRange;
-        }
-        return retargetSpeechInsertionRange(
-          currentRange,
-          selectionStart,
-          selectionEnd,
-        );
-      };
-
-      if (selectionStart === selectionEnd) clearPendingSpeechFinal();
-      const hasVisibleInterim = interimTranscriptRef.current.trim().length > 0;
-      if (
-        manualInteraction &&
-        (hasVisibleInterim || pendingSpeechRetargetRef.current !== null)
-      ) {
-        pendingSpeechRetargetRef.current = {
-          draft: draftAtSelection ?? draftControls.getDraft(),
-          start: selectionStart,
-          end: selectionEnd,
-        };
-        return;
-      }
-
-      const nextRange = getNextRange(range);
-      if (speechPendingRef.current === "listening" && nextRange !== range) {
-        voiceButtonRef.current?.beginInsertionBoundary();
-      }
-      speechInsertionRangeRef.current = nextRange;
-      if (activeSpeechTargetIdRef.current) {
-        speechInsertionRangesRef.current.set(
-          activeSpeechTargetIdRef.current,
-          nextRange,
-        );
-      }
-      setSpeechPreviewRevision((revision) => revision + 1);
-    },
-    [clearPendingSpeechFinal, draftControls],
+  const {
+    handleListeningStart,
+    handleSpeechSelectionTarget,
+    clearSpeechSelectionTarget,
+    handleVoiceTranscript,
+    handleListeningStop,
+    handleInterimTranscript,
+  } = useComposerSpeechHandlers({
+    speechState,
+    draftControls,
+    textareaRef,
+    voiceButtonRef,
+    pendingSpeechDeliveryRef,
+    pendingSpeechDeliverySettledRef: unusedSpeechDeliverySettledRef,
+    noteSpeechAttribution: noSpeechDeliveryStep,
+    maybeRunPendingSpeechDelivery: noSpeechDeliveryStep,
+    abandonPendingDelivery: dropPendingSpeechDelivery,
+    onSmartTurnSend: handleSubmit,
+  });
+  // Select, pointer-up and key-up are manual caret moves here (plan 178 F4).
+  const handleManualSpeechSelection = useCallback(
+    () => handleSpeechSelectionTarget(true),
+    [handleSpeechSelectionTarget],
   );
 
-  const clearSpeechSelectionTarget = useCallback(() => {
-    clearPendingSpeechFinal();
-    if (!speechInsertionRangeRef.current) return;
-    const nextRange = clearSpeechInsertionRangeReplacement(
-      speechInsertionRangeRef.current,
-    );
-    speechInsertionRangeRef.current = nextRange;
-    if (activeSpeechTargetIdRef.current) {
-      speechInsertionRangesRef.current.set(
-        activeSpeechTargetIdRef.current,
-        nextRange,
-      );
-    }
-    setSpeechPreviewRevision((revision) => revision + 1);
-  }, [clearPendingSpeechFinal]);
+  useEffect(() => clearPendingSpeechFinal, []);
 
   const handleSpeechSelectionClick = useCallback(() => {
     window.setTimeout(() => handleSpeechSelectionTarget(true), 0);
   }, [handleSpeechSelectionTarget]);
-
-  const commitVoiceTranscript = useCallback(
-    (transcript: string, metadata?: SpeechTranscriptionResultMetadata) => {
-      const outcome = commitSpeechTranscript(
-        {
-          textareaRef,
-          getDraft: draftControls.getDraft,
-          setDraft: draftControls.setDraft,
-          setInterimTranscript: (next) => {
-            interimTranscriptRef.current = next;
-            setInterimTranscript(next);
-          },
-          speechInsertionRangeRef,
-          activeSpeechTargetIdRef,
-          speechInsertionRangesRef,
-          pendingTextareaSelectionRef,
-          pendingSpeechRetargetRef,
-          onInsertionBoundary: () =>
-            voiceButtonRef.current?.beginInsertionBoundary(),
-          onSpeechTargetChanged: () =>
-            setSpeechPreviewRevision((revision) => revision + 1),
-          onSmartTurnSend: handleSubmit,
-          composerEditedDuringSpeech: () =>
-            composerEditedDuringSpeechRef.current,
-        },
-        transcript,
-        metadata,
-      );
-      // A completed overlapping (non-active) target's result has landed;
-      // forget its range (active target is forgotten on pending->null).
-      const committedTargetId = metadata?.speechTargetId;
-      if (
-        committedTargetId &&
-        committedTargetId !== activeSpeechTargetIdRef.current &&
-        speechInsertionRangesRef.current.delete(committedTargetId)
-      ) {
-        setSpeechPreviewRevision((revision) => revision + 1);
-      }
-      return outcome;
-    },
-    [draftControls, handleSubmit],
-  );
-  const handleVoiceTranscript = useCallback(
-    (transcript: string, metadata?: SpeechTranscriptionResultMetadata) => {
-      const speechRange = metadata?.speechTargetId
-        ? (speechInsertionRangesRef.current.get(metadata.speechTargetId) ??
-          null)
-        : speechInsertionRangeRef.current;
-      const delayMs = metadata?.smartTurnCommand
-        ? 0
-        : pendingSpeechRetargetRef.current
-          ? 0
-          : getSpeechSelectionFinalDelayMs(speechRange);
-      if (delayMs > 0) {
-        clearPendingSpeechFinal();
-        const timer = setTimeout(() => {
-          const pending = pendingSpeechFinalRef.current;
-          if (!pending || pending.timer !== timer) return;
-          pendingSpeechFinalRef.current = null;
-          commitVoiceTranscript(pending.transcript, pending.metadata);
-        }, delayMs);
-        pendingSpeechFinalRef.current = { timer, transcript, metadata };
-        return;
-      }
-
-      clearPendingSpeechFinal();
-      return commitVoiceTranscript(transcript, metadata);
-    },
-    [clearPendingSpeechFinal, commitVoiceTranscript],
-  );
-
-  const flushPendingSpeechFinal = useCallback(() => {
-    const pending = pendingSpeechFinalRef.current;
-    if (pending === null) return;
-    clearTimeout(pending.timer);
-    pendingSpeechFinalRef.current = null;
-    commitVoiceTranscript(pending.transcript, pending.metadata);
-  }, [commitVoiceTranscript]);
-
-  const handleListeningStop = useCallback(() => {
-    const visibleInterim = getSpeechInterimDisplayTranscript(
-      draftControls.getDraft(),
-      interimTranscriptRef.current,
-      speechInsertionRangeRef.current,
-    );
-    flushPendingSpeechFinal();
-    if (visibleInterim) commitVoiceTranscript(visibleInterim);
-    pendingSpeechRetargetRef.current = null;
-    interimTranscriptRef.current = "";
-    setInterimTranscript("");
-    focusComposerForSpeechTransition(textareaRef.current);
-    return Boolean(visibleInterim);
-  }, [commitVoiceTranscript, draftControls, flushPendingSpeechFinal]);
-
-  const handleInterimTranscript = useCallback((transcript: string) => {
-    interimTranscriptRef.current = transcript;
-    setInterimTranscript(transcript);
-  }, []);
 
   const handlePendingSpeechChange = useCallback(
     (kind: SpeechPendingKind | null, settlement?: SpeechCycleSettlement) => {
@@ -555,7 +303,7 @@ export function FloatingActionButton() {
     pendingSpeechDeliveryRef.current = null;
     setSpeechPending(null);
     setInterimTranscript("");
-  }, [clearPendingSpeechFinal]);
+  }, []);
 
   const getTranscriptionContext =
     useCallback((): SpeechTranscriptionContext => {
@@ -603,88 +351,34 @@ export function FloatingActionButton() {
       {isExpanded && (
         <div className="fab-input-panel">
           <DraftSyncNotice draftKey={fabDraftKey} />
-          <div
-            className={`speech-draft-field ${
-              interimDisplayTranscript ? "has-interim" : ""
-            }`}
+          <SpeechDraftField
+            interimDisplayTranscript={interimDisplayTranscript}
+            interimInsertion={interimInsertion}
+            interimTranscript={interimTranscript}
           >
-            <div className="speech-draft-inline">
-              {interimDisplayTranscript && (
-                <div className="speech-draft-mirror" aria-hidden="true">
-                  <span>{interimInsertion.before}</span>
-                  {interimInsertion.separatorBefore}
-                  <span className="speech-interim-inline">
-                    {interimInsertion.transcript}
-                  </span>
-                  <span className="speech-interim-caret" />
-                  {interimInsertion.separatorAfter}
-                  <span>{interimInsertion.after}</span>
-                </div>
-              )}
-              <textarea
-                data-draft-key={fabDraftKey}
-                ref={textareaRef}
-                value={message}
-                onChange={(e) => {
-                  const nextMessage = e.target.value;
-                  clearPendingSpeechFinal();
-                  if (speechInsertionRangesRef.current.size > 0) {
-                    const nextRanges = new Map<string, SpeechInsertionRange>();
-                    for (const [
-                      targetId,
-                      range,
-                    ] of speechInsertionRangesRef.current) {
-                      nextRanges.set(
-                        targetId,
-                        clearSpeechInsertionRangeReplacement(
-                          mapSpeechInsertionRangeThroughEdit(
-                            message,
-                            nextMessage,
-                            range,
-                          ),
-                        ),
-                      );
-                    }
-                    speechInsertionRangesRef.current = nextRanges;
-                    speechInsertionRangeRef.current =
-                      activeSpeechTargetIdRef.current !== null
-                        ? (nextRanges.get(activeSpeechTargetIdRef.current) ??
-                          null)
-                        : null;
-                  }
-                  if (
-                    activeSpeechTargetIdRef.current !== null &&
-                    hasNonWhitespaceEdit(message, nextMessage)
-                  ) {
-                    composerEditedDuringSpeechRef.current = true;
-                  }
-                  handleSpeechSelectionTarget(true, nextMessage);
-                  setMessage(nextMessage);
-                }}
-                onKeyDown={handleKeyDown}
-                onSelect={handleSpeechSelectionTarget}
-                onPointerUp={handleSpeechSelectionTarget}
-                onClick={handleSpeechSelectionClick}
-                onKeyUp={handleSpeechSelectionTarget}
-                onCut={clearSpeechSelectionTarget}
-                onCopy={clearSpeechSelectionTarget}
-                onPaste={clearSpeechSelectionTarget}
-                placeholder={t("fabPlaceholder")}
-                className="fab-textarea"
-                rows={3}
-              />
-            </div>
-            {interimTranscript && (
-              <div
-                className="speech-interim-status"
-                role="status"
-                aria-live="polite"
-                aria-label="Tentative speech transcript"
-              >
-                {interimTranscript}
-              </div>
-            )}
-          </div>
+            <textarea
+              data-draft-key={fabDraftKey}
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => {
+                const nextMessage = e.target.value;
+                noteSpeechDraftEdit(message, nextMessage);
+                handleSpeechSelectionTarget(true, nextMessage);
+                setMessage(nextMessage);
+              }}
+              onKeyDown={handleKeyDown}
+              onSelect={handleManualSpeechSelection}
+              onPointerUp={handleManualSpeechSelection}
+              onClick={handleSpeechSelectionClick}
+              onKeyUp={handleManualSpeechSelection}
+              onCut={clearSpeechSelectionTarget}
+              onCopy={clearSpeechSelectionTarget}
+              onPaste={clearSpeechSelectionTarget}
+              placeholder={t("fabPlaceholder")}
+              className="fab-textarea"
+              rows={3}
+            />
+          </SpeechDraftField>
           <div className="fab-input-toolbar">
             <FloatingComposerModelChip />
             <VoiceInputButton

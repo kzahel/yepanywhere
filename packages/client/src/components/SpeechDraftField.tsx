@@ -4,10 +4,9 @@ import type { SpeechTranscriptInsertionParts } from "../lib/speechRecognition";
 /**
  * A message box's textarea with the interim speech mirror drawn over it and
  * the tentative-transcript status line below. Shared by the new-session and
- * in-session boxes (docs/tactical/178-shared-composer-dictation.md slice 3);
- * the box passes its textarea as `children`. The floating composer
- * (`FloatingActionButton.tsx`) still draws its own copy; plan 178 slice 5
- * moves it here.
+ * in-session boxes and the floating composer
+ * (docs/tactical/178-shared-composer-dictation.md slices 3 and 5); the box
+ * passes its textarea as `children`.
  */
 export function SpeechDraftField({
   interimDisplayTranscript,

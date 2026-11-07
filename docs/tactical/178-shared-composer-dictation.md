@@ -2,11 +2,13 @@
 
 Topic: mic-button-speech-ui
 
-Status: planned 2026-11-07; slices 0 (the test pins), 1 (speech state),
-2 (speech handlers), 3 (keys, paste and speech field) and 4 (attachment
-upload) landed 2026-11-07. Proposal 1 of the [session page React hub
-gap](../../gaps/session-page-react-hub.md), owned by
-[doc 058](058-typescript-module-boundary-refactor.md) priority-queue item 2.
+Status: done 2026-11-07. Slices 0 (the test pins), 1 (speech state),
+2 (speech handlers), 3 (keys, paste and speech field), 4 (attachment
+upload) and 5 (the floating composer) landed 2026-11-07; the questions
+under "Differences" remain open with the maintainer. Proposal 1 of the
+[session page React hub gap](../../gaps/session-page-react-hub.md), owned
+by [doc 058](058-typescript-module-boundary-refactor.md) priority-queue
+item 2.
 
 The new-session box (`NewSessionForm.tsx`) and the in-session box
 (`MessageInput.tsx`) each hold their own copy of the dictation code: 14 and
@@ -122,6 +124,21 @@ Out of this plan:
 | A3 | Staged or direct upload, and the batch id. | Per site; each keeps its own call. |
 | A4 | The image profile: the helper's callers (the session page and the Project Queue attachment editor) pass one; the new-session box derives it from attachment quality, provider and model. | Passed in. |
 
+### Floating composer differences (slice 5)
+
+Measured against the new-session box's copy.
+
+| # | Difference | Handling |
+| --- | --- | --- |
+| F1 | Delivery during capture: the floating composer keeps the visible draft text as its pending delivery and submits it from its own pending-state handler when the cycle ends `completed`; any other end drops it. It has no settled flag, no speech-prefix attribution and no deferred delivery run. | Deliberate (it hands the draft to the New Session page as a prefill). It keeps its own `handlePendingSpeechChange` and passes the shared hook a private settled flag and no-op attribution and delivery-run callbacks, so the hook's writes to them do nothing. |
+| F2 | Smart Turn's spoken "send" calls its `handleSubmit` directly: no acceptance check and no follow-up listening (the composer navigates away). | Outside the shared code: it passes `handleSubmit` as `onSmartTurnSend`, as before. Same question as D7. |
+| F3 | Cancel leaves `speechPendingRef` as it was and drops the pending delivery after clearing the ranges, where the boxes reset the ref and drop the delivery first. | Kept: it keeps its own `handleCancelTranscription`. Unclear whether anyone can see it; asked with D11. |
+| F4 | Its `onSelect`, `onPointerUp` and `onKeyUp` pass their events, so all three are manual caret moves, as in the in-session box (compare D10). | Kept: all three pass `true` through a stable wrapper. |
+| F5 | Enter without Shift sends on every device, Ctrl+Enter included, and a plain Escape that the speech pair does not take collapses the panel. | Its own; only the Escape pair is shared. |
+| F6 | No failed-transcription handler, as in the new-session box (D4). | Kept. |
+| F7 | No voice keyboard shortcut (`handleVoiceInputShortcutKeyDown`), which both boxes have. | Outside the shared code; kept. Asked the maintainer. |
+| F8 | Its transcription context sends no project id and no client turn id; the new-session box sends both. | Outside the shared code, like D9; kept. Asked the maintainer. |
+
 ## Slices
 
 Each slice is one commit with its doc 058 row, budget ratchet and a status
@@ -206,24 +223,24 @@ line here.
 
   No hook-level unit tests: they would restate code the component tests
   exercise.
-- **Browser keystroke check** (slice 1, rerun in slices 2 and 3, which change
-  code that runs on every keystroke), in `speech-caret-insertion.spec.ts`,
-  for both boxes. The draft is 120 lines (about 5,000 characters), and the
-  fake browser recognizer commits 20 finals into the open target before the
-  interim shows, since each keystroke maps every target's range and each of
-  its chunks through the edit, and each mapping scans the draft. Typing at
-  the start of the draft is the slow case, since every index then misses the
-  common-prefix shortcut. The caret moves to the start, and the user
-  types there one key at a time while the recognizer revises the interim
-  every few keys and, in the in-session box, a transcript row arrives
-  halfway. Timing follows [UI testing](../../topics/ui-testing.md): from
-  each native keydown's timestamp to the value two animation frames later,
-  recorded for every typed prefix, each under 100 ms. The final then lands
-  where each box puts it today (D10). Browser recognition opens one target at
-  a time; overlapping targets come only from server backends, which the
-  browser suite does not drive, so the check covers one open target with
-  many chunks over a large draft. The remap's cost grows with targets times
-  chunks times draft length.
+- **Browser keystroke check** (slice 1, rerun in slices 2, 3 and 5, which
+  change code that runs on every keystroke), in `speech-caret-insertion.spec.ts`, for
+  both boxes and, from slice 5, the floating composer. The draft is 120 lines
+  (about 5,000 characters), and the fake browser recognizer commits 20 finals
+  into the open target before the interim shows, since each keystroke maps
+  every target's range and each of its chunks through the edit, and each
+  mapping scans the draft. Typing at the start of the draft is the slow case,
+  since every index then misses the common-prefix shortcut. The caret moves to
+  the start, and the user types there one key at a time while the recognizer
+  revises the interim every few keys and, in the in-session box, a transcript
+  row arrives halfway. Timing follows [UI
+  testing](../../topics/ui-testing.md): from each native keydown's timestamp
+  to the value two animation frames later, recorded for every typed prefix,
+  each under 100 ms. The final then lands where each composer puts it today
+  (D10, F4). Browser recognition opens one target at a time; overlapping
+  targets come only from server backends, which the browser suite does not
+  drive, so the check covers one open target with many chunks over a large
+  draft. The remap's cost grows with targets times chunks times draft length.
 - **Focused browser specs per slice:** `speech-caret-insertion.spec.ts`,
   `composer-recall-drawer.spec.ts`, `bang-command.spec.ts`, and the
   new-session typing and queue cases in `session-creation-client.spec.ts`;
@@ -233,7 +250,8 @@ line here.
 
 ## Not in scope
 
-- Aligning D2, D4, D5, D7, D8, D10 or D11 before the maintainer answers.
+- Aligning D2, D4, D5, D7, D8, D10, D11 or F2 to F8 before the maintainer
+  answers.
 - Delivery during capture, send and start callbacks (proposals 2 and 3).
 - Attachment state, progress and persistence (see above).
 - `VoiceInputButton`, recognizer backends, Smart Turn and speech settings.

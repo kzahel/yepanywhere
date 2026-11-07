@@ -152,6 +152,31 @@ afterEach(() => {
 });
 
 describe("FloatingActionButton speech", () => {
+  // Plan 178: the shared speech hooks must not change the identity of a
+  // voice button callback that is stable today. The others change with the
+  // draft, through the composer's submit callback.
+  it("keeps the voice button's stable callbacks across a typed character", async () => {
+    render(<FloatingActionButton />);
+    fireEvent.click(screen.getByLabelText("fabNewSession"));
+    const textarea = await screen.findByPlaceholderText(/./);
+    const beforeProps = voicePropsState.current;
+    const before = { ...beforeProps } as Record<string, unknown>;
+    fireEvent.change(textarea, { target: { value: "a" } });
+    const after = voicePropsState.current as Record<string, unknown> | null;
+    // The voice button rendered again, and a callback that follows the draft
+    // changed, so the identity checks below are not comparing stale props.
+    expect(after).not.toBe(beforeProps);
+    expect(after?.onTranscript).not.toBe(before.onTranscript);
+    for (const key of [
+      "getTranscriptionContext",
+      "onInterimTranscript",
+      "onListeningStart",
+    ]) {
+      expect(after?.[key], key).toBeTypeOf("function");
+      expect(after?.[key], key).toBe(before[key]);
+    }
+  });
+
   it("prewarms voice resources after expanding the quick composer", async () => {
     render(<FloatingActionButton />);
 

@@ -20,15 +20,16 @@ Measured 2026-11-07 at `097d8298d` (`packages/client/src`):
 
 ## What makes it worse than size
 
-- **The two message boxes are copies.** The new-session box
-  (`NewSessionForm.tsx`) and the in-session box (`MessageInput.tsx`) each
-  carry their own dictation handlers, nearly line for line:
-  `handleSpeechSelectionTarget` (63 and 62 lines, 7 differ) and
-  `handlePendingSpeechChange` (36 and 37 lines, 9 differ).
-  `commitVoiceTranscript` exists in both (63 and 104 lines). Even
-  `createClientSpeechTurnId` and `createSpeechTargetId` are copied into
-  `NewSessionForm.tsx` although `lib/speechTargets.ts` exports them.
-  Attachment and keyboard handling look copied the same way. The copies drift.
+- **The message boxes were copies.** Fixed by proposal 1 (plan 178,
+  2026-11-07): the new-session and in-session boxes now share one
+  dictation core, key and paste helpers, the speech field and the per-file
+  attachment prepare step, and the floating composer shares the dictation
+  core, the Escape pair and the speech field. `MessageInput.tsx` went
+  from 4,543 to 4,023 lines, `NewSessionForm.tsx` from 5,975 to 5,535 and
+  `FloatingActionButton.tsx` from 739 to 433. The differences found between
+  the copies are kept as they were and listed in plan 178 as questions for
+  the maintainer. Attachment state stays separate: the session page, not the
+  in-session box, owns its uploads.
 - **Sending a message is about 1,100 lines of the session page.**
   `handleSend` (about 390 lines), `handleQueue` (about 220),
   `queueComposerForProject` (about 380) and `prepareComposerSubmission`
@@ -53,10 +54,7 @@ maintainer's rule, a difference found between copies that is harmless gets
 its own commit with a test, and one a user could see is asked about. Proposals
 4 to 6 are ordinary move-only slices recorded in doc 058 Phase 2.
 
-1. **One shared message-box core.** Both boxes use one set of hooks for
-   dictation, attachments and keyboard handling instead of two copies.
-   Highest payoff; medium risk; every typing path keeps its in-browser
-   keystroke check. Planned in
+1. **One shared message-box core.** Done 2026-11-07 in
    [plan 178](../docs/tactical/178-shared-composer-dictation.md), which lists
    every difference between the copies and how each is handled.
 2. **Sending as plain functions plus a thin hook.** The send, queue and

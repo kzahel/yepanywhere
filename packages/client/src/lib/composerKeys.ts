@@ -4,7 +4,7 @@ import { ENTER_SENDS_MESSAGE } from "../constants";
 import { hasCoarsePointer } from "./deviceDetection";
 
 /**
- * Key and paste rules both message boxes apply the same way
+ * Key and paste rules the message boxes apply the same way
  * (docs/tactical/178-shared-composer-dictation.md slice 3). Each box keeps
  * its own key order and the guards that run before these (plan 178 D8, D11).
  */
