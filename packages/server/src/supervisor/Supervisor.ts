@@ -668,6 +668,8 @@ export interface SessionCopyOptions {
   initialPrompt?: string;
   creation?: NonNullable<SessionLaunchOptions["creation"]>;
   projectPath: string;
+  /** The project the copy is listed under; by default `projectPath`'s. */
+  workingProjectId?: UrlProjectId;
   providerName?: ProviderName;
   upToMessageId?: string;
   boundary?: ProviderForkBoundary;
@@ -3597,6 +3599,9 @@ export class Supervisor {
         ? this.sessionMetadataService?.getPendingRewind?.(options.sessionId)
             ?.cutMessageId
         : undefined;
+    const source = this.sessionMetadataService?.getMetadata(options.sessionId);
+    let workingProjectId =
+      options.workingProjectId ?? encodeProjectId(options.projectPath);
     const store = this.sessionMetadataService?.creations;
     if (store && !options.creation)
       throw new Error("Transcript copies require trusted creation context");
@@ -3609,7 +3614,7 @@ export class Supervisor {
             context: options.creation.context,
             request: {
               provider: provider.name,
-              projectId: encodeProjectId(options.projectPath),
+              projectId: workingProjectId,
               projectPath: options.projectPath,
               message: options.initialPrompt ?? "",
               intent: "copy",
@@ -3618,18 +3623,12 @@ export class Supervisor {
                 promptSuggestionMode:
                   options.creation.context.source.kind === "internal"
                     ? "off"
-                    : this.sessionMetadataService?.getMetadata(
-                        options.sessionId,
-                      )?.promptSuggestionMode,
-                recapAfterSeconds: this.sessionMetadataService?.getMetadata(
-                  options.sessionId,
-                )?.recapAfterSeconds,
+                    : source?.promptSuggestionMode,
+                recapAfterSeconds: source?.recapAfterSeconds,
                 recapMode:
                   options.creation.context.source.kind === "internal"
                     ? "off"
-                    : this.sessionMetadataService?.getMetadata(
-                        options.sessionId,
-                      )?.recapMode,
+                    : source?.recapMode,
                 sandboxLevel: options.sandboxLevel,
                 sandboxNetworkFirewall: options.sandboxNetworkFirewall,
                 sandboxStateKey: options.sandboxStateKey,
@@ -3661,6 +3660,7 @@ export class Supervisor {
         sandboxNetworkFirewall: request.launch?.sandboxNetworkFirewall,
         sandboxStateKey: request.launch?.sandboxStateKey,
       };
+      workingProjectId = request.projectId;
       nativeSource = copy.source;
       nativeSessionId = copy.source.native.id;
       launchSettings = request.settings;
@@ -3783,10 +3783,10 @@ export class Supervisor {
               "Fork child identity changed during account inheritance",
             );
         }
-        const workingProjectId = encodeProjectId(options.projectPath);
+        // Named when the transcript lies outside the folder the copy runs in.
         if (
           fork.transcriptProjectId &&
-          fork.transcriptProjectId !== workingProjectId
+          fork.transcriptProjectId !== encodeProjectId(options.projectPath)
         )
           await this.sessionMetadataService?.setWorkingProject(
             childId,

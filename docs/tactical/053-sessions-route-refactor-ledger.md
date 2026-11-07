@@ -31,7 +31,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-024
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-025
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -101,6 +101,56 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-025: One Owner For A Copy's Sandbox Record
+
+Status: done, 2026-11-07. Last part of step 5 of
+[plan 177](177-session-launch-service.md). Not a move-only slice; it follows
+that plan's behavior-preserving rules, checked on the Linux testbed.
+
+Destination: no new module. `Supervisor.forkSession` and `cloneSession`
+take the project the copy is listed under as `workingProjectId`; creation
+admission and the Supervisor's sandbox save record it.
+`inheritedSandboxRecord` and the sandbox field of `persistLaunchMetadata`
+are removed, and `inheritedWorkingProject` names the source's working
+project for the routes.
+
+Line delta: `-59` lines from `sessions.ts` (5,373 -> 5,314);
+`Supervisor.ts` stays at 6,953 (reading the source's metadata once pays
+for the new option).
+
+Problem:
+
+After a fork, clone, restart (handoff and fork), a fork-summary
+continuation and the retitle and fork-summary helpers, the routes wrote a
+sandbox record that creation admission and the Supervisor had already
+saved. For a project-write source the two differed only in the working
+project, and only for a project opened through a symlinked folder: the
+copy runs in the folder's real path, which the Supervisor named, while the
+route named the source's working project, the link.
+
+Implemented:
+
+- fork, the helpers and a sandboxed source's Codex clone pass the source's
+  working project to the copy, and the routes' sandbox writes are removed;
+  the restarts, the Claude clone and the fork-summary continuation already
+  recorded what the Supervisor saves;
+- the Supervisor records a copy's transcript project when the transcript
+  lies outside the folder the copy runs in, as before, rather than
+  comparing it with the new working project, so a fork of a symlinked
+  source keeps its stored transcript project;
+- a separate commit stops the routes' write for an unsandboxed source,
+  whose only effect was a sandbox folder equal to the project.
+
+Verification: the Linux-only full-app
+`test/routes/session-launch-records-sandboxed.test.ts`, captured on the old
+code on the Linux testbed, starts a real sandboxed session in a symlinked
+folder and pins each copy's stored record, the project list that shows it
+and where a later resume runs; it passes unchanged. The unsandboxed pins in
+`test/routes/session-launch-records.test.ts` change only in the commit that
+drops the unsandboxed folder. The cases also found a defect left as it was,
+recorded in
+[gaps/symlinked-sandboxed-session-leaves-its-project-list.md](../../gaps/symlinked-sandboxed-session-leaves-its-project-list.md).
 
 ### SRR-024: The Shared Launch Code Moves Below The Routes
 

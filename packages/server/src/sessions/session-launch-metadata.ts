@@ -1,8 +1,4 @@
-import type {
-  PromptSuggestionMode,
-  SessionSandboxLevel,
-  UrlProjectId,
-} from "@yep-anywhere/shared";
+import type { PromptSuggestionMode, UrlProjectId } from "@yep-anywhere/shared";
 import type {
   SessionMetadata,
   SessionMetadataService,
@@ -10,44 +6,23 @@ import type {
 import type { ForkOrdinalClaim } from "../metadata/SessionMetadataService.js";
 import { ForkSettingsPersistenceError } from "../supervisor/Supervisor.js";
 import type { EventBus } from "../watcher/index.js";
-import { persistedSandboxNetworkFirewall } from "./session-sandbox-inheritance.js";
-
-/** The sandbox a launched session records for later resumes. */
-export interface LaunchSandboxRecord {
-  level: SessionSandboxLevel;
-  networkFirewall?: boolean;
-  stateKey?: string;
-  projectPath: string;
-  projectId: UrlProjectId;
-}
 
 /**
  * The launch metadata a launch caller records itself. Creation admission
- * already saved a new session's or copy's provider, model and preferences, and
- * the Supervisor records the settings a process runs with, so a caller passes
- * only preferences and the sandbox record: the successor launches the
+ * already saved a new session's or copy's provider, model, preferences and
+ * sandbox, and the Supervisor records the settings and sandbox a process runs
+ * with, so a caller passes only preferences: the successor launches the
  * preferences their started process resolved, recovered-queue reactivation
  * the session's saved ones. An absent field is not written.
  */
 export interface LaunchMetadataRecord {
   promptSuggestionMode?: PromptSuggestionMode;
   recapAfterSeconds?: number;
-  sandbox?: LaunchSandboxRecord;
 }
 
-/** Source fields a transcript child inherits its sandbox record from. */
-type InheritedLaunchSource = Pick<
-  SessionMetadata,
-  | "sandboxLevel"
-  | "sandboxNetworkFirewall"
-  | "sandboxStateKey"
-  | "workingProjectId"
->;
-
 /**
- * Write a launched session's metadata, in a fixed order: prompt-suggestion
- * mode, recap delay, a project-write sandbox. A later resume that omits these
- * from its request recovers them from here.
+ * Write a launched session's preferences, prompt-suggestion mode first. A
+ * later resume that omits these from its request recovers them from here.
  */
 export async function persistLaunchMetadata(
   service: SessionMetadataService | undefined,
@@ -70,33 +45,17 @@ export async function persistLaunchMetadata(
       recapAfterSeconds: record.recapAfterSeconds,
     });
   }
-  // An unsandboxed launch's creation already recorded its working project
-  // and level; the folder it runs in is that project's.
-  if (record.sandbox?.level === "project-write") {
-    await service.setSessionSandbox?.(sessionId, record.sandbox);
-  }
 }
 
 /**
- * The sandbox record a transcript child of `source` keeps: the source's
- * level and firewall, the child's own sandbox state when the copy made one,
- * and the source's working project.
+ * The project a transcript child of `source` is listed under: the source's
+ * working project, or the one the request named when the source has none.
  */
-export function inheritedSandboxRecord(
-  source: InheritedLaunchSource | undefined,
-  child: {
-    sandboxStateKey: string | undefined;
-    projectPath: string;
-    projectId: UrlProjectId;
-  },
-): LaunchSandboxRecord {
-  return {
-    level: source?.sandboxLevel ?? "none",
-    networkFirewall: persistedSandboxNetworkFirewall(source),
-    stateKey: child.sandboxStateKey ?? source?.sandboxStateKey,
-    projectPath: child.projectPath,
-    projectId: source?.workingProjectId ?? child.projectId,
-  };
+export function inheritedWorkingProject(
+  source: Pick<SessionMetadata, "workingProjectId"> | undefined,
+  projectId: string,
+): UrlProjectId {
+  return source?.workingProjectId ?? (projectId as UrlProjectId);
 }
 
 /** What open session lists are told about a new session. */

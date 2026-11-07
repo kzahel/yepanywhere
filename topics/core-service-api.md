@@ -407,16 +407,15 @@ routes. Decided 2026-11-06 in
   before the session exists, so a queued launch or a server restart keeps
   them.
 - **The Supervisor** owns what a running process changes: the launch
-  settings it runs with, and the sandbox it confines once it starts.
+  settings it runs with, and the sandbox it confines once it starts or a
+  copy is made. A caller names the project a copy is listed under
+  (`workingProjectId`) rather than writing the sandbox record itself.
 - **The launch caller** owns only what admission is not told: a handoff's
   title, a fork's lineage root, the fork-summary target's archiving, a
   `/btw` link to a parent other than the source, the preferences a restart
   fork or fork-summary continuation resolved when it started, and a restart
   handoff's started recap delay. It announces new
   sessions to open lists without writing admission's fields again.
-
-The sandbox record still has a caller write alongside the Supervisor's until
-plan 177 verifies one owner on Linux.
 
 The launch pieces a caller uses live in `packages/server/src/sessions/`, not
 in the routes: the resume and successor launch settings

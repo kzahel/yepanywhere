@@ -3,8 +3,8 @@
 Topic: core-service-api
 
 Status: steps 1-4 and the first part of step 5 landed 2026-11-06, the
-second part of step 5 on 2026-11-07; the sandbox record's single owner
-remains. Accepted by the maintainer as the top item of the module-boundary
+rest of step 5 on 2026-11-07, the sandbox record's single owner checked on
+the Linux testbed. Accepted by the maintainer as the top item of the module-boundary
 [priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
 
 Starting a session is one operation that today has about a dozen hand-written
@@ -45,7 +45,7 @@ move-only rule and follows these rules instead:
 | Restart fork | `forkSession`, then `resumeSession` | `buildSuccessorLaunch` | route |
 | Stale-session handoff | `startSession` | `buildSuccessorLaunch` | route, title only |
 | Fork | `forkSession` | none (cold child) | route |
-| Clone | `cloneSession`, or `forkSession` for Codex | Supervisor `resolveForkLaunchSettings` (Claude); none (Codex) | route adds a Codex sandbox |
+| Clone | `cloneSession`, or `forkSession` for Codex | Supervisor `resolveForkLaunchSettings` (Claude); none (Codex) | route added a Codex sandbox until step 5 |
 | Retitle helper | `reactivateSession` if cold, then `forkSession` | `sessions.ts`, inline | route |
 | Fork-summary helper and target | `forkSession` twice, then `resumeSession` | `sessions.ts`, inline (a resume of the forked target) | route, three times |
 | Recap revival | `reactivateSession` | `sessions.ts`, inline | Supervisor activation |
@@ -280,8 +280,8 @@ Every difference found while removing the writes was checked:
 | A restart handoff, restart fork or fork-summary target whose source saved no preferences stores the defaults its process started with; a plain fork stores none | Deliberate: a started session records what it runs with, since prompt suggestions (`2169541e5`, 2026-06-16) and recap delays (`9682c7687`, 2026-06-24) became durable. A later resume starts with the same defaults either way. Admission already resolves a restart handoff's prompt-suggestion preference the same way, so only its recap delay is recorded again | Unchanged; the three paths keep it |
 | The route's title write cleaned a copy's title up (one line, no control characters, none when blank); admission stored it as sent. A `/btw` question aside's title keeps the question's line breaks | User-visible if dropped | Admission now stores a copy's title cleaned the same way. A copy the route never finished, because it failed after admission or was recovered later, also keeps a cleaned title now, as do lists that show a copy before the route ran |
 | An internal retitle or fork-summary generator stored the source's prompt-suggestion preference over admission's "off" | Accidental: admission turns internal helpers' prompt suggestions off (`e86b1caa9`, 2026-11-03), and the route's write predates it. Harmless: a summary is generated through the provider, not by resuming the helper, so the stored value matters only if someone opens an archived helper | Dropped in its own commit; the full-app test pins "off" for a source that shows them |
-| A session without a sandbox stored its project path as a sandbox path through the route's explicit "none" record | Harmless: every reader uses that path only for a project-write sandbox, or falls back to the working project, which names the same directory | Kept with the sandbox record below |
-| The route's sandbox record names the source's working project, while a copy's admission and the Supervisor's save name the directory the copy runs in | Unverified: the two differ when the project is opened through a symlinked path, and sandboxing runs only on Linux, so it cannot be tested on the maintainer's machine | The route keeps its sandbox record; part 2 |
+| A session without a sandbox stored its project path as a sandbox path through the route's explicit "none" record | Harmless: every reader uses that path only for a project-write sandbox, or falls back to the working project, which names the same directory | Dropped in its own commit in part 3; a path-scope case shows the working project alone gives the same scope |
+| The route's sandbox record names the source's working project, while a copy's admission and the Supervisor's save name the directory the copy runs in | They differ when the project is opened through a symlinked path; sandboxing runs only on Linux | Part 3: the routes pass the working project to the copy, checked on the Linux testbed |
 | The fork route computed the copy's model itself when the fork returned no launch settings | Unreachable: `forkSession` always returns them | Removed |
 
 #### Part 2: the shared launch code moves below the routes
@@ -337,23 +337,33 @@ suggestions. Its snapshots were captured on the old code. No caller passes
 a provider, executor or requested model to `persistLaunchMetadata` any
 more, so those fields are gone.
 
-#### Remaining
+#### Part 3: one owner for a copy's sandbox record
 
-- Give the sandbox record one owner: pass the working project to the copy
-  and start calls so the Supervisor's save is the only one, verified on
-  Linux. For a project-write source, the routes' record and admission's
-  differ only in the working project they name, and only for a project
-  opened through a symlinked path. Sandboxing runs only on Linux, so that
-  check needs Linux-only full-app cases (fork, clone, restart and the
-  helpers of a project-write source opened through a symlink) captured on
-  the old code on Linux, then the route write removed and the cases rerun.
-  For an unsandboxed source the Supervisor saves no record, and only the
-  route's record stores a sandbox project path, which fork, the helpers,
-  fork-summary and restart children would lose; readers fall back to the
-  working project, which names the same directory. Those cases can be
-  captured on the old code on any machine. A Linux testbed is reachable
-  through Machine Control and CI runs the Linux sandbox tests; the testbed
-  was not brought up in this pass.
+Landed 2026-11-07 as SRR-025 in the
+[sessions route ledger](053-sessions-route-refactor-ledger.md). Fork, the
+retitle and fork-summary helpers and a sandboxed source's Codex clone pass
+the source's working project to `forkSession` as `workingProjectId`, which
+creation admission and the Supervisor's sandbox save record, and the
+routes' sandbox writes are removed. The restarts, the Claude clone and the
+fork-summary continuation already recorded what the Supervisor saves. The
+Supervisor still records a copy's transcript project when the transcript
+lies outside the folder the copy runs in, so a fork of a symlinked source
+keeps it.
+
+A Linux-only full-app test,
+`test/routes/session-launch-records-sandboxed.test.ts`, starts a real
+sandboxed session in a symlinked folder and pins what each copy stores, the
+project list that shows it and where a later resume runs. It was captured
+on the old code on the Linux testbed reached through Machine Control and
+passes unchanged. For an unsandboxed source the routes' record only added
+a sandbox folder equal to the project; that difference is dropped in its
+own commit, as part 1's table records.
+
+The same cases show that a resume, a clone, a restart and a fork-summary
+continuation of such a source record the folder's real path as the working
+project, so those sessions leave the list of the project the user opened.
+That is left as it was and recorded in
+[gaps/symlinked-sandboxed-session-leaves-its-project-list.md](../../gaps/symlinked-sandboxed-session-leaves-its-project-list.md).
 
 ## Not in scope
 

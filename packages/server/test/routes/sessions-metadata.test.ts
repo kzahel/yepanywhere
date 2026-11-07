@@ -4912,13 +4912,8 @@ describe("Sessions metadata route", () => {
         sandboxStateKey: "project-sandbox",
       }),
     );
-    expect(setSessionSandbox).toHaveBeenCalledWith("sess-fork", {
-      level: "project-write",
-      networkFirewall: false,
-      stateKey: "project-sandbox",
-      projectPath: project.path,
-      projectId: project.id,
-    });
+    // The fork and its resumed process record the sandbox, not the route.
+    expect(setSessionSandbox).not.toHaveBeenCalled();
     expect(updateMetadata).toHaveBeenCalledWith("sess-fork", {
       forkLineageRootId: "sess-1",
     });
@@ -5028,13 +5023,12 @@ describe("Sessions metadata route", () => {
         }),
       }),
     );
-    expect(setSessionSandbox).toHaveBeenCalledWith("sess-fork", {
-      level: "project-write",
-      networkFirewall: true,
-      stateKey: "project-sandbox",
-      projectPath: project.path,
-      projectId: project.id,
-    });
+    // The copy records its sandbox; the route names the project it is
+    // listed under.
+    expect(forkSession).toHaveBeenCalledWith(
+      expect.objectContaining({ workingProjectId: project.id }),
+    );
+    expect(setSessionSandbox).not.toHaveBeenCalled();
     expect(forkSession.mock.calls[0]?.[0]).toMatchObject({
       title: "Fork: Refactor session",
     });
@@ -6103,6 +6097,7 @@ describe("Sessions metadata route", () => {
     });
     await vi.waitFor(() => {
       expect(resumeSession).toHaveBeenCalledTimes(1);
+      expect(transcriptDisplayObjects[0]).toMatchObject({ status: "ready" });
     });
     expect(forkSession).toHaveBeenNthCalledWith(
       1,
@@ -6163,22 +6158,12 @@ describe("Sessions metadata route", () => {
         sandboxStateKey: "project-sandbox",
       }),
     );
-    expect(setSessionSandbox).toHaveBeenCalledWith(
-      "sess-generator",
-      expect.objectContaining({
-        level: "project-write",
-        stateKey: "project-sandbox",
-        projectPath: project.path,
-      }),
-    );
-    expect(setSessionSandbox).toHaveBeenCalledWith(
-      "sess-target",
-      expect.objectContaining({
-        level: "project-write",
-        stateKey: "project-sandbox",
-        projectPath: project.path,
-      }),
-    );
+    // Both copies and the target's process record their sandboxes; the
+    // route names the project the copies are listed under.
+    expect(forkSession).toHaveBeenCalledTimes(2);
+    for (const [options] of forkSession.mock.calls)
+      expect(options).toMatchObject({ workingProjectId: project.id });
+    expect(setSessionSandbox).not.toHaveBeenCalled();
     // Creation admission records both copies' titles, sources, providers
     // and models, and the generator's archiving; the route hides the target
     // until its continuation starts.

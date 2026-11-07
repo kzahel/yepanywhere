@@ -14,11 +14,13 @@ import type { Project } from "../../src/supervisor/types.js";
 // launch metadata each successor launch (fork, retitle generator,
 // fork-summary generator and target, restart fork, restart handoff) writes
 // after its session exists, in order.
-// Creation admission records a copy's provider, model, preferences, title
-// and source, so the routes write only what admission does not know:
-// the sandbox record, the preferences a started process resolved, the
-// lineage root and the fork-summary target's archiving.
-// session-launch-records.test.ts pins the stored result of both together.
+// Creation admission records a copy's provider, model, preferences, title,
+// source and sandbox, and the Supervisor the sandbox a process runs in, so
+// the routes write only what neither knows: the preferences a started
+// process resolved, the lineage root and the fork-summary target's
+// archiving. A copy is told the project it is listed under instead.
+// session-launch-records.test.ts and its Linux sandboxed sibling pin the
+// stored result of all of them together.
 
 const project: Project = {
   id: "proj-1" as UrlProjectId,
@@ -162,16 +164,17 @@ const post = (path: string, body: unknown) => ({
 });
 
 describe("successor launch metadata writes", () => {
-  it("fork records its inherited sandbox and its lineage root", async () => {
+  it("fork names the source's working project and records its lineage root", async () => {
     const metadata = recordingMetadata(sandboxedSource);
+    const forkSession = vi.fn(async () => ({
+      sessionId: "sess-fork",
+      sandboxStateKey: "child-sandbox",
+    }));
     const routes = createSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
-        forkSession: vi.fn(async () => ({
-          sessionId: "sess-fork",
-          sandboxStateKey: "child-sandbox",
-        })),
+        forkSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
@@ -185,29 +188,25 @@ describe("successor launch metadata writes", () => {
     const response = await routes.request(request.path, request.init);
 
     expect(response.status).toBe(200);
+    expect(forkSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectPath: "/tmp/project-sandbox",
+        workingProjectId: "proj-working",
+      }),
+    );
     expect(metadata.writesFor("sess-fork")).toEqual([
-      [
-        "setSessionSandbox",
-        "sess-fork",
-        {
-          level: "project-write",
-          networkFirewall: false,
-          stateKey: "child-sandbox",
-          projectPath: "/tmp/project-sandbox",
-          projectId: "proj-working",
-        },
-      ],
       ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });
 
-  it("fork of an unsandboxed source writes no sandbox record", async () => {
+  it("fork of a source with no saved metadata names the request's project", async () => {
     const metadata = recordingMetadata(undefined);
+    const forkSession = vi.fn(async () => ({ sessionId: "sess-fork" }));
     const routes = createSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
-        forkSession: vi.fn(async () => ({ sessionId: "sess-fork" })),
+        forkSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
@@ -221,22 +220,28 @@ describe("successor launch metadata writes", () => {
     const response = await routes.request(request.path, request.init);
 
     expect(response.status).toBe(200);
-    // Creation already recorded its working project and level.
+    expect(forkSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectPath: project.path,
+        workingProjectId: project.id,
+      }),
+    );
     expect(metadata.writesFor("sess-fork")).toEqual([
       ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });
 
-  it("retitle records its generator's inherited sandbox", async () => {
+  it("retitle names the source's working project and writes nothing after", async () => {
     const metadata = recordingMetadata(firewallOnSource);
+    const forkSession = vi.fn(async () => ({
+      sessionId: "sess-retitle-generator",
+      sandboxStateKey: "child-sandbox",
+    }));
     const routes = createSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => sourceProcess()),
         supportsForkSession: vi.fn(() => true),
-        forkSession: vi.fn(async () => ({
-          sessionId: "sess-retitle-generator",
-          sandboxStateKey: "child-sandbox",
-        })),
+        forkSession,
         generateSummary: vi.fn(async () => ({ text: "Tight rename flow" })),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
@@ -251,22 +256,13 @@ describe("successor launch metadata writes", () => {
     const response = await routes.request(request.path, request.init);
 
     expect(response.status).toBe(200);
-    expect(metadata.writesFor("sess-retitle-generator")).toEqual([
-      [
-        "setSessionSandbox",
-        "sess-retitle-generator",
-        {
-          level: "project-write",
-          networkFirewall: true,
-          stateKey: "child-sandbox",
-          projectPath: "/tmp/project-sandbox",
-          projectId: "proj-working",
-        },
-      ],
-    ]);
+    expect(forkSession).toHaveBeenCalledWith(
+      expect.objectContaining({ workingProjectId: "proj-working" }),
+    );
+    expect(metadata.writesFor("sess-retitle-generator")).toEqual([]);
   });
 
-  it("fork-summary records its generator's sandbox and its target's started settings", async () => {
+  it("fork-summary names the working project and records its target's started settings", async () => {
     const metadata = recordingMetadata(firewallOnSource);
     const forkSession = vi
       .fn()
@@ -328,52 +324,25 @@ describe("successor launch metadata writes", () => {
           ),
       ).toBe(true);
     });
-    expect(metadata.writesFor("sess-generator")).toEqual([
-      [
-        "setSessionSandbox",
-        "sess-generator",
-        {
-          level: "project-write",
-          networkFirewall: true,
-          stateKey: "generator-sandbox",
-          projectPath: "/tmp/project-sandbox",
-          projectId: "proj-working",
-        },
-      ],
+    expect(forkSession.mock.calls.map(([options]) => options)).toEqual([
+      expect.objectContaining({ workingProjectId: "proj-working" }),
+      expect.objectContaining({ workingProjectId: "proj-working" }),
     ]);
-    const targetSandbox = {
-      level: "project-write",
-      networkFirewall: true,
-      stateKey: "target-sandbox",
-      projectPath: "/tmp/project-sandbox",
-      projectId: "proj-working",
-    };
+    expect(metadata.writesFor("sess-generator")).toEqual([]);
     expect(metadata.writesFor("sess-target")).toEqual([
       [
         "updateMetadata",
         "sess-target",
         { archived: true, forkLineageRootId: "sess-1" },
       ],
-      ["setSessionSandbox", "sess-target", targetSandbox],
       // After the resumed target process starts: its own resolved settings.
       ["updateMetadata", "sess-target", { promptSuggestionMode: "off" }],
       ["updateMetadata", "sess-target", { recapAfterSeconds: 600 }],
-      [
-        "setSessionSandbox",
-        "sess-target",
-        {
-          level: "project-write",
-          networkFirewall: true,
-          stateKey: "resumed-sandbox",
-          projectPath: "/tmp/project-resumed",
-          projectId: "proj-resumed",
-        },
-      ],
       ["updateMetadata", "sess-target", { archived: false }],
     ]);
   });
 
-  it("restart fork records its started preferences, sandbox and lineage root", async () => {
+  it("restart fork records its started preferences and lineage root", async () => {
     const metadata = recordingMetadata(sandboxedSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -421,22 +390,11 @@ describe("successor launch metadata writes", () => {
     expect(metadata.writesFor("sess-fork")).toEqual([
       ["updateMetadata", "sess-fork", { promptSuggestionMode: "off" }],
       ["updateMetadata", "sess-fork", { recapAfterSeconds: 600 }],
-      [
-        "setSessionSandbox",
-        "sess-fork",
-        {
-          level: "project-write",
-          networkFirewall: false,
-          stateKey: "resumed-sandbox",
-          projectPath: "/tmp/project-sandbox",
-          projectId: "proj-resumed",
-        },
-      ],
       ["updateMetadata", "sess-fork", { forkLineageRootId: "sess-1" }],
     ]);
   });
 
-  it("restart handoff records its started recap delay, sandbox and title", async () => {
+  it("restart handoff records its started recap delay and title", async () => {
     const metadata = recordingMetadata(firewallOnSource);
     const routes = createSessionsRoutes({
       supervisor: {
@@ -477,17 +435,6 @@ describe("successor launch metadata writes", () => {
     expect(response.status).toBe(200);
     expect(metadata.writesFor("sess-new")).toEqual([
       ["updateMetadata", "sess-new", { recapAfterSeconds: 600 }],
-      [
-        "setSessionSandbox",
-        "sess-new",
-        {
-          level: "project-write",
-          networkFirewall: true,
-          stateKey: "started-sandbox",
-          projectPath: "/tmp/project-started-sandbox",
-          projectId: "proj-started",
-        },
-      ],
       ["updateMetadata", "sess-new", { title: "Handoff: Refactor session" }],
     ]);
   });

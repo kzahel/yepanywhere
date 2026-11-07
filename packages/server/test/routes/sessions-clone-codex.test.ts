@@ -214,13 +214,12 @@ describe("Codex clone route", () => {
         sandboxStateKey: "source-state",
       }),
     );
-    expect(setSessionSandbox).toHaveBeenCalledWith("sandbox-fork", {
-      level: "project-write",
-      networkFirewall: false,
-      stateKey: "child-state",
-      projectPath,
-      projectId,
-    });
+    // The copy records its sandbox; the route names the project it is
+    // listed under.
+    expect(forkSession).toHaveBeenCalledWith(
+      expect.objectContaining({ projectPath, workingProjectId: projectId }),
+    );
+    expect(setSessionSandbox).not.toHaveBeenCalled();
   });
 
   it("registers the native fork so it opens without invalidating discovery", async () => {
