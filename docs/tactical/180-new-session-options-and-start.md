@@ -2,7 +2,13 @@
 
 Topic: session-defaults
 
-Status: proposed 2026-11-07.
+Status: in progress. Slice 0 (the pins) landed 2026-11-07: 26 cases in
+`NewSessionForm.test.tsx` (148 tests in the file) and
+`new-session-option-paths.spec.ts`. The browser spec drives the real form
+and real settings; sandbox support reaches `/new-session` over the socket,
+not HTTP, so T8 and the sandbox save are pinned by the component tests.
+Tier 2 passed; Tier 3 in a worktree had 514 passed, 13 skipped and 4
+failed, all `acli-commentary.spec.ts`, which fails from a worktree.
 
 Proposal 3 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
@@ -417,7 +423,7 @@ inline type (338-365) becomes the exported `NewSessionLaunch` in
      throws `composerMemoCannotStart`, a legacy success resolves;
    - the launch attachment refusal;
    - the routed model in the legacy navigation state;
-   - Queue: the failure toast with the draft kept, the machine-control
+   - Queue: the failure toast with the raw reason, the machine-control
      gating, and the target under a restored pool (direct thinking, effort
      and tier);
    - composer history recorded on start and not on Queue;
@@ -445,7 +451,9 @@ inline type (338-365) becomes the exported `NewSessionLaunch` in
    Move-only apart from props and the `providerSlotFilled` hunk;
    `pnpm i18n:scan` for the moved copy.
 4. **Start and Queue decisions.** The four decision functions with unit
-   tests per branch and per N1, N3 and N10; the form's two functions call
+   tests per branch and per N1, N3 and N10 (the N3 test is also the pin
+   for Queue's own machine-control check, which only a deferred speech
+   delivery reaches past the toolbar's gating); the form's two functions call
    them and keep their effects, including `deferSpeechDelivery`, in place.
 5. **The start module.** The launch and intent types move, then the two
    bodies move into `lib/newSessionStart.ts`. Move-only apart from turning

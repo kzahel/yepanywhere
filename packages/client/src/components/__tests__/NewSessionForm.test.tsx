@@ -298,6 +298,7 @@ const {
 }));
 
 const coarsePointerState = vi.hoisted(() => ({ current: false }));
+const sourceKeyState = vi.hoisted(() => ({ current: "host:test" }));
 
 vi.mock("../../lib/deviceDetection", () => ({
   hasCoarsePointer: () => coarsePointerState.current,
@@ -417,7 +418,7 @@ vi.mock("../../hooks/useDraftPersistence", () => ({
       setValue("");
       draftAttachmentState.value = null;
     }, [setValue]);
-    const restoreFromStorage = useCallback(() => {}, []);
+    const restoreFromStorage = useCallback(() => mockRestoreFromStorage(), []);
 
     const controls = useMemo(
       () => ({
@@ -558,7 +559,7 @@ vi.mock("../../lib/clientSummaryStore", async (importOriginal) => {
     ...actual,
     reportProjectQueueCollectionSnapshot:
       mockReportProjectQueueCollectionSnapshot,
-    useClientSummarySourceKey: () => "host:test",
+    useClientSummarySourceKey: () => sourceKeyState.current,
     useActiveProjectSessionIds: (projectId: string | null | undefined) => {
       if (!projectId) return [];
       return [...inboxState.needsAttention, ...inboxState.active]
@@ -663,6 +664,7 @@ vi.mock("../../i18n", () => {
       speechPrefixDeliveryTooltip: "{tooltip} Prepends {prefix}.",
       newSessionFixedTitle: "Set by your account",
       newSessionFixedSandboxValue: "Always on",
+      projectQueueSubmitFailed: "Queue failed: {message}",
       newSessionSandboxUnavailableMissingPackages:
         "Unavailable: install {packages} on the server to enable sandboxed sessions.",
     };
@@ -736,6 +738,37 @@ function openAdvancedOptions(): void {
     screen.getByRole("button", { name: "newSessionShowAdvancedOptions" }),
   );
 }
+
+// Calls through, so history keeps working; tests read which prompts it got.
+const { mockRestoreFromStorage } = vi.hoisted(() => ({
+  mockRestoreFromStorage: vi.fn(),
+}));
+const { mockRememberComposerPrompt } = vi.hoisted(() => ({
+  mockRememberComposerPrompt: vi.fn(),
+}));
+vi.mock("../../lib/composerHistory", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../lib/composerHistory")>();
+  mockRememberComposerPrompt.mockImplementation(actual.rememberComposerPrompt);
+  return { ...actual, rememberComposerPrompt: mockRememberComposerPrompt };
+});
+
+// Exposes the memo panel's commit, which starts a session with the memo.
+const { audioMemoState } = vi.hoisted(() => ({
+  audioMemoState: {
+    current: null as null | {
+      onCommit: (file: File, transcript: string) => Promise<void>;
+    },
+  },
+}));
+vi.mock("../AudioMemoPanel", () => ({
+  AudioMemoPanel: (props: {
+    onCommit: (file: File, transcript: string) => Promise<void>;
+  }) => {
+    audioMemoState.current = props;
+    return <div data-testid="audio-memo" />;
+  },
+}));
 
 vi.mock("../../lib/newSessionPrefill", () => ({
   consumeNewSessionPrefill: () => null,
@@ -823,6 +856,7 @@ describe("NewSessionForm", () => {
   beforeEach(() => {
     providerDescriptorsState.providers = undefined;
     coarsePointerState.current = false;
+    sourceKeyState.current = "host:test";
     voiceListeningState.current = false;
     actingPrincipalState.principal = {
       superuser: true,
@@ -5498,6 +5532,685 @@ describe("NewSessionForm", () => {
         expect.any(Number),
         undefined,
       );
+    });
+  });
+
+  // Plan 180 slice 0: what starting and queueing do today, pinned before the
+  // option state, panel and start paths move out of the form.
+  describe("start and Queue outcomes", () => {
+    const sandboxVersion = {
+      capabilities: [
+        PROJECT_QUEUE_CAPABILITY,
+        SESSION_SANDBOX_NETWORK_FIREWALL_CAPABILITY,
+        SESSION_SANDBOXING_CAPABILITY,
+        SESSION_SANDBOXING_STATUS_CAPABILITY,
+      ],
+      sessionSandboxing: {
+        state: "available" as const,
+        platform: "linux",
+        backend: "bubblewrap" as const,
+        version: "0.4.0",
+      },
+    };
+    const renderForm = (
+      props: Partial<Parameters<typeof NewSessionForm>[0]> = {},
+    ) =>
+      render(
+        <NewSessionForm
+          projectId="project-1"
+          selectedProject={chooserProjects[0]}
+          projects={[...chooserProjects]}
+          {...props}
+        />,
+      );
+    const composer = () =>
+      screen.getByPlaceholderText(
+        "newSessionPlaceholder",
+      ) as HTMLTextAreaElement;
+    const typeDraft = (text: string) =>
+      fireEvent.change(composer(), { target: { value: text } });
+    const startButton = () =>
+      screen.getByRole("button", {
+        name: "newSessionStartAction",
+      }) as HTMLButtonElement;
+    const showProjectQueue = () => {
+      toolbarVisibilityState.projectQueue = true;
+      inboxState.active = [
+        { sessionId: "session-active", projectId: "project-1" },
+      ];
+    };
+    const choosePool = async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Claude" }));
+      openAdvancedOptions();
+      fireEvent.click(screen.getAllByRole("button", { name: "Opus 4.8" })[0]!);
+      await screen.findByTestId("filter-routerPool");
+      fireEvent.click(dropdownOption("routerPool", "Work"));
+    };
+    const attachStagedFile = async (container: HTMLElement) => {
+      mockUploadStagedAttachment.mockResolvedValue(stagedRef);
+      const input =
+        container.querySelector<HTMLInputElement>('input[type="file"]');
+      if (!input) throw new Error("missing file input");
+      fireEvent.change(input, {
+        target: {
+          files: [new File(["hello"], "notes.txt", { type: "text/plain" })],
+        },
+      });
+      await waitFor(() =>
+        expect(draftAttachmentState.value?.refs).toEqual([stagedRef]),
+      );
+    };
+
+    beforeEach(() => {
+      serverSettingsState.isLoading = false;
+    });
+
+    it.each([
+      ["a full queue", new Error("Queue is full"), "newSessionServerBusy"],
+      [
+        "a provider credential failure",
+        new Error("Invalid authentication credentials"),
+        "newSessionProviderAuthError",
+      ],
+      [
+        "a 401 from Claude",
+        Object.assign(new Error("Unauthorized"), { status: 401 }),
+        "newSessionProviderAuthError",
+      ],
+      ["a 503", new Error("Request failed: 503"), "newSessionServerCapacity"],
+      ["a 404", new Error("Request failed: 404"), "newSessionProjectNotFound"],
+      [
+        "a network failure",
+        new Error("Failed to fetch"),
+        "newSessionNetworkError",
+      ],
+      ["any other failure", new Error("Something odd"), "Something odd"],
+      [
+        "a thrown value that is not an Error",
+        "plain failure",
+        "newSessionStartError",
+      ],
+    ])(
+      "shows %s as its start failure and restores the draft",
+      async (_case, error, toast) => {
+        mockStartSession.mockRejectedValueOnce(error);
+        renderForm();
+        typeDraft("hello");
+        fireEvent.click(startButton());
+
+        await waitFor(() =>
+          expect(mockShowToast).toHaveBeenCalledWith(toast, "error"),
+        );
+        // The legacy path captures nothing, so it restores from storage.
+        expect(mockRestoreFromStorage).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).not.toHaveBeenCalled();
+        await waitFor(() => expect(startButton().disabled).toBe(false));
+      },
+    );
+
+    it("refuses a chosen pool once sandboxing makes it unusable", async () => {
+      versionState.version = {
+        ...sandboxVersion,
+        capabilities: [...sandboxVersion.capabilities, "agent-auth-router"],
+      };
+      modelSettingsState.thinkingMode = "on";
+      renderForm();
+      await choosePool();
+      fireEvent.click(
+        dropdownOption("newSessionSandboxTitle", "newSessionSandboxLabel"),
+      );
+      typeDraft("hello");
+      // Start is disabled without a usable pool; Enter still reaches start.
+      expect(startButton().disabled).toBe(true);
+      fireEvent.keyDown(composer(), { key: "Enter" });
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "routerLaunchUnsupported",
+          "error",
+        ),
+      );
+      expect(mockStartSession).not.toHaveBeenCalled();
+      expect(composer().value).toBe("hello");
+    });
+
+    it("opens a routed start with the routed model", async () => {
+      versionState.version = { capabilities: ["agent-auth-router"] };
+      modelSettingsState.thinkingMode = "on";
+      renderForm();
+      await choosePool();
+      typeDraft("hello");
+      fireEvent.click(startButton());
+
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+      expect(mockNavigate).toHaveBeenCalledWith(
+        "/projects/project-1/sessions/session-1",
+        expect.objectContaining({
+          state: expect.objectContaining({
+            initialModel: "claude-opus-4-8",
+            initialProvider: "claude",
+            initialTitle: "hello",
+          }),
+        }),
+      );
+    });
+
+    it("refuses to queue a chosen pool", async () => {
+      showProjectQueue();
+      versionState.version = {
+        capabilities: [PROJECT_QUEUE_CAPABILITY, "agent-auth-router"],
+      };
+      modelSettingsState.thinkingMode = "on";
+      renderForm();
+      await choosePool();
+      typeDraft("queue this");
+      fireEvent.keyDown(composer(), { key: "Enter", ctrlKey: true });
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "routerQueueUnsupported",
+          "error",
+        ),
+      );
+      expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
+      expect(mockStartSession).not.toHaveBeenCalled();
+    });
+
+    it("refuses a one-turn modifier the server cannot carry", async () => {
+      renderForm();
+      typeDraft("/slow careful review");
+      fireEvent.click(startButton());
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "turnEffortUnavailable",
+          "error",
+        ),
+      );
+      expect(mockStartSession).not.toHaveBeenCalled();
+      expect(composer().value).toBe("/slow careful review");
+    });
+
+    it("refuses a one-turn modifier with no message", async () => {
+      versionState.version = {
+        capabilities: [PROJECT_QUEUE_CAPABILITY, "turn-effort-modifiers"],
+      };
+      renderForm();
+      typeDraft("/slow");
+      fireEvent.click(startButton());
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "turnEffortNeedsMessage",
+          "error",
+        ),
+      );
+      expect(mockStartSession).not.toHaveBeenCalled();
+    });
+
+    it("refuses an attachment-only start on a server without attachment-only messages", async () => {
+      const { container } = renderForm();
+      await attachStagedFile(container);
+      fireEvent.click(startButton());
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "attachmentOnlyRequiresServerUpdate",
+          "error",
+        ),
+      );
+      expect(mockStartSession).not.toHaveBeenCalled();
+      expect(mockCreateSession).not.toHaveBeenCalled();
+    });
+
+    it("refuses attachments a launch does not take, keeping the draft", async () => {
+      const submit = vi.fn(async () => {});
+      const { container } = renderForm({
+        launch: {
+          draftKey: "draft-launch:pins-files",
+          initialMessage: "",
+          fixedProject: true,
+          allowProjectQueue: false,
+          submit,
+        },
+      });
+      await attachStagedFile(container);
+      typeDraft("launch with a file");
+      fireEvent.click(startButton());
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "This session launch does not accept attachments",
+          "error",
+        ),
+      );
+      expect(submit).not.toHaveBeenCalled();
+      expect(composer().value).toBe("launch with a file");
+    });
+
+    it("shows the reason when queueing fails", async () => {
+      showProjectQueue();
+      mockCreateProjectQueueItem.mockRejectedValueOnce(new Error("queue down"));
+      renderForm();
+      typeDraft("queued work");
+      fireEvent.click(
+        screen.getByRole("button", { name: "toolbarProjectQueueLabel" }),
+      );
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "Queue failed: queue down",
+          "error",
+        ),
+      );
+      expect(mockStartSession).not.toHaveBeenCalled();
+    });
+
+    it("withholds Queue while machine control is selected and starts with it", async () => {
+      showProjectQueue();
+      versionState.version = {
+        capabilities: [PROJECT_QUEUE_CAPABILITY, "installed-machine-control"],
+      };
+      mockConnectionFetch.mockImplementation(async (path: string) =>
+        path === "/machine-control" ? { available: true } : {},
+      );
+      renderForm();
+      openAdvancedOptions();
+      await screen.findByTestId("filter-newSessionMachineControlTitle");
+      fireEvent.click(
+        dropdownOption("newSessionMachineControlTitle", "showThinkingOn"),
+      );
+      typeDraft("immediate only");
+
+      const queueButton = screen.getByRole("button", {
+        name: "toolbarProjectQueueLabel",
+      }) as HTMLButtonElement;
+      expect(queueButton.disabled).toBe(true);
+      expect(queueButton.getAttribute("title")).toBe(
+        "machineControlImmediateLaunchOnly",
+      );
+      fireEvent.click(startButton());
+      await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+      expect(mockStartSession.mock.calls[0]?.[2]).toEqual(
+        expect.objectContaining({ machineControl: true }),
+      );
+      expect(mockCreateProjectQueueItem).not.toHaveBeenCalled();
+    });
+
+    it("records a started prompt in composer history but not a queued one", async () => {
+      showProjectQueue();
+      renderForm();
+      typeDraft("queued work");
+      fireEvent.click(
+        screen.getByRole("button", { name: "toolbarProjectQueueLabel" }),
+      );
+      await waitFor(() =>
+        expect(mockCreateProjectQueueItem).toHaveBeenCalledTimes(1),
+      );
+      await waitFor(() => expect(startButton().disabled).toBe(false));
+      expect(mockRememberComposerPrompt).not.toHaveBeenCalled();
+
+      typeDraft("started work");
+      fireEvent.click(startButton());
+      await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+      expect(mockRememberComposerPrompt).toHaveBeenCalledTimes(1);
+      expect(mockRememberComposerPrompt).toHaveBeenCalledWith(
+        JSON.stringify(["host:test", null]),
+        "started work",
+      );
+    });
+
+    it("queues a restored pool's draft with the direct catalog's settings", async () => {
+      showProjectQueue();
+      versionState.version = {
+        capabilities: [PROJECT_QUEUE_CAPABILITY, "agent-auth-router"],
+      };
+      providersState.providers[0]!.models = [
+        { id: "default", name: "Default" },
+        {
+          id: "opus",
+          name: "Opus 4.8",
+          supportsAdaptiveThinking: true,
+          supportsEffort: true,
+          // Not the saved "low", which the routed account offers.
+          supportedEffortLevels: ["medium", "high"],
+          serviceTiers: [{ id: "priority", name: "Fast" }],
+        },
+      ];
+      serverSettingsState.settings = {
+        newSessionDefaults: {
+          provider: "claude",
+          permissionMode: "plan",
+          providers: {
+            claude: {
+              model: "opus",
+              routerPoolId: "work",
+              thinkingMode: "on",
+              effortLevel: "low",
+              serviceTier: "priority",
+            },
+          },
+        },
+      };
+      vi.mocked(api.routerSelection).mockResolvedValueOnce({
+        accounts: [
+          {
+            id: "routed-account",
+            provider: "claude",
+            enabled: true,
+            models: [
+              {
+                id: "opus",
+                name: "Opus 4.8",
+                supportsEffort: true,
+                supportsAdaptiveThinking: true,
+                supportedReasoningEfforts: [
+                  { reasoningEffort: "low", description: "Low" },
+                ],
+              },
+            ],
+          },
+        ],
+        pools: [
+          {
+            id: "work",
+            name: "Work",
+            provider: "claude",
+            accountIds: ["routed-account"],
+            policy: "round-robin",
+          },
+        ],
+      } as never);
+      renderForm();
+      openAdvancedOptions();
+      await waitFor(() =>
+        expect(selectedDropdownValue("routerPool")).toBe("work"),
+      );
+      typeDraft("queued under a pool");
+      fireEvent.keyDown(composer(), { key: "Enter", ctrlKey: true });
+
+      await waitFor(() =>
+        expect(mockCreateProjectQueueItem).toHaveBeenCalledTimes(1),
+      );
+      expect(mockCreateProjectQueueItem.mock.calls[0]![1].target).toEqual({
+        type: "new-session",
+        mode: "plan",
+        model: "opus",
+        serviceTier: "priority",
+        thinking: "on:medium",
+        showThinking: "default",
+        provider: "claude",
+        title: "queued under a pool",
+      });
+    });
+
+    it("throws from a memo start that is refused and resolves one that starts", async () => {
+      renderForm();
+      const openMemo = () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: "newSessionAttachFiles" }),
+          { shiftKey: true },
+        );
+      const memo = () =>
+        new File(["memo"], "memo.webm", { type: "audio/webm" });
+      typeDraft("/slow review");
+      openMemo();
+      await screen.findByTestId("audio-memo");
+      await act(async () => {
+        await expect(
+          audioMemoState.current!.onCommit(memo(), ""),
+        ).rejects.toThrow("composerMemoCannotStart");
+      });
+      expect(mockShowToast).toHaveBeenCalledWith(
+        "turnEffortUnavailable",
+        "error",
+      );
+
+      cleanup();
+      mockUpload.mockResolvedValue(materializedFile);
+      renderForm();
+      typeDraft("memo note");
+      openMemo();
+      await screen.findByTestId("audio-memo");
+      await act(async () => {
+        await audioMemoState.current!.onCommit(memo(), "spoken words");
+      });
+      expect(mockCreateSession).toHaveBeenCalledTimes(1);
+      expect(mockQueueMessage.mock.calls[0]?.[1]).toBe(
+        "memo note\n\n🎤 audioMemoTranscriptSuffix\nspoken words",
+      );
+      expect(mockNavigate).toHaveBeenCalledWith(
+        "/projects/project-1/sessions/session-created",
+        expect.anything(),
+      );
+    });
+
+    it("shows a legacy start that names no project as a failure", async () => {
+      mockStartSession.mockResolvedValueOnce({
+        sessionId: "session-1",
+        processId: "process-1",
+      });
+      renderForm();
+      typeDraft("hello");
+      fireEvent.click(startButton());
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "Missing project ID for new session",
+          "error",
+        ),
+      );
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(composer().value).toBe("hello");
+    });
+
+    it("refuses a detached start for a limited user without no-project sessions", async () => {
+      versionState.version = sandboxVersion;
+      actingPrincipalState.principal = {
+        superuser: false,
+        username: "alice",
+        switched: false,
+        locked: true,
+        enabled: true,
+        hasLimitedUsers: true,
+        logoutRedirect: "direct-login",
+        grants: {
+          newSessionProjects: ["project-1"],
+          joinProjects: [],
+          viewProjects: [],
+          joinStaleOffsetMinutes: 0,
+          lock: {},
+        },
+      };
+      render(<NewSessionForm projects={[...chooserProjects]} />);
+      typeDraft("hello");
+      expect(startButton().disabled).toBe(true);
+      fireEvent.keyDown(composer(), { key: "Enter" });
+
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          "Choose a project to start a session.",
+          "error",
+        ),
+      );
+      expect(mockStartSession).not.toHaveBeenCalled();
+      expect(mockStartDetachedSession).not.toHaveBeenCalled();
+    });
+
+    it("drops a chosen pool when the source changes", async () => {
+      versionState.version = { capabilities: ["agent-auth-router"] };
+      modelSettingsState.thinkingMode = "on";
+      const { rerender } = renderForm();
+      await choosePool();
+      expect(selectedDropdownValue("routerPool")).toBe("work");
+
+      // Switching away and back: the render alone ignores another source's
+      // pool, so only the source-change effect keeps the old one from
+      // returning.
+      const rerenderForm = () =>
+        rerender(
+          <NewSessionForm
+            projectId="project-1"
+            selectedProject={chooserProjects[0]}
+            projects={[...chooserProjects]}
+          />,
+        );
+      sourceKeyState.current = "host:other";
+      rerenderForm();
+      sourceKeyState.current = "host:test";
+      rerenderForm();
+      typeDraft("hello");
+      fireEvent.click(startButton());
+
+      await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+      expect(mockShowToast).not.toHaveBeenCalledWith(
+        "routerLaunchUnsupported",
+        "error",
+      );
+      expect(mockStartSession.mock.calls[0]?.[2]).toMatchObject({
+        provider: "claude",
+        model: "opus",
+      });
+      expect(mockStartSession.mock.calls[0]?.[2].routerPoolId).toBeUndefined();
+    });
+
+    it("applies a limited user's lock that arrives after the defaults", async () => {
+      versionState.version = sandboxVersion;
+      serverSettingsState.settings = {
+        newSessionDefaults: {
+          provider: "claude",
+          model: "opus",
+          permissionMode: "default",
+          sandboxLevel: "none",
+          // Only the lock clears this; the launch overrides do not.
+          recapMode: "side-session",
+        },
+      };
+      const { rerender } = renderForm();
+      expect(selectedDropdownValue("newSessionModelTitle")).toBe("opus");
+
+      actingPrincipalState.principal = {
+        superuser: false,
+        username: "alice",
+        switched: false,
+        locked: true,
+        enabled: true,
+        hasLimitedUsers: true,
+        logoutRedirect: "direct-login",
+        grants: {
+          newSessionProjects: ["project-1"],
+          joinProjects: [],
+          viewProjects: [],
+          joinStaleOffsetMinutes: 0,
+          lock: { provider: "codex", model: "gpt-5.4", effort: "medium" },
+        },
+      };
+      rerender(
+        <NewSessionForm
+          projectId="project-1"
+          selectedProject={chooserProjects[0]}
+          projects={[...chooserProjects]}
+        />,
+      );
+      await waitFor(() =>
+        expect(screen.getByText("Set by your account")).toBeTruthy(),
+      );
+      typeDraft("locked late");
+      fireEvent.click(startButton());
+
+      await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+      expect(mockStartSession.mock.calls[0]?.[2]).toEqual(
+        expect.objectContaining({
+          provider: "codex",
+          model: "gpt-5.4",
+          thinking: "on:medium",
+          sandboxLevel: "project-write",
+          sandboxNetworkFirewall: true,
+          recapMode: "off",
+        }),
+      );
+      expect(mockUpdateSetting).not.toHaveBeenCalled();
+    });
+
+    it("saves over a sandbox default on a host without sandboxing", async () => {
+      serverSettingsState.settings = {
+        newSessionDefaults: {
+          provider: "claude",
+          model: "opus",
+          permissionMode: "default",
+          sandboxLevel: "project-write",
+          sandboxNetworkFirewall: false,
+        },
+      };
+      renderForm();
+      openAdvancedOptions();
+      fireEvent.click(dropdownOption("newSessionModeTitle", "modePlanLabel"));
+
+      await waitFor(() => expect(mockUpdateSetting).toHaveBeenCalled());
+      expect(mockUpdateSetting.mock.calls.at(-1)).toMatchInlineSnapshot(`
+        [
+          "newSessionDefaults",
+          {
+            "model": "opus",
+            "permissionMode": "plan",
+            "promptSuggestionMode": "off",
+            "provider": "claude",
+            "providers": {
+              "claude": {
+                "effortLevel": "high",
+                "helperSideModel": "cheapest",
+                "model": "opus",
+                "thinkingMode": "off",
+              },
+            },
+            "recapAfterSeconds": 300,
+            "recapMode": "off",
+          },
+        ]
+      `);
+    });
+
+    it("saves sandboxing with its firewall and without a side-session recap", async () => {
+      versionState.version = sandboxVersion;
+      serverSettingsState.settings = {
+        newSessionDefaults: {
+          provider: "claude",
+          model: "opus",
+          permissionMode: "default",
+          recapMode: "side-session",
+          sandboxLevel: "none",
+        },
+      };
+      renderForm();
+      openAdvancedOptions();
+      fireEvent.click(
+        dropdownOption("newSessionSandboxTitle", "newSessionSandboxLabel"),
+      );
+
+      await waitFor(() => expect(mockUpdateSetting).toHaveBeenCalled());
+      expect(mockUpdateSetting.mock.calls.at(-1)).toMatchInlineSnapshot(`
+        [
+          "newSessionDefaults",
+          {
+            "model": "opus",
+            "permissionMode": "default",
+            "promptSuggestionMode": "off",
+            "provider": "claude",
+            "providers": {
+              "claude": {
+                "effortLevel": "high",
+                "helperSideModel": "cheapest",
+                "model": "opus",
+                "thinkingMode": "off",
+              },
+            },
+            "recapAfterSeconds": 300,
+            "recapMode": "off",
+            "sandboxLevel": "project-write",
+            "sandboxNetworkFirewall": true,
+          },
+        ]
+      `);
     });
   });
 });
