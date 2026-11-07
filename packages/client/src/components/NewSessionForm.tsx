@@ -80,7 +80,6 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { type SessionOptions, type UploadedFile, api } from "../api/client";
-import { ENTER_SENDS_MESSAGE } from "../constants";
 import styles from "./NewSessionForm.module.css";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useToastContext } from "../contexts/ToastContext";
@@ -211,7 +210,11 @@ import {
   useActiveProjectSessionIds,
   useClientSummarySourceKey,
 } from "../lib/clientSummaryStore";
-import { hasCoarsePointer } from "../lib/deviceDetection";
+import {
+  getClipboardFiles,
+  handleSpeechEscapeKey,
+  isComposerEnterSend,
+} from "../lib/composerKeys";
 import { logSessionUiTrace } from "../lib/diagnostics/uiTrace";
 import {
   isFullPaneComposerShortcut,
@@ -266,6 +269,7 @@ import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import { FullPaneComposerToggle } from "./FullPaneComposerToggle";
 import { NewSessionFixedLaunch } from "./NewSessionFixedLaunch";
 import { NewSessionProjectQueue } from "./NewSessionProjectQueue";
+import { SpeechDraftField } from "./SpeechDraftField";
 import { SpeechPrefixActionCue } from "./SpeechPrefixActionCue";
 import { ProviderBadge } from "./ProviderBadge";
 import { ModelSubscriptionUsage } from "./ModelSubscriptionUsage";
@@ -3655,33 +3659,13 @@ export function NewSessionForm({
       return;
     }
 
-    // Escape cancels a pending post-capture wait. Active listening still
-    // finalizes on Escape below.
     if (
-      e.key === "Escape" &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.shiftKey &&
-      !e.altKey &&
-      (speechPending === "transcribing" || speechPending === "finalizing")
+      handleSpeechEscapeKey(e, {
+        speechPending,
+        voice: voiceButtonRef.current,
+        cancelTranscription: handleCancelTranscription,
+      })
     ) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleCancelTranscription();
-      return;
-    }
-
-    if (
-      e.key === "Escape" &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.shiftKey &&
-      !e.altKey &&
-      voiceButtonRef.current?.isListening
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-      voiceButtonRef.current.toggle();
       return;
     }
 
@@ -3711,42 +3695,15 @@ export function NewSessionForm({
         return;
       }
 
-      // On mobile (touch devices), Enter adds newline - must use send button.
-      // On desktop, Enter sends message, Shift/Ctrl+Enter adds newline.
-      const isMobile = hasCoarsePointer();
-
-      if (isMobile) {
-        // Mobile: Enter always adds newline, send button required
-        return;
-      }
-
-      if (ENTER_SENDS_MESSAGE) {
-        if (e.ctrlKey || e.shiftKey) return;
+      if (isComposerEnterSend(e)) {
         e.preventDefault();
         handleStartSession();
-      } else {
-        if (e.ctrlKey || e.shiftKey) {
-          e.preventDefault();
-          handleStartSession();
-        }
       }
     }
   };
 
   const handlePaste = (e: ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    const files: File[] = [];
-    for (const item of items) {
-      if (item.kind === "file") {
-        const file = item.getAsFile();
-        if (file) {
-          files.push(file);
-        }
-      }
-    }
-
+    const files = getClipboardFiles(e);
     if (files.length > 0) {
       e.preventDefault();
       addPendingFiles(files);
@@ -3976,75 +3933,49 @@ export function NewSessionForm({
         textareaRef={textareaRef}
         onChange={setMessage}
       >
-        <div
-          className={`speech-draft-field ${
-            interimDisplayTranscript ? "has-interim" : ""
-          }`}
+        <SpeechDraftField
+          interimDisplayTranscript={interimDisplayTranscript}
+          interimInsertion={interimInsertion}
+          interimTranscript={interimTranscript}
         >
-          <div className="speech-draft-inline">
-            {interimDisplayTranscript && (
-              <div className="speech-draft-mirror" aria-hidden="true">
-                <span>{interimInsertion.before}</span>
-                {interimInsertion.separatorBefore}
-                <span className="speech-interim-inline">
-                  {interimInsertion.transcript}
-                </span>
-                <span className="speech-interim-caret" />
-                {interimInsertion.separatorAfter}
-                <span>{interimInsertion.after}</span>
-              </div>
-            )}
-            <textarea
-              data-draft-key={newSessionDraftKey}
-              ref={attachComposerTextarea}
-              data-composer-input
-              value={message}
-              onChange={(e) => {
-                const nextMessage = fileCompletion.normalizeInput(
-                  e.target.value,
-                );
-                noteSpeechDraftEdit(message, nextMessage);
-                handleSpeechSelectionTarget(true, nextMessage);
-                setMessage(nextMessage);
-              }}
-              onKeyDown={handleKeyDown}
-              onFocus={fileCompletion.onFocus}
-              onBlur={fileCompletion.onBlur}
-              onSelect={() => {
-                handleSpeechSelectionTarget();
-                fileCompletion.onSelect();
-              }}
-              onPointerUp={handleManualSpeechSelection}
-              onClick={handleSpeechSelectionClick}
-              onKeyUp={handleManualSpeechSelection}
-              onCut={clearSpeechSelectionTarget}
-              onCopy={clearSpeechSelectionTarget}
-              onPaste={(event) => {
-                clearSpeechSelectionTarget();
-                if (allowAttachments) {
-                  handlePaste(event);
-                }
-              }}
-              placeholder={resolvedPlaceholder}
-              disabled={isStarting && !acceptingText}
-              // Read-only rather than disabled: the draft stays selectable and
-              // scrollable so it can still be read, just not sent.
-              readOnly={composerMuted}
-              rows={composerMuted ? Math.min(rows, 3) : rows}
-              className="new-session-form-textarea"
-            />
-          </div>
-          {interimTranscript && (
-            <div
-              className="speech-interim-status"
-              role="status"
-              aria-live="polite"
-              aria-label="Tentative speech transcript"
-            >
-              {interimTranscript}
-            </div>
-          )}
-        </div>
+          <textarea
+            data-draft-key={newSessionDraftKey}
+            ref={attachComposerTextarea}
+            data-composer-input
+            value={message}
+            onChange={(e) => {
+              const nextMessage = fileCompletion.normalizeInput(e.target.value);
+              noteSpeechDraftEdit(message, nextMessage);
+              handleSpeechSelectionTarget(true, nextMessage);
+              setMessage(nextMessage);
+            }}
+            onKeyDown={handleKeyDown}
+            onFocus={fileCompletion.onFocus}
+            onBlur={fileCompletion.onBlur}
+            onSelect={() => {
+              handleSpeechSelectionTarget();
+              fileCompletion.onSelect();
+            }}
+            onPointerUp={handleManualSpeechSelection}
+            onClick={handleSpeechSelectionClick}
+            onKeyUp={handleManualSpeechSelection}
+            onCut={clearSpeechSelectionTarget}
+            onCopy={clearSpeechSelectionTarget}
+            onPaste={(event) => {
+              clearSpeechSelectionTarget();
+              if (allowAttachments) {
+                handlePaste(event);
+              }
+            }}
+            placeholder={resolvedPlaceholder}
+            disabled={isStarting && !acceptingText}
+            // Read-only rather than disabled: the draft stays selectable and
+            // scrollable so it can still be read, just not sent.
+            readOnly={composerMuted}
+            rows={composerMuted ? Math.min(rows, 3) : rows}
+            className="new-session-form-textarea"
+          />
+        </SpeechDraftField>
         <ProjectFileCompletionMenu completion={fileCompletion} />
         <div className="new-session-form-toolbar">
           <div className="new-session-form-toolbar-left">

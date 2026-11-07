@@ -46,7 +46,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { ENTER_SENDS_MESSAGE } from "../constants";
 import {
   type DraftControls,
   useDraftPersistence,
@@ -76,6 +75,11 @@ import {
   scrollCollapsedTextareaToCursor,
 } from "../lib/composerTextarea";
 import type { ComposerTurnRecallEntry } from "../lib/composerTurnRecall";
+import {
+  getClipboardFiles,
+  handleSpeechEscapeKey,
+  isComposerEnterSend,
+} from "../lib/composerKeys";
 import { hasCoarsePointer } from "../lib/deviceDetection";
 import { MOBILE_KEYBOARD_OPEN_VIEWPORT_RATIO } from "../lib/mobileKeyboardViewport";
 import { programmaticFocus } from "../lib/programmaticFocus";
@@ -131,6 +135,7 @@ import {
   MessageInputToolbar,
   type MessageInputToolbarProps,
 } from "./MessageInputToolbar";
+import { SpeechDraftField } from "./SpeechDraftField";
 import { SpeechPrefixActionCue } from "./SpeechPrefixActionCue";
 import { VoiceInputButton, type VoiceInputButtonRef } from "./VoiceInputButton";
 import styles from "./MessageInput.module.css";
@@ -2639,34 +2644,13 @@ export function MessageInput({
       }
     }
 
-    // Escape cancels a pending post-capture wait — dropping the uncommitted
-    // result while keeping any already-committed text. Active listening still
-    // finalizes on Escape below.
     if (
-      e.key === "Escape" &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.shiftKey &&
-      !e.altKey &&
-      (speechPending === "transcribing" || speechPending === "finalizing")
+      handleSpeechEscapeKey(e, {
+        speechPending,
+        voice: voiceButtonRef.current,
+        cancelTranscription: handleCancelTranscription,
+      })
     ) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleCancelTranscription();
-      return;
-    }
-
-    if (
-      e.key === "Escape" &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.shiftKey &&
-      !e.altKey &&
-      voiceButtonRef.current?.isListening
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-      voiceButtonRef.current.toggle();
       return;
     }
 
@@ -2883,10 +2867,6 @@ export function MessageInput({
         return;
       }
 
-      // On mobile (touch devices), Enter adds newline - must use send button
-      // On desktop, Enter sends message, Shift/Ctrl+Enter adds newline
-      const isMobile = hasCoarsePointer();
-
       // If voice recording is active, Enter submits (on any device)
       if (voiceButtonRef.current?.isListening) {
         e.preventDefault();
@@ -2894,26 +2874,9 @@ export function MessageInput({
         return;
       }
 
-      if (isMobile) {
-        // Mobile: Enter always adds newline, send button required
-        // Allow default behavior (newline)
-        return;
-      }
-
-      if (ENTER_SENDS_MESSAGE) {
-        // Desktop: Enter sends, Ctrl+Enter adds newline
-        if (e.ctrlKey || e.shiftKey) {
-          // Allow default behavior (newline)
-          return;
-        }
+      if (isComposerEnterSend(e)) {
         e.preventDefault();
         submitPrimaryAction();
-      } else {
-        // Ctrl+Enter sends, Enter adds newline
-        if (e.ctrlKey || e.shiftKey) {
-          e.preventDefault();
-          submitPrimaryAction();
-        }
       }
     }
   };
@@ -2921,19 +2884,7 @@ export function MessageInput({
   const handlePaste = (e: ClipboardEvent) => {
     if (!canAttach || !onAttach) return;
 
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    const files: File[] = [];
-    for (const item of items) {
-      if (item.kind === "file") {
-        const file = item.getAsFile();
-        if (file) {
-          files.push(file);
-        }
-      }
-    }
-
+    const files = getClipboardFiles(e);
     if (files.length > 0) {
       // Prevent default only if we have files to handle
       // This allows text paste to still work normally
@@ -3300,137 +3251,112 @@ export function MessageInput({
         data-composer-shell="true"
         data-collapsed-leading-microphone={showCollapsedMicrophone || undefined}
       >
-        <div
-          className={`speech-draft-field ${
-            interimDisplayTranscript ? "has-interim" : ""
-          }`}
+        <SpeechDraftField
+          interimDisplayTranscript={interimDisplayTranscript}
+          interimInsertion={interimInsertion}
+          interimTranscript={interimTranscript}
         >
-          <div className="speech-draft-inline">
-            {interimDisplayTranscript && (
-              <div className="speech-draft-mirror" aria-hidden="true">
-                <span>{interimInsertion.before}</span>
-                {interimInsertion.separatorBefore}
-                <span className="speech-interim-inline">
-                  {interimInsertion.transcript}
-                </span>
-                <span className="speech-interim-caret" />
-                {interimInsertion.separatorAfter}
-                <span>{interimInsertion.after}</span>
-              </div>
-            )}
-            <textarea
-              data-draft-key={draftKey}
-              key={textareaImeGeneration}
-              ref={textareaRef}
-              data-composer-input
-              onCompositionStart={() => setIsComposing(true)}
-              onCompositionEnd={() => setIsComposing(false)}
-              value={text}
-              onBeforeInput={(event) => {
-                const nativeEvent = event.nativeEvent as InputEvent;
-                pendingDraftInputRef.current = {
-                  start: event.currentTarget.selectionStart,
-                  end: event.currentTarget.selectionEnd,
-                  inputType: nativeEvent.inputType,
-                };
-              }}
-              onChange={(e) => {
-                untouchedRecallRef.current = null;
-                const nextText = fileCompletion.normalizeInput(e.target.value);
-                const pendingInput = pendingDraftInputRef.current;
-                pendingDraftInputRef.current = null;
-                noteDraftTextChange(
-                  text,
-                  nextText,
-                  pendingInput
-                    ? {
-                        ...pendingInput,
-                        insertedText: getInsertedTextForEdit(
-                          text,
-                          nextText,
-                          pendingInput.start,
-                          pendingInput.end,
-                        ),
-                      }
-                    : undefined,
-                );
-                noteSpeechDraftEdit(text, nextText);
-                handleSpeechSelectionTarget(true, nextText);
-                noteComposerEdit(nextText);
-                setText(nextText);
-                const nextCursor = e.target.selectionStart;
-                setComposerCursor(nextCursor);
-                const nextSlashQuery = getInvocationCompletionQuery(
-                  nextText,
-                  nextCursor,
-                );
-                const nextSlashQueryKey = nextSlashQuery
-                  ? `${nextSlashQuery.start}:${nextSlashQuery.end}:${nextSlashQuery.sigil}:${nextSlashQuery.query}`
-                  : null;
-                if (nextSlashQueryKey !== dismissedSlashQuery) {
-                  setDismissedSlashQuery(null);
-                }
-              }}
-              onBlur={() => {
-                fileCompletion.onBlur();
-                fileViewCompletion.onBlur();
-                cancelRecallDrawer();
-                controls.flushDraft();
-                setTextareaFocused(false);
-              }}
-              onFocus={() => {
-                fileCompletion.onFocus();
-                fileViewCompletion.onFocus();
-                keyboardViewportBaselineRef.current =
-                  getComposerViewportHeight();
-                setTextareaFocused(true);
-                revealCollapsedTextareaCursor();
-              }}
-              onKeyDown={handleKeyDown}
-              onSelect={() => {
-                const textarea = textareaRef.current;
-                if (
-                  textarea &&
-                  (textarea.selectionStart !== textarea.value.length ||
-                    textarea.selectionEnd !== textarea.value.length)
-                ) {
-                  untouchedRecallRef.current = null;
-                }
-                handleTextareaSelectionTarget();
-                fileCompletion.onSelect();
-              }}
-              onPointerUp={handleTextareaSelectionTarget}
-              onClick={handleTextareaClickTarget}
-              onKeyUp={handleTextareaSelectionTarget}
-              onCut={clearSpeechSelectionTarget}
-              onCopy={clearSpeechSelectionTarget}
-              onPaste={(event) => {
-                clearSpeechSelectionTarget();
-                handlePaste(event);
-              }}
-              enterKeyHint="enter"
-              placeholder={
-                externalCollapsed
-                  ? t("messageInputContinueAbove")
-                  : forkSummaryMode
-                    ? forkSummaryMode.placeholder
-                    : placeholder
+          <textarea
+            data-draft-key={draftKey}
+            key={textareaImeGeneration}
+            ref={textareaRef}
+            data-composer-input
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
+            value={text}
+            onBeforeInput={(event) => {
+              const nativeEvent = event.nativeEvent as InputEvent;
+              pendingDraftInputRef.current = {
+                start: event.currentTarget.selectionStart,
+                end: event.currentTarget.selectionEnd,
+                inputType: nativeEvent.inputType,
+              };
+            }}
+            onChange={(e) => {
+              untouchedRecallRef.current = null;
+              const nextText = fileCompletion.normalizeInput(e.target.value);
+              const pendingInput = pendingDraftInputRef.current;
+              pendingDraftInputRef.current = null;
+              noteDraftTextChange(
+                text,
+                nextText,
+                pendingInput
+                  ? {
+                      ...pendingInput,
+                      insertedText: getInsertedTextForEdit(
+                        text,
+                        nextText,
+                        pendingInput.start,
+                        pendingInput.end,
+                      ),
+                    }
+                  : undefined,
+              );
+              noteSpeechDraftEdit(text, nextText);
+              handleSpeechSelectionTarget(true, nextText);
+              noteComposerEdit(nextText);
+              setText(nextText);
+              const nextCursor = e.target.selectionStart;
+              setComposerCursor(nextCursor);
+              const nextSlashQuery = getInvocationCompletionQuery(
+                nextText,
+                nextCursor,
+              );
+              const nextSlashQueryKey = nextSlashQuery
+                ? `${nextSlashQuery.start}:${nextSlashQuery.end}:${nextSlashQuery.sigil}:${nextSlashQuery.query}`
+                : null;
+              if (nextSlashQueryKey !== dismissedSlashQuery) {
+                setDismissedSlashQuery(null);
               }
-              disabled={disabled}
-              rows={collapsed ? 1 : 3}
-            />
-          </div>
-          {interimTranscript && (
-            <div
-              className="speech-interim-status"
-              role="status"
-              aria-live="polite"
-              aria-label="Tentative speech transcript"
-            >
-              {interimTranscript}
-            </div>
-          )}
-        </div>
+            }}
+            onBlur={() => {
+              fileCompletion.onBlur();
+              fileViewCompletion.onBlur();
+              cancelRecallDrawer();
+              controls.flushDraft();
+              setTextareaFocused(false);
+            }}
+            onFocus={() => {
+              fileCompletion.onFocus();
+              fileViewCompletion.onFocus();
+              keyboardViewportBaselineRef.current = getComposerViewportHeight();
+              setTextareaFocused(true);
+              revealCollapsedTextareaCursor();
+            }}
+            onKeyDown={handleKeyDown}
+            onSelect={() => {
+              const textarea = textareaRef.current;
+              if (
+                textarea &&
+                (textarea.selectionStart !== textarea.value.length ||
+                  textarea.selectionEnd !== textarea.value.length)
+              ) {
+                untouchedRecallRef.current = null;
+              }
+              handleTextareaSelectionTarget();
+              fileCompletion.onSelect();
+            }}
+            onPointerUp={handleTextareaSelectionTarget}
+            onClick={handleTextareaClickTarget}
+            onKeyUp={handleTextareaSelectionTarget}
+            onCut={clearSpeechSelectionTarget}
+            onCopy={clearSpeechSelectionTarget}
+            onPaste={(event) => {
+              clearSpeechSelectionTarget();
+              handlePaste(event);
+            }}
+            enterKeyHint="enter"
+            placeholder={
+              externalCollapsed
+                ? t("messageInputContinueAbove")
+                : forkSummaryMode
+                  ? forkSummaryMode.placeholder
+                  : placeholder
+            }
+            disabled={disabled}
+            rows={collapsed ? 1 : 3}
+          />
+        </SpeechDraftField>
 
         <ProjectFileCompletionMenu
           completion={fileCompletion}

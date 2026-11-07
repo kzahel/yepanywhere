@@ -34,16 +34,16 @@ shared, and how risky it is to touch today.
    continuation's records wait on the clone working-directory gap.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
    (about 7,700 lines), `NewSessionForm.tsx` (about 5,600),
-   `MessageInput.tsx` (about 4,100) and `MessageInputToolbar.tsx` (about
+   `MessageInput.tsx` (about 4,000) and `MessageInputToolbar.tsx` (about
    3,800) are where most UI work lands. Their size makes each change slow to
    review and easy to regress, including the keystroke-latency contract.
-   Phase 2 below holds the slice rows; slices 2.12 to 2.17 (the composer's
+   Phase 2 below holds the slice rows; slices 2.12 to 2.18 (the composer's
    bang completion state and recall drawer, the page's bang-command wiring,
    the toolbar's thinking control and the two message boxes' shared speech
-   state and handlers) landed 2026-11-07. Moving small features out one at
-   a time leaves these files structurally as they were; the burn-down order
-   and the consolidations it needs (one shared message-box core, then
-   sending as plain functions) are in
+   state, handlers, keys and speech field) landed 2026-11-07. Moving small
+   features out one at a time leaves these files structurally as they were;
+   the burn-down order and the consolidations it needs (one shared
+   message-box core, then sending as plain functions) are in
    [the session page hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
@@ -279,6 +279,7 @@ and props stable.
 | 2.15 | Done 2026-11-07 | `MessageInputToolbar.tsx` thinking control | Move the toolbar's thinking/effort button and menu, already its own component, into its own module. | Moved `ThinkingToolbarControl`, its `ToolbarThinkingControl` prop type (now exported for the toolbar's props), `getToolbarThinkingLabel`, `getToolbarThinkingTitle` and `THINKING_MENU_VIEWPORT_GUTTER_PX` into `components/ThinkingToolbarControl.tsx`. Move-only; `MessageInputToolbar.tsx` budget 4,059 -> 3,804. Tier 3; no typing path is involved. |
 | 2.16 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` speech state | Give both message boxes one copy of their dictation state and edit bookkeeping ([plan 178](178-shared-composer-dictation.md) slice 1). | Not move-only: a consolidation under plan 178, after its test pins (slice 0). Both boxes call `hooks/useComposerSpeechState.ts` for the speech refs and state, the textarea edit and replacement remaps, the pending-selection restore and the held-final clear, and `getSpeechInterimPreview` in `lib/speechRecognition.ts` for the interim mirror. No behavior change; the differences plan 178 lists stay as they are. Budgets `MessageInput.tsx` 4,543 -> 4,448 and `NewSessionForm.tsx` 5,975 -> 5,897. Tier 3, plus a new keystroke check in both boxes in `speech-caret-insertion.spec.ts`. |
 | 2.17 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` speech handlers | Give both message boxes one copy of their dictation handlers ([plan 178](178-shared-composer-dictation.md) slice 2). | Not move-only: a consolidation under plan 178. Both boxes call `hooks/useComposerSpeechHandlers.ts` for listening start and stop, caret retargeting, committing finals and interims, pending-state changes, failed transcriptions and cancel. What differs between the boxes comes in as options (plan 178 D2 to D7). No behavior change. Budgets `MessageInput.tsx` 4,448 -> 4,097 and `NewSessionForm.tsx` 5,897 -> 5,640. Tier 3, plus the slice 0 pins and the slice 1 keystroke check. |
+| 2.18 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` keys, paste and speech field | Give both message boxes one copy of their speech Escape keys, Enter-sends rule, paste file extraction and speech draft field ([plan 178](178-shared-composer-dictation.md) slice 3). | Not move-only: a consolidation under plan 178. Both boxes call `lib/composerKeys.ts` (`handleSpeechEscapeKey`, `isComposerEnterSend`, `getClipboardFiles`) and render `components/SpeechDraftField.tsx`. Each box keeps its key order and guards (plan 178 D8, D11). No behavior change. Budgets `MessageInput.tsx` 4,097 -> 4,023 and `NewSessionForm.tsx` 5,640 -> 5,571. Tier 3, plus the slice 1 keystroke check. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -412,6 +413,68 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.18 — Shared Message-Box Keys, Paste and Speech Field (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 178](178-shared-composer-dictation.md) slice 3 replaces
+two copies with one, under that plan's rules for differences between the
+copies.
+
+Replaced in both `NewSessionForm.tsx` and `MessageInput.tsx`:
+- The Escape pair in `handleKeyDown` (cancel a transcription still pending
+  after capture, else stop listening) -> `handleSpeechEscapeKey` in new
+  `packages/client/src/lib/composerKeys.ts`.
+- The desktop Enter-sends rule and the touch-device newline ->
+  `isComposerEnterSend` in the same module.
+- The clipboard file loop in `handlePaste` -> `getClipboardFiles` in the
+  same module.
+- The speech draft field (the interim mirror over the textarea and the
+  tentative-transcript status line) -> `SpeechDraftField` in new
+  `packages/client/src/components/SpeechDraftField.tsx`, which takes the
+  textarea as its children.
+
+Shape changes:
+- Each box keeps its own key order and the guards before the Escape pair
+  (plan 178 D8, D11), its listening-Enter check, its attach guard and where
+  pasted files go. The in-session box read `hasCoarsePointer()` before its
+  listening-Enter check and now reads it inside `isComposerEnterSend`,
+  after; it has no side effects.
+- The voice shortcut already shared `handleVoiceInputShortcutKeyDown`; its
+  two-line toggle callback stays in each box.
+
+Behavior changes:
+- None.
+
+Verification:
+- `MessageInput.test.tsx`, `MessageInput.bangDraft.test.tsx` and
+  `NewSessionForm.test.tsx` pass unchanged (334 tests), including
+  Escape-cancel, Enter and Ctrl+Enter cases.
+- Focused browser specs pass: `speech-caret-insertion.spec.ts` (the
+  keystroke check in both boxes), `composer-recall-drawer.spec.ts`,
+  `bang-command.spec.ts`, `session-creation-client.spec.ts`,
+  `audio-memo.spec.ts`, `new-session-preboot-composer.spec.ts`,
+  `composer-beacon.spec.ts`, `attachment-drop.spec.ts`,
+  `session-creation-attachments.spec.ts` and
+  `file-viewer-minimize.spec.ts`. `pnpm css:check` passes and
+  `pnpm i18n:scan` reports nothing new (the status line's existing
+  untranslated label moved unchanged).
+- CSS ownership: deferred. `pnpm css:touched` reports `SpeechDraftField`
+  has no independently owned rule slice: its 14 `speech-*` rules in
+  `index.css` are shared with `FloatingActionButton.tsx` and scoped
+  through `.message-input`, `.new-session-form` and `.fab-input-panel`,
+  and both boxes' CSS modules reach it through `:global(.speech-draft-field)`.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a separate worktree. Tier 3
+  (`pnpm --filter client test:e2e --grep-invert "physical Android"`) in
+  the same worktree: 495 passed, 13 skipped, 5 failed.
+  `selection-during-activity.spec.ts:281` passed when rerun; the four
+  `acli-commentary.spec.ts` cases fail from any worktree (see slice 2.17).
+
+Follow-ups recorded:
+- Plan 178 slice 4.
+- The floating composer (`FloatingActionButton.tsx`) holds a third copy of
+  the dictation code, including this Escape pair and speech field
+  markup; plan 178 slice 5 adopts the shared pieces.
 
 ### Slice 2.17 — Shared Message-Box Speech Handlers (Landed 2026-11-07, this commit)
 

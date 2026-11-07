@@ -2,9 +2,10 @@
 
 Topic: mic-button-speech-ui
 
-Status: planned 2026-11-07; slices 0 (the test pins), 1 (speech state)
-and 2 (speech handlers) landed 2026-11-07. Proposal 1 of the [session page
-React hub gap](../../gaps/session-page-react-hub.md), owned by
+Status: planned 2026-11-07; slices 0 (the test pins), 1 (speech state),
+2 (speech handlers) and 3 (keys, paste and speech field) landed
+2026-11-07. Proposal 1 of the [session page React hub
+gap](../../gaps/session-page-react-hub.md), owned by
 [doc 058](058-typescript-module-boundary-refactor.md) priority-queue item 2.
 
 The new-session box (`NewSessionForm.tsx`) and the in-session box
@@ -151,13 +152,23 @@ line here.
    listening), the desktop Enter-sends rule, the voice shortcut and
    clipboard file extraction. Each box keeps its key order and guards (D8,
    D11) and where pasted files go. The interim preview markup and status
-   line become one component if they match; any difference found goes in
-   this table first.
+   line become one component; they match. The voice shortcut already
+   shares `handleVoiceInputShortcutKeyDown`, leaving a two-line callback in
+   each box, so it stays.
 4. **Per-file attachment upload.** One function prepares an image and
    uploads one file, staged or direct, for `uploadComposerAttachmentFile`
    and the new-session box's three copies. Each site keeps its own pending
    state, progress, preview storage and toasts. The slice starts by adding
    each site's differences to this table under the same rule.
+5. **Floating composer.** `FloatingActionButton.tsx` holds a third copy of
+   the speech state and handlers (listening start and stop, the selection
+   target and its clear, commit, transcript, flush, interim, pending-state
+   change and cancel), the Escape pair and the speech draft field markup.
+   The slice 3 review found it; this plan missed it. The slice starts by
+   adding the floating composer's differences to this table under the same
+   rule, then has it call `useComposerSpeechState`,
+   `useComposerSpeechHandlers`, `handleSpeechEscapeKey` and
+   `SpeechDraftField`, with the same keystroke check run in it.
 
 ## Checks
 
