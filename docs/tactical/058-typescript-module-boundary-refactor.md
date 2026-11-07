@@ -37,15 +37,16 @@ shared, and how risky it is to touch today.
    (about 4,000) and `MessageInputToolbar.tsx` (about 3,800) are where most UI
    work lands. Their size makes each change slow to review and easy to
    regress, including the keystroke-latency contract. Phase 2 below holds the
-   slice rows; slices 2.12 to 2.22 (the composer's bang completion state and
+   slice rows; slices 2.12 to 2.23 (the composer's bang completion state and
    recall drawer, the page's bang-command wiring, the toolbar's thinking
    control, and the message boxes' shared speech state, handlers, keys, speech
    field and attachment upload step, of which the floating composer shares the
-   speech pieces, and the page's submission, send and queue decisions) landed
-   2026-11-07. Moving small features out one at a time leaves these files
-   structurally as they were; the burn-down order and the consolidations it
-   needs (one shared message-box core, then sending as plain functions) are in
-   [the session page hub gap](../../gaps/session-page-react-hub.md).
+   speech pieces, and the page's submission, send, queue and Project Queue
+   decisions) landed 2026-11-07. Moving small features out one at a time
+   leaves these files structurally as they were; the burn-down order and the
+   consolidations it needs (one shared message-box core, then sending as plain
+   functions) are in [the session page hub
+   gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -285,6 +286,7 @@ and props stable.
 | 2.20 | Done 2026-11-07 | `FloatingActionButton.tsx` dictation | Give the floating composer the shared dictation core ([plan 178](178-shared-composer-dictation.md) slice 5). | Not move-only: a consolidation under plan 178. The floating composer calls `useComposerSpeechState`, `useComposerSpeechHandlers`, `handleSpeechEscapeKey` and `SpeechDraftField`, and keeps its own pending-state and cancel handlers (plan 178 F1 to F6). No behavior change. 739 -> 433 lines (under the budget threshold). Tier 3, plus the floating composer in the keystroke check. |
 | 2.21 | Done 2026-11-07 | `SessionPage.tsx` submission decision | Turn the session page's submission preparation into a plain decision ([plan 179](179-session-composer-send-decisions.md) slice 1). | Not move-only: under plan 179. `resolveComposerSubmission` in `lib/sessionComposerSendDecisions.ts` decides; `prepareComposerSubmission` applies it in today's order. No behavior change. Budget `SessionPage.tsx` 7,655 -> 7,563. Tier 3, plus plan 179's slice 0 pins. |
 | 2.22 | Done 2026-11-07 | `SessionPage.tsx` send and queue decisions | Move `handleSend`'s and `handleQueue`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 2). | Not move-only: under plan 179. `planSend`, `planQueue`, the resume options, the failure steps, retry predicates and final notice in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,563 -> 7,525. Tier 3, plus plan 179's slice 0 pins. |
+| 2.23 | Done 2026-11-07 | `SessionPage.tsx` Project Queue decisions | Move `queueComposerForProject`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 3). | Not move-only: under plan 179, after its legacy start-now pin. `resolveProjectQueueCommand`, `planProjectQueue` and `projectQueueQueuedMessage` in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,525 -> 7,475. Tier 3, plus plan 179's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -418,6 +420,54 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.23 — Session Composer Project Queue Decisions (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 179](179-session-composer-send-decisions.md) slice 3
+moves `queueComposerForProject`'s decisions into plain functions; the page
+keeps every effect in its current place and order. A separate commit just
+before it pins the legacy start-now path in `session-send-paths.spec.ts`.
+
+Moved to `packages/client/src/lib/sessionComposerSendDecisions.ts`:
+- `resolveProjectQueueCommand`: the queued YA command classification and
+  its refusals (composer-only, unsupported, invalid, needs a session, no
+  attachments), or the command text to queue, or "prepare as a prompt".
+- `planProjectQueue`: the target project, provider and model, the
+  turn-effort metadata (plan 179's deferred S7 variant; the old
+  caller-wins merge differed only in a `deliveryIntent` that every request
+  overwrites), and whether this is a start-now creation and a canonical
+  one.
+- `projectQueueQueuedMessage`: which of the three success toasts.
+
+Shape changes:
+- The saved default model is read through a callback, only when needed,
+  as before.
+- The plan's Project Queue target, message and navigation builders were
+  not added: each object is built once, at its single call site, from
+  values the effects produce, so a builder would only restate the call.
+  The plan records this.
+
+Behavior changes:
+- None.
+
+Verification:
+- `sessionComposerSendDecisions.test.ts` gains cases for each refusal
+  (composer-only, unsupported, syntax, clear-zero, needs a session,
+  attachments or pending uploads), the rewind fallthrough, the queueable
+  command, a chosen model winning without reading the saved default, the target, provider and model choice, canonical
+  creation with and without the admission capability, the metadata and
+  the toasts.
+- `session-send-paths.spec.ts` (with the new legacy start-now case) and the
+  plan's Project Queue and send specs pass: 30 tests across 12 files.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a separate worktree. Tier 3
+  (`pnpm --filter client test:e2e --grep-invert "physical Android"`) in
+  the same worktree: 511 passed, 13 skipped, 1 failed;
+  `session-header-responsive.spec.ts:29` (a visibility timeout, not a
+  typing-latency check) passed when rerun alone.
+
+Follow-ups recorded:
+- Plan 179 slice 4.
 
 ### Slice 2.22 — Session Composer Send and Queue Decisions (Landed 2026-11-07, this commit)
 

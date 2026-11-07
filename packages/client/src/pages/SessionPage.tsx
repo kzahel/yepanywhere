@@ -46,7 +46,6 @@ import {
   SYNTHETIC_ARCHIVE_COMMAND_CAPABILITY,
   SYNTHETIC_DONE_COMMAND_CAPABILITY,
   SYNTHETIC_TERMINATE_COMMAND_CAPABILITY,
-  classifyQueuedYaCommand,
   type FileViewLineTarget,
   type FileViewSearchResult,
   getCanonicalInvocationToken,
@@ -301,8 +300,11 @@ import {
   type ComposerSubmissionFallback,
   finalFailureNotice,
   firstSendFailureStep,
+  planProjectQueue,
   planQueue,
   planSend,
+  projectQueueQueuedMessage,
+  resolveProjectQueueCommand,
   resolveComposerSubmission,
   shouldRetryQueueWithResume,
   shouldRetrySendWithResume,
@@ -3563,100 +3565,53 @@ function SessionPageContent({
     metadata?: MessageSubmissionMetadata,
     newSessionTarget?: ChosenNewSessionQueueTarget,
   ) => {
-    // Project Queue is a delayed lane, so a YA-emulated command must be
-    // carried to the scheduler rather than run now the way the composer's
-    // direct paths run it (topics/project-queue.md § Queued YA commands).
-    const classified = classifyQueuedYaCommand(text, {
+    const command = resolveProjectQueueCommand({
+      text,
+      targetType,
       rewindSupported: supportsRewind,
       fileViewSupported: supportsFileViewCommand,
+      attachmentCount: attachmentsRef.current.length,
+      pendingUploadCount: pendingUploadsRef.current.size,
+      t,
     });
-    const refuseCommand = (message: string) => {
+    if (command.kind === "refuse") {
       draftControlsRef.current?.setDraft(text);
-      showToast(message, "error");
-    };
-    if (classified.kind === "composer-only") {
-      refuseCommand(
-        t("projectQueueComposerOnlyCommand", { command: classified.name }),
-      );
-      return;
-    }
-    if (classified.kind === "unsupported") {
-      refuseCommand(
-        t("projectQueueUnsupportedCommand", { command: classified.name }),
-      );
-      return;
-    }
-    if (classified.kind === "invalid") {
-      refuseCommand(
-        classified.problem === "clear-zero"
-          ? t("projectQueueClearZero")
-          : t("projectQueueCommandSyntax", {
-              command: classified.command.name,
-            }),
-      );
+      showToast(command.message, "error");
       return;
     }
     const yaCommand =
-      classified.kind === "queueable" ? classified.command : undefined;
-    if (yaCommand) {
-      if (targetType === "new-session") {
-        refuseCommand(
-          t("projectQueueCommandNeedsSession", { command: yaCommand.name }),
-        );
-        return;
-      }
-      if (
-        attachmentsRef.current.length > 0 ||
-        pendingUploadsRef.current.size > 0
-      ) {
-        refuseCommand(
-          t("projectQueueCommandNoAttachments", { command: yaCommand.name }),
-        );
-        return;
-      }
-    }
+      command.kind === "queueable" ? command.yaCommand : undefined;
     const prepared: PreparedComposerSubmission | null =
-      classified.kind === "queueable"
-        ? { outgoingText: classified.commandText }
+      command.kind === "queueable"
+        ? command.prepared
         : prepareComposerSubmission(text);
     if (!prepared) {
       return;
     }
-    if (prepared.turnEffort)
-      metadata = {
-        composition: {},
-        deliveryIntent: "deferred",
-        ...metadata,
-        turnEffort: prepared.turnEffort,
-        steerNow: undefined,
-      };
+    const plan = planProjectQueue({
+      prepared,
+      metadata,
+      targetType,
+      newSessionTarget,
+      projectId,
+      provider: effectiveProvider,
+      sessionModel: session?.model,
+      defaultModel: getModelSetting,
+      version: versionInfo,
+    });
+    metadata = plan.metadata;
     const { outgoingText, slashCommand } = prepared;
     const thinking = prepared.thinking ?? getImplicitComposerThinking();
     const showThinking = getShowThinkingSetting();
     const actionAtMs = Date.now();
     const clientTimestamp = getServerClockTimestamp(actionAtMs);
-
-    // A new session chosen from the options may go to another project or
-    // provider. This session's settings still apply where they can: its
-    // executor and implicit effort only to the same provider, since another
-    // provider's catalog may not accept them.
-    const queueProjectId =
-      targetType === "new-session"
-        ? (newSessionTarget?.projectId ?? projectId)
-        : projectId;
-    const newSessionProvider = newSessionTarget?.provider ?? effectiveProvider;
-    const keepsProvider = newSessionProvider === effectiveProvider;
-    const newSessionModel =
-      newSessionTarget?.model ??
-      (keepsProvider ? (session?.model ?? getModelSetting()) : undefined);
-
-    const canonicalCreation =
-      targetType === "new-session" &&
-      newSessionTarget?.delivery === "now" &&
-      serverHasCapability(
-        versionInfo,
-        SERVER_CAPABILITIES.sessionCreationAdmission.name,
-      );
+    const {
+      queueProjectId,
+      newSessionProvider,
+      keepsProvider,
+      newSessionModel,
+      canonicalCreation,
+    } = plan;
     if (canonicalCreation && !creationPrincipalResolved) {
       draftControlsRef.current?.restoreFromStorage();
       return;
@@ -3710,10 +3665,7 @@ function SessionPageContent({
             acceptedInput = draftControlsRef.current?.captureSubmission?.();
         }
       }
-      if (
-        targetType === "new-session" &&
-        newSessionTarget?.delivery === "now"
-      ) {
+      if (plan.startsNow) {
         const options = {
           mode: permissionMode,
           model: newSessionModel,
@@ -3892,15 +3844,13 @@ function SessionPageContent({
       setCorrectionDraft(null);
       clearQuoteAnchors();
       showToast(
-        targetType === "new-session" && queueProjectId !== projectId
-          ? t("projectQueueNewSessionQueuedInProjectToast", {
-              project: newSessionTarget?.projectName ?? queueProjectId,
-            })
-          : t(
-              targetType === "new-session"
-                ? "projectQueueNewSessionQueuedToast"
-                : "projectQueueSessionQueuedToast",
-            ),
+        projectQueueQueuedMessage({
+          targetType,
+          queueProjectId,
+          projectId,
+          projectName: newSessionTarget?.projectName,
+          t,
+        }),
         "success",
       );
     } catch (err) {

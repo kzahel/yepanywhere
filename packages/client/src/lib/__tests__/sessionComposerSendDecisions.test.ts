@@ -5,9 +5,12 @@ import {
   type ComposerSubmissionContext,
   finalFailureNotice,
   firstSendFailureStep,
+  planProjectQueue,
   planQueue,
   planSend,
+  projectQueueQueuedMessage,
   resolveComposerSubmission,
+  resolveProjectQueueCommand,
   shouldRetryQueueWithResume,
   shouldRetrySendWithResume,
 } from "../sessionComposerSendDecisions";
@@ -494,5 +497,173 @@ describe("send and queue failures", () => {
         }),
       ).toMatchObject({ openHandoffDialog: false });
     });
+  });
+});
+
+describe("Project Queue decisions", () => {
+  const t = (key: string, vars?: Record<string, string>) =>
+    vars ? `t:${key}:${Object.values(vars).join(",")}` : `t:${key}`;
+  const command = (
+    text: string,
+    overrides: Partial<Parameters<typeof resolveProjectQueueCommand>[0]> = {},
+  ) =>
+    resolveProjectQueueCommand({
+      text,
+      targetType: "existing-session",
+      rewindSupported: true,
+      fileViewSupported: true,
+      attachmentCount: 0,
+      pendingUploadCount: 0,
+      t,
+      ...overrides,
+    });
+
+  it("prepares a prompt and refuses commands that cannot be queued", () => {
+    expect(command("Run the checks")).toEqual({ kind: "prepare" });
+    expect(command("/model")).toEqual({
+      kind: "refuse",
+      message: "t:projectQueueComposerOnlyCommand:model",
+    });
+    expect(command("/fork 2")).toEqual({
+      kind: "refuse",
+      message: "t:projectQueueUnsupportedCommand:fork",
+    });
+    expect(command("/clear abc")).toEqual({
+      kind: "refuse",
+      message: "t:projectQueueCommandSyntax:clear",
+    });
+    // Without rewind support a rewind command is an ordinary prompt.
+    expect(command("/clear 2", { rewindSupported: false })).toEqual({
+      kind: "prepare",
+    });
+  });
+
+  it("carries a queueable command as its command text, only to an existing session without attachments", () => {
+    expect(command("/clear 2")).toMatchObject({
+      kind: "queueable",
+      prepared: { outgoingText: "/clear 2" },
+      yaCommand: { name: "clear" },
+    });
+    expect(command("/clear")).toEqual({
+      kind: "refuse",
+      message: "t:projectQueueClearZero",
+    });
+    expect(command("/clear 2", { targetType: "new-session" })).toEqual({
+      kind: "refuse",
+      message: "t:projectQueueCommandNeedsSession:clear",
+    });
+    for (const uploads of [{ attachmentCount: 1 }, { pendingUploadCount: 1 }]) {
+      expect(command("/clear 2", uploads)).toEqual({
+        kind: "refuse",
+        message: "t:projectQueueCommandNoAttachments:clear",
+      });
+    }
+  });
+
+  const plan = (
+    overrides: Partial<Parameters<typeof planProjectQueue<string>>[0]> = {},
+  ) =>
+    planProjectQueue<string>({
+      prepared: { outgoingText: "Do it" },
+      metadata: undefined,
+      targetType: "new-session",
+      newSessionTarget: undefined,
+      projectId: "here",
+      provider: "claude",
+      sessionModel: undefined,
+      defaultModel: () => "saved-model",
+      version: { current: "99.0.0" },
+      ...overrides,
+    });
+
+  it("targets this project and provider unless the options choose others", () => {
+    expect(plan({ sessionModel: "session-model" })).toMatchObject({
+      queueProjectId: "here",
+      newSessionProvider: "claude",
+      keepsProvider: true,
+      newSessionModel: "session-model",
+      startsNow: false,
+      canonicalCreation: false,
+    });
+    expect(plan()).toMatchObject({ newSessionModel: "saved-model" });
+    // A chosen model wins, and the saved default is not read.
+    expect(
+      plan({
+        sessionModel: "session-model",
+        newSessionTarget: { model: "chosen" },
+        defaultModel: () => {
+          throw new Error("read");
+        },
+      }),
+    ).toMatchObject({ newSessionModel: "chosen" });
+    expect(
+      plan({
+        newSessionTarget: { projectId: "there", provider: "codex" },
+      }),
+    ).toMatchObject({
+      queueProjectId: "there",
+      newSessionProvider: "codex",
+      keepsProvider: false,
+      newSessionModel: undefined,
+    });
+    expect(
+      plan({
+        targetType: "existing-session",
+        newSessionTarget: { projectId: "there" },
+      }),
+    ).toMatchObject({ queueProjectId: "here" });
+  });
+
+  it("starts now with durable admission only on servers that support it", () => {
+    const now = { newSessionTarget: { delivery: "now" as const } };
+    expect(
+      plan({
+        ...now,
+        version: { capabilities: ["session-creation-admission-v1"] },
+      }),
+    ).toMatchObject({
+      startsNow: true,
+      canonicalCreation: true,
+    });
+    expect(
+      plan({ ...now, version: { current: "0.11.0", capabilities: [] } }),
+    ).toMatchObject({ startsNow: true, canonicalCreation: false });
+  });
+
+  it("merges turn effort as deferred delivery", () => {
+    expect(
+      plan({ prepared: { outgoingText: "x", turnEffort: "fast" } }).metadata,
+    ).toEqual({
+      composition: {},
+      deliveryIntent: "deferred",
+      turnEffort: "fast",
+      steerNow: undefined,
+    });
+  });
+
+  it("names another project in the queued toast", () => {
+    const base = { projectId: "here", projectName: undefined, t };
+    expect(
+      projectQueueQueuedMessage({
+        ...base,
+        targetType: "new-session",
+        queueProjectId: "there",
+        projectName: "Other",
+      }),
+    ).toBe("t:projectQueueNewSessionQueuedInProjectToast:Other");
+    expect(
+      projectQueueQueuedMessage({
+        ...base,
+        targetType: "new-session",
+        queueProjectId: "here",
+      }),
+    ).toBe("t:projectQueueNewSessionQueuedToast");
+    expect(
+      projectQueueQueuedMessage({
+        ...base,
+        targetType: "existing-session",
+        queueProjectId: "here",
+      }),
+    ).toBe("t:projectQueueSessionQueuedToast");
   });
 });

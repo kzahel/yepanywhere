@@ -1,6 +1,10 @@
 import {
+  classifyQueuedYaCommand,
   type ProviderName,
+  type QueuedYaCommand,
+  SERVER_CAPABILITIES,
   type ServerCapabilitySource,
+  serverHasCapability,
   startsWithSlashCommand,
   type TurnEffort,
 } from "@yep-anywhere/shared";
@@ -34,7 +38,16 @@ export type ComposerSendMessageKey =
   | "turnEffortUnavailable"
   | "routedSessionHandoffRequired"
   | "sessionSendFailed"
-  | "sessionQueueFailed";
+  | "sessionQueueFailed"
+  | "projectQueueComposerOnlyCommand"
+  | "projectQueueUnsupportedCommand"
+  | "projectQueueClearZero"
+  | "projectQueueCommandSyntax"
+  | "projectQueueCommandNeedsSession"
+  | "projectQueueCommandNoAttachments"
+  | "projectQueueNewSessionQueuedInProjectToast"
+  | "projectQueueNewSessionQueuedToast"
+  | "projectQueueSessionQueuedToast";
 
 type Translate = (
   key: ComposerSendMessageKey,
@@ -476,4 +489,193 @@ export function finalFailureNotice({
       message: errorMsg,
     }),
   };
+}
+
+export type ProjectQueueTargetType = "existing-session" | "new-session";
+
+/** The new-session target chosen in the Project Queue options. */
+export interface ProjectQueueNewSessionChoice<Provider> {
+  projectId?: string;
+  projectName?: string;
+  provider?: Provider;
+  model?: string;
+  delivery?: "now";
+}
+
+export type ProjectQueueCommandDecision =
+  /** Restore the raw text and show `message`. */
+  | { kind: "refuse"; message: string }
+  /** A YA command the scheduler runs later, sent as its command text. */
+  | {
+      kind: "queueable";
+      prepared: PreparedComposerSubmission;
+      yaCommand: QueuedYaCommand;
+    }
+  /** An ordinary prompt: prepare it as a composer submission. */
+  | { kind: "prepare" };
+
+/**
+ * Project Queue is a delayed lane, so a YA-emulated command must be carried
+ * to the scheduler rather than run now the way the composer's direct paths
+ * run it (topics/project-queue.md § Queued YA commands). Decides whether
+ * the text is such a command, a command that cannot be queued, or a prompt.
+ */
+export function resolveProjectQueueCommand({
+  text,
+  targetType,
+  rewindSupported,
+  fileViewSupported,
+  attachmentCount,
+  pendingUploadCount,
+  t,
+}: {
+  text: string;
+  targetType: ProjectQueueTargetType;
+  rewindSupported: boolean;
+  fileViewSupported: boolean;
+  attachmentCount: number;
+  pendingUploadCount: number;
+  t: Translate;
+}): ProjectQueueCommandDecision {
+  const classified = classifyQueuedYaCommand(text, {
+    rewindSupported,
+    fileViewSupported,
+  });
+  if (classified.kind === "composer-only") {
+    return {
+      kind: "refuse",
+      message: t("projectQueueComposerOnlyCommand", {
+        command: classified.name,
+      }),
+    };
+  }
+  if (classified.kind === "unsupported") {
+    return {
+      kind: "refuse",
+      message: t("projectQueueUnsupportedCommand", {
+        command: classified.name,
+      }),
+    };
+  }
+  if (classified.kind === "invalid") {
+    return {
+      kind: "refuse",
+      message:
+        classified.problem === "clear-zero"
+          ? t("projectQueueClearZero")
+          : t("projectQueueCommandSyntax", {
+              command: classified.command.name,
+            }),
+    };
+  }
+  if (classified.kind !== "queueable") return { kind: "prepare" };
+  const yaCommand = classified.command;
+  if (targetType === "new-session") {
+    return {
+      kind: "refuse",
+      message: t("projectQueueCommandNeedsSession", {
+        command: yaCommand.name,
+      }),
+    };
+  }
+  if (attachmentCount > 0 || pendingUploadCount > 0) {
+    return {
+      kind: "refuse",
+      message: t("projectQueueCommandNoAttachments", {
+        command: yaCommand.name,
+      }),
+    };
+  }
+  return {
+    kind: "queueable",
+    prepared: { outgoingText: classified.commandText },
+    yaCommand,
+  };
+}
+
+/**
+ * Where a Project Queue submission goes and how it starts: the target
+ * project, provider and model, the turn-effort metadata (plan 179 S7, the
+ * deferred variant), and whether it is a start-now creation that needs
+ * durable admission.
+ */
+export function planProjectQueue<Provider>({
+  prepared,
+  metadata,
+  targetType,
+  newSessionTarget,
+  projectId,
+  provider,
+  sessionModel,
+  defaultModel,
+  version,
+}: {
+  prepared: PreparedComposerSubmission;
+  metadata: MessageSubmissionMetadata | undefined;
+  targetType: ProjectQueueTargetType;
+  newSessionTarget: ProjectQueueNewSessionChoice<Provider> | undefined;
+  projectId: string;
+  provider: Provider;
+  sessionModel: string | undefined;
+  /** The saved default model, read only when it is needed. */
+  defaultModel: () => string | undefined;
+  version: ServerCapabilitySource | null | undefined;
+}) {
+  // A new session chosen from the options may go to another project or
+  // provider. This session's settings still apply where they can: its
+  // executor and implicit effort only to the same provider, since another
+  // provider's catalog may not accept them.
+  const queueProjectId =
+    targetType === "new-session"
+      ? (newSessionTarget?.projectId ?? projectId)
+      : projectId;
+  const newSessionProvider = newSessionTarget?.provider ?? provider;
+  const keepsProvider = newSessionProvider === provider;
+  const newSessionModel =
+    newSessionTarget?.model ??
+    (keepsProvider ? (sessionModel ?? defaultModel()) : undefined);
+  const startsNow =
+    targetType === "new-session" && newSessionTarget?.delivery === "now";
+  return {
+    metadata: prepared.turnEffort
+      ? mergeTurnEffortMetadata(metadata, prepared.turnEffort, "deferred")
+      : metadata,
+    queueProjectId,
+    newSessionProvider,
+    keepsProvider,
+    newSessionModel,
+    startsNow,
+    canonicalCreation:
+      startsNow &&
+      serverHasCapability(
+        version,
+        SERVER_CAPABILITIES.sessionCreationAdmission.name,
+      ),
+  };
+}
+
+/** The toast after a Project Queue item is created. */
+export function projectQueueQueuedMessage({
+  targetType,
+  queueProjectId,
+  projectId,
+  projectName,
+  t,
+}: {
+  targetType: ProjectQueueTargetType;
+  queueProjectId: string;
+  projectId: string;
+  projectName: string | undefined;
+  t: Translate;
+}): string {
+  if (targetType === "new-session" && queueProjectId !== projectId) {
+    return t("projectQueueNewSessionQueuedInProjectToast", {
+      project: projectName ?? queueProjectId,
+    });
+  }
+  return t(
+    targetType === "new-session"
+      ? "projectQueueNewSessionQueuedToast"
+      : "projectQueueSessionQueuedToast",
+  );
 }

@@ -3,7 +3,8 @@
 Topic: message-control-steer-queue-btw-later-interrupt
 
 Status: planned 2026-11-07; slices 0 (the pins), 1 (the submission
-decision) and 2 (send and queue decisions) landed 2026-11-07. Slice 0 pins fourteen cases in
+decision), 2 (send and queue decisions) and 3 (Project Queue decisions)
+landed 2026-11-07. Slice 0 pins fourteen cases in
 `session-send-paths.spec.ts`, including both handoff
 notices (the built-in message and the routed one), `compactQueued`, the
 retried resume's request (same temp id and client time, no
@@ -255,10 +256,10 @@ attachment collect, stage and materialize helpers and
 - `planSend` and `planQueue` (slice 2), then `planProjectQueue` (slice 3):
   the pre-request decisions (prepare skip, reroute, the S7 metadata variant,
   local control, the attachment-only refusal, Project Queue classification,
-  target project, provider and model, canonical creation). Builders cover
-  only the resume settings, Project Queue target and message, and navigation
-  state objects; the positional API calls stay at the call sites, with S4 as
-  an explicit flag.
+  target project, provider and model, canonical creation). One builder
+  covers the resume settings, with S4 as an explicit flag; the positional API
+  calls, and the Project Queue and navigation objects (see slice 3), stay at
+  their call sites.
 - Failure handling in stages: `firstSendFailureStep(err, delivered)` returns
   delivered, stale redirect or continue; `shouldRetrySendWithResume(err)` and
   `shouldRetryQueueWithResume(err, queuedCompact)` apply each path's
@@ -312,9 +313,13 @@ own render's binding, as today. These stay in the page unchanged:
    settings builder and the staged failure functions, with unit tests on the
    planners and failure functions; the page's two functions call them and
    keep their effects in place.
-3. **Project Queue decisions.** `planProjectQueue` and its target, message
-   and navigation builders, with unit tests on the planner; the staged-ref
-   throw stays inside the `try`, after the creation-view check.
+3. **Project Queue decisions.** `resolveProjectQueueCommand`,
+   `planProjectQueue` and `projectQueueQueuedMessage`, with unit tests; the
+   staged-ref throw stays inside the `try`, after the creation-view check.
+   The target, message and navigation builders were dropped: each object is
+   built once, at its single call site, from values the effects produce
+   (uploaded and staged attachments, the creation result), so a builder
+   would only restate the call; slice 4 moves them with the rest.
 4. **The send module.** The three functions and prepare move into
    `createSessionComposerSend`, which the page calls where `handleSend`
    stands today.
