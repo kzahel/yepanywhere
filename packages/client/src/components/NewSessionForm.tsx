@@ -25,6 +25,7 @@ import { DraftSyncNotice } from "./DraftSyncNotice";
 import { DRAFT_STORAGE_EVENT, draftStorage } from "../lib/draftSyncStorage";
 import { useRendezCompose } from "../hooks/useRendezCompose";
 import { MachineControlSessionSelection } from "./MachineControlSessionSelection";
+import { useComposerSpeechState } from "../hooks/useComposerSpeechState";
 import { useComposerVoiceRef } from "../hooks/useComposerVoiceRef";
 import type { ProjectAppTarget } from "../api/projectApp";
 import {
@@ -245,25 +246,22 @@ import {
   createSpeechInsertionRange,
   getSpeechSelectionFinalDelayMs,
   getSpeechInterimDisplayTranscript,
-  getSpeechTranscriptInsertionParts,
-  getSpeechTranscriptReplacementParts,
+  getSpeechInterimPreview,
   getSpeechVisibleDraftText,
-  mapSpeechInsertionRangeThroughEdit,
   retargetSpeechInsertionRange,
   type SpeechInsertionRange,
   textBeforeSpeechCursor,
 } from "../lib/speechRecognition";
-import {
-  commitSpeechTranscript,
-  hasNonWhitespaceEdit,
-  type PendingSpeechRetarget,
-  type PendingTextareaSelectionRestore,
-} from "../lib/speechDraftTransaction";
+import { commitSpeechTranscript } from "../lib/speechDraftTransaction";
 import {
   prependSpeechMessagePrefix,
   resolveDeliverySpeechPrefix,
 } from "../lib/speechMessagePrefix";
 import { handleVoiceInputShortcutKeyDown } from "../lib/voiceInputShortcut";
+import {
+  createClientSpeechTurnId,
+  createSpeechTargetId,
+} from "../lib/speechTargets";
 import { generateUUID } from "../lib/uuid";
 import { useVersion } from "../hooks/useVersion";
 import { useSpeechCaptureSettings } from "../hooks/useSpeechCaptureSettings";
@@ -297,12 +295,6 @@ const ROUTER_MODEL_UNAVAILABLE = {
   missing: "routerModelMissing",
 } as const satisfies Record<RouterModelUnavailable, MessageKey>;
 
-interface PendingSpeechFinal {
-  timer: ReturnType<typeof setTimeout>;
-  transcript: string;
-  metadata?: SpeechTranscriptionResultMetadata;
-}
-
 type PendingNewSessionSpeechDeliveryIntent =
   | "start"
   | "background"
@@ -311,14 +303,6 @@ type PendingNewSessionSpeechDeliveryIntent =
 interface PendingNewSessionSpeechDelivery {
   kind: PendingNewSessionSpeechDeliveryIntent;
   visibleTextSnapshot: string;
-}
-
-function createClientSpeechTurnId(): string {
-  return generateUUID();
-}
-
-function createSpeechTargetId(): string {
-  return `speech-target-${generateUUID()}`;
 }
 
 export interface NewSessionFormProps {
@@ -594,17 +578,30 @@ export function NewSessionForm({
   const selectedProviderInfo =
     selectedProviderQuery.row ?? aggregateProviderInfo;
   const { visibility: toolbarVisibility } = useSessionToolbarPresence();
-  const [interimTranscript, setInterimTranscript] = useState("");
-  const interimTranscriptRef = useRef(interimTranscript);
-  interimTranscriptRef.current = interimTranscript;
-  const [speechPending, setSpeechPending] = useState<SpeechPendingKind | null>(
-    null,
-  );
-  const speechPendingRef = useRef<SpeechPendingKind | null>(null);
+  const {
+    interimTranscript,
+    setInterimTranscript,
+    interimTranscriptRef,
+    speechPending,
+    setSpeechPending,
+    speechPendingRef,
+    speechTransactionHasTextRef,
+    setSpeechPreviewRevision,
+    speechTurnIdRef,
+    speechInsertionRangeRef,
+    activeSpeechTargetIdRef,
+    speechInsertionRangesRef,
+    pendingSpeechRetargetRef,
+    pendingSpeechFinalRef,
+    composerEditedDuringSpeechRef,
+    pendingTextareaSelectionRef,
+    clearPendingSpeechFinal,
+    noteSpeechDraftEdit,
+    restorePendingTextareaSelection,
+  } = useComposerSpeechState();
   const pendingSpeechDeliveryRef =
     useRef<PendingNewSessionSpeechDelivery | null>(null);
   const pendingSpeechDeliverySettledRef = useRef(false);
-  const speechTransactionHasTextRef = useRef(false);
   const dispatchingSettledSpeechDeliveryRef = useRef(false);
   const runPendingSpeechDeliveryRef = useRef<() => void>(() => {});
   const { asrAttributionMs, speechMessagePrefix } = useSpeechCaptureSettings();
@@ -614,7 +611,6 @@ export function NewSessionForm({
     isRecent: isRecentSpeechAttribution,
     consume: consumeSpeechAttribution,
   } = useRecentSpeechAttribution(asrAttributionMs);
-  const [, setSpeechPreviewRevision] = useState(0);
   const [isProjectChooserExpanded, setIsProjectChooserExpanded] =
     useState(false);
   const requestedProjectPath = useMemo(() => {
@@ -636,20 +632,6 @@ export function NewSessionForm({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const voiceButtonRef = useRef<VoiceInputButtonRef>(null);
   const sharedVoiceRef = useComposerVoiceRef(voiceButtonRef, onVoiceControl);
-  const speechTurnIdRef = useRef<string | null>(null);
-  const speechInsertionRangeRef = useRef<SpeechInsertionRange | null>(null);
-  const activeSpeechTargetIdRef = useRef<string | null>(null);
-  const speechInsertionRangesRef = useRef<Map<string, SpeechInsertionRange>>(
-    new Map(),
-  );
-  const pendingSpeechRetargetRef = useRef<PendingSpeechRetarget | null>(null);
-  const pendingSpeechFinalRef = useRef<PendingSpeechFinal | null>(null);
-  // True once the user manually edits (non-whitespace) during the active mic
-  // transaction; holds an automatic Smart Turn endpoint send. Speech-inserted
-  // finals go through setDraft (not onChange) and never set this.
-  const composerEditedDuringSpeechRef = useRef(false);
-  const pendingTextareaSelectionRef =
-    useRef<PendingTextareaSelectionRestore | null>(null);
   const hasSeededDefaultsRef = useRef(false);
   const hasInitializedDefaultsRef = useRef(false);
   const hasUserCustomizedDefaultsRef = useRef(false);
@@ -2466,18 +2448,7 @@ export function NewSessionForm({
   );
 
   useLayoutEffect(() => {
-    const pending = pendingTextareaSelectionRef.current;
-    const textarea = textareaRef.current;
-    if (
-      !pending ||
-      !textarea ||
-      message !== pending.value ||
-      textarea.value !== pending.value
-    ) {
-      return;
-    }
-    pendingTextareaSelectionRef.current = null;
-    pending.restore(textarea);
+    restorePendingTextareaSelection(message, textareaRef.current);
   }, [message]);
 
   useLayoutEffect(() => {
@@ -3831,14 +3802,7 @@ export function NewSessionForm({
     setInterimTranscript("");
   }, [draftControls]);
 
-  const clearPendingSpeechFinal = useCallback(() => {
-    const pending = pendingSpeechFinalRef.current;
-    if (pending === null) return;
-    clearTimeout(pending.timer);
-    pendingSpeechFinalRef.current = null;
-  }, []);
-
-  useEffect(() => clearPendingSpeechFinal, [clearPendingSpeechFinal]);
+  useEffect(() => clearPendingSpeechFinal, []);
 
   const handleSpeechSelectionTarget = useCallback(
     (event?: unknown, draftAtSelection?: string) => {
@@ -3901,7 +3865,7 @@ export function NewSessionForm({
       }
       setSpeechPreviewRevision((revision) => revision + 1);
     },
-    [clearPendingSpeechFinal, draftControls],
+    [draftControls],
   );
 
   const clearSpeechSelectionTarget = useCallback(() => {
@@ -3918,7 +3882,7 @@ export function NewSessionForm({
       );
     }
     setSpeechPreviewRevision((revision) => revision + 1);
-  }, [clearPendingSpeechFinal]);
+  }, []);
 
   const handleSpeechSelectionClick = useCallback(() => {
     window.setTimeout(() => handleSpeechSelectionTarget(true), 0);
@@ -4013,7 +3977,7 @@ export function NewSessionForm({
       clearPendingSpeechFinal();
       return commitVoiceTranscript(transcript, metadata);
     },
-    [clearPendingSpeechFinal, commitVoiceTranscript],
+    [commitVoiceTranscript],
   );
 
   const flushPendingSpeechFinal = useCallback(() => {
@@ -4099,7 +4063,7 @@ export function NewSessionForm({
     setSpeechPending(null);
     speechPendingRef.current = null;
     setInterimTranscript("");
-  }, [clearPendingSpeechFinal]);
+  }, []);
 
   const handleComposerKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -4182,27 +4146,15 @@ export function NewSessionForm({
           prefix: manualDeliverySpeechPrefix,
         })
       : tooltip;
-  const speechInsertionRange = speechInsertionRangeRef.current;
-  const interimDisplayTranscript = getSpeechInterimDisplayTranscript(
-    message,
-    interimTranscript,
-    speechInsertionRange,
-  );
   // Only mutable provisional speech uses the textarea mirror. Capture and
   // post-capture status live with the mic so the real draft and caret stay
   // untouched while transcription is pending.
-  const interimInsertion = speechInsertionRange
-    ? getSpeechTranscriptReplacementParts(
-        message,
-        interimDisplayTranscript,
-        speechInsertionRange.end,
-        speechInsertionRange.replaceEnd ?? speechInsertionRange.end,
-      )
-    : getSpeechTranscriptInsertionParts(
-        message,
-        interimDisplayTranscript,
-        message.length,
-      );
+  const { interimDisplayTranscript, interimInsertion } =
+    getSpeechInterimPreview(
+      message,
+      interimTranscript,
+      speechInsertionRangeRef.current,
+    );
 
   const getTranscriptionContext =
     useCallback((): SpeechTranscriptionContext => {
@@ -4308,37 +4260,7 @@ export function NewSessionForm({
                 const nextMessage = fileCompletion.normalizeInput(
                   e.target.value,
                 );
-                clearPendingSpeechFinal();
-                if (speechInsertionRangesRef.current.size > 0) {
-                  const nextRanges = new Map<string, SpeechInsertionRange>();
-                  for (const [
-                    targetId,
-                    range,
-                  ] of speechInsertionRangesRef.current) {
-                    nextRanges.set(
-                      targetId,
-                      clearSpeechInsertionRangeReplacement(
-                        mapSpeechInsertionRangeThroughEdit(
-                          message,
-                          nextMessage,
-                          range,
-                        ),
-                      ),
-                    );
-                  }
-                  speechInsertionRangesRef.current = nextRanges;
-                  speechInsertionRangeRef.current =
-                    activeSpeechTargetIdRef.current !== null
-                      ? (nextRanges.get(activeSpeechTargetIdRef.current) ??
-                        null)
-                      : null;
-                }
-                if (
-                  activeSpeechTargetIdRef.current !== null &&
-                  hasNonWhitespaceEdit(message, nextMessage)
-                ) {
-                  composerEditedDuringSpeechRef.current = true;
-                }
+                noteSpeechDraftEdit(message, nextMessage);
                 handleSpeechSelectionTarget(true, nextMessage);
                 setMessage(nextMessage);
               }}

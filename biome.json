@@ -121,7 +121,36 @@
       },
       "correctness": {
         "noInvalidUseBeforeDeclaration": "warn",
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": {
+          "level": "warn",
+          "options": {
+            "hooks": [
+              {
+                "name": "useComposerSpeechState",
+                "stableResult": [
+                  "setInterimTranscript",
+                  "interimTranscriptRef",
+                  "setSpeechPending",
+                  "speechPendingRef",
+                  "speechTransactionHasTextRef",
+                  "setSpeechPreviewRevision",
+                  "speechTurnIdRef",
+                  "speechInsertionRangeRef",
+                  "activeSpeechTargetIdRef",
+                  "speechInsertionRangesRef",
+                  "pendingSpeechRetargetRef",
+                  "pendingSpeechFinalRef",
+                  "composerEditedDuringSpeechRef",
+                  "pendingTextareaSelectionRef",
+                  "clearPendingSpeechFinal",
+                  "noteSpeechDraftEdit",
+                  "noteSpeechDraftReplacement",
+                  "restorePendingTextareaSelection"
+                ]
+              }
+            ]
+          }
+        }
       },
       "complexity": {
         "noImportantStyles": "off"

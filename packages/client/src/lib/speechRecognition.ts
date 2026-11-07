@@ -754,3 +754,36 @@ export function removeTextRange(
     cursor: clampedStart,
   };
 }
+
+/**
+ * The interim mirror a composer draws over its draft: the interim text as the
+ * final chunk at `range` would show it, and where it splits the draft. With no
+ * range the interim goes at the end of the draft.
+ */
+export function getSpeechInterimPreview(
+  draft: string,
+  interimTranscript: string,
+  range: SpeechInsertionRange | null,
+): {
+  interimDisplayTranscript: string;
+  interimInsertion: SpeechTranscriptInsertionParts;
+} {
+  const interimDisplayTranscript = getSpeechInterimDisplayTranscript(
+    draft,
+    interimTranscript,
+    range,
+  );
+  const interimInsertion = range
+    ? getSpeechTranscriptReplacementParts(
+        draft,
+        interimDisplayTranscript,
+        range.end,
+        range.replaceEnd ?? range.end,
+      )
+    : getSpeechTranscriptInsertionParts(
+        draft,
+        interimDisplayTranscript,
+        draft.length,
+      );
+  return { interimDisplayTranscript, interimInsertion };
+}

@@ -90,18 +90,14 @@ import {
   createSpeechInsertionRange,
   getSpeechSelectionFinalDelayMs,
   getSpeechInterimDisplayTranscript,
-  getSpeechTranscriptInsertionParts,
-  getSpeechTranscriptReplacementParts,
+  getSpeechInterimPreview,
   getSpeechVisibleDraftText,
-  mapSpeechInsertionRangeThroughEdit,
-  mapSpeechInsertionRangeThroughReplacement,
   retargetSpeechInsertionRange,
   type SpeechInsertionRange,
   textBeforeSpeechCursor,
 } from "../lib/speechRecognition";
 import {
   commitSpeechTranscript,
-  hasNonWhitespaceEdit,
   type PendingSpeechRetarget,
   type PendingTextareaSelectionRestore,
 } from "../lib/speechDraftTransaction";
@@ -121,6 +117,7 @@ import {
   useComposerBangCompletion,
 } from "../hooks/useComposerBangCompletion";
 import { useComposerRecallDrawer } from "../hooks/useComposerRecallDrawer";
+import { useComposerSpeechState } from "../hooks/useComposerSpeechState";
 import {
   getSlashCommandArgumentCompletionMatches,
   getSlashCommandMenuParts,
@@ -190,12 +187,6 @@ export interface FullPaneComposerControls {
 }
 
 export type { MessageSubmissionMetadata } from "../types/messageSubmission";
-
-interface PendingSpeechFinal {
-  timer: ReturnType<typeof setTimeout>;
-  transcript: string;
-  metadata?: SpeechTranscriptionResultMetadata;
-}
 
 type PendingSpeechDeliveryIntent =
   | {
@@ -530,25 +521,33 @@ export function MessageInput({
   const sharedVoiceRef = useComposerVoiceRef(voiceButtonRef, onVoiceControl);
   const typingStartedAtRef = useRef<string | null>(null);
   const lastEditedAtRef = useRef<string | null>(null);
-  const speechTurnIdRef = useRef<string | null>(null);
+  const {
+    interimTranscript,
+    setInterimTranscript,
+    interimTranscriptRef,
+    speechPending,
+    setSpeechPending,
+    speechPendingRef,
+    speechTransactionHasTextRef,
+    setSpeechPreviewRevision,
+    speechTurnIdRef,
+    speechInsertionRangeRef,
+    activeSpeechTargetIdRef,
+    speechInsertionRangesRef,
+    pendingSpeechRetargetRef,
+    pendingSpeechFinalRef,
+    composerEditedDuringSpeechRef,
+    pendingTextareaSelectionRef,
+    clearPendingSpeechFinal,
+    noteSpeechDraftEdit,
+    noteSpeechDraftReplacement,
+    restorePendingTextareaSelection,
+  } = useComposerSpeechState();
   const speechTranscriptionIdsRef = useRef<string[]>([]);
-  const speechInsertionRangeRef = useRef<SpeechInsertionRange | null>(null);
-  const activeSpeechTargetIdRef = useRef<string | null>(null);
-  const speechInsertionRangesRef = useRef<Map<string, SpeechInsertionRange>>(
-    new Map(),
-  );
-  const pendingSpeechRetargetRef = useRef<PendingSpeechRetarget | null>(null);
-  const pendingSpeechFinalRef = useRef<PendingSpeechFinal | null>(null);
   const pendingDraftInputRef = useRef<PendingDraftInputEdit | null>(null);
   const draftTextChangeMetadataRef = useRef<DraftTextChangeMetadata | null>(
     null,
   );
-  // True once the user manually edits (non-whitespace) during the active mic
-  // transaction; holds an automatic Smart Turn endpoint send. Speech-inserted
-  // finals go through setDraft (not onChange) and never set this.
-  const composerEditedDuringSpeechRef = useRef(false);
-  const pendingTextareaSelectionRef =
-    useRef<PendingTextareaSelectionRestore | null>(null);
   const mobilePointerDeliveryPendingRef = useRef(false);
   const keyboardViewportBaselineRef = useRef<number | null>(null);
   // User-controlled collapse state (independent of external collapse from approval panel)
@@ -558,16 +557,8 @@ export function MessageInput({
     "now" | "patient" | null
   >(null);
   const newSessionOptionsFormRef = useRef<HTMLFormElement>(null);
-  const [interimTranscript, setInterimTranscript] = useState("");
-  const interimTranscriptRef = useRef(interimTranscript);
-  interimTranscriptRef.current = interimTranscript;
-  const [speechPending, setSpeechPending] = useState<SpeechPendingKind | null>(
-    null,
-  );
-  const speechPendingRef = useRef<SpeechPendingKind | null>(null);
   const pendingSpeechDeliveryRef = useRef<PendingSpeechDelivery | null>(null);
   const pendingSpeechDeliverySettledRef = useRef(false);
-  const speechTransactionHasTextRef = useRef(false);
   const dispatchingSettledSpeechDeliveryRef = useRef(false);
   const runPendingSpeechDeliveryRef = useRef<() => void>(() => {});
   const { asrAttributionMs, speechMessagePrefix } = useSpeechCaptureSettings();
@@ -578,7 +569,6 @@ export function MessageInput({
     consume: consumeSpeechAttribution,
   } = useRecentSpeechAttribution(asrAttributionMs);
   const [keyboardWaveformActive, setKeyboardWaveformActive] = useState(false);
-  const [, setSpeechPreviewRevision] = useState(0);
   const [dismissedSlashQuery, setDismissedSlashQuery] = useState<string | null>(
     null,
   );
@@ -742,27 +732,15 @@ export function MessageInput({
         speechPending !== null ||
         interimTranscript
       );
-  const speechInsertionRange = speechInsertionRangeRef.current;
-  const interimDisplayTranscript = getSpeechInterimDisplayTranscript(
-    text,
-    interimTranscript,
-    speechInsertionRange,
-  );
   // Only mutable provisional speech uses the textarea mirror. Capture and
   // post-capture status live with the mic so the real draft and caret stay
   // untouched while transcription is pending.
-  const interimInsertion = speechInsertionRange
-    ? getSpeechTranscriptReplacementParts(
-        text,
-        interimDisplayTranscript,
-        speechInsertionRange.end,
-        speechInsertionRange.replaceEnd ?? speechInsertionRange.end,
-      )
-    : getSpeechTranscriptInsertionParts(
-        text,
-        interimDisplayTranscript,
-        text.length,
-      );
+  const { interimDisplayTranscript, interimInsertion } =
+    getSpeechInterimPreview(
+      text,
+      interimTranscript,
+      speechInsertionRangeRef.current,
+    );
   const slashSelectionResetKey = `${slashQueryKey}\0${slashSuggestionCount}`;
 
   useEffect(() => {
@@ -1038,38 +1016,13 @@ export function MessageInput({
         textarea.value = nextText;
       }
 
-      const pendingFinal = pendingSpeechFinalRef.current;
-      if (pendingFinal) {
-        clearTimeout(pendingFinal.timer);
-        pendingSpeechFinalRef.current = null;
-      }
-      if (speechInsertionRangesRef.current.size > 0) {
-        const nextRanges = new Map<string, SpeechInsertionRange>();
-        for (const [targetId, range] of speechInsertionRangesRef.current) {
-          nextRanges.set(
-            targetId,
-            clearSpeechInsertionRangeReplacement(
-              mapSpeechInsertionRangeThroughReplacement(
-                range,
-                replacementStart,
-                replacementEnd,
-                replacement.length,
-              ),
-            ),
-          );
-        }
-        speechInsertionRangesRef.current = nextRanges;
-        speechInsertionRangeRef.current =
-          activeSpeechTargetIdRef.current !== null
-            ? (nextRanges.get(activeSpeechTargetIdRef.current) ?? null)
-            : null;
-      }
-      if (
-        activeSpeechTargetIdRef.current !== null &&
-        hasNonWhitespaceEdit(previousText, nextText)
-      ) {
-        composerEditedDuringSpeechRef.current = true;
-      }
+      noteSpeechDraftReplacement(
+        previousText,
+        nextText,
+        replacementStart,
+        replacementEnd,
+        replacement.length,
+      );
       noteComposerEdit(nextText);
       setText(nextText);
       setComposerCursor(nextText.length);
@@ -1153,18 +1106,7 @@ export function MessageInput({
   }, [onDraftTextChange, text]);
 
   useLayoutEffect(() => {
-    const pending = pendingTextareaSelectionRef.current;
-    const textarea = textareaRef.current;
-    if (
-      !pending ||
-      !textarea ||
-      text !== pending.value ||
-      textarea.value !== pending.value
-    ) {
-      return;
-    }
-    pendingTextareaSelectionRef.current = null;
-    pending.restore(textarea);
+    restorePendingTextareaSelection(text, textareaRef.current);
   }, [text]);
 
   const revealCollapsedTextareaCursor = useCallback(() => {
@@ -3054,14 +2996,7 @@ export function MessageInput({
     setInterimTranscript("");
   }, [controls]);
 
-  const clearPendingSpeechFinal = useCallback(() => {
-    const pending = pendingSpeechFinalRef.current;
-    if (pending === null) return;
-    clearTimeout(pending.timer);
-    pendingSpeechFinalRef.current = null;
-  }, []);
-
-  useEffect(() => clearPendingSpeechFinal, [clearPendingSpeechFinal]);
+  useEffect(() => clearPendingSpeechFinal, []);
 
   const handleSpeechSelectionTarget = useCallback(
     (manualInteraction = false, draftAtSelection?: string) => {
@@ -3123,7 +3058,7 @@ export function MessageInput({
       }
       setSpeechPreviewRevision((revision) => revision + 1);
     },
-    [clearPendingSpeechFinal, controls],
+    [controls],
   );
 
   const handleTextareaSelectionTarget = useCallback(() => {
@@ -3150,7 +3085,7 @@ export function MessageInput({
       );
     }
     setSpeechPreviewRevision((revision) => revision + 1);
-  }, [clearPendingSpeechFinal]);
+  }, []);
 
   const handleSmartTurnSend = useCallback(
     (text: string) => {
@@ -3314,7 +3249,7 @@ export function MessageInput({
       clearPendingSpeechFinal();
       return commitVoiceTranscript(transcript, metadata);
     },
-    [clearPendingSpeechFinal, commitVoiceTranscript, speechVocabulary],
+    [commitVoiceTranscript, speechVocabulary],
   );
 
   const flushPendingSpeechFinal = useCallback(() => {
@@ -3415,7 +3350,7 @@ export function MessageInput({
         setSpeechPreviewRevision((revision) => revision + 1);
       }
     },
-    [clearPendingSpeechFinal, restorePendingSpeechDeliveryDraft],
+    [restorePendingSpeechDeliveryDraft],
   );
 
   // Cancel a pending transcription/finalization. The provider discards the
@@ -3435,7 +3370,7 @@ export function MessageInput({
     setSpeechPending(null);
     speechPendingRef.current = null;
     setInterimTranscript("");
-  }, [clearPendingSpeechFinal, restorePendingSpeechDeliveryDraft]);
+  }, [restorePendingSpeechDeliveryDraft]);
 
   const handleComposerKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -3770,37 +3705,7 @@ export function MessageInput({
                       }
                     : undefined,
                 );
-                clearPendingSpeechFinal();
-                if (speechInsertionRangesRef.current.size > 0) {
-                  const nextRanges = new Map<string, SpeechInsertionRange>();
-                  for (const [
-                    targetId,
-                    range,
-                  ] of speechInsertionRangesRef.current) {
-                    nextRanges.set(
-                      targetId,
-                      clearSpeechInsertionRangeReplacement(
-                        mapSpeechInsertionRangeThroughEdit(
-                          text,
-                          nextText,
-                          range,
-                        ),
-                      ),
-                    );
-                  }
-                  speechInsertionRangesRef.current = nextRanges;
-                  speechInsertionRangeRef.current =
-                    activeSpeechTargetIdRef.current !== null
-                      ? (nextRanges.get(activeSpeechTargetIdRef.current) ??
-                        null)
-                      : null;
-                }
-                if (
-                  activeSpeechTargetIdRef.current !== null &&
-                  hasNonWhitespaceEdit(text, nextText)
-                ) {
-                  composerEditedDuringSpeechRef.current = true;
-                }
+                noteSpeechDraftEdit(text, nextText);
                 handleSpeechSelectionTarget(true, nextText);
                 noteComposerEdit(nextText);
                 setText(nextText);

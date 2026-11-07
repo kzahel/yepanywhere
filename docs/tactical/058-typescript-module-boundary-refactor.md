@@ -33,17 +33,18 @@ shared, and how risky it is to touch today.
    the copy (SRR-025, checked on Linux), and the restarts' and
    continuation's records wait on the clone working-directory gap.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
-   (about 7,800 lines), `NewSessionForm.tsx` (about 6,000),
-   `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about
-   4,100) are where most UI work lands. Their size makes each change slow to
+   (about 7,700 lines), `NewSessionForm.tsx` (about 5,900),
+   `MessageInput.tsx` (about 4,400) and `MessageInputToolbar.tsx` (about
+   3,800) are where most UI work lands. Their size makes each change slow to
    review and easy to regress, including the keystroke-latency contract.
-   Phase 2 below holds the slice rows; slices 2.12 to 2.15 (the
-   composer's bang completion state and recall drawer, the page's
-   bang-command wiring and the toolbar's thinking control) landed
-   2026-11-07. Moving small features out one at a time leaves these files
-   structurally as they were; the burn-down order and the consolidations it
-   needs (one shared message-box core, then sending as plain functions) are
-   in [the session page hub gap](../../gaps/session-page-react-hub.md).
+   Phase 2 below holds the slice rows; slices 2.12 to 2.16 (the composer's
+   bang completion state and recall drawer, the page's bang-command wiring,
+   the toolbar's thinking control and the two message boxes' shared speech
+   state) landed 2026-11-07. Moving small features out one at a time leaves
+   these files structurally as they were; the burn-down order and the
+   consolidations it needs (one shared message-box core, then sending as
+   plain functions) are in
+   [the session page hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -276,6 +277,7 @@ and props stable.
 | 2.13 | Done 2026-11-07 | `MessageInput.tsx` recall drawer | Move the Ctrl+↑ recall drawer's state, handlers, keys and menu out of the composer. | Moved the drawer state, open/cancel/accept/go-to, and the keys it claims while open plus the Ctrl+↑ opener into `hooks/useComposerRecallDrawer.ts`, and its menu into `components/ComposerRecallMenu.tsx`. The composer keeps the touch-keyboard opener button, the blur cancel, and the bang Ctrl+↑ history that runs first; the ordering note stays at the call site. Move-only; the parameter conversions are listed in the landing note. `MessageInput.tsx` budget 4,692 -> 4,543. Tier 3, plus the new `composer-recall-drawer.spec.ts` keystroke check. |
 | 2.14 | Done 2026-11-07 | `SessionPage.tsx` bang-command wiring | Move the page's `!!` command run, echo, transcript row actions and composer bang support into a feature hook. | Moved `runBangCommand`, `echoBangCommand`, the first-load display-object ids, `bangCommandHandlers`, `bangHistory` and `composerBangSupport` into `hooks/useSessionBangCommands.ts`, which returns the handlers and the composer support. Move-only; the parameter conversions are listed in the landing note. `SessionPage.tsx` budget 7,773 -> 7,655. Tier 3; `bang-command.spec.ts` (run, keystroke latency with the completion menu open, receipt) passes unchanged. |
 | 2.15 | Done 2026-11-07 | `MessageInputToolbar.tsx` thinking control | Move the toolbar's thinking/effort button and menu, already its own component, into its own module. | Moved `ThinkingToolbarControl`, its `ToolbarThinkingControl` prop type (now exported for the toolbar's props), `getToolbarThinkingLabel`, `getToolbarThinkingTitle` and `THINKING_MENU_VIEWPORT_GUTTER_PX` into `components/ThinkingToolbarControl.tsx`. Move-only; `MessageInputToolbar.tsx` budget 4,059 -> 3,804. Tier 3; no typing path is involved. |
+| 2.16 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` speech state | Give both message boxes one copy of their dictation state and edit bookkeeping ([plan 178](178-shared-composer-dictation.md) slice 1). | Not move-only: a consolidation under plan 178, after its test pins (slice 0). Both boxes call `hooks/useComposerSpeechState.ts` for the speech refs and state, the textarea edit and replacement remaps, the pending-selection restore and the held-final clear, and `getSpeechInterimPreview` in `lib/speechRecognition.ts` for the interim mirror. No behavior change; the differences plan 178 lists stay as they are. Budgets `MessageInput.tsx` 4,543 -> 4,448 and `NewSessionForm.tsx` 5,975 -> 5,897. Tier 3, plus a new keystroke check in both boxes in `speech-caret-insertion.spec.ts`. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -409,6 +411,63 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.16 — Shared Message-Box Speech State (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 178](178-shared-composer-dictation.md) slice 1 replaces
+two copies with one, under that plan's rules for differences between the
+copies. Its slice 0 added the unit pins this slice relies on.
+
+Replaced in both `NewSessionForm.tsx` and `MessageInput.tsx`:
+- The speech refs and state (interim text, pending kind, insertion ranges,
+  active target, retarget, held final, edited-during-speech flag, pending
+  selection, preview revision, transaction-has-text, turn id), the
+  `PendingSpeechFinal` type, `clearPendingSpeechFinal`, the textarea
+  `onChange` range remap, the in-session `replaceDraftRangeUndoably` remap
+  and the pending-selection restore -> `useComposerSpeechState` in new
+  `packages/client/src/hooks/useComposerSpeechState.ts`.
+- The interim mirror calculation -> `getSpeechInterimPreview` in
+  `packages/client/src/lib/speechRecognition.ts`.
+- The new-session box's copies of `createClientSpeechTurnId` and
+  `createSpeechTargetId` -> the existing `lib/speechTargets.ts` exports.
+
+Shape changes:
+- The remaps became `noteSpeechDraftEdit(previous, next)` and
+  `noteSpeechDraftReplacement(previous, next, start, end, length)`, and the
+  restore became `restorePendingTextareaSelection(text, textarea)`. Each
+  box keeps its layout and unmount effects in place, calling these.
+- `biome.json` declares the hook's refs, setters and ref-only callbacks
+  stable, so lint neither asks for them in dependency lists nor keeps them
+  there; `clearPendingSpeechFinal` left the lists that named it. Each is
+  stable, so nothing recomputes.
+- The in-session box's transcription ids stay in the box (plan 178 D5).
+
+Behavior changes:
+- None. Plan 178's differences between the boxes are unchanged.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree. Tier 3 (`pnpm --filter client
+  test:e2e --grep-invert "physical Android"`) at the same tree: 497
+  passed, 13 skipped, 3 failed. `artifact-viewer.spec.ts:136` (the known
+  proxy flake) and `async-questions-jump.spec.ts:11` (its teardown hit
+  "directory not empty" removing a temp dir) passed when rerun alone.
+  `rendez-composer.spec.ts:86` timed out waiting for the saved draft to
+  reach the typed text while the machine's load average was 10 to 20; it
+  passed three times alone here and three times at the base, and it reads
+  the stored draft rather than the textarea.
+- Slice 0's pins pass unchanged: both boxes' voice-button callbacks keep
+  their identity across a keystroke, and the new-session caret and
+  failed-cycle cases hold.
+- New `speech-caret-insertion.spec.ts` keystroke check in both boxes: a
+  120-line draft with 20 finals in the open target and an interim showing,
+  typing at the start while the interim updates (and, in a session, the
+  transcript), each key within 100 ms. It pins where each box puts the
+  fragment in flight (plan 178 D10). It passes at the base and at this
+  slice.
+
+Follow-ups recorded:
+- Plan 178 slices 2 to 4.
 
 ### Slice 2.15 — Toolbar Thinking Control (Landed 2026-11-07, this commit)
 
