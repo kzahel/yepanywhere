@@ -292,6 +292,7 @@ and props stable.
 | 2.26 | Done 2026-11-07 | `NewSessionForm.tsx` option state | Give the New Session form's option choices one owner, a reducer ([plan 180](180-new-session-options-and-start.md) slice 1). | Not move-only: a consolidation under plan 180, after its slice 0 pins. The sixteen option `useState` fields become one `useReducer` over `lib/newSessionOptionsState.ts`, whose plain functions compute the seed, lock, provider switch, model fills, thinking choice, sandbox toggle and the automatic save's body; the form destructures the state under the same names and dispatches where it set state. No behavior change. Budget `NewSessionForm.tsx` 5,526 -> 5,339. Tier 3, plus plan 180's slice 0 pins. |
 | 2.27 | Done 2026-11-07 | `NewSessionForm.tsx` options hook | Move the New Session option state, its reads, derived values and effects into one hook ([plan 180](180-new-session-options-and-start.md) slice 2). | Not move-only: a consolidation under plan 180, because hook and effect order change (see the landing note). The reducer, the provider, settings, descriptor, router and subscription reads, every derived option value, the seed, lock, fill, source and save effects, and the provider, model and mode handlers move verbatim into `useNewSessionOptions` in new `hooks/useNewSessionOptions.ts`, called where the sandbox values stood. The inline choices call its `customizeOptions`. No behavior change. Budget `NewSessionForm.tsx` 5,339 -> 4,737; the hook is 820 lines. Tier 3, plus plan 180's slice 0 pins. |
 | 2.28 | Done 2026-11-07 | `NewSessionForm.tsx` options panel | Move the New Session options markup into a panel component ([plan 180](180-new-session-options-and-start.md) slice 3). | Move-only apart from props and one declared hunk: the section builders, label maps, model options, catalog notice, captions and advanced-options state, and the provider slot, advanced toggle and secondary options move into `NewSessionOptionsPanel` in new `components/NewSessionOptionsPanel.tsx`, which returns them as a fragment in the same grid. `providerSlotFilled` stays in the form, rewritten over the values the moved sections depend on (see the landing note). No behavior change. Budget `NewSessionForm.tsx` 4,737 -> 3,748; the panel is 1,085 lines. Tier 3, plus plan 180's slice 0 pins. |
+| 2.29 | Done 2026-11-07 | `NewSessionForm.tsx` start and Queue decisions | Move the New Session start's and Project Queue's decisions into plain functions ([plan 180](180-new-session-options-and-start.md) slice 4). | Not move-only: a consolidation under plan 180. The start refusals and text, the session options, Queue's refusals on both sides of the dictation defer, Queue's direct-catalog target and the start failure toast become `planNewSessionStart`, `buildNewSessionStartOptions`, `projectQueueRefusalBeforeDefer`, `planNewSessionProjectQueue`, `buildProjectQueueNewSessionTarget` and `newSessionStartErrorMessage` in new `lib/newSessionStartDecisions.ts`, with unit tests per branch; the form keeps its effects, including the defer, in place. No behavior change. Budget `NewSessionForm.tsx` 3,748 -> 3,628. Tier 3, plus plan 180's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -425,6 +426,62 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.29 — New Session Start and Queue Decisions (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 180](180-new-session-options-and-start.md) slice 4
+moves the start's and Project Queue's decisions into plain functions with
+unit tests. The form keeps every effect where it was: the dictation
+defer, the flags, draft capture, requests, toasts and navigation.
+
+Replaced in `NewSessionForm.tsx`, now calling new
+`packages/client/src/lib/newSessionStartDecisions.ts`:
+- The start's refusals and text (the unusable route, not ready, the
+  turn-effort and attachment-only refusals, the speech prefix and the
+  turn-effort metadata) -> `planNewSessionStart`, which returns refuse,
+  silent (with whether a memo start throws) or proceed. It keeps both file
+  counts: the ref's for content, the render's for the attachment-only
+  refusal.
+- The session options object -> `buildNewSessionStartOptions`, same keys
+  in the same order, the lock's overrides last.
+- Queue's refusals before the defer -> `projectQueueRefusalBeforeDefer`;
+  its text and readiness after it -> `planNewSessionProjectQueue`.
+- Queue's direct-catalog thinking, effort and tier and its target ->
+  `buildProjectQueueNewSessionTarget`, which also returns the thinking the
+  trace logs.
+- The start failure toast -> `newSessionStartErrorMessage`.
+
+Shape changes:
+- The start now reads the draft text and the recent-speech flag before
+  the routed refusal and the readiness check, and Queue reads the flag
+  after its file snapshot. The draft read is a plain ref read.
+  `isRecent` also clears a speech window that has already expired, which
+  its timer would do anyway, so the result and the state afterwards are
+  unchanged; a refused start may now do that clearing a timer tick
+  early.
+
+Behavior changes:
+- None.
+
+Budget:
+- `NewSessionForm.tsx` 3,748 -> 3,628. The new module is 410 lines.
+
+Verification:
+- `newSessionStartDecisions.test.ts` (14 tests, a case per refusal and
+  readiness branch, the routed and direct options, N1 and N3, the
+  direct-catalog target and each failure toast) and
+  `NewSessionForm.test.tsx` (148 tests, including plan 180's slice 0
+  pins) pass; tsc and Biome are clean.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a worktree.
+- Tier 3 (`pnpm --filter client test:e2e --grep-invert "physical
+  Android"`) at the same tree, in a worktree: 513 passed, 13 skipped, 5
+  failed. Four are `acli-commentary.spec.ts`, which fails from a worktree
+  ([gap](../../gaps/acli-commentary-e2e-fails-from-worktree.md));
+  `provider-steering.spec.ts:12` passed when rerun alone.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.28 — New Session Options Panel (Landed 2026-11-07, this commit)
 

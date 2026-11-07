@@ -36,7 +36,6 @@ import {
   isUrlProjectId,
   SERVER_CAPABILITIES,
   serverHasCapability,
-  isTurnEffort,
   DEFAULT_PROJECT_QUEUE_CTRL_ENTER_ENABLED,
   type ProviderName,
   type ThinkingOption,
@@ -70,6 +69,14 @@ import {
 } from "../hooks/useModelSettings";
 import { useProjectQueues } from "../hooks/useProjectQueues";
 import { useNewSessionOptions } from "../hooks/useNewSessionOptions";
+import {
+  buildNewSessionStartOptions,
+  buildProjectQueueNewSessionTarget,
+  newSessionStartErrorMessage,
+  planNewSessionProjectQueue,
+  planNewSessionStart,
+  projectQueueRefusalBeforeDefer,
+} from "../lib/newSessionStartDecisions";
 import { NewSessionOptionsPanel } from "./NewSessionOptionsPanel";
 import {
   getAttachmentUploadProfile,
@@ -81,21 +88,9 @@ import { useSessionToolbarPresence } from "../hooks/useSessionToolbarPresence";
 import { useI18n } from "../i18n";
 import { formatFileSize } from "../lib/formatFileSize";
 import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
-import { parseComposerSlashCommand } from "../lib/slashCommands";
 import { takePrebootComposer } from "../lib/prebootComposer";
 import { UI_KEYS } from "../lib/storageKeys";
-import {
-  getEffortLevelOptions,
-  getThinkingModeOptions,
-  resolveSupportedEffortLevel,
-  resolveSupportedThinkingMode,
-} from "../lib/effortLevels";
-import { selectableServiceTiers } from "../lib/serviceTiers";
-import {
-  launchLockFor,
-  launchLockOverrides,
-  type LaunchLock,
-} from "../lib/limitedLaunchLock";
+import { launchLockFor, type LaunchLock } from "../lib/limitedLaunchLock";
 import {
   type PendingFile,
   type PendingLocalFile,
@@ -141,7 +136,6 @@ import {
   hasAttachmentNavigationRisk,
   useAttachmentNavigationGuard,
 } from "../lib/attachmentNavigationGuard";
-import { requiresAttachmentOnlyServerUpdate } from "../lib/attachmentSubmission";
 import { shouldShowProjectQueueAffordance } from "../lib/projectQueueVisibility";
 import {
   useActiveProjectSessionIds,
@@ -186,10 +180,7 @@ import {
   getSpeechVisibleDraftText,
   textBeforeSpeechCursor,
 } from "../lib/speechRecognition";
-import {
-  prependSpeechMessagePrefix,
-  resolveDeliverySpeechPrefix,
-} from "../lib/speechMessagePrefix";
+import { resolveDeliverySpeechPrefix } from "../lib/speechMessagePrefix";
 import { handleVoiceInputShortcutKeyDown } from "../lib/voiceInputShortcut";
 import { createClientSpeechTurnId } from "../lib/speechTargets";
 import { generateUUID } from "../lib/uuid";
@@ -1838,87 +1829,52 @@ export function NewSessionForm({
         return;
       }
 
-      if (
-        routerSelection &&
-        (routerSelection.sourceKey !== clientSummarySourceKey ||
-          !serverHasCapability(
-            versionInfo,
-            SERVER_CAPABILITIES.agentAuthRouter.name,
-          ) ||
-          launchLock.limited ||
-          effectiveSandboxLevel !== "none" ||
-          launch)
-      ) {
-        showToast(t("routerLaunchUnsupported"), "error");
-        return;
-      }
       const finalMessage = (override ?? draftControls.getDraft()).trimEnd();
 
       let submissionFiles = pendingFilesRef.current;
       const submissionUploads = new Map(pendingStagedUploadsRef.current);
-      const hasContent = finalMessage.trim() || submissionFiles.length > 0;
-      // A muted composer composes its own first turn, so an empty message is
-      // not a reason to refuse the start.
-      if (
-        (!hasContent && !composerMuted) ||
-        creatingTemplateProject ||
-        templateProjectBusy ||
-        isStarting ||
-        displayDefaultsPending ||
-        !hasSelectedProviderModel ||
-        projectPending ||
-        serverCapabilitiesPending
-      ) {
-        if (propagateFailure) throw new Error(t("composerMemoCannotStart"));
-        return;
-      }
-
-      const deliverySpeechPrefix = resolveDeliverySpeechPrefix({
-        configuredPrefix: speechMessagePrefix,
-        speechTriggered,
-        recentSpeech: isRecentSpeechAttribution(),
-      });
-      let trimmedMessage =
-        deliverySpeechPrefix && hasContent
-          ? prependSpeechMessagePrefix(finalMessage, deliverySpeechPrefix)
-          : finalMessage.trim();
-      const command = parseComposerSlashCommand(trimmedMessage);
-      const turnEffort =
-        command && isTurnEffort(command.kind) ? command.kind : undefined;
-      if (
-        turnEffort &&
-        (!serverHasCapability(
+      const plan = planNewSessionStart({
+        finalMessage,
+        submissionFileCount: submissionFiles.length,
+        pendingFileCount: pendingFiles.length,
+        speechPrefix: resolveDeliverySpeechPrefix({
+          configuredPrefix: speechMessagePrefix,
+          speechTriggered,
+          recentSpeech: isRecentSpeechAttribution(),
+        }),
+        propagateFailure,
+        routedSourceKey: routerSelection ? routerSelection.sourceKey : null,
+        sourceKey: clientSummarySourceKey,
+        routerCapable: serverHasCapability(
           versionInfo,
-          SERVER_CAPABILITIES.turnEffortModifiers.name,
-        ) ||
-          launch ||
-          !["codex", "claude", "claude-gateway", "claude-ollama"].includes(
-            selectedProvider ?? "",
-          ))
-      ) {
-        showToast(t("turnEffortUnavailable"), "error");
+          SERVER_CAPABILITIES.agentAuthRouter.name,
+        ),
+        launchLimited: launchLock.limited,
+        effectiveSandboxLevel,
+        hasLaunch: Boolean(launch),
+        composerMuted,
+        creatingTemplateProject,
+        templateProjectBusy,
+        isStarting,
+        displayDefaultsPending,
+        hasSelectedProviderModel,
+        projectPending,
+        serverCapabilitiesPending,
+        selectedProvider,
+        version: versionInfo,
+      });
+      if (plan.kind === "refuse") {
+        showToast(t(plan.toastKey), "error");
         return;
       }
-      if (turnEffort && command) {
-        if (!command.argument.trim()) {
-          showToast(t("turnEffortNeedsMessage"), "error");
-          return;
+      if (plan.kind === "silent") {
+        if (plan.throwCannotStart) {
+          throw new Error(t("composerMemoCannotStart"));
         }
-        trimmedMessage = command.argument;
-      }
-      const messageMetadata = turnEffort
-        ? { deliveryIntent: "direct" as const, turnEffort }
-        : undefined;
-      if (
-        requiresAttachmentOnlyServerUpdate({
-          version: versionInfo,
-          text: finalMessage,
-          attachmentCount: pendingFiles.length,
-        })
-      ) {
-        showToast(t("attachmentOnlyRequiresServerUpdate"), "error");
         return;
       }
+      const trimmedMessage = plan.text;
+      const messageMetadata = plan.metadata;
       const trimmedProjectInput = normalizeProjectInput(projectInput);
       const actionAtMs = Date.now();
       const clientTimestamp = getServerClockTimestamp(actionAtMs);
@@ -1938,7 +1894,7 @@ export function NewSessionForm({
           limited: launchLock.limited,
           sandbox: effectiveSandboxLevel,
           machineControl: machineControlSelected,
-          command: Boolean(command),
+          command: plan.hasCommand,
           fileCount: submissionFiles.length,
           stagedCount: stagedCreationRefs.length,
         }) &&
@@ -1987,59 +1943,36 @@ export function NewSessionForm({
         // server requests provider summaries independently.
         const showThinking = getShowThinkingSetting();
         const creationProvenance = getUiCreationProvenance(versionInfo);
-        const sessionOptions = {
+        const sessionOptions = buildNewSessionStartOptions({
           creationProvenance,
-          ...(supportsInstalledMachineControl
-            ? {
-                machineControl:
-                  machineControlSelected && machineControlEligible,
-              }
-            : {}),
-
+          supportsInstalledMachineControl,
+          machineControlSelected,
+          machineControlEligible,
           mode: sessionMode,
-          model: routerSelection ? routedModel : selectedModel || undefined,
-          ...(routerSelection &&
-          serverHasCapability(
+          routed: routerSelection,
+          routedModel,
+          selectedModel,
+          routerCapable: serverHasCapability(
             versionInfo,
             SERVER_CAPABILITIES.agentAuthRouter.name,
-          )
-            ? {
-                routerAccountId,
-                ...(routerSelection.poolId
-                  ? {
-                      routerPoolId: routerSelection.poolId,
-                      ...(routerPolicy ? { routerPolicy } : {}),
-                    }
-                  : {}),
-                ...(routerClaudeAiConnectors
-                  ? { routerClaudeAiConnectors: true }
-                  : {}),
-              }
-            : {}),
-          thinking: routerSelection ? routerThinking : thinking,
+          ),
+          routerAccountId,
+          routerPolicy,
+          routerClaudeAiConnectors,
+          routerThinking,
+          thinking,
           showThinking,
-          ...(effectiveServiceTier
-            ? { serviceTier: effectiveServiceTier }
-            : {}),
-          provider: selectedProvider ?? undefined,
-          ...(supportsSessionSandboxing
-            ? {
-                sandboxLevel: effectiveSandboxLevel,
-                ...(effectiveSandboxLevel === "project-write"
-                  ? {
-                      sandboxNetworkFirewall: effectiveSandboxNetworkFirewall,
-                    }
-                  : {}),
-              }
-            : {}),
+          effectiveServiceTier,
+          selectedProvider,
+          supportsSessionSandboxing,
+          effectiveSandboxLevel,
+          effectiveSandboxNetworkFirewall,
           recapMode: effectiveRecapMode,
           recapAfterSeconds,
           promptSuggestionMode: effectivePromptSuggestionMode,
           helperSideModel,
-          // Last word, so a submit that raced the acting-principal request
-          // still launches inside the lock instead of being refused.
-          ...launchLockOverrides(launchLock),
-        };
+          launchLock,
+        });
         logSessionUiTrace("new-session-submit", {
           projectId: resolvedProjectId ?? null,
           detached: !resolvedProjectId,
@@ -2280,41 +2213,12 @@ export function NewSessionForm({
         setAcceptingText(false);
 
         // Show user-visible error message
-        let errorMessage = t("newSessionStartError");
-        if (err instanceof Error) {
-          const providerDisplayName =
-            selectedProviderInfo?.displayName ?? selectedProvider ?? "Provider";
-          const lowerMessage = err.message.toLowerCase();
-          const status = (err as Error & { status?: number }).status;
-
-          // Check for specific error types
-          if (err.message.includes("Queue is full")) {
-            errorMessage = t("newSessionServerBusy");
-          } else if (
-            lowerMessage.includes("invalid authentication credentials") ||
-            lowerMessage.includes("authentication_error") ||
-            lowerMessage.includes("please run /login") ||
-            (status === 401 &&
-              (selectedProvider === "claude" ||
-                selectedProvider === "gemini" ||
-                selectedProvider === "codex"))
-          ) {
-            errorMessage = t("newSessionProviderAuthError", {
-              provider: providerDisplayName,
-            });
-          } else if (err.message.includes("503")) {
-            errorMessage = t("newSessionServerCapacity");
-          } else if (err.message.includes("404")) {
-            errorMessage = t("newSessionProjectNotFound");
-          } else if (
-            err.message.includes("fetch") ||
-            err.message.includes("network")
-          ) {
-            errorMessage = t("newSessionNetworkError");
-          } else {
-            errorMessage = err.message;
-          }
-        }
+        const errorMessage = newSessionStartErrorMessage(
+          err,
+          selectedProvider,
+          selectedProviderInfo?.displayName,
+          t,
+        );
         showToast(errorMessage, "error");
         if (propagateFailure) throw err;
       }
@@ -2383,12 +2287,18 @@ export function NewSessionForm({
   );
 
   const handleQueueProjectSession = async (messageOverride?: unknown) => {
-    if (routerSelection && routerSelectionCustomized) {
-      showToast(t("routerQueueUnsupported"), "error");
+    const refusal = projectQueueRefusalBeforeDefer({
+      routed: Boolean(routerSelection),
+      routerSelectionCustomized,
+      machineControlSelected,
+      machineControlEligible,
+      creatingTemplateProject,
+      templateProjectBusy,
+    });
+    if (refusal) {
+      if (refusal.kind === "refuse") showToast(t(refusal.toastKey), "error");
       return;
     }
-    if (machineControlSelected && machineControlEligible) return;
-    if (creatingTemplateProject || templateProjectBusy) return;
     const override =
       typeof messageOverride === "string" ? messageOverride : undefined;
     if (override === undefined && deferSpeechDelivery("project-queue")) {
@@ -2396,31 +2306,27 @@ export function NewSessionForm({
     }
 
     const finalMessage = (override ?? draftControls.getDraft()).trimEnd();
-    const rawTrimmedMessage = finalMessage.trim();
-    const deliverySpeechPrefix = resolveDeliverySpeechPrefix({
-      configuredPrefix: speechMessagePrefix,
-      speechTriggered: false,
-      recentSpeech: isRecentSpeechAttribution(),
-    });
-    const trimmedMessage = rawTrimmedMessage
-      ? prependSpeechMessagePrefix(rawTrimmedMessage, deliverySpeechPrefix)
-      : rawTrimmedMessage;
     const trimmedProjectInput = normalizeProjectInput(projectInput);
     const submissionFiles = pendingFilesRef.current;
     const stagedRefs = submissionFiles
       .filter(isPendingStagedFile)
       .map(toPersistedStagedAttachmentRef);
-    const canQueueAttachments = stagedRefs.length === submissionFiles.length;
-    if (
-      !trimmedMessage ||
-      !canQueueAttachments ||
-      isStarting ||
-      displayDefaultsPending ||
-      projectPending ||
-      !hasDirectProviderModel
-    ) {
-      return;
-    }
+    const planned = planNewSessionProjectQueue({
+      finalMessage,
+      speechPrefix: resolveDeliverySpeechPrefix({
+        configuredPrefix: speechMessagePrefix,
+        speechTriggered: false,
+        recentSpeech: isRecentSpeechAttribution(),
+      }),
+      submissionFileCount: submissionFiles.length,
+      stagedFileCount: stagedRefs.length,
+      isStarting,
+      displayDefaultsPending,
+      projectPending,
+      hasDirectProviderModel,
+    });
+    if (!planned) return;
+    const trimmedMessage = planned.text;
 
     // Final speech can differ from the visible snapshot selected by the manual
     // Queue action. That newer draft was not submitted and must stay intact.
@@ -2463,53 +2369,27 @@ export function NewSessionForm({
       const sessionMode = effectivePermissionMode;
       // Queue does not support routing. A restored preference is only for
       // immediate creation; resolve this launch against the direct catalog.
-      const directModel = selectedProviderInfo?.models?.find(
-        (model) => model.id === selectedModel,
-      );
-      const directEffortOptions = getEffortLevelOptions({
-        provider: selectedProviderInfo,
-        model: directModel,
-        translate: t,
-      });
-      const thinking = toThinkingOption(
-        resolveSupportedThinkingMode(
-          selectedThinkingMode,
-          getThinkingModeOptions({
-            provider: selectedProviderInfo,
-            model: directModel,
-            effortOptions: directEffortOptions,
-          }),
-        ),
-        resolveSupportedEffortLevel(selectedEffortLevel, directEffortOptions),
-      );
-      const directServiceTier = selectableServiceTiers(
-        directModel?.serviceTiers,
-      ).find((tier) => tier.id === selectedServiceTier)?.id;
       const showThinking = getShowThinkingSetting();
+      const { target, thinking } = buildProjectQueueNewSessionTarget({
+        providerInfo: selectedProviderInfo,
+        selectedProvider,
+        selectedModel,
+        selectedThinkingMode,
+        selectedEffortLevel,
+        selectedServiceTier,
+        mode: sessionMode,
+        showThinking,
+        supportsSessionSandboxing,
+        effectiveSandboxLevel,
+        effectiveSandboxNetworkFirewall,
+        launchLock,
+        title: trimmedMessage,
+        t,
+      });
 
       if (!stillOwnsForm()) return;
       const response = await api.createProjectQueueItem(resolvedProjectId, {
-        target: {
-          type: "new-session",
-          mode: sessionMode,
-          model: selectedModel ?? undefined,
-          ...(directServiceTier ? { serviceTier: directServiceTier } : {}),
-          thinking,
-          showThinking,
-          provider: selectedProvider ?? undefined,
-          ...(supportsSessionSandboxing
-            ? {
-                sandboxLevel: effectiveSandboxLevel,
-                ...(effectiveSandboxLevel === "project-write"
-                  ? {
-                      sandboxNetworkFirewall: effectiveSandboxNetworkFirewall,
-                    }
-                  : {}),
-              }
-            : {}),
-          ...launchLockOverrides(launchLock),
-          title: trimmedMessage,
-        },
+        target,
         message: {
           text: trimmedMessage,
           mode: sessionMode,

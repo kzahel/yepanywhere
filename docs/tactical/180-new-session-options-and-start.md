@@ -22,7 +22,12 @@ panel, `components/NewSessionOptionsPanel.tsx`) landed 2026-11-07; it takes
 the hook's result as one `options` prop, reads `t` from `useI18n`, and also
 takes `providerSlotFilled` (computed once in the form for its layout class
 and passed in, so the panel and the form cannot disagree) and
-`clientSummarySourceKey` and `versionInfo` for the pool selector.
+`clientSummarySourceKey` and `versionInfo` for the pool selector. Slice 4
+(start and Queue decisions, `lib/newSessionStartDecisions.ts`) landed
+2026-11-07. Queue's decision is two functions on either side of the
+defer, `projectQueueRefusalBeforeDefer` and `planNewSessionProjectQueue`,
+and `proceed` also carries `hasCommand`, which `supportsSessionCreation`
+reads.
 
 Proposal 3 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by

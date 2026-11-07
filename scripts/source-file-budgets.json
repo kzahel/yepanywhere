@@ -28,7 +28,7 @@
       }
     },
     "packages/client/src/components/NewSessionForm.tsx": {
-      "maxLines": 3748
+      "maxLines": 3628
     },
     "packages/client/src/components/renderers/tools/EditRenderer.tsx": {
       "maxLines": 1819
