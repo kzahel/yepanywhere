@@ -56,7 +56,9 @@ its own commit with a test, and one a user could see is asked about. Proposals
 1. **One shared message-box core.** Both boxes use one set of hooks for
    dictation, attachments and keyboard handling instead of two copies.
    Highest payoff; medium risk; every typing path keeps its in-browser
-   keystroke check.
+   keystroke check. Planned in
+   [plan 178](../docs/tactical/178-shared-composer-dictation.md), which lists
+   every difference between the copies and how each is handled.
 2. **Sending as plain functions plus a thin hook.** The send, queue and
    project-queue decisions become functions that take inputs and return what
    to do, testable without React. A small hook performs the requests, toasts,
