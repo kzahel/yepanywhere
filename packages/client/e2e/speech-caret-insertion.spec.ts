@@ -385,9 +385,8 @@ function seedTypingSession(page: Page) {
 // through the edit) and with an interim showing, the caret moves to the
 // start of a long draft and the user types there while the recognizer
 // revises the interim and, in a session, the transcript updates. Each key
-// must show within 100 ms. Where the in-flight fragment then lands differs
-// today (the plan's D10): the in-session box keeps it at its first target,
-// the new-session box moves it to the caret.
+// must show within 100 ms, and the fragment in flight stays at its first
+// target in both boxes (plan 178 D10).
 for (const box of ["in-session", "new-session"] as const) {
   test(`shows each key typed during dictation within 100 ms (${box})`, async ({
     page,
@@ -484,10 +483,6 @@ for (const box of ["in-session", "new-session"] as const) {
     expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThan(100);
 
     await emitInterim("spoken words final", true);
-    await expect(textarea).toHaveValue(
-      box === "new-session"
-        ? `${keys}spoken words final ${dictated}`
-        : `${keys}${dictated} spoken words final`,
-    );
+    await expect(textarea).toHaveValue(`${keys}${dictated} spoken words final`);
   });
 }

@@ -298,26 +298,29 @@ user has not yet seen the recognizer's final wording, even if a full interim
 preview was visible. ASR therefore gets its final pass before delivery. This
 is the maintainer-directed correction of 2026-10-20, not a separate hotkey.
 
-Delivery records its intent and detaches the draft and speech insertion target
-at the press. Final recognizer results revise that detached draft; successful
-provider settlement authorizes sending it. Text typed afterward belongs to the
-next draft and is neither consumed nor overwritten. These sends use the
-configured Speech message prefix (including Off or custom text) independently
-of the Quick-send speech-prefix window. The timing window applies to later
-manual sends after capture has already settled, not Enter during capture.
-A failed speech cycle clears pending delivery and restores recoverable text;
-a later deliberate delivery press may still send the retained draft. This
-contract applies to the active-session and new-session composers and to
-mic-button or keyboard-shortcut invocation of the same action. Action eligibility is checked
-before speech ownership transfers and again before a deferred typed action
-runs. The pending intent keeps recovery ownership of its detached draft until
-the typed action accepts; rejection or an exception restores that draft. A
-Smart Turn send rejected by its typed action settles as unhandled and does not
-arm follow-up listening. Generated-summary and no-summary forks are typed
-delivery intents under the same settlement owner: command-only
-generated-summary speech may invoke its valid empty-instructions action, while
-no-summary dispatches exactly once only after successful settlement and
-restores the detached draft on failure.
+In the active-session composer, delivery records its intent and detaches the
+draft and speech insertion target at the press. Final recognizer results revise
+that detached draft; successful provider settlement authorizes sending it. Text
+typed afterward belongs to the next draft and is neither consumed nor
+overwritten. The new-session composer also waits for speech to settle before
+delivering, but sends the text visible at the press: its draft stays in the
+field, and recognizer results that arrive after the press do not change what is
+sent (maintainer decision, 2026-11-07). These sends use the configured Speech
+message prefix (including Off or custom text) independently of the Quick-send
+speech-prefix window. The timing window applies to later manual sends after
+capture has already settled, not Enter during capture. A failed speech cycle
+clears pending delivery and restores recoverable text; a later deliberate
+delivery press may still send the retained draft. The rest of this contract
+applies to both composers and to mic-button or keyboard-shortcut invocation of
+the same action. Action eligibility is checked before speech ownership
+transfers and again before a deferred typed action runs. The pending intent
+keeps recovery ownership of its detached draft until the typed action accepts;
+rejection or an exception restores that draft. A Smart Turn send rejected by
+its typed action settles as unhandled and does not arm follow-up listening.
+Generated-summary and no-summary forks are typed delivery intents under the
+same settlement owner: command-only generated-summary speech may invoke its
+valid empty-instructions action, while no-summary dispatches exactly once only
+after successful settlement and restores the detached draft on failure.
 
 In the active-session composer, that delivery press also transfers the current
 draft and speech insertion target into a delivery-owned transaction and clears

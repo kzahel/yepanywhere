@@ -69,6 +69,7 @@ const {
   mockVoiceToggle,
   mockVoiceCancelProcessing,
   mockVoiceContinueAfterSpeechSend,
+  voiceListeningState,
   voicePropsState,
   draftKeys,
   modelSettingsState,
@@ -110,6 +111,7 @@ const {
   mockVoiceToggle: vi.fn(),
   mockVoiceCancelProcessing: vi.fn(),
   mockVoiceContinueAfterSpeechSend: vi.fn(),
+  voiceListeningState: { current: false },
   voicePropsState: {
     current: null as null | {
       onPendingSpeechChange?: (
@@ -126,6 +128,11 @@ const {
       ) => void;
       onListeningStart?: () => void;
       onListeningStop?: () => boolean | undefined;
+      onTranscriptionSettled?: (settlement: {
+        speechTargetId?: string;
+        status: "completed" | "failed" | "cancelled";
+      }) => void;
+      getTranscriptionContext?: () => { speechTargetId?: string };
     },
   },
   draftKeys: [] as string[],
@@ -746,7 +753,9 @@ vi.mock("../VoiceInputButton", () => ({
         cancelProcessing: mockVoiceCancelProcessing,
         beginInsertionBoundary: vi.fn(),
         continueAfterSpeechSend: mockVoiceContinueAfterSpeechSend,
-        isListening: false,
+        get isListening() {
+          return voiceListeningState.current;
+        },
         isAvailable: true,
       }),
       [],
@@ -814,6 +823,7 @@ describe("NewSessionForm", () => {
   beforeEach(() => {
     providerDescriptorsState.providers = undefined;
     coarsePointerState.current = false;
+    voiceListeningState.current = false;
     actingPrincipalState.principal = {
       superuser: true,
       username: null,
@@ -4745,6 +4755,163 @@ describe("NewSessionForm", () => {
     expect(mockStartSession).not.toHaveBeenCalled();
     expect(mockConnectionFetch).not.toHaveBeenCalled();
     expect(composer.value).toBe("typed draft");
+  });
+
+  // The new-session box dictates like the session composer
+  // (docs/tactical/178-shared-composer-dictation.md D7, D8, D10, D11, D4).
+  describe("dictation like the session composer", () => {
+    const renderForm = () => {
+      render(
+        <NewSessionForm
+          projectId="project-1"
+          selectedProject={chooserProjects[0]}
+          projects={[...chooserProjects]}
+        />,
+      );
+      return screen.getByPlaceholderText(
+        "newSessionPlaceholder",
+      ) as HTMLTextAreaElement;
+    };
+
+    it("ignores a held Escape instead of cancelling the transcription", () => {
+      const composer = renderForm();
+      act(() => {
+        voicePropsState.current?.onPendingSpeechChange?.("finalizing");
+      });
+      fireEvent.keyDown(composer, { key: "Escape", repeat: true });
+      expect(mockVoiceCancelProcessing).not.toHaveBeenCalled();
+      fireEvent.keyDown(composer, { key: "Escape" });
+      expect(mockVoiceCancelProcessing).toHaveBeenCalledTimes(1);
+    });
+
+    it("accepts a spoken send only when the draft can start, and only then keeps listening", async () => {
+      renderForm();
+      let accepted: unknown;
+      act(() => {
+        voicePropsState.current?.onListeningStart?.();
+        voicePropsState.current?.onPendingSpeechChange?.("listening");
+        // The recognizer strips the spoken command; nothing else was said.
+        accepted = voicePropsState.current?.onTranscript?.("", {
+          smartTurnCommand: "send",
+        });
+      });
+      expect(mockStartSession).not.toHaveBeenCalled();
+      expect(mockVoiceContinueAfterSpeechSend).not.toHaveBeenCalled();
+      expect(accepted).not.toMatchObject({ smartTurnSent: true });
+
+      act(() => {
+        voicePropsState.current?.onTranscript?.("start the build", {
+          smartTurnCommand: "send",
+        });
+      });
+      await waitFor(() => expect(mockStartSession).toHaveBeenCalledTimes(1));
+      expect(mockVoiceContinueAfterSpeechSend).toHaveBeenCalledTimes(1);
+    });
+
+    it("accepts a spoken send from a muted launch composer with no draft", async () => {
+      const submit = vi.fn().mockResolvedValue(undefined);
+      render(
+        <NewSessionForm
+          projectId="project-1"
+          selectedProject={chooserProjects[0]}
+          projects={[...chooserProjects]}
+          launch={{
+            draftKey: "draft-fork:session-1",
+            initialMessage: "",
+            fixedProject: true,
+            composer: "muted",
+            submit,
+          }}
+        />,
+      );
+      act(() => {
+        voicePropsState.current?.onListeningStart?.();
+        voicePropsState.current?.onPendingSpeechChange?.("listening");
+        voicePropsState.current?.onTranscript?.("", {
+          smartTurnCommand: "send",
+        });
+      });
+      await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+      expect(mockVoiceContinueAfterSpeechSend).toHaveBeenCalledTimes(1);
+    });
+
+    it("treats a selection change mid-interim as a manual caret move", async () => {
+      const composer = renderForm();
+      fireEvent.change(composer, { target: { value: "alpha omega" } });
+      composer.setSelectionRange(11, 11);
+      act(() => {
+        voicePropsState.current?.onListeningStart?.();
+        voicePropsState.current?.onPendingSpeechChange?.("listening");
+        voicePropsState.current?.onInterimTranscript?.("first words");
+      });
+      composer.setSelectionRange(0, 0);
+      fireEvent.select(composer);
+      act(() => {
+        voicePropsState.current?.onTranscript?.("first words");
+      });
+      await waitFor(() =>
+        expect(composer.value).toBe("alpha omega first words"),
+      );
+    });
+
+    it("forgets a failed transcription's speech target", async () => {
+      const composer = renderForm();
+      fireEvent.change(composer, { target: { value: "alpha omega" } });
+      composer.setSelectionRange(5, 5);
+      act(() => {
+        voicePropsState.current?.onListeningStart?.();
+        voicePropsState.current?.onPendingSpeechChange?.("transcribing");
+      });
+      const targetId =
+        voicePropsState.current?.getTranscriptionContext?.()?.speechTargetId;
+      expect(targetId).toEqual(expect.any(String));
+      act(() => {
+        voicePropsState.current?.onTranscriptionSettled?.({
+          speechTargetId: targetId,
+          status: "failed",
+        });
+      });
+      // With the target gone, a later final lands at the end of the draft
+      // instead of at the failed recording's insertion point.
+      composer.setSelectionRange(0, 0);
+      act(() => {
+        voicePropsState.current?.onTranscript?.("later words");
+      });
+      await waitFor(() =>
+        expect(composer.value).toBe("alpha omega later words"),
+      );
+    });
+
+    it("lets the Project Queue Ctrl+Enter shortcut win while listening", async () => {
+      toolbarVisibilityState.projectQueue = true;
+      inboxState.active = [
+        { sessionId: "session-active", projectId: "project-1" },
+      ];
+      serverSettingsState.isLoading = false;
+      const composer = renderForm();
+      fireEvent.change(composer, {
+        target: { value: "queue while dictating" },
+      });
+      expect(
+        screen.getByRole("button", { name: "toolbarProjectQueueLabel" }),
+      ).toBeTruthy();
+      act(() => {
+        voicePropsState.current?.onListeningStart?.();
+        voicePropsState.current?.onPendingSpeechChange?.("listening");
+      });
+      voiceListeningState.current = true;
+      fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
+      // The queue action owns delivery and waits for dictation to settle.
+      expect(mockStartSession).not.toHaveBeenCalled();
+      voiceListeningState.current = false;
+      act(() => {
+        voicePropsState.current?.onPendingSpeechChange?.(null, "completed");
+      });
+      await waitFor(() =>
+        expect(mockCreateProjectQueueItem).toHaveBeenCalledTimes(1),
+      );
+      expect(mockStartSession).not.toHaveBeenCalled();
+    });
   });
 
   it("waits for server capabilities before choosing how to create the session", async () => {

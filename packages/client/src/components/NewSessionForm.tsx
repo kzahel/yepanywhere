@@ -215,6 +215,7 @@ import {
   handleSpeechEscapeKey,
   isComposerEnterSend,
 } from "../lib/composerKeys";
+import { hasComposerDraftContent } from "../lib/sessionComposerSubmission";
 import { logSessionUiTrace } from "../lib/diagnostics/uiTrace";
 import {
   isFullPaneComposerShortcut,
@@ -3561,6 +3562,13 @@ export function NewSessionForm({
   }, []);
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    // A held dismissal key must never fall through to cancelling a
+    // transcription, as in the session composer.
+    if (e.key === "Escape" && e.repeat) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (
       e.key === "Enter" &&
       e.metaKey &&
@@ -3605,13 +3613,8 @@ export function NewSessionForm({
       // Skip Enter during IME composition (e.g. Chinese/Japanese/Korean input)
       if (e.nativeEvent.isComposing) return;
 
-      // If voice recording is active, Enter submits (on any device)
-      if (voiceButtonRef.current?.isListening) {
-        e.preventDefault();
-        handleStartSession();
-        return;
-      }
-
+      // The Ctrl+Enter shortcut runs before "listening, so start", as the
+      // session composer orders its Ctrl+Enter actions.
       if (
         projectQueueCtrlEnterEnabled &&
         toolbarVisibility.projectQueue &&
@@ -3624,6 +3627,13 @@ export function NewSessionForm({
       ) {
         e.preventDefault();
         void handleQueueProjectSession();
+        return;
+      }
+
+      // If voice recording is active, Enter submits (on any device)
+      if (voiceButtonRef.current?.isListening) {
+        e.preventDefault();
+        handleStartSession();
         return;
       }
 
@@ -3653,10 +3663,20 @@ export function NewSessionForm({
         pendingSpeechDeliveryRef.current?.kind === "project-queue"
       )
         return false;
-      voiceButtonRef.current?.continueAfterSpeechSend();
+      // As in the session composer, a send that cannot start is not
+      // accepted, and only an accepted send arms follow-up listening.
+      // A muted launch composer starts without a draft of its own.
+      if (
+        (!hasComposerDraftContent(text, pendingFilesRef.current.length) &&
+          !composerMuted) ||
+        isStarting
+      )
+        return false;
       void handleStartSession(text, true);
+      voiceButtonRef.current?.continueAfterSpeechSend();
+      return true;
     },
-    [handleStartSession],
+    [composerMuted, handleStartSession, isStarting],
   );
   // The draft never leaves the field here (plan 178 D3), so a failed or
   // cancelled cycle only drops the pending delivery.
@@ -3672,6 +3692,7 @@ export function NewSessionForm({
     handleListeningStop,
     handleInterimTranscript,
     handlePendingSpeechChange,
+    handleTranscriptionSettled,
     handleCancelTranscription,
   } = useComposerSpeechHandlers({
     speechState,
@@ -3685,7 +3706,8 @@ export function NewSessionForm({
     abandonPendingDelivery: dropPendingSpeechDelivery,
     onSmartTurnSend: handleSmartTurnSend,
   });
-  // Pointer-up and key-up are manual caret moves (plan 178 D1).
+  // Select, pointer-up and key-up are manual caret moves, as in the session
+  // composer (plan 178 D1, D10).
   const handleManualSpeechSelection = useCallback(
     () => handleSpeechSelectionTarget(true),
     [handleSpeechSelectionTarget],
@@ -3885,7 +3907,7 @@ export function NewSessionForm({
             onFocus={fileCompletion.onFocus}
             onBlur={fileCompletion.onBlur}
             onSelect={() => {
-              handleSpeechSelectionTarget();
+              handleManualSpeechSelection();
               fileCompletion.onSelect();
             }}
             onPointerUp={handleManualSpeechSelection}
@@ -4003,6 +4025,7 @@ export function NewSessionForm({
                   onListeningStart={handleListeningStart}
                   onListeningStop={handleListeningStop}
                   onPendingSpeechChange={handlePendingSpeechChange}
+                  onTranscriptionSettled={handleTranscriptionSettled}
                   disabled={isStarting}
                   className="toolbar-button"
                   speechMethod={selectedSpeechMethod}
