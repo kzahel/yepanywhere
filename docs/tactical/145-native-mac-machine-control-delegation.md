@@ -1,7 +1,12 @@
 # Native Mac Machine Control delegation
 
-Status: active; signed native origin and ordinary effects proved through a
-bounded MC conformance receiver; installed failure qualification remains open.
+Status: **retired.** The operator never used the trusted path and asked to
+remove it; MC [Tactical 161](../../../machine-control/docs/tactical/161-verified-callers.md)
+replaces it with verified callers on the ordinary socket. The source was
+removed and its last revision is tagged `mc-delegation-v1-final`. Before
+retirement, signed native origin and ordinary effects were proved through a
+bounded MC conformance receiver; installed failure qualification remained
+open.
 Owning topic: [optional computer control](../../topics/optional-computer-control.md).
 MC owns the coordinating [admission plan](../../../machine-control/docs/tactical/074-access-admission-and-pause.md)
 and [native delegation qualification](../../../machine-control/docs/tactical/086-native-desktop-delegation.md).
