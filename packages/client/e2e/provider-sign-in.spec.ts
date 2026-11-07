@@ -165,6 +165,16 @@ test("focused sign-in keeps startup failures visible and preserves typing during
   let current: ReturnType<typeof flow> | null = null;
   let starts = 0;
   let reads = 0;
+  // The page keeps whichever of the provider row and the provider list was
+  // requested later, and the app requests the list only after its auth or
+  // settings load, which is after the row, so both say Claude is signed
+  // out. Otherwise the test server's own list reports it signed in and
+  // closes the panel.
+  await page.route(
+    (url) => url.pathname === "/api/providers",
+    (route) =>
+      route.fulfill({ json: { providers: [provider("claude", false)] } }),
+  );
   await page.route(
     (url) => url.pathname === "/api/providers/claude",
     (route) => route.fulfill({ json: { provider: provider("claude", false) } }),
