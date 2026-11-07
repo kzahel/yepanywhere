@@ -288,6 +288,7 @@ and props stable.
 | 2.22 | Done 2026-11-07 | `SessionPage.tsx` send and queue decisions | Move `handleSend`'s and `handleQueue`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 2). | Not move-only: under plan 179. `planSend`, `planQueue`, the resume options, the failure steps, retry predicates and final notice in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,563 -> 7,525. Tier 3, plus plan 179's slice 0 pins. |
 | 2.23 | Done 2026-11-07 | `SessionPage.tsx` Project Queue decisions | Move `queueComposerForProject`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 3). | Not move-only: under plan 179, after its legacy start-now pin. `resolveProjectQueueCommand`, `planProjectQueue` and `projectQueueQueuedMessage` in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,525 -> 7,475. Tier 3, plus plan 179's slice 0 pins. |
 | 2.24 | Done 2026-11-07 | `SessionPage.tsx` send module | Move the page's four sending functions into a plain send module the page calls each render ([plan 179](179-session-composer-send-decisions.md) slice 4). | Move-only: `prepareComposerSubmission`, `handleSend`, `handleQueue` and `queueComposerForProject` move verbatim into `createSessionComposerSend` in new `lib/sessionComposerSend.ts`, called where `handleSend` stood. The closure reads become a deps object, and the four callbacks the page declares later are passed as wrappers (listed in the landing note). No behavior change. Budget `SessionPage.tsx` 7,475 -> 6,560; the new module is 1,214 lines. Tier 3, plus plan 179's slice 0 pins. |
+| 2.25 | Done 2026-11-07 | `NewSessionForm.tsx` option section | Move the New Session options' section wrapper into its own module. | Move-only: `NewSessionOptionSection` and its props into `components/NewSessionOptionSection.tsx`. `NewSessionForm.tsx` 5,535 -> 5,503 lines; its budget stays at 5,535 until the next commit (see the landing note). Tier 3 at the series tip. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -421,6 +422,40 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.25 — New Session Option Section Module (Landed 2026-11-07, this commit)
+
+Moved:
+- `NewSessionOptionSection` and its props interface -> new
+  `packages/client/src/components/NewSessionOptionSection.tsx`, unchanged
+  apart from exporting the component and adding a doc comment. It keeps
+  using `NewSessionForm.module.css`, as `ThinkingToolbarControl` uses the
+  toolbar's module.
+
+Signature conversions (closure -> parameter):
+- None.
+
+Behavior changes:
+- None.
+
+Budget:
+- `NewSessionForm.tsx` goes from 5,535 to 5,503 lines, but its budget stays
+  at 5,535 in this commit: the next commit, the maintainer-requested
+  dictation cleanup, adds lines to the form and ratchets the budget to its
+  own count.
+
+Verification:
+- `NewSessionForm.test.tsx` passes unchanged; tsc and Biome are clean.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at the tip of the cleanup series that includes this
+  commit, in the main checkout. Tier 3 (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`) there: 516 passed, 13 skipped, 1
+  failed; `artifact-viewer.spec.ts:136`, the known proxy flake, passed
+  when rerun alone. The tip later dropped an unused CSS rule and gained a
+  unit test, neither of which changes browser behavior.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.24 — Session Composer Send Module (Landed 2026-11-07, this commit)
 

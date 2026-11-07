@@ -268,6 +268,7 @@ import { DeliveryGlyph } from "./DeliveryGlyph";
 import { FilterDropdown, type FilterOption } from "./FilterDropdown";
 import { FullPaneComposerToggle } from "./FullPaneComposerToggle";
 import { NewSessionFixedLaunch } from "./NewSessionFixedLaunch";
+import { NewSessionOptionSection } from "./NewSessionOptionSection";
 import { NewSessionProjectQueue } from "./NewSessionProjectQueue";
 import { SpeechDraftField } from "./SpeechDraftField";
 import { SpeechPrefixActionCue } from "./SpeechPrefixActionCue";
@@ -361,39 +362,6 @@ export interface NewSessionFormProps {
       clientTimestamp: number;
     }) => Promise<void>;
   };
-}
-
-interface NewSessionOptionSectionProps {
-  caption?: string;
-  children: ReactNode;
-  className: string;
-  showCaption: boolean;
-  title: string;
-  placeholder?: boolean;
-}
-
-function NewSessionOptionSection({
-  caption,
-  children,
-  className,
-  showCaption,
-  title,
-  placeholder = false,
-}: NewSessionOptionSectionProps) {
-  return (
-    <div
-      className={`${className}${placeholder ? ` ${styles.optionPlaceholder}` : ""}`}
-      title={showCaption ? undefined : caption}
-      aria-hidden={placeholder || undefined}
-      inert={placeholder || undefined}
-    >
-      <h3>{title}</h3>
-      {children}
-      {showCaption && caption && (
-        <p className={styles.optionCaption}>{caption}</p>
-      )}
-    </div>
-  );
 }
 
 /** The New project palette choice that starts from a plain folder. */
