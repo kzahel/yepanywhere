@@ -216,7 +216,6 @@ it("commits exact text, immutable source and creator beside an unbound identity,
     compactAtContextPercent: 71,
     globalInstructions: "  selected global instructions\n",
     recapMode: "off" as const,
-    desktopControlOrigin: { launch: "DO_NOT_PERSIST_CREDENTIAL" },
     instructionUsername: "do-not-trust-this-actor",
     env: { AUTH_TOKEN: "DO_NOT_PERSIST_ENV" },
   };
@@ -268,7 +267,6 @@ it("commits exact text, immutable source and creator beside an unbound identity,
     "SELECT payload_json FROM session_creations",
   )[0]!.payload_json;
   expect(persisted).not.toContain("DO_NOT_PERSIST");
-  expect(admitted.request?.launch).not.toHaveProperty("desktopControlOrigin");
   expect(admitted.request?.launch).not.toHaveProperty("instructionUsername");
   expect(admitted.request?.input?.metadata).not.toHaveProperty("sentByUser");
   expect(admitted.request?.input?.metadata).not.toHaveProperty(

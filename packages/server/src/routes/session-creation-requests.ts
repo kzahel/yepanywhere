@@ -8,7 +8,6 @@ import {
   principalFor,
   savedLimitedCreationError,
 } from "../auth/limitedLaunchPolicy.js";
-import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { getLogger } from "../logging/logger.js";
 import type { SessionMetadataService } from "../metadata/index.js";
 import { creationProvenanceForHeaders } from "../sessions/creation-provenance.js";
@@ -51,7 +50,6 @@ export function createSessionCreationRequests(
     lineage?: import("../sessions/SessionRelationshipWriter.js").CreationLineage,
   ): NonNullable<SessionLaunchOptions["creation"]> => {
     const principal = principalFor(c);
-    const liveDesktopOrigin = desktopControlOrigin(c);
     const context = {
       owner:
         principal.kind === "limited"
@@ -82,7 +80,6 @@ export function createSessionCreationRequests(
           );
           if (refused) throw new Error(refused);
         }
-        return { desktopControlOrigin: liveDesktopOrigin };
       },
     };
   };

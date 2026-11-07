@@ -1,7 +1,5 @@
 mod channels;
 mod config;
-#[cfg(target_os = "macos")]
-mod machine_control;
 mod runtime_metadata;
 mod server;
 mod tray;

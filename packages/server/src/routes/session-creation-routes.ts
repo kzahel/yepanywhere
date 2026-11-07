@@ -1,6 +1,5 @@
 import { sessionCreationReceipt } from "../sessions/session-creation-acceptance.js";
 import { readLimitedJsonObject } from "./limited-json-body.js";
-import { desktopControlOrigin } from "../desktop/machine-control.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
 import { isUrlProjectId } from "@yep-anywhere/shared";
 import { mkdir } from "node:fs/promises";
@@ -202,8 +201,6 @@ export function registerSessionCreationRoutes(
         routerClaudeAiConnectors: body.routerClaudeAiConnectors,
         computerControl: body.computerControl,
         machineControl: body.machineControl,
-        desktopControlOrigin:
-          body.machineControl === true ? desktopControlOrigin(c) : undefined,
         executor,
         sandboxLevel: sandboxSelection.sandboxLevel,
         sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,
@@ -343,8 +340,6 @@ export function registerSessionCreationRoutes(
         routerClaudeAiConnectors: body.routerClaudeAiConnectors,
         computerControl: body.computerControl,
         machineControl: body.machineControl,
-        desktopControlOrigin:
-          body.machineControl === true ? desktopControlOrigin(c) : undefined,
         executor,
         sandboxLevel: sandboxSelection.sandboxLevel,
         sandboxNetworkFirewall: sandboxSelection.sandboxNetworkFirewall,

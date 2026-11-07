@@ -31,7 +31,6 @@ export type CreationLaunchSnapshot = Pick<
 > & {
   schemaVersion: 1;
   runtimeOwner?: "local" | "host";
-  requiresDesktopControlOrigin?: boolean;
 };
 
 /** Rebuild an allowlist rather than serializing runtime/provider option objects. */
@@ -39,7 +38,6 @@ export function snapshotCreationLaunch(
   input: ModelSettings & {
     schemaVersion?: number;
     runtimeOwner?: "local" | "host";
-    requiresDesktopControlOrigin?: boolean;
   },
 ): CreationLaunchSnapshot {
   if (
@@ -89,7 +87,6 @@ export function snapshotCreationLaunch(
   for (const key of [
     "machineControl",
     "routerClaudeAiConnectors",
-    "requiresDesktopControlOrigin",
     "forceYaOrchestratedCompaction",
     "sandboxNetworkFirewall",
   ] as const) {

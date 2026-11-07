@@ -27,7 +27,6 @@ export interface InstalledMachineControl {
   python: string;
   version: string;
   sourceRevision: string;
-  desktopDelegation?: boolean;
 }
 
 export type Execute = (
@@ -400,9 +399,6 @@ export async function verifyInstalledMachineControl(
     python,
     version: identity.version,
     sourceRevision: identity.sourceRevision,
-    ...(identity.features.includes("desktop.delegation.v1")
-      ? { desktopDelegation: true }
-      : {}),
   };
 }
 

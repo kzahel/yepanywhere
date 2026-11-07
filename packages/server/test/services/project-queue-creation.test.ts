@@ -1,15 +1,3 @@
-import { Hono } from "hono";
-import {
-  desktopControlOrigin,
-  isDesktopControlOrigin,
-} from "../../src/desktop/machine-control.js";
-import {
-  DesktopBootstrapService,
-  DESKTOP_SESSION_COOKIE_NAME,
-} from "../../src/desktop/DesktopBootstrapService.js";
-import { createAuthMiddleware } from "../../src/middleware/auth.js";
-import type { AuthService } from "../../src/auth/AuthService.js";
-import { PRINCIPAL_VARIABLE } from "../../src/auth/principal.js";
 import type { UserMessage } from "../../src/sdk/types.js";
 import type { LimitedUserGrants } from "@yep-anywhere/shared";
 import { createSupervisorReviewLauncher } from "../../src/review/reviewSessionLauncher.js";
@@ -1068,89 +1056,6 @@ it.each(["revoked", "changed-lock"])(
     ).toBeNull();
   },
 );
-
-it("keeps live desktop credential proof out of saved intent and requires fresh proof on retry", async () => {
-  const bootstrap = new DesktopBootstrapService({
-      masterSecret: "a".repeat(64),
-    }),
-    code = bootstrap.mintCode(),
-    cookie = bootstrap.consumeCode(code.code);
-  const app = new Hono();
-  let origin: ReturnType<typeof desktopControlOrigin>;
-  app.use(
-    "*",
-    createAuthMiddleware({
-      authService: {
-        isLocalhostOpen: () => false,
-        isEnabled: () => false,
-      } as AuthService,
-      desktopBootstrapService: bootstrap,
-    }),
-  );
-  app.get("/proof", (c) => {
-    c.set(PRINCIPAL_VARIABLE, { kind: "superuser" });
-    origin = desktopControlOrigin(c);
-    return c.json({ ok: true });
-  });
-  await app.request("/proof", {
-    headers: { cookie: `${DESKTOP_SESSION_COOKIE_NAME}=${cookie}` },
-  });
-  expect(isDesktopControlOrigin(origin)).toBe(true);
-  const f = await fixture("claude");
-  f.available = false;
-  const context = {
-    owner: { kind: "superuser" as const },
-    source: {
-      kind: "request" as const,
-      provenance: { surface: "desktop" as const },
-    },
-  };
-  await expect(
-    f.supervisor.startSession(
-      f.project,
-      { text: "QUEUE_INPUT" },
-      undefined,
-      { machineControl: true, desktopControlOrigin: origin },
-      {
-        creation: {
-          requestId: "desktop-proof-owned",
-          context,
-          authorize: async () => ({ desktopControlOrigin: origin }),
-        },
-      },
-    ),
-  ).rejects.toThrow("unavailable");
-  const saved = f.metadata.creations.get(context.owner, "desktop-proof-owned")!;
-  expect(saved.request?.launch).toMatchObject({
-    machineControl: true,
-    requiresDesktopControlOrigin: true,
-  });
-  expect(saved.request?.launch).not.toHaveProperty("desktopControlOrigin");
-  f.available = true;
-  const fence = f.metadata.creations.retry(
-    context.owner,
-    saved.requestId,
-    "missing-proof-retry",
-    saved.attempt.attemptId,
-  );
-  await expect(
-    f.supervisor.startSavedSession(fence, async () => {}),
-  ).rejects.toThrow("fresh owner credential proof");
-  expect(f.starts).toHaveLength(0);
-  const current = f.metadata.creations.getForSession(saved.sessionId)!;
-  const retry = f.metadata.creations.retry(
-    context.owner,
-    saved.requestId,
-    "fresh-proof-retry",
-    current.attempt.attemptId,
-  );
-  const native = vi.spyOn(f.provider, "startSession");
-  await f.supervisor.startSavedSession(retry, async () => ({
-    desktopControlOrigin: origin,
-  }));
-  expect(native.mock.calls[0]?.[0].desktopControlOrigin).toBe(origin);
-  expect(f.starts).toHaveLength(1);
-});
 
 it.skipIf(process.platform === "linux")(
   "saves sandboxed owner intent before refusing an unsupported native platform",

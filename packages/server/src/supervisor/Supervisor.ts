@@ -1,4 +1,3 @@
-import { isDesktopControlOrigin } from "../desktop/machine-control.js";
 import type { HarnessRelationshipObserver } from "../sessions/NestedHarnessRelationshipService.js";
 import { assertClaudeCopyRoot, cloneClaudeSession } from "../sessions/fork.js";
 import type { AuthorizeSessionCreation } from "../sessions/session-creation-authority.js";
@@ -1354,18 +1353,10 @@ export class Supervisor {
         );
       }
       const hosted = launch.runtimeOwner === "host";
-      const authority = await authorize(saved);
+      await authorize(saved);
       store.assertCurrent(fence);
-      if (
-        launch.requiresDesktopControlOrigin &&
-        !isDesktopControlOrigin(authority?.desktopControlOrigin)
-      )
-        throw new Error(
-          "Saved Machine Control launch requires fresh owner credential proof",
-        );
       const modelSettings: ModelSettings = {
         ...launch,
-        desktopControlOrigin: authority?.desktopControlOrigin,
         instructionUsername:
           saved.context.owner.kind === "limited"
             ? saved.context.owner.username
@@ -1662,9 +1653,6 @@ export class Supervisor {
         },
         launch: snapshotCreationLaunch({
           ...modelSettings,
-          requiresDesktopControlOrigin:
-            modelSettings?.machineControl &&
-            isDesktopControlOrigin(modelSettings.desktopControlOrigin),
           promptSuggestionMode: this.resolvePromptSuggestionMode(
             modelSettings?.promptSuggestionMode,
             provider,
@@ -2948,7 +2936,6 @@ export class Supervisor {
         retainedRuntimeOnly: resume?.retainedRuntimeOnly,
         routerLaunch,
         machineControl: modelSettings?.machineControl,
-        desktopControlOrigin: modelSettings?.desktopControlOrigin,
         cwd: projectPath,
         resumeSessionId: resume?.source?.native.id ?? resumeSessionId,
         newSessionId:

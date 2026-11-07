@@ -1,8 +1,4 @@
 import { assertAndroidWorkspaceAvailable } from "../../lib/android-workspace.js";
-import {
-  isDesktopControlOrigin,
-  nativeMachineControl,
-} from "../../desktop/machine-control.js";
 /**
  * Provider exports.
  *
@@ -231,17 +227,6 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
           options: Parameters<AgentProvider["startSession"]>[0],
         ) => {
           await assertAndroidWorkspaceAvailable(options.cwd);
-          const native = nativeMachineControl();
-          if (
-            options.machineControl &&
-            isDesktopControlOrigin(options.desktopControlOrigin) &&
-            native &&
-            (await native.enabled())
-          ) {
-            throw new Error(
-              "Native Machine Control delegation requires a local provider owner; detached provider hosting is unsupported",
-            );
-          }
           return startHostedProviderSession(
             target.name,
             {

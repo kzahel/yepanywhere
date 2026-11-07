@@ -16,7 +16,7 @@
  */
 
 import * as crypto from "node:crypto";
-import type { Context, MiddlewareHandler } from "hono";
+import type { MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
 import {
   type AgentServerTokens,
@@ -29,13 +29,6 @@ import {
   type DesktopBootstrapService,
 } from "../desktop/DesktopBootstrapService.js";
 import { WS_INTERNAL_AUTHENTICATED } from "./internal-auth.js";
-
-// This proof is distinct from permissive-mode authentication. It is neither
-// serializable nor forgeable through a request header or public session label.
-const credentialRequests = new WeakSet<Context>();
-export function hasCredentialProof(context: Context): boolean {
-  return credentialRequests.has(context);
-}
 
 export interface AuthMiddlewareOptions {
   authService: AuthService;
@@ -105,8 +98,6 @@ export function createAuthMiddleware(
     const desktopSession = getCookie(c, DESKTOP_SESSION_COOKIE_NAME);
     if (desktopBootstrapService?.validateSession(desktopSession)) {
       c.set("authenticated", true);
-      if (!authDisabled && !authService.isLocalhostOpen())
-        credentialRequests.add(c);
       c.set("authenticatedViaSession", true);
       await next();
       return;
@@ -115,8 +106,6 @@ export function createAuthMiddleware(
     // Desktop token: always accepted when present and valid.
     if (desktopAuthToken && hasValidDesktopToken(c, desktopAuthToken)) {
       c.set("authenticated", true);
-      if (!authDisabled && !authService.isLocalhostOpen())
-        credentialRequests.add(c);
       await next();
       return;
     }
@@ -142,8 +131,6 @@ export function createAuthMiddleware(
     // Using a Symbol ensures this cannot be forged by external HTTP requests.
     if (c.env?.[WS_INTERNAL_AUTHENTICATED]) {
       c.set("authenticated", true);
-      if (!authDisabled && !authService.isLocalhostOpen())
-        credentialRequests.add(c);
       await next();
       return;
     }
@@ -198,8 +185,6 @@ export function createAuthMiddleware(
     }
 
     // Mark request as authenticated (for downstream handlers if needed)
-    if (!authDisabled && !authService.isLocalhostOpen())
-      credentialRequests.add(c);
     c.set("authenticated", true);
     c.set("authenticatedViaSession", true);
 

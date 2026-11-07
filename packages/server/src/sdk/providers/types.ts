@@ -1,5 +1,4 @@
 import type { ClaudeCopyBoundary } from "../../sessions/claude-copy-boundary.js";
-import type { DesktopControlOrigin } from "../../desktop/machine-control.js";
 import {
   nativeSessionFamily,
   parseNativeSessionId,
@@ -298,8 +297,6 @@ export interface StartSessionOptions {
   agentApiInstructions?: string;
   /** Explicit installed MC advertisement; no resident grant or supervisor. */
   machineControl?: boolean;
-  /** Private credential proof; never accepted from JSON or restored settings. */
-  desktopControlOrigin?: DesktopControlOrigin;
   /** Trusted owner-supplied child environment; never a client request field. */
   agentEnvironment?: Record<string, string>;
   /**
