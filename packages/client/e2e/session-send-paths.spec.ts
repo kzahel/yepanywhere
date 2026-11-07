@@ -246,8 +246,8 @@ test("a send that finds no process resumes and clears the composer", async ({
   expect(retried?.message).toBe(text);
   expect(retried?.tempId).toBe(queued?.tempId);
   expect(retried?.clientTimestamp).toBe(queued?.clientTimestamp);
-  // The retried resume leaves out showThinking (plan 179 S4).
-  expect(retried).not.toHaveProperty("showThinking");
+  // The retried resume carries showThinking like a first attempt.
+  expect(retried).toHaveProperty("showThinking");
   await expect(session.composer).toHaveValue("");
   await expect(page.getByText(/Failed to send message/)).toHaveCount(0);
 });
@@ -685,4 +685,59 @@ test("start-now on a server without creation admission uses the legacy route", a
     },
   });
   expect(session.endpoints()).toEqual([]);
+});
+
+test("a send whose process ended (410) resumes, as a queued message does", async ({
+  page,
+  baseURL,
+}) => {
+  const text = "Resume after the process ended.";
+  const session = await openSession(page, baseURL, {
+    owner: "self",
+    processState: "idle",
+    respond: {
+      messages: (route) => json(route, 410, { error: "Process terminated" }),
+      resume: resumed,
+    },
+  });
+  await session.composer.fill(text);
+  await session.composer.press("Enter");
+
+  await expect.poll(session.endpoints).toEqual(["messages", "resume"]);
+  expect(session.requests[1]?.body.message).toBe(text);
+  await expect(session.composer).toHaveValue("");
+  await expect(page.getByText(/Failed to send message/)).toHaveCount(0);
+});
+
+test("a send the server defers shows in the queue, as a queued message does", async ({
+  page,
+  baseURL,
+}) => {
+  const text = "Send behind a queued compaction.";
+  const session = await openSession(page, baseURL, {
+    owner: "self",
+    processState: "idle",
+    respond: {
+      messages: (route, body) =>
+        json(route, 200, {
+          queued: true,
+          deferred: true,
+          deferredMessages: [
+            {
+              tempId: body.tempId,
+              content: body.message,
+              timestamp: new Date().toISOString(),
+              kind: "deferred",
+            },
+          ],
+          serverTimestamp: Date.now(),
+        }),
+    },
+  });
+  await session.composer.fill(text);
+  await session.composer.press("Enter");
+
+  await expect.poll(session.endpoints).toEqual(["messages"]);
+  await expect(page.getByText("Queued (next regular)")).toBeVisible();
+  await expect(session.composer).toHaveValue("");
 });

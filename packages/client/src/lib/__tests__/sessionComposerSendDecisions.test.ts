@@ -11,8 +11,7 @@ import {
   projectQueueQueuedMessage,
   resolveComposerSubmission,
   resolveProjectQueueCommand,
-  shouldRetryQueueWithResume,
-  shouldRetrySendWithResume,
+  shouldRetryWithResume,
 } from "../sessionComposerSendDecisions";
 
 const context = (
@@ -389,33 +388,19 @@ describe("send and queue failures", () => {
     );
   });
 
-  it("retries a send with a resume only for a 404 or no active process", () => {
-    expect(shouldRetrySendWithResume(new Error("API error: 404"))).toBe(true);
-    expect(shouldRetrySendWithResume(new Error("No active process"))).toBe(
-      true,
-    );
-    expect(
-      shouldRetrySendWithResume(httpError("Process terminated", 410)),
-    ).toBe(false);
-    expect(shouldRetrySendWithResume("No active process")).toBe(false);
-  });
-
-  it("retries a queue with a resume for an unavailable process, never for a queued compact", () => {
-    expect(shouldRetryQueueWithResume(httpError("gone", 410), false)).toBe(
-      true,
-    );
-    expect(shouldRetryQueueWithResume(httpError("gone", 404), false)).toBe(
-      true,
-    );
-    expect(
-      shouldRetryQueueWithResume(new Error("Process terminated"), false),
-    ).toBe(true);
-    expect(shouldRetryQueueWithResume(httpError("gone", 410), true)).toBe(
-      false,
-    );
-    expect(shouldRetryQueueWithResume(httpError("conflict", 409), false)).toBe(
-      false,
-    );
+  it("retries with a resume when the process is gone, never for a queued compact", () => {
+    for (const error of [
+      new Error("API error: 404"),
+      new Error("No active process"),
+      new Error("Process terminated"),
+      httpError("gone", 404),
+      httpError("gone", 410),
+    ]) {
+      expect(shouldRetryWithResume(error)).toBe(true);
+    }
+    expect(shouldRetryWithResume(httpError("gone", 410), true)).toBe(false);
+    expect(shouldRetryWithResume(httpError("conflict", 409))).toBe(false);
+    expect(shouldRetryWithResume("No active process")).toBe(false);
   });
 
   describe("finalFailureNotice", () => {
@@ -573,6 +558,7 @@ describe("Project Queue decisions", () => {
       sessionModel: undefined,
       defaultModel: () => "saved-model",
       version: { current: "99.0.0" },
+      attachmentCount: 0,
       ...overrides,
     });
 
@@ -628,6 +614,28 @@ describe("Project Queue decisions", () => {
     expect(
       plan({ ...now, version: { current: "0.11.0", capabilities: [] } }),
     ).toMatchObject({ startsNow: true, canonicalCreation: false });
+  });
+
+  it("refuses an attachment-only message to this session on an old server", () => {
+    const attachmentOnly = {
+      prepared: { outgoingText: "" },
+      attachmentCount: 1,
+      version: { current: "0.7.1", capabilities: [] },
+    };
+    expect(
+      plan({ ...attachmentOnly, targetType: "existing-session" }),
+    ).toMatchObject({ refuseAttachmentOnly: true });
+    // New sessions stage their files, so the old-server limit does not apply.
+    expect(
+      plan({ ...attachmentOnly, targetType: "new-session" }),
+    ).toMatchObject({ refuseAttachmentOnly: false });
+    expect(
+      plan({
+        ...attachmentOnly,
+        targetType: "existing-session",
+        version: { current: "99.0.0" },
+      }),
+    ).toMatchObject({ refuseAttachmentOnly: false });
   });
 
   it("merges turn effort as deferred delivery", () => {

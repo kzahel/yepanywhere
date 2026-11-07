@@ -48,8 +48,7 @@ import {
   projectQueueQueuedMessage,
   resolveComposerSubmission,
   resolveProjectQueueCommand,
-  shouldRetryQueueWithResume,
-  shouldRetrySendWithResume,
+  shouldRetryWithResume,
 } from "./sessionComposerSendDecisions";
 import {
   ComposerAttachmentUploadError,
@@ -428,7 +427,6 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
           outgoingText,
           buildResumeOptions(getResumeSettings(prepared.thinking), {
             showThinking,
-            includeShowThinking: true,
             provider: effectiveProvider,
             executor: session?.executor,
           }),
@@ -515,6 +513,11 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
           );
           reconnectStream();
         }
+        // A send the server deferred (behind a queued compaction) shows in
+        // the queue, as a queued message does.
+        if (result.deferredMessages) {
+          setDeferredMessages(result.deferredMessages);
+        }
       }
       return confirmSubmission();
     } catch (err) {
@@ -594,7 +597,7 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
       }
 
       // Check if process is dead (404) - auto-retry with resumeSession
-      if (shouldRetrySendWithResume(err)) {
+      if (shouldRetryWithResume(err)) {
         try {
           const retryRequestSentAtMs = Date.now();
           const result = await api.resumeSession(
@@ -603,7 +606,6 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
             outgoingText,
             buildResumeOptions(getResumeSettings(prepared.thinking), {
               showThinking,
-              includeShowThinking: false,
               provider: effectiveProvider,
               executor: session?.executor,
             }),
@@ -802,6 +804,27 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
       );
       return true;
     } catch (err) {
+      // As in send: a message the stream already shows as delivered is not
+      // undone by a failed response. Look only when the request may have
+      // reached the server (no HTTP refusal, no upload failure), since a
+      // match can also be an identical earlier message.
+      if (
+        !(err instanceof ComposerAttachmentUploadError) &&
+        (err as { status?: number } | null)?.status === undefined &&
+        isMessageDelivered({
+          tempId,
+          content: outgoingText,
+          timestamp: new Date(clientTimestamp).toISOString(),
+        })
+      ) {
+        rememberSentSubmission(text, tempId);
+        draftControlsRef.current?.confirmInputClear();
+        revokeAttachmentPreviewUrls(currentAttachments);
+        setCorrectionDraft(null);
+        clearQuoteAnchors();
+        completeBeaconSubmission("delivered");
+        return true;
+      }
       console.error("Failed to queue deferred message:", err);
       let finalError: unknown = err;
       if (err instanceof ComposerAttachmentUploadError)
@@ -812,7 +835,7 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
         message: err instanceof Error ? err.message : String(err),
       });
 
-      if (shouldRetryQueueWithResume(err, prepared.queuedCompact === true)) {
+      if (shouldRetryWithResume(err, prepared.queuedCompact === true)) {
         try {
           const result = await api.resumeSession(
             projectId,
@@ -820,7 +843,6 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
             outgoingText,
             buildResumeOptions(getResumeSettings(prepared.thinking), {
               showThinking,
-              includeShowThinking: false,
               provider: effectiveProvider,
               executor: session?.executor,
             }),
@@ -917,13 +939,26 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
       sessionModel: session?.model,
       defaultModel: getModelSetting,
       version: versionInfo,
+      attachmentCount: attachmentsRef.current.length,
     });
+    if (plan.refuseAttachmentOnly) {
+      showToast(t("attachmentOnlyRequiresServerUpdate"), "error");
+      return;
+    }
     metadata = plan.metadata;
     const { outgoingText, slashCommand } = prepared;
     const thinking = prepared.thinking ?? getImplicitComposerThinking();
     const showThinking = getShowThinkingSetting();
     const actionAtMs = Date.now();
     const clientTimestamp = getServerClockTimestamp(actionAtMs);
+    // Queuing to this session orders the sidebar like sending to it.
+    if (targetType === "existing-session") {
+      recordSessionInteraction(
+        sourceRuntime.sourceKey,
+        actualSessionId,
+        actionAtMs,
+      );
+    }
     const {
       queueProjectId,
       newSessionProvider,
@@ -1076,6 +1111,7 @@ export function createSessionComposerSend(deps: SessionComposerSendDeps) {
                       permissionMode: started.permissionMode,
                       appliedPermissionMode: started.appliedPermissionMode,
                       modeVersion: started.modeVersion,
+                      recapAfterSeconds: started.recapAfterSeconds,
                     }
                   : undefined,
               initialTitle: outgoingText,

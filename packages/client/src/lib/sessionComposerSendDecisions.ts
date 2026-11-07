@@ -383,10 +383,7 @@ export function planQueue({
   return { kind: "queue", metadata: queueMetadata };
 }
 
-/**
- * The resume request's settings. A first attempt carries `showThinking`; a
- * retried resume leaves it out (plan 179 S4).
- */
+/** The resume request's settings, on a first attempt and on a retry. */
 export function buildResumeOptions<
   Settings extends object,
   ShowThinking,
@@ -396,19 +393,15 @@ export function buildResumeOptions<
   resumeSettings: Settings,
   {
     showThinking,
-    includeShowThinking,
     provider,
     executor,
   }: {
     showThinking: ShowThinking;
-    includeShowThinking: boolean;
     provider: Provider;
     executor: Executor;
   },
 ) {
-  return includeShowThinking
-    ? { ...resumeSettings, showThinking, provider, executor }
-    : { ...resumeSettings, provider, executor };
+  return { ...resumeSettings, showThinking, provider, executor };
 }
 
 /**
@@ -425,28 +418,24 @@ export function firstSendFailureStep(
   return "continue";
 }
 
-/** Send retries with a resume when the process is gone (plan 179 S3). */
-export function shouldRetrySendWithResume(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.message.includes("404") ||
-      error.message.includes("No active process"))
-  );
-}
-
-/** Queue retries with a resume when the process is unavailable (S3). */
-export function shouldRetryQueueWithResume(
+/**
+ * Send and queue retry with a resume when the session's process is gone
+ * (404 or 410, or a message saying so), except for a queued compaction,
+ * which needs the running process.
+ */
+export function shouldRetryWithResume(
   error: unknown,
-  queuedCompact: boolean,
+  queuedCompact = false,
 ): boolean {
-  const status = (error as { status?: number } | null)?.status;
-  const unavailable =
-    error instanceof Error &&
-    (status === 404 ||
-      status === 410 ||
-      error.message.includes("No active process") ||
-      error.message.includes("Process terminated"));
-  return unavailable && !queuedCompact;
+  if (queuedCompact || !(error instanceof Error)) return false;
+  const status = (error as { status?: number }).status;
+  return (
+    status === 404 ||
+    status === 410 ||
+    error.message.includes("404") ||
+    error.message.includes("No active process") ||
+    error.message.includes("Process terminated")
+  );
 }
 
 export const CLAUDE_HANDOFF_REQUIRED_MESSAGE =
@@ -609,6 +598,7 @@ export function planProjectQueue<Provider>({
   sessionModel,
   defaultModel,
   version,
+  attachmentCount,
 }: {
   prepared: PreparedComposerSubmission;
   metadata: MessageSubmissionMetadata | undefined;
@@ -620,6 +610,7 @@ export function planProjectQueue<Provider>({
   /** The saved default model, read only when it is needed. */
   defaultModel: () => string | undefined;
   version: ServerCapabilitySource | null | undefined;
+  attachmentCount: number;
 }) {
   // A new session chosen from the options may go to another project or
   // provider. This session's settings still apply where they can: its
@@ -645,6 +636,15 @@ export function planProjectQueue<Provider>({
     keepsProvider,
     newSessionModel,
     startsNow,
+    // As in send and queue: an attachment-only message to this session needs
+    // a server that accepts one. New sessions stage their files instead.
+    refuseAttachmentOnly:
+      targetType === "existing-session" &&
+      requiresAttachmentOnlyServerUpdate({
+        version,
+        text: prepared.outgoingText,
+        attachmentCount,
+      }),
     canonicalCreation:
       startsNow &&
       serverHasCapability(

@@ -26,6 +26,22 @@ there, with the reason and the substitute:
   the outcome each path maps to its beacon state, and slice 1's the
   refusal severities.
 
+Settled 2026-11-07, after the slices: the maintainer preferred one behavior
+over per-path differences, so a follow-up commit gives send and queue one
+retry rule (404 or 410, or a "no active process" or "process terminated"
+message; never for a queued compaction) and sends `showThinking` on retries
+too (S3, S4). Send now shows the queue the server returns when it defers a
+send behind a queued compaction, as queue does; the other half of S11 is
+moot, since the server never answers a deferred queue request with a
+restart or queued compaction. Queue confirms a message the stream already
+shows as delivered, but only when the request may have reached the server
+(no HTTP refusal, no upload failure), since an identical earlier message
+also matches (half of S5). Project Queue refuses an attachment-only message
+to this session on an old server, orders the sidebar like a send, and
+carries the recap setting into a started session's state (S6, S10, S8).
+Queue still does not follow a stale-session redirect: a deferred message
+has no handoff of its own to start, so that half of S5 stays as it is.
+
 Proposal 2 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
 [doc 058](058-typescript-module-boundary-refactor.md) priority-queue item 2.
