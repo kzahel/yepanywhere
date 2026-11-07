@@ -79,8 +79,14 @@ test("file drops stage draft attachments in new and existing sessions", async ({
     await recordUiCapture(page, "attachment-drop-new-desktop");
     await page.setViewportSize({ width: 375, height: 812 });
     await recordUiCapture(page, "attachment-drop-new-phone");
-    const box = await overlay.boundingBox();
-    expect(box && box.x >= 0 && box.x + box.width <= 375).toBeTruthy();
+    // The browser delivers the resize that re-measures the overlay at its
+    // next rendering step, so read the overlay once that has happened.
+    await expect
+      .poll(async () => {
+        const box = await overlay.boundingBox();
+        return box !== null && box.x >= 0 && box.x + box.width <= 375;
+      })
+      .toBe(true);
     await composer.dispatchEvent("drop", { dataTransfer: transfer });
     await expect(overlay).toHaveCount(0);
     await expect(
