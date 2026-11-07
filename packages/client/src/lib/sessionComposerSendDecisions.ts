@@ -1,4 +1,15 @@
-import { startsWithSlashCommand } from "@yep-anywhere/shared";
+import {
+  type ProviderName,
+  type ServerCapabilitySource,
+  startsWithSlashCommand,
+  type TurnEffort,
+} from "@yep-anywhere/shared";
+import {
+  isStaleSessionRedirect,
+  requiresHandoffAfterClaudeResumeError,
+} from "../api/refusal";
+import type { MessageSubmissionMetadata } from "../types/messageSubmission";
+import { requiresAttachmentOnlyServerUpdate } from "./attachmentSubmission";
 import { buildCorrectionText } from "./correctionText";
 import {
   hasComposerDraftContent,
@@ -20,9 +31,15 @@ export type ComposerSendMessageKey =
   | "sessionCorrectionNoChanges"
   | "queuedCompactRequiresUpdate"
   | "queuedCompactSeparateAttachments"
-  | "turnEffortUnavailable";
+  | "turnEffortUnavailable"
+  | "routedSessionHandoffRequired"
+  | "sessionSendFailed"
+  | "sessionQueueFailed";
 
-type Translate = (key: ComposerSendMessageKey) => string;
+type Translate = (
+  key: ComposerSendMessageKey,
+  vars?: Record<string, string>,
+) => string;
 
 /** What preparing a composer submission reads from the session page. */
 export interface ComposerSubmissionContext {
@@ -236,5 +253,227 @@ export function resolveComposerSubmission(
       slashCommand: slashTurn.command,
       turnEffort: slashTurn.turnEffort,
     },
+  };
+}
+
+/**
+ * Turn-effort metadata (plan 179 S7). `send` defaults to direct delivery,
+ * keeps the caller's intent and `steerNow`; `deferred` forces deferred
+ * delivery and clears `steerNow`.
+ */
+export function mergeTurnEffortMetadata(
+  metadata: MessageSubmissionMetadata | undefined,
+  turnEffort: TurnEffort,
+  variant: "send" | "deferred",
+): MessageSubmissionMetadata {
+  return variant === "send"
+    ? {
+        composition: {},
+        deliveryIntent: "direct",
+        ...metadata,
+        turnEffort,
+      }
+    : {
+        composition: {},
+        ...metadata,
+        deliveryIntent: "deferred",
+        turnEffort,
+        steerNow: undefined,
+      };
+}
+
+export type SendPlan =
+  /** A turn-effort turn while busy goes to the deferred queue instead. */
+  | { kind: "queue-instead" }
+  /** An attachment-only message to an old server: toast, keep nothing. */
+  | { kind: "refuse-attachment-only" }
+  | {
+      kind: "send";
+      metadata: MessageSubmissionMetadata | undefined;
+      /** A local control command: no in-turn or idle state change. */
+      localControl: boolean;
+    };
+
+/** What `handleSend` does with a prepared submission before any effect. */
+export function planSend({
+  prepared,
+  metadata,
+  processState,
+  goalActive,
+  preserveComposer,
+  localControlRequested,
+  version,
+  attachmentCount,
+}: {
+  prepared: PreparedComposerSubmission;
+  metadata: MessageSubmissionMetadata | undefined;
+  processState: string;
+  goalActive: boolean;
+  preserveComposer: boolean;
+  localControlRequested: boolean;
+  version: ServerCapabilitySource | null | undefined;
+  attachmentCount: number;
+}): SendPlan {
+  if (
+    prepared.turnEffort &&
+    (processState === "in-turn" || processState === "waiting-input")
+  ) {
+    return { kind: "queue-instead" };
+  }
+  const sendMetadata = prepared.turnEffort
+    ? mergeTurnEffortMetadata(metadata, prepared.turnEffort, "send")
+    : metadata;
+  const localControl =
+    localControlRequested ||
+    (goalActive && /^\/goal(?:\s|$)/i.test(prepared.outgoingText));
+  if (
+    !preserveComposer &&
+    requiresAttachmentOnlyServerUpdate({
+      version,
+      text: prepared.outgoingText,
+      attachmentCount,
+    })
+  ) {
+    return { kind: "refuse-attachment-only" };
+  }
+  return { kind: "send", metadata: sendMetadata, localControl };
+}
+
+export type QueuePlan =
+  | { kind: "refuse-attachment-only" }
+  | { kind: "queue"; metadata: MessageSubmissionMetadata | undefined };
+
+/** What `handleQueue` does with a prepared submission before any effect. */
+export function planQueue({
+  prepared,
+  metadata,
+  version,
+  attachmentCount,
+}: {
+  prepared: PreparedComposerSubmission;
+  metadata: MessageSubmissionMetadata | undefined;
+  version: ServerCapabilitySource | null | undefined;
+  attachmentCount: number;
+}): QueuePlan {
+  const queueMetadata = prepared.turnEffort
+    ? mergeTurnEffortMetadata(metadata, prepared.turnEffort, "deferred")
+    : metadata;
+  if (
+    requiresAttachmentOnlyServerUpdate({
+      version,
+      text: prepared.outgoingText,
+      attachmentCount,
+    })
+  ) {
+    return { kind: "refuse-attachment-only" };
+  }
+  return { kind: "queue", metadata: queueMetadata };
+}
+
+/**
+ * The resume request's settings. A first attempt carries `showThinking`; a
+ * retried resume leaves it out (plan 179 S4).
+ */
+export function buildResumeOptions<
+  Settings extends object,
+  ShowThinking,
+  Provider,
+  Executor,
+>(
+  resumeSettings: Settings,
+  {
+    showThinking,
+    includeShowThinking,
+    provider,
+    executor,
+  }: {
+    showThinking: ShowThinking;
+    includeShowThinking: boolean;
+    provider: Provider;
+    executor: Executor;
+  },
+) {
+  return includeShowThinking
+    ? { ...resumeSettings, showThinking, provider, executor }
+    : { ...resumeSettings, provider, executor };
+}
+
+/**
+ * The first step after a send fails: a send already observed as delivered
+ * confirms; a stale-session redirect hands off; anything else continues to
+ * the retry and the final notice.
+ */
+export function firstSendFailureStep(
+  error: unknown,
+  delivered: boolean,
+): "delivered" | "stale-redirect" | "continue" {
+  if (delivered) return "delivered";
+  if (isStaleSessionRedirect(error)) return "stale-redirect";
+  return "continue";
+}
+
+/** Send retries with a resume when the process is gone (plan 179 S3). */
+export function shouldRetrySendWithResume(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message.includes("404") ||
+      error.message.includes("No active process"))
+  );
+}
+
+/** Queue retries with a resume when the process is unavailable (S3). */
+export function shouldRetryQueueWithResume(
+  error: unknown,
+  queuedCompact: boolean,
+): boolean {
+  const status = (error as { status?: number } | null)?.status;
+  const unavailable =
+    error instanceof Error &&
+    (status === 404 ||
+      status === 410 ||
+      error.message.includes("No active process") ||
+      error.message.includes("Process terminated"));
+  return unavailable && !queuedCompact;
+}
+
+export const CLAUDE_HANDOFF_REQUIRED_MESSAGE =
+  "Claude session cannot be safely resumed because the Claude SDK recorded an API-error response as the latest assistant message. Start a handoff session instead.";
+
+/**
+ * The notice after a send or queue finally fails: a resume that needs a
+ * handoff offers the handoff dialog (unless the session is routed, which
+ * cannot hand off yet) and explains; anything else is the path's generic
+ * failure toast.
+ */
+export function finalFailureNotice({
+  finalError,
+  provider,
+  routedSession,
+  path,
+  t,
+}: {
+  finalError: unknown;
+  provider: ProviderName | undefined;
+  routedSession: boolean;
+  path: "send" | "queue";
+  t: Translate;
+}): { openHandoffDialog: boolean; message: string } {
+  const errorMsg =
+    finalError instanceof Error ? finalError.message : String(finalError);
+  if (requiresHandoffAfterClaudeResumeError(finalError, provider)) {
+    return {
+      openHandoffDialog: !routedSession,
+      message: routedSession
+        ? t("routedSessionHandoffRequired")
+        : errorMsg.includes("API error: 409")
+          ? CLAUDE_HANDOFF_REQUIRED_MESSAGE
+          : errorMsg,
+    };
+  }
+  return {
+    openHandoffDialog: false,
+    message: t(path === "send" ? "sessionSendFailed" : "sessionQueueFailed", {
+      message: errorMsg,
+    }),
   };
 }

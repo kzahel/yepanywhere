@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildCorrectionText } from "../correctionText";
 import {
+  CLAUDE_HANDOFF_REQUIRED_MESSAGE,
   type ComposerSubmissionContext,
+  finalFailureNotice,
+  firstSendFailureStep,
+  planQueue,
+  planSend,
   resolveComposerSubmission,
+  shouldRetryQueueWithResume,
+  shouldRetrySendWithResume,
 } from "../sessionComposerSendDecisions";
 
 const context = (
@@ -233,6 +240,259 @@ describe("resolveComposerSubmission", () => {
         kind: "submit",
         prepared: { outgoingText: "tidy up", turnEffort: "fast" },
       });
+    });
+  });
+});
+
+const oldServer = { current: "0.7.1", capabilities: [] };
+const currentServer = { current: "99.0.0" };
+
+describe("planSend", () => {
+  const base = {
+    metadata: undefined,
+    processState: "idle",
+    goalActive: false,
+    preserveComposer: false,
+    localControlRequested: false,
+    version: currentServer,
+    attachmentCount: 0,
+  };
+
+  it("sends a plain message as it is", () => {
+    expect(planSend({ ...base, prepared: { outgoingText: "hello" } })).toEqual({
+      kind: "send",
+      metadata: undefined,
+      localControl: false,
+    });
+  });
+
+  it("queues a turn-effort turn while busy, before anything else", () => {
+    for (const processState of ["in-turn", "waiting-input"]) {
+      expect(
+        planSend({
+          ...base,
+          processState,
+          version: oldServer,
+          attachmentCount: 1,
+          prepared: { outgoingText: "", turnEffort: "fast" },
+        }),
+      ).toEqual({ kind: "queue-instead" });
+    }
+  });
+
+  it("merges turn effort as direct delivery, keeping the caller's intent and steerNow", () => {
+    expect(
+      planSend({
+        ...base,
+        prepared: { outgoingText: "tidy", turnEffort: "fast" },
+      }),
+    ).toMatchObject({
+      metadata: {
+        composition: {},
+        deliveryIntent: "direct",
+        turnEffort: "fast",
+      },
+    });
+    expect(
+      planSend({
+        ...base,
+        metadata: { composition: {}, deliveryIntent: "steer", steerNow: true },
+        prepared: { outgoingText: "tidy", turnEffort: "fast" },
+      }),
+    ).toMatchObject({
+      metadata: { deliveryIntent: "steer", steerNow: true, turnEffort: "fast" },
+    });
+  });
+
+  it("treats /goal as local control only while a goal is active", () => {
+    const goal = { ...base, prepared: { outgoingText: "/goal pause" } };
+    expect(planSend(goal)).toMatchObject({ localControl: false });
+    expect(planSend({ ...goal, goalActive: true })).toMatchObject({
+      localControl: true,
+    });
+    expect(
+      planSend({
+        ...base,
+        localControlRequested: true,
+        prepared: { outgoingText: "x" },
+      }),
+    ).toMatchObject({ localControl: true });
+  });
+
+  it("refuses an attachment-only message to an old server unless preserving the composer", () => {
+    const attachmentOnly = {
+      ...base,
+      version: oldServer,
+      attachmentCount: 1,
+      prepared: { outgoingText: "" },
+    };
+    expect(planSend(attachmentOnly)).toEqual({
+      kind: "refuse-attachment-only",
+    });
+    expect(
+      planSend({ ...attachmentOnly, preserveComposer: true }),
+    ).toMatchObject({ kind: "send" });
+    expect(
+      planSend({ ...attachmentOnly, version: currentServer }),
+    ).toMatchObject({ kind: "send" });
+  });
+});
+
+describe("planQueue", () => {
+  it("forces deferred delivery and clears steerNow for turn effort", () => {
+    expect(
+      planQueue({
+        prepared: { outgoingText: "tidy", turnEffort: "fast" },
+        metadata: { composition: {}, deliveryIntent: "steer", steerNow: true },
+        version: currentServer,
+        attachmentCount: 0,
+      }),
+    ).toEqual({
+      kind: "queue",
+      metadata: {
+        composition: {},
+        deliveryIntent: "deferred",
+        turnEffort: "fast",
+        steerNow: undefined,
+      },
+    });
+  });
+
+  it("refuses an attachment-only message to an old server", () => {
+    expect(
+      planQueue({
+        prepared: { outgoingText: "" },
+        metadata: undefined,
+        version: oldServer,
+        attachmentCount: 1,
+      }),
+    ).toEqual({ kind: "refuse-attachment-only" });
+  });
+});
+
+describe("send and queue failures", () => {
+  const httpError = (message: string, status?: number) =>
+    Object.assign(new Error(message), { status });
+
+  it("confirms a delivered send first, then follows a stale redirect", () => {
+    const stale = Object.assign(new Error("This session has gone cold"), {
+      reason: "stale-session",
+      staleRedirect: "stale-handoff",
+    });
+    expect(firstSendFailureStep(stale, true)).toBe("delivered");
+    expect(firstSendFailureStep(stale, false)).toBe("stale-redirect");
+    expect(firstSendFailureStep(new Error("API error: 403"), false)).toBe(
+      "continue",
+    );
+  });
+
+  it("retries a send with a resume only for a 404 or no active process", () => {
+    expect(shouldRetrySendWithResume(new Error("API error: 404"))).toBe(true);
+    expect(shouldRetrySendWithResume(new Error("No active process"))).toBe(
+      true,
+    );
+    expect(
+      shouldRetrySendWithResume(httpError("Process terminated", 410)),
+    ).toBe(false);
+    expect(shouldRetrySendWithResume("No active process")).toBe(false);
+  });
+
+  it("retries a queue with a resume for an unavailable process, never for a queued compact", () => {
+    expect(shouldRetryQueueWithResume(httpError("gone", 410), false)).toBe(
+      true,
+    );
+    expect(shouldRetryQueueWithResume(httpError("gone", 404), false)).toBe(
+      true,
+    );
+    expect(
+      shouldRetryQueueWithResume(new Error("Process terminated"), false),
+    ).toBe(true);
+    expect(shouldRetryQueueWithResume(httpError("gone", 410), true)).toBe(
+      false,
+    );
+    expect(shouldRetryQueueWithResume(httpError("conflict", 409), false)).toBe(
+      false,
+    );
+  });
+
+  describe("finalFailureNotice", () => {
+    const t = (key: string, vars?: Record<string, string>) =>
+      `t:${key}${vars ? `:${vars.message}` : ""}`;
+    const handoff = (message: string) =>
+      Object.assign(new Error(message), {
+        status: 409,
+        recovery: "handoff-required",
+      });
+
+    it("offers a handoff with the server's text", () => {
+      expect(
+        finalFailureNotice({
+          finalError: handoff("Start a handoff session."),
+          provider: "claude",
+          routedSession: false,
+          path: "send",
+          t,
+        }),
+      ).toEqual({
+        openHandoffDialog: true,
+        message: "Start a handoff session.",
+      });
+    });
+
+    it("uses the built-in explanation when the refusal has no text", () => {
+      expect(
+        finalFailureNotice({
+          finalError: handoff("API error: 409 Conflict"),
+          provider: "claude",
+          routedSession: false,
+          path: "queue",
+          t,
+        }),
+      ).toEqual({
+        openHandoffDialog: true,
+        message: CLAUDE_HANDOFF_REQUIRED_MESSAGE,
+      });
+    });
+
+    it("explains without a dialog for a routed session", () => {
+      expect(
+        finalFailureNotice({
+          finalError: handoff("Start a handoff session."),
+          provider: "claude",
+          routedSession: true,
+          path: "send",
+          t,
+        }),
+      ).toEqual({
+        openHandoffDialog: false,
+        message: "t:routedSessionHandoffRequired",
+      });
+    });
+
+    it("falls back to each path's failure message", () => {
+      for (const [path, key] of [
+        ["send", "sessionSendFailed"],
+        ["queue", "sessionQueueFailed"],
+      ] as const) {
+        expect(
+          finalFailureNotice({
+            finalError: new Error("boom"),
+            provider: "claude",
+            routedSession: false,
+            path,
+            t,
+          }),
+        ).toEqual({ openHandoffDialog: false, message: `t:${key}:boom` });
+      }
+      expect(
+        finalFailureNotice({
+          finalError: handoff("Start a handoff session."),
+          provider: "codex",
+          routedSession: false,
+          path: "send",
+          t,
+        }),
+      ).toMatchObject({ openHandoffDialog: false });
     });
   });
 });

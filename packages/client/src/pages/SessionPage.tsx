@@ -74,10 +74,6 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import {
-  isStaleSessionRedirect,
-  requiresHandoffAfterClaudeResumeError,
-} from "../api/refusal";
 import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
 import { createSessionApi } from "../api/sessionClient";
 import {
@@ -230,7 +226,6 @@ import {
 import { useI18n } from "../i18n";
 import { MainContent, useNavigationLayout } from "../layouts";
 import { toBrowserAppHref } from "../lib/appHref";
-import { requiresAttachmentOnlyServerUpdate } from "../lib/attachmentSubmission";
 import { storeUploadedAttachmentPreview } from "../lib/attachmentPreviewCache";
 import {
   useActiveProjectSessionIds,
@@ -302,8 +297,15 @@ import {
   uploadComposerAttachmentFile,
 } from "../lib/sessionComposerSubmission";
 import {
+  buildResumeOptions,
   type ComposerSubmissionFallback,
+  finalFailureNotice,
+  firstSendFailureStep,
+  planQueue,
+  planSend,
   resolveComposerSubmission,
+  shouldRetryQueueWithResume,
+  shouldRetrySendWithResume,
 } from "../lib/sessionComposerSendDecisions";
 import { isLegacyCodexSetupText } from "@yep-anywhere/shared/transcript/codexLegacySetup";
 import {
@@ -402,8 +404,6 @@ function MessageInput(props: ComponentProps<typeof LazyMessageInput>) {
   );
 }
 
-const CLAUDE_HANDOFF_REQUIRED_MESSAGE =
-  "Claude session cannot be safely resumed because the Claude SDK recorded an API-error response as the latest assistant message. Start a handoff session instead.";
 const EMPTY_PROJECT_QUEUE_ITEMS: readonly ProjectQueueItemSummary[] = [];
 
 function messageKey(message: Message | undefined): string | undefined {
@@ -2762,36 +2762,27 @@ function SessionPageContent({
     if (!prepared) {
       return false;
     }
-    if (
-      prepared.turnEffort &&
-      (processState === "in-turn" || processState === "waiting-input")
-    ) {
+    const preserveComposer = options.preserveComposer === true;
+    const plan = planSend({
+      prepared,
+      metadata,
+      processState,
+      goalActive: goalDetails?.goalStatus !== undefined,
+      preserveComposer,
+      localControlRequested: options.localControl === true,
+      version: versionInfo,
+      attachmentCount: attachmentsRef.current.length,
+    });
+    if (plan.kind === "queue-instead") {
       return handleQueue(text, metadata);
     }
-    if (prepared.turnEffort)
-      metadata = {
-        composition: {},
-        deliveryIntent: "direct",
-        ...metadata,
-        turnEffort: prepared.turnEffort,
-      };
-    const preserveComposer = options.preserveComposer === true;
-    const { outgoingText, slashCommand } = prepared;
-    const localControl =
-      options.localControl ||
-      (goalDetails?.goalStatus !== undefined &&
-        /^\/goal(?:\s|$)/i.test(outgoingText));
-    if (
-      !preserveComposer &&
-      requiresAttachmentOnlyServerUpdate({
-        version: versionInfo,
-        text: outgoingText,
-        attachmentCount: attachmentsRef.current.length,
-      })
-    ) {
+    if (plan.kind === "refuse-attachment-only") {
       showToast(t("attachmentOnlyRequiresServerUpdate"), "error");
       return false;
     }
+    metadata = plan.metadata;
+    const { outgoingText, slashCommand } = prepared;
+    const localControl = plan.localControl;
     const thinking = prepared.thinking ?? getImplicitComposerThinking();
     // Display preference for thinking rows; sent for compatibility while the
     // server requests provider summaries independently.
@@ -2877,12 +2868,12 @@ function SessionPageContent({
           projectId,
           sessionId,
           outgoingText,
-          {
-            ...getResumeSettings(prepared.thinking),
+          buildResumeOptions(getResumeSettings(prepared.thinking), {
             showThinking,
+            includeShowThinking: true,
             provider: effectiveProvider,
             executor: session?.executor,
-          },
+          }),
           uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
           tempId,
           clientTimestamp,
@@ -2971,13 +2962,15 @@ function SessionPageContent({
     } catch (err) {
       // An aborted HTTP response does not undo delivery already observed on
       // the session stream or in durable history. Never restore or retry it.
-      if (
+      const firstStep = firstSendFailureStep(
+        err,
         isMessageDelivered({
           tempId,
           content: outgoingText,
           timestamp: clientTimestampIso,
-        })
-      ) {
+        }),
+      );
+      if (firstStep === "delivered") {
         return confirmSubmission();
       }
       console.error("Failed to send:", err);
@@ -2993,7 +2986,7 @@ function SessionPageContent({
       // The session went cold under the limited-user freshness cutoff: the
       // server refused the turn and says it belongs in a new session seeded
       // with a handoff of this one (topics/limited-users.md § Freshness).
-      if (isStaleSessionRedirect(err)) {
+      if (firstStep === "stale-redirect") {
         try {
           const started = await api.staleHandoffSession(
             projectId,
@@ -3043,22 +3036,19 @@ function SessionPageContent({
       }
 
       // Check if process is dead (404) - auto-retry with resumeSession
-      const is404 =
-        err instanceof Error &&
-        (err.message.includes("404") ||
-          err.message.includes("No active process"));
-      if (is404) {
+      if (shouldRetrySendWithResume(err)) {
         try {
           const retryRequestSentAtMs = Date.now();
           const result = await api.resumeSession(
             projectId,
             sessionId,
             outgoingText,
-            {
-              ...getResumeSettings(prepared.thinking),
+            buildResumeOptions(getResumeSettings(prepared.thinking), {
+              showThinking,
+              includeShowThinking: false,
               provider: effectiveProvider,
               executor: session?.executor,
-            },
+            }),
             uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
             tempId,
             clientTimestamp,
@@ -3114,24 +3104,16 @@ function SessionPageContent({
         setComposerAttachments(currentAttachments, { persistDraft: false });
       }
       if (!localControl) setProcessState("idle");
-      const errorMsg =
-        finalError instanceof Error ? finalError.message : String(finalError);
-      if (
-        requiresHandoffAfterClaudeResumeError(finalError, effectiveProvider)
-      ) {
-        // A routed session cannot hand off yet, so offer no handoff modal.
-        if (!routedSession) setShowHandoffModal(true);
-        showToast(
-          routedSession
-            ? t("routedSessionHandoffRequired")
-            : errorMsg.includes("API error: 409")
-              ? CLAUDE_HANDOFF_REQUIRED_MESSAGE
-              : errorMsg,
-          "error",
-        );
-      } else {
-        showToast(t("sessionSendFailed", { message: errorMsg }), "error");
-      }
+      // A routed session cannot hand off yet, so offer no handoff modal.
+      const notice = finalFailureNotice({
+        finalError,
+        provider: effectiveProvider,
+        routedSession,
+        path: "send",
+        t,
+      });
+      if (notice.openHandoffDialog) setShowHandoffModal(true);
+      showToast(notice.message, "error");
       return false;
     }
   };
@@ -3327,25 +3309,18 @@ function SessionPageContent({
     if (!prepared) {
       return false;
     }
-    if (prepared.turnEffort)
-      metadata = {
-        composition: {},
-        ...metadata,
-        deliveryIntent: "deferred",
-        turnEffort: prepared.turnEffort,
-        steerNow: undefined,
-      };
-    const { outgoingText, slashCommand } = prepared;
-    if (
-      requiresAttachmentOnlyServerUpdate({
-        version: versionInfo,
-        text: outgoingText,
-        attachmentCount: attachmentsRef.current.length,
-      })
-    ) {
+    const plan = planQueue({
+      prepared,
+      metadata,
+      version: versionInfo,
+      attachmentCount: attachmentsRef.current.length,
+    });
+    if (plan.kind === "refuse-attachment-only") {
       showToast(t("attachmentOnlyRequiresServerUpdate"), "error");
       return false;
     }
+    metadata = plan.metadata;
+    const { outgoingText, slashCommand } = prepared;
     const thinking = prepared.thinking ?? getImplicitComposerThinking();
     // Display preference for thinking rows; sent for compatibility while the
     // server requests provider summaries independently.
@@ -3462,23 +3437,18 @@ function SessionPageContent({
         message: err instanceof Error ? err.message : String(err),
       });
 
-      const isProcessUnavailable =
-        err instanceof Error &&
-        ((err as Error & { status?: number }).status === 404 ||
-          (err as Error & { status?: number }).status === 410 ||
-          err.message.includes("No active process") ||
-          err.message.includes("Process terminated"));
-      if (isProcessUnavailable && !prepared.queuedCompact) {
+      if (shouldRetryQueueWithResume(err, prepared.queuedCompact === true)) {
         try {
           const result = await api.resumeSession(
             projectId,
             sessionId,
             outgoingText,
-            {
-              ...getResumeSettings(prepared.thinking),
+            buildResumeOptions(getResumeSettings(prepared.thinking), {
+              showThinking,
+              includeShowThinking: false,
               provider: effectiveProvider,
               executor: session?.executor,
-            },
+            }),
             uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
             tempId,
             clientTimestamp,
@@ -3519,24 +3489,16 @@ function SessionPageContent({
       draftControlsRef.current?.restoreFromStorage();
       setComposerAttachments(currentAttachments, { persistDraft: false });
       completeBeaconSubmission("error");
-      const errorMsg =
-        finalError instanceof Error ? finalError.message : String(finalError);
-      if (
-        requiresHandoffAfterClaudeResumeError(finalError, effectiveProvider)
-      ) {
-        // A routed session cannot hand off yet, so offer no handoff modal.
-        if (!routedSession) setShowHandoffModal(true);
-        showToast(
-          routedSession
-            ? t("routedSessionHandoffRequired")
-            : errorMsg.includes("API error: 409")
-              ? CLAUDE_HANDOFF_REQUIRED_MESSAGE
-              : errorMsg,
-          "error",
-        );
-      } else {
-        showToast(t("sessionQueueFailed", { message: errorMsg }), "error");
-      }
+      // A routed session cannot hand off yet, so offer no handoff modal.
+      const notice = finalFailureNotice({
+        finalError,
+        provider: effectiveProvider,
+        routedSession,
+        path: "queue",
+        t,
+      });
+      if (notice.openHandoffDialog) setShowHandoffModal(true);
+      showToast(notice.message, "error");
       return false;
     }
   };

@@ -37,15 +37,15 @@ shared, and how risky it is to touch today.
    (about 4,000) and `MessageInputToolbar.tsx` (about 3,800) are where most UI
    work lands. Their size makes each change slow to review and easy to
    regress, including the keystroke-latency contract. Phase 2 below holds the
-   slice rows; slices 2.12 to 2.21 (the composer's bang completion state and
+   slice rows; slices 2.12 to 2.22 (the composer's bang completion state and
    recall drawer, the page's bang-command wiring, the toolbar's thinking
    control, and the message boxes' shared speech state, handlers, keys, speech
    field and attachment upload step, of which the floating composer shares the
-   speech pieces, and the page's submission decision) landed 2026-11-07.
-   Moving small features out one at a time leaves these files structurally as
-   they were; the burn-down order and the consolidations it needs (one shared
-   message-box core, then sending as plain functions) are in [the session page
-   hub gap](../../gaps/session-page-react-hub.md).
+   speech pieces, and the page's submission, send and queue decisions) landed
+   2026-11-07. Moving small features out one at a time leaves these files
+   structurally as they were; the burn-down order and the consolidations it
+   needs (one shared message-box core, then sending as plain functions) are in
+   [the session page hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -284,6 +284,7 @@ and props stable.
 | 2.19 | Done 2026-11-07 | `NewSessionForm.tsx` and `lib/sessionComposerSubmission.ts` attachment upload step | Give the message boxes one copy of the per-file attachment prepare step ([plan 178](178-shared-composer-dictation.md) slice 4). | Not move-only: a consolidation under plan 178. The session page's upload helper and the new-session box's three copies call `lib/composerAttachmentUpload.ts` (`prepareComposerAttachmentUpload`); each keeps its own upload call, previews and state (plan 178 A1 to A4). No behavior change. Budget `NewSessionForm.tsx` 5,571 -> 5,535. Tier 3. |
 | 2.20 | Done 2026-11-07 | `FloatingActionButton.tsx` dictation | Give the floating composer the shared dictation core ([plan 178](178-shared-composer-dictation.md) slice 5). | Not move-only: a consolidation under plan 178. The floating composer calls `useComposerSpeechState`, `useComposerSpeechHandlers`, `handleSpeechEscapeKey` and `SpeechDraftField`, and keeps its own pending-state and cancel handlers (plan 178 F1 to F6). No behavior change. 739 -> 433 lines (under the budget threshold). Tier 3, plus the floating composer in the keystroke check. |
 | 2.21 | Done 2026-11-07 | `SessionPage.tsx` submission decision | Turn the session page's submission preparation into a plain decision ([plan 179](179-session-composer-send-decisions.md) slice 1). | Not move-only: under plan 179. `resolveComposerSubmission` in `lib/sessionComposerSendDecisions.ts` decides; `prepareComposerSubmission` applies it in today's order. No behavior change. Budget `SessionPage.tsx` 7,655 -> 7,563. Tier 3, plus plan 179's slice 0 pins. |
+| 2.22 | Done 2026-11-07 | `SessionPage.tsx` send and queue decisions | Move `handleSend`'s and `handleQueue`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 2). | Not move-only: under plan 179. `planSend`, `planQueue`, the resume options, the failure steps, retry predicates and final notice in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,563 -> 7,525. Tier 3, plus plan 179's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -417,6 +418,49 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.22 — Session Composer Send and Queue Decisions (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 179](179-session-composer-send-decisions.md) slice 2
+moves `handleSend`'s and `handleQueue`'s decisions into plain functions; the
+page keeps every effect in its current place and order.
+
+Moved to `packages/client/src/lib/sessionComposerSendDecisions.ts`:
+- `planSend` (the turn-effort reroute, the metadata merge, local control
+  and the attachment-only refusal) and `planQueue` (the deferred merge and
+  the same refusal), with `mergeTurnEffortMetadata` holding plan 179's two
+  S7 variants.
+- `buildResumeOptions`, the resume request's settings, with
+  `includeShowThinking` true on the first attempt and false on both retries
+  (S4).
+- `firstSendFailureStep` (delivered, stale redirect, or continue),
+  `shouldRetrySendWithResume` and `shouldRetryQueueWithResume` (each path's
+  S3 predicate, applied to the original error), and `finalFailureNotice`
+  (the handoff dialog and toast, or each path's failure toast), which
+  moves `CLAUDE_HANDOFF_REQUIRED_MESSAGE` from the page.
+
+Shape changes:
+- The page calls the planners where their code stood and applies the
+  result; the failure stages stay in its catch blocks, in today's order.
+  `handleSend` still reroutes to the same render's `handleQueue`.
+
+Behavior changes:
+- None.
+
+Verification:
+- `sessionComposerSendDecisions.test.ts` gains cases for both planners
+  (including the attachment-only refusal that `session-send-paths.spec.ts`
+  could not reach), the merge variants, the failure steps, both retry
+  predicates and every notice.
+- `session-send-paths.spec.ts` and the plan's send specs pass: 31 tests
+  across 14 files.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a separate worktree. Tier 3
+  (`pnpm --filter client test:e2e --grep-invert "physical Android"`) in
+  the same worktree: 511 passed, 13 skipped, none failed.
+
+Follow-ups recorded:
+- Plan 179 slices 3 and 4.
 
 ### Slice 2.21 — Session Composer Submission Decision (Landed 2026-11-07, this commit)
 
