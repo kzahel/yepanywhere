@@ -33,17 +33,17 @@ shared, and how risky it is to touch today.
    the copy (SRR-025, checked on Linux), and the restarts' and
    continuation's records wait on the clone working-directory gap.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
-   (about 7,700 lines), `NewSessionForm.tsx` (about 5,900),
-   `MessageInput.tsx` (about 4,400) and `MessageInputToolbar.tsx` (about
+   (about 7,700 lines), `NewSessionForm.tsx` (about 5,600),
+   `MessageInput.tsx` (about 4,100) and `MessageInputToolbar.tsx` (about
    3,800) are where most UI work lands. Their size makes each change slow to
    review and easy to regress, including the keystroke-latency contract.
-   Phase 2 below holds the slice rows; slices 2.12 to 2.16 (the composer's
+   Phase 2 below holds the slice rows; slices 2.12 to 2.17 (the composer's
    bang completion state and recall drawer, the page's bang-command wiring,
    the toolbar's thinking control and the two message boxes' shared speech
-   state) landed 2026-11-07. Moving small features out one at a time leaves
-   these files structurally as they were; the burn-down order and the
-   consolidations it needs (one shared message-box core, then sending as
-   plain functions) are in
+   state and handlers) landed 2026-11-07. Moving small features out one at
+   a time leaves these files structurally as they were; the burn-down order
+   and the consolidations it needs (one shared message-box core, then
+   sending as plain functions) are in
    [the session page hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
@@ -278,6 +278,7 @@ and props stable.
 | 2.14 | Done 2026-11-07 | `SessionPage.tsx` bang-command wiring | Move the page's `!!` command run, echo, transcript row actions and composer bang support into a feature hook. | Moved `runBangCommand`, `echoBangCommand`, the first-load display-object ids, `bangCommandHandlers`, `bangHistory` and `composerBangSupport` into `hooks/useSessionBangCommands.ts`, which returns the handlers and the composer support. Move-only; the parameter conversions are listed in the landing note. `SessionPage.tsx` budget 7,773 -> 7,655. Tier 3; `bang-command.spec.ts` (run, keystroke latency with the completion menu open, receipt) passes unchanged. |
 | 2.15 | Done 2026-11-07 | `MessageInputToolbar.tsx` thinking control | Move the toolbar's thinking/effort button and menu, already its own component, into its own module. | Moved `ThinkingToolbarControl`, its `ToolbarThinkingControl` prop type (now exported for the toolbar's props), `getToolbarThinkingLabel`, `getToolbarThinkingTitle` and `THINKING_MENU_VIEWPORT_GUTTER_PX` into `components/ThinkingToolbarControl.tsx`. Move-only; `MessageInputToolbar.tsx` budget 4,059 -> 3,804. Tier 3; no typing path is involved. |
 | 2.16 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` speech state | Give both message boxes one copy of their dictation state and edit bookkeeping ([plan 178](178-shared-composer-dictation.md) slice 1). | Not move-only: a consolidation under plan 178, after its test pins (slice 0). Both boxes call `hooks/useComposerSpeechState.ts` for the speech refs and state, the textarea edit and replacement remaps, the pending-selection restore and the held-final clear, and `getSpeechInterimPreview` in `lib/speechRecognition.ts` for the interim mirror. No behavior change; the differences plan 178 lists stay as they are. Budgets `MessageInput.tsx` 4,543 -> 4,448 and `NewSessionForm.tsx` 5,975 -> 5,897. Tier 3, plus a new keystroke check in both boxes in `speech-caret-insertion.spec.ts`. |
+| 2.17 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` speech handlers | Give both message boxes one copy of their dictation handlers ([plan 178](178-shared-composer-dictation.md) slice 2). | Not move-only: a consolidation under plan 178. Both boxes call `hooks/useComposerSpeechHandlers.ts` for listening start and stop, caret retargeting, committing finals and interims, pending-state changes, failed transcriptions and cancel. What differs between the boxes comes in as options (plan 178 D2 to D7). No behavior change. Budgets `MessageInput.tsx` 4,448 -> 4,097 and `NewSessionForm.tsx` 5,897 -> 5,640. Tier 3, plus the slice 0 pins and the slice 1 keystroke check. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -411,6 +412,74 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.17 — Shared Message-Box Speech Handlers (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 178](178-shared-composer-dictation.md) slice 2 replaces
+two copies with one, under that plan's rules for differences between the
+copies.
+
+Replaced in both `NewSessionForm.tsx` and `MessageInput.tsx`:
+- `handleListeningStart`, `handleSpeechSelectionTarget`,
+  `clearSpeechSelectionTarget`, `commitVoiceTranscript`,
+  `handleVoiceTranscript`, `flushPendingSpeechFinal`, `handleListeningStop`,
+  `handleInterimTranscript`, `handlePendingSpeechChange` and
+  `handleCancelTranscription`, and the in-session
+  `handleTranscriptionSettled` -> `useComposerSpeechHandlers` in new
+  `packages/client/src/hooks/useComposerSpeechHandlers.ts`.
+
+Shape changes:
+- The hook takes the stable speech state from `useComposerSpeechState` (now
+  also returned whole as `speechState`, declared stable in `biome.json`),
+  the box's draft controls, textarea and voice-button refs, its
+  pending-delivery ref and settled flag, `noteSpeechAttribution`,
+  `maybeRunPendingSpeechDelivery`, `abandonPendingDelivery` and
+  `onSmartTurnSend`. The in-session box also passes
+  `getDetachedSpeechTransaction`, `onTranscriptionId`, `onEdit` and
+  `onHeard` (plan 178 D2, D5, D6). Its detached delivery fits the hook's
+  `DetachedSpeechTransaction` shape as it is; the hook updates that
+  delivery's `draft` and `composition.speechTranscriptionIds` in place, as
+  the box did.
+- `abandonPendingDelivery` is the in-session
+  `restorePendingSpeechDeliveryDraft`, and in the new-session box a new
+  `dropPendingSpeechDelivery` holding the two lines its handlers ran (D3).
+- The new-session Smart Turn callback, written inline before, is now
+  `handleSmartTurnSend`, a `useCallback` over `handleStartSession`, so
+  `commitVoiceTranscript` changes identity exactly when it did. The
+  in-session `handleSmartTurnSend` moved above the hook call.
+- `handleSpeechSelectionTarget` takes a boolean in both boxes; the
+  new-session pointer-up and key-up handlers pass `true` through
+  `handleManualSpeechSelection`, as their events did (D1).
+- Each moved callback keeps its dependencies, plus the refs and setters it
+  now receives as options, which never change identity.
+
+Behavior changes:
+- None. Plan 178's differences between the boxes are unchanged; the
+  new-session box still does not wire the failed-transcription handler
+  (D4).
+
+Verification:
+- Slice 0's pins pass: both boxes' voice-button callbacks keep their
+  identity across a keystroke, the new-session pointer-up caret move keeps
+  the fragment in flight in place, and a failed cycle after a press during
+  capture starts nothing. `MessageInput.test.tsx`,
+  `MessageInput.bangDraft.test.tsx` and `NewSessionForm.test.tsx` pass
+  unchanged (334 tests).
+- Focused browser specs pass: `speech-caret-insertion.spec.ts` (including
+  the keystroke check in both boxes), `composer-recall-drawer.spec.ts`,
+  `bang-command.spec.ts`, `session-creation-client.spec.ts`,
+  `audio-memo.spec.ts` and `new-session-preboot-composer.spec.ts`.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a separate worktree. Tier 3
+  (`pnpm --filter client test:e2e --grep-invert "physical Android"`) in
+  the same worktree: 495 passed, 13 skipped, 5 failed.
+  `slash-command-argument-completions.spec.ts:46` passed when rerun.
+  The four `acli-commentary.spec.ts` cases fail with 403 responses
+  whenever the suite runs from a worktree, at the base commit as well, and
+  pass in the main checkout with this slice and the later ones.
+
+Follow-ups recorded:
+- Plan 178 slices 3 and 4.
 
 ### Slice 2.16 — Shared Message-Box Speech State (Landed 2026-11-07, this commit)
 

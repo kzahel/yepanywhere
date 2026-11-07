@@ -1,4 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 import type { SpeechPendingKind } from "../components/VoiceInputButton";
 import {
   hasNonWhitespaceEdit,
@@ -18,6 +24,26 @@ export interface PendingSpeechFinal {
   timer: ReturnType<typeof setTimeout>;
   transcript: string;
   metadata?: SpeechTranscriptionResultMetadata;
+}
+
+/** The stable dictation state the shared speech handlers work on. */
+export interface ComposerSpeechState {
+  setInterimTranscript: Dispatch<SetStateAction<string>>;
+  interimTranscriptRef: { current: string };
+  setSpeechPending: Dispatch<SetStateAction<SpeechPendingKind | null>>;
+  speechPendingRef: { current: SpeechPendingKind | null };
+  speechTransactionHasTextRef: { current: boolean };
+  setSpeechPreviewRevision: Dispatch<SetStateAction<number>>;
+  speechInsertionRangeRef: { current: SpeechInsertionRange | null };
+  activeSpeechTargetIdRef: { current: string | null };
+  speechInsertionRangesRef: { current: Map<string, SpeechInsertionRange> };
+  pendingSpeechRetargetRef: { current: PendingSpeechRetarget | null };
+  pendingSpeechFinalRef: { current: PendingSpeechFinal | null };
+  composerEditedDuringSpeechRef: { current: boolean };
+  pendingTextareaSelectionRef: {
+    current: PendingTextareaSelectionRestore | null;
+  };
+  clearPendingSpeechFinal: () => void;
 }
 
 /**
@@ -167,7 +193,27 @@ export function useComposerSpeechState() {
     [],
   );
 
+  // The stable parts, passed whole to useComposerSpeechHandlers. Every
+  // member keeps its identity, so first-render values stay current.
+  const [speechState] = useState<ComposerSpeechState>(() => ({
+    setInterimTranscript,
+    interimTranscriptRef,
+    setSpeechPending,
+    speechPendingRef,
+    speechTransactionHasTextRef,
+    setSpeechPreviewRevision,
+    speechInsertionRangeRef,
+    activeSpeechTargetIdRef,
+    speechInsertionRangesRef,
+    pendingSpeechRetargetRef,
+    pendingSpeechFinalRef,
+    composerEditedDuringSpeechRef,
+    pendingTextareaSelectionRef,
+    clearPendingSpeechFinal,
+  }));
+
   return {
+    speechState,
     interimTranscript,
     setInterimTranscript,
     interimTranscriptRef,
