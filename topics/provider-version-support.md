@@ -51,7 +51,7 @@ decision matters; Pi's startup refusal below is the model.
 |---|---|---|---|
 | Claude | The Claude Code binary bundled with YA's `@anthropic-ai/claude-agent-sdk` dependency, unless `CLAUDE_CODE_EXECUTABLE` / `CLAUDE_CODE_PATH` names another; the PATH `claude` only when no bundled binary resolves (`resolveLocalClaudeCodeExecutable`) | Moves with YA's SDK dependency, so the user's own `claude` version normally does not matter | Updated by YA dependency refreshes, never at runtime |
 | Codex | The user's installed `codex` (configured path, then discovery; [windows-codex-cli-detection](windows-codex-cli-detection.md)) | Probed `codex --version`; startup logs an advisory warning when it differs from `expectedVersion` | `codexUpdatePolicy` defaults to `notify`; `auto` or a confirmed prompt runs the npm update |
-| Pi | The user's installed `pi` (`PI_EXECUTABLE` / `PI_PATH`, then configured path, then common install paths, then PATH) | Probed `pi --version` before every RPC start | No YA updater |
+| Pi | The user's installed `pi` (a path passed to the provider instance, which only tests use, then `PI_EXECUTABLE` / `PI_PATH`, then common install paths, then PATH) | Probed `pi --version` before every RPC start | No YA updater |
 
 An environment override wins over a newly updated package. A server whose
 environment names a local fork through `PI_EXECUTABLE` keeps running that fork

@@ -168,7 +168,7 @@ interface SdkUsage {
 }
 
 export interface PiProviderConfig {
-  /** Path to the pi binary (auto-detected if not specified). */
+  /** Path to the pi binary; wins over PI_EXECUTABLE, else auto-detected. */
   piPath?: string;
   /** Override for testing (defaults to ~/.pi/agent/sessions). */
   sessionsDir?: string;
@@ -1463,8 +1463,8 @@ export class PiProvider implements AgentProvider {
   }
 
   private async findPiLaunchTarget(): Promise<PiLaunchTarget | null> {
-    const envExecutable = process.env.PI_EXECUTABLE ?? process.env.PI_PATH;
-    const explicitPath = envExecutable ?? this.configuredPath;
+    const explicitPath = // An instance path beats ambient PI_EXECUTABLE.
+      this.configuredPath ?? process.env.PI_EXECUTABLE ?? process.env.PI_PATH;
     if (explicitPath) {
       return resolvePiLaunchTarget(explicitPath);
     }

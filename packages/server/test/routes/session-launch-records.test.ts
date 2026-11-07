@@ -91,6 +91,13 @@ describe("the launch settings a new session keeps for later resumes", () => {
     provider = new ClaudeProvider();
     vi.spyOn(provider, "isInstalled").mockResolvedValue(true);
     vi.spyOn(provider, "isAuthenticated").mockResolvedValue(true);
+    // Creation admission reads getAuthStatus, which otherwise depends on the
+    // host's Claude credentials and fails under the suite's temporary HOME.
+    vi.spyOn(provider, "getAuthStatus").mockResolvedValue({
+      installed: true,
+      authenticated: true,
+      enabled: true,
+    });
     // A provider that reports its session, confirms each input it is given
     // and, for a new session, writes the transcript a later resume reads.
     vi.spyOn(provider, "startSession").mockImplementation(async (options) => {

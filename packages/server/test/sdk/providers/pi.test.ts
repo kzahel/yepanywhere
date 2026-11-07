@@ -58,8 +58,10 @@ function mapPiEvent(
 
 describe("PiProvider event mapping", () => {
   it("keeps an unlaunchable explicit path authoritative", async () => {
-    process.env.PI_EXECUTABLE = `${process.execPath}.missing-pi`;
-    const provider = new PiProvider({ piPath: process.execPath });
+    process.env.PI_EXECUTABLE = process.execPath;
+    const provider = new PiProvider({
+      piPath: `${process.execPath}.missing-pi`,
+    });
 
     await expect(provider.isInstalled()).resolves.toBe(false);
   });
