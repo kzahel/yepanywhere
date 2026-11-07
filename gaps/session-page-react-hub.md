@@ -30,12 +30,13 @@ Measured 2026-11-07 at `097d8298d` (`packages/client/src`):
   the copies are kept as they were and listed in plan 178 as questions for
   the maintainer. Attachment state stays separate: the session page, not the
   in-session box, owns its uploads.
-- **Sending a message is about 1,100 lines of the session page.**
-  `handleSend` (about 390 lines), `handleQueue` (about 220),
-  `queueComposerForProject` (about 380) and `prepareComposerSubmission`
-  (about 130) mix decisions (what text, which settings, which route) with
-  side effects, so none of the decisions can be tested without rendering the
-  page.
+- **Sending a message was about 1,100 lines of the session page.** Fixed by
+  proposal 2 (plan 179, 2026-11-07): the decisions (what text, which
+  settings, which route, which failure notice) are plain functions in
+  `lib/sessionComposerSendDecisions.ts` with unit tests, and the effects
+  (requests, toasts, draft updates and traces, in their old order) are in
+  `lib/sessionComposerSend.ts`, which the page calls each render.
+  `SessionPage.tsx` went from 7,655 to 6,560 lines.
 - **Starting a new session is one 572-line callback.** `handleStartSession`
   in `NewSessionForm.tsx`, beside about 600 lines of option pickers (provider,
   model, effort, recap, suggestions, permissions, sandbox) whose state is most
@@ -57,11 +58,11 @@ its own commit with a test, and one a user could see is asked about. Proposals
 1. **One shared message-box core.** Done 2026-11-07 in
    [plan 178](../docs/tactical/178-shared-composer-dictation.md), which lists
    every difference between the copies and how each is handled.
-2. **Sending as plain functions plus a thin hook.** The send, queue and
-   project-queue decisions become functions that take inputs and return what
-   to do, testable without React. A small hook performs the requests, toasts,
-   draft updates and traces in today's order. Planned in
-   [plan 179](../docs/tactical/179-session-composer-send-decisions.md).
+2. **Sending as plain functions.** Done 2026-11-07 in
+   [plan 179](../docs/tactical/179-session-composer-send-decisions.md): the
+   decisions are plain functions with unit tests, and a plain send module
+   (not a hook; the page calls it each render) performs the effects in
+   their old order.
 3. **New-session options and start split.** One hook owns the option state,
    using one reducer where state changes together, plus an options panel
    component; starting and queueing take the plain-function shape of

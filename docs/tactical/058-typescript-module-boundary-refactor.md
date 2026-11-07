@@ -33,20 +33,20 @@ shared, and how risky it is to touch today.
    the copy (SRR-025, checked on Linux), and the restarts' and
    continuation's records wait on the clone working-directory gap.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
-   (about 7,600 lines), `NewSessionForm.tsx` (about 5,500), `MessageInput.tsx`
+   (about 6,600 lines), `NewSessionForm.tsx` (about 5,500), `MessageInput.tsx`
    (about 4,000) and `MessageInputToolbar.tsx` (about 3,800) are where most UI
    work lands. Their size makes each change slow to review and easy to
    regress, including the keystroke-latency contract. Phase 2 below holds the
-   slice rows; slices 2.12 to 2.23 (the composer's bang completion state and
+   slice rows; slices 2.12 to 2.24 (the composer's bang completion state and
    recall drawer, the page's bang-command wiring, the toolbar's thinking
    control, and the message boxes' shared speech state, handlers, keys, speech
    field and attachment upload step, of which the floating composer shares the
    speech pieces, and the page's submission, send, queue and Project Queue
-   decisions) landed 2026-11-07. Moving small features out one at a time
-   leaves these files structurally as they were; the burn-down order and the
-   consolidations it needs (one shared message-box core, then sending as plain
-   functions) are in [the session page hub
-   gap](../../gaps/session-page-react-hub.md).
+   decisions and its plain send module) landed 2026-11-07. Moving small
+   features out one at a time leaves these files structurally as they were;
+   the burn-down order and the consolidations it needs (one shared
+   message-box core, then sending as plain functions) are in [the session
+   page hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -287,6 +287,7 @@ and props stable.
 | 2.21 | Done 2026-11-07 | `SessionPage.tsx` submission decision | Turn the session page's submission preparation into a plain decision ([plan 179](179-session-composer-send-decisions.md) slice 1). | Not move-only: under plan 179. `resolveComposerSubmission` in `lib/sessionComposerSendDecisions.ts` decides; `prepareComposerSubmission` applies it in today's order. No behavior change. Budget `SessionPage.tsx` 7,655 -> 7,563. Tier 3, plus plan 179's slice 0 pins. |
 | 2.22 | Done 2026-11-07 | `SessionPage.tsx` send and queue decisions | Move `handleSend`'s and `handleQueue`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 2). | Not move-only: under plan 179. `planSend`, `planQueue`, the resume options, the failure steps, retry predicates and final notice in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,563 -> 7,525. Tier 3, plus plan 179's slice 0 pins. |
 | 2.23 | Done 2026-11-07 | `SessionPage.tsx` Project Queue decisions | Move `queueComposerForProject`'s decisions into plain functions ([plan 179](179-session-composer-send-decisions.md) slice 3). | Not move-only: under plan 179, after its legacy start-now pin. `resolveProjectQueueCommand`, `planProjectQueue` and `projectQueueQueuedMessage` in `lib/sessionComposerSendDecisions.ts`; the page keeps its effects in order. No behavior change. Budget `SessionPage.tsx` 7,525 -> 7,475. Tier 3, plus plan 179's slice 0 pins. |
+| 2.24 | Done 2026-11-07 | `SessionPage.tsx` send module | Move the page's four sending functions into a plain send module the page calls each render ([plan 179](179-session-composer-send-decisions.md) slice 4). | Move-only: `prepareComposerSubmission`, `handleSend`, `handleQueue` and `queueComposerForProject` move verbatim into `createSessionComposerSend` in new `lib/sessionComposerSend.ts`, called where `handleSend` stood. The closure reads become a deps object, and the four callbacks the page declares later are passed as wrappers (listed in the landing note). No behavior change. Budget `SessionPage.tsx` 7,475 -> 6,560; the new module is 1,214 lines. Tier 3, plus plan 179's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -420,6 +421,83 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.24 — Session Composer Send Module (Landed 2026-11-07, this commit)
+
+Move-only. [Plan 179](179-session-composer-send-decisions.md) slice 4
+moves the session page's four sending functions, bodies unchanged, into a
+plain function the page calls on every render, so each render still gets
+fresh functions that read that render's values.
+
+Moved to new `packages/client/src/lib/sessionComposerSend.ts`:
+- `prepareComposerSubmission`, `handleSend`, `handleQueue` and
+  `queueComposerForProject`, inside `createSessionComposerSend(deps)`,
+  which returns the other three. `SessionPage.tsx` calls it where
+  `handleSend` stood (after the declarations its deps read, before
+  `handleSendRef`) and keeps `handleSend`, `handleQueue` and
+  `queueComposerForProject`.
+  `prepareComposerSubmission` moved from earlier in the page; nothing
+  between its old place and the call site used it during render.
+- `SessionPage.tsx` 7,475 -> 6,560 lines; the new module is 1,214.
+
+Signature conversions (closure -> parameter):
+- The page values the bodies read become fields of an exported
+  `SessionComposerSendDeps`, destructured under the same names:
+  `projectId`, `sessionId`, `t`, `showToast`, `basePath`,
+  `sourceRuntime`, `sourceSummary`, `sourceTransport`, `versionInfo`,
+  `creationPrincipalResolved`, `creationKey`, `captureCreationView`,
+  `ownsCreationView`, `setCreationRecovery`, `syntheticDoneEnabled`,
+  `supportsSyntheticDone`, `supportsSyntheticArchive`,
+  `supportsSyntheticTerminate`, `navigate`, `session`, `status`,
+  `processState`, `setIsCompacting`, `actualSessionId`, `setStatus`,
+  `setProcessState`, `addPendingMessage`, `removePendingMessage`,
+  `isMessageDelivered`, `updatePendingMessage`, `setDeferredMessages`,
+  `reconnectStream`, `permissionMode`, `goalDetails`,
+  `effectiveProvider`, `setScrollTrigger`, `draftControlsRef`,
+  `lastComposerSubmissionRef`, `routedSession`, `supportsBtwAsides`,
+  `beginBeaconSubmission`, `correctionDraft`, `setCorrectionDraft`,
+  `attachments`, `attachmentsRef`, `pendingUploadsRef`,
+  `rememberSentSubmission`, `setComposerAttachments`,
+  `materializeComposerAttachments`, `supportsManualCompact`,
+  `supportsTurnEffort`, `supportsRewind`, `supportsFileViewCommand`,
+  `getImplicitComposerThinking`, `getResumeSettings`,
+  `setShowHandoffModal`, `collectComposerAttachmentsForSubmission` and
+  `handleSyntheticSessionBoundary`. Refs pass as the ref objects and are
+  still read through `.current` when a path runs.
+- The four callbacks the page declares after the call site pass as
+  wrappers created there: `clearQuoteAnchors: () => clearQuoteAnchors()`,
+  `handleCustomCommand: (command, argument) =>
+  handleCustomCommand(command, argument)`, `handleFileViewCommand:
+  (argument) => handleFileViewCommand(argument)` and
+  `handleLocalTitleCommand: (title) => handleLocalTitleCommand(title)`.
+  The bodies call them only after render, when each wrapper resolves to
+  its own render's binding, as the closures did. A dependency
+  resolution over the original bodies found no other page value
+  declared after the call site.
+- `handleSend` still reroutes to the same render's `handleQueue`; both
+  come from the same call.
+
+Behavior changes:
+- None.
+
+Verification:
+- `git diff --color-moved` shows the four bodies as moved blocks; the
+  only other hunks are the call site, the deps type and import edits.
+- `tsc --noEmit` for the client and `biome check packages/client/src`
+  pass.
+- `sessionComposerSendDecisions.test.ts` and
+  `sessionComposerSubmission.test.ts` pass: 42 tests.
+- `session-send-paths.spec.ts` and the plan's send and Project Queue
+  specs pass: 31 tests across 13 files.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a separate worktree. Tier 3
+  (`pnpm --filter client test:e2e --grep-invert "physical Android"`) in
+  the same worktree: 512 passed, 13 skipped, 4 failed, all four the
+  `acli-commentary.spec.ts` cases that fail from a worktree (see slice
+  2.17).
+
+Follow-ups recorded:
+- None. This completes plan 179.
 
 ### Slice 2.23 — Session Composer Project Queue Decisions (Landed 2026-11-07, this commit)
 
