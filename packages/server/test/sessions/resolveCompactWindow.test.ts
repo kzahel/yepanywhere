@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCompactWindow } from "../../src/routes/session-compact-thresholds.js";
+import { resolveCompactWindow } from "../../src/sessions/session-compact-thresholds.js";
 
 // Stand-in for ModelInfoService.getContextWindow (the real one resolves
 // observed → ingested → heuristic). resolveCompactWindow special-cases no

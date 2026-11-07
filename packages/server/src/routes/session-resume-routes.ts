@@ -15,16 +15,17 @@ import {
   parseOptionalJsonObjectBody,
   permissionModeError,
 } from "./session-launch-request.js";
+import { refusedLaunchResponse } from "./session-launch-refusal.js";
 import {
   type LaunchResult,
-  refusedLaunchResponse,
   settleLaunch,
-} from "./session-launch-results.js";
-import type { createSessionLaunchSettings } from "./session-launch-settings.js";
+} from "../sessions/session-launch-outcome.js";
 import {
-  parseSessionSandboxLevel,
-  persistedSandboxNetworkFirewall,
-} from "./session-sandbox-settings.js";
+  type createSessionLaunchSettings,
+  parseOptionalExecutor,
+} from "../sessions/session-launch-settings.js";
+import { persistedSandboxNetworkFirewall } from "../sessions/session-sandbox-inheritance.js";
+import { parseSessionSandboxLevel } from "./session-sandbox-settings.js";
 import type { UserMessage } from "../sdk/types.js";
 import { getSessionSandboxSettingsError } from "../session-sandbox.js";
 import type { ProjectQueueScheduler } from "../services/ProjectQueueScheduler.js";
@@ -45,13 +46,12 @@ import {
   buildUserMessageMetadata,
   normalizeOptionalServiceTier,
   parseHelperSettings,
-  parseOptionalExecutor,
   parseOptionalResumeMode,
 } from "./session-request-helpers.js";
 import {
   type CompactModelSettingsDeps,
   resolveCompactModelSettings,
-} from "./session-compact-thresholds.js";
+} from "../sessions/session-compact-thresholds.js";
 import {
   type ClaudeResumeApiErrorBlocker,
   getClaudeResumeBlockerFromReader,

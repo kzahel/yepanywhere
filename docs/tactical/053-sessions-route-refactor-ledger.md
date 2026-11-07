@@ -31,7 +31,7 @@ extraction.
 
 See also: `topics/typescript-module-boundary-refactor.md` and
 `docs/tactical/058-typescript-module-boundary-refactor.md` — the repo-wide
-module-boundary campaign. This ledger owns the limited SRR-012 to SRR-023
+module-boundary campaign. This ledger owns the limited SRR-012 to SRR-024
 revivals and future
 `packages/server/src/routes/sessions.ts` refactors. Campaign slices touching
 that file should reopen or supersede this ledger deliberately, be tracked here
@@ -101,6 +101,57 @@ boundaries, not necessarily fewer total repository lines.
 - `dropped`: no longer worth tracking.
 
 ## Refactor Items
+
+### SRR-024: The Shared Launch Code Moves Below The Routes
+
+Status: done, 2026-11-07. Second part of step 5 of
+[plan 177](177-session-launch-service.md). Mostly move-only; the
+recovered-queue change follows that plan's behavior-preserving rules.
+
+Destination: `packages/server/src/sessions/`. Moved whole:
+`session-launch-settings.ts`, `session-launch-metadata.ts` and
+`session-compact-thresholds.ts` (with their two unit tests, now in
+`test/sessions/`). Split: `settleLaunch` and its types move to
+`session-launch-outcome.ts`, which also exports the queued and queue-full
+checks, while `refusedLaunchResponse` stays in the routes as
+`routes/session-launch-refusal.ts`; the sandbox inheritance rules move to
+`session-sandbox-inheritance.ts`, while `parseSessionSandboxLevel` stays in
+`routes/session-sandbox-settings.ts`; `parseOptionalExecutor` moves from
+`routes/session-request-helpers.ts` to `session-launch-settings.ts`, which
+uses it for a saved executor. `RestartSessionBody` and
+`parseOptionalRestartSessionBody` move from `sessions.ts` to the existing
+`routes/session-launch-request.ts`, beside the other launch request
+parsers.
+
+Line delta: `-62` lines from `sessions.ts` (5,435 -> 5,373).
+
+Problem:
+
+The launch settings, outcome mapping and metadata writers a headless host
+needs sat in the REST layer, and the recovered-queue route recorded a
+provider and requested model the Supervisor's reactivation had already
+saved.
+
+Implemented:
+
+- the moves above, each unchanged apart from imports, `export` keywords,
+  doc comments that no longer say "route" or that the moved code lacked,
+  and the two queue checks, renamed `isQueuedLaunch` and
+  `isQueueFullLaunch` and typed to accept any launcher's result;
+- the Project Queue scheduler uses the shared queued and queue-full checks
+  instead of its own copies; the other non-route launchers keep their
+  short mappings, for the reasons in plan 177 part 2;
+- recovered-queue reactivation no longer writes the provider, executor or
+  requested model, which the Supervisor saves; it still writes the
+  session's saved preferences back over the ones the process resolved.
+  `persistLaunchMetadata` loses its provider, executor and requested-model
+  fields, which no caller passes any more.
+
+Verification: the full-app `test/routes/session-launch-records.test.ts`
+gains four recovered-queue cases whose snapshots were captured on the old
+code, including a saved "native" prompt-suggestion preference on a
+provider without native suggestions; the mocked write-order case for that route, which could not see the
+Supervisor's saves, is removed.
 
 ### SRR-023: One Owner For Each New Session's Launch Record
 

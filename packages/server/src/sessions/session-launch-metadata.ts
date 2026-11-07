@@ -1,6 +1,5 @@
 import type {
   PromptSuggestionMode,
-  ProviderName,
   SessionSandboxLevel,
   UrlProjectId,
 } from "@yep-anywhere/shared";
@@ -11,7 +10,7 @@ import type {
 import type { ForkOrdinalClaim } from "../metadata/SessionMetadataService.js";
 import { ForkSettingsPersistenceError } from "../supervisor/Supervisor.js";
 import type { EventBus } from "../watcher/index.js";
-import { persistedSandboxNetworkFirewall } from "./session-sandbox-settings.js";
+import { persistedSandboxNetworkFirewall } from "./session-sandbox-inheritance.js";
 
 /** The sandbox a launched session records for later resumes. */
 export interface LaunchSandboxRecord {
@@ -23,16 +22,14 @@ export interface LaunchSandboxRecord {
 }
 
 /**
- * The launch metadata a route records itself. Creation admission already
- * saved a new session's or copy's provider, model and preferences, so the
- * successor routes pass only the preferences a started process resolved and
- * the sandbox record; recovered-queue reactivation passes the rest. An
- * absent field is not written.
+ * The launch metadata a launch caller records itself. Creation admission
+ * already saved a new session's or copy's provider, model and preferences, and
+ * the Supervisor records the settings a process runs with, so a caller passes
+ * only preferences and the sandbox record: the successor launches the
+ * preferences their started process resolved, recovered-queue reactivation
+ * the session's saved ones. An absent field is not written.
  */
 export interface LaunchMetadataRecord {
-  provider?: ProviderName;
-  executor?: string;
-  requestedModel?: string;
   promptSuggestionMode?: PromptSuggestionMode;
   recapAfterSeconds?: number;
   sandbox?: LaunchSandboxRecord;
@@ -48,9 +45,9 @@ type InheritedLaunchSource = Pick<
 >;
 
 /**
- * Write a launched session's metadata, in a fixed order: provider, executor,
- * requested model, prompt-suggestion mode, recap delay, sandbox. A later
- * resume that omits these from its request recovers them from here.
+ * Write a launched session's metadata, in a fixed order: prompt-suggestion
+ * mode, recap delay, sandbox. A later resume that omits these from its request
+ * recovers them from here.
  */
 export async function persistLaunchMetadata(
   service: SessionMetadataService | undefined,
@@ -59,17 +56,6 @@ export async function persistLaunchMetadata(
 ): Promise<void> {
   if (!service) {
     return;
-  }
-  if (record.provider) {
-    await service.setProvider(sessionId, record.provider);
-  }
-  if (record.executor) {
-    await service.setExecutor(sessionId, record.executor);
-  }
-  // Persist the launch model identity, the selected YA alias (including
-  // "default").
-  if (record.requestedModel) {
-    await service.setRequestedModel(sessionId, record.requestedModel);
   }
   // Persist the resolved prompt-suggestion mode so a later resume (which may
   // omit it from the request body) recovers the per-session preference
@@ -119,9 +105,9 @@ export interface NewSessionAnnouncement {
 }
 
 /**
- * The title, archiving and lineage only the route knows about a session it
- * made from another one: a handoff's title, a fork's lineage root, the
- * fork-summary target's archiving. An absent field is not written.
+ * The title, archiving and lineage only the launch caller knows about a
+ * session it made from another one: a handoff's title, a fork's lineage root,
+ * the fork-summary target's archiving. An absent field is not written.
  */
 export interface NewSessionRecord extends NewSessionAnnouncement {
   /** The fork lineage's root, which only fork numbering reads. */
@@ -129,8 +115,8 @@ export interface NewSessionRecord extends NewSessionAnnouncement {
 }
 
 /**
- * Record what only the route knows about a new session, then announce the
- * session with `session-metadata-changed` so open session lists show it.
+ * Record what only the launch caller knows about a new session, then announce
+ * the session with `session-metadata-changed` so open session lists show it.
  * `admitted` names fields creation admission already saved, such as a
  * copy's title and source; they are announced, not written again. The
  * announcement carries every field but the lineage root.

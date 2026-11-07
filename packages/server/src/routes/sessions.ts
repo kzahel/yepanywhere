@@ -45,17 +45,16 @@ import { createSessionCreationRequests } from "./session-creation-requests.js";
 import { registerSessionCreationRoutes } from "./session-creation-routes.js";
 import { registerSessionResumeRoutes } from "./session-resume-routes.js";
 import {
-  type CreateSessionBody,
   type StartSessionBody,
   hasSessionMessageContent,
-  parseOptionalJsonObjectBody,
+  parseOptionalRestartSessionBody,
   permissionModeError,
 } from "./session-launch-request.js";
+import { refusedLaunchResponse } from "./session-launch-refusal.js";
 import {
   type LaunchResult,
-  refusedLaunchResponse,
   settleLaunch,
-} from "./session-launch-results.js";
+} from "../sessions/session-launch-outcome.js";
 import {
   inheritedSandboxRecord,
   persistLaunchMetadata,
@@ -63,14 +62,17 @@ import {
   type NewSessionRecord,
   recordNewSessionMetadata,
   releaseFailedForkNumber,
-} from "./session-launch-metadata.js";
-import { createSessionLaunchSettings } from "./session-launch-settings.js";
+} from "../sessions/session-launch-metadata.js";
+import {
+  createSessionLaunchSettings,
+  parseOptionalExecutor,
+} from "../sessions/session-launch-settings.js";
 import {
   inheritedSandboxSettings,
-  parseSessionSandboxLevel,
   persistedSandboxNetworkFirewall,
   sandboxWorkingProjectPath,
-} from "./session-sandbox-settings.js";
+} from "../sessions/session-sandbox-inheritance.js";
+import { parseSessionSandboxLevel } from "./session-sandbox-settings.js";
 import { parseSlashCommandSubmission } from "../sdk/slashCommandEmulation.js";
 import { dispatchProviderCommand } from "../supervisor/provider-command.js";
 import { tryRestartCompact } from "../supervisor/restart-compaction.js";
@@ -124,9 +126,8 @@ import {
   buildUserMessageMetadata,
   normalizeOptionalServiceTier,
   parseHelperSettings,
-  parseOptionalExecutor,
 } from "./session-request-helpers.js";
-import { resolveCompactModelSettings } from "./session-compact-thresholds.js";
+import { resolveCompactModelSettings } from "../sessions/session-compact-thresholds.js";
 import {
   isClaudeSdkProviderName,
   isCodexProviderName,
@@ -233,69 +234,6 @@ interface InputResponseBody {
   response: "approve" | "approve_accept_edits" | "deny" | string;
   answers?: UserQuestionAnswers;
   feedback?: string;
-}
-
-interface RestartSessionBody extends CreateSessionBody {
-  reason?: string;
-  /**
-   * "handoff" (default): start a fresh session seeded with a bounded
-   * transcript summary. "fork": copy the provider transcript into a new
-   * session (real prefix fork; provider must support it — Claude today)
-   * and continue there.
-   */
-  restartMode?: "handoff" | "fork";
-  /**
-   * Fork slice point: transcript message UUID (inclusive). Omit for a
-   * full-transcript fork. Only meaningful with restartMode "fork".
-   */
-  forkUpToMessageId?: string;
-  /**
-   * The client URL the user was viewing when they triggered the handoff.
-   * Surfaced in the handoff's Source Session block as a self-documenting,
-   * clickable pointer back to the source session. Validated server-side.
-   */
-  sourceUrl?: string;
-  /**
-   * The handoff message to seed the successor with, replacing the text this
-   * route would otherwise build. Set when the user edited the draft the
-   * preview route returned. Ignored by "fork", which copies the real
-   * transcript instead of sending a message.
-   */
-  handoffText?: string;
-}
-
-function parseOptionalRestartSessionBody(
-  rawBody: string,
-): { body: RestartSessionBody } | { error: string } {
-  const parsed = parseOptionalJsonObjectBody(rawBody);
-  if ("error" in parsed) return parsed;
-  const body = parsed.body;
-  if (
-    body.restartMode !== undefined &&
-    body.restartMode !== "handoff" &&
-    body.restartMode !== "fork"
-  ) {
-    return { error: 'restartMode must be "handoff" or "fork"' };
-  }
-  for (const [field, label] of [
-    ["reason", "reason"],
-    ["forkUpToMessageId", "forkUpToMessageId"],
-    ["sourceUrl", "sourceUrl"],
-    ["model", "model"],
-  ] as const) {
-    if (body[field] !== undefined && typeof body[field] !== "string") {
-      return { error: `${label} must be a string` };
-    }
-  }
-  if (
-    body.provider !== undefined &&
-    (typeof body.provider !== "string" ||
-      !getProvider(body.provider as ProviderName))
-  ) {
-    return { error: "Invalid provider" };
-  }
-
-  return { body: body as RestartSessionBody };
 }
 
 const RESTART_HANDOFF_MAX_CHARS = 40_000;

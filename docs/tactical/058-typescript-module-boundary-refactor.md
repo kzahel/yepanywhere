@@ -28,8 +28,9 @@ shared, and how risky it is to touch today.
    [core service API](../../topics/core-service-api.md) needs launch as one
    call. This is a behavior-preserving consolidation, not a move-only slice,
    so it has its own plan:
-   [session launch service](177-session-launch-service.md). Steps 1-4
-   and the first part of step 5 landed 2026-11-06.
+   [session launch service](177-session-launch-service.md). Steps 1-5
+   landed 2026-11-06 and 2026-11-07, except a single owner for the
+   sandbox record, which needs a Linux check.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
    (about 7,800 lines), `NewSessionForm.tsx` (about 6,000),
    `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about

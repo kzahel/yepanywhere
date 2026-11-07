@@ -5,6 +5,10 @@ import type {
   CreationContext,
 } from "../sessions/SessionCreationStore.js";
 import {
+  isQueueFullLaunch,
+  isQueuedLaunch,
+} from "../sessions/session-launch-outcome.js";
+import {
   DEFAULT_PROJECT_QUEUE_QUIET_SECONDS,
   type LimitedUserGrants,
   type PermissionMode,
@@ -225,18 +229,6 @@ export interface ProjectQueueSchedulerOptions {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isQueueFullResult(
-  result: ProjectQueueDispatchOutcome,
-): result is { error: "queue_full"; maxQueueSize: number } {
-  return "error" in result && result.error === "queue_full";
-}
-
-function isQueuedResult(
-  result: ProjectQueueDispatchOutcome,
-): result is { queued: true; queueId: string; position: number } {
-  return "queued" in result && result.queued === true;
 }
 
 function isYaCommandResult(
@@ -916,14 +908,14 @@ export class ProjectQueueScheduler {
       }
 
       const result = await this.dispatchItem(item, options);
-      if (!isQueuedResult(result) || item.target.type === "existing-session") {
+      if (!isQueuedLaunch(result) || item.target.type === "existing-session") {
         await this.projectQueueService.completeDispatch(projectId, item.id);
       }
       const sessionId =
         item.target.type === "existing-session"
           ? item.target.sessionId
-          : isQueuedResult(result) ||
-              isQueueFullResult(result) ||
+          : isQueuedLaunch(result) ||
+              isQueueFullLaunch(result) ||
               isYaCommandResult(result)
             ? undefined
             : result.sessionId;
@@ -1046,7 +1038,7 @@ export class ProjectQueueScheduler {
             modelSettings,
           );
 
-    if (isQueueFullResult(result)) {
+    if (isQueueFullLaunch(result)) {
       throw new Error(`Worker queue is full (${result.maxQueueSize})`);
     }
 
@@ -1278,7 +1270,7 @@ export class ProjectQueueScheduler {
         },
       );
     }
-    if (isQueueFullResult(result)) return result;
+    if (isQueueFullLaunch(result)) return result;
     if (!saved) throw new Error("Queue creation was not durably admitted");
     return { admitted: true, sessionId: saved.sessionId };
   }

@@ -6,7 +6,7 @@ The Claude clone path in `packages/server/src/routes/sessions.ts` passes
 stale-session handoff, recap, retitle, fork-summary, and the Codex clone)
 uses the sandbox working copy only when the source's sandbox level is
 `project-write` (`sandboxWorkingProjectPath` in
-`routes/session-sandbox-settings.ts`). A source that kept a
+`sessions/session-sandbox-inheritance.ts`). A source that kept a
 `sandboxProjectPath` after leaving project-write would be cloned into the
 old sandbox directory. Whether that state can arise was not checked; the
 difference may be deliberate, but nothing documents it.

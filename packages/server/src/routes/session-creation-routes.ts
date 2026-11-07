@@ -24,12 +24,12 @@ import {
   buildUserMessageMetadata,
   normalizeOptionalServiceTier,
   parseHelperSettings,
-  parseOptionalExecutor,
 } from "./session-request-helpers.js";
 import {
   type CompactModelSettingsDeps,
   resolveCompactModelSettings,
-} from "./session-compact-thresholds.js";
+} from "../sessions/session-compact-thresholds.js";
+import { parseOptionalExecutor } from "../sessions/session-launch-settings.js";
 import { buildThinkingOptions } from "./session-thinking-options.js";
 import {
   actingUsername,

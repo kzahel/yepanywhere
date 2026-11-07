@@ -15,22 +15,6 @@ import {
 import type { ResumeMode } from "../supervisor/Supervisor.js";
 import { HTTPException } from "hono/http-exception";
 
-export function parseOptionalExecutor(rawExecutor: unknown): {
-  executor: string | undefined;
-  error?: string;
-} {
-  if (rawExecutor === undefined || rawExecutor === null) {
-    return { executor: undefined };
-  }
-  if (typeof rawExecutor !== "string") {
-    return { executor: undefined, error: "executor must be a string" };
-  }
-
-  return rawExecutor.trim()
-    ? { executor: undefined, error: "SSH executors have been removed" }
-    : { executor: undefined };
-}
-
 export function normalizeOptionalServiceTier(
   rawServiceTier: unknown,
 ): string | undefined {

@@ -12,6 +12,7 @@ import {
   type UploadedFile,
   type UserMessageMetadata,
 } from "@yep-anywhere/shared";
+import { getProvider } from "../sdk/providers/index.js";
 import type { PermissionMode } from "../sdk/types.js";
 import type { ResumeMode } from "../supervisor/Supervisor.js";
 
@@ -134,4 +135,67 @@ export function parseOptionalJsonObjectBody(
     return { error: "Invalid JSON body" };
   }
   return { body: parsed as Record<string, unknown> };
+}
+
+export interface RestartSessionBody extends CreateSessionBody {
+  reason?: string;
+  /**
+   * "handoff" (default): start a fresh session seeded with a bounded
+   * transcript summary. "fork": copy the provider transcript into a new
+   * session (real prefix fork; provider must support it — Claude today)
+   * and continue there.
+   */
+  restartMode?: "handoff" | "fork";
+  /**
+   * Fork slice point: transcript message UUID (inclusive). Omit for a
+   * full-transcript fork. Only meaningful with restartMode "fork".
+   */
+  forkUpToMessageId?: string;
+  /**
+   * The client URL the user was viewing when they triggered the handoff.
+   * Surfaced in the handoff's Source Session block as a self-documenting,
+   * clickable pointer back to the source session. Validated server-side.
+   */
+  sourceUrl?: string;
+  /**
+   * The handoff message to seed the successor with, replacing the text this
+   * route would otherwise build. Set when the user edited the draft the
+   * preview route returned. Ignored by "fork", which copies the real
+   * transcript instead of sending a message.
+   */
+  handoffText?: string;
+}
+
+export function parseOptionalRestartSessionBody(
+  rawBody: string,
+): { body: RestartSessionBody } | { error: string } {
+  const parsed = parseOptionalJsonObjectBody(rawBody);
+  if ("error" in parsed) return parsed;
+  const body = parsed.body;
+  if (
+    body.restartMode !== undefined &&
+    body.restartMode !== "handoff" &&
+    body.restartMode !== "fork"
+  ) {
+    return { error: 'restartMode must be "handoff" or "fork"' };
+  }
+  for (const [field, label] of [
+    ["reason", "reason"],
+    ["forkUpToMessageId", "forkUpToMessageId"],
+    ["sourceUrl", "sourceUrl"],
+    ["model", "model"],
+  ] as const) {
+    if (body[field] !== undefined && typeof body[field] !== "string") {
+      return { error: `${label} must be a string` };
+    }
+  }
+  if (
+    body.provider !== undefined &&
+    (typeof body.provider !== "string" ||
+      !getProvider(body.provider as ProviderName))
+  ) {
+    return { error: "Invalid provider" };
+  }
+
+  return { body: body as RestartSessionBody };
 }

@@ -1,6 +1,3 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type {
   TranscriptDisplayObject,
   UrlProjectId,
@@ -10,14 +7,13 @@ import {
   createSessionsRoutes,
   type SessionsDeps,
 } from "../../src/routes/sessions.js";
-import { SessionQueuePersistenceService } from "../../src/services/SessionQueuePersistenceService.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import type { Project } from "../../src/supervisor/types.js";
 
 // Characterization for the session-launch service plan (doc 177): the
 // launch metadata each successor launch (fork, retitle generator,
-// fork-summary generator and target, restart fork, restart handoff) and
-// recovered-queue reactivation writes after its session exists, in order.
+// fork-summary generator and target, restart fork, restart handoff) writes
+// after its session exists, in order.
 // Creation admission records a copy's provider, model, preferences, title
 // and source, so the routes write only what admission does not know:
 // the sandbox record, the preferences a started process resolved, the
@@ -504,76 +500,5 @@ describe("successor launch metadata writes", () => {
       ],
       ["updateMetadata", "sess-new", { title: "Handoff: Refactor session" }],
     ]);
-  });
-
-  it("recovered-queue reactivation persists the reactivated session's launch metadata", async () => {
-    const metadata = recordingMetadata({
-      requestedModel: "saved-model",
-      promptSuggestionMode: "native",
-      recapAfterSeconds: 300,
-    });
-    const dataDir = await mkdtemp(join(tmpdir(), "ya-successor-metadata-"));
-    try {
-      const sessionQueuePersistenceService = new SessionQueuePersistenceService(
-        { dataDir },
-      );
-      await sessionQueuePersistenceService.initialize();
-      await sessionQueuePersistenceService.replaceAll([
-        {
-          id: "queue-1",
-          sessionId: "sess-1",
-          projectId: project.id,
-          projectPath: project.path,
-          provider: "claude",
-          kind: "patient",
-          message: {
-            text: "resume after restart",
-            tempId: "temp-queue-1",
-            metadata: { deliveryIntent: "patient" },
-          },
-          createdAt: "2026-06-30T09:00:00.000Z",
-          updatedAt: "2026-06-30T09:01:00.000Z",
-          queuedAt: "2026-06-30T09:00:00.000Z",
-          status: "paused-after-restart",
-          source: { tempId: "temp-queue-1" },
-        },
-      ]);
-      const process = {
-        id: "proc-1",
-        isTerminated: false,
-        state: { type: "idle" },
-        permissionMode: "default",
-        modeVersion: 0,
-        setPermissionMode: vi.fn(),
-        noteInputIntent: vi.fn(),
-        primeSupportedCommandsForMessage: vi.fn(async () => {}),
-        deferMessage: vi.fn(() => ({ success: true, deferred: true })),
-        waitForPatientQueuePersistenceIdle: vi.fn(async () => {}),
-        getDeferredQueueSummary: vi.fn(() => []),
-      };
-      const routes = createSessionsRoutes({
-        supervisor: {
-          getProcessForSession: vi.fn(() => null),
-          reactivateSession: vi.fn(async () => process),
-        } as unknown as SessionsDeps["supervisor"],
-        sessionQueuePersistenceService,
-        sessionMetadataService: metadata.service,
-      } as unknown as SessionsDeps);
-
-      const response = await routes.request(
-        "/sessions/sess-1/recovered-queue/queue-1/resume",
-        { method: "POST" },
-      );
-
-      expect(response.status).toBe(200);
-      expect(metadata.writesFor("sess-1")).toEqual([
-        ["setProvider", "sess-1", "claude"],
-        ["setRequestedModel", "sess-1", "saved-model"],
-        ["updateMetadata", "sess-1", { promptSuggestionMode: "native" }],
-        ["updateMetadata", "sess-1", { recapAfterSeconds: 300 }],
-      ]);
-    } finally {
-      await rm(dataDir, { recursive: true, force: true });
-    }
   });
 });

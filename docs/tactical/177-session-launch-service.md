@@ -2,8 +2,10 @@
 
 Topic: core-service-api
 
-Status: steps 1-4 and the first part of step 5 landed 2026-11-06. Accepted by the maintainer as the top item
-of the module-boundary [priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
+Status: steps 1-4 and the first part of step 5 landed 2026-11-06, the
+second part of step 5 on 2026-11-07; the sandbox record's single owner
+remains. Accepted by the maintainer as the top item of the module-boundary
+[priority queue](058-typescript-module-boundary-refactor.md#priority-queue).
 
 Starting a session is one operation that today has about a dozen hand-written
 copies. New sessions, resume, reactivate, restart (handoff and fork), the
@@ -49,7 +51,7 @@ move-only rule and follows these rules instead:
 | Recap revival | `reactivateSession` | `sessions.ts`, inline | Supervisor activation |
 | `/clearloop` | `resumeSession` | `buildResumeLaunch` | Supervisor activation |
 | Queued message launch | queue, later `startSession`/`resumeSession` | message route, inline | queue owner |
-| Recovered-queue reactivation | `reactivateSession` | `session-recovered-queue.ts`, inline | route |
+| Recovered-queue reactivation | `reactivateSession` | `session-recovered-queue.ts`, inline | Supervisor activation; route, the saved preferences only since step 5 |
 
 Before any of these writers, `SessionCreationStore.admit` records the
 provider, requested model, prompt-suggestion and recap preferences, and
@@ -86,7 +88,9 @@ project-write working-directory rule in `sessions.ts`.
 The recovered-queue module calls the writer directly instead of receiving it
 as a dependency. `test/routes/session-successor-launch-metadata.test.ts`
 records every metadata write, in order, for fork (sandboxed and not), retitle,
-fork-summary, restart fork, restart handoff and recovered-queue reactivation.
+fork-summary, restart fork, restart handoff and recovered-queue reactivation
+(the last replaced in step 5 part 2 by full-app cases in
+`test/routes/session-launch-records.test.ts`).
 It passes against both the old and the new code. The Codex clone's sandbox
 record is covered by `test/routes/sessions-clone-codex.test.ts`, except for
 the working-project precedence.
@@ -280,17 +284,64 @@ Every difference found while removing the writes was checked:
 | The route's sandbox record names the source's working project, while a copy's admission and the Supervisor's save name the directory the copy runs in | Unverified: the two differ when the project is opened through a symlinked path, and sandboxing runs only on Linux, so it cannot be tested on the maintainer's machine | The route keeps its sandbox record; part 2 |
 | The fork route computed the copy's model itself when the fork returned no launch settings | Unreachable: `forkSession` always returns them | Removed |
 
+#### Part 2: the shared launch code moves below the routes
+
+Landed 2026-11-07. The launch pieces the routes share now live under
+`packages/server/src/sessions/`, where a headless host or script can call
+them without the REST layer:
+
+| Module | What it owns |
+| --- | --- |
+| `session-launch-settings.ts` | The resume and successor launch settings (`createSessionLaunchSettings`), and `parseOptionalExecutor`, the one rule for what executor a launch may name, which checks a saved executor as well as a request's |
+| `session-launch-outcome.ts` | `settleLaunch` and the queued and queue-full checks every launcher reads a Supervisor result with |
+| `session-launch-metadata.ts` | The launch-metadata and new-session writers |
+| `session-sandbox-inheritance.ts` | What a launch inherits from a saved sandbox: the firewall, a successor's project-write settings, the directory it runs in |
+| `session-compact-thresholds.ts` | The compact settings each launch adds |
+
+What stays in the routes is what reads a request or answers one:
+`refusedLaunchResponse` (now `routes/session-launch-refusal.ts`), the
+sandbox-level request parser and the request-body parsers. The restart
+request's parser joined the other launch request parsers in
+`routes/session-launch-request.ts`.
+
+They stay plain modules rather than one `SessionLaunchService` class. Each
+piece is stateless and already takes the few services it reads, and the
+routes call different subsets of them, so a class would bundle unrelated
+dependencies without removing any code. A headless host builds the
+settings closures once from its own services, as the sessions route does.
+
+Launchers outside the routes do not use `settleLaunch` itself. Review
+delivery, native API commands, wake delivery and the debug start route
+each turn the three outcomes straight into their own answer in a few lines,
+and none cancels a queued launch; the debug route also answers the raw
+`queue_full` error. Mapping through `settleLaunch` first would add a step
+without removing a decision. The Project Queue scheduler had its own copies
+of the queued and queue-full checks, and now uses the shared ones.
+
+Recovered-queue reactivation no longer records the provider, executor or
+requested model in the route. Step 1 assumed a reactivation saves only the
+settings its request names, but without explicit overrides the Supervisor
+treats every setting it was given as requested: it saves the provider,
+executor, recap delay and prompt-suggestion preference of the process it
+started, and its launch settings record carries the requested model, which
+it also mirrors into the legacy requested-model field. The route still
+writes the session's saved preferences back afterwards: the process's
+prompt-suggestion preference is resolved, so a saved "native" becomes "off"
+on a provider without native suggestions, and the session keeps the saved
+one, as a plain reactivation does.
+`test/routes/session-launch-records.test.ts` pins the stored record and a
+later resume for a queued turn that names a model, one on the default
+model, and a session with no saved provider or preferences, and the
+stored preference of a saved "native" on a provider without native
+suggestions. Its snapshots were captured on the old code. No caller passes
+a provider, executor or requested model to `persistLaunchMetadata` any
+more, so those fields are gone.
+
 #### Remaining
 
 - Give the sandbox record one owner: pass the working project to the copy
   and start calls so the Supervisor's save is the only one, verified on
   Linux.
-- Lift `buildResumeLaunch`, `buildSuccessorLaunch`, `settleLaunch` and the
-  remaining writers under `packages/server/src/sessions/`, with the route
-  helpers they depend on, and let the non-route launchers share
-  `settleLaunch`.
-- Recovered-queue reactivation still records its provider and model in the
-  route, because a reactivation saves only the settings its request names.
 
 ## Not in scope
 

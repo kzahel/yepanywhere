@@ -44,7 +44,7 @@ export function resolveCompactWindow(
   return undefined;
 }
 
-/** What `resolveCompactModelSettings` reads from the sessions route deps. */
+/** What `resolveCompactModelSettings` reads from its host's services. */
 export interface CompactModelSettingsDeps {
   serverSettingsService?: ServerSettingsService;
   modelInfoService?: ModelInfoService;

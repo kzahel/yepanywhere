@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import type { Process } from "../supervisor/Process.js";
 import type {
   QueueFullResponse,
@@ -58,14 +57,14 @@ export function settleLaunch(
   result: LaunchResult,
   policy: QueuedLaunchPolicy,
 ): LaunchOutcome {
-  if (isQueueFull(result)) {
+  if (isQueueFullLaunch(result)) {
     return {
       kind: "refused",
       error: "Queue is full",
       maxQueueSize: result.maxQueueSize,
     };
   }
-  if (isQueued(result)) {
+  if (isQueuedLaunch(result)) {
     if (policy.whenQueued === "wait") return { kind: "queued", queued: result };
     policy.supervisor.cancelQueuedRequest(result.queueId);
     return { kind: "refused", error: policy.notStartedError };
@@ -73,25 +72,12 @@ export function settleLaunch(
   return { kind: "started", process: result };
 }
 
-function isQueued(result: LaunchResult): result is QueuedResponse {
+/** Whether the Supervisor queued a launch for a free worker. */
+export function isQueuedLaunch(result: object): result is QueuedResponse {
   return "queued" in result && result.queued === true;
 }
 
-function isQueueFull(result: LaunchResult): result is QueueFullResponse {
+/** Whether the Supervisor refused a launch because its queue is full. */
+export function isQueueFullLaunch(result: object): result is QueueFullResponse {
   return "error" in result && result.error === "queue_full";
-}
-
-/**
- * The 503 a route answers for a refused launch. `context` names what the
- * request already made, such as a restart fork's new session.
- */
-export function refusedLaunchResponse(
-  c: Context,
-  refused: RefusedLaunch,
-  context: Record<string, unknown> = {},
-): Response {
-  return c.json(
-    { error: refused.error, maxQueueSize: refused.maxQueueSize, ...context },
-    503,
-  );
 }

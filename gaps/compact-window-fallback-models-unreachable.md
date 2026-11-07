@@ -1,12 +1,12 @@
 # Compact-window fallback models are never consulted
 
 `resolveCompactModelSettings` in
-`packages/server/src/routes/session-compact-thresholds.ts` takes a list of
+`packages/server/src/sessions/session-compact-thresholds.ts` takes a list of
 model ids and uses the first one with a known context window. Most launch
 paths pass the requested model followed by fallbacks such as the live
 process's resolved model and the source transcript's model:
 `buildSuccessorLaunch` and `buildResumeLaunch` in
-`routes/session-launch-settings.ts`, `routes/session-creation-routes.ts`,
+`sessions/session-launch-settings.ts`, `routes/session-creation-routes.ts`,
 `routes/session-resume-routes.ts`, and the queued-message launch in
 `routes/sessions.ts`. The fork-summary target already passes only its
 requested model.

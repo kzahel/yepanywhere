@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
 import { ClaudeProvider } from "../../src/sdk/providers/claude.js";
+import { SessionQueuePersistenceService } from "../../src/services/SessionQueuePersistenceService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import {
   createControllableIterator,
@@ -30,6 +31,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
   let storage: DiscoverySqliteService;
   let metadata: SessionMetadataService;
   let provider: ClaudeProvider;
+  let queue: SessionQueuePersistenceService;
   let app: ReturnType<typeof createApp>;
 
   beforeEach(async () => {
@@ -121,9 +123,12 @@ describe("the launch settings a new session keeps for later resumes", () => {
       })();
       return { iterator: owner.iterator, queue, abort: owner.finish };
     });
+    queue = new SessionQueuePersistenceService({ dataDir });
+    await queue.initialize();
     app = createApp({
       provider,
       dataDir,
+      sessionQueuePersistenceService: queue,
       projectsDir: join(claudeConfig, "projects"),
       sessionMetadataService: metadata,
       discoverySqlite: storage,
@@ -797,5 +802,160 @@ describe("the launch settings a new session keeps for later resumes", () => {
         null,
       ]
     `);
+  });
+
+  /**
+   * Resume the source's queued turn that a server restart paused, the way
+   * the recovered-queue route reactivates a session with no process.
+   */
+  async function resumeRecoveredTurn(model: string | undefined) {
+    await queue.replaceAll([
+      {
+        id: "queue-1",
+        sessionId: publicId,
+        projectId,
+        projectPath,
+        provider: "claude",
+        ...(model ? { model } : {}),
+        kind: "patient",
+        message: {
+          text: "resume after restart",
+          tempId: "temp-queue-1",
+          metadata: { deliveryIntent: "patient" },
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        queuedAt: timestamp,
+        status: "paused-after-restart",
+        source: { tempId: "temp-queue-1" },
+      },
+    ]);
+    const response = await app.app.request(
+      `/api/sessions/${publicId}/recovered-queue/queue-1/resume`,
+      { method: "POST", headers: { "X-Yep-Anywhere": "true" } },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+  }
+
+  it("recovered-queue reactivation of a queued turn that names a model", async () => {
+    await givenSourcePreferences();
+    await metadata.setRequestedModel(publicId, "saved-model");
+    await resumeRecoveredTurn("queued-model");
+    expect(stored(publicId)).toMatchInlineSnapshot(`
+      {
+        "customTitle": "Source title",
+        "effectiveLaunchSettings": {
+          "effort": "high",
+          "permissionMode": "acceptEdits",
+          "requestedModel": "queued-model",
+          "revision": 3,
+          "schemaVersion": 1,
+          "serviceTier": null,
+          "thinking": null,
+        },
+        "promptSuggestionMode": "off",
+        "provider": "claude",
+        "recapAfterSeconds": 240,
+        "requestedModel": "queued-model",
+      }
+    `);
+    expect(await laterResume(publicId)).toMatchInlineSnapshot(`
+      {
+        "effort": "high",
+        "model": "queued-model",
+        "permissionMode": "acceptEdits",
+        "promptSuggestionMode": "off",
+        "provider": "claude",
+        "recapAfterSeconds": 240,
+        "recapMode": "off",
+        "requestedModel": "queued-model",
+        "sandbox": "none",
+        "thinking": undefined,
+      }
+    `);
+  });
+
+  it("recovered-queue reactivation of a queued turn on the default model", async () => {
+    await resumeRecoveredTurn("default");
+    expect(stored(publicId)).toMatchInlineSnapshot(`
+      {
+        "customTitle": "Source title",
+        "effectiveLaunchSettings": {
+          "effort": "high",
+          "permissionMode": "acceptEdits",
+          "requestedModel": "default",
+          "revision": 2,
+          "schemaVersion": 1,
+          "serviceTier": null,
+          "thinking": null,
+        },
+        "promptSuggestionMode": "native",
+        "provider": "claude",
+        "recapAfterSeconds": 300,
+        "requestedModel": "default",
+      }
+    `);
+    expect(await laterResume(publicId)).toMatchInlineSnapshot(`
+      {
+        "effort": "high",
+        "model": undefined,
+        "permissionMode": "acceptEdits",
+        "promptSuggestionMode": "native",
+        "provider": "claude",
+        "recapAfterSeconds": 300,
+        "recapMode": "off",
+        "requestedModel": "default",
+        "sandbox": "none",
+        "thinking": undefined,
+      }
+    `);
+  });
+
+  it("recovered-queue reactivation of a session with no saved provider or preferences", async () => {
+    await metadata.setProvider(publicId, undefined);
+    await resumeRecoveredTurn(undefined);
+    expect(stored(publicId)).toMatchInlineSnapshot(`
+      {
+        "customTitle": "Source title",
+        "effectiveLaunchSettings": {
+          "effort": "high",
+          "permissionMode": "acceptEdits",
+          "requestedModel": "source-model",
+          "revision": 1,
+          "schemaVersion": 1,
+          "serviceTier": null,
+          "thinking": null,
+        },
+        "promptSuggestionMode": "native",
+        "provider": "claude",
+        "recapAfterSeconds": 300,
+        "requestedModel": "source-model",
+      }
+    `);
+    expect(await laterResume(publicId)).toMatchInlineSnapshot(`
+      {
+        "effort": "high",
+        "model": "source-model",
+        "permissionMode": "acceptEdits",
+        "promptSuggestionMode": "native",
+        "provider": "claude",
+        "recapAfterSeconds": 300,
+        "recapMode": "off",
+        "requestedModel": "source-model",
+        "sandbox": "none",
+        "thinking": undefined,
+      }
+    `);
+  });
+
+  it("recovered-queue reactivation keeps a saved native preference the provider cannot use", async () => {
+    await metadata.updateMetadata(publicId, { promptSuggestionMode: "native" });
+    Object.defineProperty(provider, "supportsNativePromptSuggestions", {
+      value: false,
+    });
+    await resumeRecoveredTurn(undefined);
+    expect(stored(publicId).promptSuggestionMode).toMatchInlineSnapshot(
+      `"native"`,
+    );
   });
 });

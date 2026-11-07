@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCompactPercent } from "../../src/routes/session-compact-thresholds.js";
+import { resolveCompactPercent } from "../../src/sessions/session-compact-thresholds.js";
 
 describe("resolveCompactPercent (task 029: direct YA-model-id lookup)", () => {
   const map = { opus: 5, sonnet: 30, default: 40 };

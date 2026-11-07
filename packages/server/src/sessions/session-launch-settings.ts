@@ -19,8 +19,28 @@ import {
   type CompactModelSettingsDeps,
   resolveCompactModelSettings,
 } from "./session-compact-thresholds.js";
-import { parseOptionalExecutor } from "./session-request-helpers.js";
-import { persistedSandboxNetworkFirewall } from "./session-sandbox-settings.js";
+import { persistedSandboxNetworkFirewall } from "./session-sandbox-inheritance.js";
+
+/**
+ * The executor a launch may name, from a request or a session's saved
+ * metadata. SSH executors were removed, so a named one is an error and every
+ * launch runs locally.
+ */
+export function parseOptionalExecutor(rawExecutor: unknown): {
+  executor: string | undefined;
+  error?: string;
+} {
+  if (rawExecutor === undefined || rawExecutor === null) {
+    return { executor: undefined };
+  }
+  if (typeof rawExecutor !== "string") {
+    return { executor: undefined, error: "executor must be a string" };
+  }
+
+  return rawExecutor.trim()
+    ? { executor: undefined, error: "SSH executors have been removed" }
+    : { executor: undefined };
+}
 
 /**
  * Launch choices one resume request makes for an existing session. An unset
@@ -67,15 +87,15 @@ export interface SuccessorLaunch extends SuccessorLaunchSettings {
   settings: ModelSettings;
 }
 
-/** What the launch-settings closures read from the sessions route deps. */
+/** What the launch-settings closures read from their host's services. */
 export interface SessionLaunchSettingsDeps extends CompactModelSettingsDeps {
   sessionMetadataService?: SessionMetadataService;
 }
 
 /**
- * The launch-settings closures the sessions route factory shares across the
- * routes that launch or resume a session and `/clearloop`. Stateless; they
- * read `deps` at call time.
+ * The launch-settings closures a host shares across everything that
+ * launches or resumes a session: today the sessions routes and `/clearloop`.
+ * Stateless; they read `deps` at call time.
  */
 export function createSessionLaunchSettings(deps: SessionLaunchSettingsDeps) {
   const getGlobalInstructions = (): string | undefined =>

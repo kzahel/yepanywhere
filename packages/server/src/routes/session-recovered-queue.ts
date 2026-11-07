@@ -6,8 +6,8 @@ import type {
 import type { UserMessage } from "../sdk/types.js";
 import type { Process } from "../supervisor/Process.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
-import { persistLaunchMetadata } from "./session-launch-metadata.js";
-import { parseOptionalExecutor } from "./session-request-helpers.js";
+import { persistLaunchMetadata } from "../sessions/session-launch-metadata.js";
+import { parseOptionalExecutor } from "../sessions/session-launch-settings.js";
 import {
   livePatientEntriesNewerThan,
   recoveredPatientQueueItems,
@@ -68,10 +68,10 @@ export async function ensureProcessForRecoveredItem(
         status: 503,
       };
     }
+    // The Supervisor saves the preferences the process resolved, which turns
+    // a saved "native" prompt-suggestion mode into "off" on a provider
+    // without native suggestions. The session keeps its own saved ones.
     await persistLaunchMetadata(deps.sessionMetadataService, sessionId, {
-      provider: item.provider,
-      executor: parsedExecutor.executor,
-      requestedModel: item.model ?? metadata?.requestedModel,
       promptSuggestionMode: metadata?.promptSuggestionMode,
       recapAfterSeconds: metadata?.recapAfterSeconds,
     });
