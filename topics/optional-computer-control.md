@@ -86,7 +86,13 @@ IDs 70/71. The reviewed optional corpus is v0.9.0, v0.9.1 and v0.9.2; the new
 contract is introduced in 0.9.4. Selected queue submission is disabled with an
 explanation; turning it off restores ordinary queue submission.
 
-## Native Mac delegation under qualification
+## Native Mac delegation (retired)
+
+**Current (2026-11-07):** retired. Machine Control no longer advertises
+`desktop.delegation.v1`, and YA no longer injects delegation or exports a
+proxy. YA agents use the ordinary MC CLI path. MC Tactical 161 replaces this
+with an MC-owned, opt-in verified-caller mode. The last YA revision with the
+proxy is tagged `mc-delegation-v1-final`. The text below is history.
 
 **Decision:** native MC trust is a separate, default-off operator choice. A
 compatible MC identity advertises `desktop.delegation.v1`; older installations
