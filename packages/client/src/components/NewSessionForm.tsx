@@ -1,10 +1,5 @@
 import { FileDropZone } from "./FileDropZone";
 import {
-  createLegacySession,
-  supportsSessionCreation,
-} from "../lib/legacySessionCreation";
-import {
-  acceptSessionCreation,
   getSessionCreation,
   settleSessionCreation,
   pendingSessionCreation,
@@ -53,7 +48,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { type SessionOptions, type UploadedFile, api } from "../api/client";
+import { type UploadedFile, api } from "../api/client";
 import styles from "./NewSessionForm.module.css";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useToastContext } from "../contexts/ToastContext";
@@ -70,13 +65,12 @@ import {
 import { useProjectQueues } from "../hooks/useProjectQueues";
 import { useNewSessionOptions } from "../hooks/useNewSessionOptions";
 import {
-  buildNewSessionStartOptions,
-  buildProjectQueueNewSessionTarget,
-  newSessionStartErrorMessage,
-  planNewSessionProjectQueue,
-  planNewSessionStart,
-  projectQueueRefusalBeforeDefer,
-} from "../lib/newSessionStartDecisions";
+  type NewSessionAcceptedCreation,
+  type NewSessionLaunch,
+  type PendingNewSessionSpeechDeliveryIntent,
+  queueNewSessionForProject,
+  startNewSession,
+} from "../lib/newSessionStart";
 import { NewSessionOptionsPanel } from "./NewSessionOptionsPanel";
 import {
   getAttachmentUploadProfile,
@@ -87,7 +81,6 @@ import { useSpeechSourceRuntime } from "../hooks/useSpeechSourceRuntime";
 import { useSessionToolbarPresence } from "../hooks/useSessionToolbarPresence";
 import { useI18n } from "../i18n";
 import { formatFileSize } from "../lib/formatFileSize";
-import { getUiCreationProvenance } from "../lib/sessionCreationProvenance";
 import { takePrebootComposer } from "../lib/prebootComposer";
 import { UI_KEYS } from "../lib/storageKeys";
 import { launchLockFor, type LaunchLock } from "../lib/limitedLaunchLock";
@@ -147,7 +140,6 @@ import {
   isComposerEnterSend,
 } from "../lib/composerKeys";
 import { hasComposerDraftContent } from "../lib/sessionComposerSubmission";
-import { logSessionUiTrace } from "../lib/diagnostics/uiTrace";
 import {
   isFullPaneComposerShortcut,
   resizeComposerTextarea,
@@ -157,11 +149,6 @@ import {
   consumeNewSessionPrefillToken,
 } from "../lib/newSessionPrefill";
 import { makeAttachmentFileNamesUnique } from "../lib/attachmentFileNames";
-import {
-  getEstimatedServerOffsetMs,
-  getServerClockTimestamp,
-} from "../lib/serverClock";
-import { createSessionNavigationState } from "../lib/sessionNavigationState";
 import {
   canSpeechMethodStream,
   getSpeechMethodCapabilities,
@@ -180,7 +167,6 @@ import {
   getSpeechVisibleDraftText,
   textBeforeSpeechCursor,
 } from "../lib/speechRecognition";
-import { resolveDeliverySpeechPrefix } from "../lib/speechMessagePrefix";
 import { handleVoiceInputShortcutKeyDown } from "../lib/voiceInputShortcut";
 import { createClientSpeechTurnId } from "../lib/speechTargets";
 import { generateUUID } from "../lib/uuid";
@@ -199,11 +185,6 @@ import { SpeechDraftField } from "./SpeechDraftField";
 import { SpeechPrefixActionCue } from "./SpeechPrefixActionCue";
 import { SpeechControlMenu } from "./SpeechControlMenu";
 import { VoiceInputButton, type VoiceInputButtonRef } from "./VoiceInputButton";
-
-type PendingNewSessionSpeechDeliveryIntent =
-  | "start"
-  | "background"
-  | "project-queue";
 
 interface PendingNewSessionSpeechDelivery {
   kind: PendingNewSessionSpeechDeliveryIntent;
@@ -250,34 +231,7 @@ export interface NewSessionFormProps {
    * Reuse the New Session composer and launch controls for a specialized
    * session start such as handoff.
    */
-  launch?: {
-    draftKey: string;
-    initialMessage: string;
-    fixedProject?: boolean;
-    allowAttachments?: boolean;
-    allowProjectQueue?: boolean;
-    /**
-     * How the seeded message is offered. `editable` is an ordinary draft.
-     * `muted` shows it dimmed, compact, and read-only: the launch composes
-     * its own first turn — a fork copies the real transcript — so the draft
-     * is context for the choice rather than something being sent.
-     */
-    composer?: "editable" | "muted";
-    /** Start-control wording, for a launch whose verb is not "start session". */
-    startLabel?: string;
-    startingLabel?: string;
-    /**
-     * Withhold the provider and model pickers. A fork continues an existing
-     * provider transcript, so changing either would not be a fork; offering
-     * the choice would only invite a request the server refuses.
-     */
-    fixedProviderModel?: boolean;
-    submit: (request: {
-      message: string;
-      options: SessionOptions;
-      clientTimestamp: number;
-    }) => Promise<void>;
-  };
+  launch?: NewSessionLaunch;
 }
 
 /** The New project palette choice that starts from a plain folder. */
@@ -371,14 +325,8 @@ export function NewSessionForm({
   const removedPendingUploadIdsRef = useRef<Set<string>>(new Set());
   const [isStarting, setIsStarting] = useState(false);
   const [acceptingText, setAcceptingText] = useState(false);
-  const [acceptedCreation, setAcceptedCreation] = useState<
-    | (import("@yep-anywhere/shared").SessionCreationReceipt & {
-        sourceKey: string;
-        accountKey: string | null;
-        background: boolean;
-      })
-    | null
-  >(null);
+  const [acceptedCreation, setAcceptedCreation] =
+    useState<NewSessionAcceptedCreation | null>(null);
   const [fullPane, setFullPane] = useState(false);
   const [fullPaneWide, setFullPaneWide] = useState(false);
   const [fullPaneBaseWidth, setFullPaneBaseWidth] = useState<number | null>(
@@ -1813,416 +1761,87 @@ export function NewSessionForm({
   );
 
   const handleStartSession = useCallback(
-    async (
+    (
       messageOverride?: unknown,
       speechTriggered = false,
       propagateFailure = false,
       background = false,
-    ) => {
-      const override =
-        typeof messageOverride === "string" ? messageOverride : undefined;
-      if (background && !canCreateInBackground) return;
-      if (
-        override === undefined &&
-        deferSpeechDelivery(background ? "background" : "start")
-      ) {
-        return;
-      }
-
-      const finalMessage = (override ?? draftControls.getDraft()).trimEnd();
-
-      let submissionFiles = pendingFilesRef.current;
-      const submissionUploads = new Map(pendingStagedUploadsRef.current);
-      const plan = planNewSessionStart({
-        finalMessage,
-        submissionFileCount: submissionFiles.length,
-        pendingFileCount: pendingFiles.length,
-        speechPrefix: resolveDeliverySpeechPrefix({
-          configuredPrefix: speechMessagePrefix,
-          speechTriggered,
-          recentSpeech: isRecentSpeechAttribution(),
-        }),
-        propagateFailure,
-        routedSourceKey: routerSelection ? routerSelection.sourceKey : null,
-        sourceKey: clientSummarySourceKey,
-        routerCapable: serverHasCapability(
-          versionInfo,
-          SERVER_CAPABILITIES.agentAuthRouter.name,
-        ),
-        launchLimited: launchLock.limited,
-        effectiveSandboxLevel,
-        hasLaunch: Boolean(launch),
-        composerMuted,
-        creatingTemplateProject,
-        templateProjectBusy,
-        isStarting,
-        displayDefaultsPending,
-        hasSelectedProviderModel,
-        projectPending,
-        serverCapabilitiesPending,
-        selectedProvider,
-        version: versionInfo,
-      });
-      if (plan.kind === "refuse") {
-        showToast(t(plan.toastKey), "error");
-        return;
-      }
-      if (plan.kind === "silent") {
-        if (plan.throwCannotStart) {
-          throw new Error(t("composerMemoCannotStart"));
-        }
-        return;
-      }
-      const trimmedMessage = plan.text;
-      const messageMetadata = plan.metadata;
-      const trimmedProjectInput = normalizeProjectInput(projectInput);
-      const actionAtMs = Date.now();
-      const clientTimestamp = getServerClockTimestamp(actionAtMs);
-
-      const fullAdmission = serverHasCapability(
-        versionInfo,
-        SERVER_CAPABILITIES.sessionCreationAdmission.name,
-      );
-      let stagedCreationRefs = submissionFiles
-        .filter(isPendingStagedFile)
-        .map(toPersistedStagedAttachmentRef);
-      const durableText =
-        !launch &&
-        principalResolved &&
-        supportsSessionCreation(versionInfo, {
-          provider: selectedProvider,
-          limited: launchLock.limited,
-          sandbox: effectiveSandboxLevel,
-          machineControl: machineControlSelected,
-          command: plan.hasCommand,
-          fileCount: submissionFiles.length,
-          stagedCount: stagedCreationRefs.length,
-        }) &&
-        (Boolean(trimmedMessage.trim()) || submissionFiles.length > 0);
-      let capturedAttachmentState = JSON.stringify(
-        draftControls.getAttachmentState(),
-      );
-      let capturedSubmission = durableText
-        ? draftControls.captureSubmission?.()
-        : undefined;
-      setAcceptingText(durableText);
-      setInterimTranscript("");
-      consumeSpeechAttribution();
-      setIsStarting(true);
-      if (historyScope)
-        void rememberComposerPrompt(historyScope, finalMessage).catch((cause) =>
-          showToast(
-            t("composerHistorySaveError", { error: String(cause) }),
-            "error",
-          ),
-        );
-
-      try {
-        let resolvedProjectId =
-          await resolveProjectIdForSubmission(trimmedProjectInput);
-        if (!resolvedProjectId && !canCreateDetached) {
-          throw new Error("Choose a project to start a session.");
-        }
-
-        const sessionMode = effectivePermissionMode;
-
-        // Get model and thinking settings
-        const thinking = toThinkingOption(
-          effectiveThinkingMode,
+    ) =>
+      startNewSession(
+        {
+          attachmentQuality,
+          basePath,
+          canCreateDetached,
+          canCreateInBackground,
+          clientSummarySourceKey,
+          composerMuted,
+          consumeSpeechAttribution,
+          creatingTemplateProject,
+          creationViewOwner,
+          deferSpeechDelivery,
+          displayDefaultsPending,
+          draftControls,
           effectiveEffortLevel,
-        );
-        const effectiveRecapMode = resolveRecapMode(
-          selectedProviderInfo,
-          selectedRecapMode,
-        );
-        const effectivePromptSuggestionMode = resolvePromptSuggestionMode(
-          selectedProviderInfo,
-          selectedPromptSuggestionMode,
-        );
-        // Display preference for thinking rows; sent for compatibility while the
-        // server requests provider summaries independently.
-        const showThinking = getShowThinkingSetting();
-        const creationProvenance = getUiCreationProvenance(versionInfo);
-        const sessionOptions = buildNewSessionStartOptions({
-          creationProvenance,
-          supportsInstalledMachineControl,
-          machineControlSelected,
-          machineControlEligible,
-          mode: sessionMode,
-          routed: routerSelection,
-          routedModel,
-          selectedModel,
-          routerCapable: serverHasCapability(
-            versionInfo,
-            SERVER_CAPABILITIES.agentAuthRouter.name,
-          ),
-          routerAccountId,
-          routerPolicy,
-          routerClaudeAiConnectors,
-          routerThinking,
-          thinking,
-          showThinking,
-          effectiveServiceTier,
-          selectedProvider,
-          supportsSessionSandboxing,
+          effectivePermissionMode,
           effectiveSandboxLevel,
           effectiveSandboxNetworkFirewall,
-          recapMode: effectiveRecapMode,
-          recapAfterSeconds,
-          promptSuggestionMode: effectivePromptSuggestionMode,
+          effectiveServiceTier,
+          effectiveThinkingMode,
+          ensureDraftAttachmentBatchId,
+          hasSelectedProviderModel,
           helperSideModel,
+          historyScope,
+          isRecentSpeechAttribution,
+          isStarting,
+          launch,
           launchLock,
-        });
-        logSessionUiTrace("new-session-submit", {
-          projectId: resolvedProjectId ?? null,
-          detached: !resolvedProjectId,
-          mode: sessionMode,
-          model: selectedModel ?? null,
-          thinking,
-          provider: selectedProvider ?? null,
-          sandboxLevel: supportsSessionSandboxing
-            ? effectiveSandboxLevel
-            : null,
-          sandboxNetworkFirewall: supportsSessionSandboxing
-            ? effectiveSandboxNetworkFirewall
-            : null,
-          recapMode: effectiveRecapMode,
+          machineControlEligible,
+          machineControlSelected,
+          navigate,
+          newSessionDraftKey,
+          pendingFiles,
+          pendingFilesRef,
+          pendingStagedUploadsRef,
+          principal: { username: principal.username },
+          principalResolved,
+          projectApp,
+          projectInput,
+          projectPending,
           recapAfterSeconds,
-          promptSuggestionMode: effectivePromptSuggestionMode,
-          helperSideModel,
-          textLength: trimmedMessage.length,
-          pendingFileCount: pendingFiles.length,
-          clientTimestamp,
-          serverOffsetMs: getEstimatedServerOffsetMs(),
-        });
-
-        if (launch) {
-          if (pendingFiles.length > 0) {
-            throw new Error("This session launch does not accept attachments");
-          }
-          await launch.submit({
-            message: trimmedMessage,
-            options: sessionOptions,
-            clientTimestamp,
-          });
-          draftControls.clearDraft();
-          setIsStarting(false);
-          return;
-        }
-
-        if (durableText) {
-          if (
-            fullAdmission &&
-            submissionFiles.some((file) => !isPendingStagedFile(file))
-          ) {
-            const batchId = ensureDraftAttachmentBatchId();
-            submissionFiles = await Promise.all(
-              submissionFiles.map(async (file): Promise<PendingStagedFile> => {
-                if (isPendingStagedFile(file)) return file;
-                if (file.kind === "uploading") {
-                  const result = await submissionUploads.get(file.id);
-                  if (!result)
-                    throw new Error(t("sessionDraftAttachmentsUnavailable"));
-                  return result;
-                }
-                // No progress callback on this path, as before.
-                const { uploadFile, uploadOptions } =
-                  await prepareComposerAttachmentUpload(
-                    file.file,
-                    getAttachmentUploadProfile(
-                      attachmentQuality,
-                      selectedProviderInfo,
-                      selectedModel,
-                    ),
-                  );
-                const ref = await sourceTransport.uploadStagedAttachment(
-                  uploadFile,
-                  { batchId, ...uploadOptions },
-                );
-                const result = {
-                  ...ref,
-                  kind: "staged" as const,
-                  ...(file.previewUrl ? { previewUrl: file.previewUrl } : {}),
-                };
-                if (
-                  !pendingFilesRef.current.some(
-                    (current) => current.id === file.id,
-                  )
-                )
-                  throw new Error(t("sessionDraftAttachmentsUnavailable"));
-                setPendingFiles((current) =>
-                  current.map((item) => (item.id === file.id ? result : item)),
-                );
-                return result;
-              }),
-            );
-            stagedCreationRefs = submissionFiles
-              .filter(isPendingStagedFile)
-              .map(toPersistedStagedAttachmentRef);
-            if (
-              draftControls.getDraft() === capturedSubmission?.text &&
-              pendingFilesRef.current.length === submissionFiles.length &&
-              pendingFilesRef.current.every(
-                (file, index) => file.id === submissionFiles[index]?.id,
-              )
-            ) {
-              capturedSubmission = draftControls.captureSubmission?.();
-              capturedAttachmentState = JSON.stringify(
-                draftControls.getAttachmentState(),
-              );
-            }
-          }
-          if (
-            !creationViewOwner.current.active ||
-            creationViewOwner.current.sourceKey !== clientSummarySourceKey ||
-            creationViewOwner.current.accountKey !== principal.username
-          )
-            return;
-          const receipt = await acceptSessionCreation(
-            sourceTransport,
-            `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
-            resolvedProjectId ?? undefined,
-            trimmedMessage,
-            sessionOptions,
-            clientTimestamp,
-            messageMetadata,
-            capturedSubmission?.text,
-            stagedCreationRefs.length ? stagedCreationRefs : undefined,
-            capturedAttachmentState,
-            submissionFiles.map((file) => file.id),
-          );
-          if (
-            !creationViewOwner.current.active ||
-            creationViewOwner.current.sourceKey !== clientSummarySourceKey ||
-            creationViewOwner.current.accountKey !== principal.username
-          )
-            return true;
-          const unchangedFiles =
-            pendingFilesRef.current.length === submissionFiles.length &&
-            pendingFilesRef.current.every(
-              (file, index) => file.id === submissionFiles[index]?.id,
-            );
-          const cleared = unchangedFiles
-            ? (capturedSubmission?.confirm() ?? false)
-            : false;
-          if (cleared)
-            setPendingFiles([], {
-              persistDraft: false,
-              revokeRemovedPreviewUrls: true,
-            });
-          if (
-            cleared ||
-            !unchangedFiles ||
-            (capturedSubmission &&
-              (draftControls.getDraft() !== capturedSubmission.text ||
-                JSON.stringify(draftControls.getAttachmentState()) !==
-                  capturedAttachmentState))
-          )
-            settleSessionCreation(
-              `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
-              receipt.requestId,
-            );
-          setIsStarting(false);
-          setAcceptingText(false);
-          if (background || !cleared) {
-            setAcceptedCreation({
-              ...receipt,
-              sourceKey: clientSummarySourceKey,
-              accountKey: principal.username,
-              background,
-            });
-            if (background) textareaRef.current?.focus();
-            return true;
-          }
-          navigate(
-            `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
-            {
-              state: createSessionNavigationState({
-                projectApp,
-                initialTitle: trimmedMessage,
-                initialProvider: selectedProvider ?? undefined,
-              }),
-            },
-          );
-          return true;
-        }
-
-        const started = await createLegacySession({
-          version: versionInfo,
-          api,
-          projectId: resolvedProjectId ?? undefined,
-          message: trimmedMessage,
-          options: sessionOptions,
-          clientTimestamp,
-          metadata: messageMetadata,
-          materialize: submissionFiles.length
-            ? resolvePendingAttachmentsForSession
-            : undefined,
-        });
-        const {
-          sessionId,
-          processId,
-          permissionMode: initialPermissionMode,
-          appliedPermissionMode: initialAppliedPermissionMode,
-          modeVersion: initialModeVersion,
-        } = started;
-        resolvedProjectId = started.projectId;
-
-        if (!resolvedProjectId) {
-          throw new Error("Missing project ID for new session");
-        }
-
-        // Clean up preview URLs
-        setPendingFiles([], {
-          persistDraft: false,
-          revokeRemovedPreviewUrls: true,
-        });
-
-        draftControls.clearDraft();
-        // Pass initial status so SessionPage can connect SSE immediately
-        // without waiting for getSession to complete
-        // Also pass initial message as optimistic title (session name = first message)
-        // Pass model/provider so ProviderBadge can render immediately
-        navigate(
-          `${basePath}/projects/${resolvedProjectId}/sessions/${sessionId}`,
-          {
-            state: createSessionNavigationState({
-              projectApp,
-              initialStatus: {
-                owner: "self",
-                processId,
-                permissionMode: initialPermissionMode,
-                appliedPermissionMode: initialAppliedPermissionMode,
-                modeVersion: initialModeVersion,
-                recapAfterSeconds,
-              },
-              initialTitle: trimmedMessage,
-              initialModel: routerSelection
-                ? routedModel
-                : selectedModel || undefined,
-              initialProvider: selectedProvider ?? undefined,
-            }),
-          },
-        );
-        return true;
-      } catch (err) {
-        console.error("Failed to start session:", err);
-        if (capturedSubmission) capturedSubmission.cancel();
-        else draftControls.restoreFromStorage();
-        setIsStarting(false);
-        setAcceptingText(false);
-
-        // Show user-visible error message
-        const errorMessage = newSessionStartErrorMessage(
-          err,
+          resolvePendingAttachmentsForSession,
+          resolveProjectIdForSubmission,
+          routedModel,
+          routerAccountId,
+          routerClaudeAiConnectors,
+          routerPolicy,
+          routerSelection,
+          routerThinking,
+          selectedModel,
+          selectedPromptSuggestionMode,
           selectedProvider,
-          selectedProviderInfo?.displayName,
+          selectedProviderInfo,
+          selectedRecapMode,
+          serverCapabilitiesPending,
+          setAcceptedCreation,
+          setAcceptingText,
+          setInterimTranscript,
+          setIsStarting,
+          setPendingFiles,
+          showToast,
+          sourceTransport,
+          speechMessagePrefix,
+          supportsInstalledMachineControl,
+          supportsSessionSandboxing,
           t,
-        );
-        showToast(errorMessage, "error");
-        if (propagateFailure) throw err;
-      }
-    },
+          templateProjectBusy,
+          textareaRef,
+          versionInfo,
+        },
+        messageOverride,
+        speechTriggered,
+        propagateFailure,
+        background,
+      ),
     [
       basePath,
       canCreateInBackground,
@@ -2286,163 +1905,51 @@ export function NewSessionForm({
     ],
   );
 
-  const handleQueueProjectSession = async (messageOverride?: unknown) => {
-    const refusal = projectQueueRefusalBeforeDefer({
-      routed: Boolean(routerSelection),
-      routerSelectionCustomized,
-      machineControlSelected,
-      machineControlEligible,
-      creatingTemplateProject,
-      templateProjectBusy,
-    });
-    if (refusal) {
-      if (refusal.kind === "refuse") showToast(t(refusal.toastKey), "error");
-      return;
-    }
-    const override =
-      typeof messageOverride === "string" ? messageOverride : undefined;
-    if (override === undefined && deferSpeechDelivery("project-queue")) {
-      return;
-    }
-
-    const finalMessage = (override ?? draftControls.getDraft()).trimEnd();
-    const trimmedProjectInput = normalizeProjectInput(projectInput);
-    const submissionFiles = pendingFilesRef.current;
-    const stagedRefs = submissionFiles
-      .filter(isPendingStagedFile)
-      .map(toPersistedStagedAttachmentRef);
-    const planned = planNewSessionProjectQueue({
-      finalMessage,
-      speechPrefix: resolveDeliverySpeechPrefix({
-        configuredPrefix: speechMessagePrefix,
-        speechTriggered: false,
-        recentSpeech: isRecentSpeechAttribution(),
-      }),
-      submissionFileCount: submissionFiles.length,
-      stagedFileCount: stagedRefs.length,
-      isStarting,
-      displayDefaultsPending,
-      projectPending,
-      hasDirectProviderModel,
-    });
-    if (!planned) return;
-    const trimmedMessage = planned.text;
-
-    // Final speech can differ from the visible snapshot selected by the manual
-    // Queue action. That newer draft was not submitted and must stay intact.
-    const capturedSubmission =
-      draftControls.getDraft().trimEnd() === finalMessage
-        ? draftControls.captureSubmission?.()
-        : undefined;
-    const submittedFileIds = new Set(submissionFiles.map((file) => file.id));
-    const stillOwnsForm = () =>
-      creationViewOwner.current.active &&
-      creationViewOwner.current.sourceKey === clientSummarySourceKey &&
-      creationViewOwner.current.accountKey === principal.username;
-    consumeSpeechAttribution();
-
-    const actionAtMs = Date.now();
-    const clientTimestamp = getServerClockTimestamp(actionAtMs);
-    const submittedAt = new Date(clientTimestamp).toISOString();
-    const firstStagedRef = stagedRefs[0];
-    const stagedAttachments = firstStagedRef
-      ? {
-          batchId: firstStagedRef.batchId,
-          refs: stagedRefs,
-          updatedAt: new Date().toISOString(),
-        }
-      : undefined;
-
-    setInterimTranscript("");
-    setAcceptingText(true);
-    setIsStarting(true);
-
-    try {
-      const resolvedProjectId = await resolveProjectIdForSubmission(
-        trimmedProjectInput,
-        stillOwnsForm,
-      );
-      if (!resolvedProjectId) {
-        throw new Error(t("projectQueueNewSessionNeedsProject"));
-      }
-
-      const sessionMode = effectivePermissionMode;
-      // Queue does not support routing. A restored preference is only for
-      // immediate creation; resolve this launch against the direct catalog.
-      const showThinking = getShowThinkingSetting();
-      const { target, thinking } = buildProjectQueueNewSessionTarget({
-        providerInfo: selectedProviderInfo,
-        selectedProvider,
-        selectedModel,
-        selectedThinkingMode,
-        selectedEffortLevel,
-        selectedServiceTier,
-        mode: sessionMode,
-        showThinking,
-        supportsSessionSandboxing,
+  const handleQueueProjectSession = (messageOverride?: unknown) =>
+    queueNewSessionForProject(
+      {
+        clientSummarySourceKey,
+        consumeSpeechAttribution,
+        creatingTemplateProject,
+        creationViewOwner,
+        deferSpeechDelivery,
+        displayDefaultsPending,
+        draftControls,
+        effectivePermissionMode,
         effectiveSandboxLevel,
         effectiveSandboxNetworkFirewall,
+        hasDirectProviderModel,
+        isRecentSpeechAttribution,
+        isStarting,
         launchLock,
-        title: trimmedMessage,
+        machineControlEligible,
+        machineControlSelected,
+        pendingFilesRef,
+        principal,
+        projectInput,
+        projectPending,
+        resolveProjectIdForSubmission,
+        routerSelection,
+        routerSelectionCustomized,
+        selectedEffortLevel,
+        selectedModel,
+        selectedProvider,
+        selectedProviderInfo,
+        selectedServiceTier,
+        selectedThinkingMode,
+        setAcceptingText,
+        setInterimTranscript,
+        setIsStarting,
+        setPendingFiles,
+        showToast,
+        sourceSummary,
+        speechMessagePrefix,
+        supportsSessionSandboxing,
         t,
-      });
-
-      if (!stillOwnsForm()) return;
-      const response = await api.createProjectQueueItem(resolvedProjectId, {
-        target,
-        message: {
-          text: trimmedMessage,
-          mode: sessionMode,
-          ...(stagedAttachments ? { stagedAttachments } : {}),
-          metadata: {
-            deliveryIntent: "deferred",
-            clientTimestamp,
-            composition: {
-              submittedAt,
-              typingEndedAt: submittedAt,
-            },
-          },
-        },
-        createdFrom: {
-          client: "new-session",
-        },
-      });
-      if (!stillOwnsForm()) return;
-      sourceSummary.reportProjectQueueCollectionSnapshot(response.queue);
-
-      logSessionUiTrace("new-session-project-queued", {
-        projectId: resolvedProjectId,
-        mode: sessionMode,
-        model: selectedModel ?? null,
-        thinking,
-        provider: selectedProvider ?? null,
-        sandboxLevel: supportsSessionSandboxing ? effectiveSandboxLevel : null,
-        sandboxNetworkFirewall: supportsSessionSandboxing
-          ? effectiveSandboxNetworkFirewall
-          : null,
-        textLength: trimmedMessage.length,
-        attachmentCount: stagedRefs.length,
-        uploadWaitMs: Date.now() - actionAtMs,
-      });
-      if (capturedSubmission?.confirm())
-        setPendingFiles(
-          (current) => current.filter((file) => !submittedFileIds.has(file.id)),
-          { persistDraft: false, revokeRemovedPreviewUrls: true },
-        );
-      showToast(t("projectQueueNewSessionQueuedToast"), "success");
-    } catch (err) {
-      if (!stillOwnsForm()) return;
-      console.error("Failed to queue project session:", err);
-      capturedSubmission?.cancel();
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      showToast(t("projectQueueSubmitFailed", { message: errorMsg }), "error");
-    } finally {
-      if (creationViewOwner.current.active) {
-        setIsStarting(false);
-        setAcceptingText(false);
-      }
-    }
-  };
+        templateProjectBusy,
+      },
+      messageOverride,
+    );
 
   runPendingSpeechDeliveryRef.current = () => {
     if (

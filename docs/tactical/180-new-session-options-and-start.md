@@ -27,7 +27,12 @@ and passed in, so the panel and the form cannot disagree) and
 2026-11-07. Queue's decision is two functions on either side of the
 defer, `projectQueueRefusalBeforeDefer` and `planNewSessionProjectQueue`,
 and `proceed` also carries `hasCommand`, which `supportsSessionCreation`
-reads.
+reads. Slice 5 (the start module, `lib/newSessionStart.ts`) landed
+2026-11-07: `NewSessionLaunch`, `PendingNewSessionSpeechDeliveryIntent`
+and the accepted-creation type `NewSessionAcceptedCreation` moved there
+first, and the start's deps pass `principal` as `{ username }` so
+`handleStartSession` keeps its dependency on `principal.username`. Slice 6
+waits on the maintainer's answers to Q1 to Q3.
 
 Proposal 3 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by

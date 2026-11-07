@@ -293,6 +293,7 @@ and props stable.
 | 2.27 | Done 2026-11-07 | `NewSessionForm.tsx` options hook | Move the New Session option state, its reads, derived values and effects into one hook ([plan 180](180-new-session-options-and-start.md) slice 2). | Not move-only: a consolidation under plan 180, because hook and effect order change (see the landing note). The reducer, the provider, settings, descriptor, router and subscription reads, every derived option value, the seed, lock, fill, source and save effects, and the provider, model and mode handlers move verbatim into `useNewSessionOptions` in new `hooks/useNewSessionOptions.ts`, called where the sandbox values stood. The inline choices call its `customizeOptions`. No behavior change. Budget `NewSessionForm.tsx` 5,339 -> 4,737; the hook is 820 lines. Tier 3, plus plan 180's slice 0 pins. |
 | 2.28 | Done 2026-11-07 | `NewSessionForm.tsx` options panel | Move the New Session options markup into a panel component ([plan 180](180-new-session-options-and-start.md) slice 3). | Move-only apart from props and one declared hunk: the section builders, label maps, model options, catalog notice, captions and advanced-options state, and the provider slot, advanced toggle and secondary options move into `NewSessionOptionsPanel` in new `components/NewSessionOptionsPanel.tsx`, which returns them as a fragment in the same grid. `providerSlotFilled` stays in the form, rewritten over the values the moved sections depend on (see the landing note). No behavior change. Budget `NewSessionForm.tsx` 4,737 -> 3,748; the panel is 1,085 lines. Tier 3, plus plan 180's slice 0 pins. |
 | 2.29 | Done 2026-11-07 | `NewSessionForm.tsx` start and Queue decisions | Move the New Session start's and Project Queue's decisions into plain functions ([plan 180](180-new-session-options-and-start.md) slice 4). | Not move-only: a consolidation under plan 180. The start refusals and text, the session options, Queue's refusals on both sides of the dictation defer, Queue's direct-catalog target and the start failure toast become `planNewSessionStart`, `buildNewSessionStartOptions`, `projectQueueRefusalBeforeDefer`, `planNewSessionProjectQueue`, `buildProjectQueueNewSessionTarget` and `newSessionStartErrorMessage` in new `lib/newSessionStartDecisions.ts`, with unit tests per branch; the form keeps its effects, including the defer, in place. No behavior change. Budget `NewSessionForm.tsx` 3,748 -> 3,628. Tier 3, plus plan 180's slice 0 pins. |
+| 2.30 | Done 2026-11-07 | `NewSessionForm.tsx` start module | Move the New Session start's and Project Queue's bodies into a plain start module ([plan 180](180-new-session-options-and-start.md) slice 5). | Move-only apart from turning closure reads into deps objects and moving three types the module needs: the bodies of `handleStartSession` and `handleQueueProjectSession` move verbatim into `startNewSession` and `queueNewSessionForProject` in new `lib/newSessionStart.ts`. The form keeps `handleStartSession` as a `useCallback` with its dependency list unchanged and `handleQueueProjectSession` as a plain arrow. No behavior change. Budget `NewSessionForm.tsx` 3,628 -> 3,135; the module is 953 lines. Tier 3, plus plan 180's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -426,6 +427,64 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.30 — New Session Start Module (Landed 2026-11-07, this commit)
+
+Move-only apart from deps objects and three moved types.
+[Plan 180](180-new-session-options-and-start.md) slice 5 moves the start
+and Project Queue bodies out of the form, unchanged.
+
+Moved to new `packages/client/src/lib/newSessionStart.ts`:
+- The `launch` prop's inline type -> exported `NewSessionLaunch` (the
+  prop's shape is unchanged; `NewSessionFormProps.launch` names it),
+  `PendingNewSessionSpeechDeliveryIntent`, and the accepted creation's
+  inline state type -> `NewSessionAcceptedCreation`. The module must not
+  import the form, so these move first.
+- The body of `handleStartSession` -> `startNewSession(deps,
+  messageOverride, speechTriggered, propagateFailure, background)`, and
+  the body of `handleQueueProjectSession` ->
+  `queueNewSessionForProject(deps, messageOverride)`. Both match the old
+  bodies apart from indentation and Biome's rewrapping of lines that now
+  fit.
+
+Signature conversions (closure -> parameter):
+- The form values each body reads become fields of
+  `NewSessionStartDeps` (67 fields) and `NewSessionQueueDeps` (39
+  fields), destructured under the same names. Option values are typed
+  from the options hook's result.
+- `principal` is passed to the start as `{ username: principal.username }`,
+  so `handleStartSession` keeps depending on `principal.username` rather
+  than the principal object, and its identity changes exactly when it did.
+
+Shape changes:
+- `handleStartSession` stays a `useCallback` with the same dependency list;
+  its body builds the deps object and calls `startNewSession`, so the
+  voice button and `handleSmartTurnSend`, which depend on its identity,
+  see no change. `handleQueueProjectSession` stays a plain arrow rebuilt
+  each render.
+
+Behavior changes:
+- None.
+
+Budget:
+- `NewSessionForm.tsx` 3,628 -> 3,135. The module is 953 lines.
+
+Verification:
+- `NewSessionForm.test.tsx` (148 tests, including plan 180's slice 0
+  pins), `newSessionStartDecisions.test.ts` and
+  `newSessionOptionsState.test.ts` pass; tsc and Biome are clean.
+  `pnpm console:scan` counts are unchanged from the base; its `warn`
+  count was already one over its limit there (61 of 60, from
+  `5e86a07b3`).
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a worktree.
+- Tier 3 (`pnpm --filter client test:e2e --grep-invert "physical
+  Android"`) at the same tree, in a worktree: 514 passed, 13 skipped, 4
+  failed, all `acli-commentary.spec.ts`, which fails from a worktree
+  ([gap](../../gaps/acli-commentary-e2e-fails-from-worktree.md)).
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.29 — New Session Start and Queue Decisions (Landed 2026-11-07, this commit)
 
