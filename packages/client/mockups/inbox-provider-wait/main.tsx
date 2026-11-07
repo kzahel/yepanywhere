@@ -437,8 +437,7 @@ function InboxProposal() {
             <PhaseMark phase="quiet" /> turn open, no output
           </li>
           <li>
-            <PhaseMark phase="background" /> turn ended, held by background
-            work
+            <PhaseMark phase="background" /> turn ended, held by background work
           </li>
         </ul>
       </header>

@@ -86,10 +86,12 @@
  * constrained so the pill's ellipsis applies. Shipped rows get the same
  * from SessionListItem.module.css.
  */
+/* biome-ignore format: keep the two parallel selectors on one line */
 .page:not([data-shipped]) :global(.session-list-item--card .session-list-item__link) {
   min-width: 0;
 }
 
+/* biome-ignore format: keep the two parallel selectors on one line */
 .page:not([data-shipped]) :global(.session-list-item--card .session-list-item__meta) {
   flex-wrap: wrap;
   row-gap: var(--space-1);
@@ -112,11 +114,7 @@
 }
 
 .pill-quiet {
-  background: color-mix(
-    in srgb,
-    var(--warning-color) 14%,
-    transparent
-  );
+  background: color-mix(in srgb, var(--warning-color) 14%, transparent);
   color: var(--warning-color);
 }
 
