@@ -3371,8 +3371,7 @@ a.sidebar-nav-item {
   overflow-y: hidden;
 }
 
-.new-session-form .speech-draft-field textarea,
-.fab-input-panel .speech-draft-field textarea {
+.new-session-form .speech-draft-field textarea {
   overflow-y: auto;
 }
 
@@ -3511,16 +3510,6 @@ a.sidebar-nav-item {
 .new-session-form .speech-draft-field {
   --speech-draft-padding: 0.6rem 0.7rem;
   --speech-draft-line-height: 1.35;
-}
-
-.fab-input-panel .speech-draft-field {
-  --speech-draft-padding: var(--space-3);
-  --speech-draft-font-size: var(--font-size-sm);
-  --speech-draft-line-height: 1.5;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
 }
 
 .fork-summary-draft {
@@ -10407,12 +10396,6 @@ a.sidebar-nav-item {
   outline-offset: 2px;
 }
 
-/* Informational default-model chip in the floating composer toolbar. */
-.composer-model-chip-static {
-  display: inline-flex;
-  align-items: center;
-}
-
 .provider-badge-dot {
   display: inline-block;
   width: 8px;
@@ -12987,144 +12970,6 @@ a.sidebar-nav-item {
 .subscription-usage-badge.tone-danger {
   color: var(--color-error, #f85149);
   border-color: color-mix(in srgb, currentColor 45%, var(--border-color));
-}
-
-/* ===== Floating Action Button (Desktop Only) ===== */
-
-.fab-container {
-  position: fixed;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* Always center - button stays in place */
-  gap: var(--space-2);
-}
-
-.fab-collapsed {
-  width: auto;
-}
-
-.fab-expanded {
-  min-width: 200px;
-}
-
-.fab-button {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--app-yep-green);
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
-  flex-shrink: 0;
-}
-
-.fab-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
-}
-
-.fab-button:active {
-  transform: scale(0.98);
-}
-
-.fab-button-active {
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-}
-
-.fab-button-active:hover {
-  background: var(--bg-hover);
-}
-
-.fab-icon-rotated {
-  transform: rotate(45deg);
-  transition: transform 0.15s ease;
-}
-
-/* Input panel that appears above the button */
-.fab-input-panel {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  animation: fabPanelSlideUp 0.15s ease-out;
-  width: 100%;
-  overflow: hidden;
-}
-
-@keyframes fabPanelSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fab-textarea {
-  width: 100%;
-  min-height: 60px;
-  max-height: 200px;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-size: var(--font-size-sm);
-  font-family: inherit;
-  color: var(--text-primary);
-  padding: var(--space-3);
-  resize: vertical;
-  line-height: 1.5;
-}
-
-.fab-textarea::placeholder {
-  color: var(--text-muted);
-}
-
-.fab-input-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-  background: var(--bg-secondary);
-}
-
-.fab-submit {
-  margin-left: auto;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
-  background: var(--app-yep-green);
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-sm);
-  transition: opacity 0.15s ease;
-}
-
-.fab-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.fab-submit:not(:disabled):hover {
-  opacity: 0.9;
 }
 
 /* ==========================================================================

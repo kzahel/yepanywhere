@@ -63,8 +63,8 @@ preserve that contract rather than reimplementing intake inside its text model.
 - Paste sanitization (today plain text + file paste are handled deliberately).
 - Draft persistence/restore, undo/redo, selection math (the speech insertion
   ranges and their mapping-through-edit logic assume string indices).
-- Accessibility and tests across all three composers (MessageInput,
-  NewSessionForm, FloatingActionButton).
+- Accessibility and tests across both composers (MessageInput and
+  NewSessionForm).
 
 Until those are worth taking on, the provisional-only textarea mirror with a
 faked caret is the interim, and this richer input stays a vision.

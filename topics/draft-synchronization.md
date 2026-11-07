@@ -8,10 +8,13 @@ exception to [vanilla defaults](vanilla-defaults.md), not collaborative editing.
 
 ## What follows you between devices
 
-Session composers, global/project new-session composers, the floating composer,
-handoff composers, approval feedback, question “Other” fields, async-question
-reply drafts, and unsent file comments use the same local draft service. Existing
-surface formats are adapted rather than replacing unrelated local settings.
+Session composers, global/project new-session composers, handoff composers,
+approval feedback, question “Other” fields, async-question reply drafts, and
+unsent file comments use the same local draft service. Existing surface formats
+are adapted rather than replacing unrelated local settings. The `floating` slot
+remains in the draft protocol for compatibility only: the floating composer was
+removed on 2026-11-07, no surface reads the slot, and text left in an older
+install's floating draft stays there unread.
 Question IDs and file-comment IDs/anchors remain structured; independent fields
 can reconcile independently. Async-question dismissed/seen/answered metadata,
 upload progress, cursor/selection/undo state, and recent prompt/upload galleries

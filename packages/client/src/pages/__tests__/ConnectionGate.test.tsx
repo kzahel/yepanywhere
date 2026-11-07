@@ -62,10 +62,6 @@ vi.mock("../../components/BottomOverscrollReload", () => ({
   BottomOverscrollReload: () => null,
 }));
 
-vi.mock("../../components/FloatingActionButton", () => ({
-  FloatingActionButton: () => null,
-}));
-
 vi.mock("../../components/RemoteCompatibilityNotices", () => ({
   RemoteCompatibilityNotices: () => null,
 }));

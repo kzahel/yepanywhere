@@ -16,14 +16,7 @@
  * Both ConnectionGate and RelayConnectionGate render ConnectedAppContent when connected.
  */
 
-import {
-  lazy,
-  type ReactNode,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { BottomOverscrollReload } from "./components/BottomOverscrollReload";
 import { NativePullToRefresh } from "./components/NativePullToRefresh";
@@ -70,12 +63,6 @@ import {
   getSafeRemoteReturnTarget,
   matchesRelayLoginTarget,
 } from "./lib/remoteRoutePaths";
-
-const FloatingActionButton = lazy(() =>
-  import("./components/FloatingActionButton").then(
-    ({ FloatingActionButton }) => ({ default: FloatingActionButton }),
-  ),
-);
 
 interface Props {
   children: ReactNode;
@@ -166,9 +153,6 @@ function ConnectedAppContentInner({ children }: { children: ReactNode }) {
       />
       {nativeSource && <NativePullToRefresh onReload={reloadFrontend} />}
       {children}
-      <Suspense fallback={null}>
-        <FloatingActionButton />
-      </Suspense>
     </>
   );
 }

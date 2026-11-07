@@ -350,6 +350,5 @@ remains the record.
   YA does not intercept `!`; keep it unclaimed so a future provider-native
   passthrough is not shadowed.
 - **Surface scope.** v1 is the session-page footer composer only (disabled
-  while it routes to a focused `/btw` aside). The floating new-session
-  composer (has a project, no session) could gain it later; the history
-  view may cover the sessionless case better.
+  while it routes to a focused `/btw` aside); the history view may cover
+  the sessionless case better.

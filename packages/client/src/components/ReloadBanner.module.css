@@ -13,8 +13,8 @@
  *   transcript captures stable. That rule stays global and unchanged.
  *
  * - `reload-banner-stack` on the stack is a geometry hook.
- *   `ReloadBannerStack` measures the stack against `.session-input` and
- *   `.fab-container`, and the focused test stubs those rects by class.
+ *   `ReloadBannerStack` measures the stack against `.session-input`, and
+ *   the focused test stubs those rects by class.
  *
  * `--reload-banner-stack-lift` is an inline custom property written by
  * that placement effect; custom properties are not scoped by CSS Modules,

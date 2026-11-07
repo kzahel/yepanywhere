@@ -126,28 +126,6 @@ async function openBrowserSpeechComposer(
   return textarea;
 }
 
-// Opens the floating new-session composer, which shows on wide non-session
-// pages once enabled.
-async function openFloatingSpeechComposer(
-  page: Page,
-  baseURL: string,
-  initialText: string,
-) {
-  await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.addInitScript(() => {
-    localStorage.setItem("yep-anywhere-floating-action-button-enabled", "true");
-  });
-  await installFakeSpeechRecognition(page);
-  await page.goto(`${baseURL}/projects`);
-  await dismissOnboardingIfVisible(page);
-  // Project cards carry their own "New session" buttons; use the floating one.
-  await page.locator(".fab-button").click();
-  const textarea = page.locator(".fab-textarea");
-  await expect(textarea).toBeVisible();
-  await startSpeechWithDraft(page, textarea, initialText);
-  return textarea;
-}
-
 async function startSpeechWithDraft(
   page: Page,
   textarea: Locator,
@@ -401,17 +379,16 @@ function seedTypingSession(page: Page) {
   };
 }
 
-// The in-session, new-session and floating composers share their dictation
-// code (docs/tactical/178-shared-composer-dictation.md). After 20 finals
-// have landed in the open speech target (each a chunk every keystroke maps
+// Both message boxes share their dictation code
+// (docs/tactical/178-shared-composer-dictation.md). After 20 finals have
+// landed in the open speech target (each a chunk every keystroke maps
 // through the edit) and with an interim showing, the caret moves to the
 // start of a long draft and the user types there while the recognizer
 // revises the interim and, in a session, the transcript updates. Each key
 // must show within 100 ms. Where the in-flight fragment then lands differs
-// today (the plan's D10 and F4): the in-session and floating composers keep
-// it at its first target, the new-session box moves it to the caret. The
-// check pins each until the maintainer decides.
-for (const box of ["in-session", "new-session", "floating"] as const) {
+// today (the plan's D10): the in-session box keeps it at its first target,
+// the new-session box moves it to the caret.
+for (const box of ["in-session", "new-session"] as const) {
   test(`shows each key typed during dictation within 100 ms (${box})`, async ({
     page,
     baseURL,
@@ -422,17 +399,14 @@ for (const box of ["in-session", "new-session", "floating"] as const) {
       { length: 120 },
       (_, index) => `Line ${index} of a long dictated prompt draft.`,
     ).join("\n");
-    const textarea =
-      box === "floating"
-        ? await openFloatingSpeechComposer(page, baseURL, longDraft)
-        : await openBrowserSpeechComposer(
-            page,
-            baseURL,
-            box === "in-session"
-              ? sessionPath(speechSessionIds.typingInterim)
-              : `/new-session?projectId=${projectId}`,
-            longDraft,
-          );
+    const textarea = await openBrowserSpeechComposer(
+      page,
+      baseURL,
+      box === "in-session"
+        ? sessionPath(speechSessionIds.typingInterim)
+        : `/new-session?projectId=${projectId}`,
+      longDraft,
+    );
     if (box === "in-session") {
       await expect(page.getByText("Reply 0", { exact: true })).toBeVisible();
     }
@@ -457,19 +431,10 @@ for (const box of ["in-session", "new-session", "floating"] as const) {
       "spoken words",
     );
 
-    if (box === "floating") {
-      // The floating panel's textarea grows past the viewport with this
-      // draft, so move the caret by keyboard; its key-up and select both
-      // count as manual moves there, as a click does.
-      await textarea.press(
-        process.platform === "darwin" ? "Meta+ArrowUp" : "Control+Home",
-      );
-    } else {
-      await textarea.evaluate((element) => {
-        element.scrollTop = 0;
-      });
-      await textarea.click({ position: { x: 12, y: 10 } });
-    }
+    await textarea.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await textarea.click({ position: { x: 12, y: 10 } });
     await expect(textarea).toHaveJSProperty("selectionStart", 0);
     await textarea.evaluate((element) => {
       const field = element as HTMLTextAreaElement & {

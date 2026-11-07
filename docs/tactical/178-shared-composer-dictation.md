@@ -4,11 +4,12 @@ Topic: mic-button-speech-ui
 
 Status: done 2026-11-07. Slices 0 (the test pins), 1 (speech state),
 2 (speech handlers), 3 (keys, paste and speech field), 4 (attachment
-upload) and 5 (the floating composer) landed 2026-11-07; the questions
-under "Differences" remain open with the maintainer. Proposal 1 of the
-[session page React hub gap](../../gaps/session-page-react-hub.md), owned
-by [doc 058](058-typescript-module-boundary-refactor.md) priority-queue
-item 2.
+upload) and 5 (the floating composer) landed 2026-11-07. At the
+maintainer's request the floating composer was then removed (2026-11-07),
+so slice 5 and the F rows describe code that no longer exists. Proposal 1
+of the [session page React hub gap](../../gaps/session-page-react-hub.md),
+owned by [doc 058](058-typescript-module-boundary-refactor.md)
+priority-queue item 2.
 
 The new-session box (`NewSessionForm.tsx`) and the in-session box
 (`MessageInput.tsx`) each hold their own copy of the dictation code: 14 and

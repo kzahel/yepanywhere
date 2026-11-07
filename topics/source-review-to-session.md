@@ -53,8 +53,7 @@ Related topics: [selection-comment-ui](selection-comment-ui.md) (the
 quote-comment ancestor — but see the gesture difference below),
 [source-review-followups](source-review-followups.md) (dormant agent-authored
 annotations for later review sweeps),
-[floating-new-session-composer](floating-new-session-composer.md) (the
-first-turn launch path), [local-file-source-highlighting](local-file-source-highlighting.md)
+[local-file-source-highlighting](local-file-source-highlighting.md)
 (highlighted read-only file previews),
 [forged-transcript-handoff](forged-transcript-handoff.md) and
 [session-context-actions](session-context-actions.md) (seeding a session with
@@ -150,9 +149,6 @@ review-first, agent-directing scope.
   - Path/link affordances graehl noted: any path mentioned in a session is
     already viewable and any file link is already copyable — the viewer makes
     those first-class rather than incidental.
-  - [floating-new-session-composer](floating-new-session-composer.md) — prior
-    art for composing a first turn from a non-session page; the submit
-    endpoint owns the actual launch (see the implementation sketch).
 
 ## Core feature: the accumulating review (the vision)
 

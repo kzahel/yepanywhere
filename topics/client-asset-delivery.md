@@ -232,7 +232,7 @@ likely; it must not cover a session title, page-level navigation, or session
 composer controls or another fixed lower-corner action. The notice stack
 measures live fixed occupants as one allocation problem: it occupies the
 lower-right space when that space is clear and lifts the entire stack above
-the session composer or floating action button when it would collide. A second
+the session composer when it would collide. A second
 notice must not grow underneath a higher-z-index occupant. On phone it may
 remain at the top, but stays inset from both viewport edges instead of becoming
 a full-width bar.

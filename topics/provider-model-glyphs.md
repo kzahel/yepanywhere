@@ -12,8 +12,8 @@ something that still communicates provider identity at a glance without
 occupying as much horizontal space.
 
 `ProviderBadge` surfaces have grown beyond the session header: the New
-Session model picker options and its below-composer chip, and the floating
-composer's default-model chip render the same badge, so the compactness
+Session model picker options and its below-composer chip render the same
+badge, so the compactness
 constraints here apply to all of them. (A session-composer top-right float
 shipped briefly and was removed as redundant with the header badge —
 2026-07-03.)

@@ -10,7 +10,6 @@ import styles from "./ReloadBanner.module.css";
 
 const RELOAD_BANNER_CONTROL_GAP = 4;
 const RELOAD_BANNER_COMPOSER_GAP = 8;
-const RELOAD_BANNER_FIXED_OCCUPANT_GAP = 8;
 const RELOAD_BANNER_DEFAULT_BOTTOM = 12;
 
 function rectsOverlap(first: DOMRect, second: DOMRect, gap: number): boolean {
@@ -87,29 +86,6 @@ export function ReloadBannerStack({
         }
       }
 
-      const fixedOccupant =
-        document.querySelector<HTMLElement>(".fab-container");
-      if (fixedOccupant) {
-        const occupantRect = fixedOccupant.getBoundingClientRect();
-        if (
-          occupantRect.width > 0 &&
-          occupantRect.height > 0 &&
-          rectsOverlap(
-            stackRect,
-            occupantRect,
-            RELOAD_BANNER_FIXED_OCCUPANT_GAP,
-          )
-        ) {
-          lift = Math.max(
-            lift,
-            window.innerHeight -
-              occupantRect.top +
-              RELOAD_BANNER_FIXED_OCCUPANT_GAP -
-              RELOAD_BANNER_DEFAULT_BOTTOM,
-          );
-        }
-      }
-
       stack.style.setProperty(
         "--reload-banner-stack-lift",
         `${Math.max(0, Math.ceil(lift))}px`,
@@ -132,28 +108,18 @@ export function ReloadBannerStack({
     const composer = avoidSessionComposer
       ? querySessionRouteLayerElement<HTMLElement>(".session-input")
       : null;
-    const fixedOccupant = document.querySelector<HTMLElement>(".fab-container");
     const resizeObserver =
       typeof ResizeObserver === "undefined"
         ? null
         : new ResizeObserver(schedulePlacement);
     resizeObserver?.observe(stack);
     if (composer) resizeObserver?.observe(composer);
-    if (fixedOccupant) resizeObserver?.observe(fixedOccupant);
 
-    const mutationObserver =
-      composer || fixedOccupant
-        ? new MutationObserver(schedulePlacement)
-        : null;
+    const mutationObserver = composer
+      ? new MutationObserver(schedulePlacement)
+      : null;
     if (composer && mutationObserver) {
       mutationObserver.observe(composer, {
-        attributes: true,
-        childList: true,
-        subtree: true,
-      });
-    }
-    if (fixedOccupant && mutationObserver) {
-      mutationObserver.observe(fixedOccupant, {
         attributes: true,
         childList: true,
         subtree: true,

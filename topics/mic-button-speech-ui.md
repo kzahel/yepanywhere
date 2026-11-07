@@ -307,9 +307,8 @@ of the Quick-send speech-prefix window. The timing window applies to later
 manual sends after capture has already settled, not Enter during capture.
 A failed speech cycle clears pending delivery and restores recoverable text;
 a later deliberate delivery press may still send the retained draft. This
-contract applies to the
-active-session, new-session, and floating composers and to mic-button or
-keyboard-shortcut invocation of the same action. Action eligibility is checked
+contract applies to the active-session and new-session composers and to
+mic-button or keyboard-shortcut invocation of the same action. Action eligibility is checked
 before speech ownership transfers and again before a deferred typed action
 runs. The pending intent keeps recovery ownership of its detached draft until
 the typed action accepts; rejection or an exception restores that draft. A
@@ -433,7 +432,7 @@ the unconsumed audio span and the behavior can be exercised deterministically.
 
 Whisper receives the already-composed text before the speech insertion cursor
 as its transcription prompt. A selected replacement and the suffix after it
-are excluded. Active-session, new-session, and floating composers all provide
+are excluded. The active-session and new-session composers both provide
 this context. Each recording snapshots it before microphone acquisition;
 later edits and overlapping recordings cannot change that recording's prompt.
 The client sends at most the last 8000 characters through the existing batch

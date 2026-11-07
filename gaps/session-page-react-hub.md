@@ -23,12 +23,10 @@ Measured 2026-11-07 at `097d8298d` (`packages/client/src`):
 - **The message boxes were copies.** Fixed by proposal 1 (plan 178,
   2026-11-07): the new-session and in-session boxes now share one
   dictation core, key and paste helpers, the speech field and the per-file
-  attachment prepare step, and the floating composer shares the dictation
-  core, the Escape pair and the speech field. `MessageInput.tsx` went
-  from 4,543 to 4,023 lines, `NewSessionForm.tsx` from 5,975 to 5,535 and
-  `FloatingActionButton.tsx` from 739 to 433. The differences found between
-  the copies are kept as they were and listed in plan 178 as questions for
-  the maintainer. Attachment state stays separate: the session page, not the
+  attachment prepare step, and the floating composer, a third copy, was
+  removed. `MessageInput.tsx` went from 4,543 to 4,023 lines and
+  `NewSessionForm.tsx` from 5,975 to 5,535. Plan 178 lists the differences
+  found between the copies and how each was settled. Attachment state stays separate: the session page, not the
   in-session box, owns its uploads.
 - **Sending a message was about 1,100 lines of the session page.** Fixed by
   proposal 2 (plan 179, 2026-11-07): the decisions (what text, which

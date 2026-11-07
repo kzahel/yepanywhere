@@ -20,7 +20,6 @@ import {
 import { estimateHoverCardPromptLines } from "../../components/sessionHoverCardLines";
 import { useProjectAppComposing } from "../../hooks/useProjectAppComposing";
 import { useDeveloperMode } from "../../hooks/useDeveloperMode";
-import { useFloatingActionButtonEnabled } from "../../hooks/useFloatingActionButtonEnabled";
 import {
   UI_FONT_SCALE_MAX_PERCENT,
   UI_FONT_SCALE_MIN_PERCENT,
@@ -340,8 +339,6 @@ export function AppearanceSettings() {
     setSelectionNewSessionActionEnabled,
   } = useSelectionActionPreferences();
   const { funPhrasesEnabled, setFunPhrasesEnabled } = useFunPhrases();
-  const { floatingActionButtonEnabled, setFloatingActionButtonEnabled } =
-    useFloatingActionButtonEnabled();
   const { sidebarDuplicateHidingEnabled, setSidebarDuplicateHidingEnabled } =
     useSidebarDuplicateHiding();
   const {
@@ -461,7 +458,6 @@ export function AppearanceSettings() {
       setSelectionNewSessionActionEnabled,
     ),
     undoEntry(funPhrasesEnabled, setFunPhrasesEnabled),
-    undoEntry(floatingActionButtonEnabled, setFloatingActionButtonEnabled),
     undoEntry(sidebarDuplicateHidingEnabled, setSidebarDuplicateHidingEnabled),
     undoEntry(projectCodeNamesEnabled, setProjectCodeNamesEnabled),
     undoEntry(tabTitleActivityEnabled, setTabTitleActivityEnabled),
@@ -1454,19 +1450,6 @@ export function AppearanceSettings() {
               type="checkbox"
               checked={funPhrasesEnabled}
               onChange={(e) => setFunPhrasesEnabled(e.target.checked)}
-            />
-            <span className="toggle-slider" />
-          </label>
-        </SettingsItem>
-        <SettingsItem
-          label={t("appearanceFloatingActionButtonTitle")}
-          description={t("appearanceFloatingActionButtonDescription")}
-        >
-          <label className="toggle-switch">
-            <input
-              type="checkbox"
-              checked={floatingActionButtonEnabled}
-              onChange={(e) => setFloatingActionButtonEnabled(e.target.checked)}
             />
             <span className="toggle-slider" />
           </label>

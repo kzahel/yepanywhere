@@ -24,10 +24,6 @@ not hide or rewrite the user's standing preference merely because the
 currently selected provider lacks the feature.
 
 - **Default AI provider** — the provider chosen when opening a new-session form.
-  The floating composer's informational chip resolves this plus the provider's
-  preferred model through `useDefaultNewSessionModel`, which must keep matching
-  the New Session form's initial seeding (same `getProviderSessionDefaults` and
-  preferred-model pick).
 - **Permission mode** — the requested approval policy. A model may hide or
   ignore unsupported modes such as provider-decided `Auto`, but the saved
   default is not a provider/model economics choice.

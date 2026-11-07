@@ -307,38 +307,4 @@ describe("ReloadBanner", () => {
     unmount();
     geometry.mockRestore();
   });
-
-  it("lifts the whole notice stack above the floating action button", () => {
-    vi.spyOn(window, "innerWidth", "get").mockReturnValue(1280);
-    vi.spyOn(window, "innerHeight", "get").mockReturnValue(1080);
-    const geometry = vi
-      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-      .mockImplementation(function (this: HTMLElement) {
-        if (this.classList.contains("reload-banner-stack")) {
-          return rect(814, 964, 454, 104);
-        }
-        if (this.classList.contains("fab-container")) {
-          return rect(1056, 952, 200, 48);
-        }
-        return rect(0, 0, 0, 0);
-      });
-
-    const { unmount } = render(
-      <>
-        <ReloadBannerStack>
-          <div>Server notice</div>
-          <div>Frontend notice</div>
-        </ReloadBannerStack>
-        <div className="fab-container">New session</div>
-      </>,
-    );
-
-    const stack = document.querySelector<HTMLElement>(".reload-banner-stack");
-    expect(stack?.style.getPropertyValue("--reload-banner-stack-lift")).toBe(
-      "124px",
-    );
-
-    unmount();
-    geometry.mockRestore();
-  });
 });

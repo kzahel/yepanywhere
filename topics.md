@@ -76,7 +76,6 @@
 - mobile-transcript-horizontal-overflow - Fixed outer session viewport with
   renderer-owned code/tool scrollers and swipeable turn galleries.
 - session-defaults - New-session default scoping: all-provider controls vs provider/model economics controls.
-- floating-new-session-composer - Non-session-page `+` quick composer, new-session prefill, and click-time non-browser speech prewarm.
 - permission-mode - Provider-independent approval preference with model-capability-gated Auto fallback.
 - codex-sessions - Codex rollout storage, compression representation, and YA's durable read assumptions.
 - codex-user-turn-provenance - Use Codex's persisted user-turn lifecycle to distinguish real prompts from user-role contextual response items.
@@ -130,8 +129,8 @@
   thought-toggle right-click gesture (registered retroactively; series
   began at fd47ecb2).
 - composer-model-visibility - Provider/model identity echoed adjacent to
-  composers (New Session chip, floating composer chip; the session-composer
-  float was removed as redundant with the header badge).
+  composers (New Session chip; the session-composer float was removed as
+  redundant with the header badge).
 - provider-output-contract - Single spec for normalized provider output
   (message envelope, tool results, status, lineage links); named TS types
   as the type definition, validation kept off hot paths.

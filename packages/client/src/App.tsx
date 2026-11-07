@@ -40,11 +40,6 @@ const CodexUpdatePrompt = lazy(() =>
     default: CodexUpdatePrompt,
   })),
 );
-const FloatingActionButton = lazy(() =>
-  import("./components/FloatingActionButton").then(
-    ({ FloatingActionButton }) => ({ default: FloatingActionButton }),
-  ),
-);
 const OnboardingWizard = lazy(() =>
   import("./components/onboarding").then(({ OnboardingWizard }) => ({
     default: OnboardingWizard,
@@ -168,9 +163,6 @@ function AppContent({ children }: Props) {
         onReload={reloadFrontend}
       />
       {children}
-      <Suspense fallback={null}>
-        <FloatingActionButton />
-      </Suspense>
     </>
   );
 }

@@ -253,9 +253,7 @@ settings surface):
 
   Implementation detail: initial warm acquisition is triggered idempotently
   when a desktop mouse pointer nears the mic control (the clickable rect plus
-  margin), using the currently selected mic device. The floating new-session
-  composer also triggers provider prewarm after the user clicks its `+` to
-  expand the composer; it must not prewarm before that click. If Chrome
+  margin), using the currently selected mic device. If Chrome
   microphone permission is not already granted, the first mic click still
   performs the permission/device open; subsequent dictations reuse the warm
   stream when the active non-browser provider and Keep Mic Warm setting permit

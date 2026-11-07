@@ -13,7 +13,6 @@ import { hasDraftContentValue, readDraftTextValue } from "../lib/draftEnvelope";
 import { subscribeDraftPresenceChanges } from "../lib/draftPresenceEvents";
 
 const NEW_SESSION_DRAFT_KEY_PREFIX = "draft-new-session:";
-const FAB_DRAFT_KEY_PREFIX = "fab-draft:";
 
 function encodeDraftKeyPart(value: string): string {
   return encodeURIComponent(value);
@@ -25,10 +24,6 @@ export function createNewSessionDraftKey(
 ): string {
   const base = `${NEW_SESSION_DRAFT_KEY_PREFIX}${encodeDraftKeyPart(sourceKey)}`;
   return projectId ? `${base}:${encodeDraftKeyPart(projectId)}` : base;
-}
-
-export function createFabDraftKey(sourceKey: ClientSummarySourceKey): string {
-  return `${FAB_DRAFT_KEY_PREFIX}${encodeDraftKeyPart(sourceKey)}`;
 }
 
 /**
