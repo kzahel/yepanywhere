@@ -60,7 +60,8 @@ its own commit with a test, and one a user could see is asked about. Proposals
 2. **Sending as plain functions plus a thin hook.** The send, queue and
    project-queue decisions become functions that take inputs and return what
    to do, testable without React. A small hook performs the requests, toasts,
-   draft updates and traces in today's order.
+   draft updates and traces in today's order. Planned in
+   [plan 179](../docs/tactical/179-session-composer-send-decisions.md).
 3. **New-session options and start split.** One hook owns the option state,
    using one reducer where state changes together, plus an options panel
    component; starting and queueing take the plain-function shape of
