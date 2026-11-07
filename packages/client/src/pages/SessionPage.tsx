@@ -54,7 +54,6 @@ import {
   parseFileViewArgument,
   readInventoryGoalDetails,
   serverHasCapability,
-  startsWithSlashCommand,
   thinkingOptionToConfig,
   SERVER_CAPABILITIES,
   isTurnEffort,
@@ -254,7 +253,6 @@ import {
   createComposerEditAvailabilityStore,
 } from "../lib/composerDraftSignal";
 import { createTranscriptPositionStore } from "../lib/transcriptPositionStore";
-import { buildCorrectionText } from "../lib/correctionText";
 import { logSessionUiTrace } from "../lib/diagnostics/uiTrace";
 import { isEffortLevel } from "../lib/effortLevels";
 import {
@@ -296,7 +294,6 @@ import {
   collectComposerAttachmentsForSubmission as collectComposerAttachmentsForSubmissionHelper,
   ComposerAttachmentUploadError,
   createComposerDraftAttachmentState,
-  hasComposerDraftContent,
   insertComposerTransferText,
   materializeComposerAttachmentsForSubmission,
   splitComposerAttachmentsForSubmission,
@@ -304,6 +301,10 @@ import {
   type PreparedComposerSubmission,
   uploadComposerAttachmentFile,
 } from "../lib/sessionComposerSubmission";
+import {
+  type ComposerSubmissionFallback,
+  resolveComposerSubmission,
+} from "../lib/sessionComposerSendDecisions";
 import { isLegacyCodexSetupText } from "@yep-anywhere/shared/transcript/codexLegacySetup";
 import {
   resolveSessionProviderCapabilities,
@@ -349,7 +350,6 @@ import {
   normalizeSlashCommandForMatch,
   resolveComposerDoneTarget,
   resolveComposerSessionOperation,
-  resolveComposerSlashTurn,
 } from "../lib/slashCommands";
 import { generateUUID } from "../lib/uuid";
 import {
@@ -2514,151 +2514,59 @@ function SessionPageContent({
     [setComposerAttachments, showToast, t],
   );
 
-  const getOutgoingMessageText = useCallback(
-    (text: string): string | null => {
-      if (!correctionDraft) {
-        return text;
-      }
-
-      const correctionText = buildCorrectionText(
-        correctionDraft.originalText,
-        text,
-      );
-      if (!correctionText) {
-        draftControlsRef.current?.setDraft(text);
-        showToast(t("sessionCorrectionNoChanges"), "info");
-        return null;
-      }
-      return correctionText;
-    },
-    [correctionDraft, showToast, t],
-  );
-
   const prepareComposerSubmission = (
     text: string,
     queueIntent = false,
   ): PreparedComposerSubmission | null => {
-    // Recalling a turn and editing its slash command means "issue this command
-    // again", not "correct my last sentence". Correction framing prepends a
-    // line, which pushes `/goal ...` off offset 0 so the provider sends the
-    // command through as prose, and a stripping command like `/fast ...` would
-    // diff its bare argument against the unstripped original. So the whole
-    // submission below behaves as a fresh invocation, including re-issuing an
-    // unedited command the way shell history does. The decision reads the raw
-    // composer text because `resolveComposerSlashTurn` has already consumed the
-    // leading token by the time the outgoing text is built.
-    const issuesSlashCommand =
-      !!correctionDraft && startsWithSlashCommand(text);
-    const outgoingTextFor = (candidate: string): string | null =>
-      issuesSlashCommand ? candidate : getOutgoingMessageText(candidate);
-    // Commands YA runs itself never reach the send path that ends correction
-    // mode, so clear it here or the banner would outlive the command and wrap
-    // the next ordinary message.
-    const endCorrectionForLocalCommand = () => {
-      if (issuesSlashCommand) {
-        setCorrectionDraft(null);
-      }
-    };
-
-    const slashTurn = resolveComposerSlashTurn(text, {
+    const decision = resolveComposerSubmission(text, queueIntent, {
+      correctionOriginalText: correctionDraft?.originalText ?? null,
       rewindSupported: supportsRewind,
+      manualCompactSupported: supportsManualCompact,
+      queuedCompactionSupported: serverHasCapability(
+        versionInfo,
+        SERVER_CAPABILITIES.queuedSessionCompaction,
+      ),
+      syntheticDoneEnabled,
+      syntheticDoneSupported: supportsSyntheticDone,
+      syntheticArchiveSupported: supportsSyntheticArchive,
+      syntheticTerminateSupported: supportsSyntheticTerminate,
+      fileViewCommandSupported: supportsFileViewCommand,
+      btwAsidesSupported: supportsBtwAsides,
+      turnEffortSupported: supportsTurnEffort,
+      attachmentCount: attachmentsRef.current.length,
+      pendingUploadCount: pendingUploadsRef.current.size,
+      t,
     });
-    if (slashTurn.kind === "custom") {
-      if (
-        queueIntent &&
-        slashTurn.command === "compact" &&
-        supportsManualCompact
-      ) {
-        if (
-          !serverHasCapability(
-            versionInfo,
-            SERVER_CAPABILITIES.queuedSessionCompaction,
-          )
-        ) {
-          draftControlsRef.current?.setDraft(text);
-          showToast(t("queuedCompactRequiresUpdate"), "error");
-          return null;
-        }
-        if (attachmentsRef.current.length || pendingUploadsRef.current.size) {
-          draftControlsRef.current?.setDraft(text);
-          showToast(t("queuedCompactSeparateAttachments"), "error");
-          return null;
-        }
-        return { outgoingText: text, queuedCompact: true };
-      }
-      const sessionOperation = resolveComposerSessionOperation({
-        text,
-        routesToFocusedAside: false,
-        syntheticDoneEnabled,
-        syntheticDoneSupported: supportsSyntheticDone,
-        syntheticArchiveSupported: supportsSyntheticArchive,
-        syntheticTerminateSupported: supportsSyntheticTerminate,
-        hasAttachments:
-          attachmentsRef.current.length > 0 ||
-          pendingUploadsRef.current.size > 0,
-      });
-      if (sessionOperation.kind === "blocked") {
-        draftControlsRef.current?.setDraft(text);
-        showToast(sessionOperation.message, "error");
+    const applyOutcome = (
+      outcome: ComposerSubmissionFallback,
+    ): PreparedComposerSubmission | null => {
+      if (outcome.kind === "refuse") {
+        draftControlsRef.current?.setDraft(outcome.restoreText);
+        showToast(outcome.message, outcome.severity);
         return null;
       }
-      if (sessionOperation.kind === "session-boundary") {
-        endCorrectionForLocalCommand();
-        void handleSyntheticSessionBoundary(sessionOperation.command);
-        return null;
-      }
-      if (sessionOperation.kind === "title") {
-        endCorrectionForLocalCommand();
-        void handleLocalTitleCommand(sessionOperation.title);
-        return null;
-      }
-      if (slashTurn.command === "view" && supportsFileViewCommand) {
-        endCorrectionForLocalCommand();
-        void handleFileViewCommand(slashTurn.argument);
-        return null;
-      }
-      if (slashTurn.command === "btw" && !supportsBtwAsides) {
-        draftControlsRef.current?.setDraft(text);
-        showToast(
-          "/btw asides are available only for providers with a wired fork path.",
-          "error",
-        );
-        return null;
-      }
-      if (handleCustomCommand(slashTurn.command, slashTurn.argument)) {
-        endCorrectionForLocalCommand();
-        return null;
-      }
-      const outgoingText = outgoingTextFor(text);
-      return outgoingText ? { outgoingText } : null;
-    }
-
-    if (slashTurn.kind === "error") {
-      draftControlsRef.current?.setDraft(text);
-      showToast(slashTurn.message, "error");
-      return null;
-    }
-
-    if (slashTurn.turnEffort && !supportsTurnEffort) {
-      draftControlsRef.current?.setDraft(text);
-      showToast(t("turnEffortUnavailable"), "error");
-      return null;
-    }
-
-    const outgoingText = outgoingTextFor(slashTurn.text);
-    if (
-      outgoingText === null ||
-      !hasComposerDraftContent(outgoingText, attachmentsRef.current.length)
-    ) {
-      return null;
-    }
-
-    return {
-      outgoingText,
-      thinking: slashTurn.thinking,
-      slashCommand: slashTurn.command,
-      turnEffort: slashTurn.turnEffort,
+      return outcome.kind === "submit" ? outcome.prepared : null;
     };
+    if (decision.kind === "local") {
+      if (decision.endCorrectionFirst) setCorrectionDraft(null);
+      const operation = decision.operation;
+      if (operation.kind === "session-boundary") {
+        void handleSyntheticSessionBoundary(operation.command);
+      } else if (operation.kind === "title") {
+        void handleLocalTitleCommand(operation.title);
+      } else {
+        void handleFileViewCommand(operation.argument);
+      }
+      return null;
+    }
+    if (decision.kind === "custom") {
+      if (handleCustomCommand(decision.command, decision.argument)) {
+        if (decision.endCorrectionIfHandled) setCorrectionDraft(null);
+        return null;
+      }
+      return applyOutcome(decision.fallback);
+    }
+    return applyOutcome(decision);
   };
 
   // Approval panel collapsed state (separate from message input collapse)

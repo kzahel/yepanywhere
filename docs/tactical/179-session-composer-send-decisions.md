@@ -2,8 +2,9 @@
 
 Topic: message-control-steer-queue-btw-later-interrupt
 
-Status: planned 2026-11-07; slice 0 (the pins) landed 2026-11-07. It pins
-fourteen cases in `session-send-paths.spec.ts`, including both handoff
+Status: planned 2026-11-07; slices 0 (the pins) and 1 (the submission
+decision) landed 2026-11-07. Slice 0 pins fourteen cases in
+`session-send-paths.spec.ts`, including both handoff
 notices (the built-in message and the routed one), `compactQueued`, the
 retried resume's request (same temp id and client time, no
 `showThinking`), a turn-effort command sent while correcting, and a

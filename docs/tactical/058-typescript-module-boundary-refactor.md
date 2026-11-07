@@ -33,19 +33,19 @@ shared, and how risky it is to touch today.
    the copy (SRR-025, checked on Linux), and the restarts' and
    continuation's records wait on the clone working-directory gap.
 2. **Session page and message composer split** (client). `SessionPage.tsx`
-   (about 7,700 lines), `NewSessionForm.tsx` (about 5,500), `MessageInput.tsx`
+   (about 7,600 lines), `NewSessionForm.tsx` (about 5,500), `MessageInput.tsx`
    (about 4,000) and `MessageInputToolbar.tsx` (about 3,800) are where most UI
    work lands. Their size makes each change slow to review and easy to
    regress, including the keystroke-latency contract. Phase 2 below holds the
-   slice rows; slices 2.12 to 2.20 (the composer's bang completion state and
+   slice rows; slices 2.12 to 2.21 (the composer's bang completion state and
    recall drawer, the page's bang-command wiring, the toolbar's thinking
    control, and the message boxes' shared speech state, handlers, keys, speech
    field and attachment upload step, of which the floating composer shares the
-   speech pieces) landed 2026-11-07. Moving small features out one at a time
-   leaves these files structurally as they were; the burn-down order and the
-   consolidations it needs (one shared message-box core, then sending as plain
-   functions) are in [the session page hub
-   gap](../../gaps/session-page-react-hub.md).
+   speech pieces, and the page's submission decision) landed 2026-11-07.
+   Moving small features out one at a time leaves these files structurally as
+   they were; the burn-down order and the consolidations it needs (one shared
+   message-box core, then sending as plain functions) are in [the session page
+   hub gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -283,6 +283,7 @@ and props stable.
 | 2.18 | Done 2026-11-07 | `NewSessionForm.tsx` and `MessageInput.tsx` keys, paste and speech field | Give both message boxes one copy of their speech Escape keys, Enter-sends rule, paste file extraction and speech draft field ([plan 178](178-shared-composer-dictation.md) slice 3). | Not move-only: a consolidation under plan 178. Both boxes call `lib/composerKeys.ts` (`handleSpeechEscapeKey`, `isComposerEnterSend`, `getClipboardFiles`) and render `components/SpeechDraftField.tsx`. Each box keeps its key order and guards (plan 178 D8, D11). No behavior change. Budgets `MessageInput.tsx` 4,097 -> 4,023 and `NewSessionForm.tsx` 5,640 -> 5,571. Tier 3, plus the slice 1 keystroke check. |
 | 2.19 | Done 2026-11-07 | `NewSessionForm.tsx` and `lib/sessionComposerSubmission.ts` attachment upload step | Give the message boxes one copy of the per-file attachment prepare step ([plan 178](178-shared-composer-dictation.md) slice 4). | Not move-only: a consolidation under plan 178. The session page's upload helper and the new-session box's three copies call `lib/composerAttachmentUpload.ts` (`prepareComposerAttachmentUpload`); each keeps its own upload call, previews and state (plan 178 A1 to A4). No behavior change. Budget `NewSessionForm.tsx` 5,571 -> 5,535. Tier 3. |
 | 2.20 | Done 2026-11-07 | `FloatingActionButton.tsx` dictation | Give the floating composer the shared dictation core ([plan 178](178-shared-composer-dictation.md) slice 5). | Not move-only: a consolidation under plan 178. The floating composer calls `useComposerSpeechState`, `useComposerSpeechHandlers`, `handleSpeechEscapeKey` and `SpeechDraftField`, and keeps its own pending-state and cancel handlers (plan 178 F1 to F6). No behavior change. 739 -> 433 lines (under the budget threshold). Tier 3, plus the floating composer in the keystroke check. |
+| 2.21 | Done 2026-11-07 | `SessionPage.tsx` submission decision | Turn the session page's submission preparation into a plain decision ([plan 179](179-session-composer-send-decisions.md) slice 1). | Not move-only: under plan 179. `resolveComposerSubmission` in `lib/sessionComposerSendDecisions.ts` decides; `prepareComposerSubmission` applies it in today's order. No behavior change. Budget `SessionPage.tsx` 7,655 -> 7,563. Tier 3, plus plan 179's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -416,6 +417,53 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.21 — Session Composer Submission Decision (Landed 2026-11-07, this commit)
+
+Not move-only. [Plan 179](179-session-composer-send-decisions.md) slice 1
+turns the session page's `prepareComposerSubmission` into a plain decision
+plus the page code that performs it, after the plan's slice 0 pins.
+
+Moved:
+- The slash-turn, correction-framing, capability and content decisions of
+  `prepareComposerSubmission` and its framing helper
+  `getOutgoingMessageText` -> `resolveComposerSubmission` in new
+  `packages/client/src/lib/sessionComposerSendDecisions.ts`, which returns
+  a refusal (message, severity, text to restore), a local command (with
+  whether correction ends first), a custom command (with whether correction
+  ends after it is handled and the precomputed fallback), a drop, or the
+  prepared submission.
+
+Shape changes:
+- `prepareComposerSubmission` stays in the page and applies the decision in
+  today's order: a refusal restores and toasts; a local command ends
+  correction first, then dispatches; a custom command runs
+  `handleCustomCommand` and, when handled, ends correction, else applies
+  the fallback. `getOutgoingMessageText` is gone; its "no changes" refusal
+  is part of the decision.
+- The decision reads what prepare read from the page as a context object;
+  its translations come through a `t` restricted to the four keys it uses.
+
+Behavior changes:
+- None. The English refusal strings are kept and recorded in new
+  `gaps/session-composer-refusals-untranslated.md`.
+
+Verification:
+- New `sessionComposerSendDecisions.test.ts`: one case per branch,
+  including both correction-end orders, the stripped custom fallback and
+  the raw-text restore of the turn-effort refusal.
+- `session-send-paths.spec.ts` (plan 179 slice 0) and the send specs the
+  plan lists pass: 29 tests across 14 files, including slice 0's case for
+  a command the page runs itself ending correction mode, which this slice
+  moves.
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
+  `pnpm test`) passed at this slice's tree, in a separate worktree. Tier 3
+  (`pnpm --filter client test:e2e --grep-invert "physical Android"`) in
+  the same worktree: 510 passed, 13 skipped, 1 failed;
+  `selection-during-activity.spec.ts:281` passed when rerun alone.
+
+Follow-ups recorded:
+- Plan 179 slices 2 to 4.
 
 ### Slice 2.20 — Floating Composer Joins the Shared Dictation Core (Landed 2026-11-07, this commit)
 
