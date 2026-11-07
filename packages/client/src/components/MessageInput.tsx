@@ -113,10 +113,15 @@ import {
 } from "../lib/speechMessagePrefix";
 import {
   applyBangCompletion,
-  getBangCompletionQuery,
   longestCommonPrefix,
   resolveComposerBangDraft,
 } from "../lib/bangCommands";
+import {
+  type BangCompletionSource,
+  type BangMenuItem,
+  bangCompletionQueryKey,
+  useComposerBangCompletion,
+} from "../hooks/useComposerBangCompletion";
 import {
   getSlashCommandArgumentCompletionMatches,
   getSlashCommandMenuParts,
@@ -413,11 +418,7 @@ interface Props {
    */
   bangSupport?: {
     onRun: (command: string) => Promise<void>;
-    fetchCompletions: (
-      token: string,
-      kind: "command" | "path",
-      line: string,
-    ) => Promise<{ completions: string[]; history: string[] }>;
+    fetchCompletions: BangCompletionSource["fetchCompletions"];
     history: readonly string[];
   };
   /**
@@ -431,24 +432,6 @@ interface Props {
     entries: ComposerTurnRecallEntry[];
     onGoToTurn?: (id: string) => void;
   };
-}
-
-/**
- * One row of the bang completion menu. Global command-history matches
- * (`history`) are ranked ahead of PATH/project/path token candidates
- * (`candidate`); selecting a history row replaces the whole `!!` body,
- * a candidate keeps the token-replacement behavior.
- */
-type BangMenuItem = { source: "history" | "candidate"; value: string };
-
-/**
- * Opaque identity of a draft's completion query (kind, token, full body),
- * compared — never parsed — to decide whether a dismissed menu stays
- * dismissed for the current draft.
- */
-function bangCompletionQueryKey(draft: string): string | null {
-  const query = getBangCompletionQuery(draft);
-  return query ? `${query.kind} ${query.token}\0${draft.slice(2)}` : null;
 }
 
 export function MessageInput({
@@ -602,16 +585,6 @@ export function MessageInput({
   );
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
   const [composerCursor, setComposerCursor] = useState(text.length);
-  const [bangCandidates, setBangCandidates] = useState<string[]>([]);
-  const [bangHistoryCandidates, setBangHistoryCandidates] = useState<string[]>(
-    [],
-  );
-  const [selectedBangIndex, setSelectedBangIndex] = useState(0);
-  const [dismissedBangQueryKey, setDismissedBangQueryKey] = useState<
-    string | null
-  >(null);
-  const bangHistoryIndexRef = useRef(-1);
-  const bangRecalledTextRef = useRef<string | null>(null);
   // Composer recall drawer (always-on Ctrl+↑ prior-user-turn recall). Open
   // while non-null; matches are frozen at open time (any editing keystroke
   // closes it), so the draft stays constant while it is shown.
@@ -746,39 +719,28 @@ export function MessageInput({
       ),
     );
   }, [invocationQuery, matchingSlashCommands.length, slashCommands, text]);
-  const bangQuery =
-    bangSupport && !collapsed ? getBangCompletionQuery(text) : null;
-  const bangQueryKey = bangQuery ? bangCompletionQueryKey(text) : null;
-  const showBangChip = !!bangSupport && !collapsed && text.startsWith("!!");
-  const showBangEscapedChip =
-    !!bangSupport && !collapsed && text.startsWith(" !!");
-  // Global history rows first, then PATH/project/path token candidates; the
-  // selection index and arrow navigation span this combined list.
-  const bangMenuItems: BangMenuItem[] = [
-    ...bangHistoryCandidates.map(
-      (value): BangMenuItem => ({ source: "history", value }),
-    ),
-    ...bangCandidates.map(
-      (value): BangMenuItem => ({ source: "candidate", value }),
-    ),
-  ];
-  // A lone token candidate equal to the current token is nothing to complete;
-  // suppress that (unless history offers whole-line matches).
-  const hasUsefulBangCandidates =
-    bangCandidates.length > 0 &&
-    !(
-      bangCandidates.length === 1 &&
-      bangQuery !== null &&
-      (bangCandidates[0] === bangQuery.token ||
-        bangCandidates[0] === `${bangQuery.token}/`)
-    );
-  const showBangSuggestions =
-    !collapsed &&
-    !disabled &&
-    bangQuery !== null &&
-    bangQuery.token.length > 0 &&
-    dismissedBangQueryKey !== bangQueryKey &&
-    (bangHistoryCandidates.length > 0 || hasUsefulBangCandidates);
+  const {
+    bangQuery,
+    bangQueryKey,
+    showBangChip,
+    showBangEscapedChip,
+    bangMenuItems,
+    showBangSuggestions,
+    selectedBangIndex,
+    setSelectedBangIndex,
+    setDismissedBangQueryKey,
+    setBangCandidates,
+    setBangHistoryCandidates,
+  } = useComposerBangCompletion({ text, collapsed, disabled, bangSupport });
+  const bangHistoryIndexRef = useRef(-1);
+  const bangRecalledTextRef = useRef<string | null>(null);
+  // Any edit that diverges from the last Ctrl+↑ recall resets history cycling.
+  useEffect(() => {
+    if (bangRecalledTextRef.current !== text) {
+      bangHistoryIndexRef.current = -1;
+      bangRecalledTextRef.current = null;
+    }
+  }, [text]);
   const canSubmit = forkSummaryMode
     ? !forkSummaryMode.submitting &&
       attachments.length === 0 &&
@@ -810,55 +772,6 @@ export function MessageInput({
         interimDisplayTranscript,
         text.length,
       );
-  const bangFetchRef = useRef(bangSupport?.fetchCompletions);
-  bangFetchRef.current = bangSupport?.fetchCompletions;
-  const bangFetchKind = bangQuery?.kind ?? null;
-  const bangFetchToken = bangQuery?.token ?? null;
-  const bangFetchLine = bangQuery ? text.slice(2) : null;
-  useEffect(() => {
-    const fetchCompletions = bangFetchRef.current;
-    if (
-      !fetchCompletions ||
-      !bangFetchKind ||
-      !bangFetchToken ||
-      bangFetchLine === null
-    ) {
-      setBangCandidates([]);
-      setBangHistoryCandidates([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      fetchCompletions(bangFetchToken, bangFetchKind, bangFetchLine).then(
-        (result) => {
-          if (!cancelled) {
-            setBangCandidates(result.completions);
-            setBangHistoryCandidates(result.history);
-            setSelectedBangIndex(0);
-          }
-        },
-        () => {
-          if (!cancelled) {
-            setBangCandidates([]);
-            setBangHistoryCandidates([]);
-          }
-        },
-      );
-    }, 150);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [bangFetchKind, bangFetchToken, bangFetchLine]);
-
-  // Any edit that diverges from the last Ctrl+↑ recall resets history cycling.
-  useEffect(() => {
-    if (bangRecalledTextRef.current !== text) {
-      bangHistoryIndexRef.current = -1;
-      bangRecalledTextRef.current = null;
-    }
-  }, [text]);
-
   const slashSelectionResetKey = `${slashQueryKey}\0${slashSuggestionCount}`;
 
   useEffect(() => {

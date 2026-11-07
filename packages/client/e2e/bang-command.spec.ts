@@ -88,12 +88,90 @@ test("a !! draft is routed locally and its run is recorded", async ({
       await route.fulfill({ response });
     },
   );
+  // The bang completion check below holds the "ech" answer until the next
+  // key has been typed.
+  let releaseEch!: () => void;
+  const echHeld = new Promise<void>((resolve) => {
+    releaseEch = resolve;
+  });
   try {
     await page.goto(`${baseURL}/projects/${id}/sessions/mock-session-001`);
 
     const composer = page.locator("textarea[data-composer-input]").first();
     await expect(composer).toBeVisible();
-    await composer.pressSequentially("!!echo ya-bang-ok", { delay: 15 });
+    // Each keystroke shows within 100 ms, measured in the browser, while the
+    // completion menu is open and its fetches come back between keys.
+    const completionTokens: string[] = [];
+    await routeWithDrain(page, "**/bang-completions?*", async (route) => {
+      const token = new URL(route.request().url()).searchParams.get("token");
+      completionTokens.push(token ?? "");
+      if (token === "ech") await echHeld;
+      else await new Promise((resolve) => setTimeout(resolve, 80));
+      await route.fulfill({
+        json: {
+          completions: token?.startsWith("ec") ? ["echo", "echoes"] : [],
+          history: [],
+        },
+      });
+    });
+    await composer.focus();
+    await composer.evaluate((element) => {
+      const field = element as HTMLTextAreaElement & {
+        acks: { value: string; latency: number }[];
+      };
+      field.acks = [];
+      field.addEventListener("keydown", (event) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            field.acks.push({
+              value: field.value,
+              latency: performance.now() - event.timeStamp,
+            }),
+          ),
+        ),
+      );
+    });
+    const lastAck = () =>
+      composer.evaluate(
+        (element) =>
+          (
+            element as HTMLTextAreaElement & { acks: { value: string }[] }
+          ).acks.at(-1)?.value,
+      );
+    const menu = page.locator(".bang-completion-menu");
+    const draft = "!!echo ya-bang-ok";
+    let typed = "";
+    for (const character of draft) {
+      await page.keyboard.type(character);
+      typed += character;
+      await expect.poll(lastAck).toBe(typed);
+      if (typed === "!!ec") {
+        await expect(menu).toBeVisible();
+      } else if (typed === "!!ech") {
+        // The next key lands while this token's completions are in flight.
+        await expect.poll(() => completionTokens.at(-1)).toBe("ech");
+      } else if (typed === "!!echo") {
+        // Then the stale answer comes back before the following key.
+        const answered = page.waitForResponse((response) =>
+          response.url().includes("token=ech&"),
+        );
+        releaseEch();
+        await answered;
+      }
+    }
+    const acks = await composer.evaluate(
+      (element) =>
+        (
+          element as HTMLTextAreaElement & {
+            acks: { value: string; latency: number }[];
+          }
+        ).acks,
+    );
+    expect(acks.map((ack) => ack.value)).toEqual(
+      [...draft].map((_, index) => draft.slice(0, index + 1)),
+    );
+    expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThan(100);
+    await expect(menu).toHaveCount(0);
 
     // Routing is shown before submission, never inferred.
     await expect(
@@ -164,6 +242,7 @@ test("a !! draft is routed locally and its run is recorded", async ({
     await expect(finished).toHaveCount(0);
   } finally {
     releaseResponse();
+    releaseEch();
     await drainManagedRoutes(page);
   }
 });

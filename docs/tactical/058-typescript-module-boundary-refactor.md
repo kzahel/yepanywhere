@@ -36,7 +36,8 @@ shared, and how risky it is to touch today.
    `MessageInput.tsx` (about 4,800) and `MessageInputToolbar.tsx` (about
    4,100) are where most UI work lands. Their size makes each change slow to
    review and easy to regress, including the keystroke-latency contract.
-   Phase 2 below holds the slice rows.
+   Phase 2 below holds the slice rows; slice 2.12 (the composer's bang
+   completion state) landed 2026-11-07.
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -264,6 +265,7 @@ and props stable.
 | 2.10a | Done 2026-07-06 | Git diff large-preview admission guard | Add the server/client guard prerequisite before moving `GitStatusPage.tsx` diff preview components. | Server now returns bounded `previewSkipped` metadata before syntax highlighting oversized git previews; client also refuses to inject oversized highlighted HTML from older servers. |
 | 2.10 | Done 2026-07-06 | `GitStatusPage.tsx` diff preview module | Extract diff fetch/render preview components after large-diff admission guards are in place. | Moved diff preview fetch/render, modal, skipped-preview state, and low-level diff renderers into `GitStatusDiffPreview.tsx`; page keeps selected-file/action/untracked-folder state and owns route-retention writes. |
 | 2.11 | Done 2026-07-06 | `SessionPage.tsx` `/btw` sticky cards | Move sticky `/btw` footer-card JSX into a focused render component after slice 2.2 moved the orchestration hook. | Render-only follow-up to slice 2.2. `SessionPage.tsx` still owns composer routing and callback wiring; focused component tests cover actions and expanded transcript transfer. |
+| 2.12 | Done 2026-11-07 | `MessageInput.tsx` bang completion state | Move the `!!` completion menu's state and candidate fetch into a feature hook. | Moved `BangMenuItem`, `bangCompletionQueryKey`, the menu and candidate state and the debounced completion fetch into `hooks/useComposerBangCompletion.ts`; the keyboard handling, Tab completion, Ctrl+↑ history cycling and menu rendering that act on it stay in the composer. Move-only; `MessageInput.tsx` budget 4,781 -> 4,692. `bang-command.spec.ts` now measures, in the browser, that each keystroke of a bang draft shows within 100 ms while the completion menu is open and a fetch comes back between keys. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -307,10 +309,11 @@ owning behavior:
   Codex terminal-status construction are separate candidates. Queue persistence
   extends deferred slice 5.3; the other two need new Phase 5 rows and their own
   lifecycle/streaming tripwire review before movement.
-- `MessageInput.tsx`: bang completion/menu ownership and the recall drawer each
-  communicate with the composer through a narrow text/ref surface. Add separate
-  Phase 2 slices when either feature is next modified; preserve keyboard,
-  focus, undo, and measured toolbar behavior.
+- `MessageInput.tsx`: the recall drawer communicates with the composer
+  through a narrow text/ref surface. Add a Phase 2 slice when it is next
+  modified; preserve keyboard, focus, undo, and measured toolbar behavior.
+  The bang completion state moved in slice 2.12; its keyboard handling and
+  menu rendering stay in the composer with the slash menu's.
 - `clientSummaryState.ts`: session-id aliasing, record merge, and projection
   rewrites around `mergeRemappedSessionRecords` form a candidate remap module.
   It extends slice 3.2 only if the reducer update stays behavior-identical and
