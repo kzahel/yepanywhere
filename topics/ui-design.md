@@ -180,6 +180,20 @@ The playground's pages:
 No visual-regression test of the playground runs in CI. Screenshots are
 taken on demand.
 
+**Screen tour.** `pnpm -s design:tour --label before` captures the main
+screens (projects, a session, new session, the file viewer, source control
+and every settings section) in dark and light at 1000×600 and 375×812. It
+runs `e2e/tour/screen-tour.tour.ts` through `playwright.tour.config.ts`,
+which reuses the E2E suite's global setup: a freshly built client and an
+isolated server with the fixture profile, never the operator's YA. The
+relay is not started. Each capture is the viewport as a user first sees it,
+written through `recordUiCapture` into `.artifacts/design-tour/<label>/` and
+presented by the suite's teardown. `--grep settings` limits it to matching
+screens; an existing label directory is refused (exit 2) and a failed screen
+exits 3. The `.tour.ts` suffix keeps it out of the ordinary E2E run and CI.
+A control-family batch runs it before and after its swap to review the
+fallout side by side.
+
 **Mockup lifecycle.** A proposal mockup is temporary. Delete it in the change
 that implements or abandons the proposal; git history keeps it. Do not leave
 proposal fixtures checked in after the real UI ships. When the playground
