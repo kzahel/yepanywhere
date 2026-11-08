@@ -38,7 +38,8 @@ Defaults: `gpt-6.1-sol`, medium effort, one sample, identity only, three variant
 three-trial cap, 120 seconds per trial. `--samples` permits 1–3; declare a larger
 `--max-trials` for an expanded matrix. `--timeout-seconds` is a declared model-run
 budget, not a test-performance assertion. Variant order rotates per case/sample.
-`--out` selects local output, defaulting to ignored `tasks/agent-api-eval/`.
+`--out` selects local output, defaulting to `ya-agent-api-eval/` in the system
+temp directory.
 Do not point it at a shared or tracked directory. No model calls belong in CI.
 
 Local mode uses the installed Codex OSS/Ollama harness, default model

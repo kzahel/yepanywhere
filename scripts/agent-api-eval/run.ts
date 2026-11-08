@@ -143,7 +143,11 @@ async function main() {
   const out = resolve(
     option(
       "out",
-      `tasks/agent-api-eval/${new Date().toISOString().replace(/[:.]/g, "-")}`,
+      join(
+        tmpdir(),
+        "ya-agent-api-eval",
+        new Date().toISOString().replace(/[:.]/g, "-"),
+      ),
     ),
   );
   await mkdir(out, { recursive: true, mode: 0o700 });
