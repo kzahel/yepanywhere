@@ -106,7 +106,9 @@ Every page except an isolated state has a sidebar listing the layers and
 their specimens, with the current specimen's states expanded beneath it; its
 links keep the chosen theme filter and width. Below 760 px wide the sidebar
 becomes a drawer behind a **Pages** button, which closes on following a link,
-Escape or a tap outside it, and the theme columns stack.
+Escape or a tap outside it, and the theme columns stack. Specimens with
+`parameters.width: "fill"` (census and token pages) always stack their themes,
+and their rows wrap details under the name rather than narrowing a column.
 Each grid cell carries its own `data-theme`, so theme tokens resolve per cell.
 An isolated page marks `[data-design-ready]` once fonts load; a state still
 loading data marks an element `data-design-pending`, and capture waits for it

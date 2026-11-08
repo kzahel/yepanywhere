@@ -269,26 +269,31 @@ function UndefinedRow({
   found: Site[];
 }) {
   return (
-    <>
+    <div className={styles.undefinedRow}>
       <span className={styles.chip}>
         <span
           className={styles.chipFill}
           style={{ background: `var(${name})` }}
         />
       </span>
-      <code>{name}</code>
-      <span className={bare ? styles.noFallback : styles.value}>
-        {count} read{count === 1 ? "" : "s"}
-        {bare ? `, ${bare} without fallback` : ""}
-      </span>
-      <span className={styles.sites}>
-        {found
-          .slice(0, 3)
-          .map((site) => `${site.path}:${site.line}`)
-          .join("  ")}
-        {found.length > 3 ? `  +${found.length - 3} more` : ""}
-        {found.length === 0 ? "read from TypeScript only" : ""}
-      </span>
-    </>
+      <div className={styles.undefinedDetail}>
+        <div className={styles.undefinedHeading}>
+          <code>{name}</code>
+          <span className={bare ? styles.noFallback : styles.value}>
+            {count} read{count === 1 ? "" : "s"}
+            {bare ? `, ${bare} without fallback` : ""}
+          </span>
+        </div>
+        <ul className={styles.sites}>
+          {found.slice(0, 3).map((site) => (
+            <li key={`${site.path}:${site.line}`}>
+              {site.path}:{site.line}
+            </li>
+          ))}
+          {found.length > 3 ? <li>+{found.length - 3} more</li> : null}
+          {found.length === 0 ? <li>read from TypeScript only</li> : null}
+        </ul>
+      </div>
+    </div>
   );
 }

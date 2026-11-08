@@ -34,9 +34,16 @@
 
 .rows {
   display: grid;
-  grid-template-columns: minmax(10rem, max-content) minmax(0, 1fr);
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2);
+}
+
+/* Sample beside its details, which wrap underneath when the row is too
+   narrow for both, rather than squeezing either to a sliver. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-1) var(--space-4);
 }
 
 /* contain: a legacy class may position itself absolutely or fixed; keep
@@ -48,10 +55,13 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  flex: 0 0 12rem;
+  max-width: 100%;
   min-width: 0;
 }
 
 .meta {
+  flex: 1 1 16rem;
   display: grid;
   gap: 2px;
   min-width: 0;

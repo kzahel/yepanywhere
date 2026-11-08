@@ -80,13 +80,13 @@ export function CensusRow({
   note?: string;
 }) {
   return (
-    <>
+    <div className={styles.row}>
       <div className={styles.sample}>{sample}</div>
       <div className={styles.meta}>
         <code>{label}</code>
         <UsageCount className={counted} />
         {note ? <span>{note}</span> : null}
       </div>
-    </>
+    </div>
   );
 }

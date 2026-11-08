@@ -101,12 +101,27 @@
 
 .undefinedTable {
   display: grid;
-  grid-template-columns: 28px minmax(10rem, max-content) max-content minmax(
-      0,
-      1fr
-    );
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-3);
+}
+
+.undefinedRow {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+}
+
+.undefinedDetail {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.undefinedHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-3);
 }
 
 .undefinedTable code {
@@ -116,6 +131,12 @@
 }
 
 .sites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);

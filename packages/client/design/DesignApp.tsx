@@ -241,7 +241,14 @@ function GridPage({
       </header>
       <div
         className={styles.grid}
-        style={{ "--design-columns": themes.length } as CSSProperties}
+        style={
+          {
+            // Full-width pages (census, tokens) stack their themes: a third
+            // of the page is too narrow for their tables.
+            "--design-columns":
+              specimen.parameters.width === "fill" ? 1 : themes.length,
+          } as CSSProperties
+        }
       >
         {states.map((state) => (
           <section key={state.id} className={styles.row}>
