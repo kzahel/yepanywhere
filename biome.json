@@ -154,6 +154,16 @@
           "options": {
             "hooks": [
               {
+                "name": "useSessionComposerAttachments",
+                "stableResult": [
+                  "attachmentsRef",
+                  "draftAttachmentBatchIdRef",
+                  "draftAttachmentHydrationRef",
+                  "setUploadProgress",
+                  "pendingUploadsRef"
+                ]
+              },
+              {
                 "name": "useComposerSpeechState",
                 "stableResult": [
                   "speechState",

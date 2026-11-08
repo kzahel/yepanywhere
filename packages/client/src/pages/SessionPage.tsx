@@ -20,6 +20,7 @@ import { SessionIssuesProvider } from "../components/SessionIssuesLink";
 import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
 import { useProjectReclassifyMenu } from "../hooks/useProjectReclassifyMenu";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
+import { useSessionComposerAttachments } from "../hooks/useSessionComposerAttachments";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
 import { useSessionHeaderActions } from "../hooks/useSessionHeaderActions";
@@ -34,7 +35,6 @@ import type {
   ThinkingMode,
   ThinkingOption,
   TranscriptDisplayObject,
-  UploadedFile,
   UserQuestionAnswers,
 } from "@yep-anywhere/shared";
 import {
@@ -93,10 +93,7 @@ import { PendingToolWarning } from "../components/PendingToolWarning";
 import { Button, ButtonBase } from "../components/ui/Button";
 import { useQuestionAside } from "../hooks/useQuestionAside";
 import { useQuestionAsideSetting } from "../hooks/useQuestionAsideSetting";
-import type {
-  FullPaneComposerControls,
-  UploadProgress,
-} from "../components/MessageInput";
+import type { FullPaneComposerControls } from "../components/MessageInput";
 import type {
   ChosenNewSessionQueueTarget,
   NewSessionQueueTarget,
@@ -169,10 +166,6 @@ import {
 } from "../lib/draftAttachmentStaging";
 import { draftTextIsAccountedFor } from "../lib/draftSendReconcile";
 import {
-  hasAttachmentNavigationRisk,
-  useAttachmentNavigationGuard,
-} from "../lib/attachmentNavigationGuard";
-import {
   type StreamingMarkdownCallbacks,
   useSession,
 } from "../hooks/useSession";
@@ -235,7 +228,6 @@ import {
   collectComposerAttachmentsForSubmission as collectComposerAttachmentsForSubmissionHelper,
   createComposerDraftAttachmentState,
   insertComposerTransferText,
-  materializeComposerAttachmentsForSubmission,
 } from "../lib/sessionComposerSubmission";
 import { createSessionComposerSend } from "../lib/sessionComposerSend";
 import {
@@ -262,7 +254,6 @@ import {
   resolveComposerDoneTarget,
   resolveComposerSessionOperation,
 } from "../lib/slashCommands";
-import { generateUUID } from "../lib/uuid";
 import { loadMessageListModule } from "../lib/sessionRouteModules";
 
 const LazyMessageList = lazy(() =>
@@ -1061,12 +1052,6 @@ function SessionPageContent({
       navigate({ search: params.toString() });
     },
   });
-  // File attachment state
-  const [attachments, setAttachmentsState] = useState<ComposerAttachment[]>([]);
-  const attachmentsRef = useRef<ComposerAttachment[]>([]);
-  const draftAttachmentBatchIdRef = useRef<string | null>(null);
-  const draftAttachmentHydrationRef = useRef(0);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const composerDraftSignal = useMemo(() => {
     void sessionId;
     return createComposerDraftSignal();
@@ -1084,20 +1069,26 @@ function SessionPageContent({
     [transcriptPositionStore],
   );
   const [attachmentQuality] = useAttachmentUploadQuality();
-  useEffect(() => {
-    composerEditAvailabilityStore.setExternalBlockers(
-      attachments.length > 0,
-      uploadProgress.length > 0,
-    );
-  }, [
-    attachments.length,
+  const {
+    attachments,
+    attachmentsRef,
+    draftAttachmentBatchIdRef,
+    draftAttachmentHydrationRef,
+    uploadProgress,
+    setUploadProgress,
+    pendingUploadsRef,
+    setComposerAttachments,
+    ensureDraftAttachmentBatchId,
+    materializeComposerAttachments,
+  } = useSessionComposerAttachments({
     composerEditAvailabilityStore,
-    uploadProgress.length,
-  ]);
-  // Track in-flight upload promises so handleSend can wait for them
-  const pendingUploadsRef = useRef<
-    Map<string, Promise<ComposerAttachment | null>>
-  >(new Map());
+    draftControlsRef,
+    preCorrectionDraftRef,
+    projectId,
+    sessionId,
+    sourceTransport,
+  });
+
   const updateTranscriptDisplayObjectsForSession = useCallback(
     (
       targetSessionId: string,
@@ -1133,97 +1124,6 @@ function SessionPageContent({
     lastSentComposerSubmissionRef.current = submission;
     lastComposerSubmissionRef.current = submission;
   }, []);
-
-  const stagedComposerAttachmentRefs = attachments
-    .filter(isComposerStagedAttachment)
-    .map(toPersistedStagedAttachmentRef);
-  const attachmentNavigationGuardActive = hasAttachmentNavigationRisk({
-    pendingUploadCount: uploadProgress.length,
-    transientAttachmentCount: 0,
-    stagedRefs: stagedComposerAttachmentRefs,
-    draftState: draftControlsRef.current?.getAttachmentState() ?? null,
-  });
-  useAttachmentNavigationGuard(attachmentNavigationGuardActive);
-
-  const writeDraftAttachmentState = useCallback(
-    (nextAttachments: readonly ComposerAttachment[]) => {
-      const draftState = createComposerDraftAttachmentState(nextAttachments);
-      if (!draftState) {
-        draftAttachmentBatchIdRef.current = null;
-        draftControlsRef.current?.setAttachmentState(null);
-        return;
-      }
-
-      draftAttachmentBatchIdRef.current = draftState.batchId;
-      draftControlsRef.current?.setAttachmentState(draftState);
-    },
-    [],
-  );
-
-  const setComposerAttachments = useCallback(
-    (
-      updater:
-        | ComposerAttachment[]
-        | ((previous: readonly ComposerAttachment[]) => ComposerAttachment[]),
-      options?: {
-        persistDraft?: boolean;
-        revokeRemovedPreviewUrls?: boolean;
-      },
-    ) => {
-      const previous = attachmentsRef.current;
-      const next = typeof updater === "function" ? updater(previous) : updater;
-
-      if (options?.revokeRemovedPreviewUrls) {
-        const nextIds = new Set(next.map((attachment) => attachment.id));
-        revokeAttachmentPreviewUrls(
-          previous.filter((attachment) => !nextIds.has(attachment.id)),
-        );
-      }
-
-      attachmentsRef.current = next;
-      setAttachmentsState(next);
-      if (options?.persistDraft !== false) {
-        writeDraftAttachmentState(next);
-      }
-    },
-    [writeDraftAttachmentState],
-  );
-
-  useEffect(() => {
-    return () => {
-      revokeAttachmentPreviewUrls(attachmentsRef.current);
-      revokeAttachmentPreviewUrls(
-        preCorrectionDraftRef.current?.attachments ?? [],
-      );
-    };
-  }, []);
-
-  const ensureDraftAttachmentBatchId = useCallback(() => {
-    const existing =
-      draftControlsRef.current?.getAttachmentState()?.batchId ??
-      draftAttachmentBatchIdRef.current;
-    if (existing) {
-      draftAttachmentBatchIdRef.current = existing;
-      return existing;
-    }
-    const batchId = generateUUID();
-    draftAttachmentBatchIdRef.current = batchId;
-    return batchId;
-  }, []);
-
-  const materializeComposerAttachments = useCallback(
-    async (
-      composerAttachments: readonly ComposerAttachment[],
-    ): Promise<UploadedFile[]> => {
-      return materializeComposerAttachmentsForSubmission({
-        attachments: composerAttachments,
-        sourceTransport,
-        projectId,
-        sessionId,
-      });
-    },
-    [sourceTransport, projectId, sessionId],
-  );
 
   const supportsManualCompact =
     status.owner === "self" &&

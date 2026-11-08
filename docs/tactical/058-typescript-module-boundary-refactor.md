@@ -324,6 +324,7 @@ and props stable.
 | 2.41 | Done 2026-11-08 | `SessionPage.tsx` composer footer | Move the page's `<footer>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 5). | Move-only: the footer element moves verbatim into `components/SessionComposerFooter.tsx`, rendered where it stood, with the composer's `lazy()` wrapper, its only user; the shared module fallback moves to `components/SessionRouteModuleFallback.tsx`. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and two trailing commas the formatter dropped. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged; the composer stays in its own lazy chunk. Budget `SessionPage.tsx` 4,262 -> 3,909; the component is 799 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.42 | Done 2026-11-08 | `MessageInput.tsx` send routes | Give the message box one send route ([plan 184](184-message-box-send-routes.md) slice 1). | Not move-only, under plan 184: the eight send functions become one synchronous `deliver(route)`, with its decisions in `lib/composerDelivery.ts` (unit-tested), and the differences between the copies that had no reason behind them unified (plan 184 C1 to C9: fork mode delivers only forks; a press that cannot deliver sets nothing aside; `!!` runs from every route but the forks and a bare `!!` does nothing; empty text is never prefixed; a dictated draft keeps its whole route and comes back if refused; voice auto-send takes the main action's route). Budget `MessageInput.tsx` 4,023 -> 3,616; the decisions module is 200 lines. Tier 3, plus plan 184's slice 0 pins. |
 | 2.43 | Done 2026-11-08 | `MessageInput.tsx` delivery hook | Move the message box's delivery into a feature hook ([plan 184](184-message-box-send-routes.md) slice 2). | Move-only apart from parameters: `deliver`, setting a dictated draft aside and replaying or restoring it, the question aside submission, the touch delivery handlers and voice auto-send move into `hooks/useComposerDelivery.ts`, called where the delivery stood, before `useComposerSpeechHandlers`. The five refs only delivery uses move with it; 42 box values become inputs of the same names. Dependency lists gain only refs and setters that became inputs. Budget `MessageInput.tsx` 3,616 -> 3,185; the hook is 675 lines. Tier 3, plus plan 184's slice 0 pins. |
+| 2.44 | Done 2026-11-08 | `SessionPage.tsx` attachment state | Move the page's composer attachment state into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 1). | Move-only: the attachment list and its ref, upload progress, the in-flight uploads, the draft batch and hydration refs, the edit blocker, the navigation guard, the draft write, `setComposerAttachments`, the unmount preview cleanup, `ensureDraftAttachmentBatchId` and `materializeComposerAttachments` move verbatim into `hooks/useSessionComposerAttachments.ts`, called where the edit blocker stood, so the effects keep their order. The state moves later in the hook order; nothing between reads it. Two input refs joined three dependency lists, and a `biome.json` `stableResult` entry keeps the page's lists as they were. Budget `SessionPage.tsx` 3,903 -> 3,803; the hook is 179 lines. Tier 3, plus plan 187's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -466,6 +467,67 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.44 — Session Page Attachment State (Landed 2026-11-08, this commit)
+
+Move-only. [Plan 187](187-session-page-draft-hooks.md) slice 1.
+
+Moved to new `packages/client/src/hooks/useSessionComposerAttachments.ts`,
+as `useSessionComposerAttachments`, called where the edit-blocker effect
+stood, right after `attachmentQuality`:
+- `attachments`, `attachmentsRef`, `draftAttachmentBatchIdRef`,
+  `draftAttachmentHydrationRef` and `uploadProgress`, with their comment.
+  They moved later in the hook order, past the draft signal, the edit
+  availability and transcript position stores and `attachmentQuality`;
+  none of those reads them.
+- The edit-blocker effect and `pendingUploadsRef`.
+- The navigation guard, `writeDraftAttachmentState`,
+  `setComposerAttachments`, the unmount-only preview cleanup,
+  `ensureDraftAttachmentBatchId` and `materializeComposerAttachments`.
+- `updateTranscriptDisplayObjectsForSession` and `rememberSentSubmission`,
+  which stood between these, stay in the page after the call; they are
+  `useCallback`s. The moved effects keep their order, and no page effect
+  stood between them.
+- `SessionPage.tsx` 3,903 -> 3,803 lines; the hook is 179.
+
+Signature conversions (closure -> parameter):
+- The hook takes `composerEditAvailabilityStore`, `draftControlsRef`,
+  `preCorrectionDraftRef` (until slice 2 moves the pre-correction cleanup),
+  `projectId`, `sessionId` and `sourceTransport`. It returns the five
+  state values and refs, `setUploadProgress`, `pendingUploadsRef`,
+  `setComposerAttachments`, `ensureDraftAttachmentBatchId` and
+  `materializeComposerAttachments`; `writeDraftAttachmentState` stays
+  inside.
+- Dependency lists gain only input refs: `draftControlsRef` in
+  `writeDraftAttachmentState` and `ensureDraftAttachmentBatchId`, and
+  `preCorrectionDraftRef` in the unmount cleanup. Refs keep their
+  identity, so nothing is rebuilt more often and the cleanup still runs
+  only on unmount.
+- `biome.json` declares the hook's returned refs and setter
+  (`attachmentsRef`, `draftAttachmentBatchIdRef`,
+  `draftAttachmentHydrationRef`, `setUploadProgress`,
+  `pendingUploadsRef`) stable, as `useComposerSpeechState`'s are, so the
+  page code that reads them keeps its dependency lists.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice apart from one server test,
+  `claude-gateway-launcher.test.ts` "pins localhost to the address family
+  that answers", which got the IPv4 address under load and passed 27 of
+  27 run alone. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 581 passed, 13 skipped, 4 failed:
+  `artifact-viewer.spec.ts:136`, the known failure recorded in the
+  artifact viewer gap; `router-pools.spec.ts:25` and
+  `router-recovery.spec.ts:27`, which find a 32 px button where they
+  expect at least 38; and `session-page-header-paths.spec.ts:496`, whose
+  account chip no longer opens the Info tab. The last three fail the
+  same way run alone at `558f978dd`, which was origin/main then, without
+  this plan's commits. Plan 187's slice 0 pins pass at this commit.
+- A script compared the moved lines with the hook's body, whitespace
+  aside: the only differences are the three dependency entries above.
 
 ### Slice 2.43 — Message Box Delivery Hook (Landed 2026-11-08, this commit)
 
