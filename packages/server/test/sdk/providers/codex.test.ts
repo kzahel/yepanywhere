@@ -50,6 +50,7 @@ import {
 import * as codexApprovals from "../../../src/sdk/providers/codex-approvals.js";
 import * as codexItemConversion from "../../../src/sdk/providers/codex-item-conversion.js";
 import * as codexLiveEventConversion from "../../../src/sdk/providers/codex-live-event-conversion.js";
+import * as codexThreadParams from "../../../src/sdk/providers/codex-thread-params.js";
 import {
   CODEX_LIVE_TOOL_OUTPUT_HEAD_CHARS,
   CODEX_LIVE_TOOL_OUTPUT_TAIL_CHARS,
@@ -6650,7 +6651,7 @@ describe("CodexProvider Event Normalization", () => {
   });
 
   it("pairs every turn approval override with its native sandbox policy", () => {
-    const provider = createTestProvider() as unknown as {
+    const provider = codexThreadParams as unknown as {
       normalizePermissionMode: (permissionMode?: string) => string;
       mapPermissionModeToThreadPolicy: (permissionMode?: string) => {
         approvalPolicy: string;
@@ -6785,10 +6786,6 @@ describe("CodexProvider Event Normalization", () => {
 
   it("builds stable thread policy params with limited history", () => {
     const provider = createTestProvider() as unknown as {
-      mapPermissionModeToThreadPolicy: (permissionMode?: string) => {
-        approvalPolicy: string;
-        sandbox: string;
-      };
       createThreadStartParams: (
         options: { model?: string; cwd: string },
         policy: {
@@ -6797,8 +6794,14 @@ describe("CodexProvider Event Normalization", () => {
         },
       ) => Record<string, unknown>;
     };
+    const threadParams = codexThreadParams as unknown as {
+      mapPermissionModeToThreadPolicy: (permissionMode?: string) => {
+        approvalPolicy: string;
+        sandbox: string;
+      };
+    };
     const bypassPolicy =
-      provider.mapPermissionModeToThreadPolicy("bypassPermissions");
+      threadParams.mapPermissionModeToThreadPolicy("bypassPermissions");
 
     const start = provider.createThreadStartParams(
       { model: "gpt-5.2-codex", cwd: "/tmp" },

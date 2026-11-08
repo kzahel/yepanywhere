@@ -60,7 +60,8 @@ shared, and how risky it is to touch today.
    Separating protocol IO from normalization makes those refreshes smaller and
    easier to verify. Phase 4 below holds the slice rows. On 2026-11-08
    slices 4.4 (live event conversion), 4.7 (failure trace), 4.8 (approvals)
-   and 4.1 (app-server client) took `codex.ts` from 8,235 to 4,621 lines.
+   and 4.1 (app-server client), then 4.10 (thread policy and skill input),
+   took `codex.ts` from 8,235 to 4,321 lines.
    Row 4.9 is the higher-value lifecycle change and needs its own plan: most
    of the file's recent churn sits in the session controls and the turn
    loop, not in the code that moved.
@@ -400,7 +401,8 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 | 4.6 | Done 2026-07-06 | OpenCode provider model helpers | Move OpenCode model selection, local-GLM model descriptions, and verbose variant parsing. | Provider process/HTTP/SSE orchestration and message conversion stayed in `opencode.ts`; no Claude/OpenCode shared abstraction introduced. |
 | 4.7 | Done 2026-11-08 | Codex failure trace | Move the failure-trace recorder, snapshot/format helpers and the notification/SDK-message trace descriptions (`recordCodexFailureTraceEvent` through `previewTraceString`) into `codex-failure-trace.ts`. | 368 lines. They use no provider state; besides each other, the trace constants and interfaces that move with them, and the `codex-notification-guards.ts` guards, they read only the conversion modules' `getOptionalString`, `normalizeStatus`, `extractErrorRecord`, `extractOpenAIRequestId` and `stringifyTraceValue`. `runSession` imports the recorder, snapshot, format and describe functions and the `CodexFailureTrace` type. Move-only, Tier 1 plus the Codex provider tests. |
 | 4.8 | Done 2026-11-08 | Codex approvals | Move `handleServerRequestApproval`, the approval decision/permission-response helpers and the approval request param guards (`as*RequestApprovalParams`, `asToolRequestUserInputParams`) into `codex-approvals.ts`. | 519 lines. `normalizePermissionMode` stays in `codex.ts`; the `permissionMode` default that called it became a required parameter (the permitted dependency-parameter conversion), since every caller already passed it. The `codex.ts` `log` wrapper moved verbatim to `codex-log.ts` so both modules log as `codex-provider`. The guards were left out of slice 4.3 on purpose and belong here. The Codex approval tests pin the decisions. |
-| 4.9 | Needs plan | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). Tier 3. |
+| 4.9 | Needs plan | Codex session lifecycle | Replace the closure bag that `startSessionInternal` returns (abort, model/effort, steer, interrupt, goal/status/usage/compact commands) with an explicit Codex session object, and split `runSession` into setup, turn consumer and message loop. | Not a move-only slice: it changes how state is shared. Most of the file's churn since 2026-08 is in these two regions (goals, reload survival, liveness probes, stale-turn rejection, overload retry). Write a plan doc first. It should build on the existing `AgentSession`/provider-owner seam, not add a new normalized event vocabulary (see `docs/competitive/t3code-provider-architecture.md`). The config-dependent thread and turn param builders (`buildThreadConfigOverrides`, `createThreadStartParams`/`ResumeParams`/`ForkParams`, `createTurnStartParams`) and the recap/fork-summary helpers stayed in `codex.ts` after slice 4.10 because they read provider configuration getters, the model cache and the provider's own app-server setup; the session object should own that configuration. Tier 3. |
+| 4.10 | Done 2026-11-08 | Codex thread policy and skill input | Move the pure thread/turn policy helpers and fork-anchor resolution to `codex-thread-params.ts`, and slash-command and skill-input assembly to `codex-skill-inputs.ts`. | 223 and 102 lines. They read no provider state. `refreshCodexSkills` stays because `codex-dynamic-results.test.ts` stubs it on the provider; `startOrResumeThread` and `createInitializeParams` stay with the app-server setup. Move-only, Tier 1 plus the Codex provider tests. |
 
 ## Phase 5: Load-Bearing Supervisor And Process Files
 
@@ -597,6 +599,64 @@ Follow-ups recorded:
 - Plan 184 lists one open question (a Project Queue new session aimed at
   another project runs a `!!` draft in this session's project) and K4 (a
   set-aside `!!` command that fails is not restored).
+
+### Slice 4.10 — Codex Thread Policy And Skill Input (Landed 2026-11-08, this commit)
+
+Moved:
+- Thread and turn policy -> new
+  `packages/server/src/sdk/providers/codex-thread-params.ts`:
+  `CODEX_POLICY_OVERRIDES`, `CodexThreadPolicy`, `normalizePermissionMode`,
+  `mapPermissionModeToThreadPolicy`, `mapThreadSandboxToTurnSandbox`,
+  `buildThreadPermissionParams`, `buildTurnPermissionParams` and
+  `limitedUserThreadInstructions`; and fork-anchor resolution:
+  `CodexThreadTurn`, `CodexForkAnchor`, `resolveCodexForkLastTurnId`,
+  `computeCodexForkLastTurnId`, `findCodexForkAnchor` and
+  `codexItemMatchesForkAnchor`.
+- Slash-command and skill input -> new `codex-skill-inputs.ts`:
+  `CODEX_DESKTOP_BROWSER_SKILL_NAME`, `createCodexSlashCommands` and
+  `createCodexUserInputs`.
+- Neither module imports `codex.ts`; the thread module imports the client
+  type and `getOptionalString`. `codex.ts` went from 4,621 to 4,321 lines.
+- Scoped down from the planned "thread/turn params and recap" slice. The
+  builders that assemble thread config (`buildThreadConfigOverrides`,
+  `createThreadStartParams`, `createThreadResumeParams`,
+  `createThreadForkParams`, `createTurnStartParams`) read three provider
+  configuration getters and `mapEffortToReasoningEffort`, which reads the
+  model cache. About 70 test references reach them through a provider whose
+  getters the test configured. Passing that configuration in would rewrite
+  those tests and drop the getter-wiring coverage. The recap and fork-summary
+  helpers start their own app-server through provider methods. Both stay for
+  row 4.9. `refreshCodexSkills` stays because `codex-dynamic-results.test.ts`
+  replaces it with `vi.spyOn(provider, ...)` during `runSession`.
+
+Signature conversions:
+- None. The 12 moved private methods became module functions with `this.`
+  and `provider.` dropped. A whitespace-insensitive comparison of every moved
+  block with its original matches once `this.`, `private`, `export`,
+  `function` and formatter trailing commas are ignored.
+- In `codex.test.ts`, the "pairs every turn approval override" test casts the
+  `codexThreadParams` namespace, because all three members it lists moved.
+  The "builds stable thread policy params" test keeps its provider cast for
+  `createThreadStartParams` and reaches `mapPermissionModeToThreadPolicy`
+  through a namespace cast with the same declared type. No assertion changed.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 1: server `tsc --noEmit` (`tsconfig.json`,
+  `tsconfig.tool-display-tests.json`); `tsconfig.test.json` shows no new
+  errors in the touched files (the two existing `codex.test.ts` errors
+  remain); file-scoped `node scripts/biome.cjs check`; `git diff --check`;
+  the slice 4.7 focused `vitest` set plus
+  `test/provider-runtime-settings.test.ts`: 72 files, 1,091 passed, 10
+  skipped.
+- Also ran `pnpm lint`, `pnpm format:check` and `pnpm typecheck`: passed.
+- `pnpm source:budgets --record` lowered `codex.ts` to 4,321.
+
+Follow-ups recorded:
+- Row 4.9 now names the config-dependent builders and recap helpers that
+  stayed.
 
 ### Slice 4.1 — Codex App-Server Client (Landed 2026-11-08, this commit)
 
