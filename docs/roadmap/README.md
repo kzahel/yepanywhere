@@ -1052,10 +1052,13 @@ deletes the checked-in feature mockups and gives proposal scenes an
 owner-bound lifecycle check. Scenes receive server data through injected
 services, alongside the ongoing client refactor. There are no visual tests in
 CI. The [UI design topic](../../topics/ui-design.md#shared-controls-and-the-design-playground)
-owns the contract. Steps 1 to 3 landed on 2026-11-08: the dev-only playground
-with `design:index`/`design:shot`, the token page, a `css:check` limit on
-undefined custom properties, and the button and switch census. The census
-mapping awaits maintainer review before the `Switch` and `Button` migrations.
+owns the contract. The dev-only playground with `design:index`/`design:shot`,
+the token page, a `css:check` limit on undefined custom properties, and the
+button and switch census landed on 2026-11-08. The plan was then rewritten to
+unify one control family at a time as a quick cut (census, build, swap every
+use, delete the old CSS including global rules, ban the old way), accepting
+design changes. Buttons come first; composer controls get their own later
+pass.
 
 ## Later directions
 

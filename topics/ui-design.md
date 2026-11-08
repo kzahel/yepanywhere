@@ -61,20 +61,20 @@ depend on a higher one:
 
 **Unification rules.**
 
-- Each control's variants are chosen from a census page: every legacy
-  variant rendered next to the proposed canonical set, reviewed by the
-  maintainer before migration. The legacy-to-variant mapping lives in
-  `packages/client/design/census/mapping.ts`, and migration follows it. Its
-  rows are proposals until the maintainer confirms them there.
-- Migration may change appearance slightly toward the canonical variant; it
-  is not a pixel-identical refactor. Deliberate restyling (radius, shadow,
-  density) happens afterwards in the shared controls and tokens, not per
-  feature.
-- Once a shared control exists, new code uses it rather than raw markup or a
-  new feature-local class. A count-only ratchet will hold the legacy
-  patterns (`toggle-switch` markup, `settings-button*`/`btn*` classes,
-  `createPortal` outside `components/ui/`, hand-written outside-click
-  listeners) so they can only decrease.
+- Control families are unified one at a time, each finished before the next:
+  census, build the shared control, swap every use, delete the old CSS, ban
+  the old way. The plan owns the order; composer controls are excluded until
+  their own pass.
+- Each family's variants are chosen from its census page: every legacy
+  variant rendered next to the proposed canonical set. The
+  legacy-to-variant mapping lives in `packages/client/design/census/`, and
+  the swap follows it.
+- A swap adopts the canonical variant even where the old style differed;
+  design changes are accepted and fallout is fixed as noticed. It is a quick
+  cut in a few area-sized commits, not an opportunistic burn-down.
+- A legacy class whose uses reach zero has its rules deleted in the same
+  slice, global stylesheets included. Once a family is swept, lint rejects
+  its old classes outright, and new code uses the shared control.
 
 **Playground.** `packages/client/design.html` is a separate entry served by
 the Vite dev server, so it opens at `/design.html` on the YA dev port (local

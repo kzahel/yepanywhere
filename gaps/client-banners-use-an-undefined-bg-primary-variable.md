@@ -35,6 +35,7 @@ On 2026-11-08 `pnpm css:check` began freezing every undefined custom property
 at its recorded read count (68 for `--bg-primary`, 65 without a fallback), so
 the use can no longer grow. The design playground's token page
 (`/design.html#/tokens--undefined` on the dev server) lists each name with its
-sites, and is the place to compare themes when settling them;
+sites, and is the place to compare themes when settling them. The
+undefined-token pass in
 [plan 182](../docs/tactical/182-design-playground-and-shared-controls.md)
-step 13 owns that work.
+owns that work.

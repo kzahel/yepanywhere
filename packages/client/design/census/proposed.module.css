@@ -1,7 +1,7 @@
 /*
  * Proposed canonical controls, shown beside the legacy variants they would
- * replace. These are census prototypes, not shared controls: the chosen
- * variants move into src/components/ui/ (plan 182, steps 5 and 6), and this
+ * replace. These are census prototypes, not shared controls: each family's
+ * variants move into src/components/ui/ in its plan 182 slice, and this
  * file shrinks as they do. Values come from the most-used legacy family so
  * the census compares like with like.
  */
