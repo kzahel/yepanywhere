@@ -205,10 +205,16 @@ that the rewritten provider tests used to give.
 - About 70 test references currently call these through a provider whose
   getters the test set. They change to call the module with a literal
   config source. One remaining test proves that the provider setters reach
-  the source (see the open questions).
+  the source (see the decisions).
 - `codex.ts`: about −260 lines.
 
 ### 3. Session object for the controls
+
+Landed 2026-11-09 as 058 slice 4.9.3. `codex.ts` went from 3,740 to
+2,710 lines. Two departures from the text below: `runSession` kept its
+seven arguments until slice 5, so its one direct test is rewritten once;
+and the state that the session loop, the session and the commands share
+went to a small `codex-session-state.ts`.
 
 - Add `CodexSession`. The closure locals in 1232–1328 become fields.
 - Each `AgentSession` control becomes a method, and the four provider

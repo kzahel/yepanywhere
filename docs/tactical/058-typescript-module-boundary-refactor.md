@@ -473,6 +473,85 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Slice 4.9.3 — Codex session object for the controls (Landed 2026-11-09, this commit)
+
+[Plan 186](186-codex-session-lifecycle.md) slice 3.
+
+Moved:
+- The closure state of `startSessionInternal` (queue, abort controller,
+  runtime state, active client, provider-work tracker, goal command tail,
+  client latch, agentctl bridge, skill inventory) and the `AgentSession`
+  controls -> `class CodexSession` in new `codex-session.ts`. Each control
+  is a method; `toAgentSession()` returns the same literal: the same
+  members in the same order, the `pid` getter, the conditional
+  `mcpAppRequest` spread and `effortUpdatesActiveTurn: true`.
+  `updateActiveTurnSettings`, the client-publish callback and the iterator
+  wrapper are private methods.
+- `probeCodexLiveness` -> `CodexSession.probeLiveness()`; its two
+  formatters and `getCodexActiveTurnMismatchId` -> module functions in
+  `codex-session.ts`.
+- The `/goal`, `/status`/`/usage` and `/compact` bodies ->
+  `runCodexGoalCommand`, `runCodexAccountCommand` and
+  `startCodexCompaction` in new `codex-session-commands.ts`, with
+  `formatCodexGoalStatus`. They take a `CodexCommandSession` (options,
+  runtime state, `activeClient`, `initialActiveClient`), which the session
+  satisfies. Goal serialisation stays in the session's
+  `runProviderCommand`.
+- `CodexTurnRuntimeState`, `CodexSessionSkillInventory`,
+  `withCodexTimeout` and `ACCOUNT_RATE_LIMITS_TIMEOUT_MS` -> new
+  `codex-session-state.ts`, because the provider's session loop, the
+  session and the commands all use them. Not in plan 186's file table.
+
+Added:
+- `CodexSessionHost`: the config source, `getAvailableModels`,
+  `refreshCodexSkills`, `extractTextFromMessage` and `runSession`. The
+  provider builds it as `this.sessionHost` from arrows that call its
+  methods when invoked. `startSessionInternal` keeps its pre-checks and the
+  lease acquire, then constructs a `CodexSession` and returns
+  `toAgentSession()`. MCP App views and the steering mode are read there,
+  at start, as before.
+
+Substitutions in the moved bodies: closure locals -> `this.` fields
+(`activeClient` -> `this.client`), provider calls -> `this.host.`, and in
+the commands `session.` for the four context members. Where HEAD took a
+snapshot of the client (`updateActiveTurnSettings`, the background-terminal
+list, `probeLiveness`) the snapshot stays; every other read stays live.
+Bodies are otherwise identical to HEAD apart from indentation and formatter
+rewrapping.
+
+Deviation from plan 186: `runSession` keeps its seven arguments. The
+session passes its runtime state, skill inventory and two callbacks, so
+`codex-dynamic-results.test.ts`, the one direct caller, is rewritten once,
+in slice 5, when `runSession` becomes `CodexSession.run()`.
+
+Tests:
+- None changed. No test calls `startSessionInternal` or reached the
+  closure; the `startSession` tests against the fake app-server, the
+  slice-0 surface, compact-window, goal serialisation and
+  interrupt-during-backoff tests are the tripwire. Turning the `pid`
+  getter into a snapshot fails the surface test.
+- No test reaches the session host with a spy:
+  `codex-dynamic-results.test.ts` spies on `refreshCodexSkills` but calls
+  `runSession` directly, which does not go through the host. The host's
+  late binding is held by construction, not by a test.
+
+Behavior changes:
+- None. The pre-initialize command window
+  ([gap](../../gaps/codex-commands-before-initialize.md)) is unchanged here
+  and handled in its own commit.
+
+Verification:
+- Tier 3: server `tsc` (main and tool-display configs; `tsconfig.test.json`
+  has no new errors in the touched files), the Codex-focused vitest set
+  (75 files, 1,132 passed), `pnpm lint`, `pnpm format:check`,
+  `pnpm typecheck`, `pnpm test:providers` (22 passed, 1 skipped; all 11
+  Codex cases ran), `pnpm test:e2e:sdk` (80 passed, 4 skipped),
+  `git diff --check`, and a normalized check that every moved range of
+  HEAD appears in the new files once the declared substitutions are
+  undone.
+- Budget: `codex.ts` 3,740 -> 2,710. `codex-session.ts` is 852 lines,
+  `codex-session-commands.ts` 361, `codex-session-state.ts` 73.
+
 ### Slice 4.9.2 — Codex session config builders (Landed 2026-11-09, this commit)
 
 [Plan 186](186-codex-session-lifecycle.md) slice 2.

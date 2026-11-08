@@ -5,10 +5,7 @@ import { assertProviderForkSource } from "./types.js";
 import {
   MCP_APP_EXTENSION_ID,
   MCP_APP_EXTENSION_SETTINGS,
-  type McpAppProviderRequest,
   formatMcpAppModelContext,
-  PROVIDER_WORK_ITEM_LIMIT,
-  routerModelSupportsThinking,
 } from "@yep-anywhere/shared";
 import {
   codexRouterArguments,
@@ -35,11 +32,9 @@ import {
   DEFAULT_SUBAGENT_MAX_DEPTH,
   codexCyberAccessProgramWireValue,
   type CodexReasoningSummary,
-  type EffortLevel,
   hasInvocationCandidate,
   type ModelCatalogStatus,
   type ModelInfo,
-  type PermissionMode,
   type ProviderSubscriptionUsage,
   type SubagentMaxDepth,
   resolveTurnEffort,
@@ -60,60 +55,28 @@ import {
   isCodexCliAuthenticated,
 } from "../cli-detection.js";
 import { logSDKMessage } from "../messageLogger.js";
-import { MessageQueue } from "../messageQueue.js";
+import type { MessageQueue } from "../messageQueue.js";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
+import type { SDKMessage, UserMessage } from "../types.js";
 import type {
-  ProviderCommandResult,
-  ProviderLivenessProbeResult,
-  SDKMessage,
-  UserMessage,
-} from "../types.js";
-import type {
-  SkillMetadata,
   SkillsListParams,
   SkillsListResponse,
   ThreadForkResponse,
-  ThreadGoalClearParams,
-  ThreadGoalClearResponse,
-  ThreadGoalGetParams,
-  ThreadGoalGetResponse,
-  ThreadGoalSetParams,
   ThreadGoalSetResponse,
   InitializeCapabilities,
-  ListMcpServerStatusParams,
-  ListMcpServerStatusResponse,
-  McpResourceReadParams,
-  McpResourceReadResponse,
-  McpServerToolCallParams,
-  McpServerToolCallResponse,
-  ThreadReadParams,
-  ThreadReadResponse,
   ThreadCompactStartParams,
   ThreadCompactStartResponse,
   ThreadResumeResponse,
   ThreadStartParams,
   ThreadStartResponse,
-  TurnInterruptParams,
-  TurnInterruptResponse,
-  TurnSettingsUpdateParams,
-  TurnSettingsUpdateResponse,
   TurnStartResponse,
-  TurnSteerParams,
-  TurnSteerResponse,
 } from "./codex-protocol/index.js";
 import type { CyberAccessProgram } from "./codex-protocol/generated/v2/CyberAccessProgram.js";
 import type { TurnError } from "./codex-protocol/generated/v2/TurnError.js";
-import type { SandboxPolicy as CodexSandboxPolicy } from "./codex-protocol/generated/v2/SandboxPolicy.js";
 import {
   createLaunchAgentctlSessionEnvBridge,
   type AgentctlSessionEnvBridge,
 } from "./agentctl-session-env.js";
-import {
-  formatCodexStatusCommand,
-  formatCodexUsageCommand,
-  isCodexChatGptAccount,
-  parseCodexUsageView,
-} from "./codex-account-commands.js";
 import {
   type AppServerModel,
   getFallbackCodexModelsForCliVersion,
@@ -160,13 +123,19 @@ import {
   recordCodexFailureTraceEvent,
   snapshotCodexFailureTrace,
 } from "./codex-failure-trace.js";
-import { CodexProviderWorkTracker } from "./codex-provider-work.js";
 import {
   generateForkBackedSummary,
   generateSideSessionRecap,
   handleForkServerRequest,
 } from "./codex-helper-threads.js";
 import type { CodexProviderHost } from "./codex-provider-host.js";
+import { CodexSession, type CodexSessionHost } from "./codex-session.js";
+import {
+  ACCOUNT_RATE_LIMITS_TIMEOUT_MS,
+  type CodexSessionSkillInventory,
+  type CodexTurnRuntimeState,
+  withCodexTimeout,
+} from "./codex-session-state.js";
 import {
   type CodexConfigSource,
   type CodexThreadResumeParamsForRequest,
@@ -187,11 +156,7 @@ import type {
   SummaryGenerationRequest,
   SummaryGenerationResult,
 } from "./types.js";
-import {
-  agentServerEnvironmentFor,
-  agentApiEnvironmentFor,
-  inactiveProviderSessionOptionsResult,
-} from "./types.js";
+import { agentServerEnvironmentFor, agentApiEnvironmentFor } from "./types.js";
 import {
   getOptionalString,
   isResultBackedThreadItem,
@@ -209,22 +174,8 @@ import {
 import type { JsonRpcNotification, JsonRpcResponse } from "./codex-json-rpc.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
 
-function formatCodexGoalStatus(
-  status: ThreadGoalSetResponse["goal"]["status"],
-): string {
-  switch (status) {
-    case "usageLimited":
-      return "Goal usage limited";
-    case "budgetLimited":
-      return "Goal budget limited";
-    default:
-      return `Goal ${status}`;
-  }
-}
-
 const MODEL_CACHE_TTL_MS = 60 * 60 * 1000;
 const MODEL_LIST_TIMEOUT_MS = 8000;
-const ACCOUNT_RATE_LIMITS_TIMEOUT_MS = 8000;
 const APP_SERVER_INIT_REQUEST_ID = 1;
 const APP_SERVER_MODEL_LIST_REQUEST_ID = 2;
 const CODEX_SERVER_OVERLOAD_RETRY_LIMIT = 16;
@@ -311,26 +262,6 @@ async function resolveCodexSteering(
   };
 }
 
-async function withCodexTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  label: string,
-): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(
-      () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
-      timeoutMs,
-    );
-    timeout.unref?.();
-  });
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
 /**
  * When enabled, declare Codex session originator as "Codex Desktop" when
  * initializing app-server sessions. Disabled by default so we report
@@ -349,40 +280,6 @@ export function formatCodexLoginCommand(
   return formatExecutableInvocation(trimmedPath, "login", platform);
 }
 const YEP_ANYWHERE_ORIGINATOR = "yep-anywhere";
-
-interface CodexTurnRuntimeState {
-  steeringMode?: import("@yep-anywhere/shared").SteeringMode;
-  threadId: string;
-  goalObjective?: string | null;
-  goalStatus?: ThreadGoalSetResponse["goal"]["status"] | null;
-  resolvedModel: string;
-  turnModelOverride: string | null;
-  latestTokenUsage?: TokenUsageSnapshot;
-  activeTurnId: string | null;
-  pendingTurnStart: Promise<string | null> | null;
-  pendingCompaction?: {
-    retryAttempt: number;
-    requestAccepted: Promise<boolean>;
-  };
-  overloadRetryController?: AbortController;
-  /** Signed-in account identity that scopes cyber access denials. */
-  cyberAccessAccountKey?: string;
-  activePermissionMode: PermissionMode;
-  turnEffortOverride: EffortLevel | null | undefined;
-  activeTurnHasEffortOverride?: boolean;
-  /** Launch tier, or the live selection; null is an explicit Standard. */
-  serviceTier: string | null | undefined;
-  workspaceWriteSandboxPolicy: CodexSandboxPolicy | null;
-  activeToolCallIds: Set<string>;
-  backgroundToolCallIds: Set<string>;
-  /** MCP App hosting as configured when this session's app-server started. */
-  mcpAppViews: boolean;
-  /** Latest `ui/update-model-context` per MCP App view, sent before the next turn. */
-  mcpAppModelContext: Map<
-    string,
-    { server: string; tool: string; text: string }
-  >;
-}
 
 type CodexRetryableTurnErrorKind = "capacityUnavailable" | "cyberAccessDenied";
 
@@ -508,28 +405,6 @@ function getCodexNotificationTurnStartedAt(
     : null;
 }
 
-function getCodexActiveTurnMismatchId(error: unknown): string | null {
-  const message = error instanceof Error ? error.message : String(error);
-  const quotedPrefix = "expected active turn id `";
-  const quotedSeparator = "` but found `";
-  if (message.startsWith(quotedPrefix)) {
-    const found = message.slice(quotedPrefix.length).split(quotedSeparator)[1];
-    if (found?.endsWith("`")) return found.slice(0, -1) || null;
-  }
-
-  const plainPrefix = "expected active turn id ";
-  const plainSeparator = " but found ";
-  if (message.startsWith(plainPrefix)) {
-    return message.slice(plainPrefix.length).split(plainSeparator)[1] || null;
-  }
-  return null;
-}
-
-interface CodexSessionSkillInventory {
-  skills: SkillMetadata[];
-  stale: boolean;
-}
-
 /**
  * Configuration for Codex provider.
  */
@@ -609,6 +484,35 @@ export class CodexProvider implements AgentProvider {
     planToolMode: () => this.getConfiguredPlanToolMode(),
     subagentMaxDepth: () => this.getConfiguredSubagentMaxDepth(),
     cachedModels: () => this.modelCache?.models,
+  };
+  /**
+   * Provider services for sessions, called through at call time so the
+   * settings setters and test spies still take effect.
+   */
+  private readonly sessionHost: CodexSessionHost = {
+    configSource: this.configSource,
+    getAvailableModels: () => this.getAvailableModels(),
+    refreshCodexSkills: (appServer, cwd, inventory, forceReload) =>
+      this.refreshCodexSkills(appServer, cwd, inventory, forceReload),
+    extractTextFromMessage: (message) => this.extractTextFromMessage(message),
+    runSession: (
+      options,
+      queue,
+      signal,
+      runtimeState,
+      setActiveClient,
+      setAgentctlSessionEnvBridge,
+      skillInventory,
+    ) =>
+      this.runSession(
+        options,
+        queue,
+        signal,
+        runtimeState,
+        setActiveClient,
+        setAgentctlSessionEnvBridge,
+        skillInventory,
+      ),
   };
 
   constructor(config: CodexProviderConfig = {}) {
@@ -1156,828 +1060,14 @@ export class CodexProvider implements AgentProvider {
       await this.installationCoordinator.acquireRuntimeLease(
         CODEX_INSTALLATION_FAMILY,
       );
-    const queue = new MessageQueue();
-    const abortController = new AbortController();
-    const runtimeState: CodexTurnRuntimeState = {
-      steeringMode,
-      ...(options.routerLaunch
-        ? { cyberAccessAccountKey: `aar:${options.routerLaunch.accountId}` }
-        : {}),
-      threadId: options.resumeSessionId ?? "",
-      resolvedModel: options.model ?? "default",
-      turnModelOverride: options.model ?? null,
-      activeTurnId: null,
-      pendingTurnStart: null,
-      activePermissionMode: normalizePermissionMode(options.permissionMode),
-      turnEffortOverride: options.effort,
-      serviceTier: options.serviceTier || undefined,
-      workspaceWriteSandboxPolicy: null,
-      activeToolCallIds: new Set(),
-      backgroundToolCallIds: new Set(),
-      mcpAppViews: this.getMcpAppViews(),
-      mcpAppModelContext: new Map(),
-    };
-
-    // Push initial message if provided
-    if (options.initialMessage) {
-      queue.push(options.initialMessage);
-    }
-
-    let activeClient: CodexAppServerClient | null = null;
-    const providerWork = new CodexProviderWorkTracker(
-      () => options.onProviderRetentionChange?.(),
-      async () => {
-        const client = activeClient;
-        const threadId = runtimeState.threadId;
-        if (!client || !threadId) return null;
-        return await withCodexTimeout(
-          client.request("thread/backgroundTerminals/list", {
-            threadId,
-            limit: PROVIDER_WORK_ITEM_LIMIT,
-          }),
-          5_000,
-          "Codex background terminal list",
-        );
-      },
-    );
-    let goalCommandTail: Promise<void> = Promise.resolve();
-    let resolveInitialActiveClient:
-      | ((client: CodexAppServerClient | null) => void)
-      | null = null;
-    const initialActiveClient = new Promise<CodexAppServerClient | null>(
-      (resolve) => {
-        resolveInitialActiveClient = resolve;
-      },
-    );
-    const settleInitialActiveClient = (
-      client: CodexAppServerClient | null,
-    ): void => {
-      resolveInitialActiveClient?.(client);
-      resolveInitialActiveClient = null;
-    };
-    let agentctlSessionEnvBridge: AgentctlSessionEnvBridge | null = null;
-    const skillInventory: CodexSessionSkillInventory = {
-      skills: [],
-      stale: true,
-    };
-    const sessionIterator = this.runSession(
+    const session = new CodexSession({
+      host: this.sessionHost,
       options,
-      queue,
-      abortController.signal,
-      runtimeState,
-      (client) => {
-        if (client !== activeClient) {
-          activeClient?.setNotificationObserver(null);
-          providerWork.reset();
-          client.setNotificationObserver((notification) =>
-            providerWork.observe(notification, runtimeState.threadId),
-          );
-        }
-        activeClient = client;
-        settleInitialActiveClient(client);
-      },
-      (bridge) => {
-        agentctlSessionEnvBridge = bridge;
-      },
-      skillInventory,
-    );
-    const iterator = (async function* () {
-      try {
-        yield* sessionIterator;
-      } finally {
-        settleInitialActiveClient(null);
-        await installationLease.release();
-      }
-    })();
-
-    const updateActiveTurnSettings = async (
-      settings: Pick<TurnSettingsUpdateParams, "model" | "effort">,
-    ): Promise<void> => {
-      const client = activeClient;
-      let turnId = runtimeState.activeTurnId;
-      if (!turnId && runtimeState.pendingTurnStart) {
-        turnId = await runtimeState.pendingTurnStart;
-      }
-      const threadId = runtimeState.threadId;
-      if (!client || !threadId || !turnId) return;
-
-      const response = await client.request<TurnSettingsUpdateResponse>(
-        "turn/settings/update",
-        {
-          threadId,
-          turnId,
-          ...settings,
-        } satisfies TurnSettingsUpdateParams,
-      );
-      if (response.status === "targetUnavailable") {
-        log.debug(
-          { threadId, turnId, settings },
-          "Codex active turn ended before its settings update; retaining the selection for the next turn",
-        );
-      }
-    };
-
-    return {
-      iterator,
-      queue,
-      abort: async () => {
-        settleInitialActiveClient(null);
-        if (
-          activeClient &&
-          runtimeState.threadId &&
-          runtimeState.activeTurnId
-        ) {
-          await withCodexTimeout(
-            activeClient.request<TurnInterruptResponse>("turn/interrupt", {
-              threadId: runtimeState.threadId,
-              turnId: runtimeState.activeTurnId,
-            } satisfies TurnInterruptParams),
-            750,
-            "Codex turn interrupt during shutdown",
-          ).catch((error) => {
-            log.debug(
-              { error, sessionId: runtimeState.threadId },
-              "Codex turn interrupt did not complete before shutdown",
-            );
-          });
-        }
-        abortController.abort();
-        await activeClient?.close();
-        await installationLease.release();
-      },
-      isProcessAlive: () => activeClient?.isAlive() ?? false,
-      getProviderRetention: () => providerWork.getSnapshot(),
-      getProviderActivity: () =>
-        activeClient?.getProviderActivity() ?? {
-          lastRawProviderEventAt: null,
-          lastRawProviderEventSource: null,
-        },
-      get pid() {
-        return activeClient?.pid;
-      },
-      probeLiveness: async () =>
-        this.probeCodexLiveness(activeClient, runtimeState),
-      publishAgentctlSessionId: (sessionId, browserDebugEnvironment) => {
-        agentctlSessionEnvBridge?.publishSessionId(
-          sessionId,
-          browserDebugEnvironment,
-        );
-      },
-      setEffort: async (effort) => {
-        if (effort === "max" && !options.routerLaunch)
-          await this.getAvailableModels();
-        if (runtimeState.activeTurnHasEffortOverride) {
-          runtimeState.turnEffortOverride = effort ?? null;
-          const model = (
-            options.routerLaunch
-              ? (options.routerLaunch.models ?? [])
-              : await this.getAvailableModels()
-          ).find((candidate) => candidate.id === runtimeState.resolvedModel);
-          await activeClient?.request("thread/settings/update", {
-            threadId: runtimeState.threadId,
-            effort:
-              mapEffortToReasoningEffort(
-                this.configSource,
-                effort,
-                options.thinking,
-                runtimeState.resolvedModel,
-                options.routerLaunch?.models,
-              ) ?? model?.defaultReasoningEffort,
-          });
-          return;
-        }
-        if (effort !== undefined) {
-          try {
-            await updateActiveTurnSettings({
-              effort: mapEffortToReasoningEffort(
-                this.configSource,
-                effort,
-                options.thinking,
-                runtimeState.turnModelOverride ?? runtimeState.resolvedModel,
-                options.routerLaunch?.models,
-              ),
-            });
-          } catch (error) {
-            if (
-              !(error instanceof Error) ||
-              !("jsonRpcCode" in error) ||
-              error.jsonRpcCode !== -32600
-            ) {
-              throw error;
-            }
-            // Live-turn restrictions do not reject the next turn's selection.
-            log.info(
-              {
-                threadId: runtimeState.threadId,
-                effort,
-                reason: error.message,
-              },
-              "Codex refused live effort update; retaining selection for the next turn",
-            );
-          }
-        }
-        runtimeState.turnEffortOverride = effort ?? null;
-      },
-      supportedModels: async () =>
-        options.routerLaunch
-          ? (options.routerLaunch.models ?? [])
-          : this.getAvailableModels(),
-      effortUpdatesActiveTurn: true,
-      setServiceTier: async (serviceTier) => {
-        const next = serviceTier || null;
-        // Thread settings apply from the next turn. Resume restores them only
-        // from Codex 0.164.0, so later turn/start requests carry the
-        // selection too.
-        if (activeClient && runtimeState.threadId) {
-          await activeClient.request("thread/settings/update", {
-            threadId: runtimeState.threadId,
-            serviceTier: next,
-          });
-        }
-        runtimeState.serviceTier = next;
-      },
-      setModel: async (model) => {
-        if (
-          options.routerLaunch?.models &&
-          !routerModelSupportsThinking(
-            options.routerLaunch.models.find((m) => m.id === model),
-            runtimeState.turnEffortOverride
-              ? `on:${runtimeState.turnEffortOverride}`
-              : "auto",
-          )
-        )
-          throw new Error("Model unavailable for the pinned account");
-        if (model !== undefined) {
-          await updateActiveTurnSettings({ model });
-        }
-        runtimeState.turnModelOverride = model ?? null;
-      },
-      setSessionOptions: async (requested) =>
-        inactiveProviderSessionOptionsResult(
-          requested,
-          "Codex app-server exposes explicit thread names but no automatic title, recap, progress-summary, or prompt-suggestion generator",
-        ),
-      supportedCommands: async () => {
-        if (activeClient) {
-          await this.refreshCodexSkills(
-            activeClient,
-            options.cwd,
-            skillInventory,
-            skillInventory.stale,
-          );
-          if (runtimeState.threadId) {
-            try {
-              const { goal } =
-                await activeClient.request<ThreadGoalGetResponse>(
-                  "thread/goal/get",
-                  {
-                    threadId: runtimeState.threadId,
-                  } satisfies ThreadGoalGetParams,
-                );
-              runtimeState.goalObjective = goal?.objective ?? null;
-              runtimeState.goalStatus = goal?.status ?? null;
-            } catch (error) {
-              log.debug({ error }, "Codex goal completion is unavailable");
-            }
-          }
-        }
-        return createCodexSlashCommands(
-          skillInventory.skills,
-          skillInventory.stale ? "stale" : "current",
-          runtimeState.goalObjective,
-          runtimeState.goalStatus,
-        );
-      },
-      appendConversationContext: async (turns) => {
-        if (!activeClient || !runtimeState.threadId) {
-          throw new Error("Codex session is not ready for history insertion");
-        }
-        try {
-          await activeClient.request("thread/inject_items", {
-            threadId: runtimeState.threadId,
-            items: turns.map(({ role, text }) => ({
-              type: "message",
-              role,
-              content: [
-                {
-                  type: role === "assistant" ? "output_text" : "input_text",
-                  text,
-                },
-              ],
-            })),
-          });
-          return true;
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            "jsonRpcCode" in error &&
-            error.jsonRpcCode === -32601
-          ) {
-            return false;
-          }
-          throw error;
-        }
-      },
-      ...(runtimeState.mcpAppViews
-        ? {
-            mcpAppRequest: async (request: McpAppProviderRequest) => {
-              const threadId = runtimeState.threadId;
-              if (!activeClient || !threadId) {
-                throw new Error("Codex session is not ready for MCP Apps");
-              }
-              switch (request.kind) {
-                case "readResource":
-                  return activeClient.request<McpResourceReadResponse>(
-                    "mcpServer/resource/read",
-                    {
-                      threadId,
-                      server: request.server,
-                      uri: request.uri,
-                      originCallId: request.originCallId ?? null,
-                    } satisfies McpResourceReadParams,
-                  );
-                case "callTool":
-                  return activeClient.request<McpServerToolCallResponse>(
-                    "mcpServer/tool/call",
-                    {
-                      threadId,
-                      server: request.server,
-                      tool: request.tool,
-                      arguments: (request.arguments ??
-                        {}) as McpServerToolCallParams["arguments"],
-                    } satisfies McpServerToolCallParams,
-                  );
-                case "listTools": {
-                  const status =
-                    await activeClient.request<ListMcpServerStatusResponse>(
-                      "mcpServerStatus/list",
-                      {
-                        threadId,
-                        serverName: request.server,
-                        detail: "toolsAndAuthOnly",
-                      } satisfies ListMcpServerStatusParams,
-                    );
-                  return (
-                    status.data.find((entry) => entry.name === request.server)
-                      ?.tools ?? {}
-                  );
-                }
-                case "updateModelContext":
-                  if (request.text === null) {
-                    runtimeState.mcpAppModelContext.delete(request.key);
-                  } else {
-                    runtimeState.mcpAppModelContext.set(request.key, {
-                      server: request.server,
-                      tool: request.tool,
-                      text: request.text,
-                    });
-                  }
-                  return true;
-              }
-            },
-          }
-        : {}),
-      steer: async (message) => {
-        if (!activeClient) return false;
-        if (!runtimeState.threadId || !runtimeState.activeTurnId) return false;
-
-        let userPrompt = this.extractTextFromMessage(message);
-        if (!userPrompt) return true;
-
-        try {
-          if (hasInvocationCandidate(userPrompt)) {
-            await this.refreshCodexSkills(
-              activeClient,
-              options.cwd,
-              skillInventory,
-              true,
-            );
-          }
-          const prepared = createCodexUserInputs(
-            userPrompt,
-            skillInventory.skills,
-            skillInventory.stale ? "stale" : "current",
-          );
-          userPrompt = prepared.text;
-          let expectedTurnId = runtimeState.activeTurnId;
-          let retriedAfterMismatch = false;
-          let steerResult: TurnSteerResponse;
-          while (true) {
-            try {
-              steerResult = await activeClient.request<TurnSteerResponse>(
-                "turn/steer",
-                {
-                  threadId: runtimeState.threadId,
-                  clientUserMessageId: message.uuid ?? null,
-                  input: prepared.input,
-                  expectedTurnId,
-                } satisfies TurnSteerParams,
-              );
-              break;
-            } catch (error) {
-              const actualTurnId = getCodexActiveTurnMismatchId(error);
-              if (actualTurnId && actualTurnId !== expectedTurnId) {
-                runtimeState.activeTurnId = actualTurnId;
-                if (!retriedAfterMismatch) {
-                  log.warn(
-                    {
-                      threadId: runtimeState.threadId,
-                      expectedTurnId,
-                      actualTurnId,
-                    },
-                    "Resynchronized Codex turn id after steer mismatch",
-                  );
-                  expectedTurnId = actualTurnId;
-                  retriedAfterMismatch = true;
-                  continue;
-                }
-              }
-              throw error;
-            }
-          }
-          if (steerResult.turnId) {
-            runtimeState.activeTurnId = steerResult.turnId;
-          }
-          return true;
-        } catch (error) {
-          log.warn(
-            {
-              threadId: runtimeState.threadId,
-              turnId: runtimeState.activeTurnId,
-              error: error instanceof Error ? error.message : String(error),
-            },
-            "Codex turn/steer failed; caller should queue message instead",
-          );
-          return false;
-        }
-      },
-      interrupt: async () => {
-        if (runtimeState.overloadRetryController) {
-          runtimeState.overloadRetryController.abort();
-          return true;
-        }
-        if (!activeClient) return false;
-        if (!runtimeState.threadId || !runtimeState.activeTurnId) return false;
-        let turnId = runtimeState.activeTurnId;
-        let retriedAfterMismatch = false;
-        while (true) {
-          try {
-            await activeClient.request<TurnInterruptResponse>(
-              "turn/interrupt",
-              {
-                threadId: runtimeState.threadId,
-                turnId,
-              } satisfies TurnInterruptParams,
-            );
-            break;
-          } catch (error) {
-            const actualTurnId = getCodexActiveTurnMismatchId(error);
-            if (actualTurnId && actualTurnId !== turnId) {
-              runtimeState.activeTurnId = actualTurnId;
-              if (!retriedAfterMismatch) {
-                log.warn(
-                  {
-                    threadId: runtimeState.threadId,
-                    expectedTurnId: turnId,
-                    actualTurnId,
-                  },
-                  "Resynchronized Codex turn id after interrupt mismatch",
-                );
-                turnId = actualTurnId;
-                retriedAfterMismatch = true;
-                continue;
-              }
-            }
-            throw error;
-          }
-        }
-        return true;
-      },
-      runProviderCommand: async (
-        command,
-        argument,
-      ): Promise<ProviderCommandResult> => {
-        const name = command.trim().replace(/^\/+/, "").toLowerCase();
-        if (name === "goal") {
-          const operation = goalCommandTail.then(
-            async (): Promise<ProviderCommandResult> => {
-              const client = activeClient ?? (await initialActiveClient);
-              const threadId = runtimeState.threadId;
-              if (!client || !threadId) {
-                return {
-                  handled: true,
-                  error: "Codex session is not ready for goal commands yet",
-                };
-              }
-
-              const goalArgument = argument?.trim() ?? "";
-              const goalControl = goalArgument.toLowerCase();
-              try {
-                if (!goalArgument) {
-                  const response = await client.request<ThreadGoalGetResponse>(
-                    "thread/goal/get",
-                    { threadId } satisfies ThreadGoalGetParams,
-                  );
-                  return {
-                    handled: true,
-                    output: response.goal
-                      ? {
-                          summary: "/goal",
-                          details: [
-                            response.goal.objective,
-                            formatCodexGoalStatus(response.goal.status),
-                            `${response.goal.tokensUsed.toLocaleString()} tokens used`,
-                          ],
-                        }
-                      : { summary: "/goal", details: ["No goal set"] },
-                  };
-                }
-
-                // Every mutation below is a user-typed /goal. Codex 0.161+
-                // records only `origin: "user"` edits in model history as user
-                // instructions; older app-servers ignore the field.
-                if (goalControl === "clear") {
-                  const response =
-                    await client.request<ThreadGoalClearResponse>(
-                      "thread/goal/clear",
-                      {
-                        threadId,
-                        origin: "user",
-                      } satisfies ThreadGoalClearParams,
-                    );
-                  return {
-                    handled: true,
-                    output: {
-                      summary: "/goal",
-                      details: [
-                        response.cleared ? "Goal cleared" : "No goal to clear",
-                      ],
-                    },
-                  };
-                }
-
-                if (goalControl === "pause" || goalControl === "resume") {
-                  const requestedStatus =
-                    goalControl === "pause" ? "paused" : "active";
-                  const response = await client.request<ThreadGoalSetResponse>(
-                    "thread/goal/set",
-                    {
-                      threadId,
-                      status: requestedStatus,
-                      origin: "user",
-                    } satisfies ThreadGoalSetParams,
-                  );
-                  return {
-                    handled: true,
-                    output: {
-                      summary: "/goal",
-                      details: [
-                        response.goal.objective,
-                        response.goal.status === requestedStatus
-                          ? goalControl === "pause"
-                            ? "Goal paused"
-                            : "Goal resumed"
-                          : formatCodexGoalStatus(response.goal.status),
-                      ],
-                    },
-                  };
-                }
-
-                if (goalControl === "edit") {
-                  return {
-                    handled: true,
-                    error:
-                      "Interactive /goal edit is unavailable in YA. Set the revised objective with /goal <objective>.",
-                  };
-                }
-
-                const current = await client.request<ThreadGoalGetResponse>(
-                  "thread/goal/get",
-                  { threadId } satisfies ThreadGoalGetParams,
-                );
-                if (current.goal?.objective === goalArgument) {
-                  return {
-                    handled: true,
-                    output: {
-                      summary: "/goal",
-                      details: [
-                        current.goal.objective,
-                        formatCodexGoalStatus(current.goal.status),
-                      ],
-                    },
-                  };
-                }
-                if (current.goal) {
-                  await client.request<ThreadGoalClearResponse>(
-                    "thread/goal/clear",
-                    {
-                      threadId,
-                      origin: "user",
-                    } satisfies ThreadGoalClearParams,
-                  );
-                }
-                const response = await client.request<ThreadGoalSetResponse>(
-                  "thread/goal/set",
-                  {
-                    threadId,
-                    objective: goalArgument,
-                    status: "active",
-                    origin: "user",
-                  } satisfies ThreadGoalSetParams,
-                );
-                return {
-                  handled: true,
-                  output: {
-                    summary: "/goal",
-                    details: [response.goal.objective, "Goal set"],
-                  },
-                };
-              } catch (error) {
-                const message =
-                  error instanceof Error ? error.message : String(error);
-                log.warn(
-                  { threadId, argument: goalArgument, error: message },
-                  "Codex goal command failed",
-                );
-                return { handled: true, error: message };
-              }
-            },
-          );
-          // Serialize clear-and-set transactions; callers still receive failures.
-          goalCommandTail = operation.then(
-            () => {},
-            () => {},
-          );
-          return operation;
-        }
-
-        if (name === "status" || name === "usage") {
-          if (options.routerLaunch)
-            return {
-              handled: true,
-              output: {
-                summary:
-                  "Account usage is available in the router account controls.",
-              },
-            };
-          const client = activeClient ?? (await initialActiveClient);
-          if (!client) {
-            return {
-              handled: true,
-              output: {
-                summary: `/${name}`,
-                details: ["Codex session is not ready yet"],
-              },
-            };
-          }
-
-          if (name === "status") {
-            const [accountResult, rateLimitsResult] = await Promise.allSettled([
-              withCodexTimeout(
-                client.request<unknown>("account/read", {
-                  refreshToken: false,
-                }),
-                ACCOUNT_RATE_LIMITS_TIMEOUT_MS,
-                "Codex account status",
-              ),
-              withCodexTimeout(
-                client.request<unknown>("account/rateLimits/read"),
-                ACCOUNT_RATE_LIMITS_TIMEOUT_MS,
-                "Codex account rate limits",
-              ),
-            ]);
-            return {
-              handled: true,
-              output: formatCodexStatusCommand({
-                model: runtimeState.resolvedModel,
-                cwd: options.cwd,
-                permissionMode: runtimeState.activePermissionMode,
-                threadId: runtimeState.threadId,
-                tokenUsage: runtimeState.latestTokenUsage,
-                accountResponse:
-                  accountResult.status === "fulfilled"
-                    ? accountResult.value
-                    : undefined,
-                rateLimitsResponse:
-                  rateLimitsResult.status === "fulfilled"
-                    ? rateLimitsResult.value
-                    : undefined,
-              }),
-            };
-          }
-
-          const view = parseCodexUsageView(argument);
-          if (!view) {
-            return {
-              handled: true,
-              output: {
-                summary: "Usage: /usage [daily|weekly|cumulative]",
-              },
-            };
-          }
-          try {
-            const account = await withCodexTimeout(
-              client.request<unknown>("account/read", {
-                refreshToken: false,
-              }),
-              ACCOUNT_RATE_LIMITS_TIMEOUT_MS,
-              "Codex account status",
-            );
-            if (!isCodexChatGptAccount(account)) {
-              return {
-                handled: true,
-                output: {
-                  summary: "Sign in with ChatGPT to use /usage.",
-                },
-              };
-            }
-            const usage = await withCodexTimeout(
-              client.request<unknown>("account/usage/read"),
-              ACCOUNT_RATE_LIMITS_TIMEOUT_MS,
-              "Codex account token usage",
-            );
-            return {
-              handled: true,
-              output: formatCodexUsageCommand(usage, view),
-            };
-          } catch (error) {
-            log.debug(
-              { error, threadId: runtimeState.threadId },
-              "Codex account token usage is unavailable",
-            );
-            return {
-              handled: true,
-              output: { summary: "Token activity unavailable" },
-            };
-          }
-        }
-
-        if (name !== "compact") {
-          return { handled: false };
-        }
-        // Codex compaction takes no instructions, so any trailing argument is
-        // intentionally dropped here — there is no app-server surface for it.
-        if (!activeClient || !runtimeState.threadId) {
-          return {
-            handled: true,
-            error: "Codex session is not ready for compaction yet",
-          };
-        }
-        // A compact runs as its own (non-steerable) turn; refuse mid-turn so we
-        // do not collide with active work or send `/compact` as plain text.
-        if (
-          runtimeState.activeTurnId ||
-          runtimeState.pendingTurnStart ||
-          runtimeState.pendingCompaction ||
-          runtimeState.overloadRetryController
-        ) {
-          return {
-            handled: true,
-            error: "Cannot compact while a turn is in progress",
-          };
-        }
-        const request = activeClient.request<ThreadCompactStartResponse>(
-          "thread/compact/start",
-          {
-            threadId: runtimeState.threadId,
-          } satisfies ThreadCompactStartParams,
-        );
-        runtimeState.pendingCompaction = {
-          retryAttempt: 0,
-          // The command reports RPC failures; queued input only needs to know
-          // whether a compaction turn will follow the request.
-          requestAccepted: request.then(
-            () => true,
-            () => false,
-          ),
-        };
-        try {
-          await request;
-          return {
-            handled: true,
-            output: { summary: "Compaction requested" },
-          };
-        } catch (error) {
-          runtimeState.pendingCompaction = undefined;
-          const message =
-            error instanceof Error ? error.message : String(error);
-          log.warn(
-            { threadId: runtimeState.threadId, error: message },
-            "Codex thread/compact/start failed",
-          );
-          // The pinned compact RPC has no effects on a JSON-RPC refusal.
-          // A broken transport can lose an accepted reply; never call that a refusal.
-          const definitive =
-            typeof (error as { jsonRpcCode?: unknown })?.jsonRpcCode ===
-            "number";
-          return {
-            handled: true,
-            error: message,
-            ...(!definitive ? { uncertain: true as const } : {}),
-          };
-        }
-      },
-    };
+      steeringMode,
+      mcpAppViews: this.getMcpAppViews(),
+      installationLease,
+    });
+    return session.toAgentSession();
   }
 
   async forkSession(options: ProviderForkOptions): Promise<ProviderForkResult> {
@@ -2087,126 +1177,6 @@ export class CodexProvider implements AgentProvider {
     } finally {
       await appServer.close();
     }
-  }
-
-  private async probeCodexLiveness(
-    activeClient: CodexAppServerClient | null,
-    runtimeState: CodexTurnRuntimeState,
-  ): Promise<ProviderLivenessProbeResult> {
-    const checkedAt = new Date();
-    const source = "codex:thread/read";
-
-    if (!activeClient?.isAlive()) {
-      return {
-        status: "unavailable",
-        source,
-        checkedAt,
-        detail: "Codex app-server is not alive",
-      };
-    }
-    if (!runtimeState.threadId) {
-      return {
-        status: "unavailable",
-        source,
-        checkedAt,
-        detail: "No Codex thread id is available",
-      };
-    }
-
-    try {
-      const response = await activeClient.request<ThreadReadResponse>(
-        "thread/read",
-        {
-          threadId: runtimeState.threadId,
-          includeTurns: false,
-        } satisfies ThreadReadParams,
-      );
-      const status =
-        response.thread?.status && typeof response.thread.status === "object"
-          ? (response.thread.status as {
-              type?: string;
-              activeFlags?: unknown;
-            })
-          : null;
-      const statusType = status?.type;
-      const activeFlags = Array.isArray(status?.activeFlags)
-        ? status.activeFlags.filter(
-            (flag): flag is string => typeof flag === "string",
-          )
-        : [];
-      const mappedStatus = this.mapCodexThreadStatusToLiveness(
-        statusType,
-        activeFlags,
-      );
-
-      if (mappedStatus === "idle" && runtimeState.activeTurnId) {
-        activeClient.injectNotification({
-          method: "turn/completed",
-          params: {
-            threadId: runtimeState.threadId,
-            turn: {
-              id: runtimeState.activeTurnId,
-              items: [],
-              status: "completed",
-              error: null,
-              startedAt: null,
-              completedAt: null,
-              durationMs: null,
-            },
-          },
-        });
-      }
-
-      return {
-        status: mappedStatus,
-        source,
-        checkedAt,
-        detail: this.formatCodexThreadStatusProbeDetail(
-          statusType,
-          activeFlags,
-        ),
-      };
-    } catch (error) {
-      return {
-        status: "error",
-        source,
-        checkedAt,
-        detail: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  private mapCodexThreadStatusToLiveness(
-    statusType: string | undefined,
-    activeFlags: string[],
-  ): ProviderLivenessProbeResult["status"] {
-    switch (statusType) {
-      case "active":
-        return activeFlags.includes("waitingOnApproval") ||
-          activeFlags.includes("waitingOnUserInput")
-          ? "waiting-input"
-          : "active";
-      case "idle":
-        return "idle";
-      case "notLoaded":
-        return "not-loaded";
-      case "systemError":
-        return "system-error";
-      default:
-        return "error";
-    }
-  }
-
-  private formatCodexThreadStatusProbeDetail(
-    statusType: string | undefined,
-    activeFlags: string[],
-  ): string {
-    if (!statusType) {
-      return "thread.status:missing";
-    }
-    return activeFlags.length > 0
-      ? `thread.status:${statusType} flags:${activeFlags.join(",")}`
-      : `thread.status:${statusType}`;
   }
 
   /**
