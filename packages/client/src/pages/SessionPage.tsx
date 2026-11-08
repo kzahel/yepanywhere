@@ -24,6 +24,7 @@ import {
 import { useNonHumanUserTurnNavigation } from "../hooks/useNonHumanUserTurnNavigation";
 import { useSessionMessageNavigation } from "../hooks/useSessionMessageNavigation";
 import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
+import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
 import { useSessionTitleEditing } from "../hooks/useSessionTitleEditing";
@@ -97,7 +98,6 @@ import { ProjectAppViewer } from "../components/ProjectAppViewer";
 import type { VoiceInputButtonRef } from "../components/VoiceInputButton";
 import { useCanUseBearerGrants } from "../hooks/useActingPrincipal";
 import { useComposerHistoryScope } from "../hooks/useComposerHistoryScope";
-import { rememberComposerUpload } from "../lib/composerHistory";
 import { BtwAsideStickyCards } from "../components/BtwAsideStickyCards";
 import { ClientLogRecordingBadge } from "../components/ClientLogRecordingBadge";
 import { ExternalSessionWarning } from "../components/ExternalSessionWarning";
@@ -149,10 +149,7 @@ import {
 } from "../contexts/StreamingMarkdownContext";
 import { useToastContext } from "../contexts/ToastContext";
 import { useActivityBusState } from "../hooks/useActivityBusState";
-import {
-  getAttachmentUploadProfile,
-  useAttachmentUploadQuality,
-} from "../hooks/useAttachmentUploadQuality";
+import { useAttachmentUploadQuality } from "../hooks/useAttachmentUploadQuality";
 import { useDeveloperMode } from "../hooks/useDeveloperMode";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useComposerBeacon } from "../hooks/useComposerBeacon";
@@ -169,7 +166,6 @@ import { useEngagementTracking } from "../hooks/useEngagementTracking";
 import { useBtwAsides } from "../hooks/useBtwAsides";
 import { useGeneratedTitleEnabled } from "../hooks/useGeneratedTitleEnabled";
 import { useGeneratedTitleLength } from "../hooks/useGeneratedTitleLength";
-import { useIncomingShareFiles } from "../hooks/useIncomingShareFiles";
 import {
   getModelSetting,
   getThinkingSetting,
@@ -206,7 +202,6 @@ import {
   presentProjectFileViewer,
 } from "../components/FilePathLink";
 import {
-  deleteDraftAttachmentRef,
   isInterruptedDraftAttachmentValidation,
   validateDraftAttachmentRefs,
 } from "../lib/draftAttachmentStaging";
@@ -222,7 +217,6 @@ import {
 import { useI18n } from "../i18n";
 import { MainContent, useNavigationLayout } from "../layouts";
 import { toBrowserAppHref } from "../lib/appHref";
-import { storeUploadedAttachmentPreview } from "../lib/attachmentPreviewCache";
 import {
   useActiveProjectSessionIds,
   useClientSummarySourceKey,
@@ -284,7 +278,6 @@ import {
   createComposerDraftAttachmentState,
   insertComposerTransferText,
   materializeComposerAttachmentsForSubmission,
-  uploadComposerAttachmentFile,
 } from "../lib/sessionComposerSubmission";
 import { createSessionComposerSend } from "../lib/sessionComposerSend";
 import {
@@ -3315,181 +3308,25 @@ function SessionPageContent({
     ],
   );
 
-  // Handle file attachment uploads
-  // Each file uploads independently (parallel) and its promise is tracked
-  // so handleSend can wait for in-flight uploads before sending
-  const uploadAttachedFiles = useCallback(
-    (files: File[]) => {
-      const uploads: Promise<ComposerAttachment | null>[] = [];
-      const draftBatchId = ensureDraftAttachmentBatchId();
-      for (const file of files) {
-        const tempId = generateUUID();
-
-        // Add to progress tracking
-        setUploadProgress((prev) => [
-          ...prev,
-          {
-            fileId: tempId,
-            fileName: file.name,
-            bytesUploaded: 0,
-            totalBytes: file.size,
-            percent: 0,
-          },
-        ]);
-
-        // Start upload and track promise for handleSend to await
-        const uploadPromise = uploadComposerAttachmentFile({
-          file,
-          sourceTransport,
-          projectId,
-          sessionId,
-          imageProfile: getAttachmentUploadProfile(
-            attachmentQuality,
-            currentProviderInfo,
-            effectiveModelConfig?.model ?? effectiveModel,
-          ),
-          stagedBatchId: draftBatchId ? draftBatchId : null,
-          onProgress: (bytesUploaded, uploadFile) => {
-            setUploadProgress((prev) =>
-              prev.map((p) =>
-                p.fileId === tempId
-                  ? {
-                      ...p,
-                      bytesUploaded,
-                      percent: Math.round(
-                        (bytesUploaded / uploadFile.size) * 100,
-                      ),
-                    }
-                  : p,
-              ),
-            );
-          },
-        })
-          .then(
-            (uploaded) => {
-              if (historyScope)
-                void rememberComposerUpload(historyScope, file, {
-                  projectId,
-                  projectName: project?.name,
-                  sessionId,
-                  sessionTitle: session?.title ?? undefined,
-                }).catch((cause) =>
-                  showToast(
-                    t("composerHistorySaveError", { error: String(cause) }),
-                    "error",
-                  ),
-                );
-              if (uploaded.mimeType.startsWith("image/")) {
-                const cachedFile = isComposerStagedAttachment(uploaded)
-                  ? {
-                      id: uploaded.id,
-                      originalName: uploaded.originalName,
-                      name: uploaded.name,
-                      path: uploaded.id,
-                      size: uploaded.size,
-                      mimeType: uploaded.mimeType,
-                      ...(uploaded.width !== undefined
-                        ? { width: uploaded.width }
-                        : {}),
-                      ...(uploaded.height !== undefined
-                        ? { height: uploaded.height }
-                        : {}),
-                    }
-                  : uploaded;
-                void storeUploadedAttachmentPreview(cachedFile, file).catch(
-                  (err) => {
-                    console.warn(
-                      "[SessionPage] Failed to cache attachment preview:",
-                      err,
-                    );
-                  },
-                );
-              }
-              setComposerAttachments((prev) => [...prev, uploaded]);
-              return uploaded;
-            },
-            (err) => {
-              console.error("Upload failed:", err);
-              const errorMsg =
-                err instanceof Error ? err.message : t("sessionShareFailed");
-              showToast(
-                t("sessionUploadFailed", {
-                  file: file.name,
-                  message: errorMsg,
-                }),
-                "error",
-              );
-              return null as ComposerAttachment | null;
-            },
-          )
-          .finally(() => {
-            setUploadProgress((prev) =>
-              prev.filter((p) => p.fileId !== tempId),
-            );
-            pendingUploadsRef.current.delete(tempId);
-          });
-
-        pendingUploadsRef.current.set(tempId, uploadPromise);
-        uploads.push(uploadPromise);
-      }
-      return Promise.all(uploads);
-    },
-    [
-      attachmentQuality,
-      currentProviderInfo,
-      effectiveModelConfig?.model,
-      effectiveModel,
-      sourceTransport,
-      ensureDraftAttachmentBatchId,
+  const { uploadAttachedFiles, handleAttach, handleRemoveAttachment } =
+    useSessionAttachmentUploads({
       projectId,
       sessionId,
-      setComposerAttachments,
-      showToast,
+      session,
+      project,
+      sourceTransport,
+      attachmentQuality,
+      currentProviderInfo,
+      effectiveModel,
+      effectiveModelConfig,
       historyScope,
-      project?.name,
-      session?.title,
-      t,
-    ],
-  );
-
-  const handleAttach = useCallback(
-    async (files: File[]) => {
-      await uploadAttachedFiles(files);
-    },
-    [uploadAttachedFiles],
-  );
-
-  useIncomingShareFiles(handleAttach, {
-    enabled: !isDomLingerParked,
-    onError: () => showToast(t("incomingShareAttachmentUnavailable"), "error"),
-  });
-
-  const handleRemoveAttachment = useCallback(
-    (id: string) => {
-      const removed = attachmentsRef.current.find(
-        (attachment) => attachment.id === id,
-      );
-      setComposerAttachments(
-        (prev) => prev.filter((attachment) => attachment.id !== id),
-        { revokeRemovedPreviewUrls: true },
-      );
-
-      if (removed && isComposerStagedAttachment(removed)) {
-        deleteDraftAttachmentRef(
-          sourceTransport,
-          removed.batchId,
-          removed.id,
-        ).catch((err) => {
-          console.warn(
-            "[SessionPage] Failed to delete staged attachment:",
-            err,
-          );
-        });
-      }
-    },
-    [sourceTransport, setComposerAttachments],
-  );
-
+      isDomLingerParked,
+      ensureDraftAttachmentBatchId,
+      setUploadProgress,
+      setComposerAttachments,
+      attachmentsRef,
+      pendingUploadsRef,
+    });
   // Check if pending request is an AskUserQuestion
   const isAskUserQuestion = pendingInputRequest?.toolName === "AskUserQuestion";
 
