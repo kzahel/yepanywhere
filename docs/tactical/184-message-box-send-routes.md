@@ -2,8 +2,9 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: in progress. Slices 0 (the pins) and 1 (one route) landed
-2026-11-08.
+Status: done 2026-11-08 (slices 0 to 2); `MessageInput.tsx` went from
+4,023 to 3,185 lines, with the decisions in `lib/composerDelivery.ts` and
+the effects in `hooks/useComposerDelivery.ts`.
 
 Item 8 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md)'s

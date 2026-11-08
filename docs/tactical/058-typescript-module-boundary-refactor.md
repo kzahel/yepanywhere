@@ -50,7 +50,7 @@ shared, and how risky it is to touch today.
    move menu into hooks
    ([plan 182](182-session-page-header-and-footer.md)) on 2026-11-08.
    [Plan 184](184-message-box-send-routes.md) gives the message box one
-   send route (slice 2.42, 2026-11-08; in progress). Moving small
+   send route and a delivery hook (slices 2.42 and 2.43, 2026-11-08). Moving small
    features out one at a time leaves these files structurally as they were;
    the burn-down order and the consolidations it needs (one shared
    message-box core, then sending as plain functions) are in [the session
@@ -319,6 +319,7 @@ and props stable.
 | 2.40 | Done 2026-11-08 | `SessionPage.tsx` header | Move the page's `<header>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 4). | Move-only: the header element and the `SidebarIcon` it renders move verbatim into `components/SessionHeader.tsx`, rendered where the header stood. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and one trailing comma the formatter dropped. The component calls only `useI18n`, so the page's hook order is unchanged; `SidebarIcon` is still defined during render. Budget `SessionPage.tsx` 4,813 -> 4,262; the component is 991 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.41 | Done 2026-11-08 | `SessionPage.tsx` composer footer | Move the page's `<footer>` into a component ([plan 182](182-session-page-header-and-footer.md) slice 5). | Move-only: the footer element moves verbatim into `components/SessionComposerFooter.tsx`, rendered where it stood, with the composer's `lazy()` wrapper, its only user; the shared module fallback moves to `components/SessionRouteModuleFallback.tsx`. Every prop is passed as `name={name}`, and the component's JSX equals the moved lines apart from whitespace and two trailing commas the formatter dropped. The component calls only `useI18n` and `useToastContext`, so the page's hook order is unchanged; the composer stays in its own lazy chunk. Budget `SessionPage.tsx` 4,262 -> 3,909; the component is 799 lines. Tier 3, plus plan 182's slice 0 pins. |
 | 2.42 | Done 2026-11-08 | `MessageInput.tsx` send routes | Give the message box one send route ([plan 184](184-message-box-send-routes.md) slice 1). | Not move-only, under plan 184: the eight send functions become one synchronous `deliver(route)`, with its decisions in `lib/composerDelivery.ts` (unit-tested), and the differences between the copies that had no reason behind them unified (plan 184 C1 to C9: fork mode delivers only forks; a press that cannot deliver sets nothing aside; `!!` runs from every route but the forks and a bare `!!` does nothing; empty text is never prefixed; a dictated draft keeps its whole route and comes back if refused; voice auto-send takes the main action's route). Budget `MessageInput.tsx` 4,023 -> 3,616; the decisions module is 200 lines. Tier 3, plus plan 184's slice 0 pins. |
+| 2.43 | Done 2026-11-08 | `MessageInput.tsx` delivery hook | Move the message box's delivery into a feature hook ([plan 184](184-message-box-send-routes.md) slice 2). | Move-only apart from parameters: `deliver`, setting a dictated draft aside and replaying or restoring it, the question aside submission, the touch delivery handlers and voice auto-send move into `hooks/useComposerDelivery.ts`, called where the delivery stood, before `useComposerSpeechHandlers`. The five refs only delivery uses move with it; 42 box values become inputs of the same names. Dependency lists gain only refs and setters that became inputs. Budget `MessageInput.tsx` 3,616 -> 3,185; the hook is 675 lines. Tier 3, plus plan 184's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -363,7 +364,8 @@ owning behavior:
   extends deferred slice 5.3; the other two need new Phase 5 rows and their own
   lifecycle/streaming tripwire review before movement.
 - `MessageInput.tsx`: the bang completion state and the recall drawer
-  moved in slices 2.12 and 2.13. The bang keyboard handling and menu
+  moved in slices 2.12 and 2.13, and the send paths, made one route, in
+  slices 2.42 and 2.43 (plan 184). The bang keyboard handling and menu
   rendering stay in the composer with the slash menu's; no other named
   candidate remains.
 - `clientSummaryState.ts`: session-id aliasing, record merge, and projection
@@ -459,6 +461,82 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.43 — Message Box Delivery Hook (Landed 2026-11-08, this commit)
+
+Move-only apart from parameters. [Plan 184](184-message-box-send-routes.md)
+slice 2.
+
+Moved to new `packages/client/src/hooks/useComposerDelivery.ts`, as
+`useComposerDelivery`, called where `deferSpeechDelivery` stood, after the
+speech state and composition metadata it reads and before
+`useComposerSpeechHandlers`, which takes its replay, restore and
+auto-send functions:
+- `deferSpeechDelivery`, `handleQuestionAsideSubmission`, `queueHandler`,
+  `forkMode`, `primaryRoute`, `deliver`, `restoreSetAsideDraft`,
+  `restorePendingSpeechDeliveryDraft`, `runPendingSpeechDelivery` with
+  its ref assignment and `maybeRunPendingSpeechDelivery`.
+- `runComposerPointerDelivery`, `deliverFromPointer`, the seven touch
+  delivery handlers and `queueNewSessionAtChosenTarget`. The new-session
+  options' open and close callbacks stay in the box.
+- Voice auto-send's ref assignment and `handleSmartTurnSend`, from later in
+  the box; nothing between the two places reads them during render.
+- The refs only these use (`mobilePointerDeliveryPendingRef`,
+  `pendingSpeechDeliveryRef`, `pendingSpeechDeliverySettledRef`,
+  `runPendingSpeechDeliveryRef`, `smartTurnSendRef`), declared at the
+  hook's start; nothing read them during render before the call. The hook
+  returns the two the box still reads.
+- The `SubmissionCompositionSnapshot` and `PendingSpeechDelivery` types,
+  now exported; the box imports the first.
+- `MessageInput.tsx` 3,616 -> 3,185 lines.
+
+Signature conversions (closure -> parameter):
+- The box values the bodies read become fields of an exported
+  `ComposerDeliveryInputs`, destructured under the same names (42):
+  `activeSpeechTargetIdRef`, `attachments`, `bangSupport`,
+  `buildSubmissionMetadata`, `canSaveQuestionAside`,
+  `consumeSpeechAttribution`, `controls`, `disabled`,
+  `effectivePrimaryActionKind`, `forkSummaryMode`, `interimTranscriptRef`,
+  `isComposing`, `isRecentSpeechAttribution`,
+  `keepMobileKeyboardOpenAfterDelivery`, `lastEditedAtRef`, `onDone`,
+  `onProjectQueue`, `onProjectQueueNewSession`, `onQueue`, `onSend`,
+  `patientQueueCompactPercent`, `patientQueueEnabled`,
+  `pendingSpeechFinalRef`, `pendingSpeechRetargetRef`, `questionAside`,
+  `questionAsideEligible`, `resetCompositionMetadata`,
+  `setInterimTranscript`, `setNewSessionOptionsMode`,
+  `setTextareaImeGeneration`, `speechInsertionRangeRef`,
+  `speechInsertionRangesRef`, `speechMessagePrefix`, `speechPendingRef`,
+  `speechTranscriptionIdsRef`, `speechTurnIdRef`, `textareaRef`,
+  `topicShiftCompactPercent`, `topicShiftSupported`,
+  `typingStartedAtRef`, `uploadProgress` and `voiceButtonRef`. The speech
+  refs take `useComposerSpeechState`'s types; the props take the parts the
+  bodies read.
+- Dependency lists gain only the refs and setters that became inputs
+  (stable identities), which the hooks lint rule asks for now that they
+  are not the hook's own: `deferSpeechDelivery`, `handleQuestionAsideSubmission`,
+  `deliver`, `runPendingSpeechDelivery`, `runComposerPointerDelivery`,
+  `queueNewSessionAtChosenTarget`, and the box's
+  `getDetachedSpeechTransaction` (`pendingSpeechDeliveryRef`). Every body
+  is otherwise the moved text.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 2 failed:
+  `artifact-viewer.spec.ts:136`, the known failure recorded in the
+  artifact viewer gap, and `session-header-responsive.spec.ts:29`, a
+  live-update fixture row that did not appear in time; that spec passed
+  3 of 3 run alone. Plan 184's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the touched files; `pnpm
+  console:scan` is at its budgets (`method.warn` 60 of 60).
+- A script compared the moved lines with the hook's body (blank lines
+  aside): the only differences are the dependency entries above.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.42 — Message Box Send Routes (Landed 2026-11-08, this commit)
 
