@@ -29,7 +29,7 @@ test("the uncommitted file list fits its rows instead of a fixed width", async (
   const column = page.locator(".working-tree-files-column");
   await expect(column.locator("[data-source-file-item]").first()).toBeVisible();
 
-  const fit = async () =>
+  const measureFit = async () =>
     column.evaluate((element) => {
       const range = document.createRange();
       const paths = [
@@ -46,8 +46,8 @@ test("the uncommitted file list fits its rows instead of a fixed width", async (
         paths: paths.length,
       };
     });
-  await expect.poll(async () => (await fit()).width).toBeLessThan(340);
-  const fitted = await fit();
+  await expect.poll(async () => (await measureFit()).width).toBeLessThan(340);
+  const fitted = await measureFit();
   expect(fitted.paths).toBeGreaterThan(0);
   expect(fitted.clipped).toBe(0);
   await recordUiCapture(page, "source-control-file-list-fit-1200");
