@@ -133,7 +133,7 @@
       "maxLines": 1532
     },
     "packages/server/src/server-main.ts": {
-      "maxLines": 1902
+      "maxLines": 1826
     },
     "packages/server/src/services/ProjectQueueService.ts": {
       "maxLines": 1532
@@ -148,7 +148,7 @@
       "maxLines": 1588
     },
     "packages/server/src/sessions/codex-reader.ts": {
-      "maxLines": 4157
+      "maxLines": 4002
     },
     "packages/server/src/sessions/normalization.ts": {
       "maxLines": 2451

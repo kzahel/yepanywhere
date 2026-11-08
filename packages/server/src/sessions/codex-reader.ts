@@ -22,15 +22,7 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open, readdir, realpath, stat } from "node:fs/promises";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
   type CodexSessionEntry,
   type NativeSessionRef,
@@ -68,7 +60,6 @@ import {
   codexRolloutRepresentation,
   findCodexRolloutRepresentation,
   getCodexRolloutActivityTimeMs,
-  getCodexRolloutFileIdentity,
   getCodexRolloutId,
   isCompressedCodexRolloutPath,
   isCodexRolloutFileName,
@@ -80,16 +71,18 @@ import {
   iterateJsonlLineRecords,
   readJsonlLines,
 } from "../utils/jsonl.js";
-import type { EventBus } from "../watcher/EventBus.js";
 import {
-  type CodexRolloutTreeEpoch,
-  canonicalCodexChange,
   getCodexRolloutTreeEpoch,
   isCodexRolloutTreeEnumerationTrusted,
-  registerCodexRolloutTreeObserver,
-  observedCodexRoot,
   reconcileCodexRootObservation,
 } from "./codex-rollout-tree-observation.js";
+import {
+  type CodexScanOptions,
+  type CodexSessionFile,
+  type CodexSharedScanCacheEntry,
+  codexSharedScanCache,
+  isNewerCodexSessionFile,
+} from "./codex-shared-scan-cache.js";
 import {
   parseCodexSpawnAgentOutput,
   parseCodexStartedChild,
@@ -174,160 +167,12 @@ export interface CodexSessionReaderOptions {
   entryCacheBudget?: CodexEntryCacheBudget;
 }
 
-interface CodexSessionFile {
-  id: string;
-  filePath: string;
-  cwd: string;
-  timestamp: string;
-  mtime: number;
-  size: number;
-  isSubagent: boolean;
-  parentThreadId?: string | null;
-  agentNickname?: string;
-  agentRole?: string;
-  spawnDepth?: number;
-}
-
-function isNewerCodexSessionFile(
-  candidate: CodexSessionFile,
-  current: CodexSessionFile,
-): boolean {
-  const candidateIdentity = getCodexRolloutFileIdentity(candidate.filePath);
-  const currentIdentity = getCodexRolloutFileIdentity(current.filePath);
-  if (
-    candidateIdentity?.timestamp &&
-    currentIdentity?.timestamp &&
-    candidateIdentity.timestamp !== currentIdentity.timestamp
-  ) {
-    return candidateIdentity.timestamp > currentIdentity.timestamp;
-  }
-  if (
-    candidateIdentity?.timestamp === currentIdentity?.timestamp &&
-    candidateIdentity?.rolloutId !== currentIdentity?.rolloutId
-  ) {
-    return (
-      (candidateIdentity?.rolloutId ?? "") > (currentIdentity?.rolloutId ?? "")
-    );
-  }
-  if (candidate.mtime !== current.mtime) {
-    return candidate.mtime > current.mtime;
-  }
-  return candidate.filePath > current.filePath;
-}
-
 const CODEX_SCAN_CACHE_TTL_MS = 5000;
 const DEFAULT_SLOW_LOG_THRESHOLD_MS = 250;
 const CODEX_HEAD_SUMMARY_MAX_LINES = 200;
 const CODEX_HEAD_SUMMARY_MAX_BYTES = 1024 * 1024;
 const CODEX_FULL_SUMMARY_CACHE_MAX_ENTRIES = 256;
 const LOG_ENTRY_READS = process.env.CODEX_READER_LOG_PARSE === "true";
-
-interface CodexScanOptions {
-  activeAfterMs?: number;
-}
-
-interface CodexSharedScanCacheEntry {
-  /** Absent for exact point evidence before any complete enumeration. */
-  timestamp?: number;
-  /** Watcher epoch the enumeration began under; see tree observation. */
-  epoch?: number | null;
-  sessions: Map<string, CodexSessionFile>;
-  activeAfterMs?: number;
-  inFlight?: Promise<CodexSessionFile[]>;
-  /** Plain rollout paths the watcher reported since the enumeration began. */
-  changedPaths: Set<string>;
-  applyingChanges?: Promise<void>;
-  /** A reported deletion left this enumeration unable to stand in for a walk. */
-  needsEnumeration?: boolean;
-  /** A cache hit cannot upgrade an incomplete enumeration to known empty. */
-  incomplete?: boolean;
-  failedPaths?: Set<string>;
-  directoryReadErrors?: boolean;
-}
-
-/**
- * Keyed by sessions directory and active-after cutoff. Bounded per sessions
- * directory to the unfiltered scan plus the latest settled cutoff and any
- * in-flight scans; see `retainLatestCutoff`.
- */
-const codexSharedScanCache = new Map<
-  string,
-  Map<string, CodexSharedScanCacheEntry>
->();
-
-/**
- * While `epoch` reports a live watcher over `sessionsDir`, cached
- * enumerations of it stay current between that watcher's reports instead of
- * re-walking cold history on a timer. Returns the teardown.
- */
-export function observeCodexRolloutTree(options: {
-  sessionsDir: string;
-  eventBus: Pick<EventBus, "subscribe">;
-  epoch: CodexRolloutTreeEpoch;
-}): () => void {
-  let retired = false;
-  const unregister = registerCodexRolloutTreeObserver(
-    options.sessionsDir,
-    options.epoch,
-  );
-  const unsubscribe = options.eventBus.subscribe((event) => {
-    if (event.type !== "file-change" || event.provider !== "codex") return;
-    // Preserve synchronous invalidation of the configured root. Canonical
-    // aliases are folded in asynchronously without delaying the raw event.
-    let touched: ReadonlySet<string> | undefined;
-    if (
-      !event.nativeStorageScope ||
-      resolve(event.nativeStorageScope) === resolve(options.sessionsDir)
-    )
-      touched = noteCodexRolloutChanged(options.sessionsDir, event.path);
-    if (!event.nativeStorageScope) {
-      return;
-    }
-    void canonicalCodexChange(event, options.sessionsDir)
-      .then((change) => {
-        if (change && !retired)
-          noteCodexRolloutChanged(change.scope, change.path, touched);
-      })
-      .catch(() => {
-        /* Source unavailable; retain accepted observations. */
-      });
-  });
-  return () => {
-    retired = true;
-    unsubscribe();
-    unregister();
-  };
-}
-
-/**
- * Record a watcher-reported rollout change so cached enumerations of that
- * tree re-read just this file instead of re-walking the whole tree.
- */
-function noteCodexRolloutChanged(
-  sessionsDir: string,
-  filePath: string,
-  except?: ReadonlySet<string>,
-): Set<string> {
-  const touched = new Set<string>();
-  if (!isCodexRolloutFileName(filePath)) return touched;
-  const plainPath = plainCodexRolloutPath(filePath);
-  const root = observedCodexRoot(sessionsDir);
-  const outside = (suffix: string) =>
-    !suffix ||
-    suffix === ".." ||
-    suffix.startsWith(`..${sep}`) ||
-    isAbsolute(suffix);
-  let suffix = relative(sessionsDir, plainPath);
-  if (outside(suffix)) suffix = relative(root, plainPath);
-  if (outside(suffix)) return touched;
-  for (const [dir, rootCache] of codexSharedScanCache) {
-    if (except?.has(dir) || observedCodexRoot(dir) !== root) continue;
-    touched.add(dir);
-    const scopedPath = join(dir, suffix);
-    for (const entry of rootCache.values()) entry.changedPaths.add(scopedPath);
-  }
-  return touched;
-}
 
 interface CodexFullSummaryCacheEntry {
   promise: Promise<SessionSummary | null>;

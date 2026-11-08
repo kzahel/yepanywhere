@@ -11,10 +11,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
-import {
-  CodexSessionReader,
-  observeCodexRolloutTree,
-} from "../../src/sessions/codex-reader.js";
+import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
+import { observeCodexRolloutTree } from "../../src/sessions/codex-shared-scan-cache.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
 import { FileWatcher } from "../../src/watcher/FileWatcher.js";
 import {
