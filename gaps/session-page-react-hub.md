@@ -64,8 +64,10 @@ its own commit with a test, and one a user could see is asked about. Proposals
 3. **New-session options and start split.** One hook owns the option state,
    using one reducer where state changes together, plus an options panel
    component; starting and queueing take the plain-function shape of
-   proposal 2. Planned in
-   [plan 180](../docs/tactical/180-new-session-options-and-start.md).
+   proposal 2. Done 2026-11-08 in
+   [plan 180](../docs/tactical/180-new-session-options-and-start.md); the
+   launch-path differences it kept are in
+   [a follow-up gap](new-session-start-and-queue-differences.md).
 4. **Remaining session-page feature hooks** (move-only): fork, handoff and
    clone (about 450 lines), queued-message actions (about 200), attachment
    upload (about 250), title editing (about 130), then the navigation-action

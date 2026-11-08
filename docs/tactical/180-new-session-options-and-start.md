@@ -2,7 +2,7 @@
 
 Topic: session-defaults
 
-Status: in progress. Slice 0 (the pins) landed 2026-11-07: 26 cases in
+Status: done 2026-11-08 (slices 0 to 5). Slice 0 (the pins) landed 2026-11-07: 26 cases in
 `NewSessionForm.test.tsx` (148 tests in the file) and
 `new-session-option-paths.spec.ts`. The browser spec drives the real form
 and real settings; sandbox support reaches `/new-session` over the socket,
@@ -32,7 +32,9 @@ reads. Slice 5 (the start module, `lib/newSessionStart.ts`) landed
 and the accepted-creation type `NewSessionAcceptedCreation` moved there
 first, and the start's deps pass `principal` as `{ username }` so
 `handleStartSession` keeps its dependency on `principal.username`. Slice 6
-waits on the maintainer's answers to Q1 to Q3.
+was not done: the maintainer had no opinion on Q1 to Q3 (2026-11-08), so
+they, N2 and N8 are recorded as possible follow-ups in
+[a gap](../../gaps/new-session-start-and-queue-differences.md).
 
 Proposal 3 of the
 [session page React hub gap](../../gaps/session-page-react-hub.md), owned by
