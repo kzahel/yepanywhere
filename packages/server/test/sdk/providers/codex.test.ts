@@ -1651,6 +1651,103 @@ describe("CodexProvider app-server lifecycle", () => {
     },
   );
 
+  it("refuses compaction while turn/start awaits its reply", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "codex-compact-turn-start-"));
+    const logPath = join(tempDir, "fake-codex-requests.jsonl");
+    const releasePath = join(tempDir, "release-turn-start");
+    const codexPath = createFakeCodexCommand(
+      tempDir,
+      "fake-codex-held-turn-start",
+      buildFakeCodexAppServer(
+        logPath,
+        "chatgpt",
+        undefined,
+        false,
+        undefined,
+        releasePath,
+      ),
+    );
+    const session = await new CodexProvider({ codexPath }).startSession({
+      cwd: tempDir,
+      initialMessage: { text: "start work" },
+    });
+    try {
+      const turn = consumeCodexTurn(session.iterator);
+      await waitForFakeCodexRequest(logPath, "turn/start");
+      // No turn id exists yet; only the pending turn/start guards this window.
+      expect(await session.runProviderCommand?.("compact")).toEqual({
+        handled: true,
+        error: "Cannot compact while a turn is in progress",
+      });
+      writeFileSync(releasePath, "");
+      await expect.poll(() => session.interrupt?.()).toBe(true);
+      await turn;
+      expect(
+        readFakeCodexRequests(logPath).map((request) => request.method),
+      ).not.toContain("thread/compact/start");
+    } finally {
+      await session.abort();
+      await session.iterator.return?.(undefined);
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it.each([false, true])(
+    "keeps the AgentSession control surface (MCP App views: %s)",
+    async (mcpAppViews) => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-session-surface-"));
+      const logPath = join(tempDir, "fake-codex-requests.jsonl");
+      const codexPath = createFakeCodexCommand(
+        tempDir,
+        "fake-codex-session-surface",
+        buildFakeCodexAppServer(logPath),
+      );
+      const provider = new CodexProvider({ codexPath });
+      provider.setMcpAppViewsGetter(() => mcpAppViews);
+      const session = await provider.startSession({ cwd: tempDir });
+      try {
+        // Callers treat a missing optional member as an unsupported control.
+        expect(Object.keys(session).sort()).toEqual(
+          [
+            "abort",
+            "appendConversationContext",
+            "effortUpdatesActiveTurn",
+            "getProviderActivity",
+            "getProviderRetention",
+            "interrupt",
+            "isProcessAlive",
+            "iterator",
+            ...(mcpAppViews ? ["mcpAppRequest"] : []),
+            "pid",
+            "probeLiveness",
+            "publishAgentctlSessionId",
+            "queue",
+            "runProviderCommand",
+            "setEffort",
+            "setModel",
+            "setServiceTier",
+            "setSessionOptions",
+            "steer",
+            "supportedCommands",
+            "supportedModels",
+          ].sort(),
+        );
+        expect(session.effortUpdatesActiveTurn).toBe(true);
+        // pid is a live getter: absent before the app-server spawns.
+        expect(Object.getOwnPropertyDescriptor(session, "pid")?.get).toEqual(
+          expect.any(Function),
+        );
+        expect(session.pid).toBeUndefined();
+        await session.iterator.next();
+        expect(session.pid).toEqual(expect.any(Number));
+      } finally {
+        await session.abort();
+        await session.iterator.return?.(undefined);
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("ends overload recovery after the bounded retry budget", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "codex-overload-limit-"));
     const logPath = join(tempDir, "fake-codex-requests.jsonl");
@@ -4044,15 +4141,19 @@ function buildFakeCodexAppServer(
   goalStatusOverride?: "budgetLimited",
   goalStartsTurn = false,
   modelList?: unknown,
+  turnStartReleasePath?: string,
 ): string {
   return `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 
 const logPath = ${JSON.stringify(logPath)};
 const accountType = ${JSON.stringify(accountType)};
 const goalStatusOverride = ${JSON.stringify(goalStatusOverride)};
 const goalStartsTurn = ${JSON.stringify(goalStartsTurn)};
 const modelList = ${JSON.stringify(modelList ?? null)};
+// When set, turn/start replies only once this file exists.
+const turnStartReleasePath = ${JSON.stringify(turnStartReleasePath ?? null)};
 let buffer = "";
 let goal = null;
 let activeTurn = false;
@@ -4195,12 +4296,23 @@ function handleMessage(message) {
       notify("thread/goal/cleared", { threadId: "thread-1" });
       break;
     }
-    case "turn/start":
+    case "turn/start": {
       activeTurn = true;
-      respond(message.id, {
-        turn: { id: "turn-start", status: "inProgress", error: null },
-      });
+      const reply = () =>
+        respond(message.id, {
+          turn: { id: "turn-start", status: "inProgress", error: null },
+        });
+      if (!turnStartReleasePath) {
+        reply();
+        break;
+      }
+      const release = setInterval(() => {
+        if (!existsSync(turnStartReleasePath)) return;
+        clearInterval(release);
+        reply();
+      }, 10);
       break;
+    }
     case "turn/steer":
       respond(message.id, { turnId: "turn-steered" });
       break;

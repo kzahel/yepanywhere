@@ -157,8 +157,9 @@ Existing adjacent work stays separate:
 - [Queue survival across compaction](../../topics/queue-across-compaction.md)
   is the larger motivation; its dated source findings need reproduction before
   choosing a repair.
-- [Codex turn-start compact guard coverage](../../gaps/codex-compact-start-window-untested.md)
-  is provider-protocol regression work, not required to move this helper.
+- Codex turn-start compact guard coverage was provider-protocol regression
+  work, not required to move this helper. It is now covered by
+  `codex.test.ts` ("refuses compaction while turn/start awaits its reply").
 - [Merged queue identities](../../gaps/merged-queued-turn-orphans-chunk-echoes.md)
   and [durable provider user identities](../../gaps/provider-user-turn-durable-identity.md)
   concern delivery correctness but are not prerequisites for this boundary.
