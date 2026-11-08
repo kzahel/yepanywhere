@@ -661,6 +661,78 @@ export function LocalAccessSettings() {
     </SettingsItem>
   );
 
+  // Shared by direct and remote (SRP) clients; the settings route accepts
+  // these fields over either transport.
+  const renderAgentApiSettings = () => (
+    <>
+      {supportsAgentApi && (
+        <SettingsItem
+          label={t("localAccessAgentApiTitle")}
+          description={t("localAccessAgentApiDescription")}
+          doc="topics/http-api-v0.md#local-agent-bootstrap"
+          after={
+            <details className={styles.agentApiPreview}>
+              <summary>{t("localAccessAgentApiPreview")}</summary>
+              <p>{t("localAccessAgentApiUnix")}</p>
+              <pre>
+                {agentApiBootstrapInstructions(
+                  false,
+                  supportsAgentApiManagement &&
+                    serverSettings?.agentApiManagementEnabled === true,
+                )}
+              </pre>
+              <p>{t("localAccessAgentApiWindows")}</p>
+              <pre>
+                {agentApiBootstrapInstructions(
+                  true,
+                  supportsAgentApiManagement &&
+                    serverSettings?.agentApiManagementEnabled === true,
+                )}
+              </pre>
+            </details>
+          }
+        >
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={serverSettings?.agentApiEnabled ?? false}
+              disabled={!serverSettings}
+              onChange={(e) =>
+                updateServerSetting("agentApiEnabled", e.target.checked)
+              }
+              aria-label={t("localAccessAgentApiTitle")}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </SettingsItem>
+      )}
+
+      {supportsAgentApiManagement && (
+        <SettingsItem
+          label={t("localAccessAgentApiManagementTitle")}
+          description={t("localAccessAgentApiManagementDescription")}
+          doc="topics/http-api-v0.md#session-command-authority"
+        >
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={serverSettings?.agentApiManagementEnabled ?? false}
+              disabled={!serverSettings}
+              onChange={(event) =>
+                updateServerSetting(
+                  "agentApiManagementEnabled",
+                  event.target.checked,
+                )
+              }
+              aria-label={t("localAccessAgentApiManagementTitle")}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </SettingsItem>
+      )}
+    </>
+  );
+
   // Only meaningful once local requests need a password: without one, any
   // local process can already call the API.
   const renderAgentServerAccessSetting = () => (
@@ -1230,71 +1302,7 @@ export function LocalAccessSettings() {
             auth.authEnabled &&
             renderAgentServerAccessSetting()}
 
-          {supportsAgentApi && (
-            <SettingsItem
-              label={t("localAccessAgentApiTitle")}
-              description={t("localAccessAgentApiDescription")}
-              doc="topics/http-api-v0.md#local-agent-bootstrap"
-              after={
-                <details className={styles.agentApiPreview}>
-                  <summary>{t("localAccessAgentApiPreview")}</summary>
-                  <p>{t("localAccessAgentApiUnix")}</p>
-                  <pre>
-                    {agentApiBootstrapInstructions(
-                      false,
-                      supportsAgentApiManagement &&
-                        serverSettings?.agentApiManagementEnabled === true,
-                    )}
-                  </pre>
-                  <p>{t("localAccessAgentApiWindows")}</p>
-                  <pre>
-                    {agentApiBootstrapInstructions(
-                      true,
-                      supportsAgentApiManagement &&
-                        serverSettings?.agentApiManagementEnabled === true,
-                    )}
-                  </pre>
-                </details>
-              }
-            >
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={serverSettings?.agentApiEnabled ?? false}
-                  disabled={!serverSettings}
-                  onChange={(e) =>
-                    updateServerSetting("agentApiEnabled", e.target.checked)
-                  }
-                  aria-label={t("localAccessAgentApiTitle")}
-                />
-                <span className="toggle-slider" />
-              </label>
-            </SettingsItem>
-          )}
-
-          {supportsAgentApiManagement && (
-            <SettingsItem
-              label={t("localAccessAgentApiManagementTitle")}
-              description={t("localAccessAgentApiManagementDescription")}
-              doc="topics/http-api-v0.md#session-command-authority"
-            >
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={serverSettings?.agentApiManagementEnabled ?? false}
-                  disabled={!serverSettings}
-                  onChange={(event) =>
-                    updateServerSetting(
-                      "agentApiManagementEnabled",
-                      event.target.checked,
-                    )
-                  }
-                  aria-label={t("localAccessAgentApiManagementTitle")}
-                />
-                <span className="toggle-slider" />
-              </label>
-            </SettingsItem>
-          )}
+          {renderAgentApiSettings()}
 
           {/* Allow Localhost Access - shown in desktop mode when password auth is off */}
           {auth.hasDesktopToken &&
@@ -1389,6 +1397,10 @@ export function LocalAccessSettings() {
         )}
 
         <div className="settings-group">{renderApprovalAuditSettings()}</div>
+
+        {(supportsAgentApi || supportsAgentApiManagement) && (
+          <div className="settings-group">{renderAgentApiSettings()}</div>
+        )}
 
         <div className="settings-group">
           <SettingsItem
