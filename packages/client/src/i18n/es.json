@@ -1028,7 +1028,6 @@
   "localAccessApplying": "Aplicando...",
   "localAccessApply": "Aplicar cambios",
   "localAccessLogoutDescription": "Cerrar sesión en este dispositivo",
-  "localAccessRemoteDescription": "Estás conectado a un servidor remoto mediante relay.",
   "localAccessRemoteLogoutDescription": "Desconéctate del servidor remoto.",
   "localAccessErrorPortRange": "El puerto debe ser un número entre 1 y 65535",
   "localAccessErrorPasswordLength": "La contraseña debe tener al menos 6 caracteres",

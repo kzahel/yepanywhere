@@ -11,6 +11,10 @@ import {
 } from "../lib/serverSettingsQuery";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { ServerSettings } from "../api/client";
+import {
+  connectionImpactOf,
+  withImpactConfirmation,
+} from "../api/connectionImpact";
 import type { NewSessionDefaults } from "@yep-anywhere/shared";
 import { useOptionalRemoteConnection } from "../contexts/RemoteConnectionContext";
 import {
@@ -33,8 +37,15 @@ interface UseServerSettingsResult {
   displayDefaults: NewSessionDefaults | undefined;
   isLoading: boolean;
   error: string | null;
-  /** Resolves with the settings the server accepted, once they are applied. */
-  updateSettings: (updates: Partial<ServerSettings>) => Promise<ServerSettings>;
+  /**
+   * Resolves with the settings the server accepted, once they are applied.
+   * `confirmedConnectionImpact` repeats a write the server refused as
+   * disconnecting this client (topics/connection-safe-settings.md).
+   */
+  updateSettings: (
+    updates: Partial<ServerSettings>,
+    options?: { confirmedConnectionImpact?: boolean },
+  ) => Promise<ServerSettings>;
   updateSetting: <K extends keyof ServerSettings>(
     key: K,
     value: ServerSettings[K],
@@ -82,9 +93,10 @@ export async function primeLocalServerSettings() {
 function updateServerSettingsForSource(
   sourceKey: ClientSummarySourceKey,
   updates: Partial<ServerSettings>,
+  confirmedConnectionImpact: boolean,
 ): Promise<ServerSettingsResponse> {
   return getSourceTransport(sourceKey).fetch<ServerSettingsResponse>(
-    "/settings",
+    withImpactConfirmation("/settings", confirmedConnectionImpact),
     {
       method: "PUT",
       body: JSON.stringify(updates, (_key, value) =>
@@ -147,13 +159,17 @@ export function useServerSettings(): UseServerSettingsResult {
   }, [snapshot.observedAt]);
 
   const updateSettings = useCallback(
-    async (updates: Partial<ServerSettings>): Promise<ServerSettings> => {
+    async (
+      updates: Partial<ServerSettings>,
+      options?: { confirmedConnectionImpact?: boolean },
+    ): Promise<ServerSettings> => {
       const requestSourceKey = sourceKey;
       try {
         setMutationError(null);
         const response = await updateServerSettingsForSource(
           requestSourceKey,
           updates,
+          options?.confirmedConnectionImpact === true,
         );
         acceptServerSettingsSnapshot(
           requestSourceKey,
@@ -162,6 +178,8 @@ export function useServerSettings(): UseServerSettingsResult {
         );
         return response.settings;
       } catch (err) {
+        // A disconnect refusal awaits the user's confirmation, not an error.
+        if (connectionImpactOf(err)) throw err;
         console.error("[useServerSettings] Failed to update settings:", err);
         setMutationError(
           err instanceof Error ? err.message : "Failed to update settings",

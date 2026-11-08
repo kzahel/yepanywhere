@@ -1,4 +1,8 @@
 import { isClaudeProviderName, type ProviderName } from "@yep-anywhere/shared";
+import {
+  type ConnectionImpactReason,
+  parseConnectionImpact,
+} from "./connectionImpact";
 
 /**
  * Machine-readable fields a refusal body carries beside its `error` text, so
@@ -17,15 +21,22 @@ export interface ApiRefusalFields {
   staleRedirect?: "stale-handoff";
   /** How to continue, e.g. `handoff-required` when the transcript cannot resume. */
   recovery?: string;
+  /** Why a `connection-impact` refusal would disconnect this client. */
+  connectionImpact?: ConnectionImpactReason[];
 }
 
 export function refusalFields(body: unknown): ApiRefusalFields {
   if (!body || typeof body !== "object") return {};
-  const { reason, staleRedirect, recovery } = body as Record<string, unknown>;
+  const { reason, staleRedirect, recovery, connectionImpact } = body as Record<
+    string,
+    unknown
+  >;
+  const impact = parseConnectionImpact(connectionImpact);
   return {
     ...(typeof reason === "string" ? { reason } : {}),
     ...(staleRedirect === "stale-handoff" ? { staleRedirect } : {}),
     ...(typeof recovery === "string" ? { recovery } : {}),
+    ...(impact ? { connectionImpact: impact } : {}),
   };
 }
 

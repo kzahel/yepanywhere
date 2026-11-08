@@ -27,6 +27,9 @@
   context and proposed convergence of invitations, accounts, and scoped grants)
 - Public share content censorship
 - Approval and local access security hardening
+- [Connection-safe settings](connection-safe-settings.md) (the same settings
+  over direct and Remote Access connections, confirmation before a change cuts
+  off its own caller, and runtime listener changes)
 - Security trust boundaries
 - Active content security (confirmed same-origin HTML execution, scriptless
   file viewing, and isolated origins for agent-built applications)

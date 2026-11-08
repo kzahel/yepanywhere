@@ -3,6 +3,42 @@ import { OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS } from "./server-capability-
 import type { ServerCapabilityDefinition } from "./server-capability-definition.js";
 
 export const LOCAL_ACCESS_SERVER_CAPABILITIES = {
+  connectionSafeSettings: {
+    id: CAPABILITY_ID_ALLOCATIONS.connectionSafeSettings.id,
+    name: "connection-safe-settings",
+    kind: "permanent",
+    area: "localAccess",
+    introducedIn: "0.11.1",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Listening, allowed-host and Remote Access credential writes refuse with 409 connection-impact when they would cut off the caller, until repeated with confirmConnectionImpact=1; a Remote Access (SRP) owner may change, disable and open the local password; runtime rebinds never exit the server and close the replaced listener's connections.",
+    clientFallback:
+      "Show the same settings; confirm listening, allowed-host and Remote Access credential changes client-side before sending, and make local password and listening controls read-only over Remote Access with an update note.",
+    serverContract: {
+      routes: [
+        "PUT /api/network-binding",
+        "DELETE /api/network-binding",
+        "PUT /api/settings",
+        "POST /api/remote-access/configure",
+        "POST /api/remote-access/disable",
+        "POST /api/remote-access/clear",
+        "PUT /api/remote-access/relay",
+        "DELETE /api/remote-access/relay",
+        "DELETE /api/remote-access/sessions",
+        "DELETE /api/remote-access/sessions/:sessionId",
+        "POST /api/auth/change-password",
+        "POST /api/auth/disable",
+        "POST /api/auth/localhost-access",
+      ],
+      requestFields: ["confirmConnectionImpact"],
+      responseFields: ["reason", "connectionImpact.reasons"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Older servers apply disconnecting changes without asking and refuse local password changes from Remote Access owners.",
+    },
+  },
   agentServerAccess: {
     id: CAPABILITY_ID_ALLOCATIONS.agentServerAccess.id,
     name: "agent-server-access",

@@ -14,6 +14,7 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 import { useServerSettings } from "../hooks/useServerSettings";
 import { type RelayStatus, useRemoteAccess } from "../hooks/useRemoteAccess";
+import { isConnectionImpactDeclined } from "../api/connectionImpact";
 import { useI18n } from "../i18n";
 import { parseUserAgent } from "../lib/deviceDetection";
 import { QRCode } from "./QRCode";
@@ -318,6 +319,8 @@ export function RemoteAccessSetup({
       return false;
     }
 
+    // One save may send several disconnecting requests; ask once.
+    const impactScope = { confirmed: false };
     try {
       // Update relay config if changed
       let relayUrl: string;
@@ -331,12 +334,7 @@ export function RemoteAccessSetup({
         );
         return false;
       }
-      const relayChanged =
-        username !== relayConfig?.username || relayUrl !== relayConfig?.url;
-      if (relayChanged) {
-        await updateRelayConfig({ url: relayUrl, username });
-      }
-
+      // Validate before writing anything.
       let yaClientBaseUrl: string;
       try {
         yaClientBaseUrl = normalizeYaClientBaseUrl(getYaClientUrlInput());
@@ -348,6 +346,20 @@ export function RemoteAccessSetup({
         );
         return false;
       }
+      const relayChanged =
+        username !== relayConfig?.username || relayUrl !== relayConfig?.url;
+      if (relayChanged) {
+        await updateRelayConfig({ url: relayUrl, username }, impactScope);
+      }
+
+      // Configure with password if provided
+      if (password) {
+        await configure(password, impactScope);
+        // Keep password in memory for QR code generation
+        setSavedPassword(password);
+      }
+
+      // Not refusable, so it follows the changes that may ask first.
       const savedYaClientBaseUrl =
         serverSettings?.yaClientBaseUrl ?? DEFAULT_YA_CLIENT_BASE_URL;
       if (yaClientBaseUrl !== savedYaClientBaseUrl) {
@@ -357,19 +369,13 @@ export function RemoteAccessSetup({
         );
       }
 
-      // Configure with password if provided
-      if (password) {
-        await configure(password);
-        // Keep password in memory for QR code generation
-        setSavedPassword(password);
-      }
-
       // Clear password fields after save
       setPassword("");
       setConfirmPassword("");
       setHasChanges(false);
       return true;
     } catch (err) {
+      if (isConnectionImpactDeclined(err)) return false;
       setError(
         err instanceof Error
           ? err.message
@@ -407,6 +413,7 @@ export function RemoteAccessSetup({
         await disable();
       }
     } catch (err) {
+      if (isConnectionImpactDeclined(err)) return;
       setError(
         err instanceof Error
           ? err.message
@@ -710,7 +717,7 @@ export function RemoteAccessSetup({
               <button
                 type="button"
                 className="revoke-all-button"
-                onClick={() => revokeAllSessions()}
+                onClick={() => void revokeAllSessions().catch(() => {})}
                 disabled={isSaving}
                 title={t("remoteSetupRevokeEffect" as never)}
               >
@@ -781,7 +788,9 @@ export function RemoteAccessSetup({
                     <button
                       type="button"
                       className="revoke-button"
-                      onClick={() => revokeSession(session.sessionId)}
+                      onClick={() =>
+                        void revokeSession(session.sessionId).catch(() => {})
+                      }
                       disabled={isSaving}
                       title={t("remoteSetupRevokeEffect" as never)}
                     >

@@ -1993,7 +1993,6 @@
   "localAccessApplying": "应用中...",
   "localAccessApply": "应用更改",
   "localAccessLogoutDescription": "在此设备上退出登录",
-  "localAccessRemoteDescription": "你当前正通过中继连接到远程服务器。",
   "localAccessRemoteLogoutDescription": "断开与远程服务器的连接。",
   "localAccessErrorPortRange": "端口必须是 1 到 65535 之间的数字",
   "localAccessErrorPasswordLength": "密码至少需要 6 个字符",

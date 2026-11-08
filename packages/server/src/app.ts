@@ -287,6 +287,10 @@ import { createSupervisorReviewLauncher } from "./review/reviewSessionLauncher.j
 import { health } from "./routes/health.js";
 import { createInboxRoutes } from "./routes/inbox.js";
 import { createNetworkBindingRoutes } from "./routes/network-binding.js";
+import {
+  formatListenerAddress,
+  type NetworkListenerControl,
+} from "./network/listeners.js";
 import { createOnboardingRoutes } from "./routes/onboarding.js";
 import { HostAgentProcessService } from "./services/HostAgentProcessService.js";
 import { describeNativeProcessSessions } from "./services/host-process-catalog.js";
@@ -562,18 +566,7 @@ export interface AppOptions {
    * Holder for network binding change callbacks.
    * The callbacks are set after startServer() initializes the servers.
    */
-  networkBindingCallbackHolder?: {
-    onLocalhostPortChange?: (
-      port: number,
-    ) => Promise<{ success: boolean; error?: string; redirectUrl?: string }>;
-    onNetworkBindingChange?: (
-      config: { host: string; port: number } | null,
-    ) => Promise<{ success: boolean; error?: string }>;
-    /** Live accessor for the addresses the server is actually listening on. */
-    getActiveListeners?: () => string[];
-    /** Live localhost port after an optional port-0 bind. */
-    getLocalhostPort?: () => number;
-  };
+  networkBindingCallbackHolder?: { listeners?: NetworkListenerControl };
   /** ConnectedBrowsersService for tracking active browser connections */
   connectedBrowsers?: ConnectedBrowsersService;
   /** BrowserProfileService for tracking browser profile origins */
@@ -3159,7 +3152,8 @@ export function createApp(options: AppOptions): AppResult {
       createServerInfoRoutes({
         host: options.serverHost,
         port: () =>
-          options.networkBindingCallbackHolder?.getLocalhostPort?.() ??
+          options.networkBindingCallbackHolder?.listeners?.current()
+            .localhostPort ??
           options.serverPort ??
           0,
         installId: options.installId,
@@ -3175,7 +3169,9 @@ export function createApp(options: AppOptions): AppResult {
     "/api/env-settings",
     createEnvSettingsRoutes({
       getActiveListeners: () =>
-        options.networkBindingCallbackHolder?.getActiveListeners?.() ?? [],
+        options.networkBindingCallbackHolder?.listeners
+          ?.activeAddresses()
+          .map(formatListenerAddress) ?? [],
     }),
   );
 
@@ -3209,22 +3205,7 @@ export function createApp(options: AppOptions): AppResult {
       createNetworkBindingRoutes({
         networkBindingService: options.networkBindingService,
         eventBus: options.eventBus,
-        onLocalhostPortChange: async (port) => {
-          const callback =
-            options.networkBindingCallbackHolder?.onLocalhostPortChange;
-          if (!callback) {
-            return { success: false, error: "Callback not configured" };
-          }
-          return callback(port);
-        },
-        onNetworkBindingChange: async (config) => {
-          const callback =
-            options.networkBindingCallbackHolder?.onNetworkBindingChange;
-          if (!callback) {
-            return { success: false, error: "Callback not configured" };
-          }
-          return callback(config);
-        },
+        listeners: () => options.networkBindingCallbackHolder?.listeners,
       }),
     );
   }

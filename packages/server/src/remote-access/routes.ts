@@ -2,7 +2,12 @@
  * Remote access API routes.
  */
 
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
+import {
+  type RemoteAccessChange,
+  refuseUnconfirmedImpact,
+  remoteAccessChangeImpact,
+} from "../network/connection-impact.js";
 import { recordAuthEvent } from "../security/authAuditLog.js";
 import type { RelayClientService } from "../services/RelayClientService.js";
 import type { RemoteAccessService } from "./RemoteAccessService.js";
@@ -29,6 +34,10 @@ export function createRemoteAccessRoutes(
   } = options;
   const app = new Hono();
 
+  /** Refuse a change that would cut off its own Remote Access caller. */
+  const refuseSelfDisconnect = (c: Context, change: RemoteAccessChange) =>
+    refuseUnconfirmedImpact(c, remoteAccessChangeImpact(c, change));
+
   /**
    * GET /api/remote-access/config
    * Get current remote access configuration.
@@ -54,6 +63,10 @@ export function createRemoteAccessRoutes(
 
       // Get existing username before changing (to invalidate their sessions)
       const existingUsername = remoteAccessService.getUsername();
+      const refusal = refuseSelfDisconnect(c, {
+        endsLoginsOf: existingUsername,
+      });
+      if (refusal) return refusal;
 
       await remoteAccessService.configure(body.password);
 
@@ -119,6 +132,8 @@ export function createRemoteAccessRoutes(
    */
   app.post("/disable", async (c) => {
     try {
+      const refusal = refuseSelfDisconnect(c, { refusesLogins: true });
+      if (refusal) return refusal;
       await remoteAccessService.disable();
       await recordAuthEvent(c, {
         event: "remote-access-disable",
@@ -140,6 +155,11 @@ export function createRemoteAccessRoutes(
     try {
       // Get username before clearing to invalidate their sessions
       const existingUsername = remoteAccessService.getUsername();
+      const refusal = refuseSelfDisconnect(c, {
+        endsLoginsOf: existingUsername,
+        refusesLogins: true,
+      });
+      if (refusal) return refusal;
 
       await remoteAccessService.clearCredentials();
       await recordAuthEvent(c, {
@@ -191,6 +211,17 @@ export function createRemoteAccessRoutes(
 
       // Get existing username before changing (to invalidate sessions on username change)
       const existingUsername = remoteAccessService.getUsername();
+      const existingRelay = remoteAccessService.getRelayConfig();
+      const refusal = refuseSelfDisconnect(c, {
+        endsLoginsOf:
+          existingUsername && existingUsername !== body.username
+            ? existingUsername
+            : null,
+        dropsRelay:
+          existingRelay?.url !== body.url ||
+          existingRelay?.username !== body.username,
+      });
+      if (refusal) return refusal;
 
       await remoteAccessService.setRelayConfig({
         url: body.url,
@@ -237,6 +268,11 @@ export function createRemoteAccessRoutes(
     try {
       // Get username before clearing to invalidate their sessions
       const existingUsername = remoteAccessService.getUsername();
+      const refusal = refuseSelfDisconnect(c, {
+        endsLoginsOf: existingUsername,
+        dropsRelay: true,
+      });
+      if (refusal) return refusal;
 
       await remoteAccessService.clearRelayConfig();
       await recordAuthEvent(c, {
@@ -309,6 +345,8 @@ export function createRemoteAccessRoutes(
       return c.json({ error: "Session service not available" }, 500);
     }
     const sessionId = c.req.param("sessionId");
+    const refusal = refuseSelfDisconnect(c, { endsLogin: sessionId });
+    if (refusal) return refusal;
     await remoteSessionService.deleteSession(sessionId);
     return c.json({ success: true });
   });
@@ -323,6 +361,8 @@ export function createRemoteAccessRoutes(
     }
     const username = remoteAccessService.getUsername();
     if (username) {
+      const refusal = refuseSelfDisconnect(c, { endsLoginsOf: username });
+      if (refusal) return refusal;
       const count = await remoteSessionService.invalidateUserSessions(username);
       return c.json({ success: true, revokedCount: count });
     }

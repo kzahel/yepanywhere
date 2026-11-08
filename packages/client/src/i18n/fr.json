@@ -1028,7 +1028,6 @@
   "localAccessApplying": "Application...",
   "localAccessApply": "Appliquer les modifications",
   "localAccessLogoutDescription": "Se déconnecter sur cet appareil",
-  "localAccessRemoteDescription": "Vous êtes connecté à un serveur distant via un relais.",
   "localAccessRemoteLogoutDescription": "Se déconnecter du serveur distant.",
   "localAccessErrorPortRange": "Le port doit être un nombre entre 1 et 65535",
   "localAccessErrorPasswordLength": "Le mot de passe doit comporter au moins 6 caractères",

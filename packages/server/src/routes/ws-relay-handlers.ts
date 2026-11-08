@@ -61,11 +61,6 @@ import {
 import type { SrpServerSession } from "../crypto/index.js";
 import type { DeviceBridgeService } from "../device/DeviceBridgeService.js";
 import { getLogger } from "../logging/logger.js";
-import {
-  AUTHENTICATED_DIRECT_LOGIN,
-  AUTHENTICATED_SRP_TRANSPORT,
-} from "../middleware/authenticated-transport.js";
-import { WS_INTERNAL_AUTHENTICATED } from "../middleware/internal-auth.js";
 import type { ProjectGlossarySubscriptionManager } from "../projects/projectGlossarySubscriptionManager.js";
 import {
   type ProjectWorktreeSubscriptionManager,
@@ -121,10 +116,9 @@ import {
 import {
   type WsTransportAuthState,
   hasEstablishedSrpTransport,
-  isTrustedWithoutSrpTransport,
-  shouldMarkInternalWsAuthenticated,
   tryLockWsConnectionMode,
 } from "./ws-transport-auth.js";
+import { internalWsRequestEnv } from "./ws-internal-request-env.js";
 import { parseApplicationClientMessage } from "./ws-transport-message-auth.js";
 
 /** Progress report interval in bytes (64KB) */
@@ -1329,22 +1323,7 @@ export async function handleRequest(
             },
           }
         : null;
-    const internalEnv = shouldMarkInternalWsAuthenticated(connState)
-      ? {
-          [WS_INTERNAL_AUTHENTICATED]: true,
-          ...(srpTransport
-            ? { [AUTHENTICATED_SRP_TRANSPORT]: srpTransport }
-            : {}),
-          ...(!srpTransport && isTrustedWithoutSrpTransport(connState)
-            ? {
-                [AUTHENTICATED_DIRECT_LOGIN]: {
-                  kind: "direct-login" as const,
-                  username: connState.directLoginUsername,
-                },
-              }
-            : {}),
-        }
-      : {};
+    const internalEnv = internalWsRequestEnv(connState, srpTransport);
     const response = await app.fetch(fetchRequest, internalEnv);
     const runAfterResponseTasks = async (): Promise<void> => {
       for (const task of afterResponseTasks) {

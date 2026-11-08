@@ -94,20 +94,16 @@ export function isVhostOrigin(origin: string | undefined): boolean {
  * @param value - The allowedHosts setting value: "*" for all, comma-separated hostnames, or undefined to clear
  */
 export function updateAllowedHosts(value: string | undefined): void {
-  if (!value) {
-    settingsHosts = null;
-    return;
-  }
-  const trimmed = value.trim();
-  if (trimmed === "*") {
-    settingsHosts = "*";
-    return;
-  }
-  if (!trimmed) {
-    settingsHosts = null;
-    return;
-  }
-  settingsHosts = new Set(
+  settingsHosts = parseAllowedHostsSetting(value);
+}
+
+function parseAllowedHostsSetting(
+  value: string | undefined,
+): Set<string> | "*" | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (trimmed === "*") return "*";
+  return new Set(
     trimmed
       .split(",")
       .map((h) => h.trim().toLowerCase())
@@ -127,6 +123,13 @@ export function allowAllHosts(): boolean {
  * Does NOT check for wildcard — callers should check allowAllHosts() first.
  */
 export function isAllowedHostname(hostname: string): boolean {
+  return hostnameAllowedBy(hostname, settingsHosts);
+}
+
+function hostnameAllowedBy(
+  hostname: string,
+  settings: Set<string> | "*" | null,
+): boolean {
   const h = hostname.toLowerCase();
   if (artifactHosts.has(h) || vhostHosts.has(h)) return false;
 
@@ -147,7 +150,7 @@ export function isAllowedHostname(hostname: string): boolean {
   if (ENV_HOSTS !== "*" && ENV_HOSTS.size > 0 && ENV_HOSTS.has(h)) return true;
 
   // In-app settings entries
-  if (settingsHosts instanceof Set && settingsHosts.has(h)) return true;
+  if (settings instanceof Set && settings.has(h)) return true;
 
   return false;
 }
@@ -159,11 +162,29 @@ export function isAllowedHostname(hostname: string): boolean {
  * Returns true for allowed hosts, false otherwise.
  */
 export function isAllowedHost(host: string | undefined): boolean {
+  return hostAllowedBy(host, settingsHosts);
+}
+
+/**
+ * Whether a Host header would pass if the in-app setting were `value`, so a
+ * settings change can tell whether it would refuse its own caller.
+ */
+export function wouldAllowHost(
+  host: string,
+  value: string | undefined,
+): boolean {
+  return hostAllowedBy(host, parseAllowedHostsSetting(value));
+}
+
+function hostAllowedBy(
+  host: string | undefined,
+  settings: Set<string> | "*" | null,
+): boolean {
   if (isArtifactHost(host)) return false;
   // No Host header = not a browser request (HTTP/1.1 browsers always send Host).
   // No DNS rebinding risk, so allow. Also allows Hono's app.request() in tests.
   if (!host) return true;
-  if (allowAllHosts()) return true;
+  if (ENV_HOSTS === "*" || settings === "*") return true;
 
   // Strip port from host header.
   // IPv6 with port: [::1]:3400 → ::1
@@ -180,7 +201,7 @@ export function isAllowedHost(host: string | undefined): boolean {
     hostname = host.replace(/:\d+$/, "");
   }
 
-  return isAllowedHostname(hostname);
+  return hostnameAllowedBy(hostname, settings);
 }
 
 /**
@@ -190,15 +211,30 @@ export function isAllowedHost(host: string | undefined): boolean {
  * Returns true for missing/null origins (same-origin or non-browser clients).
  */
 export function isAllowedOrigin(origin: string | undefined): boolean {
+  return originAllowedBy(origin, settingsHosts);
+}
+
+/** Whether an Origin would pass if the in-app setting were `value`. */
+export function wouldAllowOrigin(
+  origin: string | undefined,
+  value: string | undefined,
+): boolean {
+  return originAllowedBy(origin, parseAllowedHostsSetting(value));
+}
+
+function originAllowedBy(
+  origin: string | undefined,
+  settings: Set<string> | "*" | null,
+): boolean {
   if (isArtifactOrigin(origin)) return false;
   // No origin = same-origin request or non-browser client (allowed).
   // "null" = about:blank, file://, sandboxed iframe, etc. (allowed).
   if (!origin || origin === "null") return true;
-  if (allowAllHosts()) return true;
+  if (ENV_HOSTS === "*" || settings === "*") return true;
 
   try {
     const hostname = new URL(origin).hostname.toLowerCase();
-    return isAllowedHostname(hostname);
+    return hostnameAllowedBy(hostname, settings);
   } catch {
     // Invalid origin URL
     return false;

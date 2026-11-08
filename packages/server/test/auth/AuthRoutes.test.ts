@@ -9,6 +9,9 @@ import {
   createAuthRoutes,
 } from "../../src/auth/routes.js";
 import { configureAuthAudit } from "../../src/security/authAuditLog.js";
+import { Hono } from "hono";
+import { PRINCIPAL_VARIABLE } from "../../src/auth/principal.js";
+import { AUTHENTICATED_SRP_TRANSPORT } from "../../src/middleware/authenticated-transport.js";
 
 describe("Auth routes - audit log", () => {
   let authService: AuthService;
@@ -313,5 +316,101 @@ describe("Auth routes - cookie secure flag", () => {
     expect(cookie).toBeTruthy();
     expect(cookie).toContain(`${SESSION_COOKIE_NAME}=`);
     expect(cookie).toContain("Secure");
+  });
+});
+
+describe("Auth routes - Remote Access owner", () => {
+  let authService: AuthService;
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), "auth-remote-owner-"));
+    authService = new AuthService({
+      dataDir: testDir,
+      cookieSecret: "test-cookie-secret",
+    });
+    await authService.initialize();
+    await authService.enableAuth("first-secret-pw");
+  });
+
+  afterEach(async () => {
+    await authService.flushPendingWrites();
+    await fs.rm(testDir, { recursive: true, force: true });
+  });
+
+  /** The auth routes behind the principal the limited-users middleware sets. */
+  function routesActingAs(kind: "superuser" | "limited") {
+    const app = new Hono();
+    app.use("*", async (c, next) => {
+      c.set(PRINCIPAL_VARIABLE as never, { kind } as never);
+      await next();
+    });
+    app.route("/", createAuthRoutes({ authService }));
+    return app;
+  }
+
+  const srpLogin = {
+    [AUTHENTICATED_SRP_TRANSPORT]: {
+      kind: "srp",
+      username: "owner-relay",
+      sessionId: "session-1",
+      transportNonce: "nonce",
+      authenticationMethod: "srp-full",
+      transport: "relay",
+      connectionId: "connection-1",
+      closeConnection: () => {},
+      closeAfterResponse: () => {},
+      deferAfterResponse: () => {},
+    },
+  };
+
+  const post = (app: Hono, route: string, body: unknown, env?: object) =>
+    app.request(
+      route,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      env,
+    );
+
+  it("lets the owner's SRP login change and remove the local password", async () => {
+    const owner = routesActingAs("superuser");
+    expect(
+      (
+        await post(
+          owner,
+          "/change-password",
+          { newPassword: "second-secret-pw" },
+          srpLogin,
+        )
+      ).status,
+    ).toBe(200);
+    expect(await authService.verifyPassword("second-secret-pw")).toBe(true);
+    expect(
+      (await post(owner, "/localhost-access", { open: true }, srpLogin)).status,
+    ).toBe(200);
+    expect((await post(owner, "/disable", {}, srpLogin)).status).toBe(200);
+    expect(authService.isEnabled()).toBe(false);
+  });
+
+  it("refuses requests with neither an owner cookie nor an owner SRP login", async () => {
+    const change = { newPassword: "second-secret-pw" };
+    expect(
+      (await post(routesActingAs("superuser"), "/change-password", change))
+        .status,
+    ).toBe(401);
+    expect(
+      (
+        await post(
+          routesActingAs("limited"),
+          "/change-password",
+          change,
+          srpLogin,
+        )
+      ).status,
+    ).toBe(401);
+    expect(await authService.verifyPassword("first-secret-pw")).toBe(true);
   });
 });

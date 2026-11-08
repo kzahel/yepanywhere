@@ -12,7 +12,8 @@ YA is a self-hosted agent supervisor with one full-authority principal, the
 superuser. Apart from the optional limited users below, it has no roles,
 project access-control lists, or authenticated read-only/operator split. A
 valid superuser local password session, desktop session, or Remote Access SRP
-session reaches the same operator-facing API.
+session reaches the same operator-facing API, including changing or removing
+the local password ([connection-safe settings](connection-safe-settings.md)).
 When local authentication is disabled, anyone who can reach an admitted server
 endpoint has that same authority without first presenting a credential. When it
 is enabled, every `/api` route except the `/api/auth` login and status routes

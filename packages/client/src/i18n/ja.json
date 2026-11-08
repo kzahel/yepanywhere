@@ -1028,7 +1028,6 @@
   "localAccessApplying": "適用中...",
   "localAccessApply": "変更を適用",
   "localAccessLogoutDescription": "このデバイスでサインアウト",
-  "localAccessRemoteDescription": "リレー経由でリモートサーバーに接続しています。",
   "localAccessRemoteLogoutDescription": "リモートサーバーから切断します。",
   "localAccessErrorPortRange": "ポートは 1 から 65535 の数値である必要があります",
   "localAccessErrorPasswordLength": "パスワードは 6 文字以上必要です",

@@ -104,6 +104,7 @@ import { pushApi, pushSettingsApi } from "./pushClient";
 import { recentsApi } from "./recentsClient";
 import { projectsApi } from "./projectsClient";
 import { serverMetadataApi } from "./serverMetadataClient";
+import { networkBindingApi } from "./networkBindingClient";
 import { fetchJSON } from "./sourceApiFetch";
 import { createSessionApi } from "./sessionClient";
 
@@ -322,45 +323,6 @@ export {
   type UploadOptions,
 } from "./upload";
 
-export interface NetworkInterface {
-  /** Interface name (e.g., "eth0", "wlan0") */
-  name: string;
-  /** IP address */
-  address: string;
-  /** IPv4 or IPv6 */
-  family: "IPv4" | "IPv6";
-  /** Whether this is a loopback/internal interface */
-  internal: boolean;
-  /** Human-readable display name */
-  displayName: string;
-}
-
-export interface NetworkBindingState {
-  localhost: { port: number; overriddenByCli: boolean };
-  network: {
-    enabled: boolean;
-    host: string | null;
-    port: number | null;
-    overriddenByCli: boolean;
-  };
-  interfaces: NetworkInterface[];
-}
-
-export interface UpdateBindingRequest {
-  localhostPort?: number;
-  network?: {
-    enabled: boolean;
-    host?: string;
-    port?: number;
-  };
-}
-
-export interface UpdateBindingResponse {
-  success: boolean;
-  error?: string;
-  redirectUrl?: string;
-}
-
 /**
  * Overloaded so only a caller that sends `knownGeneration` has to narrow: the
  * server answers `unchanged` exactly when it was asked to.
@@ -471,19 +433,7 @@ export const api = {
   // Server metadata/admin API
   ...serverMetadataApi,
 
-  // Network binding API (runtime port/interface configuration)
-  getNetworkBinding: () => fetchJSON<NetworkBindingState>("/network-binding"),
-
-  setNetworkBinding: (request: UpdateBindingRequest) =>
-    fetchJSON<UpdateBindingResponse>("/network-binding", {
-      method: "PUT",
-      body: JSON.stringify(request),
-    }),
-
-  disableNetworkBinding: () =>
-    fetchJSON<UpdateBindingResponse>("/network-binding", {
-      method: "DELETE",
-    }),
+  ...networkBindingApi,
 
   // Provider API
   getProviders: (options?: { refresh?: boolean }) =>

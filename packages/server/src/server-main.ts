@@ -141,6 +141,11 @@ import { SpeechBackendInstallService } from "./services/voice/speechBackendInsta
 import { claudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { codexEntryCacheBudget } from "./sessions/codex-entry-cache-budget.js";
 import { observeCodexRolloutTree } from "./sessions/codex-reader.js";
+import {
+  formatListenerAddress,
+  type NetworkListenerControl,
+  NetworkListeners,
+} from "./network/listeners.js";
 import { providerCatalogFamily } from "./sessions/provider-catalog-family.js";
 import {
   boundSessionSource,
@@ -1032,16 +1037,7 @@ async function startServer() {
 
   // Callback holder for network binding changes - will be set after servers are created
   const networkBindingCallbackHolder: {
-    onLocalhostPortChange?: (
-      port: number,
-    ) => Promise<{ success: boolean; error?: string; redirectUrl?: string }>;
-    onNetworkBindingChange?: (
-      config: { host: string; port: number } | null,
-    ) => Promise<{ success: boolean; error?: string }>;
-    /** Live: addresses currently bound (reads real sockets at call time). */
-    getActiveListeners?: () => string[];
-    /** Live localhost port after an optional port-0 bind. */
-    getLocalhostPort?: () => number;
+    listeners?: NetworkListenerControl;
   } = {};
 
   // Determine effective port for server-info (CLI override or saved setting)
@@ -1656,10 +1652,6 @@ async function startServer() {
   // Determine effective port (CLI override or saved setting or default)
   const effectivePort = networkBindingService.getLocalhostPort();
 
-  // Track servers for multi-socket management
-  let localhostServer: ReturnType<typeof serve>;
-  let networkServer: ReturnType<typeof serve> | null = null;
-
   // Helper to create a server with WebSocket support
   function createServer(
     port: number,
@@ -1716,299 +1708,152 @@ async function startServer() {
     return server;
   }
 
-  // Callback for localhost port changes (test-first pattern)
-  async function onLocalhostPortChange(
-    newPort: number,
-  ): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
-    const currentPort = networkBindingService.getLocalhostPort();
-
-    // If port hasn't changed, no action needed
-    if (newPort === currentPort) {
-      return { success: true };
-    }
-
-    try {
-      // Test-first: try to bind new port before closing old one
-      const testServer = tlsOptions
-        ? serve(
-            {
-              fetch: app.fetch,
-              port: newPort,
-              hostname: "127.0.0.1",
-              createServer: createHttpsServer,
-              serverOptions: tlsOptions,
-            },
-            () => {},
-          )
-        : serve(
-            { fetch: app.fetch, port: newPort, hostname: "127.0.0.1" },
-            () => {},
-          );
-
-      // If we got here, the port is available
-      // Close the test server and the old server
-      testServer.close();
-
-      // Close old localhost server
-      localhostServer.close();
-
-      // Create new localhost server
-      localhostServer = createServer(
-        newPort,
-        "127.0.0.1",
-        (info) => {
-          console.log(
-            `[NetworkBinding] Localhost server restarted on port ${info.port}`,
-          );
-        },
-        { fatalOnError: true },
+  // The listening sockets. A change binds its new sockets before releasing
+  // the old ones and never exits on failure (topics/connection-safe-settings.md).
+  const networkListeners = new NetworkListeners({
+    create: ({ host, port }, { fatalOnError, onReady }) =>
+      createServer(port, host, onReady, { fatalOnError }),
+    onBound: (address) => {
+      console.log(
+        `Server URL: ${serverProtocol}://${formatListenerAddress(address)}`,
       );
-
-      return {
-        success: true,
-        // Only include redirectUrl if port actually changed
-        redirectUrl: `${serverProtocol}://127.0.0.1:${newPort}`,
-      };
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to bind port";
-      console.error(
-        `[NetworkBinding] Failed to bind port ${newPort}:`,
-        message,
+      console.log(
+        `[NetworkBinding] Listening on ${formatListenerAddress(address)}`,
       );
-      return { success: false, error: message };
-    }
-  }
+    },
+  });
 
-  // Track whether we're currently bound to 0.0.0.0 (which covers localhost)
-  let boundToAllInterfaces = false;
-
-  // Callback for network socket changes
-  async function onNetworkBindingChange(
-    bindConfig: { host: string; port: number } | null,
-  ): Promise<{ success: boolean; error?: string }> {
-    const isBindingToAllInterfaces =
-      bindConfig?.host === "0.0.0.0" || bindConfig?.host === "::";
-    const localhostPort = networkBindingService.getLocalhostPort();
-    const samePortAsLocalhost = bindConfig?.port === localhostPort;
-    const needsLocalhostClose = isBindingToAllInterfaces && samePortAsLocalhost;
-
-    try {
-      // Close existing network server if running
-      if (networkServer) {
-        networkServer.close();
-        networkServer = null;
-        console.log("[NetworkBinding] Network socket closed");
-      }
-
-      // If we were bound to 0.0.0.0 and now we're not, rebind localhost
-      if (boundToAllInterfaces && !isBindingToAllInterfaces) {
-        localhostServer = createServer(
-          localhostPort,
-          "127.0.0.1",
-          (info) => {
-            console.log(
-              `[NetworkBinding] Localhost server rebound on port ${info.port}`,
-            );
-          },
-          { fatalOnError: true },
-        );
-        boundToAllInterfaces = false;
-      }
-
-      // Create new network server if config provided
-      if (bindConfig) {
-        // If binding to 0.0.0.0 on the same port as localhost, we need to
-        // close the localhost server first since 0.0.0.0 includes 127.0.0.1
-        if (needsLocalhostClose) {
-          localhostServer.close();
-          console.log(
-            "[NetworkBinding] Closed localhost server to bind to all interfaces",
-          );
-        }
-
-        try {
-          networkServer = createServer(
-            bindConfig.port,
-            bindConfig.host,
-            (info) => {
-              const networkUrl = `${serverProtocol}://${bindConfig.host}:${info.port}`;
-              console.log(`Server URL: ${networkUrl}`);
-              console.log(
-                `[NetworkBinding] Network socket listening on ${bindConfig.host}:${info.port}`,
-              );
-            },
-          );
-          // Only set this flag after successful binding
-          if (needsLocalhostClose) {
-            boundToAllInterfaces = true;
-          }
-        } catch (bindError) {
-          // If we closed localhost but failed to bind network, recover localhost
-          if (needsLocalhostClose) {
-            console.log(
-              "[NetworkBinding] Recovering localhost server after failed bind",
-            );
-            localhostServer = createServer(
-              localhostPort,
-              "127.0.0.1",
-              (info) => {
-                console.log(
-                  `[NetworkBinding] Localhost server recovered on port ${info.port}`,
-                );
-              },
-              { fatalOnError: true },
-            );
-          }
-          throw bindError;
-        }
-      }
-
-      return { success: true };
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to bind network socket";
-      console.error("[NetworkBinding] Failed to bind network socket:", message);
-      return { success: false, error: message };
-    }
-  }
-
-  // Wire up the callbacks to the holder so routes can use them
-  networkBindingCallbackHolder.onLocalhostPortChange = onLocalhostPortChange;
-  networkBindingCallbackHolder.onNetworkBindingChange = onNetworkBindingChange;
-  // Report the addresses actually bound right now by reading the live sockets.
-  // A server that failed to bind (e.g. an unresolvable --host) reports a null
-  // address(), so it never appears here -- the panel shows only real listeners.
-  networkBindingCallbackHolder.getActiveListeners = () => {
-    const listeners: string[] = [];
-    for (const server of [localhostServer, networkServer]) {
-      const address = server?.address();
-      if (address && typeof address === "object") {
-        listeners.push(`${address.address}:${address.port}`);
-      }
-    }
-    return listeners;
-  };
-  networkBindingCallbackHolder.getLocalhostPort = () => {
-    const address = localhostServer?.address();
-    return address && typeof address === "object"
-      ? address.port
-      : effectiveServerPort;
-  };
+  // The network socket to start with: --host, else saved settings (the
+  // saved socket is ignored while --host overrides it). A missing saved port
+  // follows the loopback port.
+  const cliNetworkHost =
+    config.cliHostOverride &&
+    config.host !== "127.0.0.1" &&
+    config.host !== "localhost"
+      ? config.host
+      : null;
+  const networkConfig = networkBindingService.getNetworkConfig();
+  const savedNetworkHost =
+    networkConfig.enabled &&
+    networkConfig.host &&
+    !networkBindingService.isNetworkOverridden()
+      ? networkConfig.host
+      : null;
+  const startupNetworkHost = cliNetworkHost ?? savedNetworkHost;
+  const startupNetworkPort = cliNetworkHost ? null : networkConfig.port;
 
   // Create the main localhost server
   const expectedServerUrl = `${serverProtocol}://127.0.0.1:${effectivePort}`;
   console.log(`[Server] Starting on ${expectedServerUrl}`);
   let desktopReadySent = false;
-  localhostServer = createServer(
-    effectivePort,
-    "127.0.0.1",
-    (info) => {
-      markStartup("localhost server onReady");
-      providerSessionWatchers.requestActivation(
-        installService.getCatalogFamilies(),
+  // Readiness runs once the socket serving loopback listens; a wildcard
+  // network socket on the loopback port is that socket, never replaced later.
+  const startupReady = (info: { port: number }) => {
+    markStartup("localhost server onReady");
+    providerSessionWatchers.requestActivation(
+      installService.getCatalogFamilies(),
+    );
+    void reportDevWrapperListening({
+      host: "127.0.0.1",
+      port: info.port,
+    }).catch((error) => {
+      console.error(
+        "[DevWrapper] Failed to report acquired localhost bind:",
+        error,
       );
-      void reportDevWrapperListening({
-        host: "127.0.0.1",
-        port: info.port,
-      }).catch((error) => {
-        console.error(
-          "[DevWrapper] Failed to report acquired localhost bind:",
-          error,
-        );
-      });
-      // Write port to file if requested (for test harnesses)
-      if (config.portFile) {
-        fs.writeFileSync(config.portFile, String(info.port));
-      }
+    });
+    // Write port to file if requested (for test harnesses)
+    if (config.portFile) {
+      fs.writeFileSync(config.portFile, String(info.port));
+    }
 
-      const serverUrl = `${serverProtocol}://127.0.0.1:${info.port}`;
-      if (desktopBootstrapService && !desktopReadySent) {
-        desktopReadySent = true;
-        process.stdout.write(
-          `YEP_DESKTOP_READY ${JSON.stringify({
-            protocol: DESKTOP_BOOTSTRAP_PROTOCOL_VERSION,
-            port: info.port,
-          })}\n`,
-        );
-      }
-      console.log(`Server URL: ${serverUrl}`);
-      console.log(`Server running at ${serverUrl}`);
-      console.log(`Projects dir: ${config.claudeProjectsDir}`);
-      console.log(`Permission mode: ${config.defaultPermissionMode}`);
-      startSpeechBackendInitialization();
+    const serverUrl = `${serverProtocol}://127.0.0.1:${info.port}`;
+    if (desktopBootstrapService && !desktopReadySent) {
+      desktopReadySent = true;
+      process.stdout.write(
+        `YEP_DESKTOP_READY ${JSON.stringify({
+          protocol: DESKTOP_BOOTSTRAP_PROTOCOL_VERSION,
+          port: info.port,
+        })}\n`,
+      );
+    }
+    console.log(`Server URL: ${serverUrl}`);
+    console.log(`Server running at ${serverUrl}`);
+    console.log(`Projects dir: ${config.claudeProjectsDir}`);
+    console.log(`Permission mode: ${config.defaultPermissionMode}`);
+    startSpeechBackendInitialization();
 
-      if (config.openBrowser) {
-        const platform = os.platform();
-        let cmd: string;
-        let args: string[];
-        if (platform === "darwin") {
-          cmd = "open";
-          args = [serverUrl];
-        } else if (platform === "win32") {
-          cmd = "cmd";
+    if (config.openBrowser) {
+      const platform = os.platform();
+      let cmd: string;
+      let args: string[];
+      if (platform === "darwin") {
+        cmd = "open";
+        args = [serverUrl];
+      } else if (platform === "win32") {
+        cmd = "cmd";
+        args = ["/c", "start", "", serverUrl];
+      } else {
+        // Detect WSL: use cmd.exe to open in Windows browser
+        let isWsl = false;
+        try {
+          isWsl = fs
+            .readFileSync("/proc/version", "utf-8")
+            .toLowerCase()
+            .includes("microsoft");
+        } catch {}
+        if (isWsl) {
+          cmd = "cmd.exe";
           args = ["/c", "start", "", serverUrl];
         } else {
-          // Detect WSL: use cmd.exe to open in Windows browser
-          let isWsl = false;
-          try {
-            isWsl = fs
-              .readFileSync("/proc/version", "utf-8")
-              .toLowerCase()
-              .includes("microsoft");
-          } catch {}
-          if (isWsl) {
-            cmd = "cmd.exe";
-            args = ["/c", "start", "", serverUrl];
-          } else {
-            cmd = "xdg-open";
-            args = [serverUrl];
-          }
+          cmd = "xdg-open";
+          args = [serverUrl];
         }
-        execFile(cmd, args, (err) => {
-          if (err) {
-            console.warn(`Could not open browser: ${err.message}`);
-          }
-        });
       }
-
-      // Notify all connected clients that the backend has restarted
-      // This allows other tabs to clear their "reload needed" banner
-      eventBus.emit({
-        type: "backend-reloaded",
-        timestamp: new Date().toISOString(),
+      execFile(cmd, args, (err) => {
+        if (err) {
+          console.warn(`Could not open browser: ${err.message}`);
+        }
       });
-    },
-    { fatalOnError: true },
+    }
+
+    // Notify all connected clients that the backend has restarted
+    // This allows other tabs to clear their "reload needed" banner
+    eventBus.emit({
+      type: "backend-reloaded",
+      timestamp: new Date().toISOString(),
+    });
+  };
+  await networkListeners.start(
+    effectivePort,
+    startupReady,
+    startupNetworkHost
+      ? { host: startupNetworkHost, port: startupNetworkPort ?? effectivePort }
+      : null,
   );
 
-  // Start network socket if enabled in saved settings (and not CLI-overridden)
-  const networkConfig = networkBindingService.getNetworkConfig();
-  if (
-    networkConfig.enabled &&
-    networkConfig.host &&
-    !networkBindingService.isNetworkOverridden()
-  ) {
-    const networkPort = networkConfig.port ?? effectivePort;
-    await onNetworkBindingChange({
-      host: networkConfig.host,
-      port: networkPort,
+  if (startupNetworkHost && !networkListeners.current().network) {
+    const { localhostPort } = networkListeners.current();
+    const bound = await networkListeners.apply({
+      localhostPort,
+      network: {
+        host: startupNetworkHost,
+        port: startupNetworkPort ?? localhostPort,
+      },
     });
-    markStartup("network socket bound from settings");
+    if (!bound.success)
+      console.error(
+        `[NetworkBinding] ${cliNetworkHost ? "--host" : "Saved network"} socket not bound: ${bound.error}`,
+      );
+    markStartup(
+      cliNetworkHost
+        ? "network socket bound from CLI override"
+        : "network socket bound from settings",
+    );
   }
 
-  // If CLI host override was specified (not localhost), also bind to that interface
-  // This handles the case where user runs `yepanywhere --host 0.0.0.0`
-  if (
-    config.cliHostOverride &&
-    config.host !== "127.0.0.1" &&
-    config.host !== "localhost"
-  ) {
-    await onNetworkBindingChange({ host: config.host, port: effectivePort });
-    markStartup("network socket bound from CLI override");
-  }
+  // Routes change the listeners only once startup has finished binding them.
+  networkBindingCallbackHolder.listeners = networkListeners;
 
   // Start maintenance server on separate port (for out-of-band diagnostics)
   // This runs independently from the main server and can be used to debug
@@ -2049,9 +1894,6 @@ async function startServer() {
       `- ${timing.phase}: +${timing.deltaMs}ms (total ${timing.elapsedMs}ms)`,
     );
   }
-
-  // Export callbacks for use by API routes (via app options)
-  return { onLocalhostPortChange, onNetworkBindingChange };
 }
 
 startServer().catch((error) => {

@@ -7,6 +7,12 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { fetchJSON } from "../api/client";
+import {
+  type ConnectionImpactScope,
+  isConnectionImpactDeclined,
+  withImpactConfirmation,
+} from "../api/connectionImpact";
+import { useConnectionImpactConfirmation } from "./useConnectionImpactConfirmation";
 
 export interface RelayConfig {
   /** Relay server URL (e.g., wss://relay.yepanywhere.com/ws) */
@@ -65,8 +71,14 @@ interface UseRemoteAccessResult {
   loading: boolean;
   /** Error message if any */
   error: string | null;
+  /*
+   * Changes that can end this client's own Remote Access connection ask
+   * before applying (topics/connection-safe-settings.md). A declined prompt
+   * rejects with ConnectionImpactDeclinedError and changes nothing; pass one
+   * scope to the calls of a single save so it asks once.
+   */
   /** Configure remote access with password (relay must be configured first) */
-  configure: (password: string) => Promise<void>;
+  configure: (password: string, scope?: ConnectionImpactScope) => Promise<void>;
   /** Enable remote access (must be configured first) */
   enable: () => Promise<void>;
   /** Disable remote access */
@@ -74,7 +86,10 @@ interface UseRemoteAccessResult {
   /** Clear credentials without disabling */
   clearCredentials: () => Promise<void>;
   /** Update relay configuration */
-  updateRelayConfig: (config: RelayConfig) => Promise<void>;
+  updateRelayConfig: (
+    config: RelayConfig,
+    scope?: ConnectionImpactScope,
+  ) => Promise<void>;
   /** Clear relay configuration */
   clearRelayConfig: () => Promise<void>;
   /** Revoke a specific session */
@@ -92,6 +107,7 @@ export function useRemoteAccess(): UseRemoteAccessResult {
   const [sessions, setSessions] = useState<RemoteSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const confirmImpact = useConnectionImpactConfirmation();
 
   const refresh = useCallback(async () => {
     try {
@@ -118,136 +134,119 @@ export function useRemoteAccess(): UseRemoteAccessResult {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
 
-  const configure = useCallback(
-    async (password: string) => {
+  /** Send a change that may disconnect this client, then refresh. */
+  const change = useCallback(
+    async (
+      path: string,
+      init: RequestInit,
+      failure: string,
+      options: { mayDisconnect: boolean; scope?: ConnectionImpactScope },
+    ) => {
       try {
-        await fetchJSON("/remote-access/configure", {
-          method: "POST",
-          body: JSON.stringify({ password }),
-        });
+        await confirmImpact(
+          (confirmed) =>
+            fetchJSON(withImpactConfirmation(path, confirmed), init),
+          options,
+        );
         await refresh();
       } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to configure remote access";
+        if (isConnectionImpactDeclined(err)) throw err;
+        const message = err instanceof Error ? err.message : failure;
         setError(message);
         throw new Error(message);
       }
     },
-    [refresh],
+    [confirmImpact, refresh],
   );
 
-  const enable = useCallback(async () => {
-    try {
-      await fetchJSON("/remote-access/enable", {
-        method: "POST",
-      });
-      await refresh();
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to enable remote access";
-      setError(message);
-      throw new Error(message);
-    }
-  }, [refresh]);
+  const configure = useCallback(
+    (password: string, scope?: ConnectionImpactScope) =>
+      change(
+        "/remote-access/configure",
+        { method: "POST", body: JSON.stringify({ password }) },
+        "Failed to configure remote access",
+        { mayDisconnect: true, scope },
+      ),
+    [change],
+  );
 
-  const disable = useCallback(async () => {
-    try {
-      await fetchJSON("/remote-access/disable", {
-        method: "POST",
-      });
-      await refresh();
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to disable remote access";
-      setError(message);
-      throw new Error(message);
-    }
-  }, [refresh]);
+  const enable = useCallback(
+    () =>
+      change(
+        "/remote-access/enable",
+        { method: "POST" },
+        "Failed to enable remote access",
+        { mayDisconnect: false },
+      ),
+    [change],
+  );
 
-  const clearCredentials = useCallback(async () => {
-    try {
-      await fetchJSON("/remote-access/clear", {
-        method: "POST",
-      });
-      await refresh();
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Failed to clear remote access credentials";
-      setError(message);
-      throw new Error(message);
-    }
-  }, [refresh]);
+  const disable = useCallback(
+    () =>
+      change(
+        "/remote-access/disable",
+        { method: "POST" },
+        "Failed to disable remote access",
+        { mayDisconnect: true },
+      ),
+    [change],
+  );
+
+  const clearCredentials = useCallback(
+    () =>
+      change(
+        "/remote-access/clear",
+        { method: "POST" },
+        "Failed to clear remote access credentials",
+        { mayDisconnect: true },
+      ),
+    [change],
+  );
 
   const updateRelayConfig = useCallback(
-    async (newConfig: RelayConfig) => {
-      try {
-        await fetchJSON("/remote-access/relay", {
-          method: "PUT",
-          body: JSON.stringify(newConfig),
-        });
-        await refresh();
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to update relay configuration";
-        setError(message);
-        throw new Error(message);
-      }
-    },
-    [refresh],
+    (newConfig: RelayConfig, scope?: ConnectionImpactScope) =>
+      change(
+        "/remote-access/relay",
+        { method: "PUT", body: JSON.stringify(newConfig) },
+        "Failed to update relay configuration",
+        { mayDisconnect: true, scope },
+      ),
+    [change],
   );
 
-  const clearRelayConfig = useCallback(async () => {
-    try {
-      await fetchJSON("/remote-access/relay", {
-        method: "DELETE",
-      });
-      await refresh();
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Failed to clear relay configuration";
-      setError(message);
-      throw new Error(message);
-    }
-  }, [refresh]);
+  const clearRelayConfig = useCallback(
+    () =>
+      change(
+        "/remote-access/relay",
+        { method: "DELETE" },
+        "Failed to clear relay configuration",
+        { mayDisconnect: true },
+      ),
+    [change],
+  );
 
   const revokeSession = useCallback(
-    async (sessionId: string) => {
-      try {
-        await fetchJSON(`/remote-access/sessions/${sessionId}`, {
-          method: "DELETE",
-        });
-        await refresh();
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to revoke session";
-        setError(message);
-        throw new Error(message);
-      }
-    },
-    [refresh],
+    (sessionId: string) =>
+      change(
+        `/remote-access/sessions/${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" },
+        "Failed to revoke session",
+        // Usually another device's login; the server asks when it is ours.
+        { mayDisconnect: false },
+      ),
+    [change],
   );
 
-  const revokeAllSessions = useCallback(async () => {
-    try {
-      await fetchJSON("/remote-access/sessions", {
-        method: "DELETE",
-      });
-      await refresh();
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to revoke all sessions";
-      setError(message);
-      throw new Error(message);
-    }
-  }, [refresh]);
+  const revokeAllSessions = useCallback(
+    () =>
+      change(
+        "/remote-access/sessions",
+        { method: "DELETE" },
+        "Failed to revoke all sessions",
+        { mayDisconnect: true },
+      ),
+    [change],
+  );
 
   return {
     config,

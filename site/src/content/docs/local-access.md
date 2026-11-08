@@ -55,6 +55,18 @@ such as with **Local Network Access** or behind your own reverse proxy.
   shows a warning under the sandbox option, because a sandboxed agent that
   reaches YA could control it.
 
+## Changing settings from another device
+
+**Local Access** and **Remote Access** show the same settings whether you are
+on the local network or connected through Remote Access, and the owner can
+change the local password from either.
+
+A change that would disconnect the device you are using asks first and says
+why: for example moving the port or turning off the network address it
+connects through, removing its hostname from **Allowed Hosts**, or changing
+the Remote Access password from a relay connection. Changing the port from a
+browser that opened the page on that port moves the page to the new port.
+
 ## Desktop app: Allow Localhost Access
 
 The macOS and Windows apps protect the server with a desktop credential even

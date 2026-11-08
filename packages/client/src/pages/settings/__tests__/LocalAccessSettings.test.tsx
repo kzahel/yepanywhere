@@ -33,7 +33,9 @@ const {
   bindingState,
   hookState,
   mockDisconnect,
+  mockGetAuthStatus,
   mockGetFileAccessInfo,
+  mockUpdateBinding,
   mockUpdateSetting,
   mockUpdateSettings,
   remoteState,
@@ -47,7 +49,9 @@ const {
     error: null as string | null,
   },
   mockDisconnect: vi.fn(),
+  mockGetAuthStatus: vi.fn(),
   mockGetFileAccessInfo: vi.fn(),
+  mockUpdateBinding: vi.fn(),
   mockUpdateSetting: vi.fn(),
   mockUpdateSettings: vi.fn(),
   remoteState: {
@@ -66,6 +70,7 @@ vi.mock("../../../api/client", async () => {
     ...actual,
     api: {
       ...actual.api,
+      getAuthStatus: mockGetAuthStatus,
       getFileAccessInfo: mockGetFileAccessInfo,
     },
   };
@@ -84,7 +89,7 @@ vi.mock("../../../hooks/useNetworkBinding", () => ({
     binding: bindingState.value,
     loading: false,
     applying: false,
-    updateBinding: vi.fn(),
+    updateBinding: mockUpdateBinding,
   }),
 }));
 
@@ -134,6 +139,23 @@ const baseFileAccess: FileAccessSettings = {
   custom: [],
 };
 
+/** /api/auth/status as a Remote Access client reads it. */
+const remoteAuthStatus = {
+  enabled: true,
+  authenticated: false,
+  setupRequired: false,
+  disabledByEnv: false,
+  authFilePath: "",
+  hasDesktopToken: false,
+  localhostOpen: false,
+};
+
+const baseBinding = {
+  localhost: { port: 3400, overriddenByCli: false },
+  network: { enabled: false, host: null, port: 3400, overriddenByCli: false },
+  interfaces: [],
+};
+
 const baseSettings: ServerSettings = {
   serviceWorkerEnabled: true,
   persistRemoteSessionsToDisk: false,
@@ -163,6 +185,7 @@ describe("LocalAccessSettings", () => {
     hookState.error = null;
     remoteState.connection = { disconnect: mockDisconnect };
     mockGetFileAccessInfo.mockResolvedValue(fileAccessInfo);
+    mockGetAuthStatus.mockResolvedValue(remoteAuthStatus);
     mockUpdateSetting.mockResolvedValue(undefined);
     mockUpdateSettings.mockImplementation(
       async (updates: Partial<ServerSettings>) => {
@@ -201,16 +224,7 @@ describe("LocalAccessSettings", () => {
         setLocalhostOpen: vi.fn(),
         logout: vi.fn(),
       };
-      bindingState.value = {
-        localhost: { port: 3400, overriddenByCli: false },
-        network: {
-          enabled: false,
-          host: null,
-          port: 3400,
-          overriddenByCli: false,
-        },
-        interfaces: [],
-      };
+      bindingState.value = baseBinding;
     }
 
     function feedback(): string | null | undefined {
@@ -361,26 +375,140 @@ describe("LocalAccessSettings", () => {
       );
       await waitFor(() => expect(disableAuth).toHaveBeenCalledTimes(1));
     });
+
+    it("asks once when an apply would disconnect this client", async () => {
+      versionState.capabilities = [
+        APPROVAL_AUDIT_LOG_CAPABILITY,
+        SERVER_CAPABILITIES.connectionSafeSettings.name,
+      ];
+      useDirectAccess(false);
+      mockUpdateSettings.mockRejectedValueOnce(
+        Object.assign(new Error("would disconnect"), {
+          reason: "connection-impact",
+          connectionImpact: [{ kind: "host-not-allowed", host: "yep.example" }],
+        }),
+      );
+      mockUpdateBinding.mockResolvedValue({});
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+      render(<LocalAccessSettings />);
+
+      fireEvent.change(await screen.findByRole("spinbutton"), {
+        target: { value: "3401" },
+      });
+      fireEvent.change(
+        screen.getByPlaceholderText("localAccessAllowedHostsPlaceholder"),
+        { target: { value: "other.example" } },
+      );
+      fireEvent.click(screen.getByRole("button", { name: "localAccessApply" }));
+
+      await waitFor(() =>
+        expect(mockUpdateBinding).toHaveBeenCalledWith(
+          { localhostPort: 3401 },
+          true,
+        ),
+      );
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(mockUpdateSettings).toHaveBeenLastCalledWith(
+        { allowedHosts: "other.example" },
+        { confirmedConnectionImpact: true },
+      );
+      confirm.mockRestore();
+    });
+
+    it("leaves a declined disconnecting change pending without an error", async () => {
+      versionState.capabilities = [
+        APPROVAL_AUDIT_LOG_CAPABILITY,
+        SERVER_CAPABILITIES.connectionSafeSettings.name,
+      ];
+      useDirectAccess(false);
+      mockUpdateBinding.mockRejectedValueOnce(
+        Object.assign(new Error("would disconnect"), {
+          reason: "connection-impact",
+          connectionImpact: [
+            { kind: "listener-closed", listener: "127.0.0.1:3400" },
+          ],
+        }),
+      );
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+      render(<LocalAccessSettings />);
+
+      fireEvent.change(await screen.findByRole("spinbutton"), {
+        target: { value: "3401" },
+      });
+      const apply = screen.getByRole("button", { name: "localAccessApply" });
+      fireEvent.click(apply);
+
+      await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(apply).toHaveProperty("disabled", false));
+      expect(mockUpdateBinding).toHaveBeenCalledTimes(1);
+      expect(document.querySelector(".form-error")).toBeNull();
+      confirm.mockRestore();
+    });
+
+    it("offers the same settings over Remote Access as over a direct connection", async () => {
+      versionState.capabilities = [
+        APPROVAL_AUDIT_LOG_CAPABILITY,
+        AGENT_SERVER_ACCESS_CAPABILITY,
+        SERVER_CAPABILITIES.agentApiBootstrap.name,
+        SERVER_CAPABILITIES.connectionSafeSettings.name,
+      ];
+      // Each connection's own logout is a session action, not a setting.
+      const settingIds = () =>
+        [...document.querySelectorAll("[data-settings-item]")]
+          .map((item) => item.getAttribute("data-settings-item"))
+          .filter(
+            (id) =>
+              id !== "local-access-logout" &&
+              id !== "local-access-remote-logout",
+          )
+          .sort();
+
+      useDirectAccess(true);
+      const direct = render(<LocalAccessSettings />);
+      await screen.findByRole("group", { name: "fileAccessTitle" });
+      const directIds = settingIds();
+      expect(screen.getByRole("spinbutton")).toBeTruthy();
+      direct.unmount();
+
+      authState.value = null;
+      remoteState.connection = { disconnect: mockDisconnect };
+      render(<LocalAccessSettings />);
+      await screen.findByRole("group", { name: "fileAccessTitle" });
+
+      expect(settingIds()).toEqual(directIds);
+      expect(checkboxFor("localAccessRequirePasswordTitle").disabled).toBe(
+        false,
+      );
+      expect(
+        document.querySelector(
+          '[data-settings-item="local-access-remote-logout"]',
+        ),
+      ).not.toBeNull();
+    });
   });
 
-  it("shows file access controls in relay mode without direct port controls", async () => {
+  it("keeps the local password read-only over Remote Access until the server accepts the owner login", async () => {
+    bindingState.value = baseBinding;
     render(<LocalAccessSettings />);
 
-    const fileAccessPanel = await screen.findByRole("group", {
-      name: "fileAccessTitle",
+    const toggle = await screen.findByRole("checkbox", {
+      name: "localAccessRequirePasswordTitle",
     });
-    expect(fileAccessPanel.contains(screen.getByText("fileAccessHome"))).toBe(
-      true,
-    );
-    expect(screen.queryByText("developmentRelayDebugTitle")).toBeNull();
-    expect(screen.queryByText("localAccessRelayDebugTitle")).toBeNull();
-    expect(screen.queryByText("localAccessListeningPortTitle")).toBeNull();
+    expect(toggle).toHaveProperty("disabled", true);
+    expect(
+      screen.getByText("localAccessPasswordRemoteUpdateRequired"),
+    ).toBeTruthy();
+    expect(
+      document.querySelector("[data-local-access-password-block]"),
+    ).toBeNull();
   });
 
   it("saves relay-mode file access toggles immediately", async () => {
     render(<LocalAccessSettings />);
 
-    fireEvent.click(checkboxFor("fileAccessHome"));
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "fileAccessHome" }),
+    );
 
     await waitFor(() =>
       expect(mockUpdateSettings).toHaveBeenCalledWith({
@@ -393,9 +521,6 @@ describe("LocalAccessSettings", () => {
         },
       }),
     );
-    expect(
-      screen.queryByRole("button", { name: "localAccessApply" }),
-    ).toBeNull();
   });
 
   it("saves custom folders on blur or explicit save", async () => {

@@ -3,7 +3,7 @@
   "updated": "2026-11-08",
   "files": {
     "packages/client/src/api/client.ts": {
-      "maxLines": 1974
+      "maxLines": 1924
     },
     "packages/client/src/components/blocks/ToolCallRow.tsx": {
       "maxLines": 1953
@@ -79,7 +79,7 @@
       "maxLines": 1548
     },
     "packages/server/src/app.ts": {
-      "maxLines": 4645
+      "maxLines": 4626
     },
     "packages/server/src/augments/safe-markdown.ts": {
       "maxLines": 1951
@@ -106,7 +106,7 @@
       "maxLines": 5264
     },
     "packages/server/src/routes/ws-relay-handlers.ts": {
-      "maxLines": 3087
+      "maxLines": 3066
     },
     "packages/server/src/sdk/providers/claude.ts": {
       "maxLines": 3114
@@ -133,7 +133,7 @@
       "maxLines": 1532
     },
     "packages/server/src/server-main.ts": {
-      "maxLines": 2060
+      "maxLines": 1902
     },
     "packages/server/src/services/ProjectQueueService.ts": {
       "maxLines": 1648

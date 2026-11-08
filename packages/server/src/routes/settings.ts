@@ -45,6 +45,17 @@ import {
 } from "@yep-anywhere/shared";
 import { Hono, type Context } from "hono";
 import {
+  isAllowedHost,
+  isAllowedOrigin,
+  wouldAllowHost,
+  wouldAllowOrigin,
+} from "../middleware/allowed-hosts.js";
+import {
+  allowedHostsChangeImpact,
+  refuseUnconfirmedImpact,
+} from "../network/connection-impact.js";
+import { getRequestConnectionPath } from "../network/connection-path.js";
+import {
   parseRendezSettings,
   type RendezWatchStatus,
 } from "../services/RendezWatchService.js";
@@ -675,6 +686,20 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps) {
         } else if (typeof body.allowedHosts === "string") {
           updates.allowedHosts = body.allowedHosts;
         }
+        const refusal = refuseUnconfirmedImpact(
+          c,
+          allowedHostsChangeImpact(
+            getRequestConnectionPath(c),
+            c.req.header("origin"),
+            { host: isAllowedHost, origin: isAllowedOrigin },
+            {
+              host: (host) => wouldAllowHost(host, updates.allowedHosts),
+              origin: (origin) =>
+                wouldAllowOrigin(origin, updates.allowedHosts),
+            },
+          ),
+        );
+        if (refusal) return refusal;
       }
 
       // Handle fileAccess object (checkbox model; undefined/null/"" = secure defaults)

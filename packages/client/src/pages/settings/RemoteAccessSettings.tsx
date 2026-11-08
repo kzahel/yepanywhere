@@ -614,67 +614,64 @@ export function RemoteAccessSettings() {
     </>
   );
 
-  // When connected via relay, show connection info and logout
-  if (remoteConnection) {
-    // Get current host display name from hostStorage
-    const currentHost = remoteConnection.currentHostId
-      ? getHostById(remoteConnection.currentHostId)
-      : null;
-    const displayName =
-      currentHost?.displayName ||
-      remoteConnection.storedUsername ||
-      t("remoteAccessDefaultHost");
-
-    return (
-      <SettingsSection description={t("remoteAccessConnectedDescription")}>
-        <AppsSettingsLink />
-        {hostAwakeConfig}
-        {publicShareConfig}
-        {yaClientInfo}
-        <div className="settings-group">
-          <SettingsItem
-            label={t("remoteAccessCurrentHostTitle")}
-            description={displayName}
+  // This Remote Access link's own host, relay and logout: connection info and
+  // a session action, not server settings. Everything below it renders the
+  // same for direct and Remote Access clients (topics/connection-safe-settings.md).
+  const currentHost = remoteConnection?.currentHostId
+    ? getHostById(remoteConnection.currentHostId)
+    : null;
+  const remoteSessionGroup = remoteConnection && (
+    <div className="settings-group">
+      <SettingsItem
+        id="remote-access-session-host"
+        label={t("remoteAccessCurrentHostTitle")}
+        description={
+          currentHost?.displayName ||
+          remoteConnection.storedUsername ||
+          t("remoteAccessDefaultHost")
+        }
+      >
+        <div className="settings-item-actions">
+          <button
+            type="button"
+            className="settings-button"
+            onClick={handleSwitchHost}
           >
-            <div className="settings-item-actions">
-              <button
-                type="button"
-                className="settings-button"
-                onClick={handleSwitchHost}
-              >
-                {t("sidebarSwitchHost")}
-              </button>
-            </div>
-          </SettingsItem>
-          {hostIdentityItem}
-          {currentHost?.relayUrl && (
-            <SettingsItem
-              label={t("remoteAccessRelayUrlTitle")}
-              description={currentHost.relayUrl}
-            />
-          )}
-          <SettingsItem
-            label={t("remoteAccessLogoutTitle")}
-            description={t("remoteAccessLogoutDescription")}
-          >
-            <button
-              type="button"
-              className="settings-button settings-button-danger"
-              onClick={() => remoteConnection.disconnect()}
-            >
-              {t("remoteAccessLogout")}
-            </button>
-          </SettingsItem>
+            {t("sidebarSwitchHost")}
+          </button>
         </div>
-        {persistSessionsToggle}
-      </SettingsSection>
-    );
-  }
+      </SettingsItem>
+      {currentHost?.relayUrl && (
+        <SettingsItem
+          id="remote-access-session-relay"
+          label={t("remoteAccessRelayUrlTitle")}
+          description={currentHost.relayUrl}
+        />
+      )}
+      <SettingsItem
+        id="remote-access-session-logout"
+        label={t("remoteAccessLogoutTitle")}
+        description={t("remoteAccessLogoutDescription")}
+      >
+        <button
+          type="button"
+          className="settings-button settings-button-danger"
+          onClick={() => remoteConnection.disconnect()}
+        >
+          {t("remoteAccessLogout")}
+        </button>
+      </SettingsItem>
+    </div>
+  );
 
-  // Server-side: show relay configuration
   return (
-    <SettingsSection>
+    <SettingsSection
+      description={
+        remoteConnection ? t("remoteAccessConnectedDescription") : undefined
+      }
+    >
       <AppsSettingsLink />
+      {remoteSessionGroup}
       {hostIdentityItem && (
         <div className="settings-group">{hostIdentityItem}</div>
       )}

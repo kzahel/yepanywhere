@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  connectionSafeSettings: {
+    id: 153,
+    direction: "server",
+    name: "connection-safe-settings",
+    introducedIn: "0.11.1",
+  },
   providerSteerNowDefaults: {
     id: 152,
     direction: "server",

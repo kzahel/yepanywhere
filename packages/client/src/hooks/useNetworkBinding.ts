@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  type NetworkBindingState,
-  type UpdateBindingRequest,
-  api,
-} from "../api/client";
+import { api } from "../api/client";
+import type {
+  NetworkBindingState,
+  UpdateBindingRequest,
+} from "../api/networkBindingClient";
+import { activityBus } from "../lib/activityBus";
 import { useBackgroundRevalidation } from "./useBackgroundRevalidation";
 
 /**
@@ -38,6 +39,19 @@ export function useNetworkBinding() {
     }
   }, []);
 
+  /**
+   * Re-read without a loading state, so an open form is never unmounted
+   * mid-edit by its own apply or another client's change.
+   */
+  const reload = useCallback(async () => {
+    try {
+      setBinding(await api.getNetworkBinding());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    }
+  }, []);
+
   // Initial fetch - only once (avoid StrictMode double-fetch)
   useEffect(() => {
     if (hasFetchedRef.current) return;
@@ -57,19 +71,31 @@ export function useNetworkBinding() {
     enabled: !applying,
   });
 
+  // Another client changed the listeners; show what the server now reports.
+  const applyingRef = useRef(applying);
+  applyingRef.current = applying;
+  useEffect(
+    () =>
+      activityBus.on("network-binding-changed", () => {
+        if (!applyingRef.current) void reload();
+      }),
+    [reload],
+  );
+
   const updateBinding = useCallback(
     async (
       request: UpdateBindingRequest,
+      confirmed = false,
     ): Promise<{ redirectUrl?: string }> => {
       setApplying(true);
       setError(null);
       try {
-        const result = await api.setNetworkBinding(request);
+        const result = await api.setNetworkBinding(request, confirmed);
         if (!result.success) {
           throw new Error(result.error ?? "Failed to update binding");
         }
         // Refetch to get updated state
-        await fetch();
+        await reload();
         return { redirectUrl: result.redirectUrl };
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -79,27 +105,30 @@ export function useNetworkBinding() {
         setApplying(false);
       }
     },
-    [fetch],
+    [reload],
   );
 
-  const disableNetwork = useCallback(async (): Promise<void> => {
-    setApplying(true);
-    setError(null);
-    try {
-      const result = await api.disableNetworkBinding();
-      if (!result.success) {
-        throw new Error(result.error ?? "Failed to disable network socket");
+  const disableNetwork = useCallback(
+    async (confirmed = false) => {
+      setApplying(true);
+      setError(null);
+      try {
+        const result = await api.disableNetworkBinding(confirmed);
+        if (!result.success) {
+          throw new Error(result.error ?? "Failed to disable network socket");
+        }
+        // Refetch to get updated state
+        await reload();
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        throw error;
+      } finally {
+        setApplying(false);
       }
-      // Refetch to get updated state
-      await fetch();
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      setError(error);
-      throw error;
-    } finally {
-      setApplying(false);
-    }
-  }, [fetch]);
+    },
+    [reload],
+  );
 
   return {
     binding,

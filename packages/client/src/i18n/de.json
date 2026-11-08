@@ -1027,7 +1027,6 @@
   "localAccessApplying": "Wird angewendet...",
   "localAccessApply": "Änderungen anwenden",
   "localAccessLogoutDescription": "Auf diesem Gerät abmelden",
-  "localAccessRemoteDescription": "Du bist über Relay mit einem Remote-Server verbunden.",
   "localAccessRemoteLogoutDescription": "Vom Remote-Server trennen.",
   "localAccessErrorPortRange": "Port muss eine Zahl zwischen 1 und 65535 sein",
   "localAccessErrorPasswordLength": "Passwort muss mindestens 6 Zeichen lang sein",

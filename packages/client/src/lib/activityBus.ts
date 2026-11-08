@@ -206,6 +206,14 @@ export interface WorkerActivityEvent {
   timestamp: string;
 }
 
+/** The server's listening sockets changed (Local Access). */
+export interface NetworkBindingChangedEvent {
+  type: "network-binding-changed";
+  localhostPort: number;
+  network: { enabled: true; host: string | null; port: number | null } | null;
+  timestamp: string;
+}
+
 export type { SafeRestartChangedEvent, SafeRestartState };
 
 export function getInterruptibleSessionCount(
@@ -288,6 +296,7 @@ export interface ActivityEventMap {
   // Dev mode events
   "source-change": SourceChangeEvent;
   "backend-reloaded": undefined;
+  "network-binding-changed": NetworkBindingChangedEvent;
   "worker-activity-changed": WorkerActivityEvent;
   "safe-restart-changed": SafeRestartChangedEvent;
   reconnect: undefined;
@@ -701,6 +710,7 @@ class ActivityBus {
       "cache-miss-billing-expected-expiry",
       "source-change",
       "backend-reloaded",
+      "network-binding-changed",
       "worker-activity-changed",
       "safe-restart-changed",
       "reconnect",

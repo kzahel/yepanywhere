@@ -3,7 +3,7 @@
  */
 
 import * as crypto from "node:crypto";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
   DESKTOP_SESSION_COOKIE_NAME,
@@ -11,6 +11,8 @@ import {
 } from "../desktop/DesktopBootstrapService.js";
 import type { AuthService } from "./AuthService.js";
 import type { LimitedUsersService } from "./LimitedUsersService.js";
+import { PRINCIPAL_VARIABLE, type Principal } from "./principal.js";
+import { getAuthenticatedSrpTransport } from "../middleware/authenticated-transport.js";
 import { recordAuthEvent } from "../security/authAuditLog.js";
 
 export const SESSION_COOKIE_NAME = "yep-anywhere-session";
@@ -68,8 +70,25 @@ export function shouldUseSecureCookie(c: {
   }
 }
 
+/**
+ * A Remote Access (SRP) login acting as the superuser. It holds the same
+ * operator authority as a superuser cookie session (topics/security.md
+ * § Authority Model), so the owner can manage the local password remotely.
+ * Limited users never reach these routes (auth/limitedUserPolicy.ts).
+ */
+function isRemoteOwner(c: Context): boolean {
+  if (!getAuthenticatedSrpTransport(c.env)) return false;
+  const principal = (
+    c as Context<{
+      Variables: Record<typeof PRINCIPAL_VARIABLE, Principal | undefined>;
+    }>
+  ).get(PRINCIPAL_VARIABLE);
+  return principal === undefined || principal.kind === "superuser";
+}
+
 export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
   const app = new Hono();
+
   const {
     authService,
     authDisabled = false,
@@ -79,6 +98,13 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
     isLimitedUsersEnabled,
     getOwnerRelayUsername,
   } = deps;
+
+  /** An owner cookie session or a Remote Access owner login. */
+  const isOwnerRequest = async (c: Context): Promise<boolean> => {
+    if (isRemoteOwner(c)) return true;
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    return !!sessionId && (await authService.validateSession(sessionId));
+  };
 
   /**
    * GET /api/auth/status
@@ -231,9 +257,8 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
    * Also clears the stored account so future enable is a fresh setup.
    */
   app.post("/disable", async (c) => {
-    // Require authenticated session to disable
-    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
-    if (!sessionId || !(await authService.validateSession(sessionId))) {
+    // Require an owner session (cookie or Remote Access) to disable
+    if (!(await isOwnerRequest(c))) {
       await recordAuthEvent(c, {
         event: "auth-disable",
         outcome: "failure",
@@ -467,9 +492,8 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
    * Change password (requires authenticated session)
    */
   app.post("/change-password", async (c) => {
-    // Require authenticated session
-    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
-    if (!sessionId || !(await authService.validateSession(sessionId))) {
+    // Require an owner session (cookie or Remote Access)
+    if (!(await isOwnerRequest(c))) {
       await recordAuthEvent(c, {
         event: "password-change",
         outcome: "failure",
@@ -529,11 +553,8 @@ export function createAuthRoutes(deps: AuthRoutesDeps): Hono {
       }
     }
 
-    if (!authorized) {
-      const sessionId = getCookie(c, SESSION_COOKIE_NAME);
-      if (sessionId && (await authService.validateSession(sessionId))) {
-        authorized = true;
-      }
+    if (!authorized && (await isOwnerRequest(c))) {
+      authorized = true;
     }
 
     if (!authorized) {
