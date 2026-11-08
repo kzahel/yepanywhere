@@ -101,6 +101,29 @@ export function useSessionCorrectionDraft({
     attachmentsRef,
   ]);
 
+  // Opens a correction with `text` in the composer. The first correction
+  // sets the draft and its attachments aside for Cancel, keeping their
+  // previews. A later one, while a correction is open, keeps that draft
+  // and discards the composer's attachments, so it revokes their previews.
+  const beginCorrection = useCallback(
+    (
+      draftControls: DraftControls,
+      correction: { messageId: string; originalText: string; recalled?: true },
+    ) => {
+      const keepsEarlierDraft = preCorrectionDraftRef.current !== null;
+      preCorrectionDraftRef.current ??= {
+        text: draftControls.getDraft(),
+        attachments: [...attachmentsRef.current],
+      };
+      draftControls.setDraft(correction.originalText);
+      setComposerAttachments([], {
+        revokeRemovedPreviewUrls: keepsEarlierDraft,
+      });
+      setCorrectionDraft(correction);
+    },
+    [setComposerAttachments, attachmentsRef],
+  );
+
   const handleCorrectLatestUserMessage = useCallback(
     (messageId: string, content: string) => {
       const draftControls = draftControlsRef.current;
@@ -114,15 +137,9 @@ export function useSessionCorrectionDraft({
         return;
       }
 
-      preCorrectionDraftRef.current ??= {
-        text: draftControls.getDraft(),
-        attachments: [...attachmentsRef.current],
-      };
-      draftControls.setDraft(content);
-      setComposerAttachments([]);
-      setCorrectionDraft({ messageId, originalText: content });
+      beginCorrection(draftControls, { messageId, originalText: content });
     },
-    [setComposerAttachments, showToast, t, draftControlsRef, attachmentsRef],
+    [beginCorrection, showToast, t, draftControlsRef],
   );
 
   const handleRecallLastSubmission = useCallback((): boolean => {
@@ -149,13 +166,7 @@ export function useSessionCorrectionDraft({
       return false;
     }
 
-    preCorrectionDraftRef.current ??= {
-      text: draftControls.getDraft(),
-      attachments: [...attachmentsRef.current],
-    };
-    draftControls.setDraft(lastSubmission.text);
-    setComposerAttachments([], { revokeRemovedPreviewUrls: true });
-    setCorrectionDraft({
+    beginCorrection(draftControls, {
       messageId:
         lastSubmission.kind === "sent"
           ? lastSubmission.id
@@ -165,11 +176,10 @@ export function useSessionCorrectionDraft({
     });
     return true;
   }, [
+    beginCorrection,
     deferredMessages,
-    setComposerAttachments,
     lastComposerSubmissionRef,
     draftControlsRef,
-    attachmentsRef,
   ]);
 
   return {

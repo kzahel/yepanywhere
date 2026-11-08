@@ -41,24 +41,34 @@ const attach = (page: Page, name: string) =>
 const chip = (page: Page, name: string) =>
   page.getByRole("button", { name: new RegExp(`Remove ${name}`) });
 
-// Loads the chip's preview URL into a new image. A revoked object URL fails
-// to load there, though the chip's own image may still show it. (A fetch of
-// an object URL fails in these tests whether it is revoked or not.)
+// Whether `url` loads into a new image. A revoked object URL fails to load
+// there, though an image already showing it may still draw it from the
+// image cache. (A fetch of an object URL fails in these tests whether it is
+// revoked or not.)
+const urlLoads = (page: Page, url: string) =>
+  page.evaluate(
+    (src) =>
+      new Promise<boolean>((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve(image.naturalWidth > 0);
+        image.onerror = () => resolve(false);
+        image.src = src;
+      }),
+    url,
+  );
+
+const chipPreviewUrl = (page: Page) =>
+  page
+    .locator(".attachment-list img")
+    .first()
+    .evaluate((image) => (image as HTMLImageElement).src);
+
+// Loads the chip's preview URL into a new image.
 const previewLoads = (page: Page) =>
   expect
     .poll(() =>
-      page
-        .locator(".attachment-list img")
-        .first()
-        .evaluate(
-          (chipImage) =>
-            new Promise<boolean>((resolve) => {
-              const image = new Image();
-              image.onload = () => resolve(image.naturalWidth > 0);
-              image.onerror = () => resolve(false);
-              image.src = (chipImage as HTMLImageElement).src;
-            }),
-        )
+      chipPreviewUrl(page)
+        .then((url) => urlLoads(page, url))
         .catch(() => false),
     )
     .toBe(true);
@@ -97,6 +107,31 @@ test("a correction sets the draft and its attachment aside, and Cancel brings bo
   await expect(session.composer).toHaveValue("Half-written note");
   await expect(chip(page, "pin-aside.png")).toBeVisible();
   // The set-aside preview was kept, not revoked.
+  await previewLoads(page);
+});
+
+test("a second correction discards the composer's attachment and revokes its preview, and keeps the set-aside one", async ({
+  page,
+  baseURL,
+}) => {
+  const session = await openSessionPage(page, baseURL, { owner: "self" });
+  await attach(page, "pin-aside.png");
+  await expect(chip(page, "pin-aside.png")).toBeVisible();
+  await editLatest(page);
+  await expect(correcting(page)).toBeVisible();
+
+  await attach(page, "pin-discarded.png");
+  await expect(chip(page, "pin-discarded.png")).toBeVisible();
+  await previewLoads(page);
+  const discarded = await chipPreviewUrl(page);
+
+  await editLatest(page);
+  await expect(chip(page, "pin-discarded.png")).toHaveCount(0);
+  await expect.poll(() => urlLoads(page, discarded)).toBe(false);
+
+  await page.getByRole("button", { name: "Cancel correction" }).click();
+  await expect(session.composer).toHaveValue("");
+  await expect(chip(page, "pin-aside.png")).toBeVisible();
   await previewLoads(page);
 });
 

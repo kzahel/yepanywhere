@@ -2,7 +2,8 @@
 
 Topic: typescript-module-boundary-refactor
 
-Status: in progress 2026-11-08; slice 0 (the pins) landed.
+Status: done 2026-11-08 (slices 0 to 4); `SessionPage.tsx` went from
+3,903 to 3,621 lines. Doc 058 rows 2.44 to 2.47.
 
 The next step for [the session page hub gap](../../gaps/session-page-react-hub.md)
 after [plan 182](182-session-page-header-and-footer.md), taking two of the

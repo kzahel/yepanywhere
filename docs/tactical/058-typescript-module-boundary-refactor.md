@@ -52,12 +52,13 @@ shared, and how risky it is to touch today.
    [Plan 184](184-message-box-send-routes.md) gives the message box one
    send route and a delivery hook (slices 2.42 and 2.43, 2026-11-08).
    [Plan 187](187-session-page-draft-hooks.md) moves the page's composer
-   attachment state, correction draft and draft hydration into hooks (in
-   progress). Moving small
-   features out one at a time leaves these files structurally as they were;
-   the burn-down order and the consolidations it needs (one shared
-   message-box core, then sending as plain functions) are in [the session
-   page hub gap](../../gaps/session-page-react-hub.md).
+   attachment state, correction draft and draft hydration into hooks and
+   makes starting a correction one step (slices 2.44 to 2.47, 2026-11-08).
+   Moving small features out one at a time leaves these files
+   structurally as they were; the burn-down order and the consolidations
+   it needs (one shared message-box core, then sending as plain
+   functions) are in [the session page hub
+   gap](../../gaps/session-page-react-hub.md).
 3. **Codex provider split** (server). `sdk/providers/codex.ts` (about 8,200
    lines) is the largest source file and changes with every Codex refresh.
    Separating protocol IO from normalization makes those refreshes smaller and
@@ -327,6 +328,7 @@ and props stable.
 | 2.44 | Done 2026-11-08 | `SessionPage.tsx` attachment state | Move the page's composer attachment state into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 1). | Move-only: the attachment list and its ref, upload progress, the in-flight uploads, the draft batch and hydration refs, the edit blocker, the navigation guard, the draft write, `setComposerAttachments`, the unmount preview cleanup, `ensureDraftAttachmentBatchId` and `materializeComposerAttachments` move verbatim into `hooks/useSessionComposerAttachments.ts`, called where the edit blocker stood, so the effects keep their order. The state moves later in the hook order; nothing between reads it. Two input refs joined three dependency lists, and a `biome.json` `stableResult` entry keeps the page's lists as they were. Budget `SessionPage.tsx` 3,903 -> 3,803; the hook is 179 lines. Tier 3, plus plan 187's slice 0 pins. |
 | 2.45 | Done 2026-11-08 | `SessionPage.tsx` correction draft | Move the page's correction draft into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 2). | Move-only apart from two effect splits: the correction state and its set-aside draft ref, Cancel, the two correction effects, Edit latest message and the recall move verbatim into `hooks/useSessionCorrectionDraft.ts`, called where Cancel stood, right after the session reset. The set-aside draft's unmount cleanup and the reset's `setCorrectionDraft(null)` become the hook's own effects; the page is keyed by session, so the reset runs only on mount (see the landing note). The state moves later and the recall earlier in the hook order. Three input refs joined four dependency lists. Budget `SessionPage.tsx` 3,803 -> 3,714; the hook is 182 lines. Tier 3, plus plan 187's slice 0 pins. |
 | 2.46 | Done 2026-11-08 | `SessionPage.tsx` draft hydration | Move the page's draft attachment hydration into a feature hook ([plan 187](187-session-page-draft-hooks.md) slice 3). | Move-only: `hydrateDraftAttachments` and the two effects that hydrate on a draft key change and on the draft storage event move verbatim into `useDraftAttachmentHydration` in `hooks/useSessionComposerAttachments.ts`, called where the effects stood, so they stay after the session reset. `handleDraftControlsReady` moves unchanged to just after the call. Four input refs joined two dependency lists. Budget `SessionPage.tsx` 3,714 -> 3,621; the hook file is 323 lines. Tier 3, plus plan 187's slice 0 pins. |
+| 2.47 | Done 2026-11-08 | `SessionPage.tsx` starting a correction | Make Edit latest message and the recall start a correction the same way ([plan 187](187-session-page-draft-hooks.md) slice 4). | Not move-only: under plan 187. Both call one `beginCorrection` step in `useSessionCorrectionDraft`, which revokes the composer's discarded previews only when it keeps an earlier set-aside draft. Edit latest message during an open correction no longer leaks the previews it discards; recall, refused while attachments show, is unchanged. The hook is 192 lines. Tier 3, plus plan 187's pins and its new leak pin. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -382,10 +384,10 @@ owning behavior:
 - `SessionPage.tsx`: recall wiring and navigation-state consumption moved
   in slice 2.35 (plan 181), and the header, title markup included, the
   composer footer and the pop-ups, with the header's actions and project move
-  menu, in slices 2.37 to 2.41 (plan 182). The
-  correction draft, the attachment state and draft hydration, and the
-  transcript region remain as possible follow-ups; choose
-  one feature boundary per follow-up rather than another general page-helper
+  menu, in slices 2.37 to 2.41 (plan 182), and the attachment state,
+  correction draft and draft hydration in slices 2.44 to 2.47 (plan 187).
+  The transcript region remains as a possible follow-up; choose one
+  feature boundary per follow-up rather than another general page-helper
   module.
 
 Remove a candidate from this section when its slice lands or fresh inspection
@@ -469,6 +471,49 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.47 — Starting a Correction (Landed 2026-11-08, this commit)
+
+Not move-only. [Plan 187](187-session-page-draft-hooks.md) slice 4.
+
+Changed in `packages/client/src/hooks/useSessionCorrectionDraft.ts` (192
+lines):
+- `handleCorrectLatestUserMessage` (Edit latest message) and
+  `handleRecallLastSubmission` (↑ in an empty composer, or Ctrl+P) each
+  copied the same four steps: set the draft and its attachments aside if
+  nothing was set aside yet, put the message in the composer, clear the
+  attachments and open the correction. Both now call one
+  `beginCorrection(draftControls, correction)`.
+- The copies differed in one place: recall cleared the attachments with
+  `revokeRemovedPreviewUrls: true` and Edit latest without it.
+  `beginCorrection` revokes them only when it keeps an earlier set-aside
+  draft: on a first correction the attachments are set aside and keep
+  their previews for Cancel; on a later one they are discarded.
+- The correction object is passed whole, so Edit latest still stores no
+  `recalled` field and the recall stores `recalled: true`.
+
+Behavior changes:
+- Edit latest message during an open correction now revokes the previews
+  of the composer attachments it discards, including an upload that
+  finished during the correction (Edit latest is not blocked by uploads
+  in flight). They were never revoked: they had left both the composer
+  and the set-aside draft, so the unmount cleanup missed them too.
+- None for recall: `recallLastSubmission` in `MessageInput.tsx` refuses
+  while attachments show or an upload is in flight, so its revoke never
+  had anything to revoke.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 582 passed, 13 skipped, 4 failed:
+  `artifact-viewer.spec.ts:136`, the known failure, and the three that
+  fail at `558f978dd` without this plan (see slice 2.44). Plan 187's
+  pins pass at this commit.
+- New pin in `session-page-correction-attachment-paths.spec.ts`: an image
+  attached during an open correction, then Edit latest message again;
+  the discarded preview's object URL no longer loads into a new image,
+  and after Cancel the set-aside image's still does. It fails at the
+  slice 2.46 commit (the leak) and passes here.
 
 ### Slice 2.46 — Session Page Draft Hydration (Landed 2026-11-08, this commit)
 

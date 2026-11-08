@@ -95,8 +95,9 @@ its own commit with a test, and one a user could see is asked about. Proposals
 9. **The session page's draft state** (move-only, then one unification).
    The composer attachment state, the correction draft and the draft
    attachment hydration move into hooks, and the two ways of starting a
-   correction become one step. In progress in
-   [plan 187](../docs/tactical/187-session-page-draft-hooks.md).
+   correction become one step. Done 2026-11-08 in
+   [plan 187](../docs/tactical/187-session-page-draft-hooks.md):
+   `SessionPage.tsx` went from 3,903 to 3,621 lines.
 
 Ownership and slice rows: [doc 058](../docs/tactical/058-typescript-module-boundary-refactor.md),
 priority-queue item 2. The broader hub-growth record is
