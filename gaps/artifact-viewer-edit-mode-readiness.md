@@ -43,3 +43,15 @@ were relaxed. Contributing-model: 6-astra.
 The first case, `artifact-viewer.spec.ts:136`, failed once in a full local
 run on 2026-11-07, with the uncaught frontend proxy error recorded in
 [frontend proxy writes headers twice](frontend-proxy-writes-headers-twice.md).
+
+## Full-run failure 2026-11-08
+
+A full browser run (`pnpm --filter client test:e2e --grep-invert "physical
+Android"`) in a worktree fails
+`packages/client/e2e/artifact-viewer.spec.ts:136` ("replaces the derived
+file address and acknowledges sequential manual typing during updates") at
+`e770fca38` and at each plan 181 slice: the `Address name` field is never
+found, after the frontend proxy throws `Cannot write headers after they are
+sent to the client` (`packages/server/src/frontend/proxy.ts:132`). The case
+passes when its file runs alone. Not diagnosed; the proxy error is the
+first lead.

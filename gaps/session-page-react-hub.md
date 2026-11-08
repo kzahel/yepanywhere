@@ -68,10 +68,11 @@ its own commit with a test, and one a user could see is asked about. Proposals
    [plan 180](../docs/tactical/180-new-session-options-and-start.md); the
    launch-path differences it kept are in
    [a follow-up gap](new-session-start-and-queue-differences.md).
-4. **Remaining session-page feature hooks** (move-only): fork, handoff and
-   clone (about 450 lines), queued-message actions (about 200), attachment
-   upload (about 250), title editing (about 130), then the navigation-action
-   consumption and recall wiring named in doc 058's seam inventory.
+4. **Remaining session-page feature hooks** (move-only), planned in
+   [plan 181](../docs/tactical/181-session-page-feature-hooks.md): fork,
+   clone, handoff and copy (about 470 lines), queued-message actions (about
+   345), title editing (about 320), attachment upload (about 170), recall
+   and navigation actions (about 165), and route sync (about 85).
 5. **Message list.** Move the row components and icons defined inside the
    file to their own files (trivial), then, last and with a manual browser
    pass, the scroll machinery (slice 2.5).
