@@ -14,8 +14,8 @@ otherwise.
   them rather than splitting an established owner just to match the directory
   taxonomy.
 - `docs/tactical/` holds implementation plans; `docs/roadmap/README.md` owns
-  product priority; `tasks/` holds local coordination; `gaps/` holds open
-  adjacent defects under [its lifecycle](../../gaps/README.md).
+  product priority; `gaps/` holds open adjacent defects under
+  [its lifecycle](../../gaps/README.md).
 
 Every intentional observable behavior change needs an owning topic contract,
 including deliberate failure and fallback behavior. Tests and commit messages

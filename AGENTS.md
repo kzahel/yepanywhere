@@ -15,8 +15,8 @@ Before implementation planning or repository changes, read and follow
 development guides and topic documents before choosing an approach; recheck
 them when the task expands.
 
-Before planning or implementing new work, search `tasks/` and the relevant
-`gaps/` directories. Read and cite matching defects, follow-ups, or plans
+Before planning or implementing new work, search the relevant `gaps/`
+directories. Read and cite matching defects, follow-ups, or plans
 before defining new work. Follow [gaps/README.md](gaps/README.md).
 
 Before proposing or reprioritizing work, read the

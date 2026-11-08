@@ -32,6 +32,5 @@ One file per gap, `gaps/<slug>.md`:
 
 ## What does not belong here
 
-- Direction, coordination, or session state → `tasks/` (gitignored).
 - Cross-cutting contracts and durable design knowledge → `topics/`.
 - Queued feature work → the Project Queue / `on-deck/` when present.
