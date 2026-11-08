@@ -21,6 +21,7 @@ import {
   SessionIssuesProvider,
 } from "../components/SessionIssuesLink";
 import { useSessionBangCommands } from "../hooks/useSessionBangCommands";
+import { useProjectReclassifyMenu } from "../hooks/useProjectReclassifyMenu";
 import { useSessionAttachmentUploads } from "../hooks/useSessionAttachmentUploads";
 import { useSessionForkActions } from "../hooks/useSessionForkActions";
 import { useSessionQueuedMessageActions } from "../hooks/useSessionQueuedMessageActions";
@@ -62,7 +63,6 @@ import {
 import {
   type ComponentProps,
   lazy,
-  type MouseEvent as ReactMouseEvent,
   Suspense,
   useCallback,
   useEffect,
@@ -303,7 +303,6 @@ import {
   loadMessageInputModule,
   loadMessageListModule,
 } from "../lib/sessionRouteModules";
-import type { Project } from "../types";
 
 const LazyMessageList = lazy(() =>
   loadMessageListModule().then(({ MessageList }) => ({
@@ -1711,11 +1710,6 @@ function SessionPageContent({
   // Recent sessions dropdown state
   const [showRecentSessions, setShowRecentSessions] = useState(false);
   const titleRowRef = useRef<HTMLDivElement>(null);
-  const [showProjectReclassifyMenu, setShowProjectReclassifyMenu] =
-    useState(false);
-  const [isReclassifyingProject, setIsReclassifyingProject] = useState(false);
-  const projectBreadcrumbRef = useRef<HTMLAnchorElement>(null);
-  const projectReclassifyMenuRef = useRef<HTMLDivElement>(null);
 
   // Local metadata state (for optimistic updates)
   // Reset when session changes to avoid showing stale data from previous session
@@ -1742,107 +1736,24 @@ function SessionPageContent({
     setLocalPromptSuggestionMode(undefined);
   }, [sessionId]);
 
-  const projectReclassifyOptions = useMemo(
-    () =>
-      projects
-        .filter((candidate) => candidate.id !== projectId)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [projectId, projects],
-  );
-
-  useEffect(() => {
-    if (isDomLingerParked || !showProjectReclassifyMenu) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (
-        projectBreadcrumbRef.current?.contains(target) ||
-        projectReclassifyMenuRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setShowProjectReclassifyMenu(false);
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setShowProjectReclassifyMenu(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isDomLingerParked, showProjectReclassifyMenu]);
-
-  const handleProjectBreadcrumbContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLAnchorElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (projectReclassifyOptions.length === 0) {
-        return;
-      }
-      setShowRecentSessions(false);
-      setShowProjectReclassifyMenu(true);
-    },
-    [projectReclassifyOptions.length],
-  );
-
-  const handleReclassifySessionProject = useCallback(
-    async (targetProject: Project) => {
-      if (targetProject.id === projectId || isReclassifyingProject) {
-        return;
-      }
-
-      setIsReclassifyingProject(true);
-      try {
-        const result = await api.reclassifySessionProject(
-          projectId,
-          actualSessionId,
-          targetProject.id,
-        );
-        activityBus.emitLocal("session-metadata-changed", {
-          type: "session-metadata-changed",
-          sessionId: actualSessionId,
-          projectId: result.projectId,
-          transcriptProjectId: result.transcriptProjectId,
-          timestamp: new Date().toISOString(),
-        });
-        setShowProjectReclassifyMenu(false);
-        showToast(
-          t("sessionReclassifiedProject", { project: targetProject.name }),
-          "success",
-        );
-        navigate(
-          `${basePath}/projects/${result.projectId}/sessions/${actualSessionId}${location.search}`,
-          {
-            replace: true,
-            state: location.state,
-          },
-        );
-      } catch (err) {
-        console.error("Failed to move session to project:", err);
-        showToast(t("sessionReclassifyProjectFailed"), "error");
-      } finally {
-        setIsReclassifyingProject(false);
-      }
-    },
-    [
-      actualSessionId,
-      basePath,
-      isReclassifyingProject,
-      location.search,
-      location.state,
-      navigate,
-      projectId,
-      showToast,
-      t,
-    ],
-  );
+  const {
+    showProjectReclassifyMenu,
+    isReclassifyingProject,
+    projectBreadcrumbRef,
+    projectReclassifyMenuRef,
+    projectReclassifyOptions,
+    handleProjectBreadcrumbContextMenu,
+    handleReclassifySessionProject,
+  } = useProjectReclassifyMenu({
+    projectId,
+    actualSessionId,
+    projects,
+    basePath,
+    location,
+    navigate,
+    isDomLingerParked,
+    setShowRecentSessions,
+  });
 
   useSessionRouteSync({
     sessionId,

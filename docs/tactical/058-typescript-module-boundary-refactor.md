@@ -307,6 +307,7 @@ and props stable.
 | 2.35 | Done 2026-11-08 | `SessionPage.tsx` recall and navigation actions | Move the page's recall entries, scroll-to-turn requests and navigation-state actions into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 5). | Move-only: the turn and command recall, the scroll-to-turn request, the search-match and non-human-turn navigation hooks and the navigation-state actions with their early-typing effects move verbatim into `hooks/useSessionTranscriptJumps.ts`, called where they stood, so no effect changes order. Three early-typing refs joined dependency lists, including the unmount-only effect's. Budget `SessionPage.tsx` 5,383 -> 5,231; the hook is 260 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.36 | Done 2026-11-08 | `SessionPage.tsx` route sync | Move the page's visit record and URL replacements into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 6). | Move-only: the four effects that record the visit and replace the URL for a real session id, a native-id viewer URL and the canonical project move verbatim into `hooks/useSessionRouteSync.ts`, called where they stood. No dependency list changed. Budget `SessionPage.tsx` 5,231 -> 5,157; the hook is 122 lines. Tier 3, plus plan 181's slice 0 pins. |
 | 2.37 | Done 2026-11-08 | `SessionPage.tsx` header actions | Move the page's archive, star, suggestions, read, terminate, restart and share actions into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 1). | Move-only: the eleven handlers and values, the read-shortcut effect and the share modal state move verbatim into `hooks/useSessionHeaderActions.ts`, called where the handlers stood, so the effect keeps its place. The share state moves later in the hook order; nothing between reads it. No dependency list changed. Budget `SessionPage.tsx` 5,157 -> 5,019; the hook is 263 lines. Tier 3, plus plan 182's slice 0 pins. |
+| 2.38 | Done 2026-11-08 | `SessionPage.tsx` project move menu | Move the page's project move menu into a feature hook ([plan 182](182-session-page-header-and-footer.md) slice 2). | Move-only: the menu state and its two refs, the options, the outside-click and Escape effect and the two handlers move verbatim into `hooks/useProjectReclassifyMenu.ts`, called where the options stood, so the effect keeps its place. The state moves later in the hook order; nothing between reads it. `setShowRecentSessions` joined one dependency list (a state setter). Budget `SessionPage.tsx` 5,019 -> 4,930; the hook is 164 lines. Tier 3, plus plan 182's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -441,6 +442,50 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.38 — Session Page Project Move Menu (Landed 2026-11-08, this commit)
+
+Moved:
+- `showProjectReclassifyMenu`, `isReclassifyingProject`,
+  `projectBreadcrumbRef`, `projectReclassifyMenuRef`,
+  `projectReclassifyOptions`, the outside-click and Escape effect,
+  `handleProjectBreadcrumbContextMenu` and
+  `handleReclassifySessionProject` -> `useProjectReclassifyMenu` in new
+  `packages/client/src/hooks/useProjectReclassifyMenu.ts`.
+
+Signature conversions (closure -> parameter):
+- The hook takes `projectId`, `actualSessionId`, `projects`, `basePath`,
+  `location`, `navigate`, `isDomLingerParked` and
+  `setShowRecentSessions`; `t` and `showToast` come from the context hooks
+  inside. `location` is the page's, not the router's.
+- It returns the menu state, the two refs, the options and both handlers,
+  all read by the header.
+- The hook is called where `projectReclassifyOptions` stood, so the effect
+  keeps its place. The state and refs moved from before the local metadata
+  state to the call; only that state, the collection record and their
+  reset effect lie between, and none reads them.
+- `handleProjectBreadcrumbContextMenu`'s dependency list gained
+  `setShowRecentSessions`, a state setter that never changes identity.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 578 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136`, which fails the same way in full runs at
+  `e770fca38` and `bbc6244b5` and passes alone; it is recorded in the
+  artifact viewer gap. Plan 182's slice 0 pins pass at this commit.
+- `pnpm i18n:scan` reports nothing in the moved code. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `bbc6244b5` (from `5e86a07b3`).
+- The hook takes the page's `location` and `navigate`; it calls neither
+  `useLocation` nor `useNavigate`. The slice 0 move-menu pin fails when the
+  handler's own navigation is disabled, so it holds that navigation and not
+  route sync's later replace.
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.37 — Session Page Header Actions (Landed 2026-11-08, this commit)
 
