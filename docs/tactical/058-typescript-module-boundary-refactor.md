@@ -295,6 +295,7 @@ and props stable.
 | 2.29 | Done 2026-11-07 | `NewSessionForm.tsx` start and Queue decisions | Move the New Session start's and Project Queue's decisions into plain functions ([plan 180](180-new-session-options-and-start.md) slice 4). | Not move-only: a consolidation under plan 180. The start refusals and text, the session options, Queue's refusals on both sides of the dictation defer, Queue's direct-catalog target and the start failure toast become `planNewSessionStart`, `buildNewSessionStartOptions`, `projectQueueRefusalBeforeDefer`, `planNewSessionProjectQueue`, `buildProjectQueueNewSessionTarget` and `newSessionStartErrorMessage` in new `lib/newSessionStartDecisions.ts`, with unit tests per branch; the form keeps its effects, including the defer, in place. No behavior change. Budget `NewSessionForm.tsx` 3,748 -> 3,628. Tier 3, plus plan 180's slice 0 pins. |
 | 2.30 | Done 2026-11-07 | `NewSessionForm.tsx` start module | Move the New Session start's and Project Queue's bodies into a plain start module ([plan 180](180-new-session-options-and-start.md) slice 5). | Move-only apart from turning closure reads into deps objects and moving three types the module needs: the bodies of `handleStartSession` and `handleQueueProjectSession` move verbatim into `startNewSession` and `queueNewSessionForProject` in new `lib/newSessionStart.ts`. The form keeps `handleStartSession` as a `useCallback` with its dependency list unchanged and `handleQueueProjectSession` as a plain arrow. No behavior change. Budget `NewSessionForm.tsx` 3,628 -> 3,135; the module is 953 lines. Tier 3, plus plan 180's slice 0 pins. |
 | 2.31 | Done 2026-11-08 | `SessionPage.tsx` fork, clone, handoff and copy | Move the page's fork, clone, handoff and copy actions into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 1). | Move-only: the fork-summary draft and its refs, the fork, clone, fork-summary and handoff callbacks, the auto-open effect, `copyUserMessage` and the `messageKey` helper move verbatim into `hooks/useSessionForkActions.ts`, called right after `activityRenderItems`. The draft state moves later in the hook order; no effect changes order. `draftControlsRef` joined four dependency lists (a ref). Budget `SessionPage.tsx` 6,560 -> 6,142; the hook is 575 lines. Tier 3, plus plan 181's slice 0 pins. |
+| 2.32 | Done 2026-11-08 | `SessionPage.tsx` queued-message actions | Move the page's actions on deferred, recovered and Project Queue messages into a feature hook ([plan 181](181-session-page-feature-hooks.md) slice 2). | Move-only: the thirteen handlers, `restoreQueuedMessageToComposer` and the `isMissingDeferredQueueEntryError` helper move verbatim into `hooks/useSessionQueuedMessageActions.ts`, called where they stood. Callbacks only, so no order change. Five refs and `setCorrectionDraft` joined dependency lists (see the landing note). Budget `SessionPage.tsx` 6,142 -> 5,819; the hook is 493 lines. Tier 3, plus plan 181's slice 0 pins. |
 
 ## Phase 3: Existing Architecture-Aligned Migrations
 
@@ -428,6 +429,60 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 2.32 — Session Page Queued-Message Actions (Landed 2026-11-08, this commit)
+
+Moved:
+- `handleResumeProjectQueueDispatch`, `handleCancelProjectQueueItem`,
+  `restoreQueuedMessageToComposer`, `handleEditProjectQueueItem`,
+  `handleSteerProjectQueueItem`, `handleCancelDeferred`,
+  `handleEditDeferred`, `handleCancelUnconfirmedUserMessage`,
+  `handleSteerDeferred`, `handleDeliverDeferredWithoutCompaction`,
+  `handleDeleteRecoveredDeferred`, `handleResumeRecoveredDeferred`,
+  `handleSteerRecoveredDeferred`, `handleCancelLatestDeferred` and the
+  module helper `isMissingDeferredQueueEntryError` ->
+  `useSessionQueuedMessageActions` in new
+  `packages/client/src/hooks/useSessionQueuedMessageActions.ts`. It returns
+  the thirteen handlers; `restoreQueuedMessageToComposer` stays inside.
+
+Signature conversions (closure -> parameter):
+- The hook takes `projectId`, `sessionId`, `projectQueues`,
+  `projectQueueItemsForProject`, `deferredMessages`,
+  `setDeferredMessages`, `setStatus`, `setProcessState`,
+  `setPermissionMode`, `removeUnconfirmedSelfSend`, `draftControlsRef`,
+  `attachmentsRef`, `pendingUploadsRef`, `lastComposerSubmissionRef`,
+  `lastSentComposerSubmissionRef`, `setComposerAttachments` and
+  `setCorrectionDraft`, and reads `t` and `showToast` from their contexts.
+- Added to dependency lists, as lint requires of parameters:
+  `draftControlsRef` and `setCorrectionDraft` in
+  `restoreQueuedMessageToComposer`; `draftControlsRef`, `attachmentsRef`
+  and `pendingUploadsRef` in `handleEditProjectQueueItem`; the two
+  submission refs in `handleCancelDeferred` and
+  `handleCancelUnconfirmedUserMessage`; and all five refs in
+  `handleEditDeferred`. Refs and a state setter never change identity, so
+  nothing recomputes.
+- The deferred cancel, edit and unconfirmed-steer cancel still write
+  `lastComposerSubmissionRef`, which `handleRecallLastSubmission` in the
+  page reads; the ref is the page's, passed in.
+
+Behavior changes:
+- None.
+
+Verification:
+- Tier 2 (`pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`)
+  passed at this slice. Tier 3 in a worktree (`pnpm --filter client test:e2e
+  --grep-invert "physical Android"`): 553 passed, 13 skipped, 1 failed:
+  `artifact-viewer.spec.ts:136` (below). `artifact-viewer.spec.ts:136` fails
+  the same way in a full run at `e770fca38` (517 passed, 13 skipped, 1
+  failed) and passes alone; it is recorded in the artifact viewer gap. Tier
+  3 ran before review folded pin and doc fixes into slice 0; the source at
+  this slice is unchanged by them, and plan 181's slice 0 pins (37 cases)
+  pass at this commit.
+- `pnpm i18n:scan` reports nothing in the new hook. `pnpm console:scan`
+  reports `method.warn` 61 of 60, as at `e770fca38` (from `5e86a07b3`).
+
+Follow-ups recorded:
+- None.
 
 ### Slice 2.31 — Session Page Fork Actions (Landed 2026-11-08, this commit)
 
