@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { classUsage } from "virtual:ya-design-data";
+import { buttonElements, classUsage } from "virtual:ya-design-data";
 import {
   BUTTON_VARIANTS,
   Button,
   type ButtonVariant,
   IconButton,
 } from "../../src/components/ui/Button";
+import { type ButtonElement, rawButtonFamily } from "../buttonFamilies";
 import type { SpecimenMeta } from "../specimen";
 import styles from "./Census.module.css";
 import { CensusRow, type ModuleClass, useModuleClasses } from "./censusParts";
@@ -23,7 +24,7 @@ export default {
     layer: "census",
     width: "fill",
     description:
-      "Every legacy button class, global and CSS Module, beside what it becomes. Controls/Button shows the shared variants; the mapping is design/census/mapping.ts.",
+      "Every legacy button class, global and CSS Module, beside what it becomes, and every button element by file. Controls/Button shows the shared variants; the mapping is design/census/mapping.ts.",
   },
 } satisfies SpecimenMeta;
 
@@ -281,3 +282,92 @@ export function Unmapped() {
   );
 }
 Unmapped.storyName = "Unmapped";
+
+function directoryOf(file: string) {
+  const slash = file.lastIndexOf("/");
+  return slash < 0 ? "." : file.slice(0, slash);
+}
+
+function ElementList({ rows }: { rows: readonly ButtonElement[] }) {
+  return (
+    <ul className={styles.elements}>
+      {rows.map((row) => (
+        <li key={`${row.file}:${row.line}`}>
+          <code>
+            {row.file}:{row.line}
+          </code>{" "}
+          &lt;{row.tag}
+          {row.role ? ` role="${row.role}"` : ""}&gt;{" "}
+          {row.className ? <code>{row.className}</code> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Every raw button the button family still has to swap, by directory, from
+ * the element scan in design/buttonElements.ts. Buttons that belong to a
+ * later family (menus, tabs, option pickers, switches, the composer) are
+ * counted separately.
+ */
+export function Elements() {
+  const raw = buttonElements.filter((row) => row.kind === "raw");
+  const toSwap = raw.filter((row) => !rawButtonFamily(row));
+  const later = new Map<string, number>();
+  for (const row of raw) {
+    const family = rawButtonFamily(row);
+    if (family) later.set(family, (later.get(family) ?? 0) + 1);
+  }
+  const shared = buttonElements.filter((row) => row.kind === "shared").length;
+  const legacyLinks = buttonElements.filter(
+    (row) => row.kind === "link" || row.kind === "label",
+  );
+  const roleButtons = buttonElements.filter(
+    (row) => row.kind === "role-button",
+  );
+  const directories = new Map<string, ButtonElement[]>();
+  for (const row of toSwap) {
+    const directory = directoryOf(row.file);
+    directories.set(directory, [...(directories.get(directory) ?? []), row]);
+  }
+  const sorted = [...directories].sort(
+    ([a, aRows], [b, bRows]) =>
+      bRows.length - aRows.length || a.localeCompare(b),
+  );
+  return (
+    <div className={styles.census}>
+      <p className={styles.intro}>
+        {shared} shared controls, {toSwap.length} raw buttons to swap,{" "}
+        {[...later].map(([family, count]) => `${count} ${family}`).join(", ")}{" "}
+        raw buttons left for later families, {legacyLinks.length} links or
+        labels with a legacy button class, and {roleButtons.length} other
+        elements with role=&quot;button&quot;. Found by element in production
+        TSX, so a button styled by any class, or none, is counted.
+      </p>
+      {sorted.map(([directory, rows]) => (
+        <details key={directory} className={styles.group}>
+          <summary className={styles.groupTitle}>
+            {directory} ({rows.length})
+          </summary>
+          <ElementList rows={rows} />
+        </details>
+      ))}
+      {legacyLinks.length ? (
+        <details className={styles.group}>
+          <summary className={styles.groupTitle}>
+            Links and labels with a legacy button class ({legacyLinks.length})
+          </summary>
+          <ElementList rows={legacyLinks} />
+        </details>
+      ) : null}
+      <details className={styles.group}>
+        <summary className={styles.groupTitle}>
+          Other elements with role=&quot;button&quot; ({roleButtons.length})
+        </summary>
+        <ElementList rows={roleButtons} />
+      </details>
+    </div>
+  );
+}
+Elements.storyName = "Button elements, by directory";

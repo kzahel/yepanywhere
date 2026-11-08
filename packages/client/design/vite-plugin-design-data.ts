@@ -8,6 +8,9 @@
  * not seen. The module is recomputed when a client source changes, so the
  * census tracks a migration as it lands.
  *
+ * `buttonElements` is the element-based button census (buttonElements.ts):
+ * every raw and shared button, and every button-classed link or label.
+ *
  * It also appends Storybook's `__namedExportsOrder` to each *.specimen.tsx.
  *
  * `apply: "serve"` keeps it out of every build; only design.html imports it.
@@ -15,6 +18,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import type { Plugin } from "vite";
+import { scanButtonElements } from "./buttonElements";
 
 const VIRTUAL_ID = "virtual:ya-design-data";
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
@@ -97,8 +101,14 @@ export function designDataPlugin(srcDir: string): Plugin {
     },
     async load(id) {
       if (id !== RESOLVED_ID) return undefined;
-      const classUsage = await collectDesignData(srcDir);
-      return `export const classUsage = ${JSON.stringify(classUsage)};`;
+      const [classUsage, buttonElements] = await Promise.all([
+        collectDesignData(srcDir),
+        scanButtonElements(srcDir),
+      ]);
+      return [
+        `export const classUsage = ${JSON.stringify(classUsage)};`,
+        `export const buttonElements = ${JSON.stringify(buttonElements)};`,
+      ].join("\n");
     },
     /*
      * Module namespaces list exports alphabetically; Storybook's

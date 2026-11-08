@@ -85,11 +85,13 @@ of slightly different styles.
 - **Button mapping:** every global (54) and CSS Module (79) class *named*
   like a button has a destination in `design/census/mapping.ts`;
   Census/Buttons shows each beside what it becomes, and its Unmapped state
-  is empty. The census finds classes by name and only those with rules, so
-  buttons styled by classes such as `.close`, `.remove` or
-  `settings-button-primary` (no rule) are invisible to it. Before the next
-  batch, add an element-based pass: every `<button>` and button-classed
-  `<a>`/`Link` in TSX, keyed by its `className`.
+  is empty. That census finds classes by name and only those with rules,
+  so the **element census** (Census/Buttons, "Button elements, by
+  directory") finds buttons by element instead: every raw and shared
+  button, button-classed link or label, and `role="button"` element in
+  production TSX, with file, line and className. At its landing it found
+  594 raw buttons to swap and 129 left for later families (30 menu, 36
+  option, 13 switch, 3 tab, 47 composer).
 - **Settings batch:** every button in `pages/settings/` (45 files) is on
   `Button`, `IconButton`, `ButtonBase` or `buttonClassName`, except option
   pickers and switches left for family 3. Legacy rules that reached zero

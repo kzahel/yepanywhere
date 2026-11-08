@@ -182,8 +182,17 @@ The playground's pages:
   `design/census/mapping.ts` (a shared variant, `ButtonBase`, a later
   family, composer-excluded, or dead), each legacy sample beside the shared
   control it becomes, with rows whose rules a swap already deleted marked
-  so; and an **Unmapped** state listing any such class without a row.
-  Buttons styled by classes with other names are not found.
+  so; an **Unmapped** state listing any such class without a row; and
+  **Button elements, by directory**, which finds buttons by element rather
+  than class name: every raw `<button>`, every shared `Button`,
+  `IconButton` and `ButtonBase`, every `<a>`, `Link` or `<label>` whose
+  className names a button or calls `buttonClassName()`, and every element
+  with `role="button"`, each with its file, line and className expression.
+  Raw buttons that belong to a later family (menu, tab, option or radio
+  roles, `*-option` classes, switches, the composer's files) are counted
+  apart from those the button family still has to swap. The scan
+  (`design/buttonElements.ts`, classification in `design/buttonFamilies.ts`)
+  parses production TSX with the TypeScript compiler.
 - **Census/Switches and segmented controls:** the census prototypes in
   `design/census/` beside the mapped legacy styles, every unmapped global
   class and every matching CSS Module class, each rendered standalone.
