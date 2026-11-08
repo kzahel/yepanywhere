@@ -23,7 +23,15 @@ plan's "Decisions for the maintainer" section has the evidence.
   sandbox fields to servers without sandboxing (and the firewall when the
   level is `none`). Cheap fix: reuse `buildProjectQueueNewSessionTarget`'s
   direct-catalog resolution and start's sandbox field rule; machine control
-  stays out, as for Queue.
+  stays out, as for Queue. **Higher severity than it reads:** the template
+  launch also drops the restored router pool/account/policy and sends
+  `selectedModel` rather than the routed model, so it runs on the owner's
+  direct login while the form shows the pool; `disabledReason` does not
+  refuse because `hasSelectedProviderModel` is true for routed selections.
+  `routes/project-templates.ts` forwards `sessionSettings` unchanged to
+  session creation, so sending the router fields would work; the
+  direct-catalog fix alone would make the drop permanent (2026-11-08 audit,
+  see [project-queue-drops-router-pool](project-queue-drops-router-pool.md)).
 
 Two related remainders, larger than the above:
 
