@@ -481,3 +481,5 @@
 - native-provider-integration — actual provider executables with scripted local model APIs.
 
 - session-relationships — Durable typed session relationships, producer evidence and nonblocking native-child discovery.
+
+- codex-native-thread-index - Codex state_5.sqlite thread index as change signal and listing source; scan fan-out and log volume.

@@ -1,7 +1,9 @@
 # Codex's native thread index and cold session data
 
-Research and proposal, 2026-11-06. Nothing here is a current contract or is
-implemented. Current behavior is owned by
+Research and proposal, 2026-11-06, with a follow-up audit and partial
+adoption on 2026-11-08. Steps marked adopted are implemented and their
+contracts live in the owning topics; everything else remains a proposal.
+Current behavior is owned by
 [Codex metadata scanner](../../topics/codex-metadata-scanner.md),
 [session catalog observation](../../topics/session-catalog-observation.md),
 [provider child sessions](../../topics/provider-child-sessions.md) and
@@ -28,6 +30,59 @@ The open defect is
   for multi-year growth, but needs SQL replacements for the whole-corpus
   readers first.
 - `server.log` grows without a cap and is the fastest-growing cost found.
+
+## Follow-up, 2026-11-08
+
+Read-only measurements on the same host and the same running server (started
+2026-11-06 07:19, after `28f7d6021`).
+
+**Completeness.** The `threads` table and the rollout tree match exactly:
+3,708 rows against 3,704 rollouts in `sessions/` plus 4 in
+`archived_sessions/`, with no file lacking a row and no row lacking a file.
+YA's global list (`/api/sessions?includeArchived=true`, every page, YA ids
+mapped to native ids through `session_identities`) showed 3,660 Codex
+sessions, all present in the table. The 48 rows YA did not list were 42
+subagent threads (excluded from ordinary lists by design), 4 Codex-archived
+rollouts (YA does not enumerate `archived_sessions/` for lists), one empty
+session with no user message, and one session in a project the user hid.
+
+**Correction.** The 2026-11-06 counts below (454 files and rows, 419 sessions
+per cache hit) do not reproduce: rows date back to 2026-02-03 and cache hits
+returned 3,662 sessions, so those figures covered a subset of the tree. At
+the true size the 5-second periodic rescan walked 237 directories and 3,704
+files in a median 691 ms (maximum 12.7 s, 222 ticks), not about 5 ms.
+
+**Fan-out persisted.** Idle, the server logged 700–1,000 `codex_reader_scan`
+events a minute, in bursts of about 99 per-project cache hits per full
+catalog discovery. Each hit re-merged and copied all 3,662 sessions; saved
+event-loop stall profiles put 2–3 s of every 30 s in
+`hydrateSessionFileCache` and `isNewerCodexSessionFile`. `server.log` grew
+from 8.0 GB to 12.0 GB in two days. The same profiles put 8–11 s of every
+30 s in retained-collection identity resolution, outside the scanner:
+[retained-catalog-identity-resolution-cpu](../../gaps/retained-catalog-identity-resolution-cpu.md).
+
+**Cold enumeration.** A full reader enumeration took 131 ms with the warm
+discovery index (3,704 `stat`s, no head reads) and 707 ms without it.
+
+**Adopted.** The maintainer accepted the index as an accelerator with
+roughly five seconds of staleness:
+
+- Step 1, reader side: an unchanged shared enumeration is neither copied nor
+  re-merged on a hit, project filtering uses one partition per enumeration
+  change, and hits are no longer logged. What triggers full catalog
+  rediscovery is unchanged.
+- Step 3, varied: instead of holding a connection to poll
+  `PRAGMA data_version`, each watcher tick stats the database and its WAL and
+  opens a short read-only lease only when either changed. This keeps the
+  finite-lease rule for native SQLite and needs no long-lived connection. An
+  idle tick measured 0.05 ms against this database.
+  Because the index reports writes but not removals, a hinted watch keeps a
+  full walk at least every 10 minutes (review finding, 2026-11-08).
+
+Steps 2 and 4 are deferred: with the warm discovery index, cold enumeration
+costs about 130 ms once per watcher epoch, so listing from the table would
+save little. Reconsider them if startup or epoch-loss enumeration becomes
+significant, or to list Codex-archived threads.
 
 ## Measurements on the maintainer's macOS host
 
@@ -193,7 +248,9 @@ seven days, writes `.zst` beside the original and deletes the original
 `rollout_path`; readers try `.jsonl` and then `.zst`. Resuming a compressed
 thread decompresses it. Archiving moves the file flat into
 `archived_sessions/` and updates `rollout_path`, `archived_at` and
-`updated_at` (`thread-store/src/local/archive_thread.rs:80-148`).
+`updated_at` (`thread-store/src/local/archive_thread.rs:80-148`); the new
+`updated_at` is the moved file's mtime, which a rename preserves, so it is
+usually old.
 
 **Versioning.** `95ca276373` ("sqlite: no more destructive version bumps")
 fixed the filename at `state_5.sqlite`. Schema changes are additive sqlx
@@ -227,7 +284,7 @@ mapping was not confirmed.
 
 The steps are ordered by measured value; each stands on its own.
 
-### 1 — remove list fan-out
+### 1 — remove list fan-out (reader side adopted 2026-11-08)
 
 Identify the remaining callers that enumerate every project on each
 `session-catalog-updated` and move them to the retained collection, or list
@@ -235,7 +292,7 @@ once per request grouped by project instead of once per project. Stop logging
 every shared-cache hit (sample it, or log only misses and slow scans). Restart
 long-lived servers so they run `28f7d6021`. This needs no Codex index.
 
-### 2 — list Codex sessions from `threads`
+### 2 — list Codex sessions from `threads` (deferred)
 
 Select explicit columns, filtered by `cwd` and an `updated_at` window, through
 the existing `updated_at` index. Old history is then read only when a query
@@ -245,7 +302,7 @@ Codex does. Resolve the database location the way Codex does, per native
 scope, and never borrow an ambient `CODEX_SQLITE_HOME` for a different scope,
 matching the existing child-index rule.
 
-### 3 — detect changes with `data_version`
+### 3 — detect changes with `data_version` (adopted in a stat-gated form)
 
 Hold one read-only connection with no open transaction and poll
 `PRAGMA data_version` every one to two seconds; when it changes, query
@@ -253,7 +310,7 @@ Hold one read-only connection with no open transaction and poll
 strict sequence. Keep the file watcher for live appends to open sessions, and
 drop the five-second full-tree periodic rescan.
 
-### 4 — reconcile by directory, not by file
+### 4 — reconcile by directory, not by file (deferred)
 
 Rollout filenames carry the thread id and creation time. A directory's mtime
 changes when an entry is added, removed or renamed, including compression;
@@ -303,8 +360,9 @@ object.
 - No hidden sessions: complete default lists stay complete (that topic's
   non-goals).
 - [Provider child sessions](../../topics/provider-child-sessions.md#freshness-and-resource-use)
-  currently limits `state_5.sqlite` to a locator. Promoting it to a listing
-  source changes that policy and needs the maintainer's decision.
+  limited `state_5.sqlite` to a locator. On 2026-11-08 the maintainer
+  approved it as a change signal; promoting it to a listing source is still
+  open.
 - Codex compatibility edits follow
   [provider development](../development/providers.md): pin the upstream
   version and select explicit columns.

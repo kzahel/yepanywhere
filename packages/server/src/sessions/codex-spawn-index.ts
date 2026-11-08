@@ -1,10 +1,10 @@
 import { realpath, stat } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
 import {
   loadSqliteDriver,
   type SqliteDatabase,
   type SqliteStatement,
 } from "../storage/sqlite.js";
+import { codexStateDatabasePath } from "./codex-thread-index.js";
 
 /** Positive locators only. Native child headers still prove scoped parentage. */
 export interface CodexSpawnLocator {
@@ -41,11 +41,7 @@ export async function openCodexSpawnIndex(
 ): Promise<CodexSpawnIndexLease | undefined> {
   // An explicit locator belongs to the caller's native profile. Never borrow
   // a process-wide CODEX_SQLITE_HOME for a different private session scope.
-  const path =
-    databasePath ??
-    (basename(sessionsDir).toLowerCase() === "sessions"
-      ? join(dirname(sessionsDir), "state_5.sqlite")
-      : undefined);
+  const path = databasePath ?? codexStateDatabasePath(sessionsDir);
   if (!path) return undefined;
   let database: SqliteDatabase | undefined;
   let query: SqliteStatement | undefined;

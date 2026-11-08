@@ -37,6 +37,12 @@ Currently we spawn a new `codex app-server` subprocess for:
 
 Replace `CodexSessionScanner` (recursive JSONL file scanning, reading first line of each file) with a single `thread/list` call.
 
+Status, 2026-11-08: change detection already reads Codex's `state_5.sqlite`
+thread index directly, without spawning Codex
+([thread-index change hints](../../topics/codex-metadata-scanner.md#thread-index-change-hints));
+listing from it is evaluated in
+[Codex's native thread index](../research/codex-native-thread-index.md).
+
 API: `thread/list { limit, cursor, archived }` → paginated threads with metadata (id, cwd, title, timestamps, archived status).
 
 **Benefits:**

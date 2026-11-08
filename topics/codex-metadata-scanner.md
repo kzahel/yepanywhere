@@ -16,10 +16,12 @@ Related topics: [codex-sessions](codex-sessions.md),
 Implementation plan:
 [`docs/tactical/019-codex-metadata-scanner-index.md`](../docs/tactical/019-codex-metadata-scanner-index.md).
 
-Research (proposal, not current behavior):
+Research:
 [Codex's native thread index](../docs/research/codex-native-thread-index.md)
-examines listing from Codex's `state_5.sqlite` `threads` table with
-directory-level reconciliation instead of per-file enumeration.
+records how Codex maintains its `state_5.sqlite` `threads` table, the audit
+showing it matches the rollout tree, and the proposed further steps. The
+watcher's use of it as a change signal (below) is adopted; listing from it is
+still a proposal.
 
 ## Why It Exists
 
@@ -47,10 +49,18 @@ index:
   `session_meta`, groups by cwd, and caches the result; see
   [Watcher-trusted enumeration](#watcher-trusted-enumeration) for how long.
 - `CodexSessionReader` has a shared scan cache keyed by sessions
-  directory and active-window scope. Reader scans now record cache status,
+  directory and active-window scope. Every project reader of one tree shares
+  an enumeration: a cache hit on an unchanged enumeration copies nothing and
+  re-merges nothing, a reader a few changes behind applies only the changed
+  sessions (from a bounded change log; beyond it, one full re-merge), and
+  project filtering reads a per-project partition built once per enumeration
+  change, so listing every project costs one pass over the tree's sessions,
+  not one per project. Reader scans record cache status,
   duration, directories walked, rollout counts, plain/zstd precedence
   filtering, discovery-index behavior, first-line reads by representation,
   skipped metadata files, and subagent sessions filtered from ordinary lists.
+  Only misses (debug) and slow scans (warn) are logged; hits and in-flight
+  joins update `getLastScanMetrics()` without a log line.
 - `.jsonl.zst` support is a runtime capability. The active runtime must expose native
   `node:zlib` zstd APIs; unavailable implementations skip compressed rollouts
   cleanly and count them as unsupported. The main server runtime floor is
@@ -129,8 +139,55 @@ duplicate walks within one request burst and nothing more.
   another file may still carry that session.
 - **Platforms.** On Linux, Node's recursive watch registers new date
   directories and reports files created in them immediately. On macOS and
-  Windows the watcher's periodic rescan reports what native events miss, and
-  trusted caches see those reports like any other.
+  Windows the watcher's periodic check reports what native events miss (see
+  [Thread-index change hints](#thread-index-change-hints)), and trusted
+  caches see those reports like any other.
+
+## Thread-Index Change Hints
+
+Where the Codex watcher runs a periodic check (macOS and Windows by default,
+`CODEX_WATCH_PERIODIC_RESCAN_MS`), Codex's own thread index stands in for the
+full-tree walk:
+
+- Each tick stats `state_5.sqlite` beside the sessions root and its `-wal`.
+  When neither changed, the tick does nothing else: no directory walk, no
+  rollout `stat`, no SQLite connection.
+- When either changed, one short read-only connection selects rows whose
+  `updated_at` falls after the previous read, less a 60-second overlap for
+  out-of-order commits, and the watcher re-checks only those rows' rollouts
+  through its ordinary fingerprinted event path. Rows naming files outside
+  the sessions tree are ignored; a plain path whose file was compressed
+  resolves to its `.zst`.
+- The tick falls back to the full-tree rescan, exactly as before, when the
+  index cannot vouch for the interval: the first tick of a watch, a missing
+  or replaced database (file identity changed), an unreadable one, or a
+  schema without the pinned `idx_threads_updated_at` index. The cheap path
+  resumes once a read succeeds.
+- Hinted ticks run at the configured interval; backoff applies only to full
+  walks.
+- A hinted watch still walks the whole tree at least every 10 minutes. The
+  index reports writes, not removals: compression, archiving and deletion do
+  not move a row's `updated_at` forward, so a native delete or rename event
+  the platform drops is repaired by that floor rather than within seconds.
+- Codex records canonical paths. A sessions root reached through an alias is
+  also matched by its real path and mapped back under the watched root. A
+  changed row naming a rollout outside both roots (other than
+  `archived_sessions/`) means the index describes another tree, and that tick
+  falls back to a full rescan.
+- Hint state changes (active, or unavailable with a reason) are logged once
+  per transition as `codex_thread_index_hints`.
+
+Codex patches a thread's row when it persists that thread's rollout, so the
+index names the rollouts Codex itself writes. Non-metadata appends touch the
+row at most every five seconds and later appends in that window wait for a
+subsequent write or flush, so a hint can trail an active turn by more than
+five seconds; native events remain the prompt path. The location follows the same scope rule as
+the child-session locator: `state_5.sqlite` beside a conventional `sessions/`
+root, never an ambient `CODEX_SQLITE_HOME`. Writers that skip the index —
+`codex exec` when its database cannot open, Codex builds older than
+2026-02-23, or a Codex configured to keep its database elsewhere while an
+old `state_5.sqlite` remains beside `sessions/` — are seen through native
+events, with the 10-minute floor as backstop.
 
 Inactive rollouts stay in the enumeration because the session lists show all
 Codex history (no hidden sessions by default; see Non-Goals). The cost
@@ -170,18 +227,15 @@ decompression.
 There is not yet a date-bucket-aware Codex scanner scheduler.
 
 The server creates a `FileWatcher` for the Codex sessions directory. On
-Windows and macOS, the Codex watcher currently enables a periodic full-tree
-rescan by default because recursive `fs.watch` can miss deep file writes.
-`CODEX_WATCH_PERIODIC_RESCAN_MS` is the minimum interval: periodic rescans use
-self-scheduled timeouts, never overlap, back off when scans are slow or overlap
-with another rescan, and recover toward the configured minimum after cheap
-scans.
+Windows and macOS, the Codex watcher enables a periodic check by default
+because recursive `fs.watch` can miss deep file writes; the thread index makes
+an idle check nearly free, and the full-tree rescan remains its fallback.
+`CODEX_WATCH_PERIODIC_RESCAN_MS` is the minimum interval: periodic checks use
+self-scheduled timeouts and never overlap; full rescans back off when slow or
+overlapping and recover toward the configured minimum after cheap scans.
 
 Known gaps:
 
-- the macOS/Windows periodic rescan runs whether or not any Codex process
-  could be writing rollouts; gating it on a live Codex process would stop the
-  remaining idle walks there;
 - `CodexSessionReader.findRolloutPathById` still walks the tree when a lineage
   ancestor's rollout id is not yet cached;
 - no scan budget or time slicing;
@@ -198,7 +252,8 @@ It is not a design for millions of rollout files.
 The main costs are filesystem and metadata costs, not full transcript parsing:
 
 - recursive `readdir` over the sessions tree;
-- `stat` calls during validation and watcher rescans;
+- `stat` calls during validation and full watcher rescans (with a usable
+  thread index, only when the index cannot vouch for an interval);
 - first-line reads for new, suspect, or unindexed rollouts;
 - replacement validation gaps for same-path files whose first line changes
   without changing source identity or shrinking below the cached observation;

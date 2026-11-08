@@ -1,4 +1,5 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { getProjectIdentityKey } from "../projects/paths.js";
 import {
   getCodexRolloutFileIdentity,
   isCodexRolloutFileName,
@@ -57,12 +58,137 @@ export interface CodexScanOptions {
   activeAfterMs?: number;
 }
 
+/** Mutations a reader may replay instead of re-merging a whole enumeration. */
+const CHANGE_LOG_LIMIT = 1024;
+
+/**
+ * One enumeration's sessions. `version` advances on every mutation, so every
+ * reader of the tree can share views derived from an unchanged enumeration
+ * instead of copying the whole tree on each cache hit, and a bounded log of
+ * changed ids lets a reader that is a few versions behind apply only those.
+ */
+export class CodexSessionMap extends Map<string, CodexSessionFile> {
+  version = 0;
+  /** `changed[i]` is the id written by version `changedBase + i + 1`. */
+  private changed: string[] = [];
+  private changedBase = 0;
+
+  override set(id: string, session: CodexSessionFile): this {
+    this.record(id);
+    return super.set(id, session);
+  }
+
+  override delete(id: string): boolean {
+    const deleted = super.delete(id);
+    if (deleted) this.record(id);
+    return deleted;
+  }
+
+  override clear(): void {
+    this.version += 1;
+    // Nothing earlier can be replayed across a clear.
+    this.changed = [];
+    this.changedBase = this.version;
+    super.clear();
+  }
+
+  /**
+   * Sessions written since `version`, or undefined when the log no longer
+   * reaches back that far. Removals are omitted: readers keep their own
+   * newest-wins history, as a full re-merge would.
+   */
+  changesSince(version: number): CodexSessionFile[] | undefined {
+    if (version < this.changedBase || version > this.version) return undefined;
+    const sessions: CodexSessionFile[] = [];
+    for (const id of new Set(this.changed.slice(version - this.changedBase))) {
+      const session = this.get(id);
+      if (session) sessions.push(session);
+    }
+    return sessions;
+  }
+
+  private record(id: string): void {
+    this.version += 1;
+    this.changed.push(id);
+    if (this.changed.length > CHANGE_LOG_LIMIT) {
+      const drop = this.changed.length - CHANGE_LOG_LIMIT;
+      this.changed.splice(0, drop);
+      this.changedBase += drop;
+    }
+  }
+}
+
+export interface CodexVisibleSessions {
+  /** Shared by every caller of one version; callers must not mutate it. */
+  sessions: readonly CodexSessionFile[];
+  subagents: number;
+}
+
+const visibleViews = new WeakMap<
+  CodexSessionMap,
+  CodexVisibleSessions & { version: number }
+>();
+
+/** Ordinary lists exclude subagent threads; provider children surface them. */
+export function visibleCodexSessions(
+  sessions: CodexSessionMap | readonly CodexSessionFile[],
+): CodexVisibleSessions {
+  const cached =
+    sessions instanceof CodexSessionMap
+      ? visibleViews.get(sessions)
+      : undefined;
+  if (
+    sessions instanceof CodexSessionMap &&
+    cached?.version === sessions.version
+  )
+    return cached;
+  const visible: CodexSessionFile[] = [];
+  let subagents = 0;
+  for (const session of sessions.values()) {
+    if (session.isSubagent) subagents += 1;
+    else visible.push(session);
+  }
+  const view = { sessions: visible, subagents };
+  if (sessions instanceof CodexSessionMap)
+    visibleViews.set(sessions, { ...view, version: sessions.version });
+  return view;
+}
+
+const projectPartitions = new WeakMap<
+  readonly CodexSessionFile[],
+  Map<string, CodexSessionFile[]>
+>();
+
+/**
+ * One project's share of an enumeration. A shared visible list is partitioned
+ * once per version, so listing every project costs one pass, not one per
+ * project.
+ */
+export function codexSessionsInProject(
+  sessions: readonly CodexSessionFile[],
+  projectIdentityKey: string | undefined,
+): readonly CodexSessionFile[] {
+  if (!projectIdentityKey) return sessions;
+  let partition = projectPartitions.get(sessions);
+  if (!partition) {
+    partition = new Map();
+    for (const session of sessions) {
+      const key = getProjectIdentityKey(session.cwd);
+      const members = partition.get(key);
+      if (members) members.push(session);
+      else partition.set(key, [session]);
+    }
+    projectPartitions.set(sessions, partition);
+  }
+  return partition.get(projectIdentityKey) ?? [];
+}
+
 export interface CodexSharedScanCacheEntry {
   /** Absent for exact point evidence before any complete enumeration. */
   timestamp?: number;
   /** Watcher epoch the enumeration began under; see tree observation. */
   epoch?: number | null;
-  sessions: Map<string, CodexSessionFile>;
+  sessions: CodexSessionMap;
   activeAfterMs?: number;
   inFlight?: Promise<CodexSessionFile[]>;
   /** Plain rollout paths the watcher reported since the enumeration began. */

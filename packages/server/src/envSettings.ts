@@ -262,7 +262,7 @@ export const ENV_VAR_REGISTRY: EnvVarDescriptor[] = [
     name: "CODEX_WATCH_PERIODIC_RESCAN_MS",
     group: "Sessions & scanning",
     description:
-      "Minimum periodic full-rescan interval for the Codex session watcher (ms). The watcher adapts upward when rescans are slow. 0 disables; on by default on macOS/Windows.",
+      "Periodic check interval for the Codex session watcher (ms). While Codex's thread index is readable a check re-reads only changed rollouts, with a full rescan at least every 10 minutes; otherwise each check is a full rescan that adapts upward when slow. 0 disables; on by default on macOS/Windows.",
   },
   {
     name: "SESSION_INDEX_FULL_VALIDATION_MS",

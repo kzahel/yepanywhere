@@ -109,7 +109,7 @@ ENVIRONMENT VARIABLES:
   YEP_CODEX_DISABLE_LIVE_DELTAS
                                 Drop Codex live delta notifications before raw logging and client emit
   CODEX_WATCH_PERIODIC_RESCAN_MS
-                                Codex watcher fallback rescan minimum interval in ms; adapts upward when slow (default: 5000 on macOS/Windows, 0 elsewhere)
+                                Codex watcher periodic check interval in ms; thread-index hinted, full rescan as fallback (default: 5000 on macOS/Windows, 0 elsewhere)
   SESSION_INDEX_FULL_VALIDATION_MS
                                 Session index full validation interval in ms (default: 30000, 0 = validate every request)
   SESSION_INDEX_WRITE_LOCK_TIMEOUT_MS

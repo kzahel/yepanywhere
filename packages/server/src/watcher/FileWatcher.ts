@@ -35,8 +35,28 @@ export interface FileWatcherOptions {
   periodicRescanMs?: number;
   /** Maximum adaptive periodic rescan delay in ms. */
   periodicRescanMaxBackoffMs?: number;
+  /**
+   * A provider-owned change signal created per watch. While it can vouch for
+   * an interval, a periodic tick re-checks only the paths it names instead of
+   * walking the whole tree.
+   */
+  periodicRescanHints?: () => FileWatcherChangeHints;
+  /**
+   * Longest a hinted watch goes without a full walk (default: 10 minutes). A
+   * hint source sees writes, not removals, so this bounds how long a dropped
+   * native delete or rename event can leave a removed file listed.
+   */
+  periodicFullRescanFloorMs?: number;
   /** Slow rescan log threshold in ms (default: 250). */
   rescanSlowLogThresholdMs?: number;
+}
+
+export interface FileWatcherChangeHints {
+  /**
+   * Absolute paths that may have changed since the previous call, or null
+   * when the signal cannot vouch for that interval and a full rescan must run.
+   */
+  changedPaths(): Promise<readonly string[] | null>;
 }
 
 export type FileWatcherRescanReason = "fallback" | "periodic";
@@ -139,6 +159,10 @@ export class FileWatcher {
   private periodicRescanMs: number;
   private periodicRescanCurrentMs: number;
   private periodicRescanMaxBackoffMs: number;
+  private readonly createPeriodicRescanHints?: () => FileWatcherChangeHints;
+  private periodicRescanHints?: FileWatcherChangeHints;
+  private readonly periodicFullRescanFloorMs: number;
+  private lastFullRescanAt = 0;
   private rescanSlowLogThresholdMs: number;
   private watcher: fs.FSWatcher | null = null;
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
@@ -190,6 +214,9 @@ export class FileWatcher {
       0,
       options.rescanSlowLogThresholdMs ?? DEFAULT_RESCAN_SLOW_LOG_THRESHOLD_MS,
     );
+    this.createPeriodicRescanHints = options.periodicRescanHints;
+    this.periodicFullRescanFloorMs =
+      options.periodicFullRescanFloorMs ?? 10 * 60 * 1000;
   }
 
   /**
@@ -247,6 +274,9 @@ export class FileWatcher {
 
       if (this.periodicRescanMs > 0) {
         this.periodicRescanCurrentMs = this.periodicRescanMs;
+        this.periodicRescanHints = this.createPeriodicRescanHints?.();
+        // The initial baseline is this watch's first full walk.
+        this.lastFullRescanAt = Date.now();
         this.scheduleNextPeriodicRescan();
         getLogger().info(
           `[FileWatcher] Periodic rescan enabled (base=${this.periodicRescanMs}ms, max=${this.periodicRescanMaxBackoffMs}ms) for ${this.watchDir}`,
@@ -284,6 +314,7 @@ export class FileWatcher {
       clearTimeout(this.periodicRescanTimer);
       this.periodicRescanTimer = null;
     }
+    this.periodicRescanHints = undefined;
     this.knownFileFingerprints.clear();
     this.initialBaselineTouchedPaths.clear();
     this.rescanRequestedDuringBaseline = false;
@@ -686,10 +717,38 @@ export class FileWatcher {
 
     this.periodicRescanTimer = setTimeout(() => {
       this.periodicRescanTimer = null;
-      void this.runRescan("periodic").finally(() => {
+      void this.runPeriodicCheck().finally(() => {
         this.scheduleNextPeriodicRescan();
       });
     }, this.periodicRescanCurrentMs);
+  }
+
+  /**
+   * Hinted paths go through the ordinary event path, whose fingerprint check
+   * drops what native events already reported. Without a usable hint the tick
+   * walks the whole tree, as it always did.
+   */
+  private async runPeriodicCheck(): Promise<void> {
+    const hints = this.periodicRescanHints;
+    const paths = hints ? await hints.changedPaths().catch(() => null) : null;
+    if (!this.watcher || hints !== this.periodicRescanHints) return;
+    if (
+      paths === null ||
+      Date.now() - this.lastFullRescanAt >= this.periodicFullRescanFloorMs
+    )
+      return this.runRescan("periodic");
+    // Backoff paces full walks; a hinted check costs too little to stretch.
+    this.periodicRescanCurrentMs = this.periodicRescanMs;
+    for (const fullPath of paths) {
+      const relativePath = path.relative(this.watchDir, fullPath);
+      if (
+        relativePath &&
+        relativePath !== ".." &&
+        !relativePath.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relativePath)
+      )
+        this.handleFileEvent("change", relativePath);
+    }
   }
 
   private async rescanAndEmit(reason: FileWatcherRescanReason): Promise<void> {
@@ -796,6 +855,7 @@ export class FileWatcher {
       this.rescanInProgress = false;
       this.rescanTouchedPaths.clear();
       if (completed) {
+        this.lastFullRescanAt = Date.now();
         metrics.durationMs = Date.now() - startedAt;
         metrics.overlapSkipsSinceLast = this.rescanOverlapSkipsSinceLast;
         metrics.overlapSkipsTotal = this.rescanOverlapSkipsTotal;

@@ -80,8 +80,11 @@ import {
   type CodexScanOptions,
   type CodexSessionFile,
   type CodexSharedScanCacheEntry,
+  CodexSessionMap,
+  codexSessionsInProject,
   codexSharedScanCache,
   isNewerCodexSessionFile,
+  visibleCodexSessions,
 } from "./codex-shared-scan-cache.js";
 import {
   parseCodexSpawnAgentOutput,
@@ -600,8 +603,8 @@ export class CodexSessionReader implements ISessionReader {
   private lastScanMetrics: CodexSessionReaderScanMetrics | null = null;
   private lastSummaryStreamMetrics: CodexSummaryStreamMetrics | null = null;
 
-  // Cache of session ID -> file path for quick lookups
   private sessionFileCache: Map<string, CodexSessionFile> = new Map();
+  private hydrated?: { sessions: CodexSessionMap; version: number };
   private entryCache: Map<string, CodexEntryCache> = new Map();
   private entryReadOwners: Map<string, CodexEntryReadOwner> = new Map();
   private entryCacheRevision = 0;
@@ -662,6 +665,7 @@ export class CodexSessionReader implements ISessionReader {
   invalidateCache(): void {
     this.entryCacheRevision += 1;
     this.sessionFileCache.clear();
+    this.hydrated = undefined;
     for (const cached of this.entryCache.values()) {
       this.entryCacheBudget.release(cached);
     }
@@ -712,17 +716,11 @@ export class CodexSessionReader implements ISessionReader {
 
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
     const summaries: SessionSummary[] = [];
-    const sessions = await this.scanSessions();
-
+    const sessions = codexSessionsInProject(
+      await this.scanSessions(),
+      this.projectIdentityKey,
+    );
     for (const session of sessions) {
-      // Filter by project path if set
-      if (
-        this.projectIdentityKey &&
-        getProjectIdentityKey(session.cwd) !== this.projectIdentityKey
-      ) {
-        continue;
-      }
-
       const summary = await this.getSessionSummary(session.id, projectId);
       if (summary) {
         summaries.push(summary);
@@ -1681,7 +1679,7 @@ export class CodexSessionReader implements ISessionReader {
           }
           const rowVersion = JSON.stringify(rows);
           const points = new Map<string, { path: string; proof: string }>();
-          const sessions = new Map<string, CodexSessionFile>();
+          const sessions = new CodexSessionMap();
           const p = await readPoint(rows[0]!.parentPath, parent.id);
           sessions.set(parent.id, p.session);
           points.set(parent.id, { path: rows[0]!.parentPath, proof: p.proof });
@@ -1908,7 +1906,7 @@ export class CodexSessionReader implements ISessionReader {
    */
   private async scanSessions(
     options?: CodexScanOptions,
-  ): Promise<CodexSessionFile[]> {
+  ): Promise<readonly CodexSessionFile[]> {
     const cacheKey = this.getSharedScanCacheKey(options);
     let rootCache = codexSharedScanCache.get(this.sessionsDir);
     if (!rootCache) {
@@ -1953,9 +1951,9 @@ export class CodexSessionReader implements ISessionReader {
         if (rootCache.get(cacheKey) === cached) rootCache.delete(cacheKey);
         return this.scanSessions(options);
       }
-      this.hydrateSessionFileCache([...cached.sessions.values()]);
+      this.hydrateSessionFileCache(cached.sessions);
       const visibleSessions = this.filterVisibleSessionsForScanMetrics(
-        [...cached.sessions.values()],
+        cached.sessions,
         metrics,
       );
       metrics.durationMs = Date.now() - startedAt;
@@ -1976,7 +1974,7 @@ export class CodexSessionReader implements ISessionReader {
       // Read before walking: the walk proves only what the watcher could
       // have reported from its start.
       epoch: getCodexRolloutTreeEpoch(this.sessionsDir),
-      sessions: new Map(),
+      sessions: new CodexSessionMap(),
       activeAfterMs: options?.activeAfterMs,
       changedPaths: new Set(),
       failedPaths: new Set(),
@@ -2115,9 +2113,17 @@ export class CodexSessionReader implements ISessionReader {
     return `${this.sessionsDir}::activeAfter=${options?.activeAfterMs ?? "all"}`;
   }
 
-  private hydrateSessionFileCache(sessions: CodexSessionFile[]): void {
+  private hydrateSessionFileCache(
+    sessions: readonly CodexSessionFile[] | CodexSessionMap,
+  ): void {
+    const shared = sessions instanceof CodexSessionMap ? sessions : undefined;
+    const since =
+      shared && this.hydrated?.sessions === shared
+        ? shared.changesSince(this.hydrated.version)
+        : undefined;
     if (this.retired) return;
-    for (const session of sessions) {
+    if (shared) this.hydrated = { sessions: shared, version: shared.version };
+    for (const session of since ?? sessions.values()) {
       const current = this.sessionFileCache.get(session.id);
       if (!current || isNewerCodexSessionFile(session, current))
         this.sessionFileCache.set(session.id, session);
@@ -2167,7 +2173,7 @@ export class CodexSessionReader implements ISessionReader {
     if (!rootCache.has(unfiltered)) {
       // Exact native point evidence is shared without certifying enumeration.
       rootCache.set(unfiltered, {
-        sessions: new Map(),
+        sessions: new CodexSessionMap(),
         changedPaths: new Set(),
       });
     }
@@ -2253,18 +2259,13 @@ export class CodexSessionReader implements ISessionReader {
   }
 
   private filterVisibleSessionsForScanMetrics(
-    sessions: CodexSessionFile[],
+    sessions: readonly CodexSessionFile[] | CodexSessionMap,
     metrics: CodexSessionReaderScanMetrics,
-  ): CodexSessionFile[] {
-    const visibleSessions = sessions.filter((session) => {
-      if (session.isSubagent) {
-        metrics.subagentSessionsSkipped += 1;
-        return false;
-      }
-      return true;
-    });
-    metrics.sessionsReturned = visibleSessions.length;
-    return visibleSessions;
+  ): readonly CodexSessionFile[] {
+    const visible = visibleCodexSessions(sessions);
+    metrics.subagentSessionsSkipped += visible.subagents;
+    metrics.sessionsReturned = visible.sessions.length;
+    return visible.sessions;
   }
 
   private recordScanMetrics(metrics: CodexSessionReaderScanMetrics): void {
@@ -2275,9 +2276,9 @@ export class CodexSessionReader implements ISessionReader {
     };
     if (metrics.durationMs >= this.slowLogThresholdMs) {
       getLogger().warn(payload, "CODEX_READER: slow scan");
-      return;
+    } else if (metrics.sharedCacheStatus === "miss") {
+      getLogger().debug(payload, "CODEX_READER: scan complete");
     }
-    getLogger().debug(payload, "CODEX_READER: scan complete");
   }
 
   private async scanSessionsUncached(
@@ -2342,17 +2343,16 @@ export class CodexSessionReader implements ISessionReader {
   async getNativeSessionRefs(
     ids: readonly string[],
   ): Promise<ReadonlyMap<string, NativeSessionRef>> {
-    const files = await this.scanSessions();
+    const files = codexSessionsInProject(
+      await this.scanSessions(),
+      this.projectIdentityKey,
+    );
     const scope = await realpath(this.sessionsDir).catch(() => null);
     const requested = new Set(ids),
       refs = new Map<string, NativeSessionRef>();
     if (!scope || this.retired) return refs;
     for (const file of files)
-      if (
-        requested.has(file.id) &&
-        (!this.projectIdentityKey ||
-          getProjectIdentityKey(file.cwd) === this.projectIdentityKey)
-      ) {
+      if (requested.has(file.id)) {
         refs.set(
           file.id,
           nativeSessionRef("codex", scope, parseNativeSessionId(file.id)),
@@ -2369,14 +2369,14 @@ export class CodexSessionReader implements ISessionReader {
     _sessionDir: string,
     options?: CodexScanOptions,
   ): Promise<{ sessionId: string; filePath: string }[]> {
-    const sessions = await this.scanSessions(options);
-
+    const sessions = codexSessionsInProject(
+      await this.scanSessions(options),
+      this.projectIdentityKey,
+    );
     return sessions
       .filter(
         (session) =>
-          (!this.projectIdentityKey ||
-            getProjectIdentityKey(session.cwd) === this.projectIdentityKey) &&
-          (!options?.activeAfterMs || session.mtime >= options.activeAfterMs),
+          !options?.activeAfterMs || session.mtime >= options.activeAfterMs,
       )
       .map((session) => ({
         sessionId: session.id,

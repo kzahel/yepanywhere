@@ -141,6 +141,7 @@ import { SpeechBackendInstallService } from "./services/voice/speechBackendInsta
 import { claudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { codexEntryCacheBudget } from "./sessions/codex-entry-cache-budget.js";
 import { observeCodexRolloutTree } from "./sessions/codex-shared-scan-cache.js";
+import { codexSessionWatcherSpec } from "./sessions/codex-thread-index.js";
 import {
   formatListenerAddress,
   type NetworkListenerControl,
@@ -532,13 +533,10 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
       provider: "gemini",
       debounceMs: 200,
     },
-    {
-      family: "codex",
-      watchDir: config.codexSessionsDir,
-      provider: "codex",
-      debounceMs: 200,
-      periodicRescanMs: config.codexWatchPeriodicRescanMs,
-    },
+    codexSessionWatcherSpec(
+      config.codexSessionsDir,
+      config.codexWatchPeriodicRescanMs,
+    ),
     {
       family: "pi",
       watchDir: config.piSessionsDir,
