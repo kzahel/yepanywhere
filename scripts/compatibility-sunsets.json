@@ -20,7 +20,7 @@
     "removal": "Remove the complete-catalog fallback for descriptor choices and show update guidance on unsupported servers. Retain full provider/model discovery for consumers that need it.",
     "locations": [
       {
-        "path": "packages/client/src/components/NewSessionForm.tsx",
+        "path": "packages/client/src/hooks/useNewSessionOptions.ts",
         "marker": "providerDescriptors ?? providers"
       }
     ]
