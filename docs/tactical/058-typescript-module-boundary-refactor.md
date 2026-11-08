@@ -45,7 +45,10 @@ shared, and how risky it is to touch today.
    decisions and its plain send module) landed 2026-11-07, and slices 2.31
    to 2.36 (the page's fork, queued-message, title, attachment upload,
    recall and route-sync hooks, [plan 181](181-session-page-feature-hooks.md))
-   on 2026-11-08. Moving small
+   on 2026-11-08. Slices 2.37 to 2.41 move the page's header, composer
+   footer and pop-ups into components and its header actions and project
+   move menu into hooks
+   ([plan 182](182-session-page-header-and-footer.md), in progress). Moving small
    features out one at a time leaves these files structurally as they were;
    the burn-down order and the consolidations it needs (one shared
    message-box core, then sending as plain functions) are in [the session
