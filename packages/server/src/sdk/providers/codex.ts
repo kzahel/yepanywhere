@@ -97,7 +97,6 @@ import type {
   ThreadResumeResponse,
   ThreadStartParams,
   ThreadStartResponse,
-  ToolRequestUserInputResponse,
   TurnInterruptParams,
   TurnInterruptResponse,
   TurnSettingsUpdateParams,
@@ -143,11 +142,7 @@ import {
   isCodexLiveDeltaSuppressionEnabled,
   readCodexTurnErrorDetail,
 } from "./codex-notification-guards.js";
-import {
-  asToolRequestUserInputParams,
-  createDeclinedPermissionResponse,
-  handleServerRequestApproval,
-} from "./codex-approvals.js";
+import { handleServerRequestApproval } from "./codex-approvals.js";
 import {
   CodexAppServerClient,
   terminateChildProcess,
@@ -178,18 +173,11 @@ import {
 } from "./codex-failure-trace.js";
 import { CodexProviderWorkTracker } from "./codex-provider-work.js";
 import {
-  captureCodexSummaryTextFromNotification,
-  captureCodexSummaryTextFromTurnItems,
-  cleanCodexRecapText,
-  cleanCodexSummaryText,
-  CODEX_RECAP_TIMEOUT_MS,
-  CODEX_SUMMARY_TIMEOUT_MS,
-  createCodexForkSummaryPrompt,
-  createCodexForkSummaryThreadResumeParams,
-  createCodexRecapPrompt,
-  joinCodexSummaryText,
-  resolveCodexRecapHelperModel,
-} from "./codex-summary-helpers.js";
+  generateForkBackedSummary,
+  generateSideSessionRecap,
+  handleForkServerRequest,
+} from "./codex-helper-threads.js";
+import type { CodexProviderHost } from "./codex-provider-host.js";
 import type {
   AgentProvider,
   AgentSession,
@@ -220,11 +208,7 @@ import {
   extractOpenAIRequestId,
   extractTurnUsage,
 } from "./codex-live-event-conversion.js";
-import type {
-  JsonRpcNotification,
-  JsonRpcResponse,
-  JsonRpcServerRequest,
-} from "./codex-json-rpc.js";
+import type { JsonRpcNotification, JsonRpcResponse } from "./codex-json-rpc.js";
 import type { SessionSandboxRuntime } from "../../session-sandbox.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
 
@@ -578,6 +562,14 @@ export interface CodexProviderConfig {
  */
 export class CodexProvider implements AgentProvider {
   readonly name = "codex" as const;
+  private readonly host: CodexProviderHost = {
+    name: this.name,
+    resolveCodexCommand: () => this.resolveCodexCommand(),
+    getCodexEnv: () => this.getCodexEnv(),
+    initializeAppServer: (appServer, clientName, mcpAppViews) =>
+      this.initializeAppServer(appServer, clientName, mcpAppViews),
+    getAvailableModels: () => this.getAvailableModels(),
+  };
   readonly displayName = "Codex";
   readonly supportsNativeResumeSource = true;
   readonly supportsInlineImages = true;
@@ -2095,7 +2087,7 @@ export class CodexProvider implements AgentProvider {
       options.sessionSandbox,
     );
     appServer.setServerRequestHandler((request) =>
-      this.handleForkServerRequest(request),
+      handleForkServerRequest(request),
     );
 
     try {
@@ -3860,349 +3852,18 @@ export class CodexProvider implements AgentProvider {
       async () => {
         switch (request.strategy) {
           case "side-session": {
-            const text = await this.generateSideSessionRecap(
+            const text = await generateSideSessionRecap(
+              this.host,
               request.recentAssistantText,
               request.model,
             );
             return { text };
           }
           case "fork":
-            return await this.generateForkBackedSummary(request);
+            return await generateForkBackedSummary(this.host, request);
         }
       },
     );
-  }
-
-  private async generateSideSessionRecap(
-    recentAssistantText: string[],
-    requestedModel?: string,
-  ): Promise<string> {
-    const userPrompt = createCodexRecapPrompt(recentAssistantText);
-    const model = await resolveCodexRecapHelperModel(requestedModel, () =>
-      this.getAvailableModels(),
-    );
-    const codexCommand = await this.resolveCodexCommand();
-    const abortController = new AbortController();
-    let timedOut = false;
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      abortController.abort();
-    }, CODEX_RECAP_TIMEOUT_MS);
-    timeout.unref?.();
-
-    const appServer = new CodexAppServerClient(
-      codexCommand,
-      homedir(),
-      this.getCodexEnv(),
-    );
-    appServer.setServerRequestHandler(async (request) =>
-      this.handleRecapServerRequest(request),
-    );
-
-    try {
-      await appServer.connect();
-      await this.initializeAppServer(appServer);
-      appServer.notify("initialized");
-
-      const threadResult = await appServer.request<ThreadStartResponse>(
-        "thread/start",
-        {
-          model,
-          cwd: homedir(),
-          approvalPolicy: "untrusted",
-          sandbox: "read-only",
-          ephemeral: true,
-          experimentalRawEvents: false,
-          developerInstructions:
-            "You are a recap helper. Reply with the recap text only, no preamble. Do not call tools.",
-        } satisfies ThreadStartParams,
-      );
-
-      const turnResult = await appServer.request<TurnStartResponse>(
-        "turn/start",
-        {
-          threadId: threadResult.thread.id,
-          model,
-          input: [{ type: "text", text: userPrompt, text_elements: [] }],
-          effort: "low",
-          summary: "auto",
-        } satisfies TurnStartParams,
-      );
-
-      const textByItemId = new Map<string, string>();
-      captureCodexSummaryTextFromTurnItems(
-        turnResult.turn.items,
-        textByItemId,
-        normalizeThreadItem,
-      );
-
-      if (turnResult.turn.status === "failed") {
-        throw new Error(
-          turnResult.turn.error?.message ?? "Codex recap generation failed",
-        );
-      }
-
-      let turnComplete = turnResult.turn.status !== "inProgress";
-      while (!turnComplete && !abortController.signal.aborted) {
-        const notification = await appServer.nextNotification(
-          abortController.signal,
-        );
-        captureCodexSummaryTextFromNotification(
-          notification,
-          textByItemId,
-          normalizeThreadItem,
-        );
-
-        if (notification.method !== "turn/completed") {
-          continue;
-        }
-        const completed = asCodexTurnCompletedNotification(notification.params);
-        if (completed?.turn.status === "failed") {
-          throw new Error(
-            completed.turn.error?.message ?? "Codex recap generation failed",
-          );
-        }
-        turnComplete = true;
-      }
-      if (abortController.signal.aborted) {
-        throw new Error("Timed out generating Codex recap");
-      }
-
-      const cleaned = cleanCodexRecapText(joinCodexSummaryText(textByItemId));
-      if (!cleaned) {
-        throw new Error("Recap generation returned empty text");
-      }
-      return cleaned;
-    } catch (error) {
-      if (timedOut) {
-        throw new Error("Timed out generating Codex recap");
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-      abortController.abort();
-      await appServer.close();
-    }
-  }
-
-  private async generateForkBackedSummary(
-    request: Extract<SummaryGenerationRequest, { strategy: "fork" }>,
-  ): Promise<SummaryGenerationResult> {
-    assertProviderForkSource(
-      {
-        nativeSessionId: request.generatorSessionId,
-        nativeSource: request.nativeSource,
-      },
-      this.name,
-    );
-    const summaryEnv = this.getCodexEnv();
-    if (request.nativeSource) {
-      const launchRoot =
-        request.sessionSandbox?.transcriptDir ??
-        join(summaryEnv.CODEX_HOME ?? join(homedir(), ".codex"), "sessions");
-      if (
-        (await realpath(launchRoot).catch(() => undefined)) !==
-        request.nativeSource.native.storageScope
-      )
-        throw new Error(
-          "Codex summary source is outside the launch transcript store; scoped resume is not qualified",
-        );
-    }
-    if (request.signal?.aborted)
-      throw new DOMException("Summary generation cancelled", "AbortError");
-    const userPrompt = createCodexForkSummaryPrompt(request);
-    const codexCommand = await this.resolveCodexCommand();
-    const appServer = new CodexAppServerClient(
-      codexCommand,
-      request.cwd,
-      summaryEnv,
-      undefined,
-      request.sessionSandbox,
-    );
-    const abortController = new AbortController();
-    let timedOut = false;
-    const abortFromRequest = () => {
-      abortController.abort();
-      void appServer.close();
-    };
-    if (request.signal?.aborted) {
-      abortController.abort();
-    } else {
-      request.signal?.addEventListener("abort", abortFromRequest, {
-        once: true,
-      });
-    }
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      abortController.abort();
-      void appServer.close();
-    }, CODEX_SUMMARY_TIMEOUT_MS);
-    timeout.unref?.();
-
-    appServer.setServerRequestHandler((serverRequest) =>
-      this.handleNonTurnServerRequest(serverRequest, "summary helper"),
-    );
-
-    try {
-      if (abortController.signal.aborted) {
-        throw new DOMException("Summary generation cancelled", "AbortError");
-      }
-      await appServer.connect();
-      const experimentalApiEnabled = await this.initializeAppServer(appServer);
-      appServer.notify("initialized");
-
-      if (request.nativeSource && !experimentalApiEnabled)
-        throw new Error(
-          "Codex summary source requires native rollout path support",
-        );
-      const threadResult = await appServer.request<ThreadResumeResponse>(
-        "thread/resume",
-        createCodexForkSummaryThreadResumeParams(
-          request,
-          experimentalApiEnabled,
-        ),
-      );
-      if (
-        request.nativeSource &&
-        threadResult.thread.id !== request.generatorSessionId
-      )
-        throw new Error("Codex summary resumed a different native thread");
-      const threadId = threadResult.thread.id || request.generatorSessionId;
-      const turnResult = await appServer.request<TurnStartResponse>(
-        "turn/start",
-        {
-          threadId,
-          input: [{ type: "text", text: userPrompt, text_elements: [] }],
-          effort: "low",
-          summary: "auto",
-          approvalPolicy: "untrusted",
-        } satisfies TurnStartParams,
-      );
-
-      const textByItemId = new Map<string, string>();
-      captureCodexSummaryTextFromTurnItems(
-        turnResult.turn.items,
-        textByItemId,
-        normalizeThreadItem,
-      );
-
-      if (turnResult.turn.status === "failed") {
-        throw new Error(
-          turnResult.turn.error?.message ?? "Codex summary generation failed",
-        );
-      }
-
-      const turnId = turnResult.turn.id;
-      let turnComplete = turnResult.turn.status !== "inProgress";
-      while (!turnComplete && !abortController.signal.aborted) {
-        const notification = await appServer.nextNotification(
-          abortController.signal,
-        );
-        captureCodexSummaryTextFromNotification(
-          notification,
-          textByItemId,
-          normalizeThreadItem,
-        );
-
-        if (notification.method === "turn/completed") {
-          const completed = asCodexTurnCompletedNotification(
-            notification.params,
-          );
-          if (completed?.turn.id !== turnId) {
-            continue;
-          }
-          captureCodexSummaryTextFromTurnItems(
-            completed.turn.items,
-            textByItemId,
-            normalizeThreadItem,
-          );
-          if (completed.turn.status === "failed") {
-            throw new Error(
-              completed.turn.error?.message ??
-                "Codex summary generation failed",
-            );
-          }
-          turnComplete = true;
-          continue;
-        }
-
-        if (notification.method === "error") {
-          const error = asCodexErrorNotification(notification.params);
-          if (error?.turnId === turnId && !error.willRetry) {
-            throw new Error(
-              error.error.message ?? "Codex summary generation failed",
-            );
-          }
-        }
-      }
-      if (abortController.signal.aborted) {
-        if (request.signal?.aborted) {
-          throw new DOMException("Summary generation cancelled", "AbortError");
-        }
-        throw new Error("Timed out generating Codex summary");
-      }
-
-      const cleaned = cleanCodexSummaryText(joinCodexSummaryText(textByItemId));
-      if (!cleaned) {
-        throw new Error("Summary generation returned empty text");
-      }
-      return { text: cleaned };
-    } catch (error) {
-      if (request.signal?.aborted) {
-        throw new DOMException("Summary generation cancelled", "AbortError");
-      }
-      if (timedOut) {
-        throw new Error("Timed out generating Codex summary");
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-      request.signal?.removeEventListener("abort", abortFromRequest);
-      abortController.abort();
-      await appServer.close();
-    }
-  }
-
-  private handleRecapServerRequest(
-    request: JsonRpcServerRequest,
-  ): Promise<unknown> {
-    return this.handleNonTurnServerRequest(request, "recap helper");
-  }
-
-  private handleForkServerRequest(
-    request: JsonRpcServerRequest,
-  ): Promise<unknown> {
-    return this.handleNonTurnServerRequest(request, "fork");
-  }
-
-  private handleNonTurnServerRequest(
-    request: JsonRpcServerRequest,
-    purpose: string,
-  ): Promise<unknown> {
-    log.warn(
-      { method: request.method, requestId: request.id, purpose },
-      "Declining Codex non-turn server request",
-    );
-
-    switch (request.method) {
-      case "item/commandExecution/requestApproval":
-      case "item/fileChange/requestApproval":
-        return Promise.resolve({ decision: "decline" });
-      case "item/permissions/requestApproval":
-        return Promise.resolve(createDeclinedPermissionResponse());
-      case "item/tool/requestUserInput": {
-        const requestInput = asToolRequestUserInputParams(request.params);
-        const answers: ToolRequestUserInputResponse["answers"] = {};
-        for (const question of requestInput?.questions ?? []) {
-          answers[question.id] = { answers: [] };
-        }
-        return Promise.resolve({
-          answers,
-        } satisfies ToolRequestUserInputResponse);
-      }
-      default:
-        return Promise.resolve({});
-    }
   }
 
   private createSessionConfigAckMessage(

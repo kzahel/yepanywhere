@@ -181,6 +181,9 @@ The coverage the later slices need:
 
 ### 1. Provider host interface and helper threads
 
+Landed 2026-11-09 as 058 slice 4.9.1. `codex.ts` went from 4,321 to
+3,982 lines.
+
 - Add `codex-provider-host.ts`.
 - Move the recap and fork-summary helper threads into
   `codex-helper-threads.ts`. They take the host as their only new

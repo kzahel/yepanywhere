@@ -473,6 +473,48 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Slice 4.9.1 — Codex provider host and helper threads (Landed 2026-11-09, this commit)
+
+[Plan 186](186-codex-session-lifecycle.md) slice 1.
+
+Moved:
+- `generateSideSessionRecap`, `generateForkBackedSummary`,
+  `handleRecapServerRequest`, `handleForkServerRequest` and
+  `handleNonTurnServerRequest` -> `codex-helper-threads.ts`. Only the
+  first two and `handleForkServerRequest` are exported; `forkSessionWithLease`
+  still uses the last.
+
+Added:
+- `codex-provider-host.ts`: `CodexProviderHost`, the four provider methods
+  the helpers call (`resolveCodexCommand`, `getCodexEnv`,
+  `initializeAppServer`, `getAvailableModels`) plus `name`. The provider
+  holds one as `this.host`, built from arrows that call its own methods
+  when invoked, so a spy installed after construction still applies.
+  `codex-dynamic-results.test.ts` spies on two of them, but reaches them
+  through `runSession`, which still calls the provider directly.
+
+Signature conversions (dependency -> parameter):
+- `generateSideSessionRecap(host, recentAssistantText, requestedModel?)`
+  and `generateForkBackedSummary(host, request)` take the host first;
+  their `this.` reads became `host.`. The three request handlers used no
+  provider state. Bodies are otherwise identical to HEAD apart from
+  indentation and three calls in `generateForkBackedSummary` that the
+  formatter joined onto one line once the indentation shrank.
+
+Behavior changes:
+- None. The `generateSummary` recap and fork tests in `codex.test.ts` go
+  through the provider and are unchanged.
+
+Verification:
+- Tier 1: server `tsc` (main and tool-display configs), the Codex-focused
+  vitest set (75 files, 1,132 passed), `pnpm lint`, `pnpm format:check`,
+  `pnpm typecheck`, `git diff --check`, and a normalized comparison of the
+  moved bodies against HEAD.
+- Budget: `codex.ts` 4,321 -> 3,982. `codex-helper-threads.ts` is 370
+  lines.
+- Skipped: `pnpm test:providers` and `pnpm test:e2e:sdk`; plan 186 needs
+  them from slice 2, and this slice sends nothing new over the wire.
+
 ### Slice 4.9.0 — Codex lifecycle tripwires (Landed 2026-11-09, this commit)
 
 Tests only. [Plan 186](186-codex-session-lifecycle.md) slice 0.
